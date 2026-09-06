@@ -118,3 +118,44 @@
   报错助手含属性面/直算链符号解析），先红后绿（红阶段 NameError: cs_mean 捕获了
   extra_codes 缺口）；改名波及回归（test_platform_ops/test_universe_aware_formula/
   test_universe_masking_hardening 等 group_rank→gp_rank 同步）全绿；全量 pytest 通过。
+
+## M4 落地纪要（2026-09-07，公式化股票池 G2——已完成并提交）
+
+- **spec/universe 四选一**：UniverseSpec 增 `formula: str | None`，
+  `ref/codes/rules/formula` 四选一互斥（加载期报错，防 pydantic 静默按 codes
+  跑）；`resolve_candidate_codes` formula 分支候选 = 全市场 canonical
+  （SSE/SZSE，同 rules 无键默认）——成员资格全权归池公式，resolve 侧不应用
+  任何过滤。resolve_universe_frame 无需改（formula 模式 in_universe ==
+  is_listed）。
+- **池公式 v1 文法 + 归一**（`_normalize_pool_formula`）：单布尔表达式（裸
+  表达式或单条赋值，赋值名不参与语义→归一 signal）。def/多语句/多目标/注解
+  拒绝（文案含"池公式"）。**保留名绑定门跑在归一前**（赋值名会被归一掉，
+  但 in_universe 等内部名绑定入口仍拒——实现中发现并封堵的归一绕过面）。
+  归一后与主公式同一门链（validate/AST/读取门/future/布尔可判定静态门——
+  `_require_boolean_pool` 须含 Compare/BoolOp；DB 打开前全跑完）。
+- **动态 dtype 门**（`_pool_cond_frame`，signal/label runtime 共用）：池条件
+  在**全骨架 unmasked** 上 compute_formula（CS 见完整 listed 横截面、gp_ 按
+  全骨架属性组）；结果列 dtype 必须 `pl.Boolean`（if_else 数值分支类静态
+  放行、dtype 门拦截——文案含 "Bool"）。
+- **成员资格接线**（_compute_signal）：mask 列改写为 骨架 in_universe ∧ 池
+  条件（条件 null → 非成员）；主公式 CS/GP 只见池成员当日横截面（4.4 不变式
+  ——b_lo=1.0/b_hi=0.0 锁），TS 仍见池外完整历史；最终 filter 按成员。属性/
+  daily 供给改为 **主公式 ∪ 池公式并集一趟**（load_code_attributes 恰一次，
+  calls==[1,1] spy 锁）。
+- **label runtime 独立求值**（_compute_labels 增 pool/base_adj）：labels 键 =
+  池成员 t——与 signal runtime 同复权视图基准（qfq fixed sample base 同源）/
+  同窗口左界（chunked 下 Label 窗口与 uf 左扩到 load_start——池 TS warmup 一
+  致，chunk_start 首日成员资格不漂移）；forward returns 恒 raw 价格、view 前
+  计算。seed/fill 逻辑从 _compute_signal 抽取共享助手
+  `_inject_fill_state_seed`（label 池模式复用，跨块停牌 seed 一致性）。
+- **warmup = max(主公式, 池公式) 窗口 + 安全垫**；整体空池 fail fast（
+  concat 后零成员 → "无成员"，chunked 也只在全样本零成员时报——部分日空池
+  容错）；universe_override 白名单只限骨架、池条件照常判定。
+- **测试**：tests/test_pool_formula.py（17 例双腿 35 断言集）先红后绿：两形式
+  等价+逐日成员/动态成员/4.4 CS 不变式/ts 池 FULL==CHUNK（chunk_days=2 无
+  显式 warmup）/gp 池全骨架+属性 spy/静态布尔拒/dtype 拒/future 拒/保留名读+
+  绑定双拒/未知列报错助手/多语句拒/四选一互斥/公式模式市场骨架/复权 labels
+  键=signal 成员/label raw 误判即败/空池 fail fast/部分空日容错/override 白名
+  单。红阶段捕获真实缺口：YAML 双引号标量换行折叠（结构门不触发）；cs_rank
+  语义是平台 stable pct 归一 (level-1)/(K-1)（测试期望值按平台语义修正——
+  不变式仍区分 1.0 vs 0.0）。全量 pytest 2243 passed/13 skipped（基线 +35）。

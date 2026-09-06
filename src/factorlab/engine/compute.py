@@ -391,6 +391,125 @@ def _apply_multi_output_process(
     return key
 
 
+def _inject_fill_state_seed(
+    panel: pl.DataFrame,
+    cal: pl.Series,
+    rd: Rd,
+    ctx: RunContext,
+) -> tuple[pl.DataFrame, bool]:
+    """跨 chunk 左边界 fill seed（M6-07C2F，原 _compute_signal 内联块抽取；
+    label pool 模式复用——池 TS 条件与 signal runtime 必须同左界同 seed，
+    否则 chunked 下两 runtime 成员资格不一致 → 对齐校验失败）。
+
+    长期停牌跨块时 load_start 落在停牌中 → 块内无前值 → fill 无法初始化 →
+    extra null。从 DB 取 window_start（cal.min()）前每 code 每字段 latest
+    non-null 注入 synthetic seed 行（fill 初始化专用）——**fill 后调用方必须
+    立即删除**（filter date >= cal.min()），seed 绝不进 formula/CS mask/
+    artifact（§16 顺序锁定：fill → trim seed → formula）。
+
+    返回 (panel, seed_added)。"""
+    fillable_cols = [c for c in panel.columns if c not in {"date", "code"}]
+    if not fillable_cols or not cal.len():
+        return panel, False
+    ws = cal.min()
+    if ws is None:
+        return panel, False
+    seed_date = ws - datetime.timedelta(days=1)
+    first_rows = panel.filter(pl.col("date") == ws)
+    need = sorted(first_rows.filter(
+        pl.any_horizontal(pl.col(c).is_null() for c in fillable_cols)
+    )["code"].unique().to_list())
+    if not need:
+        return panel, False
+    from factorlab.data.source import load_daily_fill_state
+    fs = load_daily_fill_state(
+        rd, need, before=ws.isoformat(),
+        cols=fillable_cols, float32=ctx.float32)
+    if not fs.height:
+        return panel, False
+    seed = pl.DataFrame({
+        "date": [seed_date] * fs.height,
+        "code": fs["code"].to_list(),
+        **{c: fs[c].to_list() for c in fillable_cols if c in fs.columns},
+    })
+    # seed 列 dtype 与 panel 对齐（load_daily_fill_state 可能按请求列 cast
+    # float32，而 panel 侧某些列保持 load_daily 语义）
+    panel = pl.concat([seed.cast({c: panel.schema[c]
+                                  for c in seed.columns if c in panel.schema}),
+                       panel]).sort(["code", "date"])
+    return panel, True
+
+
+def _normalize_pool_formula(text: str) -> str:
+    """池公式 v1 文法门（M4/G2）：单语句 → 归一为 `signal = <expr>`。
+
+    v1 池语法只接受**单个布尔表达式**：裸表达式（`close > 15`）或单条赋值
+    （`signal = close > 15`）——赋值名不参与语义，统一归一为 signal（宏展开后
+    的文本同样过此门）。def/多语句/多目标赋值/注解赋值/空文本 → ValueError
+    （文案含"池公式"，指引 v1 文法）。
+    """
+    try:
+        tree = ast.parse(text.strip())
+    except SyntaxError as exc:
+        raise ValueError(
+            f"池公式语法错误: {exc.msg}（v1 池公式 = 单个布尔表达式，见 "
+            f"docs/interface.md §公式化股票池）") from exc
+    body = tree.body
+    if len(body) != 1:
+        raise ValueError(
+            f"池公式 v1 语法只接受单个布尔表达式（裸表达式或单条赋值），"
+            f"收到 {len(body)} 条语句——def/多语句不在 v1 池文法，"
+            f"请把成员条件写成一条表达式（或 def 内联后仍是单条）")
+    stmt = body[0]
+    if isinstance(stmt, ast.Expr):
+        expr = stmt.value
+    elif isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 \
+            and isinstance(stmt.targets[0], ast.Name):
+        expr = stmt.value
+    else:
+        raise ValueError(
+            f"池公式 v1 语法只接受单条 `目标 = <布尔表达式>` 或裸布尔表达式"
+            f"（收到 {type(stmt).__name__}——def/多目标/注解不在 v1 文法）")
+    return f"signal = {ast.unparse(expr)}"
+
+
+def _require_boolean_pool(text: str) -> None:
+    """池公式布尔可判定门（静态，run_factor 打开 DB 前）：归一文本的表达式中
+    无任何比较/布尔运算 → fail fast（不落库求值）。动态 dtype 门（结果列 Bool）
+    在求值后兜底——含比较但返回数值的表达式（如 if_else 数值分支）静态放行、
+    dtype 门拦截。
+    """
+    tree = ast.parse(text)
+    stmt = tree.body[0]                       # _normalize_pool_formula 已归一
+    assert isinstance(stmt, ast.Assign)
+    decidable = any(
+        isinstance(n, (ast.Compare, ast.BoolOp)) for n in ast.walk(stmt.value))
+    if not decidable:
+        raise ValueError(
+            "池公式必须布尔可判定（表达式含比较 `>`/`<`/`==`/`!=` 或布尔运算，"
+            "逐 (code, 交易日) 得真/假）——纯数值/窗口表达式不是成员条件；"
+            "v1 文法指引见 docs/interface.md §公式化股票池")
+
+
+def _pool_cond_frame(panel: pl.DataFrame, pool: str) -> pl.DataFrame:
+    """池公式布尔条件求值（M4/G2，signal/label runtime 共用）。
+
+    - compute_formula 全骨架 **unmasked**（universe_mask=None）：CS/GP 算子
+      不受任何 __factorlab_* mask——池公式看到完整 listed 当日横截面/全骨架
+      属性组（设计 §4.3/4.4：成员资格计算必须先于成员过滤）
+    - 动态 dtype 门：结果列必须 Bool（含比较但返回数值的 if_else 数值分支 →
+      此处 fail fast，文案含 "Bool"）
+    - 返回 (date, code, signal) Bool 列 frame——signal 为归一输出名
+    """
+    cond = compute_formula(panel, pool)       # outputs 缺省 [signal]；归一文本必产 signal
+    if cond["signal"].dtype != pl.Boolean:
+        raise ValueError(
+            f"池公式求值结果列 dtype 不是 Bool（实际 {cond['signal'].dtype}）——"
+            f"池成员必须是逐 (code, 交易日) 真/假的布尔条件；if_else 等数值"
+            f"分支表达式不可作 v1 池公式")
+    return cond
+
+
 def _compute_signal(
     rd: Rd,
     ctx: RunContext,
@@ -403,26 +522,34 @@ def _compute_signal(
     cal: pl.Series,
     base_adj: pl.DataFrame | None = None,
     outputs: list[str] | None = None,
+    pool: str | None = None,
 ) -> pl.DataFrame:
     """Signal Runtime（M6-03）：listed market skeleton → fill → 复权视图 →
     universe-aware formula → filter(active) → process。
 
     - TS/TA 使用 is_listed=true 的完整历史（含 in_universe=false 期间——listing 先行）
     - CS/GP 经 __factorlab_universe_active mask 只看到当日 active 横截面
-    - 最终 rows 只保留 in_universe=true（process chain 只见 active）
+      （M4/G2 池模式：mask = 骨架 in_universe ∧ 池公式条件——池外不进截面）
+    - 最终 rows 只保留 active（process chain 只见成员）
     - **本路径绝不计算 forward returns**
     - M2（G1）：outputs 缺省 [signal]（legacy）；多输出时 compute_formula 共享
       一趟向量化 pass 产出全部声明列，process 链逐输出换名过链（见
       _apply_multi_output_process）
+    - M4（G2）：pool 非 None 时公式引用列 = 主公式 ∪ 池公式（一趟供给，
+      load_code_attributes 恰一次——calls == [1,1] 断言锁），池条件在全骨架
+      上 unmasked 求值后重写 mask
     """
     outputs = list(outputs) if outputs is not None else ["signal"]
-    # M3（G6）：开放解析器——公式引用列按来源供给：daily/daily_basic 列走
-    # load_daily（M1 分类器负责归类/报错）；stock_basic 静态属性（industry 等）
-    # 按需全量供给 join（每 code 一行，键 symbol = panel.code）。引用才供给
-    # （未引用 → 零属性读取）；属性列不送 daily 面（load_daily 会当未知列报错）。
-    # 属性整段常量：不参与 align/fill/复权，view_prices 后 join 一次。
+    # M3（G6）/M4（G2）：开放解析器——主公式与池公式引用列**并集**按来源供给
+    # （daily/daily_basic 列走 load_daily；stock_basic 静态属性按需全量供给
+    # join，每 code 一行，键 symbol = panel.code）。引用才供给（未引用 → 零
+    # 属性读取）；属性列不送 daily 面（load_daily 会当未知列报错）。属性整段
+    # 常量：不参与 align/fill/复权，view_prices 后 join 一次。
+    visible = attributes_visible(rd)
     formula_cols = _formula_columns(formula)
-    attr_cols = [c for c in formula_cols if c in attributes_visible(rd)]
+    if pool is not None:
+        formula_cols = sorted(set(formula_cols) | set(_formula_columns(pool)))
+    attr_cols = [c for c in formula_cols if c in visible]
     data_cols = [c for c in formula_cols if c not in attr_cols]
     attr_df = (load_code_attributes(rd, attr_cols, float32=ctx.float32)
                if attr_cols else None)
@@ -440,33 +567,7 @@ def _compute_signal(
     # extra null。从 DB 取 window_start 前每 code 每字段 latest non-null 注入
     # synthetic seed 行（fill 初始化专用）——**fill 后立即删除**，seed 绝不进
     # formula/CS mask/artifact（§16 顺序锁定：fill → trim seed → formula）。
-    fillable_cols = [c for c in panel.columns if c not in {"date", "code"}]
-    seed = None
-    seed_date = None
-    if fillable_cols and cal.len():
-        ws = cal.min()
-        if ws is not None:
-            seed_date = ws - datetime.timedelta(days=1)
-            first_rows = panel.filter(pl.col("date") == ws)
-            need = sorted(first_rows.filter(
-                pl.any_horizontal(pl.col(c).is_null() for c in fillable_cols)
-            )["code"].unique().to_list())
-            if need:
-                from factorlab.data.source import load_daily_fill_state
-                fs = load_daily_fill_state(
-                    rd, need, before=ws.isoformat(),
-                    cols=fillable_cols, float32=ctx.float32)
-                if fs.height:
-                    seed = pl.DataFrame({
-                        "date": [seed_date] * fs.height,
-                        "code": fs["code"].to_list(),
-                        **{c: fs[c].to_list() for c in fillable_cols if c in fs.columns},
-                    })
-                    # seed 列 dtype 与 panel 对齐（load_daily_fill_state 可能按
-                    # 请求列 cast float32，而 panel 侧某些列保持 load_daily 语义）
-                    panel = pl.concat([seed.cast({c: panel.schema[c]
-                                                  for c in seed.columns if c in panel.schema}),
-                                       panel]).sort(["code", "date"])
+    panel, _seeded = _inject_fill_state_seed(panel, cal, rd, ctx)
     qfq_base_col = None
     if adjustment == "qfq" and base_adj is not None:
         # M6-07C2E：固定 sample base 列（**不覆盖 raw adj_factor**——字段保持
@@ -475,9 +576,9 @@ def _compute_signal(
         panel = panel.join(base_adj, on="code", how="left")
         qfq_base_col = "__factorlab_qfq_base_adj"
     panel = fill_suspension_values(panel)
-    if seed is not None:
+    if _seeded:
         # seed 只参与 fill 初始化——formula 前必须彻底删除（§15/16）
-        panel = panel.filter(pl.col("date") >= ws)
+        panel = panel.filter(pl.col("date") >= cal.min())
     asof = None
     if adjustment == "pit_qfq":
         asof = datetime.date.fromisoformat(spec.date.end) if spec.date.end else panel["date"].max()
@@ -493,15 +594,32 @@ def _compute_signal(
         # （组键齐全）；真 null 属性（空串已 decode 为 null）不进组。
         panel = panel.join(attr_df, left_on="code", right_on="symbol",
                            how="left")
-    # universe mask 列：来源必须是 PIT in_universe（内部保留列，用户不得定义）
+    # universe mask 列：来源必须是 PIT in_universe（内部保留列，用户不得定义）。
+    # M4（G2）池模式：mask 在 join 后重写为 骨架 ∧ 池条件——主公式 CS/GP 只见
+    # 池成员当日横截面（4.4 不变式：池外不进截面），TS 仍见池外完整历史
+    # （listing 先行语义不变）。
     panel = panel.join(uf.select(["date", "code", "in_universe"]), on=["date", "code"], how="left")
     panel = panel.with_columns(pl.col("in_universe").fill_null(False).alias("__factorlab_universe_active"))
+    if pool is not None:
+        # 池公式在**全骨架**上求值（unmasked——CS 见完整 listed 当日横截面、
+        # gp_ 按属性全骨架组统计；成员资格不可能在成员过滤后的面板上计算）。
+        # 与主公式同一趟供给/同一面板（view/attrs 已 join）——成员 = 骨架 ∧ 条件。
+        cond = _pool_cond_frame(panel, pool)
+        panel = panel.join(cond.select(["date", "code", "signal"])
+                           .rename({"signal": "__factorlab_pool_cond"}),
+                           on=["date", "code"], how="left")
+        panel = panel.with_columns(
+            (pl.col("__factorlab_universe_active")
+             & pl.col("__factorlab_pool_cond").fill_null(False)
+             ).alias("__factorlab_universe_active"))
+        panel = panel.drop("__factorlab_pool_cond")
+    member_col = "in_universe" if pool is None else "__factorlab_universe_active"
     result = compute_formula(panel, formula,
                              universe_mask="__factorlab_universe_active",
                              outputs=outputs)
-    sig = panel.select(["date", "code", "in_universe", "close"]).join(
+    sig = panel.select(["date", "code", member_col, "close"]).join(
         result, on=["date", "code"], how="left")
-    sig = sig.filter(pl.col("in_universe")).drop("in_universe")
+    sig = sig.filter(pl.col(member_col)).drop(member_col)
     if outputs == ["signal"]:
         # legacy 单输出：chain 直接消费 signal 列——字节级路径不变
         sig = run_process_chain(sig, spec.process, ctx=rd)
@@ -538,6 +656,8 @@ def _compute_labels(
     date_start: str,
     date_end: str,
     cal: pl.Series,
+    pool: str | None = None,
+    base_adj: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     """Label Runtime（M6-03）：listed market history → compute_forward_returns →
     active-at-t keys → LabelArtifact frame。
@@ -546,20 +666,73 @@ def _compute_labels(
     - forward endpoint 无真实价格 → label null（sample 尾/停牌/退市——真 null 保持）
     - M6-04：date_start=chunk_start（label 不需要左侧 signal warmup——forward 只
       需要 t 与 t+h，无过去窗口）；date_end=label_end（right lookahead，仅 label）
+    - M4（G2）池模式（pool 非 None）：label keys = 池成员 t（in_universe ∧ 池
+      条件）。成员资格在 label runtime **独立求值**——与 signal runtime 同一
+      复权视图基准（base_adj 同源 fixed sample base）/同一窗口左界（调用方把
+      date_start 扩到 load_start + uf 窗口同步，池 TS warmup 一致，chunked 下
+      chunk_start 首日成员资格不漂移 → 对齐校验不失败）。forward returns 恒在
+      raw 价格上、view 之前计算；池条件才消费视图价格。属性供给只含池公式
+      引用列（主公式不进 label runtime）。
     """
+    load_cols = ["close", "adj_factor"]
+    attr_cols: list[str] = []
+    if pool is not None:
+        visible = attributes_visible(rd)
+        pool_cols = _formula_columns(pool)
+        attr_cols = [c for c in pool_cols if c in visible]
+        load_cols += [c for c in pool_cols
+                      if c not in visible and c not in load_cols]
+    attr_df = (load_code_attributes(rd, attr_cols, float32=ctx.float32)
+               if attr_cols else None)
     raw = load_daily(
         rd, codes,
         date_start=date_start, date_end=date_end,
-        cols=["close", "adj_factor"], float32=ctx.float32,
+        cols=load_cols, float32=ctx.float32,
     ).collect()
     panel = align_to_listing(raw, uf)
     if panel.height == 0:
         raise ValueError("日期段无数据，可运行 data refresh（M3b）")
+    if pool is not None:
+        # 池 TS warmup 与 signal runtime 同左界 → 同 seed（fill 后立即 trim）
+        panel, _seeded = _inject_fill_state_seed(panel, cal, rd, ctx)
     panel = compute_forward_returns(panel)   # fill 之前（现有顺序——停牌 endpoint null 合法）
     panel = fill_suspension_values(panel)
-    panel = panel.join(uf.select(["date", "code", "in_universe"]), on=["date", "code"], how="left")
-    panel = panel.filter(pl.col("in_universe"))
-    return panel.select(["date", "code", "forward_return_5d", "forward_return_20d"]).sort(["date", "code"])
+    if pool is not None and _seeded:
+        panel = panel.filter(pl.col("date") >= cal.min())
+    if pool is None:
+        # legacy（无池）：active-at-t keys——原 in_universe filter
+        panel = panel.join(uf.select(["date", "code", "in_universe"]),
+                           on=["date", "code"], how="left")
+        panel = panel.filter(pl.col("in_universe"))
+        return panel.select(["date", "code", "forward_return_5d",
+                             "forward_return_20d"]).sort(["date", "code"])
+    # ---- M4（G2）池模式：成员资格视图与 signal runtime 同基准 ----
+    adjustment = getattr(spec, "adjustment", None) or ctx.adjustment
+    qfq_base_col = None
+    if adjustment == "qfq" and base_adj is not None:
+        panel = panel.join(base_adj, on="code", how="left")
+        qfq_base_col = "__factorlab_qfq_base_adj"
+    asof = None
+    if adjustment == "pit_qfq":
+        asof = (datetime.date.fromisoformat(spec.date.end)
+                if spec.date.end else panel["date"].max())
+    panel = view_prices(panel, adjustment, asof=asof, qfq_base_col=qfq_base_col)
+    if qfq_base_col is not None:
+        # internal base 不进用户公式与 artifact（同 _compute_signal）
+        panel = panel.drop(qfq_base_col)
+    if attr_df is not None:
+        panel = panel.join(attr_df, left_on="code", right_on="symbol",
+                           how="left")
+    cond = _pool_cond_frame(panel, pool)
+    panel = panel.join(uf.select(["date", "code", "in_universe"]),
+                       on=["date", "code"], how="left")
+    panel = panel.join(cond.select(["date", "code", "signal"]),
+                       on=["date", "code"], how="left")
+    panel = panel.filter(
+        pl.col("in_universe").fill_null(False)
+        & pl.col("signal").fill_null(False))
+    return panel.select(["date", "code", "forward_return_5d",
+                         "forward_return_20d"]).sort(["date", "code"])
 
 
 def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
@@ -592,6 +765,25 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
     formula = rewrite_expr_methods(formula)
     formula = expand_platform_macros(formula)  # 薄封装 → ts_ 表达式（compute_formula 内部再展开幂等无害）
     _check_future_inputs(formula)  # future/label 显式引用 → fail fast（AC-09）
+    # ---- M4（G2）池公式：与主公式同一展开/门链（打开 DB 前全部完成）----
+    # v1 文法（_normalize_pool_formula）：单布尔表达式（裸/赋值），赋值名归一
+    # signal；保留名绑定门在归一**前**跑（赋值名会被归一掉，但 in_universe 等
+    # 绑定入口仍属内部命名空间）；读取/未来引用/布尔可判定门在归一后跑。
+    # compute_formula（_pool_cond_frame）内幂等重验一轮（含分区校验/stable
+    # rank 改写——与主公式同一门链契约）。
+    pool = None
+    if spec.universe.formula is not None:
+        pool = _substitute_params(spec.universe.formula, spec.params)
+        pool = expand_user_macros(pool, operators)
+        validate_reserved_bindings(pool)
+        pool = _normalize_pool_formula(pool)
+        validate_formula(pool)
+        validate_internal_reads(pool)
+        pool = inline_defs(pool)
+        pool = rewrite_expr_methods(pool)
+        pool = expand_platform_macros(pool)
+        _check_future_inputs(pool)
+        _require_boolean_pool(pool)  # 静态布尔可判定门（动态 dtype 门在求值后）
     # M2（G1）：outputs 声明（spec 加载期四规则已校验）——缺省 [signal] = legacy
     outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
     signal_artifact: SignalArtifact | None = None
@@ -608,8 +800,13 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
         cal = cal.filter(cal <= today)
         if cal.len() == 0:
             raise ValueError("日期段无数据，可运行 data refresh（M3b）")
+        # M4（G2）：warmup 覆盖主公式与池公式两者窗口最大值（池 TS 条件在
+        # chunk_start 需要与 FULL 相同的左侧历史，否则成员资格漂移）
+        ts_need = _ts_window_days(formula)
+        if pool is not None:
+            ts_need = max(ts_need, _ts_window_days(pool))
         warmup = ctx.warmup_days if ctx.warmup_days is not None \
-            else _ts_window_days(formula) + _WARMUP_SAFETY_PAD
+            else ts_need + _WARMUP_SAFETY_PAD
         # M6-07C2E：qfq 固定 sample base 与执行模式无关——FULL/CHUNK 同一 base。
         # effective_end：spec.date.end（非交易日合法，取 <= end 最后 adj）或
         # 研究 calendar 最后一天（无 end 时不读库中未来 adj_factor）。
@@ -638,10 +835,14 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
                 # M6-04 双窗口：
                 #   Signal: [left warmup | output chunk]——结束于 chunk_end
                 #   Label:  [output chunk | right lookahead]——结束于 label_end
+                # M4（G2）池模式：Label 窗口左界扩到 load_start（池 TS warmup
+                # 与 signal runtime 同左界——成员资格须同窗同值）
                 signal_cal = cal.filter((cal >= load_start) & (cal <= chunk_end))
                 label_end = label_lookahead_end(cal, chunk_end,
                                                 max(DEFAULT_FORWARD_HORIZONS))
-                label_cal = cal.filter((cal >= chunk_start) & (cal <= label_end))
+                label_cal = cal.filter(
+                    (cal >= (load_start if pool is not None else chunk_start))
+                    & (cal <= label_end))
             signal_uf = resolve_universe_frame(spec, rd, dates=signal_cal.to_list(),
                                                candidate_codes=codes)
             label_uf = resolve_universe_frame(spec, rd, dates=label_cal.to_list(),
@@ -649,11 +850,14 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
             sig = _compute_signal(rd, ctx, spec, formula, codes, signal_uf,
                                   load_start.isoformat() if load_start else None,
                                   chunk_end.isoformat() if chunk_end else None,
-                                  signal_cal, base_adj, outputs=outputs)
+                                  signal_cal, base_adj, outputs=outputs,
+                                  pool=pool)
             lab = _compute_labels(rd, ctx, spec, codes, label_uf,
-                                  chunk_start.isoformat() if chunk_start else None,
+                                  (load_start if pool is not None else chunk_start).isoformat()
+                                  if (load_start if pool is not None else chunk_start) else None,
                                   label_end.isoformat() if label_end else None,
-                                  label_cal)
+                                  label_cal,
+                                  pool=pool, base_adj=base_adj)
             if ctx.chunk_days is not None:
                 # 双边裁剪 [chunk_start, chunk_end]：right-lookahead rows 不得
                 # 进入任何输出（signal/label/panel）；每块算完即裁剪到对齐输出列
@@ -664,6 +868,12 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
             lab_parts.append(lab)
         signal_df = pl.concat(sig_parts)
         labels_df = pl.concat(lab_parts)
+        if pool is not None and signal_df.height == 0:
+            # M4（G2）：整体空池 fail fast——不产出空 artifact 静默成功。
+            # 部分日无成员是合法语义（成员逐日动态），只有全样本零成员才报错。
+            raise ValueError(
+                "池公式无成员——全样本没有 (date, code) 同时满足 骨架 ∧ 池条件"
+                "（公式/阈值可能过严；空池不产出空 artifact，fail fast）")
         if ctx.chunk_days is not None:
             del sig_parts, lab_parts, signal_cal, label_cal, base_adj  # 立即释放块级引用（评估阶段省内存）
         # M7-05：artifact boundary canonicalization——内部 symbol（"000001"）→

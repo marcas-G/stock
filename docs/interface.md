@@ -206,7 +206,15 @@ formula: |
 - `name`：必填，`^[A-Za-z_][A-Za-z0-9_]{0,63}$`。
 - `category`：必填，`ohlcv_core | ohlcv_retail | valuation | custom`。
 - `direction`：必填，`1` 或 `-1`。
-- `universe.codes` 与 `universe.rules`：二选一。
+- `universe`：`ref | codes | rules | formula` **四选一互斥**（M4/G2 公式化股票池；
+  同时出现多个 → 加载期报错，pydantic 不静默取优先）。
+  - `universe.codes`：显式代码列表（canonical ts_code）。
+  - `universe.rules`：规则字典（`exclude_st/min_list_days/exchanges` 等，
+    PIT 语义——成员资格逐日由 `resolve_universe_frame` 决定）。
+  - `universe.ref`：命名引用或文件路径（查 `universes_dir`）。
+  - `universe.formula`（M4）：**池公式**——布尔条件逐 (code, 交易日) 定池，
+    候选骨架 = 全市场 canonical（SSE/SZSE，不带 codes 名单）；池文法/门链/
+    求值语义见 §3「池公式」。
 - `date.start` / `date.end`：可选，`YYYY-MM-DD`。
 - `target`：`forward_return_5d | forward_return_20d`，默认 `forward_return_5d`。
 - `outputs`（M2 多信号输出）：可选声明输出列表；**缺省 `None` = 单输出 `signal`**
@@ -349,6 +357,56 @@ combine:
 平台薄封装算子从 `factorlab.ops.platform_ops` 导入；注册到注册表的算子可通过
 `factorlab op list` 查看。
 
+### 池公式（`universe.formula`，M4/G2 公式化股票池）
+
+**v1 文法**：单个布尔表达式——裸表达式（`close > 15`）或单条赋值
+（`signal = close > 15`）。**赋值名不参与语义**（引擎统一归一为 `signal`——
+不需要"名单 ∧ 条件"时在池侧设第二来源；名单经 per-code 0/1 成分标志属性
+进公式）。def/多语句/多目标/注解赋值/空文本 → 加载后 fail fast（文案含
+"池公式"，指引 v1 文法）。
+
+```yaml
+universe:
+  formula: "close > ts_mean(close, 20) & volume > 1000000"
+```
+
+语义：股票池 = **上市骨架 ∩ 池公式条件**——成员资格逐 (code, 交易日) 由数据
+决定（动态池）；`universe.formula` 分支无 codes 名单，候选骨架 = 全市场
+canonical（SSE/SZSE）。
+
+**门链**（与主公式同一展开/门链 + 两扇池专属门；静态门在打开 DB 前 fail
+fast，动态门在求值后即时报错）：
+
+- params `${}` 替换 / 用户宏展开 / AST 门 / 保留名双门 / future 显式引用拒绝
+  ——全同主公式（保留名**绑定**门跑在归一前：赋值名会被归一掉，但
+  `in_universe` 等内部名仍不可作绑定入口）。
+- 布尔可判定（静态）：表达式须含比较/布尔运算（`close > 15`、`ts_mean 窗口`
+  可参与比较）；纯数值表达式（`close + 1`）在 DB 打开前拒绝。
+- dtype 门（动态）：求值结果列必须 `Bool`——含比较但数值结果的表达式
+  （`if_else(close > 15, close, 0.0)`）求值后拒绝。
+- 未知列走 M1 报错助手（可用列清单 + 最相似候选），与主公式同一供给体系。
+
+**求值顺序**（Signal/Label 两 runtime 各自**独立**求值成员资格，不跨 runtime
+传递；每 runtime 对主公式 ∪ 池公式引用列**并集一趟供给**——属性读取恰一次）：
+
+1. 上市骨架（align/listing）→ 停牌补全 → 复权视图（`qfq` fixed sample
+   base——池条件与主公式同基准、同 chunk 无关）；
+2. 池公式在**全骨架**上 unmasked 求值——池公式里的 CS 见完整 listed 当日
+   横截面、`gp_*` 按属性全骨架组统计（成员过滤不可能先于成员计算）；
+3. `in_universe = 骨架 ∧ 池条件`（条件 null → 非成员）→ 主公式经内部 mask
+   只见**池成员当日横截面**（4.4 不变式：池外股不进截面统计、池外无输出
+   行）；TS 类主公式仍见池外完整历史（listing 先行语义不变）；
+4. 主公式 TS 算子池公式同款合法——chunked 自动 warmup 取
+   `max(主公式窗口, 池公式窗口)`；
+5. 空池：**全样本零成员 fail fast**（不产出空 artifact）；部分日无成员是合法
+   语义（该日无输出行，后续日恢复）；
+6. `universe_override`：dry-run 白名单只限骨架（候选子集），池条件照常判定。
+
+**labels 键 = 池成员 t**：Label runtime 独立求值成员资格，与 Signal runtime
+同复权视图基准、同窗口左界（chunked 下 Label 窗口左扩到 load_start，池 TS
+warmup 一致；seed/fill 同构——成员资格不漂移，对齐校验不失败）。forward
+returns 恒在 raw 价格上、复权视图之前计算（池条件才消费视图价格）。
+
 ## 4. Python API
 
 ### `factorlab.spec.load_spec(path) -> FactorSpec`
@@ -432,6 +490,12 @@ def tail_ratio(x: pl.Expr, n: int) -> pl.Expr:
 因子计算使用）→ `compute_formula`（公式引用 stock_basic 属性列时先按需 join
 属性面——见下"属性数据面"）→ process 链 → 落盘 `panel.parquet` + `summary.json`。
 周频对齐在评估阶段（`eval`）进行，run_factor 输出日频面板。
+
+**M4 池模式**（spec 用 `universe.formula`）：主公式之外池公式独立求值——同一
+面板（fill/视图/属性 join 完成后）全骨架 unmasked 求布尔条件 → 成员资格 =
+骨架 ∩ 条件（主公式 mask 与输出行都改为按池成员）→ 空池 fail fast。Signal 与
+Label 两条 runtime 各自独立求值同一成员资格（同视图基准/同窗口左界），详见
+§3「池公式」。
 
 **free-form 展开链**（spec.formula 处理顺序）：`${param}` 文本替换（spec.params；
 operators 宏体经副本一并替换，def 体在 formula 文本内命中；未知参数名抛

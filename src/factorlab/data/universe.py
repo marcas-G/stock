@@ -306,8 +306,12 @@ def _resolve_universe_data(spec: FactorSpec, override: str | None, settings) -> 
         data = {"codes": spec.universe.codes}
     elif spec.universe.rules is not None:
         data = {"rules": spec.universe.rules}
+    elif spec.universe.formula is not None:
+        # M4（G2）：公式化股票池——成员资格全权归池公式；本层只留骨架
+        # （候选 = 全市场 canonical，池条件在 resolve 侧不提前应用）
+        data = {"formula": spec.universe.formula}
     else:
-        raise ValueError("universe 解析失败：spec 缺少 ref/codes/rules")
+        raise ValueError("universe 解析失败：spec 缺少 ref/codes/rules/formula")
     return data
 
 
@@ -427,10 +431,16 @@ def resolve_candidate_codes(
                         f"不支持的交易所: {bad}（v1 仅支持 {VALID_EXCHANGES}，不含 BSE）")
             codes = sorted(
                 r[0] for r in _CANDIDATE_RULES_IMPL[rd.backend](rd, rules))
+        elif "formula" in data:
+            # M4（G2）：公式分支候选 = 全市场 canonical（SSE/SZSE 默认，同 rules
+            # 无键默认）——成员资格由池公式决定，此处不应用任何过滤（exclude_st/
+            # min_list_days 不是公式模式的骨架条件）。
+            codes = sorted(
+                r[0] for r in _CANDIDATE_RULES_IMPL[rd.backend](rd, {}))
         else:
-            raise ValueError(f"universe 数据必须包含 codes 或 rules: {data}")
+            raise ValueError(f"universe 数据必须包含 codes/rules/formula: {data}")
     if not codes:
-        raise ValueError("universe 无有效股票，请检查 codes/rules/引用文件")
+        raise ValueError("universe 无有效股票，请检查 codes/rules/formula/引用文件")
     return codes
 
 

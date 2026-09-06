@@ -19,6 +19,11 @@ class UniverseSpec(BaseModel):
     ref: str | None = None          # 命名引用或文件路径（查 universes_dir）
     codes: list[str] | None = None
     rules: dict[str, Any] | None = None
+    # M4（G2）公式化股票池：布尔条件逐 (code, 交易日) 定池（design §4）。
+    # 池公式语法 v1：单个布尔表达式（裸表达式或 signal = 表达式赋值形式，
+    # 赋值名不参与语义——引擎统一归一）。四选一互斥；需要"名单 ∧ 条件"时名单
+    # 经数据面成分标志属性（per-code 0/1）进公式，不设第二个 spec 来源。
+    formula: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -31,9 +36,11 @@ class UniverseSpec(BaseModel):
 
     @model_validator(mode="after")
     def _exactly_one_universe(self) -> "UniverseSpec":
-        chosen = sum(x is not None for x in (self.ref, self.codes, self.rules))
+        chosen = sum(x is not None
+                     for x in (self.ref, self.codes, self.rules, self.formula))
         if chosen != 1:
-            raise ValueError("universe 必须且只能提供 ref / codes / rules 之一")
+            raise ValueError(
+                "universe 必须且只能提供 ref / codes / rules / formula 之一")
         return self
 
 
