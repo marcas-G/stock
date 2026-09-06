@@ -94,19 +94,57 @@ def _const_fold(node: ast.expr):
     return None
 
 
+def _top_level_consts(tree: ast.AST) -> dict[str, int | float]:
+    """顶层赋值常量表（Name 目标 = 可折叠值，last-wins，绝不 eval）。
+
+    AI 生成因子的常见形态是位移量走命名常量（`_d = -3` 后 `ts_delay(x, _d)`）——
+    只查参数表达式本身会漏网负位移（未来函数）。仅跟踪模块顶层简单赋值；
+    def 内局部/分支赋值不跟踪（保守方向：未知变量按"无法静态判断"放行，
+    inline_defs 会把 def 参数绑定后的常量提到顶层赋值，同样被覆盖）。
+    """
+    consts: dict[str, int | float] = {}
+    for node in tree.body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)):
+            value = _const_fold(node.value)
+            if value is not None:
+                consts[node.targets[0].id] = value
+    return consts
+
+
 def reject_future_shifts(source: str) -> None:
-    """拒绝负 lookback：ts_delay/ts_delta 的位移参数不能为负（字面量可折叠）。"""
+    """拒绝负 lookback：ts_delay/ts_delta 的位移参数不能为负。
+
+    覆盖三类形态（AI 生成均可触达）：
+    - 字面量/可折叠表达式（`-1`、`1 - 2`、`d=-1.0`）
+    - 顶层常量赋值间接（`_d = -3` 后 `ts_delay(x, _d)`——last-wins 静态近似）
+    - import 别名（`from polars_ta.prefix import ts_delay as td` 后 `td(x, -2)`）
+    未知变量（如 def 形参）无法静态判断 → 放行（方向同文档既有约定）。
+    """
     tree = ast.parse(source)
-    for node in _call_names(tree):
-        if node.func.id not in {"ts_delay", "ts_delta"}:
-            continue
-        shift: int | float | None = None
+    aliases = _alias_map(tree)
+    consts = _top_level_consts(tree)
+
+    def _shift_arg(node: ast.Call) -> ast.expr | None:
         if len(node.args) >= 2:
-            shift = _const_fold(node.args[1])
-        else:
-            for kw in node.keywords:
-                if kw.arg == "d":
-                    shift = _const_fold(kw.value)
+            return node.args[1]
+        for kw in node.keywords:
+            if kw.arg == "d":
+                return kw.value
+        return None
+
+    def _shift_value(arg: ast.expr) -> int | float | None:
+        value = _const_fold(arg)
+        if value is None and isinstance(arg, ast.Name):
+            value = consts.get(arg.id)
+        return value
+
+    for node in _call_names(tree):
+        name = aliases.get(node.func.id, node.func.id)
+        if name not in {"ts_delay", "ts_delta"}:
+            continue
+        arg = _shift_arg(node)
+        shift = _shift_value(arg) if arg is not None else None
         if shift is not None and shift < 0:
             raise FactorDSLError(
                 f"{node.func.id} 不允许负位移（lookback 只能取过去）",

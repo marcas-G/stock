@@ -97,6 +97,36 @@ def test_allows_variable_shift_and_positive_expr():
     reject_future_shifts("signal = ts_delay(close, n)")
 
 
+def test_rejects_negative_delay_via_top_level_const():
+    # AI 生成常见形态：位移量走命名常量——常量赋值间接的负位移必须同样拒绝
+    with pytest.raises(ValueError, match="负位移"):
+        reject_future_shifts("_d = -3\nsignal = ts_delay(close, _d)")
+    with pytest.raises(ValueError, match="负位移"):
+        reject_future_shifts("_d = -2\nsignal = ts_delta(close, d=_d)")
+
+
+def test_rejects_negative_delay_via_folded_const_expr():
+    with pytest.raises(ValueError, match="负位移"):
+        reject_future_shifts("_d = 1 - 4\nsignal = ts_delay(close, _d)")
+
+
+def test_rejects_negative_delay_via_alias_import():
+    # import 别名绕过函数名匹配（validate_partition_calls 有 alias 解析，此门缺失）
+    with pytest.raises(ValueError, match="负位移"):
+        reject_future_shifts(
+            "from polars_ta.prefix import ts_delay as td\nsignal = td(close, -2)")
+    with pytest.raises(ValueError, match="负位移"):
+        reject_future_shifts(
+            "from polars_ta.prefix import ts_delta as d\n"
+            "signal = ts_delay(close, 5) + d(close, d=-3)")
+
+
+def test_allows_positive_const_and_reassignment():
+    # 正常量放行；末尾重赋值覆盖为正值时不再拒绝（last-wins 静态近似）
+    reject_future_shifts("_d = 3\nsignal = ts_delay(close, _d)")
+    reject_future_shifts("_d = -3\n_d = 5\nsignal = ts_delay(close, _d)")
+
+
 def test_import_alias_resolves_to_known_op():
     validate_partition_calls(
         "from factorlab.ops.platform_ops import returns as ret\nsignal = ret(close)"
