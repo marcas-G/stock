@@ -30,9 +30,12 @@ import ast
 from factorlab.ops.registry import get_op, has_op
 
 # CS/GP 算子的"数据参数"位置（参与截面统计、需 active mask 的参数）：
-# group key（group_rank/group_mean 的第 0 参）不需要改 null（分组键语义）。
+# group key（gp_rank/gp_mean 的第 0 参）不需要改 null（分组键语义——键含全
+# 骨架组员，active 性由数据参数 mask 表达）。
 # 新增 CS/GP 算子必须在此声明数据参数位置，否则 fail fast。
 # **key = canonical OperatorDef.name**（registry alias 一律 canonicalize 后查）。
+# M3：组算子名 gp_ 前缀（expr_codegen 分区识别的硬前提，旧裸名 group_rank/
+# group_mean 已随改名移除）。
 _CS_GP_MASK_ARGS: dict[str, tuple[int, ...]] = {
     "cs_rank": (0,),
     "cs_stable_rank": (0,),   # M6-07C2I：v2 stable dense rank（同一 CS data 语义）
@@ -43,8 +46,8 @@ _CS_GP_MASK_ARGS: dict[str, tuple[int, ...]] = {
     "cs_mad_zscore": (0,),
     "cs_resid": (0, 1),
     "cs_regression_resid": (0, 1),   # cs_resid 的兼容别名
-    "group_rank": (1,),
-    "group_mean": (1,),
+    "gp_rank": (1,),
+    "gp_mean": (1,),
 }
 
 # 内部保留名常量收拢于 engine/reserved.py（M1：单点定义，禁止散落字面量）。

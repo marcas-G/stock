@@ -14,6 +14,7 @@ from expr_codegen import codegen_exec
 
 from factorlab.config import settings as _settings
 from factorlab.data.adjust import load_qfq_base_adj, view_prices
+from factorlab.data.attributes import attributes_visible, load_code_attributes
 from factorlab.data.backend import Rd, open_read
 from factorlab.data.calendar import chunk_calendar, fill_suspensions, trading_calendar
 from factorlab.data.source import load_daily
@@ -141,6 +142,16 @@ def compute_formula(
         style="polars",
         date=date,
         asset=asset,
+        # M3（G6）：组算子翻译产物符号注入 codegen 作用域——gp_ 前缀函数
+        # （gp_mean/gp_rank，已注册 registry/分区校验/masking）经 expr_codegen
+        # printer 翻译为 cs_<名>(<去 key>) + .over(_DATE_, '<key>')：key 只作
+        # 分区列、按日×组分区。生成代码 exec 需解析翻译产物 cs_mean/cs_rank
+        # （platform_ops 模块符号，不注册——公式层直写会被 partition 门拒），
+        # 否则 NameError。extra_codes 无条件追加 import 头（未使用 import 无
+        # 副作用；codegen_exec 的 extra_codes 是单字符串——整体直接复制进生成
+        # 代码头部，非序列）。模块别名 import 形式在 codegen 作用域不可用
+        # （实测），必须直接 import 名。
+        extra_codes="from factorlab.ops.platform_ops import cs_mean, cs_rank",
     ).collect()
     # 兜底：codegen 结果缺失声明输出（变换语义偏差）也点名报错
     missing = [o for o in outputs if o not in result.columns]
@@ -405,11 +416,20 @@ def _compute_signal(
       _apply_multi_output_process）
     """
     outputs = list(outputs) if outputs is not None else ["signal"]
-    cols = _formula_columns(formula) + ["close", "adj_factor"]
+    # M3（G6）：开放解析器——公式引用列按来源供给：daily/daily_basic 列走
+    # load_daily（M1 分类器负责归类/报错）；stock_basic 静态属性（industry 等）
+    # 按需全量供给 join（每 code 一行，键 symbol = panel.code）。引用才供给
+    # （未引用 → 零属性读取）；属性列不送 daily 面（load_daily 会当未知列报错）。
+    # 属性整段常量：不参与 align/fill/复权，view_prices 后 join 一次。
+    formula_cols = _formula_columns(formula)
+    attr_cols = [c for c in formula_cols if c in attributes_visible(rd)]
+    data_cols = [c for c in formula_cols if c not in attr_cols]
+    attr_df = (load_code_attributes(rd, attr_cols, float32=ctx.float32)
+               if attr_cols else None)
     raw = load_daily(
         rd, codes,
         date_start=date_start, date_end=date_end,
-        cols=cols, float32=ctx.float32,
+        cols=data_cols + ["close", "adj_factor"], float32=ctx.float32,
     ).collect()
     panel = align_to_listing(raw, uf)   # is_listed skeleton（停牌日保留 null 行）
     if panel.height == 0:
@@ -465,6 +485,14 @@ def _compute_signal(
     if qfq_base_col is not None:
         # internal base 不进用户公式（compute_formula 前 drop）与 artifact
         panel = panel.drop(qfq_base_col)
+    if attr_df is not None:
+        # M3（G6）：属性 join（view 后）——属性每 code 整段常量，与 align/fill 的
+        # (code, date) 骨架正交；join 键 symbol = panel.code（canonicalization 在
+        # artifact boundary，此处 code 仍是 symbol；polars 不同名键 join 消费右侧
+        # 键列，输出只有 panel 全列 + 属性列）。停牌 null 行同 code 属性在行
+        # （组键齐全）；真 null 属性（空串已 decode 为 null）不进组。
+        panel = panel.join(attr_df, left_on="code", right_on="symbol",
+                           how="left")
     # universe mask 列：来源必须是 PIT in_universe（内部保留列，用户不得定义）
     panel = panel.join(uf.select(["date", "code", "in_universe"]), on=["date", "code"], how="left")
     panel = panel.with_columns(pl.col("in_universe").fill_null(False).alias("__factorlab_universe_active"))

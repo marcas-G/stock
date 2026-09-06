@@ -65,9 +65,9 @@ def test_mask_multi_arg_cs_resid():
 
 
 def test_mask_group_key_not_masked():
-    out = apply_universe_masking("signal = group_rank(industry, close)", "__factorlab_universe_active")
+    out = apply_universe_masking("signal = gp_rank(industry, close)", "__factorlab_universe_active")
     tree = ast.parse(out)
-    gp = _calls(tree, "group_rank")[0]
+    gp = _calls(tree, "gp_rank")[0]
     assert gp.args[0].id == "industry"                 # group key 不 mask
     assert isinstance(gp.args[1], ast.Call) and gp.args[1].func.id == "if_else"  # 数据参数 mask
 

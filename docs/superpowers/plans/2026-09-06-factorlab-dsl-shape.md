@@ -87,3 +87,34 @@
   与单输出 panel 逐值一致（单输出 outputs:[a] 的列名即 a——非 signal 字面）、compute_formula
   保留声明列。sample 头部窗口不足 null 是引擎既有 warmup 语义（FULL/CHUNK 一致），测试按
   a（窗口因子）>0 个 null / b（无窗口）=0 锁预期。
+
+## M3 落地纪要（2026-09-07，开放解析器 + 属性数据面 industry）
+
+- **属性数据面**：新 `data/attributes.py`（duckdb|ch 编译对 + decode 规范化）——
+  `attributes_visible(rd)` schema 实探 stock_basic 除 symbol/ts_code 键列外属性列
+  （缺表/探测失败 → 空集，报错回落 M1 双面清单）；`load_code_attributes(rd, cols)`
+  单次全量 SELECT symbol+cols、字符串空串 → null、数值 cast float32（对齐 load_daily）。
+  compute._compute_signal 路由：公式引用列 ∈ 属性面 → join（left，键 symbol=panel.code，
+  polars 消费右键列故不 drop）；**引用才 join**（未引用 → 属性读取 0 次，调用计数断言
+  锁双腿）。供给失败（错拼 `industr`）→ M1 报错助手可用清单并入属性面 + difflib 候选
+  （source._classify_columns 错误路径并入 attributes_visible）。
+- **组算子 gp_ 前缀化**（实现中发现并封堵的设计缺口）：旧裸名 group_rank/group_mean
+  在 expr_codegen 无分组语义——分区识别仅按函数名前缀（ts_/cs_/gp_），裸名当普通
+  表达式、.over(key) 无日期分区 → **跨日混组**（6 日全并一组，C 秩 7 实测捕获）。
+  改名 `gp_rank(key, x)`/`gp_mean(key, x)` 注册 kind=gp（universe_masking 数据参数位
+  (1,)，key 不 mask）；printer 把 gp_ 前缀调用翻译为 `cs_<名>(<去 key>).over(_DATE_,
+  '<key>')`——key 只作分区列，实现是裸原语 `x.rank()`/`x.mean()`；翻译产物符号
+  cs_mean/cs_rank 不注册（公式层直写被 partition 门拒）但注入生成代码 exec 作用域
+  （compute.py extra_codes=单字符串 import 头，codegen_exec 非序列参数）。
+  不带前缀组算子不注册不 alias——宁 partition 门报错不静默跨日混组。
+- **属性空值语义落定**：'' 规范化 null 后，null 键行当日互成 **null 分区组**（互均/
+  互排秩，单行时自值——与 K=1 真实组同构），**绝不进真实行业组统计**（design §5.2
+  防污染，A/C 组均值 = (11+31)/2=21 有 D/E 混入即败的断言）。测试构造 E=64 使 null
+  组均值 52.5 ≠ B 自组 51、rank 出 D=1/E=2——分别锁"互组不落单"与 ''→null 归一。
+- **引擎 DSL 边界（非 M3 缺陷，写入 interface.md）**：字符串属性只能做组键、不能做
+  字面量比较（sympy 面 parse 不了字符串字面量，'银行' == → SympifyError）；数值条件
+  用 per-code 0/1 成分标志属性（§5.2 点名载体）；行业等值条件用法走 process 层。
+- **测试**：tests/test_attributes_face.py（7 例双腿 13 断言集：组算子数据面/按需供给/
+  报错助手含属性面/直算链符号解析），先红后绿（红阶段 NameError: cs_mean 捕获了
+  extra_codes 缺口）；改名波及回归（test_platform_ops/test_universe_aware_formula/
+  test_universe_masking_hardening 等 group_rank→gp_rank 同步）全绿；全量 pytest 通过。

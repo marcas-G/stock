@@ -324,8 +324,20 @@ combine:
 - **参数引用**：formula 内 `${name}` 文本引用 spec.params（见 §2 `params`）——
   宏体/def 体内同样可见，编译期替换为字面量。
 - 平台薄封装算子（`returns/vwap/adv20`）在解析期**展开为 `ts_` 表达式**再交给
-  `expr_codegen`，保证按 asset 分区；`group_rank/group_mean` 自带 `.over(key)`
-  分组语义，不展开。import 别名（`returns as ret`）同样生效。
+  `expr_codegen`，保证按 asset 分区。import 别名（`returns as ret`）同样生效。
+- **组算子（M3）**：`gp_rank(key, x)` / `gp_mean(key, x)`（gp_ 前缀族）按
+  date + group key 分组。`expr_codegen` 把 gp_ 前缀函数翻译为
+  `cs_<名>(<去 key>).over(_DATE_, '<key 列>')`——key 只作分区列、不参与函数体
+  （实现是注册于 `factorlab.ops.platform_ops` 的裸原语；翻译产物符号
+  `cs_mean/cs_rank` 注入生成代码 exec 作用域——它们本身**不注册**，公式层直写
+  被分区门按未知算子拒绝）。**gp_ 前缀是分区硬前提**：不带前缀的组算子名
+  （历史 group_rank/group_mean 已移除）不注册不 alias——宁报错（partition 门
+  拒绝）不静默跨日混组。group key 可为属性列（`industry` 等，见 §4 属性数据面）。
+- **属性空值语义**：组键属性为 null/''（'' 由供给层规范化为 null）的行 → 当日
+  null 分区组（同日空键行互组互均/互排秩），**绝不进任何真实组的统计**
+  （防污染）。字符串属性只能作**组键**，不能做字面量比较（sympy 面限制——
+  `industry == '银行'` 报 SympifyError；行业条件等值用法走 process 层
+  `neutralize(by=industry)` / `fillna(industry_mean)`）。
 - 元素级纯函数白名单（**实测**，2026-09-06 修订——if_else 在引擎自带作用域
   `compute._ELEMENTWISE_COLS`/`partitions` 白名单内，M6-03 universe masking
   同源使用）：`abs/exp/floor/log/log1p/sign/sqrt` + **`if_else(cond, a, b)`
@@ -389,7 +401,7 @@ from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
 from factorlab.ops.platform_ops import register_platform_ops
 
 register_polars_ta_ops()  # wq/ta/tdx 算子族
-register_platform_ops()   # returns/vwap/adv20/group_rank/group_mean
+register_platform_ops()   # returns/vwap/adv20/gp_rank/gp_mean（cs_mean/cs_rank 不注册，见 §3 组算子）
 ```
 
 两者均幂等，`compute_formula` 已在内部调用，用户无需手动注册。
@@ -417,7 +429,8 @@ def tail_ratio(x: pl.Expr, n: int) -> pl.Expr:
 
 装配完整链路：universe 解析 → `load_daily`（含 `adj_factor`）→ 停牌补全 →
 前向收益（total_return 口径，raw close×adj）→ 复权视图（`adjustment` 口径，
-因子计算使用）→ `compute_formula` → process 链 → 落盘 `panel.parquet` + `summary.json`。
+因子计算使用）→ `compute_formula`（公式引用 stock_basic 属性列时先按需 join
+属性面——见下"属性数据面"）→ process 链 → 落盘 `panel.parquet` + `summary.json`。
 周频对齐在评估阶段（`eval`）进行，run_factor 输出日频面板。
 
 **free-form 展开链**（spec.formula 处理顺序）：`${param}` 文本替换（spec.params；
@@ -543,6 +556,41 @@ volume_ratio` → daily_basic）以及 **daily/daily_basic 表上真实存在的
 同文件另含 `load_daily_fill_state(rd, codes, *, before, cols, float32)`
 （chunk 左边界停牌补前值，per-code 最新 non-null 状态；双腿参数化测试锁定）——
 列分类与报错助手同 load_daily。
+
+### 属性数据面（M3：per-code 静态属性按需供给）
+
+`factorlab.data.attributes`（duckdb|ch 编译对 + decode 层规范化）：
+
+```python
+attributes_visible(rd) -> frozenset[str]
+load_code_attributes(rd, cols, *, float32=settings.use_float32) -> pl.DataFrame
+```
+
+stock_basic 表除 `symbol/ts_code` 键列外的列为 per-code 静态属性（`industry`、
+成分标志等——M3 首面 industry）。`load_code_attributes` **单次全量**供给
+（每 code 至多一行；`SELECT symbol, <cols> FROM [db.]stock_basic`，`symbol` =
+join 键 = daily.code 形态），列序返回 `[symbol, *cols]`。decode 规范化：
+字符串属性**空串 → null**（库中 '' 等价缺失——与 process 层 industry 取数
+"IS NOT NULL AND != ''" 同源语义，供给层统一表达，公式侧只见 null）；数值
+属性 cast float32。`attributes_visible` schema 实探可见属性列集——**属性面无
+白名单**，表上真实存在的任何静态属性列都可请求（缺表/探测失败 → 空集：
+报错文案回落 load_daily 双面清单，不因缺表改变引擎行为）。
+
+**装配（run_factor / `_compute_signal`）**：公式引用列按来源路由——daily/
+daily_basic 真列（含平台映射名/特殊名）→ `load_daily` 现路径；stock_basic
+属性列 → **按需 full-supply join**（left join，键 symbol=panel.code）。
+**引用才 join**：公式未引用属性 → 对属性面零读取（有供给调用计数断言）。
+`compute_formula` 直算路径无供给——df 已含的列（含属性名）原样可用
+（design §5.1"存在即可写"）。属性列两种引用形态：
+
+- 组键引用：`gp_rank(industry, close)` / `gp_mean(industry, close)`——key 列
+  由属性面供给，见 §3 组算子/空值语义；
+- 数值直接引用：`if_else(flag > 0.5, close, 0.0)`——数值属性值进公式面
+  （industry null/'' 不影响同股其它属性——属性列空值彼此独立）。
+
+供给失败（错拼属性列）→ load_daily 同款 M1 报错助手——可用列清单并入属性面
+实探列（`industr` → 提示含 `industry` 与最相似候选）。industry 等静态属性是
+**库中当前值近似**（非 PIT，不做历史追溯，design §5.4）。
 
 ### `factorlab.data.calendar.trading_calendar(rd, date_start=None, date_end=None) -> pl.Series` / `fill_suspensions(df, calendar) -> pl.DataFrame`
 
@@ -955,7 +1003,7 @@ Listed Market History → Label Runtime  → LabelArtifact
 CS/GP 算子的**数据参数**在 AST 层包 `if_else(__universe_active, arg, None)`：
 TS/TA 仍见完整 listed history，CS/GP 只见当日 active 横截面。数据参数位置由
 `_CS_GP_MASK_ARGS` 显式声明（cs_rank 等单参数；cs_resid(y,x) 双参数全 mask；
-group_rank/group_mean 的 group key 不 mask）；**无法确认 mask 语义的 CS/GP
+gp_rank/gp_mean 的 group key 不 mask）；**无法确认 mask 语义的 CS/GP
 算子 fail fast（ValueError 含 operator name）**。mask 列 `__universe_active`
 为内部保留列（来源 = PIT in_universe，用户不得定义），最终 SignalArtifact 不含。
 
@@ -992,7 +1040,7 @@ summary 新增 `candidate_count / signal_rows / label_rows / runtime_semantics`�
 - **registry alias**：metadata 一律经 canonical `OperatorDef.name` 查询——
   `factor_op(aliases=...)` 的 alias 不会绕过或误判 mask metadata。
 - **keyword arguments**：CS/GP 的 keyword invocation（`cs_rank(x=close)`、
-  `group_rank(key=industry, x=close)`）→ fail fast（M6 v1 positional-only，
+  `gp_rank(key=industry, x=close)`）→ fail fast（M6 v1 positional-only，
   masking 无歧义）；TS/TA/elementwise keyword 不受影响。
 - **保留名空间（M1 收拢，常量单点定义 `factorlab/engine/reserved.py`）**：
   `__factorlab_*` 前缀 + `in_universe`（PIT 标记列）为平台内部保留名——
@@ -1177,7 +1225,7 @@ polars_ta 的 0.1.0 cs_rank 不再占用 canonical 名；legacy exact tie 通过
 - 动机（C2H）：数学真实 tie 被 rolling 路径 1 ULP 假拆分 → dense unique +1 →
   denominator 变化 → 全截面 normalized rank 平移（2022-12-06 单日 4,859 行）
 - **4 ULP 不是全平台通用容差**——它绑定 M6 numerical contract + cs_rank v2；
-  其他 discontinuous 算子（cs_quantile/cs_qcut/group_rank 等）未自动获得该
+  其他 discontinuous 算子（cs_quantile/cs_qcut/gp_rank 等）未自动获得该
   contract（后续 discontinuous-operator audit）。
 
 **执行模式角色**：CHUNK = production execution mode（全历史）；FULL =

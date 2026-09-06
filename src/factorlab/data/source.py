@@ -89,7 +89,12 @@ def _classify_columns(rd: Rd, requested: list[str]) -> tuple[list[str], list[str
             dvis = _daily_visible(rd)
         if bvis is None:
             bvis = _basic_visible(rd)
-        available = sorted({*_SPECIAL_COLS, *(dvis or ()), *(bvis or ())})
+        # M3（G6）：可用清单并入 stock_basic 属性面——供给失败时一次试错拿到
+        # 三面全信息（daily/daily_basic/属性）；属性面缺表 → attributes_visible
+        # 空集（报错文案回落双面，不因缺表改变行为）。
+        from factorlab.data.attributes import attributes_visible  # 延迟：仅报错路径
+        available = sorted({*_SPECIAL_COLS, *(dvis or ()), *(bvis or ()),
+                            *attributes_visible(rd)})
         raise ValueError(_unknown_col_message(list(dict.fromkeys(unknown)), available))
     return daily, basic
 

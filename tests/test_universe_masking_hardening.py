@@ -59,9 +59,9 @@ def test_cs_import_alias_numerical_isolation():
 # ================================================================
 
 def test_gp_import_alias_transformer():
-    """`from factorlab.ops.platform_ops import group_rank as gr; signal = gr(industry, close)`——
-    canonical=group_rank：group key 不 mask、数据参数 mask；**callable 名保持 alias 不改写**。"""
-    formula = ("from factorlab.ops.platform_ops import group_rank as gr\n"
+    """`from factorlab.ops.platform_ops import gp_rank as gr; signal = gr(industry, close)`——
+    canonical=gp_rank：group key 不 mask、数据参数 mask；**callable 名保持 alias 不改写**。"""
+    formula = ("from factorlab.ops.platform_ops import gp_rank as gr\n"
                "signal = gr(industry, close)")
     out = um.apply_universe_masking(formula, "__factorlab_universe_active")
     tree = ast.parse(out)
@@ -121,7 +121,7 @@ def test_cs_keyword_fails():
 
 def test_gp_keyword_fails():
     with pytest.raises(ValueError, match="keyword arguments"):
-        um.apply_universe_masking("signal = group_rank(key=industry, x=close)",
+        um.apply_universe_masking("signal = gp_rank(key=industry, x=close)",
                                   "__factorlab_universe_active")
 
 

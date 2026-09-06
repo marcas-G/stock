@@ -26,23 +26,62 @@ def adv20(volume: pl.Expr) -> pl.Expr:
     return volume.rolling_mean(window_size=20)
 
 
-def group_rank(key: pl.Expr, x: pl.Expr) -> pl.Expr:
-    """组内排名：x 按 key 分组后取 rank。"""
-    return x.rank().over(key)
+def cs_mean(x: pl.Expr) -> pl.Expr:
+    """横截面/组内均值原语（M3）：无窗口裸 mean——分区由 codegen 施加。
+
+    本函数**不注册**（公式层直写会被 partition 门按"未知算子"拒绝），它只
+    是 expr_codegen gp_ 通道的翻译产物符号：`gp_mean(key, x)` 经 printer
+    翻译为 `cs_mean(x).over(_DATE_, '<key>')` 后需在生成代码 exec 作用域
+    可解析（extra_codes 无条件 import 提供）。
+    """
+    return x.mean()
 
 
-def group_mean(key: pl.Expr, x: pl.Expr) -> pl.Expr:
-    """组内均值：x 按 key 分组后取 mean。"""
-    return x.mean().over(key)
+def cs_rank(x: pl.Expr) -> pl.Expr:
+    """横截面/组内排名原语（M3）：无窗口裸 rank——分区由 codegen 施加。
+
+    解析角色同 cs_mean（gp_rank → `cs_rank(x).over(_DATE_, '<key>')`）。
+    公式层直写 cs_rank 不由本函数承接（rewrite_stable_rank 先改写为
+    cs_stable_rank——CS 全截面 stable 语义）；本函数供 gp 组内路径解析，
+    polars rank 默认 average（组内无 tie 时 = 序数秩 1..K）。
+    """
+    return x.rank()
+
+
+def gp_rank(key: pl.Expr, x: pl.Expr) -> pl.Expr:
+    """组内排名：`gp_rank(key, x)`——x 按 key 当日组内 rank（1..K，平均秩）。
+
+    **实现即翻译契约**（M3）：expr_codegen printer 把 gp_ 前缀函数翻译为
+    `cs_<名>(<去 key>).over(_DATE_, '<key 列名>')`——key 参数只用于分区
+    （函数体收不到 key，本函数体仅为注册载体）。null-key 行（属性空值，
+    供给层 '' 已规范化为 null）入 null 分区组：与同日其它 null 键行互组
+    （单行自 mean——与 K=1 真实组输出自身同构），**绝不进入真实行业组的
+    统计**（design §5.2"空值不进组"= 防污染真实组）。带前缀是分区硬前提，
+    不带前缀（旧裸名）的组算子会被 partition 门拒绝——宁报错不跨日混组。
+    """
+    return x.rank()
+
+
+def gp_mean(key: pl.Expr, x: pl.Expr) -> pl.Expr:
+    """组内均值：`gp_mean(key, x)`——x 按 key 当日组内均值。
+
+    翻译契约/null 语义同 gp_rank（翻译产物 = `cs_mean(x).over(_DATE_, key)`）。
+    """
+    return x.mean()
 
 
 def register_platform_ops() -> None:
-    """幂等注册平台薄封装算子，供分区校验与 op list 使用。"""
+    """幂等注册平台薄封装算子，供分区校验与 op list 使用。
+
+    gp_ 前缀族（M3）：注册名即公式调用名——必须带 gp_ 前缀（expr_codegen 分区
+    识别的前提）。不带前缀的组算子名一律不注册（partition 门按"未知算子"
+    拒绝——宁报错不静默跨日混组）。
+    """
     factor_op("returns", kind="ts", version="0.1.0")(returns)
     factor_op("vwap", kind="ts", version="0.1.0")(vwap)
     factor_op("adv20", kind="ts", version="0.1.0")(adv20)
-    factor_op("group_rank", kind="gp", version="0.1.0")(group_rank)
-    factor_op("group_mean", kind="gp", version="0.1.0")(group_mean)
+    factor_op("gp_rank", kind="gp", version="0.2.0")(gp_rank)
+    factor_op("gp_mean", kind="gp", version="0.2.0")(gp_mean)
 
 
 # ---------------------------------------------------------------------------
