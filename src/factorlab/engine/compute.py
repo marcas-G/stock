@@ -36,9 +36,14 @@ from factorlab.ops.universe_masking import (apply_universe_masking,
 from factorlab.process.registry import run_process_chain
 from factorlab.spec import FactorSpec
 
-# M6-03：formula 显式引用 future/label 字段 → fail fast（不等到 load_daily unknown column）
-_FUTURE_COL_PREFIXES = ("forward_", "future_")
-_FUTURE_COL_EXACT = {"target", "label"}
+# 名字类墙常量单点定义于 engine/reserved.py（M1 收拢，禁止散落字面量）：
+# FUTURE_PREFIXES/FUTURE_NAMES——future/label 字段显式引用 → fail fast
+# INTERNAL_PREFIX/INTERNAL_NAMES——引擎内部列（__factorlab_* / in_universe）读/绑定 → fail fast
+from factorlab.engine.reserved import (
+    FUTURE_NAMES,
+    FUTURE_PREFIXES,
+    validate_internal_reads,
+)
 
 
 _PARAM_PATTERN = re.compile(r"\$\{(\w+)\}")
@@ -60,9 +65,11 @@ def _substitute_params(formula: str, params: dict[str, Any]) -> str:
 
 
 def _check_future_inputs(formula: str) -> None:
-    """M6-03：factor formula 显式引用 forward_*/future_*/target/label → fail fast。"""
+    """M6-03：factor formula 显式引用 forward_*/future_*/target/label → fail fast。
+
+    常量来自 engine/reserved.py（M1 收拢，与数据侧命名纪律同源）。"""
     for col in _formula_columns(formula):
-        if col in _FUTURE_COL_EXACT or col.startswith(_FUTURE_COL_PREFIXES):
+        if col in FUTURE_NAMES or col.startswith(FUTURE_PREFIXES):
             raise ValueError(
                 f"future/label inputs are forbidden in factor formula: {col!r}")
 
@@ -75,6 +82,12 @@ def compute_formula(
     universe_mask: str | None = None,
 ) -> pl.DataFrame:
     validate_formula(formula)
+    # M1：内部保留名（__factorlab_* / in_universe）绑定与读取两门，无条件生效
+    # （与 universe_mask 无关）——先绑定后读取，覆盖公式一切位置；必须在
+    # apply_universe_masking 插入内部引用之前执行。绑定门此前只在 masked 路径
+    # 生效，现提前到此（universe_mask=None 直调同样封）。
+    validate_reserved_bindings(formula)
+    validate_internal_reads(formula)
     formula = inline_defs(formula)  # def 内联（幂等：无 def 原样返回）——窗口算子合法化为顶层 ts_ 调用
     formula = rewrite_expr_methods(formula)  # 元素级方法链 → 函数调用（expr_codegen 不支持属性调用）
     formula = expand_platform_macros(formula)  # 薄封装 → ts_ 表达式，保证按 asset 分区
@@ -85,9 +98,6 @@ def compute_formula(
         # listed history，CS 只见当日 active universe。mask 列必须已存在于 df。
         if universe_mask not in df.columns:
             raise ValueError(f"universe mask 列 {universe_mask!r} 不在输入数据中（内部保留列）")
-        # M6-03A：mask 变换前校验保留名绑定（用户公式 + macro/def 展开后——
-        # __factorlab_* 前缀禁止用户定义/绑定）
-        validate_reserved_bindings(formula)
         formula = apply_universe_masking(formula, universe_mask)
     register_polars_ta_ops()  # 幂等；保证分区校验能识别 ts_/cs_/ta_ 算子
     register_platform_ops()
@@ -454,6 +464,10 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
     }
     formula = expand_user_macros(formula, operators)
     validate_formula(formula)
+    # M1：内部保留名墙在打开数据库前 fail fast（宏/def 展开后文本已含全部定义）——
+    # compute_formula 顶部同门再验一次（幂等），此处前置让错误先于 DB/加载暴露
+    validate_reserved_bindings(formula)
+    validate_internal_reads(formula)
     formula = inline_defs(formula)
     formula = rewrite_expr_methods(formula)
     formula = expand_platform_macros(formula)  # 薄封装 → ts_ 表达式（compute_formula 内部再展开幂等无害）

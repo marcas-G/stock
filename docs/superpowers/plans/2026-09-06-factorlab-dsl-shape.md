@@ -42,3 +42,19 @@
 - ch stock_basic 读（属性 join）生产库可用性先行验证，缺则 ch 腿对应测试 skip。
 - "全开放"不等于"弱校验"：列供给失败报错的时机必须在 codegen 前（M1 先落），
   否则退回 polars 深层报错，AI 试错成本反弹。
+
+## M1 落地纪要（2026-09-07，已完成并提交）
+
+- 列供给撤静态白名单 `_KNOWN_COLS` → `data/source._classify_columns`：平台映射名恒放行，
+  目录外名字按 rd.columns 实探的当前数据面（daily/daily_basic）归表或报错；`vol/ts_code/
+  trade_date` 原始名永不收录为引擎列（报错给映射提示）。报错文案 = 未知列名 + 当前面
+  可用列 + difflib 最相似（≤2）+ 文档指引（load_daily 与 load_daily_fill_state 同一助手）。
+- 实现中发现并封堵的真实缺口：masked 路径下公式**读取** `__factorlab_universe_active`
+  此前无门——mask 列已注入面板，codegen 直接成功（等于绕过 CS 语义拿到 mask 值）；
+  `in_universe` 读取则退回 load 层"未知列名"误导文案。新增
+  `engine/reserved.validate_internal_reads`（读门），与绑定门一起**无条件**提前到
+  compute_formula 顶部 + run_factor 开库前；绑定门从"仅 masked 路径"扩展为无条件
+  （universe_mask=None 直调同样封）。保留名常量收拢单点 `engine/reserved.py`
+  （compute._FUTURE_COL_* 与 universe_masking 前缀字面量已移除引用）。
+- 测试：tests/test_input_surface.py（21 例双腿：报错助手/无白名单真实列全链/读绑双门），
+  先红后绿；全量 2178 passed（基线 +21）。duckdb 腿逐断言回归、CH 不可达丢 ch 腿语义不变。

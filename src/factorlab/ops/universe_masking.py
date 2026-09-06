@@ -14,7 +14,8 @@ M6-03A hardening：
   `r(...)` 按 canonical cs_rank 查 metadata；**不改写用户 callable**）
 - registry alias 一律经 canonical OperatorDef.name 查 metadata（future aliases 不误判）
 - CS/GP keyword invocation → fail fast（M6 v1 只支持 positional——masking 无歧义）
-- 内部保留名 `__factorlab_*` 前缀：用户任何定义/绑定 → fail fast
+- 内部保留名（`__factorlab_*` 前缀 + `in_universe`）：用户任何定义/绑定 → fail fast
+  （常量单点定义于 engine/reserved.py，M1 收拢；读取侧另有 validate_internal_reads 门）
 
 - 数据参数位置由显式 registry 声明（_CS_GP_MASK_ARGS）——不可扩展的字符串 hack
 - multi-argument CS（如 cs_resid(y, x)）：所有数据参数都 mask
@@ -46,8 +47,15 @@ _CS_GP_MASK_ARGS: dict[str, tuple[int, ...]] = {
     "group_mean": (1,),
 }
 
-# 内部保留前缀：用户定义/赋值/参数/import alias 以该前缀开头 → fail fast
-RESERVED_INTERNAL_PREFIX = "__factorlab_"
+# 内部保留名常量收拢于 engine/reserved.py（M1：单点定义，禁止散落字面量）。
+# 绑定门覆盖内部名全部形态：__factorlab_* 前缀 + in_universe（PIT 标记列）。
+from factorlab.engine.reserved import INTERNAL_NAMES, INTERNAL_PREFIX
+
+_RESERVED_SUFFIX = f"（平台内部保留：{INTERNAL_PREFIX}* 前缀 / {sorted(INTERNAL_NAMES)}）"
+
+
+def _is_reserved(name: str) -> bool:
+    return name.startswith(INTERNAL_PREFIX) or name in INTERNAL_NAMES
 
 # ALLOWED_NODES binding audit（M6-03B）：ast_gate.ALLOWED_NODES 允许的节点中，
 # 会创建用户名字绑定的完整清单 = {Import/ImportFrom(alias), FunctionDef, ClassDef,
@@ -83,44 +91,49 @@ def _bound_names(target: ast.AST):
 
 
 def validate_reserved_bindings(source: str) -> None:
-    """用户 source 的保留名绑定校验：`__factorlab_*` 前缀不得出现在任何用户绑定入口。
+    """用户 source 的保留名绑定校验：内部保留名不得出现在任何用户绑定入口。
 
     绑定入口（ALLOWED_NODES 审计结论，见模块 docstring）：
     Assign（含 Tuple/List destructuring，递归） / AnnAssign / FunctionDef /
     ClassDef / 函数参数（ast.arg）/ import alias。
 
+    M1 扩展：除 `__factorlab_*` 前缀外，内部名字 in_universe（PIT 标记列）同样
+    覆盖全部绑定入口——引擎内部名不是用户命名空间的一部分。
+
     必须在平台 transformation（apply_universe_masking 插入内部引用）**之前**执行——
-    只检查用户 source 的"定义/绑定"，不检查变换后对内部名的读取。
+    只检查用户 source 的"定义/绑定"，不检查变换后对内部名的读取（读取侧由
+    engine/reserved.validate_internal_reads 管，先绑定后读取，覆盖公式全位置）。
     """
     tree = ast.parse(source)
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
             for t in node.targets:
                 for name in _bound_names(t):
-                    if name.startswith(RESERVED_INTERNAL_PREFIX):
+                    if _is_reserved(name):
                         raise ValueError(
                             f"reserved internal name cannot be assigned by user: {name!r}"
-                            f"（{RESERVED_INTERNAL_PREFIX}* 为平台内部保留）")
+                            f"{_RESERVED_SUFFIX}")
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) \
-                and node.target.id.startswith(RESERVED_INTERNAL_PREFIX):
+                and _is_reserved(node.target.id):
             raise ValueError(
-                f"reserved internal name cannot be assigned by user: {node.target.id!r}")
-        elif isinstance(node, ast.FunctionDef) \
-                and node.name.startswith(RESERVED_INTERNAL_PREFIX):
+                f"reserved internal name cannot be assigned by user: {node.target.id!r}"
+                f"{_RESERVED_SUFFIX}")
+        elif isinstance(node, ast.FunctionDef) and _is_reserved(node.name):
             raise ValueError(
-                f"reserved internal name cannot be defined by user: {node.name!r}")
-        elif isinstance(node, ast.ClassDef) \
-                and node.name.startswith(RESERVED_INTERNAL_PREFIX):
+                f"reserved internal name cannot be defined by user: {node.name!r}"
+                f"{_RESERVED_SUFFIX}")
+        elif isinstance(node, ast.ClassDef) and _is_reserved(node.name):
             raise ValueError(
-                f"reserved internal name cannot be defined by user: {node.name!r}")
-        elif isinstance(node, ast.arg) and node.arg.startswith(RESERVED_INTERNAL_PREFIX):
+                f"reserved internal name cannot be defined by user: {node.name!r}"
+                f"{_RESERVED_SUFFIX}")
+        elif isinstance(node, ast.arg) and _is_reserved(node.arg):
             raise ValueError(
-                f"reserved internal name cannot be used as argument: {node.arg!r}")
-        elif isinstance(node, ast.alias) \
-                and (node.asname or node.name).startswith(RESERVED_INTERNAL_PREFIX):
+                f"reserved internal name cannot be used as argument: {node.arg!r}"
+                f"{_RESERVED_SUFFIX}")
+        elif isinstance(node, ast.alias) and _is_reserved(node.asname or node.name):
             raise ValueError(
                 f"reserved internal name cannot be used as import alias: "
-                f"{(node.asname or node.name)!r}")
+                f"{(node.asname or node.name)!r}{_RESERVED_SUFFIX}")
 
 
 def apply_universe_masking(source: str, mask_name: str) -> str:

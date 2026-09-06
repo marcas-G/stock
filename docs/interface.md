@@ -498,9 +498,19 @@ code 候选先经 stock_basic.symbol 匹配归一（ch 侧两层 IN 命中索引
 `ts_code`（'000001.SZ'）→ `code`（去后缀）、`vol`→`volume`、`turnover_rate`→
 `turnover`（daily_basic left join，cols 含 turnover/total_mv/circ_mv 时）；
 close 恒加载，adj_factor 恒 inner join。
+
+**列供给：无字段白名单（M1，spec 决策③修订）**。`cols` 可请求：引擎特殊名字
+（`date/code/adj_factor/idx_ret`）、平台映射名（`open/high/low/close/pre_close/
+change/pct_chg/volume/amount`；`turnover/total_mv/circ_mv/pe_ttm/pb/dv_ratio/
+volume_ratio` → daily_basic）以及 **daily/daily_basic 表上真实存在的任意列**
+（按当前数据面 schema 实探，自动归入对应表——目录收录不是前提）。
+供给失败 → `ValueError` **报错助手**：`未知列名: [...]（当前数据面可用列:
+[...]）` + difflib 最相似候选（≤2）+ 原始列映射提示（`vol`→`volume`、
+`ts_code`→`code`、`trade_date`→`date` 不收录为引擎名，请求原始名给提示）。
 **注意**：内部实际立即执行查询（`execute().pl()` 后包 `lazy()`），SQL 错误在调用时抛出。
 同文件另含 `load_daily_fill_state(rd, codes, *, before, cols, float32)`
-（chunk 左边界停牌补前值，per-code 最新 non-null 状态；双腿参数化测试锁定）。
+（chunk 左边界停牌补前值，per-code 最新 non-null 状态；双腿参数化测试锁定）——
+列分类与报错助手同 load_daily。
 
 ### `factorlab.data.calendar.trading_calendar(rd, date_start=None, date_end=None) -> pl.Series` / `fill_suspensions(df, calendar) -> pl.DataFrame`
 
@@ -949,10 +959,13 @@ summary 新增 `candidate_count / signal_rows / label_rows / runtime_semantics`�
 - **keyword arguments**：CS/GP 的 keyword invocation（`cs_rank(x=close)`、
   `group_rank(key=industry, x=close)`）→ fail fast（M6 v1 positional-only，
   masking 无歧义）；TS/TA/elementwise keyword 不受影响。
-- **保留名空间**：`__factorlab_*` 为平台内部保留前缀——用户 Assign/AnnAssign
-  target、FunctionDef 名、函数参数、import alias 以该前缀开头 → fail fast
-  （在 universe masking 变换前校验，覆盖 macro/def 展开路径）。内部 mask 列
-  更名为 `__factorlab_universe_active`。
+- **保留名空间（M1 收拢，常量单点定义 `factorlab/engine/reserved.py`）**：
+  `__factorlab_*` 前缀 + `in_universe`（PIT 标记列）为平台内部保留名——
+  **绑定与读取双门 fail fast**：绑定门（Assign/AnnAssign/FunctionDef/ClassDef/
+  参数/import alias）与读取门（任何 Load 位置，含 def 体）都在
+  `compute_formula` 顶部**无条件**生效（此前绑定门只在 masked 路径校验；
+  M1 起 universe_mask=None 直调同样封），并在 `run_factor` 打开数据库前
+  前置执行。内部 mask 列更名为 `__factorlab_universe_active`。
 
 ## 4.4 Exact Chunked Labels（M6-04）
 

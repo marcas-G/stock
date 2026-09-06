@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import difflib
+
 import polars as pl
 
 from factorlab.config import settings
@@ -15,9 +17,98 @@ _DAILY_BASIC_MAP = {
     "pe_ttm": "pe_ttm", "pb": "pb", "dv_ratio": "dv_ratio",
     "volume_ratio": "volume_ratio",
 }
-_KNOWN_COLS = {"date", "code", "adj_factor", "idx_ret", *_PLATFORM_COLS, *_DAILY_BASIC_MAP}
+# 引擎特殊名字：date/code 是解码后恒在的键列；adj_factor/idx_ret 来自独立表 join
+# （恒可用，非 daily/daily_basic schema 成员——不参与"当前数据面"清单）
+_SPECIAL_COLS = ("date", "code", "adj_factor", "idx_ret")
+# 原始列名（非引擎名）→ 引擎名：请求原始名时报错给映射提示（不静默、不收录为引擎列）
+_RAW_MAP_HINTS = {"vol": "volume", "ts_code": "code", "trade_date": "date"}
 # 市场状态代理：指数日收益（cols 含 idx_ret 时 join；默认中证 1000——股灾时段最丰富）
 _MARKET_INDEX = "000852.SH"
+
+# ---- M1（G3）：无白名单的列供给分类 + 报错助手 ----
+# 决策③修订：数据全开放——**任何真实存在的 daily/daily_basic 列都可用**，不维护
+# 字段白名单（_KNOWN_COLS 静态清单已撤销）。门只做名字类检查 + 供给面探测：
+# 引擎名（平台映射名）直接放行；目录外名字按"当前数据面"（rd.columns 实探 schema）
+# 决定来源（daily/daily_basic）或报错；报错含当前面可用列清单 + difflib 最相似
+# 候选（≤2）+ 原始列映射提示 + 文档指引。
+
+
+def _daily_visible(rd: Rd) -> frozenset[str]:
+    """daily 表上当前可供给的引擎列名（schema 实探）。
+
+    排除解码/映射占用的原始名：ts_code/trade_date（→ code/date）、vol（→ volume）。
+    """
+    raw = rd.columns("daily")
+    names = {c for c in raw if c not in {"ts_code", "trade_date", "vol"}}
+    if "vol" in raw:
+        names.add("volume")
+    return frozenset(names)
+
+
+def _basic_visible(rd: Rd) -> frozenset[str]:
+    """daily_basic 表上当前可供给的引擎列名（schema 实探；表缺失 → 空集）。"""
+    raw = rd.columns("daily_basic")
+    names = {c for c in raw if c not in set(_DAILY_BASIC_MAP.values())}
+    names |= {k for k, v in _DAILY_BASIC_MAP.items() if v in raw}
+    return frozenset(names)
+
+
+def _classify_columns(rd: Rd, requested: list[str]) -> tuple[list[str], list[str]]:
+    """请求的引擎列名 → (daily 来源列, daily_basic 来源列)；供给失败即报错。
+
+    顺序：引擎特殊名字 → 平台映射名（恒可供给，SQL 面负责）→ 当前数据面实探。
+    未知列收集齐后一并报错（信息完整，一次试错拿全信息）。
+    """
+    daily: list[str] = []
+    basic: list[str] = []
+    unknown: list[str] = []
+    dvis: frozenset[str] | None = None
+    bvis: frozenset[str] | None = None
+    for c in requested:
+        if c in _SPECIAL_COLS:
+            continue
+        if c in _PLATFORM_COLS:
+            daily.append(c)
+            continue
+        if c in _DAILY_BASIC_MAP:
+            basic.append(c)
+            continue
+        if dvis is None:
+            dvis = _daily_visible(rd)
+        if c in dvis:
+            daily.append(c)
+            continue
+        if bvis is None:
+            bvis = _basic_visible(rd)
+        if c in bvis:
+            basic.append(c)
+            continue
+        unknown.append(c)
+    if unknown:
+        if dvis is None:
+            dvis = _daily_visible(rd)
+        if bvis is None:
+            bvis = _basic_visible(rd)
+        available = sorted({*_SPECIAL_COLS, *(dvis or ()), *(bvis or ())})
+        raise ValueError(_unknown_col_message(list(dict.fromkeys(unknown)), available))
+    return daily, basic
+
+
+def _unknown_col_message(unknown: list[str], available: list[str]) -> str:
+    """M1 报错助手：可用列清单（当前数据面）+ difflib 最相似（≤2）+ 映射/文档提示。
+
+    文案前缀保持"未知列名"（历史契约，测试锁定）。
+    """
+    parts = [f"未知列名: {unknown}（当前数据面可用列: {available}）"]
+    closest = difflib.get_close_matches(unknown[0], available, n=2, cutoff=0.4)
+    if closest:
+        parts.append(f"；最接近的列: {closest}")
+    for raw_name, engine_name in _RAW_MAP_HINTS.items():
+        if raw_name in unknown:
+            parts.append(
+                f"；平台库原始列 {raw_name} 已映射为引擎列 {engine_name}，请请求 {engine_name}")
+    parts.append("；列/算子目录见 docs/interface.md（无字段白名单——可用列随当前数据面变化）")
+    return "".join(parts)
 
 # 列解码差异（SQL/参数方言之外的编译对职责）：
 # - duckdb: trade_date 为 'YYYYMMDD' VARCHAR → strptime；ts_code 去后缀
@@ -46,7 +137,7 @@ def _load_daily_duckdb(
     if want_adj:
         select_items.append("a.adj_factor")
     select_items += [f"d.{_COL_MAP.get(c, c)} AS {c}" for c in daily_cols]
-    select_items += [f"b.{_DAILY_BASIC_MAP[c]} AS {c}" for c in basic_cols]
+    select_items += [f"b.{_DAILY_BASIC_MAP.get(c, c)} AS {c}" for c in basic_cols]
     if "idx_ret" in requested:
         select_items.append("(m.pct_chg / 100.0) AS idx_ret")
     sql = "SELECT " + ", ".join(select_items) + " FROM daily d"
@@ -96,7 +187,7 @@ def _load_daily_ch(
     if want_adj:
         select_items.append("a.adj_factor")
     select_items += [f"d.{_COL_MAP.get(c, c)} AS {c}" for c in daily_cols]
-    select_items += [f"b.{_DAILY_BASIC_MAP[c]} AS {c}" for c in basic_cols]
+    select_items += [f"b.{_DAILY_BASIC_MAP.get(c, c)} AS {c}" for c in basic_cols]
     if "idx_ret" in requested:
         select_items.append("(m.pct_chg / 100.0) AS idx_ret")
     sql = "SELECT " + ", ".join(select_items) + f" FROM {db}.daily d"
@@ -131,22 +222,20 @@ def load_daily(
     列映射：trade_date（'YYYYMMDD'）→ date（pl.Date）、ts_code（'000001.SZ'）→ code（去后缀）；
     close 恒加载（forward/评估依赖）；adj_factor 恒 inner join（复权消费需要，
     daily 行缺 adj_factor 时被排除）；cols 含 turnover/total_mv/circ_mv 时 left join
-    daily_basic（turnover_rate → turnover）。date/code/adj_factor 为请求列白名单成员，
-    date/code 恒输出；adj_factor 仅在 cols 请求时输出。
+    daily_basic（turnover_rate → turnover）。
+
+    **无字段白名单（M1，spec 决策③修订）**：date/code 恒输出（引擎键列）；平台映射名
+    （_PLATFORM_COLS/_DAILY_BASIC_MAP 键）与当前数据面（rd.columns 实探 daily/
+    daily_basic schema）真实存在的任意列均可请求；供给失败 → 报错助手（可用列清单
+    + difflib 最相似候选 + 原始列映射提示，见 _unknown_col_message）。
     """
     if not codes:
         raise ValueError("universe 为空，无法加载数据")
     requested = cols if cols is not None else list(_PLATFORM_COLS)
-    unknown = [c for c in requested if c not in _KNOWN_COLS]
-    if unknown:
-        msg = f"未知列名: {unknown}（平台库可用列: {sorted(_KNOWN_COLS)}）"
-        if "vol" in unknown:
-            msg += "；平台库 vol 列已映射为 volume"
-        raise ValueError(msg)
+    daily_cols, basic_cols = _classify_columns(rd, requested)
 
     # close 恒选（forward/评估依赖）；out_cols 同时决定输出列顺序
-    daily_cols = list(dict.fromkeys([*[c for c in requested if c in _PLATFORM_COLS], "close"]))
-    basic_cols = [c for c in requested if c in _DAILY_BASIC_MAP]
+    daily_cols = list(dict.fromkeys([*daily_cols, "close"]))
     want_adj = "adj_factor" in requested
     out_cols = list(dict.fromkeys([*[c for c in requested if c not in {"date", "code"}], "close"]))
 
@@ -178,8 +267,8 @@ def _fill_duckdb(
         f"FILTER (WHERE d.{_COL_MAP.get(c, c)} IS NOT NULL) AS {c}"
         for c in daily_cols]
     select_items += [
-        f"last(b.{_DAILY_BASIC_MAP[c]} ORDER BY d.trade_date) "
-        f"FILTER (WHERE b.{_DAILY_BASIC_MAP[c]} IS NOT NULL) AS {c}"
+        f"last(b.{_DAILY_BASIC_MAP.get(c, c)} ORDER BY d.trade_date) "
+        f"FILTER (WHERE b.{_DAILY_BASIC_MAP.get(c, c)} IS NOT NULL) AS {c}"
         for c in basic_cols]
     if want_idx:
         select_items.append(
@@ -225,7 +314,7 @@ def _fill_ch(
         f"argMax(d.{_COL_MAP.get(c, c)}, d.trade_date) AS {c}"
         for c in daily_cols]
     select_items += [
-        f"argMax(b.{_DAILY_BASIC_MAP[c]}, d.trade_date) AS {c}"
+        f"argMax(b.{_DAILY_BASIC_MAP.get(c, c)}, d.trade_date) AS {c}"
         for c in basic_cols]
     if want_idx:
         select_items.append("argMax(m.pct_chg, d.trade_date) / 100.0 AS idx_ret")
@@ -268,11 +357,8 @@ def load_daily_fill_state(
     if not codes:
         raise ValueError("codes 为空")
     requested = list(cols)
-    unknown = [c for c in requested if c not in _KNOWN_COLS]
-    if unknown:
-        raise ValueError(f"未知列名: {unknown}（平台库可用列: {sorted(_KNOWN_COLS)}）")
-    daily_cols = [c for c in requested if c in _PLATFORM_COLS]
-    basic_cols = [c for c in requested if c in _DAILY_BASIC_MAP]
+    # M1：与 load_daily 同一分类器（无白名单 + 报错助手）——目录外真实列同样可取
+    daily_cols, basic_cols = _classify_columns(rd, requested)
     want_adj = "adj_factor" in requested
     want_idx = "idx_ret" in requested
     out_cols = list(dict.fromkeys([*[c for c in requested if c not in {"date", "code"}], "close"]))
