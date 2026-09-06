@@ -620,9 +620,24 @@ def build_final_db(
     天然大量 null 但对 PIT Universe 关键，staging 存在该字段时不得删除）；
     无保留列的表跳过建表；最终库已存在时整体替换（CREATE OR REPLACE，schema 收缩生效）。
     返回 {"excluded_fields": {table: [cols]}, "tables": [最终库表]}。
+
+    M5（design §5.3/§7-3）数据侧收口：最终库读面带违规列（引擎内部保留名
+    __factorlab_*/in_universe、未来前缀列 forward_*/future_*/target/label——
+    读面按构造即 PIT）→ fail fast 拒绝重建，不产出会污染读面供给的最终库。
     """
     if not staging.path.exists():
         raise ValueError(f"暂存库不存在: {staging.path}")
+    # 延迟 import：verify 顶层 import 本模块（assess_sparsity）——函数内收口，
+    # 避免 rebuild ↔ verify 循环 import
+    from factorlab.data.verify import ENGINE_SURFACE_TABLES, validate_surface_columns
+    surface_cols = {t: staging.describe(t)
+                    for t in staging.list_tables() if t in ENGINE_SURFACE_TABLES}
+    violations = validate_surface_columns(surface_cols)
+    if violations:
+        raise ValueError(
+            "最终库读面带违规列，拒绝重建（读面按构造即 PIT；内部/未来列属引擎或"
+            "运行时命名空间，命名纪律见活文档 catalog 命名类约定与 verify_all "
+            "column_discipline 报告）:\n" + "\n".join(violations))
     sparsity = assess_sparsity(staging)
     excluded: dict[str, list[str]] = {}
     for table, fields in sparsity.items():

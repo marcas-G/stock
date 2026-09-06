@@ -7,6 +7,7 @@ import typer
 from rich.console import Console
 
 from factorlab import __version__
+from factorlab.catalog import catalog_json, render_catalog_markdown
 from factorlab.config import settings
 from factorlab.data.fetcher import TeaJoinClient
 from factorlab.data.platform_db import PlatformDB
@@ -85,6 +86,8 @@ def op_remove(name: str) -> None:
 
 data_app = typer.Typer(no_args_is_help=True)
 app.add_typer(data_app, name="data")
+catalog_app = typer.Typer(no_args_is_help=True)
+app.add_typer(catalog_app, name="catalog")
 
 
 def _staging_db() -> PlatformDB:
@@ -324,6 +327,30 @@ def data_verify(compare: Path | None = None) -> None:
     """完整性自检 + 稀疏摘要 + 可选抽样对拍。"""
     report = verify_all(_final_db(), ref_db=compare)
     console.print(report)
+
+
+@catalog_app.command("dump")
+def catalog_dump(out: Path | None = typer.Option(None, "--out",
+                                                 help="输出文件路径（缺省打 stdout）")) -> None:
+    """机器可读目录 JSON（schema 元数据同源生成——写因子的 AI 开写前阅读）。"""
+    payload = catalog_json()
+    if out is None:
+        typer.echo(payload)  # 原样输出：rich console 会折行破坏 JSON
+    else:
+        out.write_text(payload, encoding="utf-8")
+        console.print(f"catalog JSON 已写入 {out}")
+
+
+@catalog_app.command("docs")
+def catalog_docs(out: Path | None = typer.Option(None, "--out",
+                                                 help="输出文件路径（缺省打 stdout）")) -> None:
+    """目录正文 markdown（与 docs/catalog.md 同源生成——活文档防陈旧）。"""
+    payload = render_catalog_markdown()
+    if out is None:
+        typer.echo(payload)
+    else:
+        out.write_text(payload, encoding="utf-8")
+        console.print(f"catalog 正文已写入 {out}")
 
 
 @app.command("corr")

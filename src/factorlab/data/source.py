@@ -25,6 +25,11 @@ _RAW_MAP_HINTS = {"vol": "volume", "ts_code": "code", "trade_date": "date"}
 # 市场状态代理：指数日收益（cols 含 idx_ret 时 join；默认中证 1000——股灾时段最丰富）
 _MARKET_INDEX = "000852.SH"
 
+# 报错助手文案片段（模块常量：活文档 catalog 错误修复手册的文案样板同源引用——
+# 换文案必须同步目录，目录 sample 逐字锁）
+_MSG_COLUMN_DIR_HINT = "；列/算子目录见 docs/interface.md（无字段白名单——可用列随当前数据面变化）"
+_MSG_RAW_MAPPED_PREFIX = "；平台库原始列 "
+
 # ---- M1（G3）：无白名单的列供给分类 + 报错助手 ----
 # 决策③修订：数据全开放——**任何真实存在的 daily/daily_basic 列都可用**，不维护
 # 字段白名单（_KNOWN_COLS 静态清单已撤销）。门只做名字类检查 + 供给面探测：
@@ -111,8 +116,8 @@ def _unknown_col_message(unknown: list[str], available: list[str]) -> str:
     for raw_name, engine_name in _RAW_MAP_HINTS.items():
         if raw_name in unknown:
             parts.append(
-                f"；平台库原始列 {raw_name} 已映射为引擎列 {engine_name}，请请求 {engine_name}")
-    parts.append("；列/算子目录见 docs/interface.md（无字段白名单——可用列随当前数据面变化）")
+                f"{_MSG_RAW_MAPPED_PREFIX}{raw_name} 已映射为引擎列 {engine_name}，请请求 {engine_name}")
+    parts.append(_MSG_COLUMN_DIR_HINT)
     return "".join(parts)
 
 # 列解码差异（SQL/参数方言之外的编译对职责）：

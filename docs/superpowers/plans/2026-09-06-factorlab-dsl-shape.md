@@ -159,3 +159,44 @@
   单。红阶段捕获真实缺口：YAML 双引号标量换行折叠（结构门不触发）；cs_rank
   语义是平台 stable pct 归一 (level-1)/(K-1)（测试期望值按平台语义修正——
   不变式仍区分 1.0 vs 0.0）。全量 pytest 2243 passed/13 skipped（基线 +35）。
+
+## M5 落地纪要（2026-09-07，活文档事无巨细 + 回归网 G4/G5——已完成，待全量绿提交）
+
+- **五部分活文档数据体** `src/factorlab/catalog.py`（`build_catalog`/`validate_catalog`/
+  `catalog_json`/`render_catalog_markdown`；`catalog dump`/`docs` CLI 薄封装）：
+  顶层键 {schema_version, scope, source_ref, open_surface, closed_gates,
+  error_handbook, known_approximations}。scope 声明数据全开放（无白名单，可用列随
+  当前数据面实探，目录是活文档不是校验门——纪律只做名字类检查）。
+- **开放面单源防漂移**：列 24 行 = source 常量驱动（_PLATFORM_COLS 9 行 table=daily、
+  _DAILY_BASIC_MAP 7 键 → daily_basic、_SPECIAL_COLS 4 → special，并集 = 读面供给
+  集）+ industry 属性行 + 3 原始列映射 hint 行（vol/ts_code/trade_date → volume/code/
+  date，语义含"未知列名"契约与映射）；未知新列无元数据 → build 期 KeyError（目录
+  完整性强制）。算子 platform_owned 6 行（returns/vwap/adv20 ts、gp_rank/gp_mean gp、
+  cs_stable_rank cs——含本窗口实证的裸秩/pct 归一/独木语义）；registry_inventory =
+  三注册器触发后 list_ops() 实时 42 名；elementwise_methods == ast_gate 白名单；
+  命名类约定 = engine.reserved import（含"未来列必须落 forward_*/future_*/target/
+  label"纪律文本 + 入库校验 validate_engine_surface 双重锁表述）。
+- **错误修复手册 21 行门表 + 文案三重锁**：id/category/rule/trigger/sample/fix/
+  tests/probe。墙三类门 11 行（syntax_efficiency 5/future 3/internal 3）→ closed_gates
+  = 手册墙行过滤（同源）；spec/processor/helper 门 10 行。三重锁：(a) sample 必须是
+  src 源码中**单个连续无插值字面量**逐字存在（**DB 无关门**：probe exec 真实 raise
+  ValueError/KeyError 且 str(exc) 含样板——runtime 与目录文案逐字一致；(c) 每行 tests
+  引用真实存在的 tests/<file>::<test>（37 引用逐一 grep 验证）。无 probe 的 4 个 DB
+  门 sample/fix **import 运行时常量**（verify._*_COL_SUFFIX/_FIX、source._MSG_*——
+  不抄写，防样板自证漂移）。
+- **known_approximations 3 条**（design §7 逐字语义）：industry 当前值非 PIT；未知
+  变量（def 形参）静态放行；未来列命名纪律是名字类检查（读面按构造即 PIT）。
+- **数据侧双重锁（未来列命名纪律入库）**：verify.py 增 ENGINE_SURFACE_TABLES 9 表
+  frozenset + validate_surface_columns 纯函数 + validate_engine_surface(rd)（双腿同一
+  函数、缺表空集）+ verify_all 报告 column_discipline 键；rebuild.build_final_db 入库
+  收口 fail-fast raise（lazy import 防 verify↔rebuild 循环）；moneyflow 等非读面表
+  不受纪律约束（数据全开放）。violation 文案常量与 catalog 门行 sample 同源。
+- **docs/catalog.md 提交** = render_catalog_markdown() 输出逐字节一致（生成器即
+  正文，防陈旧测试锁 bytes）。
+- **测试**：tests/test_catalog.py 27 例 + tests/test_column_discipline.py 18 例先红后绿
+  （含修复 M5b 红期未执行暴露的 harness 缺陷：PlatformDB.upsert 按 key 合并、表已存在
+  不会新增/删除列——违例态必须从建表那一刻构造，修复 = 重灌整表模拟上游重灌）。红
+  期修正：console.print 会折行破坏 JSON → stdout 走 typer.echo。新增回归锁（M5b）：
+  inline varargs 三形态拒绝、池组缺失 gp_rank/gp_mean 语义（实证：gp_rank = polars 裸
+  秩 1..K 非 pct——C 组独木 1.0 泄漏则 2.0，null 组互秩）。全量 pytest 双腿 + 覆盖
+  率达线后提交。

@@ -77,6 +77,8 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 | `factorlab op add <plugin.py> [--force]` | 校验并注册用户插件；同名冲突需 `--force` |
 | `factorlab op remove <name>` | 禁用用户插件，保留已计算历史结果 |
 | `factorlab serve [--port 8000] [--host 127.0.0.1]` | 启动只读 Web 可视化（浏览器查看已保存因子列表与图表，扫描 `results_dir`） |
+| `factorlab catalog dump [--out FILE]` | 列/算子活文档的机器可读 JSON（schema 元数据同源生成，供写因子的 AI 开写前阅读；缺省打 stdout） |
+| `factorlab catalog docs [--out FILE]` | 目录正文 markdown（与 `docs/catalog.md` 同源生成，活文档防陈旧） |
 
 ### `factorlab run <spec.yaml>`
 
@@ -181,6 +183,34 @@ run 后运维闭环的可视化环节（同 `results_dir` 锚定，只读）：
 ```bash
 factorlab serve                       # http://127.0.0.1:8000/
 factorlab serve --port 9000 --host 0.0.0.0
+```
+
+### `factorlab catalog dump` / `factorlab catalog docs`（M5：列/算子活文档）
+
+schema 元数据同源生成的**活文档**（教学与帮助，非校验门——数据全开放、无字段
+白名单，可用列随当前数据面实探）：
+
+- `factorlab catalog dump [--out FILE]`：机器可读 JSON（`ensure_ascii=False` +
+  sort_keys，确定性——两次导出逐字节一致）。`--out` 缺省打 stdout（原样输出，
+  不经 rich 折行）。正文结构：`scope`（范围声明）/`source_ref`（规格源）/
+  `open_surface`（`columns` 字段语义/单位/产生时点、`operators` 平台自有 +
+  注册清单 + 元素级方法链白名单 + 分区前缀族、`def_composition` 组合规范与示例、
+  `naming` 命名类约定）/`closed_gates`（三类墙门表）/`error_handbook`（错误修复
+  手册全量）/`known_approximations`（已知近似）。
+- `factorlab catalog docs [--out FILE]`：目录正文 markdown（同生成器，
+  `docs/catalog.md` 与之逐字节一致——防陈旧；文件缺失/不一致即测试失败）。
+- 同源防漂移：列清单 = `source._PLATFORM_COLS`/`_DAILY_BASIC_MAP`/`_SPECIAL_COLS`
+  常量并集、命名 = `engine.reserved` 常量、方法链 = `ast_gate.ALLOWED_EXPR_METHODS`、
+  注册清单 = `registry.list_ops()` 实时快照；错误手册每条文案样板逐字存在于源码
+  （DB 无关门还带 probe——真实触发且报错含样板），对照测试引用真实存在。
+- 错误语义：目录描述含省略式/占位词（`validate_catalog` 的 `STUB_WORDS`）或空
+  字段时 dump/docs 以非 0 退出并点名路径（活文档本身完整才可导出）。
+
+示例：
+
+```bash
+factorlab catalog dump --out /tmp/cat.json   # AI 开写前读这份 JSON
+factorlab catalog docs                       # 正文打 stdout
 ```
 
 ## 2. Spec 文件
@@ -895,7 +925,9 @@ ts_code 匹配 ^\d{6}\.(SH|SZ|BJ)$  且  symbol == ts_code 前六位
 
 - `verify_all(db, ref_db=None, n_stocks=30, seed=42) -> dict`
   完整性自检 + 稀疏摘要 + 可选抽样对拍。返回
-  `{"integrity": {table: {rule: ...}}, "sparse_summary": {table: {col: ...}}, "compare": dict | None}`。
+  `{"integrity": {table: {rule: ...}}, "sparse_summary": {table: {col: ...}},
+  "column_discipline": [读面列纪律违例, ...], "compare": dict | None}`
+  （`column_discipline` = M5 读面列命名纪律报告，见下）。
   ref_db（PlatformDB 或路径）给定且文件存在时执行对拍（参考库仅作参考，差异不
   阻塞，旧参考库清理流程以 verify 报告 + 用户显式确认为准）；参考库缺失时
   `compare` 为 None。空库不抛错：完整性规则逐条 skipped，稀疏摘要为空。
@@ -917,6 +949,29 @@ ts_code 匹配 ^\d{6}\.(SH|SZ|BJ)$  且  symbol == ts_code 前六位
   表返回零报告（含 `note`）；参考库无 daily 表或结构不兼容时返回零报告（含
   `note`）或对应段跳过（duckdb 错误捕获，不阻塞）。primary 为 `PlatformDB`，
   ref_path 接受 `PlatformDB | Path`。
+
+- 读面列命名纪律（M5/G4，双重锁的数据侧——活文档 catalog 命名类约定 + 入库
+  校验）：
+  - `ENGINE_SURFACE_TABLES`：引擎读面表 frozenset（daily/daily_basic/adj_factor/
+    index_daily/stock_basic/trade_cal/stock_st/stk_limit/suspend_d——engine 读
+    路径盘点；moneyflow 等非读面表不受纪律约束，研究/写入面自由）。
+  - `validate_surface_columns(tables: dict[str, list[str]]) -> list[str]`（纯函数，
+    无 DB）：逐引擎读面表检查列名——禁止引擎内部保留名（`__factorlab_*` 前缀 /
+    `in_universe` 精确名——注入/join 与引擎内部列碰撞毒化面板）与未来前缀列
+    （`forward_*/future_*` 前缀 / `target`/`label` 精确名——读面按构造即 PIT，
+    未来数据只由评估运行时内存计算或研究侧落库）。违例给表名/列名 + 修法指引。
+  - `validate_engine_surface(rd) -> list[str]`：对 Rd 句柄（duckdb|ch 双腿同一
+    函数）逐读面表实探列名检查（缺表 → 空列集，不报错）。
+  - `verify_all` 报告 `column_discipline` 键即上述违例列表（[] = 干净）。
+  - 入库收口：`rebuild.build_final_db` 对含违例列的最终库 **fail fast**——
+    raise `ValueError`（文案含违规列名），不产出会污染读面供给的最终库；修法 =
+    上游入库去掉该列后重灌整表（`upsert` 按 key 合并，表已存在不会新增/删除列）。
+
+- `factorlab.catalog`（M5 活文档数据体）：`build_catalog()`（组装目录 dict——
+  常量/registry 同源 + `validate_catalog` 通过才返回）、`validate_catalog(cat)`
+  （描述完整性门：空字段/占位式 STUB_WORDS 拒绝并点名 json 路径）、
+  `catalog_json()`（确定性 JSON 字符串）、`render_catalog_markdown()`（目录正文）。
+  CLI 入口 `factorlab catalog dump/docs` 即其薄封装（见 §1 同小节）。
 
 ## 4.0 读路径双后端（duckdb|ch）与 intraday 读接口
 

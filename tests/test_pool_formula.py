@@ -364,3 +364,42 @@ def test_pool_override_restricts_skeleton_only(env, tmp_path):
     assert set(zip(panel["date"].to_list(), panel["code"].to_list())) == \
         {(datetime.date(2024, 1, 9), "000001.SZ")}
     assert panel["signal"].to_list() == [16.0]
+
+
+# ================================================================
+# 10. 动态池 gp 组缺失（G5 语义回归网）：池使某行业组整组缺失——
+#     组统计只在该组**池内成员**上算，缺员不改组成、池外同组股不进统计
+# ================================================================
+
+def test_pool_gp_group_missing_semantics(env, tmp_path):
+    """池 close > 20 剔除银行组 A（11..16）留 C（31..36）——银行组每日缺 A；
+    主公式 gp_rank（裸秩语义：组内升序 1..K）若泄漏到全骨架同行业组，C 会按
+    {A,C} 组统计得秩 2.0 / mean 23.0，断言 1.0 / 33.0 锁死「组统计只见池内
+    成员」（组缺失股不进统计也不出成员行）。白酒 B 单员组、null 组 D/E 整组
+    在池——D/E 互组语义在池内截面同样成立（秩 1/2）。"""
+    attr_seed(env)
+    # d3（2024-01-04）close：A13 C33 B53 D43 E66 → 池内 {C,B,D,E}
+    day = datetime.date(2024, 1, 4)
+
+    rank_panel = run_factor(
+        _pool_spec(tmp_path, "close > 20", name="gp_miss_rk",
+                   main="signal = gp_rank(industry, close)"),
+        _ctx(env, tmp_path / "out_gp_miss_rk")).panel
+    rk = rank_panel.filter(pl.col("date") == day)
+    assert set(rk["code"].to_list()) == \
+        {"600000.SH", "600519.SH", "600036.SH", "601988.SH"}  # A 整组缺失无行
+    by_code = {c: v for c, v in zip(rk["code"].to_list(), rk["signal"].to_list())}
+    assert by_code["600000.SH"] == 1.0   # C 独木成银行组：裸秩 1
+    assert by_code["600036.SH"] == 1.0 and by_code["601988.SH"] == 2.0  # null 组 D/E 池内互秩
+    # 禁止行为：全骨架泄漏（A 进银行组统计）→ C 秩 2.0 ≠ 1.0
+    assert "000001.SZ" not in by_code
+
+    mean_panel = run_factor(
+        _pool_spec(tmp_path, "close > 20", name="gp_miss_mn",
+                   main="signal = gp_mean(industry, close)"),
+        _ctx(env, tmp_path / "out_gp_miss_mn")).panel
+    mn = mean_panel.filter(pl.col("date") == day)
+    mn_by_code = {c: v for c, v in zip(mn["code"].to_list(), mn["signal"].to_list())}
+    assert mn_by_code["600000.SH"] == 33.0   # 池内 C 自组均值（泄漏 → (13+33)/2=23）
+    assert mn_by_code["600519.SH"] == 53.0   # 白酒 B 整组在池——自组均值不变
+    assert mn_by_code["600036.SH"] == 54.5   # null 组 D/E 池内互均 (43+66)/2
