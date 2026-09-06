@@ -1,14 +1,19 @@
-"""M8-02：MarketOpenSnapshot + load_market_open_frame/snapshot。"""
+"""M8-02：MarketOpenSnapshot + load_market_open_frame/snapshot。
+
+库数据测试双腿参数化（env：duckdb|ch，见 tests/conftest.py）；daily/stk_limit/
+suspend_d 无 stock_basic——M8 契约输入恒为 canonical ts_code，SQL 精确匹配无需
+两层 IN。domain 测试（_mk_snapshot 手工构造）不触库，保持单腿。
+"""
 
 import datetime
 from dataclasses import FrozenInstanceError
 
-import duckdb
 import polars as pl
 import pytest
 
 from factorlab.data.execution import load_market_open_frame
 from factorlab.domain import MarketOpenSnapshot
+from factorlab.data.backend import open_read
 from factorlab.execution import load_market_open_snapshot
 
 EXEC = datetime.date(2024, 1, 8)
@@ -16,58 +21,52 @@ PREV = datetime.date(2024, 1, 5)
 
 CODES = ["000001.SZ", "600000.SH", "600519.SH"]
 
+_DAILY_COLS = [("trade_date", "date"), ("ts_code", "str"), ("open", "f64"),
+               ("pre_close", "f64")]
+_LIMIT_COLS = [("trade_date", "date"), ("ts_code", "str"), ("up_limit", "f64"),
+               ("down_limit", "f64")]
+_SUSPEND_COLS = [("trade_date", "date"), ("ts_code", "str"),
+                 ("suspend_type", "str"), ("suspend_timing", "str?")]
+_CAL_COLS = [("cal_date", "date"), ("is_open", "i64")]
 
-def _db(tmp_path, *, daily=None, limits=None, suspends=None, cal_open=None,
-        with_daily=True, with_limit=True, with_suspend=True, with_cal=True):
-    tmp_path.mkdir(parents=True, exist_ok=True)
-    db = duckdb.connect(tmp_path / "m.duckdb")
-    db.execute("CREATE TABLE trade_cal (cal_date VARCHAR, is_open INT)")
-    for d in (cal_open if cal_open is not None else [EXEC, PREV]):
-        db.execute("INSERT INTO trade_cal VALUES (?, 1)", (d.strftime("%Y%m%d"),))
+_D = EXEC.strftime("%Y%m%d")
+_P = PREV.strftime("%Y%m%d")
+
+
+def _seed(env, *, daily=(), limits=(), suspends=(), with_daily=True,
+          with_limit=True, with_suspend=True):
+    """trade_cal(EXEC/PREV open) + 可选 daily/stk_limit/suspend_d 表灌入。"""
+    tables = {"trade_cal": (_CAL_COLS, [(_D, 1), (_P, 1)])}
     if with_daily:
-        db.execute("CREATE TABLE daily (trade_date VARCHAR, ts_code VARCHAR, open DOUBLE, pre_close DOUBLE)")
-        for r in (daily or []):
-            db.execute("INSERT INTO daily VALUES (?,?,?,?)", r)
+        tables["daily"] = (_DAILY_COLS, list(daily))
     if with_limit:
-        db.execute("CREATE TABLE stk_limit (trade_date VARCHAR, ts_code VARCHAR, up_limit DOUBLE, down_limit DOUBLE)")
-        for r in (limits or []):
-            db.execute("INSERT INTO stk_limit VALUES (?,?,?,?)", r)
+        tables["stk_limit"] = (_LIMIT_COLS, list(limits))
     if with_suspend:
-        db.execute("CREATE TABLE suspend_d (trade_date VARCHAR, ts_code VARCHAR, "
-                   "suspend_type VARCHAR, suspend_timing VARCHAR)")
-        for r in (suspends or []):
-            db.execute("INSERT INTO suspend_d VALUES (?,?,?,?)", r)
-    return db
+        tables["suspend_d"] = (_SUSPEND_COLS, list(suspends))
+    env.seed(tables)
 
 
-def _golden_db(tmp_path):
-    """§74 golden：000001 全证据、600000 仅 suspend、600519 全证据。"""
-    return _db(tmp_path,
-               daily=[(EXEC.strftime("%Y%m%d"), "000001.SZ", 10.0, 9.8),
-                      (EXEC.strftime("%Y%m%d"), "600519.SH", 100.0, 99.0)],
-               limits=[(EXEC.strftime("%Y%m%d"), "000001.SZ", 10.78, 8.82),
-                       (EXEC.strftime("%Y%m%d"), "600519.SH", 108.9, 89.1)],
-               suspends=[(EXEC.strftime("%Y%m%d"), "600000.SH", "S", None)])
+def _golden_tables():
+    """§74 golden：000001 全证据、600000 仅 suspend、600519 全证据（全表描述）。"""
+    return {
+        "trade_cal": (_CAL_COLS, [(_D, 1), (_P, 1)]),
+        "daily": (_DAILY_COLS, [(_D, "000001.SZ", 10.0, 9.8),
+                                (_D, "600519.SH", 100.0, 99.0)]),
+        "stk_limit": (_LIMIT_COLS, [(_D, "000001.SZ", 10.78, 8.82),
+                                    (_D, "600519.SH", 108.9, 89.1)]),
+        "suspend_d": (_SUSPEND_COLS, [(_D, "600000.SH", "S", None)]),
+    }
 
 
-def _snap(db, codes=None):
-    db.close()
-    return load_market_open_snapshot(
-        None if db is None else _path_of(db), execution_date=EXEC,
-        codes=codes or CODES)
-
-
-def _path_of(db):
-    return db  # 占位——实际用 tmp_path 传入
+def _seed_golden(env):
+    env.seed(_golden_tables())
 
 
 # ---------------- golden ----------------
 
-def test_golden_three_code(tmp_path):
-    db = _golden_db(tmp_path)
-    path = tmp_path / "m.duckdb"
-    db.close()
-    snap = load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+def test_golden_three_code(env):
+    _seed_golden(env)
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
     f = snap.frame
     assert f.height == 3
     r1 = f.filter(pl.col("code") == "000001.SZ")
@@ -83,11 +82,9 @@ def test_golden_three_code(tmp_path):
 
 # ---------------- schema / dtypes ----------------
 
-def test_exact_schema(tmp_path):
-    db = _golden_db(tmp_path)
-    path = tmp_path / "m.duckdb"
-    db.close()
-    snap = load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+def test_exact_schema(env):
+    _seed_golden(env)
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
     assert snap.frame.columns == ["code", "open", "pre_close", "up_limit",
                                   "down_limit", "has_daily", "has_limit",
                                   "has_suspend_record", "is_suspended_at_open"]
@@ -102,75 +99,60 @@ def test_exact_schema(tmp_path):
     assert snap.execution_date == EXEC
 
 
-def test_canonical_code_guard(tmp_path):
-    db = _golden_db(tmp_path)
-    path = tmp_path / "m.duckdb"
-    db.close()
+def test_canonical_code_guard(env):
+    _seed_golden(env)
     with pytest.raises(ValueError):
-        load_market_open_snapshot(path, execution_date=EXEC, codes=["000001"])
+        load_market_open_snapshot(env.rd, execution_date=EXEC, codes=["000001"])
 
 
-def test_duplicate_input_code_fails(tmp_path):
-    db = _golden_db(tmp_path)
-    path = tmp_path / "m.duckdb"
-    db.close()
+def test_duplicate_input_code_fails(env):
+    _seed_golden(env)
     with pytest.raises(ValueError):
-        load_market_open_snapshot(path, execution_date=EXEC,
+        load_market_open_snapshot(env.rd, execution_date=EXEC,
                                   codes=["000001.SZ", "000001.SZ"])
 
 
-def test_input_order_invariant(tmp_path):
-    db = _golden_db(tmp_path)
-    path = tmp_path / "m.duckdb"
-    db.close()
-    a = load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
-    b = load_market_open_snapshot(path, execution_date=EXEC,
+def test_input_order_invariant(env):
+    _seed_golden(env)
+    a = load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
+    b = load_market_open_snapshot(env.rd, execution_date=EXEC,
                                   codes=list(reversed(CODES)))
     assert a.frame.equals(b.frame)
 
 
 # ---------------- duplicate policies ----------------
 
-def test_daily_duplicate_fails(tmp_path):
-    d = (EXEC.strftime("%Y%m%d"), "000001.SZ", 10.0, 9.8)
-    db = _db(tmp_path, daily=[d, d], limits=[(EXEC.strftime("%Y%m%d"), "600000.SH", 100.0, 90.0)])
-    path = tmp_path / "m.duckdb"
-    db.close()
+def test_daily_duplicate_fails(env):
+    d = (_D, "000001.SZ", 10.0, 9.8)
+    _seed(env, daily=[d, d], limits=[(_D, "600000.SH", 100.0, 90.0)])
     with pytest.raises(ValueError, match="重复|duplicate"):
-        load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+        load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
 
 
-def test_limit_duplicate_fails(tmp_path):
-    l = (EXEC.strftime("%Y%m%d"), "000001.SZ", 10.78, 8.82)
-    db = _db(tmp_path, daily=[(EXEC.strftime("%Y%m%d"), "000001.SZ", 10.0, 9.8)],
-             limits=[l, l])
-    path = tmp_path / "m.duckdb"
-    db.close()
+def test_limit_duplicate_fails(env):
+    l = (_D, "000001.SZ", 10.78, 8.82)
+    _seed(env, daily=[(_D, "000001.SZ", 10.0, 9.8)], limits=[l, l])
     with pytest.raises(ValueError, match="重复|duplicate"):
-        load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+        load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
 
 
-def test_suspend_duplicates_collapse(tmp_path):
-    db = _db(tmp_path, daily=[(EXEC.strftime("%Y%m%d"), "000001.SZ", 10.0, 9.8)],
-             limits=[(EXEC.strftime("%Y%m%d"), "600000.SH", 100.0, 90.0)],
-             suspends=[(EXEC.strftime("%Y%m%d"), "600000.SH", "S", None),
-                       (EXEC.strftime("%Y%m%d"), "600000.SH", "S", None)])
-    path = tmp_path / "m.duckdb"
-    db.close()
-    snap = load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+def test_suspend_duplicates_collapse(env):
+    _seed(env, daily=[(_D, "000001.SZ", 10.0, 9.8)],
+           limits=[(_D, "600000.SH", 100.0, 90.0)],
+           suspends=[(_D, "600000.SH", "S", None),
+                     (_D, "600000.SH", "S", None)])
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
     r = snap.frame.filter(pl.col("code") == "600000.SH")
     assert r.height == 1 and r["has_suspend_record"][0]
 
 
 # ---------------- missing-data semantics ----------------
 
-def test_single_code_missing_daily_represented(tmp_path):
+def test_single_code_missing_daily_represented(env):
     """600000 无 daily → has_daily=False 且 open=null（不 drop、不自动 suspend）。"""
-    db = _db(tmp_path, daily=[(EXEC.strftime("%Y%m%d"), "000001.SZ", 10.0, 9.8)],
-             limits=[(EXEC.strftime("%Y%m%d"), "600000.SH", 100.0, 90.0)])
-    path = tmp_path / "m.duckdb"
-    db.close()
-    snap = load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+    _seed(env, daily=[(_D, "000001.SZ", 10.0, 9.8)],
+          limits=[(_D, "600000.SH", 100.0, 90.0)])
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
     f = snap.frame
     assert f.height == 3
     r = f.filter(pl.col("code") == "600000.SH")
@@ -178,173 +160,153 @@ def test_single_code_missing_daily_represented(tmp_path):
     assert r["open"][0] is None and r["pre_close"][0] is None
 
 
-def test_single_code_missing_limit_represented(tmp_path):
-    db = _db(tmp_path, daily=[(EXEC.strftime("%Y%m%d"), "000001.SZ", 10.0, 9.8)],
-             limits=[(EXEC.strftime("%Y%m%d"), "600000.SH", 100.0, 90.0)])
-    path = tmp_path / "m.duckdb"
-    db.close()
-    snap = load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+def test_single_code_missing_limit_represented(env):
+    _seed(env, daily=[(_D, "000001.SZ", 10.0, 9.8)],
+          limits=[(_D, "600000.SH", 100.0, 90.0)])
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
     r = snap.frame.filter(pl.col("code") == "000001.SZ")
     assert r["has_limit"][0] is False and r["up_limit"][0] is None
 
 
-def test_zero_suspend_rows_valid(tmp_path):
-    db = _golden_db(tmp_path)
-    path = tmp_path / "m.duckdb"
-    db.close()
-    snap = load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+def test_zero_suspend_rows_valid(env):
+    _seed_golden(env)
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
     assert snap.frame["has_suspend_record"].sum() == 1
 
 
 # ---------------- invariants / raw price ----------------
 
-def test_raw_open_exactness(tmp_path):
-    db = _db(tmp_path, daily=[(EXEC.strftime("%Y%m%d"), "000001.SZ", 12.345678, 9.8)],
-             limits=[(EXEC.strftime("%Y%m%d"), "600000.SH", 100.0, 90.0)])
-    path = tmp_path / "m.duckdb"
-    db.close()
-    snap = load_market_open_snapshot(path, execution_date=EXEC, codes=["000001.SZ"])
+def test_raw_open_exactness(env):
+    _seed(env, daily=[(_D, "000001.SZ", 12.345678, 9.8)],
+          limits=[(_D, "600000.SH", 100.0, 90.0)])
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC,
+                                     codes=["000001.SZ"])
     assert snap.frame["open"][0] == 12.345678
 
 
-def test_has_daily_true_requires_finite_positive(tmp_path):
+def test_has_daily_true_requires_finite_positive(env):
     """M8-04B：invalid daily evidence → ExecutionDataQualityError（data quality，
-    非结构错误）。"""
+    非结构错误）。4 个坏值各占一个 code、逐 code 请求（同库分请求隔离）。"""
     from factorlab.domain import ExecutionDataQualityError
-    for i, bad in enumerate((0.0, -1.0, float("nan"), float("inf"))):
-        sub = tmp_path / f"bad{i}"
-        db = _db(sub, daily=[(EXEC.strftime("%Y%m%d"), "000001.SZ", bad, 9.8)],
-                 limits=[(EXEC.strftime("%Y%m%d"), "600000.SH", 100.0, 90.0)])
-        path = sub / "m.duckdb"
-        db.close()
+    bad_codes = ["000001.SZ", "000002.SZ", "000003.SZ", "000004.SZ"]
+    _seed(env,
+          daily=[(_D, c, bad, 9.8) for c, bad in zip(bad_codes,
+                                                     (0.0, -1.0, float("nan"),
+                                                      float("inf")))],
+          limits=[(_D, "600000.SH", 100.0, 90.0)])
+    for c in bad_codes:
         with pytest.raises(ExecutionDataQualityError):
-            load_market_open_snapshot(path, execution_date=EXEC, codes=["000001.SZ"])
+            load_market_open_snapshot(env.rd, execution_date=EXEC, codes=[c])
 
 
-def test_has_limit_true_invariant(tmp_path):
+def test_has_limit_true_invariant(env):
     """M8-04B：invalid limit evidence（down > up）→ ExecutionDataQualityError。"""
     from factorlab.domain import ExecutionDataQualityError
-    db = _db(tmp_path, daily=[(EXEC.strftime("%Y%m%d"), "000001.SZ", 10.0, 9.8)],
-             limits=[(EXEC.strftime("%Y%m%d"), "000001.SZ", 8.0, 10.0)])   # down > up
-    path = tmp_path / "m.duckdb"
-    db.close()
+    _seed(env, daily=[(_D, "000001.SZ", 10.0, 9.8)],
+          limits=[(_D, "000001.SZ", 8.0, 10.0)])   # down > up
     with pytest.raises(ExecutionDataQualityError, match="down|up"):
-        load_market_open_snapshot(path, execution_date=EXEC, codes=["000001.SZ"])
+        load_market_open_snapshot(env.rd, execution_date=EXEC, codes=["000001.SZ"])
 
 
 # ---------------- coverage gates / required tables ----------------
 
-def test_missing_daily_table_fails(tmp_path):
-    db = _db(tmp_path, with_daily=False)
-    path = tmp_path / "m.duckdb"
-    db.close()
+def test_missing_daily_table_fails(env):
+    _seed(env, with_daily=False)
     with pytest.raises(ValueError, match="daily"):
-        load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+        load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
 
 
-def test_missing_stk_limit_table_fails(tmp_path):
-    db = _db(tmp_path, with_limit=False)
-    path = tmp_path / "m.duckdb"
-    db.close()
+def test_missing_stk_limit_table_fails(env):
+    _seed(env, with_limit=False)
     with pytest.raises(ValueError, match="stk_limit"):
-        load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+        load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
 
 
-def test_missing_suspend_d_table_fails(tmp_path):
-    db = _db(tmp_path, with_suspend=False)
-    path = tmp_path / "m.duckdb"
-    db.close()
+def test_missing_suspend_d_table_fails(env):
+    _seed(env, with_suspend=False)
     with pytest.raises(ValueError, match="suspend_d"):
-        load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+        load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
 
 
-def test_non_open_execution_date_fails(tmp_path):
-    db = _golden_db(tmp_path)
-    path = tmp_path / "m.duckdb"
-    db.close()
+def test_non_open_execution_date_fails(env):
+    _seed_golden(env)
     with pytest.raises(ValueError, match="开放|open"):
-        load_market_open_snapshot(path, execution_date=datetime.date(2024, 1, 6),
+        load_market_open_snapshot(env.rd, execution_date=datetime.date(2024, 1, 6),
                                   codes=CODES)
 
 
-def test_global_daily_coverage_zero_fails(tmp_path):
+def test_global_daily_coverage_zero_fails(env):
     """trade_cal 当天开市但 daily 全市场 0 行 → fail（不假装全停牌）。"""
-    db = _db(tmp_path, daily=[], limits=[])
-    path = tmp_path / "m.duckdb"
-    db.close()
+    _seed(env, daily=[], limits=[])
     with pytest.raises(ValueError, match="coverage"):
-        load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+        load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
 
 
-def test_global_limit_coverage_zero_fails(tmp_path):
-    db = _db(tmp_path, daily=[(EXEC.strftime("%Y%m%d"), "000001.SZ", 10.0, 9.8)],
-             limits=[])
-    path = tmp_path / "m.duckdb"
-    db.close()
+def test_global_limit_coverage_zero_fails(env):
+    _seed(env, daily=[(_D, "000001.SZ", 10.0, 9.8)], limits=[])
     with pytest.raises(ValueError, match="stk_limit.*coverage|coverage"):
-        load_market_open_snapshot(path, execution_date=EXEC, codes=["000001.SZ"])
+        load_market_open_snapshot(env.rd, execution_date=EXEC,
+                                  codes=["000001.SZ"])
 
 
-def test_typed_empty_snapshot(tmp_path):
-    db = _golden_db(tmp_path)
-    path = tmp_path / "m.duckdb"
-    db.close()
-    snap = load_market_open_snapshot(path, execution_date=EXEC, codes=[])
+def test_typed_empty_snapshot(env):
+    _seed_golden(env)
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC, codes=[])
     assert snap.frame.height == 0
     assert snap.frame.schema["open"] == pl.Float64
     assert snap.frame.schema["has_daily"] == pl.Boolean
     assert snap.frame.schema["is_suspended_at_open"] == pl.Boolean
 
 
-def test_all_null_numeric_columns_float64(tmp_path):
+def test_all_null_numeric_columns_float64(env):
     """所有请求证券都无 limit → up/down 全 null 仍 Float64（非 Null dtype）。"""
-    db = _db(tmp_path, daily=[(EXEC.strftime("%Y%m%d"), "000001.SZ", 10.0, 9.8)],
-             limits=[(EXEC.strftime("%Y%m%d"), "600000.SH", 100.0, 90.0)])
-    path = tmp_path / "m.duckdb"
-    db.close()
-    snap = load_market_open_snapshot(path, execution_date=EXEC, codes=["000001.SZ"])
+    _seed(env, daily=[(_D, "000001.SZ", 10.0, 9.8)],
+          limits=[(_D, "600000.SH", 100.0, 90.0)])
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC,
+                                     codes=["000001.SZ"])
     assert snap.frame.schema["up_limit"] == pl.Float64
     assert snap.frame["up_limit"].null_count() == 1
 
 
 def test_row_order_invariant(tmp_path):
-    """daily/limit/suspend 行序变化 → snapshot frame.equals 相同。"""
-    d1, d2 = tmp_path / "d1", tmp_path / "d2"
-    db1 = _golden_db(d1)
-    p1 = d1 / "m.duckdb"
-    db1.close()
-    db2 = _golden_db(d2)
-    p2 = d2 / "m.duckdb"
-    db2.close()
-    a = load_market_open_snapshot(p1, execution_date=EXEC, codes=CODES)
-    b = load_market_open_snapshot(p2, execution_date=EXEC, codes=CODES)
+    """daily/limit/suspend 行序变化 → snapshot frame.equals 相同。
+
+    跨 DB 实例复现性——duckdb 单腿（同一数据描述 seed 两个独立文件比对；
+    ch 腿单实例内由查询语义天然确定，等同质行为由其余双腿测试覆盖）。
+    """
+    import dualbridge
+
+    p1 = tmp_path / "d1" / "m.duckdb"
+    p2 = tmp_path / "d2" / "m.duckdb"
+    p1.parent.mkdir(parents=True)
+    p2.parent.mkdir(parents=True)
+    dualbridge.seed_duckdb(p1, _golden_tables())
+    dualbridge.seed_duckdb(p2, _golden_tables())
+    a = load_market_open_snapshot(open_read(db_path=p1), execution_date=EXEC,
+                                  codes=CODES)
+    b = load_market_open_snapshot(open_read(db_path=p2), execution_date=EXEC,
+                                  codes=CODES)
     assert a.frame.equals(b.frame)
 
 
-def test_frozen_snapshot(tmp_path):
-    db = _golden_db(tmp_path)
-    path = tmp_path / "m.duckdb"
-    db.close()
-    snap = load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+def test_frozen_snapshot(env):
+    _seed_golden(env)
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
     with pytest.raises(FrozenInstanceError):
         snap.frame = pl.DataFrame()
 
 
-def test_no_is_tradable_field(tmp_path):
-    db = _golden_db(tmp_path)
-    path = tmp_path / "m.duckdb"
-    db.close()
-    snap = load_market_open_snapshot(path, execution_date=EXEC, codes=CODES)
+def test_no_is_tradable_field(env):
+    _seed_golden(env)
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
     assert "is_tradable" not in snap.frame.columns
     assert "can_buy" not in snap.frame.columns
 
 
-def test_data_layer_frame(tmp_path):
+def test_data_layer_frame(env):
     """load_market_open_frame 返回 9 列原始 frame（不经 domain）。"""
-    db = _golden_db(tmp_path)
-    path = tmp_path / "m.duckdb"
-    db.close()
-    frame = load_market_open_frame(path, execution_date=EXEC, codes=CODES)
+    _seed_golden(env)
+    frame = load_market_open_frame(env.rd, execution_date=EXEC, codes=CODES)
     assert frame.columns == ["code", "open", "pre_close", "up_limit",
                              "down_limit", "has_daily", "has_limit",
                              "has_suspend_record", "is_suspended_at_open"]

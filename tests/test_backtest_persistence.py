@@ -13,6 +13,7 @@ from factorlab.domain import (BacktestResult, NavSeries, PortfolioState,
                               PortfolioStatePhase, TargetPortfolio,
                               TargetPortfolioMeta)
 from factorlab.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
+from factorlab.data.backend import open_read
 from factorlab.execution import (ExecutionSpec, load_backtest_result,
                                  run_backtest, save_backtest_result)
 
@@ -69,7 +70,8 @@ def _target():
 def _run(tmp_path):
     return run_backtest(_target(),
                         ExecutionSpec.model_validate(
-                            {"initial_cash": 1_000_000.0}), _db(tmp_path))
+                            {"initial_cash": 1_000_000.0}),
+                        open_read(db_path=_db(tmp_path)))
 
 
 # ---------------- API / structure / manifest ----------------
@@ -170,7 +172,7 @@ def test_deterministic_output(tmp_path):
 def test_no_db_writes(tmp_path):
     dbp = _db(tmp_path)
     r = run_backtest(_target(), ExecutionSpec.model_validate(
-        {"initial_cash": 1_000_000.0}), dbp)
+        {"initial_cash": 1_000_000.0}), open_read(db_path=dbp))
     n0 = duckdb.connect(dbp).execute("SELECT count(*) FROM daily").fetchone()[0]
     save_backtest_result(r, tmp_path / "out")
     load_backtest_result(tmp_path / "out")

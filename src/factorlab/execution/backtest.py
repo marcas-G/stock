@@ -23,10 +23,10 @@ duckdb 直连。
 from __future__ import annotations
 
 from enum import Enum
-from pathlib import Path
 
 import polars as pl
 
+from factorlab.data.backend import Rd
 from factorlab.domain.accounting import PortfolioMarkSnapshot
 from factorlab.domain.backtest import (BacktestResult, ExecutionArtifact,
                                        NavSeries)
@@ -81,12 +81,14 @@ def _marks_from_snapshot(snapshot, codes: list[str], date) -> PortfolioMarkSnaps
 def run_backtest(
     target: TargetPortfolio,
     execution_spec: ExecutionSpec,
-    db_path: Path,
+    rd: Rd,
     *,
     marks: MarksPolicy = MarksPolicy.OPEN_BASED,
     decision_range: tuple | None = None,
 ) -> BacktestResult:
     """按 target.decision_dates 顺序编排完整 execution pipeline。
+
+    rd 为读句柄（duckdb|ch，经 data/backend.open_read 打开）。
 
     Raises:
         TypeError / ValueError / NotImplementedError / ExecutionDataQualityError
@@ -99,9 +101,8 @@ def run_backtest(
         raise TypeError(
             f"execution_spec 必须显式传入 ExecutionSpec（收到 "
             f"{type(execution_spec).__name__}——cost model 显式选择 Gate）")
-    if not isinstance(db_path, Path):
-        raise TypeError(
-            f"db_path 必须为 pathlib.Path（收到 {type(db_path).__name__}）")
+    if not isinstance(rd, Rd):
+        raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
     if marks is not MarksPolicy.OPEN_BASED:
         raise NotImplementedError(
             f"MarksPolicy v1 仅支持 OPEN_BASED（收到 {marks!r}——"
@@ -116,7 +117,7 @@ def run_backtest(
         raise ValueError("decision_range 内无任何 decision——empty run 拒绝")
 
     # ---- schedule（全 target——construct_order_batch 要求全局一致）----
-    schedule = resolve_execution_schedule(target, db_path)
+    schedule = resolve_execution_schedule(target, rd)
 
     def _exec_date(d):
         r = schedule.frame.filter(pl.col("decision_date") == d)
@@ -145,9 +146,9 @@ def run_backtest(
         t_rows = target.frame.filter(pl.col("decision_date") == decision_d)
         codes = sorted(set(state.positions["code"].to_list())
                        | set(t_rows["code"].to_list()))
-        snapshot = load_market_open_snapshot(db_path, execution_date=exec_date,
+        snapshot = load_market_open_snapshot(rd, execution_date=exec_date,
                                              codes=codes)
-        rules = resolve_security_quantity_rules(db_path, codes)
+        rules = resolve_security_quantity_rules(rd, codes)
 
         # ---- 已关闭 pipeline ----
         orders = construct_order_batch(target, schedule, state, snapshot,
@@ -193,7 +194,7 @@ def run_backtest(
                          post_nav.nav))
 
         # ---- overnight → 下一 PRE（最后 event 也 advance——final_state）----
-        state = advance_to_next_trading_day(post, fills, db_path)
+        state = advance_to_next_trading_day(post, fills, rd)
 
     nav_frame = pl.DataFrame(nav_rows, schema=["execution_date", "cash",
                                                "market_value", "nav"],

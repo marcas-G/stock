@@ -1,16 +1,18 @@
-"""M8-01B：Per-Security Quantity Rules——validators + resolver + SecurityQuantityRules。"""
+"""M8-01B：Per-Security Quantity Rules——validators + resolver + SecurityQuantityRules。
 
-import datetime
+双腿参数化（env：duckdb|ch，见 tests/conftest.py）：resolver 域测试以数据描述
+（stock_basic symbol/ts_code/market 全 "str"）env.seed 建库 → env.rd →
+resolve_security_quantity_rules(rd, codes)（src 已按 rd.backend 双腿分发）。
+纯 domain 校验器测试（不读库）保持单腿原样。
+"""
+
 from dataclasses import FrozenInstanceError
-from pathlib import Path
 
-import duckdb
 import polars as pl
 import pytest
 
 from factorlab.domain.execution import QuantityRuleKind
-from factorlab.execution import (SecurityQuantityRules,
-                                 resolve_security_quantity_rules,
+from factorlab.execution import (resolve_security_quantity_rules,
                                  is_valid_buy_quantity,
                                  is_valid_sell_quantity)
 
@@ -119,35 +121,24 @@ def test_sell_zero_fails():
     assert is_valid_sell_quantity(LOT, holding_quantity=100, sell_quantity=0) is False
 
 
-# ---------------- resolver fixture ----------------
+# ---------------- resolver（stock_basic reference → per-security rules） ----------------
 
-def _ref_db(tmp_path, rows):
-    tmp_path.mkdir(parents=True, exist_ok=True)
-    db = duckdb.connect(tmp_path / "r.duckdb")
-    db.execute("CREATE TABLE stock_basic (symbol VARCHAR, ts_code VARCHAR, market VARCHAR)")
-    db.executemany("INSERT INTO stock_basic VALUES (?,?,?)", rows)
-    return db
+_SB_COLS = [("symbol", "str"), ("ts_code", "str"), ("market", "str")]
 
 
-def _rules(db, codes):
-    db.close()
-    return resolve_security_quantity_rules(tmp_path_of(db), codes)
+def _seed(env, rows):
+    """stock_basic 数据描述 seed（行 = (symbol, ts_code, market)；env.seed 幂等）。"""
+    env.seed({"stock_basic": (_SB_COLS, rows)})
 
 
-def tmp_path_of(db):
-    return db  # 占位
-
-
-def test_resolver_exact_rules(tmp_path):
-    db = _ref_db(tmp_path, [
+def test_resolver_exact_rules(env):
+    _seed(env, [
         ("600000", "600000.SH", "主板"), ("000001", "000001.SZ", "主板"),
         ("300001", "300001.SZ", "创业板"), ("688001", "688001.SH", "科创板"),
         ("920001", "920001.BJ", "北交所")])
-    path = tmp_path / "r.duckdb"
-    db.close()
-    rules = resolve_security_quantity_rules(path, ["600000.SH", "000001.SZ",
-                                                   "300001.SZ", "688001.SH",
-                                                   "920001.BJ"])
+    rules = resolve_security_quantity_rules(env.rd, ["600000.SH", "000001.SZ",
+                                                      "300001.SZ", "688001.SH",
+                                                      "920001.BJ"])
     f = rules.frame
     assert f.columns == ["code", "market", "rule"]
     assert f["code"].to_list() == ["000001.SZ", "300001.SZ", "600000.SH",
@@ -157,86 +148,70 @@ def test_resolver_exact_rules(tmp_path):
                                    "bse_min_100_step_1"]
 
 
-def test_resolver_unknown_market_fails(tmp_path):
-    db = _ref_db(tmp_path, [("000001", "000001.SZ", "UNKNOWN")])
-    path = tmp_path / "r.duckdb"
-    db.close()
+def test_resolver_unknown_market_fails(env):
+    _seed(env, [("000001", "000001.SZ", "UNKNOWN")])
     with pytest.raises(ValueError, match="market"):
-        resolve_security_quantity_rules(path, ["000001.SZ"])
+        resolve_security_quantity_rules(env.rd, ["000001.SZ"])
 
 
-def test_resolver_wrong_suffix_fails(tmp_path):
+def test_resolver_wrong_suffix_fails(env):
     """科创板 + .SZ（impossible combination）→ fail（不只按 market 分类）。"""
-    db = _ref_db(tmp_path, [("688001", "688001.SZ", "科创板")])
-    path = tmp_path / "r.duckdb"
-    db.close()
+    _seed(env, [("688001", "688001.SZ", "科创板")])
     with pytest.raises(ValueError, match="科创板|suffix|组合"):
-        resolve_security_quantity_rules(path, ["688001.SZ"])
+        resolve_security_quantity_rules(env.rd, ["688001.SZ"])
 
 
-def test_resolver_missing_reference_fails(tmp_path):
-    db = _ref_db(tmp_path, [("600000", "600000.SH", "主板")])
-    path = tmp_path / "r.duckdb"
-    db.close()
+def test_resolver_missing_reference_fails(env):
+    _seed(env, [("600000", "600000.SH", "主板")])
     with pytest.raises(ValueError, match="缺失|找不到"):
-        resolve_security_quantity_rules(path, ["600000.SH", "000001.SZ"])
+        resolve_security_quantity_rules(env.rd, ["600000.SH", "000001.SZ"])
 
 
-def test_resolver_duplicate_reference_fails(tmp_path):
-    db = _ref_db(tmp_path, [("600000", "600000.SH", "主板"),
-                            ("600000", "600000.SH", "主板")])
-    path = tmp_path / "r.duckdb"
-    db.close()
+def test_resolver_duplicate_reference_fails(env):
+    _seed(env, [("600000", "600000.SH", "主板"),
+                ("600000", "600000.SH", "主板")])
     with pytest.raises(ValueError, match="重复"):
-        resolve_security_quantity_rules(path, ["600000.SH"])
+        resolve_security_quantity_rules(env.rd, ["600000.SH"])
 
 
-def test_resolver_row_order_invariant(tmp_path):
-    d1, d2 = tmp_path / "d1", tmp_path / "d2"
-    db1 = _ref_db(d1, [("600000", "600000.SH", "主板"), ("000001", "000001.SZ", "主板")])
-    p1 = d1 / "r.duckdb"
-    db1.close()
-    db2 = _ref_db(d2, [("000001", "000001.SZ", "主板"), ("600000", "600000.SH", "主板")])
-    p2 = d2 / "r.duckdb"
-    db2.close()
-    a = resolve_security_quantity_rules(p1, ["600000.SH", "000001.SZ"])
-    b = resolve_security_quantity_rules(p2, ["000001.SZ", "600000.SH"])
+def test_resolver_row_order_invariant(env):
+    """stock_basic 行序无关：同内容倒序二次 seed（幂等替换）后输出 frame 不变。"""
+    _seed(env, [("600000", "600000.SH", "主板"), ("000001", "000001.SZ", "主板")])
+    a = resolve_security_quantity_rules(env.rd, ["600000.SH", "000001.SZ"])
+    if env.backend == "duckdb":
+        # duckdb 腿 rd 为 read_only 连接：二次 seed（rw 连接）同文件前先释放重开
+        env.rd.close()
+        env._rd = None
+    _seed(env, [("000001", "000001.SZ", "主板"), ("600000", "600000.SH", "主板")])
+    b = resolve_security_quantity_rules(env.rd, ["000001.SZ", "600000.SH"])
     assert a.frame.equals(b.frame)
 
 
-def test_resolver_empty_codes(tmp_path):
-    db = _ref_db(tmp_path, [("600000", "600000.SH", "主板")])
-    path = tmp_path / "r.duckdb"
-    db.close()
-    rules = resolve_security_quantity_rules(path, [])
+def test_resolver_empty_codes(env):
+    _seed(env, [("600000", "600000.SH", "主板")])
+    rules = resolve_security_quantity_rules(env.rd, [])
     assert rules.frame.height == 0
     assert rules.frame.schema["code"] == pl.String
     assert rules.frame.schema["market"] == pl.String
     assert rules.frame.schema["rule"] == pl.String
 
 
-def test_resolver_codes_validation(tmp_path):
-    db = _ref_db(tmp_path, [("600000", "600000.SH", "主板")])
-    path = tmp_path / "r.duckdb"
-    db.close()
+def test_resolver_codes_validation(env):
+    _seed(env, [("600000", "600000.SH", "主板")])
     with pytest.raises(ValueError):
-        resolve_security_quantity_rules(path, ["600000.SH", "600000.SH"])
+        resolve_security_quantity_rules(env.rd, ["600000.SH", "600000.SH"])
     with pytest.raises(ValueError):
-        resolve_security_quantity_rules(path, ["600000"])
+        resolve_security_quantity_rules(env.rd, ["600000"])
 
 
-def test_rules_frozen(tmp_path):
-    db = _ref_db(tmp_path, [("600000", "600000.SH", "主板")])
-    path = tmp_path / "r.duckdb"
-    db.close()
-    rules = resolve_security_quantity_rules(path, ["600000.SH"])
+def test_rules_frozen(env):
+    _seed(env, [("600000", "600000.SH", "主板")])
+    rules = resolve_security_quantity_rules(env.rd, ["600000.SH"])
     with pytest.raises(FrozenInstanceError):
         rules.frame = pl.DataFrame()
 
 
-def test_market_non_empty(tmp_path):
-    db = _ref_db(tmp_path, [("600000", "600000.SH", "")])
-    path = tmp_path / "r.duckdb"
-    db.close()
+def test_market_non_empty(env):
+    _seed(env, [("600000", "600000.SH", "")])
     with pytest.raises(ValueError, match="market"):
-        resolve_security_quantity_rules(path, ["600000.SH"])
+        resolve_security_quantity_rules(env.rd, ["600000.SH"])

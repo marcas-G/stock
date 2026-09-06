@@ -9,15 +9,20 @@ is_suspended_at_open；runtime 重新 enforce production source contract：
 - R + non-null timing = source 未证明组合 → fail
 - exact duplicate（type, timing）collapse；dedup 后 >1 distinct event → fail
   （production max distinct = 1；未知结构 fail fast，不发明 precedence）
+
+Loader 库测试双腿参数化（env：duckdb|ch，见 tests/conftest.py）；suspend 值经
+"str?"（Nullable）描述建模——NULL type/timing 在 ch 腿 = Nullable 列 NULL。
+duckdb 文件语义（loader 只读不改库）与跨实例复现性留 duckdb 单腿；
+domain/source-audit 测试不触库，保持单腿。
 """
 
 import datetime
-from pathlib import Path
 
 import duckdb
 import polars as pl
 import pytest
 
+from factorlab.data.backend import open_read
 from factorlab.data.execution import load_market_open_frame
 from factorlab.domain import MarketOpenSnapshot
 from factorlab.execution import load_market_open_snapshot
@@ -28,39 +33,32 @@ FILLER = "601111.SH"   # 无 suspend 事件的填充证券（保持 requested sk
 
 CODES = ["000001.SZ", "600000.SH", "601111.SH"]
 
+_DAILY_COLS = [("trade_date", "date"), ("ts_code", "str"), ("open", "f64"),
+               ("pre_close", "f64")]
+_LIMIT_COLS = [("trade_date", "date"), ("ts_code", "str"), ("up_limit", "f64"),
+               ("down_limit", "f64")]
+_CAL_COLS = [("cal_date", "date"), ("is_open", "i64")]
 
-def _path(tmp_path):
-    return tmp_path / "s.duckdb"
 
-
-def _db(tmp_path, *, suspends=None, with_timing_col=True, with_type_col=True):
-    """daily/stk_limit 各一行 + 可选 suspend_d rows（返回已连接的 duckdb）。"""
-    tmp_path.mkdir(parents=True, exist_ok=True)
-    db = duckdb.connect(_path(tmp_path))
-    db.execute("CREATE TABLE trade_cal (cal_date VARCHAR, is_open INT)")
-    db.execute("INSERT INTO trade_cal VALUES (?, 1)", (D,))
-    db.execute("CREATE TABLE daily (trade_date VARCHAR, ts_code VARCHAR, open DOUBLE, pre_close DOUBLE)")
-    db.execute("INSERT INTO daily VALUES (?,?,?,?)", (D, "601111.SH", 10.0, 9.8))
-    db.execute("CREATE TABLE stk_limit (trade_date VARCHAR, ts_code VARCHAR, up_limit DOUBLE, down_limit DOUBLE)")
-    db.execute("INSERT INTO stk_limit VALUES (?,?,?,?)", (D, "601111.SH", 11.0, 9.0))
-    cols = ["trade_date VARCHAR", "ts_code VARCHAR"]
+def _seed(env, *, suspends=None, with_timing_col=True, with_type_col=True):
+    """daily/stk_limit 各一行（FILLER）+ 可选 suspend_d rows + trade_cal(D open)。"""
+    tables = {"trade_cal": (_CAL_COLS, [(D, 1)]),
+              "daily": (_DAILY_COLS, [(D, FILLER, 10.0, 9.8)]),
+              "stk_limit": (_LIMIT_COLS, [(D, FILLER, 11.0, 9.0)])}
+    cols = [("trade_date", "date"), ("ts_code", "str")]
     if with_type_col:
-        cols.append("suspend_type VARCHAR")
+        cols.append(("suspend_type", "str?"))
     if with_timing_col:
-        cols.append("suspend_timing VARCHAR")
-    db.execute(f"CREATE TABLE suspend_d ({', '.join(cols)})")
-    for r in (suspends or []):
-        placeholders = ", ".join(["?"] * len(r))
-        db.execute(f"INSERT INTO suspend_d VALUES ({placeholders})", r)
-    return db
+        cols.append(("suspend_timing", "str?"))
+    tables["suspend_d"] = (cols, list(suspends or []))
+    env.seed(tables)
 
 
-def _load(tmp_path, *, suspends=None, with_timing_col=True, with_type_col=True,
+def _load(env, *, suspends=None, with_timing_col=True, with_type_col=True,
           codes=None):
-    db = _db(tmp_path, suspends=suspends, with_timing_col=with_timing_col,
-             with_type_col=with_type_col)
-    db.close()
-    return load_market_open_snapshot(_path(tmp_path), execution_date=EXEC,
+    _seed(env, suspends=suspends, with_timing_col=with_timing_col,
+          with_type_col=with_type_col)
+    return load_market_open_snapshot(env.rd, execution_date=EXEC,
                                      codes=codes or CODES)
 
 
@@ -70,152 +68,176 @@ def _row(snap, code):
 
 # ---------------- no event / basic semantics ----------------
 
-def test_no_event_false_false(tmp_path):
-    snap = _load(tmp_path)
-    r = _row(snap, "601111.SH")
+def test_no_event_false_false(env):
+    snap = _load(env)
+    r = _row(snap, FILLER)
     assert r[7] is False and r[8] is False      # has_suspend_record / is_suspended_at_open
 
 
-def test_s_null_true_true(tmp_path):
-    snap = _load(tmp_path, suspends=[(D, "000001.SZ", "S", None)])
+def test_s_null_true_true(env):
+    snap = _load(env, suspends=[(D, "000001.SZ", "S", None)])
     r = _row(snap, "000001.SZ")
     assert r[7] is True and r[8] is True
 
 
-def test_r_null_true_false(tmp_path):
-    snap = _load(tmp_path, suspends=[(D, "000001.SZ", "R", None)])
+def test_r_null_true_false(env):
+    snap = _load(env, suspends=[(D, "000001.SZ", "R", None)])
     r = _row(snap, "000001.SZ")
     assert r[7] is True and r[8] is False
 
 
-def test_same_session_covering_open(tmp_path):
-    snap = _load(tmp_path, suspends=[(D, "000001.SZ", "S", "09:30-10:00")])
+def test_same_session_covering_open(env):
+    snap = _load(env, suspends=[(D, "000001.SZ", "S", "09:30-10:00")])
     r = _row(snap, "000001.SZ")
     assert r[7] is True and r[8] is True
 
 
-def test_later_intraday(tmp_path):
-    snap = _load(tmp_path, suspends=[(D, "000001.SZ", "S", "10:00-10:30")])
+def test_later_intraday(env):
+    snap = _load(env, suspends=[(D, "000001.SZ", "S", "10:00-10:30")])
     r = _row(snap, "000001.SZ")
     assert r[7] is True and r[8] is False
 
 
-def test_full_cycle(tmp_path):
-    snap = _load(tmp_path, suspends=[(D, "000001.SZ", "S", "09:30-09:30")])
+def test_full_cycle(env):
+    snap = _load(env, suspends=[(D, "000001.SZ", "S", "09:30-09:30")])
     r = _row(snap, "000001.SZ")
     assert r[7] is True and r[8] is True
 
 
-def test_wrapped_not_covering(tmp_path):
-    snap = _load(tmp_path, suspends=[(D, "000001.SZ", "S", "13:00-9:30")])
+def test_wrapped_not_covering(env):
+    snap = _load(env, suspends=[(D, "000001.SZ", "S", "13:00-9:30")])
     r = _row(snap, "000001.SZ")
     assert r[7] is True and r[8] is False
 
 
-def test_wrapped_covering_open(tmp_path):
-    snap = _load(tmp_path, suspends=[(D, "000001.SZ", "S", "13:00-10:00")])
+def test_wrapped_covering_open(env):
+    snap = _load(env, suspends=[(D, "000001.SZ", "S", "13:00-10:00")])
     r = _row(snap, "000001.SZ")
     assert r[7] is True and r[8] is True
 
 
-def test_multi_interval_covering(tmp_path):
-    snap = _load(tmp_path, suspends=[(D, "000001.SZ", "S", "09:30-10:31,10:31-14:57")])
+def test_multi_interval_covering(env):
+    snap = _load(env, suspends=[(D, "000001.SZ", "S", "09:30-10:31,10:31-14:57")])
     r = _row(snap, "000001.SZ")
     assert r[7] is True and r[8] is True
 
 
-def test_multi_interval_not_covering(tmp_path):
-    snap = _load(tmp_path, suspends=[(D, "000001.SZ", "S", "10:00-10:30,13:00-14:00")])
+def test_multi_interval_not_covering(env):
+    snap = _load(env, suspends=[(D, "000001.SZ", "S", "10:00-10:30,13:00-14:00")])
     r = _row(snap, "000001.SZ")
     assert r[7] is True and r[8] is False
 
 
 # ---------------- duplicate / multiplicity contract ----------------
 
-def test_exact_duplicate_collapse(tmp_path):
-    snap = _load(tmp_path, suspends=[(D, "000001.SZ", "S", "09:30-10:00"),
-                                         (D, "000001.SZ", "S", "09:30-10:00")])
+def test_exact_duplicate_collapse(env):
+    snap = _load(env, suspends=[(D, "000001.SZ", "S", "09:30-10:00"),
+                                (D, "000001.SZ", "S", "09:30-10:00")])
     f = snap.frame.filter(pl.col("code") == "000001.SZ")
     assert f.height == 1 and f["has_suspend_record"][0] and f["is_suspended_at_open"][0]
 
 
-def test_distinct_duplicate_fails(tmp_path):
+def test_distinct_duplicate_fails(env):
     with pytest.raises(ValueError, match="distinct|多事件|multi"):
-        _load(tmp_path, suspends=[(D, "000001.SZ", "S", None),
-                                      (D, "000001.SZ", "R", None)])
+        _load(env, suspends=[(D, "000001.SZ", "S", None),
+                             (D, "000001.SZ", "R", None)])
 
 
-def test_two_distinct_s_events_fail(tmp_path):
+def test_two_distinct_s_events_fail(env):
     with pytest.raises(ValueError, match="distinct|多事件|multi"):
-        _load(tmp_path, suspends=[(D, "000001.SZ", "S", "09:30-10:00"),
-                                      (D, "000001.SZ", "S", "13:00-14:00")])
+        _load(env, suspends=[(D, "000001.SZ", "S", "09:30-10:00"),
+                             (D, "000001.SZ", "S", "13:00-14:00")])
 
 
-def test_r_with_timing_fails(tmp_path):
+def test_r_with_timing_fails(env):
     with pytest.raises(ValueError, match="R|timing|source"):
-        _load(tmp_path, suspends=[(D, "000001.SZ", "R", "09:30-10:00")])
+        _load(env, suspends=[(D, "000001.SZ", "R", "09:30-10:00")])
 
 
 # ---------------- invalid source values ----------------
 
 @pytest.mark.parametrize("bad_type", [None, "", "X", "S ", " R"])
-def test_invalid_suspend_type_fails(tmp_path, bad_type):
+def test_invalid_suspend_type_fails(env, bad_type):
     with pytest.raises(ValueError, match="suspend_type"):
-        _load(tmp_path, suspends=[(D, "000001.SZ", bad_type, None)])
+        _load(env, suspends=[(D, "000001.SZ", bad_type, None)])
 
 
-def test_invalid_timing_propagates(tmp_path):
+def test_invalid_timing_propagates(env):
     """S/foo → parser ValueError 向上穿透（不转为 record=True/open=False）。"""
     with pytest.raises(ValueError, match="segment|timing|suspend"):
-        _load(tmp_path, suspends=[(D, "000001.SZ", "S", "foo")])
+        _load(env, suspends=[(D, "000001.SZ", "S", "foo")])
 
 
-def test_empty_string_timing_fails(tmp_path):
+def test_empty_string_timing_fails(env):
     with pytest.raises(ValueError):
-        _load(tmp_path, suspends=[(D, "000001.SZ", "S", "")])
+        _load(env, suspends=[(D, "000001.SZ", "S", "")])
 
 
 # ---------------- schema contract（M8-02B0 runtime enforcement） ----------------
 
-def test_missing_suspend_timing_column_fails(tmp_path):
+def test_missing_suspend_timing_column_fails(env):
     with pytest.raises(ValueError, match="suspend_timing"):
-        _load(tmp_path, with_timing_col=False,
+        _load(env, with_timing_col=False,
               suspends=[(D, "000001.SZ", "S")])
 
 
-def test_missing_suspend_type_column_fails(tmp_path):
+def test_missing_suspend_type_column_fails(env):
     with pytest.raises(ValueError, match="suspend_type"):
-        _load(tmp_path, with_type_col=False,
+        _load(env, with_type_col=False,
               suspends=[(D, "000001.SZ", "09:30-10:00")])
 
 
-def test_skeleton_rows_equal_codes(tmp_path):
-    snap = _load(tmp_path, suspends=[(D, "000001.SZ", "S", None),
-                                         (D, "600000.SH", "R", None)])
+def test_skeleton_rows_equal_codes(env):
+    snap = _load(env, suspends=[(D, "000001.SZ", "S", None),
+                                (D, "600000.SH", "R", None)])
     assert snap.frame.height == 3
     assert snap.frame["code"].to_list() == sorted(CODES)
 
 
 def test_row_order_determinism(tmp_path):
-    """exact duplicate 行序变化 → snapshot equals。"""
-    d1, d2 = tmp_path / "d1", tmp_path / "d2"
-    a = _load(d1, suspends=[(D, "000001.SZ", "S", "09:30-10:00"),
-                            (D, "000001.SZ", "S", "09:30-10:00")])
-    b = _load(d2, suspends=[(D, "000001.SZ", "S", "09:30-10:00"),
-                            (D, "000001.SZ", "S", "09:30-10:00")])
+    """exact duplicate 行序变化 → snapshot equals。
+
+    跨 DB 实例复现性——duckdb 单腿（同一数据描述 seed 两个独立文件比对）。
+    """
+    import dualbridge
+
+    tables = {"trade_cal": (_CAL_COLS, [(D, 1)]),
+              "daily": (_DAILY_COLS, [(D, FILLER, 10.0, 9.8)]),
+              "stk_limit": (_LIMIT_COLS, [(D, FILLER, 11.0, 9.0)]),
+              "suspend_d": ([("trade_date", "date"), ("ts_code", "str"),
+                             ("suspend_type", "str?"), ("suspend_timing", "str?")],
+                            [(D, "000001.SZ", "S", "09:30-10:00"),
+                             (D, "000001.SZ", "S", "09:30-10:00")])}
+    p1 = tmp_path / "d1" / "s.duckdb"
+    p2 = tmp_path / "d2" / "s.duckdb"
+    p1.parent.mkdir(parents=True)
+    p2.parent.mkdir(parents=True)
+    dualbridge.seed_duckdb(p1, tables)
+    dualbridge.seed_duckdb(p2, tables)
+    a = load_market_open_snapshot(open_read(db_path=p1), execution_date=EXEC,
+                                  codes=CODES)
+    b = load_market_open_snapshot(open_read(db_path=p2), execution_date=EXEC,
+                                  codes=CODES)
     assert a.frame.equals(b.frame)
 
 
 def test_loader_does_not_modify_db(tmp_path):
-    db = _db(tmp_path, suspends=[(D, "000001.SZ", "S", "09:30-10:00")])
-    path = _path(tmp_path)
-    before = db.execute("SELECT count(*) FROM suspend_d").fetchone()[0]
-    db.close()
-    load_market_open_frame(path, execution_date=EXEC, codes=CODES)
-    con = duckdb.connect(path, read_only=True)
+    """loader 只读：不写库（duckdb 文件语义单腿——rw 打开数行再只读重开比对）。"""
+    import dualbridge
+
+    tables = {"trade_cal": (_CAL_COLS, [(D, 1)]),
+              "daily": (_DAILY_COLS, [(D, FILLER, 10.0, 9.8)]),
+              "stk_limit": (_LIMIT_COLS, [(D, FILLER, 11.0, 9.0)]),
+              "suspend_d": ([("trade_date", "date"), ("ts_code", "str"),
+                             ("suspend_type", "str?"), ("suspend_timing", "str?")],
+                            [(D, "000001.SZ", "S", "09:30-10:00")])}
+    p = tmp_path / "s.duckdb"
+    dualbridge.seed_duckdb(p, tables)
+    load_market_open_frame(open_read(db_path=p), execution_date=EXEC, codes=CODES)
+    con = duckdb.connect(p, read_only=True)
     after = con.execute("SELECT count(*) FROM suspend_d").fetchone()[0]
     con.close()
-    assert before == after == 1
+    assert after == 1
 
 
 def test_import_no_cycle():
@@ -231,10 +253,9 @@ def test_import_no_cycle():
             f"suspension.py 不得 import {forbidden}"
 
 
-def test_empty_codes_typed_empty_9_columns(tmp_path):
-    _db(tmp_path).close()
-    frame = load_market_open_frame(_path(tmp_path), execution_date=EXEC,
-                                   codes=[])
+def test_empty_codes_typed_empty_9_columns(env):
+    _seed(env)
+    frame = load_market_open_frame(env.rd, execution_date=EXEC, codes=[])
     assert frame.columns == ["code", "open", "pre_close", "up_limit", "down_limit",
                              "has_daily", "has_limit", "has_suspend_record",
                              "is_suspended_at_open"]

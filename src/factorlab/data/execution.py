@@ -13,26 +13,101 @@ duplicate collapse、dedup 后 >1 distinct event→fail——production max=1，
 未知结构 fail fast 不发明 precedence）；缺失 suspend_type/suspend_timing
 列 → ValueError（M8-02B0 数据契约 runtime enforcement，禁止退回
 presence-only DISTINCT）。
+
+读句柄 rd 化：_require_* 走 rd.tables()/columns()（introspection 句柄层
+透明）；查询 SQL 在编译对（duckdb/ch，位置参数 ↔ 命名参数）。
+ch 版数据契约：daily/stk_limit/suspend_d 由 tools/ch_ingest 以
+(trade_date Date, ts_code) 主键灌入（M2 补灌三表后 ch 腿可用）。
 """
 
 from __future__ import annotations
 
 import datetime
-from pathlib import Path
 
-import duckdb
 import polars as pl
 
+from factorlab.config import settings
+from factorlab.data.backend import Rd
 from factorlab.domain.codes import is_canonical_stock_code
 
 _SNAPSHOT_COLUMNS = ["code", "open", "pre_close", "up_limit", "down_limit",
                      "has_daily", "has_limit", "has_suspend_record",
                      "is_suspended_at_open"]
 
+# --------------------------------------------------------------------------
+# 编译对：market evidence 三查询（duckdb SQL 逐字同迁移前）
+# --------------------------------------------------------------------------
 
-def _require_tables(con: duckdb.DuckDBPyConnection) -> None:
-    tables = {r[0] for r in con.execute(
-        "SELECT table_name FROM information_schema.tables").fetchall()}
+def _gates_duckdb(rd: Rd, d: str) -> tuple[int, int]:
+    """全市场 coverage（trade_cal 开市 ≠ 数据可用）。"""
+    gd = rd.query_rows("SELECT COUNT(*) FROM daily WHERE trade_date = ?", [d])[0][0]
+    gl = rd.query_rows("SELECT COUNT(*) FROM stk_limit WHERE trade_date = ?", [d])[0][0]
+    return gd, gl
+
+
+def _gates_ch(rd: Rd, d: str) -> tuple[int, int]:
+    """coverage ch 版：Date 主键 toDate 过滤。"""
+    db = settings.ch_database
+    gd = rd.query_rows(
+        f"SELECT count() FROM {db}.daily WHERE trade_date = toDate(%(d)s)",
+        {"d": d})[0][0]
+    gl = rd.query_rows(
+        f"SELECT count() FROM {db}.stk_limit WHERE trade_date = toDate(%(d)s)",
+        {"d": d})[0][0]
+    return gd, gl
+
+
+_GATES_IMPL = {"duckdb": _gates_duckdb, "ch": _gates_ch}
+
+
+def _market_rows_duckdb(rd: Rd, d: str, codes: list[str]) -> tuple[list, list, list]:
+    """daily/stk_limit/suspend_d 行（canonical ts_code 精确匹配 IN (SELECT unnest(?))）。"""
+    daily_rows = rd.query_rows(
+        "SELECT trade_date, ts_code, open, pre_close FROM daily "
+        "WHERE trade_date = ? AND ts_code IN (SELECT unnest(?))",
+        [d, codes])
+    limit_rows = rd.query_rows(
+        "SELECT trade_date, ts_code, up_limit, down_limit FROM stk_limit "
+        "WHERE trade_date = ? AND ts_code IN (SELECT unnest(?))",
+        [d, codes])
+    raw_events = rd.query_rows(
+        "SELECT ts_code, suspend_type, suspend_timing FROM suspend_d "
+        "WHERE trade_date = ? AND ts_code IN (SELECT unnest(?))",
+        [d, codes])
+    return daily_rows, limit_rows, raw_events
+
+
+def _market_rows_ch(rd: Rd, d: str, codes: list[str]) -> tuple[list, list, list]:
+    """market rows ch 版：canonical ts_code 直接 IN (占位符展开)——输入恒为
+    canonical ts_code（M8 契约），无需 stock_basic 两层子查询。"""
+    from factorlab.data.ch_source import in_clause
+
+    db = settings.ch_database
+    ph, params = in_clause(codes)
+    daily_rows = rd.query_rows(
+        f"SELECT trade_date, ts_code, open, pre_close FROM {db}.daily "
+        f"WHERE trade_date = toDate(%(d)s) AND ts_code IN ({ph})",
+        {"d": d, **params})
+    limit_rows = rd.query_rows(
+        f"SELECT trade_date, ts_code, up_limit, down_limit FROM {db}.stk_limit "
+        f"WHERE trade_date = toDate(%(d)s) AND ts_code IN ({ph})",
+        {"d": d, **params})
+    raw_events = rd.query_rows(
+        f"SELECT ts_code, suspend_type, suspend_timing FROM {db}.suspend_d "
+        f"WHERE trade_date = toDate(%(d)s) AND ts_code IN ({ph})",
+        {"d": d, **params})
+    return daily_rows, limit_rows, raw_events
+
+
+_MARKET_ROWS_IMPL = {"duckdb": _market_rows_duckdb, "ch": _market_rows_ch}
+
+
+# --------------------------------------------------------------------------
+# 公开 API
+# --------------------------------------------------------------------------
+
+def _require_tables(rd: Rd) -> None:
+    tables = rd.tables()
     for t in ("daily", "stk_limit", "suspend_d", "trade_cal"):
         if t not in tables:
             raise ValueError(
@@ -40,11 +115,8 @@ def _require_tables(con: duckdb.DuckDBPyConnection) -> None:
                 f"生成）——缺失即 fail，不静默降级 execution safety")
 
 
-def _require_columns(con: duckdb.DuckDBPyConnection, table: str,
-                     columns: list[str]) -> None:
-    cols = {r[0] for r in con.execute(
-        "SELECT column_name FROM information_schema.columns "
-        f"WHERE table_name = '{table}'").fetchall()}
+def _require_columns(rd: Rd, table: str, columns: list[str]) -> None:
+    cols = rd.columns(table)
     missing = [c for c in columns if c not in cols]
     if missing:
         raise ValueError(
@@ -106,12 +178,13 @@ def _derive_suspend_evidence(
 
 
 def load_market_open_frame(
-    db_path: Path,
+    rd: Rd,
     *,
     execution_date: datetime.date,
     codes: list[str],
 ) -> pl.DataFrame:
     """加载 execution_date + canonical codes 的市场开盘证据（9 列原始 frame）。
+    rd 为读句柄（duckdb|ch，经 data/backend.open_read 打开）。
 
     - skeleton 由 requested codes 驱动：输出 rows == len(codes)（无 daily/
       limit/suspend 的证券保留 has_*=False——禁止 inner join 丢证券）
@@ -125,8 +198,8 @@ def load_market_open_frame(
       （trade_cal 开市 ≠ 数据可用）；suspend_d 0 行合法（无停牌日）
     - 只读 raw daily.open/pre_close、stk_limit.up/down_limit（不复权）
     """
-    if not isinstance(db_path, Path):
-        raise TypeError(f"db_path 必须为 Path（收到 {type(db_path).__name__}）")
+    if not isinstance(rd, Rd):
+        raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
     if not isinstance(execution_date, datetime.date) \
             or isinstance(execution_date, datetime.datetime):
         raise ValueError(f"execution_date 必须为 datetime.date（收到 {execution_date!r}）")
@@ -143,75 +216,55 @@ def load_market_open_frame(
              "has_suspend_record": pl.Series([], dtype=pl.Boolean),
              "is_suspended_at_open": pl.Series([], dtype=pl.Boolean)})
 
-    con = duckdb.connect(str(db_path), read_only=True)
-    try:
-        _require_tables(con)
-        _require_columns(con, "daily", ["trade_date", "ts_code", "open", "pre_close"])
-        _require_columns(con, "stk_limit", ["trade_date", "ts_code", "up_limit", "down_limit"])
-        _require_columns(con, "suspend_d",
-                         ["trade_date", "ts_code", "suspend_type", "suspend_timing"])
-        _require_columns(con, "trade_cal", ["cal_date", "is_open"])
+    _require_tables(rd)
+    _require_columns(rd, "daily", ["trade_date", "ts_code", "open", "pre_close"])
+    _require_columns(rd, "stk_limit", ["trade_date", "ts_code", "up_limit", "down_limit"])
+    _require_columns(rd, "suspend_d",
+                     ["trade_date", "ts_code", "suspend_type", "suspend_timing"])
+    _require_columns(rd, "trade_cal", ["cal_date", "is_open"])
 
-        d = execution_date.strftime("%Y%m%d")
-        # ---- coverage gates（calendar truth ≠ data availability）----
-        global_daily = con.execute(
-            "SELECT COUNT(*) FROM daily WHERE trade_date = ?", [d]).fetchone()[0]
-        if global_daily == 0:
-            raise ValueError(
-                f"execution date {execution_date} outside available daily "
-                f"market-data coverage（trade_cal 开市但 daily 全市场 0 行——"
-                f"禁止构造全 has_daily=False 假装全市场停牌）")
-        global_limit = con.execute(
-            "SELECT COUNT(*) FROM stk_limit WHERE trade_date = ?", [d]).fetchone()[0]
-        if global_limit == 0:
-            raise ValueError(
-                f"execution date {execution_date} stk_limit coverage 0 行"
-                f"（limit evidence 无当天覆盖——fail）")
+    d = execution_date.strftime("%Y%m%d")
+    # ---- coverage gates（calendar truth ≠ data availability）----
+    global_daily, global_limit = _GATES_IMPL[rd.backend](rd, d)
+    if global_daily == 0:
+        raise ValueError(
+            f"execution date {execution_date} outside available daily "
+            f"market-data coverage（trade_cal 开市但 daily 全市场 0 行——"
+            f"禁止构造全 has_daily=False 假装全市场停牌）")
+    if global_limit == 0:
+        raise ValueError(
+            f"execution date {execution_date} stk_limit coverage 0 行"
+            f"（limit evidence 无当天覆盖——fail）")
 
-        # ---- daily（duplicate fail）----
-        daily_rows = con.execute(
-            "SELECT trade_date, ts_code, open, pre_close FROM daily "
-            "WHERE trade_date = ? AND ts_code IN (SELECT unnest(?))",
-            [d, codes]).fetchall()
-        if len(daily_rows) != len({(r[0], r[1]) for r in daily_rows}):
-            raise ValueError(
-                f"daily 在 {execution_date} 存在 (trade_date, ts_code) 重复"
-                f"——不取 first/last")
-        daily_map = {r[1]: (r[2], r[3]) for r in daily_rows}
+    # ---- daily/stk_limit/suspend_d（duplicate fail 在行处理处）----
+    daily_rows, limit_rows, raw_events = _MARKET_ROWS_IMPL[rd.backend](rd, d, codes)
+    if len(daily_rows) != len({(r[0], r[1]) for r in daily_rows}):
+        raise ValueError(
+            f"daily 在 {execution_date} 存在 (trade_date, ts_code) 重复"
+            f"——不取 first/last")
+    daily_map = {r[1]: (r[2], r[3]) for r in daily_rows}
+    if len(limit_rows) != len({(r[0], r[1]) for r in limit_rows}):
+        raise ValueError(
+            f"stk_limit 在 {execution_date} 存在 (trade_date, ts_code) 重复"
+            f"——不取 first/last")
+    limit_map = {r[1]: (r[2], r[3]) for r in limit_rows}
 
-        # ---- stk_limit（duplicate fail）----
-        limit_rows = con.execute(
-            "SELECT trade_date, ts_code, up_limit, down_limit FROM stk_limit "
-            "WHERE trade_date = ? AND ts_code IN (SELECT unnest(?))",
-            [d, codes]).fetchall()
-        if len(limit_rows) != len({(r[0], r[1]) for r in limit_rows}):
-            raise ValueError(
-                f"stk_limit 在 {execution_date} 存在 (trade_date, ts_code) 重复"
-                f"——不取 first/last")
-        limit_map = {r[1]: (r[2], r[3]) for r in limit_rows}
+    # ---- suspend_d（事件行读取；temporal authority = suspension.py）----
+    suspend_map: dict[str, tuple[bool, bool]] = {}
+    for code in sorted(codes):
+        events = [(r[1], r[2]) for r in raw_events if r[0] == code]
+        suspend_map[code] = _derive_suspend_evidence(events)
 
-        # ---- suspend_d（事件行读取；temporal authority = suspension.py）----
-        raw_events = con.execute(
-            "SELECT ts_code, suspend_type, suspend_timing FROM suspend_d "
-            "WHERE trade_date = ? AND ts_code IN (SELECT unnest(?))",
-            [d, codes]).fetchall()
-        suspend_map: dict[str, tuple[bool, bool]] = {}
-        for code in sorted(codes):
-            events = [(r[1], r[2]) for r in raw_events if r[0] == code]
-            suspend_map[code] = _derive_suspend_evidence(events)
-
-        rows = []
-        for code in sorted(codes):
-            o, pc = daily_map.get(code, (None, None))
-            up, dn = limit_map.get(code, (None, None))
-            has_record, open_suspended = suspend_map[code]
-            rows.append((code, o, pc, up, dn,
-                         code in daily_map, code in limit_map,
-                         has_record, open_suspended))
-        out = pl.DataFrame(rows, schema=_SNAPSHOT_COLUMNS, orient="row")
-        # 全 null 数值列保 Float64（polars 行构造 Null dtype 陷阱）
-        for col in ("open", "pre_close", "up_limit", "down_limit"):
-            out = out.with_columns(pl.col(col).cast(pl.Float64))
-        return out
-    finally:
-        con.close()
+    rows = []
+    for code in sorted(codes):
+        o, pc = daily_map.get(code, (None, None))
+        up, dn = limit_map.get(code, (None, None))
+        has_record, open_suspended = suspend_map[code]
+        rows.append((code, o, pc, up, dn,
+                     code in daily_map, code in limit_map,
+                     has_record, open_suspended))
+    out = pl.DataFrame(rows, schema=_SNAPSHOT_COLUMNS, orient="row")
+    # 全 null 数值列保 Float64（polars 行构造 Null dtype 陷阱）
+    for col in ("open", "pre_close", "up_limit", "down_limit"):
+        out = out.with_columns(pl.col(col).cast(pl.Float64))
+    return out

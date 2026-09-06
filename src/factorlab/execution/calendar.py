@@ -14,10 +14,10 @@ ExecutionSchedule。
 from __future__ import annotations
 
 import bisect
-from pathlib import Path
 
 import polars as pl
 
+from factorlab.data.backend import Rd
 from factorlab.data.calendar import trading_calendar
 from factorlab.domain.execution import ExecutionSchedule
 from factorlab.domain.portfolio import TargetPortfolio
@@ -25,23 +25,23 @@ from factorlab.domain.portfolio import TargetPortfolio
 
 def resolve_execution_schedule(
     target: TargetPortfolio,
-    db_path: Path,
+    rd: Rd,
 ) -> ExecutionSchedule:
     """把 TargetPortfolio.decision_dates 解析为 execution dates（一次 calendar
-    加载 + bisect，不 per-decision 开 DB）。"""
+    加载 + bisect，不 per-decision 开 DB）。rd 为读句柄（duckdb|ch）。"""
     if not isinstance(target, TargetPortfolio):
         raise TypeError(
             f"target 必须为 TargetPortfolio（收到 {type(target).__name__}）"
             f"——decision_dates/timing 权威来源在 TargetPortfolio 中")
-    if not isinstance(db_path, Path):
-        raise TypeError(f"db_path 必须为 Path（收到 {type(db_path).__name__}）")
+    if not isinstance(rd, Rd):
+        raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
     timing = target.meta.source_timing.default_earliest_execution
     if not target.decision_dates:
         return ExecutionSchedule(frame=pl.DataFrame(
             {"decision_date": pl.Series([], dtype=pl.Date),
              "execution_date": pl.Series([], dtype=pl.Date),
              "execution_timing": pl.Series([], dtype=pl.String)}))
-    calendar = trading_calendar(db_path)
+    calendar = trading_calendar(rd)
     cal_list = calendar.to_list()
     cal_set = set(cal_list)
     rows = []

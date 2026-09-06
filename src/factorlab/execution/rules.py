@@ -11,11 +11,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
-import duckdb
 import polars as pl
 
+from factorlab.config import settings
+from factorlab.data.backend import Rd
 from factorlab.domain.codes import is_canonical_stock_code
 from factorlab.domain.execution import QuantityRuleKind
 
@@ -188,19 +188,44 @@ class SecurityQuantityRules:
                 raise ValueError("rules 必须按 code 稳定排序——不自动排序")
 
 
+def _rules_rows_duckdb(rd, codes: list[str]) -> list[tuple]:
+    """stock_basic reference rows（duckdb unnest 参数；SQL 逐字同迁移前）。"""
+    return rd.query_rows(
+        "SELECT ts_code, market FROM stock_basic "
+        "WHERE ts_code IN (SELECT unnest(?)) ORDER BY ts_code",
+        [codes])
+
+
+def _rules_rows_ch(rd, codes: list[str]) -> list[tuple]:
+    """stock_basic reference rows ch 版：canonical ts_code 直接 IN (展开)。
+
+    注意：CH stock_basic 需含 market 列（M8 ch 腿 e2e 前置；teajoin 灌入
+    时按平台 schema 对齐），缺失时 CH 报 binder error——fail 而非默认。
+    """
+    from factorlab.data.ch_source import in_clause
+
+    ph, params = in_clause(codes)
+    return rd.query_rows(
+        f"SELECT ts_code, market FROM {settings.ch_database}.stock_basic "
+        f"WHERE ts_code IN ({ph}) ORDER BY ts_code", params)
+
+
+_RULES_ROWS_IMPL = {"duckdb": _rules_rows_duckdb, "ch": _rules_rows_ch}
+
+
 def resolve_security_quantity_rules(
-    db_path: Path,
+    rd,
     codes: list[str],
 ) -> SecurityQuantityRules:
-    """从 stock_basic reference 解析 per-security quantity rules。
+    """从 stock_basic reference 解析 per-security quantity rules。rd 为读句柄。
 
     - 分类来源：stock_basic.ts_code + stock_basic.market（read-only）；
       禁止 code-prefix 板块推断；market/suffix 组合显式校验
     - 输入 unique canonical list[str]；输出 rows == len(codes)（skeleton 驱动）
     - 缺失/重复 reference、unknown market、impossible market/suffix 组合 → fail
     """
-    if not isinstance(db_path, Path):
-        raise TypeError(f"db_path 必须为 Path（收到 {type(db_path).__name__}）")
+    if not isinstance(rd, Rd):
+        raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
     if not isinstance(codes, list):
         raise ValueError(f"codes 必须为 list[str]（收到 {type(codes).__name__}）")
     if any(not isinstance(c, str) for c in codes):
@@ -215,39 +240,32 @@ def resolve_security_quantity_rules(
             {"code": pl.Series([], dtype=pl.String),
              "market": pl.Series([], dtype=pl.String),
              "rule": pl.Series([], dtype=pl.String)}))
-    con = duckdb.connect(str(db_path), read_only=True)
-    try:
-        rows = con.execute(
-            "SELECT ts_code, market FROM stock_basic "
-            "WHERE ts_code IN (SELECT unnest(?)) ORDER BY ts_code",
-            [codes]).fetchall()
-        found = {r[0] for r in rows}
-        missing = [c for c in codes if c not in found]
-        if missing:
+    rows = _RULES_ROWS_IMPL[rd.backend](rd, codes)
+    found = {r[0] for r in rows}
+    missing = [c for c in codes if c not in found]
+    if missing:
+        raise ValueError(
+            f"stock_basic 缺失 {len(missing)} 个 code: {missing[:5]}——fail（不 drop）")
+    counts: dict[str, int] = {}
+    for r in rows:
+        counts[r[0]] = counts.get(r[0], 0) + 1
+    dup_ref = [c for c, n in counts.items() if n > 1]
+    if dup_ref:
+        raise ValueError(
+            f"stock_basic 中 ts_code 重复 {dup_ref}——fail（不 first/last）")
+    out = []
+    for code in sorted(codes):
+        market = dict((r[0], r[1]) for r in rows)[code]
+        if market is None or (isinstance(market, str) and not market.strip()):
             raise ValueError(
-                f"stock_basic 缺失 {len(missing)} 个 code: {missing[:5]}——fail（不 drop）")
-        counts: dict[str, int] = {}
-        for r in rows:
-            counts[r[0]] = counts.get(r[0], 0) + 1
-        dup_ref = [c for c, n in counts.items() if n > 1]
-        if dup_ref:
+                f"{code} 的 stock_basic.market 为空——fail（不默认 ROUND_LOT_100）")
+        suffix = code[-2:]
+        kind = _QUANTITY_RULE_MAP.get((market, suffix))
+        if kind is None:
             raise ValueError(
-                f"stock_basic 中 ts_code 重复 {dup_ref}——fail（不 first/last）")
-        out = []
-        for code in sorted(codes):
-            market = dict((r[0], r[1]) for r in rows)[code]
-            if market is None or (isinstance(market, str) and not market.strip()):
-                raise ValueError(
-                    f"{code} 的 stock_basic.market 为空——fail（不默认 ROUND_LOT_100）")
-            suffix = code[-2:]
-            kind = _QUANTITY_RULE_MAP.get((market, suffix))
-            if kind is None:
-                raise ValueError(
-                    f"无法分类 {code}：market={market!r} + suffix={suffix}——"
-                    f"unknown market 或 impossible market/suffix 组合（fail，"
-                    f"不启发式推断）")
-            out.append((code, market, kind.value))
-        frame = pl.DataFrame(out, schema=_RULES_COLUMNS, orient="row")
-        return SecurityQuantityRules(frame=frame)
-    finally:
-        con.close()
+                f"无法分类 {code}：market={market!r} + suffix={suffix}——"
+                f"unknown market 或 impossible market/suffix 组合（fail，"
+                f"不启发式推断）")
+        out.append((code, market, kind.value))
+    frame = pl.DataFrame(out, schema=_RULES_COLUMNS, orient="row")
+    return SecurityQuantityRules(frame=frame)

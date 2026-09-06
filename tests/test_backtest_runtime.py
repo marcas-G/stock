@@ -20,6 +20,7 @@ from factorlab.domain import (ExecutionDataQualityError,
                               PortfolioStatePhase, TargetPortfolio,
                               TargetPortfolioMeta)
 from factorlab.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
+from factorlab.data.backend import open_read
 from factorlab.execution import (ExecutionSpec, MarksPolicy, run_backtest)
 
 D1 = datetime.date(2024, 1, 2)    # Tue
@@ -97,8 +98,7 @@ def _target(dates=(D1, D2), weights=None):
 def _run(target=None, db_path=None, **over):
     spec = ExecutionSpec.model_validate({"initial_cash": 1_000_000.0})
     return run_backtest(target if target is not None else _target(),
-                        spec, db_path if db_path is not None else "FIXME",
-                        **over)
+                        spec, open_read(db_path=db_path), **over)
 
 
 # ================================================================
@@ -117,7 +117,7 @@ def test_type_guards(tmp_path):
         run_backtest({"x": 1}, spec, db)
     with pytest.raises(TypeError, match="execution_spec"):
         run_backtest(_target(), {"c": 1}, db)
-    with pytest.raises(TypeError, match="db_path"):
+    with pytest.raises(TypeError, match="rd|读句柄"):
         run_backtest(_target(), spec, str(db))
 
 
