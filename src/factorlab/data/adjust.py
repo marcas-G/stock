@@ -6,6 +6,8 @@ from typing import Callable
 
 import polars as pl
 
+from factorlab.config import settings
+
 PRICE_VIEWS = ("raw", "qfq", "hfq", "pit_qfq")
 _PRICE_COLS = ("open", "high", "low", "close")
 
@@ -142,6 +144,55 @@ def view_prices(
 
     scaled = [pl.col(c) * factor for c in _PRICE_COLS if c in df.columns]
     return df.with_columns(scaled)
+
+
+def _qfq_base_duckdb(rd, date_end: str | None) -> pl.DataFrame:
+    """duckdb 版：'YYYYMMDD' VARCHAR 比较 + substr code（SQL 逐字同迁移前）。"""
+    where, params = "", []
+    if date_end:
+        where, params = " WHERE trade_date <= ?", [date_end.replace("-", "")]
+    return rd.query_df(
+        "SELECT substr(ts_code, 1, 6) AS code, "
+        "last(adj_factor ORDER BY trade_date) "
+        "FILTER (WHERE adj_factor IS NOT NULL) AS __factorlab_qfq_base_adj "
+        f"FROM adj_factor{where} GROUP BY substr(ts_code, 1, 6)",
+        params,
+    )
+
+
+def _qfq_base_ch(rd, date_end: str | None) -> pl.DataFrame:
+    """ch 版：argMax（跳过 NULL 行 = duckdb last-FILTER）+ toDate 过滤 + 去后缀。
+
+    argMax 语义注意：整组 adj_factor 全 NULL → NULL（与 duckdb last-FILTER 一致，
+    已实测）；adj_factor 恒非空（daily inner join 前提），该路径实际不可达。
+    """
+    db = settings.ch_database
+    where, params = "", {}
+    if date_end:
+        where, params = " WHERE trade_date <= toDate(%(d)s)", {"d": date_end.replace("-", "")}
+    df = rd.query_df(
+        f"SELECT ts_code, argMax(adj_factor, trade_date) AS __factorlab_qfq_base_adj "
+        f"FROM {db}.adj_factor{where} GROUP BY ts_code",
+        params,
+    )
+    return df.with_columns(
+        pl.col("ts_code").str.split(".").list.first().alias("code")
+    ).drop("ts_code")
+
+
+_QFQ_BASE_IMPL = {"duckdb": _qfq_base_duckdb, "ch": _qfq_base_ch}
+
+
+def load_qfq_base_adj(rd, date_end: str | None) -> pl.DataFrame:
+    """全局 qfq 固定 base（M6-07C2E）：每代码在 <= effective_end 的**最新非 null**
+    adj_factor。base 与 chunk 划分/warmup 无关；列名用内部保留前缀
+    （__factorlab_），不进入用户公式（_compute_signal 在 compute_formula 前 drop）。
+
+    返回 (code, __factorlab_qfq_base_adj) 两列 DataFrame；date_end 为 ISO
+    'YYYY-MM-DD' 或 'YYYYMMDD'。FULL/CHUNK 使用完全相同 base。rd 为读句柄
+    （duckdb|ch）。adj_factor 全表按 code 聚合，无 codes 参数。
+    """
+    return _QFQ_BASE_IMPL[rd.backend](rd, date_end)
 
 
 def total_return(close: pl.Expr, adj: pl.Expr) -> pl.Expr:

@@ -4,7 +4,6 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
-import duckdb
 import polars as pl
 
 _ITEM_RE = re.compile(r"^([a-z_][a-z0-9_]*)(?:\((.*)\))?$")
@@ -74,8 +73,9 @@ class ProcessorDef:
 
 @dataclass
 class ProcessCtx:
-    """处理器上下文：db 为只读 duckdb 连接（neutralize/fillna 取行业/市值用）。"""
-    db: duckdb.DuckDBPyConnection | None = None
+    """处理器上下文：db 为读句柄 Rd（neutralize/fillna 取行业/市值用；
+    裸 duckdb 连接经 DuckDBRd 包装也兼容——旧调用方/测试）。"""
+    db: Any | None = None
 
 
 _PROCESSORS: dict[str, ProcessorDef] = {}

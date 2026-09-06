@@ -5,14 +5,13 @@ import re
 from pathlib import Path
 from typing import Any
 
-import duckdb
 import polars as pl
 import yaml
 
 from factorlab.config import settings
+from factorlab.data.backend import Rd
 from factorlab.domain.codes import (CANONICAL_TS_CODE_PATTERN,
-                                    is_canonical_stock_code,
-                                    is_canonical_stock_row)
+                                    is_canonical_stock_code)
 from factorlab.spec import FactorSpec
 
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -34,8 +33,165 @@ def normalize_code(code: str) -> str:
     return base
 
 
+# --------------------------------------------------------------------------
+# 小编译对（codes/rules 双分支的共享 SQL 查询；duckdb 版 SQL 逐字同迁移前）
+# --------------------------------------------------------------------------
+
+def _sb_match_duckdb(rd: Rd, candidates: list[str]) -> list[tuple]:
+    """codes 分支：symbol OR ts_code 精确匹配（duckdb unnest 参数）。"""
+    return rd.query_rows(
+        "SELECT symbol, ts_code FROM stock_basic"
+        " WHERE symbol IN (SELECT unnest(?)) OR ts_code IN (SELECT unnest(?))",
+        [candidates, candidates],
+    )
+
+
+def _sb_match_ch(rd: Rd, candidates: list[str]) -> list[tuple]:
+    """codes 分支 ch 版：两列各自 IN (占位符展开)。"""
+    from factorlab.data.ch_source import in_clause
+
+    db = settings.ch_database
+    ph_sym, p_sym = in_clause(candidates)
+    ph_ts, p_ts = in_clause(candidates)
+    return rd.query_rows(
+        f"SELECT symbol, ts_code FROM {db}.stock_basic"
+        f" WHERE symbol IN ({ph_sym}) OR ts_code IN ({ph_ts})",
+        {**p_sym, **p_ts},
+    )
+
+
+_SB_MATCH_IMPL = {"duckdb": _sb_match_duckdb, "ch": _sb_match_ch}
+
+
+def _rules_query_duckdb(rd: Rd, rules: dict[str, Any], date_start: str | None) -> list[tuple]:
+    """rules 分支主体（legacy/static）：默认 SSE+SZSE + canonical 过滤 +
+    exclude_st 快照排除 + exchanges + min_list_days（SQL 逐字同迁移前）。
+    参数校验在壳层（_codes_from_rules），本函数只拼 SQL。"""
+    sql = ("SELECT symbol FROM stock_basic"
+           f" WHERE regexp_matches(ts_code, '{CANONICAL_TS_CODE_PATTERN}')"
+           " AND substr(ts_code, -2) IN (SELECT unnest(?))")
+    params: list[Any] = [[s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in VALID_EXCHANGES]]
+    if rules.get("exclude_st"):
+        # stock_st 无 is_st 列：最新 trade_date 快照中的 ts_code 集合即 ST 集合（type='ST' 语义）
+        sql += (
+            " AND symbol NOT IN (SELECT substr(ts_code, 1, 6) FROM stock_st"
+            " WHERE trade_date = (SELECT max(trade_date) FROM stock_st))"
+        )
+    exchanges = rules.get("exchanges")
+    if exchanges:
+        suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in exchanges]
+        sql += " AND substr(ts_code, -2) IN (SELECT unnest(?))"
+        params.append(suffixes)
+    min_days = rules.get("min_list_days")
+    if min_days is not None:
+        if date_start is None:
+            lo = rd.query_rows("SELECT min(trade_date) FROM daily")[0][0]
+            if lo is None:
+                raise ValueError(
+                    "min_list_days 需要基准日期：daily 无数据且 spec 未设置 date.start")
+            date_start = lo
+        # 双格式（'YYYY-MM-DD'/'YYYYMMDD'）统一转 YYYYMMDD；平台库 list_date 为 'YYYYMMDD'（strptime 比较）
+        sql += " AND strptime(list_date, '%Y%m%d') <= strptime(?, '%Y%m%d') - INTERVAL (?) DAY"
+        params.extend([date_start.replace("-", ""), min_days])
+    return rd.query_rows(sql, params)
+
+
+def _rules_query_ch(rd: Rd, rules: dict[str, Any], date_start: str | None) -> list[tuple]:
+    """rules 分支主体 ch 版。
+
+    方言：regexp_matches→match；substr 负索引→right；CH 无 strptime-INTERVAL，
+    日期窗口用 toDate/toIntervalDay；IN 用占位符展开（ch_source.in_clause）。
+    前提：code 恒来自 stock_basic（ch 侧 stock_basic 恒被灌入）。
+    """
+    from factorlab.data.ch_source import in_clause
+
+    db = settings.ch_database
+    ph, params = in_clause(
+        [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in VALID_EXCHANGES])
+    sql = (f"SELECT symbol FROM {db}.stock_basic"
+           f" WHERE match(ts_code, '{CANONICAL_TS_CODE_PATTERN}')"
+           f" AND right(ts_code, 2) IN ({ph})")
+    if rules.get("exclude_st"):
+        # stock_st 无 is_st 列：最新 trade_date 快照中的 ts_code 集合即 ST 集合
+        sql += (
+            f" AND symbol NOT IN (SELECT substr(ts_code, 1, 6) FROM {db}.stock_st"
+            f" WHERE trade_date = (SELECT max(trade_date) FROM {db}.stock_st))"
+        )
+    exchanges = rules.get("exchanges")
+    if exchanges:
+        suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in exchanges]
+        ph2, p2 = in_clause(suffixes)
+        sql += f" AND right(ts_code, 2) IN ({ph2})"
+        params.update(p2)
+    min_days = rules.get("min_list_days")
+    if min_days is not None:
+        if date_start is None:
+            lo = rd.query_rows(f"SELECT min(trade_date) FROM {db}.daily")[0][0]
+            # CH 对空表 min(Date) 返回 1970-01-01 哨兵值而非 SQL NULL（A 股最早 1990-12-19，无歧义）
+            if lo is None or str(lo) == "1970-01-01":
+                raise ValueError(
+                    "min_list_days 需要基准日期：daily 无数据且 spec 未设置 date.start")
+            # CH 读回 min(trade_date) 是 datetime.date：统一转 'YYYYMMDD'
+            date_start = lo.strftime("%Y%m%d") if hasattr(lo, "strftime") else str(lo)
+        # CH：list_date 为 Date，toDate 接受 'YYYYMMDD'；窗口用 toIntervalDay
+        sql += " AND toDate(list_date) <= toDate(%(d)s) - toIntervalDay(%(n)s)"
+        params.update({"d": date_start.replace("-", ""), "n": min_days})
+    return rd.query_rows(sql, params)
+
+
+_RULES_QUERY_IMPL = {"duckdb": _rules_query_duckdb, "ch": _rules_query_ch}
+
+
+def _st_cov_duckdb(rd: Rd) -> tuple[str, str] | None:
+    """stock_st coverage（v1 contract：min/max trade_date；内部 gap 的精确
+    provenance 留给 Data Coverage Registry）。duckdb: 'YYYYMMDD' VARCHAR。"""
+    lo, hi = rd.query_rows("SELECT min(trade_date), max(trade_date) FROM stock_st")[0]
+    if lo is None or hi is None:
+        return None
+    return (str(lo), str(hi))
+
+
+def _st_cov_ch(rd: Rd) -> tuple[str, str] | None:
+    """stock_st coverage ch 版：Date 列读回 datetime.date（1970 哨兵 = 空表）。"""
+    db = settings.ch_database
+    lo, hi = rd.query_rows(f"SELECT min(trade_date), max(trade_date) FROM {db}.stock_st")[0]
+    if lo is None or hi is None or str(lo) == "1970-01-01":
+        return None
+
+    def _fmt(d: Any) -> str:
+        return d.strftime("%Y%m%d") if hasattr(d, "strftime") else str(d).replace("-", "")
+
+    return (_fmt(lo), _fmt(hi))
+
+
+_ST_COV_IMPL = {"duckdb": _st_cov_duckdb, "ch": _st_cov_ch}
+
+
+# --------------------------------------------------------------------------
+# resolve_canonical_code_map（M7-05 artifact handoff reference data）
+# --------------------------------------------------------------------------
+
+def _ccm_duckdb(rd: Rd, symbols: list[str]) -> list[tuple]:
+    return rd.query_rows(
+        "SELECT symbol, ts_code FROM stock_basic "
+        "WHERE symbol IN (SELECT unnest(?)) ORDER BY symbol",
+        [symbols])
+
+
+def _ccm_ch(rd: Rd, symbols: list[str]) -> list[tuple]:
+    from factorlab.data.ch_source import in_clause
+
+    ph, params = in_clause(symbols)
+    return rd.query_rows(
+        f"SELECT symbol, ts_code FROM {settings.ch_database}.stock_basic "
+        f"WHERE symbol IN ({ph}) ORDER BY symbol", params)
+
+
+_CCM_IMPL = {"duckdb": _ccm_duckdb, "ch": _ccm_ch}
+
+
 def resolve_canonical_code_map(
-    db: duckdb.DuckDBPyConnection,
+    rd: Rd,
     symbols: list[str],
 ) -> pl.DataFrame:
     """symbol → canonical ts_code 映射（M7-05 artifact handoff reference data）。
@@ -56,10 +212,7 @@ def resolve_canonical_code_map(
         raise ValueError("symbols 元素必须为 str")
     if len(set(symbols)) != len(symbols):
         raise ValueError(f"symbols 重复 {len(symbols) - len(set(symbols))} 个——不 dedup")
-    rows = db.execute(
-        "SELECT symbol, ts_code FROM stock_basic "
-        "WHERE symbol IN (SELECT unnest(?)) ORDER BY symbol",
-        [symbols]).fetchall()
+    rows = _CCM_IMPL[rd.backend](rd, symbols)
     found = {r[0] for r in rows}
     missing = [s for s in symbols if s not in found]
     if missing:
@@ -111,48 +264,30 @@ def _resolve_source(name: str, universes_dir: Path) -> dict[str, Any]:
     return load_universe_file(candidate)
 
 
-def _codes_from_rules(rules: dict[str, Any], db: duckdb.DuckDBPyConnection, date_start: str | None) -> list[str]:
+def _codes_from_rules(
+    rules: dict[str, Any], rd: Rd, date_start: str | None,
+) -> list[str]:
+    """rules → 纯数字代码（legacy/static；全期共用，min_list_days 基准一次性）。
+    参数校验在此集中（unknown/exchanges/min_list_days 负值），SQL 主体在编译对。"""
     unknown = set(rules) - _ALLOWED_RULES
     if unknown:
         raise ValueError(f"未知 universe 规则: {sorted(unknown)}（支持: {sorted(_ALLOWED_RULES)}）")
-    # 平台库默认宇宙 = SSE+SZSE（无 exchange 列，按 ts_code 后缀推断；BSE 不进默认宇宙）。
-    # M6-07B4：rules 候选必须额外满足 canonical research identifier
-    # （^\d{6}\.(SH|SZ|BJ)$——legacy vendor aliases 如 T600018.SH 被排除）。
-    sql = ("SELECT symbol FROM stock_basic"
-           f" WHERE regexp_matches(ts_code, '{CANONICAL_TS_CODE_PATTERN}')"
-           " AND substr(ts_code, -2) IN (SELECT unnest(?))")
-    params: list[Any] = [[s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in VALID_EXCHANGES]]
-    if rules.get("exclude_st"):
-        tables = {r[0] for r in db.execute("SELECT table_name FROM information_schema.tables").fetchall()}
-        if "stock_st" not in tables:
-            raise ValueError("exclude_st 需要 stock_st 表（平台库由 data rebuild 生成）")
-        # stock_st 无 is_st 列：最新 trade_date 快照中的 ts_code 集合即 ST 集合（type='ST' 语义）
-        sql += (
-            " AND symbol NOT IN (SELECT substr(ts_code, 1, 6) FROM stock_st"
-            " WHERE trade_date = (SELECT max(trade_date) FROM stock_st))"
-        )
     exchanges = rules.get("exchanges")
     if exchanges:
         bad = [e for e in exchanges if e not in VALID_EXCHANGES]
         if bad:
             raise ValueError(f"不支持的交易所: {bad}（v1 仅支持 {VALID_EXCHANGES}，不含 BSE）")
-        suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in exchanges]
-        sql += " AND substr(ts_code, -2) IN (SELECT unnest(?))"
-        params.append(suffixes)
     min_days = rules.get("min_list_days")
     if min_days is not None:
         min_days = int(min_days)
         if min_days < 0:
             raise ValueError(f"min_list_days 不能为负: {min_days}")
-        if date_start is None:
-            date_start = db.execute("SELECT min(trade_date) FROM daily").fetchone()[0]
-            if date_start is None:
-                raise ValueError("min_list_days 需要基准日期：daily 无数据且 spec 未设置 date.start")
-        # 双格式（'YYYY-MM-DD'/'YYYYMMDD'）统一转 YYYYMMDD；平台库 list_date 为 'YYYYMMDD'（strptime 比较）
-        sql += " AND strptime(list_date, '%Y%m%d') <= strptime(?, '%Y%m%d') - INTERVAL (?) DAY"
-        params.extend([date_start.replace("-", ""), min_days])
-    rows = db.execute(sql, params).fetchall()
-    return sorted(r[0] for r in rows)
+        rules = {**rules, "min_list_days": min_days}
+    if rules.get("exclude_st"):
+        tables = rd.tables()
+        if "stock_st" not in tables:
+            raise ValueError("exclude_st 需要 stock_st 表（平台库由 data rebuild 生成）")
+    return sorted(r[0] for r in _RULES_QUERY_IMPL[rd.backend](rd, rules, date_start))
 
 
 def _resolve_universe_data(spec: FactorSpec, override: str | None, settings) -> dict[str, Any]:
@@ -176,40 +311,124 @@ def _resolve_universe_data(spec: FactorSpec, override: str | None, settings) -> 
     return data
 
 
+def _codes_from_matched(
+    candidates: list[str], rows: list[tuple],
+) -> list[str]:
+    """matched rows → 纯数字代码集（codes 分支共享后处理；缺 symbol → 直接排除）。"""
+    known_symbols = {r[0] for r in rows}
+    ts_to_symbol = {r[1]: r[0] for r in rows if r[1] is not None}
+    return sorted({ts_to_symbol.get(c, c) for c in candidates} & known_symbols)
+
+
+def _match_stock_basic(rd: Rd, data: dict[str, Any]) -> list[str] | None:
+    """codes 分支（list 数据）→ 代码集；rules 分支返回 None（调用方走 rules）。"""
+    if "codes" not in data:
+        return None
+    # 先按 6 位数字/ts_code 标准化；非标准格式（如 1 字符 symbol 测试数据）原样保留，
+    # 统一与 stock_basic 的 symbol 或 ts_code 列匹配，返回 symbol（daily.code 格式）
+    candidates: list[str] = []
+    for c in data["codes"]:
+        try:
+            candidates.append(normalize_code(c))
+        except ValueError:
+            candidates.append(c)
+    return _codes_from_matched(candidates, _SB_MATCH_IMPL[rd.backend](rd, candidates))
+
+
 def resolve_codes(
     spec: FactorSpec,
-    db: duckdb.DuckDBPyConnection,
+    rd: Rd,
     override: str | None = None,
     settings=settings,
 ) -> list[str]:
     """universe 解析：override > spec 内联（ref/codes/rules）。返回纯数字代码列表（daily.code 格式）。
-    全局默认层（config.default_universe）未接线，保留给 M4 CLI（--universe 默认值）。
+    rd 为读句柄（duckdb|ch）。全局默认层（config.default_universe）未接线，保留给 M4 CLI（--universe 默认值）。
     **legacy/static candidate semantics**：全期共用一组静态代码（含最新 ST 快照过滤与
     date.start 一次性 min_list_days）。历史 PIT membership 请用 resolve_universe_frame。"""
     data = _resolve_universe_data(spec, override, settings)
 
-    if "codes" in data:
-        # 先按 6 位数字/ts_code 标准化；非标准格式（如 1 字符 symbol 测试数据）原样保留，
-        # 统一与平台库 stock_basic 的 symbol 或 ts_code 列匹配，返回 symbol（daily.code 格式）
-        candidates: list[str] = []
-        for c in data["codes"]:
-            try:
-                candidates.append(normalize_code(c))
-            except ValueError:
-                candidates.append(c)
-        rows = db.execute(
-            "SELECT symbol, ts_code FROM stock_basic"
-            " WHERE symbol IN (SELECT unnest(?)) OR ts_code IN (SELECT unnest(?))",
-            [candidates, candidates],
-        ).fetchall()
-        known_symbols = {r[0] for r in rows}
-        ts_to_symbol = {r[1]: r[0] for r in rows if r[1] is not None}
-        codes = sorted({ts_to_symbol.get(c, c) for c in candidates} & known_symbols)
-    elif "rules" in data:
-        codes = _codes_from_rules(data["rules"], db, spec.date.start)
-    else:
-        raise ValueError(f"universe 数据必须包含 codes 或 rules: {data}")
+    codes = _match_stock_basic(rd, data)
+    if codes is None:
+        if "rules" in data:
+            codes = _codes_from_rules(data["rules"], rd, spec.date.start)
+        else:
+            raise ValueError(f"universe 数据必须包含 codes 或 rules: {data}")
 
+    if not codes:
+        raise ValueError("universe 无有效股票，请检查 codes/rules/引用文件")
+    return codes
+
+
+def _candidate_rules_duckdb(rd: Rd, rules: dict[str, Any]) -> list[tuple]:
+    """候选 rules 分支（只应用 exchange 与 canonical 过滤——exclude_st/min_list_days
+    属动态 PIT 条件，禁止提前应用）。SQL 逐字同迁移前。"""
+    exchanges = rules.get("exchanges")
+    if exchanges:
+        suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in exchanges]
+    else:
+        suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in VALID_EXCHANGES]
+    # M6-07B4：rules 候选必须满足 canonical research identifier——legacy
+    # vendor aliases（T600018.SH 等）即使后缀匹配 .SH 也绝不进入 candidate
+    return rd.query_rows(
+        "SELECT symbol FROM stock_basic"
+        f" WHERE regexp_matches(ts_code, '{CANONICAL_TS_CODE_PATTERN}')"
+        " AND substr(ts_code, -2) IN (SELECT unnest(?))",
+        [suffixes],
+    )
+
+
+def _candidate_rules_ch(rd: Rd, rules: dict[str, Any]) -> list[tuple]:
+    """候选 rules 分支 ch 版（match/right/in_clause 方言）。"""
+    from factorlab.data.ch_source import in_clause
+
+    exchanges = rules.get("exchanges")
+    if exchanges:
+        suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in exchanges]
+    else:
+        suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in VALID_EXCHANGES]
+    ph, params = in_clause(suffixes)
+    return rd.query_rows(
+        f"SELECT symbol FROM {settings.ch_database}.stock_basic"
+        f" WHERE match(ts_code, '{CANONICAL_TS_CODE_PATTERN}')"
+        f" AND right(ts_code, 2) IN ({ph})",
+        params,
+    )
+
+
+_CANDIDATE_RULES_IMPL = {"duckdb": _candidate_rules_duckdb, "ch": _candidate_rules_ch}
+
+
+def resolve_candidate_codes(
+    spec: FactorSpec,
+    rd: Rd,
+    override: str | None = None,
+    settings=settings,
+) -> list[str]:
+    """候选代码集：整个日期段内"可能参与研究"的证券（数据加载集）。rd 为读句柄。
+
+    复用 override/ref/codes/rules 解析体系；rules 模式**只应用 exchange 与
+    证券标识合法性**——exclude_st / min_list_days 属动态 PIT 条件，禁止提前应用。
+    语义：candidate = 可能出现的股票；membership[t] 由 resolve_universe_frame 决定。
+    """
+    data = _resolve_universe_data(spec, override, settings)
+    codes = _match_stock_basic(rd, data)
+    if codes is None:
+        if "rules" in data:
+            rules = data["rules"]
+            unknown = set(rules) - _ALLOWED_RULES
+            if unknown:
+                raise ValueError(
+                    f"未知 universe 规则: {sorted(unknown)}（支持: {sorted(_ALLOWED_RULES)}）")
+            exchanges = rules.get("exchanges")
+            if exchanges:
+                bad = [e for e in exchanges if e not in VALID_EXCHANGES]
+                if bad:
+                    raise ValueError(
+                        f"不支持的交易所: {bad}（v1 仅支持 {VALID_EXCHANGES}，不含 BSE）")
+            codes = sorted(
+                r[0] for r in _CANDIDATE_RULES_IMPL[rd.backend](rd, rules))
+        else:
+            raise ValueError(f"universe 数据必须包含 codes 或 rules: {data}")
     if not codes:
         raise ValueError("universe 无有效股票，请检查 codes/rules/引用文件")
     return codes
@@ -218,63 +437,6 @@ def resolve_codes(
 # --------------------------------------------------------------------------
 # M6-02: PIT Universe（两阶段模型：Candidate → PIT Eligibility）
 # --------------------------------------------------------------------------
-
-def resolve_candidate_codes(
-    spec: FactorSpec,
-    db: duckdb.DuckDBPyConnection,
-    override: str | None = None,
-    settings=settings,
-) -> list[str]:
-    """候选代码集：整个日期段内"可能参与研究"的证券（数据加载集）。
-
-    复用 override/ref/codes/rules 解析体系；rules 模式**只应用 exchange 与
-    证券标识合法性**——exclude_st / min_list_days 属动态 PIT 条件，禁止提前应用。
-    语义：candidate = 可能出现的股票；membership[t] 由 resolve_universe_frame 决定。
-    """
-    data = _resolve_universe_data(spec, override, settings)
-    if "codes" in data:
-        candidates: list[str] = []
-        for c in data["codes"]:
-            try:
-                candidates.append(normalize_code(c))
-            except ValueError:
-                candidates.append(c)
-        rows = db.execute(
-            "SELECT symbol, ts_code FROM stock_basic"
-            " WHERE symbol IN (SELECT unnest(?)) OR ts_code IN (SELECT unnest(?))",
-            [candidates, candidates],
-        ).fetchall()
-        known_symbols = {r[0] for r in rows}
-        ts_to_symbol = {r[1]: r[0] for r in rows if r[1] is not None}
-        codes = sorted({ts_to_symbol.get(c, c) for c in candidates} & known_symbols)
-    elif "rules" in data:
-        rules = data["rules"]
-        unknown = set(rules) - _ALLOWED_RULES
-        if unknown:
-            raise ValueError(f"未知 universe 规则: {sorted(unknown)}（支持: {sorted(_ALLOWED_RULES)}）")
-        exchanges = rules.get("exchanges")
-        if exchanges:
-            bad = [e for e in exchanges if e not in VALID_EXCHANGES]
-            if bad:
-                raise ValueError(f"不支持的交易所: {bad}（v1 仅支持 {VALID_EXCHANGES}，不含 BSE）")
-            suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in exchanges]
-        else:
-            suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in VALID_EXCHANGES]
-        # M6-07B4：rules 候选必须满足 canonical research identifier——legacy
-        # vendor aliases（T600018.SH 等）即使后缀匹配 .SH 也绝不进入 candidate
-        codes = sorted(
-            r[0] for r in db.execute(
-                "SELECT symbol FROM stock_basic"
-                f" WHERE regexp_matches(ts_code, '{CANONICAL_TS_CODE_PATTERN}')"
-                " AND substr(ts_code, -2) IN (SELECT unnest(?))",
-                [suffixes],
-            ).fetchall())
-    else:
-        raise ValueError(f"universe 数据必须包含 codes 或 rules: {data}")
-    if not codes:
-        raise ValueError("universe 无有效股票，请检查 codes/rules/引用文件")
-    return codes
-
 
 def _norm_dates(dates) -> list[str]:
     """日期集严格校验：只接受 datetime.date 或 ISO 'YYYY-MM-DD' 字符串。
@@ -292,66 +454,15 @@ def _norm_dates(dates) -> list[str]:
     return out
 
 
-def resolve_universe_frame(
-    spec: FactorSpec,
-    db: duckdb.DuckDBPyConnection,
-    dates: list,
-    *,
-    override: str | None = None,
-    candidate_codes: list[str] | None = None,
-    settings=settings,
-) -> pl.DataFrame:
-    """date×code PIT membership（接受显式日期集——chunk 友好，不要求全历史生成）。
-
-    UniverseFrame schema: date/code/in_universe/is_listed/list_days/is_st/exchange。
-    PIT 语义：is_listed = list_date<=t AND (delist_date IS NULL OR t<delist_date)；
-    list_days = t − list_date（自然日）；is_st = 当日 stock_st 快照出现；
-    exchange = ts_code 后缀（.SH→SSE/.SZ→SZSE/.BJ→BSE）。
-    exclude_st=true 且 stock_st 缺表 → ValueError（fail fast）；false 且缺表 → is_st=null。
-    """
-    data = _resolve_universe_data(spec, override, settings)
-    rules = data.get("rules", {}) if "rules" in data else {}
-    codes = candidate_codes if candidate_codes is not None else resolve_candidate_codes(
-        spec, db, override=override, settings=settings)
-    if not codes:
-        raise ValueError("候选代码集为空")
-    if len(set(codes)) != len(codes):
-        raise ValueError("candidate_codes 重复——fail fast，不静默去重")
-    date_strs = _norm_dates(dates)
-    if not date_strs:
-        raise ValueError("dates 不能为空")
-    if len(set(date_strs)) != len(date_strs):
-        raise ValueError("dates 重复——fail fast，不静默去重")
-
-    tables = {r[0] for r in db.execute(
-        "SELECT table_name FROM information_schema.tables").fetchall()}
-    if "stock_basic" not in tables:
-        raise ValueError("需要 stock_basic 表（平台库由 data rebuild 生成）")
-    has_st = "stock_st" in tables
-    exclude_st = bool(rules.get("exclude_st"))
-    if exclude_st and not has_st:
-        raise ValueError("exclude_st 需要 stock_st 表（平台库由 data rebuild 生成）——不能默认所有股票非 ST")
-    # ST coverage（v1 contract：min/max trade_date；内部 gap 的精确 provenance 留给 Data Coverage Registry）
-    st_cov: tuple[str, str] | None = None
-    if has_st:
-        lo, hi = db.execute("SELECT min(trade_date), max(trade_date) FROM stock_st").fetchone()
-        if lo is not None and hi is not None:
-            st_cov = (str(lo), str(hi))
-        if exclude_st and st_cov is None:
-            raise ValueError("exclude_st=true 但 stock_st 为空表——ST coverage 未知，禁止当非 ST")
-        if exclude_st:
-            outside = [d for d in date_strs
-                       if not (st_cov and st_cov[0] <= d.replace("-", "") <= st_cov[1])]
-            if outside:
-                raise ValueError(
-                    f"exclude_st=true 但请求日期 {outside[0]} 在 ST coverage "
-                    f"[{st_cov[0] if st_cov else '?'}, {st_cov[1] if st_cov else '?'}] 之外——"
-                    f"ST 状态未知，禁止把 unknown 当非 ST")
-    # delist_date 列探测（旧库可能无此列——退市信息不可用则视为 NULL）
-    sb_cols = {r[0] for r in db.execute(
-        "SELECT column_name FROM information_schema.columns WHERE table_name='stock_basic'").fetchall()}
-    delist_col = "delist_date" if "delist_date" in sb_cols else "NULL"
-
+def _uf_skeleton_duckdb(
+    rd: Rd,
+    date_strs: list[str],
+    codes: list[str],
+    delist_col: str,
+    has_st: bool,
+) -> list[tuple]:
+    """duckdb 版 PIT 骨架：dates×codes CROSS JOIN + stock_basic LEFT JOIN
+    （delist 列探测由壳层 rd.columns() 决定）+ ST DISTINCT 投影（SQL 逐字同迁移前）。"""
     select_cols = f"d.date, c.code, b.ts_code, b.list_date, {delist_col} AS delist_date"
     sql = f"""
         WITH d AS (SELECT CAST(unnest(?) AS DATE) AS date),
@@ -366,11 +477,118 @@ def resolve_universe_frame(
         # raw stock_st 可能含同 key 多行（同日多 type/name 状态），LEFT JOIN 直接
         # 引用会膨胀 UniverseFrame cardinality。不物理删 raw 行（保留 name/type
         # 等 payload），只投影 DISTINCT 键。
-        sql = sql.replace("SELECT " + select_cols, "SELECT " + select_cols + ", s.trade_date IS NOT NULL AS is_st")
+        sql = sql.replace("SELECT " + select_cols,
+                          "SELECT " + select_cols + ", s.trade_date IS NOT NULL AS is_st")
         sql += (" LEFT JOIN (SELECT DISTINCT trade_date, ts_code FROM stock_st) s"
                 " ON s.ts_code = b.ts_code AND s.trade_date = strftime(d.date, '%Y%m%d')")
-    rows = db.execute(sql, params).fetchall()
-    # M6-07C1：构造边界必须显式 dtype——DuckDB row tuples 对稀疏字段（真实数据
+    return rd.query_rows(sql, params)
+
+
+def _uf_skeleton_ch(
+    rd: Rd,
+    date_strs: list[str],
+    codes: list[str],
+    delist_col: str,
+    has_st: bool,
+) -> list[tuple]:
+    """ch 版 PIT 骨架：arrayJoin 展开 dates/codes（duckdb unnest 对应方言）+
+    stock_basic LEFT JOIN。
+
+    方言要点：
+    - dates 展开 arrayMap(x -> toDate(x), %(dates)s)（ISO 字符串 → Date）
+    - list_date 为 Date：toString(toYYYYMMDD()) 转 'YYYYMMDD' 字符串
+      （与 duckdb String 形态对齐，共享后处理 strptime 不变）——不能用
+      formatDateTime('%Y%m%d')：SQL 字面含 % 与 clickhouse-connect 的
+      Python % 绑定冲突（unsupported format character）
+    - delist_col='NULL' 时输出字面 NULL（列缺失——退市信息不可用视为 NULL）
+    - stock_st join 在 Date 上等值（trade_date Date = d.date Date；stock_st 为
+      上游 teajoin 环境灌入表，本机无源时该 JOIN 不可用——resolve 层有
+      缺表显式报错路径，M8 语义由 ch_db 假库测试覆盖）
+    - 两层 LEFT JOIN 前提：code 恒来自 stock_basic
+    """
+    db = settings.ch_database
+    select_cols = (f"d.date, c.code, b.ts_code, "
+                   f"toString(toYYYYMMDD(b.list_date)) AS list_date, "
+                   f"{delist_col} AS delist_date")
+    sql = (
+        f"SELECT {select_cols}"
+        # arrayJoin 不能作 FROM 层 table function（26.3 UNKNOWN_FUNCTION）——
+        # 放子查询 SELECT 位展开 dates/codes，外层 CROSS JOIN
+        f" FROM (SELECT arrayJoin(arrayMap(x -> toDate(x), %(dates)s)) AS date) AS d"
+        f" CROSS JOIN (SELECT arrayJoin(%(codes)s) AS code) AS c"
+        f" LEFT JOIN {db}.stock_basic b ON b.symbol = c.code"
+    )
+    params: dict[str, Any] = {"dates": date_strs, "codes": codes}
+    if has_st:
+        sql = sql.replace("SELECT " + select_cols,
+                          "SELECT " + select_cols + ", s.ts_code IS NOT NULL AS is_st")
+        sql += (f" LEFT JOIN (SELECT DISTINCT trade_date, ts_code FROM {db}.stock_st) s"
+                f" ON s.ts_code = b.ts_code AND s.trade_date = d.date")
+    return rd.query_rows(sql, params)
+
+
+_UF_SKELETON_IMPL = {"duckdb": _uf_skeleton_duckdb, "ch": _uf_skeleton_ch}
+
+
+def resolve_universe_frame(
+    spec: FactorSpec,
+    rd: Rd,
+    dates: list,
+    *,
+    override: str | None = None,
+    candidate_codes: list[str] | None = None,
+    settings=settings,
+) -> pl.DataFrame:
+    """date×code PIT membership（接受显式日期集——chunk 友好，不要求全历史生成）。
+    rd 为读句柄（duckdb|ch）。
+
+    UniverseFrame schema: date/code/in_universe/is_listed/list_days/is_st/exchange。
+    PIT 语义：is_listed = list_date<=t AND (delist_date IS NULL OR t<delist_date)；
+    list_days = t − list_date（自然日）；is_st = 当日 stock_st 快照出现；
+    exchange = ts_code 后缀（.SH→SSE/.SZ→SZSE/.BJ→BSE）。
+    exclude_st=true 且 stock_st 缺表 → ValueError（fail fast）；false 且缺表 → is_st=null。
+    """
+    data = _resolve_universe_data(spec, override, settings)
+    rules = data.get("rules", {}) if "rules" in data else {}
+    codes = candidate_codes if candidate_codes is not None else resolve_candidate_codes(
+        spec, rd, override=override, settings=settings)
+    if not codes:
+        raise ValueError("候选代码集为空")
+    if len(set(codes)) != len(codes):
+        raise ValueError("candidate_codes 重复——fail fast，不静默去重")
+    date_strs = _norm_dates(dates)
+    if not date_strs:
+        raise ValueError("dates 不能为空")
+    if len(set(date_strs)) != len(date_strs):
+        raise ValueError("dates 重复——fail fast，不静默去重")
+
+    tables = rd.tables()
+    if "stock_basic" not in tables:
+        raise ValueError("需要 stock_basic 表（平台库由 data rebuild 生成）")
+    has_st = "stock_st" in tables
+    exclude_st = bool(rules.get("exclude_st"))
+    if exclude_st and not has_st:
+        raise ValueError("exclude_st 需要 stock_st 表（平台库由 data rebuild 生成）——不能默认所有股票非 ST")
+    # ST coverage（v1 contract：min/max trade_date；内部 gap 的精确 provenance 留给 Data Coverage Registry）
+    st_cov: tuple[str, str] | None = None
+    if has_st:
+        st_cov = _ST_COV_IMPL[rd.backend](rd)
+        if exclude_st and st_cov is None:
+            raise ValueError("exclude_st=true 但 stock_st 为空表——ST coverage 未知，禁止当非 ST")
+        if exclude_st:
+            outside = [d for d in date_strs
+                       if not (st_cov and st_cov[0] <= d.replace("-", "") <= st_cov[1])]
+            if outside:
+                raise ValueError(
+                    f"exclude_st=true 但请求日期 {outside[0]} 在 ST coverage "
+                    f"[{st_cov[0] if st_cov else '?'}, {st_cov[1] if st_cov else '?'}] 之外——"
+                    f"ST 状态未知，禁止把 unknown 当非 ST")
+    # delist_date 列探测（旧库可能无此列——退市信息不可用则视为 NULL）
+    sb_cols = rd.columns("stock_basic")
+    delist_col = "delist_date" if "delist_date" in sb_cols else "NULL"
+
+    rows = _UF_SKELETON_IMPL[rd.backend](rd, date_strs, codes, delist_col, has_st)
+    # M6-07C1：构造边界必须显式 dtype——row tuples 对稀疏字段（真实数据
     # delist_date 94% null）可能以任意长度的 null run 开头，Polars 默认 100 行
     # 推断窗口全 null → 推断 Null dtype → 后续非 null 值 append 失败
     # （构造后 cast 为时已晚——推断失败发生在 DataFrame 构建期）。

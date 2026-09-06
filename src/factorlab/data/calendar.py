@@ -1,38 +1,65 @@
 from __future__ import annotations
 
 import datetime
-from pathlib import Path
 
-import duckdb
 import polars as pl
 
 from factorlab.config import settings
+from factorlab.data.backend import Rd
 
 
-def trading_calendar(db_path: Path, date_start: str | None = None, date_end: str | None = None) -> pl.Series:
-    """交易日历：平台库 trade_cal 的 is_open=1 日期（cal_date 'YYYYMMDD' → pl.Date），升序去重。
-
-    日期范围参数支持 ISO 'YYYY-MM-DD' 与 'YYYYMMDD' 双格式（内部统一转 YYYYMMDD 查询）；
-    trade_cal 按交易所分行（SSE/SZSE 同日重复），DISTINCT 去重。
-    """
-    with duckdb.connect(str(db_path), read_only=True) as con:
-        con.execute(f"SET memory_limit='{settings.default_max_memory}'")
-        con.execute("SET threads=2")
-        where, params = [], []
-        if date_start is not None:
-            where.append("cal_date >= ?")
-            params.append(date_start.replace("-", ""))
-        if date_end is not None:
-            where.append("cal_date <= ?")
-            params.append(date_end.replace("-", ""))
-        sql = "SELECT DISTINCT cal_date FROM trade_cal WHERE is_open = 1" \
-            + (f" AND {' AND '.join(where)}" if where else "") + " ORDER BY cal_date"
-        dates = [r[0] for r in con.execute(sql, params).fetchall()]
+def _trading_calendar_duckdb(
+    rd: Rd, date_start: str | None, date_end: str | None,
+) -> pl.Series:
+    """duckdb 版：trade_cal.cal_date 为 'YYYYMMDD' VARCHAR → pl.Date 转换。"""
+    where, params = [], []
+    if date_start is not None:
+        where.append("cal_date >= ?")
+        params.append(date_start.replace("-", ""))
+    if date_end is not None:
+        where.append("cal_date <= ?")
+        params.append(date_end.replace("-", ""))
+    sql = "SELECT DISTINCT cal_date FROM trade_cal WHERE is_open = 1" \
+        + (f" AND {' AND '.join(where)}" if where else "") + " ORDER BY cal_date"
+    dates = [r[0] for r in rd.query_rows(sql, params)]
     return pl.Series(
         "date",
         [datetime.date(int(d[:4]), int(d[4:6]), int(d[6:])) for d in dates],
         dtype=pl.Date,
     )
+
+
+def _trading_calendar_ch(
+    rd: Rd, date_start: str | None, date_end: str | None,
+) -> pl.Series:
+    """ch 版：trade_cal.cal_date 为 Date，读回即 datetime.date 序列。
+
+    CH trade_cal 每行一个交易日（tools/ch_ingest 由 daily distinct trade_date
+    构建），DISTINCT 保留与旧库（交易所分行）的幂等语义。
+    """
+    where, params = [], {}
+    if date_start is not None:
+        where.append("cal_date >= toDate(%(date_start)s)")
+        params["date_start"] = date_start.replace("-", "")
+    if date_end is not None:
+        where.append("cal_date <= toDate(%(date_end)s)")
+        params["date_end"] = date_end.replace("-", "")
+    sql = f"SELECT DISTINCT cal_date FROM {settings.ch_database}.trade_cal WHERE is_open = 1" \
+        + (f" AND {' AND '.join(where)}" if where else "") + " ORDER BY cal_date"
+    dates = [r[0] for r in rd.query_rows(sql, params)]
+    return pl.Series("date", dates, dtype=pl.Date)
+
+
+_IMPL = {"duckdb": _trading_calendar_duckdb, "ch": _trading_calendar_ch}
+
+
+def trading_calendar(rd: Rd, date_start: str | None = None, date_end: str | None = None) -> pl.Series:
+    """交易日历：trade_cal 的 is_open=1 日期（→ pl.Date），升序去重。rd 为读句柄。
+
+    日期范围参数支持 ISO 'YYYY-MM-DD' 与 'YYYYMMDD' 双格式（内部统一转 YYYYMMDD 查询）；
+    trade_cal 按交易所分行（SSE/SZSE 同日重复），DISTINCT 去重。
+    """
+    return _IMPL[rd.backend](rd, date_start, date_end)
 
 
 def fill_suspensions(df: pl.DataFrame, calendar: pl.Series) -> pl.DataFrame:

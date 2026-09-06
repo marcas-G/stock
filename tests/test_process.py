@@ -1,8 +1,20 @@
+"""process 链处理器测试。
+
+纯链测试（合成面板、无 DB、ctx=None）单写；DB 取数处理器
+（neutralize by industry/size、fillna industry_mean）双腿参数化
+（env：duckdb|ch，见 tests/conftest.py）——env.seed 数据描述灌数 + ProcessCtx(db=env.rd)
+传读句柄。表列型映射对齐生产 CH DDL：stock_basic 带 ts_code 列（ch 腿
+neutralize(size) 的 daily_codes_clause 子查询需要，duckdb 腿前缀匹配不读它）、
+industry 可空（"str?"）、daily_basic.trade_date 为 "date"（duckdb VARCHAR
+'YYYYMMDD' / ch Date，处理器各自解码）。
+"""
+
 import polars as pl
 import pytest
 
-from factorlab.process.registry import get_processor, parse_chain_item, run_process_chain
 from factorlab.process import processors  # noqa: F401  # 注册副作用
+from factorlab.process.registry import (ProcessCtx, get_processor,
+                                        parse_chain_item, run_process_chain)
 
 
 def test_parse_chain_item_keyword():
@@ -182,24 +194,6 @@ def test_robustzscore_null_for_mad_zero_section():
     assert out["signal"].drop_nulls().len() == 2  # 01-03 截面 [1,2] MAD>0 → 有值
 
 
-from dataclasses import dataclass
-import duckdb
-
-@dataclass
-class FakeCtx:
-    db: duckdb.DuckDBPyConnection | None = None
-
-
-def build_basic_db(tmp_path):
-    db = duckdb.connect(tmp_path / "t.duckdb")
-    db.execute("CREATE TABLE stock_basic (symbol VARCHAR, industry VARCHAR)")
-    db.execute("INSERT INTO stock_basic VALUES ('A', '银行'), ('B', '银行'), ('C', '白酒'), ('D', '白酒')")
-    db.execute("CREATE TABLE daily_basic (trade_date VARCHAR, ts_code VARCHAR, total_mv DOUBLE)")
-    db.execute("INSERT INTO daily_basic VALUES ('20240102', '000001.SZ', 100.0), ('20240103', '000001.SZ', 120.0)")
-    db.close()
-    return tmp_path / "t.duckdb"
-
-
 def test_neutralize_market_demean():
     df = _panel()
     out = run_process_chain(df, ["neutralize(by=market)"], ctx=None)
@@ -207,15 +201,38 @@ def test_neutralize_market_demean():
     assert per_date["signal"].abs().max() < 1e-9
 
 
-def test_neutralize_industry_group_mean_zero(tmp_path):
-    db_path = build_basic_db(tmp_path)
-    import duckdb
-    con = duckdb.connect(str(db_path), read_only=True)
-    try:
-        df = _panel()
-        out = run_process_chain(df, ["neutralize(by: industry)"], ctx=con)
-    finally:
-        con.close()
+# ================================================================
+# DB 取数处理器双腿参数化（env：duckdb|ch）：seed 数据描述 + ProcessCtx(db=env.rd)
+# ================================================================
+
+def _basic_tables():
+    """基础库：stock_basic（A/B 银行、C/D 白酒）+ daily_basic（仅 000001.SZ 两日）。
+
+    stock_basic 多一列 ts_code：ch 腿 neutralize(size) 的 daily_codes_clause
+    子查询（SELECT ts_code FROM stock_basic WHERE symbol IN (...)）需要——duckdb 腿
+    mv 切片按 ts_code 前缀直接匹配，不读 stock_basic，额外列无影响。
+    industry 可空列 → "str?"；trade_date → "date"（duckdb VARCHAR 'YYYYMMDD'）。
+    """
+    return {
+        "stock_basic": (
+            [("symbol", "str"), ("ts_code", "str"), ("industry", "str?")],
+            [("A", "A.SZ", "银行"), ("B", "B.SZ", "银行"),
+             ("C", "C.SZ", "白酒"), ("D", "D.SZ", "白酒")]),
+        "daily_basic": (
+            [("trade_date", "date"), ("ts_code", "str"), ("total_mv", "f64")],
+            [("20240102", "000001.SZ", 100.0), ("20240103", "000001.SZ", 120.0)]),
+    }
+
+
+def _seed_basic(env):
+    env.seed(_basic_tables())
+
+
+def test_neutralize_industry_group_mean_zero(env):
+    _seed_basic(env)
+    df = _panel()
+    out = run_process_chain(df, ["neutralize(by: industry)"],
+                            ctx=ProcessCtx(db=env.rd))
     # A/B 同行业（银行）组内均值应为 0；C/D 同行业（白酒）同理
     means = out.join(
         pl.DataFrame({"code": ["A", "B"], "industry": ["银行", "银行"]}),
@@ -234,17 +251,13 @@ def test_neutralize_requires_db_context():
         run_process_chain(_panel(), ["neutralize(by: industry)"], ctx=None)
 
 
-def test_fillna_industry_mean(tmp_path):
-    db_path = build_basic_db(tmp_path)
-    import duckdb
-    con = duckdb.connect(str(db_path), read_only=True)
-    try:
-        df = _panel().with_columns(
-            pl.when(pl.col("code") == "D").then(None).otherwise(pl.col("signal")).alias("signal")
-        )
-        out = run_process_chain(df, ["fillna(method: industry_mean)"], ctx=con)
-    finally:
-        con.close()
+def test_fillna_industry_mean(env):
+    _seed_basic(env)
+    df = _panel().with_columns(
+        pl.when(pl.col("code") == "D").then(None).otherwise(pl.col("signal")).alias("signal")
+    )
+    out = run_process_chain(df, ["fillna(method: industry_mean)"],
+                            ctx=ProcessCtx(db=env.rd))
     assert out["signal"].null_count() == 0
     # D 属于白酒组（C/D），组内均值 (3+100)/2=51.5 填 D 的 null——但 100 是极端值？
     # 注意：组内均值包含 D 自身的 null（不计入），用 C 的 3.0 与 A/B 无关
@@ -254,55 +267,53 @@ def test_fillna_industry_mean(tmp_path):
     assert d_vals == c_vals
 
 
-def test_neutralize_size_decile_demean(tmp_path):
+def test_neutralize_size_decile_demean(env):
     # 按 date 内 total_mv 排名十分位分桶、组内 demean：
     # 20 只市值各异的股票 → 每分位组恰好 2 只 → demean 后恰为 ±0.5（非退化、非全零）；
     # 第二日市值放大 ×1000（非反转：反转的市值多重集与首日相同，全局排名泄漏下分桶
     # 结果不变、测不出泄漏）→ 全局排名泄漏时跨日期分桶改变 → 验证排名按日期隔离。
-    db_path = build_basic_db(tmp_path)
-    db = duckdb.connect(str(db_path))  # 可写连接重建 daily_basic（只读连接禁止写）
-    db.execute("DROP TABLE IF EXISTS daily_basic")
-    db.execute("CREATE TABLE daily_basic (trade_date VARCHAR, ts_code VARCHAR, total_mv DOUBLE)")
+    _seed_basic(env)
+    codes = [chr(ord("A") + i) for i in range(20)]
+    rows = []
     for i in range(20):
-        db.execute("INSERT INTO daily_basic VALUES ('20240102', ?, ?)", (f"{chr(ord('A') + i)}.SZ", float(i + 1) * 10.0))
-        db.execute("INSERT INTO daily_basic VALUES ('20240103', ?, ?)", (f"{chr(ord('A') + i)}.SZ", float(i + 1) * 10000.0))
-    db.close()
-    con = duckdb.connect(str(db_path), read_only=True)
-    try:
-        df = pl.DataFrame({
-            "date": ["2024-01-02"] * 20 + ["2024-01-03"] * 20,
-            "code": [chr(ord("A") + i) for i in range(20)] * 2,
-            "signal": [float(i) for i in range(20)] * 2,
-        })
-        out = run_process_chain(df, ["neutralize(by: size)"], ctx=con)
-    finally:
-        con.close()
+        rows.append(("20240102", f"{codes[i]}.SZ", float(i + 1) * 10.0))
+        rows.append(("20240103", f"{codes[i]}.SZ", float(i + 1) * 10000.0))
+    # 中途换表：env.seed 幂等（同表 DROP+CREATE，只替换列出的表）——daily_basic
+    # 换 20 票 ×2 日；stock_basic 补 E..T（ch 腿 daily_codes_clause 需 symbol 全命中）
+    env.seed({
+        "daily_basic": ([("trade_date", "date"), ("ts_code", "str"),
+                         ("total_mv", "f64")], rows),
+        "stock_basic": ([("symbol", "str"), ("ts_code", "str"),
+                         ("industry", "str?")],
+                        [(c, f"{c}.SZ", "银行") for c in codes]),
+    })
+    df = pl.DataFrame({
+        "date": ["2024-01-02"] * 20 + ["2024-01-03"] * 20,
+        "code": codes * 2,
+        "signal": [float(i) for i in range(20)] * 2,
+    })
+    out = run_process_chain(df, ["neutralize(by: size)"],
+                            ctx=ProcessCtx(db=env.rd))
     assert out["signal"].abs().max() > 0.1  # 非退化：不是全 0
     assert set(out["signal"].to_list()) == {-0.5, 0.5}  # 每分位组 2 只 → 恰好 ±0.5
     per_date = out.group_by("date").agg(pl.col("signal").mean())
     assert per_date["signal"].abs().max() < 1e-9  # 各分位组均值 0 → 每日截面和 0
 
 
-def test_neutralize_size_missing_mv_raises(tmp_path):
+def test_neutralize_size_missing_mv_raises(env):
     # daily_basic 无匹配（total_mv 为 null）→ 报错而非静默 demean 0（M3a spec §5）
-    db_path = build_basic_db(tmp_path)  # daily_basic 只有 000001.SZ，_panel 的 A/B/C/D 全部缺失
-    con = duckdb.connect(str(db_path), read_only=True)
-    try:
-        with pytest.raises(ValueError, match="total_mv"):
-            run_process_chain(_panel(), ["neutralize(by: size)"], ctx=con)
-    finally:
-        con.close()
+    _seed_basic(env)  # daily_basic 只有 000001.SZ，_panel 的 A/B/C/D 全部缺失
+    with pytest.raises(ValueError, match="total_mv"):
+        run_process_chain(_panel(), ["neutralize(by: size)"],
+                          ctx=ProcessCtx(db=env.rd))
 
 
-def test_neutralize_industry_missing_info(tmp_path):
+def test_neutralize_industry_missing_info(env):
     # 股票不在 stock_basic → 行业缺失 → 报错（不做静默按全截面 demean）
-    db_path = build_basic_db(tmp_path)
-    con = duckdb.connect(str(db_path), read_only=True)
-    try:
-        df = _panel().with_columns(
-            pl.when(pl.col("code") == "D").then(pl.lit("E")).otherwise(pl.col("code")).alias("code")
-        )
-        with pytest.raises(ValueError, match="缺少行业信息"):
-            run_process_chain(df, ["neutralize(by: industry)"], ctx=con)
-    finally:
-        con.close()
+    _seed_basic(env)
+    df = _panel().with_columns(
+        pl.when(pl.col("code") == "D").then(pl.lit("E")).otherwise(pl.col("code")).alias("code")
+    )
+    with pytest.raises(ValueError, match="缺少行业信息"):
+        run_process_chain(df, ["neutralize(by: industry)"],
+                          ctx=ProcessCtx(db=env.rd))

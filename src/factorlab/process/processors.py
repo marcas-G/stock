@@ -1,11 +1,15 @@
 """process 基础处理器。
 
 全部处理器作用于 signal 列、按 date 截面计算（fillna forward 按 code 分组、date 排序）。
+industry_mean / neutralize(industry|size) 需要 ProcessCtx(db=读句柄 Rd)。
 """
 from __future__ import annotations
 
+import duckdb
 import polars as pl
 
+from factorlab.config import settings
+from factorlab.data.backend import DuckDBRd, Rd
 from factorlab.process.registry import register_processor
 
 SIGNAL = "signal"
@@ -13,6 +17,83 @@ SIGNAL = "signal"
 
 def _x(df: pl.DataFrame) -> pl.Expr:
     return pl.col(SIGNAL)
+
+
+def _ctx_rd(ctx) -> Rd:
+    """取上下文读句柄：裸 duckdb 连接（旧调用方/测试）包 DuckDBRd 兼容。"""
+    db = ctx.db if ctx is not None else None
+    if db is None:
+        raise ValueError("需要 ProcessCtx(db) 上下文（读句柄/duckdb 连接）")
+    if isinstance(db, Rd):
+        return db
+    if isinstance(db, duckdb.DuckDBPyConnection):
+        return DuckDBRd(con=db)
+    raise TypeError(f"db 必须为 Rd 或 duckdb 连接（收到 {type(db).__name__}）")
+
+
+def _fetch_industry_duckdb(rd: Rd) -> pl.DataFrame:
+    return rd.query_df(
+        "SELECT symbol, industry FROM stock_basic"
+        " WHERE industry IS NOT NULL AND industry != ''")
+
+
+def _fetch_industry_ch(rd: Rd) -> pl.DataFrame:
+    return rd.query_df(
+        f"SELECT symbol, industry FROM {settings.ch_database}.stock_basic"
+        f" WHERE industry IS NOT NULL AND industry != ''")
+
+
+_INDUSTRY_IMPL = {"duckdb": _fetch_industry_duckdb, "ch": _fetch_industry_ch}
+
+
+def _fetch_industry(rd: Rd) -> pl.DataFrame:
+    return _INDUSTRY_IMPL[rd.backend](rd)
+
+
+def _fetch_mv_slice_duckdb(
+    rd: Rd, d_min: str, d_max: str, codes: list[str], date_dtype: pl.DataType,
+) -> pl.DataFrame:
+    """daily_basic 市值切片（duckdb：BETWEEN + split_part/unnest；SQL 逐字同迁移前）。"""
+    return rd.query_df(
+        "SELECT trade_date, ts_code, total_mv FROM daily_basic"
+        " WHERE trade_date BETWEEN ? AND ?"
+        " AND split_part(ts_code, '.', 1) IN (SELECT unnest(?))",
+        [d_min, d_max, codes],
+    ).with_columns(
+        # trade_date 'YYYYMMDD' → 面板 date 同 dtype（run_factor 面板为 pl.Date；单测面板为 str），
+        # join key 必须与面板一致，否则 SchemaError
+        pl.col("trade_date").str.strptime(pl.Date, "%Y%m%d").cast(date_dtype).alias("date"),
+        pl.col("ts_code").str.split(".").list.first().alias("code"),
+    ).select(["date", "code", "total_mv"])
+
+
+def _fetch_mv_slice_ch(
+    rd: Rd, d_min: str, d_max: str, codes: list[str], date_dtype: pl.DataType,
+) -> pl.DataFrame:
+    """daily_basic 市值切片（ch：toDate 窗口 + daily_codes_clause 两层 IN 命中主键）。
+    别名 d 必须保留——daily_codes_clause 片段引用 d.ts_code。"""
+    from factorlab.data.ch_source import daily_codes_clause
+
+    code_clause, cparams = daily_codes_clause(codes)
+    df = rd.query_df(
+        f"SELECT trade_date, ts_code, total_mv FROM {settings.ch_database}.daily_basic d"
+        f" WHERE trade_date BETWEEN toDate(%(d_min)s) AND toDate(%(d_max)s)"
+        f" AND {code_clause}",
+        {"d_min": d_min, "d_max": d_max, **cparams},
+    )
+    return df.with_columns(
+        # CH trade_date 原生 Date：直接 cast 到面板 dtype（无需 strptime）
+        pl.col("trade_date").cast(date_dtype).alias("date"),
+        pl.col("ts_code").str.split(".").list.first().alias("code"),
+    ).select(["date", "code", "total_mv"])
+
+
+_MV_SLICE_IMPL = {"duckdb": _fetch_mv_slice_duckdb, "ch": _fetch_mv_slice_ch}
+
+
+def _fetch_mv_slice(rd: Rd, d_min: str, d_max: str, codes: list[str],
+                    date_dtype: pl.DataType) -> pl.DataFrame:
+    return _MV_SLICE_IMPL[rd.backend](rd, d_min, d_max, codes, date_dtype)
 
 
 @register_processor
@@ -71,9 +152,7 @@ def fillna(df: pl.DataFrame, ctx, method: str = "value", value: float = 0.0) -> 
     elif method == "industry_mean":
         if ctx is None or ctx.db is None:
             raise ValueError("fillna(method=industry_mean) 需要 ProcessCtx(db) 上下文")
-        industry = ctx.db.execute(
-            "SELECT symbol, industry FROM stock_basic WHERE industry IS NOT NULL AND industry != ''"
-        ).pl()
+        industry = _fetch_industry(_ctx_rd(ctx))
         enriched = df.join(industry.rename({"symbol": "code"}), on="code", how="left")
         return enriched.with_columns(
             x.fill_null(x.mean().over(["date", "industry"])).alias(SIGNAL)
@@ -92,10 +171,9 @@ def neutralize(df: pl.DataFrame, ctx, by: str = "market") -> pl.DataFrame:
         return df.with_columns((x - x.mean().over("date")).alias(SIGNAL))
     if ctx is None or ctx.db is None:
         raise ValueError("neutralize(by=industry/size) 需要 ctx（ProcessCtx 的 db 连接）")
+    rd = _ctx_rd(ctx)
     if by == "industry":
-        industry = ctx.db.execute(
-            "SELECT symbol, industry FROM stock_basic WHERE industry IS NOT NULL AND industry != ''"
-        ).pl()
+        industry = _fetch_industry(rd)
         enriched = df.join(industry.rename({"symbol": "code"}), on="code", how="left")
         missing = enriched["industry"].null_count()
         if missing:
@@ -111,16 +189,7 @@ def neutralize(df: pl.DataFrame, ctx, by: str = "market") -> pl.DataFrame:
         # （面板 date 为 pl.Date 时 min() 返回 datetime.date；为 str 时去掉 '-'）
         d_min = date_min.strftime("%Y%m%d") if hasattr(date_min, "strftime") else str(date_min).replace("-", "")
         d_max = date_max.strftime("%Y%m%d") if hasattr(date_max, "strftime") else str(date_max).replace("-", "")
-        mv = ctx.db.execute(
-            "SELECT trade_date, ts_code, total_mv FROM daily_basic"
-            " WHERE trade_date BETWEEN ? AND ? AND split_part(ts_code, '.', 1) IN (SELECT unnest(?))",
-            [d_min, d_max, codes],
-        ).pl().with_columns(
-            # trade_date 'YYYYMMDD' → 面板 date 同 dtype（run_factor 面板为 pl.Date；单测面板为 str），
-            # join key 必须与面板一致，否则 SchemaError
-            pl.col("trade_date").str.strptime(pl.Date, "%Y%m%d").cast(df.schema["date"]).alias("date"),
-            pl.col("ts_code").str.split(".").list.first().alias("code"),
-        ).select(["date", "code", "total_mv"])
+        mv = _fetch_mv_slice(rd, d_min, d_max, codes, df.schema["date"])
         enriched = df.join(mv, on=["date", "code"], how="left")
         missing = enriched["total_mv"].null_count()
         if missing:

@@ -8,13 +8,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import duckdb
 import polars as pl
 import yaml
 from expr_codegen import codegen_exec
 
 from factorlab.config import settings as _settings
-from factorlab.data.adjust import view_prices
+from factorlab.data.adjust import load_qfq_base_adj, view_prices
+from factorlab.data.backend import Rd, open_read
 from factorlab.data.calendar import chunk_calendar, fill_suspensions, trading_calendar
 from factorlab.data.source import load_daily
 from factorlab.data.universe import align_to_listing, resolve_candidate_codes, resolve_universe_frame
@@ -207,7 +207,8 @@ class RunContext:
     chunk_days：日期分块（交易日/块；None=单块整段跑）。warmup_days：TS 窗口预热天数
     （None=按公式自动提取窗口最大值 + 20 安全垫）。"""
 
-    db_path: Path = _settings.platform_db
+    db_path: Path = _settings.platform_db  # duckdb 后端读 + 写路径（data rebuild/refresh）
+    data_backend: str | None = None  # 读路径后端 "duckdb"|"ch"（None → settings.data_backend）
     output_dir: Path = Path("results")
     universe_override: str | None = None
     float32: bool = _settings.use_float32
@@ -290,28 +291,8 @@ def _build_legacy_panel(
     return panel.select([c for c in _CHUNK_KEEP if c in panel.columns])
 
 
-def _load_base_adj(con: duckdb.DuckDBPyConnection, date_end: str | None) -> pl.DataFrame:
-    """全局 qfq 固定 base（M6-07C2E）：每代码在 <= effective_end 的**最新非 null**
-    adj_factor。base 与 chunk 划分/warmup 无关；列名用内部保留前缀
-    （__factorlab_），不进入用户公式（_compute_signal 在 compute_formula 前 drop）。
-
-    返回 (code, __factorlab_qfq_base_adj) 两列 DataFrame；date_end 为 ISO
-    'YYYY-MM-DD' 或 'YYYYMMDD'。FULL/CHUNK 使用完全相同 base。
-    """
-    where, params = "", []
-    if date_end:
-        where, params = " WHERE trade_date <= ?", [date_end.replace("-", "")]
-    return con.execute(
-        "SELECT substr(ts_code, 1, 6) AS code, "
-        "last(adj_factor ORDER BY trade_date) "
-        "FILTER (WHERE adj_factor IS NOT NULL) AS __factorlab_qfq_base_adj "
-        f"FROM adj_factor{where} GROUP BY substr(ts_code, 1, 6)",
-        params,
-    ).pl()
-
-
 def _compute_signal(
-    con: duckdb.DuckDBPyConnection,
+    rd: Rd,
     ctx: RunContext,
     spec: FactorSpec,
     formula: str,
@@ -332,7 +313,7 @@ def _compute_signal(
     """
     cols = _formula_columns(formula) + ["close", "adj_factor"]
     raw = load_daily(
-        ctx.db_path, codes,
+        rd, codes,
         date_start=date_start, date_end=date_end,
         cols=cols, float32=ctx.float32,
     ).collect()
@@ -359,7 +340,7 @@ def _compute_signal(
             if need:
                 from factorlab.data.source import load_daily_fill_state
                 fs = load_daily_fill_state(
-                    ctx.db_path, need, before=ws.isoformat(),
+                    rd, need, before=ws.isoformat(),
                     cols=fillable_cols, float32=ctx.float32)
                 if fs.height:
                     seed = pl.DataFrame({
@@ -397,7 +378,7 @@ def _compute_signal(
     sig = panel.select(["date", "code", "in_universe", "close"]).join(
         result, on=["date", "code"], how="left")
     sig = sig.filter(pl.col("in_universe")).drop("in_universe")
-    sig = run_process_chain(sig, spec.process, ctx=con)
+    sig = run_process_chain(sig, spec.process, ctx=rd)
     return sig.sort(["date", "code"])
 
 
@@ -419,7 +400,7 @@ def label_lookahead_end(cal: pl.Series, chunk_end: datetime.date, horizon: int) 
 
 
 def _compute_labels(
-    con: duckdb.DuckDBPyConnection,
+    rd: Rd,
     ctx: RunContext,
     spec: FactorSpec,
     codes: list[str],
@@ -437,7 +418,7 @@ def _compute_labels(
       需要 t 与 t+h，无过去窗口）；date_end=label_end（right lookahead，仅 label）
     """
     raw = load_daily(
-        ctx.db_path, codes,
+        rd, codes,
         date_start=date_start, date_end=date_end,
         cols=["close", "adj_factor"], float32=ctx.float32,
     ).collect()
@@ -478,12 +459,12 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
     formula = expand_platform_macros(formula)  # 薄封装 → ts_ 表达式（compute_formula 内部再展开幂等无害）
     _check_future_inputs(formula)  # future/label 显式引用 → fail fast（AC-09）
     try:
-        con = duckdb.connect(str(ctx.db_path), read_only=True)
-    except duckdb.IOException as exc:
+        rd = open_read(data_backend=ctx.data_backend, db_path=ctx.db_path)
+    except FileNotFoundError as exc:
         raise FileNotFoundError(f"数据库不存在: {ctx.db_path}（可运行 data refresh 或检查路径）") from exc
     try:
-        codes = resolve_candidate_codes(spec, con, override=ctx.universe_override)
-        cal = trading_calendar(ctx.db_path, date_start=spec.date.start, date_end=spec.date.end)
+        codes = resolve_candidate_codes(spec, rd, override=ctx.universe_override)
+        cal = trading_calendar(rd, date_start=spec.date.start, date_end=spec.date.end)
         # trade_cal 含未来公告日（~94 个到 20261231）：补全面板截断到今天，不产生未来 null 行
         today = datetime.date.today()
         cal = cal.filter(cal <= today)
@@ -498,7 +479,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
         if adjustment == "qfq":
             effective_end = spec.date.end if spec.date.end \
                 else (cal[-1].isoformat() if cal.len() else None)
-            base_adj = _load_base_adj(con, effective_end)
+            base_adj = load_qfq_base_adj(rd, effective_end)
         else:
             base_adj = None
         if ctx.chunk_days is None:
@@ -523,15 +504,15 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
                 label_end = label_lookahead_end(cal, chunk_end,
                                                 max(DEFAULT_FORWARD_HORIZONS))
                 label_cal = cal.filter((cal >= chunk_start) & (cal <= label_end))
-            signal_uf = resolve_universe_frame(spec, con, dates=signal_cal.to_list(),
+            signal_uf = resolve_universe_frame(spec, rd, dates=signal_cal.to_list(),
                                                candidate_codes=codes)
-            label_uf = resolve_universe_frame(spec, con, dates=label_cal.to_list(),
+            label_uf = resolve_universe_frame(spec, rd, dates=label_cal.to_list(),
                                               candidate_codes=codes)
-            sig = _compute_signal(con, ctx, spec, formula, codes, signal_uf,
+            sig = _compute_signal(rd, ctx, spec, formula, codes, signal_uf,
                                   load_start.isoformat() if load_start else None,
                                   chunk_end.isoformat() if chunk_end else None,
                                   signal_cal, base_adj)
-            lab = _compute_labels(con, ctx, spec, codes, label_uf,
+            lab = _compute_labels(rd, ctx, spec, codes, label_uf,
                                   chunk_start.isoformat() if chunk_start else None,
                                   label_end.isoformat() if label_end else None,
                                   label_cal)
@@ -552,7 +533,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
         # Signal/Label/panel 正式 artifact 的 code 必须为 canonical research
         # identifier（M7/M8 消费方 canonical guard 的唯一合法输入）。
         from factorlab.data.universe import resolve_canonical_code_map
-        canonical_map = resolve_canonical_code_map(con, codes)
+        canonical_map = resolve_canonical_code_map(rd, codes)
         signal_df = _canonicalize_artifact_codes(signal_df, canonical_map)
         labels_df = _canonicalize_artifact_codes(labels_df, canonical_map)
         codes = canonical_map["code"].to_list()   # summary.codes 同 namespace
@@ -569,7 +550,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
         # 无页面文件机器上撞 commit 空间 → 0xC0000005）
         panel = _build_legacy_panel(signal_df, labels_df, signal_artifact, label_artifact)
     finally:
-        con.close()
+        rd.close()
 
     summary = {
         "name": spec.name,

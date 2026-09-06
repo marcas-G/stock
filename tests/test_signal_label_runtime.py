@@ -12,6 +12,7 @@ import duckdb
 import polars as pl
 import pytest
 
+from factorlab.data.backend import DuckDBRd, open_read
 from factorlab.data.calendar import fill_suspensions, trading_calendar
 from factorlab.data.source import load_daily
 from factorlab.data.universe import align_to_listing, resolve_universe_frame
@@ -227,19 +228,19 @@ def test_static_compatibility_legacy_reference(tmp_path, db_path):
     ctx = RunContext(db_path=db_path, output_dir=tmp_path / "out")
     r = run_factor(spec, ctx)
     # legacy reference（旧路径：fill_suspensions → forward → fill → view → formula(无 mask) → process）
-    with duckdb.connect(str(ctx.db_path), read_only=True) as con:
-        from factorlab.data.universe import resolve_codes
-        codes = resolve_codes(spec, con)
-        cal = trading_calendar(ctx.db_path, date_start=spec.date.start, date_end=spec.date.end)
-        raw = load_daily(ctx.db_path, codes, date_start=spec.date.start, date_end=spec.date.end,
-                         cols=_formula_columns("signal = close") + ["close", "adj_factor"],
-                         float32=False).collect()
-        panel = fill_suspensions(raw, cal)
-        panel = compute_forward_returns(panel)
-        panel = fill_suspension_values(panel)
-        panel = view_prices(panel, "qfq")
-        panel = panel.join(compute_formula(panel, "signal = close"), on=["date", "code"], how="left")
-        panel = run_process_chain(panel, spec.process, ctx=con)
+    rd = open_read(db_path=ctx.db_path)
+    from factorlab.data.universe import resolve_codes
+    codes = resolve_codes(spec, rd)
+    cal = trading_calendar(rd, date_start=spec.date.start, date_end=spec.date.end)
+    raw = load_daily(rd, codes, date_start=spec.date.start, date_end=spec.date.end,
+                     cols=_formula_columns("signal = close") + ["close", "adj_factor"],
+                     float32=False).collect()
+    panel = fill_suspensions(raw, cal)
+    panel = compute_forward_returns(panel)
+    panel = fill_suspension_values(panel)
+    panel = view_prices(panel, "qfq")
+    panel = panel.join(compute_formula(panel, "signal = close"), on=["date", "code"], how="left")
+    panel = run_process_chain(panel, spec.process, ctx=rd)
     legacy = panel.sort(["date", "code"])
     new = r.panel.sort(["date", "code"])
     assert legacy["signal"].to_list() == new["signal"].to_list(), "静态兼容失败"
@@ -251,7 +252,7 @@ def test_static_compatibility_legacy_reference(tmp_path, db_path):
 
 def _listing_uf(db, dates):
     spec = spec_with(rules={"exchanges": ["SSE", "SZSE"]})
-    return resolve_universe_frame(spec, db, dates)
+    return resolve_universe_frame(spec, DuckDBRd(con=db), dates)
 
 
 def test_align_listing_basic(tmp_path):

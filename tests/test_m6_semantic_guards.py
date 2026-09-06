@@ -1,12 +1,17 @@
 """M6-06：Semantic Guard Closure——Label contract / manifest integrity / key alignment。
 
 核心：M6 已建立的 Signal/Label/PIT/Artifact 边界变成不可静默绕过的 fail-fast invariants。
+
+双腿参数化（env：duckdb|ch，见 tests/conftest.py）：依赖 DB 的测试（tamper/meta/
+bundle/version guard 等需 run_factor 产物的）经 env.seed 数据描述建库 +
+RunContext(data_backend) 双腿真跑——guard 断言作用于磁盘 parquet/summary
+（清一色 ValueError），双腿共享同一条断言。纯 domain / 纯文件 artifact 测试
+不触 DB，保持原位单腿。
 """
 
 import datetime
 import json
 
-import duckdb
 import polars as pl
 import pytest
 
@@ -21,30 +26,54 @@ from factorlab.engine.compute import RunContext, run_factor
 from factorlab.spec import load_spec
 
 
-def build_db(tmp_path, n_days: int = 12) -> None:
-    db = duckdb.connect(str(tmp_path / "q.duckdb"))
-    db.execute("CREATE TABLE daily (ts_code VARCHAR, trade_date VARCHAR, open DOUBLE, high DOUBLE, "
-               "low DOUBLE, close DOUBLE, vol DOUBLE, amount DOUBLE)")
-    dates = [datetime.date(2024, 1, 2) + datetime.timedelta(days=i) for i in range(n_days)]
-    for code, fn in (("000001.SZ", lambda i: 10.0 + i), ("000002.SZ", lambda i: 20.0 - i)):
-        rows = [(code, d.strftime("%Y%m%d"), fn(i), fn(i) * 1.01, fn(i) * 0.99, fn(i),
-                 1e6, fn(i) * 1e6) for i, d in enumerate(dates)]
-        db.executemany("INSERT INTO daily VALUES (?,?,?,?,?,?,?,?)", rows)
-    db.execute("CREATE TABLE adj_factor (ts_code VARCHAR, trade_date VARCHAR, adj_factor DOUBLE)")
-    for code in ("000001.SZ", "000002.SZ"):
-        db.executemany("INSERT INTO adj_factor VALUES (?,?,?)",
-                       [(code, d.strftime("%Y%m%d"), 1.0) for d in dates])
-    db.execute("CREATE TABLE trade_cal (exchange VARCHAR, cal_date VARCHAR, is_open BIGINT)")
-    db.executemany("INSERT INTO trade_cal VALUES ('SSE', ?, 1)",
-                   [(d.strftime("%Y%m%d"),) for d in dates])
-    db.execute("CREATE TABLE stock_basic (ts_code VARCHAR, symbol VARCHAR, exchange VARCHAR, "
-               "list_date VARCHAR, industry VARCHAR, market VARCHAR, delist_date VARCHAR)")
-    for code in ("000001.SZ", "000002.SZ"):
-        db.execute("INSERT INTO stock_basic VALUES (?,?,?,?,?,?,?)",
-                   (code, code[:6], "SZSE", "20240101", "x", "主板", None))
-    db.execute("CREATE TABLE stock_st (ts_code VARCHAR, name VARCHAR, trade_date VARCHAR, "
-               "type VARCHAR, type_name VARCHAR)")
-    db.close()
+# ================================================================
+# 建库（双腿数据描述 seed——等价原 duckdb 直建 DDL，经 env.seed 双腿灌数）
+# ================================================================
+
+_DAILY_COLS = [("ts_code", "str"), ("trade_date", "date"), ("open", "f64"),
+               ("high", "f64"), ("low", "f64"), ("close", "f64"),
+               ("vol", "f64"), ("amount", "f64")]
+_ADJ_COLS = [("ts_code", "str"), ("trade_date", "date"), ("adj_factor", "f64")]
+_CAL_COLS = [("exchange", "str"), ("cal_date", "date"), ("is_open", "i64")]
+# list_date 按生产 ch DDL 为 Date（duckdb 腿 = VARCHAR 'YYYYMMDD' 同平台形态）
+_SB_COLS = [("ts_code", "str"), ("symbol", "str"), ("exchange", "str"),
+            ("list_date", "date"), ("industry", "str"), ("market", "str"),
+            ("delist_date", "str?")]
+_ST_COLS = [("ts_code", "str"), ("name", "str"), ("trade_date", "date"),
+            ("type", "str"), ("type_name", "str")]
+
+
+def _tables(n_days: int = 12):
+    """原 build_db 等价数据描述：2024-01-02 起 n_days 个自然日，双票连续价格。
+
+    daily：open=close=10+i / 20-i，high 1.01x / low 0.99x，vol 1e6；
+    adj_factor 全 1.0；trade_cal 全日历 is_open=1；stock_basic 双票 20240101 上市
+    （delist_date 未退市 NULL）；stock_st 空表。
+    """
+    dates = [datetime.date(2024, 1, 2) + datetime.timedelta(days=i)
+             for i in range(n_days)]
+    daily_rows, adj_rows = [], []
+    for code, fn in (("000001.SZ", lambda i: 10.0 + i),
+                     ("000002.SZ", lambda i: 20.0 - i)):
+        for i, d in enumerate(dates):
+            ds = d.strftime("%Y%m%d")
+            daily_rows.append((code, ds, fn(i), fn(i) * 1.01, fn(i) * 0.99,
+                               fn(i), 1e6, fn(i) * 1e6))
+            adj_rows.append((code, ds, 1.0))
+    return {
+        "daily": (_DAILY_COLS, daily_rows),
+        "adj_factor": (_ADJ_COLS, adj_rows),
+        "trade_cal": (_CAL_COLS, [("SSE", d.strftime("%Y%m%d"), 1)
+                                  for d in dates]),
+        "stock_basic": (_SB_COLS,
+                        [(code, code[:6], "SZSE", "20240101", "x", "主板", None)
+                         for code in ("000001.SZ", "000002.SZ")]),
+        "stock_st": (_ST_COLS, []),
+    }
+
+
+def _seed(env, n_days: int = 12) -> None:
+    env.seed(_tables(n_days))
 
 
 def _spec(tmp_path) -> object:
@@ -64,10 +93,12 @@ formula: |
     return load_spec(path)
 
 
-def _run(tmp_path, spec, chunk_days=None):
+def _run(env, tmp_path, spec, chunk_days=None):
+    # ch 腿无文件路径概念：open_read 按 data_backend="ch" 分派，db_path 忽略
+    kw = {"db_path": env.path} if env.backend == "duckdb" else {}
     return run_factor(spec, RunContext(
-        db_path=tmp_path / "q.duckdb", output_dir=tmp_path / ("out_c" if chunk_days else "out"),
-        float32=False, chunk_days=chunk_days, warmup_days=3))
+        data_backend=env.backend, output_dir=tmp_path / ("out_c" if chunk_days else "out"),
+        float32=False, chunk_days=chunk_days, warmup_days=3, **kw))
 
 
 def _meta(name="demo"):
@@ -227,42 +258,42 @@ def _tamper(tmp_path, path: str, key: str, value) -> None:
     (tmp_path / "out" / SUMMARY_FILE).write_text(json.dumps(s), encoding="utf-8")
 
 
-def test_tamper_manifest_signal_rows(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_tamper_manifest_signal_rows(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _tamper(tmp_path, "artifacts.signal", "rows", 999)
     with pytest.raises(ValueError, match="signal manifest rows 999 != 实际 parquet rows"):
         load_signal_artifact(tmp_path / "out")
 
 
-def test_tamper_manifest_label_rows(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_tamper_manifest_label_rows(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _tamper(tmp_path, "artifacts.labels", "rows", 999)
     with pytest.raises(ValueError, match="labels manifest rows 999 != 实际 parquet rows"):
         load_label_artifact(tmp_path / "out")
 
 
-def test_tamper_manifest_signal_columns(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_tamper_manifest_signal_columns(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _tamper(tmp_path, "artifacts.signal", "columns", ["date", "signal", "code"])
     with pytest.raises(ValueError, match="signal manifest columns"):
         load_signal_artifact(tmp_path / "out")
 
 
-def test_tamper_parquet_rows(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_tamper_parquet_rows(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     sig = pl.read_parquet(tmp_path / "out" / SIGNAL_FILE)
     sig.head(sig.height - 1).write_parquet(tmp_path / "out" / SIGNAL_FILE)  # 少一行，manifest 不改
     with pytest.raises(ValueError, match="signal manifest rows"):
         load_signal_artifact(tmp_path / "out")
 
 
-def test_tamper_parquet_extra_column(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_tamper_parquet_extra_column(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     sig = pl.read_parquet(tmp_path / "out" / SIGNAL_FILE)
     sig.with_columns(pl.lit(1.0).alias("extra")).write_parquet(tmp_path / "out" / SIGNAL_FILE)
     with pytest.raises(ValueError, match="signal manifest columns"):
@@ -270,9 +301,9 @@ def test_tamper_parquet_extra_column(tmp_path):
 
 
 @pytest.mark.parametrize("horizons", [[5], [5, 60], [20, 5]])
-def test_tamper_label_horizons(tmp_path, horizons):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_tamper_label_horizons(env, tmp_path, horizons):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _tamper(tmp_path, "artifacts.labels", "horizons", horizons)
     with pytest.raises(ValueError, match="horizons"):
         load_label_artifact(tmp_path / "out")
@@ -292,34 +323,34 @@ def _del_meta(tmp_path, key: str, sub: str | None = None) -> None:
     (tmp_path / "out" / SUMMARY_FILE).write_text(json.dumps(s), encoding="utf-8")
 
 
-def test_meta_missing_timing(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_meta_missing_timing(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _del_meta(tmp_path, "timing")
     with pytest.raises(ValueError, match="signal meta 缺少字段"):
         load_signal_artifact(tmp_path / "out")
 
 
-def test_meta_missing_name(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_meta_missing_name(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _del_meta(tmp_path, "name")
     with pytest.raises(ValueError, match="signal meta 缺少字段"):
         load_signal_artifact(tmp_path / "out")
 
 
 @pytest.mark.parametrize("sub", ["information_cutoff", "available_at", "default_earliest_execution"])
-def test_meta_missing_timing_subfield(tmp_path, sub):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_meta_missing_timing_subfield(env, tmp_path, sub):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _del_meta(tmp_path, None, sub)
     with pytest.raises(ValueError, match="signal meta timing 缺少字段"):
         load_signal_artifact(tmp_path / "out")
 
 
-def test_meta_invalid_timing_enum(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_meta_invalid_timing_enum(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _tamper(tmp_path, "artifacts.signal.meta.timing", "information_cutoff", "tomorrow")
     with pytest.raises(ValueError, match="invalid signal timing value"):
         load_signal_artifact(tmp_path / "out")
@@ -329,9 +360,9 @@ def test_meta_invalid_timing_enum(tmp_path):
 # Bundle loader
 # ================================================================
 
-def test_bundle_loader(tmp_path):
-    build_db(tmp_path)
-    r = _run(tmp_path, _spec(tmp_path))
+def test_bundle_loader(env, tmp_path):
+    _seed(env)
+    r = _run(env, tmp_path, _spec(tmp_path))
     bundle = load_factor_artifacts(tmp_path / "out")
     assert isinstance(bundle, FactorArtifactBundle)
     assert bundle.signal.frame.equals(r.signal_artifact.frame)
@@ -343,9 +374,9 @@ def test_bundle_loader(tmp_path):
 # E2E Semantic Gate（run → disk → bundle 全链验证）
 # ================================================================
 
-def test_semantic_gate_e2e(tmp_path):
-    build_db(tmp_path)
-    r = _run(tmp_path, _spec(tmp_path), chunk_days=4)
+def test_semantic_gate_e2e(env, tmp_path):
+    _seed(env)
+    r = _run(env, tmp_path, _spec(tmp_path), chunk_days=4)
     bundle = load_factor_artifacts(tmp_path / "out_c")
     # Signal 无未来字段（磁盘复验）
     for c in bundle.signal.frame.columns:
@@ -409,16 +440,16 @@ def test_writer_rejects_5_60_label(tmp_path):
         assert not (tmp_path / "out" / f).exists()
 
 
-def test_writer_accepts_normal_5_20_roundtrip(tmp_path):
-    build_db(tmp_path)
-    r = _run(tmp_path, _spec(tmp_path))
+def test_writer_accepts_normal_5_20_roundtrip(env, tmp_path):
+    _seed(env)
+    r = _run(env, tmp_path, _spec(tmp_path))
     loaded = load_label_artifact(tmp_path / "out")
     assert loaded.frame.equals(r.label_artifact.frame)
 
 
-def test_manifest_horizons_from_actual_columns(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_manifest_horizons_from_actual_columns(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     s = _summary(tmp_path)
     from factorlab.artifacts import extract_forward_horizons
     lab = pl.read_parquet(tmp_path / "out" / LABELS_FILE)
@@ -427,59 +458,59 @@ def test_manifest_horizons_from_actual_columns(tmp_path):
 
 
 @pytest.mark.parametrize("bad", [True, 1.0, "1", -1])
-def test_format_version_strict_type(tmp_path, bad):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_format_version_strict_type(env, tmp_path, bad):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _tamper(tmp_path, "", "artifact_format_version", bad)
     with pytest.raises(ValueError, match="invalid artifact format version"):
         load_signal_artifact(tmp_path / "out")
 
 
 @pytest.mark.parametrize("bad", [True, 1.0, "1", 0, -1])
-def test_signal_schema_strict_type(tmp_path, bad):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_signal_schema_strict_type(env, tmp_path, bad):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _tamper(tmp_path, "artifacts.signal", "schema_version", bad)
     with pytest.raises(ValueError, match="invalid signal schema version"):
         load_signal_artifact(tmp_path / "out")
 
 
 @pytest.mark.parametrize("bad", [True, 1.0, "1", 0, -1])
-def test_label_schema_strict_type(tmp_path, bad):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_label_schema_strict_type(env, tmp_path, bad):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _tamper(tmp_path, "artifacts.labels", "schema_version", bad)
     with pytest.raises(ValueError, match="invalid labels schema version"):
         load_label_artifact(tmp_path / "out")
 
 
-def test_int_unsupported_version_still_unsupported(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_int_unsupported_version_still_unsupported(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _tamper(tmp_path, "", "artifact_format_version", 2)
     with pytest.raises(ValueError, match="unsupported artifact format version 2"):
         load_signal_artifact(tmp_path / "out")
 
 
-def test_meta_name_non_string(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_meta_name_non_string(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _tamper(tmp_path, "artifacts.signal.meta", "name", 123)
     with pytest.raises(ValueError, match="signal meta name 必须为 non-empty str"):
         load_signal_artifact(tmp_path / "out")
 
 
-def test_meta_adjustment_non_string(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_meta_adjustment_non_string(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _tamper(tmp_path, "artifacts.signal.meta", "adjustment", [])
     with pytest.raises(ValueError, match="adjustment 必须为 null 或 str"):
         load_signal_artifact(tmp_path / "out")
 
 
-def test_meta_timing_non_string(tmp_path):
-    build_db(tmp_path)
-    _run(tmp_path, _spec(tmp_path))
+def test_meta_timing_non_string(env, tmp_path):
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
     _tamper(tmp_path, "artifacts.signal.meta.timing", "information_cutoff", 1)
     with pytest.raises(ValueError, match="information_cutoff 必须为 str"):
         load_signal_artifact(tmp_path / "out")

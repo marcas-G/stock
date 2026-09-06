@@ -8,6 +8,7 @@ import duckdb
 import polars as pl
 import pytest
 
+from factorlab.data.backend import open_read
 from factorlab.data.universe import resolve_canonical_code_map
 from factorlab.domain.codes import is_canonical_stock_code
 from factorlab.engine.compute import RunContext, run_factor
@@ -22,7 +23,8 @@ def _sb_db(tmp_path, rows):
     db = duckdb.connect(tmp_path / "m.duckdb")
     db.execute("CREATE TABLE stock_basic (symbol VARCHAR, ts_code VARCHAR)")
     db.executemany("INSERT INTO stock_basic VALUES (?, ?)", rows)
-    return db
+    db.close()
+    return open_read(db_path=tmp_path / "m.duckdb")
 
 
 def _map(db, symbols):
