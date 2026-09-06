@@ -10,7 +10,8 @@ requires-python = ">=3.13"
 dependencies = [
     "polars>=1.38",
     "duckdb>=1.5",
-    "pyarrow>=24",
+    "pyarrow>=20",  # 本机 glibc 2.27: >=21 无 cp313 manylinux wheel, 只能 20.x
+    "clickhouse-connect>=1.7",  # ClickHouse 读后端 (ch_source)
     "pyyaml>=6",
     "pydantic>=2.12",
     "pydantic-settings>=2.14",
@@ -44,5 +45,5 @@ factorlab = ["web/templates/*.html", "web/static/*.js"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [
-    "integration: 依赖真实平台库 factorlab.duckdb 的集成测试（库缺失时跳过）",
+    "integration: 依赖真实数据源（ClickHouse factorlab 库 / duckdb 平台库）的集成测试（数据源缺失时跳过）",
 ]
