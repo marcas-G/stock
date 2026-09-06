@@ -58,3 +58,32 @@
   （compute._FUTURE_COL_* 与 universe_masking 前缀字面量已移除引用）。
 - 测试：tests/test_input_surface.py（21 例双腿：报错助手/无白名单真实列全链/读绑双门），
   先红后绿；全量 2178 passed（基线 +21）。duckdb 腿逐断言回归、CH 不可达丢 ch 腿语义不变。
+
+## M2 落地纪要（2026-09-07，多信号输出 G1）
+
+- **spec.outputs**：可选列表，缺省 None = `[signal]`（旧 spec 逐字节兼容）。加载期四规则
+  `_validate_outputs`：NAME_PATTERN、非保留名（`__factorlab_*`/`in_universe`/未来列
+  forward_*/future_*/target/label）、非结构冲突名（date/code/close/panel/labels/summary
+  与面板结构列/落盘文件冲突——不实现会产出 date/code 覆写列或与 panel.parquet
+  labels.parquet 撞名的文件）、全局唯一；空列表拒绝。
+- **共享一趟**：compute_formula 增 `outputs` 参数（缺省 [signal]），一趟向量化 pass 后
+  `select([date, asset, *outputs])`；codegen 前 `_declared_output_names`（Assign/AnnAssign
+  Name targets）+ codegen 后双保险，未产出声明列报错点名。run_factor 每 chunk 只调用一次
+  compute（codegen 调用计数 = 1 有测试锁）；分块裁剪/累积列 `_CHUNK_KEEP` 字面量 →
+  `_chunk_keep(outputs)` 动态化（legacy `[date,code,signal,前向列,close]` 顺序不变）。
+- **per-output process**：`_apply_multi_output_process`——每输出 rename 原列 → signal 过整条
+  链（processors 只写 alias(SIGNAL)、不增删行的单列纪律是合法性前提）→ 收回原名后按
+  (date,code) join 收回（不依赖链内行序），close 保留。`outputs == [signal]` 走 legacy
+  原路径（字节级不变）；per-output 值与单输出独立运行 panel 逐值一致有测试锁。
+- **artifacts 双布局**：`ARTIFACT_FORMAT_VERSION = 1` legacy（signal.parquet，不变）；
+  `MULTI_ARTIFACT_FORMAT_VERSION = 2` 多输出——`signal__<output>.parquet` × N + labels +
+  panel + summary，**绝不写单列 signal.parquet**（无隐式别名）；manifest root 增 outputs
+  列表、artifacts 增 `signal__<o>` 条目（列契约 [date, code, <o>] 写前校验、逐输出与
+  labels key 对齐复用裸 frame 助手 `_validate_key_alignment`——多输出 frame 无 signal 列
+  借不了 SignalArtifact）；FactorResult.signal_artifact=None + `signals[o]` dict。
+  per-output loader 在后续里程碑，v2 目录 loaders 明确报错（不猜测主信号）。
+- **测试**：tests/test_outputs_multi.py（17 例双腿）先红后绿——四路校验、端到端（panel
+  全列/文件/summary/outputs/无 signal.parquet）、codegen 计数 1、FULL==CHUNK、per-output
+  与单输出 panel 逐值一致（单输出 outputs:[a] 的列名即 a——非 signal 字面）、compute_formula
+  保留声明列。sample 头部窗口不足 null 是引擎既有 warmup 语义（FULL/CHUNK 一致），测试按
+  a（窗口因子）>0 个 null / b（无窗口）=0 锁预期。

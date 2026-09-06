@@ -7,6 +7,8 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, Field, model_validator
 
+from factorlab.engine.reserved import is_future_column, is_internal_name
+
 
 NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]{0,63}$"
 PROCESS_PATTERN = r"^[a-z_][a-z0-9_]*(\(.*\))?$"
@@ -93,6 +95,42 @@ class FactorSpec(BaseModel):
     combine: CombineSpec | None = None
     # 复权视图口径：pit_qfq 预留（需 asof 研究日，审计场景 M4b 消费）
     adjustment: Literal["raw", "qfq", "hfq", "pit_qfq"] = "qfq"
+    # M2（G1）多信号输出：None → 下游按 ["signal"] 处理（缺省完全兼容旧 spec）。
+    # 面板结构列 / artifact 落盘文件名冲突（date/code/close/panel/labels/summary）
+    # 与内部/未来保留名一样不可作输出名（design doc §3.1（c）+ 文件命名安全）。
+    outputs: list[str] | None = None
+    _OUTPUT_COLLISION_NAMES = frozenset(
+        {"date", "code", "close", "panel", "labels", "summary"})
+
+    @model_validator(mode="after")
+    def _validate_outputs(self) -> "FactorSpec":
+        if self.outputs is None:
+            return self
+        if not self.outputs:
+            raise ValueError("outputs 不能为空（缺省 = [signal]，或列出声明输出名）")
+        for name in self.outputs:
+            if not re.match(NAME_PATTERN, name):
+                raise ValueError(
+                    f"outputs 名字不合法: {name!r}（须匹配 {NAME_PATTERN}）")
+            if name in self._OUTPUT_COLLISION_NAMES:
+                raise ValueError(
+                    f"outputs 保留名: {name!r}（date/code/close/panel/labels/summary"
+                    f" 与面板结构列/落盘文件冲突，不可作输出名）")
+            if is_internal_name(name):
+                raise ValueError(
+                    f"outputs 保留名: {name!r}（__factorlab_* / in_universe 为平台"
+                    f"内部保留，公式模板不可输出）")
+            if is_future_column(name):
+                raise ValueError(
+                    f"outputs 保留名: {name!r}（forward_*/future_*/target/label"
+                    f" 为数据侧未来列命名纪律，公式输出不可用）")
+        seen: dict[str, int] = {}
+        for i, name in enumerate(self.outputs):
+            if name in seen:
+                raise ValueError(
+                    f"outputs 重复: {name!r}（全局唯一——第 {seen[name]} 与第 {i + 1} 位置冲突）")
+            seen[name] = i + 1
+        return self
 
     @model_validator(mode="after")
     def _validate_script(self) -> "FactorSpec":

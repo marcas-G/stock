@@ -61,7 +61,7 @@ def _join_reference(signal_df=None, labels_df=None):
 
 def test_panel_schema_and_values():
     sa, la = _artifacts()
-    panel = _build_legacy_panel(_signal_df(), _labels_df(), sa, la)
+    panel = _build_legacy_panel(_signal_df(), _labels_df(), sa, la, ["signal"])
     assert panel.columns == ["date", "code", "signal", "forward_return_5d",
                              "forward_return_20d", "close"]
     assert panel.height == 3
@@ -75,7 +75,7 @@ def test_panel_schema_and_values():
 
 def test_panel_matches_left_join_reference():
     sa, la = _artifacts()
-    panel = _build_legacy_panel(_signal_df(), _labels_df(), sa, la)
+    panel = _build_legacy_panel(_signal_df(), _labels_df(), sa, la, ["signal"])
     expected = _join_reference()
     assert panel.equals(expected)          # rows/columns/dtypes/values 全等
     assert panel.schema == expected.schema
@@ -83,7 +83,7 @@ def test_panel_matches_left_join_reference():
 
 def test_panel_null_masks_match_reference():
     sa, la = _artifacts()
-    panel = _build_legacy_panel(_signal_df(), _labels_df(), sa, la)
+    panel = _build_legacy_panel(_signal_df(), _labels_df(), sa, la, ["signal"])
     expected = _join_reference()
     for c in ("signal", "forward_return_5d", "forward_return_20d", "close"):
         assert panel[c].null_count() == expected[c].null_count(), c
@@ -93,7 +93,7 @@ def test_close_comes_from_signal_row():
     """close 来自 signal runtime 的同一行（位置/值不变），不重新加载 daily。"""
     sig = _signal_df().with_columns(pl.col("close").alias("close"))  # 原样
     sa, la = _artifacts(signal_df=sig)
-    panel = _build_legacy_panel(sig, _labels_df(), sa, la)
+    panel = _build_legacy_panel(sig, _labels_df(), sa, la, ["signal"])
     assert panel["close"].to_list() == [10.0, 11.5, None]
     # close 顺序与 signal 行顺序一致（不按 labels 重排）
     assert panel["code"].to_list() == sig["code"].to_list()
@@ -102,7 +102,7 @@ def test_close_comes_from_signal_row():
 def test_label_keys_not_duplicated():
     """label 的 date/code 只是 validation key，不重复附加。"""
     sa, la = _artifacts()
-    panel = _build_legacy_panel(_signal_df(), _labels_df(), sa, la)
+    panel = _build_legacy_panel(_signal_df(), _labels_df(), sa, la, ["signal"])
     assert "date_right" not in panel.columns
     assert "code_right" not in panel.columns
     assert len([c for c in panel.columns if c == "date"]) == 1
@@ -116,7 +116,7 @@ def test_row_count_mismatch_fails():
     lab = _labels_df().slice(0, 2)   # 少一行
     sa, la = _artifacts(signal_df=sig, labels_df=lab)
     with pytest.raises(ValueError, match="row count 不一致"):
-        _build_legacy_panel(sig, lab, sa, la)
+        _build_legacy_panel(sig, lab, sa, la, ["signal"])
 
 
 def test_key_mismatch_fails():
@@ -124,7 +124,7 @@ def test_key_mismatch_fails():
     lab = _labels_df().with_columns(pl.col("code").replace({"000003": "999999"}))
     sa, la = _artifacts(signal_df=sig, labels_df=lab)
     with pytest.raises(ValueError, match="key 不一致"):
-        _build_legacy_panel(sig, lab, sa, la)
+        _build_legacy_panel(sig, lab, sa, la, ["signal"])
 
 
 def test_key_order_mismatch_fails():
@@ -132,7 +132,7 @@ def test_key_order_mismatch_fails():
     lab = _labels_df().sort("code", descending=True)   # 键集合相同但顺序不同
     sa, la = _artifacts(signal_df=sig, labels_df=lab)
     with pytest.raises(ValueError, match="key 不一致"):
-        _build_legacy_panel(sig, lab, sa, la)
+        _build_legacy_panel(sig, lab, sa, la, ["signal"])
 
 
 # ---------------------------------------------------------------- 实现约束

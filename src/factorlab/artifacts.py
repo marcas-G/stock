@@ -3,15 +3,17 @@
 结果目录正式契约：
 
     results/<factor>/
-    ├── signal.parquet   ← 未来 Strategy Runtime 唯一允许消费的正式 signal artifact
-    ├── labels.parquet   ← FactorEvaluator 使用的未来标签 artifact（evaluation-only）
-    ├── panel.parquet    ← legacy compatibility view（CLI/eval/Web 兼容，非正式输出）
-    └── summary.json     ← manifest（最后写入 = core artifacts 完成标记）
+    ├── signal.parquet    ← legacy 单输出（outputs == [signal]）唯一正式 signal artifact
+    ├── signal__<o>.parquet ← M2 多输出布局（format v2）：每声明输出一个正式 artifact
+    ├── labels.parquet    ← FactorEvaluator 使用的未来标签 artifact（evaluation-only）
+    ├── panel.parquet     ← legacy compatibility view（CLI/eval/Web 兼容，非正式输出）
+    └── summary.json      ← manifest（最后写入 = core artifacts 完成标记）
 
 主从关系：
-    SignalArtifact → signal.parquet
+    SignalArtifact → signal.parquet（legacy v1）
+    outputs × N → signal__<output>.parquet × N（multi v2，绝不写 signal.parquet）
     LabelArtifact  → labels.parquet
-    SignalArtifact + LabelArtifact + 兼容字段 → panel.parquet
+    Signal + Label + 兼容字段 → panel.parquet
 
 Loader 硬规则：**绝不 fallback 到 panel.parquet**——signal.parquet 缺失即报错。
 旧 results 目录（无 artifact_format_version）对新 loader 明确报错，不 silent fallback。
@@ -38,7 +40,8 @@ from factorlab.engine.forward import DEFAULT_FORWARD_HORIZONS
 _FORWARD_RETURN_RE = re.compile(r"^forward_return_(\d+)d$")
 
 # 结果目录 format version（整数——layout 级版本；schema_version 为单个 artifact 契约版本）
-ARTIFACT_FORMAT_VERSION = 1
+ARTIFACT_FORMAT_VERSION = 1    # legacy 单输出布局（signal.parquet）
+MULTI_ARTIFACT_FORMAT_VERSION = 2  # M2（G1）多输出布局（signal__<output>.parquet × N）
 SIGNAL_SCHEMA_VERSION = 1
 LABEL_SCHEMA_VERSION = 1
 LEGACY_PANEL_SCHEMA_VERSION = 1
@@ -48,6 +51,12 @@ SIGNAL_FILE = "signal.parquet"
 LABELS_FILE = "labels.parquet"
 LEGACY_PANEL_FILE = "panel.parquet"
 SUMMARY_FILE = "summary.json"
+
+
+def signal_multi_file(output: str) -> str:
+    """多输出 per-output signal 文件名（output 经 spec NAME_PATTERN 校验——无注入）。"""
+    return f"signal__{output}.parquet"
+
 
 _LEGACY_DIR_MSG = "legacy result directory does not contain versioned Signal/Label artifacts"
 
@@ -124,36 +133,71 @@ def _atomic_write(path: Path, writer) -> None:
 # Persistence
 # --------------------------------------------------------------------------
 
+def _signal_entry(frame: pl.DataFrame, meta: SignalMeta,
+                  output: str | None = None) -> dict[str, Any]:
+    """signal artifacts 条目：output=None → legacy 单列（file=signal.parquet）；
+    否则 per-output 条目（file=signal__<output>.parquet，注明 output）。"""
+    entry: dict[str, Any] = {
+        "file": SIGNAL_FILE if output is None else signal_multi_file(output),
+        "schema_version": SIGNAL_SCHEMA_VERSION,
+        "rows": frame.height,
+        "columns": list(frame.columns),
+        "meta": _meta_to_dict(meta),
+    }
+    if output is not None:
+        entry["output"] = output
+    return entry
+
+
+def _labels_entry(label_artifact: LabelArtifact) -> dict[str, Any]:
+    return {
+        "file": LABELS_FILE,
+        "schema_version": LABEL_SCHEMA_VERSION,
+        "rows": label_artifact.frame.height,
+        "columns": list(label_artifact.frame.columns),
+        # M6-06A：horizons 来自实际 LabelArtifact 列（schema-v1 validation
+        # 已保证 actual == DEFAULT_FORWARD_HORIZONS——不重新硬编码）
+        "horizons": list(extract_forward_horizons(list(label_artifact.frame.columns))),
+    }
+
+
+def _panel_entry(panel: pl.DataFrame) -> dict[str, Any]:
+    return {
+        "file": LEGACY_PANEL_FILE,
+        "schema_version": LEGACY_PANEL_SCHEMA_VERSION,
+        "rows": panel.height,
+        "columns": list(panel.columns),
+        "role": "legacy_compatibility_view",
+    }
+
+
 def build_manifest(signal_artifact: SignalArtifact, label_artifact: LabelArtifact,
                    panel: pl.DataFrame) -> dict[str, Any]:
-    """构造 artifact manifest（rows/columns 直接来自内存 frame——与实际文件一致）。"""
+    """构造 legacy 单输出 manifest（rows/columns 直接来自内存 frame——与实际文件一致）。"""
     return {
         "artifact_format_version": ARTIFACT_FORMAT_VERSION,
         "artifacts": {
-            "signal": {
-                "file": SIGNAL_FILE,
-                "schema_version": SIGNAL_SCHEMA_VERSION,
-                "rows": signal_artifact.frame.height,
-                "columns": list(signal_artifact.frame.columns),
-                "meta": _meta_to_dict(signal_artifact.meta),
-            },
-            "labels": {
-                "file": LABELS_FILE,
-                "schema_version": LABEL_SCHEMA_VERSION,
-                "rows": label_artifact.frame.height,
-                "columns": list(label_artifact.frame.columns),
-                # M6-06A：horizons 来自实际 LabelArtifact 列（schema-v1 validation
-                # 已保证 actual == DEFAULT_FORWARD_HORIZONS——不重新硬编码）
-                "horizons": list(extract_forward_horizons(list(label_artifact.frame.columns))),
-            },
-            "panel": {
-                "file": LEGACY_PANEL_FILE,
-                "schema_version": LEGACY_PANEL_SCHEMA_VERSION,
-                "rows": panel.height,
-                "columns": list(panel.columns),
-                "role": "legacy_compatibility_view",
-            },
+            "signal": _signal_entry(signal_artifact.frame, signal_artifact.meta),
+            "labels": _labels_entry(label_artifact),
+            "panel": _panel_entry(panel),
         },
+    }
+
+
+def build_multi_output_manifest(signals: dict[str, pl.DataFrame], meta: SignalMeta,
+                                label_artifact: LabelArtifact,
+                                panel: pl.DataFrame) -> dict[str, Any]:
+    """多输出 manifest（format v2）：artifacts.signal__<output> × N（**无单列
+    signal 条目**——loaders 据 root outputs 明确报错，不猜测主信号）。"""
+    artifacts: dict[str, Any] = {}
+    for o, frame in signals.items():
+        artifacts[f"signal__{o}"] = _signal_entry(frame, meta, output=o)
+    artifacts["labels"] = _labels_entry(label_artifact)
+    artifacts["panel"] = _panel_entry(panel)
+    return {
+        "artifact_format_version": MULTI_ARTIFACT_FORMAT_VERSION,
+        "outputs": list(signals),
+        "artifacts": artifacts,
     }
 
 
@@ -171,18 +215,27 @@ def validate_label_schema_v1(labels: LabelArtifact) -> None:
             f"实际 {actual}（domain 允许任意 horizon，但不能用 schema v1 落盘）")
 
 
+def _validate_key_alignment(left: pl.DataFrame, right: pl.DataFrame,
+                            left_name: str, right_name: str) -> None:
+    """(date, code) key 严格对齐（M6-06）：行数、键、**键顺序**三者一致。
+
+    Polars-native equals——不对千万行做 Python set 转换。不一致 → ValueError
+    （artifact pair mismatch）。裸 frame 助手——多输出 per-output frame（无
+    signal 列，借不了 SignalArtifact）复用同一契约。
+    """
+    if left.height != right.height:
+        raise ValueError(f"{left_name}/{right_name} row count 不一致: {left_name} "
+                         f"{left.height} vs {right_name} {right.height}")
+    if not left.select(["date", "code"]).equals(right.select(["date", "code"])):
+        raise ValueError(f"{left_name}/{right_name} (date, code) key 不一致（含顺序）"
+                         f"——artifact pair mismatch")
+
+
 def validate_signal_label_alignment(signal: SignalArtifact,
                                     labels: LabelArtifact) -> None:
-    """Signal/Label (date, code) key 严格对齐（M6-06）。
-
-    验证行数、date/code 键、**键顺序**三者一致（Polars-native equals——不对
-    千万行做 Python set 转换）。不一致 → ValueError（artifact pair mismatch）。
-    """
-    if signal.frame.height != labels.frame.height:
-        raise ValueError(f"Signal/Label row count 不一致: signal {signal.frame.height} "
-                         f"vs labels {labels.frame.height}")
-    if not signal.frame.select(["date", "code"]).equals(labels.frame.select(["date", "code"])):
-        raise ValueError("Signal/Label (date, code) key 不一致（含顺序）——artifact pair mismatch")
+    """Signal/Label (date, code) key 严格对齐（M6-06，语义不变——委托
+    _validate_key_alignment，报错文案逐字一致）。"""
+    _validate_key_alignment(signal.frame, labels.frame, "Signal", "Label")
 
 
 def _check_no_internal_columns(frame: pl.DataFrame, name: str) -> None:
@@ -223,6 +276,52 @@ def write_factor_artifacts(output_dir: Path, signal_artifact: SignalArtifact,
     return summary
 
 
+def write_multi_output_factor_artifacts(output_dir: Path,
+                                        signals: dict[str, pl.DataFrame],
+                                        meta: SignalMeta,
+                                        label_artifact: LabelArtifact,
+                                        panel: pl.DataFrame,
+                                        summary: dict) -> dict:
+    """M2（G1）：per-output signal artifact 落盘（signal__<output>.parquet × N）。
+
+    布局（format v2）：signal__<o>.parquet × N → labels → panel → summary
+    （最后 = 完成标记）。**不写单列 signal.parquet**——不提供"signal = 某输出"
+    的隐式别名（loader 无歧义）。
+
+    写任何文件之前的验证（零 I/O fail fast）：
+    - 每输出 frame 列 == [date, code, <output>]（单列契约——防把全宽面板当 artifact）
+    - 无 __factorlab_* 内部保留列 + Label schema v1
+    - 每输出 frame 与 labels 的 (date, code) key 严格对齐（复用 single-pair
+      alignment——各输出 frame 同构同序，逐输出验证即全验证）
+    """
+    if not signals:
+        raise ValueError("多输出 writer 需要至少一个输出 frame（outputs 声明为空）")
+    for o, frame in signals.items():
+        expected = ["date", "code", o]
+        if list(frame.columns) != expected:
+            raise ValueError(
+                f"signal__{o} artifact 列必须为 {expected}，实际 {list(frame.columns)}"
+                f"（多输出 artifact 单列契约）")
+        _check_no_internal_columns(frame, f"signal__{o}")
+        _validate_key_alignment(frame, label_artifact.frame, f"signal__{o}", "Label")
+    _check_no_internal_columns(label_artifact.frame, "labels")
+    _check_no_internal_columns(panel, "panel")
+    validate_label_schema_v1(label_artifact)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for o, frame in signals.items():
+        _atomic_write(output_dir / signal_multi_file(o),
+                      lambda p, f=frame: f.write_parquet(p))
+    _atomic_write(output_dir / LABELS_FILE,
+                  lambda p: label_artifact.frame.write_parquet(p))
+    _atomic_write(output_dir / LEGACY_PANEL_FILE,
+                  lambda p: panel.write_parquet(p))
+    manifest = build_multi_output_manifest(signals, meta, label_artifact, panel)
+    summary = {**summary, **manifest}
+    _atomic_write(output_dir / SUMMARY_FILE, lambda p: p.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8"))
+    return summary
+
+
 # --------------------------------------------------------------------------
 # Loaders（fail fast；绝不 fallback panel）
 # --------------------------------------------------------------------------
@@ -246,8 +345,11 @@ def _check_format_version(summary: dict) -> None:
         raise ValueError(f"invalid artifact format version type/value: {v!r}"
                          f"（必须为 >=1 的整数，supported version {ARTIFACT_FORMAT_VERSION}）")
     if v != ARTIFACT_FORMAT_VERSION:
+        hint = ("——多输出布局（v2）：per-output loader 在后续里程碑提供，"
+                "请以单输出 outputs: [signal] 重跑"
+                if v == MULTI_ARTIFACT_FORMAT_VERSION else "")
         raise ValueError(f"unsupported artifact format version {v}——"
-                         f"supported version {ARTIFACT_FORMAT_VERSION}")
+                         f"supported version {ARTIFACT_FORMAT_VERSION}{hint}")
 
 
 def _check_schema_version(manifest: dict, name: str, supported: int) -> None:

@@ -209,6 +209,21 @@ formula: |
 - `universe.codes` 与 `universe.rules`：二选一。
 - `date.start` / `date.end`：可选，`YYYY-MM-DD`。
 - `target`：`forward_return_5d | forward_return_20d`，默认 `forward_return_5d`。
+- `outputs`（M2 多信号输出）：可选声明输出列表；**缺省 `None` = 单输出 `signal`**
+  （与旧 spec 逐字节兼容）。多输出示例：
+  ```yaml
+  outputs: [momentum, gap]
+  formula: |
+    momentum = ts_mean(close / ts_delay(close, 1) - 1, 10)
+    gap = close - open
+  ```
+  声明四规则（spec 加载期校验，违例报错）：①名字须匹配
+  `^[A-Za-z_][A-Za-z0-9_]{0,63}$`；②非保留名——`__factorlab_*` 前缀、
+  `in_universe`（平台内部）、数据侧未来列纪律（`forward_*`/`future_*`/
+  `target`/`label`）都不可作输出名；③非结构冲突名——`date/code/close/panel/
+  labels/summary`（面板结构列/落盘文件名）不可作输出名；④全局唯一。
+  运行期：公式必须**实际产出**每个声明名（codegen 前后双保险 fail fast 点名），
+  共享一趟向量化 pass，per-output 独立 process/artifact/summary（详见 §4.5）。
 - `process`：可选字符串列表。
 - `adjustment`：复权视图口径 `raw | qfq | hfq | pit_qfq`，默认 `qfq`（`pit_qfq`
   研究日视角防未来：`run_factor` 装配传 `asof=spec.date.end`，date.end 缺省用面板
@@ -255,7 +270,9 @@ combine:
 
 ## 3. 因子脚本
 
-`formula` 是受白名单限制的 Python 代码块，最终保留输出列 `signal`。
+`formula` 是受白名单限制的 Python 代码块，最终保留列 = spec.outputs 声明
+（缺省 `[signal]`；声明多输出时每个声明名都是一等输出列，中间赋值——`_`
+前缀约定——不保留）。
 
 允许：
 
@@ -330,10 +347,15 @@ combine:
 
 校验因子脚本。失败抛出 `factorlab.factor.errors.FactorDSLError`。
 
-### `factorlab.engine.compute.compute_formula(df, formula, asset="code", date="date") -> pl.DataFrame`
+### `factorlab.engine.compute.compute_formula(df, formula, asset="code", date="date", universe_mask=None, outputs=None) -> pl.DataFrame`
 
-在小样本 Polars DataFrame 上执行因子脚本，返回按 `date, asset` 排序的
-`[date, asset, signal]` 面板。当前不加载 DuckDB。
+在小样本 Polars DataFrame 上执行因子脚本，返回按 `date, asset` 排序、仅含
+声明输出的面板：`outputs=None`（缺省）→ `[date, asset, signal]`；`outputs=["a","b"]`
+→ `[date, asset, a, b]`。当前不加载 DuckDB。
+
+声明了但公式未产出的输出名 → codegen 前/后双保险报错
+（`因子脚本未产出声明输出列: [...]（outputs 声明与实际定义不符）`）。M1 保留
+名双门（绑定+读取）在函数顶部无条件生效。
 
 执行前依次：AST 白名单校验 → 幂等注册 `polars_ta` 算子族与平台薄封装 →
 分区校验（拒绝未知算子）→ 负 lookback 拒绝（`ts_delay/ts_delta` 负位移）。
@@ -419,10 +441,20 @@ def 内联（窗口算子合法化）→ 元素级方法链改写 → 平台薄�
 `spec.date.end` 缺省时 `asof` 取面板数据末端日期。`spec.date.end` 为字符串，
 装配内转 `datetime.date`（view_prices 的 asof 只接受 date 对象）。
 
-`FactorResult`：`spec`、`panel`（列：`date, code, signal, forward_return_5d, forward_return_20d, close`，
-其中 close 为复权视图价格）、
+`FactorResult`：`spec`、`panel`（列：`date, code, <outputs…>, forward_return_5d,
+forward_return_20d, close`——legacy 单输出时 `<outputs…> = signal`；close 为复权
+视图价格）、
 `summary`（含 spec 原文、codes、universe_count、panel_rows、signal_null_ratio、process、
 adjustment、float32）。
+
+**多输出（M2）**：`outputs: [momentum, gap]` 时共享一趟 compute pass 产出全部
+声明列，process 链逐输出独立执行（每输出以 `signal` 名义过链后收回原名，与各自
+单输出运行逐值一致）。结果不再写单列 `signal.parquet`：`FactorResult.signal_artifact
+= None`、panel 保留全声明列、逐输出 frame（`date/code/<output>`）在
+`result.signals[output]`，summary 增 `outputs` 列表与 `signals.<output>.
+{rows, null_ratio}` 逐输出统计（panel 无 signal 字面列时不再有
+signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单输出（缺省
+`[signal]`）字节契约不变。
 
 补全面板按交易日历截断到今天（trade_cal 含未来公告日，不产生未来 null 行）。
 
@@ -939,14 +971,17 @@ unknown column。
 @dataclass
 class FactorResult:
     spec: FactorSpec
-    signal_artifact: SignalArtifact
+    signal_artifact: SignalArtifact | None  # 多输出（outputs != [signal]）为 None
     label_artifact: LabelArtifact
-    panel: pl.DataFrame        # legacy compatibility view
+    panel: pl.DataFrame        # legacy compatibility view（多输出含全声明列）
     summary: dict
+    signals: dict[str, pl.DataFrame] = {}   # M2 多输出逐输出 frame（date/code/<o>）
 ```
 summary 新增 `candidate_count / signal_rows / label_rows / runtime_semantics`；
 `universe_count` 保留兼容。M6-03 不落盘 signal.parquet/labels.parquet
-（M6-05）；chunk label 尾部缺失保持现状（M6-04）。
+（M6-05）；chunk label 尾部缺失保持现状（M6-04）。M2 多输出 summary 以
+`outputs` + `signals` 块替代 signal_rows/signal_null_ratio（panel 无 signal
+字面列）。
 
 ### M6-03A hardening（masking boundary）
 
@@ -998,17 +1033,23 @@ Label:                [ output chunk | right lookahead ]  ← 结束于 label_en
 
 ```
 results/<factor>/
-├── signal.parquet   ← 未来 Strategy Runtime 唯一允许消费的正式 signal artifact
-├── labels.parquet   ← FactorEvaluator 使用的未来标签 artifact（evaluation-only）
-├── panel.parquet    ← legacy compatibility view（CLI/eval/Web 兼容，非正式输出）
-└── summary.json     ← manifest（最后写入 = core artifacts 完成标记）
+├── signal.parquet      ← legacy 单输出（outputs == [signal]）正式 signal artifact
+├── signal__<o>.parquet ← M2 多输出布局（format v2）：每声明输出一个正式 artifact
+├── labels.parquet      ← FactorEvaluator 使用的未来标签 artifact（evaluation-only）
+├── panel.parquet       ← legacy compatibility view（CLI/eval/Web 兼容，非正式输出）
+└── summary.json        ← manifest（最后写入 = core artifacts 完成标记）
 ```
 
 主从关系：`SignalArtifact → signal.parquet`；`LabelArtifact → labels.parquet`；
-`SignalArtifact + LabelArtifact + 兼容字段 → panel.parquet`（signal 绝不从 panel 派生）。
+`SignalArtifact + LabelArtifact + 兼容字段 → panel.parquet`（signal 绝不从 panel
+派生）；**M2 多输出**：`outputs × N → signal__<output>.parquet × N`——多输出目录
+**绝不写单列 signal.parquet**（不提供"signal = 某输出"的隐式别名，loader 无歧义）。
 
-- **版本**：`ARTIFACT_FORMAT_VERSION = 1`（结果目录 layout）；Signal/Labels/Panel
-  `schema_version = 1`（单 artifact 契约）——整数可比较
+- **版本**：`ARTIFACT_FORMAT_VERSION = 1`（legacy 单输出 layout，行为不变）；
+  **`MULTI_ARTIFACT_FORMAT_VERSION = 2`**（M2 多输出 layout：root 增 `outputs`
+  声明列表，artifacts 条目 `signal__<output>` × N，无单列 signal 条目）——均为
+  结果目录 layout 版本，整数可比较；Signal/Labels/Panel `schema_version = 1`
+  （单 artifact 契约）
 - **文件名常量**：SIGNAL_FILE/LABELS_FILE/LEGACY_PANEL_FILE/SUMMARY_FILE（单一来源）
 - **signal manifest** 含 SignalMeta（timing 以 Enum.value JSON 化：information_cutoff
   = close / available_at = after_close / default_earliest_execution = next_open——
@@ -1018,6 +1059,10 @@ results/<factor>/
   验证 format/schema version、manifest 文件名 == 平台固定名、M6-01 validator 复验
   磁盘内容。**绝不 fallback 到 panel.parquet**；旧结果目录（无 versioned manifest）
   明确报错（legacy result directory does not contain versioned Signal/Label artifacts）
+- **M2 多输出目录（v2）loader 行为**：per-output loader（`signal__<output>` 读取）
+  在后续里程碑提供——本里程碑对 v2 目录明确报错（supported version 提示含
+  "多输出布局（v2）：per-output loader 在后续里程碑提供，请以单输出
+  outputs: [signal] 重跑"），不猜测主信号、不 silent fallback
 - 单文件 atomic（temp + os.replace）；目录级事务不实现（见风险）
 
 ## 4.6 Semantic Guards（M6-06）

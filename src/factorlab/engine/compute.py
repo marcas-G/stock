@@ -74,13 +74,35 @@ def _check_future_inputs(formula: str) -> None:
                 f"future/label inputs are forbidden in factor formula: {col!r}")
 
 
+def _declared_output_names(formula: str) -> set[str]:
+    """公式文本顶层赋值目标（M2：outputs 声明须由公式实际产生——codegen 前 fail fast）。
+
+    变换链（inline_defs/宏展开）完成后的文本：用户 def/宏公式的赋值都已内联为
+    顶层语句，顶层 Name 赋值目标 = 会出现在 codegen 结果里的列名全集。
+    """
+    tree = ast.parse(formula)
+    declared = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    declared.add(t.id)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            declared.add(node.target.id)
+    return declared
+
+
 def compute_formula(
     df: pl.DataFrame,
     formula: str,
     asset: str = "code",
     date: str = "date",
     universe_mask: str | None = None,
+    outputs: list[str] | None = None,
 ) -> pl.DataFrame:
+    """outputs（M2）：None → ["signal"]（旧调用方完全兼容）。声明输出须在公式顶层
+    赋值中产生（变换后核对，codegen 前 fail fast）并按 outputs 顺序保留。"""
+    outputs = list(dict.fromkeys(outputs or ["signal"]))
     validate_formula(formula)
     # M1：内部保留名（__factorlab_* / in_universe）绑定与读取两门，无条件生效
     # （与 universe_mask 无关）——先绑定后读取，覆盖公式一切位置；必须在
@@ -106,6 +128,12 @@ def compute_formula(
     _check_future_inputs(formula)
     validate_partition_calls(formula)
     reject_future_shifts(formula)
+    # M2：声明的输出必须在公式顶层赋值中产生（变换完成后再核对）——codegen 前
+    # fail fast，点名缺哪个；避免未定义名退化成 NameError 深层报错
+    missing_declared = [o for o in outputs if o not in _declared_output_names(formula)]
+    if missing_declared:
+        raise ValueError(
+            f"因子脚本未产出声明输出列: {missing_declared}（outputs 声明与实际定义不符）")
     result = codegen_exec(
         df.lazy(),
         formula,
@@ -114,9 +142,12 @@ def compute_formula(
         date=date,
         asset=asset,
     ).collect()
-    if "signal" not in result.columns:
-        raise ValueError("因子脚本必须定义输出列 signal")
-    return result.select([date, asset, "signal"]).sort([date, asset])
+    # 兜底：codegen 结果缺失声明输出（变换语义偏差）也点名报错
+    missing = [o for o in outputs if o not in result.columns]
+    if missing:
+        raise ValueError(
+            f"因子脚本未产出声明输出列: {missing}（outputs 声明与实际定义不符）")
+    return result.select([date, asset, *outputs]).sort([date, asset])
 
 
 # ---- M3a run_factor 装配 ----
@@ -229,17 +260,29 @@ class RunContext:
 
 @dataclass
 class FactorResult:
-    """M6-03：signal/label runtime 分离产物 + legacy panel 兼容视图。"""
+    """M6-03：signal/label runtime 分离产物 + legacy panel 兼容视图。
+
+    M2（G1）：单输出（缺省）沿用 signal_artifact；多输出时 signal_artifact 保持
+    None、逐输出 frame（date/code/<output>）在 `signals[output]`，落盘见
+    artifacts.write_multi_output_factor_artifacts。
+    """
+
     spec: FactorSpec
-    signal_artifact: SignalArtifact
+    signal_artifact: SignalArtifact | None
     label_artifact: LabelArtifact
     panel: pl.DataFrame
     summary: dict = field(default_factory=dict)
+    signals: dict[str, pl.DataFrame] = field(default_factory=dict)
 
 
 _WARMUP_SAFETY_PAD = 20  # 自动 warmup 的安全垫：覆盖 ts_delay 等窗口内偏移
-# spec 2.5 对齐输出列（分块路径每块算完即裁剪到这些列再累积，避免全列面板堆叠 OOM）
-_CHUNK_KEEP = ["date", "code", "signal", "forward_return_5d", "forward_return_20d", "close"]
+# spec 2.5 对齐输出列（分块路径每块算完即裁剪到这些列再累积，避免全列面板堆叠 OOM）。
+# M2：signal 字面 → outputs 声明列（全保留）+ 对齐尾列
+_LEGACY_KEEP_TAIL = ["forward_return_5d", "forward_return_20d", "close"]
+
+
+def _chunk_keep(outputs: list[str]) -> list[str]:
+    return ["date", "code", *outputs, *_LEGACY_KEEP_TAIL]
 
 
 def _canonicalize_artifact_codes(
@@ -279,8 +322,9 @@ def _canonicalize_artifact_codes(
 def _build_legacy_panel(
     signal_df: pl.DataFrame,
     labels_df: pl.DataFrame,
-    signal_artifact: SignalArtifact,
+    signal_artifact: SignalArtifact | None,
     label_artifact: LabelArtifact,
+    outputs: list[str],
 ) -> pl.DataFrame:
     """Legacy panel 兼容视图（M6-07C2B）：**不做 key join**。
 
@@ -289,16 +333,51 @@ def _build_legacy_panel(
     （forward_return_5d/20d）——避免 1,155 万行 × 2 侧的 hash join 峰值
     分配在无页面文件机器上撞 commit 空间（C2A 定位的 0xC0000005）。
 
+    M2（G1）：多输出下 signal_artifact=None——不构造虚拟单列 artifact，改为
+    signal_df/labels_df 键 equals 直验（两帧经同一 canonicalize 排序，等价性
+    同单输出对齐契约）。输出列 = _chunk_keep(outputs)（含全声明输出 + 尾列）。
+
     职责窄：alignment validation + positional attach + legacy schema select；
     不含 persistence（write_factor_artifacts 是独立的 persistence boundary
     guard，重复 alignment 验证属正常）。禁止任何 join——本步的数学关系
     已由 alignment contract 证明。
     """
     from factorlab.artifacts import validate_signal_label_alignment
-    validate_signal_label_alignment(signal_artifact, label_artifact)
+    if signal_artifact is not None:
+        validate_signal_label_alignment(signal_artifact, label_artifact)
+    elif not signal_df.select(["date", "code"]).equals(labels_df.select(["date", "code"])):
+        raise ValueError(
+            "Signal/Label (date, code) key 不一致（含顺序）——多输出 panel 构造拒绝")
     label_values = labels_df.select(["forward_return_5d", "forward_return_20d"])
     panel = signal_df.hstack(label_values)
-    return panel.select([c for c in _CHUNK_KEEP if c in panel.columns])
+    return panel.select([c for c in _chunk_keep(outputs) if c in panel.columns])
+
+
+def _apply_multi_output_process(
+    sig: pl.DataFrame,
+    outputs: list[str],
+    process: list[str],
+    rd: Rd,
+) -> pl.DataFrame:
+    """M2（G1）：多输出 per-output process 链。
+
+    processors 的单列约束（只写 alias(SIGNAL)、不增删行）是换名副本的合法性
+    前提：对每个输出 o，把 sig 的 o 列改名为 signal（其余列原样）过整条链；
+    逐输出以 (date, code) 键 join 收回原名（不依赖链内行序），close 原样保留。
+    """
+    key = sig.select(["date", "code", "close"])
+    for o in outputs:
+        # 换名（rename）而非 drop+with_columns：drop 后原列已不存在，无法在同一
+        # frame 上 expr 引用——rename 让 o 列直接以 signal 名义进入链
+        work = sig if o == "signal" else sig.rename({o: "signal"})
+        proc = run_process_chain(work, process, ctx=rd)
+        if proc.height != sig.height:
+            raise ValueError(
+                f"per-output process 链（{o}）行数变化 {sig.height} -> {proc.height}"
+                f"——链不允许过滤/聚合（processors 单列覆盖写纪律）")
+        proc_o = proc.select(["date", "code", "signal"]).rename({"signal": o})
+        key = key.join(proc_o, on=["date", "code"], how="left")
+    return key
 
 
 def _compute_signal(
@@ -312,6 +391,7 @@ def _compute_signal(
     date_end: str,
     cal: pl.Series,
     base_adj: pl.DataFrame | None = None,
+    outputs: list[str] | None = None,
 ) -> pl.DataFrame:
     """Signal Runtime（M6-03）：listed market skeleton → fill → 复权视图 →
     universe-aware formula → filter(active) → process。
@@ -320,7 +400,11 @@ def _compute_signal(
     - CS/GP 经 __factorlab_universe_active mask 只看到当日 active 横截面
     - 最终 rows 只保留 in_universe=true（process chain 只见 active）
     - **本路径绝不计算 forward returns**
+    - M2（G1）：outputs 缺省 [signal]（legacy）；多输出时 compute_formula 共享
+      一趟向量化 pass 产出全部声明列，process 链逐输出换名过链（见
+      _apply_multi_output_process）
     """
+    outputs = list(outputs) if outputs is not None else ["signal"]
     cols = _formula_columns(formula) + ["close", "adj_factor"]
     raw = load_daily(
         rd, codes,
@@ -384,11 +468,19 @@ def _compute_signal(
     # universe mask 列：来源必须是 PIT in_universe（内部保留列，用户不得定义）
     panel = panel.join(uf.select(["date", "code", "in_universe"]), on=["date", "code"], how="left")
     panel = panel.with_columns(pl.col("in_universe").fill_null(False).alias("__factorlab_universe_active"))
-    result = compute_formula(panel, formula, universe_mask="__factorlab_universe_active")
+    result = compute_formula(panel, formula,
+                             universe_mask="__factorlab_universe_active",
+                             outputs=outputs)
     sig = panel.select(["date", "code", "in_universe", "close"]).join(
         result, on=["date", "code"], how="left")
     sig = sig.filter(pl.col("in_universe")).drop("in_universe")
-    sig = run_process_chain(sig, spec.process, ctx=rd)
+    if outputs == ["signal"]:
+        # legacy 单输出：chain 直接消费 signal 列——字节级路径不变
+        sig = run_process_chain(sig, spec.process, ctx=rd)
+    else:
+        # M2（G1）：per-output 换名副本过链（共享一趟 compute pass，见
+        # _apply_multi_output_process——processors 单列纪律保证合法性）
+        sig = _apply_multi_output_process(sig, outputs, spec.process, rd)
     return sig.sort(["date", "code"])
 
 
@@ -472,6 +564,10 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
     formula = rewrite_expr_methods(formula)
     formula = expand_platform_macros(formula)  # 薄封装 → ts_ 表达式（compute_formula 内部再展开幂等无害）
     _check_future_inputs(formula)  # future/label 显式引用 → fail fast（AC-09）
+    # M2（G1）：outputs 声明（spec 加载期四规则已校验）——缺省 [signal] = legacy
+    outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
+    signal_artifact: SignalArtifact | None = None
+    signal_frames: dict[str, pl.DataFrame] | None = None
     try:
         rd = open_read(data_backend=ctx.data_backend, db_path=ctx.db_path)
     except FileNotFoundError as exc:
@@ -525,7 +621,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
             sig = _compute_signal(rd, ctx, spec, formula, codes, signal_uf,
                                   load_start.isoformat() if load_start else None,
                                   chunk_end.isoformat() if chunk_end else None,
-                                  signal_cal, base_adj)
+                                  signal_cal, base_adj, outputs=outputs)
             lab = _compute_labels(rd, ctx, spec, codes, label_uf,
                                   chunk_start.isoformat() if chunk_start else None,
                                   label_end.isoformat() if label_end else None,
@@ -536,7 +632,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
                 # （全列面板堆叠会让峰值内存 = 所有块之和，OOM）
                 sig = sig.filter((pl.col("date") >= chunk_start) & (pl.col("date") <= chunk_end))
                 lab = lab.filter((pl.col("date") >= chunk_start) & (pl.col("date") <= chunk_end))
-            sig_parts.append(sig.select([c for c in _CHUNK_KEEP if c in sig.columns]))
+            sig_parts.append(sig.select([c for c in _chunk_keep(outputs) if c in sig.columns]))
             lab_parts.append(lab)
         signal_df = pl.concat(sig_parts)
         labels_df = pl.concat(lab_parts)
@@ -555,39 +651,79 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
         adjustment = getattr(spec, "adjustment", None) or ctx.adjustment
         meta = SignalMeta(name=spec.name, frequency="1d",
                           timing=DEFAULT_EOD_SIGNAL_TIMING, adjustment=adjustment)
-        signal_artifact = SignalArtifact(
-            frame=signal_df.select(["date", "code", "signal"]), meta=meta)
+        if outputs == ["signal"]:
+            # legacy 单输出：SignalArtifact 单列 signal（契约不变）
+            signal_artifact = SignalArtifact(
+                frame=signal_df.select(["date", "code", "signal"]), meta=meta)
+            signal_frames = None
+        else:
+            # M2（G1）：多输出无单列 signal artifact——逐输出 frame 独立落盘
+            # （不写 signal.parquet，绝不提供"signal = 某输出"的隐式别名）
+            signal_artifact = None
+            signal_frames = {o: signal_df.select(["date", "code", o])
+                             for o in outputs}
         label_artifact = LabelArtifact(
             frame=labels_df.select(["date", "code", "forward_return_5d", "forward_return_20d"]))
         # legacy panel：Signal/Label key 对齐已证明 → 位置化附加 label 值列
         # （M6-07C2B：不做 hash join——1,155 万行 × 2 侧的 join 峰值分配在
-        # 无页面文件机器上撞 commit 空间 → 0xC0000005）
-        panel = _build_legacy_panel(signal_df, labels_df, signal_artifact, label_artifact)
+        # 无页面文件机器上撞 commit 空间 → 0xC0000005；多输出下对齐由
+        # _build_legacy_panel 键 equals 直验）
+        panel = _build_legacy_panel(signal_df, labels_df, signal_artifact, label_artifact,
+                                    outputs)
     finally:
         rd.close()
 
+    # M6-05：统一 artifact persistence——signal → labels → panel → summary（最后 = 完成标记）
+    from factorlab.artifacts import write_factor_artifacts
+    if signal_artifact is not None:
+        summary = {
+            "name": spec.name,
+            "category": spec.category,
+            "direction": spec.direction,
+            "universe_count": len(codes),   # 兼容字段（legacy 语义——候选集规模）
+            "candidate_count": len(codes),
+            "codes": codes,
+            "date_start": str(panel["date"].min()),  # panel.height == 0 已在链路中 raise，无需兜底
+            "date_end": str(panel["date"].max()),
+            "panel_rows": panel.height,
+            "signal_rows": signal_artifact.frame.height,
+            "label_rows": label_artifact.frame.height,
+            "signal_null_ratio": round(panel["signal"].null_count() / panel.height, 4),
+            "runtime_semantics": "pit_universe_signal_label_v1",
+            "process": spec.process,
+            "adjustment": adjustment,
+            "float32": ctx.float32,
+            "spec_yaml": yaml.safe_dump(spec.model_dump(), allow_unicode=True),
+        }
+        summary = write_factor_artifacts(ctx.output_dir, signal_artifact, label_artifact,
+                                         panel, summary)
+        return FactorResult(spec=spec, signal_artifact=signal_artifact,
+                            label_artifact=label_artifact, panel=panel, summary=summary)
+    # M2（G1）多输出分支：per-output signal__<output>.parquet × N → labels → panel
+    from factorlab.artifacts import write_multi_output_factor_artifacts
     summary = {
         "name": spec.name,
         "category": spec.category,
         "direction": spec.direction,
-        "universe_count": len(codes),   # 兼容字段（legacy 语义——候选集规模）
+        "universe_count": len(codes),
         "candidate_count": len(codes),
         "codes": codes,
-        "date_start": str(panel["date"].min()),  # panel.height == 0 已在链路中 raise，无需兜底
+        "date_start": str(panel["date"].min()),
         "date_end": str(panel["date"].max()),
         "panel_rows": panel.height,
-        "signal_rows": signal_artifact.frame.height,
-        "label_rows": label_artifact.frame.height,
-        "signal_null_ratio": round(panel["signal"].null_count() / panel.height, 4),
+        "outputs": outputs,
+        "signals": {
+            o: {"rows": frame.height,
+                "null_ratio": round(frame[o].null_count() / frame.height, 4)}
+            for o, frame in signal_frames.items()
+        },
         "runtime_semantics": "pit_universe_signal_label_v1",
         "process": spec.process,
         "adjustment": adjustment,
         "float32": ctx.float32,
         "spec_yaml": yaml.safe_dump(spec.model_dump(), allow_unicode=True),
     }
-    # M6-05：统一 artifact persistence——signal → labels → panel → summary（最后 = 完成标记）
-    from factorlab.artifacts import write_factor_artifacts
-    summary = write_factor_artifacts(ctx.output_dir, signal_artifact, label_artifact,
-                                     panel, summary)
-    return FactorResult(spec=spec, signal_artifact=signal_artifact, label_artifact=label_artifact,
-                        panel=panel, summary=summary)
+    summary = write_multi_output_factor_artifacts(ctx.output_dir, signal_frames, meta,
+                                                  label_artifact, panel, summary)
+    return FactorResult(spec=spec, signal_artifact=None, label_artifact=label_artifact,
+                        panel=panel, summary=summary, signals=signal_frames)
