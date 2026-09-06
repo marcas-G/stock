@@ -1,7 +1,10 @@
-# FactorLab 接口文档（M1–M5）
+# FactorLab 接口文档（M1–M8 + 读路径双后端）
 
-本文件描述 M1–M5 已交付的 CLI、Spec、因子脚本和 Python API。实现与设计文档
-冲突时以 `docs/superpowers/specs/2026-08-15-factor-dsl-platform-design.md` 为准。
+本文件描述已交付的 CLI、Spec、因子脚本和 Python API（M1–M8，叠加
+duckdb|ch 读路径双后端与 bars_1m/tick 读接口，见 §4 读路径双后端小节）。
+实现与设计文档冲突时以 `docs/superpowers/specs/2026-08-15-factor-dsl-platform-design.md`
+为准；双后端化与 intraday 接口的设计见
+`docs/superpowers/plans/crystalline-imagining-crab.md`（2026-09）。
 
 ## 0. M5 汇总：Web 可视化
 
@@ -396,7 +399,11 @@ def 内联（窗口算子合法化）→ 元素级方法链改写 → 平台薄�
 `RunContext` 字段：`db_path`（默认 `settings.platform_db` = `data/factorlab.duckdb`）、
 `output_dir`、`universe_override`（6 位代码或引用名称/路径，优先级最高）、`float32`、
 `adjustment`（复权视图口径兜底 `raw|qfq|hfq|pit_qfq`，默认 `qfq`；spec 声明
-`adjustment` 时以 spec 为准——spec 字段默认 qfq，未声明时即用默认值）。
+`adjustment` 时以 spec 为准——spec 字段默认 qfq，未声明时即用默认值）、
+`data_backend: Literal["duckdb","ch"] | None = None`（默认 None → `settings.data_backend`，
+由 env `FACTORLAB_DATA_BACKEND` 覆盖）。run_factor 内部按 data_backend 经
+`data.backend.open_read` 开读句柄（见 §4.0 读路径双后端）；duckdb 后端用
+`db_path`，ch 后端忽略 db_path（直接连 `settings.ch_*` 配置库）。
 
 **pit_qfq 消费（M4b）**：spec `adjustment=pit_qfq` 时复权视图调用
 `view_prices(panel, "pit_qfq", asof=spec.date.end)`——研究日视角（asof 之后无信息）；
@@ -458,27 +465,39 @@ adjustment、float32）。
 模板与静态文件在 `src/factorlab/web/{templates,static}/`；CLI 入口
 `factorlab serve`（见 §1）。
 
-### `factorlab.data.universe.resolve_codes(spec, db, override=None, settings=settings) -> list[str]`
+### `factorlab.data.universe.resolve_codes(spec, rd, override=None, settings=settings) -> list[str]`
 
 universe 解析优先级：`override` > spec 内联（`ref` 命名引用 / `codes` / `rules`）。
-返回纯数字代码列表（`daily.code` 格式）。命名引用查 `~/.factorlab/universes/<name>.yaml`
-（或直接给文件路径）。`default_universe`（`FACTORLAB_DEFAULT_UNIVERSE`）由
-`factorlab run --universe` 缺省时消费（M4a 已接线）。
+返回纯数字代码列表（`daily.code` 格式）。`rd` 为读句柄（`data/backend.open_read`
+打开，duckdb|ch——双后端化后签名统一 `rd`，旧 `db`/路径位置参数已废弃）。
+命名引用查 `~/.factorlab/universes/<name>.yaml`（或直接给文件路径）。
+`default_universe`（`FACTORLAB_DEFAULT_UNIVERSE`）由 `factorlab run --universe`
+缺省时消费（M4a 已接线）。
 
 **挖掘约定**：同批次因子固定同一 universe（`--universe` 或共享 spec 引用），同池计算、同池比较。
 
-`rules` 支持：`exclude_st`（st_status 最新快照）、`min_list_days`（list_date 距 date.start
+`rules` 支持：`exclude_st`（ST 状态过滤）、`min_list_days`（list_date 距 date.start
 或数据最早日期满 N 自然日）、`exchanges`（SSE/SZSE，BSE 不在 v1 集合）。
+code 候选先经 stock_basic.symbol 匹配归一（ch 侧两层 IN 命中索引；孤儿 code
+不在 stock_basic → ch 后端不命中，duckdb 前缀匹配会命中——编译函数对语义，
+测试双腿锁定）。
 
-### `factorlab.data.source.load_daily(db_path, codes, date_start=None, date_end=None, cols=None, float32=True) -> pl.LazyFrame`
+### `factorlab.data.source.load_daily(rd, codes, date_start=None, date_end=None, cols=None, float32=settings.use_float32) -> pl.LazyFrame`
 
-DuckDB 只读加载；SQL-first 过滤；`date` cast `pl.Date`；数值列 float32。
+读句柄只读加载（duckdb|ch，经 `open_read`）；SQL-first 过滤；`date` cast
+`pl.Date`；数值列 float32。列映射双腿一致：`trade_date`（'YYYYMMDD'）→ `date`、
+`ts_code`（'000001.SZ'）→ `code`（去后缀）、`vol`→`volume`、`turnover_rate`→
+`turnover`（daily_basic left join，cols 含 turnover/total_mv/circ_mv 时）；
+close 恒加载，adj_factor 恒 inner join。
 **注意**：内部实际立即执行查询（`execute().pl()` 后包 `lazy()`），SQL 错误在调用时抛出。
+同文件另含 `load_daily_fill_state(rd, codes, *, before, cols, float32)`
+（chunk 左边界停牌补前值，per-code 最新 non-null 状态；双腿参数化测试锁定）。
 
-### `factorlab.data.calendar.trading_calendar / fill_suspensions`
+### `factorlab.data.calendar.trading_calendar(rd, date_start=None, date_end=None) -> pl.Series` / `fill_suspensions(df, calendar) -> pl.DataFrame`
 
-交易日历（distinct date，升序）与停牌补全（日历×代码全连接，缺失数值 null，
-不默认填充）。补全后输出按日期升序、组内代码顺序未承诺（调用方自行排序）。
+交易日历（trade_cal distinct date 升序；duckdb|ch 编译函数对，空表在调用点按
+无日历处理）与停牌补全（日历×代码全连接，缺失数值 null，不默认填充——纯
+polars 函数，不触库）。补全后输出按日期升序、组内代码顺序未承诺（调用方自行排序）。
 
 ### process 链
 
@@ -490,9 +509,12 @@ DuckDB 只读加载；SQL-first 过滤；`date` cast `pl.Date`；数值列 float
 **spec 文件内的链项必须用 `=` 分隔**（`neutralize(by=industry)`），`key: value` 冒号
 写法会被 YAML 解析为映射而报错。
 
-`neutralize` 的行业依赖平台库 `stock_basic` 静态行业（v1 近似）；`size` 按
-`daily_basic.total_mv` 每日期内排名十分位分桶后组内 demean（无 daily_basic 匹配时报错）；
+`neutralize` 的行业依赖 `stock_basic`（v1 静态行业近似）与 `size` 的
+`daily_basic.total_mv`——取数经 `ProcessCtx(db)` 读句柄（`Rd`；ProcessCtx 原
+`db` 即读句柄，签名未改，run 链传入 open_read 结果）：行业每日期内分组 demean、
+`size` 每日期内 total_mv 排名十分位分桶后组内 demean（无 daily_basic 匹配时报错）；
 截面 N<10 时 size 中性化每桶 1 只股票，demean 恒 0（分组式中性化固有属性）。
+fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 ValueError。
 
 零方差截面（standardize/robustzscore）输出 null（NaN 不是 null，fillna 无法处理）。
 
@@ -733,6 +755,71 @@ ts_code 匹配 ^\d{6}\.(SH|SZ|BJ)$  且  symbol == ts_code 前六位
   `note`）或对应段跳过（duckdb 错误捕获，不阻塞）。primary 为 `PlatformDB`，
   ref_path 接受 `PlatformDB | Path`。
 
+## 4.0 读路径双后端（duckdb|ch）与 intraday 读接口
+
+### `factorlab.data.backend`：Rd 句柄与 open_read 工厂
+
+三层读路径：公开读函数（单写，共享 polars/校验）→ 模块内
+`_IMPL[rd.backend]` 编译函数对（`_xxx_duckdb` / `_xxx_ch`：SQL 文本 + 参数 +
+1-3 行 decode）→ Rd 句柄（执行 + 目录探测）。读函数体内无 if/else。
+
+- `class Rd`：`backend: Literal["duckdb","ch"]` + `query_df(sql, params) ->
+  pl.DataFrame` / `query_rows(sql, params) -> list[tuple]` / `command(...)` /
+  `tables() -> set[str]` / `columns(table) -> set[str]` / `close()`。
+- `DuckDBRd`：平台库文件**只读连接**（文件缺失 → `FileNotFoundError`）；打开即
+  SET memory_limit/threads pragma（历史逐函数 SET 的收敛点）。可包外部连接
+  （引擎链，`_owns=False` 时 close 不动外部连接）。
+- `ChRd`：无状态包 `ch_source` 客户端单例；SQL 表一律带 `{settings.ch_database}.`
+  前缀（临时库测试靠 monkeypatch ch_database 生效）；连接失败首次查询抛
+  `RuntimeError`。
+- `open_read(data_backend=None, db_path=None) -> Rd`：data_backend None →
+  `settings.data_backend`。duckdb 腿用 db_path（默认 settings.platform_db）；
+  ch 腿忽略 db_path。
+
+**签名迁移约定（本文件所有读路径 API 已统一）**：参数一律 `rd` 读句柄；
+`db_path`/连接位置参数已废弃（无兼容层）。`RunContext` 保留 db_path、新增
+`data_backend: Literal["duckdb","ch"] | None = None`（None → settings）。
+测试双后端化：`env` fixture 参数化（duckdb 腿 = 改造前行为的回归网，硬门槛）。
+
+### `factorlab.config.settings` 数据后端字段
+
+`data_backend`（默认 `"duckdb"`，env `FACTORLAB_DATA_BACKEND` 覆盖）与
+`ch_host/ch_port/ch_user/ch_password/ch_database`（env `FACTORLAB_CH_*`）。
+ch 读路径统一客户端设置 `join_use_nulls=1`：LEFT JOIN 一律 NULL-extension，
+与 duckdb 语义对齐（服务器默认 0 时未匹配行填类型默认值——PIT 骨架的
+is_st/is_listed 判定与未匹配 code 的 NULL 形态会失真；见 ch_source 模块注释）。
+
+### `factorlab.data.intraday`：bars_1m / tick 读接口（仅 ch）
+
+生产分钟/逐笔数据仅存 ClickHouse（bars_1m ~1.85B 行、tick_trades/orders/
+snapshots 共 ~14B 行）；duckdb 平台文件无 intraday 表 → duckdb 后端读接口
+**显式 ValueError**（"bars_1m/tick 数据仅 ClickHouse 后端提供"），非底层表
+缺失错误。
+
+- `load_bars_1m(rd, code, *, day=None, date_start=None, date_end=None, cols=None) -> pl.DataFrame`
+  1 分钟线（bars_1m）：datetime/trade_date/code/minute_index/session_type/
+  open/high/low/close/amount/volume（OHLC Float32、volume Float64 原样，
+  上游 1m 事实库语义读侧不解释）。排序 datetime。
+- `load_tick_trades(rd, code, ...)` 逐笔成交（tick_trades）：time_ms（当日毫秒
+  数，00:00 起）、trade_no UInt64、bs UInt8、price_x10000 Int32（元 = ÷10000）、
+  volume UInt32、ask_seq/bid_seq UInt64。排序 (time_ms, trade_no)。
+- `load_tick_orders(rd, code, ...)` 逐笔委托（tick_orders）：order_no/
+  exch_order_no UInt64、order_type/bs String（上游语义原样）、price_x10000
+  Int32、volume UInt32。排序 (time_ms, order_no)。
+- `load_tick_snapshots(rd, code, ...)` 秒级快照（tick_snapshots）：默认投影
+  核心列（price/volume/amount/n_trades/iopv/trade_flag/bs/cum_*/OHLC/
+  prev_close/wavg_ask/bid/ask_total/bid_total），排除 10 档盘口与指数统计列；
+  `cols` 全列名（66 列镜像生产 DDL）可请求。排序 time_ms。
+
+共用合约：code 接受平台 6 位纯数字（经 stock_basic.symbol 解析为 ts_code，
+未知 → `ValueError("未知 code ...")`）或带后缀 ts_code；输出 code 一律 6 位
+纯数字（与 daily 读路径一致）。时间窗 `day='YYYY-MM-DD'` 快捷（= 单日闭区间）
+或 `date_start/date_end` 闭区间（单边可开）；**完全不限制 → ValueError
+（防全表扫描）**。`cols` 输出列白名单（顺序即输出顺序），未知列 ValueError。
+`datetime` 统一 **naive Asia/Shanghai 墙钟 ms**（stored epoch = 源 wall；
+arrow 读回带服务器 tz → `convert_time_zone("UTC")` 后剥）。空结果（当日无数据）
+返回同投影空 frame 不抛。生产真数据 e2e 见 tests/test_intraday_prod_e2e.py。
+
 ## 4.1 Domain contracts（M6-01）
 
 统一研究语义层（`factorlab.domain`）——Signal / Label 领域契约与信号时间语义。
@@ -773,8 +860,8 @@ Universe membership ≠ tradability（M6-02 不实现 can_buy/can_sell——M8 E
 | API | 语义 |
 |---|---|
 | `resolve_codes()` | **legacy/static**：全期共用一组静态代码（含最新 ST 快照过滤与 date.start 一次性 min_list_days）——候选语义，不用于历史 PIT |
-| `resolve_candidate_codes(spec, db, override=None)` | 候选代码集：复用 override/ref/codes/rules 解析；rules 模式**只应用 exchange 与证券标识合法性**——exclude_st/min_list_days 属动态 PIT 条件，禁止提前应用。**M6-07B4**：rules 候选额外要求 canonical research identifier（`regexp_matches(ts_code, '^\d{6}\.(SH\|SZ\|BJ)$')`，pattern 单一权威来自 `domain.codes`）——legacy vendor aliases（如 `T600018.SH`）即使后缀匹配 .SH 也绝不进入候选 |
-| `resolve_universe_frame(spec, db, dates, *, override=None, candidate_codes=None)` | date×code PIT membership——接受显式日期集（chunk 友好，不要求全历史生成） |
+| `resolve_candidate_codes(spec, rd, override=None)` | 候选代码集：复用 override/ref/codes/rules 解析；rules 模式**只应用 exchange 与证券标识合法性**——exclude_st/min_list_days 属动态 PIT 条件，禁止提前应用。**M6-07B4**：rules 候选额外要求 canonical research identifier（`regexp_matches(ts_code, '^\d{6}\.(SH\|SZ\|BJ)$')`，pattern 单一权威来自 `domain.codes`）——legacy vendor aliases（如 `T600018.SH`）即使后缀匹配 .SH 也绝不进入候选。`rd` 读句柄（duckdb\|ch） |
+| `resolve_universe_frame(spec, rd, dates, *, override=None, candidate_codes=None)` | date×code PIT membership——接受显式日期集（chunk 友好，不要求全历史生成）。ch 腿：arrayJoin 展开 + stock_basic LEFT JOIN（join_use_nulls=1 NULL-extension，与 duckdb 一致） |
 | `align_to_universe(raw, universe)` | **Universe 驱动**的 active LEFT JOIN raw：raw 不能决定日期是否存在（某日 raw 完全无行 → active date/code 仍输出、行情 null）；universe 外排除。raw 至少 date/code；universe 至少 date/code/in_universe(Boolean)；code 严格 pl.String（前导零证券代码，整数无法无损表示）；duplicate/dtype/缺列 fail fast |
 
 UniverseFrame schema：`date(pl.Date) / code(pl.String) / in_universe / is_listed / list_days / is_st / exchange`，
@@ -1317,12 +1404,13 @@ decision unique、execution > decision、decision 与 execution 序列**严格
 递增**（相邻 <，不依赖 sorted 表达 strict——duplicate execution date
 fail）；空 typed 合法。
 
-**resolve_execution_schedule(target, db_path)**：timing 权威 =
+**resolve_execution_schedule(target, rd)**：timing 权威 =
 target.meta.source_timing.default_earliest_execution（NEXT_OPEN/NEXT_CLOSE
 日期解析相同——均为严格 > decision 的第一开放日；NEXT_CLOSE market
 snapshot/fill 未实现）；decision date 必须 open（fail，不自动取周一）；
 无下一开放日 fail whole（不 drop trailing）；空 target → 空 schedule；
 all-cash decision 仍产生 execution event；一次 calendar 加载 + bisect。
+`rd` 读句柄（duckdb|ch，M6 双后端化后 db_path 参数已废）。
 
 **MarketOpenSnapshot**（domain）：execution_date + 严格 8 列
 code/open/pre_close/up_limit/down_limit/has_daily/has_limit/
@@ -2063,7 +2151,7 @@ EXECUTION_FEE_DRAG_RECONCILED：execution_price == reference_price 且
 ### M8-06B Backtest Runtime（`run_backtest`）
 
 ```
-run_backtest(target, execution_spec, db_path, *, marks=MarksPolicy.OPEN_BASED,
+run_backtest(target, execution_spec, rd, *, marks=MarksPolicy.OPEN_BASED,
              decision_range=None) -> BacktestResult
 ```
 
