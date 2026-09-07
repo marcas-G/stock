@@ -253,21 +253,35 @@ m8-06a §5.5/§9.2 关闭：事件源 = adj_event + CH 探针结论存档；CA h
 ### 9.1 合成双腿全链（tests/test_execution_signal_chain.py，env 双腿参数化）
 
 种子表 = test_run_factor 所需表集（run_factor 引擎原样沿用，含其消费的
-adj_factor）+ **另增 stk_limit**；**不建 suspend_d、不建 adj_event**（干净窗口
-无停牌无除权；gate 不 armed 不需事件表）。日历延伸保证末 decision 次日 open 在
-daily 覆盖内。链：`run_factor`（3-6 codes、10+ 交易日）→ `StrategySpec(k=2)`/
+adj_factor）+ **另增 stk_limit**；**不建 suspend_d**；日历延伸保证末 decision 次日
+open 在 daily 覆盖内。链：`run_factor`（3-6 codes、10+ 交易日）→ `StrategySpec(k=2)`/
 `construct_target_portfolio` → `write_strategy_artifacts`→`load_strategy_artifacts`
 （M7 持久化）→ `run_backtest`（默认语义）→ `save_backtest_result`→`load` 往返。
 
+**实现修正（2026-09-07，同 WS5 §8.2 先例）**：~~不建 adj_event（干净窗口无停牌
+无除权；gate 不 armed 不需事件表）~~ 实测错误——k=2 daily 链 ≥4 decision 日 +
+首 event 即建仓 → **armed（多事件+持仓）**，缺 adj_event 表 fail-closed（B1 语义）。
+fixtures 必须 seed **空 adj_event 表**（空表 = 通过，同 marks A9 / persistence 腿）。
+另两处种子面细节：① 单库 stock_basic 兼两读面——引擎（symbol/ts_code/exchange/
+list_date/industry）与 execution rules loader（`SELECT ts_code, market`）——
+必须**带 market 列**（引擎读显式列，多余列无碍）；② stk_limit up/down 按
+open×1.1/0.9 逐行派生（四舍五入到分），价格设计让 Top-2 成员在 1/5 decision
+真实翻转（B 33 > C 30），断言含"B 在翻转前任何 event 均不出现"。
+
 断言：target 权重来自真实信号（k 只 code 的排序与权重和，非硬编码）；逐 event
-cash bridge 不变式；nav_series 列/单调/≥0/== cash+Σqty×open；落盘往返
-（manifest+10 parquet）；双跑 bitwise；双腿一致。
+cash bridge 不变式；nav_series 列/≥0/== cash+Σqty×open（open 自 seed 口径独立
+复核）；落盘往返（manifest+8 parquet 路径）；双跑 bitwise；双腿一致。实现后
+附存根必败证据（construct_target_portfolio 换硬编码常集 {A,B} 存根 → 真实断言
+"B 不应在 event 0 交易"在双腿失败，见 §13）。
 
 ### 9.2 ch_prod 激活腿
 
-前置条件 daily/trade_cal/stk_limit 齐（缺表 skip 且文案列出缺失表）。真实 CA
-约束：adj_event 已派生则全约束；未派生选近月窗口 + 文档警示。激活条件与数据
-任务步骤（stk_limit 派生 SQL / adj_event 派生 / daily 刷新）写入 §13 验证记录。
+前置条件 = daily/trade_cal/stock_basic/stk_limit/adj_event 五表齐（任一缺 →
+skip 且 skip 文案列出缺失表清单——生产库当前缺 stk_limit/adj_event，将 skip）。
+**实现注记**：~~未派生 adj_event 时选近月窗口规避~~ 不可行——armed 与窗口长度
+无关（多事件+持仓即 armed，fail-closed 是 §8 设计语义，不以窗口换表）；adj_event
+派生前真实段链无法跑，skip 文案即激活条件指引。激活条件与数据任务步骤
+（stk_limit 派生 SQL / adj_event 派生 / daily 刷新）写入 §13 验证记录。
 
 ### 9.3 组合配方
 
@@ -308,6 +322,16 @@ M8 CLI（不发明）；web per-output 渲染；per-output loader（dsl-shape �
 
 （实现完成时逐块填写：红→绿证据、全量 pytest 计数、覆盖率、存根必败抽查、
 双腿 e2e、冒烟三 spec。）
+
+- **WS6（2026-09-07，commit 待填）**：tests/test_execution_signal_chain.py 13 测试
+  env 双腿真跑（duckdb + ch 临时库双绿）+ ch_prod 腿按 §9.2 skip（skip 文案列出
+  生产库缺表）。装配链首次全链点燃：run_factor → M7 target（1/5 Top-2 翻转
+  {A,C}→{A,B} 断言通过）→ write/load 往返 → run_backtest（exec 日期
+  1/3/1/4/1/5/1/8、首 event 买入 {A,C}@open 等权 lot 取整、末 event 清 C 买 B、
+  NAV 恒等式逐 event 独立复核、末 NAV>首 NAV）→ save/load 往返 + 双跑 bitwise。
+  存根必败抽查：construct_target_portfolio 换硬编码常集 {A,B} → 真实断言
+  "B 不应在 event 0 交易"双腿失败（scratch 验证后删除）。fixtures 偏差按 §9.1
+  修正记录（空 adj_event 必须 seed + stock_basic.market 列）。
 
 ## 14. 提交序列（local main）
 
