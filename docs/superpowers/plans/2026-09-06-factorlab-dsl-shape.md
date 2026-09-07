@@ -199,4 +199,16 @@
   期修正：console.print 会折行破坏 JSON → stdout 走 typer.echo。新增回归锁（M5b）：
   inline varargs 三形态拒绝、池组缺失 gp_rank/gp_mean 语义（实证：gp_rank = polars 裸
   秩 1..K 非 pct——C 组独木 1.0 泄漏则 2.0，null 组互秩）。全量 pytest 双腿 + 覆盖
-  率达线后提交。
+  率达线后提交（845efbf）。
+
+## M5 更正（2026-09-07，ch 可达性勘误）
+
+- M1 纪要"CH 不可达丢 ch 腿"记载不确。2026-09-07 复核：CH 全程可达
+  （:8123 `SELECT 1`→1、ping 200、TCP :19000 open、`ch_source.get_client()` OK），
+  双腿参数化文件 ch 腿一直在实跑（test_column_discipline 18 passed 0 skip；
+  test_intraday_prod_e2e+test_intraday 13 passed 0 skip；dual-leg 批 217 passed 0 skip）。
+  此前以"13 skipped 与基线同数"推断 ch 腿丢失属误判——13 个 skip 精确构成与 CH 无关：
+  7 = REAL_DB Windows 路径 `C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb`
+  （test_e2e ×3 / test_e2e_free_form ×2 / test_e2e_m4 ×2，本机恒不存在）；4 =
+  test_e2e_web REAL_RESULTS Windows 路径；2 = test_e2e_data teajoin token 未配置
+  （FACTORLAB_TEAJOIN_TOKEN）。全量 2291 passed/13 skipped 即在双腿下跑出。
