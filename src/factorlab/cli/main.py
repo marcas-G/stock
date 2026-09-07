@@ -406,6 +406,50 @@ def svd_factors(names: list[str] = typer.Argument(None),
         console.print(f"  {pc}: {parts}")
 
 
+@app.command("resic")
+def resic_factors(
+    names: list[str] = typer.Argument(...,
+        help="因子名（results/<name>/panel.parquet）；互评模式 ≥2，--target 模式 ≥1"),
+    target: str | None = typer.Option(None, "--target",
+        help="目标因子（对基准组求正交化残差 IC）；缺省=组内轮流互评"),
+    min_stocks: int = typer.Option(None, "--min-stocks", min=3,
+        help="每周最少股票数（缺省 30；自动与基准数+2 取大）"),
+) -> None:
+    """横截面联合诊断：整组联合回归 R² + 每因子正交化残差 IC（resIC）。
+
+    用法: factorlab resic <name1> <name2> [<name3>...] [--target <名>]
+    组内互评（缺省）：每个因子轮流当候选、其余因子当基准，输出每因子的
+    resIC（候选对基准 OLS 残差的周频 rankIC——剔除与基准重叠后的净新增
+    预测力）与整组联合回归 R²。--target <名>：只评估该候选相对显式基准组。
+    近共线（相关≈0.9999）会放大 resIC 数值噪声——建议先跑 factorlab corr / svd。
+    """
+    from factorlab.eval.cross_section import joint_diagnostics
+
+    try:
+        r = joint_diagnostics(names, settings.results_dir, target=target,
+                              min_stocks=min_stocks or 30)
+    except (ValueError, FileNotFoundError) as exc:
+        console.print(f"错误: {exc}", style="red")
+        raise typer.Exit(code=1)
+
+    def _num(x: float) -> str:
+        return "nan" if x != x else f"{x:.4f}"
+
+    group_names = names if target is None else names
+    head = "组联合回归" if target is None else "基准组回归"
+    g = r["group"]
+    obs = "nan" if g["obs"] != g["obs"] else f"{g['obs']:.0f}"
+    console.print(f"{head}（fwd~{' '.join(group_names)}, {g['n_weeks']} 周）: "
+                  f"R² = {_num(g['mean'])} （周均样本 {obs}）")
+    console.print("正交化残差 IC（每周 F~基准 OLS 残差 vs fwd）:")
+    console.print(f"  {'因子':<10}{'resIC':>10}{'t值':>10}{'有效周':>7}{'被基准解释R²':>13}")
+    for f in r["factors"]:
+        base = "" if target is None else f"   基准: {', '.join(f['base'])}"
+        console.print(
+            f"  {f['name']:<10}{_num(f['mean']):>10}{_num(f['t_stat']):>10}"
+            f"{f['n_weeks']:>7}{_num(f['r2_absorbed']):>13}{base}")
+
+
 @app.command("serve")
 def serve(port: int = 8000, host: str = "127.0.0.1") -> None:
     """启动 Web 可视化（只读 results_dir）。"""
