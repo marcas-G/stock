@@ -74,17 +74,26 @@ def factor_correlation(names: list[str], results_dir: str | pathlib.Path,
                        ) -> pl.DataFrame:
     """两两相关矩阵：周度横截面秩相关均值 + 全局 Pearson。
 
-    返回列：factor_a / factor_b / rank_corr / pearson（上三角对，每对一行）。
+    返回列：factor_a / factor_b / rank_corr / pearson / n_weeks（上三角对，
+    每对一行；n_weeks = 该对秩相关计入的周数）。
     任一因子无 results → FileNotFoundError；因子数 < 2 → ValueError。
+    (date, code) 交集为空 → ValueError（"无公共日期"——因子区间错位是调用错误，
+    非"相关 = 0"）。
+    有公共日但每周 <30 只（无任何有效周）→ rank_corr/pearson = **nan**（非 0.0
+    ——旧实现 max(weeks,1) 分母把"无数据"静默伪装成"不相关"，语义错误）、
+    n_weeks = 0。有效周 >0 的数值路径与既往完全一致（均值分母 = 计入周数）。
     sample_weeks 非 None：抽样交易周（Web 全库热力图等大量因子场景的省内存路径）。
     """
     if len(names) < 2:
         raise ValueError("至少需要 2 个因子")
     joined = _join_panels(names, pathlib.Path(results_dir),
                           sample_weeks=sample_weeks, seed=seed)
+    if joined.height == 0:
+        raise ValueError("因子间无公共日期行（(date, code) 交集为空，请核对数据区间）")
     n = len(names)
     rank_sum = np.zeros((n, n))
     pearson = np.zeros((n, n))
+    rank_weeks = np.zeros((n, n), dtype=int)  # 每对秩相关计入周数
     weeks = 0
     for d in joined["date"].unique().to_list():
         sub = joined.filter(pl.col("date") == d)
@@ -108,15 +117,19 @@ def factor_correlation(names: list[str], results_dir: str | pathlib.Path,
                 if not np.isnan(rr):
                     rank_sum[i, j] += rr
                     rank_sum[j, i] += rr
+                    rank_weeks[i, j] += 1
+                    rank_weeks[j, i] += 1
         weeks += 1
-    denom = max(weeks, 1)
+    # weeks==0（全周 <30）→ nan（秩/皮尔逊分母用 nan 传播；有效周路径分母=weeks 不变）
+    denom = weeks if weeks else float("nan")
     rows = []
     for i in range(n):
         for j in range(i + 1, n):
             rows.append({
                 "factor_a": names[i], "factor_b": names[j],
-                "rank_corr": rank_sum[i, j] / denom,
-                "pearson": pearson[i, j] / denom,
+                "rank_corr": float(rank_sum[i, j] / denom),
+                "pearson": float(pearson[i, j] / denom),
+                "n_weeks": int(rank_weeks[i, j]),
             })
     return pl.DataFrame(rows)
 

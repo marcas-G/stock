@@ -166,8 +166,9 @@ def create_app(results_dir: Path) -> FastAPI:
                                if p.parent.name != name)
             if all_names:
                 cm = factor_correlation([name] + all_names, results_dir, sample_weeks=10)
+                # 非 finite（无有效周 → nan）的对不参与展示排序/热力图（rank_corr==rank_corr 排除 NaN）
                 pairs = [(r["factor_b"], r["rank_corr"]) for r in cm.to_dicts()
-                         if r["factor_a"] == name]
+                         if r["factor_a"] == name and r["rank_corr"] == r["rank_corr"]]
                 pairs.sort(key=lambda x: abs(x[1]), reverse=True)
                 top = pairs[:10]
                 if top:
