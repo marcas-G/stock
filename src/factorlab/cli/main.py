@@ -174,14 +174,36 @@ def run_factor_cli(
         # 周频对齐面板：评估与分层回测的实际输入（对齐一次，复用给评估——
         # 千万行面板重复对齐在低内存机器上 segfault）
         weekly = align_weekly(result.panel)
-        evaluation = evaluate_factor_weekly(result.panel, spec.name, spec.direction,
-                                            target=spec.target, weekly=weekly)
-        if backtest:
-            bt = layered_backtest(weekly, spec.direction, n_groups=groups,
-                                  forward_col=spec.target)
-            evaluation["layered_backtest"] = bt
-            if bt.get("empty_groups"):
-                console.print(f"提示: 档位 {bt['empty_groups']} 全期无股票——universe 过小或 --groups 过大")
+        # 多输出（outputs != ["signal"]）：逐输出独立评估（dsl-shape §3.2 收口）——
+        # outputs == ["signal"]（legacy）保持顶层结构逐键不变；多输出 → 顶层仅
+        # {"outputs": {o: 评估 dict}}；outputs 含字面 "signal" 是一等输出（无隐式主信号）
+        outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
+        if outputs == ["signal"]:
+            evaluation = evaluate_factor_weekly(result.panel, spec.name, spec.direction,
+                                                target=spec.target, weekly=weekly)
+            if backtest:
+                bt = layered_backtest(weekly, spec.direction, n_groups=groups,
+                                      forward_col=spec.target)
+                evaluation["layered_backtest"] = bt
+                if bt.get("empty_groups"):
+                    console.print(f"提示: 档位 {bt['empty_groups']} 全期无股票——universe 过小或 --groups 过大")
+        else:
+            # per-output 面板：周频对齐结果里取该输出列（date/code/o/target）→ 归一 signal
+            evaluation = {"outputs": {}}
+            for o in outputs:
+                p = weekly.select(["date", "code", o, spec.target])
+                if o != "signal":  # 字面 signal 输出：列名已就绪，rename 会自撞
+                    p = p.rename({o: "signal"})
+                ev_o = evaluate_factor_weekly(p, spec.name, spec.direction,
+                                              target=spec.target, weekly=p)
+                if backtest:
+                    bt = layered_backtest(p, spec.direction, n_groups=groups,
+                                          forward_col=spec.target)
+                    ev_o["layered_backtest"] = bt
+                    if bt.get("empty_groups"):
+                        console.print(f"提示: 输出 {o} 档位 {bt['empty_groups']} "
+                                      "全期无股票——universe 过小或 --groups 过大")
+                evaluation["outputs"][o] = ev_o
     except (ValueError, FileNotFoundError, FactorDSLError) as exc:
         console.print(f"错误: {exc}")
         raise typer.Exit(code=1) from exc
@@ -192,9 +214,15 @@ def run_factor_cli(
     weekly.write_parquet(ctx.output_dir / "weekly.parquet")  # 周频对齐面板（替代原日频冗余）
     (ctx.output_dir / "summary.json").write_text(
         json.dumps(result.summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-    ic = evaluation.get("ic", {})
-    console.print(f"{variant}: n_weeks={evaluation.get('n_weeks')} "
-                  f"ic_mean={ic.get('mean')} spread={evaluation.get('decile_returns', {}).get('spread', {}).get('ret')}")
+    if outputs == ["signal"]:
+        ic = evaluation.get("ic", {})
+        console.print(f"{variant}: n_weeks={evaluation.get('n_weeks')} "
+                      f"ic_mean={ic.get('mean')} spread={evaluation.get('decile_returns', {}).get('spread', {}).get('ret')}")
+    else:
+        for o, ev_o in evaluation["outputs"].items():  # 逐输出一行（legacy 行同型）
+            ic = ev_o.get("ic", {})
+            console.print(f"{variant}__{o}: n_weeks={ev_o.get('n_weeks')} "
+                          f"ic_mean={ic.get('mean')} spread={ev_o.get('decile_returns', {}).get('spread', {}).get('ret')}")
 
 
 def _run_at(summary: dict, summary_path: Path) -> tuple[str, float]:
@@ -225,9 +253,25 @@ def list_factors() -> None:
             continue  # 损坏/不可读的 summary 跳过
         ev = summary.get("evaluation", {})
         run_at, sort_key = _run_at(summary, summary_path)
+        # 目录名优先可区分变体（变体目录 summary.name 是基础名）
+        base_name = (summary_path.parent.name if summary_path.parent.name != summary.get("name")
+                     else summary.get("name"))
+        per_outputs = ev.get("outputs") if isinstance(ev, dict) and isinstance(ev.get("outputs"), dict) else None
+        if per_outputs:
+            # 多输出：逐输出一行（因子名__输出名；evaluation.outputs 声明序）
+            for o, ev_o in per_outputs.items():
+                rows.append({
+                    "name": f"{base_name}__{o}",
+                    "category": summary.get("category", ""),
+                    "direction": summary.get("direction", ""),
+                    "ic_mean": ev_o.get("ic", {}).get("mean"),
+                    "spread": ev_o.get("decile_returns", {}).get("spread", {}).get("ret"),
+                    "run_at": run_at,
+                    "_sort": sort_key,
+                })
+            continue
         rows.append({
-            # 变体目录（name_kv）的 summary.name 是基础名——目录名优先可区分
-            "name": summary_path.parent.name if summary_path.parent.name != summary.get("name") else summary.get("name"),
+            "name": base_name,
             "category": summary.get("category", ""),
             "direction": summary.get("direction", ""),
             "ic_mean": ev.get("ic", {}).get("mean"),
@@ -261,6 +305,16 @@ def show_factor(name: str) -> None:
                   f"{summary.get('date_start')} ~ {summary.get('date_end')} | "
                   f"rows={summary.get('panel_rows')} | null_ratio={summary.get('signal_null_ratio')}")
     ev = summary.get('evaluation', {})
+    per_outputs = ev.get("outputs") if isinstance(ev, dict) and isinstance(ev.get("outputs"), dict) else None
+    if per_outputs:
+        # 多输出：逐输出块（缺键 None/无 → 显示语义字段，不崩）
+        for o, ev_o in per_outputs.items():
+            console.print(f"输出: {o}")
+            console.print(f"  IC: {ev_o.get('ic')}")
+            console.print(f"  十分位 spread: {ev_o.get('decile_returns', {}).get('spread')}")
+            console.print(f"  换手: {ev_o.get('turnover')} | 覆盖: {ev_o.get('coverage')}")
+            console.print(f"  分层回测: {ev_o.get('layered_backtest', {}).get('summary', '无')}")
+        return
     console.print(f"IC: {ev.get('ic')}")
     console.print(f"十分位 spread: {ev.get('decile_returns', {}).get('spread')}")
     console.print(f"换手: {ev.get('turnover')} | 覆盖: {ev.get('coverage')}")

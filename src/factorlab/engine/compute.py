@@ -380,7 +380,13 @@ def _apply_multi_output_process(
     for o in outputs:
         # 换名（rename）而非 drop+with_columns：drop 后原列已不存在，无法在同一
         # frame 上 expr 引用——rename 让 o 列直接以 signal 名义进入链
-        work = sig if o == "signal" else sig.rename({o: "signal"})
+        # 字面 "signal" 与其它输出并列时（outputs: [signal, neg]），对 neg 换名会
+        # 与仍在 frame 的字面 signal 列相撞——先 drop 该字面列（本轮输出即其替身）
+        work = sig
+        if o != "signal":
+            if "signal" in sig.columns:
+                work = sig.drop("signal")
+            work = work.rename({o: "signal"})
         proc = run_process_chain(work, process, ctx=rd)
         if proc.height != sig.height:
             raise ValueError(

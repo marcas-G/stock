@@ -90,3 +90,54 @@ def test_show_corrupt_summary(monkeypatch, tmp_path):
     (broken / "summary.json").write_text("{not json", encoding="utf-8")
     result = runner.invoke(app, ["show", "broken"])
     assert result.exit_code == 1
+
+
+# ================================================================
+# WS3 多输出逐输出展示（收口设计 §6；list 单输出行格式不变）
+# ================================================================
+
+_MULTI_EVAL = {
+    "outputs": {
+        "a": {"ic": {"mean": 0.11},
+              "decile_returns": {"spread": {"ret": 0.021}}},
+        "b": {"ic": {"mean": -0.22},
+              "decile_returns": {"spread": {"ret": 0.033}}},
+    },
+}
+
+
+def test_list_multi_output_per_output_rows(monkeypatch, tmp_path):
+    # M4：list 对多输出 summary 逐输出显示（因子名__输出名行），单输出行格式不变
+    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+    _write_summary(tmp_path, "multi_1", evaluation=_MULTI_EVAL)
+    _write_summary(tmp_path, "alpha_1")  # 单输出同行基线
+    result = runner.invoke(app, ["list"])
+    assert result.exit_code == 0
+    assert "multi_1__a | custom | dir=1 | ic=0.11 | spread=0.021 | 2026-08-16T12:00:00" in result.stdout
+    assert "multi_1__b | custom | dir=1 | ic=-0.22 | spread=0.033 | 2026-08-16T12:00:00" in result.stdout
+    # 单输出行格式逐字节不变（既有 list 断言只查子串，这里锁整行）
+    assert "alpha_1 | custom | dir=1 | ic=0.05 | spread=0.02 | 2026-08-16T12:00:00" in result.stdout
+
+
+def test_show_multi_output_per_output_blocks(monkeypatch, tmp_path):
+    # M4：show 对多输出 summary 逐输出块显示（不崩、不显示空单输出行）
+    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+    _write_summary(tmp_path, "multi_2", evaluation=_MULTI_EVAL)
+    result = runner.invoke(app, ["show", "multi_2"])
+    assert result.exit_code == 0
+    assert "输出: a" in result.stdout
+    assert "输出: b" in result.stdout
+    assert "0.11" in result.stdout and "-0.22" in result.stdout
+    assert "0.021" in result.stdout and "0.033" in result.stdout
+
+
+def test_show_multi_output_missing_keys_no_crash(monkeypatch, tmp_path):
+    # 边界：多输出 summary 的输出缺 layered_backtest/换手等键（--no-backtest 跑出的
+    # 结果后补 list/show）→ 逐输出块缺键不崩（显示 None 语义字段）
+    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+    _write_summary(tmp_path, "multi_3", evaluation={
+        "outputs": {"a": {"ic": {"mean": 0.11}}},
+    })
+    result = runner.invoke(app, ["show", "multi_3"])
+    assert result.exit_code == 0
+    assert "输出: a" in result.stdout
