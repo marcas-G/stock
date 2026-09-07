@@ -72,6 +72,7 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 | `factorlab show <name>` | 查看单因子完整摘要（spec 原文/评估/分层回测） |
 | `factorlab corr <name1> <name2> ...` | 因子两两相关性（≥2 个）：周度横截面秩相关均值 + 全局 Pearson；任一因子无 results 报错（数据源 `results/<name>/panel.parquet` 的 signal，按 date+code inner join；join 后超 2000 万行每周降采样 5000 只） |
 | `factorlab svd [name1 ...] [--weeks 15]` | 因子库 SVD 分解：奇异值谱 + 主成分载荷（因子结构/有效维度分析）；缺省 names = 全部有 panel 因子（排除验证目录）；抽样 weeks 个交易周（concat+pivot 单次操作，规避多 join 段错误） |
+| `factorlab resic <name1> <name2> ... [--target 名] [--min-stocks 30]` | 横截面联合诊断：组内互评（默认，≥2 因子）或 `--target` 显式候选（可不在 names 中，基准应排除 target）。输出整组联合回归 R²（fwd ~ 整组逐周 OLS 均值）与每因子正交化残差 IC（resIC = 候选对基准逐周 OLS 残差 vs fwd 的周频 rankIC 均值/t 值 + 被基准解释 R²）。数据源 = results 多 run 单输出 panel 按周频对齐汇聚；每周样本 < max(min_stocks, 基准数+2) 剔除；错误路径 Exit 1（含"无结果"/"公共周"/多输出 panel 文案）。近共线因子建议先跑 corr/svd |
 | `factorlab op list` | 列出已注册算子 |
 | `factorlab op doc <name>` | 查看算子名称、类别、版本与 docstring |
 | `factorlab op add <plugin.py> [--force]` | 校验并注册用户插件；同名冲突需 `--force` |
@@ -587,6 +588,40 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 行排除（复用 rust_ic 的过滤语义）。面板中每个日期都保留一行：有效股票 < 3
 （`MIN_STOCKS`）的周 ic = null（秩相关不稳健，含有效股票为 0 的周）。
 返回 `(date, ic)` 按日期排序——`factorlab.web` 详情页 IC 曲线数据源。
+
+### `factorlab.eval.cross_section`：横截面联合诊断（resIC）
+
+给定一组因子的逐周横截面 OLS 诊断（A 层单因子评估的多因子补充，纯 polars
++ numpy——无回归库依赖）。数学口径权威记载于
+`docs/superpowers/specs/2026-09-07-factorlab-resic-design.md`。
+
+- `cs_r2(weekly_wide, cols, fwd_col="forward_return_5d", min_stocks=30) -> dict`
+  组联合回归 R²：逐周 fwd ~ cols（含截距，`np.linalg.lstsq`）的 R² 周均值。
+  返回 `{"mean", "n_weeks", "obs", "weekly": DataFrame[date, r2]}`；每周样本
+  < max(min_stocks, len(cols)+2) 或 fwd 周内零方差（SST=0）的周剔除（weekly
+  该日 null）；列缺失抛 ValueError；零有效周 mean=nan、n_weeks=0 不抛。
+- `orthogonalized_ic(weekly_wide, target_col, base_cols, fwd_col=..., min_stocks=30) -> dict`
+  正交化残差 IC：逐周 target 对 [1, base_cols...] OLS 取残差 e，resIC_t =
+  Spearman(e_t, fwd_t)（average 秩 + Pearson，与 weekly_ic 同 tie 口径）。
+  返回 `{"mean", "std", "t_stat", "n_weeks", "obs", "r2_absorbed", "weekly":
+  DataFrame[date, resic]}`；t = mean/(std ddof=1/√n)；r2_absorbed = 1 −
+  ‖e‖²/‖F−mean(F)‖²（候选被基准解释比例）。残差恒 0 周（完全共线）resIC
+  = null 剔除出聚合、r2_absorbed 正常计入、不抛错（lstsq min-norm）；
+  base 内部共线同样容忍。`base_cols=[]` 允许（退化为原始周频 rankIC，
+  口径一致性锁，CLI 不暴露）。缺列抛 ValueError；每周 null/NaN/非有限行
+  全列过滤后才入回归。
+- `joint_diagnostics(names, results_dir, target=None, fwd_col=..., min_stocks=30) -> dict`
+  磁盘双模式入口：逐因子读 `results/<name>/panel.parquet`（仅单输出 run——
+  无字面 signal 列的 panel 抛专门 ValueError；文件缺失抛 FileNotFoundError）
+  → signal rename 为因子名 → date cast → align_weekly 逐因子对齐 → 公共
+  日期交集过滤（空交集抛"无公共周"ValueError）→ concat+pivot 汇聚（单次
+  pivot 规避链式 join 段错误）→ inner join carrier（target 或 names[0]）
+  的 fwd。`target=None`（互评）：names ≥ 2 否则 ValueError（消息含
+  "--target" 提示），group = cs_r2(整组)，factors = 每因子对组内其余；
+  `--target` 模式：target ∈ names → ValueError（"基准应排除 target"），
+  base = names（≥1），group = cs_r2(base)，factors = target vs base。
+  返回 `{"mode", "group", "factors": [{"name", "base", **resIC dict}]}`。
+  用途：因子组去冗余 + 漏斗式分层筛选（候选相对基准池的边际新增预测力）。
 
 ### `factorlab.web`：Web 可视化（M5）
 
