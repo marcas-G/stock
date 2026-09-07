@@ -278,7 +278,9 @@ cash bridge 不变式；nav_series 列/≥0/== cash+Σqty×open（open 自 seed 
 ### 9.2 ch_prod 激活腿
 
 前置条件 = daily/trade_cal/stock_basic/stk_limit/adj_event 五表齐（任一缺 →
-skip 且 skip 文案列出缺失表清单——生产库当前缺 stk_limit/adj_event，将 skip）。
+skip 且 skip 文案列出缺失表清单——**生产库已齐：2026-09-08 研究侧数据任务
+交付 stk_limit（17,889,079 行，derive_stk_limit.py）与 adj_event（57,173 行，
+12_ch_adj_backfill.py），激活条件满足，ch_prod 真实段可跑**）。
 **实现注记**：~~未派生 adj_event 时选近月窗口规避~~ 不可行——armed 与窗口长度
 无关（多事件+持仓即 armed，fail-closed 是 §8 设计语义，不以窗口换表）；adj_event
 派生前真实段链无法跑，skip 文案即激活条件指引。激活条件与数据任务步骤
@@ -370,6 +372,21 @@ M8 CLI（不发明）；web per-output 渲染；per-output loader（dsl-shape �
   DID NOT RAISE ExecutionDataQualityError（scratch 文件验证后删除）；冒烟
   三型 19/19（真实进程 factorlab run：单输出 5d 回归 / 20d target / 多输出
   逐输出，合成 duckdb 种子 24 交易日）；catalog.md 无 diff（DSL 读面未变）。
+
+- **数据任务（2026-09-08，研究侧 tools/ch_ingest + ashare_alpha3/scripts，非平台代码）**：
+  §9.2 激活两表交付——① adj_event 57,173 行（12_ch_adj_backfill.py，9/7，
+  与 adj_detail 18,162,795 行同灌）；② stk_limit 17,889,079 行
+  （derive_stk_limit.py v4：1996-12-16 制度边界 / 注册制前 5 日豁免 rn≤5 /
+  板块时变带宽 BJ±30%、科创±20%、创业 300/301/302 ≥2020-08-24 ±20%
+  （此前 ±10%）、主板±10%，整数分 half-up；302 段 9/8 复核补配）。验证：
+  值抽对 600519.SH 2025-12-19 = 1574.10/1287.90；豁免对账 A∖B = 5,332 行
+  精确 = 注册制豁免集、B∖A = 0（NOT IN 权威口径）；越带宽归因 = CA 事件
+  缺口日 + 长期停牌复牌日（已知近似，docstring 记录）；平台读路径原函数
+  冒烟：_gates_ch(2025-12-19) daily 5,447 / stk_limit 5,443（差 4 = 当日
+  豁免次新）、_market_rows_ch 600519/000001 值正确、bad_limit 前置条件全
+  满足、suspend_d 缺表 → WS4 语义正常。**ch_prod 激活条件现全部满足**
+  （五表齐）；真实段全链 e2e 与数据刷新（daily 止 2026-08-21）留待下轮
+  （daily 需新全包，属用户数据节奏）。
 
 ## 14. 提交序列（local main）
 
