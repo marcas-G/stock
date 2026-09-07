@@ -170,15 +170,15 @@ def run_factor_cli(
     original_memory = settings.default_max_memory
     settings.default_max_memory = max_memory
     try:
-        if spec.target != "forward_return_5d":
-            console.print(f"提示: quant_core 当前固定评估 forward_return_5d（spec.target={spec.target} 暂未接线，后续里程碑处理）")
         result = run_impl(spec, ctx)
         # 周频对齐面板：评估与分层回测的实际输入（对齐一次，复用给评估——
         # 千万行面板重复对齐在低内存机器上 segfault）
         weekly = align_weekly(result.panel)
-        evaluation = evaluate_factor_weekly(result.panel, spec.name, spec.direction, weekly=weekly)
+        evaluation = evaluate_factor_weekly(result.panel, spec.name, spec.direction,
+                                            target=spec.target, weekly=weekly)
         if backtest:
-            bt = layered_backtest(weekly, spec.direction, n_groups=groups)
+            bt = layered_backtest(weekly, spec.direction, n_groups=groups,
+                                  forward_col=spec.target)
             evaluation["layered_backtest"] = bt
             if bt.get("empty_groups"):
                 console.print(f"提示: 档位 {bt['empty_groups']} 全期无股票——universe 过小或 --groups 过大")

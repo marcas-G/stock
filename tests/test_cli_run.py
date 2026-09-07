@@ -401,3 +401,58 @@ formula: |
     assert (out_dir / "panel.parquet").exists()
     summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
     assert summary["panel_rows"] == 9 * 2
+
+
+def test_run_spec_target_20d_wired(tmp_path, monkeypatch):
+    # spec.target=forward_return_20d → evaluation.target 与 IC 数值对 20d 列成立；
+    # stdout 不含"暂未接线"占位提示（该提示已随接线删除）
+    build_db(tmp_path, n_days=24)  # 24 交易日 → 前 4 日有 20d 标签
+    spec_path = tmp_path / "demo20.yaml"
+    spec_path.write_text("""
+name: demo20
+category: custom
+direction: 1
+universe:
+  codes: ["000001.SZ", "600519.SH"]
+date:
+  start: "2024-01-02"
+  end: "2024-02-02"
+target: forward_return_20d
+formula: |
+  signal = close / open - 1
+""", encoding="utf-8")
+    monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+    out_dir = tmp_path / "results" / "demo20"
+    result = runner.invoke(app, ["run", str(spec_path), "--output-dir", str(out_dir)])
+    assert result.exit_code == 0, result.output
+    assert "暂未接线" not in result.output
+    summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["evaluation"]["target"] == "forward_return_20d"
+    ic_mean = summary["evaluation"]["ic"]["mean"]
+    assert ic_mean == ic_mean  # 非 nan（有 20d 标签周）
+    assert summary["evaluation"]["n_weeks"] >= 1
+    assert "layered_backtest" in summary["evaluation"]
+
+
+def test_run_default_target_is_5d(tmp_path, monkeypatch):
+    # 回归：spec 不写 target（默认 5d）→ evaluation.target=="forward_return_5d"
+    build_db(tmp_path, n_days=9)
+    spec_path = tmp_path / "demo5.yaml"
+    spec_path.write_text("""
+name: demo5
+category: custom
+direction: 1
+universe:
+  codes: ["000001.SZ", "600519.SH"]
+date:
+  start: "2024-01-02"
+  end: "2024-01-12"
+formula: |
+  signal = close / open - 1
+""", encoding="utf-8")
+    monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+    out_dir = tmp_path / "results" / "demo5"
+    result = runner.invoke(app, ["run", str(spec_path), "--output-dir", str(out_dir)])
+    assert result.exit_code == 0, result.output
+    summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["evaluation"]["target"] == "forward_return_5d"
