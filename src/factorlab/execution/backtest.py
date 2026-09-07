@@ -30,6 +30,7 @@ duckdb 直连。
 
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 from datetime import timedelta
 from enum import Enum
@@ -285,7 +286,12 @@ def run_backtest(
             (fills.frame["execution_price"]
              == fills.frame["reference_price"]).all())
         if slippage_free:
-            if post_nav.nav != pre_nav.nav - total_fees:
+            # 浮点容差（2026-09-08 真实段实测）：合成价（小整数/二分位）恰好
+            # 二进制可表示 → exact 相等成立；真实价（任意小数 × 大 qty 累计）
+            # 单 ulp 噪声（~1e-10@7e5）即破坏 exact 比较。rel 1e-9/abs 1e-6
+            # 只放行 float 舍入，真实缺陷（错价/错 qty/漏记账）偏差 ≥ 分级别。
+            if not math.isclose(post_nav.nav, pre_nav.nav - total_fees,
+                                rel_tol=1e-9, abs_tol=1e-6):
                 raise RuntimeError(
                     f"{exec_date} value-neutrality sanity 失败：POST NAV "
                     f"{post_nav.nav} != PRE NAV {pre_nav.nav} - fees "
