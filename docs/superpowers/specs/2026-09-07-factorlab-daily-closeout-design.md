@@ -307,7 +307,8 @@ M4 CLI 范围不含执行——不发明）。
 
 CA share transition（除权日股数调整 + 分红入账 = 未来里程碑，方向已记录）；
 M8 CLI（不发明）；web per-output 渲染；per-output loader（dsl-shape 后续）；
-分钟/tick 链（主 spec :63 明示不做）。
+分钟/tick 链：bars_1m 模板机制 2026-09-08 起开工（读接口 2026-09-06 dual-backend
+已交付），见 2026-09-08-factorlab-1m-funnel-design；tick 模板链仍不做。
 
 ## 12. 错误语义表
 

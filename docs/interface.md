@@ -8,7 +8,11 @@ duckdb|ch 读路径双后端与 bars_1m/tick 读接口，见 §4 读路径双后
 （配套计划 `docs/superpowers/plans/2026-09-06-factorlab-dual-backend-read-path.md`）；
 日频收口（WS1-WS7：spec.target 接线 / corr 无有效周 / 多输出逐输出评估 / 停牌冻结 /
 CA Gate / 真实信号链 e2e）见
-`docs/superpowers/specs/2026-09-07-factorlab-daily-closeout-design.md`。
+`docs/superpowers/specs/2026-09-07-factorlab-daily-closeout-design.md`；
+bars_1m 漏斗机制（spec.interface=bars_1m / im_*、day_* 算子族 / 折日评估复用 /
+load_bars_1m_codes，2026-09-08 开工）见
+`docs/superpowers/specs/2026-09-08-factorlab-1m-funnel-design.md`（配套计划
+`docs/superpowers/plans/2026-09-08-factorlab-1m-funnel.md`）。
 
 ## 0. M5 汇总：Web 可视化
 
