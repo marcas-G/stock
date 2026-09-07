@@ -52,22 +52,25 @@ def layered_backtest(
     direction: int,
     n_groups: int = 10,
     cost: float = 0.0,
+    forward_col: str = "forward_return_5d",
 ) -> dict:
     """分层回测：每期按 signal 分档，各档 forward 等权平均累积净值；long-short = D1 - D10。
 
-    输入周频面板（date/code/signal/forward_return_5d）。cost 参数预留（当前不建模调仓成本）。
+    输入周频面板（date/code/signal/forward_col）。cost 参数预留（当前不建模调仓成本）。
 
     语义：
     - direction=1 时 D1 = signal 最高档，direction=-1 时 D1 = signal 最低档（rank 方向控制）。
-    - 档收益 = 当周该档 forward_return_5d 等权平均（忽略 null）；档空期 fill_null(0)，
+    - 档收益 = 当周该档 forward_col 等权平均（忽略 null）；档空期 fill_null(0)，
       净值保持前值。净值 = (1+ret) 连乘。long_short 为 D1-D10 差值序列。
-    - signal/forward_return_5d 为 null 的行不参与分档与收益（周内部分行 null 的周仍
+    - signal/forward_col 为 null 的行不参与分档与收益（周内部分行 null 的周仍
       计入期数）；某周**全部**行无效（头部窗口未满/尾部无未来收益）则该周不计入期数
       ——与 quant_core 周频评估 n_weeks 口径一致（`bt["periods"] == evaluation["n_weeks"]`）。
+    - forward_col 默认 forward_return_5d（legacy 调用不变）；spec.target=20d 的评估
+      传 forward_return_20d（标签与 5d 重叠属标签语义非缺陷）。
     - 空面板或过滤后无有效行（signal 全 null）返回空结构，不崩溃。
     """
     df = panel.filter(
-        pl.col("signal").is_not_null() & pl.col("forward_return_5d").is_not_null()
+        pl.col("signal").is_not_null() & pl.col(forward_col).is_not_null()
     )
     if df.height == 0:
         return {"n_groups": n_groups, "periods": 0, "net_values": {}, "summary": {}, "dates": []}
@@ -75,7 +78,7 @@ def layered_backtest(
     df = _group_assign(df, n_groups, direction)
     # 每期每档收益（forward 等权平均，忽略 null）
     group_ret = df.group_by(["date", "_group"]).agg(
-        pl.col("forward_return_5d").mean().alias("_ret")
+        pl.col(forward_col).mean().alias("_ret")
     ).sort(["date", "_group"])
 
     dates = sorted(df["date"].unique().to_list())

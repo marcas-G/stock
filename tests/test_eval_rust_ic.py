@@ -87,3 +87,33 @@ def test_evaluate_factor_weekly_reuses_provided_weekly():
     reused = evaluate_factor_weekly(panel, "demo", 1, weekly=weekly)
     assert reused["n_weeks"] == direct["n_weeks"]
     assert reused["ic"]["mean"] == pytest.approx(direct["ic"]["mean"])
+
+
+def _panel_dual(weeks=12, stocks=10, seed=7):
+    """面板含 5d/20d 两列：20d 与 signal 负相关（IC 符号与 5d 可区分）。"""
+    rng5 = random.Random(seed)
+    rng20 = random.Random(seed + 1)
+    rows = []
+    for w in range(weeks):
+        d = datetime.date(2024, 1, 5) + datetime.timedelta(weeks=w)  # 每周五
+        for s in range(stocks):
+            code = f"{s:06d}"
+            base = s / stocks
+            signal = base + rng5.uniform(-0.1, 0.1)
+            rows.append({"date": d, "code": code, "signal": signal,
+                         "forward_return_5d": signal * 0.1 + rng5.uniform(-0.02, 0.02),
+                         "forward_return_20d": -signal * 0.1 + rng20.uniform(-0.02, 0.02)})
+    return pl.DataFrame(rows)
+
+
+def test_evaluate_factor_weekly_target_20d():
+    # target 参数贯通：IC 数值对 20d 列成立（20d 与 signal 负相关 → 符号与 5d 相反）。
+    # quant_core 回填恒为 5d 时 target 断言必败（桥接层权威覆盖的证据）
+    panel = _panel_dual()
+    five = evaluate_factor_weekly(panel, "demo", 1)  # 默认 5d
+    twenty = evaluate_factor_weekly(panel, "demo", 1, target="forward_return_20d")
+    assert five["target"] == "forward_return_5d"
+    assert twenty["target"] == "forward_return_20d"
+    assert twenty["n_weeks"] == five["n_weeks"] == 12
+    assert five["ic"]["mean"] > 0
+    assert twenty["ic"]["mean"] < 0
