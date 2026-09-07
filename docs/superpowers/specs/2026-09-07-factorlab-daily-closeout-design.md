@@ -385,8 +385,21 @@ M8 CLI（不发明）；web per-output 渲染；per-output loader（dsl-shape �
   冒烟：_gates_ch(2025-12-19) daily 5,447 / stk_limit 5,443（差 4 = 当日
   豁免次新）、_market_rows_ch 600519/000001 值正确、bad_limit 前置条件全
   满足、suspend_d 缺表 → WS4 语义正常。**ch_prod 激活条件现全部满足**
-  （五表齐）；真实段全链 e2e 与数据刷新（daily 止 2026-08-21）留待下轮
-  （daily 需新全包，属用户数据节奏）。
+  （五表齐）。
+- **ch_prod 真实段解锁（2026-09-08，test_ch_prod_chain_activation PASSED）**：
+  首次真跑生产库暴露并修复 5 项（红→绿链，见该测试 docstring 逐条记录）——
+  ① end 取覆盖末端 → calendar trailing unresolved：缓冲为倒数第 7 覆盖日
+  （决策→exec→overnight advance 全程留在覆盖内）；② stock_basic.market 列
+  数据契约缺口（rules loader `SELECT ts_code, market`，合成 fixture 有而生产
+  库 4 列版无——ddl.sql/ingest_daily.py 已同步加列，值 = 板块名 主板/创业板/
+  科创板/北交所）；③ code 选白马（600519@2023-12-20 分红）→ CA Gate 按设计
+  拦截——拦截文案/分段指引即真实段 gate 实证，装配验证改动态选窗口内零事件
+  + 活性达标 code；④ value-neutrality sanity exact `!=` 被真实价浮点噪声击穿
+  （710938.0000000001 vs 710938.0，单 ulp）→ backtest.py isclose 容差
+  （rel 1e-9/abs 1e-6，只放行舍入噪声）；⑤ 合成价可表示 → 真实价不可，同上。
+  真实段：run_factor（2023-12-01 起真实 3 code）→ M7 → M8 run_backtest
+  （真实价/真实 stk_limit，CA Gate armed 未触发）→ artifacts == decision
+  dates。数据刷新（daily 止 2026-08-21）留待新全包（用户数据节奏）。
 
 ## 14. 提交序列（local main）
 

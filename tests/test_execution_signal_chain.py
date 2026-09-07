@@ -354,9 +354,22 @@ def test_double_run_bitwise_identical(env, tmp_path):
 def test_ch_prod_chain_activation(ch_prod, tmp_path):
     """生产库真实段：daily/trade_cal/stock_basic/stk_limit/adj_event 齐全才跑。
 
-    当前生产库缺 stk_limit/adj_event（数据任务未派生）→ skip 且 skip 文案
-    列出缺失表——激活条件写入 closeout design §9.2 验证记录。跑起时断言
-    装配链完整性（非数值——real 数据窗口内容由刷新节奏决定）。"""
+    五表未齐（stk_limit/adj_event 数据任务未派生）→ skip 且 skip 文案列出
+    缺失表——激活条件写入 closeout design §9.2 验证记录。表齐后跑起（2026-
+    09-08 数据任务交付解锁），断言装配链完整性（非数值——real 数据窗口内容
+    由刷新节奏决定）。
+    2026-09-08 实测修正：
+    (1) code 集不能含窗口内除权股——初版 000001/600519/600000（白马常分红）
+        被 CA Gate 按设计拦截（600519.SH@2023-12-20 持仓跨除权 →
+        ExecutionDataQualityError，fail-closed 文案含分段指引；拦截本身即
+        CA Gate 真实段实证）；装配验证须选窗口（2023-12-01 起）零 adj_event
+        的真实 code。
+    (2) end 取"末决策日次日仍有覆盖"的倒数第二覆盖日——原取 max(trade_date)
+        恰为数据末端 → 末决策后无下一开放日 → calendar.py trailing
+        unresolved fail（合成链以日历延伸规避，真实段无延伸可能）。
+    (3) stock_basic.market 列数据契约（rules loader SELECT ts_code, market）
+        实测暴露生产库缺列 → 数据任务补列（ddl.sql/ingest_daily.py 已同步，
+        值 = 板块名 主板/创业板/科创板/北交所）。"""
     from factorlab.config import settings
 
     db = settings.ch_database
@@ -368,20 +381,43 @@ def test_ch_prod_chain_activation(ch_prod, tmp_path):
     if missing:
         pytest.skip(f"生产库 {db} 缺 {missing}（stk_limit/adj_event 数据任务未派生，"
                     f"真实段暂不可跑）")
-    # 数据齐全 → 取三 code 最后覆盖日，回看 8 个交易日的窗口
+    # 数据齐全 → 动态选 3 只窗口内零 adj_event 且活性达标的 code（白马常分红
+    # 会被 CA Gate 拦、退市/长期停牌股 signal 缺行 → constructor non-finite
+    # fail——见 docstring (1)；活性门槛：窗口起 ≥400 行 + 库末 30 日内有行）
+    codes = [r[0] for r in ch_prod.query(
+        f"SELECT ts_code FROM {db}.stock_basic "
+        f"WHERE ts_code NOT IN (SELECT DISTINCT ts_code FROM {db}.adj_event "
+        f"                      WHERE trade_date >= toDate('2023-12-01')) "
+        f"  AND ts_code IN (SELECT ts_code FROM {db}.daily "
+        f"                  WHERE trade_date >= toDate('2023-12-01') "
+        f"                  GROUP BY ts_code HAVING count() >= 400) "
+        f"  AND ts_code IN (SELECT DISTINCT ts_code FROM {db}.daily "
+        f"                  WHERE trade_date >= "
+        f"                      (SELECT max(trade_date) FROM {db}.daily) - 30) "
+        f"ORDER BY ts_code LIMIT 3").result_rows]
+    if len(codes) < 3:
+        pytest.skip(f"生产库 {db} 窗口内零事件 code 不足 3 只（真实段跳过）")
+    codes_in = ",".join(f"'{c}'" for c in codes)
+    # 数据末端缓冲：end = 三 code 覆盖日倒数第 7 个（2026-09-08 实测：倒数
+    # 第 2 个仍不够——末 event exec 后 overnight advance 还要下一开放日，
+    # exec 落在覆盖末端即 trailing unresolved。7 日缓冲让 决策→exec→advance
+    # 全程留在覆盖内）
     ds = ch_prod.query(
-        f"SELECT max(trade_date) FROM {db}.daily "
-        "WHERE ts_code IN ('000001.SZ','600519.SH','600000.SH')").result_rows[0][0]
-    if ds is None:
-        pytest.skip(f"生产库 {db}.daily 无三 code 覆盖（真实段跳过）")
-    end = ds.strftime("%Y-%m-%d")
+        f"SELECT trade_date FROM ("
+        f"  SELECT DISTINCT trade_date FROM {db}.daily "
+        f"  WHERE ts_code IN ({codes_in}) "
+        f"  ORDER BY trade_date DESC LIMIT 1 OFFSET 6)").result_rows
+    if not ds:
+        pytest.skip(f"生产库 {db} 三 code 覆盖日不足 7 个（真实段跳过）")
+    end = ds[0][0].strftime("%Y-%m-%d")
     p = tmp_path / "prod_spec.yaml"
+    codes_lst = ", ".join(f'"{c}"' for c in codes)
     p.write_text(f"""
 name: ws6_prod
 category: custom
 direction: 1
 universe:
-  codes: ["000001.SZ", "600519.SH", "600000.SH"]
+  codes: [{codes_lst}]
 date:
   start: "2023-12-01"
   end: "{end}"
