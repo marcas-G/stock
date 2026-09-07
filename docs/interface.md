@@ -1697,8 +1697,9 @@ has_suspend_record 都是 market-data evidence，不是 can_buy/can_sell
 查询（无六位启发式）；skeleton 由 requested codes 驱动（rows == codes，
 无数据证券保留 has_*=False）；daily/stk_limit duplicate fail、suspend_d
 DISTINCT collapse；daily/stk_limit 全市场日期覆盖 0 行 fail、suspend_d
-0 行合法；缺表/缺字段 fail fast；执行价格 Float64（不沿用 M6 float32
-research 设置）。
+0 行合法；缺表/缺字段 fail fast（**WS4：suspend_d 表可选**——表不存在
+不再 fail，事件证据全 False；停牌 = 缺行推断，见 M8-06B）；执行价格
+Float64（不沿用 M6 float32 research 设置）。
 
 ## 6. Canonical Security Identity Handoff（M7-05）
 
@@ -2428,9 +2429,14 @@ run_backtest(target, execution_spec, rd, *, marks=MarksPolicy.OPEN_BASED,
   snapshot → orders → assessment → fills → POST → accounting → NAV →
   overnight advance）；零新 execution math；不接收 StrategySpec/SignalArtifact
 - **execution_spec 必须显式传入**（cost model 显式选择 Gate）
-- **MarksPolicy v1 = OPEN_BASED**：POST holdings 以 execution date 的 raw
-  open 标记（integration 层构造 PortfolioMarkSnapshot）；任一持仓缺 open
-  evidence → ExecutionDataQualityError（无 stale/suspension mark policy）
+- **MarksPolicy v1 = OPEN_BASED + 停牌冻结（WS4：缺行 = 停牌）**：POST
+  holdings 以 execution date 的 raw open 标记（integration 层构造
+  PortfolioMarkSnapshot）。**持仓 code 当日缺 daily 行 → 停牌冻结**：mark
+  沿用该 code 最近一次真实 open（run 内 mark_map 携带，无历史表查询；
+  多日停牌逐日沿用；复牌日真实 open 恢复）；**目标 code 当日缺行 → 隔夜
+  停牌**：该 order 编排层跳过（不生成订单）、run 继续——整轮再无
+  "缺 open → fail run"路径。既无 open 亦无先前 mark（结构上不可能）→
+  防御性 ExecutionDataQualityError（不发明估值）
 - **每 event sanity**：slippage-free 时 POST NAV == PRE NAV - total_fees
   （zero-cost → value-neutrality，同 basis open marks）
 - **execution 间隔 > 1 交易日**：隔夜 advance 后纯 re-date（无 fills/CA

@@ -222,10 +222,19 @@ def test_missing_stk_limit_table_fails(env):
         load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
 
 
-def test_missing_suspend_d_table_fails(env):
-    _seed(env, with_suspend=False)
-    with pytest.raises(ValueError, match="suspend_d"):
-        load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
+def test_missing_suspend_d_table_optional(env):
+    """WS4：suspend_d 表不存在 → 事件证据全 False（停牌 = 缺行推断，事件表
+    不再被要求——不 fail），daily/stk_limit flags 照常。"""
+    _seed(env, with_suspend=False,
+          daily=[(_D, "000001.SZ", 10.0, 9.8)],
+          limits=[(_D, "600000.SH", 100.0, 90.0)])
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC, codes=CODES)
+    f = snap.frame
+    assert f.height == 3
+    assert f["has_suspend_record"].sum() == 0
+    assert f["is_suspended_at_open"].sum() == 0
+    r = f.filter(pl.col("code") == "000001.SZ")
+    assert r["has_daily"][0] and r["open"][0] == 10.0
 
 
 def test_non_open_execution_date_fails(env):

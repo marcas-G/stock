@@ -187,14 +187,23 @@ M8-05B 明确 marks 由 caller 提供、kernel 不做 price sourcing。Runtime
 候选 v1：explicit marks = 当日 raw open（execution price basis）
    - POST state 的持仓以当日 execution open 估值（与成交同基准，
      天然支持 §5.4 value-neutrality sanity）
-   - 停牌/无 open 的持仓 → 需要 stale-mark 或 suspended-mark 政策
-     （未实现——见 §8 开放问题 1）
+   - 停牌/无 open 的持仓 → 停牌冻结（closeout 决策 1：缺行 = 停牌，
+     mark 沿用 run 内最近一次真实 open——已实现，见下）
 候选 v2：caller 提供的 marks frame per date（完全显式，kernel 零 sourcing）
 ```
 
 设计决定：**MarksPolicy 是 runtime 输入**（显式 marks 或 open-based），
 默认不允许隐式 close/qfq 定价（M8-05B 禁令延续：actual shares × qfq
 无账户语义）。
+
+**关闭注记（closeout WS4，2026-09-07）**：v1 = OPEN_BASED + 停牌冻结。
+持仓 code 当日缺 daily 行（= 停牌，用户裁决"停牌 = 缺行推断"，suspend_d
+表依赖废除——事件表可选支持）→ 冻结：无 fills、估值沿用 run 内 mark_map
+最近一次真实 open（多日停牌逐日沿用、无历史表查询）、复牌日真实 open
+恢复；目标 code 当日缺行 → 该 order 编排层跳过（run 继续）。整轮无
+"缺 open → fail run"路径（data-layer global coverage gates 仍拦全市场
+无行）。caller-explicit marks（v2 候选）保留未实现——MarksPolicy 枚举
+保持单成员 OPEN_BASED 语义标签。
 
 ### 5.3 Return 契约
 
@@ -308,10 +317,13 @@ PRE_EXECUTION(d) ──construct_order_batch──▶ OrderBatch
 ## 9. 开放问题（实现 M8-06 前必须关闭）
 
 ```
-1. Mark 来源策略定稿：open-based v1 vs caller-explicit marks；
-   停牌/无 open 持仓的估值政策（suspension mark policy 未实现）
-2. Corporate-action Gate 实现路径：adj_factor 跳跃检测 vs 显式事件表；
-   决定"跨 CA 日 fail fast"还是"按窗口分段 series"
+1. ~~Mark 来源策略定稿：open-based v1 vs caller-explicit marks~~
+   **关闭（closeout WS4，2026-09-07）**：v1 = OPEN_BASED + 停牌冻结
+   （见 §5.2 关闭注记）；caller-explicit 留 v2 候选
+2. Corporate-action Gate 实现路径：~~adj_factor 跳跃检测 vs 显式事件表~~
+   **关闭（closeout 决策 2，2026-09-07 设计定稿，实现见 WS5）**：
+   事件源 = adj_event 表（CH 探针已证 daily.pre_close/adj_factor 不可作
+   CA 源）；懒性触发 + 表缺失 fail-closed
 3. Artifact persistence 格式：parquet 目录 vs 单 DB 表；与 results/
    research 分支边界（回测输出属 research 内容——分支约定待定）
 4. Run 范围控制：decision_range / universe 过滤是否进 v1（当前倾向不进）

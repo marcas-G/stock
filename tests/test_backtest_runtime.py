@@ -2,8 +2,10 @@
 
 - run_backtest 只做 orchestration（schedule/orders/assessment/fills/state/
   accounting/overnight/valuation 全复用；零新 execution math）
-- MarksPolicy v1 = OPEN_BASED（每 execution date 用当日 raw open 标记
-  holdings；缺 open evidence → ExecutionDataQualityError——无 stale policy）
+- MarksPolicy v1 = OPEN_BASED + 停牌冻结（WS4）：有 daily 用当日 raw open；
+  持仓 code 缺行（= 停牌）冻结——mark 沿用 run 内最近一次真实 open、
+  NAV 不变、无 fills；目标 code 缺行 → order 跳过（停牌语义测试在
+  tests/test_backtest_marks_policy.py，本文件只留行为回归锚点）
 - memory-only runtime object（无 persistence/DB 写入）
 """
 
@@ -16,8 +18,7 @@ import duckdb
 import polars as pl
 import pytest
 
-from factorlab.domain import (ExecutionDataQualityError,
-                              PortfolioStatePhase, TargetPortfolio,
+from factorlab.domain import (PortfolioStatePhase, TargetPortfolio,
                               TargetPortfolioMeta)
 from factorlab.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.data.backend import open_read
@@ -44,10 +45,6 @@ def _cal_db(tmp_path, opens):
                "open DOUBLE, pre_close DOUBLE)")
     db.execute("CREATE TABLE stk_limit (trade_date VARCHAR, ts_code VARCHAR, "
                "up_limit DOUBLE, down_limit DOUBLE)")
-    db.execute("CREATE TABLE suspend_d (trade_date VARCHAR, ts_code VARCHAR, "
-               "suspend_type VARCHAR, suspend_timing VARCHAR)")
-    for row in opens or []:
-        pass
     return db
 
 
@@ -231,19 +228,26 @@ def test_decision_range_empty_fails(tmp_path):
 # marks / data gates
 # ================================================================
 
-def test_missing_open_mark_fails(tmp_path):
-    """POST 持仓证券在 execution date 无 open evidence（停牌且无 daily row、
-    SELL 被 blocked 仍持有）→ marks 无法构造 → ExecutionDataQualityError。"""
+def test_missing_open_freeze_held(tmp_path):
+    """WS4：持仓 600000 在 execution date 缺 daily/stk_limit 行（= 停牌，
+    无 suspend_d 事件表）→ 冻结不 fail：无 fills、mark 沿用 1/3 买入 open
+    （20）、NAV 不变、持仓保持——旧"缺 open → fail run"语义废止。"""
     db = _db(tmp_path)
     con = duckdb.connect(db)
     con.execute("DELETE FROM daily WHERE trade_date='20240104' AND ts_code='600000.SH'")
     con.execute("DELETE FROM stk_limit WHERE trade_date='20240104' AND ts_code='600000.SH'")
-    con.execute("INSERT INTO suspend_d VALUES ('20240104','600000.SH','S',NULL)")
     con.close()
     t = _target(dates=(D1, D2), weights=[
         (D1, {"600000.SH": 1.0}), (D2, {})])   # 1/3 买 600000；1/4 停牌+all-cash
-    with pytest.raises(ExecutionDataQualityError, match="mark|open"):
-        _run(target=t, db_path=db)
+    r = _run(target=t, db_path=db)
+    assert len(r.artifacts) == 2
+    a2 = r.artifacts[1]
+    assert a2.execution_date == D3
+    assert a2.fills.frame.height == 0
+    assert a2.nav.nav == 1_000_000.0          # 50,000 × 20（沿用买入日 open mark）
+    assert r.nav_series.frame["nav"].to_list() == [1_000_000.0, 1_000_000.0]
+    pos = a2.post_state.positions.filter(pl.col("code") == "600000.SH")
+    assert pos["quantity"].to_list() == [50_000]
 
 
 def test_determinism(tmp_path):
@@ -263,10 +267,10 @@ def test_determinism(tmp_path):
 def test_no_db_writes(tmp_path):
     db = _db(tmp_path)
     before = {t: duckdb.connect(db).execute(f"SELECT count(*) FROM {t}").fetchone()[0]
-              for t in ("daily", "stk_limit", "suspend_d", "stock_basic")}
+              for t in ("daily", "stk_limit", "stock_basic")}
     _run(db_path=db)
     after = {t: duckdb.connect(db).execute(f"SELECT count(*) FROM {t}").fetchone()[0]
-             for t in ("daily", "stk_limit", "suspend_d", "stock_basic")}
+             for t in ("daily", "stk_limit", "stock_basic")}
     assert before == after
 
 

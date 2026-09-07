@@ -5,19 +5,23 @@
 raw 市场证据（daily.open/pre_close、stk_limit.up/down_limit、suspend_d
 events），不做复权、不做 fill 判定、不生成订单。
 
-M8-02B：suspend_d 读取**事件行**（ts_code/suspend_type/suspend_timing）——
-时间 grammar 唯一 authority 是 factorlab.execution.suspension（不在 SQL
-里重写 temporal semantics）。runtime 重新 enforce production source
-contract（suspend_type ∈ {S,R}；R+non-null timing 未证明→fail；exact
+M8-02B / WS4（closeout 决策 1）：suspend_d **不再被要求**——停牌 = 缺行推断
+（持仓 code 当日无 daily 行 = 停牌，消费方冻结/跳过，见 execution/backtest.py）。
+suspend_d 表仍**可选支持**：表存在时读取事件行（ts_code/suspend_type/
+suspend_timing；时间 grammar 唯一 authority 是 factorlab.execution.suspension，
+不在 SQL 里重写 temporal semantics。runtime 重新 enforce production source
+contract：suspend_type ∈ {S,R}；R+non-null timing 未证明→fail；exact
 duplicate collapse、dedup 后 >1 distinct event→fail——production max=1，
 未知结构 fail fast 不发明 precedence）；缺失 suspend_type/suspend_timing
-列 → ValueError（M8-02B0 数据契约 runtime enforcement，禁止退回
-presence-only DISTINCT）。
+列 → ValueError。表不存在 → 无 suspend evidence（has_suspend_record /
+is_suspended_at_open 全 False），不 fail——事件源已由缺行语义取代
+（用户决策：停牌就不参与因子漏斗）。
 
 读句柄 rd 化：_require_* 走 rd.tables()/columns()（introspection 句柄层
 透明）；查询 SQL 在编译对（duckdb/ch，位置参数 ↔ 命名参数）。
-ch 版数据契约：daily/stk_limit/suspend_d 由 tools/ch_ingest 以
-(trade_date Date, ts_code) 主键灌入（M2 补灌三表后 ch 腿可用）。
+ch 版数据契约：daily/stk_limit 由 tools/ch_ingest 以 (trade_date Date,
+ts_code) 主键灌入（suspend_d 如存在亦同）；execution 读面最低表面 =
+daily/stk_limit/trade_cal。
 """
 
 from __future__ import annotations
@@ -61,7 +65,9 @@ _GATES_IMPL = {"duckdb": _gates_duckdb, "ch": _gates_ch}
 
 
 def _market_rows_duckdb(rd: Rd, d: str, codes: list[str]) -> tuple[list, list, list]:
-    """daily/stk_limit/suspend_d 行（canonical ts_code 精确匹配 IN (SELECT unnest(?))）。"""
+    """daily/stk_limit 行 + suspend_d 行（可选表；canonical ts_code 精确匹配
+    IN (SELECT unnest(?))）。suspend_d 表不存在 → 事件空（WS4 缺行=停牌语义，
+    不再要求事件表）。"""
     daily_rows = rd.query_rows(
         "SELECT trade_date, ts_code, open, pre_close FROM daily "
         "WHERE trade_date = ? AND ts_code IN (SELECT unnest(?))",
@@ -70,16 +76,19 @@ def _market_rows_duckdb(rd: Rd, d: str, codes: list[str]) -> tuple[list, list, l
         "SELECT trade_date, ts_code, up_limit, down_limit FROM stk_limit "
         "WHERE trade_date = ? AND ts_code IN (SELECT unnest(?))",
         [d, codes])
-    raw_events = rd.query_rows(
-        "SELECT ts_code, suspend_type, suspend_timing FROM suspend_d "
-        "WHERE trade_date = ? AND ts_code IN (SELECT unnest(?))",
-        [d, codes])
+    raw_events = []
+    if "suspend_d" in rd.tables():
+        raw_events = rd.query_rows(
+            "SELECT ts_code, suspend_type, suspend_timing FROM suspend_d "
+            "WHERE trade_date = ? AND ts_code IN (SELECT unnest(?))",
+            [d, codes])
     return daily_rows, limit_rows, raw_events
 
 
 def _market_rows_ch(rd: Rd, d: str, codes: list[str]) -> tuple[list, list, list]:
     """market rows ch 版：canonical ts_code 直接 IN (占位符展开)——输入恒为
-    canonical ts_code（M8 契约），无需 stock_basic 两层子查询。"""
+    canonical ts_code（M8 契约），无需 stock_basic 两层子查询。suspend_d 表
+    不存在 → 事件空（WS4 缺行=停牌语义）。"""
     from factorlab.data.ch_source import in_clause
 
     db = settings.ch_database
@@ -92,10 +101,12 @@ def _market_rows_ch(rd: Rd, d: str, codes: list[str]) -> tuple[list, list, list]
         f"SELECT trade_date, ts_code, up_limit, down_limit FROM {db}.stk_limit "
         f"WHERE trade_date = toDate(%(d)s) AND ts_code IN ({ph})",
         {"d": d, **params})
-    raw_events = rd.query_rows(
-        f"SELECT ts_code, suspend_type, suspend_timing FROM {db}.suspend_d "
-        f"WHERE trade_date = toDate(%(d)s) AND ts_code IN ({ph})",
-        {"d": d, **params})
+    raw_events = []
+    if "suspend_d" in rd.tables():
+        raw_events = rd.query_rows(
+            f"SELECT ts_code, suspend_type, suspend_timing FROM {db}.suspend_d "
+            f"WHERE trade_date = toDate(%(d)s) AND ts_code IN ({ph})",
+            {"d": d, **params})
     return daily_rows, limit_rows, raw_events
 
 
@@ -107,8 +118,9 @@ _MARKET_ROWS_IMPL = {"duckdb": _market_rows_duckdb, "ch": _market_rows_ch}
 # --------------------------------------------------------------------------
 
 def _require_tables(rd: Rd) -> None:
+    """execution 读面最低表面（WS4：suspend_d 移除——停牌=缺行，事件表可选）。"""
     tables = rd.tables()
-    for t in ("daily", "stk_limit", "suspend_d", "trade_cal"):
+    for t in ("daily", "stk_limit", "trade_cal"):
         if t not in tables:
             raise ValueError(
                 f"execution market loader 需要 {t} 表（平台库由 data rebuild "
@@ -190,12 +202,13 @@ def load_market_open_frame(
       limit/suspend 的证券保留 has_*=False——禁止 inner join 丢证券）
     - SQL 全部精确 ts_code IN (...)（禁止 substr 六位启发式）
     - daily/stk_limit 的 (trade_date, ts_code) duplicate → fail
-    - suspend_d 读取事件行（suspend_type/suspend_timing）→
+    - suspend_d（若表存在）读取事件行（suspend_type/suspend_timing）→
       _derive_suspend_evidence（temporal authority =
       factorlab.execution.suspension；exact duplicate collapse、distinct
-      多事件 fail、R+timing fail、parser ValueError 穿透）
+      多事件 fail、R+timing fail、parser ValueError 穿透）；表不存在 →
+      全 False（WS4：停牌=缺行推断，事件表可选）
     - coverage gates：daily/stk_limit 全市场在 execution_date 0 行 → fail
-      （trade_cal 开市 ≠ 数据可用）；suspend_d 0 行合法（无停牌日）
+      （trade_cal 开市 ≠ 数据可用）
     - 只读 raw daily.open/pre_close、stk_limit.up/down_limit（不复权）
     """
     if not isinstance(rd, Rd):
@@ -219,8 +232,9 @@ def load_market_open_frame(
     _require_tables(rd)
     _require_columns(rd, "daily", ["trade_date", "ts_code", "open", "pre_close"])
     _require_columns(rd, "stk_limit", ["trade_date", "ts_code", "up_limit", "down_limit"])
-    _require_columns(rd, "suspend_d",
-                     ["trade_date", "ts_code", "suspend_type", "suspend_timing"])
+    if "suspend_d" in rd.tables():  # WS4：表可选；在则列契约仍强制
+        _require_columns(rd, "suspend_d",
+                         ["trade_date", "ts_code", "suspend_type", "suspend_timing"])
     _require_columns(rd, "trade_cal", ["cal_date", "is_open"])
 
     d = execution_date.strftime("%Y%m%d")
