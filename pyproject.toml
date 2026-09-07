@@ -9,6 +9,7 @@ description = "Personal factor DSL computation platform"
 requires-python = ">=3.13"
 dependencies = [
     "polars>=1.38",
+    "numpy>=1.26",  # 逐周横截面 OLS（eval.cross_section）/ eval.correlation 运行时依赖
     "duckdb>=1.5",
     "pyarrow>=20",  # 本机 glibc 2.27: >=21 无 cp313 manylinux wheel, 只能 20.x
     "clickhouse-connect>=1.7",  # ClickHouse 读后端 (ch_source)
