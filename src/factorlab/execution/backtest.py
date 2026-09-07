@@ -16,6 +16,9 @@ run_backtest 只做 orchestration（M8-06A §3 契约）：
   - 目标 code 当日无 open 行 → 隔夜停牌 → 该 order 编排层跳过（不进
     pipeline，fillability 的 missing-evidence fail 属数据未知语义，二者不同层）
   - 整轮无"缺 open → fail run"路径（数据层 coverage gate 仍拦全市场无行）
+  - 除权事件由 CA Gate 拦截（WS5：窗口 (prev_exec, exec] 内 held(PRE) 命中
+    adj_event 行 → ExecutionDataQualityError + decision_range 分段指引；
+    armed = 多事件 + 持仓非空，armed 且事件表缺失 → fail-closed）
 - 全链 fail fast（ExecutionDataQualityError/ValueError 直接传播）
 - zero-cost zero-slippage 每 event 断言 value-neutrality（POST NAV ==
   PRE NAV @ 同 basis marks）；slippage-free 时 NAV drag == total_fees
@@ -28,11 +31,13 @@ duckdb 直连。
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import timedelta
 from enum import Enum
 
 import polars as pl
 
 from factorlab.data.backend import Rd
+from factorlab.data.execution import load_adj_event_window
 from factorlab.domain.accounting import PortfolioMarkSnapshot
 from factorlab.domain.backtest import (BacktestResult, ExecutionArtifact,
                                        NavSeries)
@@ -100,6 +105,39 @@ def _marks_from_snapshot(snapshot, codes: list[str], date, *,
     return PortfolioMarkSnapshot(as_of_date=date, frame=frame)
 
 
+def _assert_ca_gate(rd: Rd, *, decision_date, prev_exec_date, exec_date,
+                    held_codes: list[str]) -> None:
+    """WS5 CA Gate（M8-06A §5.5 落地；closeout 决策 2，事件源 = adj_event）。
+
+    懒性触发在调用处（多事件 + 持仓非空）。语义：
+    - **fail-closed**：armed 且 adj_event 表缺失 → 明确报错（数据任务未完成
+      不静默降级——无事件表即无法证明窗口无 CA 事件）
+    - 窗口 = (prev_exec_date, exec_date] **左开右闭**：除权事件当日零点生效、
+      隔夜持仓断链 → 右端闭（B4/B7）；买入日 = 事件日的新买 code 以当日
+      post-CA 价成交、无隔夜断链 → 左端开（B6 豁免——持有跨窗口才检测）
+    - 命中 → ExecutionDataQualityError（附 code/事件 trade_date/decision_range
+      分段指引；不携带任何 adj_factor 列值——事件表可只有日期列）
+    """
+    if "adj_event" not in rd.tables():
+        raise ExecutionDataQualityError(
+            f"CA Gate fail-closed：缺 adj_event 表（decision {decision_date} "
+            f"→ execution {exec_date}，持仓 {len(held_codes)} code 跨 "
+            f"{prev_exec_date}→{exec_date} 窗口）——CA Gate 需除权事件数据"
+            f"（real 数据任务未完成 / 合成请 seed 空表）；不确认窗口内无 CA "
+            f"事件即不产出连续 NAV")
+    events = load_adj_event_window(
+        rd, start_date=prev_exec_date + timedelta(days=1),
+        end_date=exec_date, codes=held_codes)
+    if events.height:
+        hits = [f"{r[0]}@{r[1]}" for r in events.iter_rows()]
+        raise ExecutionDataQualityError(
+            f"CA Gate：持仓 {sorted(held_codes)} 在窗口 "
+            f"({prev_exec_date}, {exec_date}] 内出现除权事件 "
+            f"{hits}——跨 share-unit basis 的连续 NAV/return 无定义"
+            f"（M8-06A §5.5）；请以 decision_range 分段 run（CA handling "
+            f"里程碑前禁止跨 CA 连续估值）")
+
+
 def run_backtest(
     target: TargetPortfolio,
     execution_spec: ExecutionSpec,
@@ -165,6 +203,13 @@ def run_backtest(
             state = PortfolioState(as_of_date=exec_date,
                                    phase=PortfolioStatePhase.PRE_EXECUTION,
                                    cash=state.cash, positions=state.positions)
+
+        # ---- WS5 CA Gate（懒性：第二 event 起且持仓非空；窗口左开右闭）----
+        if artifacts and state.positions.height:
+            _assert_ca_gate(rd, decision_date=decision_d,
+                            prev_exec_date=artifacts[-1].execution_date,
+                            exec_date=exec_date,
+                            held_codes=state.positions["code"].to_list())
 
         # ---- 市场证据（planning codes = current ∪ target(d)）----
         t_rows = target.frame.filter(pl.col("decision_date") == decision_d)

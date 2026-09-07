@@ -40,6 +40,8 @@ def _db(tmp_path):
                "up_limit DOUBLE, down_limit DOUBLE)")
     db.execute("CREATE TABLE suspend_d (trade_date VARCHAR, ts_code VARCHAR, "
                "suspend_type VARCHAR, suspend_timing VARCHAR)")
+    # WS5：CA Gate armed（多事件+持仓）需事件表——空表 = 干净 run 通过
+    db.execute("CREATE TABLE adj_event (trade_date VARCHAR, ts_code VARCHAR)")
     for date, code, o in [(D2, "000001.SZ", 10.0), (D2, "600000.SH", 20.0),
                           (D3, "000001.SZ", 11.0), (D3, "600000.SH", 21.0)]:
         db.execute("INSERT INTO daily VALUES (?,?,?,?)",

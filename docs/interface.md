@@ -1701,6 +1701,14 @@ DISTINCT collapse；daily/stk_limit 全市场日期覆盖 0 行 fail、suspend_d
 不再 fail，事件证据全 False；停牌 = 缺行推断，见 M8-06B）；执行价格
 Float64（不沿用 M6 float32 research 设置）。
 
+**load_adj_event_window(rd, *, start_date, end_date, codes)**（WS5 新增；
+CA Gate 事件源）：只读加载 [start_date, end_date] 自然日历日闭区间 ×
+canonical codes 的除权事件行（表契约 `adj_event(ts_code, trade_date)`——
+研究侧由用户 K 文件事件列组派生：红利∨送股∨转增∨配股 ≠ 0 的行）。表缺失
+→ typed empty frame（fail-closed 表格检查在 backtest CA Gate 层）；表在但
+缺列 → fail fast；codes canonical + unique（duplicate fail）；end < start →
+ValueError；输出 code String / trade_date Date、(code, trade_date) 稳定排序。
+
 ## 6. Canonical Security Identity Handoff（M7-05）
 
 ```
@@ -2446,9 +2454,15 @@ run_backtest(target, execution_spec, rd, *, marks=MarksPolicy.OPEN_BASED,
   （artifact = primitive 输出快照，cash bridge invariant 校验；
   NavSeries per-event 严格递增、nav == cash + market_value exact）
 
-**Corporate-action Gate 延续**：跨 share-unit basis 的连续 NAV/return
-series 仍需显式 CA handling（M8-06A §5.5）——v1 run 只在已建 execution
-窗口内产出 NAV 条目，不做跨 CA 连续性声明。
+**CA Gate（WS5；事件源 = `adj_event` 表）**：懒性触发——仅"多事件 + 持仓
+（held(PRE) 非空）"run 武装（单事件/空仓 no-op）。armed 且缺 `adj_event`
+表 → `ExecutionDataQualityError` **fail-closed**（文案含"缺 adj_event 表：
+CA Gate 需除权事件数据（real 数据任务未完成 / 合成请 seed 空表）"——空表 =
+通过）。每相邻执行日窗口 **(prev_exec, exec] 左开右闭** 内、held(PRE) 命中
+事件行（`adj_event(ts_code, trade_date)`，研究侧由 K 文件 红利∨送股∨转增∨
+配股 ≠ 0 派生；买入日 = 事件日豁免）→ `ExecutionDataQualityError`（附
+code/事件 trade_date/decision_range 分段指引——跨 share-unit basis 的连续
+NAV/return 无定义，CA handling 里程碑前禁止跨 CA 连续估值）。
 
 ### M8-06C Artifact Persistence Layer（`save_backtest_result` / `load_backtest_result`）
 

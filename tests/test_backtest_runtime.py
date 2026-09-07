@@ -45,6 +45,9 @@ def _cal_db(tmp_path, opens):
                "open DOUBLE, pre_close DOUBLE)")
     db.execute("CREATE TABLE stk_limit (trade_date VARCHAR, ts_code VARCHAR, "
                "up_limit DOUBLE, down_limit DOUBLE)")
+    # WS5：CA Gate armed（多事件+持仓）需事件表——空表 = 干净 run 通过
+    # （fail-closed 无表场景在 tests/test_backtest_ca_gate.py B1/B8 单独构造）
+    db.execute("CREATE TABLE adj_event (trade_date VARCHAR, ts_code VARCHAR)")
     return db
 
 

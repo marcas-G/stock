@@ -243,6 +243,8 @@ def _exec_tables():
                          ("market", "str")],
                         [(_A, _A[:6], "主板"), (_B, _B[:6], "主板")]),
         "trade_cal": ([("cal_date", "date"), ("is_open", "i64")], cal_rows),
+        # WS5：CA Gate armed（多事件+持仓）需事件表——空表 = 干净 run 通过
+        "adj_event": ([("ts_code", "str"), ("trade_date", "date")], []),
     }
 
 

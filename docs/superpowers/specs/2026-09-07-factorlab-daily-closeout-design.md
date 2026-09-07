@@ -199,19 +199,30 @@ CLI run 评估段重构：per-output 面板 = `result.signals[o]`（date/code/o 
   - armed 且 `adj_event not in rd.tables()` → 明确报错（文案含"缺 adj_event 表：
     CA Gate 需除权事件数据（real 数据任务未完成 / 合成请 seed 空表）"）
     —— **fail-closed**（表完整是数据任务承诺），空表 = 通过（干净 run 零 CA 行）。
-  - 窗口 = 相邻执行日闭区间 [prev_exec_date, exec_date]（**含右端**：除权在事件
-    当日零点生效、隔夜持仓断链；买入豁免天然成立——当日才买的 code ∉ held(PRE)）。
+  - 窗口 = 相邻执行日 **(prev_exec_date, exec_date] 左开右闭**（实现：loader
+    start = prev_exec_date + 1 day）。~~闭区间 [prev_exec_date, exec_date]（含
+    右端…）~~ 措辞修订：**右端闭** = 除权在 exec 当日零点生效、隔夜持仓断链
+    （B4/B7——该日卖出/估值前仍 held，必须拦）；**左端开** = prev_exec 当日
+    = 前次 exec 买入日，当日才买入的持仓已以 post-CA 价格建仓、跨
+    (prev_exec, exec] 无断链（B6 豁免——若按闭区间实现，B6 场景会在 event2
+    误报；见 §8.3 B6 测试锁）。
   - 检测域 = held(PRE(i))（== POST(i−1)，overnight/re-date 不改 code 集）。
   - 命中 → ExecutionDataQualityError（附 code/事件 trade_date/decision_range
     分段指引；不含 adj_factor 列值）。
 - `data/execution.py` 新增只读 `load_adj_event_window(rd, *, start_date, end_date,
-  codes)`（duckdb|ch 编译对）；表缺失语义由 backtest 层表格检查兜底（fail-closed）。
+  codes)`（duckdb|ch 编译对；duckdb 无表 → typed empty frame——fail-closed
+  表格检查在 backtest CA Gate 层兜底，loader 只读不发明）；表契约
+  `adj_event(ts_code, trade_date)` 列缺失 → fail fast；输入 codes canonical+
+  unique（复用 `_check_codes`）；输出 code String / trade_date Date、
+  按 (code, trade_date) 稳定排序；end<start → ValueError。
 
 ### 8.2 fixtures
 
-零新增面——runtime/persistence/双腿 fixture 不建 adj_event（gate 懒性：单事件/
-空仓 run 无表也通过）；仅当 test_backtest_runtime 某 fixture 触发 armed 时补空表
-声明（≤1 处）。
+~~零新增面~~ 实现时实测修正：armed（多事件+持仓）fixture 比预估多——**3 处**补
+空 adj_event 表声明（空表 = 干净 run 通过，非"零新增"）：`test_backtest_runtime.py
+._cal_db`（runtime + marks duckdb 腿共享）、`test_backtest_persistence.py ._db`、
+`test_backtest_marks_policy.py _exec_tables`（A9 env 双腿 seed）。fail-closed 无表
+场景只在 tests/test_backtest_ca_gate.py 内部以 DROP TABLE 构造（B1/B8）。
 
 ### 8.3 测试矩阵（tests/test_backtest_ca_gate.py，双腿 seed 事件表）
 

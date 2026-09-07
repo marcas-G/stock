@@ -282,3 +282,97 @@ def load_market_open_frame(
     for col in ("open", "pre_close", "up_limit", "down_limit"):
         out = out.with_columns(pl.col(col).cast(pl.Float64))
     return out
+
+
+# --------------------------------------------------------------------------
+# WS5：CA 除权事件窗口（adj_event 表——CA Gate 事件源）
+# --------------------------------------------------------------------------
+
+_ADJ_EVENT_TABLE = "adj_event"
+
+
+def _adj_rows_duckdb(rd: Rd, s: str, e: str,
+                     codes: list[str]) -> list[tuple]:
+    """adj_event 行 duckdb 版：trade_date 为 VARCHAR 'YYYYMMDD'（同 daily
+    惯例），闭区间文本比较即可（等长零填充字典序 == 日期序）。"""
+    return rd.query_rows(
+        "SELECT ts_code, trade_date FROM adj_event "
+        "WHERE trade_date BETWEEN ? AND ? "
+        "AND ts_code IN (SELECT unnest(?)) "
+        "ORDER BY ts_code, trade_date",
+        [s, e, codes])
+
+
+def _adj_rows_ch(rd: Rd, s: str, e: str, codes: list[str]) -> list[tuple]:
+    """adj_event 行 ch 版：Date 主键 toDate 过滤 + canonical ts_code IN。"""
+    from factorlab.data.ch_source import in_clause
+
+    ph, params = in_clause(codes)
+    db = settings.ch_database
+    return rd.query_rows(
+        f"SELECT ts_code, trade_date FROM {db}.adj_event "
+        f"WHERE trade_date BETWEEN toDate(%(s)s) AND toDate(%(e)s) "
+        f"AND ts_code IN ({ph}) ORDER BY ts_code, trade_date",
+        {"s": s, "e": e, **params})
+
+
+_ADJ_ROWS_IMPL = {"duckdb": _adj_rows_duckdb, "ch": _adj_rows_ch}
+
+
+def _normalize_event_date(value) -> datetime.date:
+    """duckdb VARCHAR 'YYYYMMDD' / ch Date → datetime.date（值语义不解释——
+    日期恒为自然日历日，不依赖 trade_cal）。"""
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+    if isinstance(value, str) and len(value) == 8 and value.isdigit():
+        return datetime.datetime.strptime(value, "%Y%m%d").date()
+    raise ValueError(
+        f"adj_event.trade_date 无法解析为 date（收到 {value!r}——duckdb "
+        f"'YYYYMMDD' VARCHAR / ch Date）")
+
+
+def load_adj_event_window(
+    rd: Rd,
+    *,
+    start_date: datetime.date,
+    end_date: datetime.date,
+    codes: list[str],
+) -> pl.DataFrame:
+    """只读加载 [start_date, end_date] 闭区间 × canonical codes 的除权事件行
+    （CA Gate 事件源，WS5；研究侧派生：K 文件 红利∨送股∨转增∨配股 ≠ 0 行）。
+
+    - rd 为读句柄（duckdb|ch）；表契约 `adj_event(ts_code, trade_date)`
+    - **表缺失 → typed empty frame**（fail-closed 表格检查在 backtest CA Gate
+      层兜底——本 loader 只读数据、不发明策略）
+    - 表在 → 列契约仍强制（ts_code/trade_date 缺一 fail fast）；code canonical
+      + unique 输入；输出 code String / trade_date Date，按 (code, trade_date)
+      稳定排序
+    - 日期窗口为自然日历日闭区间（含两端——右端事件当日零点生效语义由
+      backtest 层以 (prev_exec, exec] 左开右闭调用表达）
+    """
+    if not isinstance(rd, Rd):
+        raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
+    for name, d in (("start_date", start_date), ("end_date", end_date)):
+        if not isinstance(d, datetime.date) or isinstance(d, datetime.datetime):
+            raise ValueError(
+                f"{name} 必须为 datetime.date（收到 {d!r}）")
+    if end_date < start_date:
+        raise ValueError(
+            f"end_date {end_date} < start_date {start_date}——空窗口拒绝")
+    _check_codes(codes)
+    if _ADJ_EVENT_TABLE not in rd.tables():
+        return pl.DataFrame(
+            {"code": pl.Series([], dtype=pl.String),
+             "trade_date": pl.Series([], dtype=pl.Date)})
+    _require_columns(rd, _ADJ_EVENT_TABLE, ["ts_code", "trade_date"])
+    s = start_date.strftime("%Y%m%d")
+    e = end_date.strftime("%Y%m%d")
+    rows = _ADJ_ROWS_IMPL[rd.backend](rd, s, e, codes)
+    events = [(r[0], _normalize_event_date(r[1])) for r in rows]
+    out = pl.DataFrame(events, schema=["code", "trade_date"], orient="row")
+    if out.height:
+        out = out.with_columns(pl.col("code").cast(pl.String),
+                               pl.col("trade_date").cast(pl.Date))
+    return out

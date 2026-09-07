@@ -243,6 +243,20 @@ NAV/return 序列：
   production-ready（M8-05B §107 的 Gate 在此落实为 runtime 契约）
 ```
 
+**关闭注记（closeout WS5，2026-09-07）**：CA Gate 已实现——事件源 = `adj_event`
+表（`adj_event(ts_code, trade_date)`，研究侧由用户 K 文件事件列组派生：
+红利∨送股∨转增∨配股 ≠ 0 的行；CH 探针结论存档：daily.pre_close ≡ 昨收原值、
+adj_factor 范围含负值/逐日跳变语义不可信 → **均不作 CA 源**）。懒性触发（多事件
++ 持仓非空才武装）+ 缺表 fail-closed（文案提示 real 数据任务/合成 seed 空表）；
+窗口 = 相邻执行日 (prev_exec, exec] **左开右闭**（右闭 = 除权 exec 当日零点生效
+隔夜断链；左开 = prev_exec 当日买入的持仓已以 post-CA 价建仓——设计措辞
+"闭区间 [prev_exec, exec]"在实现中修订为左开，B6 测试锁语义，详见 closeout
+design 2026-09-07 §8.1）。命中 → ExecutionDataQualityError（附 code/事件日期/
+decision_range 分段指引）。**CA handling 未来里程碑方向**：除权日股数 × 因子 +
+分红现金入账（素材 = 用户 K 文件事件列组，逐笔输入：送/转/配 → 股份乘数、
+红利 → 现金入账）；边界记录：除权日恰逢停牌（K 文件无行）→ 事件不可见，属
+已知角落（研究侧可用 daily_basic 类源补齐）。
+
 ## 6. Daily lifecycle
 
 ### 6.1 状态机（一天内）
@@ -321,9 +335,9 @@ PRE_EXECUTION(d) ──construct_order_batch──▶ OrderBatch
    **关闭（closeout WS4，2026-09-07）**：v1 = OPEN_BASED + 停牌冻结
    （见 §5.2 关闭注记）；caller-explicit 留 v2 候选
 2. Corporate-action Gate 实现路径：~~adj_factor 跳跃检测 vs 显式事件表~~
-   **关闭（closeout 决策 2，2026-09-07 设计定稿，实现见 WS5）**：
+   **关闭（closeout 决策 2，2026-09-07 设计定稿，实现 WS5 完成）**：
    事件源 = adj_event 表（CH 探针已证 daily.pre_close/adj_factor 不可作
-   CA 源）；懒性触发 + 表缺失 fail-closed
+   CA 源）；懒性触发 + 表缺失 fail-closed（实现细节见 §5.5 关闭注记）
 3. Artifact persistence 格式：parquet 目录 vs 单 DB 表；与 results/
    research 分支边界（回测输出属 research 内容——分支约定待定）
 4. Run 范围控制：decision_range / universe 过滤是否进 v1（当前倾向不进）
