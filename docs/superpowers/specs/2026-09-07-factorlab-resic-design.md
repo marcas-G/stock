@@ -62,9 +62,12 @@ t = mean / (std(resIC_t, ddof=1) / √n_weeks)
 ```
 
 **完全共线政策**：若某周 `std(e_t) ≤ 1e-10 × max(1, std(F_t))`（残差恒 0，
-F 完全落于 X 张成空间）→ 秩相关无定义，该周 resIC = NaN 并**剔除出聚合**
+F 完全落于 X 张成空间）→ 秩相关无定义，该周 resIC = null 并**剔除出聚合**
 （mean/t/n_weeks 均不计入）；r2_absorbed_t = 1.0 正常计入。**不抛错**
 （lstsq min-norm 解的拟合值唯一，R²/吸收度可靠）。base 内部共线同样容忍。
+**周序列缺失值统一为 null**（polars 中 NaN ≠ null——实现勘误：完全共线周
+与秩相关无定义周（fwd 周内零方差）均记 null，非 NaN；`_spearman` 零方差
+返回 nan 在入库前转 null）。
 
 统计约定：周均值 mean、样本标准差 **ddof=1**、t 值如上式；`n_weeks` = 计入周数；
 `obs` = 计入周的平均样本数。每周序列保留返回。
@@ -197,7 +200,11 @@ target 模式头部为"基准组回归（fwd~a b）…" + 单个 target 行（ba
 | i | 空 base 退化口径 | orthogonalized_ic(wide, "a", []) mean == weekly_ic(signal 化后) ic.mean、周数一致 |
 | i2 | t 值公式 | 3 个有效周确定性序列 → t == mean/(std ddof1/√3) (1e-12) |
 | i3 | fwd null 剔除 | 末周 fwd 全 null → 该周不入 n_weeks、其余周数值不变 |
-| i4 | weekly 序列 | 行数/日期集正确、不足周为 NaN 行 |
+| i4 | weekly 序列 | 行数/日期集正确、不足周为 null 行 |
+| i5 | min_stocks < 2 守卫 | cs_r2 / orthogonalized_ic 均抛 ValueError（实现增补，spec §3 语义） |
+| i6 | fwd 周内零方差 | 该周秩相关无定义 → 剔除出聚合（n_weeks 减一、weekly 该日 null） |
+| i7 | --target 空基准 | joint_diagnostics([], target) → ValueError（基准因子提示） |
+| i8 | 宽表护栏 | pivot 后行数超 MAX_WIDE_ROWS → ValueError（monkeypatch 常量触发） |
 | CLI | 命令行为 | 互评输出含 R²/表头/数值行；--target 只出现基准+target；错误路径 Exit 1；help 列出 |
 
 **存根必败纪律**：任一测试把模块函数替换为"固定 dict 硬编码存根"都会因数值
