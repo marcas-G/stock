@@ -2,7 +2,9 @@
 
 M7-01：契约（StrategySpec / SelectionSpec / WeightingSpec）。
 M7-02：PortfolioConstructor（construct_target_portfolio）。
-M8 Execution Runtime 未实现。
+M8 Execution Runtime 已实现（execution/backtest.py run_backtest；CA Gate 与
+停牌冻结语义见 2026-09-07 daily-closeout design；经 tests/test_execution_signal_chain.py
+真实信号链端到端验证）。
 """
 
 from factorlab.strategy.artifacts import (REBALANCE_SCHEDULE_FILE,

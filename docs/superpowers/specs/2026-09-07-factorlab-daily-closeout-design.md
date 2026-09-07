@@ -1,7 +1,8 @@
 # FactorLab 日频层收口设计（daily-closeout）
 
 日期：2026-09-07
-状态：待实现（2026-09-07 用户批准 daily-closeout plan）
+状态：已实现并全量验收（2026-09-07；WS1-WS7 全部落地——逐块验证记录见 §13，
+      提交序列见 §14）
 依赖主设计：`docs/superpowers/specs/2026-08-15-factor-dsl-platform-design.md`
 前置：M4a/M4b（评估闭环）、M7（策略构建）、M8-06a（执行运行时）、dsl-shape（多输出）、resIC/corr/svd（诊断层）
 对应计划：`docs/superpowers/plans/crystalline-imagining-crab.md`（日频收口版）
@@ -320,10 +321,34 @@ M8 CLI（不发明）；web per-output 渲染；per-output loader（dsl-shape �
 
 ## 13. 验证记录
 
-（实现完成时逐块填写：红→绿证据、全量 pytest 计数、覆盖率、存根必败抽查、
-双腿 e2e、冒烟三 spec。）
+（全部落地——逐块证据如下；全量 pytest 2381 passed / 14 skipped 为收口最终基线。）
 
-- **WS6（2026-09-07，commit 待填）**：tests/test_execution_signal_chain.py 13 测试
+- **WS1（f69cd81 + e636a79）**：red 测试（test_cli_run
+  test_run_spec_target_20d_wired / test_run_default_target_is_5d——20d 面板
+  可区分数据、固定 5d shim 红态）→ layered forward_col 参数化 + rust_ic
+  result["target"] 由调用方 target 权威覆盖 + cli run 接线 spec.target
+  （evaluation.target==20d、IC 数值对 20d 列成立）；legacy 默认 5d 回归锁。
+- **WS2（b2b6977）**：corr 语义修订——joined 无公共 date → ValueError（文案
+  含"公共日期"）；有公共日但全周 <30 → 每对 nan（非 0.0）+ 返回帧增列
+  n_weeks；red 3 测试（test_no_common_dates_raises /
+  test_all_weeks_below_min_stocks_nan_not_zero /
+  test_n_weeks_column_counts_valid_weeks）+ 既有 6 条回归；web top10 过滤
+  非 finite 一行防御。weeks>0 行为逐字节不变。
+- **WS3（2e2cce7）**：run 多输出逐输出独立评估（red 8 测试 + list/show 3
+  测试；legacy 单输出 evaluation 顶层结构逐键不变锁）；outputs 含字面
+  "signal" 为一等输出（signal/neg IC 异号断言杀共享单评估存根）；web 不做
+  per-output 渲染（文档记录）。
+- **WS4（c4bff8d）**：停牌冻结 = 缺行（用户决策 1）——test_backtest_marks_
+  policy.py A1-A10 全绿（冻结沿用 run 内最近真实 open / 多日沿用 / 复牌
+  恢复 / 目标股跳单 / 双跑 bitwise / 双腿一致 / 停牌日无 stk_limit 行不误伤）；
+  data/execution suspend_d 表可选（停牌 = 缺行推断）；旧 suspend-证据三分类
+  测试改写。
+- **WS5（025653e）**：CA Gate（用户决策 2；事件源 = adj_event 表，fail-closed）——
+  test_backtest_ca_gate.py B1-B13 + loader 3 测试全绿（懒性武装 / 空表通过 /
+  (prev_exec, exec] 左开右闭 / B6 买入日豁免 / B12 冻结期事件 gate 先行）；
+  runtime/persistence fixtures 补空 adj_event 表声明（armed 面）。
+
+- **WS6（2026-09-07，commit 5035b10）**：tests/test_execution_signal_chain.py 14 测试
   env 双腿真跑（duckdb + ch 临时库双绿）+ ch_prod 腿按 §9.2 skip（skip 文案列出
   生产库缺表）。装配链首次全链点燃：run_factor → M7 target（1/5 Top-2 翻转
   {A,C}→{A,B} 断言通过）→ write/load 往返 → run_backtest（exec 日期
@@ -332,9 +357,24 @@ M8 CLI（不发明）；web per-output 渲染；per-output loader（dsl-shape �
   存根必败抽查：construct_target_portfolio 换硬编码常集 {A,B} → 真实断言
   "B 不应在 event 0 交易"双腿失败（scratch 验证后删除）。fixtures 偏差按 §9.1
   修正记录（空 adj_event 必须 seed + stock_basic.market 列）。
+- **WS7 + 最终验证（2026-09-07）**：docs 收口批（interface.md 陈旧标注修订与
+  组合配方 / m8-06a §3.1 勘误 + §9 关闭注记 / resic + 主 spec + 本文档状态翻转
+  与验证记录）。最终验证——全量 pytest **2381 passed / 14 skipped**（WS6 commit
+  gate 基线，双腿真跑）；覆盖率 spot：execution/backtest 97%、data/execution
+  91%、eval/layered 98%、eval/correlation 96%、eval/rust_ic 100%、
+  eval/cross_section 100%、cli.main 61%（cli e2e 子集——收口改动区 run 评估/
+  list/show 0 missed，未触达行 = data-ops/serve/lint 等历史命令面，非本次
+  改动引入）；存根必败抽查 4/4——WS1 target 固定 5d 回填 → AssertionError、
+  WS3 spec.outputs 剥除 → AssertionError（缺 signal 列 exit 1）、WS4 冻结码
+  错误 mark 22.0 → AssertionError（冻结沿用被破坏）、WS5 窗口 loader 恒空 →
+  DID NOT RAISE ExecutionDataQualityError（scratch 文件验证后删除）；冒烟
+  三型 19/19（真实进程 factorlab run：单输出 5d 回归 / 20d target / 多输出
+  逐输出，合成 duckdb 种子 24 交易日）；catalog.md 无 diff（DSL 读面未变）。
 
 ## 14. 提交序列（local main）
 
-docs(specs) 本设计文档 → feat(eval) target 参数化 → feat(cli) run 接线 →
-fix(eval) corr → feat(cli) 多输出 → feat(execution) WS4 → feat(execution) WS5 →
-test(execution) WS6 → docs 收口批（含本文档状态翻转与验证记录）。
+docs(specs) 41129c0 → feat(eval) f69cd81 → feat(cli) e636a79 → fix(eval)
+b2b6977 → feat(cli) 2e2cce7 → feat(execution) c4bff8d → feat(execution) 025653e
+→ test(execution) 5035b10 → **docs 收口批（本提交：interface.md + m8-06a/resic/
+主 spec/closeout 状态翻转与验证记录）**——全部落地，local main 顺序提交，push
+由用户执行。

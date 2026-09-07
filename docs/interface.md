@@ -3,8 +3,12 @@
 本文件描述已交付的 CLI、Spec、因子脚本和 Python API（M1–M8，叠加
 duckdb|ch 读路径双后端与 bars_1m/tick 读接口，见 §4 读路径双后端小节）。
 实现与设计文档冲突时以 `docs/superpowers/specs/2026-08-15-factor-dsl-platform-design.md`
-为准；双后端化与 intraday 接口的设计见
-`docs/superpowers/plans/crystalline-imagining-crab.md`（2026-09）。
+为准；读路径双后端与 intraday 接口设计见
+`docs/superpowers/specs/2026-09-06-factorlab-dual-backend-read-path-design.md`
+（配套计划 `docs/superpowers/plans/2026-09-06-factorlab-dual-backend-read-path.md`）；
+日频收口（WS1-WS7：spec.target 接线 / corr 无有效周 / 多输出逐输出评估 / 停牌冻结 /
+CA Gate / 真实信号链 e2e）见
+`docs/superpowers/specs/2026-09-07-factorlab-daily-closeout-design.md`。
 
 ## 0. M5 汇总：Web 可视化
 
@@ -1076,8 +1080,10 @@ arrow 读回带服务器 tz → `convert_time_zone("UTC")` 后剥）。空结果
 ## 4.1 Domain contracts（M6-01）
 
 统一研究语义层（`factorlab.domain`）——Signal / Label 领域契约与信号时间语义。
-**本层为新增能力，尚未接线到现有因子计算链路**（factorlab run/list/corr/svd/serve
-行为不变）。
+**已接线**：run_factor 输出 canonical SignalArtifact/LabelArtifact（M7-05），
+strategy/execution 链程序化消费（真实信号链端到端见
+tests/test_execution_signal_chain.py）；CLI 面（factorlab run/list/corr/svd/serve）
+仍只跑研究诊断、不直接驱动执行链（M8 无 CLI——不发明）。
 
 ### 时间语义（`factorlab.domain.timing`）
 
@@ -1423,13 +1429,14 @@ SignalArtifact
 StrategySpec
     │
     ▼
-PortfolioConstructor  [M7-02 未实现]
+PortfolioConstructor  [M7-02 ✓]
     │
     ▼
 TargetPortfolio
     │
     ▼
-Execution Runtime     [M8 未实现]
+Execution Runtime     [M8 ✓——M8-06B orchestration / M8-06C persistence，
+                       见下方 M8-06B/06C 条目]
 ```
 
 **StrategySpec**（`factorlab.strategy`，与 FactorSpec 严格分离）：
@@ -1681,15 +1688,18 @@ snapshot/fill 未实现）；decision date 必须 open（fail，不自动取周�
 all-cash decision 仍产生 execution event；一次 calendar 加载 + bisect。
 `rd` 读句柄（duckdb|ch，M6 双后端化后 db_path 参数已废）。
 
-**MarketOpenSnapshot**（domain）：execution_date + 严格 8 列
+**MarketOpenSnapshot**（domain）：execution_date + 严格 9 列
 code/open/pre_close/up_limit/down_limit/has_daily/has_limit/
-has_suspend_record（Float64/Boolean）；code canonical unique 排序；
-三个 evidence flags（has_daily/has_limit/has_suspend_record）全部
+has_suspend_record/is_suspended_at_open（code String、价格 Float64、
+证据 Boolean——is_suspended_at_open 为 M8-02B1R 增补的 suspension
+证据列）；code canonical unique 排序；
+四个 evidence flags（has_daily/has_limit/has_suspend_record/
+is_suspended_at_open）全部
 **non-null Boolean**（无第三 "unknown" 状态——数据覆盖 uncertainty 由
 global coverage gates 单独表达；null 穿透三值逻辑会绕过 conditional
 invariants）；has_daily=True → open/pre_close 非空有限 >0（False →
-null）；has_limit 同理（down <= up）；**evidence ≠ fillability**——has_daily/has_limit/
-has_suspend_record 都是 market-data evidence，不是 can_buy/can_sell
+null）；has_limit 同理（down <= up）；**evidence ≠ fillability**——has_daily/has_limit/has_suspend_record/
+is_suspended_at_open 都是 market-data evidence，不是 can_buy/can_sell
 （M8-04 才定义 fill rules）；价格是 **raw daily.open**（禁止 qfq/hfq
 复权价作成交价）。
 
@@ -1756,8 +1766,10 @@ TargetPortfolio（ideal weights，M7）
 Execution Runtime
     ├── calendar resolution       [M8-02 ✓]
     ├── target→orders             [M8-03 ✓]
-    ├── A-share fills             [M8-04 未实现]
-    └── accounting                [M8-05 未实现]
+    ├── A-share fills             [M8-04 ✓]
+    ├── accounting                [M8-05 ✓]
+    ├── orchestration             [M8-06B ✓ run_backtest（见 M8-06B 条目）]
+    └── artifact persistence      [M8-06C ✓ save/load_backtest_result]
     ▼
 PortfolioState（actual cash/share inventory）
 ```
@@ -1810,9 +1822,11 @@ positions    sparse holdings——严格 code(String)/quantity(Int64>0)/
 ```
 
 quantity = 当前持有股数；sellable_quantity = 当前时点依法可提交卖出的股数
-（A 股 T+1 基础）——**transition 未实现**（隔夜 sellable += today_buys 属
-后续 Execution state transition）。不保存 weights/price/market_value/cost
-（估值属 M8-05）。
+（A 股 T+1 基础）——**transition 已实现（M8-04E
+advance_to_next_trading_day）**：隔夜 sellable += 当日 actual BUY filled
+股数（provenance-aware——只释放成交源股数、非整仓放行；POST(d) → PRE
+(次日 open) 每轮恰一次，重复调用 ValueError）。不保存 weights/price/
+market_value/cost（估值属 M8-05）。
 
 **OrderBatch**（dataclass frozen）：
 
@@ -1981,6 +1995,13 @@ start == end → FULL_CYCLE    任意合法 second 均覆盖（如开盘起的�
 
 ### M8-02B Open Suspension Evidence（`is_suspended_at_open`）
 
+> **WS4 关闭注记（2026-09-07）**：本节 suspend_d 事件证据语义是
+> suspension 模块（`factorlab.execution.suspension`）现行实现——表在即按
+> 本节契约推导证据；但 **runtime 数据路径不再要求 suspend_d 表**（WS4
+> 停牌 = 缺行推断：持仓缺行冻结 / 目标缺行跳过，见 §M8-02 loader 条目与
+> M8-06B 条目）。表缺省时 has_suspend_record / is_suspended_at_open 恒
+> False（loader 可选项，不再 fail）。
+
 ```
 suspend_d raw events
         │ suspend_type + suspend_timing
@@ -2039,13 +2060,15 @@ production formal-gate 实测：open_suspended=True AND daily row exists = 1,075
   → **daily row exists ≠ 09:30 executable**
 ```
 
-data loader（`load_market_open_frame`）要求 suspend_d 具备
-trade_date/ts_code/suspend_type/suspend_timing 四列（缺失 → ValueError——
-M8-02B0 protected-field contract 的 runtime enforcement，禁止退回
-presence-only DISTINCT）；事件行读取后经 `_derive_suspend_evidence` 推导
-（时间 grammar 唯一 authority 是 suspension.py，不在 SQL 重写 temporal
-semantics）；skeleton 仍为 requested-code 驱动（rows == len(codes)、
-code ASC、空 codes → typed empty 9 列）。
+data loader（`load_market_open_frame`）——**WS4 修订**（与 §M8-02 loader
+条目同步）：读面最低表 = daily/stk_limit/trade_cal——suspend_d **不再被
+要求**（停牌 = 缺行推断）。表存在时仍按本节的 protected-field 契约读取
+（trade_date/ts_code/suspend_type/suspend_timing 四列缺列 → fail fast；
+事件行经 `_derive_suspend_evidence` 推导——时间 grammar 唯一 authority
+是 suspension.py，不在 SQL 重写 temporal semantics，不存在退回
+presence-only DISTINCT 的路径）；表不存在 → 事件证据全 False、不 fail。
+skeleton 仍为 requested-code 驱动（rows == len(codes)、code ASC、空 codes
+→ typed empty 9 列）。
 
 ### M8-04B Conservative Open Fillability（`assess_open_fillability`）
 
@@ -2054,7 +2077,7 @@ OrderBatch + MarketOpenSnapshot
         ↓
 OpenFillAssessment（market eligibility，非成交）
         ↓
-（M8-04C Funding + FillBatch——未实现）
+（M8-04C Funding + FillBatch ✓——cost-aware actual fills）
 ```
 
 **assess_open_fillability(orders, snapshot) -> OpenFillAssessment**：
@@ -2285,7 +2308,8 @@ sell-all-sellable-but-not-holding → quantity > 0、sellable = 0（position 保
 ```
 same-day BUY shares are NOT sellable in POST_EXECUTION state.
 M8-04D does NOT release T+1 inventory.
-POST_EXECUTION(D) → PRE_EXECUTION(next trading day) 属 M8-04E（未实现）。
+POST_EXECUTION(D) → PRE_EXECUTION(next trading day) 属 M8-04E ✓
+（advance_to_next_trading_day：T+1 释放 + 停牌复牌可卖）。
 ```
 
 **Authority boundary**：
@@ -2487,6 +2511,18 @@ load_backtest_result(artifact_dir) -> BacktestResult
   → ValueError（不自动修复）
 - 支持 empty BacktestResult（typed empty parquet）
 - BacktestResult / primitive / runtime 零修改
+
+**组合配方（真实信号链，WS6——tests/test_execution_signal_chain.py 双腿
+e2e 点亮）**：M8 无 CLI（不发明），"因子信号 → 执行"的装配序列 =
+`run_factor`（M6 engine，读 daily/adj_factor/stock_basic/trade_cal，输出
+canonical SignalArtifact）→ StrategySpec + `construct_target_portfolio`
+（M7-02）→ `build_rebalance_schedule`（M7-03）→
+`write_strategy_artifacts`/`load_strategy_artifacts`（M7-04 持久化，
+round-trip 校验后消费 **loaded** bundle）→ `run_backtest(bundle.target,
+execution_spec, rd)`（M8-06B）→ `save_backtest_result`/
+`load_backtest_result`（M8-06C）。decision 日 target 权重来自真实 signal
+排序（测试锁成员关系翻转）；干净窗口（无停牌/无除权事件）不触发冻结/CA
+路径——纯信号链回归锚；stub 替换（硬编码 constant target）后测试必败。
 
 ## 6. 测试
 

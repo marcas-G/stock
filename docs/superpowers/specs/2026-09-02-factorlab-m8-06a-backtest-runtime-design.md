@@ -70,6 +70,11 @@ def run_backtest(
 ) -> BacktestResult: ...
 ```
 
+**实现勘误（closeout M8-06B，2026-09-07）**：`db_path` 参数实现期并入
+`rd` 读句柄（M6 双后端化后 db_path 已废——实际签名见 docs/interface.md
+M8-06B 条目）；marks 枚举保持单成员 OPEN_BASED（caller-explicit 留 v2
+候选，见 §5.2 关闭注记）。
+
 约束：
 
 - **不接收 StrategySpec/SignalArtifact**——目标权重已冻结在
@@ -338,10 +343,21 @@ PRE_EXECUTION(d) ──construct_order_batch──▶ OrderBatch
    **关闭（closeout 决策 2，2026-09-07 设计定稿，实现 WS5 完成）**：
    事件源 = adj_event 表（CH 探针已证 daily.pre_close/adj_factor 不可作
    CA 源）；懒性触发 + 表缺失 fail-closed（实现细节见 §5.5 关闭注记）
-3. Artifact persistence 格式：parquet 目录 vs 单 DB 表；与 results/
-   research 分支边界（回测输出属 research 内容——分支约定待定）
-4. Run 范围控制：decision_range / universe 过滤是否进 v1（当前倾向不进）
+3. ~~Artifact persistence 格式：parquet 目录 vs 单 DB 表~~ **关闭
+   （closeout M8-06C，2026-09-07）**：文件系统 only——固定布局
+   artifacts/（execution_artifact / orders / assessment / fills /
+   accounting / valuation / state / positions 独立 parquet，每 primitive
+   输出单独保存）+ state/final_state.parquet + nav/nav_series.parquet +
+   manifest.json（`save_backtest_result`/`load_backtest_result`，round-trip
+   稳定、empty BacktestResult typed empty 支持）；单 DB 表方案否决。
+   results/ research 分支边界未在平台侧闭合——回测输出目录由调用方显式
+   提供、平台不写 registry（研究侧内容自行管理，不改分支约定）
+4. ~~Run 范围控制：decision_range / universe 过滤是否进 v1~~ **关闭
+   （closeout M8-06B，2026-09-07）**：decision_range 进 v1（decision
+   级过滤 = target.decision_dates ∩ range）；universe 过滤不进——
+   universe 已在 target construction 层表达（编排层不重演选股）
 5. Performance 指标层（drawdown/Sharpe）明确隔离在 M8-06 之后
+   **（维持 out-of-scope——契约与实现均未做，不得宣称）**
 ```
 
 ## 10. 验收基线（设计完成即满足）
@@ -353,3 +369,11 @@ PRE_EXECUTION(d) ──construct_order_batch──▶ OrderBatch
 - §6 daily lifecycle 状态机 + 边界情形完整
 - 零实现承诺记录（§8）；开放问题清单（§9）
 ```
+
+**关闭注记（closeout WS6/WS7，2026-09-07）**：M8-06A 本 spec 只设计
+contract；orchestration（M8-06B `run_backtest`）与 persistence（M8-06C
+`save_backtest_result`/`load_backtest_result`）已实现并双腿验收——§9 开放
+问题 1-4 全部关闭（§5.2/§5.5 关闭注记 + §3.1 实现勘误 + 上述条目），
+item 5 明确 out-of-scope。提交与验证记录见
+2026-09-07-factorlab-daily-closeout-design §13/§14；运行期语义修订
+（停牌冻结 / CA Gate / 左开右闭窗口）见 §5.2/§5.5 关闭注记。

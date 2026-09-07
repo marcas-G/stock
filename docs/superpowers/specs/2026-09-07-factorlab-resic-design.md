@@ -1,7 +1,7 @@
 # FactorLab 横截面联合诊断设计文档（resIC：整组 R² + 正交化残差 IC）
 
 日期：2026-09-07
-状态：待评审
+状态：已实现并全量验收（提交 b52dd10→984d819，验证记录见文末 §8）
 依赖主设计：`docs/superpowers/specs/2026-08-15-factor-dsl-platform-design.md`
 前置：M4a/M4b（单因子评估闭环）、corr/svd（多因子汇聚先例）
 
@@ -218,3 +218,19 @@ target 模式头部为"基准组回归（fwd~a b）…" + 单个 target 行（ba
 3. 数据区间不一致：inner 汇聚以公共 (code, 周) 为准，部分周保守剔除（与
    单因子评估周末行语义一致）。
 4. resIC 的周有效集 ≠ 单因子 IC 的周有效集（阈值 30 vs 3），n_weeks 不承诺对齐。
+
+---
+
+## 8. 验证记录（2026-09-07）
+
+- 提交序列：b52dd10 docs(specs+plans) → d261a2a feat(eval)（cs_r2 /
+  orthogonalized_ic / joint_diagnostics）→ baf45c2 feat(cli)（factorlab resic 双模式）
+  → 9d9f43e docs(interface) → f0965d6 build(deps) numpy → 984d819 docs(specs) 勘误
+  （周序列缺失值统一 null——polars NaN ≠ null，测试矩阵补 i5-i8）。
+- 测试：tests/test_cross_section.py（spec §6 矩阵 a-i8 + CLI 行）31 测试全绿；平台
+  全量 pytest 2381 passed / 14 skipped（2026-09-07 收口最终基线）。
+- 覆盖率：eval/cross_section 100%（收口复核 spot：test_cross_section +
+  test_cli_resic 全量路径）。纯 polars/numpy，无后端依赖。
+- 存根必败：矩阵行全部数值/集合断言（§6 纪律段）——任一模块函数换硬编码固定
+  dict → 数值测试必败。
+- 冒烟：合成 tmp results 目录 `factorlab resic` 双模式 exit 0 + 输出格式核对。
