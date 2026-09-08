@@ -6,7 +6,9 @@ from typing import Callable, Literal
 import polars as pl
 
 
-OperatorKind = Literal["el", "ts", "cs", "gp", "ta"]
+# "im"（日内窗口族）/"day"（折日族）= bars_1m 分钟面算子（2026-09-08）——
+# 分区内联在表达式自身（ops/minute_ops.py），不走 expr_codegen 前缀分区通道。
+OperatorKind = Literal["el", "ts", "cs", "gp", "ta", "im", "day"]
 
 
 @dataclass(frozen=True)

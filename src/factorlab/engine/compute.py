@@ -31,6 +31,7 @@ from factorlab.ops.platform_ops import (
     register_platform_ops,
     rewrite_expr_methods,
 )
+from factorlab.ops.minute_ops import EXTRA_CODES, register_minute_ops
 from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
 from factorlab.ops.universe_masking import (apply_universe_masking,
                                             validate_reserved_bindings)
@@ -100,10 +101,21 @@ def compute_formula(
     date: str = "date",
     universe_mask: str | None = None,
     outputs: list[str] | None = None,
+    *,
+    scope: str = "daily",
 ) -> pl.DataFrame:
     """outputs（M2）：None → ["signal"]（旧调用方完全兼容）。声明输出须在公式顶层
-    赋值中产生（变换后核对，codegen 前 fail fast）并按 outputs 顺序保留。"""
+    赋值中产生（变换后核对，codegen 前 fail fast）并按 outputs 顺序保留。
+
+    scope（2026-09-08）："daily"（缺省——日频语义逐字节不变，且公式含
+    im_*/day_* 分钟算子 → 明确 ValueError）| "bars_1m"（分钟面：公式面 = 日内窗
+    im_* + 折日 day_*，输出必须折日常数；im_*/day_* 名经 extra_codes 注入 codegen
+    作用域）。"""
     outputs = list(dict.fromkeys(outputs or ["signal"]))
+    if scope == "bars_1m" and universe_mask is not None:
+        raise ValueError(
+            "minute scope（bars_1m）不接受 universe_mask（CS 截面掩码是日频机制"
+            "——分钟池成员在装配期按 (code, date) 过滤，见 docs/interface.md 分钟面）")
     validate_formula(formula)
     # M1：内部保留名（__factorlab_* / in_universe）绑定与读取两门，无条件生效
     # （与 universe_mask 无关）——先绑定后读取，覆盖公式一切位置；必须在
@@ -124,9 +136,19 @@ def compute_formula(
         formula = apply_universe_masking(formula, universe_mask)
     register_polars_ta_ops()  # 幂等；保证分区校验能识别 ts_/cs_/ta_ 算子
     register_platform_ops()
+    register_minute_ops()  # 幂等注册 im_*/day_*（minute scope 公式面；daily 的拒门在下方）
     from factorlab.ops.stable_rank import register_stable_rank_ops
     register_stable_rank_ops()  # 幂等注册 cs_stable_rank（registry 可能被 reset_registry 清空）
     _check_future_inputs(formula)
+    # scope 门（变换后文本——宏残余/内联 def 已就位）：bars_1m 静态门 vs daily 拒分钟算子
+    from factorlab.engine.minute_gate import (
+        reject_minute_ops_in_daily,
+        validate_minute_scope,
+    )
+    if scope == "bars_1m":
+        validate_minute_scope(formula, outputs)
+    else:
+        reject_minute_ops_in_daily(formula)
     validate_partition_calls(formula)
     reject_future_shifts(formula)
     # M2：声明的输出必须在公式顶层赋值中产生（变换完成后再核对）——codegen 前
@@ -150,8 +172,11 @@ def compute_formula(
         # 否则 NameError。extra_codes 无条件追加 import 头（未使用 import 无
         # 副作用；codegen_exec 的 extra_codes 是单字符串——整体直接复制进生成
         # 代码头部，非序列）。模块别名 import 形式在 codegen 作用域不可用
-        # （实测），必须直接 import 名。
-        extra_codes="from factorlab.ops.platform_ops import cs_mean, cs_rank",
+        # （实测），必须直接 import 名。bars_1m scope：追加 minute_ops 名（单
+        # 字符串多行——minute 红测试实测通过；与注册表名单同源防漂移）。
+        extra_codes=("from factorlab.ops.platform_ops import cs_mean, cs_rank\n"
+                     + EXTRA_CODES) if scope == "bars_1m"
+        else "from factorlab.ops.platform_ops import cs_mean, cs_rank",
     ).collect()
     # 兜底：codegen 结果缺失声明输出（变换语义偏差）也点名报错
     missing = [o for o in outputs if o not in result.columns]

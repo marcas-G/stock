@@ -102,6 +102,10 @@ class FactorSpec(BaseModel):
     combine: CombineSpec | None = None
     # 复权视图口径：pit_qfq 预留（需 asof 研究日，审计场景 M4b 消费）
     adjustment: Literal["raw", "qfq", "hfq", "pit_qfq"] = "qfq"
+    # 模板接口（2026-09-08）：daily（缺省，主链逐字节不变）| bars_1m（分钟模板：
+    # im_*/day_* 算子 → run_factor_minute 折日输出——artifact 契约零放宽，
+    # frequency 恒 "1d"/EOD/raw；分钟性只存在本字段与运行路径）。tick 预留。
+    interface: Literal["daily", "bars_1m"] = "daily"
     # M2（G1）多信号输出：None → 下游按 ["signal"] 处理（缺省完全兼容旧 spec）。
     # 面板结构列 / artifact 落盘文件名冲突（date/code/close/panel/labels/summary）
     # 与内部/未来保留名一样不可作输出名（design doc §3.1（c）+ 文件命名安全）。

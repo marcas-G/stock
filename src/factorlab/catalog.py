@@ -34,6 +34,7 @@ from factorlab.factor.ast_gate import ALLOWED_EXPR_METHODS
 from factorlab.ops import registry as _registry
 from factorlab.ops.platform_ops import register_platform_ops
 from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
+from factorlab.ops.minute_ops import register_minute_ops
 from factorlab.ops.stable_rank import register_stable_rank_ops
 
 SCHEMA_VERSION = 1
@@ -268,6 +269,7 @@ def _live_inventory() -> list[dict[str, str]]:
     与 compute_formula 相同的三注册器；alias 无独立行）。"""
     register_polars_ta_ops()
     register_platform_ops()
+    register_minute_ops()
     register_stable_rank_ops()
     return [{"name": op.name, "kind": op.kind, "version": op.version}
             for op in _registry.list_ops()]
