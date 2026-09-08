@@ -766,21 +766,17 @@ def _compute_labels(
                          "forward_return_20d"]).sort(["date", "code"])
 
 
-def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
-    """M6-03 装配链路：两条独立 runtime——
+def prepare_formula_pipeline(spec: FactorSpec) -> tuple[str, str | None]:
+    """run_factor/run_factor_minute 共用的公式展开链（**打开数据库前全部完成**，
+    语法/参数错误先暴露）。
 
-        Listed Market History → Signal Runtime → SignalArtifact
-        Listed Market History → Label Runtime → LabelArtifact
-        （PIT UniverseFrame 在两条路径的入口：listed skeleton + active mask/keys）
-
-    Signal 路径绝不计算 forward returns；Label 路径独立调用 compute_forward_returns。
-    legacy panel = signal LEFT JOIN labels（CLI/eval 兼容视图）。"""
-    if spec.factors is not None:
-        raise NotImplementedError("多因子 factors/combine 组合不在平台范围（平台定位单因子计算与评估）")
-    # 展开链（打开数据库前全部完成，语法/参数错误先暴露）：
-    # spec.params 顶层参数先替换（宏体经 operators 副本、def 体在 formula 文本内一并命中）
-    # → spec.operators 内联宏展开（用户宏公式可引用平台薄封装与 ${}）
-    # → 校验 → def 内联（窗口算子合法化为顶层 ts_ 调用）→ 平台薄封装展开
+    顺序锁定：spec.params 顶层参数先替换（宏体经 operators 副本、def 体在
+    formula 文本内一并命中）→ spec.operators 内联宏展开（用户宏公式可引用平台
+    薄封装与 ${}）→ 校验 → def 内联（窗口算子合法化为顶层 ts_ 调用）→ 平台
+    薄封装展开。池公式（spec.universe.formula）同链展开并归一/布尔可判定门
+    （v1 文法：单布尔表达式，赋值名归一 signal；保留名绑定门在归一**前**跑，
+    读取/未来引用/布尔可判定门在归一后跑）。返回 (formula, pool)。
+    """
     formula = _substitute_params(spec.formula or "", spec.params)
     operators = {
         name: op.model_copy(update={"formula": _substitute_params(op.formula, spec.params)})
@@ -797,11 +793,6 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
     formula = expand_platform_macros(formula)  # 薄封装 → ts_ 表达式（compute_formula 内部再展开幂等无害）
     _check_future_inputs(formula)  # future/label 显式引用 → fail fast（AC-09）
     # ---- M4（G2）池公式：与主公式同一展开/门链（打开 DB 前全部完成）----
-    # v1 文法（_normalize_pool_formula）：单布尔表达式（裸/赋值），赋值名归一
-    # signal；保留名绑定门在归一**前**跑（赋值名会被归一掉，但 in_universe 等
-    # 绑定入口仍属内部命名空间）；读取/未来引用/布尔可判定门在归一后跑。
-    # compute_formula（_pool_cond_frame）内幂等重验一轮（含分区校验/stable
-    # rank 改写——与主公式同一门链契约）。
     pool = None
     if spec.universe.formula is not None:
         pool = _substitute_params(spec.universe.formula, spec.params)
@@ -815,6 +806,27 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
         pool = expand_platform_macros(pool)
         _check_future_inputs(pool)
         _require_boolean_pool(pool)  # 静态布尔可判定门（动态 dtype 门在求值后）
+    return formula, pool
+
+
+def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
+    """M6-03 装配链路：两条独立 runtime——
+
+        Listed Market History → Signal Runtime → SignalArtifact
+        Listed Market History → Label Runtime → LabelArtifact
+        （PIT UniverseFrame 在两条路径的入口：listed skeleton + active mask/keys）
+
+    Signal 路径绝不计算 forward returns；Label 路径独立调用 compute_forward_returns。
+    legacy panel = signal LEFT JOIN labels（CLI/eval 兼容视图）。
+    interface 门（2026-09-08）：bars_1m 分钟模板走 run_factor_minute（折日引擎）。"""
+    if getattr(spec, "interface", "daily") != "daily":
+        raise ValueError(
+            f"run_factor 只接日频 interface: daily 的 spec（收到 {spec.interface!r}"
+            f"——interface: bars_1m 的分钟模板请走 run_factor_minute，见 "
+            f"docs/interface.md 分钟面）")
+    if spec.factors is not None:
+        raise NotImplementedError("多因子 factors/combine 组合不在平台范围（平台定位单因子计算与评估）")
+    formula, pool = prepare_formula_pipeline(spec)  # 展开链（打开数据库前完成，见 helper docstring）
     # M2（G1）：outputs 声明（spec 加载期四规则已校验）——缺省 [signal] = legacy
     outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
     signal_artifact: SignalArtifact | None = None
