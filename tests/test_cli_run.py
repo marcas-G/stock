@@ -610,3 +610,43 @@ formula: |
     assert ev["n_weeks"] == 1
     assert ev["ic"]["mean"] == pytest.approx(1.0, abs=1e-9)
     assert ev["layered_backtest"]["periods"] == ev["n_weeks"]
+
+
+def test_run_minute_spec_dispatches_to_minute_chain(ch_db, tmp_path, monkeypatch):
+    """interface: bars_1m spec → CLI run 分派 run_factor_minute（summary 带
+    runtime_semantics/interface/grid_rows_per_day）；产物/评估链与日频同构落盘。
+    分派前（run_factor 直调）在 interface 门即 ValueError → exit 1（红）。"""
+    from test_minute_engine import _SAMPLE, _seed
+    _seed(ch_db)
+    monkeypatch.setattr("factorlab.config.settings.data_backend", "ch")
+    spec_path = tmp_path / "minute_demo.yaml"
+    spec_path.write_text(f"""
+name: minute_demo
+category: custom
+direction: 1
+interface: bars_1m
+adjustment: raw
+universe:
+  codes: ["000001.SZ", "600519.SH"]
+date:
+  start: "{_SAMPLE[0].isoformat()}"
+  end: "{_SAMPLE[-1].isoformat()}"
+formula: |
+  signal = day_last(close)
+""", encoding="utf-8")
+    out_dir = tmp_path / "results" / "minute_demo"
+    result = runner.invoke(app, ["run", str(spec_path), "--output-dir",
+                                 str(out_dir)])
+    assert result.exit_code == 0, result.output
+    for f in ("panel.parquet", "weekly.parquet", "summary.json"):
+        assert (out_dir / f).exists()
+    summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["interface"] == "bars_1m"
+    assert summary["runtime_semantics"] == "minute_intraday_fold_v1"
+    assert summary["grid_rows_per_day"] == 240
+    assert summary["adjustment"] == "raw"
+    assert "evaluation" in summary          # 周频对齐/评估/分层链对分钟折日面板零改动复用
+    assert "n_weeks=" in result.stdout
+    panel = pl.read_parquet(out_dir / "panel.parquet")
+    assert panel.height == 12               # 2 code × 6 交易日（无停牌）
+    assert panel["signal"].null_count() == 0

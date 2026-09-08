@@ -136,7 +136,8 @@ def run_factor_cli(
     """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
     --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
     --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。"""
-    from factorlab.engine.compute import RunContext, run_factor as run_impl
+    from factorlab.engine.compute import RunContext, run_factor
+    from factorlab.engine.minute import run_factor_minute
     from factorlab.eval.alignment import align_weekly
     from factorlab.eval.layered import layered_backtest
     from factorlab.eval.rust_ic import evaluate_factor_weekly
@@ -169,6 +170,9 @@ def run_factor_cli(
     # load_daily 在调用时读取 settings.default_max_memory——临时覆盖并在结束后恢复
     original_memory = settings.default_max_memory
     settings.default_max_memory = max_memory
+    # W5 分派：分钟面 spec（interface: bars_1m）走分钟链 run_factor_minute（折日
+    # 面板与日频同列契约，下方评估/分层回测零改动复用）；日频 spec 走原 run_factor。
+    run_impl = run_factor_minute if spec.interface == "bars_1m" else run_factor
     try:
         result = run_impl(spec, ctx)
         # 周频对齐面板：评估与分层回测的实际输入（对齐一次，复用给评估——
