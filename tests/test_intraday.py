@@ -187,6 +187,95 @@ def test_bars_1m_cols_whitelist(ch_db):
     assert df.columns == ["close", "datetime"] and df.height == 3
 
 
+# ---------------- load_bars_1m_codes（批读；引擎分钟装配与研究批算共用） ----------------
+
+def _sortlike(df):
+    """批读语义排序 (code, datetime)：单读结果 concat 后同键可比。"""
+    return df.sort(["code", "datetime"])
+
+
+def test_bars_1m_codes_batch_matches_single_loader(ch_db):
+    """批读 == 单读逐行（多 code 同窗）；行数 > 任一单 code（非单 code 存根）。"""
+    _seed_bars(ch_db)
+    rd = open_read(data_backend="ch")
+    codes = ["000001", "600519"]
+    batch = intraday.load_bars_1m_codes(rd, codes, date_start=_D2, date_end=_D)
+    single = pl.concat([intraday.load_bars_1m(rd, c, date_start=_D2, date_end=_D)
+                        for c in codes])
+    assert _sortlike(batch).equals(_sortlike(single))          # 逐行全等
+    assert batch.height == single.height == 5                  # 000001 4 行 + 600519 1 行
+    assert batch.height > single.filter(pl.col("code") == "000001").height  # 非单 code 存根
+    assert batch["code"].dtype == pl.String
+    assert sorted(batch["code"].unique().to_list()) == ["000001", "600519"]
+    assert batch["code"].value_counts().sort("code")["count"].to_list() == [4, 1]
+    assert batch.group_by("code").agg(
+        pl.col("datetime").is_not_null().all()).height == 2    # 两 code 都到
+
+
+def test_bars_1m_codes_mixed_code_forms_normalized(ch_db):
+    """混合 6 位 + 带后缀输入；输出 code 一律 6 位归一。"""
+    _seed_bars(ch_db)
+    rd = open_read(data_backend="ch")
+    batch = intraday.load_bars_1m_codes(rd, ["000001", "600519.SH"],
+                                        date_start=_D2, date_end=_D)
+    assert batch.height == 5
+    assert set(batch["code"].unique()) == {"000001", "600519"}
+    assert not batch["code"].str.contains(r"\.").any()
+
+
+def test_bars_1m_codes_empty_window_empty_frame(ch_db):
+    """无数据窗 → 同投影空 frame（不抛）；空窗与单读一致。"""
+    _seed_bars(ch_db)
+    rd = open_read(data_backend="ch")
+    e = intraday.load_bars_1m_codes(rd, ["000001", "600519"], date_start=_D2,
+                                    date_end=_D2)
+    assert e.height == 1                                   # 仅 000001 的 08-20 行
+    assert set(e["code"].unique()) == {"000001"}
+    e2 = intraday.load_bars_1m_codes(rd, ["000001"], date_start="2026-08-19",
+                                     date_end="2026-08-19")
+    assert e2.height == 0 and e2.columns == BARS_DEFAULT
+
+
+def test_bars_1m_codes_requires_closed_window(ch_db):
+    """防全表扫描：date_start/date_end 任一缺失 → ValueError（比单 code 更严）。"""
+    _seed_bars(ch_db)
+    rd = open_read(data_backend="ch")
+    with pytest.raises(ValueError, match="date_start|date_end"):
+        intraday.load_bars_1m_codes(rd, ["000001"])
+    with pytest.raises(ValueError, match="date_start|date_end"):
+        intraday.load_bars_1m_codes(rd, ["000001"], date_start=_D2)
+    with pytest.raises(ValueError, match="date_start|date_end"):
+        intraday.load_bars_1m_codes(rd, ["000001"], date_end=_D)
+
+
+def test_bars_1m_codes_empty_codes_rejected(ch_db):
+    _seed_bars(ch_db)
+    rd = open_read(data_backend="ch")
+    with pytest.raises(ValueError, match="codes"):
+        intraday.load_bars_1m_codes(rd, [], date_start=_D2, date_end=_D)
+
+
+def test_bars_1m_codes_unknown_code_fails_fast(ch_db):
+    """未知 code（无 stock_basic 映射）→ 整批 ValueError（防静默丢 code）。"""
+    _seed_bars(ch_db)
+    rd = open_read(data_backend="ch")
+    with pytest.raises(ValueError, match="000999"):
+        intraday.load_bars_1m_codes(rd, ["000001", "000999"], date_start=_D2,
+                                    date_end=_D)
+
+
+def test_bars_1m_codes_cols_whitelist_and_unknown_col(ch_db):
+    """cols 白名单顺序输出；未知列 ValueError（沿用 _TABLE_COLS 门）。"""
+    _seed_bars(ch_db)
+    rd = open_read(data_backend="ch")
+    df = intraday.load_bars_1m_codes(rd, ["000001", "600519"], date_start=_D2,
+                                     date_end=_D, cols=["close", "code"])
+    assert df.columns == ["close", "code"] and df.height == 5
+    with pytest.raises(ValueError, match="bogus"):
+        intraday.load_bars_1m_codes(rd, ["000001"], date_start=_D2, date_end=_D,
+                                    cols=["close", "bogus"])
+
+
 # ---------------- duckdb 后端显式拒绝 ----------------
 
 def test_intraday_duckdb_backend_raises(tmp_path):

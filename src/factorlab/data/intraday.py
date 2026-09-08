@@ -17,6 +17,17 @@
   剥掉）；tick 价格为 `price_x10000`（Int32，÷10000 为元）；`volume` 原生
   类型保留（bars f64 / tick u32）。
 - 空结果（当日无数据/未知后缀 code）返回同投影空 frame，不抛。
+
+bars_1m 事实契约（2026-09-08 实测补正，勿凭旧描述）：
+- 每 (code, 交易日) 恰 **240 行固定网格**，`minute_index` 0 基 0..239（0 =
+  09:25 开盘集合竞价三合一 bar；239 = 15:00 收盘集合竞价 bar；无 09:30/
+  11:30/13:01 槽）。**`session_type` 三态**：0 = 开盘集合（仅 index 0）、
+  1 = 连续竞价（237 行）、2 = 尾盘集合（index 238-239）。
+- 价格 **raw 不复权**（除权断裂处由 CA Gate/复权层处理，读侧不解释）；日频
+  `amount` 单位千元而 bars_1m `amount` = **元**、`volume` = **股**。
+- 缺口全在整日层：停牌/未上市日无行（缺行 = 当日无该股行情，与日频同构）；
+  ~3.6% 分钟零成交 flat 行（volume=0 AND amount=0，OHLC 为陈旧值）——读侧
+  原样返回，消费侧公式自守卫。
 """
 
 from __future__ import annotations
@@ -108,14 +119,21 @@ def _load_ch(rd: Rd, table: str, code: str, day: str | None,
     df = rd.query_df(
         f"SELECT {select} FROM {db}.{table} "
         f"WHERE {' AND '.join(where)} ORDER BY {_ORDER_BY[table]}", params)
-    if table == "bars_1m" and "datetime" in df.columns:
-        # DateTime64 列按源 wall 值（无偏移 epoch）写入；arrow 读回被标注服务器
-        # 会话时区（+08，墙钟 +8h，epoch 不变）——convert_time_zone("UTC") 取回
-        # epoch 的 UTC 墙钟表达（= 源 wall 值），再剥时区 → naive ms
-        if df.schema["datetime"].time_zone is not None:
-            df = df.with_columns(
-                pl.col("datetime").dt.convert_time_zone("UTC")
-                .dt.replace_time_zone(None))
+    return _decode(df)
+
+
+def _decode(df: pl.DataFrame) -> pl.DataFrame:
+    """decode：datetime 剥服务器 tz（naive 墙钟 ms）；code 6 位归一。
+
+    DateTime64 列按源 wall 值（无偏移 epoch）写入；arrow 读回被标注服务器会话
+    时区（+08，墙钟 +8h，epoch 不变）——convert_time_zone("UTC") 取回 epoch 的
+    UTC 墙钟表达（= 源 wall 值），再剥时区 → naive ms。tick 表无 datetime 列，
+    条件自跳。
+    """
+    if "datetime" in df.columns and df.schema["datetime"].time_zone is not None:
+        df = df.with_columns(
+            pl.col("datetime").dt.convert_time_zone("UTC")
+            .dt.replace_time_zone(None))
     if "code" in df.columns:
         df = df.with_columns(
             pl.col("code").str.split(".").list.first().alias("code"))
@@ -128,6 +146,46 @@ def _load_duckdb(rd: Rd, *args, **kwargs) -> pl.DataFrame:
 
 
 _IMPL = {"duckdb": _load_duckdb, "ch": _load_ch}
+
+
+def _codes_ch(rd: Rd, codes: list[str], date_start: str | None,
+              date_end: str | None,
+              cols: list[str] | None) -> pl.DataFrame:
+    """ch 编译函数（批读）：6 位 code 子集一次 symbol→ts_code 映射（未知 → 整批
+    ValueError 防静默丢 code），带后缀子集原样 → 单条 SQL（code IN + trade_date
+    闭区间）→ 与单 code 同款 decode。排序 (code, datetime)。
+    """
+    db = settings.ch_database
+    out_cols = cols if cols is not None else _DEFAULT_COLS["bars_1m"]
+    unknown = [c for c in out_cols if c not in _TABLE_COLS["bars_1m"]]
+    if unknown:
+        raise ValueError(f"未知列: {unknown}（bars_1m 可用列: {_TABLE_COLS['bars_1m']}）")
+    ts_codes = [c for c in codes if "." in c]
+    six = [c for c in codes if "." not in c]
+    if six:
+        ph = ", ".join(f"%(s{i})s" for i in range(len(six)))
+        rows = rd.query_rows(
+            f"SELECT symbol, ts_code FROM {db}.stock_basic "
+            f"WHERE symbol IN ({ph})",
+            {f"s{i}": c for i, c in enumerate(six)})
+        resolved = {r[0]: r[1] for r in rows}
+        unresolved = [c for c in six if c not in resolved]
+        if unresolved:
+            raise ValueError(f"未知 code {unresolved}: stock_basic 无该 symbol")
+        ts_codes += [resolved[c] for c in six]
+    ph2 = ", ".join(f"%(t{i})s" for i in range(len(ts_codes)))
+    params = {f"t{i}": c for i, c in enumerate(ts_codes)}
+    params["start"], params["end"] = date_start, date_end
+    select = ", ".join(out_cols)
+    df = rd.query_df(
+        f"SELECT {select} FROM {db}.bars_1m "
+        f"WHERE code IN ({ph2}) "
+        f"AND trade_date >= toDate(%(start)s) AND trade_date <= toDate(%(end)s) "
+        f"ORDER BY code, datetime", params)
+    return _decode(df)
+
+
+_CODES_IMPL = {"duckdb": _load_duckdb, "ch": _codes_ch}
 
 
 def _load(rd: Rd, table: str, code: str, *, day: str | None = None,
@@ -146,11 +204,36 @@ def load_bars_1m(rd: Rd, code: str, *, day: str | None = None,
     """1 分钟线（bars_1m）：datetime/trade_date/code/minute_index/session_type/
     OHLC/amount/volume；OHLC 为 Float32、volume Float64 原样。
 
-    `datetime` 为 naive ms 墙钟（Asia/Shanghai）；`minute_index` 为当日分钟序、
-    `session_type` 0/1（集合/连续竞价）——上游 1m 事实库语义，读侧不解释。
+    `datetime` 为 naive ms 墙钟（Asia/Shanghai）；`minute_index` 0 基当日分钟序
+    （每 (code, 交易日) 恰 240 行固定网格，0=09:25 开盘集合竞价、239=15:00 收盘
+    集合竞价）；`session_type` 三态 0/1/2（开盘集合/连续竞价/尾盘集合，仅分钟
+    契约可见——全部事实见模块 docstring）。价格 raw 不复权；amount=元、
+    volume=股。
     """
     return _load(rd, "bars_1m", code, day=day, date_start=date_start,
                  date_end=date_end, cols=cols)
+
+
+def load_bars_1m_codes(rd: Rd, codes: list[str], *,
+                       date_start: str | None = None,
+                       date_end: str | None = None,
+                       cols: list[str] | None = None) -> pl.DataFrame:
+    """1 分钟线批读（bars_1m）：多 code × 交易日闭区间窗，单条 SQL 返回。
+
+    与 load_bars_1m 同契约（列白名单/排序/decode/空结果/raw 与单位语义），差异：
+    - `codes` 列表（≥1），混合 6 位纯数字与带后缀 ts_code 均可；输出 `code`
+      一律 6 位归一；任一 6 位 code 无 stock_basic 映射 → ValueError（fail fast，
+      防静默丢 code）。
+    - `date_start`/`date_end` 都必填且闭区间（无 day 快捷、无单边开窗——批读
+      防全表扫描，缺任一侧 ValueError）。
+    - 排序 (code, datetime)（组内 datetime 升序）——引擎分钟装配按 (code, date)
+      分区与批算共用本入口。
+    """
+    if not codes:
+        raise ValueError("codes 不能为空")
+    if date_start is None or date_end is None:
+        raise ValueError("必须指定 date_start 与 date_end（闭区间；防全表扫描）")
+    return _CODES_IMPL[rd.backend](rd, codes, date_start, date_end, cols)
 
 
 def load_tick_trades(rd: Rd, code: str, *, day: str | None = None,
