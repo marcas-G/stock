@@ -98,14 +98,16 @@ _COLUMN_META = {
     },
     "volume": {
         "kind": "行情",
-        "semantic": "成交量——手（1 手 = 100 股；股数口径自行换算）",
-        "unit": "手",
-        "timing": "T 日盘后（全天累计成交手数）",
+        "semantic": "成交量——股（2026-09-08 实测：daily.vol 对 bars_1m 按 (code, 交易日) "
+                   "汇总比值 ≈ 1，与分钟面同单位）",
+        "unit": "股",
+        "timing": "T 日盘后（全天累计成交量）",
     },
     "amount": {
         "kind": "行情",
-        "semantic": "成交额——千元（金额口径，非元）",
-        "unit": "千元",
+        "semantic": "成交额——元（2026-09-08 实测：daily.amount 对 bars_1m 按 (code, "
+                   "交易日) 汇总比值 ≈ 1，与分钟面同单位）",
+        "unit": "元",
         "timing": "T 日盘后（全天累计成交额）",
     },
     # ---- daily_basic（_DAILY_BASIC_MAP：估值/交易指标，独立表 join 读面）----

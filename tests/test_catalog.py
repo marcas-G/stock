@@ -119,9 +119,11 @@ def test_columns_mandatory_members_and_units():
                      "idx_ret", "turnover", "total_mv", "circ_mv", "pe_ttm",
                      "pb", "dv_ratio", "volume_ratio", "industry"):
         assert required in names, required
-    # 单位与语义必须具体可执行（tushare 口径，重建链路直通原始值）
-    assert "手" in names["volume"]["unit"]
-    assert "千元" in names["amount"]["unit"]
+    # 单位与语义必须具体可执行（2026-09-08 实测校准：ch_prod daily.vol/daily.amount
+    # 对 bars_1m 按 (code, 交易日) 汇总比值 ≈ 1——平台 daily 实际落库为 股/元，
+    # 与分钟面同单位、可代数对齐；vendor 文档口径（手/千元）不适用本库）
+    assert "股" in names["volume"]["unit"]
+    assert "元" in names["amount"]["unit"]
     assert "万元" in names["total_mv"]["unit"] and "万元" in names["circ_mv"]["unit"]
     assert "元" in names["close"]["unit"] and "不复权" in names["close"]["semantic"]
     assert "复权" in names["adj_factor"]["semantic"]
