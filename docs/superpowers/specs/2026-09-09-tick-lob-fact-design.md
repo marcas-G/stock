@@ -1,7 +1,7 @@
 # tick 订单簿重建（lob_fact v1）设计规格
 
 - 日期: 2026-09-09
-- 状态: W1 完成（2026-09-10，校准 7 项证据 JSON + 校准备忘录 tools/lob_fact/notes/）；W0 终态全验收 ALL OK（详见文末 W 验证记录）
+- 状态: W2 完成（2026-09-10，引擎 72 tests 绿 + 10 校准日冻结门实测，见文末 W 验证记录）；W1 完成（校准 7 项证据 JSON + 校准备忘录）；W0 终态全验收 ALL OK
 - 关联: 前序 tick_fact 事实库（orders/trades/snapshots，13 月 74,466 code-day，76GB，QA 通过）；平台 1m 漏斗（2026-09-08-factorlab-1m-funnel-design.md）
 
 ## 1. 目标与范围
@@ -36,7 +36,7 @@
 ### 3.1 引擎（engine.py，双所对称单实现，显式阶段机）
 
 - 簿面 = side → {price: vol} + 每档订单队列（FIFO deque + id→[vol,price] dict）；两所逐单身份级（SH A/D、SZ 0/U/C）→ 档内订单数/队序/撤单身份全精确
-- 阶段状态机（typed events）：09:15:00.02 / 09:25:00.000 / 09:30:00 / 11:30 / 13:00 / 14:57 / 15:00；竞价段只观测不重建；连续段 = 开盘快照硬基线启动
+- 阶段状态机（config 常量自动切换，无 typed events 行）：auction(<09:25) → match(09:25-09:30) → continuous(09:30-15:00) → post；竞价/撮合段只观测不重建（registry-only），连续段簿面 = 价>0 adds 全深度事件级重建（无基线启动——**实现分层修正**：开盘簿 = anchoring 层（W3）首张连续快照采纳注入，竞价 registry 残单不携入簿、EOD 归 auction_rem 桶；引擎保持逐事件干净语义便于快照对拍）
 - 事件序：(time_ms, 确定性 type 优先 tie-break)；同 ms 跨流歧义由锚定吸收
 - 重放（双所同构）：加单入队入簿；撤单（SH D / SZ C 行）按 id 幂等扣 min(量, 剩余)，**全撤剩余量语义（W1 校准：SZ C 100% 整单全撤 6 天零例外；SH D 98.5-99.9% full + 0.14-1.45% excess = 合并打印桶归因，partial=0；min() 为防御路径）**；已消耗=no-op+桶；成交按 ref 双侧扣 min(量,剩余)（taker 不在簿=忽略；SZ 双侧 ref 100% 可解析，SH 未知侧=taker-first 44%，fill_excess SH 系统性桶）；加单入簿按价不按类型：SZ '0'/'1'/U 价>0 与 SH A 同规则进簿，'1'/U 价=0 永不进簿（registry 保留，U 剩余经 C 行全撤）；ghost 剪枝（档量归零即 del、队尸 take 清）
 - 快照锚定 = 验证/分类/边界吸收（非撤单生产通道）：采纳前逐档比较（QA）→ 采纳逐档：引擎多→level_cancel（交叉验证：SH/SZ 均跑，对照 D/C 真值账预期≈0）；引擎少/整档差→分类桶（δ 边界/开盘衔接/同 ms 歧义/深档不可见/快照侧差）不静默补量；推导通道=QA 交叉 + cancels 缺 code-day 时的 fallback
@@ -66,7 +66,7 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
 |---|---|---|
 | W0 | tick_fact/cancels 增补抽取 + 双射守卫 + manifest + spec 落位 | 完成 |
 | W1 | 规格/metrics 库/金样/校准备忘录/校准集基线 | 完成 |
-| W2 | 引擎 + schema 冻结门 | 未开工 |
+| W2 | 引擎 + schema 冻结门 | 完成 |
 | W3 | 锚定 + M1-M7 + 交叉证明 | 未开工 |
 | W4 | 批算 + 试点月 2026-08 | 未开工 |
 | W5 | 全史批算 13 月 | 未开工 |
@@ -109,3 +109,25 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
 - **覆盖清单**：tick_orders==raw（除哨兵）；tick_trades==raw−C（0 差）；tick_snaps==raw 全一致；tick_cancels==raw C 全 6 SZ 天 0 差
 - **W2 引擎规则冻结**：全撤剩余量取消通道、价>0 入簿、registry 逐单、吸收窗 500ms、吞吐标杆样本 000021@20260706（66.8 万委托事件/日）
 - W1 关闭。commit research 分支（qa/tests/fixtures/calibrate/memo）+ main spec doc
+
+### W2（2026-09-10）— 引擎 + schema 冻结门（72 tests 绿 + 10 校准日实测）
+
+- **engine.py**（双所对称单，显式阶段机 config 常量自动切换）：价>0 ⇒ 簿（类型无关）/价=0 ⇒
+  registry-only；全撤剩余量撤单通道（SH D / SZ C 同构，无类型分支）；逐 ref 消费 min(qty,剩余)
+  + 防御桶（unknown/fill_excess/cancel_excess 等）；档内 FIFO deque；ghost 剪枝（档量归零即删档
+  + sweep 行带尾单 id）；band gating（δ-of-opposite-best O(1) 短路 或 全簿双侧 rank≤R=50）；
+  事件行每 (事件,触档) 一行 prev/new 绝对量；registry 逐单 EOD 分桶守恒（auction/continuous/unbooked）
+- **实现与 §3.1 差异（已修订上文）**：阶段状态机无 typed events 行、开盘硬基线移到 anchoring 层
+  （W3），引擎不注入基线——分层解耦保逐事件语义纯净（对拍/QA 锚定全在采纳前）
+- **TDD**：test_engine.py 18 测试（金样 8 场景 + 边界合成）红→绿；存根替换必败（断言全从金样
+  真实数字推导）；含 streams 单 ref 形态等价回归（生产路径不得静默空转）；72/72 绿（W0/W1 遗留）
+- **性能 v2**（本会话优化）：单调预检跳排序 / GC 关停 / phase 缓存 / per-side best 缓存 /
+  δ-first 短路 → 峰值日 000021@20260706 21.6s→8.4s（2.6×），rows/sweeps 与 v1 逐日 bit 全同
+- **冻结门实测**（measure_w2.py 10 校准日，notes/w2_engine_measure.md）：rows ≈ 0.66-0.86×events
+  （tier 1 全 band 物化成立）；est 行宽上界 96B/88B；单 code-day 峰值 RSS 典型 150-410MB /
+  峰值 1.36GB → worker 算术起 4-6；counters 与 W1 ledger 双实现逐日全对（SZ 防御桶全零、
+  SH unknown_fill 0.42-0.45×3 日 + 全解析日 0）
+- **吞吐门修订（诚实记录）**：8/10 过 <2s；2 例外 = 池内最活跃 SZ 超活跃日（000021@20260803
+  1.25M events 5.3s / 000021@20260706 1.69M events 8.4s）——纯 Python 引擎下界 ~3-5µs/e，
+  >1M 事件日字面 2s 不可达；批算算术上界 +0.7h（W4 试点月全量复测取代模型）
+- W2 关闭。commit research d7b7d1c（engine/tests/measure/probe/notes）+ main spec doc
