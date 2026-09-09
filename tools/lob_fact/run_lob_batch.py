@@ -32,8 +32,10 @@ os.environ.setdefault('PYARROW_JEMALLOC', '0')
 os.environ.setdefault('POLARS_MAX_THREADS', '4')
 
 import polars as pl
+import pyarrow as pa
+import pyarrow.parquet as pq
 
-from measure_w3 import GATE_PRES, m1a_gate
+from measure_w3 import GATE_PRES
 
 import argparse, datetime as dt, fcntl, glob, hashlib, json, signal, time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
@@ -133,6 +135,9 @@ COL_CKPT = [('code', pl.Utf8), ('trade_date', pl.Date), ('time_ms', pl.Int32),
 _ROW_KEY = {'kind': 'kind', 'phase': 'phase', 'side': 'side',
             'price_x10000': 'price', 'qty': 'qty', 'id': 'id'}
 
+_COL_TABLES = {'lob_events': COL_EVENTS, 'lob_sweep_meta': COL_SWEEP,
+               'lob_checkpoints': COL_CKPT}
+
 
 def day_tables(code, day, res):
     """anchoring.run_day 返回 → {lob_events, lob_sweep_meta, lob_checkpoints}。
@@ -179,19 +184,34 @@ def _fill(rows, code, day, schema):
 
 # ---------- 日门 / 月门 (W3 门语义; batch 版日门无 m6) ----------
 
+GATE_FLOOR = 0.90     # 日级 M1a 硬底线 (W4d 双阶修订依据): 真缺档/坏数据日崩
+                      # presence << 0.90; δ 滞后带 0.90-0.97 日 = fast 名消息回报
+                      # 滞后 (W4d 实测 20260803: 32/300 code-day presence
+                      # 0.9132-0.9699, M4 逐单守恒/守卫全净, δ 归因带内) — W3 逐日
+                      # 0.97 校准集 (10 日) 不含此带, 对全市场分布过严 → 池化
+                      # 0.97 承担存现门, band 日 ok 但计数报告。
+
 def day_gate(res):
-    """日门 (生产 batch 版): M1a 存现 ≥ GATE_PRES (n_anchor=0 → vacuous 1.0) +
-    M4 conservation PASS & 逐单 0 mismatch & counters_equal。presence 圆整 5 位
-    (W3 measure_w3.verdict 同口径)。返回 dict(ok, presence, vacuous, reasons)"""
+    """日门 (生产 batch 版, W4d 双阶): M1a 存现 ≥ GATE_PRES 直接过;
+    [GATE_FLOOR, GATE_PRES) = δ 滞后带 → ok 过 + band 标记 (m1a_delta_band 记
+    notes, 非 reasons); < GATE_FLOOR → m1a_presence 硬拒。M4 conservation PASS &
+    逐单 0 mismatch & counters_equal; n_present>n_anchor 数据错拒; n_anchor=0 →
+    vacuous 1.0 (不豁免 m4)。presence 圆整 5 位 (W3 verdict 同口径)。
+    返回 dict(ok, presence, vacuous, band, reasons, notes)"""
     d = res['qa']['day']
     n_p, n_a = d['n_present'], d['n_anchor']
-    reasons = []
+    reasons, notes = [], []
     if n_p > n_a:
         reasons.append('presence_invalid')
     vacuous = n_a == 0
     presence = 1.0 if vacuous else round(n_p / n_a, 5)
+    band = False
     if presence < GATE_PRES:
-        reasons.append('m1a_presence')
+        if presence >= GATE_FLOOR:
+            band = True
+            notes.append('m1a_delta_band')
+        else:
+            reasons.append('m1a_presence')
     m4 = res['qa']['m4']
     if m4['conservation'] != 'PASS':
         reasons.append('m4_conservation')
@@ -200,19 +220,40 @@ def day_gate(res):
     if not m4['counters_equal']:
         reasons.append('m4_counters')
     return dict(ok=not reasons, presence=presence, vacuous=vacuous,
-                reasons=reasons)
+                band=band, reasons=reasons, notes=notes)
 
 
 def month_gate(day_rows):
-    """月门聚合: 日行 (code/day/m1/gate dicts) → m1a_gate 池化 (锚定日; vacuous
-    日独立计数, 不入池 — 无锚日不给池贡献分母) + 逐日行门全 PASS。空月 ok。"""
+    """月门聚合 (batch 版, W4d 修订): 逐日硬底线 (≥ GATE_FLOOR) 全过 且 日级
+    gate.ok 全 PASS (δ 带日 ok 已过, band 独立计数 n_band 报告) 且 SZ/SH 池化
+    (原始计数和, 非逐日均值) ≥ GATE_PRES — 池化承担 M1a 存现门 (W3 m1a_gate
+    逐日 0.97 对真实 fast 名 δ 带过严, 见 GATE_FLOOR 注)。空锚日 (vacuous,
+    含于 n_days) 独立 PASS 不进池 — 无锚日不给池贡献分母。空月 ok。"""
     anchored = [r for r in day_rows
                 if not r['gate'].get('vacuous') and r['m1']['n_anchor'] > 0]
     vac = [r for r in day_rows if r['gate'].get('vacuous')]
-    gate = m1a_gate(anchored)
-    ok = gate['ok'] and all(r['gate'].get('ok', True) for r in day_rows)
+
+    def pool(ss):
+        n_p = sum(s['m1']['n_present'] for s in ss)
+        n_a = sum(s['m1']['n_anchor'] for s in ss)
+        return round(n_p / n_a, 5) if n_a else 1.0
+
+    sz = [r for r in anchored if r['code'][0] in '03']
+    sh = [r for r in anchored if r['code'][0] not in '03']
+    p_sz, p_sh = pool(sz), pool(sh)
+    # per_day = 硬底线 (真缺档日 presence 崩 → 拒); δ 带日 ≥ FLOOR 视为过
+    per_day = [r['m1']['n_present'] / r['m1']['n_anchor']
+               if r['m1']['n_anchor'] else 1.0 for r in day_rows]
+    gate_ok = (p_sz >= GATE_PRES and p_sh >= GATE_PRES
+               and all(p >= GATE_FLOOR for p in per_day))
+    ok = gate_ok and all(r['gate'].get('ok', True) for r in day_rows)
+    n_band = sum(1 for r in day_rows if r['gate'].get('band'))
     return dict(n_days=len(day_rows), n_anchored=len(anchored),
-                n_vacuous=len(vac), gate=gate, ok=ok)
+                n_vacuous=len(vac), n_band=n_band,
+                gate=dict(sz=p_sz, sh=p_sh,
+                          per_day=[p >= GATE_FLOOR for p in per_day],
+                          ok=gate_ok),
+                ok=ok)
 
 
 # ---------- W4c 输入守卫 + 原子写盘 (纯函数; 编排层共用) ----------
@@ -286,10 +327,86 @@ def write_part(table_dir, date_str, df, pid, seq):
     return Path(final), df.height
 
 
+# ---------- W4d 内存定标修正: 零拷贝按 code 归并 + 流式写 (见 process_date) ----------
+
+_PA_TYPE = {pl.Utf8: pa.large_string(), pl.Date: pa.date32(),
+            pl.Int32: pa.int32(), pl.Int64: pa.int64()}
+
+
+def _pa_schema(cols):
+    """COL_* (name, polars dtype) → pyarrow schema (与 pl.frame.to_arrow() 同构:
+    Utf8→large_string/Date→date32 — 空表 schema-only 文件与行表同 schema)"""
+    return pa.schema([(name, _PA_TYPE[typ]) for name, typ in cols])
+
+
+class _TableStream:
+    """单 date part 流式写: 逐 code 批 append (单 writer, 确定性行组分界 → 重跑
+    字节全等), 0 批日期以 schema-only 文件收尾 (schema 非退化)。原子收尾 =
+    fsync + os.replace; 失败路径唯一 tmp 清残 (下轮 stale 清理兜底)。"""
+
+    def __init__(self, table_dir, date_str, schema):
+        self.dir = os.fspath(table_dir)
+        os.makedirs(self.dir, exist_ok=True)
+        self.schema = schema
+        self.tmp = os.path.join(self.dir, '.%s.parquet.tmp.%d.s' %
+                                (date_str, os.getpid()))
+        self.final = os.path.join(self.dir, '%s.parquet' % date_str)
+        self.f = open(self.tmp, 'wb')
+        self.w = pq.ParquetWriter(self.f, schema, compression='zstd')
+        self.n = 0
+
+    def append(self, df):
+        if df.height:
+            self.w.write_table(df.to_arrow())
+            self.n += df.height
+
+    def finish(self):
+        """close + fsync + 原子替换; 返回 (final Path, rows)"""
+        self.w.close()
+        self.f.flush()
+        os.fsync(self.f.fileno())
+        self.f.close()
+        os.replace(self.tmp, self.final)
+        dfd = os.open(self.dir, os.O_RDONLY)
+        try:
+            os.fsync(dfd)
+        finally:
+            os.close(dfd)
+        from pathlib import Path
+        return Path(self.final), self.n
+
+    def abort(self):
+        try:
+            self.w.close()
+            self.f.close()
+        except Exception:
+            pass
+        try:
+            if os.path.exists(self.tmp):
+                os.remove(self.tmp)
+        except OSError:
+            pass
+
+
+def _code_bounds(df):
+    """sorted-by-code 帧 → {code: (start, len)} (0 拷贝; 组界由 group_by
+    maintain_order 得, 输入有序 → 序 = code 升序 = manifest 序)"""
+    if df is None or df.height == 0:
+        return {}
+    g = df.group_by('code', maintain_order=True).agg(pl.len().alias('__n'))
+    bounds, pos = {}, 0
+    for code, n in g.iter_rows():
+        bounds[code] = (pos, n)
+        pos += n
+    return bounds
+
+
 # ---------- W4c 编排层 (date-major worker + 看门狗 + 断点; 见模块 docstring) ----------
 
 AUDIT_S = 30            # RSS/内存审计采样间隔
-STALL_S = 900           # 无完成容忍秒数 (镜像 extract_sz_cancels)
+STALL_S = 2400          # 无完成容忍秒数 (W4d smoke 实测: 20260803 单 date 全量
+                        # ~15-20 min > 镜像 extract_sz_cancels 的 900s → 900s 会
+                        # 误杀真长 date 成 kill 循环; 2400s = > 单 date 最长上界)
 LOW_WATER_KB = 8_000_000    # MemAvailable 低水位 (~7.6GB): 低于不派发新 date
 
 _TICK_COLS = {
@@ -352,13 +469,6 @@ def _read_date(tbl, day):
             .select(_TICK_COLS[tbl]).collect())
 
 
-def _part_map(df):
-    """{code: 该 code 子帧} (partition_by 共享列缓冲, 不复制底层数据)"""
-    if df is None or df.height == 0:
-        return {}
-    return {p['code'][0]: p for p in df.partition_by('code', maintain_order=True)}
-
-
 def _sha256(path, chunk=1 << 20):
     h = hashlib.sha256()
     with open(path, 'rb') as f:
@@ -371,91 +481,124 @@ def _sha256(path, chunk=1 << 20):
 
 
 def process_date(day):
-    """单 date: 4 表 date-major 切读 → manifest 逐 code-day 守卫 → 逐 code
-    run_day(band_ckpts) → 三表 code-major 合并直写 (原子 date part) → 载荷。
-    返回 dict(day, ok, errors, n_codes, recs, tables{sha}, engine_ms...);
-    任何异常 → future 抛 (该 date 不 done, 下轮重试; 表文件整 date 原子覆盖)。"""
+    """单 date: 4 表 date-major 切读 → 逐表 sort('code') 零拷贝组界 (_code_bounds;
+    W4d 定标弃 partition_by — 实测 +4.6GB RSS 纯拷贝) → manifest 序逐 code 守卫 +
+    run_day(band_ckpts) → 三表 _TableStream 流式 append (单 writer 确定性行组;
+    不累积/不 concat — 日终大帧峰值消除) → 原子收尾 → 载荷。
+    返回 dict(day, ok, errors, n_codes, recs, tables{rows/bytes/sha256},
+    engine_ms...); 任何异常 → 流 abort + future 抛 (该 date 不 done 下轮重试;
+    表文件整 date 原子覆盖; 收尾前无 final 文件)。"""
     t0 = time.time()
     errs, recs = [], []
-    dfs = {t: _read_date(t, day) for t in _IN_TABLES}
-    parts = {t: _part_map(d) for t, d in dfs.items()}
     codes = _DCODES.get(day, [])
-    if not codes:
+    if not codes:                       # 无 manifest code 日 = 空日: 零 I/O 早退
         return dict(day=day, ok=False, errors=['manifest 无该日 code'],
                     n_codes=0, recs=[], tables={}, engine_ms=0.0,
                     read_s=round(time.time() - t0, 1))
-    out = {'lob_events': [], 'lob_sweep_meta': [], 'lob_checkpoints': []}
-    read_tot = dict.fromkeys(('orders', 'trades', 'snaps', 'cancels'), 0)
-    engine_ms = 0.0
-    for code in codes:
-        ex = _ex_of(code)
-        reads, rows = {}, {}
-        for t in ('orders', 'trades', 'snapshots'):
-            p = parts[t].pop(code, None)
-            reads[_GUARD_TBL[t]] = 0 if p is None else p.height
-            rows[t] = [] if p is None else p.to_dicts()
-            read_tot[_GUARD_TBL[t]] += reads[_GUARD_TBL[t]]
-        if ex == 'SZ':
-            p = parts['cancels'].pop(code, None)
-            reads['cancels'] = 0 if p is None else p.height
-            rows['cancels'] = [] if p is None else p.to_dicts()
-            read_tot['cancels'] += reads['cancels']
-        row = _LOOKUP.get((code, day))
-        g_ok, mm = guard_check(code, day, reads,
-                               {code: {day: row}} if row else {})
-        evs = orders_to_events(rows['orders'], ex) + trades_to_events(rows['trades'])
-        if ex == 'SZ':
-            evs += cancels_to_events(rows['cancels'])
-        snaps = [dict(r) for r in rows['snapshots']]
-        te = time.time()
-        res = A.run_day(evs, snaps, band_ckpts=True)
-        engine_ms += time.time() - te
-        gate = day_gate(res)
-        tabs = day_tables(code, day, res)
-        for k in out:
-            out[k].append(tabs[k])
-        m4 = res['qa']['m4']
-        d1 = res['qa']['day']
-        recs.append(dict(
-            code=code, day=day, ok=g_ok and gate['ok'],
-            gate=dict(presence=gate['presence'], vacuous=gate['vacuous'],
-                      ok=gate['ok'], reasons=gate['reasons']),
-            guard=dict(ok=g_ok, mismatches=mm),
-            m1=dict(n_anchor=d1['n_anchor'], n_present=d1['n_present'],
-                    missing_vol=d1['missing_vol'],
-                    unattributed_vol=d1['unattributed_vol'],
-                    delta_attr=round(d1['delta_attribution'], 4)),
-            m4=dict(conservation=m4['conservation'], orders=m4['orders'],
-                    counters_equal=m4['counters_equal']),
-            n_events=len(evs), n_snaps=len(snaps),
-            rows=tabs['lob_events'].height,
-            sweeps=tabs['lob_sweep_meta'].height,
-            engine_ms=round((time.time() - te) * 1000, 1)))
-        del res, evs, snaps
-    # date 级读总数守卫 (orders/trades/snaps 与 conversion manifest 恒等; cancels
-    # 清单只记有 C 行的 code-day, 总数比对会误报 → 只逐 code 守卫)
-    for tkey in ('orders', 'trades', 'snaps'):
-        want = _TOTALS.get((day, tkey))
-        if want is not None and read_tot[tkey] != want:
-            errs.append(f'{tkey}: date 实读 {read_tot[tkey]} != manifest {want}')
+    dfs = {t: _read_date(t, day) for t in _IN_TABLES}
+    srt, lens = {}, {}
     for t in _IN_TABLES:
-        if parts[t]:
-            errs.append(f'{t}: {len(parts[t])} 个 code 读入但无 manifest 行 '
-                        f'(上游漂移, 不静默)')
-    files = {}
-    for key, lst in out.items():
-        df = pl.concat(lst)
-        path, n = write_part(os.path.join(
-            _G['lob_root'], key, f'year={day[:4]}', f'month={day[4:6]}'),
-            day, df, pid=os.getpid(), seq=1)
-        files[key] = dict(rows=n, bytes=os.path.getsize(path),
-                          sha256=_sha256(path))
-        del df
-    ok = not errs and all(r['ok'] for r in recs)
-    return dict(day=day, ok=ok, errors=errs, n_codes=len(codes), recs=recs,
-                tables=files, engine_ms=round(engine_ms, 1),
-                n_fail=sum(1 for r in recs if not r['ok']),
-                read_s=round(time.time() - t0, 1))
+        d = dfs[t]
+        dfs[t] = None                   # 释放未排序原帧 (sort 输出为工作副本)
+        if d is None or d.height == 0:
+            srt[t], lens[t] = None, 0
+        else:
+            srt[t] = d.sort('code')
+            lens[t] = srt[t].height
+    bnd = {t: _code_bounds(srt[t]) for t in _IN_TABLES}
+    consumed = dict.fromkeys(_IN_TABLES, 0)
+    read_tot = dict.fromkeys(('orders', 'trades', 'snaps', 'cancels'), 0)
+    streams = {}
+    engine_ms = 0.0
+    try:
+        for code in codes:
+            ex = _ex_of(code)
+            reads, rows = {}, {}
+            for t in ('orders', 'trades', 'snapshots'):
+                b = bnd[t].get(code)
+                if b is None:
+                    reads[_GUARD_TBL[t]] = 0
+                    rows[t] = []
+                    continue
+                start, nrow = b
+                reads[_GUARD_TBL[t]] = nrow
+                consumed[t] += nrow
+                read_tot[_GUARD_TBL[t]] += nrow
+                rows[t] = srt[t].slice(start, nrow).to_dicts()   # 视图切片 0 拷贝
+            if ex == 'SZ':
+                b = bnd['cancels'].get(code)
+                if b is None:
+                    reads['cancels'] = 0
+                    rows['cancels'] = []
+                else:
+                    start, nrow = b
+                    reads['cancels'] = nrow
+                    consumed['cancels'] += nrow
+                    read_tot['cancels'] += nrow
+                    rows['cancels'] = srt['cancels'].slice(start, nrow).to_dicts()
+            row = _LOOKUP.get((code, day))
+            g_ok, mm = guard_check(code, day, reads,
+                                   {code: {day: row}} if row else {})
+            evs = orders_to_events(rows['orders'], ex) + trades_to_events(rows['trades'])
+            if ex == 'SZ':
+                evs += cancels_to_events(rows['cancels'])
+            snaps = [dict(r) for r in rows['snapshots']]
+            te = time.time()
+            res = A.run_day(evs, snaps, band_ckpts=True)
+            engine_ms += time.time() - te
+            gate = day_gate(res)
+            tabs = day_tables(code, day, res)
+            for key, frame in tabs.items():
+                st = streams.get(key)
+                if st is None:
+                    st = streams[key] = _TableStream(
+                        os.path.join(_G['lob_root'], key, f'year={day[:4]}',
+                                     f'month={day[4:6]}'),
+                        day, _pa_schema(_COL_TABLES[key]))
+                st.append(frame)
+            m4 = res['qa']['m4']
+            d1 = res['qa']['day']
+            recs.append(dict(
+                code=code, day=day, ok=g_ok and gate['ok'],
+                gate=dict(presence=gate['presence'], vacuous=gate['vacuous'],
+                          band=gate['band'], ok=gate['ok'],
+                          reasons=gate['reasons'], notes=gate['notes']),
+                guard=dict(ok=g_ok, mismatches=mm),
+                m1=dict(n_anchor=d1['n_anchor'], n_present=d1['n_present'],
+                        missing_vol=d1['missing_vol'],
+                        unattributed_vol=d1['unattributed_vol'],
+                        delta_attr=round(d1['delta_attribution'], 4)),
+                m4=dict(conservation=m4['conservation'], orders=m4['orders'],
+                        counters_equal=m4['counters_equal']),
+                n_events=len(evs), n_snaps=len(snaps),
+                rows=tabs['lob_events'].height,
+                sweeps=tabs['lob_sweep_meta'].height,
+                engine_ms=round((time.time() - te) * 1000, 1)))
+            del res, evs, snaps
+        # date 级读总数守卫 (orders/trades/snaps 与 conversion manifest 恒等; cancels
+        # 清单只记有 C 行的 code-day, 总数比对会误报 → 只逐 code 守卫)
+        for tkey in ('orders', 'trades', 'snaps'):
+            want = _TOTALS.get((day, tkey))
+            if want is not None and read_tot[tkey] != want:
+                errs.append(f'{tkey}: date 实读 {read_tot[tkey]} != manifest {want}')
+        for t in _IN_TABLES:            # 帧内未消费行 = 无 manifest 归属 (漂移哨兵)
+            if consumed[t] < lens[t]:
+                errs.append(f'{t}: 帧内 {lens[t] - consumed[t]} 行无 manifest '
+                            f'code 归属 (上游漂移, 不静默)')
+        files = {}
+        for key, st in streams.items():
+            path, n = st.finish()
+            files[key] = dict(rows=n, bytes=os.path.getsize(path),
+                              sha256=_sha256(path))
+        ok = not errs and all(r['ok'] for r in recs)
+        return dict(day=day, ok=ok, errors=errs, n_codes=len(codes), recs=recs,
+                    tables=files, engine_ms=round(engine_ms, 1),
+                    n_fail=sum(1 for r in recs if not r['ok']),
+                    read_s=round(time.time() - t0, 1))
+    except BaseException:
+        for st in streams.values():
+            st.abort()
+        raise
 
 
 # ---- 内存/审计工具 ----
@@ -499,9 +642,10 @@ def _month_codes():
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--month', required=True, help='YYYYMM 批算目标月')
-    ap.add_argument('--workers', type=int, default=4,
-                    help='并行 worker (内存预算: 每 worker 估计峰 ~5-6GB, '
-                         '总驻留 ≤32GB 硬限, 常态 ≤24GB)')
+    ap.add_argument('--workers', type=int, default=2,
+                    help='并行 worker (真数据实测: 单 worker 峰 ~10-13GB: '
+                         'date 切片 + partition 驻留 + 逐 code 瞬态; '
+                         '2 worker 常态 ~22-26GB 需审计定标, W4d 后定 W5 默认)')
     ap.add_argument('--force', action='store_true',
                     help='无视 done/SUCCESS 全月重跑 (字节级重跑比对用)')
     ap.add_argument('--only-day', default=None, help='YYYYMMDD 单日 (调试)')

@@ -215,12 +215,19 @@ def _mk(present, anchor, conservation='PASS', orders=0, counters_equal=True):
     return dict(qa=qa, code='000155.SZ', day='20260803')
 
 
-def test_day_gate_presence_boundary_and_vacuous():
-    """presence 四舍五入 5 位 ≥ GATE_PRES=0.97 才 PASS (200 档 194=0.97 整过,
-    193=0.965 拒); n_anchor=0 → vacuous presence 1.0 过 (停牌/零锚日合法);
-    m4 各失败分支独立拒绝且 reasons 并列"""
+def test_day_gate_presence_two_tier_and_vacuous():
+    """presence 圆整 5 位, 双阶 (W4d 修订): ≥ GATE_PRES=0.97 直接过;
+    δ 带 [GATE_FLOOR=0.90, 0.97) → ok 过但 band 标记 (W4d 实测 20260803:
+    32/300 code-day presence 0.913-0.970, M4/守卫全净 — fast 名 δ 滞后带;
+    W3 逐日 0.97 校准集 10 日不含此带, 对真实分布过严);
+    < GATE_FLOOR → 硬拒 m1a_presence (真缺档/坏数据日崩)。
+    n_anchor=0 → vacuous presence 1.0 过; m4 各失败分支独立拒绝"""
     assert R.day_gate(_mk(194, 200))['ok'] is True
-    assert R.day_gate(_mk(193, 200))['ok'] is False
+    r = R.day_gate(_mk(193, 200))                  # 0.965 → δ 带: 过 + band
+    assert r['ok'] is True and r['band'] is True
+    assert 'm1a_delta_band' in r['notes'] and r['reasons'] == []
+    r = R.day_gate(_mk(179, 200))                  # 0.895 < GATE_FLOOR → 硬拒
+    assert r['ok'] is False and 'm1a_presence' in r['reasons']
     r = R.day_gate(_mk(0, 0))
     assert r['ok'] is True and r['presence'] == 1.0 and r['vacuous'] is True
     r = R.day_gate(_mk(100, 100, conservation='FAIL'))
@@ -232,16 +239,20 @@ def test_day_gate_presence_boundary_and_vacuous():
     # 零锚日不豁免守恒: m4 FAIL 时 vacuous presence 仍拒
     r = R.day_gate(_mk(0, 0, conservation='FAIL'))
     assert r['ok'] is False and r['presence'] == 1.0
-    # presence 计算必须用真计数: 0.97 边界两侧 1 档差即翻转 (硬编码 PASS 存根必败)
-    assert R.day_gate(_mk(1000, 2000))['ok'] is False    # 0.5 远低于门
-    assert R.day_gate(_mk(1940, 2000))['ok'] is True     # 0.97 整
-    assert R.day_gate(_mk(1939, 2000))['ok'] is False    # 0.9695
+    # presence 计算必须用真计数 (硬编码 PASS 存根必败): 边界两阶各 1 档差即翻转
+    assert R.day_gate(_mk(1000, 2000))['ok'] is False    # 0.5 远低于硬底线
+    r = R.day_gate(_mk(1940, 2000))
+    assert r['ok'] is True and r['band'] is False        # 0.97 整
+    r = R.day_gate(_mk(1939, 2000))
+    assert r['ok'] is True and r['band'] is True         # 0.9695 δ 带
+    r = R.day_gate(_mk(1800, 2000))
+    assert r['ok'] is True and r['band'] is True         # 0.90 整 = FLOOR 边界
 
 
 def test_day_gate_handles_reversed_and_stub_must_fail():
     """门输出 presence 由 (n_present,n_anchor) 真算: 交换分子分母 0.5→2.0 拒;
-    空锚+空 m4 全 PASS 输入也过 — 但任何伪造 ok=True 的实现会在上列 193/200
-    等反例上暴露"""
+    空锚+空 m4 全 PASS 输入也过 — 但任何伪造 ok=True 的实现会在上列 179/200、
+    1000/500 等反例上暴露"""
     r = R.day_gate(_mk(500, 1000))
     assert r['presence'] == round(0.5, 5) and r['ok'] is False
     r = R.day_gate(_mk(1000, 500))                       # 分子>分母 = 数据错
@@ -250,15 +261,16 @@ def test_day_gate_handles_reversed_and_stub_must_fail():
 
 # ---------- 月门 (逐日 + SZ/SH 池化; 空锚日 vacuous 独立, 不入池) ----------
 
-def _dayrow(code, present, anchor, ok=True, vacuous=False):
+def _dayrow(code, present, anchor, ok=True, vacuous=False, band=False):
     return dict(code=code, day='20260803', m1=dict(n_present=present,
                                                    n_anchor=anchor),
-                gate=dict(ok=ok, vacuous=vacuous))
+                gate=dict(ok=ok, vacuous=vacuous, band=band))
 
 
 def test_month_gate_pools_raw_counts_and_counts_vacuous():
-    """月门 = 逐日全 PASS 且 SZ/SH 池化 (原始计数和, 非逐日均值) ≥ 门;
-    空锚日 (vacuous, 含于 n_days) 独立 PASS 不进池 — 无锚日不给池贡献分母"""
+    """月门 = 逐日硬底线 (GATE_FLOOR) 全过 且 SZ/SH 池化 (原始计数和, 非逐日均值)
+    ≥ GATE_PRES; 空锚日 (vacuous, 含于 n_days) 独立 PASS 不进池 — 无锚日不给池
+    贡献分母; n_band 计数 δ 带日 (0.90-0.97, day ok 已过)"""
     rows = [_dayrow('000155.SZ', 997, 1000),     # 0.997
             _dayrow('000333.SZ', 99, 100),       # 0.99
             _dayrow('600036.SH', 199, 200),      # 0.995
@@ -266,31 +278,38 @@ def test_month_gate_pools_raw_counts_and_counts_vacuous():
             _dayrow('600519.SH', 0, 0, vacuous=True)]
     m = R.month_gate(rows)
     assert m['n_days'] == 5 and m['n_vacuous'] == 1 and m['n_anchored'] == 4
+    assert m['n_band'] == 0
     # 池化 = (997+99)/(1000+100)=0.99636 | (199+100)/(200+100)=0.99667
     assert m['gate']['sz'] == round(1096 / 1100, 5)
     assert m['gate']['sh'] == round(299 / 300, 5)
-    assert m['gate']['per_day'] == [True, True, True, True]
+    assert m['gate']['per_day'] == [True, True, True, True, True]  # 含 vacuous 日
     assert m['ok'] is True
 
 
-def test_month_gate_rejects_bad_day_or_pool():
-    """月门失败 = 任一逐日 FAIL (即使池化过) 或任一所池化 FAIL; 失败日不入池
-    (0.965 日会拖 SH 池至 0.9747 仍过 → 门由 per_day 拒)"""
+def test_month_gate_rejects_collapsed_day_or_pool():
+    """月门失败 = 任一逐日 presence < GATE_FLOOR (0.90, 真缺档崩) 或任一所池化
+    < GATE_PRES; δ 带日 (0.965 ≥ floor) 不拒 — 池化承担存现门"""
     rows = [_dayrow('000155.SZ', 997, 1000),
-            _dayrow('000155.SZ', 965, 1000),    # 0.965 < 门 → per_day 拒
+            _dayrow('000155.SZ', 965, 1000, band=True),   # 0.965 δ 带 → 过
             _dayrow('600036.SH', 200, 200)]
     m = R.month_gate(rows)
-    assert m['gate']['sh'] == 1.0
-    assert m['gate']['per_day'] == [True, False, True]
-    assert m['ok'] is False
-    # 池化单独 FAIL (逐日均过但一所合计 < 门): SZ 单日 0.99 池化即 0.99 过 —
+    assert m['gate']['sh'] == 1.0 and m['n_band'] == 1
+    assert m['gate']['per_day'] == [True, True, True]
+    assert m['ok'] is True                        # 池化 = (997+965)/2000 = 0.981 ≥ 门
+    rows3 = [_dayrow('000155.SZ', 997, 1000),
+             _dayrow('000155.SZ', 850, 1000),     # 0.85 < 硬底线 → 拒
+             _dayrow('600036.SH', 200, 200)]
+    m3 = R.month_gate(rows3)
+    assert m3['gate']['per_day'] == [True, False, True]
+    assert m3['ok'] is False
+    # 池化单独 FAIL (逐日全过但一所合计 < 门): SZ 单日 0.99 池化即 0.99 过 —
     # 用 4 日 0.97 整 + 1 日 0.9705 → SZ 池略 ≥ 门 → 构造纯 SH 不足样本
     rows2 = [_dayrow('600036.SH', 97, 100),
              _dayrow('600036.SH', 97, 100),
              _dayrow('600036.SH', 0, 0, vacuous=True)]
     m2 = R.month_gate(rows2)
     assert m2['gate']['sh'] == 0.97 and m2['gate']['sz'] == 1.0
-    assert m2['gate']['per_day'] == [True, True]
+    assert m2['gate']['per_day'] == [True, True, True]
     assert m2['ok'] is True                        # SZ 空池不 FAIL (校准语义)
 
 
@@ -354,6 +373,68 @@ def test_write_part_atomic_replace_and_schema(tmp_path):
     assert n0 == 0
     assert pl.read_parquet(t / '20260804.parquet').schema == empty.schema
     assert pl.read_parquet(t / '20260804.parquet').height == 0
+
+
+# ---------- W4d 内存定标修正 (sorted-merge 零拷贝组界 / _TableStream 流式写) ----------
+
+def test_code_bounds_zero_copy_boundaries_exact():
+    """sorted frame → {code: (start, len)}: 乱序文件代码 sort 后组界连续无叠无漏;
+    视图切片逐行 == 等价 filter 子集 (组界错误必漏行/串行 → 存根必败)"""
+    rows = [dict(code=c, i=n) for c, n in [
+        ('600519.SH', 0), ('000155.SZ', 1), ('000155.SZ', 2), ('600519.SH', 3),
+        ('000021.SZ', 4), ('600519.SH', 5), ('000021.SZ', 6), ('000155.SZ', 7)]]
+    df = pl.DataFrame(rows).sort('code')
+    b = R._code_bounds(df)
+    assert sorted(b) == ['000021.SZ', '000155.SZ', '600519.SH']
+    pos = 0
+    for code in sorted(b):
+        start, nrow = b[code]
+        assert start == pos and nrow > 0
+        got = df.slice(start, nrow).to_dicts()
+        want = df.filter(pl.col('code') == code).to_dicts()
+        assert got == want                    # 切片内容与语义子集逐字节同
+        pos += nrow
+    assert pos == df.height                    # 无漏行
+
+
+def test_tablestream_schema_only_deterministic_and_abort(tmp_path):
+    """_TableStream: 0 批 → schema-only 合法文件 (schema = COL_EVENTS 非退化);
+    同批重跑字节全等 (确定性行组分界 → W4d 重跑比对成立的前提); abort 清 tmp
+    不留 final"""
+    t = tmp_path / 'lob_events' / 'year=2026' / 'month=08'
+    ev_rows = [dict(ms=34201000, kind='add', phase='continuous', side='B',
+                    price=123000, prev_vol=0, new_vol=500, qty=500, id=1001,
+                    otype='0'),
+               dict(ms=34201050, kind='trade', phase='continuous', side='B',
+                    price=123000, prev_vol=500, new_vol=300, qty=200, id=1001,
+                    otype='0')]
+    f1 = R._fill(ev_rows, '000155.SZ', DSTR, R.COL_EVENTS)
+    f2 = R._fill(ev_rows, '000155.SZ', DSTR, R.COL_EVENTS)
+    s1 = R._TableStream(t, DSTR, R._pa_schema(R.COL_EVENTS))
+    s1.append(f1)
+    p1, n1 = s1.finish()
+    assert n1 == 2 and list(t.glob('*.tmp*')) == []
+    s2 = R._TableStream(t, DSTR, R._pa_schema(R.COL_EVENTS))
+    s2.append(f2)
+    p2, n2 = s2.finish()
+    assert p2 == p1 and n2 == 2
+    assert R._sha256(p1) == R._sha256(p2)      # 重跑字节全等
+    got = pl.read_parquet(p1)
+    assert [(c, d) for c, d in got.schema.items()] == R.COL_EVENTS
+    assert got.height == 2
+    # 0 批: schema-only 合法文件 (schema 非退化, 0 行)
+    s3 = R._TableStream(t, '20260804', R._pa_schema(R.COL_EVENTS))
+    p3, n3 = s3.finish()
+    assert n3 == 0
+    e3 = pl.read_parquet(p3)
+    assert e3.height == 0
+    assert [(c, d) for c, d in e3.schema.items()] == R.COL_EVENTS
+    # abort: 清 tmp, 不落 final
+    s4 = R._TableStream(t, '20260805', R._pa_schema(R.COL_EVENTS))
+    s4.append(f1)
+    s4.abort()
+    assert not (t / '20260805.parquet').exists()
+    assert list(t.glob('.20260805.parquet.tmp*')) == []
 
 
 # ---------- W4c 编排: process_date 端到端 (合成 tick_fact 迷你树; 存根必败) ----------
