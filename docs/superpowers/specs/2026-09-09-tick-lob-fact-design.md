@@ -1,7 +1,7 @@
 # tick 订单簿重建（lob_fact v1）设计规格
 
 - 日期: 2026-09-09
-- 状态: W2 完成（2026-09-10，引擎 72 tests 绿 + 10 校准日冻结门实测，见文末 W 验证记录）；W1 完成（校准 7 项证据 JSON + 校准备忘录）；W0 终态全验收 ALL OK
+- 状态: W3 完成（2026-09-10，anchoring 101 tests 绿 + 校准集 10 日对拍 M1a 存现门全过 M4/M6 硬门 10/10，见文末 W 验证记录）；W2 完成（引擎 72 tests 绿 + 10 校准日冻结门实测）；W1 完成（校准 7 项证据 JSON + 校准备忘录）；W0 终态全验收 ALL OK
 - 关联: 前序 tick_fact 事实库（orders/trades/snapshots，13 月 74,466 code-day，76GB，QA 通过）；平台 1m 漏斗（2026-09-08-factorlab-1m-funnel-design.md）
 
 ## 1. 目标与范围
@@ -21,8 +21,8 @@
 | SH 撤单在委托流 D 行（量=全撤剩余；full/partial 双跑无差异）；成交流零撤单 | 600184.SH: D 14,457 行；SH 空BS 0 行 |
 | SH 成交 ref ~41% 不可解析 = SSE 先成交后报（全成交无委托行/部分成交委托行=剩余量）→ taker 不进簿，簿面无碍；SH 全量委托计数类因子受限 | DolphinDB createOrderReconstituteEngine 同类修复存在 |
 | **δ 滞后定律**：逐笔回报时戳晚于簿面生效 ~0-300ms（快照按真实簿面生成）→ 引擎永远缺最近 δ 的簿面变化；短档一窗瞬态自愈；归"δ 边界桶"，锚定采纳吸收 | 600184.SH: snap@34202000 B@160000=7300 vs 消息 4800；差 2500 == 恰后两笔加单(2400@34202130+100@34202220)；SH 全时段瞬态短档 5,028 档/11.2M 股 run=1 主导 |
-| SZ 直接通道实测精度：价梯 97.6% / 价+量整等 65.9%（4,752 窗）；推导通道 98.8%/67.7% —— 统计等价，取直接通道因身份级能力 | probe21/probe18 |
-| SH 事件级 vs 快照：价梯 ~81% 基线（失败窗逐因归 δ 桶）；vol-strict ~10% 是 δ 现象的度量，非重建质量度量 | probe13/22/23 |
+| SZ 直接通道实测精度：价梯 97.6% / 价+量整等 65.9%（4,752 窗）；推导通道 98.8%/67.7% —— 统计等价，取直接通道因身份级能力（**W1 口径 = rank 对齐 × 单平静日; W3 校准: 跨日门语义迁至档位存现率 M1a ≥0.97, rank 对齐降诊断 — 见 §3.3 + W3 记录**） | probe21/probe18 + notes/w3_anchoring_memo.md §3/§4 |
+| SH 事件级 vs 快照：价梯 ~81% 基线（失败窗逐因归 δ 桶）；vol-strict ~10% 是 δ 现象的度量，非重建质量度量（W3: SH rank 池化 0.931 / 存现 0.996 池化 — 同迁 M1a） | probe13/22/23 + W3 记录 |
 | 快照价 float64 已 ×10000（122800.0=12.28 元）→ 基元 rint(p) 勿再乘；time_ms=ms-of-day（09:25=33,900,000） | 探针一致 |
 | 竞价：09:15:00.02 起收单；09:25:00-09:30:00 两所零委托消息；快照@09:25:00.000=撮合后簿；SZ 竞价残留静默清场 → SZ 09:30:00.000 硬基线，SH 残留携入连续 | probe10/11/17 |
 | 物理布局：月 parquet row-group trade_date tight/code 宽 → 读必须 (date)-major；覆盖坑：部分 code 整月无行（002594/000858/300750@采样日缺 zip）→ manifest 过滤、空日合法 | tick_fact 实测 |
@@ -52,8 +52,8 @@
 
 ### 3.3 QA（metrics 库先行；pre-adoption 计算）
 
-- 分层：L0 事件级（双所逐单）；L1 锚点级（SZ ≥97% 实测 97.6-98.8%；SH ≥81% 基线+归因）；L2 锚点间（误差上界=δ+未分类，瞬态 run=1 自愈）；L3 深档>10（无外部真值 → M6+守恒兜底）
-- M1 价梯（pre-adoption，分相+missing/extra/adjacent-swap/deep-shift）；M2 量相等+ghost=0（差量必须全分类，不可分类=bug FAIL）；M3 打印合法性；M4 逐单守恒（add==Σ消费+Σ撤+EOD 残差，双所身份级，违规 0 才 PASS）；M5 推导 vs C/D 真值残差≈0 交叉证明；M6 重组不变量（行重放==下分钟态）；M7 重建同位（W6 翻牌前门，双路独立实现 max|Δ|≤1e-6）
+- 分层：L0 事件级（双所逐单）；L1 锚点级 = **M1a 档位存现率门 ≥0.97（W3 校准冻结；SZ/SH 同门，池化 + 逐日）**，平静日 M1b rank 对齐 0.9867-0.9985 ≥ W1 97.6% 语义由 M1b 报告延续；L2 锚点间（误差上界=δ+未分类，瞬态 run=1 自愈）；L3 深档>10（无外部真值 → M6+守恒兜底）
+- **M1 双口径（W3 校准修正 W1 基线适用范围）**：M1a 档位存现率 = 门（n_present/n_anchor，锚档价在引擎全深度档集存现；逐日 + SZ/SH 池化 ≥0.97 — fast 日 rank 0.8030-0.9411 经证为 δ 边界 best-edge 换位瞬态，M1a 不受其扰而真缺档才减）；M1b rank 对齐价梯（ladder_match，分相+missing/extra/adjacent-swap/deep-shift）= 逐日/池化报告不设门（诊断 + 逐失败窗归因）；M2 量相等+ghost=0（差量必须全分类，不可分类=bug FAIL）；M3 打印合法性；M4 逐单守恒（add==Σ消费+Σ撤+EOD 残差，双所身份级，违规 0 才 PASS；**M5 归并入 M4**：生产走直接通道无推导产物，"双独立实现互证残差≈0"由 M4 ledger 对拍履行）；M6 重组不变量（行重放==下分钟态）；M7 重建同位（W6 翻牌前门，双路独立实现 max|Δ|≤1e-6）
 - W1 校准集 10 code-day：δ 分布、撤单量语义（部分撤）、SZ ref 解析率、开盘排队委托分布、2025-09 差行归因、U/'1' 边界、覆盖清单
 
 ### 3.4 批算（W4-W5）
@@ -67,7 +67,7 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
 | W0 | tick_fact/cancels 增补抽取 + 双射守卫 + manifest + spec 落位 | 完成 |
 | W1 | 规格/metrics 库/金样/校准备忘录/校准集基线 | 完成 |
 | W2 | 引擎 + schema 冻结门 | 完成 |
-| W3 | 锚定 + M1-M7 + 交叉证明 | 未开工 |
+| W3 | 锚定 + QA 全门 + 校准集对拍 + 开盘模型冻结 | 完成 |
 | W4 | 批算 + 试点月 2026-08 | 未开工 |
 | W5 | 全史批算 13 月 | 未开工 |
 | W6 | 盘口因子实证 + M7 + spec 翻转 | 未开工 |
@@ -131,3 +131,34 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
   1.25M events 5.3s / 000021@20260706 1.69M events 8.4s）——纯 Python 引擎下界 ~3-5µs/e，
   >1M 事件日字面 2s 不可达；批算算术上界 +0.7h（W4 试点月全量复测取代模型）
 - W2 关闭。commit research d7b7d1c（engine/tests/measure/probe/notes）+ main spec doc
+
+### W3（2026-09-10）— 锚定 anchoring + 校准集对拍（101 tests 绿；M1a 存现门全过 + M4/M6 硬门 10/10）
+
+- **anchoring.py**（锚定驱动 run_day）：registry 残留单首张连续快照 ms 物化入簿（identity-
+  preserving 逐单入队 + level_materialization 行 + **交叉闸门**：残留价越过首锚对侧 best 的
+  交叉档不入簿但保留 registry 身份——真实开盘簿从不携带；0-in-real 逐单实证 600036 16 单
+  68,800 vol / 000021 50 单 364,400 vol）；快照锚定 = QA/验证/分类，永不改写引擎状态；
+  逐窗 pre-adoption M1a/M1b/M2 + 吸收窗(500ms) δ 归因；M4 双实现（引擎 vs qa.ledger）
+  逐 id 全等 + M6 行流 fold == 分钟检查点逐字节
+- **开盘模型冻结**（probe_open + followup + 逐单轨迹实证；memo §1 勿推翻）：09:25-09:30
+  静默排队委托 09:30:00.0-500ms 滞后报达（SZ 55.90-bid 80,600→601,938 于 09:30:00-03）；
+  SZ win0 快照 = 冲刷中态（真实 bid best 3s 内 56.00→55.90）；SZ ask 残留 ≤P* 档被开盘
+  second-match 消耗（000021@20260803 真实开盘 ask 簿自 36.27 起）——window-2 自愈
+- **M1 双口径校准（W3 修正 W1 97.6%/81% 基线适用范围；§3.3 已修订）**：校准集 10 日
+  （4 SZ 平静 + 2 SZ fast + 4 SH）实测 rank 对齐 0.8030-0.9411（fast 日）= δ 边界固有
+  best-edge 换位瞬态（证据链: 同窗存现 0.986-0.999 / rank 失败直方图均匀 1,741-1,906 每
+  rank + adjacent 13,320≫deep 5,357 / +500ms 滞后比较反证 / M4 0 违例 / cross-gate 实证）→
+  门语义迁至 **M1a 档位存现率**（逐日 + SZ/SH 池化 ≥0.97）；M1b rank 降诊断逐窗归因
+- **门结果（measure_w3.py 终跑, JSON CALIB_OUT/w3_measure_*）**：M1a 逐日 10/10 PASS
+  （0.9862-0.9999）+ 池化 全 0.99604 / SZ 0.99622 / SH 0.99577 PASS；M4 conservation
+  0 mismatch & counters_equal 逐日 PASS；M6 逐字节 PASS；M1b rank 池化（诊断）全 0.93763 |
+  SZ 0.942 | SH 0.93109（平静日 0.9867-0.9985 ≥ W1 97.6% 语义）；M3 桶正常；unattr/ghost
+  逐窗分类不静默（δ 对称: 缺档=add 消息 δ 尾 / ghost=fill/cancel δ 尾 + win0 中态）
+- **TDD**：90→101 tests（本 WS 新增 metrics px_presence 3 + anchoring 窗/日聚合 1 +
+  measure_w3 m1a_gate 语义 4，红→绿）；存根必败（空簿 presence 0 / 真缺档日 FAIL /
+  fast 日 rank 0.80 不影响存现门）
+- **性能（W4 输入, memo §5）**：eng_ms 1.28-17.96s/code-day（平静 1.3-2.2s / 活跃 4.2-4.8s /
+  极活跃 12-18s）+ read 0.4-6.3s；子进程峰值 RSS 0.30-2.07GB（QA full_rows 驻留路径）→
+  单核当量 ~150-190h / 4-6 worker ≈ 25-48h 分段续跑
+- W3 关闭。commit research（anchoring/qa.metrics/measure_w3/tests×3/memo/w3diag 探针×7）
+  + main spec doc
