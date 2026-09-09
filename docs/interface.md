@@ -115,6 +115,13 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   （见下方"分块计算"）。
 - `--warmup-days N`：TS 窗口预热天数（`N >= 0`；缺省按公式自动提取窗口最大值
   + 20 安全垫）。
+- **分钟面分派（W5）**：`interface: bars_1m` 的 spec（字段与口径见 §2）由 run
+  分派 `run_factor_minute`（engine.minute，B7.1）——折日面板与日频同列契约，
+  下方评估/周频对齐/分层回测同一路径零改动（`weekly.parquet` + `evaluation`
+  照常落盘）。分钟面**仅 ClickHouse 后端**：设置 `FACTORLAB_DATA_BACKEND=ch`
+  （并指向含 bars_1m 的 `FACTORLAB_CH_DATABASE`）。`--warmup-days` 对分钟链
+  忽略（日内窗无预热；注入列 adv20 左窗由引擎独立预取 20 交易日）；`--chunk-days`
+  语义不变（分块结果 == 整段严格相等）。
 - 落盘：`panel.parquet`（run_factor 日频面板）、`weekly.parquet`（周频对齐面板——
   评估/回测输入）、`summary.json`（run_factor 摘要 + `evaluation` 字段——quant_core
   周频评估 + `layered_backtest` 分层回测，CLI 层追加后重写）。
@@ -245,6 +252,10 @@ formula: |
 - `name`：必填，`^[A-Za-z_][A-Za-z0-9_]{0,63}$`。
 - `category`：必填，`ohlcv_core | ohlcv_retail | valuation | custom`。
 - `direction`：必填，`1` 或 `-1`。
+- `interface`（1m 漏斗 v1）：`daily | bars_1m`，缺省 `daily`（旧 spec 逐字节
+  不变）。`bars_1m` = 分钟模板（im_* 日内窗口族 + day_* 折日族 + 日级注入列，
+  窗口/门/引擎语义见 §4 `factorlab.engine.minute`）；`daily` 公式引用 im_*/day_*
+  在 compute_formula scope 门拒绝。
 - `universe`：`ref | codes | rules | formula` **四选一互斥**（M4/G2 公式化股票池；
   同时出现多个 → 加载期报错，pydantic 不静默取优先）。
   - `universe.codes`：显式代码列表（canonical ts_code）。
@@ -274,7 +285,8 @@ formula: |
 - `process`：可选字符串列表。
 - `adjustment`：复权视图口径 `raw | qfq | hfq | pit_qfq`，默认 `qfq`（`pit_qfq`
   研究日视角防未来：`run_factor` 装配传 `asof=spec.date.end`，date.end 缺省用面板
-  数据末端日期——见 §4 `run_factor`）。
+  数据末端日期——见 §4 `run_factor`）。**`interface: bars_1m` 时强制 `raw`**
+  （分钟价 raw 不复权事实；≠ raw 在打开 DB 前 ValueError，B1.2）。
 - `operators`：可选 DSL 宏映射。`name: {params: [p1, p2, ...], formula: "..."}`，
   `formula` 中按位置引用 `params`；公式内 `name(args)` 调用在计算前展开为
   `formula`（参数 AST 绑定替换，展开先于平台薄封装；公式内 `def` 同名函数优先）。
@@ -575,6 +587,61 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 补全面板按交易日历截断到今天（trade_cal 含未来公告日，不产生未来 null 行）。
 
 `factors`/`combine` 多因子组合不在平台范围（平台定位单因子计算与评估；语法保留校验但执行时明确拒绝）。
+
+**interface 门**：spec.interface 非 "daily"（如 bars_1m 分钟模板）调 run_factor →
+打开 DB 前 ValueError，文案指路 run_factor_minute（W4）。
+
+### `factorlab.engine.minute`：bars_1m 分钟链（W4-W6；设计见 2026-09-08-1m-funnel spec）
+
+分钟模板计算与折日评估。**折日**：每 (code, 交易日) 输出一行常数信号——日内
+240 行折叠为日频形态，产物 frequency 恒 "1d"、评估/artifact 契约与日频零放宽；
+分钟性只存在于 spec.interface 与引擎路径。
+
+- `run_factor_minute(spec, ctx) -> FactorResult` 装配链（B4）：门链全在打开 DB
+  前（interface≠bars_1m → ValueError；universe.formula 池公式 v1 排除 →
+  ValueError（修订 R1）；spec.process → NotImplementedError（修订 R4）；
+  adjustment≠raw → ValueError（B1.2）；data_backend=="duckdb" → ValueError
+  （bars_1m 仅 CH）；spec.date.start/end 必须显式闭区间 → ValueError（修订 R5，
+  分钟批读防全表扫描））→ 展开链（compute 共享 prepare_formula_pipeline）→
+  候选 codes/trading_calendar/universe_frame（整段一次）→ 按
+  ctx.chunk_days 分块（chunk_calendar warmup=0；分钟窗不跨日，TS 窗=日内窗）→
+  每块：日级注入列预取（adv20 左窗 = spec.start 前 20 交易日，修订 R2：在
+  **有行情日行序列**上滚动，停牌日自动隔开）→ load_bars_1m_codes 批读（列
+  投影按公式引用 ∩ bars 面裁剪——内存纪律）→ 块内成员日 = 池成员 ∧ 日线在
+  （停牌日天然剔除）→ 整日缺失（日线在而 bars 无行）fail fast →
+  compute_minute_factor_panel → 累积折日面板；空窗 → ValueError（修订 R3，
+  镜像日频 M3b 文案）。label 单趟整段全窗（_compute_labels 复用，与日频链同
+  骨架/同窗口），canonicalize 后按折日信号键集过滤对齐——label 键 == 信号键
+  （停牌日两侧都无行）。→ write_factor_artifacts /
+  write_multi_output_factor_artifacts 落盘（零放宽）。SignalMeta(frequency=
+  "1d", EOD timing, adjustment="raw")。summary 增注
+  `runtime_semantics="minute_intraday_fold_v1"`、`interface="bars_1m"`、
+  `grid_rows_per_day=240`（其余字段与日频同构）。
+- `compute_minute_factor_panel(bars, formula, *, outputs=None, daily=None)
+  -> pl.DataFrame` B4.7 **面板级纯计算入口**（loader 无关；引擎测试与批算工具
+  共用同一代码路径）：date 列规范化（trade_date→date）→ 结构列/date dtype/
+  minute_index dtype 校验 → daily 注入快照存在时逐键 left join（bars 有行而
+  日线缺 → fail fast）→ 未知列报错助手（点名实际可用列）→ **240 网格断言**
+  （(date, code) 组行数恒 240 且 minute_index 组内唯一；违者 ValueError 文案
+  含"bars_1m 网格不完整/跨日泄漏疑似"）→ compute_formula(scope="bars_1m")
+  → 折日输出组内 (date, code) 唯一性断言（双保险，修订 R6）→ keep-first
+  dedup → 返回 [date, code, *outputs]（排序）。
+- **注入列（B6，固定公开名，_formula_columns 按名探测供给）**：`prev_close`
+  （T-1 raw 日收盘）/`eod_close`（T 日 raw 日收盘）/`day_amt`/`day_vol`
+  （T 日全天，元/股）/`adv20_amt`/`adv20_vol`（T 及此前 20 个**有行情**交易日
+  均值）。不注入 close/open/high/low/amount/volume（bars 同名列已占）；
+  adj_factor 只进 label 链。
+- **窗口/门语义**：im_*/day_* 走 expr_codegen CL 通道自包含分区表达式
+  `.over(["code","date"], order_by="minute_index")`（窗口严格日内）；
+  日频算符（ts_*/ta_*/cs_*/gp_*，含 returns/vwap/adv20 宏展开后残余）在分钟
+  scope 门拒绝；im_delay k<0/k=0 拒绝。日频 scope 引用 im_*/day_* → 拒绝。
+  网格/折日双断言是跨日泄漏的机械保证（B3.5）。
+- **修订注记（实现期，W4-W6，规格同步）**：R1 池公式、R4 process、R5 闭区间
+  强制、R3 空窗 raise（规格错误表原"空帧不抛"行已随修订）；R2 adv20 滚动语义
+  （有行情日序列）；R6 折日双保险实施形态（组内 n_unique==1 断言 + keep-first
+  dedup）；R7 warmup_days 忽略（日内窗无预热，summary 不标注键）。
+- 门/错误表全集与测试矩阵见规格文档文末；真 CH 三对拍 e2e 见
+  tests/test_minute_prod_e2e.py（integration 标记）。
 
 ### `factorlab.eval.rust_ic.evaluate_factor_weekly(panel, factor_name, direction, target="forward_return_5d") -> dict`
 
@@ -1061,6 +1128,12 @@ snapshots 共 ~14B 行）；duckdb 平台文件无 intraday 表 → duckdb 后�
   1 分钟线（bars_1m）：datetime/trade_date/code/minute_index/session_type/
   open/high/low/close/amount/volume（OHLC Float32、volume Float64 原样，
   上游 1m 事实库语义读侧不解释）。排序 datetime。
+- `load_bars_1m_codes(rd, codes: list[str], *, date_start, date_end, cols=None)
+  -> pl.DataFrame` 多 code 分钟线批读（引擎分钟面/批算共用入口）：单条 SQL
+  返回，与 load_bars_1m 同契约（列白名单/排序 (code, datetime)/decode/raw 与
+  单位语义），差异：codes 混合 6 位或 ts_code 均可（任一 6 位无 stock_basic
+  映射 fail fast）；**date_start 与 date_end 都必填闭区间**（无单边开窗——批读
+  防全表扫描）；输出 code 一律 6 位。
 - `load_tick_trades(rd, code, ...)` 逐笔成交（tick_trades）：time_ms（当日毫秒
   数，00:00 起）、trade_no UInt64、bs UInt8、price_x10000 Int32（元 = ÷10000）、
   volume UInt32、ask_seq/bid_seq UInt64。排序 (time_ms, trade_no)。

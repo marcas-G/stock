@@ -1,7 +1,7 @@
 # bars_1m 漏斗机制（Interface #2）— 设计规格
 
 日期：2026-09-08。配套计划：`docs/superpowers/plans/2026-09-08-factorlab-1m-funnel.md`。
-状态：已批准开工（计划 crystalline-imagining-crab；实现完成后文末追加验证记录）。
+状态：已实现（W1-W6 完成，main 见文末验证记录；W7 研究侧批算工具独立推进）。
 
 ## 背景与决策
 
@@ -215,7 +215,56 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
 | B6 注入列 | 引用合法 | adv20 含 20 日左窗 | 未知列报错助手点名 |
 | B7 CLI | run 分钟 spec == API 同 schema | — | 日频 CLI 全测试零回归 |
 
+## 修订记录（W4-W6 实现期发现并已实施；规格文字随之修订，不回退实现）
+
+- R1（universe.formula）：B1.3"四选一"在分钟链 v1 **排除公式化池**——池成员在
+  日频骨架求值（日面载体），run_factor_minute 打开 DB 前 ValueError；codes/
+  ref/rules 三路照常。规格 B1.3 收窄为"ref/codes/rules；公式化池另走日频链"。
+- R2（adv20 语义）：B6.1"20 个交易日"指**有行情日**（注入列帧 = daily 有行日
+  序列，停牌日不在帧内 → 滚动窗口自动隔开），与日频 adv20"有行情日 ts 均值"
+  口径逐字对齐；样本首日即有值（引擎预取 spec.start 前 20 交易日）。
+- R3（空窗）：错误表"空窗 → 空结果帧不抛"行修订为 **raise ValueError（镜像
+  日频 M3b 文案"日期段无数据，可运行 data refresh"）**——防静默空产物；
+  空 chunk 行沿用原表行（"分块跑空 chunk → ValueError"）。
+- R4（process）：v1 引擎 NotImplementedError（折日面板 processor 接线留后续）。
+- R5（date 闭区间）：B4 引擎要求 spec.date.start/end **显式闭区间**（分钟批读
+  防全表扫描），缺失打开 DB 前 ValueError。
+- R6（折日双保险实施形态）：B4.4 原"dedup 前重复 → ValueError"落实为
+  compute_formula 输出后按 (date, code) 组内**输出列 n_unique == 1 断言**
+  （组内非常数 = day_* 折日语义被破坏 → ValueError）再 keep-first dedup——
+  同语义双保险，文案指向 B2.4 门。
+- R7（warmup_days）：分钟链忽略 ctx.warmup_days（日内窗无预热概念）；summary
+  不标注键（B4.3"标注"项省略——语义由 runtime_semantics=minute_intraday_fold_v1
+  承载）；注入列 adv20 左窗引擎独立预取（固定 20 交易日，与 ctx 无关）。
+- 其余规格行（B1.1/B2/B3/B4.1/B4.2/B4.5/B4.6/B4.7/B5/B6.2-B6.4/B7）与实现
+  逐条一致；差异仅措辞级（如引擎门文案比错误表更具体，测试按文案子串匹配）。
+
 ## 验证记录
 
-（实现完成后按 WS 追加：W1 文档对齐 → W6 真 CH 三对拍 PASSED；W7 研究侧全史产物
-+ 交叉对拍一致；全量 pytest 计数。先例格式：2026-09-06 dual-backend spec 尾部。）
+- W1（2026-09-08，f82a03a docs(spec)）：1m 漏斗设计 + 计划落盘；dsl-shape §8
+  层间契约改写；interface.md/主 spec 指针。全量 2382 passed。
+- W2（23daba5 feat(data)）：load_bars_1m_codes 批读（ch 腿）+ bars_1m 数据契约
+  docstring 补正（240 网格/三态 session/0 基 minute_index/raw/元·股单位）。
+- W3（ef53905 + 84510cc fix(data) feat(engine)）：minute_ops im_*/day_* 自包含
+  分区表达式（乱序确定性 n_diff=0 锁）；折日静态门 + minute scope 门；registry
+  Literal 扩 im/day；compute.py extra_codes CL 通道注入；spec.interface 字段 +
+  日频 scope 拒分钟算子；daily amount/vol 单位实测校准（元/股）。日频 2382+
+  无回归。
+- W4（4b79e56 feat(engine)）：run_factor_minute 全链 + compute_minute_factor_
+  panel 纯入口（compute.py prepare_formula_pipeline 行为零变化抽提 + interface
+  门）。tests/test_minute_engine.py 12 绿：日频 raw 对拍（signal/labels 键集+
+  数值+null 形态全等）、停牌日剔除、chunk==整段严格全等、注入列手算对值、
+  网格双错 fail fast、qfq/池/process/duckdb/日期门、未知列报错助手、纯入口==
+  引擎面板。全量 2418 passed。
+- W5（9b18245 feat(cli)）：run 分派一处（spec.interface=="bars_1m" →
+  run_factor_minute）。CLI 分钟 e2e（CH 假库）exit 0 + summary
+  runtime_semantics/interface/grid_rows_per_day + 评估链接入；日频 CLI 零回归。
+  全量 2419 passed。
+- W6（本 commit feat(engine)）：tests/test_minute_prod_e2e.py 真 CH 三对拍
+  PASSED（2026-08-07..2026-08-21 生产库 10 交易日 × 2 code）：loader 逐
+  (code, 交易日) == CH 直连 count == 240；day_last(close) == minute_index 239
+  行 close（同 f32 源）== daily 面 raw close f64（rel ≤ 1e-5）；分钟 label ==
+  日频链同窗面板子集逐值全等（含 null 形态）；summary/产物元数据。文档收口：
+  interface.md 分钟面 API/门/修订注记同步；本规格状态翻转 + 修订记录。
+  全量 2420 passed（含新 prod e2e）。
+
