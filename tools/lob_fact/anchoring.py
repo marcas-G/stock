@@ -52,6 +52,19 @@ def _ckpt_dump(engine):
     return out
 
 
+def _ckpt_dump_band(engine):
+    """带限检查点 (W4 生产物化): 全深度簿面, 只落 in_band 档 (引擎行带同谓词),
+    (px, vol, n_queue) best-first — 状态与行带/QA 全量共用同一簿面"""
+    out = {}
+    for ev_side, key in (('B', 'bid'), ('S', 'ask')):
+        items = [(px, lv['vol'], len(lv['queue']))
+                 for px, lv in engine.books[ev_side].items()
+                 if engine.in_band(ev_side, px)]
+        items.sort(key=lambda t: -t[0] if ev_side == 'B' else t[0])
+        out[key] = items
+    return out
+
+
 def _qa_window(engine, ms, row, evs, times, absorb_ms):
     """单锚 QA: M1a 存现 / M1b rank 对齐 / M2 价集缺档+量差+ghost / δ 缺档归因
 
@@ -185,8 +198,13 @@ def fold_m6(rows, sweeps, ckpts):
 
 # ---------- driver ----------
 
-def run_day(events, snaps, full_rows=False, absorb_ms=C.ABSORB_MS):
-    """见模块 docstring。返回 rows/sweeps/engine/qa。"""
+def run_day(events, snaps, full_rows=False, absorb_ms=C.ABSORB_MS,
+            band_ckpts=False):
+    """见模块 docstring。返回 rows/sweeps/engine/qa。
+
+    band_ckpts=True: 分钟检查点落带限档 (engine.in_band: δ 对侧 best ∪ rank≤R;
+    行带同谓词, 簿面状态全深度不变); m6 行流折叠与带限检查点不可比 → 恒 'SKIP'
+    (含 full_rows 组合; fold-vs-全量检查点由 band_ckpts=False 全量 run 承担)。"""
     evs = sorted(events, key=_ev_key)
     times = [e['ms'] for e in evs]
     n_ev = len(evs)
@@ -237,7 +255,8 @@ def run_day(events, snaps, full_rows=False, absorb_ms=C.ABSORB_MS):
         cursor = idx
         if p in minutes:
             if p == C.OPEN + C.MINUTE_MS or idx > prev_cursor:
-                d = _ckpt_dump(engine)
+                d = (_ckpt_dump_band(engine) if band_ckpts
+                     else _ckpt_dump(engine))
                 d['ms'] = p
                 ckpts.append(d)
         if p <= C.M1_END and p in qa_ms:
@@ -269,7 +288,7 @@ def run_day(events, snaps, full_rows=False, absorb_ms=C.ABSORB_MS):
               m3=dict(engine.m3), m4=_m4(engine, evs), day=day,
               checkpoints=ckpts,
               m6=fold_m6(engine.events, engine.sweeps, ckpts)
-              if full_rows else 'SKIP')
+              if full_rows and not band_ckpts else 'SKIP')
     day['delta_attribution'] = (day['attributed_vol'] / missing
                                 if missing else 1.0)
     return dict(rows=engine.events, sweeps=engine.sweeps, engine=engine, qa=qa)

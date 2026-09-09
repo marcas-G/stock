@@ -109,6 +109,11 @@ class Engine:
             return None
         return max(lv) if side == 'B' else min(lv)
 
+    def in_band(self, side, px):
+        """带判定公开谓词（=_band: δ 对侧 best ±δ_pct ∪ rank≤R, 只判不改簿面）—
+        行带 (emit 抑制) 与 W4 带限检查点共用同一判定"""
+        return self._band(side, px)
+
     def order(self, oid):
         return self._orders.get(oid)
 

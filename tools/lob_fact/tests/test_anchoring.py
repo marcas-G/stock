@@ -336,3 +336,61 @@ def test_cross_gate_keeps_first_window_clean_and_identity():
     assert eng.order(1)['filled'] == 1000 and eng.order(1)['rem'] == 0
     assert eng.books['B'].get(425700) is None
     assert eng.counters['unknown_fill'] == 0
+
+
+# ---------- W4 带限检查点 (band_ckpts; 行带同谓词, 状态同全量) ----------
+def _deep_book_day():
+    """120 档 B 竞价梯 (步 100, 111000..122900, 开盘物化) + S 123100×500;
+    09:31:00.500 fill 吃尽 best 122900 (sweep); 09:31:01.500 S 加档 123200×20
+    (填充 (anchor2, 分钟2] 窗口 → 分钟 2 检查点按有行规则发)"""
+    evs = [add(i, 33_400_000, 'B', px, 10)
+           for i, px in enumerate(range(122900, 110900, -100), 1)]
+    evs += [add(200, 33_400_100, 'S', 123100, 500),
+            fill(1, OPEN + 60_500, 10, 122900),
+            add(300, OPEN + 61_500, 'S', 123200, 20)]
+    return evs
+
+
+def _deep_snaps():
+    bids = [(px, 10) for px in range(122900, 110900, -100)]
+    return [snap(OPEN, bids, [(123100, 500)]),
+            snap(OPEN + 61_000, bids, [(123100, 500)])]
+
+
+def test_banded_checkpoints_band_subset_full_state_equal():
+    """带限检查点 (band_ckpts=True): 分钟 ms 序列同全量; 每侧只含 in_band 档
+    (δ |px−对侧best| ≤ 1%×对侧best ∪ rank=双侧<px档数+1 ≤ 50;
+    手算带 = rank 带 {111000..115900} ∪ δ 带 {121900..122900} — 中段 116000..121800
+    出带不落 ckpt, 但同 (px,vol,n_queue) 在全量 ckpt 存续; sweep 后 ckpt2 无 122900;
+    windows/m4/day 与默认 run 全等 (带只抑检查点行不抑状态/QA); m6: 行流折叠 vs
+    带限检查点不比 → 恒 'SKIP' (含 full_rows 组合), 全量 ckpt 下 fold 仍逐字节 PASS"""
+    evs, snaps = _deep_book_day(), _deep_snaps()
+    band = A.run_day(evs, snaps, band_ckpts=True)
+    full = A.run_day(evs, snaps)
+    fb = A.run_day(evs, snaps, full_rows=True)
+    assert fb['qa']['m6'] == 'PASS'                      # 全量检查点 fold 逐字节 (本场景成立)
+    assert full['qa']['m6'] == 'SKIP' and band['qa']['m6'] == 'SKIP'
+    assert A.run_day(evs, snaps, full_rows=True,
+                     band_ckpts=True)['qa']['m6'] == 'SKIP'
+    cb, cf = band['qa']['checkpoints'], full['qa']['checkpoints']
+    assert [c['ms'] for c in cb] == [c['ms'] for c in cf] == \
+        [OPEN + 60_000, OPEN + 120_000]
+    assert full['qa']['windows'] == band['qa']['windows']
+    assert full['qa']['m4'] == band['qa']['m4']
+    assert full['qa']['day'] == band['qa']['day']
+    inb = {p for p in range(111000, 116000, 100)} | {p for p in range(121900, 123000, 100)}
+    for ck_b, ck_f in zip(cb, cf):
+        bd = {p: (v, n) for p, v, n in ck_b['bid']}
+        want = inb if ck_b['ms'] == OPEN + 60_000 else inb - {122900}
+        assert set(bd) == want, (ck_b['ms'], len(bd))
+        assert len(ck_f['bid']) == (120 if ck_b['ms'] == OPEN + 60_000 else 119)
+        for p, (v, n) in bd.items():
+            f = next(x for x in ck_f['bid'] if x[0] == p)
+            assert f == (p, v, n), (ck_b['ms'], p, f)
+        # 出带中段只在全量侧 (116000..121800)
+        assert {p for p, v, _ in ck_f['bid']} - set(bd) == \
+            {p for p in range(116000, 121900, 100)}
+    assert {p for p, v, n in cb[1]['bid']} == inb - {122900}   # sweep 后 δ 带 11→10
+    assert {p: v for p, v, n in cb[1]['ask']} == {123100: 500, 123200: 20}
+    assert [n for p, v, n in cb[0]['ask']] == [1]
+    assert [n for p, v, n in cb[1]['ask']] == [1, 1]

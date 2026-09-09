@@ -525,3 +525,26 @@ def test_cross_gate_skipped_leftover_identity_survives_fills_cancels():
     assert e.counters['unknown_fill'] == 0
     assert e.counters['unknown_cancel'] == 0
     assert e.books['B'].get(425700) is None       # 全程无档
+
+
+# ---------- W4 带限检查点支撑: in_band 公开谓词 (行带/检查点带共用) ----------
+
+def test_in_band_predicate_matches_rank_and_delta_edges():
+    """Engine.in_band(side, px) = _band 公开化 (W4 带限检查点与行带共用同一判定):
+    R=50/δ=1% 下 120 档 B 梯 (111000..122900, 步 100) + 唯一 S 123100:
+    δ 带 (对侧 best ±1%) 覆盖 121900-122900 (|px−123100| ≤ 1231);
+    纯 rank 带 (全簿双侧 <px 档计数 +1 ≤ R) 覆盖 111000-115900 (rank 1..50);
+    中段 116000-121800 出 δ 且 rank>50 → 出带; 出带档簿面全深度保留"""
+    evs = [dict(kind='add', ms=34_200_000 + i, side='B', price=px, qty=10,
+                id=i + 1, otype='0')
+           for i, px in enumerate(range(122900, 110900, -100))]
+    evs.append(dict(kind='add', ms=34_201_000, side='S', price=123100, qty=500,
+                    id=500, otype='0'))
+    e = Engine(rank_limit=50, delta_pct=0.01)
+    e.ingest(evs)
+    for px in (122900, 121900, 121800, 120000, 116000, 115900, 111000):
+        want = px >= 121900 or px <= 115900     # δ 上带 ∪ rank 下带
+        assert e.in_band('B', px) is want, (px, want)
+    assert e.in_band('S', 123100) is True       # δ: |123100−122900|=200 ≤ 1229
+    assert e.in_band('B', 130000) is False      # 全部双侧档下方 rank>50 且出 δ → 出带
+    assert e.level_vol('B', 120000) == 10       # 出带档状态保留 (谓词只判不剪)
