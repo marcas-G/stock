@@ -1,7 +1,8 @@
 # bars_1m 漏斗机制（Interface #2）— 设计规格
 
 日期：2026-09-08。配套计划：`docs/superpowers/plans/2026-09-08-factorlab-1m-funnel.md`。
-状态：已实现（W1-W6 完成，main 见文末验证记录；W7 研究侧批算工具独立推进）。
+状态：已实现（W1-W7 全部完成；验证记录见文末——main W1-W6，研究侧 W7 提交于
+`research` 分支 b5a963c，产物 = 全史折日特征 parquet）。
 
 ## 背景与决策
 
@@ -260,11 +261,23 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
   run_factor_minute）。CLI 分钟 e2e（CH 假库）exit 0 + summary
   runtime_semantics/interface/grid_rows_per_day + 评估链接入；日频 CLI 零回归。
   全量 2419 passed。
-- W6（本 commit feat(engine)）：tests/test_minute_prod_e2e.py 真 CH 三对拍
+- W6（dd31181 feat(engine)）：tests/test_minute_prod_e2e.py 真 CH 三对拍
   PASSED（2026-08-07..2026-08-21 生产库 10 交易日 × 2 code）：loader 逐
   (code, 交易日) == CH 直连 count == 240；day_last(close) == minute_index 239
   行 close（同 f32 源）== daily 面 raw close f64（rel ≤ 1e-5）；分钟 label ==
   日频链同窗面板子集逐值全等（含 null 形态）；summary/产物元数据。文档收口：
   interface.md 分钟面 API/门/修订注记同步；本规格状态翻转 + 修订记录。
   全量 2420 passed（含新 prod e2e）。
+- W7（research b5a963c，tools/1m_features/）：全市场折日特征批算工具 + 全史
+  产物。与平台共用 compute_minute_factor_panel 纯入口（B4.7：批算==引擎）；
+  check-day 闸门 2024-01-15 真数据交叉对拍：引擎（CH run_factor_minute 同
+  spec）× 本地 parquet 路径 5249 键，vwap30_bias/open30_amt_share 两特征
+  max|Δ| = 0.0 逐值一致；batch 单进程按月流式 + state.json 断点续跑 + del/gc
+  （实测单月峰值 RSS ≈7GB，16GB 无页面文件机建议 POLARS_MAX_THREADS=4）；
+  全史 2020-01..2026-08 共 80 月 7,721,191 行/特征（键唯一、有序、两特征文件
+  键集一致，Σ月部分 == merged）。数据缺口政策（2025-12 起 daily_fact 冻结池
+  与 bars zip 源池漂移——无当日日线键引擎同样 fail-fast 不可算）：剔除并逐月
+  计数；vwap30_bias 0/0 死盘 NaN=1176、open30_amt_share 日线 amount 洞
+  null=72（2026-06 十一 code）按 B2 保留原样 + QA 计数。README/产物文档齐。
+  平台侧（main）：全量 2420 passed 13 skipped 零回归（本文档为其最终收口）。
 
