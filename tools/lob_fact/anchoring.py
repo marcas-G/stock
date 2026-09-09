@@ -247,7 +247,7 @@ def run_day(events, snaps, full_rows=False, absorb_ms=C.ABSORB_MS,
     qa_ms = {ms for ms, _ in qa_anchors}       # O(1) 成员测试 (points×anchors 线性扫 = 数秒/日)
     prev_cursor = cursor
     for p in points:
-        if p < first_a and p not in minutes:
+        if first_a is not None and p < first_a and p not in minutes:
             continue                       # 首锚前的锚已 pre-replay (防重入)
         idx = bisect_right(times, p)
         if idx > cursor:

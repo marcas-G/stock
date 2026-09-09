@@ -298,3 +298,181 @@ def test_month_gate_empty_month_is_ok():
     """无任何锚定日 (全 vacuous) 或空列表 → ok (空池 1.0 语义), vacuous 计数正确"""
     assert R.month_gate([_dayrow('000155.SZ', 0, 0, vacuous=True)])['ok'] is True
     assert R.month_gate([])['ok'] is True
+# ---------- W4c 编排层纯函数 (guard_check / write_part) ----------
+
+def _man(n_orders=10, n_trades=5, n_snap=3, **kw):
+    return dict(n_orders=n_orders, n_trades=n_trades, n_snap=n_snap, **kw)
+
+
+def test_guard_check_matches_manifest_counts():
+    """输入守卫: 读行数 vs conversion_manifest (orders/trades/snaps) 全等才过;
+    SZ 追加 cancels_manifest n_cancels; 任一表不等 → mismatch 清单含表名 + 值;
+    代码日无 manifest 行 (读到行) → missing_manifest 桶 (不静默)"""
+    ok, mm = R.guard_check('000155.SZ', '20260803',
+                           dict(orders=10, trades=5, snaps=3, cancels=0),
+                           {'000155.SZ': {'20260803': _man()}})
+    assert ok and mm == []
+    ok, mm = R.guard_check('000155.SZ', '20260803',
+                           dict(orders=11, trades=5, snaps=3, cancels=0),
+                           {'000155.SZ': {'20260803': _man()}})
+    assert not ok and mm == [('orders', 11, 10)]
+    ok, mm = R.guard_check('600036.SH', '20260803',
+                           dict(orders=10, trades=6, snaps=3),
+                           {'600036.SH': {'20260803': _man()}})
+    assert not ok and mm == [('trades', 6, 5)]
+    ok, mm = R.guard_check('000021.SZ', '20260803',
+                           dict(orders=10, trades=5, snaps=3, cancels=8),
+                           {'000021.SZ': {'20260803': _man(n_cancels=7)}})
+    assert not ok and mm == [('cancels', 8, 7)]
+    ok, mm = R.guard_check('000333.SZ', '20260803',
+                           dict(orders=10, trades=5, snaps=3, cancels=0), {})
+    assert not ok and mm == [('missing_manifest', None, None)]
+    # 空读 (无行) 且无 manifest → 合法 (manifest 只记有源 code-day; 停牌日零行)
+    ok, mm = R.guard_check('000333.SZ', '20260803',
+                           dict(orders=0, trades=0, snaps=0, cancels=0), {})
+    assert ok and mm == []
+
+
+def test_write_part_atomic_replace_and_schema(tmp_path):
+    """date part 写盘: 唯一 tmp + fsync + os.replace; 完成后目录无 .tmp 残留;
+    覆盖重写 (断点重跑同 date) 幂等; 空表保留 schema; 返回 (path, n_rows)"""
+    import polars as pl
+    t = tmp_path / 'lob_events' / 'year=2026' / 'month=08'
+    t.mkdir(parents=True)
+    df = pl.DataFrame({'code': ['000155.SZ'] * 2, 'n': [1, 2]})
+    p1, n1 = R.write_part(t, '20260803', df, pid=999, seq=1)
+    assert p1.name == '20260803.parquet' and n1 == 2
+    assert list(t.glob('*.tmp*')) == []
+    got = pl.read_parquet(p1)
+    assert got.to_dicts() == df.to_dicts()
+    df2 = pl.DataFrame({'code': ['600036.SH'], 'n': [7]})
+    p2, n2 = R.write_part(t, '20260803', df2, pid=999, seq=2)
+    assert p2 == p1 and n2 == 1 and p1.stat().st_size > 0
+    assert pl.read_parquet(p1).to_dicts() == df2.to_dicts()
+    empty = df.head(0)
+    _, n0 = R.write_part(t, '20260804', empty, pid=999, seq=3)
+    assert n0 == 0
+    assert pl.read_parquet(t / '20260804.parquet').schema == empty.schema
+    assert pl.read_parquet(t / '20260804.parquet').height == 0
+
+
+# ---------- W4c 编排: process_date 端到端 (合成 tick_fact 迷你树; 存根必败) ----------
+
+D = date(2026, 8, 3)
+DSTR = '20260803'
+
+
+def _write_part_df(dirpath, df):
+    dirpath.mkdir(parents=True, exist_ok=True)
+    df.write_parquet(dirpath / 'part-000.parquet')
+
+
+def _mk_mini_tick(root):
+    """合成 tick_fact 迷你树 (20260803, 1 SH + 1 SZ; 每个事件都在簿上, 守恒定过):
+    SH 600036: A add(1001, B 123000x500) + D 全撤; SZ 000155: 两 add (0/U) +
+    B 侧部分成交 + 两 C 全撤。orders/trades/cancels 真实列名/schema 形状子集。"""
+    mk = lambda t, rows: _write_part_df(
+        root / t / 'year=2026' / 'month=08',
+        pl.DataFrame(rows).with_columns(pl.lit(D).alias('trade_date').cast(pl.Date)))
+    mk('orders', [
+        dict(code='600036.SH', time_ms=34201000, order_no=1, exch_order_no=1001,
+             order_type='A', bs='B', price_x10000=123000, volume=500),
+        dict(code='600036.SH', time_ms=34201050, order_no=2, exch_order_no=1001,
+             order_type='D', bs='B', price_x10000=123000, volume=500),
+        dict(code='000155.SZ', time_ms=34201000, order_no=3, exch_order_no=2001,
+             order_type='0', bs='B', price_x10000=124000, volume=800),
+        dict(code='000155.SZ', time_ms=34201010, order_no=4, exch_order_no=2002,
+             order_type='U', bs='S', price_x10000=125000, volume=300),
+    ])
+    mk('trades', [
+        dict(code='000155.SZ', time_ms=34201020, trade_no=11, bs=1,
+             price_x10000=124000, volume=200, ask_seq=0, bid_seq=2001),
+    ])
+    mk('cancels', [
+        dict(code='000155.SZ', time_ms=34201030, trade_no=21, side=0,
+             order_ref=2001, volume=600),
+        dict(code='000155.SZ', time_ms=34201040, trade_no=22, side=1,
+             order_ref=2002, volume=300),
+    ])
+    mdir = root / '_manifest'
+    mdir.mkdir(parents=True, exist_ok=True)
+    pl.DataFrame([
+        dict(code='600036.SH', trade_date=D, n_orders=2, n_trades=0, n_snap=0),
+        dict(code='000155.SZ', trade_date=D, n_orders=2, n_trades=1, n_snap=0),
+    ]).write_parquet(mdir / 'conversion_manifest.parquet')
+    pl.DataFrame([
+        dict(code='000155.SZ', trade_date=D, n_cancels=2),
+    ]).write_parquet(mdir / 'cancels_manifest.parquet')
+
+
+def test_process_date_e2e_synthetic(tmp_path):
+    """worker 端到端 (合成源): 逐 code-day 守卫过 → 重放 → 三表 date part 直写;
+    events 表 = 逐事件绝对量行 (每事件在簿 → 行数可手算: SH add+全撤 = 2,
+    SZ 2 add+1 部分成交+2 全撤 = 5); schema/列序/seq 契约; 原子 (无 .tmp 残留);
+    空 ckpt/sweep 也落盘 (schema 非退化); 重跑字节级幂等 (断点重跑比对语义)。"""
+    tick = tmp_path / 'tick'
+    lob = tmp_path / 'lob'
+    _mk_mini_tick(tick)
+    R._init_worker(dict(tick_root=str(tick), lob_root=str(lob),
+                        conv_manifest=str(tick / '_manifest' / 'conversion_manifest.parquet'),
+                        cancels_manifest=str(tick / '_manifest' / 'cancels_manifest.parquet')))
+    p = R.process_date(DSTR)
+    assert p['ok'] and p['errors'] == [] and p['n_codes'] == 2 and p['n_fail'] == 0
+    assert {r['code'] for r in p['recs']} == {'000155.SZ', '600036.SH'}
+    assert all(r['ok'] and r['gate']['ok'] and r['guard']['ok'] for r in p['recs'])
+    ev = pl.read_parquet(lob / 'lob_events' / 'year=2026' / 'month=08'
+                         / '20260803.parquet')
+    by = ev.group_by('code').agg(pl.col('kind').sort())
+    got = {r['code']: list(r['kind']) for r in by.to_dicts()}
+    # 冻结引擎契约: 整档清空 (full-level consumption) → drop → sweep 行, 不发
+    # cancel/trade 行 (W2: events = 簿面绝对量流, 档移除由 sweep_meta 承载)
+    assert got['600036.SH'] == ['add']          # D 全撤 → sweep, 无 cancel 行
+    assert got['000155.SZ'] == ['add', 'add', 'trade']   # 部分成交留行; 两 C 全撤 → sweep
+    for code, want_n in (('600036.SH', 1), ('000155.SZ', 3)):
+        sub = ev.filter(pl.col('code') == code).sort('seq')
+        assert sub.height == want_n
+        assert list(sub['seq']) == list(range(1, want_n + 1))
+        assert sub['trade_date'].to_list() == [D] * want_n
+        assert sub['time_ms'].to_list() == sorted(sub['time_ms'].to_list())
+    assert list(ev.columns) == [c for c, _ in R.COL_EVENTS]
+    sw = pl.read_parquet(lob / 'lob_sweep_meta' / 'year=2026' / 'month=08'
+                         / '20260803.parquet')
+    ck = pl.read_parquet(lob / 'lob_checkpoints' / 'year=2026' / 'month=08'
+                         / '20260803.parquet')
+    assert list(sw.columns) == [c for c, _ in R.COL_SWEEP]
+    assert list(ck.columns) == [c for c, _ in R.COL_CKPT]
+    swb = sw.group_by('code').len().sort('code')
+    assert {r['code']: r['len'] for r in swb.to_dicts()} == \
+        {'000155.SZ': 2, '600036.SH': 1}
+    assert not list((lob / 'lob_events' / 'year=2026' / 'month=08').glob('*.tmp*'))
+    p2 = R.process_date(DSTR)                     # 重跑: 字节级幂等
+    assert p2['ok']
+    for k in p['tables']:
+        assert p2['tables'][k]['sha256'] == p['tables'][k]['sha256']
+        assert p2['tables'][k]['rows'] == p['tables'][k]['rows']
+
+
+def test_process_date_guard_mismatch_blocks(tmp_path):
+    """输入守卫拒停: manifest 声明的行数 ≠ 实读 → code-day rec guard FAIL +
+    date 级总数错 → payload ok=False (有错不静默, 不落 done)"""
+    tick = tmp_path / 'tick'
+    lob = tmp_path / 'lob'
+    _mk_mini_tick(tick)
+    # 篡改: manifest 声称 SH 该日 orders=99 (源漂移模拟)
+    mf = tick / '_manifest' / 'conversion_manifest.parquet'
+    m = pl.read_parquet(mf)
+    m = m.with_columns(pl.when(pl.col('code') == '600036.SH')
+                       .then(pl.lit(99)).otherwise(pl.col('n_orders'))
+                       .alias('n_orders'))
+    m.write_parquet(mf)
+    R._init_worker(dict(tick_root=str(tick), lob_root=str(lob),
+                        conv_manifest=str(mf),
+                        cancels_manifest=str(tick / '_manifest'
+                                             / 'cancels_manifest.parquet')))
+    p = R.process_date(DSTR)
+    assert p['ok'] is False and p['n_fail'] == 1
+    sh = next(r for r in p['recs'] if r['code'] == '600036.SH')
+    assert sh['ok'] is False
+    assert ('orders', 2, 99) in sh['guard']['mismatches']
+    assert any('orders' in e for e in p['errors'])
+    assert '600036.SH' not in [r['code'] for r in p['recs'] if r['ok']]
