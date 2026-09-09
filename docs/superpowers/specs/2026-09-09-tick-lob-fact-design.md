@@ -1,7 +1,7 @@
 # tick 订单簿重建（lob_fact v1）设计规格
 
 - 日期: 2026-09-09
-- 状态: W0 完成（2026-09-10 终态全验收 ALL OK）；W1 未开工（详见文末 W 验证记录）
+- 状态: W1 完成（2026-09-10，校准 7 项证据 JSON + 校准备忘录 tools/lob_fact/notes/）；W0 终态全验收 ALL OK（详见文末 W 验证记录）
 - 关联: 前序 tick_fact 事实库（orders/trades/snapshots，13 月 74,466 code-day，76GB，QA 通过）；平台 1m 漏斗（2026-09-08-factorlab-1m-funnel-design.md）
 
 ## 1. 目标与范围
@@ -38,7 +38,7 @@
 - 簿面 = side → {price: vol} + 每档订单队列（FIFO deque + id→[vol,price] dict）；两所逐单身份级（SH A/D、SZ 0/U/C）→ 档内订单数/队序/撤单身份全精确
 - 阶段状态机（typed events）：09:15:00.02 / 09:25:00.000 / 09:30:00 / 11:30 / 13:00 / 14:57 / 15:00；竞价段只观测不重建；连续段 = 开盘快照硬基线启动
 - 事件序：(time_ms, 确定性 type 优先 tie-break)；同 ms 跨流歧义由锚定吸收
-- 重放（双所同构）：加单入队入簿；撤单（SH D / SZ C 行）按 id 幂等扣 min(量, 剩余)（部分撤单语义 W1 固化；已消耗=no-op）；成交按 ref 双侧扣（taker 不在簿=忽略）；SZ '1'/price=0 U 永不进簿；ghost 剪枝（档量归零即 del、队尸 take 清）
+- 重放（双所同构）：加单入队入簿；撤单（SH D / SZ C 行）按 id 幂等扣 min(量, 剩余)，**全撤剩余量语义（W1 校准：SZ C 100% 整单全撤 6 天零例外；SH D 98.5-99.9% full + 0.14-1.45% excess = 合并打印桶归因，partial=0；min() 为防御路径）**；已消耗=no-op+桶；成交按 ref 双侧扣 min(量,剩余)（taker 不在簿=忽略；SZ 双侧 ref 100% 可解析，SH 未知侧=taker-first 44%，fill_excess SH 系统性桶）；加单入簿按价不按类型：SZ '0'/'1'/U 价>0 与 SH A 同规则进簿，'1'/U 价=0 永不进簿（registry 保留，U 剩余经 C 行全撤）；ghost 剪枝（档量归零即 del、队尸 take 清）
 - 快照锚定 = 验证/分类/边界吸收（非撤单生产通道）：采纳前逐档比较（QA）→ 采纳逐档：引擎多→level_cancel（交叉验证：SH/SZ 均跑，对照 D/C 真值账预期≈0）；引擎少/整档差→分类桶（δ 边界/开盘衔接/同 ms 歧义/深档不可见/快照侧差）不静默补量；推导通道=QA 交叉 + cancels 缺 code-day 时的 fallback
 - 不变量计数（不崩溃）：成交价在簿价差 ±ε（M3）；消费不超残差；负残差/溢出 → 违规桶
 
@@ -65,7 +65,7 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
 | WS | 内容 | 状态 |
 |---|---|---|
 | W0 | tick_fact/cancels 增补抽取 + 双射守卫 + manifest + spec 落位 | 完成 |
-| W1 | 规格/metrics 库/金样/校准备忘录/校准集基线 | 未开工 |
+| W1 | 规格/metrics 库/金样/校准备忘录/校准集基线 | 完成 |
 | W2 | 引擎 + schema 冻结门 | 未开工 |
 | W3 | 锚定 + M1-M7 + 交叉证明 | 未开工 |
 | W4 | 批算 + 试点月 2026-08 | 未开工 |
@@ -81,7 +81,7 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
 
 ## 6. 风险与诚实标注
 
-δ 滞后（0-300ms）为快照残差主因 → 桶归因+锚定吸收，W1 实测分布，不做时戳猜算；同 ms 序歧义 tie-break+吸收；SZ 09:25-09:30 排队无源（硬基线）；SZ 部分撤单语义 W1 固化；深档无外部真值 → M6+守恒+交叉兜底；体积 tier 由 W2 实测（1.5×源上限）；W0 为 additive 变更严格不动现有文件。
+δ 滞后为快照残差主因 → 桶归因+锚定吸收；**W1 实测：消息时戳滞后前缀恰等集中 ≤150ms（1,378/1,379），吸收窗 500ms 覆盖 99%+，over 桶 4.5-8.6%（S1 自愈形态）**，不做时戳猜算；同 ms 序歧义 tie-break+吸收；SZ 09:25-09:30 排队无源（硬基线，W1 开盘排队分布入库）；**撤单量语义 W1 实测 = 全撤剩余量（SZ C 100%/SH D 98.5-99.9% full）**；深档无外部真值 → M6+守恒+交叉兜底；体积 tier 由 W2 实测（1.5×源上限）；W0 为 additive 变更严格不动现有文件。
 
 ## 7. W 验证记录
 
@@ -96,3 +96,16 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
 - **7 月整月重建**（B 格式 26 日所在月，whole-month atomic replace；--days-file 部分月方案放弃——MonthWriter 无 per-day 增量，部分月覆盖会永久截断月份）：18,932 zips、errors=0、去重前 1,010,159,372 行（重建月份与首跑叠加的阶段性双计，最终 manifest 覆盖后无重复）
 - **终态（2026-09-10 审计 ALL OK）**：cancels 13/13 月 `_SUCCESS`（仅全量模式零错误月落）、errors=0（cancels_errors.csv 仅表头）、719,218,662 行/250 工作日、sum_vol=1,103,128,881,394、manifest 逐月行数==表行数（13/13 OK）、跨月样本 raw 交叉 6/6 OK（含 B 格式日 20250822/20260706/20260210）；现有 orders/trades/snapshots 3 表 74 文件 audit 前后 size+mtime 全等（字节级未动）；0 .tmp 孤儿
 - W0 关闭。commit research 分支 tools/lob_fact/ + spec doc
+
+### W1（2026-09-10）— 校准集基线 + 金样 + memo（全验收过门）
+
+- **交付**：research tools/lob_fact/：config.py（阶段常量/校准集单点）、qa/{metrics,ledger,streams,delta}.py（纯函数）、fixtures/（loader + 8 合成金样 + 6 真实切片 + pins.sha256）、calibrate_w1.py（7 项确定性测量）、notes/w1_calibration_memo.md；tests 54 绿（W0 遗留 10 + W1 44）；金样 pin 重钉 3 文件（校准语义修正后语义与实测一致）
+- **δ 滞后实测入库**（SZ 6 code-day × rank1-5 add-only 档窗 25,376 例）：zero_lag 87.1%、over 6.3%（S1 自愈）、lag 前缀恰等 5.4% 集中 ≤150ms（bins 376/490/512，1 例 350-400ms）、>500ms 0.8%、no_exact 0.2% → 吸收窗 500ms 覆盖 99%+ 滞后；快照残差主因量化闭环
+- **撤单量语义**：SZ C 行 6 天 100% 整单全撤（339,310 行 full、partial=0、excess=0、unknown=0）；SH D 98.5-99.9% full + excess 0.14-1.45% 归因 = 合并打印 ref 量>单侧剩余（实证 762038@600184：单 200 的打印行量 500，相邻同价多单合并）→ min(qty,剩余) 防御 + SH 系统性桶（非错误）
+- **SZ ref 解析率**：撤单 ref 100%、成交 ref 双侧 100%（6 天 2.15M refs）；SH 成交 55-58%（600036@20251215 例外 100%，形态逐日差异）；SH taker-first 未知侧 42-45%
+- **开盘排队**：SZ 09:30:00.000 硬基线 6/6 精确；10 档合计 bid 5.3万-51.6万股 ask 5.3万-46.4万股/日 → anchoring 基线注入（不重建）
+- **U/'1' 边界**：type-1 96.5-99.9% 价 0 且 6 天 canceled=0（市价单无撤单 ref）；U 带价多日真实存在（u_pos 2-41）；'1'/U rem=0 恒（不过夜）→ 入簿规则 = **价>0 ⇒ 簿（类型无关）**，价=0 ⇒ registry-only
+- **2025-09 差行归因闭环**：orders+trades 各差 1 = 09:26:00.000 全零哨兵行（价 0/量 0/id 0/自然日 0，两所同构）→ tick 价=0 过滤路径，非丢失；cancels 表 0 差
+- **覆盖清单**：tick_orders==raw（除哨兵）；tick_trades==raw−C（0 差）；tick_snaps==raw 全一致；tick_cancels==raw C 全 6 SZ 天 0 差
+- **W2 引擎规则冻结**：全撤剩余量取消通道、价>0 入簿、registry 逐单、吸收窗 500ms、吞吐标杆样本 000021@20260706（66.8 万委托事件/日）
+- W1 关闭。commit research 分支（qa/tests/fixtures/calibrate/memo）+ main spec doc
