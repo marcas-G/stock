@@ -333,3 +333,195 @@ def test_band_delta_window_with_opposite_best():
     rows = [r for r in e.events if r['kind'] == 'add']
     # rank3 出 δ 窗 → 不发; rank2(123000) 在窗(200<1228) → 发
     assert {r['id'] for r in rows} == {1, 2}
+
+
+# ---------- W3 锚定支撑: 逐单账 / 残留枚举 / 开盘物化 / EOD 分桶修正 ----------
+
+def test_rec_tracks_filled_canceled_amounts():
+    """registry 逐单 filled/canceled 账（M4 身份级守恒的引擎侧输入）"""
+    evs = [
+        dict(kind='add', ms=34_200_000, side='B', price=122800, qty=1000,
+             id=1, otype='0'),
+        dict(kind='fill', ms=34_200_100, qty=300, refs=[1]),
+        dict(kind='cancel', ms=34_200_200, id=1, qty=400, side='B'),
+        dict(kind='fill', ms=34_200_300, qty=300, refs=[1]),
+    ]
+    e = Engine()
+    e.ingest(evs)
+    r = e.order(1)
+    assert r['filled'] == 600 and r['canceled'] == 400 and r['rem'] == 0
+    assert r['filled'] + r['canceled'] + r['rem'] == r['added']
+
+
+def test_registry_leftovers_auction_match_only_rem_positive_price():
+    """registry_leftovers: 只含 (竞价/撮合段, 价>0, 剩余>0) 的单 — 开盘物化候选"""
+    e = run('sz_market_u')   # id10 撤净; id11 U 价0 rem100; id12 '1'带价已吃光; id13 连续存活
+    lo = {r['id']: r for r in e.registry_leftovers()}
+    # id12/13 连续段: 排除; id11 价0: 排除; id10 rem0: 排除
+    assert lo == {}, (lo.keys())
+
+
+def test_registry_leftovers_phases_scenario():
+    """phases 场景: id1(700@122000) id2(200@123000) 竞价残留 → 物化候选; 连续单排除"""
+    e = run('phases')
+    lo = {r['id']: r for r in e.registry_leftovers()}
+    assert set(lo) == {1, 2}
+    assert lo[1]['rem'] == 700 and lo[1]['price'] == 122000
+    assert lo[2]['rem'] == 200 and lo[2]['price'] == 123000
+
+
+def test_materialize_leftovers_books_identity_fifo_invariant():
+    """开盘物化: 残留逐单入簿 (同价 FIFO=加单序), vol==Σrem, booked 翻真;
+    事件行 level_materialization prev=0 new=vol 每 (side,px) 一行"""
+    evs = scenario_events('phases') + [
+        dict(kind='add', ms=33_500_000, side='B', price=122000, qty=100,
+             id=9, otype='0')]     # 同价 122000 第二残留 → FIFO 队尾 (id1 在前)
+    e = Engine()
+    e.ingest(evs)
+    rows = e.materialize_leftovers(ms=34_200_001)
+    # 只物化 id1/id2/id9 (id1+id9 同价 122000; id2 @123000)
+    assert e.order(1)['booked'] and e.order(2)['booked'] and e.order(9)['booked']
+    st1 = e.level_state('B', 122000)
+    assert st1['vol'] == 800 and st1['orders'] == [1, 9]      # FIFO = 加单序
+    assert e.level_state('S', 123000)['vol'] == 200           # 撮合打印残留 (S 侧)
+    # level_materialization 行: 每 (side,px) 一行, prev 0 → new vol
+    mrows = [r for r in rows if r['kind'] == 'level_materialization']
+    assert {(r['side'], r['price']) for r in mrows} == {('B', 122000), ('S', 123000)}
+    m1 = next(r for r in mrows if r['price'] == 122000)
+    assert m1['prev_vol'] == 0 and m1['new_vol'] == 800 and m1['qty'] == 800
+    assert_book_consistent(e)
+
+
+def test_materialize_leaves_consumed_and_price0_unbooked():
+    """已被 09:25 撮合打印吃光 / 价=0 的 registry 单不物化; 连续段单不受影响"""
+    evs = scenario_events('sz_market_u')     # id10 竞价被撤净; id11 U 价0 rem100
+    e = Engine()
+    e.ingest(evs)
+    rows = e.materialize_leftovers(ms=34_200_001)
+    assert e.order(11)['booked'] is False     # 价0 永不入簿
+    assert e.level_vol('S', 123000) == 400    # id13 连续存活量不变
+    assert not any(r['kind'] == 'level_materialization' for r in rows)
+
+
+def test_eod_booked_leftover_counts_continuous_rem():
+    """物化后 EOD: 残留从 auction_rem 移到 continuous_rem (在簿=连续残单)"""
+    evs = scenario_events('phases')
+    a, b = Engine(), Engine()
+    a.ingest(evs); a.eod()
+    b.ingest(evs)
+    b.materialize_leftovers(ms=34_200_001)
+    b.eod()
+    assert a.eod_summary['auction_rem'] == 900          # 未物化: 900
+    assert b.eod_summary['auction_rem'] == 0
+    assert b.eod_summary['continuous_rem'] == 300 + 900  # id3/4 300 + 残留 900
+
+
+def test_fill_over_remaining_partial_gets_own_bucket():
+    """活单超量成交 (SH 合并打印同 ms 多笔超剩余类): 独立 fill_over_rem 桶 + min 消费 —
+    不吃死单 fill_excess 桶 (M4 双实现对账映射: eng excess+over == ledger excess)"""
+    e = Engine().ingest([
+        dict(kind='add', id=1, ms=34_200_100, side='B', price=122800, qty=100,
+             otype='0'),
+        dict(kind='fill', id=1, ms=34_200_200, qty=150, price=122800, refs=[1]),
+    ])
+    assert e.counters['fill_over_rem'] == 1      # 活单超量 → 独立桶
+    assert e.counters['fill_excess'] == 0        # 死单桶不误计
+    assert e.level_vol('B', 122800) == 0         # min 消费 100
+    assert e.order(1)['filled'] == 100 and e.order(1)['rem'] == 0
+
+
+def test_m3_print_legality_buckets():
+    """连续段成交打印价 vs 簿面双侧 best 分桶 (metrics.classify_trade_price 同口径,
+    eps=0): in_spread / below_bid / above_ask / no_quote; 撮合段打印不计"""
+    evs = [
+        dict(kind='add', id=1, ms=34_200_100, side='B', price=122800, qty=700,
+             otype='0'),
+        dict(kind='add', id=2, ms=34_200_200, side='B', price=122900, qty=300,
+             otype='0'),
+        dict(kind='add', id=3, ms=34_200_300, side='S', price=123100, qty=500,
+             otype='0'),
+        dict(kind='fill', id=2, ms=34_200_400, qty=60, price=122900, refs=[2]),
+        dict(kind='fill', id=4, ms=34_200_500, qty=60, price=122700, refs=[4]),  # 未知
+        dict(kind='fill', id=5, ms=34_200_600, qty=70, price=123500, refs=[5]),  # 未知
+        dict(kind='fill', id=3, ms=34_200_700, qty=500, price=123100, refs=[3]),
+        dict(kind='fill', id=6, ms=34_200_800, qty=10, price=122800, refs=[6]),  # ask 空
+        dict(kind='add', id=8, ms=33_400_000, side='B', price=122800, qty=10,
+             otype='0'),
+        dict(kind='fill', id=8, ms=33_901_000, qty=5, price=122800, refs=[8]),  # 撮合段
+    ]
+    e = Engine().ingest(evs)
+    # 逐 event 分桶: bests (122900, 123100) 下:
+    #  fill@122900 in_spread; 122700 below; 123500 above; 123100 in_spread (清 ask);
+    #  ask 空后 122800 no_quote; 撮合段(33.901M) skip — 不发任何 m3
+    assert e.m3 == dict(print_in_spread=2, print_below_bid=1,
+                        print_above_ask=1, print_no_quote=1)
+    assert e.counters['unknown_fill'] == 3       # id4/5/6 未知 (分桶不依赖 ref 解析)
+    assert e.order(8)['rem'] == 5                # 撮合段消费正常 (registry)
+    assert e.level_vol('B', 122900) == 240
+
+
+def test_materialize_row_vol_semantics_on_existing_level():
+    """物化时刻价档已被连续段早到 add 建档 (开盘突发加单与残留同价): 物化行
+    prev_vol = 既有量, new_vol = 既有+Σ残留 (行流 fold 重建簿面的绝对量契约)"""
+    e = Engine().ingest([
+        dict(kind='add', id=1, ms=33_500_000, side='B', price=122800, qty=700,
+             otype='0'),
+        dict(kind='add', id=2, ms=34_200_000, side='B', price=122800, qty=500,
+             otype='0'),                        # 连续段同价早到 add (开盘突发)
+    ])
+    rows = e.materialize_leftovers(ms=34_200_000)
+    ml = [x for x in rows if x['kind'] == 'level_materialization']
+    assert len(ml) == 1
+    assert (ml[0]['prev_vol'], ml[0]['new_vol']) == (500, 1200)
+    assert e.level_vol('B', 122800) == 1200
+    assert list(e.books['B'][122800]['queue']) == [2, 1]  # FIFO: 突发单先到先入
+
+def test_materialize_cross_gate_skips_crossed_leftovers():
+    """物化交叉闸门: 残留价越过首锚对侧 best (B px ≥ 锚 ask best / S px ≤ 锚 bid best)
+    的真实交易所开盘簿绝不携带 (开盘瞬间已消化/静默撤销 —— W3 实测 SH 600036@20251215
+    B425700×10600 与 S375700 等, SZ 000021@20260706 ask 559000×345300 均不现于
+    09:30:00.000+ 快照, 而闸门内侧同档量照常携带) → 交叉残留不入簿;
+    闸门内侧残留行为不变"""
+    e = Engine().ingest([
+        dict(kind='add', id=1, ms=33_500_000, side='B', price=425700, qty=1000,
+             otype='0'),                       # 越过 ask best 41.74 → 拦
+        dict(kind='add', id=2, ms=33_500_100, side='B', price=417200, qty=800,
+             otype='0'),                       # 内侧 → 入簿
+        dict(kind='add', id=3, ms=33_500_200, side='S', price=375700, qty=500,
+             otype='0'),                       # 低于 bid best 41.73 → 拦
+        dict(kind='add', id=4, ms=33_500_300, side='S', price=417500, qty=700,
+             otype='0'),                       # 内侧 → 入簿
+    ])
+    gate = dict(B=417400, S=417300)            # 首锚: ask best 41.74 / bid best 41.73
+    rows = e.materialize_leftovers(ms=34_200_001, cross_gate=gate)
+    assert e.order(1)['booked'] is False and e.order(3)['booked'] is False
+    assert e.order(2)['booked'] and e.order(4)['booked']
+    assert e.books['B'].get(425700) is None and e.books['S'].get(375700) is None
+    assert e.level_state('B', 417200)['vol'] == 800
+    assert e.level_state('S', 417500)['vol'] == 700
+    ml = [x for x in rows if x['kind'] == 'level_materialization']
+    assert {(x['side'], x['price']) for x in ml} == {('B', 417200), ('S', 417500)}
+    e.eod()
+    assert e.eod_summary['auction_rem'] == 1500      # 被拦残留留 registry (身份在)
+    assert e.eod_summary['continuous_rem'] == 1500   # 入簿残留归 continuous
+
+
+def test_cross_gate_skipped_leftover_identity_survives_fills_cancels():
+    """被闸门拦下的交叉残留仍保身份: 盘中成交/撤单按 id 消费 rem (不建档不入簿),
+    unknown 桶不误计 —— 身份账与簿面解耦 (W3 followup 实证: 残留单 39.9% 开盘后
+    被 fills/cancels 消费, 不可丢身份)"""
+    e = Engine().ingest([
+        dict(kind='add', id=1, ms=33_500_000, side='B', price=425700, qty=1000,
+             otype='0'),
+    ])
+    e.materialize_leftovers(ms=34_200_001, cross_gate=dict(B=417400, S=417300))
+    assert e.books['B'].get(425700) is None and e.order(1)['rem'] == 1000
+    e.ingest([
+        dict(kind='fill', id=1, ms=34_200_100, qty=400, price=417400, refs=[1]),
+        dict(kind='cancel', id=1, ms=34_210_000, qty=600),
+    ])
+    assert e.order(1)['filled'] == 400 and e.order(1)['canceled'] == 600
+    assert e.order(1)['rem'] == 0 and e.order(1)['booked'] is False
+    assert e.counters['unknown_fill'] == 0
+    assert e.counters['unknown_cancel'] == 0
+    assert e.books['B'].get(425700) is None       # 全程无档

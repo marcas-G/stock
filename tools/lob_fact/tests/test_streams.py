@@ -69,6 +69,9 @@ def test_sz_trades_cancel_and_fill_events():
     assert evs[1]['id'] == 4456
     assert (evs[2]['id'], evs[3]['id']) == (36335, 4456)  # fill 双侧
     assert evs[2]['qty'] == 100
+    # M3 前提: fill 事件携带成交价格 (打印价合法性分桶的输入)
+    assert evs[2]['price'] == 122800 and evs[3]['price'] == 122800
+    assert 'price' not in evs[0]               # 撤单事件无价 (取消行价=0 不上传)
 
 
 def test_sz_trades_guards_count():
@@ -110,4 +113,5 @@ def test_sh_trades_both_refs_consumed():
     evs, g = S.sh_trades_events(df)
     assert [(e['kind'], e['id'], e['qty']) for e in evs] == [
         ('fill', 216713, 100), ('fill', 233327, 100), ('fill', 216714, 50)]
+    assert [e['price'] for e in evs] == [160000, 160000, 160100]  # M3 输入
     assert g['n_zero_ref'] == 0

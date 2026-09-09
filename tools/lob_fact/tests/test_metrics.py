@@ -91,6 +91,31 @@ def test_ladder_match_rate_stub_defeat():
     assert [r['cls'] for r in res['ranks']] == ['match', 'adjacent', 'missing']
 
 
+# ---------- M1a 档位存现率（锚档价在引擎全深度档集的存现; W3 校准门语义） ----------
+
+def test_px_presence_shifted_extra_still_full():
+    """best-edge extra（快照价域外, ghost 不算的悖论窗类）使 rank 全换位 (n_match=0)
+    但锚档价全部存现 → 存现率 ≠ rank 对齐率 (fast-day δ 瞬态不误伤; M1b 诊断由 M1a 补齐)"""
+    anchor = [(122900, 300), (122800, 700)]
+    engine = [(123000, 500), (122900, 300), (122800, 700)]
+    assert mt.px_presence(anchor, engine) == 2
+    assert mt.ladder_match(anchor, engine)['n_match'] == 0
+
+
+def test_px_presence_counts_true_absence():
+    """引擎真缺档（消息不可达）→ 逐档减 1; 同价量差不影响存现 (量差归 M2 vol_delta)"""
+    anchor = [(122900, 300), (122800, 700), (122700, 100)]
+    engine = [(122900, 999), (122700, 100)]
+    assert mt.px_presence(anchor, engine) == 2
+
+
+def test_px_presence_empty_engine_zero():
+    """空簿 → 0（存根恒返 n_anchor 必败: 真丢整段消息的引擎 presence 崩至 0）"""
+    assert mt.px_presence([(122800, 700)], []) == 0
+    assert mt.px_presence([], [(122800, 700)]) == 0
+    assert mt.px_presence([], []) == 0
+
+
 # ---------- M2 量相等: 命中档量差与 ghost（引擎在 anchor 价域内的多余价档） ----------
 
 def test_vol_delta_on_matched_ranks():

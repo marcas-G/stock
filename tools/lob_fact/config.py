@@ -22,6 +22,11 @@ OPEN = 34_200_000            # 09:30:00.000（SZ 硬基线）
 LUNCH_END = 46_800_000       # 13:00:00.000
 CLOSE = 54_000_000           # 15:00:00.000
 
+# ---- 锚定 (W3 冻结) ----
+M1_END = CLOSE - 180_000     # QA 核心段止于 14:57:00 (SZ 收盘集合竞价窗口不测)
+ABSORB_MS = 500              # δ 滞后吸收窗 (W1: 消息时戳晚于簿面生效 0-300ms, 500ms 覆盖 99%+)
+MINUTE_MS = 60_000           # 分钟检查点步长
+
 # ---- 源布局 ----
 QUARK_ROOT = '/data/students/gaolei/stock/quark_downloaded/'
 TICK_FACT_ROOT = '/data/students/gaolei/stock/tick_fact/'

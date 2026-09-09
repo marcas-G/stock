@@ -2,7 +2,8 @@
 
 口径（规格 §3.3）：
 - 全整数价（×10000 units），1 tick = 100 units（config.TICK_UNITS）
-- M1 价梯: rank 对齐逐档分类 match/missing/adjacent/deep；rate=命中 anchor 档/总 anchor 档
+- M1a 存现率（门, W3 校准语义）: 锚档价在引擎全深度档集存现数/锚档数
+- M1b 价梯（诊断, W1 口径）: rank 对齐逐档分类 match/missing/adjacent/deep；rate=命中 anchor 档/总 anchor 档
 - M2 量: 命中档 vol_delta；ghost = 引擎在 anchor 价域内的多余价档（采纳后应=0）
 - M3 打印合法性: 成交价 ∈ [best_bid−ε, best_ask+ε]，单侧空 → no_quote（桶计数非硬 FAIL）
 
@@ -82,6 +83,17 @@ def match_summary(results: dict) -> dict:
     n_a = sum(r['n_anchor'] for r in results.values())
     n_m = sum(r['n_match'] for r in results.values())
     return dict(n_anchor=n_a, n_match=n_m, rate=(n_m / n_a) if n_a else 1.0)
+
+
+def px_presence(anchor, engine) -> int:
+    """锚档按价存现数: anchor 档价在引擎档集（任意深度 rank）中的档数（M1a 存现率分子）
+
+    与 rank 对齐率正交: best-edge extra 换位（快照价域外 → ghost 不算的悖论窗类）
+    使 n_match 崩但存现不减; 引擎真缺档（消息不可达/丢段）才逐档减 1。
+    stub-defeat: 逐档价集比较; 恒返 len(anchor) 的存根在空引擎上必败。
+    """
+    epx = {p for p, _ in engine}
+    return sum(1 for p, _ in anchor if p in epx)
 
 
 # ---------- M2 ghost ----------

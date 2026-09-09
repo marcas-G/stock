@@ -31,8 +31,11 @@ from collections import deque
 import config as C
 
 _KIND_PRIO = {'add': 0, 'fill': 1, 'cancel': 2}
-_COUNTERS = ('unknown_fill', 'fill_excess', 'unknown_cancel', 'cancel_excess',
-             'dup_add', 'zero_ref_fill', 'unknown_kind')
+_COUNTERS = ('unknown_fill', 'fill_excess', 'fill_over_rem', 'unknown_cancel',
+             'cancel_excess', 'dup_add', 'zero_ref_fill', 'unknown_kind')
+_M3_BUCKETS = ('print_in_spread', 'print_below_bid', 'print_above_ask',
+               'print_no_quote')
+_M3_EPS = C.EPS_TICKS * C.TICK_UNITS        # M3 ε = 1 tick (×10000 units)
 
 
 class Engine:
@@ -45,6 +48,7 @@ class Engine:
         self._px = {'B': [], 'S': []}     # 双侧活档价排序列表（rank 计档用）
         self._orders = {}                 # oid → rec（registry；簿内外全含）
         self.counters = {k: 0 for k in _COUNTERS}
+        self.m3 = {k: 0 for k in _M3_BUCKETS}   # M3 打印价合法性桶 (逐 fill 事件, 仅连续段)
         self.events = []                  # 事件行（band 抑制后）
         self.sweeps = []                  # 档耗尽稀疏行（尾单 id + 残余）
         self.eod_summary = {'auction_rem': 0, 'continuous_rem': 0, 'unbooked_rem': 0}
@@ -179,7 +183,8 @@ class Engine:
         booked = px > 0 and ph == 'continuous'
         self._orders[oid] = dict(id=oid, ms=ms, side=side, price=px, qty=qty,
                                  added=qty, otype=ev.get('otype'), phase=ph,
-                                 rem=qty, booked=booked)
+                                 rem=qty, booked=booked,
+                                 filled=0, canceled=0)      # M4 逐单账
         lv = self.books[side].get(px)
         prev_vol = lv['vol'] if lv else 0
         if booked:
@@ -212,6 +217,19 @@ class Engine:
         ms = ev['ms']
         qty = ev['qty']
         ph = self._phase(ms)
+        # M3 打印合法性 (连续段 + 带价才分桶; eps = 1 tick, qa.metrics 同口径):
+        # 消费前对簿面双侧 best 分类 — 打印价的合法性独立于 ref 可解析性
+        px = ev.get('price')
+        if px and ph == 'continuous':
+            bb, ba = self._best['B'], self._best['S']
+            if bb is None or ba is None:
+                self.m3['print_no_quote'] += 1
+            elif px < bb - _M3_EPS:
+                self.m3['print_below_bid'] += 1
+            elif px > ba + _M3_EPS:
+                self.m3['print_above_ask'] += 1
+            else:
+                self.m3['print_in_spread'] += 1
         # 双形态: 金样 refs 列表 / streams 单 ref 事件 (bid/ask 各一条 fill, id=ref)
         refs = ev.get('refs')
         if refs is None:
@@ -228,8 +246,12 @@ class Engine:
             if rec['rem'] == 0:
                 self.counters['fill_excess'] += 1     # 已全消单的成交 ref（防御桶）
                 continue
+            if qty > rec['rem']:
+                self.counters['fill_over_rem'] += 1   # 活单超量（SH 合并打印同 ms 类）—
+                # min 消费, 与死单 fill_excess 分桶 (M4 映射: eng excess+over == ledger)
             c = qty if qty <= rec['rem'] else rec['rem']
             rec['rem'] -= c
+            rec['filled'] += c
             if rec['booked']:
                 side, px = rec['side'], rec['price']
                 lv = self.books[side][px]
@@ -261,6 +283,7 @@ class Engine:
             return
         c = qty if qty <= rec['rem'] else rec['rem']
         rec['rem'] -= c
+        rec['canceled'] += c
         if rec['booked']:
             side, px = rec['side'], rec['price']
             lv = self.books[side][px]
@@ -288,14 +311,75 @@ class Engine:
             self._best[side] = (max(lv) if lv else None) if side == 'B' else \
                 (min(lv) if lv else None)
 
+    def registry_leftovers(self):
+        """开盘物化候选: 竞价/撮合段残留 (价>0, 剩余>0, 未入簿)，按加单序 (dict 插序)"""
+        for rec in self._orders.values():
+            if (not rec['booked'] and rec['rem'] > 0 and rec['price'] > 0
+                    and rec['phase'] in ('auction', 'match')):
+                yield rec
+
+    def materialize_leftovers(self, ms, cross_gate=None):
+        """开盘物化（anchoring 调用）: registry 竞价残留逐单入簿（身份保留, 同价 FIFO=加单序,
+        物化前已建档的突发单在前——确定性 tie-break），返回新增事件行
+        (kind=level_materialization, 每 (side,px) 一行: prev_vol=既有档量(无=0),
+        new_vol=物化后最终档量=既有+Σ残留——行流 fold 重建簿面的绝对量契约)。
+        已被撮合打印吃光/价=0/连续段单不触碰。物化后 EOD 归 continuous_rem。
+
+        cross_gate: 首锚对侧 best 闸门 {side: 价}（B=锚 ask best, S=锚 bid best）——
+        残留价越过对侧 best (B px ≥ gate['B'] / S px ≤ gate['S']) 的交叉档真实交易所
+        开盘簿绝不携带 (开盘瞬间已消化或静默撤销; W3 实测 SH 600036@20251215
+        B425700×10600 与 S375700 系, SZ 000021@20260706 ask 559000×345300 均不现于
+        09:30:00.000+ 任何快照, 而闸门内侧同档照常携带) → 不入簿但**保留 registry
+        身份**: 后续 fills/cancels 仍按 id 消费 rem (followup 实证), unknown 桶不误计,
+        EOD 归 auction_rem。"""
+        if not any(self.registry_leftovers()):
+            return []
+        ph = self._phase(ms)
+        agg = {}                       # (side, px) → {prev_vol: 首触时既有档量, qty: Σ残留}
+        rows = []
+        for rec in self.registry_leftovers():
+            side, px = rec['side'], rec['price']
+            lim = (cross_gate or {}).get(side)
+            if lim is not None and (px >= lim if side == 'B' else px <= lim):
+                continue               # 交叉残留: 不入簿 (对侧 best 闸门), 身份保留
+            a = agg.get((side, px))
+            if a is None:
+                lv0 = self.books[side].get(px)
+                a = agg[(side, px)] = dict(prev_vol=lv0['vol'] if lv0 else 0,
+                                           qty=0)
+            lv = self.books[side].get(px)
+            if lv is None:
+                lv = {'vol': 0, 'queue': deque()}
+                self.books[side][px] = lv
+                insort(self._px[side], px)
+                n = len(self.books['B']) + len(self.books['S'])
+                if n > self.stats['max_levels']:
+                    self.stats['max_levels'] = n
+                b = self._best[side]
+                if b is None or (px > b if side == 'B' else px < b):
+                    self._best[side] = px
+            lv['queue'].append(rec['id'])
+            if len(lv['queue']) > self.stats['max_queue']:
+                self.stats['max_queue'] = len(lv['queue'])
+            lv['vol'] += rec['rem']
+            a['qty'] += rec['rem']
+            rec['booked'] = True
+        for (side, px), a in agg.items():
+            vol = self.books[side][px]['vol']      # 最终档量（物化循环后读, 无交叠）
+            rows.append(dict(kind='level_materialization', ms=ms, side=side,
+                             price=px, phase=ph, qty=a['qty'],
+                             prev_vol=a['prev_vol'], new_vol=vol))
+        self.events.extend(rows)
+        return rows
+
     def eod(self):
-        """EOD 结算：registry 残单按加单阶段/入簿分桶（不变量: 连续段入簿残单 == 簿面总量）"""
+        """EOD 结算：registry 残单按入簿/阶段分桶（不变量: 连续段+物化入簿残单 == 簿面总量）"""
         auc = cont = unbook = 0
         for rec in self._orders.values():
-            if rec['phase'] in ('auction', 'match'):
-                auc += rec['rem']
-            elif rec['booked']:
+            if rec['booked']:
                 cont += rec['rem']
+            elif rec['phase'] in ('auction', 'match'):
+                auc += rec['rem']
             else:
                 unbook += rec['rem']
         self.eod_summary = {'auction_rem': auc, 'continuous_rem': cont,

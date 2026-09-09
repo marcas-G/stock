@@ -69,7 +69,9 @@ def probe(code, day):
     if snap_ms is None:
         return dict(code=code, day=day, error='no snap >= OPEN')
     n_ord, cb, ca = carryover(code, day, snap_ms)
-    res = dict(code=code, day=day, snap_ms=snap_ms, n_carryover_orders=n_ord)
+    res = dict(code=code, day=day, snap_ms=snap_ms, n_carryover_orders=n_ord,
+               anchor={'bid': ab[:14], 'ask': aa[:14]},
+               carry={'bid': cb[:14], 'ask': ca[:14]})
     for side, anchor, carry in (('bid', ab, cb), ('ask', aa, ca)):
         m = mt.ladder_match(anchor, carry)
         res[f'{side}_match'] = dict(n_anchor=m['n_anchor'], n_match=m['n_match'],

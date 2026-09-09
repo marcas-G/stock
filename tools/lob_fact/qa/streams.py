@@ -68,12 +68,13 @@ def sz_trades_events(df: pd.DataFrame):
             if bid == 0 and ask == 0:
                 guards['n_zero_ref'] += 1
                 continue
+            px = int(r.成交价格)                  # M3: fill 附成交价 (打印合法性输入)
             if bid > 0:
                 evs.append(dict(kind=KIND_FILL, ms=ms, id=bid, qty=qty,
-                                side='B'))
+                                side='B', price=px))
             if ask > 0:
                 evs.append(dict(kind=KIND_FILL, ms=ms, id=ask, qty=qty,
-                                side='S'))
+                                side='S', price=px))
     return evs, guards
 
 
@@ -111,8 +112,11 @@ def sh_trades_events(df: pd.DataFrame):
         if bid == 0 and ask == 0:
             guards['n_zero_ref'] += 1
             continue
+        px = int(r.成交价格)                      # M3: fill 附成交价
         if bid > 0:
-            evs.append(dict(kind=KIND_FILL, ms=ms, id=bid, qty=qty, side='B'))
+            evs.append(dict(kind=KIND_FILL, ms=ms, id=bid, qty=qty, side='B',
+                            price=px))
         if ask > 0:
-            evs.append(dict(kind=KIND_FILL, ms=ms, id=ask, qty=qty, side='S'))
+            evs.append(dict(kind=KIND_FILL, ms=ms, id=ask, qty=qty, side='S',
+                            price=px))
     return evs, guards
