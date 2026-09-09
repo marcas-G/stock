@@ -7,6 +7,7 @@ import typer
 from rich.console import Console
 
 from factorlab import __version__
+from factorlab.catalog import catalog_json, render_catalog_markdown
 from factorlab.config import settings
 from factorlab.data.fetcher import TeaJoinClient
 from factorlab.data.platform_db import PlatformDB
@@ -85,6 +86,8 @@ def op_remove(name: str) -> None:
 
 data_app = typer.Typer(no_args_is_help=True)
 app.add_typer(data_app, name="data")
+catalog_app = typer.Typer(no_args_is_help=True)
+app.add_typer(catalog_app, name="catalog")
 
 
 def _staging_db() -> PlatformDB:
@@ -125,11 +128,16 @@ def run_factor_cli(
     backtest: bool = True,
     groups: int = typer.Option(10, min=2),
     set_params: list[str] = typer.Option(None, "--set", help="覆盖 spec.params（k=v，可多次，生成 name_kv 变体）"),
+    chunk_days: int | None = typer.Option(None, "--chunk-days", min=1,
+                                          help="日期分块（交易日/块；缺省=单块整段跑）"),
+    warmup_days: int | None = typer.Option(None, "--warmup-days", min=0,
+                                           help="TS 窗口预热天数（缺省=按公式自动提取窗口+20）"),
 ) -> None:
     """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
     --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
     --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。"""
-    from factorlab.engine.compute import RunContext, run_factor as run_impl
+    from factorlab.engine.compute import RunContext, run_factor
+    from factorlab.engine.minute import run_factor_minute
     from factorlab.eval.alignment import align_weekly
     from factorlab.eval.layered import layered_backtest
     from factorlab.eval.rust_ic import evaluate_factor_weekly
@@ -156,22 +164,50 @@ def run_factor_cli(
         output_dir=output_dir or (settings.results_dir / variant),
         universe_override=universe or settings.default_universe,
         float32=float32,
+        chunk_days=chunk_days,
+        warmup_days=warmup_days,
     )
     # load_daily 在调用时读取 settings.default_max_memory——临时覆盖并在结束后恢复
     original_memory = settings.default_max_memory
     settings.default_max_memory = max_memory
+    # W5 分派：分钟面 spec（interface: bars_1m）走分钟链 run_factor_minute（折日
+    # 面板与日频同列契约，下方评估/分层回测零改动复用）；日频 spec 走原 run_factor。
+    run_impl = run_factor_minute if spec.interface == "bars_1m" else run_factor
     try:
-        if spec.target != "forward_return_5d":
-            console.print(f"提示: quant_core 当前固定评估 forward_return_5d（spec.target={spec.target} 暂未接线，后续里程碑处理）")
         result = run_impl(spec, ctx)
-        # 周频对齐面板：评估与分层回测的实际输入（evaluate_factor_weekly 内部重复对齐——YAGNI 不优化）
+        # 周频对齐面板：评估与分层回测的实际输入（对齐一次，复用给评估——
+        # 千万行面板重复对齐在低内存机器上 segfault）
         weekly = align_weekly(result.panel)
-        evaluation = evaluate_factor_weekly(result.panel, spec.name, spec.direction)
-        if backtest:
-            bt = layered_backtest(weekly, spec.direction, n_groups=groups)
-            evaluation["layered_backtest"] = bt
-            if bt.get("empty_groups"):
-                console.print(f"提示: 档位 {bt['empty_groups']} 全期无股票——universe 过小或 --groups 过大")
+        # 多输出（outputs != ["signal"]）：逐输出独立评估（dsl-shape §3.2 收口）——
+        # outputs == ["signal"]（legacy）保持顶层结构逐键不变；多输出 → 顶层仅
+        # {"outputs": {o: 评估 dict}}；outputs 含字面 "signal" 是一等输出（无隐式主信号）
+        outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
+        if outputs == ["signal"]:
+            evaluation = evaluate_factor_weekly(result.panel, spec.name, spec.direction,
+                                                target=spec.target, weekly=weekly)
+            if backtest:
+                bt = layered_backtest(weekly, spec.direction, n_groups=groups,
+                                      forward_col=spec.target)
+                evaluation["layered_backtest"] = bt
+                if bt.get("empty_groups"):
+                    console.print(f"提示: 档位 {bt['empty_groups']} 全期无股票——universe 过小或 --groups 过大")
+        else:
+            # per-output 面板：周频对齐结果里取该输出列（date/code/o/target）→ 归一 signal
+            evaluation = {"outputs": {}}
+            for o in outputs:
+                p = weekly.select(["date", "code", o, spec.target])
+                if o != "signal":  # 字面 signal 输出：列名已就绪，rename 会自撞
+                    p = p.rename({o: "signal"})
+                ev_o = evaluate_factor_weekly(p, spec.name, spec.direction,
+                                              target=spec.target, weekly=p)
+                if backtest:
+                    bt = layered_backtest(p, spec.direction, n_groups=groups,
+                                          forward_col=spec.target)
+                    ev_o["layered_backtest"] = bt
+                    if bt.get("empty_groups"):
+                        console.print(f"提示: 输出 {o} 档位 {bt['empty_groups']} "
+                                      "全期无股票——universe 过小或 --groups 过大")
+                evaluation["outputs"][o] = ev_o
     except (ValueError, FileNotFoundError, FactorDSLError) as exc:
         console.print(f"错误: {exc}")
         raise typer.Exit(code=1) from exc
@@ -182,9 +218,15 @@ def run_factor_cli(
     weekly.write_parquet(ctx.output_dir / "weekly.parquet")  # 周频对齐面板（替代原日频冗余）
     (ctx.output_dir / "summary.json").write_text(
         json.dumps(result.summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-    ic = evaluation.get("ic", {})
-    console.print(f"{variant}: n_weeks={evaluation.get('n_weeks')} "
-                  f"ic_mean={ic.get('mean')} spread={evaluation.get('decile_returns', {}).get('spread', {}).get('ret')}")
+    if outputs == ["signal"]:
+        ic = evaluation.get("ic", {})
+        console.print(f"{variant}: n_weeks={evaluation.get('n_weeks')} "
+                      f"ic_mean={ic.get('mean')} spread={evaluation.get('decile_returns', {}).get('spread', {}).get('ret')}")
+    else:
+        for o, ev_o in evaluation["outputs"].items():  # 逐输出一行（legacy 行同型）
+            ic = ev_o.get("ic", {})
+            console.print(f"{variant}__{o}: n_weeks={ev_o.get('n_weeks')} "
+                          f"ic_mean={ic.get('mean')} spread={ev_o.get('decile_returns', {}).get('spread', {}).get('ret')}")
 
 
 def _run_at(summary: dict, summary_path: Path) -> tuple[str, float]:
@@ -215,9 +257,25 @@ def list_factors() -> None:
             continue  # 损坏/不可读的 summary 跳过
         ev = summary.get("evaluation", {})
         run_at, sort_key = _run_at(summary, summary_path)
+        # 目录名优先可区分变体（变体目录 summary.name 是基础名）
+        base_name = (summary_path.parent.name if summary_path.parent.name != summary.get("name")
+                     else summary.get("name"))
+        per_outputs = ev.get("outputs") if isinstance(ev, dict) and isinstance(ev.get("outputs"), dict) else None
+        if per_outputs:
+            # 多输出：逐输出一行（因子名__输出名；evaluation.outputs 声明序）
+            for o, ev_o in per_outputs.items():
+                rows.append({
+                    "name": f"{base_name}__{o}",
+                    "category": summary.get("category", ""),
+                    "direction": summary.get("direction", ""),
+                    "ic_mean": ev_o.get("ic", {}).get("mean"),
+                    "spread": ev_o.get("decile_returns", {}).get("spread", {}).get("ret"),
+                    "run_at": run_at,
+                    "_sort": sort_key,
+                })
+            continue
         rows.append({
-            # 变体目录（name_kv）的 summary.name 是基础名——目录名优先可区分
-            "name": summary_path.parent.name if summary_path.parent.name != summary.get("name") else summary.get("name"),
+            "name": base_name,
             "category": summary.get("category", ""),
             "direction": summary.get("direction", ""),
             "ic_mean": ev.get("ic", {}).get("mean"),
@@ -251,6 +309,16 @@ def show_factor(name: str) -> None:
                   f"{summary.get('date_start')} ~ {summary.get('date_end')} | "
                   f"rows={summary.get('panel_rows')} | null_ratio={summary.get('signal_null_ratio')}")
     ev = summary.get('evaluation', {})
+    per_outputs = ev.get("outputs") if isinstance(ev, dict) and isinstance(ev.get("outputs"), dict) else None
+    if per_outputs:
+        # 多输出：逐输出块（缺键 None/无 → 显示语义字段，不崩）
+        for o, ev_o in per_outputs.items():
+            console.print(f"输出: {o}")
+            console.print(f"  IC: {ev_o.get('ic')}")
+            console.print(f"  十分位 spread: {ev_o.get('decile_returns', {}).get('spread')}")
+            console.print(f"  换手: {ev_o.get('turnover')} | 覆盖: {ev_o.get('coverage')}")
+            console.print(f"  分层回测: {ev_o.get('layered_backtest', {}).get('summary', '无')}")
+        return
     console.print(f"IC: {ev.get('ic')}")
     console.print(f"十分位 spread: {ev.get('decile_returns', {}).get('spread')}")
     console.print(f"换手: {ev.get('turnover')} | 覆盖: {ev.get('coverage')}")
@@ -319,6 +387,30 @@ def data_verify(compare: Path | None = None) -> None:
     console.print(report)
 
 
+@catalog_app.command("dump")
+def catalog_dump(out: Path | None = typer.Option(None, "--out",
+                                                 help="输出文件路径（缺省打 stdout）")) -> None:
+    """机器可读目录 JSON（schema 元数据同源生成——写因子的 AI 开写前阅读）。"""
+    payload = catalog_json()
+    if out is None:
+        typer.echo(payload)  # 原样输出：rich console 会折行破坏 JSON
+    else:
+        out.write_text(payload, encoding="utf-8")
+        console.print(f"catalog JSON 已写入 {out}")
+
+
+@catalog_app.command("docs")
+def catalog_docs(out: Path | None = typer.Option(None, "--out",
+                                                 help="输出文件路径（缺省打 stdout）")) -> None:
+    """目录正文 markdown（与 docs/catalog.md 同源生成——活文档防陈旧）。"""
+    payload = render_catalog_markdown()
+    if out is None:
+        typer.echo(payload)
+    else:
+        out.write_text(payload, encoding="utf-8")
+        console.print(f"catalog 正文已写入 {out}")
+
+
 @app.command("corr")
 def corr_factors(names: list[str] = typer.Argument(...)) -> None:
     """因子两两相关性：周度横截面秩相关均值 + 全局 Pearson。
@@ -370,6 +462,50 @@ def svd_factors(names: list[str] = typer.Argument(None),
         ranked = sorted(loadings, key=lambda x: abs(x[pc]), reverse=True)[:5]
         parts = ", ".join(f"{x['name']}({x[pc]:+.2f})" for x in ranked)
         console.print(f"  {pc}: {parts}")
+
+
+@app.command("resic")
+def resic_factors(
+    names: list[str] = typer.Argument(...,
+        help="因子名（results/<name>/panel.parquet）；互评模式 ≥2，--target 模式 ≥1"),
+    target: str | None = typer.Option(None, "--target",
+        help="目标因子（对基准组求正交化残差 IC）；缺省=组内轮流互评"),
+    min_stocks: int = typer.Option(None, "--min-stocks", min=3,
+        help="每周最少股票数（缺省 30；自动与基准数+2 取大）"),
+) -> None:
+    """横截面联合诊断：整组联合回归 R² + 每因子正交化残差 IC（resIC）。
+
+    用法: factorlab resic <name1> <name2> [<name3>...] [--target <名>]
+    组内互评（缺省）：每个因子轮流当候选、其余因子当基准，输出每因子的
+    resIC（候选对基准 OLS 残差的周频 rankIC——剔除与基准重叠后的净新增
+    预测力）与整组联合回归 R²。--target <名>：只评估该候选相对显式基准组。
+    近共线（相关≈0.9999）会放大 resIC 数值噪声——建议先跑 factorlab corr / svd。
+    """
+    from factorlab.eval.cross_section import joint_diagnostics
+
+    try:
+        r = joint_diagnostics(names, settings.results_dir, target=target,
+                              min_stocks=min_stocks or 30)
+    except (ValueError, FileNotFoundError) as exc:
+        console.print(f"错误: {exc}", style="red")
+        raise typer.Exit(code=1)
+
+    def _num(x: float) -> str:
+        return "nan" if x != x else f"{x:.4f}"
+
+    group_names = names if target is None else names
+    head = "组联合回归" if target is None else "基准组回归"
+    g = r["group"]
+    obs = "nan" if g["obs"] != g["obs"] else f"{g['obs']:.0f}"
+    console.print(f"{head}（fwd~{' '.join(group_names)}, {g['n_weeks']} 周）: "
+                  f"R² = {_num(g['mean'])} （周均样本 {obs}）")
+    console.print("正交化残差 IC（每周 F~基准 OLS 残差 vs fwd）:")
+    console.print(f"  {'因子':<10}{'resIC':>10}{'t值':>10}{'有效周':>7}{'被基准解释R²':>13}")
+    for f in r["factors"]:
+        base = "" if target is None else f"   基准: {', '.join(f['base'])}"
+        console.print(
+            f"  {f['name']:<10}{_num(f['mean']):>10}{_num(f['t_stat']):>10}"
+            f"{f['n_weeks']:>7}{_num(f['r2_absorbed']):>13}{base}")
 
 
 @app.command("serve")

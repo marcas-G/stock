@@ -10,8 +10,14 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # 平台库为唯一数据源（项目自包含，不依赖任何外部只读库）
-    platform_db: Path = Path("data/factorlab.duckdb")
+    # 读路径数据源：duckdb=平台库（默认，写路径同库）；ch=ClickHouse（tools/ch_ingest 灌入的事实库）
+    data_backend: str = "duckdb"  # "duckdb" | "ch"（FACTORLAB_DATA_BACKEND）
+    platform_db: Path = Path("data/factorlab.duckdb")  # duckdb 后端读 + 写路径（data rebuild/refresh）
+    ch_host: str = "127.0.0.1"
+    ch_port: int = 8123  # clickhouse-connect 走 HTTP；tcp 19000 是 clickhouse client 用
+    ch_user: str = "default"
+    ch_password: str = ""
+    ch_database: str = "factorlab"
     plugin_dir: Path = Path.home() / ".factorlab" / "plugins"
     teajoin_base_url: str = "https://teajoin.com"  # 根路径；/g 为文档页
     teajoin_token: str = ""

@@ -135,3 +135,29 @@ def test_layered_backtest_single_week():
     result = layered_backtest(_weekly_panel(weeks=1), direction=1)
     assert result["periods"] == 1
     assert all(len(v) == 1 for v in result["net_values"].values())
+
+
+def _dual_panel_single_week():
+    """单周双股：forward_return_5d 与 20d 数值可区分（20d 档收益放大 2.5 倍）。"""
+    return pl.DataFrame({
+        "date": [datetime.date(2024, 1, 5), datetime.date(2024, 1, 5)],
+        "code": ["000001", "000002"],
+        "signal": [1.0, 0.9],  # 2 只，n_groups=2 → 各 1 只
+        "forward_return_5d": [0.02, 0.01],
+        "forward_return_20d": [0.05, 0.03],
+    })
+
+
+def test_layered_backtest_forward_col_20d():
+    # spec.target=forward_return_20d → 分层收益取 20d 列（固定 5d 的存根/旧实现必败）
+    result = layered_backtest(_dual_panel_single_week(), direction=1, n_groups=2,
+                              forward_col="forward_return_20d")
+    assert result["net_values"]["D1"][-1] == 1.05  # 最高档 = signal 1.0 → 20d ret 0.05
+    assert result["net_values"]["D2"][-1] == 1.03
+
+
+def test_layered_backtest_default_forward_col_is_5d():
+    # 默认路径回归：同一面板不带 forward_col → 仍取 forward_return_5d
+    result = layered_backtest(_dual_panel_single_week(), direction=1, n_groups=2)
+    assert result["net_values"]["D1"][-1] == 1.02
+    assert result["net_values"]["D2"][-1] == 1.01

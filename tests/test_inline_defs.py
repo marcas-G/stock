@@ -235,6 +235,18 @@ signal = f(x=close, n=20)
         inline_defs(src)
 
 
+def test_inline_def_varargs_kwonly_rejected():
+    """*args/**kwargs/kwonly 形参 def 一律拒绝（形参绑定无法内联展开——
+    vararg 数量任意、kwonly 与位置实参错位，静默展开会绑定错误变量）。"""
+    for bad in (
+        'def f(x, *args):\n    return x + args\n\nsignal = f(close, 1)',
+        'def f(x, **kwargs):\n    return x\n\nsignal = f(close, n=1)',
+        'def f(x, *, n):\n    return x * n\n\nsignal = f(close, n=2)',
+    ):
+        with pytest.raises(FactorDSLError, match=r"不支持 \*args/\*\*kwargs 参数"):
+            inline_defs(bad)
+
+
 def test_inline_expanded_formula_executes_correctly():
     # 展开结果可直接执行：绑定、提升顺序、多次调用隔离均为真实语义
     src = '''

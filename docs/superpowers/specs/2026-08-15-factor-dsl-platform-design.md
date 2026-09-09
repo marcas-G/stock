@@ -1,7 +1,11 @@
 # 因子 DSL 计算平台 — 设计文档
 
 日期：2026-08-15
-状态：待评审
+状态：已实现并全量验收（M1-M8 全链落地——CLI/DSL/双腿读路径/Strategy/Execution
+       runtime；2026-09-07 日频收口复核，里程碑完成态见 §14，逐项验证记录见
+       2026-09-07-factorlab-daily-closeout-design §13；2026-09-08 起开工
+       bars_1m 漏斗机制（Interface #2，分钟模板引擎+折日+评估复用），设计见
+       2026-09-08-factorlab-1m-funnel-design，实现完成后按 WS 逐项登记验证）
 路径：`quant-platform/`（新项目）
 
 ## 1. 背景与目标
@@ -60,7 +64,8 @@
 ### v1 明确不做
 
 - 多用户 / 权限 / 计费。
-- 实时行情、分钟线。
+- 实时行情；tick 模板链（bars_1m 读接口 2026-09-06 dual-backend 已交付，模板机制
+  2026-09-08 起落地，见 2026-09-08-factorlab-1m-funnel-design；tick 仅剩数据面）。
 - DSL 编译进 Rust（`cargo build` 集成）。
 - Web 端编辑 DSL。
 - 事件驱动 / 跨资产 context 语法（FactorBench 风格，v2）。
@@ -513,6 +518,24 @@ v1 指标：
 4. M4：评估指标 + 分层回测 + CLI 全命令（多因子对比/组合合成不在平台范围）。
 5. M5：Web 可视化。
 6. M6：Alpha101/191 与 Vibe-Trading Alpha Zoo 语料对拍 + TA 对拍 + 文档。
+
+（2026-09-07 收口复核补记——后续里程碑全部落地，逐项验证记录见
+2026-09-07-factorlab-daily-closeout-design §13）
+
+7. M3b/M4a/M4b/M5 细化 + M6-07B4 quarantine + free-form formula + chunked compute：
+   按各自 spec/计划落地（2000-01 起全窗口真数据）。
+8. M7：Strategy Runtime（StrategySpec/构造器/schedule/M7-04A artifacts persistence）。
+9. M8：Execution Runtime（M8-01→M8-05B primitives + M8-06A contract + M8-06B
+   orchestration + M8-06C persistence；停牌冻结 = 缺行 / CA Gate 语义 =
+   2026-09-07 收口用户裁决）。
+10. 读路径 duckdb|ch 双后端 + bars_1m/tick 读接口（2026-09-06 dual-backend）。
+11. dsl-shape 设计决策 G1-G5（2026-09-06）+ resIC 横截面联合诊断（2026-09-07）。
+12. 日频收口 WS1-WS7（2026-09-07）：spec.target 接线 / corr 无有效周语义 /
+    多输出逐输出评估 / 停牌冻结 / CA Gate / 真实信号链双腿 e2e。
+13. bars_1m 漏斗机制（2026-09-08）：spec.interface 可选 bars_1m + im_*/day_* 算子族
+    + 分钟 scope 门 + run_factor_minute 折日 + load_bars_1m_codes 批读 + CLI 分派
+    （真 CH 小窗实证 + 研究侧全市场批算；规格见
+    2026-09-08-factorlab-1m-funnel-design）。
 
 详细拆分见实施计划（writing-plans 产物）。
 

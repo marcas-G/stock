@@ -172,13 +172,17 @@ def test_factor_detail_corrupt_weekly_degrade(tmp_path):
 
 
 def test_factor_detail_has_correlation_block(tmp_path):
-    """详情页含相关热力图区块（库内有多因子时）。"""
+    """详情页含相关热力图区块（库内有多因子时）。
+
+    correlation 模块"有效周"语义要求每周横截面 ≥30 只（WS2 修正：不足 →
+    rank_corr=nan 非 0.0，web 对 nan 对不展示）——fixture 每期 40 只保证有
+    有效周，区块才应渲染。"""
     import polars as pl
     _write_factor(tmp_path, "alpha_1")
     # alpha_1 补 panel.parquet（corr 逻辑数据源）
     rows = []
     for w, d in enumerate(["2024-01-05", "2024-01-12"]):
-        for s in range(10):
+        for s in range(40):
             rows.append({"date": d, "code": f"{s:06d}", "signal": float(s)})
     pl.DataFrame(rows).write_parquet(tmp_path / "alpha_1" / "panel.parquet")
     # 第二个因子：只有 panel
@@ -186,7 +190,7 @@ def test_factor_detail_has_correlation_block(tmp_path):
     out2.mkdir()
     rows2 = []
     for w, d in enumerate(["2024-01-05", "2024-01-12"]):
-        for s in range(10):
+        for s in range(40):
             rows2.append({"date": d, "code": f"{s:06d}", "signal": float(s * 2)})
     pl.DataFrame(rows2).write_parquet(out2 / "panel.parquet")
     client = TestClient(create_app(results_dir=tmp_path))

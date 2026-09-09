@@ -103,3 +103,41 @@ def test_svd_sampling_deterministic():
         r1 = factor_svd(["a", "b"], td, sample_weeks=2, seed=42)
         r2 = factor_svd(["a", "b"], td, sample_weeks=2, seed=42)
         assert abs(r1["singular_values"][0] - r2["singular_values"][0]) < 1e-9
+
+
+def test_no_common_dates_raises():
+    """两因子日期集不相交（(date, code) 交集为空）→ ValueError（非静默 0.0）。"""
+    with tempfile.TemporaryDirectory() as td:
+        sig_a = [(f"2024-01-0{i}", f"{j:06d}", float(j)) for i in range(1, 4) for j in range(1, 51)]
+        sig_b = [(f"2025-01-0{i}", f"{j:06d}", float(j)) for i in range(1, 4) for j in range(1, 51)]
+        _write_panel(td, "a", sig_a)
+        _write_panel(td, "b", sig_b)
+        with pytest.raises(ValueError, match="公共日期"):
+            factor_correlation(["a", "b"], td)
+
+
+def test_all_weeks_below_min_stocks_nan_not_zero():
+    """有公共日期但每周 <30 只（weeks==0）→ rank_corr/pearson = nan、n_weeks=0
+    （旧实现 denom=max(weeks,1) 静默产出 0.0——语义错误的回归锁）。"""
+    import math
+    with tempfile.TemporaryDirectory() as td:
+        sig_a = [(f"2024-01-0{i}", f"{j:06d}", float(j)) for i in range(1, 4) for j in range(1, 30)]
+        _write_panel(td, "a", sig_a)
+        _write_panel(td, "b", [(d, c, -s) for d, c, s in sig_a])
+        m = factor_correlation(["a", "b"], td)
+        assert m["n_weeks"][0] == 0
+        assert math.isnan(m["rank_corr"][0])
+        assert math.isnan(m["pearson"][0])
+
+
+def test_n_weeks_column_counts_valid_weeks():
+    """有效周 >0 的正常路径：n_weeks 列存在且 == 计入周数（回归：既有数值不变）。"""
+    with tempfile.TemporaryDirectory() as td:
+        sig_a = [(f"2024-01-0{i}", f"{j:06d}", float(i * 100 + j))
+                 for i in range(1, 4) for j in range(1, 51)]
+        _write_panel(td, "a", sig_a)
+        _write_panel(td, "b", [(d, c, 2 * s + 1) for d, c, s in sig_a])
+        m = factor_correlation(["a", "b"], td)
+        assert m.columns == ["factor_a", "factor_b", "rank_corr", "pearson", "n_weeks"]
+        assert m["n_weeks"][0] == 3
+        assert abs(m["rank_corr"][0] - 1.0) < 1e-6  # 数值路径不变
