@@ -329,6 +329,12 @@ def write_part(table_dir, date_str, df, pid, seq):
 
 # ---------- W4d 内存定标修正: 零拷贝按 code 归并 + 流式写 (见 process_date) ----------
 
+ROW_GROUP_ROWS = 1_048_576  # 行组缓冲阈值 (W4d 体积实测定标: 1M 行组 −12.7% vs
+                            # 逐 code 组 — zstd 上下文/dict 摊销; 组界 = 行数整倍,
+                            # 与帧界无关 → 重跑字节全等不变)
+ZSTD_LEVEL = 3              # zstd 压缩级 (W4d: 1→3 再 −3%; 与行组缓冲合计 events
+                            # −14% → 2026-08 月 ≈1.44×源 ≤ 1.5× 体积预算)
+
 _PA_TYPE = {pl.Utf8: pa.large_string(), pl.Date: pa.date32(),
             pl.Int32: pa.int32(), pl.Int64: pa.int64()}
 
@@ -340,28 +346,56 @@ def _pa_schema(cols):
 
 
 class _TableStream:
-    """单 date part 流式写: 逐 code 批 append (单 writer, 确定性行组分界 → 重跑
-    字节全等), 0 批日期以 schema-only 文件收尾 (schema 非退化)。原子收尾 =
-    fsync + os.replace; 失败路径唯一 tmp 清残 (下轮 stale 清理兜底)。"""
+    """单 date part 流式写: 帧缓冲至 ROW_GROUP_ROWS 行整倍逐组落 (单 writer, 组界
+    = 行数整倍 → 重跑字节全等), 缓冲余数 < 阈值留待下帧/收尾 (内存上界 ≈ 阈值+
+    单帧), 0 批日期以 schema-only 文件收尾 (schema 非退化)。原子收尾 = fsync +
+    os.replace; 失败路径唯一 tmp 清残 (下轮 stale 清理兜底)。"""
 
-    def __init__(self, table_dir, date_str, schema):
+    def __init__(self, table_dir, date_str, schema,
+                 row_group_rows=ROW_GROUP_ROWS):
+        assert row_group_rows >= 1
         self.dir = os.fspath(table_dir)
         os.makedirs(self.dir, exist_ok=True)
         self.schema = schema
+        self.rgr = row_group_rows
         self.tmp = os.path.join(self.dir, '.%s.parquet.tmp.%d.s' %
                                 (date_str, os.getpid()))
         self.final = os.path.join(self.dir, '%s.parquet' % date_str)
         self.f = open(self.tmp, 'wb')
-        self.w = pq.ParquetWriter(self.f, schema, compression='zstd')
+        self.w = pq.ParquetWriter(self.f, schema, compression='zstd',
+                                  compression_level=ZSTD_LEVEL)
         self.n = 0
+        self._buf = []                      # 未落缓冲帧 (append 序 = code-major)
+        self._buf_rows = 0
 
     def append(self, df):
         if df.height:
-            self.w.write_table(df.to_arrow())
-            self.n += df.height
+            self._buf.append(df)
+            self._buf_rows += df.height
+            self._flush_full()
+
+    def _flush_full(self):
+        """缓冲 ≥ rgr 行: 整倍切组落盘, < rgr 余数回存 (组界恒为行数整倍)"""
+        if self._buf_rows < self.rgr:
+            return
+        df = pl.concat(self._buf)
+        self._buf, self._buf_rows = [], 0
+        at = df.to_arrow()
+        off = 0
+        while off + self.rgr <= at.num_rows:
+            self.w.write_table(at.slice(off, self.rgr))
+            self.n += self.rgr
+            off += self.rgr
+        if off < at.num_rows:
+            self._buf = [df.slice(off)]
+            self._buf_rows = at.num_rows - off
 
     def finish(self):
-        """close + fsync + 原子替换; 返回 (final Path, rows)"""
+        """flush 余数 → close + fsync + 原子替换; 返回 (final Path, rows)"""
+        if self._buf_rows:                  # 余数尾组
+            df = pl.concat(self._buf)
+            self.w.write_table(df.to_arrow())
+            self.n += df.height
         self.w.close()
         self.f.flush()
         os.fsync(self.f.fileno())

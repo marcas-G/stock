@@ -11,6 +11,8 @@ import sys, os
 from datetime import date
 
 import polars as pl
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import run_lob_batch as R
@@ -432,6 +434,69 @@ def test_tablestream_schema_only_deterministic_and_abort(tmp_path):
     # abort: 清 tmp, 不落 final
     s4 = R._TableStream(t, '20260805', R._pa_schema(R.COL_EVENTS))
     s4.append(f1)
+    s4.abort()
+    assert not (t / '20260805.parquet').exists()
+    assert list(t.glob('.20260805.parquet.tmp*')) == []
+
+
+def test_tablestream_row_group_buffering_flush_geometry(tmp_path):
+    """_TableStream row_group_rows=N: 行组界 = 行数整倍 N (跨帧缓冲, 帧界无关), 末组
+    余数收尾。断言来自 parquet 元数据逐组行数 — 逐帧直写(旧语义) 或忽略阈值的存根
+    组数 ≠ ceil(总行/N) 必败。真实行为: 帧高 2+2+1+1=6, N=3 → 组 [3,3];
+    帧高 5 > N 单帧 → 组 [3,2] (组界仍行数整倍)。"""
+    t = tmp_path / 'lob_events' / 'year=2026' / 'month=08'
+    row = dict(ms=34201000, kind='add', phase='continuous', side='B',
+               price=123000, prev_vol=0, new_vol=500, qty=500, id=1001,
+               otype='0')
+    sc = R._pa_schema(R.COL_EVENTS)
+    ev_rows = lambda k: [dict(row, id=1000 + k + i) for i in range(k)]
+    # 4 帧 2+2+1+1 → ceil(6/3) = 2 组 [3,3]
+    s = R._TableStream(t, DSTR, sc, row_group_rows=3)
+    for k in (2, 2, 1, 1):
+        s.append(R._fill(ev_rows(k), '000155.SZ', DSTR, R.COL_EVENTS))
+    p, n = s.finish()
+    assert n == 6
+    pf = pq.ParquetFile(p)
+    got = [pf.metadata.row_group(i).num_rows for i in range(pf.metadata.num_row_groups)]
+    assert got == [3, 3], got                      # 缓冲跨帧: 组界按行数不按帧
+    assert pl.read_parquet(p).height == 6
+    # 单帧 5 > N: 仍按 N 切 → 组 [3,2], 内容行序不重不漏
+    s2 = R._TableStream(t, '20260804', sc, row_group_rows=3)
+    s2.append(R._fill(ev_rows(5), '000155.SZ', DSTR, R.COL_EVENTS))
+    p2, _ = s2.finish()
+    pf2 = pq.ParquetFile(p2)
+    got2 = [pf2.metadata.row_group(i).num_rows
+            for i in range(pf2.metadata.num_row_groups)]
+    assert got2 == [3, 2], got2
+    all_rows = pl.concat([pl.from_arrow(pf2.read_row_groups([i]))
+                          for i in range(pf2.metadata.num_row_groups)])
+    assert all_rows.height == 5
+    assert all_rows['id'].to_list() == [1005, 1006, 1007, 1008, 1009]
+
+
+def test_tablestream_buffered_deterministic_and_abort(tmp_path):
+    """缓冲写确定性: 同批(跨组界)重跑字节全等 — 行组界=行数整倍 → 重跑比对成立;
+    abort 时缓冲未 flush 行不落盘 (无 tmp 无 final)"""
+    t = tmp_path / 'lob_events' / 'year=2026' / 'month=08'
+    row = dict(ms=34201000, kind='add', phase='continuous', side='B',
+               price=123000, prev_vol=0, new_vol=500, qty=500, id=1001,
+               otype='0')
+    sc = R._pa_schema(R.COL_EVENTS)
+    def run(date_str):
+        s = R._TableStream(t, date_str, sc, row_group_rows=3)
+        for k in (2, 2, 1, 1, 2):                 # 总 8 行 → 组 [3,3,2]
+            s.append(R._fill([dict(row, id=1000 + k + i) for i in range(k)],
+                             '000155.SZ', date_str, R.COL_EVENTS))
+        return s.finish()
+    p1, n1 = run(DSTR)
+    p2, n2 = run(DSTR)
+    assert n1 == n2 == 8
+    assert R._sha256(p1) == R._sha256(p2)         # 缓冲写重跑字节全等
+    # abort: 缓冲中未 flush 的行必须随 tmp 消失, final 不落
+    s4 = R._TableStream(t, '20260805', sc, row_group_rows=3)
+    for k in (2, 2, 1):
+        s4.append(R._fill([dict(row, id=1000 + k + i) for i in range(k)],
+                          '000155.SZ', '20260805', R.COL_EVENTS))
     s4.abort()
     assert not (t / '20260805.parquet').exists()
     assert list(t.glob('.20260805.parquet.tmp*')) == []
