@@ -237,6 +237,11 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
 - R7（warmup_days）：分钟链忽略 ctx.warmup_days（日内窗无预热概念）；summary
   不标注键（B4.3"标注"项省略——语义由 runtime_semantics=minute_intraday_fold_v1
   承载）；注入列 adv20 左窗引擎独立预取（固定 20 交易日，与 ctx 无关）。
+- R8（Compare 左操作数，W7 收尾覆盖率审计发现）：_fold_const 的 Compare 分支
+  原只查 comparators（右侧），**序列在左的比较**（signal = close > 1 直出）会被
+  误判为折日常数放行——此前仅靠运行时 (date, code) 组内 n_unique==1 断言（R6
+  双保险）兜底；现静态门直接拒（两侧都须折日常数），错误表"折日"文案路径提前
+  命中。日频路径不受影响（日频不用此 fold）。
 - 其余规格行（B1.1/B2/B3/B4.1/B4.2/B4.5/B4.6/B4.7/B5/B6.2-B6.4/B7）与实现
   逐条一致；差异仅措辞级（如引擎门文案比错误表更具体，测试按文案子串匹配）。
 
@@ -280,4 +285,10 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
   计数；vwap30_bias 0/0 死盘 NaN=1176、open30_amt_share 日线 amount 洞
   null=72（2026-06 十一 code）按 B2 保留原样 + QA 计数。README/产物文档齐。
   平台侧（main）：全量 2420 passed 13 skipped 零回归（本文档为其最终收口）。
+- W7 收尾审计（6fca689 后）：覆盖率抽查落档——engine/minute.py 86%、minute_gate
+  .py 98%、ops/minute_ops.py 91%、data/intraday.py 99%（全量套件口径，模块抽查
+  线 ≥85 全过）；catalog 活文档 `factorlab catalog docs` 重生成 diff == 0 无漂移
+  （im_*/day_* 目录行与代码同源）；审计补测 3 个 gate 直调用例（折叠子分支/
+  AnnAssign/缺失 outputs），红→绿过程发现 Compare 左操作数漏检 → 修复 + R8 记
+  录。全量 2423 passed 13 skipped。
 
