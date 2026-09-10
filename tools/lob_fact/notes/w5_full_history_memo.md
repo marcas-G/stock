@@ -204,7 +204,9 @@ PY=/data/students/gaolei/anaconda3/envs/emb/bin/python
 nice -n 19 $PY run_lob_batch.py --month 202608 --workers 1
 # b. 断点证据 (应打印 plan=15 done=15 todo=0)
 $PY run_lob_batch.py --month 202608 --dry-run
-# c. 体积收口 202508+202608 → zstd9 (dry-run 预核: 87 文件 / 14,720.2 MiB, 2026-09-10 22:13)
+# c. 体积收口 202508+202608 → zstd9 (dry-run 预核: 87 文件 / 14,720.2 MiB —— 2026-09-10
+#    22:13 与 2026-09-11 01:47 两次独立预核逐字一致; 单写者守卫已在真实持锁状态下实测:
+#    批算持锁时调用 → 打印拒绝 + **exit 3**, 不触碰任何文件)
 nice -n 19 $PY compact_lob.py --months 202508,202608 --rgr 1048576 --level 9 \
     --lock /data/students/gaolei/stock/lob_fact/_batch/.lock --out /tmp/w5_compact.json
 # d. 终审四问 (exit 0 = 全 PASS)
