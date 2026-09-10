@@ -184,7 +184,9 @@ L975-985）目前仅有代码级依据，其真实多 run 首次演练 = 202608 
 
 **已知卫生问题（已清理，收口复查）**：观察到 14 个 `PPID=1` 的空闲 spawn worker 泄留
 （各 0.1–0.2GB，来自已结束 run 的 executor 重建/终止路径；不持锁不干活），已按 PID
-清理；收口时 `ps -eo pid,ppid,cmd | awk '$2==1'` 复查。
+清理；收口时 `ps -eo pid,ppid,cmd | awk '$2==1'` 复查。**但先验 cwd 再动手**：机器上
+另有别的 PPID=1 spawn 残留（实测 2026-09-11：`readlink /proc/PID/cwd` = `stock/` 与
+`stock/tick_rescue_20260903/rescue`，非本工作线）→ 只清 cwd 指向 lob_fact 的。
 
 ---
 
