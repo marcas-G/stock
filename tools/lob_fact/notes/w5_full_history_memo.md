@@ -158,7 +158,33 @@ L975-985）目前仅有代码级依据，其真实多 run 首次演练 = 202608 
 
 ---
 
-## 6. 验收表（收口后回填）
+## 6. 收口 runbook 与验收表
 
-（待全史批算完成 + 202608/202508 收口 + 收尾审计 PASS 后回填：逐月 done/plan、
-体积比、失败分类、内存、parity；复现命令 + 提交号。）
+**收口顺序（严格；a/b/c 必须等 driver 全退 —— 锁单写者纪律，compact 前先确认无
+`run_lob_batch` 进程）**
+
+```bash
+cd /data/students/gaolei/stock/quant-platform-research/tools/lob_fact
+PY=/data/students/gaolei/anaconda3/envs/emb/bin/python
+# a. 202608 补跑 (todo={20260807} → hard 入账 done 15/15; 跨 run 月门聚合首次真实演练)
+nice -n 19 $PY run_lob_batch.py --month 202608 --workers 1
+# b. 断点证据 (应打印 plan=15 done=15 todo=0)
+$PY run_lob_batch.py --month 202608 --dry-run
+# c. 体积收口 202508+202608 → zstd9 (dry-run 预核: 87 文件 / 14,720.2 MiB, 2026-09-10 22:13)
+nice -n 19 $PY compact_lob.py --months 202508,202608 --rgr 1048576 --level 9 \
+    --lock /data/students/gaolei/stock/lob_fact/_batch/.lock --out /tmp/w5_compact.json
+# d. 终审四问 (exit 0 = 全 PASS)
+$PY audit_w5.py --out /tmp/w5_audit.json
+```
+
+**验收表（收口后回填）**
+
+| 项 | 证据 | 结果 |
+|---|---|---|
+| 断点续跑全完成 | `audit_w5 --out` 完整性段（逐月 done/plan） | 待回填 |
+| 月 QA 摘要 | 同报告 `[月 QA]` 段（13 月逐行） | 待回填 |
+| 总体积 ≤1.5×源 | 同报告 `[体积]` 段（逐月比；202608 收口前后对比） | 待回填 |
+| 失败全分类 | 同报告 `[失败]` 段（clean/delta_band/vacuous/hard + 逐条 hard） | 待回填 |
+| 内存全程在限 | 同报告 `[内存]` 段（三指标 vs 24/32GB 门） | 待回填 |
+| 复现命令 | 本 runbook a-d + `/tmp/w5_audit.json` | — |
+| 提交号 | research / main 两侧 | 待回填 |
