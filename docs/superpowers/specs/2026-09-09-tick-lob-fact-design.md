@@ -1,7 +1,7 @@
 # tick 订单簿重建（lob_fact v1）设计规格
 
 - 日期: 2026-09-09
-- 状态: **W6 完成（2026-09-10，M7 同位门 8 code-day × 1s/1m 全 PASS 且误差计数器全 0；因子面板 1s/1m 真实产出（2 日 × 4 code）；147 tests 绿；见文末 W 验证记录）**；W5 进行中（2025-08 起月间串行断点续跑；2026-01 起按翻倍预算 4 worker）；W4 完成（2026-09-10，试点月 2026-08 全量：4,499/4,500 code-days 过门，1 失败已分类 δ 尾；字节级重跑比对 PASS；体积 1.461×源 ≤1.5×；RSS 双 worker 同刻和峰 22.7GB ≤24GB；123 tests 绿，见文末 W 验证记录）；W3 完成（anchoring 101 tests 绿 + 校准集 10 日对拍 M1a 存现门全过 M4/M6 硬门 10/10）；W2 完成（引擎 72 tests 绿 + 10 校准日冻结门实测）；W1 完成（校准 7 项证据 JSON + 校准备忘录）；W0 终态全验收 ALL OK
+- 状态: **W6 完成（2026-09-10，M7 同位门 8 code-day × 1s/1m 全 PASS 且误差计数器全 0；因子面板 1s/1m 真实产出（2 日 × 4 code）；147 tests 绿；见文末 W 验证记录）**；W5 进行中（2025-08 起月间串行断点续跑；2026-01 起按翻倍预算 4 worker）；W4 完成（2026-09-10，试点月 2026-08 全量：4,499/4,500 code-days 过门，1 失败已分类 δ 尾；字节级重跑比对 PASS；体积 1.5383×源（**超 1.5× 预算**，原记 1.461× 系算术错，2026-09-11 更正 → W5 以 zstd9 收口，预计 ~1.4657×）；RSS 双 worker 同刻和峰 22.7GB ≤24GB（旧门）；123 tests 绿，见文末 W 验证记录）；W3 完成（anchoring 101 tests 绿 + 校准集 10 日对拍 M1a 存现门全过 M4/M6 硬门 10/10）；W2 完成（引擎 72 tests 绿 + 10 校准日冻结门实测）；W1 完成（校准 7 项证据 JSON + 校准备忘录）；W0 终态全验收 ALL OK
 - 关联: 前序 tick_fact 事实库（orders/trades/snapshots，13 月 74,466 code-day，76GB，QA 通过）；平台 1m 漏斗（2026-09-08-factorlab-1m-funnel-design.md）
 
 ## 1. 目标与范围
@@ -47,7 +47,7 @@
 - `lob_events`：每(事件,触碰价档)一行绝对量 price-keyed：code/trade_date/time_ms/seq/phase/event_type(add/cancel/trade/level_cancel/anchor_correction/level_materialization/phase_transition)/side/price_x10000/prev_vol/new_vol/flags(fully_depleted/touched_best/crossed_spread)/kind_seq
 - `lob_sweep_meta`（稀疏，耗尽才发）：side/levels_hit/orders_hit_at_best（两所真实计数）/vol_before/consumed_at_best/tail_order_id+residual/remainder_unfilled
 - `lob_checkpoints`：分钟对齐 band 簿面态 + 档内订单计数
-- gating：band = rank≤R 或 |价−对侧 best|≤δ_pct（默认 R=50/δ=1%，config 单点）；no-op 抑制；**体积预算 ≤1.5×源（W4 实测达标 1.461×，回退梯未启用）**；布局/原子写/flock/RG 切分（`ROW_GROUP_ROWS=1_048_576` 行整倍组界 + `ZSTD_LEVEL=3`，W4 定标）镜像 tick_fact
+- gating：band = rank≤R 或 |价−对侧 best|≤δ_pct（默认 R=50/δ=1%，config 单点）；no-op 抑制；**体积预算 ≤1.5×源（W4 试点月 202608 实测 1.5383× = 超预算（原记 1.461× 为算术错）；W5 以 zstd9 收口至 ~1.4657×，回退梯未启用）**；布局/原子写/flock/RG 切分（`ROW_GROUP_ROWS=1_048_576` 行整倍组界 + `ZSTD_LEVEL=9`，几何 W4 定标 / 压缩级 W5 定标：events −4.9%、sweeps −3.1%、ckpts −5.9%）镜像 tick_fact
 - 队列明细不物化：身份级因子引擎内存即时聚合；订单级轨迹消费方回源 tick_fact 重放
 
 ### 3.3 QA（metrics 库先行；pre-adoption 计算）
@@ -192,15 +192,21 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
 - **字节级重跑比对 PASS**：`--force` 二跑（run 20260910_082834_33436）vs 首跑
   15 dates × 3 tables sha256 全等（mismatch_dates=[]）；逐日门结果含同一失败复现
   → 确定性非偶然。
-- **体积（W2 96B/行模型被实测取代；预算 ≤1.5×源 达标）**：月总 8,238.5MB（events
-  7,104.1 + sweeps 924.6 + ckpts 209.8）vs 源 5,355.6MB = **1.461×**。关键杠杆 =
-  行组几何：逐 code 组 12.1B/行 → 1,048,576 行组 10.1B/行（−12.7%，zstd 上下文）；
+- **体积（W2 96B/行模型被实测取代；~~预算 ≤1.5×源 达标~~ → 2026-09-11 更正：超预算）**：
+  月总 8,238.5MiB（events 7,104.1 + sweeps 924.6 + ckpts 209.8）vs 源 5,355.6MiB =
+  **1.5383×**。**更正（2026-09-11）**：原记 "1.461× 达标" 有两处错 —— ① 单位实为
+  MiB（`du`/字节数 ÷2²⁰）却记成 MB；② 比值算错（1.461 = 按 2¹⁰ 混算）。8,238.5 /
+  5,355.6 = 1.5383 → **超 1.5× 预算，W4 "体积达标" 结论作废**；磁盘内容已核对
+  （3 表实际字节 vs 两次 run summary 记录一致，0 字节/0 行差）= 仅记账错，非数据问题。
+  收口路径 = W5 zstd9（§3.2/§3.4），预计 202608 → ~1.4657×。关键杠杆 = 行组几何：
+  逐 code 组 12.1B/行 → 1,048,576 行组 10.1B/行（−12.7%，zstd 上下文）；
   int32 化反增（12.9B/行）、delta 编码零增益（熵限）、lvl3 +3% —— 均实测否定，
   写入 §3.2/§3.4 冻结。后续可调：sweeps 逐 code 组更优（~3.9 vs 8.9B/行，~5% 月
   体积），W5 不启用（保持与试点月同配置的一致性优于节流）。
 - **RSS 审计（30s×~970 采样）**：单 worker 峰 12.4GB / 双 worker 同刻和峰 22.7GB
-  ≤24GB normal ✓（≤32GB hard 余量）。W2 '1.5-2.5GB/worker' 估算被推翻 → worker
-  数冻结 2（§3.4 已修订）。
+  ≤24GB normal ✓（≤32GB hard 余量；**旧门**）。W2 '1.5-2.5GB/worker' 估算被推翻 →
+  worker 数冻结 2（§3.4 已修订；**W5 2026-09-11 用户决策预算翻倍 24/32→48/64GB →
+  4 worker，见 §3.4 "W5 修订" 段**）。
 - **cross_check_w3 PASS**：000021/000155/600184@20260803 vs W3 measure JSON
   8 字段全等（m4 PASS，presence 0.99322/0.99926/0.99632）→ 批算链与 W3 独立测量
   同构保真。
