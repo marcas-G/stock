@@ -182,6 +182,12 @@ L975-985）目前仅有代码级依据，其真实多 run 首次演练 = 202608 
 旧水位会"在飞 × 新增"过冲），冻结测试
 `tests/test_run_lob_batch.py::test_resource_gates_frozen_for_doubled_budget`。
 
+**已知无害噪声（勿重复排查）**：批算日志里的 `resource_tracker.py … KeyError:
+'/mp-…'` + `There appear to be N leaked semaphore objects` 来自**被 kill 的 run**
+（2026-09-11 定位：5 条全在旧 202601 段 L111-127，当前 run 段 L138+ 零条）——
+SIGKILL 时 multiprocessing tracker 的清理噪声，非数据/引擎错误（该段 run 无 SUCCESS，
+已由重启整月重跑覆盖）。
+
 **已知卫生问题（已清理，收口复查）**：观察到 14 个 `PPID=1` 的空闲 spawn worker 泄留
 （各 0.1–0.2GB，来自已结束 run 的 executor 重建/终止路径；不持锁不干活），已按 PID
 清理；收口时 `ps -eo pid,ppid,cmd | awk '$2==1'` 复查。**但先验 cwd 再动手**：机器上
