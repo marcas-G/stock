@@ -152,3 +152,38 @@ def test_main_compacts_and_records_before_after(tmp_path):
     assert d['bytes_before'] == e['before_bytes'] > 0
     assert d['bytes_after'] == e['after_bytes'] > 0
     assert d['locked'] is False and d['dry_run'] is False
+
+
+# ---------- 1b. null 槽底层值 (Arrow 未定义区) 不得进入内容判据 ----------
+
+def _null_slot_table(null_val=0, n=200):
+    """`i` 列 null 槽 (每 3 行第 2 行) 的底层值 = null_val —— 经 from_buffers 直构,
+    绕开 pa.array(mask=) 的归零 (真实文件的 null 槽底层值就是这种未定义残留)。"""
+    mask = [False, True, False] * (n // 3) + [False] * (n % 3)
+    nv = [1, null_val, 3] * (n // 3) + [7] * (n % 3)
+    validity = pa.array([not m for m in mask], pa.bool_()).buffers()[1]
+    i = pa.Array.from_buffers(pa.int64(), n,
+                              [validity, pa.array(nv, pa.int64()).buffers()[1]])
+    s = pa.array(['a', 'ZZZ', 'c'] * (n // 3) + ['d'] * (n % 3), pa.large_string(),
+                 mask=mask)
+    return pa.table({'i': i, 's': s})
+
+
+def test_canon_batch_ignores_undefined_null_slots_but_keeps_mask():
+    """内容判据 = 逻辑内容: null 槽底层值是 Arrow **未定义区** (读回随编码器/路径变)
+    → 同掩码同非 null 值 ⟹ 同判据; 掩码变或非 null 值变 ⟹ 判据必变。
+
+    真实案例 (修复前误报): lob_events 20260803 `id` 列 692 个 null 槽
+    src 底层 = 243683 / 重写件 = 0 → 摘要不等 → 重打包被拒 (属误报)。"""
+    a, b = _null_slot_table(999), _null_slot_table(0)
+    assert a['i'].chunk(0).buffers()[1].to_pybytes() != \
+           b['i'].chunk(0).buffers()[1].to_pybytes()      # 前置: 未定义区确实不同
+    assert a['i'].null_count == b['i'].null_count == 66
+    assert CL._canon_batch(a) == CL._canon_batch(b)       # 仅未定义区不同 → 同判据
+    c = pa.table({'i': pa.array([2, 999, 3] * 66 + [7, 7], pa.int64(),
+                                mask=[False, True, False] * 66 + [False] * 2),
+                  's': a['s']})
+    assert CL._canon_batch(c) != CL._canon_batch(a)       # 非 null 值 1→2 → 判据变
+    d = pa.table({'i': pa.array([1, 0, 3] * 66 + [7, 7], pa.int64()),
+                  's': pa.array(['a', 'ZZZ', 'c'] * 66 + ['d', 'd'], pa.large_string())})
+    assert CL._canon_batch(d) != CL._canon_batch(a)       # null 槽转非 null → 判据变

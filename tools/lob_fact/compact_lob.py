@@ -19,6 +19,7 @@ CLI::
 退出码: 0 = 全部成功 (或 dry-run); 3 = 批算锁被占; 1 = 有文件失败 (报告恒落盘)。
 """
 import argparse
+import datetime
 import fcntl
 import glob
 import hashlib
@@ -27,6 +28,7 @@ import os
 import time
 
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 LOB_TABLES = ('lob_events', 'lob_sweep_meta', 'lob_checkpoints')
@@ -57,18 +59,55 @@ def _ipc_bytes(t):
     return sink.getvalue().to_pybytes()
 
 
+def _fill_null(col):
+    """null 槽 → 该类型零值 (仅摘要用): **null 槽底层值是 Arrow 未定义区**, 读回随
+    编码器/路径变 (真实案例: lob_events 20260803 `id` 692 null 槽 src=243683 /
+    重写件=0) → 直接哈希原始字节会误报"内容变了"。掩码另流哈希, 故 null≠零值。"""
+    if col.null_count == 0:
+        return col
+    t = col.type
+    if pa.types.is_integer(t) or pa.types.is_floating(t):
+        v = 0
+    elif pa.types.is_boolean(t):
+        v = False
+    elif pa.types.is_string(t) or pa.types.is_large_string(t):
+        v = ''
+    elif pa.types.is_date(t):
+        v = datetime.date(1970, 1, 1)
+    elif pa.types.is_timestamp(t):
+        v = datetime.datetime(1970, 1, 1)
+    else:                                        # 未支持类型不许静默降级
+        raise ValueError(f'摘要不支持的类型 (null 填充未定义): {t}')
+    return pc.fill_null(col, pa.scalar(v, type=t))
+
+
+def _canon_batch(t):
+    """批 → 内容判据字节 = IPC(逻辑值, null 槽填零) ⊕ IPC(null 掩码 int8)。
+
+    只认逻辑内容: 行组几何 / 压缩级 / dictionary / **null 槽未定义残留** 全不影响;
+    非 null 值变、掩码变、行数变 → 必变。"""
+    names = [f.name for f in t.schema]
+    vals = pa.table([_fill_null(t[i]) for i in range(t.num_columns)],
+                    schema=pa.schema([pa.field(n, t.schema.field(n).type)
+                                      for n in names]))
+    mask = pa.table([pc.cast(pc.is_null(t[i]), pa.int8())
+                     for i in range(t.num_columns)], names=names)
+    return _ipc_bytes(vals) + _ipc_bytes(mask)
+
+
 def file_digest(path, batch=BATCH_ROWS):
     """流式内容摘要 → (sha256 链 hex, rows)。
 
-    同内容异编码 (行组几何/压缩级/dictionary 编码) → 同摘要; 值变或截断 → 摘要必变。
-    实现: 逐批规范化为无 dictionary 的 Table → Arrow IPC 字节链入。"""
+    同内容异编码 (行组几何/压缩级/dictionary 编码/null 槽残留) → 同摘要;
+    值变、掩码变或截断 → 摘要必变。
+    实现: 逐批规范化为无 dictionary 的 Table → `_canon_batch` 字节链入。"""
     f = pq.ParquetFile(path)
     sch = _canon(f.schema_arrow)
     h = hashlib.sha256()
     n = 0
     for b in f.iter_batches(batch_size=batch):
         t = pa.Table.from_batches([b]).cast(sch)
-        h.update(_ipc_bytes(t))
+        h.update(_canon_batch(t))
         n += t.num_rows
     return h.hexdigest(), n
 
