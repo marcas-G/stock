@@ -387,8 +387,11 @@ def write_part(table_dir, date_str, df, pid, seq):
 ROW_GROUP_ROWS = 1_048_576  # 行组缓冲阈值 (W4d 体积实测定标: 1M 行组 −12.7% vs
                             # 逐 code 组 — zstd 上下文/dict 摊销; 组界 = 行数整倍,
                             # 与帧界无关 → 重跑字节全等不变)
-ZSTD_LEVEL = 3              # zstd 压缩级 (W4d: 1→3 再 −3%; 与行组缓冲合计 events
-                            # −14% → 2026-08 月 ≈1.44×源 ≤ 1.5× 体积预算)
+ZSTD_LEVEL = 9              # zstd 压缩级 (W5 体积收口: W4d 记录的 2026-08 月比率
+                            # 1.461× 复算为 **1.5383×** — memo 把 MiB 当 MB 记且比值
+                            # 算错 → 超 1.5× 预算。纯编码杠杆实测同几何 3→9:
+                            # events −4.9% / sweep −3.1% / ckpt −5.9% → 1.4657× ✓;
+                            # RG 4M 无增益, 故几何仍 1M。见 notes/w5_full_history_memo.md)
 
 _PA_TYPE = {pl.Utf8: pa.large_string(), pl.Date: pa.date32(),
             pl.Int32: pa.int32(), pl.Int64: pa.int64()}

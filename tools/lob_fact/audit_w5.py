@@ -170,6 +170,47 @@ def memory_report(runs_dir):
                 hard_ok=(peak_total <= HARD_LIMIT_KB))
 
 
+# ---------- 5. 月 QA 摘要 ----------
+
+def month_qa_rows(batch_dir, months):
+    """逐月 QA 摘要 (计划 W5 验收行 "月 QA 摘要"): 月门 (`month_gate_{m}.json`:
+    代码日/锚定/vacuous/band/池化 SZ·SH) + state 完成度 (done/plan/hard_days 数) +
+    最近一次 run 的 parity (summary.json 按 run_id 字典序取最后 = 断点续跑语义)。
+    缺件显式 None + qa_present=False (不静默补零)。"""
+    state = read_state(batch_dir)
+    runs_dir = os.path.join(batch_dir, 'runs')
+    rows = []
+    for m in months:
+        p = os.path.join(batch_dir, f'month_gate_{m}.json')
+        mg = None
+        if os.path.exists(p):
+            with open(p) as f:
+                mg = json.load(f)
+        g = (mg or {}).get('month_gate') or {}
+        gate = g.get('gate') or {}
+        st = (state.get('months') or {}).get(m) or {}
+        parity, n_err = None, None
+        for rp in sorted(glob.glob(os.path.join(runs_dir, '*', 'summary.json'))):
+            try:
+                with open(rp) as f:
+                    s = json.load(f)
+            except Exception:
+                continue
+            if s.get('month') == m:
+                parity = (s.get('parity') or {}).get('ok')
+                n_err = s.get('n_errors')
+        rows.append(dict(
+            month=m, qa_present=mg is not None,
+            n_code_day=(mg or {}).get('n_code_day'),
+            n_anchored=g.get('n_anchored'), n_vacuous=g.get('n_vacuous'),
+            n_band=g.get('n_band'), sz=gate.get('sz'), sh=gate.get('sh'),
+            gate_ok=gate.get('ok'),
+            done_n=len(st.get('done') or []), plan_n=st.get('plan_n'),
+            hard_n=len(st.get('hard_days') or []),
+            parity_ok=parity, n_errors=n_err))
+    return rows
+
+
 # ---------- 汇总 ----------
 
 def audit(batch_dir, lob_root, tick_root, manifest, months=None):
@@ -184,14 +225,15 @@ def audit(batch_dir, lob_root, tick_root, manifest, months=None):
     recs = read_day_recs(runs_dir, set(months) if months else None)
     fail = failure_report(recs)
     mem = memory_report(runs_dir)
+    mqa = month_qa_rows(batch_dir, months)
     completeness_ok = all(r['complete'] for r in mrows)
     volume_ok = all(r['budget_ok'] for r in vol)
     ok = bool(completeness_ok and volume_ok and fail['rate_ok']
               and mem['normal_ok'] and mem['hard_ok'] and mrows)
     return dict(generated_at=time.strftime('%Y-%m-%d %H:%M:%S'),
                 batch_dir=batch_dir, months=mrows, volume=vol, failures=fail,
-                memory=mem, completeness_ok=completeness_ok, volume_ok=volume_ok,
-                ok=ok)
+                memory=mem, month_qa=mqa, completeness_ok=completeness_ok,
+                volume_ok=volume_ok, ok=ok)
 
 
 def render(rep):
@@ -215,6 +257,15 @@ def render(rep):
              f'分类 {f["kinds"]}')
     for it in f['items']:
         L.append(f'  {it["code"]}@{it["day"]} reasons={it["reasons"]}')
+    L.append('[月 QA] 逐月 (代码日/锚定/vacuous/band/池化 SZ·SH/done·plan/hard/parity)')
+    for r in rep['month_qa']:
+        if not r['qa_present']:
+            L.append(f'  {r["month"]}: 无月门文件 (未完成或未生成)')
+            continue
+        L.append(f'  {r["month"]}: cd={r["n_code_day"]} 锚定={r["n_anchored"]} '
+                 f'vac={r["n_vacuous"]} band={r["n_band"]} SZ={r["sz"]} SH={r["sh"]} '
+                 f'done={r["done_n"]}/{r["plan_n"]} hard={r["hard_n"]} '
+                 f'parity={r["parity_ok"]} err={r["n_errors"]}')
     m = rep['memory']
     L.append(f'[内存] normal {"PASS" if m["normal_ok"] else "FAIL"} / hard '
              f'{"PASS" if m["hard_ok"] else "FAIL"} — 单 worker 峰 '

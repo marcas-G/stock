@@ -289,3 +289,80 @@ def test_cli_exit_one_when_hard_failure_or_over_budget(tmp_path):
     assert d2['volume'][0]['budget_ok'] is False
     assert d2['volume_ok'] is False and d2['ok'] is False
     assert rc2 == 1                          # 退出码与报告一致（不脱钩）
+
+
+# ---------- 6. 月 QA 摘要 (W5 验收 "月 QA 摘要") ----------
+
+def _summary(tmp_path, run_id, month, parity_ok=None, n_err=0):
+    p = tmp_path / '_batch' / 'runs' / run_id
+    os.makedirs(p, exist_ok=True)
+    with open(p / 'summary.json', 'w') as f:
+        json.dump({'month': month, 'plan_n': 3, 'n_done_run': 3,
+                   'n_errors': n_err, 'errors': [], 'hard_days': [],
+                   'parity': {'compared': parity_ok is not None,
+                              'mismatch_dates': [], 'ok': parity_ok}}, f)
+    return p
+
+
+def _month_gate(tmp_path, month, sz, sh, n_band, n_cd=100, n_vac=0):
+    p = tmp_path / '_batch' / f'month_gate_{month}.json'
+    os.makedirs(p.parent, exist_ok=True)
+    with open(p, 'w') as f:
+        json.dump({'month': month, 'n_code_day': n_cd,
+                   'month_gate': {'n_days': n_cd, 'n_anchored': n_cd - n_vac,
+                                  'n_vacuous': n_vac, 'n_band': n_band,
+                                  'gate': {'sz': sz, 'sh': sh, 'ok': True},
+                                  'ok': True},
+                   'n_dates_done': 3, 'plan_n': 3}, f)
+    return str(p)
+
+
+def test_month_qa_rows_reads_gate_state_and_parity(tmp_path):
+    """月 QA 摘要逐月: 月门 (代码日/锚定/vacuous/band/池化 SZ·SH) + state 完成度
+    (含 hard_days 数) + 最近一次 run 的 parity。数值逐条手算, 缺件显式 None。"""
+    _month_gate(tmp_path, '202508', 0.97531, 0.99012, 7, n_cd=2343, n_vac=2)
+    _state(tmp_path, {'202508': {'done': ['20250812', '20250813'],
+                                 'plan_n': 2,
+                                 'hard_days': [dict(day='20250814', n_fail=1,
+                                                    codes=['301308.SZ'],
+                                                    reasons=['m1a_presence'])]}})
+    _summary(tmp_path, '20260910_110712_5974', '202508', parity_ok=True)
+    rows = AU.month_qa_rows(str(tmp_path / '_batch'), ['202508', '202509'])
+    assert len(rows) == 2
+    r = rows[0]
+    assert r['month'] == '202508' and r['qa_present'] is True
+    assert r['n_code_day'] == 2343 and r['n_anchored'] == 2341
+    assert r['n_vacuous'] == 2 and r['n_band'] == 7
+    assert r['sz'] == 0.97531 and r['sh'] == 0.99012
+    assert r['done_n'] == 2 and r['plan_n'] == 2 and r['hard_n'] == 1
+    assert r['parity_ok'] is True and r['n_errors'] == 0
+    r2 = rows[1]
+    assert r2['month'] == '202509' and r2['qa_present'] is False
+    assert r2['sz'] is None and r2['n_code_day'] is None and r2['parity_ok'] is None
+
+
+def test_month_qa_rows_take_latest_run_parity(tmp_path):
+    """同月多 run: 取字典序最后 (最近) 的 summary.json — 断点续跑语义下 parity
+    看最后一次; 缺 summary 的 run 不参与 (不虚报 None 为 True)。"""
+    _month_gate(tmp_path, '202608', 0.98602, 0.99175, 426)
+    _summary(tmp_path, '20260910_054209_7521', '202608', parity_ok=None)
+    _summary(tmp_path, '20260910_082834_33436', '202608', parity_ok=True)
+    rows = AU.month_qa_rows(str(tmp_path / '_batch'), ['202608'])
+    assert rows[0]['parity_ok'] is True
+    _summary(tmp_path, '20260910_120000_999', '202608', parity_ok=False)
+    rows2 = AU.month_qa_rows(str(tmp_path / '_batch'), ['202608'])
+    assert rows2[0]['parity_ok'] is False
+
+
+def test_audit_report_includes_month_qa_table(tmp_path):
+    """审计报告含月 QA 段 (plan 验收 "月 QA 摘要"), 且 CLI 输出渲染出来。"""
+    cfg = _fixture(tmp_path)
+    _state(tmp_path, {'202608': {'done': ['20260803', '20260804', '20260805'],
+                                 'plan_n': 3}})
+    _month_gate(tmp_path, '202608', 0.98, 0.99, 3)
+    _summary(tmp_path, 'r9', '202608', parity_ok=True)
+    rep = AU.audit(**cfg)
+    assert rep['month_qa'][0]['month'] == '202608'
+    assert rep['month_qa'][0]['n_band'] == 3
+    txt = AU.render(rep)
+    assert '月 QA' in txt and '0.98' in txt

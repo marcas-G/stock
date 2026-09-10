@@ -709,3 +709,52 @@ def test_month_complete_requires_dates_no_error_and_month_gate():
                             [('20260807', 'date_exc', 'MemoryError')],
                             mg_ok) is False
     assert R.month_complete(done, plan, [], dict(ok=False)) is False
+
+
+# ---------- W5 体积收口: 写盘编码 (zstd 级) 与收尾重打包同参同字节 ----------
+
+def _enc_payload(n=3000):
+    """lob_events 形状合成载荷 (低基数字符串 + 单调 int + 高基数 id)"""
+    return pl.DataFrame({
+        'code': ['000155.SZ' if i % 2 else '600184.SH' for i in range(n)],
+        'trade_date': [date(2026, 8, 3)] * n,
+        'time_ms': pa.array([34200000 + i for i in range(n)], pa.int32()),
+        'seq': pa.array(range(1, n + 1), pa.int64()),
+        'kind': [['add', 'cancel', 'trade'][i % 3] for i in range(n)],
+        'phase': ['continuous'] * n,
+        'side': ['B' if i % 2 else 'S' for i in range(n)],
+        'price_x10000': pa.array([122800 + (i % 7) for i in range(n)], pa.int64()),
+        'prev_vol': pa.array([(i * 100) % 5000 for i in range(n)], pa.int64()),
+        'new_vol': pa.array([(i * 100) % 5000 + 100 for i in range(n)], pa.int64()),
+        'qty': pa.array([100 + (i % 9) * 100 for i in range(n)], pa.int64()),
+        'id': pa.array([324352 + i * 7 for i in range(n)], pa.int64()),
+        'otype': ['0'] * n,
+    })
+
+
+def test_writer_encoding_matches_repack_path_bytes(tmp_path):
+    """W5 体积收口 (计划 W5 验收行 "总体积 ≤1.5×源"): 批算 `_TableStream` 与收尾
+    重打包 `compact_lob` 必须**同参同字节** —— 交付树的编码由重打包定义, 两路分叉
+    = "重跑件 ≠ 交付树" (字节复现性断链), 且体积杠杆失效。
+
+    实测杠杆 (notes/w5_full_history_memo.md): 同几何 zstd 3→9 = events −4.9% /
+    sweep −3.1% / ckpt −5.9%; 202608 月 1.5383 → 1.4657× (≤1.5 预算)。
+    硬编码 level/几何的"存根"或两路分叉在此必败 (字节不等)。"""
+    import compact_lob as CL
+    df = _enc_payload(3000)
+    sch = R._pa_schema(R.COL_EVENTS)
+    assert df.to_arrow().schema == sch              # 前置: 载荷类型 == 表契约
+    st = R._TableStream(tmp_path / 'prod', '20260803', sch, row_group_rows=1000)
+    st.append(df)
+    f_prod, n_rows = st.finish()
+    seed = tmp_path / 'seed' / '20260803.parquet'
+    seed.parent.mkdir(parents=True, exist_ok=True)
+    pq.write_table(pa.table({k: df[k].to_arrow() for k in df.columns}, schema=sch),
+                   seed, row_group_size=137, compression='zstd',
+                   compression_level=1)             # 异几何/异级种子件
+    info = CL.compact_file(str(seed), rgr=1000, level=CL.ZSTD_LEVEL)
+    assert info['rows'] == n_rows == 3000
+    md = pq.ParquetFile(str(seed)).metadata
+    assert [md.row_group(k).num_rows for k in range(md.num_row_groups)] == [1000] * 3
+    assert f_prod.read_bytes() == seed.read_bytes()  # 同参 ⟺ 同字节
+    assert R.ZSTD_LEVEL == CL.ZSTD_LEVEL == 9        # 冻结杠杆 (实测见 docstring)
