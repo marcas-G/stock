@@ -1,7 +1,7 @@
 # tick 订单簿重建（lob_fact v1）设计规格
 
 - 日期: 2026-09-09
-- 状态: W4 完成（2026-09-10，试点月 2026-08 全量：4,499/4,500 code-days 过门，1 失败已分类 δ 尾；字节级重跑比对 PASS；体积 1.461×源 ≤1.5×；RSS 双 worker 同刻和峰 22.7GB ≤24GB；123 tests 绿，见文末 W 验证记录）；W3 完成（anchoring 101 tests 绿 + 校准集 10 日对拍 M1a 存现门全过 M4/M6 硬门 10/10）；W2 完成（引擎 72 tests 绿 + 10 校准日冻结门实测）；W1 完成（校准 7 项证据 JSON + 校准备忘录）；W0 终态全验收 ALL OK
+- 状态: **W6 完成（2026-09-10，M7 同位门 8 code-day × 1s/1m 全 PASS 且误差计数器全 0；因子面板 1s/1m 真实产出（2 日 × 4 code）；147 tests 绿；见文末 W 验证记录）**；W5 进行中（2025-08 起月间串行 2 worker 断点续跑）；W4 完成（2026-09-10，试点月 2026-08 全量：4,499/4,500 code-days 过门，1 失败已分类 δ 尾；字节级重跑比对 PASS；体积 1.461×源 ≤1.5×；RSS 双 worker 同刻和峰 22.7GB ≤24GB；123 tests 绿，见文末 W 验证记录）；W3 完成（anchoring 101 tests 绿 + 校准集 10 日对拍 M1a 存现门全过 M4/M6 硬门 10/10）；W2 完成（引擎 72 tests 绿 + 10 校准日冻结门实测）；W1 完成（校准 7 项证据 JSON + 校准备忘录）；W0 终态全验收 ALL OK
 - 关联: 前序 tick_fact 事实库（orders/trades/snapshots，13 月 74,466 code-day，76GB，QA 通过）；平台 1m 漏斗（2026-09-08-factorlab-1m-funnel-design.md）
 
 ## 1. 目标与范围
@@ -71,13 +71,18 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
 | W2 | 引擎 + schema 冻结门 | 完成 |
 | W3 | 锚定 + QA 全门 + 校准集对拍 + 开盘模型冻结 | 完成 |
 | W4 | 批算 + 试点月 2026-08 | 完成 |
-| W5 | 全史批算 13 月 | 未开工 |
-| W6 | 盘口因子实证 + M7 + spec 翻转 | 未开工 |
+| W5 | 全史批算 13 月 | 进行中（2026-08 由 W4 完成；2025-08 起续跑，月间串行 2 worker） |
+| W6 | 盘口因子实证 + M7 + spec 翻转 | 完成 |
 
 ## 5. 关键文件
 
 - tools/lob_fact/extract_sz_cancels.py、verify_cancels_sample.py、tests/test_extract_sz_cancels.py（W0）
-- 产物: /data/students/gaolei/stock/tick_fact/cancels/ + _manifest 扩展
+- tools/lob_fact/：engine.py、anchoring.py、qa/、run_lob_batch.py（W2-W4）、
+  **factor_panel.py（W6：BandFold 消费路径 / ReplayB 独立重放 / m7_gate / 面板写盘 / CLI）**、
+  notes/{w1_calibration,w2_engine_measure,w3_anchoring,w4_batch,w6_factor}_memo.md
+- 产物: /data/students/gaolei/stock/tick_fact/cancels/ + _manifest 扩展；
+  /data/students/gaolei/stock/lob_fact/{lob_events,lob_sweep_meta,lob_checkpoints,
+  panel_1s,panel_1m,panel_runs}/
 - 复用: convert_tick_to_parquet.py（MonthWriter L261-512）、run_1m_feature.py 断点/交叉对拍
 - 只读不可动: quark_downloaded、tick_fact 现有 3 表、platform 全链
 
@@ -201,3 +206,60 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
   sha 全等 + abort 中缓冲清残，红→绿；存根必败）。commit research 4d7e0c3（定标）+
   5baf7c5（缓冲 writer）+ memo/本记录 + main spec doc。
 - W4 关闭 → W5 全史 12 月（月间串行 2 worker，配置冻结同试点月）。
+
+### W6（2026-09-10）— 盘口因子小样实证 + M7 同位门（8 code-day × 2 grid 全 PASS；147 tests 绿）
+
+- **factor_panel.py（两路独立实现）**：**A = BandFold** —— 生产表消费路径，折叠
+  `lob_events`（绝对量行）+ `lob_sweep_meta`（档删除）+ `lob_checkpoints`（n_queue
+  分钟口径）→ 采样时刻 band 视图；**B = ReplayB** —— 独立最小重放，按规格重写簿语义
+  （**不 import engine.py**），输入 tick_fact 归一化事件（表→事件映射复用 W4a 已验证的
+  机械转换），维护全簿 `live` + 物化 `shadow` + in-band `trues` + `nqs` + `flows`。
+  因子段（A/B **共用单点** `factors_row`）：bid/ask_p1、spread、v1/v5、obi1/obi5、
+  depth_ratio5（分母 0 → −1.0）、nq1/nq5（未知 → −1）、窗口流水（n_add/n_cancel/
+  n_trade/n_sweep + add/cancel/trade_vol）、sweep_vol_sum/max、cancel_rate、
+  depletion_impact。栅格：`sample_times`（1s 全量 14,340 样本/日，1m 由 `select_grid`
+  派生 239；午休 (LUNCH_START, LUNCH_END] 剔除；1s 自首检查点起）。
+- **M7 门四项实测（报告 `--report` 落 panel_runs/；本次 /tmp/w6_m7_report.json）**：
+  ① 发射行流逐行全等（time_ms/kind/side/price/prev/new/qty/id/otype）② 耗尽行流逐行
+  全等（vol_before/tail_order/tail_resid）③ 采样时刻 band 视图整数簿态全等（**双向**：
+  `state_mismatch` = B 有 A 无或值差、`phantom` = A 有 B 无）④ 因子逐列 max|Δ| ≤ 1e-6。
+  **8 code-day（000155/000021.SZ、600184/600036.SH × 20260803/20250812）× 1s/1m 全
+  PASS，全部误差计数器 = 0（factor_delta_max = 0.0）**；态级样本 250 万-933 万/ code-day，
+  nq 对齐样本 195-239，CLI exit=0，全程 177.5s。
+- **同 (ms, side, price) 内 sweep 定位（本 WS 唯一语义改动，由三条真实数据根因逼出）**：
+  `lob_events` 与 `lob_sweep_meta` 由 `_fill` 逐表 `seq = range(1, len+1)` → **两套独立
+  seq 空间不可互比**，行/扫单先后必须链式复原。**冻结规则**（`BandFold._apply_key`）：
+  行按 seq 序以绝对量施加（链断 → `n_drift_chain`++ 并采纳 `new_vol`）→ 逐 sweep：
+  ① 无行 或 `vol_before == 链末` → 终结（删档）；② 命中**内部链位**且其后行为
+  `prev_vol == 0` 的重建行 → 保留（终值 = 行流末量）；③ 无任何链位可解释 → **仍终结**
+  + `n_same_ms_ambiguous`++。证据三线：**tail_order 非位置证据**（引擎传队列尾订单 id，
+  其加单行可在 ms 中段而清档在 ms 末；000155.SZ@20260803 ms=34257180 曾因此回归 5,798
+  幻影级样本）；**keep vs del 变体实测**（仅 000021.SZ@20260803 有区分：keep = 2,048
+  幻影 + 14,226 因子失配 + dmax 3.355e5，del = 全 0）；**B 侧全局序真值插桩**（`_emit`/
+  `_drop_level` 同一计数器）70/70 不可判定 case 判"扫单在后=终结"，0 例反例。
+  `n_drift_chain` / `n_same_ms_ambiguous` 为报告诊断字段，**不进闸门**。
+- **真实产出（非退化）**：`lob_fact/panel_1s|panel_1m/year=YYYY/month=MM/YYYYMMDD.parquet`
+  —— 2 日 × 4 code × 14,340(1s) / 239(1m) = **57,360 / 956 行/日**（1s ~1.4-2.2MB、
+  1m ~51-87KB）。证据：obi1 标准差 0.50-0.65；nq 已知率 1m 99.2%（**SZ 首算**，由
+  `lob_checkpoints.n_queue` 支撑）；`cancel_rate > 0` 占比 1m 99.2%（**SZ 首算**，W0 撤单
+  逐单通道解锁）；depth_ratio5 未定义率 0.000；sweep_vol_max 7.34 万-18.98 万股/窗。
+- **资源**：最重 2 code-day 单进程峰 RSS **3.94GiB** / wall 1:26.7（user 82.6s，100% 单核，
+  换页 0）；8 code-day 全程 177.5s ≈ 22s/code-day。**与 W5 双 worker 并发实测可行**（+4.1GB
+  → 约 21-27GB）；不可再叠第二个面板进程或第三个批算 worker。
+- **新发现边界（诚实标注，详见 notes/w6_factor_memo.md §5）**：**(a)** SZ 少量 type
+  `'1'`/`'U'` **带价 1.00 的市价单**（000021.SZ@20260803 共 48 单，全 S 侧、全部被成交
+  引用全额消耗；W1 §5 "按价不按类型" 冻结规则的已知代价）在订单/成交**报文时戳错位**
+  窗口内构成 rank=1 档 → 2 个 1s 样本 `ask_p1 = 10000`、spread 深负；**(b)** 收盘集合
+  竞价段（14:57:00-15:00:00）订单簿**本就可交叉**（买单挂高价/卖单挂低价）→ 该段
+  spread<0 是正确语义（同期快照只报单一指示价，实测 600036.SH 14:57:10 bid=ask=402700）
+  —— 1s 713-714/57,360（1.24%）、1m 8/956（0.84%，恰 14:58/14:59）；**(c)** band 限
+  物化漂移 0.85%-5.05%（A/B 对称，故不进闸门）；**(d)** nq 列为检查点口径，1s 仅
+  195-239/14,340 个 aligned 样本可比。
+- **测试**：`tests/test_factor_panel.py` **24 测试红→绿**（三条根因各钉真实数据回归：
+  `..._same_ms_sweep_position_by_vol_before_not_tail_row_id`（真实 000155.SZ@20260803
+  行/sweep 序列）、`..._terminal_sweep_wins_on_unseen_consumption`（真实
+  000021.SZ@20260803）、`..._same_ms_recreate_row_does_not_consume_sweep`，另加门/
+  写盘/CLI/栅格/漂移）；lob_fact 全套 **147 tests 绿**。
+- W6 关闭。commit research `tools/lob_fact/{factor_panel.py,tests/test_factor_panel.py,
+  config.py,notes/w6_factor_memo.md}` + main spec doc。→ W5 全史批算续跑（月 QA 摘要 /
+  总体积 ≤1.5×源 / 失败分类 / 内存审计为 W5 验收项）。
