@@ -143,18 +143,32 @@ L975-985）目前仅有代码级依据，其真实多 run 首次演练 = 202608 
 
 ---
 
-## 5. 内存审计（用户硬约束：常态 ≤24GB / 总驻留 ≤32GB）
+## 5. 内存审计（用户硬约束，2026-09-11 翻倍：常态 ≤48GB / 总驻留 ≤64GB；原 24/32GB）
 
-来源 = 各 run 的 `rss_audit.csv`（30s 采样，tag ∈ worker|parent），三指标：
+来源 = 各 run 的 `rss_audit.csv`（30s 采样，tag ∈ worker|parent）。全史批算分两段：
 
-| 指标 | 实测峰 | 门 | 判 |
-|---|---|---|---|
-| 单 worker 峰 | 12.8 GB | — | — |
-| 同刻 worker 和峰 | 23.9 GB | ≤24 GB | PASS |
-| 同刻全进程和峰 | 24.1 GB | ≤32 GB | PASS（硬） |
+**第一段（2 worker：W4 试点 + 2025-08 … 2026-01 部分；旧门 24/32GB）** —— 8 runs /
+2,425 时间点 / 16 worker 进程（截至 2026-09-11 01:30 实测）：
 
-2 worker 是 24GB 常态门的**上限解**（3 worker ≈ 27–38GB 会破门）——故全史批算按
-2 worker/月串行推进，nice 19、共享机礼貌。
+| 指标 | 平均 | 中位 | 峰 | 门 | 判 |
+|---|---|---|---|---|---|
+| 单 worker | 8.50 GB | 8.40 | 12.8 GB（单采样） | — | — |
+| 同刻 worker 和 | 17.06 GB | 17.32 | 23.92 GB | ≤24 GB | PASS |
+| 同刻全进程和 | 17.21 GB | 17.47 | 24.07 GB | ≤32 GB | PASS（硬） |
+
+2 worker 是 24GB 常态门的**上限解**（3 worker 投影 27–38GB 破门）→ 该段按 2 worker/月
+串行、nice 19。
+
+**第二段（4 worker：2026-01 从头重跑起；新门 48/64GB）**：用户 2026-09-11 决策内存
+预算翻倍 → `--workers 4`（40 核机、负载 ~11；4 × ~8.5GB ≈ 34GB 常态、投影峰
+~51GB ≤64GB 硬门）。**额度翻倍 ≠ 实测翻倍**——4-worker 段实测峰由收口审计回填。
+配套：派发低水位 `LOW_WATER_KB` 8→16GB（4 worker 同刻在飞时单 date 切片峰 ~12.8GB，
+旧水位会"在飞 × 新增"过冲），冻结测试
+`tests/test_run_lob_batch.py::test_resource_gates_frozen_for_doubled_budget`。
+
+**已知卫生问题（已清理，收口复查）**：观察到 14 个 `PPID=1` 的空闲 spawn worker 泄留
+（各 0.1–0.2GB，来自已结束 run 的 executor 重建/终止路径；不持锁不干活），已按 PID
+清理；收口时 `ps -eo pid,ppid,cmd | awk '$2==1'` 复查。
 
 ---
 
@@ -176,6 +190,26 @@ nice -n 19 $PY compact_lob.py --months 202508,202608 --rgr 1048576 --level 9 \
 # d. 终审四问 (exit 0 = 全 PASS)
 $PY audit_w5.py --out /tmp/w5_audit.json
 ```
+
+**驱动脚本（月间串行；原件 `/tmp/w5_run_months.sh` 易失，此处为权威副本 —— worker 数
+分两段：2025-08…2025-12 为 `--workers 2`（旧 24/32GB 门），2026-01 起 `--workers 4`
+（2026-09-11 翻倍门）；逐月起新进程 → 补丁/参数变更只需发生在月界）**
+
+```bash
+#!/bin/bash
+cd /data/students/gaolei/stock/quant-platform-research/tools/lob_fact
+PY=/data/students/gaolei/anaconda3/envs/emb/bin/python
+for m in 202508 202509 202510 202511 202512 202601 202602 202603 202604 202605 202606 202607; do
+  echo "=== $(date '+%F %T') month $m start"
+  nice -n 19 $PY run_lob_batch.py --month $m --workers 4 >> /tmp/w5_batch_all.log 2>&1
+  echo "=== $(date '+%F %T') month $m exit=$?"
+  sleep 20
+done
+echo "=== ALL DONE $(date '+%F %T')"
+```
+
+驱动自身 stdout → `/tmp/w5_driver.log`（`month $m exit=$?` 行；批算子进程输出 →
+`/tmp/w5_batch_all.log`）——**等待 ALL DONE 以 driver 日志为准，勿只看批算日志**。
 
 **验收表（收口后回填）**
 

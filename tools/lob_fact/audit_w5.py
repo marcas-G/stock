@@ -9,7 +9,8 @@
      vacuous（无锚日）/ hard（gate.ok=False）；hard 率 ≤ 0.1% 且逐条列 code-day
      + reasons（"全分类"= 无未归类桶）。
   4. **内存**：全部 run 的 `rss_audit.csv` 三指标 —— 单 worker 峰 / 同刻 worker 和峰
-     （W4 口径 22.7GB）/ 同刻全进程和峰；门 = 和峰 ≤24GB normal、全和峰 ≤32GB hard。
+     （W4 口径 22.7GB）/ 同刻全进程和峰；门 = 和峰 ≤48GB normal、全和峰 ≤64GB hard
+     （**2026-09-11 用户决策翻倍**，原 24/32GB；翻倍后 worker 2→4）。
 
 CLI::
 
@@ -32,8 +33,10 @@ LOB_TABLES = ('lob_events', 'lob_sweep_meta', 'lob_checkpoints')
 SRC_TABLES = ('orders', 'trades', 'snapshots', 'cancels')
 BUDGET_RATIO = 1.5                 # 计划: 总体积 ≤1.5×源
 FAIL_RATE_MAX = 0.001              # 计划: 已知失败 <0.1% 有分类原因
-NORMAL_LIMIT_KB = 24 * 1024 * 1024  # 用户硬约束: 常态 ≤24GB
-HARD_LIMIT_KB = 32 * 1024 * 1024    # 用户硬约束: 总驻留 ≤32GB
+# 用户硬约束 (2026-09-11 决策翻倍: 24/32GB → 48/64GB, 据此 worker 2→4;
+# 前段 2-worker 实测峰 23.9/24.1GB 在原门内, 见 notes/w5_full_history_memo.md §5)
+NORMAL_LIMIT_KB = 48 * 1024 * 1024  # 常态 ≤48GB
+HARD_LIMIT_KB = 64 * 1024 * 1024    # 总驻留 ≤64GB
 
 
 # ---------- 1. 完整性 ----------

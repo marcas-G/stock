@@ -758,3 +758,12 @@ def test_writer_encoding_matches_repack_path_bytes(tmp_path):
     assert [md.row_group(k).num_rows for k in range(md.num_row_groups)] == [1000] * 3
     assert f_prod.read_bytes() == seed.read_bytes()  # 同参 ⟺ 同字节
     assert R.ZSTD_LEVEL == CL.ZSTD_LEVEL == 9        # 冻结杠杆 (实测见 docstring)
+
+
+def test_resource_gates_frozen_for_doubled_budget():
+    """W5 资源门冻结 (用户 2026-09-11 决策: 内存预算翻倍 → 常态 ≤48GB / 硬 ≤64GB,
+    批算 worker 2→4): **派发低水位必须随 worker 数上调** —— 4 worker 同刻在飞时单
+    date 切片峰 ~12.8GB, 旧水位下"在飞 × 新增"会过冲; 改小 = 静默放松 OOM 防护
+    (存根式改动必败)。采样/看门狗口径不变。"""
+    assert R.LOW_WATER_KB == 16_000_000              # MemAvailable 低水位 ~15.3GB
+    assert R.AUDIT_S == 30 and R.STALL_S == 2400     # 审计采样 / STALL 看门狗冻结

@@ -197,12 +197,16 @@ def test_memory_report_peaks_single_and_concurrent(tmp_path):
     assert rep['peak_concurrent_kb'] == 17_000_000     # t=1 同刻两 worker 和
     assert rep['peak_total_kb'] == 17_200_000          # t=1 含 parent (W4 口径外延)
     assert rep['normal_ok'] is True and rep['hard_ok'] is True
-    _rss(tmp_path, 'r2', [(5, 200, 'worker', 24 * 1024 * 1024)])
+    # 用户 2026-09-11 决策: 内存预算翻倍 (常态 24→48GB / 硬 32→64GB) → worker 2→4
+    _rss(tmp_path, 'r2', [(5, 200, 'worker', 48 * 1024 * 1024)])
     rep2 = AU.memory_report(str(tmp_path / '_batch' / 'runs'))
-    assert rep2['peak_worker_kb'] == 24 * 1024 * 1024
-    assert rep2['normal_ok'] is True                   # 恰等 24GB → 含等号在限
-    _rss(tmp_path, 'r3', [(6, 300, 'worker', 24 * 1024 * 1024 + 1)])
+    assert rep2['peak_worker_kb'] == 48 * 1024 * 1024
+    assert rep2['normal_ok'] is True                   # 恰等 48GB → 含等号在限
+    _rss(tmp_path, 'r3', [(6, 300, 'worker', 48 * 1024 * 1024 + 1)])
     assert AU.memory_report(str(tmp_path / '_batch' / 'runs'))['normal_ok'] is False
+    # 冻结新门: 改小 = 静默放松验收 (存根式改动必败)
+    assert AU.NORMAL_LIMIT_KB == 48 * 1024 * 1024
+    assert AU.HARD_LIMIT_KB == 64 * 1024 * 1024
 
 
 # ---------- 5. 端到端 + CLI ----------

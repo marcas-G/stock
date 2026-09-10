@@ -499,7 +499,11 @@ AUDIT_S = 30            # RSS/内存审计采样间隔
 STALL_S = 2400          # 无完成容忍秒数 (W4d smoke 实测: 20260803 单 date 全量
                         # ~15-20 min > 镜像 extract_sz_cancels 的 900s → 900s 会
                         # 误杀真长 date 成 kill 循环; 2400s = > 单 date 最长上界)
-LOW_WATER_KB = 8_000_000    # MemAvailable 低水位 (~7.6GB): 低于不派发新 date
+LOW_WATER_KB = 16_000_000   # MemAvailable 低水位 (~15.3GB): 低于不派发新 date
+                            # (用户 2026-09-11 内存预算翻倍 → worker 2→4; 4 worker
+                            # 同刻在飞时单 date 切片峰 ~12.8GB, 旧 ~7.6GB 水位下
+                            # "在飞 × 新增"会过冲 → 随 worker 数上调; 冻结测试见
+                            # tests/test_run_lob_batch.py::test_resource_gates_...)
 
 _TICK_COLS = {
     'orders': ['code', 'time_ms', 'order_type', 'bs', 'price_x10000',
