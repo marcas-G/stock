@@ -622,3 +622,90 @@ def test_process_date_guard_mismatch_blocks(tmp_path):
     assert ('orders', 2, 99) in sh['guard']['mismatches']
     assert any('orders' in e for e in p['errors'])
     assert '600036.SH' not in [r['code'] for r in p['recs'] if r['ok']]
+
+
+# ---------- W5 日结账: hard 日不吞 (数据已落盘 → done + hard_days 记录) ----------
+# 断言源 = 计划 W5 验收行 "断点续跑全完成" + "失败全分类 (<0.1% 有分类原因)" 的
+# 联立语义: code-day 门硬失败是**已分类失败** (recs 带 reasons, M4 PASS), 数据已
+# 原子落盘 → 该 date 必须进 done (否则全部重跑永不自愈), 同时 hard_days 留痕交审计
+# 按失败率阈值裁决; 结构性错误 (守卫漂移/无 manifest code/异常) 才不 done 需重试。
+
+def _payload(day, n_fail=0, errors=(), tables=True):
+    """合成 process_date 载荷: recs 含 n_fail 个门拒 code-day"""
+    recs = [dict(code=f'00000{i}.SZ', day=day, ok=True,
+                 gate=dict(presence=0.99, vacuous=False, band=False, ok=True,
+                           reasons=[], notes=[])) for i in range(10)]
+    for i in range(n_fail):
+        recs[i] = dict(code=f'30130{i}.SZ', day=day, ok=False,
+                       gate=dict(presence=0.89981, vacuous=False, band=False,
+                                 ok=False, reasons=['m1a_presence'], notes=[]))
+    return dict(day=day, ok=n_fail == 0 and not errors,
+                errors=list(errors), n_codes=10, recs=recs,
+                tables={'lob_events': dict(rows=100, bytes=9, sha256='x')}
+                if tables else {}, engine_ms=1.0, n_fail=n_fail, read_s=1.0)
+
+
+def test_day_outcome_classifies_ok_hard_error_and_stub_must_fail():
+    """三态: 全过门='ok'; 仅 code-day 门拒 (errs 空, 表已写)='hard'; 结构性
+    (守卫漂移/无 manifest code/表空)='error'。硬编码常量存根必败。"""
+    assert R.day_outcome(_payload('20260803')) == 'ok'
+    h = _payload('20260807', n_fail=1)
+    assert h['ok'] is False and h['errors'] == [] and h['tables']
+    assert R.day_outcome(h) == 'hard'
+    e1 = _payload('20260808', errors=['orders: date 实读 5 != manifest 6'])
+    assert e1['ok'] is False and e1['tables']
+    assert R.day_outcome(e1) == 'error'
+    e2 = _payload('20260809', errors=['manifest 无该日 code'], tables=False)
+    assert R.day_outcome(e2) == 'error'
+
+
+def test_apply_day_result_records_hard_day_without_swallowing_error():
+    """ok/hard → done (hard 另记 codes+reasons, 不静默); error → 不 done 且 err_rows
+    留 detail。逐条手算断言 (槽位与被拒 code 一致)。"""
+    done, hard, errs = set(), [], []
+    assert R.apply_day_result(_payload('20260803'), done, hard, errs) == 'ok'
+    assert done == {'20260803'} and hard == [] and errs == []
+    assert R.apply_day_result(_payload('20260807', n_fail=2),
+                              done, hard, errs) == 'hard'
+    assert done == {'20260803', '20260807'}          # 已落盘 → 进 done (不回炉)
+    assert errs == []                                 # 非结构错, 不入 err_rows
+    assert len(hard) == 1
+    assert hard[0]['day'] == '20260807' and hard[0]['n_fail'] == 2
+    assert hard[0]['codes'] == ['301300.SZ', '301301.SZ']
+    assert hard[0]['reasons'] == ['m1a_presence']
+    assert R.apply_day_result(_payload('20260808', errors=['stall_abandon']),
+                              done, hard, errs) == 'error'
+    assert '20260808' not in done
+    assert errs == [('20260808', 'date_error', 'stall_abandon')]
+    assert len(hard) == 1                             # 结构错不污染 hard_days
+
+
+def test_state_update_persists_done_plan_and_hard_days():
+    """state.json 月条目: done 排序 + plan_n (全月计划数, 非 --only-day 过滤数) +
+    hard_days 排序留痕; 不改调用方 dict。"""
+    st0 = {'months': {'202608': {'done': ['20260803'], 'plan_n': 15}}}
+    hd = [dict(day='20260807', n_fail=1, codes=['301308.SZ'],
+               reasons=['m1a_presence'])]
+    st = R.state_update(st0, '202608', {'20260807', '20260803'}, 15, hd)
+    m = st['months']['202608']
+    assert m['done'] == ['20260803', '20260807']
+    assert m['plan_n'] == 15
+    assert m['hard_days'] == hd
+    assert st0['months']['202608'] == {'done': ['20260803'], 'plan_n': 15}
+    st2 = R.state_update(st0, '202509', set(), 20, [])
+    assert st2['months']['202509'] == dict(done=[], plan_n=20, hard_days=[])
+    assert '202509' not in st0['months']               # 无副作用
+
+
+def test_month_complete_requires_dates_no_error_and_month_gate():
+    """完成 = 计划日全 done ∧ 无结构性 err_rows ∧ 月门 ok。hard 日已在 done,
+    其失败按 ≤0.1% 由审计裁决 (不阻断完成); 任一条件不满足即 False。"""
+    plan = ['20260803', '20260807']
+    done = ['20260803', '20260807']
+    mg_ok = dict(ok=True, gate=dict(sz=0.986, sh=0.991))
+    assert R.month_complete(done, plan, [], mg_ok) is True
+    assert R.month_complete(['20260803'], plan, [], mg_ok) is False
+    assert R.month_complete(done, plan,
+                            [('20260807', 'date_exc', 'MemoryError')],
+                            mg_ok) is False
+    assert R.month_complete(done, plan, [], dict(ok=False)) is False

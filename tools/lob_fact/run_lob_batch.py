@@ -256,6 +256,61 @@ def month_gate(day_rows):
                 ok=ok)
 
 
+# ---------- W5 日结账 (纯函数): code-day 硬失败日不吞 ----------
+# W4 语义 "全 code-day 过门才 done" 对**已分类的确定性硬失败**是死锁: 数据已原子落盘
+# (实测 20260807 301308.SZ presence=0.89981 < GATE_FLOOR, 重跑字节级相同 parity_ok),
+# 却永远不进 done → 该 date 反复重跑且月永不完成。W5 修订: 门拒 (已分类, 记录在 recs)
+# 与结构性错误 (守卫漂移/无 manifest code/异常 — 数据可能不全) 分流。
+
+def day_outcome(p):
+    """日结三态: 'ok' 全 code-day 过门; 'hard' 数据已落盘 (tables 非空) 但存在
+    已分类 code-day 门拒 → done + hard_days 留痕, 交审计按 ≤0.1% 阈值裁决;
+    'error' 结构性失败 (errors 非空 或 无落盘载荷) → 不 done, 下轮重试。"""
+    if p.get('ok'):
+        return 'ok'
+    if p.get('errors') or not p.get('tables'):
+        return 'error'
+    return 'hard'
+
+
+def apply_day_result(p, done, hard_days, err_rows):
+    """按 outcome 记账 (就地更新 done/hard_days/err_rows), 返回 outcome。
+
+    hard → hard_days 逐条记 day/n_fail/codes/reasons (不静默: 谁被拒、为何被拒);
+    error → err_rows 记 (day, 'date_error', detail)。"""
+    out = day_outcome(p)
+    if out == 'error':
+        detail = '; '.join(p.get('errors') or []) or '无落盘载荷'
+        err_rows.append((p.get('day'), 'date_error', detail))
+        return out
+    done.add(p['day'])
+    if out == 'hard':
+        bad = [r for r in p.get('recs') or [] if not r.get('ok')]
+        hard_days.append(dict(
+            day=p['day'], n_fail=len(bad),
+            codes=sorted(r['code'] for r in bad),
+            reasons=sorted({x for r in bad
+                            for x in (r.get('gate') or {}).get('reasons') or []})))
+    return out
+
+
+def state_update(state, month, done, plan_n, hard_days):
+    """state.json 月条目 (纯函数, 不落盘不改入参): done 排序 + plan_n +
+    hard_days 按日排序留痕。plan_n 恒为该月**全量计划日数** (--only-day 重跑
+    单日不得把 plan_n 改成 1)。"""
+    st = json.loads(json.dumps(state))
+    st.setdefault('months', {})[month] = dict(
+        done=sorted(done), plan_n=plan_n,
+        hard_days=sorted(hard_days, key=lambda x: x['day']))
+    return st
+
+
+def month_complete(done, plan, err_rows, mg):
+    """月完成 = 计划日全 done ∧ 无结构性 err_rows ∧ 月门 ok。hard 日已含于 done,
+    其 code-day 失败按失败率阈由审计裁决 (与月门池化语义一致: 已分类失败不进池)。"""
+    return set(done) == set(plan) and not err_rows and bool(mg.get('ok'))
+
+
 # ---------- W4c 输入守卫 + 原子写盘 (纯函数; 编排层共用) ----------
 
 _GUARD_KEY = (('orders', 'n_orders'), ('trades', 'n_trades'),
@@ -722,7 +777,8 @@ def main(argv=None):
 
     # ---- date 计划: conversion manifest 该月日期 (源全量事实) ----
     _days = _month_codes()
-    plan = sorted(d for d in _days if d[:6] == month)
+    plan_all = sorted(d for d in _days if d[:6] == month)   # 全月计划 (state plan_n 口径)
+    plan = plan_all
     if args.only_day:
         plan = [d for d in plan if d == args.only_day]
     if not plan:
@@ -754,7 +810,8 @@ def main(argv=None):
     audit_f = open(os.path.join(rdir, 'rss_audit.csv'), 'w')
     audit_f.write('t,pid,tag,rss_kb,mem_avail_kb\n')
     audit_f.flush()
-    err_rows = []          # (day, kind, detail)
+    err_rows = []          # (day, kind, detail) 结构性错误 (需重试)
+    hard_days = []         # W5: 已落盘但含已分类 code-day 门拒的日 (留痕, 不重试)
     t0 = time.time()
     n_done_run = 0
     if finalize_only:
@@ -839,26 +896,26 @@ def main(argv=None):
                 rows_f.write(json.dumps(p, ensure_ascii=False) + '\n')
                 rows_f.flush()
                 n_done_run += 1
-                if p['ok']:
-                    done.add(d)
+                out = apply_day_result(p, done, hard_days, err_rows)
+                if out == 'ok':
                     print(f'{d}: OK codes={p["n_codes"]} rows='
                           f'{sum(v["rows"] for v in p["tables"].values())} '
                           f'eng={p["engine_ms"]}s fail={p["n_fail"]} '
                           f'[{time.time()-t0:.0f}s]', flush=True)
+                elif out == 'hard':
+                    print(f'{d}: OK_HARD codes={p["n_codes"]} fail={p["n_fail"]} '
+                          f'已落盘 (门拒 code-day 见 day_rows, 交审计裁决) '
+                          f'[{time.time()-t0:.0f}s]', flush=True)
                 else:
-                    err_rows.append((d, 'date_gate', '; '.join(p['errors'])
-                                     or f'{p["n_fail"]} code-day fail'))
-                    print(f'{d}: GATE_FAIL codes={p["n_codes"]} '
+                    print(f'{d}: DATE_FAIL codes={p["n_codes"]} '
                           f'fail={p["n_fail"]} errs={p["errors"]}', flush=True)
                 audit(time.time())      # 每 date 完结算一笔峰值
     finally:
         rows_f.close()
         audit_f.close()
         ex.shutdown(wait=False, cancel_futures=True)
-    # state 落盘 (断点: 只记 ok date)
-    st_m = state.setdefault('months', {}).setdefault(month, {})
-    st_m['done'] = sorted(done)
-    st_m['plan_n'] = len(plan)
+    # state 落盘 (断点: done = 已落盘日 (含 hard); plan_n = 全月计划数)
+    state = state_update(state, month, done, len(plan_all), hard_days)
     st_p_tmp = state_p + '.tmp'
     with open(st_p_tmp, 'w') as f:
         json.dump(state, f, ensure_ascii=False, indent=1)
@@ -897,9 +954,10 @@ def main(argv=None):
                     mism.append((d, k, (ov or {}).get('sha256'), v['sha256']))
         parity['mismatch_dates'] = sorted({x[0] for x in mism})
         parity['ok'] = not mism
-    summary = dict(month=month, run_id=run_id, plan_n=len(plan),
+    summary = dict(month=month, run_id=run_id, plan_n=len(plan_all),
                    n_done_run=n_done_run, n_errors=len(err_rows),
-                   errors=err_rows, tables=tbs, parity=parity,
+                   errors=err_rows, hard_days=hard_days,
+                   tables=tbs, parity=parity,
                    elapsed_s=round(time.time() - t0, 1))
     with open(os.path.join(rdir, 'summary.json'), 'w') as f:
         json.dump(summary, f, ensure_ascii=False, indent=1)
@@ -924,21 +982,24 @@ def main(argv=None):
     mgf = os.path.join(bdir, f'month_gate_{month}.json')
     with open(mgf, 'w') as f:
         json.dump(dict(month=month, n_code_day=len(recs), month_gate=mg,
-                       n_dates_done=len(done), plan_n=len(plan),
+                       n_dates_done=len(done), plan_n=len(plan_all),
+                       hard_days=hard_days,
                        generated_at=time.strftime('%Y-%m-%d %H:%M:%S')),
                   f, ensure_ascii=False, indent=1)
-    complete = len(done) == len(plan) and not err_rows and mg['ok']
+    complete = month_complete(done, plan_all, err_rows, mg)
     if complete:
         with open(succ_p, 'w') as f:
             json.dump(dict(month=month, n_code_day=len(recs), gate=mg['gate'],
-                           parity_ok=parity['ok']), f, ensure_ascii=False)
+                           parity_ok=parity['ok'], hard_days=hard_days),
+                      f, ensure_ascii=False)
         print(f'\n{month}: SUCCESS — code-day {len(recs)}, '
               f'月门 SZ={mg["gate"].get("sz")} SH={mg["gate"].get("sh")} '
-              f'parity_ok={parity["ok"]} elapsed={time.time()-t0:.0f}s', flush=True)
+              f'parity_ok={parity["ok"]} hard_days={len(hard_days)} '
+              f'elapsed={time.time()-t0:.0f}s', flush=True)
     else:
-        print(f'\n{month}: 未完成 — done {len(done)}/{len(plan)}, '
-              f'errors {len(err_rows)}, 月门 ok={mg["ok"]} '
-              f'(重跑续做; SUCCESS 只在全净完成后落)', flush=True)
+        print(f'\n{month}: 未完成 — done {len(done)}/{len(plan_all)}, '
+              f'errors {len(err_rows)}, hard_days {len(hard_days)}, '
+              f'月门 ok={mg["ok"]} (重跑续做; SUCCESS 只在全净完成后落)', flush=True)
     print(f'summary -> {rdir}', flush=True)
 
 
