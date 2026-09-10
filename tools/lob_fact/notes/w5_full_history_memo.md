@@ -190,6 +190,10 @@ L975-985）目前仅有代码级依据，其真实多 run 首次演练 = 202608 
 
 ## 6. 收口 runbook 与验收表
 
+**可执行形态 = `tools/lob_fact/w5_closure.sh`**（a–e 加前置守卫：driver 日志无
+ALL DONE / 存在 `run_lob_batch` 进程 / 磁盘守护暂停中 → 拒绝执行（exit 2/3/4，无副作用）；
+日志 `/tmp/w5_closure.log`；已用真实环境演练守卫路径 exit 2）。
+
 **收口顺序（严格；a/b/c 必须等 driver 全退 —— 锁单写者纪律，compact 前先确认无
 `run_lob_batch` 进程）**
 
