@@ -270,11 +270,14 @@ def render(rep):
                  f'done={r["done_n"]}/{r["plan_n"]} hard={r["hard_n"]} '
                  f'parity={r["parity_ok"]} err={r["n_errors"]}')
     m = rep['memory']
+    # 标注取自常量（勿硬编码）：预算翻倍后旧字面量会把在限峰值显示成超门假象
     L.append(f'[内存] normal {"PASS" if m["normal_ok"] else "FAIL"} / hard '
              f'{"PASS" if m["hard_ok"] else "FAIL"} — 单 worker 峰 '
              f'{m["peak_worker_kb"] / 2**20:.1f}GB, 同刻 worker 和峰 '
-             f'{m["peak_concurrent_kb"] / 2**20:.1f}GB (≤24GB), 同刻全和峰 '
-             f'{m["peak_total_kb"] / 2**20:.1f}GB (≤32GB), {m["n_samples"]} 样本')
+             f'{m["peak_concurrent_kb"] / 2**20:.1f}GB '
+             f'(≤{NORMAL_LIMIT_KB / 2**20:.0f}GB), 同刻全和峰 '
+             f'{m["peak_total_kb"] / 2**20:.1f}GB '
+             f'(≤{HARD_LIMIT_KB / 2**20:.0f}GB), {m["n_samples"]} 样本')
     return '\n'.join(L)
 
 

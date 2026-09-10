@@ -134,6 +134,22 @@ hard 日数 / 最近一次 run 的 parity / error 数。缺件显式 `None + qa_
 202508: cd=4101 锚定=4101 vac=0 band=316 SZ=0.98904 SH=0.99066 done=14/14 hard=0 parity=None err=0
 ```
 
+**已收月逐行（2026-09-11 01:41 预跑审计真实输出，`/tmp/w5_audit_pre.json`；批算仍在
+跑 → 该次 `ok=False` 属预期，仅取 `[月 QA]`/`[体积]`/`[失败]` 三段的已完成部分）**：
+
+```
+202508: cd=4101 锚定=4101 vac=0 band=316 SZ=0.98904 SH=0.99066 done=14/14 hard=0 parity=None err=0
+202509: cd=6445 锚定=6445 vac=0 band=590 SZ=0.98808 SH=0.99064 done=22/22 hard=1 parity=None err=0
+202510: cd=5017 锚定=5017 vac=0 band=371 SZ=0.98888 SH=0.99084 done=17/17 hard=1 parity=None err=0
+202511: cd=5920 锚定=5920 vac=0 band=388 SZ=0.99023 SH=0.99098 done=20/20 hard=0 parity=None err=0
+202512: cd=6824 锚定=6824 vac=0 band=476 SZ=0.99021 SH=0.99093 done=23/23 hard=0 parity=None err=0
+202608: cd=4499 锚定=4499 vac=0 band=426 SZ=0.98602 SH=0.99175 done=14/15 hard=0 parity=True err=1
+```
+
+同次 `[失败]` = hard 3/32,809 = **0.0091%**（阈 ≤0.1%），三条全为 `301308.SZ` 的
+`m1a_presence`（20250922 / 20251030 / 20260807，§3b δ 滞后定律同因）；分类分布
+`{clean: 30,239, delta_band: 2,567, vacuous: 0, hard: 3}` —— **无未归类桶**。
+
 `month_gate_202508.json` 的 `n_code_day/n_anchored/per_day(全 True)/SZ/SH` 与 driver 日志
 逐字一致；该 run 单跑全 14 日，`parity=None` = 本月无更早 run 可比（parity 仅 `--force`
 重跑月产生，语义非"未校验"）。该月单 run 跑完 14 日，**未**触及跨 run 月门聚合；

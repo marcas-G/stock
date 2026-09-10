@@ -209,6 +209,26 @@ def test_memory_report_peaks_single_and_concurrent(tmp_path):
     assert AU.HARD_LIMIT_KB == 64 * 1024 * 1024
 
 
+def test_render_gate_labels_track_constants_not_hardcoded(tmp_path, monkeypatch):
+    """render 的 (≤XGB) 标注必须取自 NORMAL/HARD_LIMIT_KB 常量 —— 预算翻倍 (2026-09-11)
+    后硬编码旧标签会把 37GB 实测峰显示成"超 24GB 门"的假象（显示与判据脱节；
+    硬编码标签的实现在本测试下必败）。"""
+    _rss(tmp_path, 'r1', [(1, 100, 'worker', 37 * 1024 * 1024)])
+    rep = dict(generated_at='t', ok=True, completeness_ok=True, months=[],
+               volume_ok=True, volume=[],
+               failures=dict(rate_ok=True, n_hard=0, n_total=0, hard_rate=0.0,
+                             kinds={}, items=[]),
+               month_qa=[],
+               memory=AU.memory_report(str(tmp_path / '_batch' / 'runs')))
+    monkeypatch.setattr(AU, 'NORMAL_LIMIT_KB', 48 * 1024 * 1024)
+    monkeypatch.setattr(AU, 'HARD_LIMIT_KB', 64 * 1024 * 1024)
+    out = AU.render(rep)
+    assert '(≤48GB)' in out and '(≤64GB)' in out          # 标注 == 判据常量
+    assert '24GB' not in out and '32GB' not in out        # 旧门标签不得残留
+    assert rep['memory']['normal_ok'] is True             # 37GB ≤48GB 在限
+    assert rep['memory']['hard_ok'] is True
+
+
 # ---------- 5. 端到端 + CLI ----------
 
 def _fixture(tmp_path, lob_n=16, src_n=8, hard=(), band=(), missing=()):
