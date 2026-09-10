@@ -14,11 +14,13 @@ EPS_TICKS = 1                # M3 打印价在簿价差 ε（tick 数）
 RANK_LIMIT = 50              # band: rank ≤ R
 DELTA_PCT = 0.01             # band: |价−对侧 best| ≤ δ×best
 SNAP_DEPTH = 10              # 快照 10 档 anchor 深度（可验证深度）
+OBI_DEPTH = 5                # W6 面板: 深度/OBI 聚合档数（深度比/失衡 5 档）
 
 # ---- 连续段阶段时间（ms-of-day） ----
 AUCTION_START = 33_300_020   # 09:15:00.020（SZ 起收单；SH 同）
 AUCTION_MATCH = 33_900_000   # 09:25:00.000（撮合快照点）
 OPEN = 34_200_000            # 09:30:00.000（SZ 硬基线）
+LUNCH_START = 41_400_000     # 11:30:00.000（午休起点; 采样栅格剔除 (LUNCH_START, LUNCH_END]）
 LUNCH_END = 46_800_000       # 13:00:00.000
 CLOSE = 54_000_000           # 15:00:00.000
 
