@@ -1,0 +1,44 @@
+=== 移动后 du 核对 ===
+496K	data/calib/lob_fact_calib
+3.2M	data/calib/validation
+19G	data/fact/bars_1m
+435M	data/fact/daily_fact
+113G	data/fact/lob_fact
+82G	data/fact/tick_fact
+5.3G	data/raw/20260817.7z
+4.2G	data/raw/daily
+20G	data/raw/minutes
+111G	data/raw/quark_downloaded
+24K	data/ref/000905.SH.parquet
+6.6M	data/ref/universes
+
+=== 抽样 schema（emb pyarrow）===
+bars_1m | 文件: fact/bars_1m/year=2023/month=05/part-000.parquet | 行数: 24216000 | schema: ['datetime', 'trade_date', 'code', 'minute_index', 'session_type', 'open', 'high', 'low'] ...
+tick_fact.orders | 文件: fact/tick_fact/orders/year=2026/month=02/part-000.parquet | 行数: 316466020 | schema: ['code', 'trade_date', 'time_ms', 'order_no', 'exch_order_no', 'order_type', 'bs', 'price_x10000'] ...
+daily_fact | 文件: fact/daily_fact/daily_fact.parquet | 行数: 18162795 | schema: ['trade_date', 'code', 'open', 'high', 'low', 'close', 'adj_factor', 'amount'] ...
+lob_fact.lob_events | 文件: fact/lob_fact/lob_events/year=2026/month=02/20260213.parquet | 行数: 34150017 | schema: ['code', 'trade_date', 'time_ms', 'seq', 'kind', 'phase', 'side', 'price_x10000'] ...
+lob_fact.sweep_meta | 文件: fact/lob_fact/lob_sweep_meta/year=2026/month=02/20260213.parquet | 行数: 4209467 | schema: ['code', 'trade_date', 'time_ms', 'seq', 'phase', 'side', 'price_x10000', 'vol_before'] ...
+
+=== minutes 命名结构 ===
+data/raw/minutes/2022/03/20220314.zip
+data/raw/minutes/2022/03/20220311.zip
+data/raw/minutes/2022/03/20220331.zip
+=== DER-002 月份对照 ===
+minutes 月份集合:
+2026-01
+2026-02
+2026-03
+2026-04
+2026-05
+2026-06
+2026-07
+2026-08
+bars_1m 月份集合:
+2026-01
+2026-02
+2026-03
+2026-04
+2026-05
+2026-06
+2026-07
+2026-08

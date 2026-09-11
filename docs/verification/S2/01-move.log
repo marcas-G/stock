@@ -1,0 +1,44 @@
+=== 移动前 du 基线 ===
+19G	bars_1m
+113G	lob_fact
+82G	tick_fact
+111G	quark_downloaded
+20G	minutes
+4.6G	daily
+496K	lob_fact_calib
+6.6M	universes
+3.2M	validation
+5.3G	20260817.7z
+
+=== mkdir ===
+mkdir: 已创建目录 'data'
+mkdir: 已创建目录 'data/raw'
+mkdir: 已创建目录 'data/fact'
+mkdir: 已创建目录 'data/panel'
+mkdir: 已创建目录 'data/calib'
+mkdir: 已创建目录 'data/ref'
+mkdir: 已创建目录 'data/raw/daily'
+mkdir: 已创建目录 'data/fact/daily_fact'
+
+=== mv 执行 ===
+renamed 'daily/daily_fact.parquet' -> 'data/fact/daily_fact/daily_fact.parquet'
+renamed 'daily/daily_pre.parquet' -> 'data/raw/daily/daily_pre.parquet'
+renamed 'daily/19910101至上月底07月31日A股日k线.zip' -> 'data/raw/daily/19910101至上月底07月31日A股日k线.zip'
+renamed 'daily/2026-07-01至2026-08-21A股日k线.zip' -> 'data/raw/daily/2026-07-01至2026-08-21A股日k线.zip'
+renamed 'daily/退市股' -> 'data/raw/daily/退市股'
+renamed 'daily/000905.SH.parquet' -> 'data/ref/000905.SH.parquet'
+renamed '20260817.7z' -> 'data/raw/20260817.7z'
+renamed 'bars_1m' -> 'data/fact/bars_1m'
+renamed 'lob_fact' -> 'data/fact/lob_fact'
+renamed 'tick_fact' -> 'data/fact/tick_fact'
+renamed 'quark_downloaded' -> 'data/raw/quark_downloaded'
+renamed 'minutes' -> 'data/raw/minutes'
+renamed 'lob_fact_calib' -> 'data/calib/lob_fact_calib'
+renamed 'universes' -> 'data/ref/universes'
+renamed 'validation' -> 'data/calib/validation'
+
+--- daily/ 残留检查（应为空）---
+总用量 8
+drwxrwxr-x  2 gaolei gaolei 4096 9月  12 02:53 .
+drwxrwxr-x 13 gaolei gaolei 4096 9月  12 02:53 ..
+daily/ 已清空删除

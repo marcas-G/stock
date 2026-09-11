@@ -1,0 +1,49 @@
+=== DER-002 全量月份对照 ===
+minutes 月份数: 80（首 2020-01 末 2026-08）
+bars_1m 月份数: 80（首 2020-01 末 2026-08）
+仅在 minutes: 
+仅在 bars_1m: 
+
+=== 悬空引用扫描（旧路径 /data/students/gaolei/stock 字面量）===
+quant-platform-research/tools/lob_fact/compact_lob.py:15:    python compact_lob.py --root /data/students/gaolei/stock/lob_fact \\
+quant-platform-research/tools/lob_fact/compact_lob.py:202:    ap.add_argument('--root', default='/data/students/gaolei/stock/lob_fact')
+quant-platform-research/tools/lob_fact/notes/w4diag/parity_probe.py:17:sys.path.insert(0, '/data/students/gaolei/stock/quant-platform-research/tools/lob_fact')
+quant-platform-research/tools/lob_fact/notes/w3diag/setrate10.py:3:sys.path.insert(0, '/data/students/gaolei/stock/quant-platform-research/tools/lob_fact')
+quant-platform-research/tools/lob_fact/config.py:33:QUARK_ROOT = '/data/students/gaolei/stock/quark_downloaded/'
+quant-platform-research/tools/lob_fact/config.py:34:TICK_FACT_ROOT = '/data/students/gaolei/stock/tick_fact/'
+quant-platform-research/tools/lob_fact/config.py:35:LOB_FACT_ROOT = '/data/students/gaolei/stock/lob_fact/'
+quant-platform-research/tools/lob_fact/config.py:36:CALIB_OUT = '/data/students/gaolei/stock/lob_fact_calib/'
+quant-platform-research/tools/lob_fact/notes/w3diag/probe_edge.py:4:sys.path.insert(0, '/data/students/gaolei/stock/quant-platform-research/tools/lob_fact')
+quant-platform-research/tools/lob_fact/notes/w3diag/probe_edge.py:40:res = json.load(open(glob.glob('/data/students/gaolei/stock/lob_fact_calib/w3_measure_600036_20251215.json')[0]))
+quant-platform-research/tools/lob_fact/verify_cancels_sample.py:14:ROOT = '/data/students/gaolei/stock/quark_downloaded/'
+quant-platform-research/tools/lob_fact/verify_cancels_sample.py:15:CANC = '/data/students/gaolei/stock/tick_fact/cancels/'
+quant-platform-research/tools/lob_fact/verify_cancels_sample.py:76:        m = pl.read_parquet('/data/students/gaolei/stock/tick_fact/_manifest/cancels_manifest.parquet')
+quant-platform-research/tools/lob_fact/notes/w3diag/unattr_prof.py:3:sys.path.insert(0, '/data/students/gaolei/stock/quant-platform-research/tools/lob_fact')
+quant-platform-research/tools/lob_fact/audit_w5.py:287:                    default='/data/students/gaolei/stock/lob_fact/_batch')
+quant-platform-research/tools/lob_fact/audit_w5.py:288:    ap.add_argument('--lob-root', default='/data/students/gaolei/stock/lob_fact')
+quant-platform-research/tools/lob_fact/audit_w5.py:289:    ap.add_argument('--tick-root', default='/data/students/gaolei/stock/tick_fact')
+quant-platform-research/tools/lob_fact/w5_closure.sh:6:cd /data/students/gaolei/stock/quant-platform-research/tools/lob_fact || exit 1
+quant-platform-research/tools/lob_fact/w5_closure.sh:33:    --lock /data/students/gaolei/stock/lob_fact/_batch/.lock --out /tmp/w5_compact.json
+quant-platform-research/tools/lob_fact/w5_closure.sh:44:root = '/data/students/gaolei/stock/lob_fact'
+quant-platform-research/tools/lob_fact/notes/w3diag/probe_carried.py:6:sys.path.insert(0, '/data/students/gaolei/stock/quant-platform-research/tools/lob_fact')
+quant-platform-research/tools/lob_fact/notes/w3diag/probe_pxadd.py:4:sys.path.insert(0, '/data/students/gaolei/stock/quant-platform-research/tools/lob_fact')
+tools/ch_ingest/ingest_daily.py:19:DAILY_SRC = "/data/students/gaolei/stock/daily/daily_fact.parquet"
+quant-platform-research/tools/lob_fact/notes/w3diag/lagtest.py:4:sys.path.insert(0, '/data/students/gaolei/stock/quant-platform-research/tools/lob_fact')
+ashare_alpha3/scripts/03_import_fundamentals.py:56:    p.add_argument('--daily', default='/data/students/gaolei/stock/daily/daily_fact.parquet')
+ashare_alpha3/scripts/03_import_fundamentals.py:59:    p.add_argument('--out', default='/data/students/gaolei/stock/fundamentals/fundamentals_pti.parquet')
+ashare_alpha3/config.yaml:2:  root: /data/students/gaolei/stock/ashare_alpha3
+ashare_alpha3/config.yaml:5:  bars_1m_glob: /data/students/gaolei/stock/bars_1m/year=*/month=*/*.parquet
+ashare_alpha3/config.yaml:6:  daily_fact: /data/students/gaolei/stock/daily/daily_fact.parquet
+ashare_alpha3/config.yaml:7:  benchmark_daily_pre: /data/students/gaolei/stock/daily/000905.SH.parquet
+ashare_alpha3/config.yaml:8:  fundamentals_pti: /data/students/gaolei/stock/fundamentals/fundamentals_pti.parquet
+ashare_alpha3/config.yaml:9:  golden_v4_top300: /data/students/gaolei/stock/universes/v4_top300.parquet
+ashare_alpha3/config.yaml:13:  universes: /data/students/gaolei/stock/ashare_alpha3/universes
+ashare_alpha3/config.yaml:14:  research: /data/students/gaolei/stock/ashare_alpha3/research
+ashare_alpha3/config.yaml:15:  validation: /data/students/gaolei/stock/ashare_alpha3/validation
+tools/ch_ingest/ingest_common.py:62:        return "/data/students/gaolei/stock/bars_1m"
+tools/ch_ingest/ingest_common.py:63:    return f"/data/students/gaolei/stock/tick_fact/{TICK_DIR[table]}"
+ashare_alpha3/scripts/05_validate_minutes_vs_daily.py:37:    con.execute("SET temp_directory='/data/students/gaolei/stock/tmp_duckdb'")
+tools/ch_ingest/reconcile.py:18:DAILY_SRC = "/data/students/gaolei/stock/daily/daily_fact.parquet"
+quant-platform-research/tools/lob_fact/notes/w3diag/prof_rank.py:2:sys.path.insert(0, '/data/students/gaolei/stock/quant-platform-research/tools/lob_fact')
+…(代码/配置类命中如上，完整清单入 evidence)
+60 docs/verification/S2/03-dangling-refs-full.log

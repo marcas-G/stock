@@ -1,0 +1,51 @@
+=== S2 前置门与基线 ===
+--- 同盘确认 ---
+2053 /data/students/gaolei/stock/bars_1m
+2053 /data/students/gaolei/stock/lob_fact
+2053 /data/students/gaolei/stock/tick_fact
+2053 /data/students/gaolei/stock/quark_downloaded
+2053 /data/students/gaolei/stock/minutes
+2053 /data/students/gaolei/stock/daily
+/dev/sda5      8512527302656 7721074937856 362372550656   96% /data
+
+--- 7z 可用性与内容 ---
+
+7-Zip [64] 16.02 : Copyright (c) 1999-2016 Igor Pavlov : 2016-05-21
+p7zip Version 16.02 (locale=zh_CN.UTF-8,Utf16=on,HugeFiles=on,64 bits,40 CPUs Intel(R) Xeon(R) Silver 4210 CPU @ 2.20GHz (50657),ASM,AES-NI)
+
+Scanning the drive for archives:
+1 file, 5632765477 bytes (5372 MiB)
+
+Listing archive: 20260817.7z
+
+--- bars_1m _SUCCESS 计数（期望 80）---
+80
+--- quark_downloaded 文件计数（期望 74630）---
+74630
+--- minutes zip 计数与年月分布 ---
+1609
+2020
+2021
+2022
+2023
+2024
+2025
+2026
+--- 写入方进程检查 ---
+27689
+27692
+无 convert 进程
+--- 干净模式进程复核（无字面量泄漏）---
+确认：无批算进程
+确认：无 panel 进程
+--- .lock 状态 ---
+-rw-rw-r-- 1 gaolei gaolei 0 9月  11 16:48 /data/students/gaolei/stock/lob_fact/_batch/.lock
+--- 7z 根目录 ---
+Method = LZMA2:16
+Solid = +
+Blocks = 3128
+
+   Date      Time    Attr         Size   Compressed  Name
+------------------- ----- ------------ ------------  ------------------------
+2026-08-17 16:54:07 D....            0            0  20260817
+2026-08-17 16:15:34 D....            0            0  20260817/000001.SZ
