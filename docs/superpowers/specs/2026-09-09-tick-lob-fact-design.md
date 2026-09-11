@@ -1,7 +1,7 @@
 # tick 订单簿重建（lob_fact v1）设计规格
 
 - 日期: 2026-09-09
-- 状态: **W6 完成（2026-09-10，M7 同位门 8 code-day × 1s/1m 全 PASS 且误差计数器全 0；因子面板 1s/1m 真实产出（2 日 × 4 code）；147 tests 绿；见文末 W 验证记录）**；W5 进行中（2025-08 起月间串行断点续跑；2026-01 起按翻倍预算 4 worker）；W4 完成（2026-09-10，试点月 2026-08 全量：4,499/4,500 code-days 过门，1 失败已分类 δ 尾；字节级重跑比对 PASS；体积 1.5383×源（**超 1.5× 预算**，原记 1.461× 系算术错，2026-09-11 更正 → W5 以 zstd9 收口，预计 ~1.4657×）；RSS 双 worker 同刻和峰 22.7GB ≤24GB（旧门）；123 tests 绿，见文末 W 验证记录）；W3 完成（anchoring 101 tests 绿 + 校准集 10 日对拍 M1a 存现门全过 M4/M6 硬门 10/10）；W2 完成（引擎 72 tests 绿 + 10 校准日冻结门实测）；W1 完成（校准 7 项证据 JSON + 校准备忘录）；W0 终态全验收 ALL OK
+- 状态: **W6 完成（2026-09-10，M7 同位门 8 code-day × 1s/1m 全 PASS 且误差计数器全 0；因子面板 1s/1m 真实产出（2 日 × 4 code）；147 tests 绿；见文末 W 验证记录）**；**W5 完成（2026-09-11，全史 13 月 74,466 code-day 断点续跑全完成：250/250 交易日、13 个月门齐；13 月总体积全 ≤1.5×源（202608 1.5333 → 1.4663×，zstd9 收口 87 文件 −4.42%）；失败 hard 27/74,466 = 0.0363%（全分类无未归类桶）；内存全程在限（worker 和峰 44.2GB ≤48GB、全和峰 44.4GB ≤64GB）；终审 audit_w5 ok=True 四问全 PASS，见文末 W 验证记录）**；W4 完成（2026-09-10，试点月 2026-08 全量：4,499/4,500 code-days 过门，1 失败已分类 δ 尾；字节级重跑比对 PASS；体积 1.5383×源（**超 1.5× 预算**，原记 1.461× 系算术错，2026-09-11 更正 → W5 以 zstd9 收口，**实测 1.4663×**）；RSS 双 worker 同刻和峰 22.7GB ≤24GB（旧门）；123 tests 绿，见文末 W 验证记录）；W3 完成（anchoring 101 tests 绿 + 校准集 10 日对拍 M1a 存现门全过 M4/M6 硬门 10/10）；W2 完成（引擎 72 tests 绿 + 10 校准日冻结门实测）；W1 完成（校准 7 项证据 JSON + 校准备忘录）；W0 终态全验收 ALL OK
 - 关联: 前序 tick_fact 事实库（orders/trades/snapshots，13 月 74,466 code-day，76GB，QA 通过）；平台 1m 漏斗（2026-09-08-factorlab-1m-funnel-design.md）
 
 ## 1. 目标与范围
@@ -47,7 +47,7 @@
 - `lob_events`：每(事件,触碰价档)一行绝对量 price-keyed：code/trade_date/time_ms/seq/phase/event_type(add/cancel/trade/level_cancel/anchor_correction/level_materialization/phase_transition)/side/price_x10000/prev_vol/new_vol/flags(fully_depleted/touched_best/crossed_spread)/kind_seq
 - `lob_sweep_meta`（稀疏，耗尽才发）：side/levels_hit/orders_hit_at_best（两所真实计数）/vol_before/consumed_at_best/tail_order_id+residual/remainder_unfilled
 - `lob_checkpoints`：分钟对齐 band 簿面态 + 档内订单计数
-- gating：band = rank≤R 或 |价−对侧 best|≤δ_pct（默认 R=50/δ=1%，config 单点）；no-op 抑制；**体积预算 ≤1.5×源（W4 试点月 202608 实测 1.5383× = 超预算（原记 1.461× 为算术错）；W5 以 zstd9 收口至 ~1.4657×，回退梯未启用）**；布局/原子写/flock/RG 切分（`ROW_GROUP_ROWS=1_048_576` 行整倍组界 + `ZSTD_LEVEL=9`，几何 W4 定标 / 压缩级 W5 定标：events −4.9%、sweeps −3.1%、ckpts −5.9%）镜像 tick_fact
+- gating：band = rank≤R 或 |价−对侧 best|≤δ_pct（默认 R=50/δ=1%，config 单点）；no-op 抑制；**体积预算 ≤1.5×源（W4 试点月 202608 实测 1.5383× = 超预算（原记 1.461× 为算术错）；W5 以 zstd9 收口，**实测 202608 1.5333× → 1.4663×（87 文件 −4.42%）、202508 1.4045× → 1.3795×；13 月全 ≤1.5×，回退梯未启用**）**；布局/原子写/flock/RG 切分（`ROW_GROUP_ROWS=1_048_576` 行整倍组界 + `ZSTD_LEVEL=9`，几何 W4 定标 / 压缩级 W5 定标：events −4.9%、sweeps −3.1%、ckpts −5.9%）镜像 tick_fact
 - 队列明细不物化：身份级因子引擎内存即时聚合；订单级轨迹消费方回源 tick_fact 重放
 
 ### 3.3 QA（metrics 库先行；pre-adoption 计算）
@@ -73,7 +73,7 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
 | W2 | 引擎 + schema 冻结门 | 完成 |
 | W3 | 锚定 + QA 全门 + 校准集对拍 + 开盘模型冻结 | 完成 |
 | W4 | 批算 + 试点月 2026-08 | 完成 |
-| W5 | 全史批算 13 月 | 进行中（2026-08 由 W4 完成；2025-08 起续跑，月间串行 2 worker） |
+| W5 | 全史批算 13 月 | 完成（2026-09-11；断点续跑 250/250 交易日 + 13 个月门齐；体积 13 月全 ≤1.5×；hard 0.0363% 全分类；内存在限；终审 ok=True） |
 | W6 | 盘口因子实证 + M7 + spec 翻转 | 完成 |
 
 ## 5. 关键文件
@@ -271,3 +271,43 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
 - W6 关闭。commit research `tools/lob_fact/{factor_panel.py,tests/test_factor_panel.py,
   config.py,notes/w6_factor_memo.md}` + main spec doc。→ W5 全史批算续跑（月 QA 摘要 /
   总体积 ≤1.5×源 / 失败分类 / 内存审计为 W5 验收项）。
+
+### W5（2026-09-11）— 全史批算 13 月 + 收口（验收 5/5 全过；收口 a–e 各步 exit=0）
+
+- **规模与架构**：13 月 **74,466 code-day（250 交易日）**，date-major 读 + `ProcessPoolExecutor(spawn)`
+  + 单实例 flock + 月粒度断点 `state.json` + STALL 2400s 看门狗 + `MemAvailable` 低水位节流
+  （`LOW_WATER_KB=16GB`）+ 30s RSS 审计；worker 数两段（2025-08…2025-12 = 2，2026-01 起 = 4，
+  对应 2026-09-11 内存预算翻倍 24/32 → 48/64GB）。
+- **验收 ①断点续跑全完成**：`audit_w5` 完整性段 13 月逐月 `done==plan` 且 `COMPLETE`
+  （**250/250 交易日**），13 个月门文件 `month_gate_*.json` 齐。
+- **验收 ②月 QA 摘要**：13 行齐；`vacuous` 全月 0；池化 SZ 0.98188–0.99023 / SH 0.98676–0.99175；
+  `err=0` 全月。口径：月门 `cd` = 该月去重 code-day 减 hard 例 → 13 月 cd 和 74,439 + hard 27
+  = **74,466 = 全量**。
+- **验收 ③总体积 ≤1.5×源**：**PASS** —— 12 月 1.3295–1.4132×；**202608 1.5333 → 1.4663×**
+  （`compact_lob --level 9`：**87 文件 / 0 失败**，15,407,420,779 → 14,726,892,902 B
+  = **−648.9 MiB / −4.42%**，全程内容摘要等=True）；202508 1.4045 → **1.3795×**；
+  **回退梯未启用**。
+- **验收 ④失败全分类**：**PASS** —— `{clean: 67,055, delta_band: 7,384, vacuous: 0, hard: 27}`
+  = 无未归类桶；hard **27 / 74,466 = 0.0363%**（阈 ≤0.1%），全部 `m1a_presence` 且逐条列出。
+  27 例归因 = **δ 滞后定律**（presence ~ log10(事件量) r = **−0.919**，分位单调剂量-反应；
+  202607 集群 18 例 = 活跃度激增响应，301165.SZ 事件 197K→573K、presence 0.96055→0.90535）
+  = **方法边界，非引擎缺陷**；日级门失败率随市场活跃度浮动，冻结阈值未改（备忘 §3b）。
+- **验收 ⑤内存全程在限**：**PASS** —— 单 worker 峰 16.0GB / 同刻 worker 和峰 **44.2GB ≤48GB**
+  / 同刻全和峰 **44.4GB ≤64GB**（12,275 样本；2-worker 与 4-worker 两段实测表见备忘 §5）。
+- **收口 a–e**（`w5_closure.sh`，16:26:53 → 17:57:04，**各步 exit=0**；终审 `audit_w5` **ok=True**）：
+  **a** 202608 补跑（run `20260911_162655_33929`，`n_errors=0`，1314.9s；
+  `hard_days=[20260807 / 301308.SZ / m1a_presence]` → 该 code-day 以 hard 类**入账 done**
+  （不吞不锁死机制全链路实证）；重放确定性再证：二次重放 `presence=0.89981` 逐位同）；
+  **b** dry-run 见 SUCCESS 标记（断点证据）+ state 独立核对；**c** compact lv9（同上）；
+  **d** 终审四问全 PASS；**e** 20260807 三表内容摘要 `vs-pre: EQUAL` →
+  **W4 lv3 原文件 == 今日补跑重写 == compact lv9 重编码 三方内容同一**（编码无关摘要）。
+- **语义边界（诚实标注，勿误读）**：**(a)** run summary 的 `parity` 只比对**本次 run 实际写出的
+  date**（`tbs` 来自本 run `day_rows.jsonl`）→ 补跑只写 20260807，`mismatch_dates=['20260807']`
+  是预期的跨压缩级差异（非数据回归），**不构成"其余 14 日未变"的证明**；后者由独立证据给出：
+  三表 2026-08 目录内 14 个非 20260807 文件 mtime 全为 `09-10`（W4 run）、无文件被触碰。
+  **(b)** `parity.ok=False`（202608）同上口径。
+- **测试**：lob_fact 全套 **175 tests 绿**（含 `test_resource_gates_frozen_for_doubled_budget`
+  与 `audit_w5` 门标注取自常量的守卫）。
+- **提交**：research `tools/lob_fact/{run_lob_batch.py,audit_w5.py,compact_lob.py,w5_closure.sh,
+  tests/,notes/w5_full_history_memo.md}` + 本 spec（main）。→ **W0–W6 全部关闭**，
+  计划 `crystalline-imagining-crab.md` 各 WS 进度项收口。
