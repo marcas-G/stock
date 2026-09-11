@@ -149,15 +149,16 @@ docs 重叠）与 `ashare_alpha3` 内部仍有架构不确定性 → 登记为�
 | REQ-WS-007 | cat-file e66b349 + 4 提交 log | `docs/verification/S3/07-backup-rescue.log` |
 | REQ-WS-001/008 | 收口核验（S4/S5） | `docs/verification/final/` |
 
-## P8 — Validation（使命判定，收口时填写）
+## P8 — Validation（使命判定）
 
-对照 P0-Q4 逐项：
+对照 P0-Q4 逐项（核验详情与证据：`docs/verification/final/02-p8.md`）：
 
-- [ ] 根 ≤7 项可读
-- [ ] data-map 覆盖全部数据单元
-- [ ] 三链新路径实测 PASS
-- [ ] grep 门活跃死链 = 0
-- [ ] 回收 ≥33G（已验证 +35.26G）
-- [ ] git 实体唯一且 4 提交保全（已验证）
+- [x] 根 ≤7 项可读（7 项，`final/01-gates.log` §1）
+- [x] data-map 覆盖全部数据单元（A/B/C/D 四节无孤儿；A9 生产者待考已登记 pending #9）
+- [x] 三链新路径实测 PASS（pytest 2423 passed；lob_fact 四根+真实读冒烟；CH reconcile 全库一致）
+- [x] grep 门活跃死链 = 0
+- [x] 回收 ≥33G（df 可用 327.1G→362.4G，+35.26GB；另 ~4G 入归档区）
+- [x] git 实体唯一且 4 提交保全（e66b349=commit；archive/local-backup-20260903）
 
-结论：（待 S5 收口填写）
+**结论：Mission satisfied.** 残留偏离（DuckDB 主库不存在、7z 未解包、递归子树未展开）均在
+`pending-items.md` 显式登记，不构成静默缺口。

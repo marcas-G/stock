@@ -1,0 +1,13 @@
+../../quant-platform-main/tests/test_e2e_data.py:23: teajoin token 未配置（FACTORLAB_TEAJOIN_TOKEN）
+../../quant-platform-main/tests/test_e2e_data.py:28: teajoin token 未配置（FACTORLAB_TEAJOIN_TOKEN）
+../../quant-platform-main/tests/test_e2e_free_form.py:52: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e_free_form.py:70: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e_m4.py:44: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e_m4.py:66: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e.py:10: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e.py:48: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e.py:68: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e_web.py:29: 真实 results 目录不存在: C:/Users/ThinkPad/quant-platform/results
+../../quant-platform-main/tests/test_e2e_web.py:37: 真实 results 目录不存在: C:/Users/ThinkPad/quant-platform/results
+../../quant-platform-main/tests/test_e2e_web.py:47: 真实 results 目录不存在: C:/Users/ThinkPad/quant-platform/results
+../../quant-platform-main/tests/test_e2e_web.py:54: 真实 results 目录不存在: C:/Users/ThinkPad/quant-platform/results

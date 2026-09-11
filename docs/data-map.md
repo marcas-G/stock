@@ -26,7 +26,7 @@
 
 | # | 单元 | 位置/连接 | 规模 | 生产者 | 消费者 | 说明 |
 |---|---|---|---|---|---|---|
-| B1 | ClickHouse `factorlab` | `127.0.0.1:8123`，db=factorlab | tick_orders 5,810,986,406 行等 8 表 | `tools/ch_ingest/`（ingest_daily/bars/tick + derive_stk_limit） | platform ch 后端、研究只读查询 | 对账：`ch_ingest/reconcile.py`（全一致才 exit 0）；进度：`ch_ingest/state.json/`（运行时，不入 git） |
+| B1 | ClickHouse `factorlab` | `127.0.0.1:8123`，db=factorlab | tick_orders 5,810,986,406 行等 8 表 | `tools/ch_ingest/`（ingest_daily/bars/tick + derive_stk_limit） | platform ch 后端、研究只读查询 | 对账：`ch_ingest/reconcile.py`（全一致才 exit 0；**解释器用平台 venv** `projects/quant-platform-main/.venv/bin/python`——emb 缺 clickhouse_connect）；进度：`ch_ingest/state.json/`（运行时，不入 git） |
 | B2 | 平台库 `factorlab.duckdb` | `projects/quant-platform-main/data/`（相对 CWD） | **当前不存在** | `factorlab data rebuild`（数据源=teajoin API） | platform duckdb 后端 | 重建需先 redeem teajoin token（2026-08-22 已过期）；或改用 `FACTORLAB_DATA_BACKEND=ch`。见 pending-items |
 | B3 | teajoin Tushare 代理 | `https://teajoin.com`（FACTORLAB_TEAJOIN_TOKEN） | — | 外部 API | platform data rebuild/fetcher | token 过期，重建前先 redeem |
 

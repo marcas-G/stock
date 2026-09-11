@@ -7,14 +7,14 @@
 
 | REQ | 声明（简） | LF | 架构元素 | 阶段任务 | 验证方法 | 证据 | 状态 |
 |---|---|---|---|---|---|---|---|
-| REQ-WS-001 | 根收敛 7 项 | LF-05 | `/`（根） | S1 归档、S2 归并、S3 项目归并、S4 文档 | Inspection | `verification/final/01-root.txt`（待 S4/S5） | ○ |
+| REQ-WS-001 | 根收敛 7 项 | LF-05 | `/`（根） | S1 归档、S2 归并、S3 项目归并、S4 文档 | Inspection | `S4/01-gates.log`、`final/01-gates.log` §1 | ● |
 | REQ-WS-002 | 先归档后删除 + manifest | LF-03/04/10 | `_archive/` | S1 | Inspection + Demonstration | `S1/manifest.md`、`S1/01-archive.log` | ● |
 | REQ-WS-003 | 直删仅限可证明垃圾 | LF-02/03 | `_archive/` 政策 | S1 | Analysis | `S1/02-delete-gates.log`（lsof/模式/空目录） | ● |
-| REQ-WS-004 | data-map 无孤儿 | LF-01/08 | `docs/data-map.md` | S2 血缘 + S4 成文 | Inspection | `S2/02-post-verify.log`、本文件同日提交 | ◐ |
+| REQ-WS-004 | data-map 无孤儿 | LF-01/08 | `docs/data-map.md` | S2 血缘 + S4 成文 | Inspection | `S2/02-post-verify.log`、`docs/data-map.md`（A9 待考已登记 pending #9） | ● |
 | REQ-WS-005 | 活跃旧路径死链 = 0 | LF-06 | 各 config 单点 | S3 | Test（grep 门） | `S3/05-verify.log`（=0）、`S3/tasklist.md` | ● |
-| REQ-WS-006 | 三链新路径可跑 | LF-06/09 | projects/* | S3 冒烟、S5 全量 | Demonstration | `S3/06-smoke-and-shim.log`（四根+读路径+zip） | ◐ |
+| REQ-WS-006 | 三链新路径可跑 | LF-06/09 | projects/* | S3 冒烟、S5 全量 | Demonstration | `S3/06-smoke-and-shim.log`、`S5/05-pytest-after.log`（2423 passed）、`S5/06-ch-reconcile.log`（全库一致） | ● |
 | REQ-WS-007 | git 实体唯一 + 4 提交保全 | LF-07 | `projects/quant-platform-main` | S3 抢救 | Test | `S3/07-backup-rescue.log`（cat-file=e66b349） | ● |
-| REQ-WS-008 | 根仓库只跟踪文档白名单 | LF-08 | `/.gitignore` | S4 | Inspection | `verification/final/02-lsfiles.txt`（待） | ○ |
+| REQ-WS-008 | 根仓库只跟踪文档白名单 | LF-08 | `/.gitignore` | S4 | Inspection | `S4/01-gates.log`（白名单外=0）、`final/01-gates.log` §2 | ● |
 | REQ-WS-009 | 回收 ≥33G | LF-05 | `data/` | S1 | Test | `S1/03-delete-verify.log`（+35.26G） | ● |
 | REQ-WS-010 | 每阶段证据目录 | LF-09 | `docs/verification/` | S1-S5 | Inspection | 各 `verification/S*/` 非空 | ● |
 | DER-001 | worktree 迁移程序（无 repair） | LF-07 | research/.git 指针 | S3 | Test | `S3/01-pointer-snapshot.log`、`S3/02-worktree-move.log` | ● |

@@ -1,0 +1,15 @@
+FAILED tests/test_cli_run.py::test_run_multi_output_eval_per_output - Asserti...
+FAILED tests/test_cli_run.py::test_run_multi_output_literal_signal_first_class
+FAILED tests/test_cli_run.py::test_run_multi_output_groups_param_per_output
+FAILED tests/test_cli_run.py::test_run_multi_output_no_backtest_flag - Assert...
+FAILED tests/test_cli_run.py::test_run_legacy_single_output_eval_structure_lock
+FAILED tests/test_cli_run.py::test_run_minute_spec_dispatches_to_minute_chain
+FAILED tests/test_eval_rust_ic.py::test_evaluate_factor_weekly_full_structure
+FAILED tests/test_eval_rust_ic.py::test_evaluate_factor_weekly_direction_flips_decile
+FAILED tests/test_eval_rust_ic.py::test_evaluate_factor_weekly_aligns_weekly
+FAILED tests/test_eval_rust_ic.py::test_evaluate_factor_weekly_missing_columns
+FAILED tests/test_eval_rust_ic.py::test_evaluate_factor_weekly_null_rows_filtered
+FAILED tests/test_eval_rust_ic.py::test_evaluate_factor_weekly_empty_panel - ...
+FAILED tests/test_eval_rust_ic.py::test_evaluate_factor_weekly_reuses_provided_weekly
+FAILED tests/test_eval_rust_ic.py::test_evaluate_factor_weekly_target_20d - M...
+26 failed, 2397 passed, 13 skipped, 261 warnings in 459.62s (0:07:39)

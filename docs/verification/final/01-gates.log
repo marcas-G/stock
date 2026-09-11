@@ -1,0 +1,31 @@
+=== 终验（P7/P8）2026-09-12 03:39:49 ===
+
+--- 1. 根目录 7 项 ---
+_archive
+data
+docs
+.git
+.gitignore
+projects
+README.md
+条目数: 7
+
+--- 2. 根仓库 ls-files 白名单 ---
+总追踪: 34  | 白名单外: 0
+
+--- 3. worktree 与抢救提交 ---
+/data/students/gaolei/stock/projects/quant-platform-main      319fa3e [main]
+/data/students/gaolei/stock/projects/quant-platform-research  69be9f3 [research]
+main status: 0 项 (空=干净)
+research status: 0 项
+e66b349 类型: commit
+archive 分支提交数: 4
+
+--- 5. lob_fact 读路径 ---
+四根存在: PASS
+
+--- 7. grep 门（活跃旧路径死链）---
+活跃死链 = 0（期望 0）
+
+--- 8. 磁盘回收 ---
+/dev/sda5      8512527302656 7721162829824 362284658688   96% /data

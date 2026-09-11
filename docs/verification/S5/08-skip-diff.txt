@@ -1,0 +1,33 @@
+=== skip 集合对照（改前 vs 改后）===
+改前 13 项：
+../../quant-platform-main/tests/test_e2e_data.py:23: teajoin token 未配置（FACTORLAB_TEAJOIN_TOKEN）
+../../quant-platform-main/tests/test_e2e_data.py:28: teajoin token 未配置（FACTORLAB_TEAJOIN_TOKEN）
+../../quant-platform-main/tests/test_e2e_free_form.py:52: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e_free_form.py:70: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e_m4.py:44: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e_m4.py:66: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e.py:10: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e.py:48: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e.py:68: 真实数据库不存在: C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e_web.py:29: 真实 results 目录不存在: C:/Users/ThinkPad/quant-platform/results
+../../quant-platform-main/tests/test_e2e_web.py:37: 真实 results 目录不存在: C:/Users/ThinkPad/quant-platform/results
+../../quant-platform-main/tests/test_e2e_web.py:47: 真实 results 目录不存在: C:/Users/ThinkPad/quant-platform/results
+../../quant-platform-main/tests/test_e2e_web.py:54: 真实 results 目录不存在: C:/Users/ThinkPad/quant-platform/results
+
+改后 13 项：
+../../quant-platform-main/tests/test_e2e_data.py:23: teajoin token 未配置（FACTORLAB_TEAJOIN_TOKEN）
+../../quant-platform-main/tests/test_e2e_data.py:28: teajoin token 未配置（FACTORLAB_TEAJOIN_TOKEN）
+../../quant-platform-main/tests/test_e2e_free_form.py:52: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e_free_form.py:70: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e_m4.py:44: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e_m4.py:66: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e.py:10: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e.py:48: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+../../quant-platform-main/tests/test_e2e.py:68: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+tests/test_e2e_web.py:30: 真实 results 目录不存在: /data/students/gaolei/stock/projects/quant-platform-main/results
+tests/test_e2e_web.py:38: 真实 results 目录不存在: /data/students/gaolei/stock/projects/quant-platform-main/results
+tests/test_e2e_web.py:48: 真实 results 目录不存在: /data/students/gaolei/stock/projects/quant-platform-main/results
+tests/test_e2e_web.py:55: 真实 results 目录不存在: /data/students/gaolei/stock/projects/quant-platform-main/results
+
+归一化 diff 结论：13=13 同测试同文件；唯一差异 = test_e2e_web.py 行号 29/37/47/54 → 30/38/48/55
+（原因：本次编辑给该文件净增 1 行；测试函数与数量未变）

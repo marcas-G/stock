@@ -1,0 +1,26 @@
+=== CH 链路收口（只读）===
+--- 8 表行数 ---
+  tick_orders: 5810986406
+  tick_trades: 3797289378
+  tick_snapshots: 344059684
+  bars_1m: 1853379840
+  daily: 18162795
+  daily_basic: 18162795
+  adj_factor: 18162795
+  trade_cal: 8772
+  stock_basic: 5866
+
+--- ch_ingest reconcile（只读对账）---
+Traceback (most recent call last):
+  File "/data/students/gaolei/stock/projects/quant-platform-research/tools/ch_ingest/reconcile.py", line 16, in <module>
+    from common import connect, load_config
+  File "/data/students/gaolei/stock/projects/quant-platform-research/tools/ch_ingest/common.py", line 7, in <module>
+    from clickhouse_connect import get_client
+ModuleNotFoundError: No module named 'clickhouse_connect'
+daily 层:
+  daily        CH=      18,162,795 源=      18,162,795  一致
+  adj_factor   CH=      18,162,795 源=      18,162,795  一致
+  daily_basic  CH=      18,162,795 源=      18,162,795  一致
+  trade_cal    CH=           8,772 源=           8,772  一致
+  stock_basic  CH=           5,866 源=           5,866  一致
+全库一致

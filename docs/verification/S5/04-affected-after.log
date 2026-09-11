@@ -1,0 +1,12 @@
+SKIPPED [1] ../../quant-platform-main/tests/test_e2e.py:10: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+SKIPPED [1] ../../quant-platform-main/tests/test_e2e.py:48: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+SKIPPED [1] ../../quant-platform-main/tests/test_e2e.py:68: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+SKIPPED [1] ../../quant-platform-main/tests/test_e2e_free_form.py:52: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+SKIPPED [1] ../../quant-platform-main/tests/test_e2e_free_form.py:70: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+SKIPPED [1] ../../quant-platform-main/tests/test_e2e_m4.py:44: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+SKIPPED [1] ../../quant-platform-main/tests/test_e2e_m4.py:66: 真实数据库不存在: /data/students/gaolei/stock/projects/quant-platform-main/data/factorlab.duckdb
+SKIPPED [1] tests/test_e2e_web.py:30: 真实 results 目录不存在: /data/students/gaolei/stock/projects/quant-platform-main/results
+SKIPPED [1] tests/test_e2e_web.py:38: 真实 results 目录不存在: /data/students/gaolei/stock/projects/quant-platform-main/results
+SKIPPED [1] tests/test_e2e_web.py:48: 真实 results 目录不存在: /data/students/gaolei/stock/projects/quant-platform-main/results
+SKIPPED [1] tests/test_e2e_web.py:55: 真实 results 目录不存在: /data/students/gaolei/stock/projects/quant-platform-main/results
+11 skipped, 1 warning in 1.72s
