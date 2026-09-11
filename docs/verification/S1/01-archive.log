@@ -1,0 +1,49 @@
+=== S1 归档批次1：根散文件 ===
+renamed 'combine_300565.SZ_20260817_100000.png' -> '_archive/2026-09-12-S1/root_files/combine_300565.SZ_20260817_100000.png'
+renamed 'minute_300565.SZ_20260817.png' -> '_archive/2026-09-12-S1/root_files/minute_300565.SZ_20260817.png'
+renamed 'volkline_000786.SZ_20260817_145798.png' -> '_archive/2026-09-12-S1/root_files/volkline_000786.SZ_20260817_145798.png'
+renamed 'volkline_001368.SZ_20260817_22511.png' -> '_archive/2026-09-12-S1/root_files/volkline_001368.SZ_20260817_22511.png'
+renamed 'volkline_300565.SZ_20260817_100000.png' -> '_archive/2026-09-12-S1/root_files/volkline_300565.SZ_20260817_100000.png'
+renamed 'volkline_300565.SZ_20260817_50000.png' -> '_archive/2026-09-12-S1/root_files/volkline_300565.SZ_20260817_50000.png'
+renamed 'volkline_562080.SZ_20260817_865364.png' -> '_archive/2026-09-12-S1/root_files/volkline_562080.SZ_20260817_865364.png'
+renamed 'volkline_601390.SH_20260817_681872.png' -> '_archive/2026-09-12-S1/root_files/volkline_601390.SH_20260817_681872.png'
+renamed 'volprice_300565.SZ_20260817.png' -> '_archive/2026-09-12-S1/root_files/volprice_300565.SZ_20260817.png'
+renamed 'volume_300565.SZ_20260817.png' -> '_archive/2026-09-12-S1/root_files/volume_300565.SZ_20260817.png'
+renamed 'plot_combine.py' -> '_archive/2026-09-12-S1/root_files/plot_combine.py'
+renamed 'plot_minute.py' -> '_archive/2026-09-12-S1/root_files/plot_minute.py'
+renamed 'plot_volume.py' -> '_archive/2026-09-12-S1/root_files/plot_volume.py'
+renamed 'build_manifest_tree.py' -> '_archive/2026-09-12-S1/root_files/build_manifest_tree.py'
+renamed 'codes_300.txt' -> '_archive/2026-09-12-S1/root_files/codes_300.txt'
+renamed 'filtered.json' -> '_archive/2026-09-12-S1/root_files/filtered.json'
+renamed 'manifest_300.json' -> '_archive/2026-09-12-S1/root_files/manifest_300.json'
+renamed 'manifest_test.json' -> '_archive/2026-09-12-S1/root_files/manifest_test.json'
+renamed 'manifest_tree_250d.json' -> '_archive/2026-09-12-S1/root_files/manifest_tree_250d.json'
+renamed 'v4_top300.csv' -> '_archive/2026-09-12-S1/root_files/v4_top300.csv'
+renamed 'tick_conversion.log' -> '_archive/2026-09-12-S1/root_files/tick_conversion.log'
+renamed 'tick_conversion_run2.log' -> '_archive/2026-09-12-S1/root_files/tick_conversion_run2.log'
+renamed 'tick_conversion_run3.log' -> '_archive/2026-09-12-S1/root_files/tick_conversion_run3.log'
+renamed 'tick_conversion_run4.log' -> '_archive/2026-09-12-S1/root_files/tick_conversion_run4.log'
+renamed 'tick_conversion_run5.log' -> '_archive/2026-09-12-S1/root_files/tick_conversion_run5.log'
+renamed 'tick_conversion_run6.log' -> '_archive/2026-09-12-S1/root_files/tick_conversion_run6.log'
+renamed '_quant_platform_ref.tar.gz' -> '_archive/2026-09-12-S1/root_files/_quant_platform_ref.tar.gz'
+renamed 'tmp_tick_rebuild.py' -> '_archive/2026-09-12-S1/root_files/tmp_tick_rebuild.py'
+
+=== S1 归档批次2：过程目录 ===
+renamed 'daily/daily_fact.v20260823.parquet' -> '_archive/2026-09-12-S1/daily/daily_fact.v20260823.parquet'
+renamed 'daily/_daily_tmp' -> '_archive/2026-09-12-S1/daily/_daily_tmp'
+renamed 'bars_1m_validation' -> '_archive/2026-09-12-S1/bars_1m_validation'
+renamed 'research' -> '_archive/2026-09-12-S1/research'
+renamed 'scripts' -> '_archive/2026-09-12-S1/scripts'
+renamed 'tick_dev' -> '_archive/2026-09-12-S1/tick_dev'
+renamed 'tick_rescue_20260903' -> '_archive/2026-09-12-S1/tick_rescue_20260903'
+renamed 'tmp_tick_validate' -> '_archive/2026-09-12-S1/tmp_tick_validate'
+
+=== 归档物尺寸 ===
+15M	_archive/2026-09-12-S1/bars_1m_validation
+917M	_archive/2026-09-12-S1/daily
+29M	_archive/2026-09-12-S1/research
+36M	_archive/2026-09-12-S1/root_files
+244K	_archive/2026-09-12-S1/scripts
+1.4G	_archive/2026-09-12-S1/tick_dev
+1.3G	_archive/2026-09-12-S1/tick_rescue_20260903
+307M	_archive/2026-09-12-S1/tmp_tick_validate

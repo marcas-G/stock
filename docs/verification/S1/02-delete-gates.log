@@ -1,0 +1,38 @@
+=== 直删门证据 ===
+--- ashare_alpha3/.tmp 内容 ---
+总用量 34433348
+drwxr-xr-x  2 gaolei gaolei       4096 8月  24 01:52 .
+drwxrwxr-x 12 gaolei gaolei       4096 8月  24 01:19 ..
+-rw-rw-r--  1 gaolei gaolei 1048313856 8月  24 01:51 duckdb_temp_storage_DEFAULT-0.tmp
+-rw-rw-r--  1 gaolei gaolei 2097152000 8月  24 01:48 duckdb_temp_storage_DEFAULT-1.tmp
+-rw-rw-r--  1 gaolei gaolei 4194304000 8月  24 01:48 duckdb_temp_storage_DEFAULT-2.tmp
+-rw-rw-r--  1 gaolei gaolei 8388608000 8月  24 01:48 duckdb_temp_storage_DEFAULT-3.tmp
+-rw-rw-r--  1 gaolei gaolei 5244977152 8月  24 01:52 duckdb_temp_storage_DEFAULT-4.tmp
+-rw-rw-r--  1 gaolei gaolei    3276800 8月  24 01:52 duckdb_temp_storage_S128K-0.tmp
+-rw-rw-r--  1 gaolei gaolei    4096000 8月  24 01:51 duckdb_temp_storage_S160K-0.tmp
+-rw-rw-r--  1 gaolei gaolei    2752512 8月  24 01:51 duckdb_temp_storage_S192K-0.tmp
+-rw-rw-r--  1 gaolei gaolei    4128768 8月  24 01:52 duckdb_temp_storage_S224K-0.tmp
+-rw-rw-r--  1 gaolei gaolei   14483456 8月  24 01:52 duckdb_temp_storage_S32K-0.tmp
+-rw-rw-r--  1 gaolei gaolei  262144000 8月  24 01:31 duckdb_temp_storage_S64K-0.tmp
+-rw-rw-r--  1 gaolei gaolei  523501568 8月  24 01:52 duckdb_temp_storage_S64K-1.tmp
+-rw-rw-r--  1 gaolei gaolei 1044840448 8月  24 01:52 duckdb_temp_storage_S64K-2.tmp
+-rw-rw-r--  1 gaolei gaolei 2095185920 8月  24 01:52 duckdb_temp_storage_S64K-3.tmp
+-rw-rw-r--  1 gaolei gaolei 4194304000 8月  24 01:52 duckdb_temp_storage_S64K-4.tmp
+-rw-rw-r--  1 gaolei gaolei  393216000 8月  24 01:52 duckdb_temp_storage_S96K-0.tmp
+-rw-rw-r--  1 gaolei gaolei  786432000 8月  24 01:52 duckdb_temp_storage_S96K-1.tmp
+-rw-rw-r--  1 gaolei gaolei 1572864000 8月  24 01:52 duckdb_temp_storage_S96K-2.tmp
+-rw-rw-r--  1 gaolei gaolei 3145728000 8月  24 01:52 duckdb_temp_storage_S96K-3.tmp
+-rw-rw-r--  1 gaolei gaolei  239370240 8月  24 01:52 duckdb_temp_storage_S96K-4.tmp
+文件数: 20
+非 duckdb_temp_storage 模式文件数（应为0）: 0
+--- 进程占用检查（lsof）---
+0
+0 进程持有
+--- _upstream_check 内容（应为空）---
+总用量 8
+drwxrwxr-x  2 gaolei gaolei 4096 9月   3 01:28 .
+drwxrwxr-x 22 gaolei gaolei 4096 9月  12 02:50 ..
+--- 根缓存规模 ---
+216K	./__pycache__
+32K	./.pytest_cache
+-rw-r--r-- 1 gaolei gaolei 53248 9月   9 21:46 quant-platform-main/.coverage

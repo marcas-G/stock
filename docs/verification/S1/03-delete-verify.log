@@ -1,0 +1,38 @@
+=== S1 直删执行 ===
+ashare_alpha3/.tmp 已删（20 文件 33G）
+_upstream_check 已删（空目录）
+根缓存与 .coverage 已删
+
+=== 直删后验证 ===
+/dev/sda5      8512527302656 7721074688000 362372800512   96% /data
+
+--- 根目录现状 ---
+.
+..
+20260817.7z
+_archive
+ashare_alpha3
+bars_1m
+convert_minutes_to_parquet.py
+convert_tick_to_parquet.py
+daily
+docs
+lob_fact
+lob_fact_calib
+minutes
+quant_core_shim
+quant-platform-main
+quant-platform-main.local-backup-20260903
+quant-platform-research
+quark_downloaded
+quark_download_server.py
+quark_download_v2.py
+quark_share.py
+tick_fact
+tools
+universes
+validation
+递归式需求驱动系统工程开发手册：NASA Systems Engineering × V-Model.md
+
+--- main worktree status ---
+(空=干净)
