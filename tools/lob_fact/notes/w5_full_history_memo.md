@@ -299,6 +299,19 @@ $PY audit_w5.py --out /tmp/w5_audit.json
 `parity.ok=False` 是预期的**（不是数据回归）。真实等价判据 = 上表内容摘要重算全等
 （编码无关；收口时回填）——W4 的 "字节级重跑全等" 证明限定在 lv3 同编码内，仍成立。
 
+**实测回填（2026-09-11 16:48 补跑完成，run `20260911_162655_33929`）**：
+- `n_errors=0`、`elapsed=1314.9s`（单日 + 月文件一次扫）、
+  `hard_days=[{day: 20260807, n_fail: 1, codes: [301308.SZ], reasons: [m1a_presence]}]`
+  → 该 code-day 以 **hard 类入账 `done`**（不吞不锁死，§3 机制首次全链路实证）。
+- **重放确定性再证**：300 个 code-day 中 301308.SZ@20260807 二次重放结果逐位同
+  （`ok=False / presence=0.89981 / reasons=[m1a_presence]`，与 W4 run 完全一致）。
+- `parity=dict(compared=True, mismatch_dates=['20260807'], ok=False)` —— **语义边界
+  诚实标注**：parity 只对**本 run 实际写出的 date** 比 sha256（`tbs` 来自本 run 的
+  `day_rows.jsonl`），补跑只处理 20260807 → mismatch 只可能落在该日，**不构成
+  "其余 14 日未变" 的证明**；后者由更强的独立证据给出：三表 2026-08 目录内
+  14 个非 20260807 文件的 mtime 全为 `09-10`（W4 run），仅 20260807 mtime 为 `09-11`
+  → 除重写文件外**没有任何文件被触碰**（读-写路径无副作用）。
+
 **驱动脚本（月间串行；原件 `/tmp/w5_run_months.sh` 易失，此处为权威副本 —— worker 数
 分两段：2025-08…2025-12 为 `--workers 2`（旧 24/32GB 门），2026-01 起 `--workers 4`
 （2026-09-11 翻倍门）；逐月起新进程 → 补丁/参数变更只需发生在月界）**
@@ -319,14 +332,60 @@ echo "=== ALL DONE $(date '+%F %T')"
 驱动自身 stdout → `/tmp/w5_driver.log`（`month $m exit=$?` 行；批算子进程输出 →
 `/tmp/w5_batch_all.log`）——**等待 ALL DONE 以 driver 日志为准，勿只看批算日志**。
 
-**验收表（收口后回填）**
+**验收表（2026-09-11 17:57 收口完成，全部回填）**
 
 | 项 | 证据 | 结果 |
 |---|---|---|
-| 断点续跑全完成 | `audit_w5 --out` 完整性段（逐月 done/plan） | 待回填 |
-| 月 QA 摘要 | 同报告 `[月 QA]` 段（13 月逐行） | 待回填 |
-| 总体积 ≤1.5×源 | 同报告 `[体积]` 段（逐月比；202608 收口前后对比） | 待回填 |
-| 失败全分类 | 同报告 `[失败]` 段（clean/delta_band/vacuous/hard + 逐条 hard） | 待回填 |
-| 内存全程在限 | 同报告 `[内存]` 段（三指标 vs 24/32GB 门） | 待回填 |
-| 复现命令 | 本 runbook a-d + `/tmp/w5_audit.json` | — |
-| 提交号 | research / main 两侧 | 待回填 |
+| 断点续跑全完成 | `audit_w5 --out` 完整性段 | **PASS** — 13 月逐月 `done==plan` 且 `COMPLETE`（250/250 交易日；13 个月门文件齐） |
+| 月 QA 摘要 | 同报告 `[月 QA]` 段 | **13 行齐**（见下方实测块）：cd 合计 74,439 + hard 27 = 74,466 = 全量 code-day；`vac=0` 全月；池化 SZ 0.98188–0.99023 / SH 0.98676–0.99175；`err=0` 全月 |
+| 总体积 ≤1.5×源 | 同报告 `[体积]` 段 | **PASS** — 13 月全 ≤1.5×：12 月 1.3295–1.4132×；**202608 = 1.5333 → 1.4663×**（收口前超预算 → compact 修复） |
+| 失败全分类 | 同报告 `[失败]` 段 | **PASS** — hard **27 / 74,466 = 0.0363%**（阈 ≤0.1%）；分类 `{clean: 67,055, delta_band: 7,384, vacuous: 0, hard: 27}` = 无未归类桶；27 条逐条列 reasons（全 `m1a_presence`，见 §3b 归因） |
+| 内存全程在限 | 同报告 `[内存]` 段 | **PASS** — 单 worker 峰 16.0GB、同刻 worker 和峰 **44.2GB ≤48GB**、同刻全和峰 **44.4GB ≤64GB**（12,275 样本；两段实测表见 §5） |
+| 复现命令 | 本 runbook a–e（`w5_closure.sh`）+ `/tmp/w5_audit.json`（终审）/ `/tmp/w5_compact.json`（体积）/ `/tmp/w5_20260807_post.json`（摘要复算） | — |
+| 提交号 | research / main 两侧 | 见下节"提交" |
+
+**收口实测块（`/tmp/w5_closure.log`，a–e 各步 exit 全 0，16:26:53 → 17:57:04）**
+
+- **a 202608 补跑**：run `20260911_162655_33929`，`n_errors=0`，1314.9s；
+  state 202608 → `done 15/15` + `hard_days=[20260807/301308.SZ/m1a_presence]`；
+  301308.SZ@20260807 二次重放逐位同（`0.89981`）。
+- **b 断点证据**：dry-run → "202608: 已有 SUCCESS 标记 → 退出"；state 独立核对 13 月
+  250/250、hard code-day 27（`{202509:1, 202510:1, 202601:1, 202605:4, 202606:1,
+  202607:18, 202608:1}`）。
+- **c 体积收口**：`compact_lob --level 9`，**87 文件 / 0 失败**，
+  15,407,420,779 → 14,726,892,902 B（**−648.9 MiB，−4.42%**），全程 `摘要等=True`；
+  202508 1.4045 → **1.3795×**，202608 1.5333 → **1.4663×**（预测 1.4657×，实测略高
+  0.0006×，属编码级随机性；**回退梯未启用**）。
+- **d 终审**：`ok=True`，四问全 PASS（本表上五行即其逐段摘录）。
+- **e 20260807 摘要复算**：三表 `vs-pre: EQUAL`（内容摘要，编码无关）→
+  "补跑后内容摘要 vs 前置: **全等 PASS**"；即 **W4 lv3 原文件 == 今日补跑重写 ==
+  compact lv9 重编码** 三方内容同一，佐证 lv9 收口零语义变化（§1b 杠杆）。
+
+**月 QA 13 行实测（`[月 QA]` 段原文，cd/锚定/vacuous/band/池化 SZ·SH/done·plan/hard/parity/err）**
+
+```
+202508: cd=4101 锚定=4101 vac=0 band=316  SZ=0.98904 SH=0.99066 done=14/14 hard=0  parity=None  err=0
+202509: cd=6445 锚定=6445 vac=0 band=590  SZ=0.98808 SH=0.99064 done=22/22 hard=1  parity=None  err=0
+202510: cd=5017 锚定=5017 vac=0 band=371  SZ=0.98888 SH=0.99084 done=17/17 hard=1  parity=None  err=0
+202511: cd=5920 锚定=5920 vac=0 band=388  SZ=0.99023 SH=0.99098 done=20/20 hard=0  parity=None  err=0
+202512: cd=6824 锚定=6824 vac=0 band=476  SZ=0.99021 SH=0.99093 done=23/23 hard=0  parity=None  err=0
+202601: cd=5997 锚定=5997 vac=0 band=648  SZ=0.98692 SH=0.98836 done=20/20 hard=1  parity=None  err=0
+202602: cd=4197 锚定=4197 vac=0 band=329  SZ=0.98932 SH=0.98950 done=14/14 hard=0  parity=None  err=0
+202603: cd=6580 锚定=6580 vac=0 band=568  SZ=0.98880 SH=0.98888 done=22/22 hard=0  parity=None  err=0
+202604: cd=6293 锚定=6293 vac=0 band=511  SZ=0.98928 SH=0.98971 done=21/21 hard=0  parity=None  err=0
+202605: cd=5396 锚定=5396 vac=0 band=698  SZ=0.98637 SH=0.98826 done=18/18 hard=4  parity=None  err=0
+202606: cd=6296 锚定=6296 vac=0 band=904  SZ=0.98451 SH=0.98748 done=21/21 hard=1  parity=None  err=0
+202607: cd=6874 锚定=6874 vac=0 band=1159 SZ=0.98188 SH=0.98676 done=23/23 hard=11 parity=None  err=0
+202608: cd=4499 锚定=4499 vac=0 band=426  SZ=0.98602 SH=0.99175 done=15/15 hard=1  parity=False err=0
+```
+
+（**口径**：`cd` = 月门计入的代码日 = 该月去重 code-day **减去** hard 例；故 13 月 cd 和
+74,439 + hard 27 = **74,466 = 全量**。202608 的 `parity=False` 是 §6 已标注的
+跨压缩级预期差异，非数据回归 —— 内容摘要在 e 步全等。）
+
+**提交**
+
+- research（`tools/lob_fact/`）：见本节所在提交（`git log -1 --format=%h` 为收口提交；
+  含 w5_closure.sh / compact_lob.py / audit_w5.py / 本备忘）。
+- main（spec）：`docs/superpowers/specs/2026-09-09-tick-lob-fact-design.md` 状态行
+  翻 W5 完成（同批次提交）。
