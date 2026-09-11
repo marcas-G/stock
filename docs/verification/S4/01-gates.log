@@ -1,0 +1,21 @@
+=== S4 门复跑（quotepath=false）===
+2026-09-12 03:14:51
+--- 根目录（期望 7 项）---
+_archive
+data
+docs
+.git
+.gitignore
+projects
+README.md
+条目数: 7
+
+--- git ls-files 白名单（期望 0 例外）---
+34
+白名单外: 0
+
+--- 追踪范围抽样 ---
+.gitignore
+README.md
+docs/archive-policy.md
+…

@@ -1,0 +1,35 @@
+=== S4 事实核查 ===
+--- 根目录 ---
+_archive
+data
+docs
+.git
+.gitignore
+projects
+--- data/ 布局 ---
+3.7M	data/calib
+214G	data/fact
+4.0K	data/panel
+140G	data/raw
+6.6M	data/ref
+--- lob_fact 内部 ---
+_batch
+lob_checkpoints
+lob_events
+lob_sweep_meta
+panel_1m
+panel_1s
+panel_runs
+panel_1s: 5 层; panel 文件: 4
+--- tick_fact 表 ---
+cancels
+_manifest
+orders
+snapshots
+trades
+--- duckdb 存在性 ---
+(空=不存在)
+--- CH 可达 ---
+5810986406
+--- lob_fact 批算状态 ---
+月份数: 13 | done 合计: 250
