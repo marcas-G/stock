@@ -385,7 +385,9 @@ echo "=== ALL DONE $(date '+%F %T')"
 
 **提交**
 
-- research（`tools/lob_fact/`）：见本节所在提交（`git log -1 --format=%h` 为收口提交；
-  含 w5_closure.sh / compact_lob.py / audit_w5.py / 本备忘）。
-- main（spec）：`docs/superpowers/specs/2026-09-09-tick-lob-fact-design.md` 状态行
-  翻 W5 完成（同批次提交）。
+- research（`tools/lob_fact/`）：**`4bd4ecc`** —— W5 收口 a–e 验收表回填（本备忘 §6）；
+  前序 `e362520`（hard 类全史终值 27 例 + 剂量-反应）、`808f000`（W4 体积 1.5383 更正 /
+  ZSTD9 / 预算翻倍三处同步）、`w5_closure.sh`+`compact_lob.py`+`audit_w5.py` 各自入仓提交。
+- main（spec）：**`e1dd243`** —— `docs/superpowers/specs/2026-09-09-tick-lob-fact-design.md`
+  状态行翻 **W5 完成** + §3.2 体积实测 1.4663× + §4 WS 表 + 文末 W5 验证记录。
+  （本行提交号回填本身为 research 侧追加提交；push 由用户自理。）
