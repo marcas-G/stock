@@ -306,8 +306,16 @@ date-major 读（trade_date 谓词剪枝，总量≈源一次读完）+ ProcessP
   是预期的跨压缩级差异（非数据回归），**不构成"其余 14 日未变"的证明**；后者由独立证据给出：
   三表 2026-08 目录内 14 个非 20260807 文件 mtime 全为 `09-10`（W4 run）、无文件被触碰。
   **(b)** `parity.ok=False`（202608）同上口径。
-- **测试**：lob_fact 全套 **175 tests 绿**（含 `test_resource_gates_frozen_for_doubled_budget`
-  与 `audit_w5` 门标注取自常量的守卫）。
+- **测试**：lob_fact 全套 **178 tests 绿**（含 `test_resource_gates_frozen_for_doubled_budget`
+  与 `audit_w5` 门标注取自常量的守卫）。**收口补测（2026-09-11）**：`main()` 编排层此前
+  只有生产运行覆盖（行覆盖 62.9%）→ 补 3 测走 **CLI 全链**（`--dry-run` 零副作用 /
+  首跑落盘+state+月门+SUCCESS+spawn worker 审计行 / `--force` 重跑 parity 字节等 /
+  SUCCESS 断点短路；单写者锁占用零写入 / `--only-day` 未命中退出 / 全 done 缺 SUCCESS
+  → **仅收尾**不重算），行覆盖 **93.1%**；每测均以变异（存根化）验证过必败。补测过程
+  **抓到并修复一处真实缺陷**：`run_id` = 秒+pid 在同秒同进程连跑时目录冲突 →
+  前一 run `summary.json` 被覆盖 → parity `prev` 消失、字节级重跑比对静默退化为
+  `compared=False`（假阴性）；修法 `_alloc_run_id()` 冲突追加 `_1/_2…`，并入测
+  `test_alloc_run_id_unique_on_collision`（改名"存根"必败）。
 - **提交**：research `tools/lob_fact/{run_lob_batch.py,audit_w5.py,compact_lob.py,w5_closure.sh,
   tests/,notes/w5_full_history_memo.md}` + 本 spec（main）。→ **W0–W6 全部关闭**，
   计划 `crystalline-imagining-crab.md` 各 WS 进度项收口。
