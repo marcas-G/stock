@@ -10,9 +10,11 @@
 - `main` 只收**平台改动**：`src/factorlab/`、`tests/`（平台测试）、`docs/interface.md`、
   `docs/superpowers/`（平台设计与计划）、`docs/data-ops-playbook.md`、`docs/teajoin-guide.md`、
   README、pyproject 等。
-- **研究内容**（因子定义与档案 `factor/`、`docs/factors/`、挖掘轮次 `results/`、
-  策略回测 `tools/`、`docs/strategies/`、factor-mine 技能与 playbook）一律提交到
-  **`research` 分支**（独立 worktree，见 `.claude/worktrees/`），绝不进 `main`。
+- **研究内容**（因子定义与档案 `factor/`、`docs/factors/`、策略回测 `tools/`、
+  `docs/strategies/`、factor-mine 技能与 playbook）一律提交到
+  **`research` 分支**（同仓库独立 worktree：`../quant-platform-research`），绝不进 `main`。
+- `results/`（挖掘轮次产物）为**本地运行产物，不入任何分支**（`.gitignore` 已忽略；
+  大 parquet/artifact 本地留存，需要归档时走工作区 `stock/_archive/` 机制）。
 - 远程仓库结构与本地一致：`main` 纯平台，`research` 存研究。
 - 若某项改动同时涉及平台与研究（如数据层新增字段被因子使用）：平台部分提交到
   `main`（提交信息用平台前缀 `feat(data)`/`fix(engine)` 等），研究部分提交到 `research`。
@@ -41,8 +43,10 @@
 
 ## 环境事实
 
-- Python 3.13；editable 安装指向当前工作树（切换分支/工作树后需
-  `python -m pip install -e .` 重新指向）。
+- Python 3.13（本工作树自带 uv 管理 venv：`.venv/`；解释器 `.venv/bin/python`）。
+  工作树/目录移动后需重装 editable：
+  `uv pip install --python .venv/bin/python -e . --no-deps --no-build-isolation`；
+  评估依赖 `quant_core`（shim 包在 `../quant_core_shim`，同样以 editable 装入本 venv）。
 - 平台库 `data/factorlab.duckdb`（`settings.platform_db`，`FACTORLAB_PLATFORM_DB`
   可覆盖）为**唯一数据源**：因子计算只读消费；写入仅经
   `factorlab data rebuild/update/refresh`。
