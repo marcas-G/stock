@@ -735,6 +735,19 @@ def _month_codes():
 
 # ---- main (flock 单实例 + 断点 + 看门狗 + 节流 + 审计 + 月收尾) ----
 
+def _alloc_run_id(bdir):
+    """run 目录名 `YYYYmmdd_HHMMSS_<pid>`, 冲突则追加 `_1`, `_2`… —— 同秒同进程
+    连跑 (测试/近距重跑) 时目录名相同会把前一 run 的 `summary.json` 覆盖掉, 而
+    parity 的 `prev` 正是按目录找的 → prev 消失, 字节级重跑比对静默退化为
+    compared=False。唯一性由本函数保证 (不依赖时钟分辨率)。"""
+    base = time.strftime('%Y%m%d_%H%M%S') + f'_{os.getpid()}'
+    rid, k = base, 1
+    while os.path.exists(os.path.join(bdir, 'runs', rid)):
+        rid = f'{base}_{k}'
+        k += 1
+    return rid
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--month', required=True, help='YYYYMM 批算目标月')
@@ -810,7 +823,7 @@ def main(argv=None):
               f'→ 仅收尾 (跨 run 月门 + 标记), 不重算')
         finalize_only = True
 
-    run_id = time.strftime('%Y%m%d_%H%M%S') + f'_{os.getpid()}'
+    run_id = _alloc_run_id(bdir)
     rdir = os.path.join(bdir, 'runs', run_id)
     os.makedirs(rdir, exist_ok=True)
     rows_f = open(os.path.join(rdir, 'day_rows.jsonl'), 'w')

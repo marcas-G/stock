@@ -391,3 +391,40 @@ echo "=== ALL DONE $(date '+%F %T')"
 - main（spec）：**`e1dd243`** —— `docs/superpowers/specs/2026-09-09-tick-lob-fact-design.md`
   状态行翻 **W5 完成** + §3.2 体积实测 1.4663× + §4 WS 表 + 文末 W5 验证记录。
   （本行提交号回填本身为 research 侧追加提交；push 由用户自理。）
+
+---
+
+## 7. 收口补测与一处缺陷修复（2026-09-11 晚）
+
+**覆盖率实测**（`sys.settrace` 行覆盖，`tests/` 除外；env 无 pytest-cov/coverage 模块，
+故用一次性脚本 `/tmp/cov_lob.py`）：核心交付模块达标 —— engine **97.98%** /
+audit_w5 **95.48%** / anchoring **93.67%** / compact_lob **90.98%** /
+factor_panel **90.91%**；**run_lob_batch 62.93% → 93.08%**（本轮补测后）。
+0% 的 `calibrate_w1.py` / `measure_w2.py` / `measure_w3.py` / `probe_*.py` /
+`verify_cancels_sample.py` 是 W1–W3 一次性**侦察/校准脚本**（产出 = 校准证据 JSON），
+非交付管线模块，不设覆盖门。
+
+**补 3 测（178 tests 绿；每条均以"存根化"变异验证过必败）**：
+
+1. `test_main_cli_e2e_mini_month` —— **只经 CLI** 走全链：`--dry-run` 零副作用 →
+   首跑（manifest 日期计划 → spawn 进程池 → 三表落盘 → state 断点 → 跨 run 月门 →
+   SUCCESS → run summary）→ `--force` 重跑 parity `compared=True/ok=True`（字节级重跑等）
+   → 无 `--force` 再跑走 SUCCESS 断点短路（不重算、不建 run）。含"禁止行为"断言：
+   `rss_audit.csv` 必有 `worker` 行（证明是 spawn 子进程真跑，不是同进程假实现）、
+   无 `.tmp` 残留、`lob_events` 行数=4 与逐事件手算一致、`new_vol=600` 是计算量。
+2. `test_main_cli_lock_onlyday_and_finalize` —— 三条运行期安全语义：**单写者锁**占用
+   时零写入退出（收口 a/b/c "compact 前必须全退"纪律的守卫）/ `--only-day` 未命中显式
+   退出 / **全月 done 但缺 SUCCESS → 仅收尾不重算**（跨 run 月门 + 补落标记，events
+   sha256 不变）。
+3. `test_alloc_run_id_unique_on_collision` —— 见下。
+
+**本轮抓到的真实缺陷（补测的价值证明）**：`run_id = strftime('%Y%m%d_%H%M%S') + '_'
++ pid` 在**同秒同进程连跑**时两名相同 → `os.makedirs(..., exist_ok=True)` 复用目录 →
+前一 run 的 `summary.json` / `day_rows.jsonl` 被覆盖；而 parity 的 `prev` 是**按目录
+名找**的 → `prev=None` → `parity.compared=False`，**字节级重跑比对静默退化为"未比对"**
+（假阴性：看起来正常，实则没验）。修法 = `_alloc_run_id()`：冲突则追加 `_1/_2…`，
+唯一性不依赖时钟分辨率。生产两条线未受影响（run 间分钟级且独立进程），但收口 runbook
+（单进程内连跑 a→b→c）与任何"近距重跑"都是真实暴露面。
+
+**提交**：research `run_lob_batch.py`（`_alloc_run_id`）+ `tests/test_run_lob_batch.py`
+（+3 测）；main spec 的 W5 记录同步测试计数与补测说明。

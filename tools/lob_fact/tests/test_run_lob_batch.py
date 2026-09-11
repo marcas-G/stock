@@ -7,7 +7,7 @@
 本文件把 probe 的映射语义固化为模块纯函数 + 合成行测试 (SH A/D/S 分支 / SZ 0/1/U
 全收 / qty<=0 跳过 / trades 双 ref 拆条 / cancels side 0=B 1=S)。
 """
-import sys, os
+import sys, os, json
 from datetime import date
 
 import polars as pl
@@ -767,3 +767,152 @@ def test_resource_gates_frozen_for_doubled_budget():
     (存根式改动必败)。采样/看门狗口径不变。"""
     assert R.LOW_WATER_KB == 16_000_000              # MemAvailable 低水位 ~15.3GB
     assert R.AUDIT_S == 30 and R.STALL_S == 2400     # 审计采样 / STALL 看门狗冻结
+
+
+# ---------- W5 收口补测: main() CLI 端到端 (完成标准 "用户能从入口触发" ) ----------
+# Web 断言源 = 规格 §3.4 批算 (断点/月门/SUCCESS/parity) + W5 验收行 "断点续跑全完成"。
+# 与 test_process_date_e2e_synthetic 的分工: 彼测 worker 单层 (直接调 process_date),
+# 本测**只经 CLI main()** 走全链 —— 日期计划 (manifest) → spawn 进程池 → 落盘 →
+# state 断点 → 跨 run 月门 → SUCCESS 标记 → run summary parity。硬编码/绕开实际
+# 重放的"存根"必败 (表内容按合成源逐事件手算)。
+
+_SNAP_COLS = (['code', 'time_ms'] +
+              [f'{s}_{k}{i}' for s in ('bid', 'ask')
+               for k in ('p', 'v') for i in range(1, 11)])
+
+
+def _mk_mini_month(root):
+    """_mk_mini_tick 的月末最小补全: main 的源月目录存在性硬查要求 4 表齐
+    (`_IN_TABLES`), 故补 snapshots 空表 (全 0 行, manifest n_snap=0 → 无锚日
+    = vacuous 合法空簿日)。"""
+    _mk_mini_tick(root)
+    sch = {'code': pl.String, 'time_ms': pl.Int64}
+    sch.update({c: pl.Int64 for c in _SNAP_COLS[2:]})
+    df = (pl.DataFrame(schema=sch)
+          .with_columns(pl.lit(D).alias('trade_date').cast(pl.Date)))
+    _write_part_df(root / 'snapshots' / 'year=2026' / 'month=08', df)
+
+
+def test_main_cli_e2e_mini_month(tmp_path, monkeypatch, capsys):
+    """CLI 全链四跑: (0) dry-run 零副作用 → (1) 首跑落盘/state/月门/SUCCESS →
+    (2) --force 重跑 parity.compared=True 且 ok=True (字节级重跑等) → (3) 无
+    --force 再跑走断点短路 (不重算)。"""
+    tick, lob = tmp_path / 'tick', tmp_path / 'lob'
+    _mk_mini_month(tick)
+    monkeypatch.setattr(C, 'TICK_FACT_ROOT', str(tick))
+    monkeypatch.setattr(C, 'LOB_FACT_ROOT', str(lob))
+    bdir = lob / '_batch'
+    runs = lambda: sorted(p.name for p in (bdir / 'runs').glob('*')) \
+        if (bdir / 'runs').exists() else []
+
+    # (0) dry-run: 计划来自 manifest, 零副作用
+    R.main(['--month', '202608', '--workers', '1','--dry-run'])
+    out = capsys.readouterr().out
+    assert 'dry-run 202608: plan=1 done=0 todo=1' in out
+    assert runs() == [] and not (bdir / 'state.json').exists()
+
+    # (1) 首跑: CLI → spawn 进程池 → 三表落盘 → state/月门/SUCCESS
+    R.main(['--month', '202608', '--workers', '1'])
+    out = capsys.readouterr().out
+    assert '20260803: OK codes=2' in out and 'SUCCESS' in out
+    ev = pl.read_parquet(lob / 'lob_events' / 'year=2026' / 'month=08'
+                         / '20260803.parquet')
+    got = {r['code']: r['kind'] for r in
+           ev.group_by('code').agg(pl.col('kind').sort()).to_dicts()}
+    # 逐事件手算 (源见 _mk_mini_tick): SH A+D 全撤 → 仅 add 行 (档移除走 sweep);
+    # SZ 两 add + 1 笔部分成交 → ['add','add','trade']
+    assert got == {'600036.SH': ['add'], '000155.SZ': ['add', 'add', 'trade']}
+    sz = ev.filter((pl.col('code') == '000155.SZ')
+                   & (pl.col('kind') == 'trade'))
+    assert sz['time_ms'].to_list() == [34201020]
+    assert sz['new_vol'].to_list() == [600]      # 800 挂 − 200 成交 = 计算量
+    assert not list(lob.rglob('*.tmp*'))         # 原子写: 无残留
+    st = json.loads((bdir / 'state.json').read_text())
+    assert st['months']['202608']['done'] == ['20260803']
+    assert st['months']['202608']['plan_n'] == 1
+    assert st['months']['202608']['hard_days'] == []
+    mg = json.loads((bdir / 'month_gate_202608.json').read_text())
+    assert mg['n_code_day'] == 2 and mg['plan_n'] == 1
+    succ = json.loads((bdir / 'SUCCESS_202608').read_text())
+    assert succ['n_code_day'] == 2 and succ['hard_days'] == []
+    s1 = json.loads((bdir / 'runs' / runs()[0] / 'summary.json').read_text())
+    assert s1['n_errors'] == 0 and s1['n_done_run'] == 1
+    assert s1['parity'] == {'compared': False, 'mismatch_dates': [], 'ok': None}
+    # 禁止行为: 实际执行的是 **spawn 子进程** (审计 CSV 内有 worker 行), 且
+    # 落盘行数不是空壳 (rows 与手算一致)
+    audit = (bdir / 'runs' / runs()[0] / 'rss_audit.csv').read_text().splitlines()
+    assert audit[0] == 't,pid,tag,rss_kb,mem_avail_kb'
+    tags = {ln.split(',')[2] for ln in audit[1:] if ln}
+    assert tags == {'worker', 'parent'}
+    assert s1['tables']['20260803']['lob_events']['rows'] == 4
+
+    # (2) --force 重跑: 同源同参 → 本 run 写出的 date sha256 与 prev 全等
+    before = runs()
+    R.main(['--month', '202608', '--workers', '1', '--force'])
+    assert len(runs()) == len(before) + 1          # run_id 唯一 (同秒连跑不覆盖)
+    s2 = json.loads((bdir / 'runs' / runs()[1] / 'summary.json').read_text())
+    assert s2['parity'] == {'compared': True, 'mismatch_dates': [], 'ok': True}
+    assert s2['n_errors'] == 0
+
+    # (3) 断点短路: SUCCESS 在 → 不重算 (run 目录数不变, 无新 run)
+    n_before = len(runs())
+    R.main(['--month', '202608', '--workers', '1'])
+    assert '已有 SUCCESS 标记' in capsys.readouterr().out
+    assert len(runs()) == n_before
+
+
+def test_main_cli_lock_onlyday_and_finalize(tmp_path, monkeypatch, capsys):
+    """三条运行期安全语义 (W5 收口 runbook 依赖它们): (a) **单写者锁** —— 另一实例
+    持 flock 时立即退出且零写入 (收口 a/b/c 的"compact 前必须全退"纪律); (b) `--only-day`
+    命中不存在日期 → 显式退出不建 run; (c) 全月 done 但缺 SUCCESS (收尾前崩) →
+    **仅收尾**不重算 (跨 run 月门 + 补落标记)。任一语义被"简化"掉的存根必败。"""
+    import fcntl
+    tick, lob = tmp_path / 'tick', tmp_path / 'lob'
+    _mk_mini_month(tick)
+    monkeypatch.setattr(C, 'TICK_FACT_ROOT', str(tick))
+    monkeypatch.setattr(C, 'LOB_FACT_ROOT', str(lob))
+    bdir = lob / '_batch'
+    bdir.mkdir(parents=True, exist_ok=True)
+
+    # (a) 锁占用 → 退出且零写入
+    lk = open(bdir / '.lock', 'w')
+    fcntl.flock(lk, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    R.main(['--month', '202608', '--workers', '1'])
+    assert '锁占用' in capsys.readouterr().out
+    assert not (bdir / 'runs').exists() and not (bdir / 'state.json').exists()
+    fcntl.flock(lk, fcntl.LOCK_UN)
+    lk.close()
+
+    # (b) --only-day 未命中 → 显式退出
+    R.main(['--month', '202608', '--workers', '1', '--only-day', '20260701'])
+    assert 'manifest 无该月日期' in capsys.readouterr().out
+    assert not (bdir / 'runs').exists()
+
+    # (c) 全 done 无 SUCCESS → 仅收尾 (不重放: events 表 sha256 不变)
+    R.main(['--month', '202608', '--workers', '1'])
+    ev_p = lob / 'lob_events' / 'year=2026' / 'month=08' / '20260803.parquet'
+    sha0 = R._sha256(str(ev_p))
+    (bdir / 'SUCCESS_202608').unlink()
+    capsys.readouterr()
+    R.main(['--month', '202608', '--workers', '1'])
+    out = capsys.readouterr().out
+    assert '仅收尾' in out and '20260803: OK' not in out
+    assert (bdir / 'SUCCESS_202608').exists()
+    assert R._sha256(str(ev_p)) == sha0          # 未重算 (字节同)
+
+
+def test_alloc_run_id_unique_on_collision(tmp_path):
+    """同秒同进程的第二个 run 必须拿到不同目录名 —— 否则 `os.makedirs(exist_ok=True)`
+    复用目录, 前一 run 的 `summary.json`/`day_rows.jsonl` 被覆盖, 而 parity 的 `prev`
+    正是按目录名找的 → 字节级重跑比对静默退化为 compared=False (假阴性)。
+    返回固定名的"存根"实现必败。"""
+    bdir = tmp_path
+    (bdir / 'runs').mkdir()
+    r1 = R._alloc_run_id(str(bdir))
+    (bdir / 'runs' / r1).mkdir()
+    r2 = R._alloc_run_id(str(bdir))
+    assert r2 != r1 and r2.startswith(r1)
+    (bdir / 'runs' / r2).mkdir()
+    r3 = R._alloc_run_id(str(bdir))
+    assert r3 not in (r1, r2) and r3.startswith(r1)
+    assert r1.split('_')[-1] == str(os.getpid())   # 命名契约 YYYYmmdd_HHMMSS_pid
