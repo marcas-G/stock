@@ -1,7 +1,7 @@
 """Decisive δ test: compare per-window match with engine state at anchor ms vs
 anchor+500ms / +1000ms (lagged). If lagged recovers -> δ-boundary intrinsic."""
 import sys
-sys.path.insert(0, '/data/students/gaolei/stock/quant-platform-research/tools/lob_fact')
+sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
 import measure_w3 as M
 from qa import metrics as mt
 import config as C

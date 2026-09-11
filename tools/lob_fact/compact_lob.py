@@ -12,7 +12,7 @@ sha256 链, 与编码无关) 必须全等才 `os.replace` 替换, 否则抛 Comp
 
 CLI::
 
-    python compact_lob.py --root /data/students/gaolei/stock/lob_fact \\
+    python compact_lob.py --root <LOB_FACT_ROOT> \\
         --months 202508,202608 [--rgr 1048576] [--level 9] \\
         [--lock <_batch/.lock>] [--out compact.json] [--dry-run]
 
@@ -30,6 +30,8 @@ import time
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
+
+import config as C
 
 LOB_TABLES = ('lob_events', 'lob_sweep_meta', 'lob_checkpoints')
 ROW_GROUP_ROWS = 1_048_576     # W4d 定标 (events 最优几何)
@@ -199,7 +201,7 @@ def plan_files(root, months, tables=LOB_TABLES):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument('--root', default='/data/students/gaolei/stock/lob_fact')
+    ap.add_argument('--root', default=C.LOB_FACT_ROOT)
     ap.add_argument('--months', required=True, help='逗号分隔 YYYYMM')
     ap.add_argument('--tables', default=','.join(LOB_TABLES))
     ap.add_argument('--rgr', type=int, default=ROW_GROUP_ROWS)

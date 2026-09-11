@@ -1,0 +1,11 @@
+# ClickHouse 灌库配置（tools/ch_ingest 共用）
+ch:
+  host: 127.0.0.1
+  port: 8123             # clickhouse-connect 仅支持 HTTP 协议；19000 是 tcp（client 程序用）
+  user: default
+  password: ""
+  database: factorlab
+ingest:
+  workers: 8             # bars/tick 并行 worker 数
+  batch_size: 2000000    # 每批行数（insert_arrow 流式）
+  state_file: state.json

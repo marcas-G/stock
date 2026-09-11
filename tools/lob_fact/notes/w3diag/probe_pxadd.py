@@ -1,7 +1,7 @@
 """Materialized leftover ask orders: px-level table of vol/count/add-ms-range,
 tagged real-carry (px in first-anchor real top-10) vs ghost (engine-only)."""
 import sys
-sys.path.insert(0, '/data/students/gaolei/stock/quant-platform-research/tools/lob_fact')
+sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
 import measure_w3 as M
 from qa import metrics as mt
 import config as C

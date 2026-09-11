@@ -1,7 +1,7 @@
 """Probe: 600036@20251215 issue windows — dump engine vs anchor ladders at best edge,
 trace source orders of engine-only best-edge levels."""
 import sys, json
-sys.path.insert(0, '/data/students/gaolei/stock/quant-platform-research/tools/lob_fact')
+sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
 import measure_w3 as M
 from qa import metrics as mt
 import anchoring as A
@@ -37,7 +37,7 @@ def ladder(eng, side):
 
 # target window ms list: those issue windows from json
 import glob
-res = json.load(open(glob.glob('/data/students/gaolei/stock/lob_fact_calib/w3_measure_600036_20251215.json')[0]))
+res = json.load(open(glob.glob('/data/students/gaolei/stock/data/calib/lob_fact_calib/w3_measure_600036_20251215.json')[0]))
 tgt = [w['ms'] for w in res['issue_windows'][:4]]
 print('targets:', tgt)
 

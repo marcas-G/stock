@@ -3,9 +3,9 @@
 
 与平台机制共用同一计算入口（factorlab.engine.minute.compute_minute_factor_panel，
 B4.7：批算结果 == 平台引擎结果），读源为本地事实库 parquet：
-- bars：  /data/students/gaolei/stock/bars_1m/year=YYYY/month=MM/part-000.parquet
+- bars：  /data/students/gaolei/stock/data/fact/bars_1m/year=YYYY/month=MM/part-000.parquet
   （1,854,876,240 行 2020-01..2026-08，240 槽/交易日网格，raw）
-- daily： /data/students/gaolei/stock/daily/daily_fact.parquet（日级注入列源：
+- daily： /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet（日级注入列源：
   eod_close/prev_close/day_amt/day_vol/adv20_*——与 CH 生产库同源同值）
 
 子命令：
@@ -40,8 +40,8 @@ from factorlab.engine.minute import compute_minute_factor_panel
 from features import FEATURE_NAMES, FORMULA
 
 # ---------------------------------------------------------------- 路径常量
-DEFAULT_BARS_ROOT = "/data/students/gaolei/stock/bars_1m"
-DEFAULT_DAILY = "/data/students/gaolei/stock/daily/daily_fact.parquet"
+DEFAULT_BARS_ROOT = "/data/students/gaolei/stock/data/fact/bars_1m"
+DEFAULT_DAILY = "/data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet"
 INJ_LEFT_CAL_DAYS = 40      # ≥20 交易日（CN 最长假期 ~10 天）的日历余量
 INJ_COLS = ["trade_date", "code", "close", "amount", "volume"]
 

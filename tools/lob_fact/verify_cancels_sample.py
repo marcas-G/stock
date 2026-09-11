@@ -11,8 +11,10 @@ import zipfile, io, os, glob, argparse
 import pandas as pd, polars as pl
 import datetime
 
-ROOT = '/data/students/gaolei/stock/quark_downloaded/'
-CANC = '/data/students/gaolei/stock/tick_fact/cancels/'
+import config as C
+
+ROOT = C.QUARK_ROOT
+CANC = f'{C.TICK_FACT_ROOT}cancels/'
 SAMPLE = [  # (day, code) — 跨月 + 覆盖 B 格式(撤单行 BS 真空)日 (2026-09-10 修复)
     ('20250812', '000155'), ('20250915', '000155'), ('20250822', '000021'),  # B 格式
     ('20260210', '000155'), ('20260803', '000155'), ('20260706', '000155'),  # B 格式
@@ -73,7 +75,7 @@ def main():
         bad += 0 if ok else 1
     if args.full:
         # manifest vs 表逐月行数对账 (整月)
-        m = pl.read_parquet('/data/students/gaolei/stock/tick_fact/_manifest/cancels_manifest.parquet')
+        m = pl.read_parquet(f'{C.TICK_FACT_ROOT}_manifest/cancels_manifest.parquet')
         m = m.with_columns(pl.col('trade_date').dt.strftime('%Y%m%d'))
         print('== 整月 manifest vs 表行数')
         for ym in sorted({d[:6] for d in m['trade_date'].unique()}):

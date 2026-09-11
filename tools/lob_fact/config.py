@@ -29,11 +29,13 @@ M1_END = CLOSE - 180_000     # QA 核心段止于 14:57:00 (SZ 收盘集合竞�
 ABSORB_MS = 500              # δ 滞后吸收窗 (W1: 消息时戳晚于簿面生效 0-300ms, 500ms 覆盖 99%+)
 MINUTE_MS = 60_000           # 分钟检查点步长
 
-# ---- 源布局 ----
-QUARK_ROOT = '/data/students/gaolei/stock/quark_downloaded/'
-TICK_FACT_ROOT = '/data/students/gaolei/stock/tick_fact/'
-LOB_FACT_ROOT = '/data/students/gaolei/stock/lob_fact/'
-CALIB_OUT = '/data/students/gaolei/stock/lob_fact_calib/'
+# ---- 源布局（workspace 归并 2026-09-12：数据统一入 <stock>/data/{raw,fact,calib}） ----
+STOCK_ROOT = '/data/students/gaolei/stock'
+DATA_ROOT = f'{STOCK_ROOT}/data'
+QUARK_ROOT = f'{DATA_ROOT}/raw/quark_downloaded/'
+TICK_FACT_ROOT = f'{DATA_ROOT}/fact/tick_fact/'
+LOB_FACT_ROOT = f'{DATA_ROOT}/fact/lob_fact/'
+CALIB_OUT = f'{DATA_ROOT}/calib/lob_fact_calib/'
 
 # ---- 校准集（W1 冻结 10 code-day：4 代码 × 双所 × 7 个月） ----
 # 含: B 格式撤单行真空月(20260706/20260210/20250822)、2025-09 差 1 行归因月、

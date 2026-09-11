@@ -33,7 +33,8 @@ os.environ.setdefault('OMP_NUM_THREADS', '2')
 os.environ.setdefault('PYARROW_JEMALLOC', '0')
 os.environ.setdefault('POLARS_MAX_THREADS', '4')
 import sys
-sys.path.insert(0, '/data/students/gaolei/stock')
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'converters'))
 # 复用转换器 (其 import 链已设 env 并导入 pyarrow; MonthWriter 引用其模块级
 # SCHEMAS[name], 需先注册本表 schema 再实例化 writer)
 import convert_tick_to_parquet as cvt

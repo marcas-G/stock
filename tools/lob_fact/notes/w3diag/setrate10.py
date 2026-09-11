@@ -1,6 +1,6 @@
 """10-day presence (set-cov) profile vs rank-aligned, day + bucket summary."""
 import sys
-sys.path.insert(0, '/data/students/gaolei/stock/quant-platform-research/tools/lob_fact')
+sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
 import measure_w3 as M
 from qa import metrics as mt
 import config as C

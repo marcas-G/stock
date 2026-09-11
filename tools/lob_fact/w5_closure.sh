@@ -3,7 +3,7 @@
 # 前置：driver 打印 ALL DONE 且无 run_lob_batch 进程（单写者 flock 纪律）。
 # 日志：/tmp/w5_closure.log；产物：/tmp/w5_compact.json、/tmp/w5_audit.json
 set -u
-cd /data/students/gaolei/stock/quant-platform-research/tools/lob_fact || exit 1
+cd /data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact || exit 1
 PY=/data/students/gaolei/anaconda3/envs/emb/bin/python
 LOG=/tmp/w5_closure.log
 exec >>"$LOG" 2>&1
@@ -30,7 +30,7 @@ echo "--- b: dry-run exit=$?"
 
 # ---- c. 体积收口 202508+202608 → zstd9（87 文件 / 14,720.2 MiB 预核；内容摘要不等即拒）----
 nice -n 19 $PY compact_lob.py --months 202508,202608 --rgr 1048576 --level 9 \
-    --lock /data/students/gaolei/stock/lob_fact/_batch/.lock --out /tmp/w5_compact.json
+    --lock /data/students/gaolei/stock/data/fact/lob_fact/_batch/.lock --out /tmp/w5_compact.json
 echo "--- c: compact exit=$?"
 
 # ---- d. 终审四问（exit 0 = 全 PASS；报告恒落盘）----
@@ -41,7 +41,7 @@ echo "--- d: audit exit=$?"
 $PY - <<'PYEOF'
 import json, os, compact_lob as C
 pre = json.load(open('/tmp/w5_20260807_pre.json'))['files']
-root = '/data/students/gaolei/stock/lob_fact'
+root = '/data/students/gaolei/stock/data/fact/lob_fact'
 post, ok = {}, True
 for t in C.LOB_TABLES:
     p = os.path.join(root, t, 'year=2026', 'month=08', '20260807.parquet')

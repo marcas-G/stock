@@ -29,6 +29,8 @@ from collections import Counter, defaultdict
 
 import polars as pl
 
+import config as C
+
 LOB_TABLES = ('lob_events', 'lob_sweep_meta', 'lob_checkpoints')
 SRC_TABLES = ('orders', 'trades', 'snapshots', 'cancels')
 BUDGET_RATIO = 1.5                 # 计划: 总体积 ≤1.5×源
@@ -284,9 +286,9 @@ def render(rep):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--batch-dir',
-                    default='/data/students/gaolei/stock/lob_fact/_batch')
-    ap.add_argument('--lob-root', default='/data/students/gaolei/stock/lob_fact')
-    ap.add_argument('--tick-root', default='/data/students/gaolei/stock/tick_fact')
+                    default=f'{C.LOB_FACT_ROOT}_batch')
+    ap.add_argument('--lob-root', default=C.LOB_FACT_ROOT)
+    ap.add_argument('--tick-root', default=C.TICK_FACT_ROOT)
     ap.add_argument('--manifest', default=None,
                     help='conversion_manifest.parquet（默认 <tick-root>/_manifest/）')
     ap.add_argument('--months', default=None, help='逗号分隔 YYYYMM（默认 state 全月）')
