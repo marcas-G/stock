@@ -1,0 +1,13 @@
+=== ① 移动 research worktree ===
+OK
+=== ② 移动 main worktree ===
+renamed '/data/students/gaolei/stock/quant-platform-main' -> '/data/students/gaolei/stock/projects/quant-platform-main'
+=== ③ 修复 research/.git gitdir ===
+gitdir: /data/students/gaolei/stock/projects/quant-platform-main/.git/worktrees/quant-platform-research
+=== ④ 验证门四查 ===
+/data/students/gaolei/stock/projects/quant-platform-main      87b960c [main]
+/data/students/gaolei/stock/projects/quant-platform-research  446b5dc [research]
+--- status（空=干净）---
+--- 分支 HEAD ---
+87b960c docs(spec): W5 记录同步补测 — 178 tests + main() CLI 全链覆盖 93.1% + run_id 冲突缺陷修复
+446b5dc test(lob_fact): main() CLI 端到端补测 + 修复 run_id 同秒冲突致 parity 静默退化

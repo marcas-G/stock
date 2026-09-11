@@ -1,0 +1,24 @@
+=== ① 备份克隆 fsck ===
+exit=0
+
+=== ② 备份克隆的 4 提交 ===
+e66b349 docs(ops): 里程碑 Phase 4/6 标记完成（reconcile 全库一致，验收闭合）
+83e457e fix(data): ingest state 目录锚定到 config 目录
+418b7c5 docs(ops): tick 灌入实测校准——_SUCCESS 标记约定、CH 内存上限 48GiB、批大小 2M
+a4efabd 基线提交：ClickHouse 数据层迁移（读路径）+ quant_core shim 契约锚点
+
+=== ③ fetch 抢救（只 fetch 不 push）===
+warning: 没有共同的提交
+来自 /data/students/gaolei/stock/quant-platform-main.local-backup-20260903
+ * [新分支]          main       -> archive/local-backup-20260903
+
+=== ④ 验证门 ===
+commit
+e66b349 存在于主仓库对象库
+e66b349 docs(ops): 里程碑 Phase 4/6 标记完成（reconcile 全库一致，验收闭合）
+83e457e fix(data): ingest state 目录锚定到 config 目录
+418b7c5 docs(ops): tick 灌入实测校准——_SUCCESS 标记约定、CH 内存上限 48GiB、批大小 2M
+a4efabd 基线提交：ClickHouse 数据层迁移（读路径）+ quant_core shim 契约锚点
+
+=== ⑤ 归档备份目录 ===
+renamed 'quant-platform-main.local-backup-20260903' -> '_archive/2026-09-12-S3/quant-platform-main.local-backup-20260903'

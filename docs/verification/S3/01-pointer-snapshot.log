@@ -1,0 +1,14 @@
+=== S3 指针快照（回滚依据）===
+--- research/.git 内容 ---
+gitdir: /data/students/gaolei/stock/quant-platform-main/.git/worktrees/quant-platform-research
+--- worktrees/quant-platform-research/gitdir ---
+/data/students/gaolei/stock/quant-platform-research/.git
+--- worktree list ---
+/data/students/gaolei/stock/quant-platform-main      87b960c [main]
+/data/students/gaolei/stock/quant-platform-research  446b5dc [research]
+--- 双树 status（空=干净）---
+--- git worktree 子命令 ---
+用法：git worktree add [<选项>] <路径> [<提交>]
+   或：git worktree list [<选项>]
+   或：git worktree lock [<选项>] <路径>
+   或：git worktree move <工作区> <新路径>

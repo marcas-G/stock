@@ -1,0 +1,56 @@
+=== 重指前命中（notes py + ashare）===
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/prof_rank.py
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/probe_carried.py
+projects/quant-platform-research/tools/lob_fact/notes/w4diag/parity_probe.py
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/probe_pxadd.py
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/probe_edge.py
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/lagtest.py
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/setrate10.py
+projects/ashare_alpha3/scripts/03_import_fundamentals.py
+projects/ashare_alpha3/scripts/05_validate_minutes_vs_daily.py
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/unattr_prof.py
+projects/ashare_alpha3/scripts/12_ch_adj_backfill.py
+projects/ashare_alpha3/config.yaml
+projects/ashare_alpha3/config.example.yaml
+projects/quant-platform-research/tools/lob_fact/notes/w5_full_history_memo.md
+projects/ashare_alpha3/scripts/01_import_daily.py
+projects/ashare_alpha3/scripts/02_import_index.py
+projects/ashare_alpha3/scripts/06_validate_tick_vs_daily.py
+
+=== 重指后剩余命中（应只剩 md 历史文档）===
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/probe_edge.py:4:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/probe_edge.py:40:res = json.load(open(glob.glob('/data/students/gaolei/stock/data/calib/lob_fact_calib/w3_measure_600036_20251215.json')[0]))
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/probe_pxadd.py:4:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/prof_rank.py:2:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/setrate10.py:3:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+projects/ashare_alpha3/.venv/bin/pip:1:#!/data/students/gaolei/stock/projects/ashare_alpha3/.venv/bin/python3
+projects/ashare_alpha3/scripts/03_import_fundamentals.py:56:    p.add_argument('--daily', default='/data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet')
+projects/ashare_alpha3/scripts/03_import_fundamentals.py:59:    p.add_argument('--out', default='/data/students/gaolei/stock/data/fact/fundamentals/fundamentals_pti.parquet')
+projects/ashare_alpha3/scripts/01_import_daily.py:4:源（/data/students/gaolei/stock/data/raw/daily/）：
+projects/ashare_alpha3/scripts/01_import_daily.py:220:    p.add_argument('--src-dir', default='/data/students/gaolei/stock/data/raw/daily')
+projects/ashare_alpha3/config.yaml:2:  root: /data/students/gaolei/stock/projects/ashare_alpha3
+projects/ashare_alpha3/config.yaml:5:  bars_1m_glob: /data/students/gaolei/stock/data/fact/bars_1m/year=*/month=*/*.parquet
+projects/ashare_alpha3/config.yaml:6:  daily_fact: /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet
+projects/ashare_alpha3/config.yaml:7:  benchmark_daily_pre: /data/students/gaolei/stock/data/ref/000905.SH.parquet
+projects/ashare_alpha3/config.yaml:8:  fundamentals_pti: /data/students/gaolei/stock/data/fact/fundamentals/fundamentals_pti.parquet
+projects/ashare_alpha3/config.yaml:9:  golden_v4_top300: /data/students/gaolei/stock/data/ref/universes/v4_top300.parquet
+projects/ashare_alpha3/config.yaml:10:  ticks_root: /data/students/gaolei/stock/data/raw/20260817
+projects/ashare_alpha3/config.yaml:13:  universes: /data/students/gaolei/stock/projects/ashare_alpha3/universes
+projects/ashare_alpha3/config.yaml:14:  research: /data/students/gaolei/stock/projects/ashare_alpha3/research
+projects/ashare_alpha3/config.yaml:15:  validation: /data/students/gaolei/stock/projects/ashare_alpha3/validation
+projects/quant-platform-research/tools/lob_fact/notes/w4diag/parity_probe.py:17:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/probe_carried.py:6:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+projects/ashare_alpha3/.venv/bin/activate:41:VIRTUAL_ENV="/data/students/gaolei/stock/projects/ashare_alpha3/.venv"
+projects/ashare_alpha3/scripts/05_validate_minutes_vs_daily.py:37:    con.execute("SET temp_directory='/data/students/gaolei/stock/projects/ashare_alpha3/.tmp_duckdb'")
+projects/ashare_alpha3/scripts/02_import_index.py:33:    p.add_argument('--out', default='/data/students/gaolei/stock/data/ref/000905.SH.parquet')
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/lagtest.py:4:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+projects/ashare_alpha3/scripts/12_ch_adj_backfill.py:9:/data/students/gaolei/stock/tools/ch_ingest；ddl.sql 无 adj_event/adj_detail
+projects/ashare_alpha3/scripts/12_ch_adj_backfill.py:50:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-main')
+projects/ashare_alpha3/scripts/12_ch_adj_backfill.py:82:    p.add_argument('--src', default='/data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet')
+projects/ashare_alpha3/.venv/bin/pip3:1:#!/data/students/gaolei/stock/projects/ashare_alpha3/.venv/bin/python3
+projects/quant-platform-research/tools/lob_fact/notes/w3diag/unattr_prof.py:3:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+projects/ashare_alpha3/.venv/bin/pip3.10:1:#!/data/students/gaolei/stock/projects/ashare_alpha3/.venv/bin/python3
+projects/ashare_alpha3/.venv/bin/activate.csh:11:setenv VIRTUAL_ENV "/data/students/gaolei/stock/projects/ashare_alpha3/.venv"
+projects/ashare_alpha3/.venv/bin/activate.fish:36:set -gx VIRTUAL_ENV "/data/students/gaolei/stock/projects/ashare_alpha3/.venv"
+projects/ashare_alpha3/scripts/06_validate_tick_vs_daily.py:16:ROOT = Path('/data/students/gaolei/stock')
+(以上为空 = 代码/配置零旧路径)

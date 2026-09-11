@@ -1,0 +1,20 @@
+=== 行为冒烟：真实读新路径 ===
+QUARK_ROOT       OK /data/students/gaolei/stock/data/raw/quark_downloaded/
+TICK_FACT_ROOT   OK /data/students/gaolei/stock/data/fact/tick_fact/
+LOB_FACT_ROOT    OK /data/students/gaolei/stock/data/fact/lob_fact/
+CALIB_OUT        OK /data/students/gaolei/stock/data/calib/lob_fact_calib/
+lob_events 抽样: 20260821.parquet [('000021.SZ', datetime.date(2026, 8, 21), 'add'), ('000021.SZ', datetime.date(2026, 8, 21), 'add'), ('000021.SZ', datetime.date(2026, 8, 21), 'add')]
+quark zip OK: 000155.SZ.zip ['行情.csv', '逐笔委托.csv', '逐笔成交.csv']
+tick_fact/orders 2026-08 OK
+calib 抽样: ['summary.json']
+SMOKE: ALL PASS
+
+=== quant_core_shim editable 安装（emb）===
+
+[notice] A new release of pip is available: 25.3 -> 26.2.1
+[notice] To update, run: /data/students/gaolei/anaconda3/envs/emb/bin/python -m pip install --upgrade pip
+quant_core import OK: /data/students/gaolei/stock/projects/quant_core_shim/quant_core/__init__.py
+Name: quant-core
+Version: 0.1.0
+Summary: quant_core 评估内核的 Python shim（契约一致的占位实现，供 factorlab run 评估阶段；Rust 内核未来同包名替换）
+Home-page: 

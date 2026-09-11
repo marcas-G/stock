@@ -1,0 +1,22 @@
+=== 项目落位 ===
+renamed '/data/students/gaolei/stock/ashare_alpha3' -> '/data/students/gaolei/stock/projects/ashare_alpha3'
+renamed '/data/students/gaolei/stock/quant_core_shim' -> '/data/students/gaolei/stock/projects/quant_core_shim'
+=== 工具入库 research worktree ===
+renamed '/data/students/gaolei/stock/tools/ch_ingest' -> '/data/students/gaolei/stock/projects/quant-platform-research/tools/ch_ingest'
+renamed '/data/students/gaolei/stock/convert_minutes_to_parquet.py' -> '/data/students/gaolei/stock/projects/quant-platform-research/tools/converters/convert_minutes_to_parquet.py'
+renamed '/data/students/gaolei/stock/convert_tick_to_parquet.py' -> '/data/students/gaolei/stock/projects/quant-platform-research/tools/converters/convert_tick_to_parquet.py'
+renamed '/data/students/gaolei/stock/quark_download_server.py' -> '/data/students/gaolei/stock/projects/quant-platform-research/tools/quark_download/quark_download_server.py'
+renamed '/data/students/gaolei/stock/quark_download_v2.py' -> '/data/students/gaolei/stock/projects/quant-platform-research/tools/quark_download/quark_download_v2.py'
+renamed '/data/students/gaolei/stock/quark_share.py' -> '/data/students/gaolei/stock/projects/quant-platform-research/tools/quark_download/quark_share.py'
+
+=== 根目录现状 ===
+.
+..
+_archive
+data
+docs
+.git
+.gitignore
+projects
+quant-platform-main.local-backup-20260903
+递归式需求驱动系统工程开发手册：NASA Systems Engineering × V-Model.md
