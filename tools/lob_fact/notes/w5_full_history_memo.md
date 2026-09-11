@@ -207,11 +207,18 @@ L975-985）目前仅有代码级依据，其真实多 run 首次演练 = 202608 
 同刻四片峰值可能在 51GB 量级触门；届时按实测数如实报告（**不调门**：改小 = 静默
 放松验收，改大 = 事后放宽判据），硬门 64GB 仍有 19.6GB 空间。
 
-**已知无害噪声（勿重复排查）**：批算日志里的 `resource_tracker.py … KeyError:
-'/mp-…'` + `There appear to be N leaked semaphore objects` 来自**被 kill 的 run**
-（2026-09-11 定位：5 条全在旧 202601 段 L111-127，当前 run 段 L138+ 零条）——
-SIGKILL 时 multiprocessing tracker 的清理噪声，非数据/引擎错误（该段 run 无 SUCCESS，
-已由重启整月重跑覆盖）。
+**已知无害噪声（勿重复排查；归因经一次修正）**：批算日志里的
+`resource_tracker.py … KeyError: '/mp-…'`（+ 偶发 `N leaked semaphore objects`）是
+multiprocessing tracker 的**清理路径**噪声，出现在 **run 边界的任意一侧**：
+
+- 2026-09-11 首见 = 被 kill 的 202601 段（L111-127）；
+- 同日 07:45 复见 = **正常 run 起始段**（202603 SUCCESS 之后、202604 首个日完成之前，5 条）
+  → 故"仅来自被 kill 的 run"的初始归因**过窄**，正确表述 = run 生命周期边界的
+  unregister 竞争（spawn 池建/拆时），与数据/引擎路径无关。
+
+无害性证据：① 全部 SUCCESS 月的月门/日数与 §4 逐行一致；② 系统级无累积 ——
+实测 `ipcs -s` = 1 个信号量阵列、`ipcs -m` = 2 个共享内存段（跑批期间）。**勿据此重启
+或重跑**；若出现 `STALL` / `Killed` / 非 0 exit 才按巡检步骤处置。
 
 **已知卫生问题（已清理，收口复查）**：观察到 14 个 `PPID=1` 的空闲 spawn worker 泄留
 （各 0.1–0.2GB，来自已结束 run 的 executor 重建/终止路径；不持锁不干活），已按 PID
