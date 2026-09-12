@@ -18,11 +18,12 @@ import pytest
 from factorlab.artifacts import (FactorArtifactBundle, SIGNAL_FILE, LABELS_FILE,
                                  LEGACY_PANEL_FILE, SUMMARY_FILE,
                                  load_factor_artifacts, load_label_artifact,
-                                 load_signal_artifact, validate_signal_label_alignment,
-                                 write_factor_artifacts)
+                                 load_signal_artifact, write_factor_artifacts)
+from factorlab.core.engine.alignment import validate_signal_label_alignment
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
-from factorlab.core.engine.compute import RunContext, run_factor
+from factorlab.app.run import run_factor
+from factorlab.core.engine.compute import RunContext
 from factorlab.core.spec import load_spec
 
 

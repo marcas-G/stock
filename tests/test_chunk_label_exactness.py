@@ -16,7 +16,8 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.core.engine.compute import RunContext, label_lookahead_end, run_factor
+from factorlab.app.run import run_factor
+from factorlab.core.engine.compute import RunContext, label_lookahead_end
 from factorlab.core.spec import load_spec
 
 N_DAYS = 60

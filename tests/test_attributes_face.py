@@ -28,7 +28,8 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.core.engine.compute import RunContext, compute_formula, run_factor
+from factorlab.app.run import run_factor
+from factorlab.core.engine.compute import RunContext, compute_formula
 from factorlab.core.spec import load_spec
 from test_run_factor import _DATES
 
@@ -178,7 +179,7 @@ def test_direct_numeric_attribute_reference(env, tmp_path):
 def test_no_attribute_reference_no_attribute_read(env, tmp_path, monkeypatch):
     """公式未引用属性 → 零属性读取调用（对 rd 无 stock_basic 属性 SELECT）。"""
     _seed(env)
-    import factorlab.core.engine.compute as compute_mod
+    import factorlab.app.run as compute_mod  # run_factor 所在模块（WS3c-2 上移）
     calls = []
     monkeypatch.setattr(compute_mod, "load_code_attributes",
                         lambda *a, **k: calls.append(1) or [], raising=False)
@@ -195,7 +196,7 @@ def test_attribute_referenced_reads_once(env, tmp_path, monkeypatch):
     红阶段原函数未实现 → 调用即断言失败）。
     """
     _seed(env)
-    import factorlab.core.engine.compute as compute_mod
+    import factorlab.app.run as compute_mod  # run_factor 所在模块（WS3c-2 上移）
     calls = []
     real = getattr(compute_mod, "load_code_attributes", None)
     if real is None:

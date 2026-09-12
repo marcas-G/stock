@@ -74,3 +74,62 @@ def test_research_tools_resolve_main_core():
                          capture_output=True, text=True)
     assert out.returncode == 0, f"落位断言失败:\n{out.stderr}"
     assert str(REPO / "src") in out.stdout, out.stdout
+
+
+# ================================================================
+# 纯核门（DER-001 / REQ-Q-001）：core 不得依赖 I/O 或外层模块
+# ================================================================
+
+CORE = REPO / "src" / "factorlab" / "core"
+_FORBIDDEN_TOP = ("duckdb", "clickhouse_connect", "requests")
+_FORBIDDEN_PREFIX = ("factorlab.data", "factorlab.ports", "factorlab.adapters",
+                     "factorlab.app", "factorlab.surfaces", "factorlab.artifacts",
+                     "factorlab.cli", "factorlab.web", "factorlab.process")
+_IO_ATTRS = ("read_parquet", "scan_parquet", "write_parquet", "read_csv")
+
+
+def test_core_has_no_io_or_outer_imports():
+    """静态门：core 内不得 import 外部 I/O 依赖/外层模块，不得调 parquet/CSV 读写。
+
+    （docstring 里把 read_csv 当反例提及不算——按 AST 的 Import/属性调用判定。
+      `factorlab.config` 暂未列入：RunContext 默认值仍读 settings，WS5 随
+      RunOptions 值对象去除。）
+    """
+    import ast as _ast
+    offenders: list[str] = []
+    for py in sorted(CORE.rglob("*.py")):
+        tree = _ast.parse(py.read_text(encoding="utf-8"))
+        rel = py.relative_to(REPO)
+        for n in _ast.walk(tree):
+            if isinstance(n, _ast.Import):
+                for a in n.names:
+                    if a.name.split(".")[0] in _FORBIDDEN_TOP:
+                        offenders.append(f"{rel}:{n.lineno} import {a.name}")
+            elif isinstance(n, _ast.ImportFrom) and n.module:
+                if (n.module.split(".")[0] in _FORBIDDEN_TOP
+                        or n.module.startswith(_FORBIDDEN_PREFIX)):
+                    offenders.append(f"{rel}:{n.lineno} from {n.module} import …")
+            elif isinstance(n, _ast.Attribute) and n.attr in _IO_ATTRS:
+                offenders.append(f"{rel}:{n.lineno} .{n.attr}")
+    assert not offenders, f"core 纯度违规 {len(offenders)} 处: {offenders[:8]}"
+
+
+def test_core_imports_without_io_deps():
+    """运行门：屏蔽 duckdb/clickhouse_connect/requests 后，core 全子包可 import。
+
+    与静态门互为双胞胎：静态门管"写了什么"，本门管"载入时真的不需要什么"。
+    """
+    import subprocess
+    import sys
+    code = (
+        "import sys\n"
+        "for _n in ('duckdb', 'clickhouse_connect', 'requests'):\n"
+        "    sys.modules[_n] = None\n"
+        "import importlib, pkgutil, factorlab.core as C\n"
+        "for _m in [x.name for x in pkgutil.iter_modules(C.__path__)]:\n"
+        "    importlib.import_module('factorlab.core.' + _m)\n"
+        "print('CORE_PURE_OK')\n")
+    out = subprocess.run([sys.executable, "-c", code], cwd=str(REPO),
+                         capture_output=True, text=True)
+    assert out.returncode == 0, f"隔离导入失败:\n{out.stderr}"
+    assert "CORE_PURE_OK" in out.stdout

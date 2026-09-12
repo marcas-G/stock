@@ -16,8 +16,10 @@ import polars as pl
 import pytest
 
 import dualbridge
-from factorlab.core.engine.compute import RunContext, run_factor
-from factorlab.core.engine.minute import compute_minute_factor_panel, run_factor_minute
+from factorlab.app.run import run_factor
+from factorlab.core.engine.compute import RunContext
+from factorlab.app.run import run_factor_minute
+from factorlab.core.engine.minute import compute_minute_factor_panel
 from factorlab.core.spec import load_spec
 
 _N_TOTAL = 46           # 种子交易日总数（20 warm + 6 样本 + 20 tail）

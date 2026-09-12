@@ -136,8 +136,8 @@ def run_factor_cli(
     """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
     --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
     --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。"""
-    from factorlab.core.engine.compute import RunContext, run_factor
-    from factorlab.core.engine.minute import run_factor_minute
+    from factorlab.app.run import run_factor, run_factor_minute
+    from factorlab.core.engine.compute import RunContext
     from factorlab.eval.alignment import align_weekly
     from factorlab.eval.layered import layered_backtest
     from factorlab.eval.rust_ic import evaluate_factor_weekly

@@ -19,8 +19,9 @@ from factorlab.data.backend import open_read
 from factorlab.data.calendar import trading_calendar
 from factorlab.data.intraday import load_bars_1m_codes
 from factorlab.data.source import load_daily
-from factorlab.core.engine.compute import RunContext, run_factor
-from factorlab.core.engine.minute import run_factor_minute
+from factorlab.app.run import run_factor
+from factorlab.core.engine.compute import RunContext
+from factorlab.app.run import run_factor_minute
 from factorlab.core.spec import load_spec
 
 pytestmark = pytest.mark.integration

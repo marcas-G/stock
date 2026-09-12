@@ -37,45 +37,27 @@ from __future__ import annotations
 
 import polars as pl
 
+from factorlab.core.factio.schema import (BARS_1M_COLS,
+                                          TICK_ORDERS_COLS,
+                                          TICK_SNAP_COLS,
+                                          TICK_TRADES_COLS)
 from factorlab.config import settings
 from factorlab.data.backend import Rd
 
 # ---------------- 表列（生产 DDL 镜像；默认投影 + 全列校验） ----------------
 
-_BARS_TABLE_COLS = ["datetime", "trade_date", "code", "minute_index",
-                    "session_type", "open", "high", "low", "close", "amount",
-                    "volume"]
-_TRADES_TABLE_COLS = ["trade_date", "code", "time_ms", "trade_no", "bs",
-                      "price_x10000", "volume", "ask_seq", "bid_seq"]
-_ORDERS_TABLE_COLS = ["trade_date", "code", "time_ms", "order_no",
-                      "exch_order_no", "order_type", "bs", "price_x10000",
-                      "volume"]
-_SNAP_TABLE_COLS = ["trade_date", "code", "time_ms", "price", "volume",
-                    "amount", "n_trades", "iopv", "trade_flag", "bs",
-                    "cum_volume", "cum_amount", "high", "low", "open",
-                    "prev_close", "ask_p1", "ask_p2", "ask_p3", "ask_p4",
-                    "ask_p5", "ask_p6", "ask_p7", "ask_p8", "ask_p9",
-                    "ask_p10", "ask_v1", "ask_v2", "ask_v3", "ask_v4",
-                    "ask_v5", "ask_v6", "ask_v7", "ask_v8", "ask_v9",
-                    "ask_v10", "bid_p1", "bid_p2", "bid_p3", "bid_p4",
-                    "bid_p5", "bid_p6", "bid_p7", "bid_p8", "bid_p9",
-                    "bid_p10", "bid_v1", "bid_v2", "bid_v3", "bid_v4",
-                    "bid_v5", "bid_v6", "bid_v7", "bid_v8", "bid_v9",
-                    "bid_v10", "wavg_ask", "wavg_bid", "ask_total",
-                    "bid_total", "unweighted_index", "n_issues", "n_up",
-                    "n_down", "n_flat"]
 # 默认投影：核心列；snapshots 排除 10 档盘口 + 指数统计
 _DEFAULT_COLS = {
-    "bars_1m": _BARS_TABLE_COLS,
-    "tick_trades": _TRADES_TABLE_COLS,
-    "tick_orders": _ORDERS_TABLE_COLS,
-    "tick_snapshots": [c for c in _SNAP_TABLE_COLS if not (
+    "bars_1m": BARS_1M_COLS,
+    "tick_trades": TICK_TRADES_COLS,
+    "tick_orders": TICK_ORDERS_COLS,
+    "tick_snapshots": [c for c in TICK_SNAP_COLS if not (
         c.startswith(("ask_p", "ask_v", "bid_p", "bid_v"))
         or c in {"unweighted_index", "n_issues", "n_up", "n_down", "n_flat"})],
 }
-_TABLE_COLS = {"bars_1m": _BARS_TABLE_COLS, "tick_trades": _TRADES_TABLE_COLS,
-               "tick_orders": _ORDERS_TABLE_COLS,
-               "tick_snapshots": _SNAP_TABLE_COLS}
+_TABLE_COLS = {"bars_1m": BARS_1M_COLS, "tick_trades": TICK_TRADES_COLS,
+               "tick_orders": TICK_ORDERS_COLS,
+               "tick_snapshots": TICK_SNAP_COLS}
 # 每表排序键（SQL ORDER BY；tick 附序号列保证同 ms 次序稳定）
 _ORDER_BY = {"bars_1m": "datetime",
              "tick_trades": "time_ms, trade_no",

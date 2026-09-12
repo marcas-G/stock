@@ -20,7 +20,8 @@ import polars as pl
 import pytest
 
 import dualbridge
-from factorlab.core.engine.compute import RunContext, _formula_columns, run_factor
+from factorlab.app.run import run_factor
+from factorlab.core.engine.compute import RunContext, _formula_columns
 from factorlab.core.spec import load_spec
 
 _DATES = ["20240102", "20240103", "20240104", "20240105", "20240108", "20240109"]

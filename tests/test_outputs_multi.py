@@ -9,7 +9,8 @@ import json
 
 import pytest
 
-from factorlab.core.engine.compute import compute_formula, run_factor
+from factorlab.app.run import run_factor
+from factorlab.core.engine.compute import compute_formula
 from factorlab.core.spec import FactorSpec, load_spec
 from test_run_factor import _ctx, _tables
 
