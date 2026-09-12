@@ -6,8 +6,8 @@ from pathlib import Path
 import duckdb
 import polars as pl
 
-from factorlab.data.platform_db import PlatformDB
-from factorlab.data.rebuild import assess_sparsity
+from factorlab.adapters.mirror_db import PlatformDB
+from factorlab.adapters.rebuild import assess_sparsity
 from factorlab.core.engine.reserved import (
     FUTURE_NAMES,
     FUTURE_PREFIXES,
@@ -68,7 +68,7 @@ def validate_surface_columns(tables: dict[str, list[str]]) -> list[str]:
 
 
 def validate_engine_surface(rd) -> list[str]:
-    """读面实探版列纪律：对 Rd 句柄（duckdb|ch 双腿同函数）逐引擎读面表探测
+    """读面实探版列纪律：对 ReadPort 句柄（duckdb|ch 双腿同函数）逐引擎读面表探测
     列名并检查。缺表 → 空列集（无该表 = 该读面无此供给面，不报错）。
     返回违例消息列表（[] = 干净）。
     """

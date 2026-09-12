@@ -12,15 +12,16 @@ import duckdb
 import polars as pl
 import pytest
 
-from factorlab.data.backend import DuckDBRd, open_read
-from factorlab.data.calendar import fill_suspensions, trading_calendar
-from factorlab.data.source import load_daily
-from factorlab.data.universe import align_to_listing, resolve_universe_frame
+from factorlab.adapters.duckdb_read import DuckDBRead
+from factorlab.app.bootstrap import open_read
+from factorlab.adapters.read.calendar import fill_suspensions, trading_calendar
+from factorlab.adapters.read.source import load_daily
+from factorlab.adapters.read.universe import align_to_listing, resolve_universe_frame
 from factorlab.app.run import run_factor
 from factorlab.core.engine.compute import (FactorResult, RunContext, _formula_columns,
                                            compute_formula, fill_suspension_values)
 from factorlab.core.engine.forward import compute_forward_returns
-from factorlab.data.adjust import view_prices
+from factorlab.adapters.read.adjust import view_prices
 from factorlab.core.process.registry import run_process_chain
 from factorlab.core.spec import FactorSpec
 
@@ -230,7 +231,7 @@ def test_static_compatibility_legacy_reference(tmp_path, db_path):
     r = run_factor(spec, ctx)
     # legacy reference（旧路径：fill_suspensions → forward → fill → view → formula(无 mask) → process）
     rd = open_read(db_path=ctx.db_path)
-    from factorlab.data.universe import resolve_codes
+    from factorlab.adapters.read.universe import resolve_codes
     codes = resolve_codes(spec, rd)
     cal = trading_calendar(rd, date_start=spec.date.start, date_end=spec.date.end)
     raw = load_daily(rd, codes, date_start=spec.date.start, date_end=spec.date.end,
@@ -253,7 +254,7 @@ def test_static_compatibility_legacy_reference(tmp_path, db_path):
 
 def _listing_uf(db, dates):
     spec = spec_with(rules={"exchanges": ["SSE", "SZSE"]})
-    return resolve_universe_frame(spec, DuckDBRd(con=db), dates)
+    return resolve_universe_frame(spec, DuckDBRead(con=db), dates)
 
 
 def test_align_listing_basic(tmp_path):

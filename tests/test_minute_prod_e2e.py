@@ -15,10 +15,10 @@ import datetime as dt
 import polars as pl
 import pytest
 
-from factorlab.data.backend import open_read
-from factorlab.data.calendar import trading_calendar
-from factorlab.data.intraday import load_bars_1m_codes
-from factorlab.data.source import load_daily
+from factorlab.app.bootstrap import open_read
+from factorlab.adapters.read.calendar import trading_calendar
+from factorlab.adapters.intraday import load_bars_1m_codes
+from factorlab.adapters.read.source import load_daily
 from factorlab.app.run import run_factor
 from factorlab.core.engine.compute import RunContext
 from factorlab.app.run import run_factor_minute

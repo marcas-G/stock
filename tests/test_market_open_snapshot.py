@@ -11,9 +11,9 @@ from dataclasses import FrozenInstanceError
 import polars as pl
 import pytest
 
-from factorlab.data.execution import load_market_open_frame
+from factorlab.adapters.read.execution import load_market_open_frame
 from factorlab.core.domain import MarketOpenSnapshot
-from factorlab.data.backend import open_read
+from factorlab.app.bootstrap import open_read
 from factorlab.execution import load_market_open_snapshot
 
 EXEC = datetime.date(2024, 1, 8)

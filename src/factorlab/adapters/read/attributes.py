@@ -22,14 +22,14 @@ from __future__ import annotations
 import polars as pl
 
 from factorlab.config import settings
-from factorlab.data.backend import Rd
+from factorlab.ports.read import ReadPort
 
 # stock_basic 键列：身份标识，非属性（symbol 是 join 键、ts_code 是 canonical 键——
 # 均不开放为公式列）
 _KEY_COLS = frozenset({"symbol", "ts_code"})
 
 
-def attributes_visible(rd: Rd) -> frozenset[str]:
+def attributes_visible(rd: ReadPort) -> frozenset[str]:
     """stock_basic 当前属性面：除键列外的静态属性列（schema 实探）。
 
     表缺失 → 空集（属性面退化为无——报错文案回落 M1 双面清单，不因缺表改变
@@ -42,12 +42,12 @@ def attributes_visible(rd: Rd) -> frozenset[str]:
     return frozenset(raw) - _KEY_COLS
 
 
-def _load_attributes_duckdb(rd: Rd, cols: list[str]) -> pl.DataFrame:
+def _load_attributes_duckdb(rd: ReadPort, cols: list[str]) -> pl.DataFrame:
     return rd.query_df(
         "SELECT symbol, " + ", ".join(cols) + " FROM stock_basic")
 
 
-def _load_attributes_ch(rd: Rd, cols: list[str]) -> pl.DataFrame:
+def _load_attributes_ch(rd: ReadPort, cols: list[str]) -> pl.DataFrame:
     return rd.query_df(
         f"SELECT symbol, {', '.join(cols)} FROM {settings.ch_database}.stock_basic")
 
@@ -56,7 +56,7 @@ _LOAD_ATTRIBUTES_IMPL = {"duckdb": _load_attributes_duckdb, "ch": _load_attribut
 
 
 def load_code_attributes(
-    rd: Rd,
+    rd: ReadPort,
     cols: list[str],
     *,
     float32: bool = settings.use_float32,

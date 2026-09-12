@@ -1,6 +1,6 @@
 """P-1 读端口：duckdb | ch 双腿的读句柄契约。
 
-方法名与 `factorlab.data.backend.Rd` **逐字一致**（既有实现结构化满足，零改动）；
+方法名与 `factorlab.ports.read.ReadPort` **逐字一致**（既有实现结构化满足，零改动）；
 `runtime_checkable` 供 isinstance 判型（M8 链的类型门收这里）。
 实现者：adapters/{duckdb_read,ch_read}.py（WS4 搬迁）、tests/_doubles.MemoryRead。
 """

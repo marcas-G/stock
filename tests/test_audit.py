@@ -3,7 +3,7 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.data.adjust import (
+from factorlab.adapters.read.adjust import (
     adjustment_sensitivity_check,
     lookahead_check,
     scale_invariance_check,

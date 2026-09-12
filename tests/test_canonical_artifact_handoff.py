@@ -8,8 +8,8 @@ import duckdb
 import polars as pl
 import pytest
 
-from factorlab.data.backend import open_read
-from factorlab.data.universe import resolve_canonical_code_map
+from factorlab.app.bootstrap import open_read
+from factorlab.adapters.read.universe import resolve_canonical_code_map
 from factorlab.core.domain.codes import is_canonical_stock_code
 from factorlab.app.run import run_factor
 from factorlab.core.engine.compute import RunContext

@@ -37,8 +37,8 @@ from enum import Enum
 
 import polars as pl
 
-from factorlab.data.backend import Rd
-from factorlab.data.execution import load_adj_event_window
+from factorlab.ports.read import ReadPort
+from factorlab.adapters.read.execution import load_adj_event_window
 from factorlab.core.domain.accounting import PortfolioMarkSnapshot
 from factorlab.core.domain.backtest import (BacktestResult, ExecutionArtifact,
                                        NavSeries)
@@ -106,7 +106,7 @@ def _marks_from_snapshot(snapshot, codes: list[str], date, *,
     return PortfolioMarkSnapshot(as_of_date=date, frame=frame)
 
 
-def _assert_ca_gate(rd: Rd, *, decision_date, prev_exec_date, exec_date,
+def _assert_ca_gate(rd: ReadPort, *, decision_date, prev_exec_date, exec_date,
                     held_codes: list[str]) -> None:
     """WS5 CA Gate（M8-06A §5.5 落地；closeout 决策 2，事件源 = adj_event）。
 
@@ -142,7 +142,7 @@ def _assert_ca_gate(rd: Rd, *, decision_date, prev_exec_date, exec_date,
 def run_backtest(
     target: TargetPortfolio,
     execution_spec: ExecutionSpec,
-    rd: Rd,
+    rd: ReadPort,
     *,
     marks: MarksPolicy = MarksPolicy.OPEN_BASED,
     decision_range: tuple | None = None,
@@ -162,7 +162,7 @@ def run_backtest(
         raise TypeError(
             f"execution_spec 必须显式传入 ExecutionSpec（收到 "
             f"{type(execution_spec).__name__}——cost model 显式选择 Gate）")
-    if not isinstance(rd, Rd):
+    if not isinstance(rd, ReadPort):
         raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
     if marks is not MarksPolicy.OPEN_BASED:
         raise NotImplementedError(

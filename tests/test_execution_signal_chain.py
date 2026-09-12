@@ -38,7 +38,7 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.data.backend import open_read
+from factorlab.app.bootstrap import open_read
 from factorlab.app.run import run_factor
 from factorlab.core.engine.compute import RunContext
 from factorlab.execution import (ExecutionSpec, load_backtest_result,

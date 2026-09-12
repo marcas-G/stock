@@ -20,8 +20,8 @@ import polars as pl
 import pytest
 
 import dualbridge
-from factorlab.data import intraday
-from factorlab.data.backend import open_read
+from factorlab.adapters import intraday
+from factorlab.app.bootstrap import open_read
 
 _D = "2026-08-21"
 _D2 = "2026-08-20"

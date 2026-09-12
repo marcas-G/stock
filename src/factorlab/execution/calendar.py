@@ -1,7 +1,7 @@
 """M8-02：Execution Calendar Resolver——TargetPortfolio decision_dates →
 ExecutionSchedule。
 
-- calendar truth 唯一来源：现有 factorlab.data.calendar.trading_calendar
+- calendar truth 唯一来源：现有 factorlab.adapters.read.calendar.trading_calendar
   （trade_cal is_open=1；不重写第二套 calendar SQL）
 - timing 权威来源：target.meta.source_timing.default_earliest_execution
   （NEXT_OPEN / NEXT_CLOSE——日期解析相同，均为严格 > decision 的下一
@@ -17,15 +17,15 @@ import bisect
 
 import polars as pl
 
-from factorlab.data.backend import Rd
-from factorlab.data.calendar import trading_calendar
+from factorlab.ports.read import ReadPort
+from factorlab.adapters.read.calendar import trading_calendar
 from factorlab.core.domain.execution import ExecutionSchedule
 from factorlab.core.domain.portfolio import TargetPortfolio
 
 
 def resolve_execution_schedule(
     target: TargetPortfolio,
-    rd: Rd,
+    rd: ReadPort,
 ) -> ExecutionSchedule:
     """把 TargetPortfolio.decision_dates 解析为 execution dates（一次 calendar
     加载 + bisect，不 per-decision 开 DB）。rd 为读句柄（duckdb|ch）。"""
@@ -33,7 +33,7 @@ def resolve_execution_schedule(
         raise TypeError(
             f"target 必须为 TargetPortfolio（收到 {type(target).__name__}）"
             f"——decision_dates/timing 权威来源在 TargetPortfolio 中")
-    if not isinstance(rd, Rd):
+    if not isinstance(rd, ReadPort):
         raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
     timing = target.meta.source_timing.default_earliest_execution
     if not target.decision_dates:

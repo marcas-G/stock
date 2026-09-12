@@ -4,8 +4,8 @@ import polars as pl
 import pytest
 from polars.exceptions import ColumnNotFoundError
 
-from factorlab.data.backend import open_read
-from factorlab.data.calendar import chunk_calendar, fill_suspensions, trading_calendar
+from factorlab.app.bootstrap import open_read
+from factorlab.adapters.read.calendar import chunk_calendar, fill_suspensions, trading_calendar
 
 
 # ---------- trading_calendar（双腿参数化：env 见 tests/conftest.py） ----------

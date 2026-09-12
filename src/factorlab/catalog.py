@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import json
 
-from factorlab.data import source as _source
-from factorlab.data.source import _MSG_COLUMN_DIR_HINT, _MSG_RAW_MAPPED_PREFIX
-from factorlab.data.verify import (
+from factorlab.adapters.read import source as _source
+from factorlab.adapters.read.source import _MSG_COLUMN_DIR_HINT, _MSG_RAW_MAPPED_PREFIX
+from factorlab.adapters.read.verify import (
     _FUTURE_COL_FIX,
     _FUTURE_COL_SUFFIX,
     _INTERNAL_COL_FIX,

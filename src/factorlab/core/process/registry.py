@@ -73,8 +73,8 @@ class ProcessorDef:
 
 @dataclass
 class ProcessCtx:
-    """处理器上下文：db 为读句柄 Rd（neutralize/fillna 取行业/市值用；
-    裸 duckdb 连接经 DuckDBRd 包装也兼容——旧调用方/测试）。"""
+    """处理器上下文：db 为读句柄 ReadPort（neutralize/fillna 取行业/市值用；
+    裸 duckdb 连接经 DuckDBRead 包装也兼容——旧调用方/测试）。"""
     db: Any | None = None
 
 

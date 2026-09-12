@@ -1,8 +1,8 @@
 import polars as pl
 import pytest
 
-from factorlab.data.platform_db import PlatformDB
-from factorlab.data.rebuild import assess_sparsity, build_final_db
+from factorlab.adapters.mirror_db import PlatformDB
+from factorlab.adapters.rebuild import assess_sparsity, build_final_db
 
 
 def _staging(tmp_path):

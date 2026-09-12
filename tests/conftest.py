@@ -29,14 +29,14 @@ def real_db_path():
 import uuid
 
 from factorlab.config import settings
-from factorlab.data import ch_source
+from factorlab.adapters import ch_read
 
 
 @pytest.fixture(scope="session")
 def ch_client():
     """真 CH client；CH 不可达时整个测试 skip（ch 腿集成入口）。"""
     try:
-        return ch_source.get_client()
+        return ch_read.get_client()
     except RuntimeError:
         pytest.skip("ClickHouse 不可达（ch 腿跳过）")
 
@@ -76,7 +76,7 @@ def ch_prod(ch_client):
 #   duckdb 文件每测试新建（tmp_path 函数级）；ch 临时库经 ch_db fixture
 # ================================================================
 import dualbridge
-from factorlab.data.backend import open_read
+from factorlab.app.bootstrap import open_read
 
 
 class _Env:

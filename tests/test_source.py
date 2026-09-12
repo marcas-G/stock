@@ -11,8 +11,8 @@ import duckdb
 import polars as pl
 import pytest
 
-from factorlab.data.backend import open_read
-from factorlab.data.source import load_daily
+from factorlab.app.bootstrap import open_read
+from factorlab.adapters.read.source import load_daily
 
 # ---------------------------------------------------------------
 # 共享数据集（原 build_db：tushare 原始列名——ts_code 带后缀/trade_date 'YYYYMMDD'/vol）

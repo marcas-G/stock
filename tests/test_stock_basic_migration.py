@@ -3,8 +3,8 @@
 import polars as pl
 import pytest
 
-from factorlab.data.platform_db import PlatformDB
-from factorlab.data.rebuild import (STOCK_BASIC_FIELDS, fetch_stock_basic_all,
+from factorlab.adapters.mirror_db import PlatformDB
+from factorlab.adapters.rebuild import (STOCK_BASIC_FIELDS, fetch_stock_basic_all,
                                     migrate_stock_basic_pit_fields)
 
 
@@ -243,7 +243,7 @@ def test_migration_rollback_on_validation_failure(tmp_path):
 # M6-07B2：validate_stock_basic_source 纯 validator（A-L）
 # ================================================================
 
-from factorlab.data.rebuild import validate_stock_basic_source
+from factorlab.adapters.rebuild import validate_stock_basic_source
 
 
 def _vl(**over):
@@ -392,7 +392,7 @@ def test_merged_status_null_cannot_penetrate():
 # M6-07B4：source partition（canonical research securities / quarantined legacy aliases）
 # ================================================================
 
-from factorlab.data.rebuild import (StockBasicSourcePartition,
+from factorlab.adapters.rebuild import (StockBasicSourcePartition,
                                     fetch_stock_basic_source,
                                     partition_stock_basic_source)
 

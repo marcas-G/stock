@@ -1,9 +1,9 @@
 import pytest
 
 from factorlab.config import settings
-from factorlab.data.fetcher import TeaJoinClient, TeaJoinError
-from factorlab.data.platform_db import PlatformDB
-from factorlab.data.rebuild import assess_sparsity, build_final_db
+from factorlab.adapters.fetcher import TeaJoinClient, TeaJoinError
+from factorlab.adapters.mirror_db import PlatformDB
+from factorlab.adapters.rebuild import assess_sparsity, build_final_db
 
 pytestmark = pytest.mark.integration
 

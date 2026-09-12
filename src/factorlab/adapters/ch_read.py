@@ -14,7 +14,7 @@
   判定、未匹配 code 的 b.ts_code/list_date NULL 形态都依赖 NULL）。客户端统一
   强制 1（仅影响本会话该查询），duckdb/ch 双腿 LEFT JOIN 语义对齐。
 
-上层统一经 data/backend.ChRd 访问本模块；编译函数也可直接调 query_df/query_rows。
+上层经 `adapters.ch_read.ClickHouseRead`（P-1 实现）访问；编译函数也可直接调 query_df/query_rows。
 """
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ import polars as pl
 from clickhouse_connect import get_client as _ch_get_client  # 与本模块 get_client() 同名，必须别名
 
 from factorlab.config import settings
+from factorlab.ports.read import ReadPort
 
 _client: Any = None
 _lock = threading.Lock()
@@ -98,3 +99,34 @@ def daily_codes_clause(codes: list[str]) -> tuple[str, dict[str, str]]:
         f"WHERE symbol IN ({placeholders}))",
         params,
     )
+
+
+class ClickHouseRead(ReadPort):
+    """ClickHouse 句柄（P-1 实现）：无状态包本模块客户端单例。
+
+    SQL 文本内所有表带 {settings.ch_database}. 前缀（由编译函数生成），
+    客户端默认库无关紧要——ch_db 测试临时库靠 monkeypatch ch_database 生效。
+    """
+
+    backend = "ch"
+
+    def query_df(self, sql: str, params: Any = None) -> pl.DataFrame:
+        return query_df(sql, params)
+
+    def query_rows(self, sql: str, params: Any = None) -> list[tuple]:
+        return query_rows(sql, params)
+
+    def command(self, sql: str, params: Any = None) -> Any:
+        return command(sql, params)
+
+    def tables(self) -> set[str]:
+        return {r[0] for r in query_rows(
+            f"SELECT name FROM system.tables WHERE database = '{settings.ch_database}'")}
+
+    def columns(self, table: str) -> set[str]:
+        return {r[0] for r in query_rows(
+            f"SELECT name FROM system.columns "
+            f"WHERE database = '{settings.ch_database}' AND table = '{table}'")}
+
+    def close(self) -> None:
+        pass

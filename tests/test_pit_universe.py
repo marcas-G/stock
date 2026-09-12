@@ -16,7 +16,7 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.data.universe import (align_to_universe, resolve_candidate_codes,
+from factorlab.adapters.read.universe import (align_to_universe, resolve_candidate_codes,
                                      resolve_universe_frame)
 from factorlab.core.spec import FactorSpec
 

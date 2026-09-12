@@ -21,7 +21,7 @@ import pytest
 from factorlab.core.domain import (PortfolioStatePhase, TargetPortfolio,
                               TargetPortfolioMeta)
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
-from factorlab.data.backend import open_read
+from factorlab.app.bootstrap import open_read
 from factorlab.execution import (ExecutionSpec, MarksPolicy, run_backtest)
 
 D1 = datetime.date(2024, 1, 2)    # Tue

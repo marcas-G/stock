@@ -1,8 +1,8 @@
 import polars as pl
 import pytest
 
-from factorlab.data.platform_db import PlatformDB
-from factorlab.data.verify import compare_sample, verify_all
+from factorlab.adapters.mirror_db import PlatformDB
+from factorlab.adapters.read.verify import compare_sample, verify_all
 
 
 def _mk_db(path, close_values=None):

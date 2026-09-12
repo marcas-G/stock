@@ -9,7 +9,7 @@ import polars as pl
 import yaml
 
 from factorlab.config import settings
-from factorlab.data.backend import Rd
+from factorlab.ports.read import ReadPort
 from factorlab.core.domain.codes import (CANONICAL_TS_CODE_PATTERN,
                                     is_canonical_stock_code)
 from factorlab.core.spec import FactorSpec
@@ -37,7 +37,7 @@ def normalize_code(code: str) -> str:
 # 小编译对（codes/rules 双分支的共享 SQL 查询；duckdb 版 SQL 逐字同迁移前）
 # --------------------------------------------------------------------------
 
-def _sb_match_duckdb(rd: Rd, candidates: list[str]) -> list[tuple]:
+def _sb_match_duckdb(rd: ReadPort, candidates: list[str]) -> list[tuple]:
     """codes 分支：symbol OR ts_code 精确匹配（duckdb unnest 参数）。"""
     return rd.query_rows(
         "SELECT symbol, ts_code FROM stock_basic"
@@ -46,9 +46,9 @@ def _sb_match_duckdb(rd: Rd, candidates: list[str]) -> list[tuple]:
     )
 
 
-def _sb_match_ch(rd: Rd, candidates: list[str]) -> list[tuple]:
+def _sb_match_ch(rd: ReadPort, candidates: list[str]) -> list[tuple]:
     """codes 分支 ch 版：两列各自 IN (占位符展开)。"""
-    from factorlab.data.ch_source import in_clause
+    from factorlab.adapters.ch_read import in_clause
 
     db = settings.ch_database
     ph_sym, p_sym = in_clause(candidates)
@@ -63,7 +63,7 @@ def _sb_match_ch(rd: Rd, candidates: list[str]) -> list[tuple]:
 _SB_MATCH_IMPL = {"duckdb": _sb_match_duckdb, "ch": _sb_match_ch}
 
 
-def _rules_query_duckdb(rd: Rd, rules: dict[str, Any], date_start: str | None) -> list[tuple]:
+def _rules_query_duckdb(rd: ReadPort, rules: dict[str, Any], date_start: str | None) -> list[tuple]:
     """rules 分支主体（legacy/static）：默认 SSE+SZSE + canonical 过滤 +
     exclude_st 快照排除 + exchanges + min_list_days（SQL 逐字同迁移前）。
     参数校验在壳层（_codes_from_rules），本函数只拼 SQL。"""
@@ -96,14 +96,14 @@ def _rules_query_duckdb(rd: Rd, rules: dict[str, Any], date_start: str | None) -
     return rd.query_rows(sql, params)
 
 
-def _rules_query_ch(rd: Rd, rules: dict[str, Any], date_start: str | None) -> list[tuple]:
+def _rules_query_ch(rd: ReadPort, rules: dict[str, Any], date_start: str | None) -> list[tuple]:
     """rules 分支主体 ch 版。
 
     方言：regexp_matches→match；substr 负索引→right；CH 无 strptime-INTERVAL，
-    日期窗口用 toDate/toIntervalDay；IN 用占位符展开（ch_source.in_clause）。
+    日期窗口用 toDate/toIntervalDay；IN 用占位符展开（ch_read.in_clause）。
     前提：code 恒来自 stock_basic（ch 侧 stock_basic 恒被灌入）。
     """
-    from factorlab.data.ch_source import in_clause
+    from factorlab.adapters.ch_read import in_clause
 
     db = settings.ch_database
     ph, params = in_clause(
@@ -142,7 +142,7 @@ def _rules_query_ch(rd: Rd, rules: dict[str, Any], date_start: str | None) -> li
 _RULES_QUERY_IMPL = {"duckdb": _rules_query_duckdb, "ch": _rules_query_ch}
 
 
-def _st_cov_duckdb(rd: Rd) -> tuple[str, str] | None:
+def _st_cov_duckdb(rd: ReadPort) -> tuple[str, str] | None:
     """stock_st coverage（v1 contract：min/max trade_date；内部 gap 的精确
     provenance 留给 Data Coverage Registry）。duckdb: 'YYYYMMDD' VARCHAR。"""
     lo, hi = rd.query_rows("SELECT min(trade_date), max(trade_date) FROM stock_st")[0]
@@ -151,7 +151,7 @@ def _st_cov_duckdb(rd: Rd) -> tuple[str, str] | None:
     return (str(lo), str(hi))
 
 
-def _st_cov_ch(rd: Rd) -> tuple[str, str] | None:
+def _st_cov_ch(rd: ReadPort) -> tuple[str, str] | None:
     """stock_st coverage ch 版：Date 列读回 datetime.date（1970 哨兵 = 空表）。"""
     db = settings.ch_database
     lo, hi = rd.query_rows(f"SELECT min(trade_date), max(trade_date) FROM {db}.stock_st")[0]
@@ -171,15 +171,15 @@ _ST_COV_IMPL = {"duckdb": _st_cov_duckdb, "ch": _st_cov_ch}
 # resolve_canonical_code_map（M7-05 artifact handoff reference data）
 # --------------------------------------------------------------------------
 
-def _ccm_duckdb(rd: Rd, symbols: list[str]) -> list[tuple]:
+def _ccm_duckdb(rd: ReadPort, symbols: list[str]) -> list[tuple]:
     return rd.query_rows(
         "SELECT symbol, ts_code FROM stock_basic "
         "WHERE symbol IN (SELECT unnest(?)) ORDER BY symbol",
         [symbols])
 
 
-def _ccm_ch(rd: Rd, symbols: list[str]) -> list[tuple]:
-    from factorlab.data.ch_source import in_clause
+def _ccm_ch(rd: ReadPort, symbols: list[str]) -> list[tuple]:
+    from factorlab.adapters.ch_read import in_clause
 
     ph, params = in_clause(symbols)
     return rd.query_rows(
@@ -191,7 +191,7 @@ _CCM_IMPL = {"duckdb": _ccm_duckdb, "ch": _ccm_ch}
 
 
 def resolve_canonical_code_map(
-    rd: Rd,
+    rd: ReadPort,
     symbols: list[str],
 ) -> pl.DataFrame:
     """symbol → canonical ts_code 映射（M7-05 artifact handoff reference data）。
@@ -265,7 +265,7 @@ def _resolve_source(name: str, universes_dir: Path) -> dict[str, Any]:
 
 
 def _codes_from_rules(
-    rules: dict[str, Any], rd: Rd, date_start: str | None,
+    rules: dict[str, Any], rd: ReadPort, date_start: str | None,
 ) -> list[str]:
     """rules → 纯数字代码（legacy/static；全期共用，min_list_days 基准一次性）。
     参数校验在此集中（unknown/exchanges/min_list_days 负值），SQL 主体在编译对。"""
@@ -324,7 +324,7 @@ def _codes_from_matched(
     return sorted({ts_to_symbol.get(c, c) for c in candidates} & known_symbols)
 
 
-def _match_stock_basic(rd: Rd, data: dict[str, Any]) -> list[str] | None:
+def _match_stock_basic(rd: ReadPort, data: dict[str, Any]) -> list[str] | None:
     """codes 分支（list 数据）→ 代码集；rules 分支返回 None（调用方走 rules）。"""
     if "codes" not in data:
         return None
@@ -341,7 +341,7 @@ def _match_stock_basic(rd: Rd, data: dict[str, Any]) -> list[str] | None:
 
 def resolve_codes(
     spec: FactorSpec,
-    rd: Rd,
+    rd: ReadPort,
     override: str | None = None,
     settings=settings,
 ) -> list[str]:
@@ -363,7 +363,7 @@ def resolve_codes(
     return codes
 
 
-def _candidate_rules_duckdb(rd: Rd, rules: dict[str, Any]) -> list[tuple]:
+def _candidate_rules_duckdb(rd: ReadPort, rules: dict[str, Any]) -> list[tuple]:
     """候选 rules 分支（只应用 exchange 与 canonical 过滤——exclude_st/min_list_days
     属动态 PIT 条件，禁止提前应用）。SQL 逐字同迁移前。"""
     exchanges = rules.get("exchanges")
@@ -381,9 +381,9 @@ def _candidate_rules_duckdb(rd: Rd, rules: dict[str, Any]) -> list[tuple]:
     )
 
 
-def _candidate_rules_ch(rd: Rd, rules: dict[str, Any]) -> list[tuple]:
+def _candidate_rules_ch(rd: ReadPort, rules: dict[str, Any]) -> list[tuple]:
     """候选 rules 分支 ch 版（match/right/in_clause 方言）。"""
-    from factorlab.data.ch_source import in_clause
+    from factorlab.adapters.ch_read import in_clause
 
     exchanges = rules.get("exchanges")
     if exchanges:
@@ -404,7 +404,7 @@ _CANDIDATE_RULES_IMPL = {"duckdb": _candidate_rules_duckdb, "ch": _candidate_rul
 
 def resolve_candidate_codes(
     spec: FactorSpec,
-    rd: Rd,
+    rd: ReadPort,
     override: str | None = None,
     settings=settings,
 ) -> list[str]:
@@ -465,7 +465,7 @@ def _norm_dates(dates) -> list[str]:
 
 
 def _uf_skeleton_duckdb(
-    rd: Rd,
+    rd: ReadPort,
     date_strs: list[str],
     codes: list[str],
     delist_col: str,
@@ -495,7 +495,7 @@ def _uf_skeleton_duckdb(
 
 
 def _uf_skeleton_ch(
-    rd: Rd,
+    rd: ReadPort,
     date_strs: list[str],
     codes: list[str],
     delist_col: str,
@@ -542,7 +542,7 @@ _UF_SKELETON_IMPL = {"duckdb": _uf_skeleton_duckdb, "ch": _uf_skeleton_ch}
 
 def resolve_universe_frame(
     spec: FactorSpec,
-    rd: Rd,
+    rd: ReadPort,
     dates: list,
     *,
     override: str | None = None,

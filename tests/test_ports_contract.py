@@ -59,15 +59,15 @@ def test_read_port_semantics():
 
 
 def test_read_port_real_duckdb_satisfies_protocol(tmp_path):
-    """既有 DuckDBRd 结构化满足 P-1（零改动断言）。"""
+    """既有 DuckDBRead 结构化满足 P-1（零改动断言）。"""
     import duckdb
-    from factorlab.data.backend import DuckDBRd
+    from factorlab.adapters.duckdb_read import DuckDBRead
 
     db = tmp_path / "t.duckdb"
     con = duckdb.connect(str(db))
     con.execute("CREATE TABLE t AS SELECT 1 AS a")
     con.close()
-    rd = DuckDBRd(db)
+    rd = DuckDBRead(db)
     try:
         assert isinstance(rd, ReadPort)
         assert rd.backend == "duckdb"

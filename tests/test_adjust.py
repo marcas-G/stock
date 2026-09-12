@@ -3,7 +3,7 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.data.adjust import view_prices, total_return
+from factorlab.adapters.read.adjust import view_prices, total_return
 
 
 def _panel():

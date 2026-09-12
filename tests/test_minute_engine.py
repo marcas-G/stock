@@ -334,11 +334,11 @@ def test_compute_minute_factor_panel_pure_chunk_contract(ch_db, tmp_path):
     """compute_minute_factor_panel 纯入口 == run_factor_minute 面板（B4.7：
     引擎与批算工具共用同一代码路径——不写第二套装配）。"""
     _seed(ch_db)
-    from factorlab.data.backend import open_read
-    from factorlab.data.calendar import trading_calendar
-    from factorlab.data.intraday import load_bars_1m_codes
-    from factorlab.data.source import load_daily
-    from factorlab.data.universe import resolve_universe_frame
+    from factorlab.app.bootstrap import open_read
+    from factorlab.adapters.read.calendar import trading_calendar
+    from factorlab.adapters.intraday import load_bars_1m_codes
+    from factorlab.adapters.read.source import load_daily
+    from factorlab.adapters.read.universe import resolve_universe_frame
     spec = _spec(tmp_path, "pure", "signal = day_last(close)")
     full = run_factor_minute(spec, _ctx(tmp_path / "engine"))
     rd = open_read(data_backend="ch")
@@ -357,7 +357,7 @@ def test_compute_minute_factor_panel_pure_chunk_contract(ch_db, tmp_path):
     pure = compute_minute_factor_panel(bars, spec.formula, daily=daily)
     # pure 入口不接 DB——code 保持读面原形（000001）；与引擎 artifact 对齐用同一
     # canonical map（引擎在 artifact boundary canonicalize，契约在引擎侧）
-    from factorlab.data.universe import resolve_canonical_code_map
+    from factorlab.adapters.read.universe import resolve_canonical_code_map
     from factorlab.core.engine.compute import _canonicalize_artifact_codes
     cm = resolve_canonical_code_map(rd, ["000001", "600519"])
     pure = _canonicalize_artifact_codes(pure, cm)

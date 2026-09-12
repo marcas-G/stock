@@ -42,7 +42,7 @@ from factorlab.core.factio.schema import (BARS_1M_COLS,
                                           TICK_SNAP_COLS,
                                           TICK_TRADES_COLS)
 from factorlab.config import settings
-from factorlab.data.backend import Rd
+from factorlab.ports.read import ReadPort
 
 # ---------------- 表列（生产 DDL 镜像；默认投影 + 全列校验） ----------------
 
@@ -65,7 +65,7 @@ _ORDER_BY = {"bars_1m": "datetime",
              "tick_snapshots": "time_ms"}
 
 
-def _resolve_code(rd: Rd, code: str) -> str:
+def _resolve_code(rd: ReadPort, code: str) -> str:
     """6 位纯数字 → ts_code（stock_basic.symbol 唯一解析）；带后缀原样返回。"""
     if "." in code:
         return code
@@ -77,7 +77,7 @@ def _resolve_code(rd: Rd, code: str) -> str:
     return rows[0][0]
 
 
-def _load_ch(rd: Rd, table: str, code: str, day: str | None,
+def _load_ch(rd: ReadPort, table: str, code: str, day: str | None,
              date_start: str | None, date_end: str | None,
              cols: list[str] | None) -> pl.DataFrame:
     """ch 编译函数：code 解析 → SQL（WHERE code + trade_date 窗）→ decode。
@@ -125,7 +125,7 @@ def _decode(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def _load_duckdb(rd: Rd, *args, **kwargs) -> pl.DataFrame:
+def _load_duckdb(rd: ReadPort, *args, **kwargs) -> pl.DataFrame:
     raise ValueError("bars_1m/tick 数据仅 ClickHouse 后端提供（duckdb 平台文件"
                      "无 intraday 表）")
 
@@ -133,7 +133,7 @@ def _load_duckdb(rd: Rd, *args, **kwargs) -> pl.DataFrame:
 _IMPL = {"duckdb": _load_duckdb, "ch": _load_ch}
 
 
-def _codes_ch(rd: Rd, codes: list[str], date_start: str | None,
+def _codes_ch(rd: ReadPort, codes: list[str], date_start: str | None,
               date_end: str | None,
               cols: list[str] | None) -> pl.DataFrame:
     """ch 编译函数（批读）：6 位 code 子集一次 symbol→ts_code 映射（未知 → 整批
@@ -173,7 +173,7 @@ def _codes_ch(rd: Rd, codes: list[str], date_start: str | None,
 _CODES_IMPL = {"duckdb": _load_duckdb, "ch": _codes_ch}
 
 
-def _load(rd: Rd, table: str, code: str, *, day: str | None = None,
+def _load(rd: ReadPort, table: str, code: str, *, day: str | None = None,
           date_start: str | None = None, date_end: str | None = None,
           cols: list[str] | None = None) -> pl.DataFrame:
     if not code:
@@ -183,7 +183,7 @@ def _load(rd: Rd, table: str, code: str, *, day: str | None = None,
     return _IMPL[rd.backend](rd, table, code, day, date_start, date_end, cols)
 
 
-def load_bars_1m(rd: Rd, code: str, *, day: str | None = None,
+def load_bars_1m(rd: ReadPort, code: str, *, day: str | None = None,
                  date_start: str | None = None, date_end: str | None = None,
                  cols: list[str] | None = None) -> pl.DataFrame:
     """1 分钟线（bars_1m）：datetime/trade_date/code/minute_index/session_type/
@@ -199,7 +199,7 @@ def load_bars_1m(rd: Rd, code: str, *, day: str | None = None,
                  date_end=date_end, cols=cols)
 
 
-def load_bars_1m_codes(rd: Rd, codes: list[str], *,
+def load_bars_1m_codes(rd: ReadPort, codes: list[str], *,
                        date_start: str | None = None,
                        date_end: str | None = None,
                        cols: list[str] | None = None) -> pl.DataFrame:
@@ -221,7 +221,7 @@ def load_bars_1m_codes(rd: Rd, codes: list[str], *,
     return _CODES_IMPL[rd.backend](rd, codes, date_start, date_end, cols)
 
 
-def load_tick_trades(rd: Rd, code: str, *, day: str | None = None,
+def load_tick_trades(rd: ReadPort, code: str, *, day: str | None = None,
                      date_start: str | None = None, date_end: str | None = None,
                      cols: list[str] | None = None) -> pl.DataFrame:
     """逐笔成交（tick_trades）：time_ms 当日毫秒（00:00 起）、trade_no UInt64、
@@ -232,7 +232,7 @@ def load_tick_trades(rd: Rd, code: str, *, day: str | None = None,
                  date_end=date_end, cols=cols)
 
 
-def load_tick_orders(rd: Rd, code: str, *, day: str | None = None,
+def load_tick_orders(rd: ReadPort, code: str, *, day: str | None = None,
                      date_start: str | None = None, date_end: str | None = None,
                      cols: list[str] | None = None) -> pl.DataFrame:
     """逐笔委托（tick_orders）：order_no/exch_order_no UInt64、order_type/bs
@@ -243,7 +243,7 @@ def load_tick_orders(rd: Rd, code: str, *, day: str | None = None,
                  date_end=date_end, cols=cols)
 
 
-def load_tick_snapshots(rd: Rd, code: str, *, day: str | None = None,
+def load_tick_snapshots(rd: ReadPort, code: str, *, day: str | None = None,
                         date_start: str | None = None,
                         date_end: str | None = None,
                         cols: list[str] | None = None) -> pl.DataFrame:

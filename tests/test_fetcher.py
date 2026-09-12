@@ -2,7 +2,7 @@ import polars as pl
 import pytest
 import requests
 
-from factorlab.data.fetcher import TeaJoinClient, TeaJoinError
+from factorlab.adapters.fetcher import TeaJoinClient, TeaJoinError
 
 
 def _ok_response(items=None, fields=None):

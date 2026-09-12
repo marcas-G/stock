@@ -10,8 +10,8 @@ import datetime as dt
 import polars as pl
 import pytest
 
-from factorlab.data import intraday
-from factorlab.data.backend import open_read
+from factorlab.adapters import intraday
+from factorlab.app.bootstrap import open_read
 
 
 @pytest.mark.integration

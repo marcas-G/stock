@@ -13,7 +13,7 @@ from factorlab.core.domain import (BacktestResult, NavSeries, PortfolioState,
                               PortfolioStatePhase, TargetPortfolio,
                               TargetPortfolioMeta)
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
-from factorlab.data.backend import open_read
+from factorlab.app.bootstrap import open_read
 from factorlab.execution import (ExecutionSpec, load_backtest_result,
                                  run_backtest, save_backtest_result)
 

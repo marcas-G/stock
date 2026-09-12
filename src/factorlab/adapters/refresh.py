@@ -6,9 +6,9 @@ from pathlib import Path
 import polars as pl
 
 from factorlab.config import settings
-from factorlab.data.fetcher import TeaJoinClient
-from factorlab.data.platform_db import PlatformDB
-from factorlab.data.rebuild import DAILY_TABLES, load_manifest, save_manifest
+from factorlab.adapters.fetcher import TeaJoinClient
+from factorlab.adapters.mirror_db import PlatformDB
+from factorlab.adapters.rebuild import DAILY_TABLES, load_manifest, save_manifest
 
 
 def refresh(db: PlatformDB, client: TeaJoinClient, manifest_path: Path | None = None) -> dict:
@@ -61,7 +61,7 @@ def refresh_indexes(db: PlatformDB, client: TeaJoinClient, manifest_path: Path |
 
     手动触发的 data update 链路的一部分；返回各指数新增行数与失败。
     """
-    from factorlab.data.rebuild import INDEX_CODES, load_manifest, save_manifest
+    from factorlab.adapters.rebuild import INDEX_CODES, load_manifest, save_manifest
 
     manifest_path = manifest_path or (settings.data_dir / "manifest.json")
     manifest = load_manifest(manifest_path)

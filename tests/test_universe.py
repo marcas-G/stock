@@ -9,7 +9,7 @@ import copy
 
 import pytest
 
-from factorlab.data.universe import (normalize_code, resolve_candidate_codes,
+from factorlab.adapters.read.universe import (normalize_code, resolve_candidate_codes,
                                      resolve_codes)
 from factorlab.core.spec import FactorSpec
 

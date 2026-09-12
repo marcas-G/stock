@@ -15,7 +15,7 @@ from dataclasses import dataclass
 import polars as pl
 
 from factorlab.config import settings
-from factorlab.data.backend import Rd
+from factorlab.ports.read import ReadPort
 from factorlab.core.domain.codes import is_canonical_stock_code
 from factorlab.core.domain.execution import QuantityRuleKind
 
@@ -202,7 +202,7 @@ def _rules_rows_ch(rd, codes: list[str]) -> list[tuple]:
     注意：CH stock_basic 需含 market 列（M8 ch 腿 e2e 前置；teajoin 灌入
     时按平台 schema 对齐），缺失时 CH 报 binder error——fail 而非默认。
     """
-    from factorlab.data.ch_source import in_clause
+    from factorlab.adapters.ch_read import in_clause
 
     ph, params = in_clause(codes)
     return rd.query_rows(
@@ -224,7 +224,7 @@ def resolve_security_quantity_rules(
     - 输入 unique canonical list[str]；输出 rows == len(codes)（skeleton 驱动）
     - 缺失/重复 reference、unknown market、impossible market/suffix 组合 → fail
     """
-    if not isinstance(rd, Rd):
+    if not isinstance(rd, ReadPort):
         raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
     if not isinstance(codes, list):
         raise ValueError(f"codes 必须为 list[str]（收到 {type(codes).__name__}）")

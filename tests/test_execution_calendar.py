@@ -234,7 +234,7 @@ def test_independent_of_position_rows(env, tmp_path):
 def test_integration_schedule_to_snapshot(env, tmp_path):
     """§95：真实 TargetPortfolio → schedule → snapshot（同 execution_date、
     canonical codes、raw open evidence）。"""
-    from factorlab.data.execution import load_market_open_frame
+    from factorlab.adapters.read.execution import load_market_open_frame
     from factorlab.execution import load_market_open_snapshot
 
     tables = _cal_tables([D0, D3])

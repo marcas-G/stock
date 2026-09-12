@@ -2,7 +2,7 @@ import duckdb
 import polars as pl
 import pytest
 
-from factorlab.data.platform_db import PlatformDB
+from factorlab.adapters.mirror_db import PlatformDB
 
 
 def build_db(tmp_path):

@@ -35,7 +35,7 @@ from factorlab.catalog import (
     validate_catalog,
 )
 from factorlab.cli.main import app
-from factorlab.data import source as src
+from factorlab.adapters.read import source as src
 from factorlab.core.engine.reserved import (
     FUTURE_NAMES,
     FUTURE_PREFIXES,

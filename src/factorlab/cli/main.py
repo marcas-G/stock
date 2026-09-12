@@ -9,11 +9,11 @@ from rich.console import Console
 from factorlab import __version__
 from factorlab.catalog import catalog_json, render_catalog_markdown
 from factorlab.config import settings
-from factorlab.data.fetcher import TeaJoinClient
-from factorlab.data.platform_db import PlatformDB
-from factorlab.data.rebuild import RebuildScope, build_final_db, rebuild_all
-from factorlab.data.refresh import refresh, refresh_indexes
-from factorlab.data.verify import verify_all
+from factorlab.adapters.fetcher import TeaJoinClient
+from factorlab.adapters.mirror_db import PlatformDB
+from factorlab.adapters.rebuild import RebuildScope, build_final_db, rebuild_all
+from factorlab.adapters.refresh import refresh, refresh_indexes
+from factorlab.adapters.read.verify import verify_all
 from factorlab.core.factor.errors import FactorDSLError
 from factorlab.core.factor.ast_gate import validate_formula
 from factorlab.adapters import plugins

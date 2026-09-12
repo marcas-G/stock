@@ -5,7 +5,7 @@ import difflib
 import polars as pl
 
 from factorlab.config import settings
-from factorlab.data.backend import Rd
+from factorlab.ports.read import ReadPort
 
 # 平台库 daily 列映射：引擎列名 → tushare 原始列名（SQL 别名阶段完成）
 _COL_MAP = {"volume": "vol"}
@@ -38,7 +38,7 @@ _MSG_RAW_MAPPED_PREFIX = "；平台库原始列 "
 # 候选（≤2）+ 原始列映射提示 + 文档指引。
 
 
-def _daily_visible(rd: Rd) -> frozenset[str]:
+def _daily_visible(rd: ReadPort) -> frozenset[str]:
     """daily 表上当前可供给的引擎列名（schema 实探）。
 
     排除解码/映射占用的原始名：ts_code/trade_date（→ code/date）、vol（→ volume）。
@@ -50,7 +50,7 @@ def _daily_visible(rd: Rd) -> frozenset[str]:
     return frozenset(names)
 
 
-def _basic_visible(rd: Rd) -> frozenset[str]:
+def _basic_visible(rd: ReadPort) -> frozenset[str]:
     """daily_basic 表上当前可供给的引擎列名（schema 实探；表缺失 → 空集）。"""
     raw = rd.columns("daily_basic")
     names = {c for c in raw if c not in set(_DAILY_BASIC_MAP.values())}
@@ -58,7 +58,7 @@ def _basic_visible(rd: Rd) -> frozenset[str]:
     return frozenset(names)
 
 
-def _classify_columns(rd: Rd, requested: list[str]) -> tuple[list[str], list[str]]:
+def _classify_columns(rd: ReadPort, requested: list[str]) -> tuple[list[str], list[str]]:
     """请求的引擎列名 → (daily 来源列, daily_basic 来源列)；供给失败即报错。
 
     顺序：引擎特殊名字 → 平台映射名（恒可供给，SQL 面负责）→ 当前数据面实探。
@@ -97,7 +97,7 @@ def _classify_columns(rd: Rd, requested: list[str]) -> tuple[list[str], list[str
         # M3（G6）：可用清单并入 stock_basic 属性面——供给失败时一次试错拿到
         # 三面全信息（daily/daily_basic/属性）；属性面缺表 → attributes_visible
         # 空集（报错文案回落双面，不因缺表改变行为）。
-        from factorlab.data.attributes import attributes_visible  # 延迟：仅报错路径
+        from factorlab.adapters.read.attributes import attributes_visible  # 延迟：仅报错路径
         available = sorted({*_SPECIAL_COLS, *(dvis or ()), *(bvis or ()),
                             *attributes_visible(rd)})
         raise ValueError(_unknown_col_message(list(dict.fromkeys(unknown)), available))
@@ -126,7 +126,7 @@ def _unknown_col_message(unknown: list[str], available: list[str]) -> str:
 
 
 def _load_daily_duckdb(
-    rd: Rd,
+    rd: ReadPort,
     codes: list[str],
     date_start: str | None,
     date_end: str | None,
@@ -166,7 +166,7 @@ def _load_daily_duckdb(
 
 
 def _load_daily_ch(
-    rd: Rd,
+    rd: ReadPort,
     codes: list[str],
     date_start: str | None,
     date_end: str | None,
@@ -181,7 +181,7 @@ def _load_daily_ch(
     行（stock_basic 无记录）在 ch 后端不命中，duckdb 前缀匹配会命中。
     trade_date 为 Date：toDate('YYYYMMDD') 原生解析，读回即 pl.Date。
     """
-    from factorlab.data.ch_source import daily_codes_clause
+    from factorlab.adapters.ch_read import daily_codes_clause
 
     code_clause, params = daily_codes_clause(codes)
     where = [code_clause]
@@ -218,7 +218,7 @@ def _load_daily_ch(
 
 
 def load_daily(
-    rd: Rd,
+    rd: ReadPort,
     codes: list[str],
     date_start: str | None = None,
     date_end: str | None = None,
@@ -258,7 +258,7 @@ def load_daily(
 
 
 def _fill_duckdb(
-    rd: Rd,
+    rd: ReadPort,
     codes: list[str],
     before: str,
     daily_cols: list[str],
@@ -300,7 +300,7 @@ def _fill_duckdb(
 
 
 def _fill_ch(
-    rd: Rd,
+    rd: ReadPort,
     codes: list[str],
     before: str,
     daily_cols: list[str],
@@ -315,7 +315,7 @@ def _fill_ch(
     （与 last-FILTER 一致）；整组 v 全 NULL → NULL（与 last-FILTER 一致，
     已实测）。
     """
-    from factorlab.data.ch_source import daily_codes_clause
+    from factorlab.adapters.ch_read import daily_codes_clause
 
     code_clause, params = daily_codes_clause(codes)
     db = settings.ch_database
@@ -350,7 +350,7 @@ def _fill_ch(
 
 
 def load_daily_fill_state(
-    rd: Rd,
+    rd: ReadPort,
     codes: list[str],
     *,
     before: str,

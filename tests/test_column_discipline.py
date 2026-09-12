@@ -20,8 +20,8 @@ trade_cal/stock_st/stk_limit/suspend_d——engine 读路径盘点）不允许�
 import polars as pl
 import pytest
 
-from factorlab.data.platform_db import PlatformDB
-from factorlab.data.verify import (
+from factorlab.adapters.mirror_db import PlatformDB
+from factorlab.adapters.read.verify import (
     ENGINE_SURFACE_TABLES,
     validate_engine_surface,
     validate_surface_columns,
@@ -127,7 +127,7 @@ def test_pure_fn_multi_violations_listed():
     assert len(out) == 3
 
 
-# ---------------- Rd 层双腿（duckdb|ch 同一函数同一语义） ----------------
+# ---------------- ReadPort 层双腿（duckdb|ch 同一函数同一语义） ----------------
 
 def test_engine_surface_clean_on_rd(env):
     env.seed({
@@ -189,7 +189,7 @@ def test_verify_all_empty_db_discipline_empty(tmp_path):
 def test_build_final_db_rejects_violating_surface(tmp_path):
     """数据入库收口：最终库读面带违例列 → build_final_db 抛错点名（fail fast，
     不产出会污染读面的最终库）。"""
-    from factorlab.data.rebuild import build_final_db
+    from factorlab.adapters.rebuild import build_final_db
 
     staging = PlatformDB(tmp_path / "staging.duckdb")
     staging.upsert("daily", pl.DataFrame({

@@ -1,10 +1,10 @@
 import polars as pl
 import pytest
 
-from factorlab.data.fetcher import TeaJoinClient
-from factorlab.data.platform_db import PlatformDB
-from factorlab.data.rebuild import RebuildScope, load_manifest, rebuild_all, save_manifest
-from factorlab.data.refresh import refresh
+from factorlab.adapters.fetcher import TeaJoinClient
+from factorlab.adapters.mirror_db import PlatformDB
+from factorlab.adapters.rebuild import RebuildScope, load_manifest, rebuild_all, save_manifest
+from factorlab.adapters.refresh import refresh
 
 
 def _sb_l():
@@ -180,7 +180,7 @@ def test_refresh_records_failed(tmp_path, monkeypatch):
 
 def test_refresh_indexes_pulls_new_daily_and_month(tmp_path, monkeypatch):
     """指数增量：index_daily 从 last_updated 到 today；index_weight 补新月份。"""
-    from factorlab.data.refresh import refresh_indexes
+    from factorlab.adapters.refresh import refresh_indexes
     db = PlatformDB(tmp_path / "p.duckdb")
     manifest_path = tmp_path / "manifest.json"
     save_manifest(manifest_path, {"index_weight": {"completed": ["20260731"], "failed": []},

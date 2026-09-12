@@ -19,7 +19,7 @@ PRE_EXECUTION PortfolioState @ next_open_day
   position = state/fill pair 不一致），且 unsellable capacity
   （post_quantity - post_sellable）>= filled_quantity（否则无法解释
   provenance——不允许误释放其它 unavailable inventory）
-- calendar authority 唯一 = factorlab.data.calendar.trading_calendar
+- calendar authority 唯一 = factorlab.adapters.read.calendar.trading_calendar
   （禁止自写 trade_cal SQL / weekday arithmetic / timedelta(days=1)）；
   当前 date 必须 is_open=1；下一开放日 = 严格 > 当前的第一开放日
   （无则 ValueError）；**calendar transition success ≠ market-data
@@ -33,8 +33,8 @@ import bisect
 
 import polars as pl
 
-from factorlab.data.backend import Rd
-from factorlab.data.calendar import trading_calendar
+from factorlab.ports.read import ReadPort
+from factorlab.adapters.read.calendar import trading_calendar
 from factorlab.core.domain.execution import (ExecutionTiming, FillBatch,
                                         PortfolioState, PortfolioStatePhase)
 
@@ -42,7 +42,7 @@ from factorlab.core.domain.execution import (ExecutionTiming, FillBatch,
 def advance_to_next_trading_day(
     state: PortfolioState,
     fills: FillBatch,
-    rd: Rd,
+    rd: ReadPort,
 ) -> PortfolioState:
     """隔夜推进：POST_EXECUTION(D) + same-day fills → PRE_EXECUTION(next open)。
     rd 为读句柄（duckdb|ch）。
@@ -57,9 +57,9 @@ def advance_to_next_trading_day(
             f"state 必须为 PortfolioState（收到 {type(state).__name__}）")
     if not isinstance(fills, FillBatch):
         raise TypeError(f"fills 必须为 FillBatch（收到 {type(fills).__name__}）")
-    if not isinstance(rd, Rd):
+    if not isinstance(rd, ReadPort):
         raise TypeError(
-            f"rd 必须为读句柄 Rd（收到 {type(rd).__name__}——str/None 拒绝）")
+            f"rd 必须为读句柄 ReadPort（收到 {type(rd).__name__}——str/None 拒绝）")
     if state.phase is not PortfolioStatePhase.POST_EXECUTION:
         raise ValueError(
             f"state.phase 必须为 POST_EXECUTION（收到 {state.phase.value}——"

@@ -5,11 +5,11 @@ import datetime
 import polars as pl
 
 from factorlab.config import settings
-from factorlab.data.backend import Rd
+from factorlab.ports.read import ReadPort
 
 
 def _trading_calendar_duckdb(
-    rd: Rd, date_start: str | None, date_end: str | None,
+    rd: ReadPort, date_start: str | None, date_end: str | None,
 ) -> pl.Series:
     """duckdb 版：trade_cal.cal_date 为 'YYYYMMDD' VARCHAR → pl.Date 转换。"""
     where, params = [], []
@@ -30,7 +30,7 @@ def _trading_calendar_duckdb(
 
 
 def _trading_calendar_ch(
-    rd: Rd, date_start: str | None, date_end: str | None,
+    rd: ReadPort, date_start: str | None, date_end: str | None,
 ) -> pl.Series:
     """ch 版：trade_cal.cal_date 为 Date，读回即 datetime.date 序列。
 
@@ -53,7 +53,7 @@ def _trading_calendar_ch(
 _IMPL = {"duckdb": _trading_calendar_duckdb, "ch": _trading_calendar_ch}
 
 
-def trading_calendar(rd: Rd, date_start: str | None = None, date_end: str | None = None) -> pl.Series:
+def trading_calendar(rd: ReadPort, date_start: str | None = None, date_end: str | None = None) -> pl.Series:
     """交易日历：trade_cal 的 is_open=1 日期（→ pl.Date），升序去重。rd 为读句柄。
 
     日期范围参数支持 ISO 'YYYY-MM-DD' 与 'YYYYMMDD' 双格式（内部统一转 YYYYMMDD 查询）；

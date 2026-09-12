@@ -10,8 +10,8 @@ import duckdb
 import polars as pl
 
 from factorlab.config import settings
-from factorlab.data.fetcher import TeaJoinClient
-from factorlab.data.platform_db import PlatformDB
+from factorlab.adapters.fetcher import TeaJoinClient
+from factorlab.adapters.mirror_db import PlatformDB
 from factorlab.core.domain.codes import (CANONICAL_TS_CODE_PATTERN,
                                     is_canonical_stock_code)
 
@@ -629,7 +629,7 @@ def build_final_db(
         raise ValueError(f"暂存库不存在: {staging.path}")
     # 延迟 import：verify 顶层 import 本模块（assess_sparsity）——函数内收口，
     # 避免 rebuild ↔ verify 循环 import
-    from factorlab.data.verify import ENGINE_SURFACE_TABLES, validate_surface_columns
+    from factorlab.adapters.read.verify import ENGINE_SURFACE_TABLES, validate_surface_columns
     surface_cols = {t: staging.describe(t)
                     for t in staging.list_tables() if t in ENGINE_SURFACE_TABLES}
     violations = validate_surface_columns(surface_cols)

@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import datetime
 
-from factorlab.data.backend import Rd
-from factorlab.data.calendar import trading_calendar
-from factorlab.data.execution import load_market_open_frame
+from factorlab.ports.read import ReadPort
+from factorlab.adapters.read.calendar import trading_calendar
+from factorlab.adapters.read.execution import load_market_open_frame
 from factorlab.core.domain.execution import MarketOpenSnapshot
 
 
 def load_market_open_snapshot(
-    rd: Rd,
+    rd: ReadPort,
     *,
     execution_date: datetime.date,
     codes: list[str],
@@ -23,7 +23,7 @@ def load_market_open_snapshot(
     validation）；数据可用性由 load_market_open_frame 的 coverage gates
     独立保证（calendar truth ≠ data availability）。
     """
-    if not isinstance(rd, Rd):
+    if not isinstance(rd, ReadPort):
         raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
     if not isinstance(execution_date, datetime.date) \
             or isinstance(execution_date, datetime.datetime):

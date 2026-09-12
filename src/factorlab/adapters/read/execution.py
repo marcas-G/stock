@@ -31,7 +31,7 @@ import datetime
 import polars as pl
 
 from factorlab.config import settings
-from factorlab.data.backend import Rd
+from factorlab.ports.read import ReadPort
 from factorlab.core.domain.codes import is_canonical_stock_code
 
 _SNAPSHOT_COLUMNS = ["code", "open", "pre_close", "up_limit", "down_limit",
@@ -42,14 +42,14 @@ _SNAPSHOT_COLUMNS = ["code", "open", "pre_close", "up_limit", "down_limit",
 # 编译对：market evidence 三查询（duckdb SQL 逐字同迁移前）
 # --------------------------------------------------------------------------
 
-def _gates_duckdb(rd: Rd, d: str) -> tuple[int, int]:
+def _gates_duckdb(rd: ReadPort, d: str) -> tuple[int, int]:
     """全市场 coverage（trade_cal 开市 ≠ 数据可用）。"""
     gd = rd.query_rows("SELECT COUNT(*) FROM daily WHERE trade_date = ?", [d])[0][0]
     gl = rd.query_rows("SELECT COUNT(*) FROM stk_limit WHERE trade_date = ?", [d])[0][0]
     return gd, gl
 
 
-def _gates_ch(rd: Rd, d: str) -> tuple[int, int]:
+def _gates_ch(rd: ReadPort, d: str) -> tuple[int, int]:
     """coverage ch 版：Date 主键 toDate 过滤。"""
     db = settings.ch_database
     gd = rd.query_rows(
@@ -64,7 +64,7 @@ def _gates_ch(rd: Rd, d: str) -> tuple[int, int]:
 _GATES_IMPL = {"duckdb": _gates_duckdb, "ch": _gates_ch}
 
 
-def _market_rows_duckdb(rd: Rd, d: str, codes: list[str]) -> tuple[list, list, list]:
+def _market_rows_duckdb(rd: ReadPort, d: str, codes: list[str]) -> tuple[list, list, list]:
     """daily/stk_limit 行 + suspend_d 行（可选表；canonical ts_code 精确匹配
     IN (SELECT unnest(?))）。suspend_d 表不存在 → 事件空（WS4 缺行=停牌语义，
     不再要求事件表）。"""
@@ -85,11 +85,11 @@ def _market_rows_duckdb(rd: Rd, d: str, codes: list[str]) -> tuple[list, list, l
     return daily_rows, limit_rows, raw_events
 
 
-def _market_rows_ch(rd: Rd, d: str, codes: list[str]) -> tuple[list, list, list]:
+def _market_rows_ch(rd: ReadPort, d: str, codes: list[str]) -> tuple[list, list, list]:
     """market rows ch 版：canonical ts_code 直接 IN (占位符展开)——输入恒为
     canonical ts_code（M8 契约），无需 stock_basic 两层子查询。suspend_d 表
     不存在 → 事件空（WS4 缺行=停牌语义）。"""
-    from factorlab.data.ch_source import in_clause
+    from factorlab.adapters.ch_read import in_clause
 
     db = settings.ch_database
     ph, params = in_clause(codes)
@@ -117,7 +117,7 @@ _MARKET_ROWS_IMPL = {"duckdb": _market_rows_duckdb, "ch": _market_rows_ch}
 # 公开 API
 # --------------------------------------------------------------------------
 
-def _require_tables(rd: Rd) -> None:
+def _require_tables(rd: ReadPort) -> None:
     """execution 读面最低表面（WS4：suspend_d 移除——停牌=缺行，事件表可选）。"""
     tables = rd.tables()
     for t in ("daily", "stk_limit", "trade_cal"):
@@ -127,7 +127,7 @@ def _require_tables(rd: Rd) -> None:
                 f"生成）——缺失即 fail，不静默降级 execution safety")
 
 
-def _require_columns(rd: Rd, table: str, columns: list[str]) -> None:
+def _require_columns(rd: ReadPort, table: str, columns: list[str]) -> None:
     cols = rd.columns(table)
     missing = [c for c in columns if c not in cols]
     if missing:
@@ -190,7 +190,7 @@ def _derive_suspend_evidence(
 
 
 def load_market_open_frame(
-    rd: Rd,
+    rd: ReadPort,
     *,
     execution_date: datetime.date,
     codes: list[str],
@@ -211,7 +211,7 @@ def load_market_open_frame(
       （trade_cal 开市 ≠ 数据可用）
     - 只读 raw daily.open/pre_close、stk_limit.up/down_limit（不复权）
     """
-    if not isinstance(rd, Rd):
+    if not isinstance(rd, ReadPort):
         raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
     if not isinstance(execution_date, datetime.date) \
             or isinstance(execution_date, datetime.datetime):
@@ -291,7 +291,7 @@ def load_market_open_frame(
 _ADJ_EVENT_TABLE = "adj_event"
 
 
-def _adj_rows_duckdb(rd: Rd, s: str, e: str,
+def _adj_rows_duckdb(rd: ReadPort, s: str, e: str,
                      codes: list[str]) -> list[tuple]:
     """adj_event 行 duckdb 版：trade_date 为 VARCHAR 'YYYYMMDD'（同 daily
     惯例），闭区间文本比较即可（等长零填充字典序 == 日期序）。"""
@@ -303,9 +303,9 @@ def _adj_rows_duckdb(rd: Rd, s: str, e: str,
         [s, e, codes])
 
 
-def _adj_rows_ch(rd: Rd, s: str, e: str, codes: list[str]) -> list[tuple]:
+def _adj_rows_ch(rd: ReadPort, s: str, e: str, codes: list[str]) -> list[tuple]:
     """adj_event 行 ch 版：Date 主键 toDate 过滤 + canonical ts_code IN。"""
-    from factorlab.data.ch_source import in_clause
+    from factorlab.adapters.ch_read import in_clause
 
     ph, params = in_clause(codes)
     db = settings.ch_database
@@ -334,7 +334,7 @@ def _normalize_event_date(value) -> datetime.date:
 
 
 def load_adj_event_window(
-    rd: Rd,
+    rd: ReadPort,
     *,
     start_date: datetime.date,
     end_date: datetime.date,
@@ -352,7 +352,7 @@ def load_adj_event_window(
     - 日期窗口为自然日历日闭区间（含两端——右端事件当日零点生效语义由
       backtest 层以 (prev_exec, exec] 左开右闭调用表达）
     """
-    if not isinstance(rd, Rd):
+    if not isinstance(rd, ReadPort):
         raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
     for name, d in (("start_date", start_date), ("end_date", end_date)):
         if not isinstance(d, datetime.date) or isinstance(d, datetime.datetime):

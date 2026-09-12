@@ -1,7 +1,7 @@
 """process 基础处理器。
 
 全部处理器作用于 signal 列、按 date 截面计算（fillna forward 按 code 分组、date 排序）。
-industry_mean / neutralize(industry|size) 需要 ProcessCtx(db=读句柄 Rd)。
+industry_mean / neutralize(industry|size) 需要 ProcessCtx(db=读句柄 ReadPort)。
 """
 from __future__ import annotations
 
@@ -9,7 +9,8 @@ import duckdb
 import polars as pl
 
 from factorlab.config import settings
-from factorlab.data.backend import DuckDBRd, Rd
+from factorlab.adapters.duckdb_read import DuckDBRead
+from factorlab.ports.read import ReadPort
 from factorlab.core.process.registry import register_processor
 
 SIGNAL = "signal"
@@ -19,25 +20,25 @@ def _x(df: pl.DataFrame) -> pl.Expr:
     return pl.col(SIGNAL)
 
 
-def _ctx_rd(ctx) -> Rd:
-    """取上下文读句柄：裸 duckdb 连接（旧调用方/测试）包 DuckDBRd 兼容。"""
+def _ctx_rd(ctx) -> ReadPort:
+    """取上下文读句柄：裸 duckdb 连接（旧调用方/测试）包 DuckDBRead 兼容。"""
     db = ctx.db if ctx is not None else None
     if db is None:
         raise ValueError("需要 ProcessCtx(db) 上下文（读句柄/duckdb 连接）")
-    if isinstance(db, Rd):
+    if isinstance(db, ReadPort):
         return db
     if isinstance(db, duckdb.DuckDBPyConnection):
-        return DuckDBRd(con=db)
-    raise TypeError(f"db 必须为 Rd 或 duckdb 连接（收到 {type(db).__name__}）")
+        return DuckDBRead(con=db)
+    raise TypeError(f"db 必须为 ReadPort 或 duckdb 连接（收到 {type(db).__name__}）")
 
 
-def _fetch_industry_duckdb(rd: Rd) -> pl.DataFrame:
+def _fetch_industry_duckdb(rd: ReadPort) -> pl.DataFrame:
     return rd.query_df(
         "SELECT symbol, industry FROM stock_basic"
         " WHERE industry IS NOT NULL AND industry != ''")
 
 
-def _fetch_industry_ch(rd: Rd) -> pl.DataFrame:
+def _fetch_industry_ch(rd: ReadPort) -> pl.DataFrame:
     return rd.query_df(
         f"SELECT symbol, industry FROM {settings.ch_database}.stock_basic"
         f" WHERE industry IS NOT NULL AND industry != ''")
@@ -46,12 +47,12 @@ def _fetch_industry_ch(rd: Rd) -> pl.DataFrame:
 _INDUSTRY_IMPL = {"duckdb": _fetch_industry_duckdb, "ch": _fetch_industry_ch}
 
 
-def _fetch_industry(rd: Rd) -> pl.DataFrame:
+def _fetch_industry(rd: ReadPort) -> pl.DataFrame:
     return _INDUSTRY_IMPL[rd.backend](rd)
 
 
 def _fetch_mv_slice_duckdb(
-    rd: Rd, d_min: str, d_max: str, codes: list[str], date_dtype: pl.DataType,
+    rd: ReadPort, d_min: str, d_max: str, codes: list[str], date_dtype: pl.DataType,
 ) -> pl.DataFrame:
     """daily_basic 市值切片（duckdb：BETWEEN + split_part/unnest；SQL 逐字同迁移前）。"""
     return rd.query_df(
@@ -68,11 +69,11 @@ def _fetch_mv_slice_duckdb(
 
 
 def _fetch_mv_slice_ch(
-    rd: Rd, d_min: str, d_max: str, codes: list[str], date_dtype: pl.DataType,
+    rd: ReadPort, d_min: str, d_max: str, codes: list[str], date_dtype: pl.DataType,
 ) -> pl.DataFrame:
     """daily_basic 市值切片（ch：toDate 窗口 + daily_codes_clause 两层 IN 命中主键）。
     别名 d 必须保留——daily_codes_clause 片段引用 d.ts_code。"""
-    from factorlab.data.ch_source import daily_codes_clause
+    from factorlab.adapters.ch_read import daily_codes_clause
 
     code_clause, cparams = daily_codes_clause(codes)
     df = rd.query_df(
@@ -91,7 +92,7 @@ def _fetch_mv_slice_ch(
 _MV_SLICE_IMPL = {"duckdb": _fetch_mv_slice_duckdb, "ch": _fetch_mv_slice_ch}
 
 
-def _fetch_mv_slice(rd: Rd, d_min: str, d_max: str, codes: list[str],
+def _fetch_mv_slice(rd: ReadPort, d_min: str, d_max: str, codes: list[str],
                     date_dtype: pl.DataType) -> pl.DataFrame:
     return _MV_SLICE_IMPL[rd.backend](rd, d_min, d_max, codes, date_dtype)
 

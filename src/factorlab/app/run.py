@@ -30,14 +30,15 @@ from factorlab.core.engine.forward import (DEFAULT_FORWARD_HORIZONS,
 from factorlab.core.engine.minute import (_ADV20_LEFT_DAYS,
                                           _GRID_ROWS_PER_DAY, _bars_needed_cols,
                                           compute_minute_factor_panel)
-from factorlab.data.intraday import load_bars_1m_codes
+from factorlab.adapters.intraday import load_bars_1m_codes
 from factorlab.core.spec import FactorSpec
-from factorlab.data.adjust import load_qfq_base_adj, view_prices
-from factorlab.data.attributes import attributes_visible, load_code_attributes
-from factorlab.data.backend import Rd, open_read
-from factorlab.data.calendar import chunk_calendar, trading_calendar
-from factorlab.data.source import load_daily
-from factorlab.data.universe import (align_to_listing, resolve_candidate_codes,
+from factorlab.adapters.read.adjust import load_qfq_base_adj, view_prices
+from factorlab.adapters.read.attributes import attributes_visible, load_code_attributes
+from factorlab.app.bootstrap import open_read
+from factorlab.ports.read import ReadPort
+from factorlab.adapters.read.calendar import chunk_calendar, trading_calendar
+from factorlab.adapters.read.source import load_daily
+from factorlab.adapters.read.universe import (align_to_listing, resolve_candidate_codes,
                                      resolve_universe_frame)
 from factorlab.core.process.registry import run_process_chain
 
@@ -46,7 +47,7 @@ def _apply_multi_output_process(
     sig: pl.DataFrame,
     outputs: list[str],
     process: list[str],
-    rd: Rd,
+    rd: ReadPort,
 ) -> pl.DataFrame:
     """M2（G1）：多输出 per-output process 链。
 
@@ -78,7 +79,7 @@ def _apply_multi_output_process(
 def _inject_fill_state_seed(
     panel: pl.DataFrame,
     cal: pl.Series,
-    rd: Rd,
+    rd: ReadPort,
     ctx: RunContext,
 ) -> tuple[pl.DataFrame, bool]:
     """跨 chunk 左边界 fill seed（M6-07C2F，原 _compute_signal 内联块抽取；
@@ -105,7 +106,7 @@ def _inject_fill_state_seed(
     )["code"].unique().to_list())
     if not need:
         return panel, False
-    from factorlab.data.source import load_daily_fill_state
+    from factorlab.adapters.read.source import load_daily_fill_state
     fs = load_daily_fill_state(
         rd, need, before=ws.isoformat(),
         cols=fillable_cols, float32=ctx.float32)
@@ -125,7 +126,7 @@ def _inject_fill_state_seed(
 
 
 def _compute_signal(
-    rd: Rd,
+    rd: ReadPort,
     ctx: RunContext,
     spec: FactorSpec,
     formula: str,
@@ -245,7 +246,7 @@ def _compute_signal(
 
 
 def _compute_labels(
-    rd: Rd,
+    rd: ReadPort,
     ctx: RunContext,
     spec: FactorSpec,
     codes: list[str],
@@ -446,7 +447,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
         # canonical ts_code（"000001.SZ"，stock_basic reference data，一次 mapping）。
         # Signal/Label/panel 正式 artifact 的 code 必须为 canonical research
         # identifier（M7/M8 消费方 canonical guard 的唯一合法输入）。
-        from factorlab.data.universe import resolve_canonical_code_map
+        from factorlab.adapters.read.universe import resolve_canonical_code_map
         canonical_map = resolve_canonical_code_map(rd, codes)
         signal_df = _canonicalize_artifact_codes(signal_df, canonical_map)
         labels_df = _canonicalize_artifact_codes(labels_df, canonical_map)
@@ -664,7 +665,7 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
         labels_full = _compute_labels(rd, ctx, spec, codes, uf,
                                       cal[0].isoformat(), cal[-1].isoformat(),
                                       cal)
-        from factorlab.data.universe import resolve_canonical_code_map
+        from factorlab.adapters.read.universe import resolve_canonical_code_map
         canonical_map = resolve_canonical_code_map(rd, codes)
         signal_df = _canonicalize_artifact_codes(signal_df, canonical_map)
         labels_full = _canonicalize_artifact_codes(labels_full, canonical_map)

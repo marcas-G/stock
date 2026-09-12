@@ -4,9 +4,9 @@ import polars as pl
 import pytest
 
 from factorlab.config import Settings
-from factorlab.data.fetcher import TeaJoinClient
-from factorlab.data.platform_db import PlatformDB
-from factorlab.data.rebuild import INDEX_CODES, RebuildScope, load_manifest, rebuild_all, save_manifest
+from factorlab.adapters.fetcher import TeaJoinClient
+from factorlab.adapters.mirror_db import PlatformDB
+from factorlab.adapters.rebuild import INDEX_CODES, RebuildScope, load_manifest, rebuild_all, save_manifest
 
 
 def _sb_l():
