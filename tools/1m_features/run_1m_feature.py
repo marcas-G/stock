@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """run_1m_feature.py — bars_1m 全市场折日特征批算（研究侧，tools/1m_features）。
 
-与平台机制共用同一计算入口（factorlab.engine.minute.compute_minute_factor_panel，
+与平台机制共用同一计算入口（factorlab.core.engine.minute.compute_minute_factor_panel，
 B4.7：批算结果 == 平台引擎结果），读源为本地事实库 parquet：
 - bars：  /data/students/gaolei/stock/data/fact/bars_1m/year=YYYY/month=MM/part-000.parquet
   （1,854,876,240 行 2020-01..2026-08，240 槽/交易日网格，raw）
@@ -97,7 +97,7 @@ def _load_daily_slice(daily_path: str, lo: dt.date, hi: dt.date) -> pl.DataFrame
 
 
 def _build_daily_injections(daily: pl.DataFrame) -> pl.DataFrame:
-    """B6 注入列——与 factorlab.engine.minute._build_daily_injections 同语义
+    """B6 注入列——与 factorlab.core.engine.minute._build_daily_injections 同语义
     （本地 parquet 版；adv20 在"有行情日行序列"上滚动，停牌日自动隔开）。
     帧序：load 后按 (code, trade_date) 排序 → over("code") 组内按帧序确定。"""
     daily = daily.sort(["code", "trade_date"])
@@ -268,7 +268,7 @@ def cmd_check_day(args) -> int:
                                         daily=inj)
 
     # ---- 引擎侧（CH 生产库，同 spec/公式/窗口）----
-    from factorlab.engine.compute import RunContext
+    from factorlab.core.engine.compute import RunContext
     from factorlab.core.engine.minute import run_factor_minute
     import pathlib
     import tempfile
