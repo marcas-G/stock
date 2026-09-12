@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 """W3 物化必要性实证 — registry 残留单物化后仍被后续 fills/cancels 消费的比例
 
+
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # lob_fact/
 开盘模型的关键前提: 09:25-09:30 (竞价/撮合段) 加单的残留单 (registry, 价>0, rem>0)
 在首张连续快照处物化入簿是**必须**而非可选 —— 开盘后仍有大量成交/撤单事件按 id 引用
 这些订单; 不物化则身份丢失 → unknown_fill/unknown_cancel 桶暴增 + 簿面量缺失 + 守恒破坏。
@@ -14,10 +18,10 @@ import io, json, os, resource, subprocess, sys, time, zipfile
 
 import pandas as pd
 
-import config as C
-from qa import streams as S
-import anchoring as A
-from measure_w3 import load_events, load_snaps
+from core import config as C
+from core.qa import streams as S
+from core import anchoring as A
+from diag.measure_w3 import load_events, load_snaps
 
 
 def run_day(code, day):

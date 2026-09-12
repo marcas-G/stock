@@ -269,7 +269,7 @@ def cmd_check_day(args) -> int:
 
     # ---- 引擎侧（CH 生产库，同 spec/公式/窗口）----
     from factorlab.core.engine.compute import RunContext
-    from factorlab.core.engine.minute import run_factor_minute
+    from factorlab.app.run import run_factor_minute
     import pathlib
     import tempfile
     codes = sorted(bars["code"].unique().to_list())

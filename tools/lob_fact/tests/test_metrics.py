@@ -9,8 +9,8 @@ import pandas as pd
 import pytest
 
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from qa import metrics as mt
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
+from core.qa import metrics as mt
 
 
 # ---------- rint 基元（规格: 快照价 float64 已 ×10000, rint(p) 勿再乘） ----------

@@ -15,10 +15,10 @@ M4 = 引擎 recs vs qa.ledger 双实现逐 id 全等 + 桶对账映射
 存根击穿: 每断言从合成日真实数字推导; 任何硬编码 QA 汇总必败。
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from engine import Engine
-import anchoring as A
-import config as C
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
+from core.engine import Engine
+from core import anchoring as A
+from core import config as C
 
 OPEN = C.OPEN
 AM = C.AUCTION_MATCH

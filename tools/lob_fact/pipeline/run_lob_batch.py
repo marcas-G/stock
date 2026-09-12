@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 """W4 批算 — 纯逻辑层 (映射/日表/日门/月门; TDD) + W4c 批算编排 (同文件下半)
 
+
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # lob_fact/
 纯逻辑层 (无 I/O, 直接可测):
   orders_to_events / trades_to_events / cancels_to_events / parquet_events
     tick_fact parquet 行 → 归一化事件 (W4a parity_probe 14/14 逐事件字节对等语义;
@@ -35,14 +39,14 @@ import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from measure_w3 import GATE_PRES
+from diag.measure_w3 import GATE_PRES
 
 import argparse, datetime as dt, fcntl, glob, hashlib, json, signal, time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 import multiprocessing
 
-import config as C
-import anchoring as A
+from core import config as C
+from core import anchoring as A
 
 # ---------- 表 → 事件映射 (W4a 对等语义) ----------
 

@@ -28,7 +28,7 @@ import gc
 from bisect import bisect_left, insort
 from collections import deque
 
-import config as C
+from core import config as C
 
 _KIND_PRIO = {'add': 0, 'fill': 1, 'cancel': 2}
 _COUNTERS = ('unknown_fill', 'fill_excess', 'fill_over_rem', 'unknown_cancel',

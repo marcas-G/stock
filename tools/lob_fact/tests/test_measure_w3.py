@@ -8,8 +8,8 @@ fast 日 0.80-0.94 = δ 边界 best-edge 换位瞬态（M4 守恒 0 违例 + pre
 存根击穿: 真缺档日 (presence 崩) 必须 FAIL; fast 日 rank 0.80 不影响门 (用实测数值)。
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import measure_w3 as M3
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
+from diag import measure_w3 as M3
 
 
 def _res(code, n_anchor, n_match, n_present):

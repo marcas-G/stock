@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 """W3 anchoring QA 校准集对拍 — M1/M2/M3/M4/M6 全门逐 code-day（anchoring.run_day 单趟 full_rows）
 
+
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # lob_fact/
 用法:
   python measure_w3.py                 # 父进程: 全 10 校准日逐日 spawn（串行, 内存隔离; 调者负责 nice）
   python measure_w3.py 000155 20260803 # 子进程: 单日 → CALIB_OUT/w3_measure_{code}_{day}.json
@@ -27,9 +31,9 @@ from collections import Counter
 import polars as pl
 import pandas as pd
 
-import config as C
-from qa import streams as S
-import anchoring as A
+from core import config as C
+from core.qa import streams as S
+from core import anchoring as A
 
 GATE_PRES = 0.97     # M1a 档位存现门: W3 校准 10 日实测 0.9862-0.9999 (最差 fast SZ
                      # 000021@20260706), 门 0.97 留重建故障余量 (真丢档/丢段 presence 崩 <0.9)
@@ -53,17 +57,13 @@ def load_events(code, day):
 def load_snaps(code, day):
     """tick_fact snapshots 月文件 → 该 (code,date) 全行 dicts（time_ms 升序; 锚定列裁剪）"""
     ex = 'SZ' if code.startswith(('0', '3')) else 'SH'
-    fs = sorted(glob.glob(f'{C.tick_month("snapshots", day)}part-*.parquet'))
-    y, m, d = int(day[:4]), int(day[4:6]), int(day[6:8])
-    import datetime
+    from factorlab.adapters.tick_read import read_tick_table
     cols = ['time_ms']
     for side in ('bid', 'ask'):
         cols += [f'{side}_p{i}' for i in range(1, 11)]
         cols += [f'{side}_v{i}' for i in range(1, 11)]
-    df = (pl.scan_parquet(fs)
-          .filter((pl.col('code') == f'{code}.{ex}')
-                  & (pl.col('trade_date') == datetime.date(y, m, d)))
-          .select(cols).collect().sort('time_ms'))
+    df = read_tick_table('snapshots', day, codes=[f'{code}.{ex}'],
+                         columns=cols).sort('time_ms')
     return df.to_dicts()
 
 

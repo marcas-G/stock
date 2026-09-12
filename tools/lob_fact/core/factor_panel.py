@@ -49,8 +49,8 @@ from pathlib import Path
 
 import polars as pl
 
-import config as C
-import run_lob_batch as R
+from core import config as C
+from pipeline import run_lob_batch as R
 
 GRID_1S = 1_000
 GRID_1M = 60_000

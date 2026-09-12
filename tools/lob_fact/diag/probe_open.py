@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 """W3 开盘模型探针 — 竞价/撮合 registry 残单 vs 首张连续快照档级量（决定开盘簿注入模型）
 
+
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # lob_fact/
 问题（设计 §1/W1 memo §4）: SZ/SH 开盘簿的可见量 5.3万-51.6万股/日来源为何？
   A) 竞价 registry 携入: 09:15-09:25 价>0 adds 经 09:25 撮合打印与竞价撤单消费后的剩余
      在开盘（OPEN / 首张连续快照 ms）转入连续簿 —— 身份保留，后续 fills/cancels 自然解析
@@ -16,20 +20,20 @@ import glob, json, os, sys, zipfile, io, datetime
 import pandas as pd
 import polars as pl
 
-import config as C
-from qa import streams as S, ledger as L, metrics as mt
+from core import config as C
+from core.qa import streams as S, ledger as L, metrics as mt
 
 
 def first_snap(code, day):
     """首张连续快照（time_ms ≥ OPEN）10 档 ladder bid/ask（best-first）+ snap_ms
     —— 读 tick_fact snapshots（time_ms 已 ms-of-day；与 W1 open_queue 同源同口径）"""
-    fs = sorted(glob.glob(f'{C.tick_month("snapshots", day)}part-*.parquet'))
-    if not fs:
+    from factorlab.adapters.tick_read import read_tick_table
+    from factorlab.core.factio.tick_month import tick_month_files
+    if not tick_month_files('snapshots', day):
         return None, None, None
-    y, m, d = int(day[:4]), int(day[4:6]), int(day[6:])
-    df = pl.scan_parquet(fs).filter(
-        (pl.col('code') == f'{code}.{"SZ" if code[0] in "03" else "SH"}') &
-        (pl.col('trade_date') == datetime.date(y, m, d))).collect().sort('time_ms')
+    df = read_tick_table('snapshots', day,
+                         codes=[f'{code}.{"SZ" if code[0] in "03" else "SH"}']
+                         ).sort('time_ms')
     cont = df.filter(pl.col('time_ms') >= C.OPEN)
     if cont.is_empty():
         return None, None, None

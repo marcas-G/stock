@@ -18,10 +18,10 @@ from datetime import date
 import polars as pl
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import config as C
-import factor_panel as FP
-import run_lob_batch as R
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
+from core import config as C
+from core import factor_panel as FP
+from pipeline import run_lob_batch as R
 
 OPEN = C.OPEN
 AUCTION = C.AUCTION_START

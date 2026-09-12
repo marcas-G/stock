@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 """W2 schema 冻结门实测 — 校准日引擎吞吐 / 事件行量 / 峰值 RSS（每 code-day 子进程）
 
+
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # lob_fact/
 用法:
   python measure_w2.py               # 父进程: 全 10 校准日逐日 spawn 子进程（串行, 内存隔离）
   python measure_w2.py 000021 20260706   # 子进程: 单日引擎实测 → 单行 JSON（stdout）
@@ -18,9 +22,9 @@ from collections import Counter
 
 import pandas as pd
 
-import config as C
-from qa import streams as S
-from engine import Engine
+from core import config as C
+from core.qa import streams as S
+from core.engine import Engine
 
 # 行宽冻结估算（整数主导列 × 8B 均摊; 物化 schema W3 冻结时以 parquet 实测修正）
 EV_ROW_BYTES = 96

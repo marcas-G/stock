@@ -24,10 +24,10 @@ m3, m4, day, checkpoints, m6}。SNAP_DEPTH 之外引擎深档 (extras/域外) �
 """
 from bisect import bisect_right
 
-import config as C
-from engine import Engine, _KIND_PRIO
-from qa import ledger as L
-from qa import metrics as mt
+from core import config as C
+from core.engine import Engine, _KIND_PRIO
+from core.qa import ledger as L
+from core.qa import metrics as mt
 
 
 def _ev_key(e):

@@ -9,8 +9,8 @@
 断言逐值击穿存根（硬编码固定 rem/固定计数必 FAIL）。
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from qa import ledger as L
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
+from core.qa import ledger as L
 
 
 def test_add_fill_cancel_basic():

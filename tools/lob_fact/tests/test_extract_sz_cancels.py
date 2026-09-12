@@ -14,8 +14,8 @@ import pandas as pd
 import pytest
 
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import extract_sz_cancels as ex
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
+from pipeline import extract_sz_cancels as ex
 
 
 def make_raw(rows):

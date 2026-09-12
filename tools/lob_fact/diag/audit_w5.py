@@ -1,5 +1,9 @@
 """W5 全史批算收尾审计（只读；纯函数 + CLI）—— 计划 W5 验收四问单点
 
+
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # lob_fact/
 四问（对应计划文件 W5 验收行）：
   1. **完整性**：逐月 `state.json` 的 done vs 计划（计划 = conversion_manifest 该月
      去重 trade_date，与批算自身取计划同源）→ 缺失/越界（串月）逐条列出，不静默。
@@ -29,7 +33,7 @@ from collections import Counter, defaultdict
 
 import polars as pl
 
-import config as C
+from core import config as C
 
 LOB_TABLES = ('lob_events', 'lob_sweep_meta', 'lob_checkpoints')
 SRC_TABLES = ('orders', 'trades', 'snapshots', 'cancels')

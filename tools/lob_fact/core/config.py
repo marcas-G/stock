@@ -29,13 +29,24 @@ M1_END = CLOSE - 180_000     # QA 核心段止于 14:57:00 (SZ 收盘集合竞�
 ABSORB_MS = 500              # δ 滞后吸收窗 (W1: 消息时戳晚于簿面生效 0-300ms, 500ms 覆盖 99%+)
 MINUTE_MS = 60_000           # 分钟检查点步长
 
-# ---- 源布局（workspace 归并 2026-09-12：数据统一入 <stock>/data/{raw,fact,calib}） ----
-STOCK_ROOT = '/data/students/gaolei/stock'
+# ---- 源布局（单点 = 平台 core.factio.paths，DER-008；WS6 收敛） ----
+# 研究侧经 tools/_env.py 注入共享核（幂等 + 落位断言），不再本地硬编码路径。
+import os as _os
+import sys as _sys
+
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(
+    _os.path.dirname(_os.path.abspath(__file__)))))  # tools/（config 在 core/ 下）
+from _env import ensure_platform as _ensure_platform  # noqa: E402
+
+_ensure_platform()
+from factorlab.core.factio import paths as _paths  # noqa: E402
+
+STOCK_ROOT = str(_paths.STOCK_ROOT)
 DATA_ROOT = f'{STOCK_ROOT}/data'
-QUARK_ROOT = f'{DATA_ROOT}/raw/quark_downloaded/'
-TICK_FACT_ROOT = f'{DATA_ROOT}/fact/tick_fact/'
-LOB_FACT_ROOT = f'{DATA_ROOT}/fact/lob_fact/'
-CALIB_OUT = f'{DATA_ROOT}/calib/lob_fact_calib/'
+QUARK_ROOT = f'{_paths.quark_root()}/'
+TICK_FACT_ROOT = f'{_paths.tick_fact_root()}/'
+LOB_FACT_ROOT = f'{_paths.lob_fact_root()}/'
+CALIB_OUT = f'{_paths.lob_calib_root()}/'
 
 # ---- 校准集（W1 冻结 10 code-day：4 代码 × 双所 × 7 个月） ----
 # 含: B 格式撤单行真空月(20260706/20260210/20250822)、2025-09 差 1 行归因月、
@@ -58,3 +69,6 @@ def code_zip(code: str, day: str) -> str:
 
 def tick_month(tbl: str, day: str) -> str:
     return f'{TICK_FACT_ROOT}{tbl}/year={day[:4]}/month={day[4:6]}/'
+
+# 档位存现门（W3 校准冻结；原在 diag/measure_w3.py，WS6 收敛到 config 单点）
+GATE_PRES = 0.97

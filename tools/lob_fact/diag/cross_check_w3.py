@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 """W4d 独立交叉核对 — 批算 day rows vs W3 measure_w3 单日 JSON (重叠校准 code-day)
 
+
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # lob_fact/
 两链同构语义 (state 全深度, band 只抑行不抑状态) → 以下字段必须逐字节相等:
   m1.n_anchor / n_present / missing_vol / unattributed_vol / presence(圆整5位)
   m4.conservation / orders / counters_equal
@@ -14,7 +18,7 @@
 """
 import glob, json, os, sys
 
-import config as C
+from core import config as C
 
 _FIELDS = (('m1', 'n_anchor'), ('m1', 'n_present'), ('m1', 'missing_vol'),
            ('m1', 'unattributed_vol'), ('m4', 'conservation'),

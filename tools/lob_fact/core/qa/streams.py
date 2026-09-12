@@ -22,10 +22,13 @@ KIND_ADD, KIND_FILL, KIND_CANCEL = 'add', 'fill', 'cancel'
 
 
 def hms_to_ms(v: int) -> int:
-    """HHMMSSmmm（前导零省略）→ ms-of-day。91500020→33300020"""
-    s = f'{v:09d}'
-    hh, mm, ss, mmm = int(s[:2]), int(s[2:4]), int(s[4:6]), int(s[6:9])
-    return hh * 3600000 + mm * 60000 + ss * 1000 + mmm
+    """HHMMSSmmm（前导零省略）→ ms-of-day。91500020→33300020
+
+    WS6：委托平台单点 `factorlab.core.factio.timeparse.hms_to_ms_of_day`
+    （与 converters.parse_ms 同一语义的标量面；数值等价由 tests 锁定）。
+    """
+    from factorlab.core.factio.timeparse import hms_to_ms_of_day
+    return hms_to_ms_of_day(int(v))
 
 
 # ---------- SZ ----------

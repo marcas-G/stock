@@ -10,8 +10,8 @@ import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import config as C  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
+from core import config as C  # noqa: E402
 
 ROOTS = ['QUARK_ROOT', 'TICK_FACT_ROOT', 'LOB_FACT_ROOT', 'CALIB_OUT']
 

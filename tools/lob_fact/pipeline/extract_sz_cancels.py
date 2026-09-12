@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 """W0: SZ 撤单行增补抽取 → tick_fact/cancels (additive, 不动现有 3 表/schema)
 
+
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # lob_fact/
 背景 (2026-09-09 实测): 深交所撤单发布在逐笔成交流 (成交代码='C', BS标志=空,
 价格=0, 数量=撤单量, 引用被撤订单号), 占 SZ 逐笔成交 25.7-29.3%;
 convert_tick_to_parquet.py 的"零价行过滤"(px==0) 把它们连同集合竞价虚拟行一起滤掉,
@@ -33,10 +37,12 @@ os.environ.setdefault('OMP_NUM_THREADS', '2')
 os.environ.setdefault('PYARROW_JEMALLOC', '0')
 os.environ.setdefault('POLARS_MAX_THREADS', '4')
 import sys
+# 研究工具间引用：复用转换器（其 import 链已设 env 并导入 pyarrow）。
+# WS6c：不再用 `cvt.SCHEMAS['cancels']=...` 模块级注册——MonthWriter 显式吃
+# schema=CANCELS_SCHEMA（见下方实例化处）。
 sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'converters'))
-# 复用转换器 (其 import 链已设 env 并导入 pyarrow; MonthWriter 引用其模块级
-# SCHEMAS[name], 需先注册本表 schema 再实例化 writer)
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    'converters'))
 import convert_tick_to_parquet as cvt
 import io, glob, json, time, argparse, zipfile, signal, multiprocessing, fcntl
 import numpy as np, pandas as pd
@@ -49,7 +55,6 @@ CANCELS_SCHEMA = pa.schema([
     pa.field('time_ms', pa.int32()), pa.field('trade_no', pa.int64()),
     pa.field('side', pa.uint8()), pa.field('order_ref', pa.int64()),
     pa.field('volume', pa.int32())])
-cvt.SCHEMAS['cancels'] = CANCELS_SCHEMA
 
 OUT = os.path.join(cvt.OUT, 'cancels')
 FLUSH_ZIPS = 12   # 每 N 个 code-day 写一个 row group (~19 万行, SZ 撤单日均 ~1.6 万行)
@@ -292,7 +297,8 @@ def main():
                         if n_buf[ym] >= FLUSH_ZIPS:
                             if ym not in writers:  # 显式 if (setdefault 副作用教训)
                                 writers[ym] = cvt.MonthWriter(
-                                    os.path.join(cvt.OUT), 'cancels', ym[:4], ym[4:])
+                                    os.path.join(cvt.OUT), 'cancels', ym[:4], ym[4:],
+                                    schema=CANCELS_SCHEMA)
                             writers[ym].append(pa.concat_tables(buffers.pop(ym)))
                             n_buf[ym] = 0
                         man_rows.append(mrow)
@@ -329,7 +335,8 @@ def main():
         if tabs:
             if ym not in writers:
                 writers[ym] = cvt.MonthWriter(os.path.join(cvt.OUT), 'cancels',
-                                              ym[:4], ym[4:])
+                                              ym[:4], ym[4:],
+                                              schema=CANCELS_SCHEMA)
             writers[ym].append(pa.concat_tables(tabs))
     summary = {}
     # _SUCCESS = 整月完成标记 (resume 依据)。仅两条件全满足才写:

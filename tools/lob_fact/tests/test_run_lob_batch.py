@@ -14,10 +14,10 @@ import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import run_lob_batch as R
-import anchoring as A
-import config as C
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
+from pipeline import run_lob_batch as R
+from core import anchoring as A
+from core import config as C
 
 OPEN = C.OPEN
 AM = C.AUCTION_MATCH
@@ -740,7 +740,7 @@ def test_writer_encoding_matches_repack_path_bytes(tmp_path):
     实测杠杆 (notes/w5_full_history_memo.md): 同几何 zstd 3→9 = events −4.9% /
     sweep −3.1% / ckpt −5.9%; 202608 月 1.5383 → 1.4657× (≤1.5 预算)。
     硬编码 level/几何的"存根"或两路分叉在此必败 (字节不等)。"""
-    import compact_lob as CL
+    from store import compact_lob as CL
     df = _enc_payload(3000)
     sch = R._pa_schema(R.COL_EVENTS)
     assert df.to_arrow().schema == sch              # 前置: 载荷类型 == 表契约

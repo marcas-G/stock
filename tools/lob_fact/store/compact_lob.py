@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 """lob_fact 体积重打包 (W5 体积杠杆落地) —— 只读源 + 内容校验 + 原子替换
 
+
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # lob_fact/
 背景: W4 记录的 202608 体积比 1.461× 经复算为 **1.538×** (>1.5 预算; W4 memo 把
 MiB 值当 MB 记 + 比值算错)。修正路径 = 纯编码杠杆 (行组几何 / zstd 级), **不改任何
 语义**: 本工具按目标几何流式重写逐 date parquet, 重写前后**内容摘要** (行数 + 批级
@@ -31,7 +35,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
-import config as C
+from core import config as C
 
 LOB_TABLES = ('lob_events', 'lob_sweep_meta', 'lob_checkpoints')
 ROW_GROUP_ROWS = 1_048_576     # W4d 定标 (events 最优几何)

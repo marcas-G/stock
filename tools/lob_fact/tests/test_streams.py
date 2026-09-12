@@ -12,8 +12,8 @@
 import pandas as pd
 import pytest
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from qa import streams as S
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
+from core.qa import streams as S
 
 
 def test_hms_to_ms_of_day():

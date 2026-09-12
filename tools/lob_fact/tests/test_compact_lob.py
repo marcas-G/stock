@@ -13,8 +13,8 @@ import sys
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import compact_lob as CL
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
+from store import compact_lob as CL
 
 
 def _mk(path, n=300, rgr=100, level=1, shift=0):

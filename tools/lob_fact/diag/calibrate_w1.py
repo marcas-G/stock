@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 """W1 校准集测量 — 逐 code-day 证据 JSON（校准备忘录数据来源）
 
+
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # lob_fact/
 覆盖（校准集 config.CALIB_DAYS = 10 code-day × 7 个月 × 双所 4 代码）:
   cancel_semantics  撤单量语义分布 (full/partial/excess) + 逐单守恒 + 违规计数
   ref_resolve       撤单/成交 ref 解析率（含 SH 先成交后报量化）
@@ -18,8 +22,8 @@ import numpy as np
 import pandas as pd
 import polars as pl
 
-import config as C
-from qa import streams as S, ledger as L, delta as D, metrics as mt
+from core import config as C
+from core.qa import streams as S, ledger as L, delta as D, metrics as mt
 
 _raw_cache = {}
 
@@ -37,14 +41,13 @@ def rd(code, day, fname, cols=None):
 
 def tf_rows(code, day, tbl):
     """tick_fact 某表 code-day 行数（date 谓词剪枝单月文件）"""
-    fs = sorted(glob.glob(f'{C.tick_month(tbl, day)}part-*.parquet'))
-    if not fs:
+    from factorlab.adapters.tick_read import read_tick_table
+    try:
+        df = read_tick_table(tbl, day, codes=[f'{code}.{"SZ" if code[0] in "03" else "SH"}'],
+                             columns=['code'])
+    except FileNotFoundError:
         return 0
-    y, m, d = int(day[:4]), int(day[4:6]), int(day[6:])
-    return pl.scan_parquet(fs).filter(
-        (pl.col('code') == f'{code}.{"SZ" if code[0] in "03" else "SH"}') &
-        (pl.col('trade_date') == datetime.date(y, m, d))).select(
-        pl.len()).collect().item()
+    return df.height
 
 
 def _ledger_run(code, day):

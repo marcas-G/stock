@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 """W0 QA: cancels 表 × raw 源 独立交叉复验 (与抽取器完全不同的读路径)
 
+
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # lob_fact/
 逐 code-day: raw 逐笔成交 → 空BS∩C 行计数/侧别/量 对照 tick_fact/cancels parquet。
 覆盖: 跨月样本 (2025-09 差 1 行月 / 2026-02 / 2026-08) + 各月整月对账 (manifest vs 表)。
 
@@ -11,7 +15,7 @@ import zipfile, io, os, glob, argparse
 import pandas as pd, polars as pl
 import datetime
 
-import config as C
+from core import config as C
 
 ROOT = C.QUARK_ROOT
 CANC = f'{C.TICK_FACT_ROOT}cancels/'
@@ -44,13 +48,11 @@ def raw_cancel_counts(day, code):
 
 
 def tbl_counts(code, day):
-    y, m, d = day[:4], day[4:6], day[6:]
-    fs = sorted(glob.glob(f'{CANC}/year={y}/month={m}/part-*.parquet'))
-    if not fs:
+    from factorlab.adapters.tick_read import read_tick_table
+    try:
+        return read_tick_table('cancels', day, codes=[f'{code}.SZ'])
+    except FileNotFoundError:
         return None
-    return pl.scan_parquet(fs).filter(
-        (pl.col('code') == f'{code}.SZ') &
-        (pl.col('trade_date') == datetime.date(int(y), int(m), int(d)))).collect()
 
 
 def main():

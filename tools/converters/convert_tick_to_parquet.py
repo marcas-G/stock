@@ -268,8 +268,14 @@ class MonthWriter:
     (st_blocks*512 >= st_size*0.95) 与结构/行数校验, 通过才原子提交——
     防止多实例并发写同一路径时静默毁数据 (4 进程互踩事故, 100% blocks 丢失)。"""
 
-    def __init__(self, base, name, y, m):
+    def __init__(self, base, name, y, m, schema=None):
+        """schema 显式传入（None → 模块级 SCHEMAS[name]）。
+
+        WS6c：抽取类工具（extract_sz_cancels）不再靠 `SCHEMAS['cancels']=...`
+        的模块级注册副作用——显式参数化，去隐式全局耦合。
+        """
         self.name = name
+        self.schema = schema
         ddir = os.path.join(base, name, f'year={y}', f'month={m}')
         os.makedirs(ddir, exist_ok=True)
         self.final_path = os.path.join(ddir, 'part-000.parquet')
@@ -278,7 +284,7 @@ class MonthWriter:
         global _TMP_SEQ
         _TMP_SEQ += 1
         self.path = os.path.join(ddir, f'part-000.parquet.tmp.{os.getpid()}.{_TMP_SEQ}')
-        self.writer = pq.ParquetWriter(self.path, SCHEMAS[name],
+        self.writer = pq.ParquetWriter(self.path, self.schema or SCHEMAS[name],
                                        compression='zstd', compression_level=3,
                                        use_dictionary=['code', 'order_type', 'bs'])
         self.rows = 0
@@ -332,7 +338,7 @@ class MonthWriter:
             os.close(fd)
         # 提交校验: 结构可读 + schema 一致 + 行数一致 + 物理分配完整
         pf = pq.ParquetFile(self.path)
-        if pf.schema_arrow != SCHEMAS[self.name]:
+        if pf.schema_arrow != (self.schema or SCHEMAS[self.name]):
             raise RuntimeError(f'schema 不一致: {self.path}')
         if pf.metadata.num_rows != self.rows:
             raise RuntimeError(f'行数不一致: {self.path} '

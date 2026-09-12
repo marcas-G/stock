@@ -9,8 +9,8 @@
 存根击穿: 恒返回 fixed lag/恒 zero 的存根被逐样例 cls 断言击穿。
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from qa import delta as D
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
+from core.qa import delta as D
 
 
 def test_zero_lag_exact():

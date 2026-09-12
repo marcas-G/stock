@@ -15,12 +15,12 @@ EOD 结算: auction 残单/continuous 残单/unbooked 残单分桶守恒。
 存根击穿: 每个场景断言都从金样 CSV 的真实数字推导, 换任何硬编码实现必 FAIL。
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), 'fixtures'))
 from fixtures import loader as F
-from engine import Engine
-import config as C
+from core.engine import Engine
+from core import config as C
 
 
 def scenario_events(name):
