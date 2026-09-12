@@ -215,6 +215,15 @@ WS6 研究侧重排 + 编排单点 → WS7 文档/skills/安装面 → WS8 P7/P8
 
 ## 11. 验证记录
 
+### WS2（2026-09-12）：端口层建立（纯增量）— PASS
+六条端口 Protocol 落位（`src/factorlab/ports/{read,write,panel_store,source,batch,eval_kernel}.py`）
++ `RunPayload`/`ReconcileReport`/`Task`/`Result`/`BatchReport` 载荷 + 六条内存桩
+（tests/_doubles.py，不进 src）+ `tests/test_ports_contract.py` 8 项（形状/行为/负行为）。
+门：纯增量（`git status` 仅 3 个新增路径，零既有文件改动）；平台 2435 passed / 13 skipped
+（= 前值 2427 + 8 契约测试，skipped 不变）；DuckDBRd 直接 `isinstance(..., ReadPort)` 通过。
+其余端口真实实现随 WS4/WS5/WS6 接入同一契约测试的 param 列表。
+证据：workspace `docs/verification/WS2/`。
+
 ### WS0（2026-09-12）：基线冻结 — PASS
 平台 2423 passed / 13 skipped；研究 183 passed；位级 66 passed；catalog 27 passed；
 692/442 计数、漂移面 5 文件、df、RSS（2020-01 单月 3.87GiB）落证。
