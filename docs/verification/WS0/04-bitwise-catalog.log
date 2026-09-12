@@ -1,0 +1,8 @@
+=== WS0 位级门（2026-09-12 15:04:40）===
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+66 passed, 15 warnings in 197.21s (0:03:17)
+
+=== WS0 catalog 同源门 ===
+...........................                                              [100%]
+27 passed in 1.74s

@@ -1,0 +1,25 @@
+=== WS0 基线 2026-09-12 14:57:19 ===
+
+--- 1. 分支 sha ---
+main:     319fa3ee7567223a1d397cdf3485c8787fb74f75
+research: 69be9f36ae8a8a0ed386261f52b373181ddaef47
+main独有=14 research独有=222
+
+--- 2. 错误文案计数 ---
+pytest.raises 总数: 692
+含 match= 处数:    442
+
+--- 3. 漂移面（main vs research, src/ tests/）---
+ src/factorlab/engine/minute_gate.py |   5 +-
+ tests/conftest.py                   |   9 +-
+ tests/test_e2e_web.py               |   9 +-
+ tests/test_minute_gate.py           |  57 ------
+ tests/test_strategy.py              | 377 ++++++++++++++++++++++++++++++++++++
+ 5 files changed, 384 insertions(+), 73 deletions(-)
+
+--- 4. 磁盘 ---
+/dev/sda5      8512527302656 7721164275712 362283212800   96% /data
+
+--- 5. 平台/研究测试文件规模 ---
+平台 test 文件: 93
+研究 test 文件: 14

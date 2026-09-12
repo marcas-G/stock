@@ -1,0 +1,4 @@
+[2020-01] OK rows=56748  18.2s  peakRSS=3.87GB
+batch 完成 1 月（(2020, 1)..(2020, 1)）
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:20.92
+	Maximum resident set size (kbytes): 4061208
