@@ -215,6 +215,14 @@ WS6 研究侧重排 + 编排单点 → WS7 文档/skills/安装面 → WS8 P7/P8
 
 ## 11. 验证记录
 
+### WS5（2026-09-12）：app 层与装配单点 — PASS
+注册单点 `core/ops/registration.ensure_all_ops_registered`（幂等；`app.bootstrap.install_operators`
+为文档化入口）；`RunContext.max_memory` → `DuckDBRead` → `open_read` 贯通、**CLI 去 settings 全局改写**；
+`app/evaluate.py`（唯一评估装配 `evaluate_run`+`publish_run`，CLI 内联段上移）；`cli/ web/` → `surfaces/`；
+P-6：`evaluate_factor_weekly` 归位 `adapters/rust_ic.py` + `RustICKernel`（EvalKernelPort）。
+附带修复：测试注册表跨文件污染（test_ops 泄漏 + conftest 全 suite 隔离）——顺序相关假失败根治。
+门：每批全量；终态 2460 passed/13 skipped。证据：workspace `docs/verification/WS5/`。
+
 ### WS3（2026-09-12）：core 层搬迁 — PASS
 3a domain/numerics/qa/factor/spec → 3b ops → 3c-1 engine → 3c-2 持久化/rd 依赖切出
 （run_factor/run_factor_minute/6 个装配 helper → `app/run.py`；对齐校验 → `core/engine/alignment.py`；
