@@ -12,8 +12,8 @@ import re
 import polars as pl
 import pytest
 
-from factorlab.domain import (FillBatch, PortfolioState, PortfolioStatePhase)
-from factorlab.domain.timing import ExecutionTiming
+from factorlab.core.domain import (FillBatch, PortfolioState, PortfolioStatePhase)
+from factorlab.core.domain.timing import ExecutionTiming
 from factorlab.execution import apply_fill_batch
 
 D1 = datetime.date(2024, 1, 2)

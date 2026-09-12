@@ -5,9 +5,9 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.domain import TargetPortfolio, TargetPortfolioMeta
-from factorlab.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
-from factorlab.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
+from factorlab.core.domain import TargetPortfolio, TargetPortfolioMeta
+from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
+from factorlab.core.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
                                      InformationCutoff, SignalAvailability,
                                      SignalTiming)
 from factorlab.strategy import SelectionSpec, StrategySpec, WeightingSpec

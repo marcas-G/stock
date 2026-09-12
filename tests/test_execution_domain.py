@@ -6,9 +6,9 @@ from dataclasses import FrozenInstanceError
 import polars as pl
 import pytest
 
-from factorlab.domain import (OrderBatch, OrderSide, PortfolioState,
+from factorlab.core.domain import (OrderBatch, OrderSide, PortfolioState,
                               PortfolioStatePhase)
-from factorlab.domain.timing import ExecutionTiming
+from factorlab.core.domain.timing import ExecutionTiming
 
 D1, D2 = datetime.date(2024, 1, 2), datetime.date(2024, 1, 3)
 

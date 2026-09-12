@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from factorlab.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
+from factorlab.core.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
                                      InformationCutoff, SignalAvailability,
                                      SignalTiming)
 

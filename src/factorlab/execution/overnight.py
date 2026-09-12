@@ -35,7 +35,7 @@ import polars as pl
 
 from factorlab.data.backend import Rd
 from factorlab.data.calendar import trading_calendar
-from factorlab.domain.execution import (ExecutionTiming, FillBatch,
+from factorlab.core.domain.execution import (ExecutionTiming, FillBatch,
                                         PortfolioState, PortfolioStatePhase)
 
 

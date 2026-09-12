@@ -5,7 +5,7 @@
 - FLOAT_REDUCTION_EQUIVALENT：有限值对满足 ULP_DISTANCE <= max_ulp 且
   abs(a-b) <= scaled_eps * EPS_FLOAT64 * max(1, |a|, |b|)（AND Gate）。
 
-ULP distance 为**非负整数**：由 factorlab.numerics 的单一权威 IEEE ordering
+ULP distance 为**非负整数**：由 factorlab.core.numerics 的单一权威 IEEE ordering
 primitive 提供（sign-aware 单调 bit 映射；+0.0/-0.0 等价 ULP=0）。
 NaN/Inf 不进入 finite comparator（单独分类）。
 
@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import polars as pl
 
-from factorlab.numerics import float64_ordered_uint, float64_ulp_distance
+from factorlab.core.numerics import float64_ordered_uint, float64_ulp_distance
 
 EPS_FLOAT64 = float(np.finfo(np.float64).eps)
 
@@ -27,7 +27,7 @@ EPS_FLOAT64 = float(np.finfo(np.float64).eps)
 def ulp_distance_array(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """向量化整数 ULP distance（a/b 同 shape 有限 float64 数组）。
 
-    单一权威 primitive：factorlab.numerics.float64_ulp_distance（与 stable
+    单一权威 primitive：factorlab.core.numerics.float64_ulp_distance（与 stable
     cs_rank 共享同一 IEEE ordering 定义——禁止两套 ULP）。
     """
     return float64_ulp_distance(a, b)

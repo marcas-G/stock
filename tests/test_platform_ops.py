@@ -1,7 +1,7 @@
 import polars as pl
 import pytest
 
-from factorlab.factor.errors import FactorDSLError
+from factorlab.core.factor.errors import FactorDSLError
 from factorlab.ops import registry
 from factorlab.ops.platform_ops import (
     adv20,
@@ -12,7 +12,7 @@ from factorlab.ops.platform_ops import (
     returns,
     vwap,
 )
-from factorlab.spec import OperatorMacro
+from factorlab.core.spec import OperatorMacro
 
 
 def _ops(**kwargs):

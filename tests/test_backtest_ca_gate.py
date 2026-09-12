@@ -25,7 +25,7 @@ import pytest
 
 from factorlab.data.backend import open_read
 from factorlab.data.execution import load_adj_event_window
-from factorlab.domain import ExecutionDataQualityError
+from factorlab.core.domain import ExecutionDataQualityError
 from factorlab.execution import ExecutionSpec, run_backtest
 from test_backtest_marks_policy import (D5, D9, _A, _B, _halt_db, _spec)
 from test_backtest_runtime import D1, D2, D3, D8, _target

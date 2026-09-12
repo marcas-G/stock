@@ -28,9 +28,9 @@ import datetime
 
 import polars as pl
 
-from factorlab.domain.codes import is_canonical_stock_code
-from factorlab.domain.frames import SignalArtifact
-from factorlab.domain.portfolio import TargetPortfolio, TargetPortfolioMeta
+from factorlab.core.domain.codes import is_canonical_stock_code
+from factorlab.core.domain.frames import SignalArtifact
+from factorlab.core.domain.portfolio import TargetPortfolio, TargetPortfolioMeta
 from factorlab.strategy.schedule import build_rebalance_schedule
 from factorlab.strategy.spec import StrategySpec
 

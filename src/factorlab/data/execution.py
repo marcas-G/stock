@@ -32,7 +32,7 @@ import polars as pl
 
 from factorlab.config import settings
 from factorlab.data.backend import Rd
-from factorlab.domain.codes import is_canonical_stock_code
+from factorlab.core.domain.codes import is_canonical_stock_code
 
 _SNAPSHOT_COLUMNS = ["code", "open", "pre_close", "up_limit", "down_limit",
                      "has_daily", "has_limit", "has_suspend_record",

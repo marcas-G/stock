@@ -12,9 +12,9 @@ import re
 import polars as pl
 import pytest
 
-from factorlab.domain import (ExecutionAccountingSummary, FillBatch,
+from factorlab.core.domain import (ExecutionAccountingSummary, FillBatch,
                               PortfolioState, PortfolioStatePhase)
-from factorlab.domain.timing import ExecutionTiming
+from factorlab.core.domain.timing import ExecutionTiming
 from factorlab.execution import summarize_execution_accounting
 
 D1 = datetime.date(2024, 1, 2)

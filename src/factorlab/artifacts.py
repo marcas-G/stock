@@ -32,8 +32,8 @@ from typing import Any
 
 import polars as pl
 
-from factorlab.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
-from factorlab.domain.timing import (ExecutionTiming, InformationCutoff,
+from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
+from factorlab.core.domain.timing import (ExecutionTiming, InformationCutoff,
                                      SignalAvailability, SignalTiming)
 from factorlab.engine.forward import DEFAULT_FORWARD_HORIZONS
 

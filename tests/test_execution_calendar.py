@@ -10,9 +10,9 @@ from dataclasses import FrozenInstanceError
 import polars as pl
 import pytest
 
-from factorlab.domain import (ExecutionSchedule, TargetPortfolio,
+from factorlab.core.domain import (ExecutionSchedule, TargetPortfolio,
                               TargetPortfolioMeta)
-from factorlab.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING,
+from factorlab.core.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING,
                                      ExecutionTiming, SignalTiming,
                                      InformationCutoff, SignalAvailability)
 from factorlab.execution import resolve_execution_schedule

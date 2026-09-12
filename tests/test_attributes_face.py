@@ -29,7 +29,7 @@ import polars as pl
 import pytest
 
 from factorlab.engine.compute import RunContext, compute_formula, run_factor
-from factorlab.spec import load_spec
+from factorlab.core.spec import load_spec
 from test_run_factor import _DATES
 
 _DAILY_COLS = [("ts_code", "str"), ("trade_date", "date"), ("open", "f64"),

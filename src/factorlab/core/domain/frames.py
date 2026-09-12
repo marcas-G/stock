@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from factorlab.domain.timing import DEFAULT_EOD_SIGNAL_TIMING, SignalTiming
+from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING, SignalTiming
 
 # future/label 拒绝规则：前缀 + 精确字段（清晰、可维护，非硬编码 horizon）
 _FUTURE_PREFIXES = ("forward_", "future_")

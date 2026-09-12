@@ -17,7 +17,7 @@ import re
 import polars as pl
 import pytest
 
-from factorlab.domain import (PortfolioMarkSnapshot, PortfolioState,
+from factorlab.core.domain import (PortfolioMarkSnapshot, PortfolioState,
                               PortfolioStatePhase, PortfolioValuation)
 from factorlab.execution import value_portfolio
 

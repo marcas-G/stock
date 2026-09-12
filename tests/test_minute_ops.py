@@ -12,7 +12,7 @@ import pytest
 import yaml
 
 from factorlab.engine.compute import compute_formula
-from factorlab.spec import FactorSpec
+from factorlab.core.spec import FactorSpec
 
 _D1, _D2 = dt.date(2026, 8, 20), dt.date(2026, 8, 21)
 _CODES = ("000001", "600519")
@@ -218,6 +218,6 @@ universe:
 formula: |
   signal = day_last(close)
 """)
-    from factorlab.spec import load_spec
+    from factorlab.core.spec import load_spec
     spec = load_spec(p)
     assert spec.interface == "bars_1m" and spec.adjustment == "raw"

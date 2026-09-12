@@ -12,7 +12,7 @@ import polars as pl
 from factorlab.config import settings
 from factorlab.data.fetcher import TeaJoinClient
 from factorlab.data.platform_db import PlatformDB
-from factorlab.domain.codes import (CANONICAL_TS_CODE_PATTERN,
+from factorlab.core.domain.codes import (CANONICAL_TS_CODE_PATTERN,
                                     is_canonical_stock_code)
 
 DAILY_TABLES = ("daily", "daily_basic", "adj_factor", "stock_st", "stk_limit", "suspend_d", "moneyflow")

@@ -30,7 +30,7 @@ from factorlab.data.verify import (
     _INTERNAL_COL_SUFFIX,
 )
 from factorlab.engine import reserved as _reserved
-from factorlab.factor.ast_gate import ALLOWED_EXPR_METHODS
+from factorlab.core.factor.ast_gate import ALLOWED_EXPR_METHODS
 from factorlab.ops import registry as _registry
 from factorlab.ops.platform_ops import register_platform_ops
 from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
@@ -490,7 +490,7 @@ def _gates() -> list[dict]:
                 "tests/test_spec.py::test_rejects_universe_both_codes_and_rules",
                 "tests/test_pool_formula.py::test_universe_formula_mutually_exclusive_with_others",
             ],
-            "probe": "import factorlab.spec as spec\nspec.UniverseSpec.model_validate({})",
+            "probe": "import factorlab.core.spec as spec\nspec.UniverseSpec.model_validate({})",
         },
         {
             "id": "gate_spec_outputs_reserved",
@@ -504,7 +504,7 @@ def _gates() -> list[dict]:
                 "tests/test_outputs_multi.py::test_outputs_reserved_names_rejected",
                 "tests/test_outputs_multi.py::test_outputs_structural_collision_rejected",
             ],
-            "probe": "import factorlab.spec as spec\nspec.FactorSpec.model_validate({'name': 'f', 'category': 'custom', 'direction': 1, 'universe': {'codes': ['000001']}, 'formula': 'x = close', 'outputs': ['forward_return_5d']})",
+            "probe": "import factorlab.core.spec as spec\nspec.FactorSpec.model_validate({'name': 'f', 'category': 'custom', 'direction': 1, 'universe': {'codes': ['000001']}, 'formula': 'x = close', 'outputs': ['forward_return_5d']})",
         },
         {
             "id": "gate_spec_outputs_duplicate",
@@ -518,7 +518,7 @@ def _gates() -> list[dict]:
                 "tests/test_outputs_multi.py::test_outputs_duplicate_rejected",
                 "tests/test_outputs_multi.py::test_outputs_empty_rejected",
             ],
-            "probe": "import factorlab.spec as spec\nspec.FactorSpec.model_validate({'name': 'f', 'category': 'custom', 'direction': 1, 'universe': {'codes': ['000001']}, 'formula': 'x = close', 'outputs': ['a', 'a']})",
+            "probe": "import factorlab.core.spec as spec\nspec.FactorSpec.model_validate({'name': 'f', 'category': 'custom', 'direction': 1, 'universe': {'codes': ['000001']}, 'formula': 'x = close', 'outputs': ['a', 'a']})",
         },
         {
             "id": "gate_pool_v1_grammar",

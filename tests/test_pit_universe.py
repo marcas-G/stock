@@ -18,7 +18,7 @@ import pytest
 
 from factorlab.data.universe import (align_to_universe, resolve_candidate_codes,
                                      resolve_universe_frame)
-from factorlab.spec import FactorSpec
+from factorlab.core.spec import FactorSpec
 
 # A: 2024-01-01 上市（无退市）；B: 2024-01-15 上市；C: 2020-01-01 上市、2024-06-01 退市
 LIST_A, LIST_B, DELIST_C = "20240101", "20240115", "20240601"

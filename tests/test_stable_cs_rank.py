@@ -6,7 +6,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlab.numerics import float64_ulp_distance_scalar
+from factorlab.core.numerics import float64_ulp_distance_scalar
 from factorlab.ops.stable_rank import (STABLE_RANK_MAX_ULPS, cs_stable_rank,
                                        rewrite_stable_rank, validate_tie_ulps)
 

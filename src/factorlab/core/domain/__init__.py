@@ -5,21 +5,21 @@ M7-01：策略目标组合（portfolio）——TargetPortfolio/TargetPortfolioMe
 M8-05B：execution accounting + point-in-time valuation（accounting）。
 """
 
-from factorlab.domain.accounting import (ExecutionAccountingSummary,
+from factorlab.core.domain.accounting import (ExecutionAccountingSummary,
                                          PortfolioMarkSnapshot,
                                          PortfolioValuation)
-from factorlab.domain.backtest import (ArtifactManifest,
+from factorlab.core.domain.backtest import (ArtifactManifest,
                                       BacktestResult, ExecutionArtifact,
                                       NavSeries)
-from factorlab.domain.execution import (ExecutionDataQualityError,
+from factorlab.core.domain.execution import (ExecutionDataQualityError,
                                        ExecutionSchedule, FillBatch,
                                        MarketOpenSnapshot, OpenFillAssessment,
                                        OpenOrderDisposition, OrderBatch,
                                        OrderSide, PortfolioState,
                                        PortfolioStatePhase, QuantityRuleKind)
-from factorlab.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
-from factorlab.domain.portfolio import TargetPortfolio, TargetPortfolioMeta
-from factorlab.domain.timing import (
+from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
+from factorlab.core.domain.portfolio import TargetPortfolio, TargetPortfolioMeta
+from factorlab.core.domain.timing import (
     DEFAULT_EOD_SIGNAL_TIMING,
     ExecutionTiming,
     InformationCutoff,

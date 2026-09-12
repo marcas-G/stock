@@ -33,7 +33,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from factorlab.domain.execution import OrderSide
+from factorlab.core.domain.execution import OrderSide
 from factorlab.execution.spec import ExecutionCostSpec
 
 

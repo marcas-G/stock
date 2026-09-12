@@ -16,8 +16,8 @@ import re
 import polars as pl
 import pytest
 
-from factorlab.domain import (FillBatch, PortfolioState, PortfolioStatePhase)
-from factorlab.domain.timing import ExecutionTiming
+from factorlab.core.domain import (FillBatch, PortfolioState, PortfolioStatePhase)
+from factorlab.core.domain.timing import ExecutionTiming
 from factorlab.execution import advance_to_next_trading_day
 
 # 2024-01-05 Friday open；01-06/07 closed；01-08 Monday open

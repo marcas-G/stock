@@ -26,8 +26,8 @@ from pathlib import Path
 
 import polars as pl
 
-from factorlab.domain.frames import SignalArtifact, SignalMeta
-from factorlab.domain.portfolio import TargetPortfolio, TargetPortfolioMeta
+from factorlab.core.domain.frames import SignalArtifact, SignalMeta
+from factorlab.core.domain.portfolio import TargetPortfolio, TargetPortfolioMeta
 from factorlab.strategy.schedule import RebalanceSchedule
 from factorlab.strategy.spec import StrategySpec
 
@@ -78,7 +78,7 @@ def _timing_json(timing) -> dict:
 
 
 def _timing_from_json(d) -> "SignalTiming":
-    from factorlab.domain.timing import (ExecutionTiming, InformationCutoff,
+    from factorlab.core.domain.timing import (ExecutionTiming, InformationCutoff,
                                          SignalAvailability, SignalTiming)
     if not isinstance(d, dict):
         raise ValueError(

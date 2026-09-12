@@ -42,7 +42,7 @@ from factorlab.engine.reserved import (
     INTERNAL_NAMES,
     INTERNAL_PREFIX,
 )
-from factorlab.factor.ast_gate import ALLOWED_EXPR_METHODS
+from factorlab.core.factor.ast_gate import ALLOWED_EXPR_METHODS
 
 runner = CliRunner()
 

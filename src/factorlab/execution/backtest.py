@@ -39,14 +39,14 @@ import polars as pl
 
 from factorlab.data.backend import Rd
 from factorlab.data.execution import load_adj_event_window
-from factorlab.domain.accounting import PortfolioMarkSnapshot
-from factorlab.domain.backtest import (BacktestResult, ExecutionArtifact,
+from factorlab.core.domain.accounting import PortfolioMarkSnapshot
+from factorlab.core.domain.backtest import (BacktestResult, ExecutionArtifact,
                                        NavSeries)
-from factorlab.domain.execution import (ExecutionDataQualityError,
+from factorlab.core.domain.execution import (ExecutionDataQualityError,
                                         MarketOpenSnapshot,
                                         OpenOrderDisposition, PortfolioState,
                                         PortfolioStatePhase)
-from factorlab.domain.portfolio import TargetPortfolio
+from factorlab.core.domain.portfolio import TargetPortfolio
 from factorlab.execution.accounting import summarize_execution_accounting
 from factorlab.execution.calendar import resolve_execution_schedule
 from factorlab.execution.fillability import assess_open_fillability

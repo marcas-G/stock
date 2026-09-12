@@ -19,14 +19,14 @@ from pathlib import Path
 
 import polars as pl
 
-from factorlab.domain.accounting import (ExecutionAccountingSummary,
+from factorlab.core.domain.accounting import (ExecutionAccountingSummary,
                                          PortfolioValuation)
-from factorlab.domain.backtest import (ArtifactManifest, BacktestResult,
+from factorlab.core.domain.backtest import (ArtifactManifest, BacktestResult,
                                        ExecutionArtifact, NavSeries)
-from factorlab.domain.execution import (FillBatch, OpenFillAssessment,
+from factorlab.core.domain.execution import (FillBatch, OpenFillAssessment,
                                         OrderBatch, PortfolioState,
                                         PortfolioStatePhase)
-from factorlab.domain.timing import ExecutionTiming
+from factorlab.core.domain.timing import ExecutionTiming
 
 SCHEMA_VERSION = "1"
 RUNTIME_VERSION = "factorlab-m8-06c"

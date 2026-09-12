@@ -10,7 +10,7 @@ import json
 import pytest
 
 from factorlab.engine.compute import compute_formula, run_factor
-from factorlab.spec import FactorSpec, load_spec
+from factorlab.core.spec import FactorSpec, load_spec
 from test_run_factor import _ctx, _tables
 
 _MULTI_FORMULA = """_mom = close / ts_delay(close, 1) - 1

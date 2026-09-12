@@ -16,7 +16,7 @@ import pytest
 import yaml
 
 from factorlab.engine.compute import RunContext, run_factor
-from factorlab.spec import FactorSpec
+from factorlab.core.spec import FactorSpec
 
 _DAILY_COLS = [("ts_code", "str"), ("trade_date", "date"), ("open", "f64"),
                ("high", "f64"), ("low", "f64"), ("close", "f64"),

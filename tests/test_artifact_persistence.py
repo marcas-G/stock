@@ -17,10 +17,10 @@ import pytest
 from factorlab.artifacts import (LABELS_FILE, LEGACY_PANEL_FILE, SIGNAL_FILE,
                                  SUMMARY_FILE, load_label_artifact,
                                  load_signal_artifact)
-from factorlab.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
+from factorlab.core.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
                                      InformationCutoff, SignalAvailability)
 from factorlab.engine.compute import RunContext, run_factor
-from factorlab.spec import load_spec
+from factorlab.core.spec import load_spec
 
 
 def build_db(tmp_path, n_days: int = 12) -> None:

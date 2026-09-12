@@ -5,8 +5,8 @@ from dataclasses import FrozenInstanceError
 import polars as pl
 import pytest
 
-from factorlab.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
-from factorlab.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
+from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
+from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 
 META = SignalMeta(name="test", frequency="1d", timing=DEFAULT_EOD_SIGNAL_TIMING,
                   adjustment="none")

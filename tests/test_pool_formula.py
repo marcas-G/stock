@@ -22,7 +22,7 @@ import polars as pl
 import pytest
 
 from factorlab.engine.compute import run_factor
-from factorlab.spec import load_spec
+from factorlab.core.spec import load_spec
 from test_attributes_face import _seed as attr_seed
 from test_run_factor import _DATES, _ctx, _seed as rf_seed
 

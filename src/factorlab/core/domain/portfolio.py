@@ -22,8 +22,8 @@ from dataclasses import dataclass, field
 
 import polars as pl
 
-from factorlab.domain.codes import is_canonical_stock_code
-from factorlab.domain.timing import SignalTiming
+from factorlab.core.domain.codes import is_canonical_stock_code
+from factorlab.core.domain.timing import SignalTiming
 
 _NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 _GROSS_TOL = 1e-12

@@ -11,11 +11,11 @@ import math
 import polars as pl
 import pytest
 
-from factorlab.domain import (ExecutionDataQualityError, ExecutionSchedule,
+from factorlab.core.domain import (ExecutionDataQualityError, ExecutionSchedule,
                               MarketOpenSnapshot, OpenFillAssessment,
                               OpenOrderDisposition, OrderBatch, OrderSide,
                               PortfolioStatePhase)
-from factorlab.domain.timing import ExecutionTiming
+from factorlab.core.domain.timing import ExecutionTiming
 from factorlab.execution import assess_open_fillability
 
 D1 = datetime.date(2024, 1, 2)

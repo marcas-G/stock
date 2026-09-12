@@ -30,11 +30,11 @@ import math
 
 import polars as pl
 
-from factorlab.domain.execution import (ExecutionSchedule, ExecutionTiming,
+from factorlab.core.domain.execution import (ExecutionSchedule, ExecutionTiming,
                                         MarketOpenSnapshot, OrderBatch,
                                         PortfolioState, PortfolioStatePhase,
                                         QuantityRuleKind)
-from factorlab.domain.portfolio import TargetPortfolio
+from factorlab.core.domain.portfolio import TargetPortfolio
 from factorlab.execution.rules import (is_valid_buy_quantity,
                                        is_valid_sell_quantity,
                                        project_buy_quantity,

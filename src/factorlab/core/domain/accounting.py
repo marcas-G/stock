@@ -20,8 +20,8 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from factorlab.domain.codes import is_canonical_stock_code
-from factorlab.domain.execution import PortfolioStatePhase
+from factorlab.core.domain.codes import is_canonical_stock_code
+from factorlab.core.domain.execution import PortfolioStatePhase
 
 
 def _require_date(value, field: str) -> datetime.date:

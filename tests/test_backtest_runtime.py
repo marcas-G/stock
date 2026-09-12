@@ -18,9 +18,9 @@ import duckdb
 import polars as pl
 import pytest
 
-from factorlab.domain import (PortfolioStatePhase, TargetPortfolio,
+from factorlab.core.domain import (PortfolioStatePhase, TargetPortfolio,
                               TargetPortfolioMeta)
-from factorlab.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
+from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.data.backend import open_read
 from factorlab.execution import (ExecutionSpec, MarksPolicy, run_backtest)
 

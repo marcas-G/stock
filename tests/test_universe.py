@@ -11,7 +11,7 @@ import pytest
 
 from factorlab.data.universe import (normalize_code, resolve_candidate_codes,
                                      resolve_codes)
-from factorlab.spec import FactorSpec
+from factorlab.core.spec import FactorSpec
 
 _SB_COLS = [("ts_code", "str"), ("symbol", "str"), ("exchange", "str"),
             ("list_date", "str"), ("industry", "str"), ("market", "str")]

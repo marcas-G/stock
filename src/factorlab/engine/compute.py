@@ -19,11 +19,11 @@ from factorlab.data.backend import Rd, open_read
 from factorlab.data.calendar import chunk_calendar, fill_suspensions, trading_calendar
 from factorlab.data.source import load_daily
 from factorlab.data.universe import align_to_listing, resolve_candidate_codes, resolve_universe_frame
-from factorlab.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
-from factorlab.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
+from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
+from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.engine.forward import DEFAULT_FORWARD_HORIZONS, compute_forward_returns
 from factorlab.engine.partitions import reject_future_shifts, validate_partition_calls
-from factorlab.factor.ast_gate import validate_formula
+from factorlab.core.factor.ast_gate import validate_formula
 from factorlab.ops.platform_ops import (
     expand_platform_macros,
     expand_user_macros,
@@ -36,7 +36,7 @@ from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
 from factorlab.ops.universe_masking import (apply_universe_masking,
                                             validate_reserved_bindings)
 from factorlab.process.registry import run_process_chain
-from factorlab.spec import FactorSpec
+from factorlab.core.spec import FactorSpec
 
 # 名字类墙常量单点定义于 engine/reserved.py（M1 收拢，禁止散落字面量）：
 # FUTURE_PREFIXES/FUTURE_NAMES——future/label 字段显式引用 → fail fast

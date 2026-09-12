@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 
-from factorlab.factor.errors import FactorDSLError
+from factorlab.core.factor.errors import FactorDSLError
 from factorlab.ops import registry
 
 # 元素级纯函数（Python/Polars 语义，无窗口、无分组），不进入算子注册表。

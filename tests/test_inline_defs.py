@@ -1,6 +1,6 @@
 import pytest
 
-from factorlab.factor.errors import FactorDSLError
+from factorlab.core.factor.errors import FactorDSLError
 from factorlab.ops.platform_ops import inline_defs, rewrite_expr_methods
 
 

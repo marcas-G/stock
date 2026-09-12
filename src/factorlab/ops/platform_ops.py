@@ -5,8 +5,8 @@ import copy
 
 import polars as pl
 
-from factorlab.factor.ast_gate import ALLOWED_EXPR_METHODS
-from factorlab.factor.errors import FactorDSLError
+from factorlab.core.factor.ast_gate import ALLOWED_EXPR_METHODS
+from factorlab.core.factor.errors import FactorDSLError
 from factorlab.ops.registry import factor_op
 
 
@@ -197,7 +197,7 @@ def expand_user_macros(source: str, operators: dict[str, "OperatorMacro"]) -> st
     """
     if not operators:
         return source
-    from factorlab.spec import OperatorMacro  # 延迟导入避免循环
+    from factorlab.core.spec import OperatorMacro  # 延迟导入避免循环
 
     try:
         tree = ast.parse(source)

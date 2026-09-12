@@ -19,8 +19,8 @@ import polars as pl
 
 from factorlab.data.backend import Rd
 from factorlab.data.calendar import trading_calendar
-from factorlab.domain.execution import ExecutionSchedule
-from factorlab.domain.portfolio import TargetPortfolio
+from factorlab.core.domain.execution import ExecutionSchedule
+from factorlab.core.domain.portfolio import TargetPortfolio
 
 
 def resolve_execution_schedule(

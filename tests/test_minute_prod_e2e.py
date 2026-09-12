@@ -21,7 +21,7 @@ from factorlab.data.intraday import load_bars_1m_codes
 from factorlab.data.source import load_daily
 from factorlab.engine.compute import RunContext, run_factor
 from factorlab.engine.minute import run_factor_minute
-from factorlab.spec import load_spec
+from factorlab.core.spec import load_spec
 
 pytestmark = pytest.mark.integration
 

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import ast
 
-from factorlab.factor.errors import FactorDSLError
+from factorlab.core.factor.errors import FactorDSLError
 
 # 未来函数列（数据侧命名纪律，见 specs 决策②/③：负位移禁、未来列必须这样命名）
 FUTURE_PREFIXES = ("forward_", "future_")

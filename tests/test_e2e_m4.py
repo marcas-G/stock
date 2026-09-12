@@ -9,7 +9,7 @@ from factorlab.engine.compute import RunContext, run_factor
 from factorlab.eval.alignment import align_weekly
 from factorlab.eval.layered import layered_backtest
 from factorlab.eval.rust_ic import evaluate_factor_weekly
-from factorlab.spec import load_spec
+from factorlab.core.spec import load_spec
 
 pytestmark = pytest.mark.integration
 

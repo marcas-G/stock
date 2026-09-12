@@ -1,7 +1,7 @@
 import pytest
 
-from factorlab.factor.ast_gate import validate_formula
-from factorlab.factor.errors import FactorDSLError
+from factorlab.core.factor.ast_gate import validate_formula
+from factorlab.core.factor.errors import FactorDSLError
 
 
 def test_allows_def_import_assignment_and_ternary():

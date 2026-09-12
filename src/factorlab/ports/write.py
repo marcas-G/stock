@@ -13,7 +13,7 @@ from typing import Any, Mapping, Protocol, runtime_checkable
 
 import polars as pl
 
-from factorlab.domain import LabelArtifact, SignalMeta
+from factorlab.core.domain import LabelArtifact, SignalMeta
 
 
 @dataclass(frozen=True)

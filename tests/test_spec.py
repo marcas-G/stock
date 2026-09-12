@@ -1,7 +1,7 @@
 import pytest
 import yaml
 
-from factorlab.spec import FactorSpec, load_spec
+from factorlab.core.spec import FactorSpec, load_spec
 
 
 def make_spec(tmp_path, **overrides):

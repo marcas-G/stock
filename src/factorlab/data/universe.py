@@ -10,9 +10,9 @@ import yaml
 
 from factorlab.config import settings
 from factorlab.data.backend import Rd
-from factorlab.domain.codes import (CANONICAL_TS_CODE_PATTERN,
+from factorlab.core.domain.codes import (CANONICAL_TS_CODE_PATTERN,
                                     is_canonical_stock_code)
-from factorlab.spec import FactorSpec
+from factorlab.core.spec import FactorSpec
 
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 

@@ -33,7 +33,7 @@ import math
 
 import polars as pl
 
-from factorlab.domain.execution import (ExecutionDataQualityError,
+from factorlab.core.domain.execution import (ExecutionDataQualityError,
                                         ExecutionTiming, FillBatch,
                                         MarketOpenSnapshot, OpenFillAssessment,
                                         OpenOrderDisposition, OrderBatch,

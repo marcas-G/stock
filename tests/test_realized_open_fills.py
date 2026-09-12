@@ -16,12 +16,12 @@ import math
 import polars as pl
 import pytest
 
-from factorlab.domain import (ExecutionDataQualityError, ExecutionSchedule,
+from factorlab.core.domain import (ExecutionDataQualityError, ExecutionSchedule,
                               FillBatch, MarketOpenSnapshot, OpenFillAssessment,
                               OpenOrderDisposition, OrderBatch, OrderSide,
                               PortfolioState, PortfolioStatePhase,
                               QuantityRuleKind)
-from factorlab.domain.timing import ExecutionTiming
+from factorlab.core.domain.timing import ExecutionTiming
 from factorlab.execution import (ExecutionCostSpec, SecurityQuantityRules,
                                  assess_open_fillability, project_buy_quantity,
                                  project_sell_quantity, realize_open_fills)

@@ -17,7 +17,7 @@ import polars as pl
 import pytest
 
 from factorlab.engine.compute import RunContext, label_lookahead_end, run_factor
-from factorlab.spec import load_spec
+from factorlab.core.spec import load_spec
 
 N_DAYS = 60
 CHUNK = 7

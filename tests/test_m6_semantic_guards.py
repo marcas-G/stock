@@ -20,10 +20,10 @@ from factorlab.artifacts import (FactorArtifactBundle, SIGNAL_FILE, LABELS_FILE,
                                  load_factor_artifacts, load_label_artifact,
                                  load_signal_artifact, validate_signal_label_alignment,
                                  write_factor_artifacts)
-from factorlab.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
-from factorlab.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
+from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
+from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.engine.compute import RunContext, run_factor
-from factorlab.spec import load_spec
+from factorlab.core.spec import load_spec
 
 
 # ================================================================

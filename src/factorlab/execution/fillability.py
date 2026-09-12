@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from factorlab.domain.execution import (ExecutionDataQualityError,
+from factorlab.core.domain.execution import (ExecutionDataQualityError,
                                         ExecutionTiming, MarketOpenSnapshot,
                                         OpenFillAssessment, OpenOrderDisposition,
                                         OrderBatch)

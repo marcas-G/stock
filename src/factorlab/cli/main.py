@@ -14,10 +14,10 @@ from factorlab.data.platform_db import PlatformDB
 from factorlab.data.rebuild import RebuildScope, build_final_db, rebuild_all
 from factorlab.data.refresh import refresh, refresh_indexes
 from factorlab.data.verify import verify_all
-from factorlab.factor.errors import FactorDSLError
-from factorlab.factor.ast_gate import validate_formula
+from factorlab.core.factor.errors import FactorDSLError
+from factorlab.core.factor.ast_gate import validate_formula
 from factorlab.ops import plugins, registry
-from factorlab.spec import load_spec
+from factorlab.core.spec import load_spec
 
 
 app = typer.Typer(no_args_is_help=True)

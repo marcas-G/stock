@@ -11,7 +11,7 @@ from dataclasses import FrozenInstanceError
 import polars as pl
 import pytest
 
-from factorlab.domain.execution import QuantityRuleKind
+from factorlab.core.domain.execution import QuantityRuleKind
 from factorlab.execution import (resolve_security_quantity_rules,
                                  is_valid_buy_quantity,
                                  is_valid_sell_quantity)

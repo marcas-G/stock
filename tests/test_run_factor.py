@@ -21,7 +21,7 @@ import pytest
 
 import dualbridge
 from factorlab.engine.compute import RunContext, _formula_columns, run_factor
-from factorlab.spec import load_spec
+from factorlab.core.spec import load_spec
 
 _DATES = ["20240102", "20240103", "20240104", "20240105", "20240108", "20240109"]
 # 扩展交易日（>6 天场景：周频评估需要信号与 forward 同时有效的行，如 CLI run 测试；

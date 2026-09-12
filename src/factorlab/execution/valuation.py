@@ -21,9 +21,9 @@ import math
 
 import polars as pl
 
-from factorlab.domain.accounting import (PortfolioMarkSnapshot,
+from factorlab.core.domain.accounting import (PortfolioMarkSnapshot,
                                          PortfolioValuation)
-from factorlab.domain.execution import PortfolioState
+from factorlab.core.domain.execution import PortfolioState
 
 
 def value_portfolio(

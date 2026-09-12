@@ -24,7 +24,7 @@ import pytest
 
 from factorlab.data.backend import open_read
 from factorlab.data.execution import load_market_open_frame
-from factorlab.domain import MarketOpenSnapshot
+from factorlab.core.domain import MarketOpenSnapshot
 from factorlab.execution import load_market_open_snapshot
 
 EXEC = datetime.date(2024, 1, 8)

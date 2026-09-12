@@ -15,7 +15,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from factorlab.domain import LabelArtifact, SignalMeta
+from factorlab.core.domain import LabelArtifact, SignalMeta
 from factorlab.ports.batch import BatchOrchestrator, BatchReport, Task
 from factorlab.ports.eval_kernel import EvalKernelPort
 from factorlab.ports.panel_store import PanelStorePort

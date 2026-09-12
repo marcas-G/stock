@@ -28,7 +28,7 @@ import datetime
 import re
 from dataclasses import dataclass
 
-from factorlab.domain.frames import SignalArtifact
+from factorlab.core.domain.frames import SignalArtifact
 from factorlab.strategy.spec import StrategySpec
 
 _NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")

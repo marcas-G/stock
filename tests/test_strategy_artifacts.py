@@ -6,8 +6,8 @@ import json
 import polars as pl
 import pytest
 
-from factorlab.domain.frames import SignalArtifact, SignalMeta
-from factorlab.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
+from factorlab.core.domain.frames import SignalArtifact, SignalMeta
+from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.strategy import (SelectionSpec, StrategySpec, WeightingSpec,
                                 construct_target_portfolio)
 from factorlab.strategy.artifacts import (REBALANCE_SCHEDULE_FILE,
@@ -157,7 +157,7 @@ def test_spec_schedule_frequency_mismatch(tmp_path):
 
 def test_target_schedule_dates_mismatch(tmp_path):
     sa, spec, schedule, target = _full_set(tmp_path)
-    from factorlab.domain import TargetPortfolio
+    from factorlab.core.domain import TargetPortfolio
     # frame 只含 D1/D2（domain 可构造），但 schedule 含 D3——writer cross-check 拦截
     f2 = target.frame.filter(pl.col("decision_date") != D3)
     t2 = TargetPortfolio(frame=f2, decision_dates=(D1, D2), meta=target.meta)
@@ -168,12 +168,12 @@ def test_target_schedule_dates_mismatch(tmp_path):
 
 def test_target_spec_strategy_name_mismatch(tmp_path):
     sa, spec, schedule, target = _full_set(tmp_path)
-    from factorlab.domain import TargetPortfolioMeta
+    from factorlab.core.domain import TargetPortfolioMeta
     m2 = TargetPortfolioMeta(strategy_name="other", source_signal_name="alpha_x",
                              source_timing=DEFAULT_EOD_SIGNAL_TIMING,
                              gross_exposure=1.0)
     t2 = target.frame  # 保持 frame
-    from factorlab.domain import TargetPortfolio
+    from factorlab.core.domain import TargetPortfolio
     t2 = TargetPortfolio(frame=target.frame, decision_dates=target.decision_dates, meta=m2)
     with pytest.raises(ValueError, match="strategy_name"):
         _write(tmp_path, source_signal=sa, spec=spec,
@@ -182,7 +182,7 @@ def test_target_spec_strategy_name_mismatch(tmp_path):
 
 def test_gross_mismatch(tmp_path):
     sa, spec, schedule, target = _full_set(tmp_path)
-    from factorlab.domain import TargetPortfolio, TargetPortfolioMeta
+    from factorlab.core.domain import TargetPortfolio, TargetPortfolioMeta
     m2 = TargetPortfolioMeta(strategy_name="strategy_x", source_signal_name="alpha_x",
                              source_timing=DEFAULT_EOD_SIGNAL_TIMING,
                              gross_exposure=0.8)

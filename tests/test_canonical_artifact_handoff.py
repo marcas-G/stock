@@ -10,7 +10,7 @@ import pytest
 
 from factorlab.data.backend import open_read
 from factorlab.data.universe import resolve_canonical_code_map
-from factorlab.domain.codes import is_canonical_stock_code
+from factorlab.core.domain.codes import is_canonical_stock_code
 from factorlab.engine.compute import RunContext, run_factor
 from factorlab.strategy import (SelectionSpec, StrategySpec, WeightingSpec,
                                 build_rebalance_schedule,
@@ -165,7 +165,7 @@ formula: |
   signal = close
 process: []
 """, encoding="utf-8")
-    from factorlab.spec import load_spec
+    from factorlab.core.spec import load_spec
     return load_spec(p)
 
 

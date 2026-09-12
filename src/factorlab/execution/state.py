@@ -17,7 +17,7 @@ POST_EXECUTION PortfolioState（新 immutable state）
 - FillBatch 是唯一 actual-fill authority：不做 side netting / 不重新聚合
 - 不修改输入；输出经真正 PortfolioState constructor 验证
 
-只依赖 stdlib + polars + factorlab.domain.execution（无 cost/market/rules/
+只依赖 stdlib + polars + factorlab.core.domain.execution（无 cost/market/rules/
 DB/strategy 依赖）。
 """
 
@@ -27,7 +27,7 @@ import math
 
 import polars as pl
 
-from factorlab.domain.execution import (ExecutionTiming, FillBatch,
+from factorlab.core.domain.execution import (ExecutionTiming, FillBatch,
                                         PortfolioState, PortfolioStatePhase)
 
 _INT64_MAX = 2**63 - 1

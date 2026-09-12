@@ -16,9 +16,9 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from factorlab.domain.accounting import (ExecutionAccountingSummary,
+from factorlab.core.domain.accounting import (ExecutionAccountingSummary,
                                          PortfolioValuation)
-from factorlab.domain.execution import (FillBatch, OpenFillAssessment,
+from factorlab.core.domain.execution import (FillBatch, OpenFillAssessment,
                                         OrderBatch, PortfolioState,
                                         PortfolioStatePhase)
 

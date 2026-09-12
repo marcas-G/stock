@@ -410,7 +410,7 @@ validate_internal_reads('x = close + in_universe')
 - 报错文案样板：`universe 必须且只能提供 ref / codes / rules / formula 之一`
 - 修法：成员条件只保留一种形态（静态 codes、规则公式 rules 或 formula 化成员条件，按 M4 文法）
 - 触发探针：```python
-import factorlab.spec as spec
+import factorlab.core.spec as spec
 spec.UniverseSpec.model_validate({})
 ```
 - 对照测试：`tests/test_spec.py::test_rejects_universe_both_codes_and_rules`, `tests/test_pool_formula.py::test_universe_formula_mutually_exclusive_with_others`
@@ -421,7 +421,7 @@ spec.UniverseSpec.model_validate({})
 - 报错文案样板：`为数据侧未来列命名纪律，公式输出不可用）`
 - 修法：输出名避开未来前缀（forward_*/future_*/target/label 由评估运行时 forward 计算占用）
 - 触发探针：```python
-import factorlab.spec as spec
+import factorlab.core.spec as spec
 spec.FactorSpec.model_validate({'name': 'f', 'category': 'custom', 'direction': 1, 'universe': {'codes': ['000001']}, 'formula': 'x = close', 'outputs': ['forward_return_5d']})
 ```
 - 对照测试：`tests/test_outputs_multi.py::test_outputs_reserved_names_rejected`, `tests/test_outputs_multi.py::test_outputs_structural_collision_rejected`
@@ -432,7 +432,7 @@ spec.FactorSpec.model_validate({'name': 'f', 'category': 'custom', 'direction': 
 - 报错文案样板：`outputs 重复: `
 - 修法：去掉重复输出名（同一表达式要双份请起不同名）
 - 触发探针：```python
-import factorlab.spec as spec
+import factorlab.core.spec as spec
 spec.FactorSpec.model_validate({'name': 'f', 'category': 'custom', 'direction': 1, 'universe': {'codes': ['000001']}, 'formula': 'x = close', 'outputs': ['a', 'a']})
 ```
 - 对照测试：`tests/test_outputs_multi.py::test_outputs_duplicate_rejected`, `tests/test_outputs_multi.py::test_outputs_empty_rejected`

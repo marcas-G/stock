@@ -38,8 +38,8 @@ from factorlab.data.calendar import chunk_calendar, trading_calendar
 from factorlab.data.intraday import _BARS_TABLE_COLS, load_bars_1m_codes
 from factorlab.data.source import load_daily
 from factorlab.data.universe import resolve_candidate_codes, resolve_universe_frame
-from factorlab.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
-from factorlab.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
+from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
+from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.engine.compute import (
     FactorResult,
     RunContext,

@@ -16,8 +16,8 @@ import polars as pl
 
 from factorlab.config import settings
 from factorlab.data.backend import Rd
-from factorlab.domain.codes import is_canonical_stock_code
-from factorlab.domain.execution import QuantityRuleKind
+from factorlab.core.domain.codes import is_canonical_stock_code
+from factorlab.core.domain.execution import QuantityRuleKind
 
 # 显式分类映射（stock_basic.market 实际规范值 + ts_code suffix 一致性校验）
 # ——不自动 normalize market 字符串（strip/contains 均禁止）。

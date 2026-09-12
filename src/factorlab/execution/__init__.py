@@ -1,7 +1,7 @@
 """M8：Execution Runtime 领域层。
 
 M8-01：契约（ExecutionSpec；PortfolioState/OrderBatch/enums 在
-factorlab.domain.execution）。
+factorlab.core.domain.execution）。
 M8-02：calendar resolver（resolve_execution_schedule）+ market-open snapshot
 （load_market_open_snapshot）。
 M8-03：deterministic net order planning（construct_order_batch）。

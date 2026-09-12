@@ -3,7 +3,7 @@
 import numpy as np
 import polars as pl
 
-from factorlab.qa.numeric_determinism import (EPS_FLOAT64, compare_float64_series,
+from factorlab.core.qa.numeric_determinism import (EPS_FLOAT64, compare_float64_series,
                                               ulp_distance_array)
 
 
@@ -93,7 +93,7 @@ def test_compare_series_length_mismatch_raises():
 # M6-07C2J：signed-zero 压缩零映射
 # ================================================================
 
-from factorlab.numerics import float64_ordered_uint
+from factorlab.core.numerics import float64_ordered_uint
 
 
 def test_ordered_uint_signed_zero_identical():
@@ -104,7 +104,7 @@ def test_ordered_uint_signed_zero_identical():
 
 def test_zero_neighborhood_ulp():
     """ULP(-min_subnormal, ±0.0) = 1 且 ULP(±0.0, +min_subnormal) = 1（§2）。"""
-    from factorlab.numerics import float64_ulp_distance
+    from factorlab.core.numerics import float64_ulp_distance
     mn = np.nextafter(0.0, 1.0)        # min positive subnormal
     nz = -0.0
     pz = 0.0
@@ -131,5 +131,5 @@ def test_ordered_uint_negative_adjacent_still_one():
 
 def test_ulp_signed_zero_still_zero():
     """ULP(+0.0, -0.0) = 0（压缩映射本身保证，特判仅防御）。"""
-    from factorlab.numerics import float64_ulp_distance
+    from factorlab.core.numerics import float64_ulp_distance
     assert float64_ulp_distance(np.array([0.0]), np.array([-0.0]))[0] == 0

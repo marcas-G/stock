@@ -6,8 +6,8 @@ from dataclasses import FrozenInstanceError
 import polars as pl
 import pytest
 
-from factorlab.domain import TargetPortfolio, TargetPortfolioMeta
-from factorlab.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
+from factorlab.core.domain import TargetPortfolio, TargetPortfolioMeta
+from factorlab.core.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
                                      InformationCutoff, SignalAvailability,
                                      SignalTiming)
 

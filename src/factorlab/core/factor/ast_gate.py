@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 
-from factorlab.factor.errors import FactorDSLError
+from factorlab.core.factor.errors import FactorDSLError
 
 
 ALLOWED_NODES = {

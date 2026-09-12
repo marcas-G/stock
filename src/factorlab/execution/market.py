@@ -7,7 +7,7 @@ import datetime
 from factorlab.data.backend import Rd
 from factorlab.data.calendar import trading_calendar
 from factorlab.data.execution import load_market_open_frame
-from factorlab.domain.execution import MarketOpenSnapshot
+from factorlab.core.domain.execution import MarketOpenSnapshot
 
 
 def load_market_open_snapshot(

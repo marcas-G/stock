@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import polars as pl
 
-from factorlab.domain.accounting import ExecutionAccountingSummary
-from factorlab.domain.execution import (ExecutionTiming, FillBatch,
+from factorlab.core.domain.accounting import ExecutionAccountingSummary
+from factorlab.core.domain.execution import (ExecutionTiming, FillBatch,
                                         PortfolioState, PortfolioStatePhase)
 
 

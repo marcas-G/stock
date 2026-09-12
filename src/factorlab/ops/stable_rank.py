@@ -25,7 +25,7 @@ import ast
 import numpy as np
 import polars as pl
 
-from factorlab.numerics import float64_ulp_distance
+from factorlab.core.numerics import float64_ulp_distance
 from factorlab.ops.registry import factor_op
 
 STABLE_RANK_MAX_ULPS = 4
@@ -59,7 +59,7 @@ def _np_stable_levels(vals: np.ndarray, tie_ulps: int) -> np.ndarray:
     （float64_ordered_uint），循环内只做 Python int 减法比较——避免逐元素
     numpy 数组构造（§49：stable 不得 >3x legacy wall）。
     """
-    from factorlab.numerics import float64_ordered_uint
+    from factorlab.core.numerics import float64_ordered_uint
     n = len(vals)
     levels = np.zeros(n, dtype=np.int64)
     if n == 0:

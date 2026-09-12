@@ -18,7 +18,7 @@ import pytest
 import dualbridge
 from factorlab.engine.compute import RunContext, run_factor
 from factorlab.engine.minute import compute_minute_factor_panel, run_factor_minute
-from factorlab.spec import load_spec
+from factorlab.core.spec import load_spec
 
 _N_TOTAL = 46           # 种子交易日总数（20 warm + 6 样本 + 20 tail）
 _S_START = 20           # 样本窗起点（_DATES[20:26]）

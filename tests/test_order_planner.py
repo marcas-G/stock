@@ -21,11 +21,11 @@ import math
 import polars as pl
 import pytest
 
-from factorlab.domain import (ExecutionSchedule, MarketOpenSnapshot,
+from factorlab.core.domain import (ExecutionSchedule, MarketOpenSnapshot,
                               OrderBatch, PortfolioState, PortfolioStatePhase,
                               QuantityRuleKind, TargetPortfolio,
                               TargetPortfolioMeta)
-from factorlab.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
+from factorlab.core.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
                                      InformationCutoff, SignalAvailability,
                                      SignalTiming)
 from factorlab.execution import (SecurityQuantityRules, construct_order_batch,
@@ -1114,8 +1114,8 @@ def test_m8_01b_quantity_authority_reused():
 
 
 def test_existing_domain_unchanged():
-    from factorlab.domain.execution import OrderBatch as OB
-    assert OB.__module__ == "factorlab.domain.execution"
+    from factorlab.core.domain.execution import OrderBatch as OB
+    assert OB.__module__ == "factorlab.core.domain.execution"
 
 
 # ================================================================

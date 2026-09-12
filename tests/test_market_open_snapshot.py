@@ -12,7 +12,7 @@ import polars as pl
 import pytest
 
 from factorlab.data.execution import load_market_open_frame
-from factorlab.domain import MarketOpenSnapshot
+from factorlab.core.domain import MarketOpenSnapshot
 from factorlab.data.backend import open_read
 from factorlab.execution import load_market_open_snapshot
 
@@ -187,7 +187,7 @@ def test_raw_open_exactness(env):
 def test_has_daily_true_requires_finite_positive(env):
     """M8-04B：invalid daily evidence → ExecutionDataQualityError（data quality，
     非结构错误）。4 个坏值各占一个 code、逐 code 请求（同库分请求隔离）。"""
-    from factorlab.domain import ExecutionDataQualityError
+    from factorlab.core.domain import ExecutionDataQualityError
     bad_codes = ["000001.SZ", "000002.SZ", "000003.SZ", "000004.SZ"]
     _seed(env,
           daily=[(_D, c, bad, 9.8) for c, bad in zip(bad_codes,
@@ -201,7 +201,7 @@ def test_has_daily_true_requires_finite_positive(env):
 
 def test_has_limit_true_invariant(env):
     """M8-04B：invalid limit evidence（down > up）→ ExecutionDataQualityError。"""
-    from factorlab.domain import ExecutionDataQualityError
+    from factorlab.core.domain import ExecutionDataQualityError
     _seed(env, daily=[(_D, "000001.SZ", 10.0, 9.8)],
           limits=[(_D, "000001.SZ", 8.0, 10.0)])   # down > up
     with pytest.raises(ExecutionDataQualityError, match="down|up"):

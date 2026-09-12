@@ -6,8 +6,8 @@ from dataclasses import FrozenInstanceError
 import polars as pl
 import pytest
 
-from factorlab.domain.frames import SignalArtifact, SignalMeta
-from factorlab.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
+from factorlab.core.domain.frames import SignalArtifact, SignalMeta
+from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.strategy import SelectionSpec, StrategySpec, WeightingSpec
 from factorlab.strategy.schedule import RebalanceSchedule, build_rebalance_schedule
 
