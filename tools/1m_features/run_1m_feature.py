@@ -290,7 +290,7 @@ date:
 formula: |
   {FORMULA.replace(chr(10), chr(10) + "  ")}
 """)
-        from factorlab.spec import load_spec
+        from factorlab.core.spec import load_spec
         eng = run_factor_minute(load_spec(spec_p), RunContext(
             data_backend="ch", output_dir=pathlib.Path(td) / "out",
             float32=False))
