@@ -356,7 +356,8 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
     signal_artifact: SignalArtifact | None = None
     signal_frames: dict[str, pl.DataFrame] | None = None
     try:
-        rd = open_read(data_backend=ctx.data_backend, db_path=ctx.db_path)
+        rd = open_read(data_backend=ctx.data_backend, db_path=ctx.db_path,
+                       max_memory=ctx.max_memory)
     except FileNotFoundError as exc:
         raise FileNotFoundError(f"数据库不存在: {ctx.db_path}（可运行 data refresh 或检查路径）") from exc
     try:
@@ -602,7 +603,8 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
     signal_artifact: SignalArtifact | None = None
     signal_frames: dict[str, pl.DataFrame] | None = None
     try:
-        rd = open_read(data_backend=ctx.data_backend, db_path=ctx.db_path)
+        rd = open_read(data_backend=ctx.data_backend, db_path=ctx.db_path,
+                       max_memory=ctx.max_memory)
     except FileNotFoundError as exc:
         raise FileNotFoundError(
             f"数据库不存在: {ctx.db_path}（可运行 data refresh 或检查路径）") from exc

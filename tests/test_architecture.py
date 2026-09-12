@@ -84,7 +84,7 @@ CORE = REPO / "src" / "factorlab" / "core"
 _FORBIDDEN_TOP = ("duckdb", "clickhouse_connect", "requests")
 _FORBIDDEN_PREFIX = ("factorlab.data", "factorlab.ports", "factorlab.adapters",
                      "factorlab.app", "factorlab.surfaces", "factorlab.adapters.parquet_artifacts",
-                     "factorlab.cli", "factorlab.web", "factorlab.process")
+                     "factorlab.cli", "factorlab.web", "factorlab.process", "factorlab.surfaces")
 _IO_ATTRS = ("read_parquet", "scan_parquet", "write_parquet", "read_csv",
              "glob", "write_text", "write_bytes")  # 数据文件读写在 adapters；core 只可 read_text 载配置
 

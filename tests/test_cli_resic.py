@@ -12,7 +12,7 @@ import polars as pl
 import pytest
 from typer.testing import CliRunner
 
-from factorlab.cli.main import app
+from factorlab.surfaces.cli.main import app
 
 WEEKS = 3
 N = 40  # ≥ MIN_STOCKS 30
@@ -71,7 +71,7 @@ def _mutual_setup(tmp_path):
 
 @pytest.fixture(autouse=True)
 def _results_dir(tmp_path, monkeypatch):
-    monkeypatch.setattr("factorlab.cli.main.settings",
+    monkeypatch.setattr("factorlab.surfaces.cli.main.settings",
                         types.SimpleNamespace(results_dir=tmp_path))
     return tmp_path
 

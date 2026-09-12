@@ -139,9 +139,7 @@ def run_factor_cli(
     --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。"""
     from factorlab.app.run import run_factor, run_factor_minute
     from factorlab.core.engine.compute import RunContext
-    from factorlab.core.eval.alignment import align_weekly
-    from factorlab.core.eval.layered import layered_backtest
-    from factorlab.core.eval.rust_ic import evaluate_factor_weekly
+    from factorlab.app.evaluate import evaluate_run, publish_run
 
     overrides = {}
     for kv in set_params or []:
@@ -167,58 +165,23 @@ def run_factor_cli(
         float32=float32,
         chunk_days=chunk_days,
         warmup_days=warmup_days,
+        max_memory=max_memory,
     )
-    # load_daily 在调用时读取 settings.default_max_memory——临时覆盖并在结束后恢复
-    original_memory = settings.default_max_memory
-    settings.default_max_memory = max_memory
     # W5 分派：分钟面 spec（interface: bars_1m）走分钟链 run_factor_minute（折日
     # 面板与日频同列契约，下方评估/分层回测零改动复用）；日频 spec 走原 run_factor。
     run_impl = run_factor_minute if spec.interface == "bars_1m" else run_factor
     try:
         result = run_impl(spec, ctx)
-        # 周频对齐面板：评估与分层回测的实际输入（对齐一次，复用给评估——
-        # 千万行面板重复对齐在低内存机器上 segfault）
-        weekly = align_weekly(result.panel)
-        # 多输出（outputs != ["signal"]）：逐输出独立评估（dsl-shape §3.2 收口）——
-        # outputs == ["signal"]（legacy）保持顶层结构逐键不变；多输出 → 顶层仅
-        # {"outputs": {o: 评估 dict}}；outputs 含字面 "signal" 是一等输出（无隐式主信号）
-        outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
-        if outputs == ["signal"]:
-            evaluation = evaluate_factor_weekly(result.panel, spec.name, spec.direction,
-                                                target=spec.target, weekly=weekly)
-            if backtest:
-                bt = layered_backtest(weekly, spec.direction, n_groups=groups,
-                                      forward_col=spec.target)
-                evaluation["layered_backtest"] = bt
-                if bt.get("empty_groups"):
-                    console.print(f"提示: 档位 {bt['empty_groups']} 全期无股票——universe 过小或 --groups 过大")
-        else:
-            # per-output 面板：周频对齐结果里取该输出列（date/code/o/target）→ 归一 signal
-            evaluation = {"outputs": {}}
-            for o in outputs:
-                p = weekly.select(["date", "code", o, spec.target])
-                if o != "signal":  # 字面 signal 输出：列名已就绪，rename 会自撞
-                    p = p.rename({o: "signal"})
-                ev_o = evaluate_factor_weekly(p, spec.name, spec.direction,
-                                              target=spec.target, weekly=p)
-                if backtest:
-                    bt = layered_backtest(p, spec.direction, n_groups=groups,
-                                          forward_col=spec.target)
-                    ev_o["layered_backtest"] = bt
-                    if bt.get("empty_groups"):
-                        console.print(f"提示: 输出 {o} 档位 {bt['empty_groups']} "
-                                      "全期无股票——universe 过小或 --groups 过大")
-                evaluation["outputs"][o] = ev_o
+        # 评估装配单点（WS5）：app.evaluate.evaluate_run + publish_run（此前为本函数内联）
+        outcome = evaluate_run(result, spec, ctx, groups=groups, backtest=backtest)
+        for note in outcome.notes:
+            console.print(f"提示: {note}")
+        publish_run(result, outcome, ctx)
     except (ValueError, FileNotFoundError, FactorDSLError) as exc:
         console.print(f"错误: {exc}")
         raise typer.Exit(code=1) from exc
-    finally:
-        settings.default_max_memory = original_memory
-    # run_factor 已落盘 panel.parquet/summary.json（无 evaluation）；CLI 追加评估结果并重写
-    result.summary["evaluation"] = evaluation
-    weekly.write_parquet(ctx.output_dir / "weekly.parquet")  # 周频对齐面板（替代原日频冗余）
-    (ctx.output_dir / "summary.json").write_text(
-        json.dumps(result.summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+    evaluation = outcome.evaluation
+    outputs = outcome.outputs
     if outputs == ["signal"]:
         ic = evaluation.get("ic", {})
         console.print(f"{variant}: n_weeks={evaluation.get('n_weeks')} "
@@ -514,5 +477,5 @@ def serve(port: int = 8000, host: str = "127.0.0.1") -> None:
     """启动 Web 可视化（只读 results_dir）。"""
     import uvicorn
 
-    from factorlab.web.app import create_app
+    from factorlab.surfaces.web.app import create_app
     uvicorn.run(create_app(settings.results_dir), host=host, port=port)

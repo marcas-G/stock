@@ -130,6 +130,22 @@ class _EnvCh(_Env):
         return self._rd
 
 
+# ================================================================
+# 注册表隔离（WS5 修复）：每测试后恢复平台算子族基线
+#   背景：多个测试文件用 reset_registry() + 注册测试算子（插件/os 用例），
+#   个别文件不清理 → 同进程中后续测试看到"平台算子缺失/测试算子残留"的
+#   registry（实测顺序相关的假失败：test_ops 先于 test_catalog 跑时 red）。
+#   成本：每测试 4 次幂等注册（dict 写入级），2469 测试可忽略。
+# ================================================================
+@pytest.fixture(autouse=True)
+def _registry_isolated():
+    yield
+    from factorlab.core.ops.registration import ensure_all_ops_registered
+    from factorlab.core.ops.registry import reset_registry
+    reset_registry()
+    ensure_all_ops_registered()
+
+
 @pytest.fixture(params=["duckdb", "ch"])
 def env(request, tmp_path, ch_client, monkeypatch):
     """双腿参数化环境：yield env（seed 灌数 + .rd 被测句柄）。CH 不可达自动 skip。

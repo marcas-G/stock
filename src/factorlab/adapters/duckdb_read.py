@@ -55,7 +55,8 @@ class DuckDBRead(ReadPort):
     backend = "duckdb"
 
     def __init__(self, path: Path | str | None = None,
-                 con: duckdb.DuckDBPyConnection | None = None):
+                 con: duckdb.DuckDBPyConnection | None = None,
+                 max_memory: str | None = None):
         if path is not None:
             self.path = Path(path)
         if con is None:
@@ -65,7 +66,7 @@ class DuckDBRead(ReadPort):
                 con = duckdb.connect(str(self.path), read_only=True)
             except duckdb.IOException as exc:
                 raise FileNotFoundError(f"平台库不存在: {self.path}") from exc
-            con.execute(f"SET memory_limit='{settings.default_max_memory}'")
+            con.execute(f"SET memory_limit='{max_memory or settings.default_max_memory}'")
             con.execute("SET threads=2")
             self._owns = True
         else:

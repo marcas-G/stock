@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from factorlab.web.app import create_app
+from factorlab.surfaces.web.app import create_app
 
 REAL_RESULTS = Path(os.environ.get(
     "FACTORLAB_RESULTS_DIR",

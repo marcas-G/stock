@@ -6,7 +6,7 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from factorlab.cli.main import app
+from factorlab.surfaces.cli.main import app
 from test_run_factor import build_db
 
 runner = CliRunner()
@@ -536,7 +536,7 @@ def test_run_multi_output_literal_signal_first_class(tmp_path, monkeypatch):
     import math
     import polars as pl
     from factorlab.core.eval.layered import layered_backtest
-    from factorlab.core.eval.rust_ic import evaluate_factor_weekly
+    from factorlab.adapters.rust_ic import evaluate_factor_weekly
     panel = pl.read_parquet(out_dir / "panel.parquet")
     weekly = pl.read_parquet(out_dir / "weekly.parquet")
     for o in ("signal", "neg"):

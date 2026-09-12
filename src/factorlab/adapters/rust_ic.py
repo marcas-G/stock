@@ -47,3 +47,14 @@ def evaluate_factor_weekly(
     # docs/superpowers/specs/2026-09-07-factorlab-daily-closeout-design.md §4.3）
     result["target"] = target
     return result
+
+
+class RustICKernel:
+    """P-6 EvalKernelPort 实现：quant_core 周频 IC 评估（rust_ic 的类形式）。
+
+    端口契约（ports.eval_kernel）：evaluate(panel, factor_name, direction, target)。
+    """
+
+    def evaluate(self, panel, factor_name: str, direction: int,
+                 target: str = "forward_return_5d") -> dict:
+        return evaluate_factor_weekly(panel, factor_name, direction, target=target)

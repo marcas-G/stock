@@ -127,11 +127,10 @@ def compute_formula(
         if universe_mask not in df.columns:
             raise ValueError(f"universe mask 列 {universe_mask!r} 不在输入数据中（内部保留列）")
         formula = apply_universe_masking(formula, universe_mask)
-    register_polars_ta_ops()  # 幂等；保证分区校验能识别 ts_/cs_/ta_ 算子
-    register_platform_ops()
-    register_minute_ops()  # 幂等注册 im_*/day_*（minute scope 公式面；daily 的拒门在下方）
-    from factorlab.core.ops.stable_rank import register_stable_rank_ops
-    register_stable_rank_ops()  # 幂等注册 cs_stable_rank（registry 可能被 reset_registry 清空）
+    # DER-003：注册单点 = core.ops.registration.ensure_all_ops_registered（幂等）；
+    # 此处防御性调用，保证核心被直接调用（测试/工具）时不依赖装配顺序。
+    from factorlab.core.ops.registration import ensure_all_ops_registered
+    ensure_all_ops_registered()
     _check_future_inputs(formula)
     # scope 门（变换后文本——宏残余/内联 def 已就位）：bars_1m 静态门 vs daily 拒分钟算子
     from factorlab.core.engine.minute_gate import (
@@ -285,6 +284,7 @@ class RunContext:
     adjustment: str = "qfq"
     chunk_days: int | None = None
     warmup_days: int | None = None
+    max_memory: str | None = None  # duckdb 读连接内存上限（None → settings.default_max_memory）
 
 
 @dataclass

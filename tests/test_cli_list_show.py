@@ -5,7 +5,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from factorlab.cli.main import app
+from factorlab.surfaces.cli.main import app
 
 runner = CliRunner()
 

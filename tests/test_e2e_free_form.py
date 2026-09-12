@@ -5,7 +5,7 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from factorlab.cli.main import app
+from factorlab.surfaces.cli.main import app
 
 pytestmark = pytest.mark.integration
 

@@ -5,7 +5,7 @@ import polars as pl
 import pytest
 from fastapi.testclient import TestClient
 
-from factorlab.web.app import create_app
+from factorlab.surfaces.web.app import create_app
 
 
 def _raw_get(app, path):

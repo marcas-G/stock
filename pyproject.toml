@@ -34,13 +34,13 @@ talib = ["TA-Lib>=0.7.1"]
 dev = ["pytest>=8", "pytest-cov>=6"]
 
 [project.scripts]
-factorlab = "factorlab.cli.main:app"
+factorlab = "factorlab.surfaces.cli.main:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-factorlab = ["web/templates/*.html", "web/static/*.js"]
+factorlab = ["surfaces/web/templates/*.html", "surfaces/web/static/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -3,7 +3,7 @@ import textwrap
 import yaml
 
 from factorlab import __version__
-from factorlab.cli.main import app
+from factorlab.surfaces.cli.main import app
 from factorlab.core.ops import registry
 
 
@@ -113,7 +113,7 @@ def test_corr_command_outputs_matrix(tmp_path, monkeypatch):
     import types
     from typer.testing import CliRunner
     import polars as pl
-    from factorlab.cli.main import app
+    from factorlab.surfaces.cli.main import app
     runner = CliRunner()
     for name, mult in [("a", 1.0), ("b", 2.0)]:
         d = tmp_path / name
@@ -124,7 +124,7 @@ def test_corr_command_outputs_matrix(tmp_path, monkeypatch):
             "signal": [float(mult * (i * 100 + j)) for i in range(1, 4) for j in range(50)],
         })
         df.write_parquet(d / "panel.parquet")
-    monkeypatch.setattr("factorlab.cli.main.settings",
+    monkeypatch.setattr("factorlab.surfaces.cli.main.settings",
                         types.SimpleNamespace(results_dir=tmp_path))
     result = runner.invoke(app, ["corr", "a", "b"])
     assert result.exit_code == 0
@@ -135,9 +135,9 @@ def test_corr_command_outputs_matrix(tmp_path, monkeypatch):
 def test_corr_missing_factor(tmp_path, monkeypatch):
     import types
     from typer.testing import CliRunner
-    from factorlab.cli.main import app
+    from factorlab.surfaces.cli.main import app
     runner = CliRunner()
-    monkeypatch.setattr("factorlab.cli.main.settings",
+    monkeypatch.setattr("factorlab.surfaces.cli.main.settings",
                         types.SimpleNamespace(results_dir=tmp_path))
     result = runner.invoke(app, ["corr", "a", "b"])
     assert result.exit_code != 0
@@ -149,7 +149,7 @@ def test_svd_command_outputs_spectrum(tmp_path, monkeypatch):
     import types
     from typer.testing import CliRunner
     import polars as pl
-    from factorlab.cli.main import app
+    from factorlab.surfaces.cli.main import app
     runner = CliRunner()
     for name, mult in [("a", 1.0), ("b", 2.0)]:
         d = tmp_path / name
@@ -160,7 +160,7 @@ def test_svd_command_outputs_spectrum(tmp_path, monkeypatch):
             "signal": [float(mult * (i * 100 + j)) for i in range(1, 4) for j in range(50)],
         })
         df.write_parquet(d / "panel.parquet")
-    monkeypatch.setattr("factorlab.cli.main.settings",
+    monkeypatch.setattr("factorlab.surfaces.cli.main.settings",
                         types.SimpleNamespace(results_dir=tmp_path))
     result = runner.invoke(app, ["svd", "a", "b"])
     assert result.exit_code == 0

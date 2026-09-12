@@ -21,6 +21,24 @@ def write_plugin(plugin_dir, name="dummy_op"):
     return path
 
 
+
+@pytest.fixture(autouse=True)
+def _clean_registry():
+    """注册表隔离（WS5 修复）：每测试前后清空并恢复平台算子族。
+
+    历史缺陷：本文件末个用例 reset_registry() 后加载 dummy_op 且不清理——
+    同进程后的测试（如 test_catalog）会看到"平台算子缺失 + dummy_op 残留"的
+    registry，导致顺序相关的假失败（实测：`pytest tests/test_ops.py
+    tests/test_catalog.py` 红、反向顺序绿）。
+    """
+    from factorlab.core.ops.registration import ensure_all_ops_registered as _ensure
+    from factorlab.core.ops import registry as _reg
+    _reg.reset_registry()
+    yield
+    _reg.reset_registry()
+    _ensure()
+
+
 def test_add_and_list_plugin_operator(tmp_path):
     registry.reset_registry()
     plugin_dir = tmp_path / "plugins"

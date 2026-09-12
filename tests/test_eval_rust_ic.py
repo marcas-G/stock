@@ -4,7 +4,7 @@ import random
 import polars as pl
 import pytest
 
-from factorlab.core.eval.rust_ic import evaluate_factor_weekly
+from factorlab.adapters.rust_ic import evaluate_factor_weekly
 
 
 def _panel(weeks=12, stocks=10, seed=7):

@@ -269,10 +269,8 @@ _PLATFORM_OWNED = (
 def _live_inventory() -> list[dict[str, str]]:
     """注册清单 = registry.list_ops() 实时快照（幂等注册链触发后逐名一致——
     与 compute_formula 相同的三注册器；alias 无独立行）。"""
-    register_polars_ta_ops()
-    register_platform_ops()
-    register_minute_ops()
-    register_stable_rank_ops()
+    from factorlab.core.ops.registration import ensure_all_ops_registered
+    ensure_all_ops_registered()
     return [{"name": op.name, "kind": op.kind, "version": op.version}
             for op in _registry.list_ops()]
 
