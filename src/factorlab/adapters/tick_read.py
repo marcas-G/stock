@@ -14,14 +14,15 @@ from pathlib import Path
 import polars as pl
 
 from factorlab.core.factio import paths
-from factorlab.core.factio.schema import (TICK_ORDERS_COLS, TICK_SNAP_COLS,
-                                          TICK_TRADES_COLS)
+from factorlab.core.factio.schema import (CANCELS_COLS, TICK_ORDERS_COLS,
+                                          TICK_SNAP_COLS, TICK_TRADES_COLS)
 from factorlab.core.factio import paths as _paths
 
 _TABLE_COLS = {
     "trades": TICK_TRADES_COLS,
     "orders": TICK_ORDERS_COLS,
     "snapshots": TICK_SNAP_COLS,
+    "cancels": CANCELS_COLS,
 }
 
 

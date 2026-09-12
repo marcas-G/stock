@@ -41,6 +41,26 @@
 - 文档与实现冲突时，文档必须修订到与实现一致，并在 `docs/interface.md` 注明。
 - 实现中发现的设计缺口（计划/规格与实现不符）必须记录到对应设计/计划文档。
 
+## 架构分层（2026-09-12 深度重构后，spec = docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md）
+
+```
+surfaces/ (cli/web)  →  app/ (bootstrap/run/evaluate)  →  ports/ (6 条契约)  →  core/ (纯核)
+                          ↑ adapters/ (duckdb/ch 读、parquet 写、tick 读、面板、批算、plugins) → ports/core
+```
+
+- **`core/`**：纯计算核（domain/ops/engine/eval/strategy/执行纯子集/factio）。**不得** import
+  duckdb/clickhouse_connect/requests，不得 import `factorlab.{data,ports,adapters,app,surfaces,
+  artifacts,cli,web,process}`，不得出现 `.read_parquet/.scan_parquet/.write_parquet/.glob/
+  .write_text`（`read_text` 载配置允许）。门 = `tests/test_architecture.py`（静态 AST + 隔离运行双门）。
+- **`ports/`**：读/写/面板/事实源/批算编排/评估内核六条 Protocol（零实现）——扩展缝，测试桩在 `tests/_doubles.py`。
+- **`adapters/`**：全部 I/O（`duckdb_read`/`ch_read`/`read/*`/`tick_read`/`parquet_artifacts`/
+  `strategy_artifacts`/`execution_store`/`panel_store`/`results_fs`/`batch`/`plugins`…）。
+- **`app/`**：装配（`bootstrap.open_read/install_operators`、`run.run_factor/run_factor_minute`、
+  `evaluate.evaluate_run/publish_run`）——**唯一评估装配点**。
+- **`surfaces/`**：CLI 与 Web（只做参数解析与呈现）。
+- 旧路径已退役（`factorlab.data.*`、`factorlab.artifacts`、`factorlab.engine.*` 等 → 新层）；
+  `docs/interface.md` §4 是路径权威，且有 `tests/test_doc_paths_exist.py` 自动核。
+
 ## 环境事实
 
 - Python 3.13（本工作树自带 uv 管理 venv：`.venv/`；解释器 `.venv/bin/python`）。

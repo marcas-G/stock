@@ -20,12 +20,12 @@ M5 在 M4b 结果落盘（summary.json/weekly.parquet）之上补齐浏览器可
 
 - **`factorlab serve`**（`--port`/`--host`，默认 `127.0.0.1:8000`）：只读启动
   Web 服务，可视化 `settings.results_dir`（`FACTORLAB_RESULTS_DIR` 可覆盖）下
-  已保存因子（见 §1 与 §4 `factorlab.web`）。
-- **web 包**（`factorlab.web`）：`app.create_app(results_dir)` 构建 FastAPI 只读
+  已保存因子（见 §1 与 §4 `factorlab.surfaces.web`）。
+- **web 包**（`factorlab.surfaces.web`）：`app.create_app(results_dir)` 构建 FastAPI 只读
   应用——列表 `/` + 详情 `/factor/<name>`，Jinja2 模板 + Plotly 图表内嵌；
   `charts` 构造 IC 曲线/十分位柱状/分层净值 figure JSON；缺失/损坏 summary 与
   缺 evaluation 字段的因子降级展示不崩溃（见 §4）。
-- **`factorlab.eval.ic_series.weekly_ic`**：周度 RankIC 序列（Spearman 秩相关，
+- **`factorlab.core.eval.ic_series.weekly_ic`**：周度 RankIC 序列（Spearman 秩相关，
   与 quant_core 同源定义；signal/target null 过滤、有效股票 < 3 的周 ic = null），
   详情页 IC 曲线数据源（见 §4）。
 - 集成测试 `tests/test_e2e_web.py`：真实 results 目录（main 工作树，3 个因子）
@@ -35,7 +35,7 @@ M5 在 M4b 结果落盘（summary.json/weekly.parquet）之上补齐浏览器可
 
 M4b 在 M4a 评估链路之上补齐单因子评估闭环：
 
-- **分层回测**（`factorlab.eval.layered.layered_backtest`，见 §4）：周频面板按
+- **分层回测**（`factorlab.core.eval.layered.layered_backtest`，见 §4）：周频面板按
   signal 分档（默认十分位）等权组合累计净值 + long-short + 摘要指标；`factorlab run`
   默认产出并写入 `summary.json.evaluation.layered_backtest`（`--no-backtest` 关闭，
   `--groups N` 调整档数）。
@@ -254,7 +254,7 @@ formula: |
 - `direction`：必填，`1` 或 `-1`。
 - `interface`（1m 漏斗 v1）：`daily | bars_1m`，缺省 `daily`（旧 spec 逐字节
   不变）。`bars_1m` = 分钟模板（im_* 日内窗口族 + day_* 折日族 + 日级注入列，
-  窗口/门/引擎语义见 §4 `factorlab.engine.minute`）；`daily` 公式引用 im_*/day_*
+  窗口/门/引擎语义见 §4 `factorlab.core.engine.minute`）；`daily` 公式引用 im_*/day_*
   在 compute_formula scope 门拒绝。
 - `universe`：`ref | codes | rules | formula` **四选一互斥**（M4/G2 公式化股票池；
   同时出现多个 → 加载期报错，pydantic 不静默取优先）。
@@ -355,7 +355,7 @@ combine:
 
 - `polars`
 - `polars_ta.prefix.`
-- `factorlab.ops.`
+- `factorlab.core.ops.`
 
 ### 分区与 lookback
 
@@ -387,7 +387,7 @@ combine:
 - **组算子（M3）**：`gp_rank(key, x)` / `gp_mean(key, x)`（gp_ 前缀族）按
   date + group key 分组。`expr_codegen` 把 gp_ 前缀函数翻译为
   `cs_<名>(<去 key>).over(_DATE_, '<key 列>')`——key 只作分区列、不参与函数体
-  （实现是注册于 `factorlab.ops.platform_ops` 的裸原语；翻译产物符号
+  （实现是注册于 `factorlab.core.ops.platform_ops` 的裸原语；翻译产物符号
   `cs_mean/cs_rank` 注入生成代码 exec 作用域——它们本身**不注册**，公式层直写
   被分区门按未知算子拒绝）。**gp_ 前缀是分区硬前提**：不带前缀的组算子名
   （历史 group_rank/group_mean 已移除）不注册不 alias——宁报错（partition 门
@@ -405,7 +405,7 @@ combine:
   （不含 if_else）；方法链基表达式不可为裸 Name（如 `_d.abs()` 被拒，
   需用 `abs(_d)` 函数形式）。
 
-平台薄封装算子从 `factorlab.ops.platform_ops` 导入；注册到注册表的算子可通过
+平台薄封装算子从 `factorlab.core.ops.platform_ops` 导入；注册到注册表的算子可通过
 `factorlab op list` 查看。
 
 ### 池公式（`universe.formula`，M4/G2 公式化股票池）
@@ -460,15 +460,15 @@ returns 恒在 raw 价格上、复权视图之前计算（池条件才消费视�
 
 ## 4. Python API
 
-### `factorlab.spec.load_spec(path) -> FactorSpec`
+### `factorlab.core.spec.load_spec(path) -> FactorSpec`
 
 读取 YAML 并返回 Pydantic `FactorSpec`。校验失败抛出 `pydantic.ValidationError`。
 
-### `factorlab.factor.ast_gate.validate_formula(source: str) -> None`
+### `factorlab.core.factor.ast_gate.validate_formula(source: str) -> None`
 
-校验因子脚本。失败抛出 `factorlab.factor.errors.FactorDSLError`。
+校验因子脚本。失败抛出 `factorlab.core.factor.errors.FactorDSLError`。
 
-### `factorlab.engine.compute.compute_formula(df, formula, asset="code", date="date", universe_mask=None, outputs=None) -> pl.DataFrame`
+### `factorlab.core.engine.compute.compute_formula(df, formula, asset="code", date="date", universe_mask=None, outputs=None) -> pl.DataFrame`
 
 在小样本 Polars DataFrame 上执行因子脚本，返回按 `date, asset` 排序、仅含
 声明输出的面板：`outputs=None`（缺省）→ `[date, asset, signal]`；`outputs=["a","b"]`
@@ -481,16 +481,16 @@ returns 恒在 raw 价格上、复权视图之前计算（池条件才消费视�
 执行前依次：AST 白名单校验 → 幂等注册 `polars_ta` 算子族与平台薄封装 →
 分区校验（拒绝未知算子）→ 负 lookback 拒绝（`ts_delay/ts_delta` 负位移）。
 
-### `factorlab.engine.partitions.validate_partition_calls(source) -> None`
+### `factorlab.core.engine.partitions.validate_partition_calls(source) -> None`
 
 校验因子脚本中的调用均为已知算子、公式内 `def` 函数或元素级纯函数，否则抛
 `FactorDSLError`（含源码位置）。
 
-### `factorlab.engine.partitions.reject_future_shifts(source) -> None`
+### `factorlab.core.engine.partitions.reject_future_shifts(source) -> None`
 
 拒绝 `ts_delay/ts_delta` 的字面量负位移（防未来函数）。
 
-### `factorlab.ops.platform_ops.inline_defs(source) -> str` / `rewrite_expr_methods(source) -> str`
+### `factorlab.core.ops.platform_ops.inline_defs(source) -> str` / `rewrite_expr_methods(source) -> str`
 
 free-form 源码变换（`compute_formula` 与 `run_factor` 展开链内自动调用，用户一般
 无需手动使用）：
@@ -506,8 +506,8 @@ free-form 源码变换（`compute_formula` 与 `run_factor` 展开链内自动�
 ### 算子族注册
 
 ```python
-from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
-from factorlab.ops.platform_ops import register_platform_ops
+from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
+from factorlab.core.ops.platform_ops import register_platform_ops
 
 register_polars_ta_ops()  # wq/ta/tdx 算子族
 register_platform_ops()   # returns/vwap/adv20/gp_rank/gp_mean（cs_mean/cs_rank 不注册，见 §3 组算子）
@@ -519,7 +519,7 @@ register_platform_ops()   # returns/vwap/adv20/gp_rank/gp_mean（cs_mean/cs_rank
 
 ```python
 import polars as pl
-from factorlab.ops.registry import factor_op
+from factorlab.core.ops.registry import factor_op
 
 @factor_op("tail_ratio", kind="ts", version="0.1.0")
 def tail_ratio(x: pl.Expr, n: int) -> pl.Expr:
@@ -534,7 +534,7 @@ def tail_ratio(x: pl.Expr, n: int) -> pl.Expr:
 用户插件放在 `~/.factorlab/plugins/`。插件文件必须只定义纯函数，并通过
 `factor_op` 注册算子。`op add` 会做 AST 安全扫描。
 
-### `factorlab.engine.compute.run_factor(spec, ctx) -> FactorResult`
+### `factorlab.app.run.run_factor(spec, ctx) -> FactorResult`
 
 装配完整链路：universe 解析 → `load_daily`（含 `adj_factor`）→ 停牌补全 →
 前向收益（total_return 口径，raw close×adj）→ 复权视图（`adjustment` 口径，
@@ -591,7 +591,7 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 **interface 门**：spec.interface 非 "daily"（如 bars_1m 分钟模板）调 run_factor →
 打开 DB 前 ValueError，文案指路 run_factor_minute（W4）。
 
-### `factorlab.engine.minute`：bars_1m 分钟链（W4-W6；设计见 2026-09-08-1m-funnel spec）
+### `factorlab.core.engine.minute`：bars_1m 分钟链（W4-W6；设计见 2026-09-08-1m-funnel spec）
 
 分钟模板计算与折日评估。**折日**：每 (code, 交易日) 输出一行常数信号——日内
 240 行折叠为日频形态，产物 frequency 恒 "1d"、评估/artifact 契约与日频零放宽；
@@ -643,7 +643,7 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 - 门/错误表全集与测试矩阵见规格文档文末；真 CH 三对拍 e2e 见
   tests/test_minute_prod_e2e.py（integration 标记）。
 
-### `factorlab.eval.rust_ic.evaluate_factor_weekly(panel, factor_name, direction, target="forward_return_5d") -> dict`
+### `factorlab.adapters.rust_ic.evaluate_factor_weekly(panel, factor_name, direction, target="forward_return_5d") -> dict`
 
 日频面板 → 周频对齐（ISO 周最后交易日）→ Rust `quant_core.evaluate_factor`
 评估。输入须含 `date/code/signal/target` 列，缺列抛 `ValueError`；`signal`/`target`
@@ -654,7 +654,7 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 空面板（列齐全）不崩溃，返回全 nan 结构（`n_weeks=0`）。`direction` 透传
 `1/-1`（翻转信号方向）。
 
-### `factorlab.eval.ic_series.weekly_ic(panel, target="forward_return_5d") -> pl.DataFrame`
+### `factorlab.core.eval.ic_series.weekly_ic(panel, target="forward_return_5d") -> pl.DataFrame`
 
 周度 RankIC 序列：每期（周）signal 与 target 的 Spearman 秩相关——与
 `quant_core` 的 RankIC 同源定义（秩相关即秩的 Pearson，polars 1.38
@@ -662,7 +662,7 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 四列，缺列抛 `ValueError`（不依赖 polars 内部异常）；`signal`/`target` null
 行排除（复用 rust_ic 的过滤语义）。面板中每个日期都保留一行：有效股票 < 3
 （`MIN_STOCKS`）的周 ic = null（秩相关不稳健，含有效股票为 0 的周）。
-返回 `(date, ic)` 按日期排序——`factorlab.web` 详情页 IC 曲线数据源。
+返回 `(date, ic)` 按日期排序——`factorlab.surfaces.web` 详情页 IC 曲线数据源。
 
 ### `factorlab.eval.cross_section`：横截面联合诊断（resIC）
 
@@ -698,10 +698,10 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
   返回 `{"mode", "group", "factors": [{"name", "base", **resIC dict}]}`。
   用途：因子组去冗余 + 漏斗式分层筛选（候选相对基准池的边际新增预测力）。
 
-### `factorlab.web`：Web 可视化（M5）
+### `factorlab.surfaces.web`：Web 可视化（M5）
 
 只读 FastAPI 应用，可视化 `results_dir` 下已保存因子（M4b 落盘产物）：
-`factorlab.web.app.create_app(results_dir: Path) -> FastAPI`，results_dir
+`factorlab.surfaces.web.app.create_app(results_dir: Path) -> FastAPI`，results_dir
 显式传入（可测性）。
 
 路由：
@@ -715,7 +715,7 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
   evaluation 字段时对应图表/指标降级（空串/空图），页面不崩溃。
 - `GET /static/*`：静态资源（plotly.min.js 等）。
 
-图表构造（`factorlab.web.charts`，返回 plotly figure JSON 字符串内嵌模板）：
+图表构造（`factorlab.surfaces.web.charts`，返回 plotly figure JSON 字符串内嵌模板）：
 `ic_curve_figure(ic_series)`（周度 RankIC 折线，含 0 参考线）/
 `decile_bar_figure(groups)`（十分位平均收益柱状）/
 `layered_net_value_figure(net_values, dates)`（分层净值曲线，dates 空时 x 缺省）。
@@ -723,7 +723,7 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 模板与静态文件在 `src/factorlab/web/{templates,static}/`；CLI 入口
 `factorlab serve`（见 §1）。
 
-### `factorlab.data.universe.resolve_codes(spec, rd, override=None, settings=settings) -> list[str]`
+### `factorlab.adapters.read.universe.resolve_codes(spec, rd, override=None, settings=settings) -> list[str]`
 
 universe 解析优先级：`override` > spec 内联（`ref` 命名引用 / `codes` / `rules`）。
 返回纯数字代码列表（`daily.code` 格式）。`rd` 为读句柄（`data/backend.open_read`
@@ -740,7 +740,7 @@ code 候选先经 stock_basic.symbol 匹配归一（ch 侧两层 IN 命中索引
 不在 stock_basic → ch 后端不命中，duckdb 前缀匹配会命中——编译函数对语义，
 测试双腿锁定）。
 
-### `factorlab.data.source.load_daily(rd, codes, date_start=None, date_end=None, cols=None, float32=settings.use_float32) -> pl.LazyFrame`
+### `factorlab.adapters.read.source.load_daily(rd, codes, date_start=None, date_end=None, cols=None, float32=settings.use_float32) -> pl.LazyFrame`
 
 读句柄只读加载（duckdb|ch，经 `open_read`）；SQL-first 过滤；`date` cast
 `pl.Date`；数值列 float32。列映射双腿一致：`trade_date`（'YYYYMMDD'）→ `date`、
@@ -763,7 +763,7 @@ volume_ratio` → daily_basic）以及 **daily/daily_basic 表上真实存在的
 
 ### 属性数据面（M3：per-code 静态属性按需供给）
 
-`factorlab.data.attributes`（duckdb|ch 编译对 + decode 层规范化）：
+`factorlab.adapters.read.attributes`（duckdb|ch 编译对 + decode 层规范化）：
 
 ```python
 attributes_visible(rd) -> frozenset[str]
@@ -796,7 +796,7 @@ daily_basic 真列（含平台映射名/特殊名）→ `load_daily` 现路径�
 实探列（`industr` → 提示含 `industry` 与最相似候选）。industry 等静态属性是
 **库中当前值近似**（非 PIT，不做历史追溯，design §5.4）。
 
-### `factorlab.data.calendar.trading_calendar(rd, date_start=None, date_end=None) -> pl.Series` / `fill_suspensions(df, calendar) -> pl.DataFrame`
+### `factorlab.adapters.read.calendar.trading_calendar(rd, date_start=None, date_end=None) -> pl.Series` / `fill_suspensions(df, calendar) -> pl.DataFrame`
 
 交易日历（trade_cal distinct date 升序；duckdb|ch 编译函数对，空表在调用点按
 无日历处理）与停牌补全（日历×代码全连接，缺失数值 null，不默认填充——纯
@@ -821,7 +821,7 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
 
 零方差截面（standardize/robustzscore）输出 null（NaN 不是 null，fillna 无法处理）。
 
-### `factorlab.engine.forward.compute_forward_returns / align_weekly`
+### `factorlab.core.engine.forward.compute_forward_returns / align_weekly`
 
 前向收益 **total_return 口径** `close[t+h]×adj[t+h] / (close[t]×adj[t]) - 1`
 （含分红再投资；输入须停牌补全且 close 为 raw 价格——先于复权视图计算，避免二次复权）；
@@ -830,7 +830,7 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
 `align_weekly` 对齐到 **ISO 周**最后一个交易日（跨年日期同属 ISO 周时合并为该周
 最后交易日，与 tushare weekly 语义一致；M4a 起由 `eval` 使用）。
 
-### `factorlab.eval.rust_ic.evaluate_factor_weekly`
+### `factorlab.adapters.rust_ic.evaluate_factor_weekly`
 
 周频评估桥接：日频面板 → 周频对齐（`align_weekly`）→ Rust `quant_core.evaluate_factor`。
 签名 `evaluate_factor_weekly(panel, factor_name, direction, target="forward_return_5d") -> dict`，
@@ -850,7 +850,7 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
 - `direction` 原样透传为 int（`0` 实测按 `-1` 处理，属 quant_core 内部语义，桥接层
   不校验）。
 
-### `factorlab.eval.layered.layered_backtest(panel, direction, n_groups=10, cost=0.0) -> dict`
+### `factorlab.core.eval.layered.layered_backtest(panel, direction, n_groups=10, cost=0.0) -> dict`
 
 分层回测：每期按 signal 分档，各档 forward 等权平均累积净值；long-short = 最佳档 −
 最差档净值差。输入**周频面板**（date/code/signal/forward_return_5d，即
@@ -894,7 +894,7 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
 CLI 消费：`factorlab run` 默认调用并把结果写入
 `summary.json.evaluation.layered_backtest`（`--no-backtest` 关闭、`--groups` 调档数）。
 
-### `factorlab.data.adjust.view_prices / total_return`
+### `factorlab.adapters.read.adjust.view_prices / total_return`
 
 价格视图（输入 raw 价格面板，含 `adj_factor` 列；输出含 scaled 价格列）：
 `view_prices(df, view="qfq", asof=None)`，`view ∈ raw|qfq|hfq|pit_qfq`：
@@ -907,7 +907,7 @@ CLI 消费：`factorlab run` 默认调用并把结果写入
 `total_return(close, adj)`：HFQ 收益 `close[t]×adj[t]/(close[t-1]×adj[t-1])-1`
 （含分红再投资的真实收益；除权日上 RAW 收益率 ≠ QFQ/HFQ 收益率，用 total_return）。
 
-### `factorlab.data.adjust` 审计三查（AdjustmentAudit）
+### `factorlab.adapters.read.adjust` 审计三查（AdjustmentAudit）
 
 `FactorFn = Callable[[pl.DataFrame], pl.DataFrame]`——输入价格面板
 （date/code/价格列），输出 (date, code, signal)；输出缺列时抛 `ValueError`。
@@ -923,7 +923,7 @@ CLI 消费：`factorlab run` 默认调用并把结果写入
 - `adjustment_sensitivity_check(factor_fn, df, views=("raw","qfq","hfq")) -> AuditReport`
   复权口径切换敏感性：各视图因子值相对 raw 的最大绝对差（`max_abs_diff`）。
 
-### `factorlab.data.platform_db.PlatformDB`
+### `factorlab.adapters.mirror_db.PlatformDB`
 
 `PlatformDB(path)`：duckdb 写库，自动建表、按 keys upsert 去重、完整性自检。
 列名沿用 tushare API 原始命名（trade_date/ts_code），与 API 零转换。
@@ -940,7 +940,7 @@ CLI 消费：`factorlab run` 默认调用并把结果写入
 - `query(sql, params=None) -> pl.DataFrame` / `list_tables()` / `describe(table)` /
   `integrity_check() -> dict`。
 
-### `factorlab.data.rebuild` 全量重建编排
+### `factorlab.adapters.rebuild` 全量重建编排
 
 - `load_manifest(path) -> dict` / `save_manifest(path, manifest)`：断点续传
   manifest 读写（每批落盘）。结构：`{table: {completed: [dates], failed: [dates]}, last_updated: "YYYYMMDD"}`。
@@ -978,7 +978,7 @@ M3b+ 按 ts_code 分批）、`INDEX_CODES`（4 指数）。
 退市残留；平台冻结库亦含此两行，均无 `daily` 行情）。这些行**不映射、不合并、
 不删除、不猜测关系**——M6 无 verified corporate-action/entity-lineage 模型。
 
-**Canonical research universe v1**（唯一权威：`factorlab.domain.codes`）：
+**Canonical research universe v1**（唯一权威：`factorlab.core.domain.codes`）：
 
 ```
 ts_code 匹配 ^\d{6}\.(SH|SZ|BJ)$  且  symbol == ts_code 前六位
@@ -988,7 +988,7 @@ ts_code 匹配 ^\d{6}\.(SH|SZ|BJ)$  且  symbol == ts_code 前六位
 - `CANONICAL_TS_CODE_PATTERN`：Python re 与 DuckDB `regexp_matches()` 共用同一
   pattern 常量——rebuild/universe 代码不得独立重写该正则。
 
-**Source partition**（`factorlab.data.rebuild`）：
+**Source partition**（`factorlab.adapters.rebuild`）：
 
 - `StockBasicSourcePartition(canonical, quarantined)`（frozen dataclass）：
   - `canonical`：标准证券，完整走 `validate_stock_basic_source()`——endpoint
@@ -1010,7 +1010,7 @@ ts_code 匹配 ^\d{6}\.(SH|SZ|BJ)$  且  symbol == ts_code 前六位
 - `fetch_stock_basic_all(client) -> pl.DataFrame`：兼容 API，**canonical-only**
   （future rebuild 的 research stock_basic 只收 canonical 行）。
 
-### `factorlab.data.refresh` 增量续拉
+### `factorlab.adapters.refresh` 增量续拉
 
 - `refresh(db, client, manifest_path=None) -> dict`
   增量续拉行情 7 表（DAILY_TABLES）：重试 manifest 中 failed 日期，并从
@@ -1031,7 +1031,7 @@ ts_code 匹配 ^\d{6}\.(SH|SZ|BJ)$  且  symbol == ts_code 前六位
   `ValueError("manifest 无 last_updated，请先 rebuild")`；trade_cal 缺 `is_open`
   列或返回异常时异常向上传播（fail-loud，不静默）。
 
-### `factorlab.data.verify` 数据验证与抽样对拍
+### `factorlab.adapters.read.verify` 数据验证与抽样对拍
 
 - `verify_all(db, ref_db=None, n_stocks=30, seed=42) -> dict`
   完整性自检 + 稀疏摘要 + 可选抽样对拍。返回
@@ -1085,7 +1085,7 @@ ts_code 匹配 ^\d{6}\.(SH|SZ|BJ)$  且  symbol == ts_code 前六位
 
 ## 4.0 读路径双后端（duckdb|ch）与 intraday 读接口
 
-### `factorlab.data.backend`：Rd 句柄与 open_read 工厂
+### `factorlab.ports.read`：Rd 句柄与 open_read 工厂
 
 三层读路径：公开读函数（单写，共享 polars/校验）→ 模块内
 `_IMPL[rd.backend]` 编译函数对（`_xxx_duckdb` / `_xxx_ch`：SQL 文本 + 参数 +
@@ -1117,7 +1117,7 @@ ch 读路径统一客户端设置 `join_use_nulls=1`：LEFT JOIN 一律 NULL-ext
 与 duckdb 语义对齐（服务器默认 0 时未匹配行填类型默认值——PIT 骨架的
 is_st/is_listed 判定与未匹配 code 的 NULL 形态会失真；见 ch_source 模块注释）。
 
-### `factorlab.data.intraday`：bars_1m / tick 读接口（仅 ch）
+### `factorlab.adapters.intraday`：bars_1m / tick 读接口（仅 ch）
 
 生产分钟/逐笔数据仅存 ClickHouse（bars_1m ~1.85B 行、tick_trades/orders/
 snapshots 共 ~14B 行）；duckdb 平台文件无 intraday 表 → duckdb 后端读接口
@@ -1156,13 +1156,13 @@ arrow 读回带服务器 tz → `convert_time_zone("UTC")` 后剥）。空结果
 
 ## 4.1 Domain contracts（M6-01）
 
-统一研究语义层（`factorlab.domain`）——Signal / Label 领域契约与信号时间语义。
+统一研究语义层（`factorlab.core.domain`）——Signal / Label 领域契约与信号时间语义。
 **已接线**：run_factor 输出 canonical SignalArtifact/LabelArtifact（M7-05），
 strategy/execution 链程序化消费（真实信号链端到端见
 tests/test_execution_signal_chain.py）；CLI 面（factorlab run/list/corr/svd/serve）
 仍只跑研究诊断、不直接驱动执行链（M8 无 CLI——不发明）。
 
-### 时间语义（`factorlab.domain.timing`）
+### 时间语义（`factorlab.core.domain.timing`）
 
 ```python
 SignalTiming(information_cutoff, available_at, default_earliest_execution)
@@ -1173,7 +1173,7 @@ DEFAULT_EOD_SIGNAL_TIMING   # CLOSE / AFTER_CLOSE / NEXT_OPEN
 （AFTER_CLOSE），因此默认最早只能在 t+1 open 执行（NEXT_OPEN）**。
 对象 frozen 不可变；本阶段不实现 calendar/execution timestamp 计算。
 
-### 领域对象（`factorlab.domain.frames`）
+### 领域对象（`factorlab.core.domain.frames`）
 
 | 对象 | 契约 |
 |---|---|
@@ -1417,7 +1417,7 @@ list_date/delist_date YYYYMMDD 校验、symbol 非空。
 
 **M6-07B4 quarantine legacy aliases**：vendor `stock_basic` 实测含历史别名
 `T600018.SH`/`TS0018.SH`（上港集箱退市残留；冻结库同存、daily 均无行情）。
-canonical research identifier 谓词收口到 `factorlab.domain.codes`
+canonical research identifier 谓词收口到 `factorlab.core.domain.codes`
 （`is_canonical_stock_code` / `CANONICAL_TS_CODE_PATTERN`——Python 与 DuckDB
 SQL 共用）；`partition_stock_basic_source` 显式分区 canonical/quarantined：
 canonical 走完整 validator（不弱化，canonical D 缺 delist 仍 BLOCK）；
@@ -1442,14 +1442,14 @@ resolve_codes/resolve_candidate_codes 加 canonical predicate——legacy aliase
    max ULP=4、scaled violations=0）。**bitwise mismatch count 本身不是
    reduction failure**（诊断指标）。
 
-**Float64 ULP primitive**（单一权威，`factorlab.numerics`）：sign-aware 单调
+**Float64 ULP primitive**（单一权威，`factorlab.core.numerics`）：sign-aware 单调
 IEEE bit 映射（**压缩零**：+0.0/-0.0 映射到同一序值——ULP=0 是映射本身性质；
 零邻域 ULP(-min_subnormal, ±0.0)=1 且 ULP(±0.0, +min_subnormal)=1）；相邻
 可表示 float64 → 1。QA comparator
-（`factorlab.qa.numeric_determinism`）与 stable rank 共用，禁止两套 ULP 定义。
+（`factorlab.core.qa.numeric_determinism`）与 stable rank 共用，禁止两套 ULP 定义。
 
 **cs_rank v2（stable dense rank，M6-07C2I/J）**：canonical operator 为
-`cs_rank` v0.2.0，实现 = 平台 stable dense rank（`factorlab.ops.stable_rank`
+`cs_rank` v0.2.0，实现 = 平台 stable dense rank（`factorlab.core.ops.stable_rank`
 的 `cs_stable_rank`——registry 中 `get_op("cs_rank")` 即该实现，vendor
 polars_ta 的 0.1.0 cs_rank 不再占用 canonical 名；legacy exact tie 通过
 `cs_rank(..., tie_ulps=0)` 显式获得）。Float64
@@ -1493,7 +1493,7 @@ Strategy Runtime
 
 **Strategy Runtime 永远不能消费 LabelArtifact / forward_return_* / legacy
 panel**。未来策略回测必须从 SignalArtifact 开始。现有
-`factorlab.eval.layered.layered_backtest` 继续保留——它直接使用
+`factorlab.core.eval.layered.layered_backtest` 继续保留——它直接使用
 forward_return_*，定位为 **FactorEvaluator / Research Diagnostic**（NOT
 Strategy/Execution/Portfolio Backtest）。
 
@@ -1535,7 +1535,7 @@ SelectionSpec：`k` strict int >= 1（"30"/1.5/True/False 拒绝）；
 不影响 Top-K）；`null_policy="drop"`（null 不进入 ranking）；`
 on_insufficient` ∈ {use_available（全部可用）/ all_cash（显式 0 仓位）}。
 
-**TargetPortfolioMeta**（`factorlab.domain.portfolio`，dataclass frozen）：
+**TargetPortfolioMeta**（`factorlab.core.domain.portfolio`，dataclass frozen）：
 `strategy_name / source_signal_name / source_timing（复用 M6 SignalTiming——
 不新建 Strategy/PortfolioTiming）/ gross_exposure / frequency="1d"`。
 
@@ -1728,7 +1728,7 @@ sum），不创建 CASH pseudo-security。
 TargetPortfolio
     │ decision_dates + source_timing.default_earliest_execution
     ▼
-trade_cal（唯一 calendar truth——复用 factorlab.data.calendar.trading_calendar）
+trade_cal（唯一 calendar truth——复用 factorlab.adapters.read.calendar.trading_calendar）
     ▼
 ExecutionSchedule（decision_date → execution_date）
     ▼
@@ -1884,7 +1884,7 @@ suffix 组合 fail fast）；`is_valid_buy_quantity` / `is_valid_sell_quantity`
 是 pure quantity 合法性（SELL 含零股/不足最小单位余额全量卖出语义；不接收
 sellable_quantity——T+1 限制在 M8-03 单独处理；不做数量投影）。
 
-**PortfolioState**（`factorlab.domain.execution`，dataclass frozen）：
+**PortfolioState**（`factorlab.core.domain.execution`，dataclass frozen）：
 
 ```
 as_of_date   datetime.date（datetime.datetime/str 拒绝）
@@ -2033,7 +2033,7 @@ TargetPortfolio（desired weights）≠ OrderBatch（desired legal share
 instructions）≠ Fill（what actually trades——M8-04）
 ```
 
-### M8-02B1R Suspend Timing Grammar（`factorlab.execution.suspension`）
+### M8-02B1R Suspend Timing Grammar（`factorlab.core.execution.suspension`）
 
 `suspend_timing` 使用 **circular wall-clock interval model**（纯解析 utility，
 不接入 MarketOpenSnapshot——integration 属 M8-02B）：
@@ -2073,7 +2073,7 @@ start == end → FULL_CYCLE    任意合法 second 均覆盖（如开盘起的�
 ### M8-02B Open Suspension Evidence（`is_suspended_at_open`）
 
 > **WS4 关闭注记（2026-09-07）**：本节 suspend_d 事件证据语义是
-> suspension 模块（`factorlab.execution.suspension`）现行实现——表在即按
+> suspension 模块（`factorlab.core.execution.suspension`）现行实现——表在即按
 > 本节契约推导证据；但 **runtime 数据路径不再要求 suspend_d 表**（WS4
 > 停牌 = 缺行推断：持仓缺行冻结 / 目标缺行跳过，见 §M8-02 loader 条目与
 > M8-06B 条目）。表缺省时 has_suspend_record / is_suspended_at_open 恒
@@ -2083,7 +2083,7 @@ start == end → FULL_CYCLE    任意合法 second 均覆盖（如开盘起的�
 suspend_d raw events
         │ suspend_type + suspend_timing
         ▼
-generalized circular timing parser（factorlab.execution.suspension）
+generalized circular timing parser（factorlab.core.execution.suspension）
         │
         ▼
 09:30 temporal evidence
@@ -2219,13 +2219,13 @@ OpenFillAssessment = market eligibility
 不做 partial / probabilistic fill / fee
 ```
 
-### M8-05A Execution Cost Contracts（`factorlab.execution.costs`）
+### M8-05A Execution Cost Contracts（`factorlab.core.execution.costs`）
 
 **为什么先于 M8-04C**：实际 SELL 成交后得到多少钱、BUY 实际有多少钱可用、
 BUY 到底成交多少股——没有成本 authority 时 gross proceeds ≠ net available
 cash。
 
-**ExecutionCostSpec**（`factorlab.execution.spec`，frozen + extra=forbid，
+**ExecutionCostSpec**（`factorlab.core.execution.spec`，frozen + extra=forbid，
 嵌套于 ExecutionSpec.cost_model）：
 
 ```
@@ -2443,7 +2443,7 @@ POST_EXECUTION(D) → PRE_EXECUTION(next trade_cal open date)
 （post_quantity - post_sellable）>= filled（否则 state/fill pair 不一致 →
 ValueError）。
 
-**Calendar authority**：`factorlab.data.calendar.trading_calendar` 是唯一
+**Calendar authority**：`factorlab.adapters.read.calendar.trading_calendar` 是唯一
 authority（禁止自写 trade_cal SQL / weekday arithmetic / timedelta）；
 当前 date 必须 is_open=1；下一开放日严格 > 当前（无则 ValueError——
 不保持原日期）。
@@ -2460,8 +2460,8 @@ does not imply market data exists for that date.
 
 ### M8-05B Execution Accounting + Point-in-Time NAV Kernel
 
-**两条独立但可交叉验证的 accounting primitive**（`factorlab.execution.accounting`
-/ `factorlab.execution.valuation`，domain 在 `factorlab.domain.accounting`）：
+**两条独立但可交叉验证的 accounting primitive**（`factorlab.core.execution.accounting`
+/ `factorlab.core.execution.valuation`，domain 在 `factorlab.core.domain.accounting`）：
 
 ```
 A. summarize_execution_accounting(pre_state, fills, post_state)
@@ -2628,7 +2628,7 @@ params 替换 + run --set 变体，n_weeks > 50）），真实 results 目录 We
 （rebuild/refresh）→ 校验（verify）→ 复权视图（adjust）。本节为总览 + CLI 用法；
 各模块详细 API 见 `4.x` 对应小节。
 
-### `factorlab.data.fetcher.TeaJoinClient`
+### `factorlab.adapters.fetcher.TeaJoinClient`
 
 teajoin Tushare 兼容代理客户端（全局限流 0.2s、指数退避重试 3 次、4xx 抛
 `TeaJoinError`）：
@@ -2661,20 +2661,20 @@ token 来自 `FACTORLAB_TEAJOIN_TOKEN`；端点 `FACTORLAB_TEAJOIN_BASE_URL`
 
 ### 汇总速查（详细 API 见 `4.x` 对应小节）
 
-- `factorlab.data.platform_db.PlatformDB`：duckdb 写库，自动建表、按 keys upsert
+- `factorlab.adapters.mirror_db.PlatformDB`：duckdb 写库，自动建表、按 keys upsert
   去重（`dedup=False` 纯 INSERT 批量语义）、`integrity_check()` 六规则自检
   （日历缺日/重复行/pct_chg 自洽/adj_factor 有效/stk_limit 边界/市值有效）。
-- `factorlab.data.rebuild`：`rebuild_all`（manifest 断点续传编排：交易日历（未来
+- `factorlab.adapters.rebuild`：`rebuild_all`（manifest 断点续传编排：交易日历（未来
   公告日截断）→ 静态 → 行情 7 表按日 → 指数（index_weight 用 index_code 参数）；
   **无财报三表**）；`assess_sparsity`（每表每字段 null_ratio/stock_coverage/
   first_date）；`build_final_db`（null_ratio > 20% 或 stock_coverage < 80% 的字段
   物理剔除后重建最终库）。
-- `factorlab.data.refresh.refresh`：从 manifest `last_updated`（rebuild 截断后的
+- `factorlab.adapters.refresh.refresh`：从 manifest `last_updated`（rebuild 截断后的
   最近交易日）增量续拉行情 7 表，重试 failed 日期，`upsert` 默认 `dedup=True`
   去重替换。
-- `factorlab.data.verify`：`verify_all` 完整性 + 稀疏摘要 + 抽样对拍（30 只 ×
+- `factorlab.adapters.read.verify`：`verify_all` 完整性 + 稀疏摘要 + 抽样对拍（30 只 ×
   三段 × 相对误差容差 1e-4）；`compare_sample` 自动映射参考库列结构
   （trade_date/ts_code 或 date/code 风格），对拍细节与错误语义见 `4.x`。
-- `factorlab.data.adjust`：`view_prices`（raw/qfq/hfq/pit_qfq 价格视图）、
+- `factorlab.adapters.read.adjust`：`view_prices`（raw/qfq/hfq/pit_qfq 价格视图）、
   `total_return`（HFQ 含分红再投资收益）、审计三查（`lookahead_check` /
   `scale_invariance_check` / `adjustment_sensitivity_check`）。

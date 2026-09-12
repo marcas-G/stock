@@ -27,3 +27,6 @@ TICK_SNAP_COLS = ["trade_date", "code", "time_ms", "price", "volume",
                     "bid_v10", "wavg_ask", "wavg_bid", "ask_total",
                     "bid_total", "unweighted_index", "n_issues", "n_up",
                     "n_down", "n_flat"]
+
+CANCELS_COLS = ["code", "trade_date", "time_ms", "trade_no", "side",
+                "order_ref", "volume"]   # SZ 撤单表（extract_sz_cancels 产出）
