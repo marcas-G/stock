@@ -45,7 +45,7 @@ from _env import ensure_platform, platform_head  # noqa: E402
 
 ensure_platform()
 
-from factorlab.engine.minute import compute_minute_factor_panel  # noqa: E402
+from factorlab.core.engine.minute import compute_minute_factor_panel  # noqa: E402
 from features import FEATURE_NAMES, FORMULA  # noqa: E402
 
 # ---------------------------------------------------------------- 路径常量
@@ -269,7 +269,7 @@ def cmd_check_day(args) -> int:
 
     # ---- 引擎侧（CH 生产库，同 spec/公式/窗口）----
     from factorlab.engine.compute import RunContext
-    from factorlab.engine.minute import run_factor_minute
+    from factorlab.core.engine.minute import run_factor_minute
     import pathlib
     import tempfile
     codes = sorted(bars["code"].unique().to_list())
