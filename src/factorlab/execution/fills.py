@@ -40,11 +40,11 @@ from factorlab.core.domain.execution import (ExecutionDataQualityError,
                                         OrderSide, PortfolioState,
                                         PortfolioStatePhase, QuantityRuleKind)
 from factorlab.execution.rules import SecurityQuantityRules
-from factorlab.execution.costs import compute_execution_cost
+from factorlab.core.execution.costs import compute_execution_cost
 from factorlab.execution.rules import (is_valid_buy_quantity,
                                        is_valid_sell_quantity,
                                        project_buy_quantity)
-from factorlab.execution.spec import ExecutionCostSpec
+from factorlab.core.execution.spec import ExecutionCostSpec
 
 _EMPTY_FILLS = pl.DataFrame(
     {"code": pl.Series([], dtype=pl.String),

@@ -9,7 +9,7 @@ import pytest
 from factorlab.core.domain.frames import SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.strategy import SelectionSpec, StrategySpec, WeightingSpec
-from factorlab.strategy.schedule import RebalanceSchedule, build_rebalance_schedule
+from factorlab.core.strategy.schedule import RebalanceSchedule, build_rebalance_schedule
 
 D1, D2, D3 = (datetime.date(2024, 1, 2), datetime.date(2024, 1, 3),
               datetime.date(2024, 1, 4))

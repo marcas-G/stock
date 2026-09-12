@@ -21,7 +21,7 @@ from factorlab.core.engine.compute import (FactorResult, RunContext, _formula_co
                                            compute_formula, fill_suspension_values)
 from factorlab.core.engine.forward import compute_forward_returns
 from factorlab.data.adjust import view_prices
-from factorlab.process.registry import run_process_chain
+from factorlab.core.process.registry import run_process_chain
 from factorlab.core.spec import FactorSpec
 
 DATES = ["20240102", "20240103", "20240104", "20240105", "20240108",

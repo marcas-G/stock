@@ -10,7 +10,7 @@ import polars as pl
 
 from factorlab.config import settings
 from factorlab.data.backend import DuckDBRd, Rd
-from factorlab.process.registry import register_processor
+from factorlab.core.process.registry import register_processor
 
 SIGNAL = "signal"
 

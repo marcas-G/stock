@@ -8,7 +8,7 @@ events），不做复权、不做 fill 判定、不生成订单。
 M8-02B / WS4（closeout 决策 1）：suspend_d **不再被要求**——停牌 = 缺行推断
 （持仓 code 当日无 daily 行 = 停牌，消费方冻结/跳过，见 execution/backtest.py）。
 suspend_d 表仍**可选支持**：表存在时读取事件行（ts_code/suspend_type/
-suspend_timing；时间 grammar 唯一 authority 是 factorlab.execution.suspension，
+suspend_timing；时间 grammar 唯一 authority 是 factorlab.core.execution.suspension，
 不在 SQL 里重写 temporal semantics。runtime 重新 enforce production source
 contract：suspend_type ∈ {S,R}；R+non-null timing 未证明→fail；exact
 duplicate collapse、dedup 后 >1 distinct event→fail——production max=1，
@@ -164,7 +164,7 @@ def _derive_suspend_evidence(
     """
     # 函数内 lazy import：避免 module 级循环（data.execution → execution.suspension
     # → execution.__init__ → market → data.execution 部分初始化）
-    from factorlab.execution.suspension import (parse_suspend_timing,
+    from factorlab.core.execution.suspension import (parse_suspend_timing,
                                                 timing_covers_open)
     if not events:
         return False, False
@@ -204,7 +204,7 @@ def load_market_open_frame(
     - daily/stk_limit 的 (trade_date, ts_code) duplicate → fail
     - suspend_d（若表存在）读取事件行（suspend_type/suspend_timing）→
       _derive_suspend_evidence（temporal authority =
-      factorlab.execution.suspension；exact duplicate collapse、distinct
+      factorlab.core.execution.suspension；exact duplicate collapse、distinct
       多事件 fail、R+timing fail、parser ValueError 穿透）；表不存在 →
       全 False（WS4：停牌=缺行推断，事件表可选）
     - coverage gates：daily/stk_limit 全市场在 execution_date 0 行 → fail

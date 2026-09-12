@@ -12,7 +12,7 @@ import polars as pl
 import pytest
 
 from factorlab.eval.cross_section import cs_r2, joint_diagnostics, orthogonalized_ic
-from factorlab.eval.ic_series import weekly_ic
+from factorlab.core.eval.ic_series import weekly_ic
 
 N = 40  # 默认股票数（≥ MIN_STOCKS 30）
 START = datetime.date(2024, 1, 5)  # 周五

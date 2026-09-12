@@ -570,7 +570,7 @@ def _gates() -> list[dict]:
             "tests": [
                 "tests/test_process.py::test_unknown_processor_rejected",
             ],
-            "probe": "from factorlab.process.registry import get_processor\nget_processor('no_such_processor')",
+            "probe": "from factorlab.core.process.registry import get_processor\nget_processor('no_such_processor')",
         },
         {
             "id": "gate_chain_parse_order",
@@ -584,7 +584,7 @@ def _gates() -> list[dict]:
                 "tests/test_process.py::test_parse_chain_item_keyword_before_positional_rejected",
                 "tests/test_process.py::test_parse_chain_item_invalid",
             ],
-            "probe": "from factorlab.process.registry import parse_chain_item\nparse_chain_item('clip(a=1, 2)')",
+            "probe": "from factorlab.core.process.registry import parse_chain_item\nparse_chain_item('clip(a=1, 2)')",
         },
         {
             "id": "gate_unknown_column_helper",

@@ -31,8 +31,8 @@ import polars as pl
 from factorlab.core.domain.codes import is_canonical_stock_code
 from factorlab.core.domain.frames import SignalArtifact
 from factorlab.core.domain.portfolio import TargetPortfolio, TargetPortfolioMeta
-from factorlab.strategy.schedule import build_rebalance_schedule
-from factorlab.strategy.spec import StrategySpec
+from factorlab.core.strategy.schedule import build_rebalance_schedule
+from factorlab.core.strategy.spec import StrategySpec
 
 _EMPTY_SCHEMA = {"decision_date": pl.Date, "code": pl.String,
                  "target_weight": pl.Float64}

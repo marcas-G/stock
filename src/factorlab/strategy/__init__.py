@@ -19,9 +19,9 @@ from factorlab.strategy.artifacts import (REBALANCE_SCHEDULE_FILE,
                                           load_strategy_spec,
                                           load_target_portfolio,
                                           write_strategy_artifacts)
-from factorlab.strategy.constructor import construct_target_portfolio
-from factorlab.strategy.schedule import RebalanceSchedule, build_rebalance_schedule
-from factorlab.strategy.spec import SelectionSpec, StrategySpec, WeightingSpec
+from factorlab.core.strategy.constructor import construct_target_portfolio
+from factorlab.core.strategy.schedule import RebalanceSchedule, build_rebalance_schedule
+from factorlab.core.strategy.spec import SelectionSpec, StrategySpec, WeightingSpec
 
 __all__ = ["StrategySpec", "SelectionSpec", "WeightingSpec",
            "construct_target_portfolio",

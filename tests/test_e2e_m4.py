@@ -7,9 +7,9 @@ from typer.testing import CliRunner
 from factorlab.cli.main import app
 from factorlab.app.run import run_factor
 from factorlab.core.engine.compute import RunContext
-from factorlab.eval.alignment import align_weekly
-from factorlab.eval.layered import layered_backtest
-from factorlab.eval.rust_ic import evaluate_factor_weekly
+from factorlab.core.eval.alignment import align_weekly
+from factorlab.core.eval.layered import layered_backtest
+from factorlab.core.eval.rust_ic import evaluate_factor_weekly
 from factorlab.core.spec import load_spec
 
 pytestmark = pytest.mark.integration

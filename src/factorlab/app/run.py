@@ -39,7 +39,7 @@ from factorlab.data.calendar import chunk_calendar, trading_calendar
 from factorlab.data.source import load_daily
 from factorlab.data.universe import (align_to_listing, resolve_candidate_codes,
                                      resolve_universe_frame)
-from factorlab.process.registry import run_process_chain
+from factorlab.core.process.registry import run_process_chain
 
 
 def _apply_multi_output_process(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from factorlab.eval.alignment import align_weekly
+from factorlab.core.eval.alignment import align_weekly
 
 
 def evaluate_factor_weekly(

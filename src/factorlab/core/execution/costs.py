@@ -34,7 +34,7 @@ import math
 from dataclasses import dataclass
 
 from factorlab.core.domain.execution import OrderSide
-from factorlab.execution.spec import ExecutionCostSpec
+from factorlab.core.execution.spec import ExecutionCostSpec
 
 
 @dataclass(frozen=True)

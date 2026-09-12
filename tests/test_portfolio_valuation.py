@@ -285,7 +285,7 @@ def test_determinism():
 
 
 def test_no_market_dependency_source_audit():
-    from factorlab.execution import valuation as mod
+    from factorlab.core.execution import valuation as mod
     src = inspect.getsource(mod)
     for forbidden in ("daily", "adj_factor", "qfq", "hfq", "duckdb",
                       "MarketOpenSnapshot", "stk_limit", "suspend_d"):

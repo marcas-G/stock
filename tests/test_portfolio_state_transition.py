@@ -291,7 +291,7 @@ def test_apply_to_post_state_fails():
 
 def test_no_recompute_source_audit():
     """state.py 不得 import 成本/fillability/market/rules/DB 等。"""
-    from factorlab.execution import state as mod
+    from factorlab.core.execution import state as mod
     src = inspect.getsource(mod)
     for forbidden in ("compute_execution_cost", "ExecutionCostSpec",
                       "ExecutionCostBreakdown", "MarketOpenSnapshot",

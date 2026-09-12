@@ -28,8 +28,8 @@ import polars as pl
 
 from factorlab.core.domain.frames import SignalArtifact, SignalMeta
 from factorlab.core.domain.portfolio import TargetPortfolio, TargetPortfolioMeta
-from factorlab.strategy.schedule import RebalanceSchedule
-from factorlab.strategy.spec import StrategySpec
+from factorlab.core.strategy.schedule import RebalanceSchedule
+from factorlab.core.strategy.spec import StrategySpec
 
 TARGET_PORTFOLIO_FILE = "target_portfolio.parquet"
 REBALANCE_SCHEDULE_FILE = "rebalance_schedule.parquet"

@@ -15,27 +15,27 @@ M8-05B：execution accounting + point-in-time valuation
 M8-06B：backtest runtime（run_backtest → BacktestResult）。
 """
 
-from factorlab.execution.accounting import summarize_execution_accounting
+from factorlab.core.execution.accounting import summarize_execution_accounting
 from factorlab.execution.backtest import MarksPolicy, run_backtest
 from factorlab.execution.persistence import (load_backtest_result,
                                              save_backtest_result)
 from factorlab.execution.calendar import resolve_execution_schedule
-from factorlab.execution.costs import (ExecutionCostBreakdown,
+from factorlab.core.execution.costs import (ExecutionCostBreakdown,
                                        compute_execution_cost)
-from factorlab.execution.fillability import assess_open_fillability
+from factorlab.core.execution.fillability import assess_open_fillability
 from factorlab.execution.fills import realize_open_fills
 from factorlab.execution.market import load_market_open_snapshot
 from factorlab.execution.orders import construct_order_batch
 from factorlab.execution.overnight import advance_to_next_trading_day
-from factorlab.execution.state import apply_fill_batch
-from factorlab.execution.valuation import value_portfolio
+from factorlab.core.execution.state import apply_fill_batch
+from factorlab.core.execution.valuation import value_portfolio
 from factorlab.execution.rules import (SecurityQuantityRules,
                                        is_valid_buy_quantity,
                                        is_valid_sell_quantity,
                                        project_buy_quantity,
                                        project_sell_quantity,
                                        resolve_security_quantity_rules)
-from factorlab.execution.spec import ExecutionCostSpec, ExecutionSpec
+from factorlab.core.execution.spec import ExecutionCostSpec, ExecutionSpec
 
 __all__ = ["ExecutionSpec", "ExecutionCostSpec", "ExecutionCostBreakdown",
            "compute_execution_cost", "resolve_execution_schedule",

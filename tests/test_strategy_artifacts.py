@@ -23,7 +23,7 @@ from factorlab.strategy.artifacts import (REBALANCE_SCHEDULE_FILE,
                                           load_strategy_spec,
                                           load_target_portfolio,
                                           write_strategy_artifacts)
-from factorlab.strategy.schedule import RebalanceSchedule, build_rebalance_schedule
+from factorlab.core.strategy.schedule import RebalanceSchedule, build_rebalance_schedule
 
 D1, D2, D3 = (datetime.date(2024, 1, 2), datetime.date(2024, 1, 3),
               datetime.date(2024, 1, 4))

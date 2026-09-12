@@ -12,7 +12,7 @@
 
 import pytest
 
-from factorlab.execution.suspension import (interval_contains_second,
+from factorlab.core.execution.suspension import (interval_contains_second,
                                             parse_suspend_timing,
                                             timing_covers_open)
 

@@ -21,7 +21,7 @@ import pathlib
 import numpy as np
 import polars as pl
 
-from factorlab.eval.alignment import align_weekly
+from factorlab.core.eval.alignment import align_weekly
 
 MIN_STOCKS = 30  # 每周最少股票数（与 correlation.factor_correlation 同口径）
 MAX_WIDE_ROWS = 20_000_000  # 宽表行数护栏（对齐后正常远小于此）

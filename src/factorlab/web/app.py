@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
-from factorlab.eval.ic_series import weekly_ic
+from factorlab.core.eval.ic_series import weekly_ic
 from factorlab.web import charts
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"

@@ -4,7 +4,7 @@ import random
 import polars as pl
 import pytest
 
-from factorlab.eval.rust_ic import evaluate_factor_weekly
+from factorlab.core.eval.rust_ic import evaluate_factor_weekly
 
 
 def _panel(weeks=12, stocks=10, seed=7):
@@ -81,7 +81,7 @@ def test_evaluate_factor_weekly_reuses_provided_weekly():
     panel = _panel()
     weekly = panel.group_by(pl.col("date").dt.week().alias("_w")).agg(
         pl.col("date").max().alias("date"))["date"]  # 仅占位——真正对齐用 align_weekly
-    from factorlab.eval.alignment import align_weekly
+    from factorlab.core.eval.alignment import align_weekly
     weekly = align_weekly(panel)
     direct = evaluate_factor_weekly(panel, "demo", 1)
     reused = evaluate_factor_weekly(panel, "demo", 1, weekly=weekly)

@@ -3,7 +3,7 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.eval.ic_series import weekly_ic
+from factorlab.core.eval.ic_series import weekly_ic
 
 
 def _panel(weeks=4, stocks=10, seed=1):

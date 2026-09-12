@@ -3,8 +3,8 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.eval.alignment import align_weekly
-from factorlab.eval.metrics import coverage_report
+from factorlab.core.eval.alignment import align_weekly
+from factorlab.core.eval.metrics import coverage_report
 
 
 def test_align_weekly_last_trading_day():

@@ -1,7 +1,7 @@
 """M8-02B：open suspension evidence integration——loader 行为 + source contract。
 
 Loader 从 suspend_d 读取事件行（ts_code/suspend_type/suspend_timing），
-经 factorlab.execution.suspension（唯一 temporal authority）推导
+经 factorlab.core.execution.suspension（唯一 temporal authority）推导
 is_suspended_at_open；runtime 重新 enforce production source contract：
 
 - suspend_type ∈ {S, R}（不 strip/不 upper）
@@ -244,7 +244,7 @@ def test_import_no_cycle():
     """data.execution → execution.suspension 无循环（parser 仅 stdlib import）。"""
     import inspect
     import re
-    from factorlab.execution.suspension import parse_suspend_timing
+    from factorlab.core.execution.suspension import parse_suspend_timing
     mod = inspect.getmodule(parse_suspend_timing)
     src = inspect.getsource(mod)
     for forbidden in ("duckdb", "polars", "platform_db", "MarketOpenSnapshot",

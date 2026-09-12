@@ -251,7 +251,7 @@ def test_summary_monetary_validators():
 # ================================================================
 
 def test_no_cost_recompute_source_audit():
-    from factorlab.execution import accounting as mod
+    from factorlab.core.execution import accounting as mod
     src = inspect.getsource(mod)
     for forbidden in ("compute_execution_cost", "ExecutionCostSpec",
                       "duckdb", "MarketOpenSnapshot", "OrderBatch"):

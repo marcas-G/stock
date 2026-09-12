@@ -382,7 +382,7 @@ def test_no_code_market_date_inputs():
 def test_no_polars_duckdb_imports():
     import inspect
     import re
-    from factorlab.execution.costs import compute_execution_cost as f
+    from factorlab.core.execution.costs import compute_execution_cost as f
     src = inspect.getsource(inspect.getmodule(f))
     for forbidden in ("duckdb", "polars", "MarketOpenSnapshot",
                       "PortfolioState", "OrderBatch", "TargetPortfolio"):

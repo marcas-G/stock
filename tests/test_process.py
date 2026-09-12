@@ -13,7 +13,7 @@ import polars as pl
 import pytest
 
 from factorlab.process import processors  # noqa: F401  # 注册副作用
-from factorlab.process.registry import (ProcessCtx, get_processor,
+from factorlab.core.process.registry import (ProcessCtx, get_processor,
                                         parse_chain_item, run_process_chain)
 
 

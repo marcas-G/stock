@@ -535,8 +535,8 @@ def test_run_multi_output_literal_signal_first_class(tmp_path, monkeypatch):
     # 逐输出落盘面板/周频 + 独立重算：每输出评估 = 该列直接 rust_ic 值（禁止共用/硬编码）
     import math
     import polars as pl
-    from factorlab.eval.layered import layered_backtest
-    from factorlab.eval.rust_ic import evaluate_factor_weekly
+    from factorlab.core.eval.layered import layered_backtest
+    from factorlab.core.eval.rust_ic import evaluate_factor_weekly
     panel = pl.read_parquet(out_dir / "panel.parquet")
     weekly = pl.read_parquet(out_dir / "weekly.parquet")
     for o in ("signal", "neg"):

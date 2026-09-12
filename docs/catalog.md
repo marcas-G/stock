@@ -478,7 +478,7 @@ _pool_cond_frame(df, 'signal = (close > 15) * 1')
 - 报错文案样板：`未知处理器: `
 - 修法：按错误文案的可用清单改正处理器名（clip/csranknorm/fillna/neutralize/robustzscore/standardize/winsorize/zscore）
 - 触发探针：```python
-from factorlab.process.registry import get_processor
+from factorlab.core.process.registry import get_processor
 get_processor('no_such_processor')
 ```
 - 对照测试：`tests/test_process.py::test_unknown_processor_rejected`
@@ -489,7 +489,7 @@ get_processor('no_such_processor')
 - 报错文案样板：`关键字参数后不允许位置参数: `
 - 修法：参数按位置参数在前、关键字在后排列（clip(2, a=1)）
 - 触发探针：```python
-from factorlab.process.registry import parse_chain_item
+from factorlab.core.process.registry import parse_chain_item
 parse_chain_item('clip(a=1, 2)')
 ```
 - 对照测试：`tests/test_process.py::test_parse_chain_item_keyword_before_positional_rejected`, `tests/test_process.py::test_parse_chain_item_invalid`

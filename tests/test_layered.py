@@ -3,7 +3,7 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.eval.layered import layered_backtest
+from factorlab.core.eval.layered import layered_backtest
 
 
 def _weekly_panel(weeks=4, stocks=10, wiggle=0.0):
