@@ -215,6 +215,22 @@ WS6 研究侧重排 + 编排单点 → WS7 文档/skills/安装面 → WS8 P7/P8
 
 ## 11. 验证记录
 
+### WS3（2026-09-12）：core 层搬迁 — PASS
+3a domain/numerics/qa/factor/spec → 3b ops → 3c-1 engine → 3c-2 持久化/rd 依赖切出
+（run_factor/run_factor_minute/6 个装配 helper → `app/run.py`；对齐校验 → `core/engine/alignment.py`；
+列契约 → `core/factio/schema.py`）→ 3d eval/strategy/process.registry/execution 纯子集 →
+3e factio 扩展（paths/timeparse/boards/tick_month）+ `adapters/tick_read` + `adapters/plugins`。
+**纯核双门**（静态 AST + 隔离运行）入 `tests/test_architecture.py`。附带真实缺陷修复：
+`load_daily_fill_state` 两腿补 ORDER BY（全量套件实测行序 flaky）。门：collect 2469；
+全量 2456 passed/13 skipped；catalog 每批重生成。证据：workspace `docs/verification/WS3/`。
+
+### WS4（2026-09-12）：adapters 层（I/O 收敛）— PASS（4g 推迟）
+读侧：`data/*` → `adapters/{duckdb_read,ch_read,read/*,intraday,fetcher,rebuild,refresh,mirror_db}`；
+`Rd`→`ReadPort`、`open_read`→`app/bootstrap.py`；`factorlab.data` 退役。写侧：artifacts/strategy_artifacts/
+execution_store/process_ops → `adapters/`。面板/摘要单点：`adapters/{panel_store,results_fs}.py`
++ 四消费点接线（correlation/cross_section/web/parquet_artifacts）。门：每批全量 2456 passed/13 skipped。
+4g（catalog 拆分）推迟至 WS7（纯位移、低净值）。证据：workspace `docs/verification/WS4/`。
+
 ### WS2（2026-09-12）：端口层建立（纯增量）— PASS
 六条端口 Protocol 落位（`src/factorlab/ports/{read,write,panel_store,source,batch,eval_kernel}.py`）
 + `RunPayload`/`ReconcileReport`/`Task`/`Result`/`BatchReport` 载荷 + 六条内存桩
