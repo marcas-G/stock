@@ -1,31 +1,20 @@
-=== 终验（P7/P8）2026-09-12 03:39:49 ===
+=== 终验链（2026-09-12 19:48:09）===
 
---- 1. 根目录 7 项 ---
-_archive
-data
-docs
-.git
-.gitignore
-projects
-README.md
-条目数: 7
+--- V1 平台全量（= WS7 run，提交后无内容变更）---
+2462 passed, 13 skipped, 262 warnings in 424.71s (0:07:04)
 
---- 2. 根仓库 ls-files 白名单 ---
-总追踪: 34  | 白名单外: 0
+--- V2 研究侧（emb / 平台venv）---
+183 passed in 5.44s
+1 skipped in 0.02s
 
---- 3. worktree 与抢救提交 ---
-/data/students/gaolei/stock/projects/quant-platform-main      319fa3e [main]
-/data/students/gaolei/stock/projects/quant-platform-research  69be9f3 [research]
-main status: 0 项 (空=干净)
-research status: 0 项
-e66b349 类型: commit
-archive 分支提交数: 4
+--- V3 catalog 同源 ---
+catalog diff==0 ✓
 
---- 5. lob_fact 读路径 ---
-四根存在: PASS
+--- V4 位级门 ---
+66 passed, 15 warnings in 195.99s (0:03:15)
 
---- 7. grep 门（活跃旧路径死链）---
-活跃死链 = 0（期望 0）
+--- V5 错误文案计数 ---
+raises=701 match=451
 
---- 8. 磁盘回收 ---
-/dev/sda5      8512527302656 7721162829824 362284658688   96% /data
+--- V7/V8/V9 架构门 ---
+17 passed, 1 warning in 2.46s

@@ -1,0 +1,21 @@
+--- V10 代码旧路径零残留 ---
+平台 src/tests 旧模块路径: 0
+研究 tools 旧模块路径: 0
+
+--- V11 研究侧绝对路径单点（应空）---
+/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact/notes/w3diag/probe_pxadd.py:4:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact/notes/w3diag/lagtest.py:4:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact/notes/w3diag/probe_carried.py:6:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact/notes/w3diag/probe_edge.py:4:sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact/notes/w3diag/probe_edge.py:40:res = json.load(open(glob.glob('/data/students/gaolei/stock/data/calib/lob_fact_calib/w3_measure_600036_20251215.json')[0]))
+
+--- V12 CH 对账 ---
+  stock_basic  CH=           5,866 源=           5,866  一致
+全库一致
+
+--- V17 数据零变更 + 磁盘 ---
+data/ 未跟踪变更数: 0
+/dev/sda5      8512527302656 7721221447680 362226040832   96% /data
+
+--- V14 lob 金样（研究侧全量）---
+183 passed in 5.32s
