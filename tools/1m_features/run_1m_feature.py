@@ -36,8 +36,17 @@ import time
 
 import polars as pl
 
-from factorlab.engine.minute import compute_minute_factor_panel
-from features import FEATURE_NAMES, FORMULA
+# 共享核单点注入 + 落位断言（DER-010；T1：platform venv 运行）
+import os as _os
+import sys as _sys
+
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # tools/
+from _env import ensure_platform, platform_head  # noqa: E402
+
+ensure_platform()
+
+from factorlab.engine.minute import compute_minute_factor_panel  # noqa: E402
+from features import FEATURE_NAMES, FORMULA  # noqa: E402
 
 # ---------------------------------------------------------------- 路径常量
 DEFAULT_BARS_ROOT = "/data/students/gaolei/stock/data/fact/bars_1m"
