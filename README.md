@@ -1,50 +1,52 @@
-# factorlab
+# quant-platform-research（research worktree）
 
-个人因子计算平台（M1–M8 已交付）：spec.yaml 因子 DSL（`expr_codegen` + `polars_ta` 内核，
-TS/CS/GP 分区 + 池公式 + 多输出）、分块计算、日频/分钟双链、Rust `quant_core` 周频评估、
-分层回测、Web 可视化、M7 策略组合、M8 执行运行时、PIT 正确性收口、读路径双后端
-（DuckDB 平台库 | ClickHouse）。
+**研究分支工作树**：`quant-platform` 仓库（与 `../quant-platform-main` 同一 git 仓库）
+的 research 分支 checkout。只承载研究内容——**不携带平台源码、测试与平台文档**
+（2026-09-12 单一共享核收敛，见 spec `2026-09-12-mining-system-refactor-design.md`）。
 
-**权威文档**：`docs/interface.md`（CLI/Spec/DSL/Python API 全量）+ `docs/catalog.md`
-（列/算子活目录）。本 README 只给入口。
+## 目录
 
-## 快速开始
+| 路径 | 内容 |
+|---|---|
+| `tools/lob_fact/` | tick 订单簿重建工具链（引擎/锚定/因子面板/批算/QA/校准）|
+| `tools/ch_ingest/` | 事实库 → ClickHouse 灌入与对账 |
+| `tools/converters/` | raw zip → parquet 转换器（tick / minutes）|
+| `tools/1m_features/` | bars_1m 折日特征全史批算 |
+| `tools/strategies/` | 策略回测脚本（crash_bottom / wait_crash）|
+| `tools/quark_download/` | 网盘批量下载脚本 |
+| `factor/` | 152 个因子 spec.yaml |
+| `docs/factors/`、`docs/strategies/` | 因子档案与策略文档 |
+
+## 共享核与解释器（重要）
+
+平台源码的**唯一副本**在 main worktree（`../quant-platform-main/src`）。研究工具经
+`tools/_env.py` 注入并**运行时断言**落位（解析到别处即 RuntimeError）。
+
+| 类型 | 工具 | 解释器 | 说明 |
+|---|---|---|---|
+| T1 需完整 factorlab | `1m_features/`、`strategies/` | 平台 venv `../quant-platform-main/.venv/bin/python` | editable 已生效；emb 下自动 skip |
+| T2 只需 core.factio | `lob_fact/`、`converters/`、`ch_ingest/`、`quark_download/` | emb `/data/students/gaolei/anaconda3/envs/emb/bin/python`（3.11）或平台 venv | `_env.ensure_platform()` 注入 |
+| T3 下游 | `../ashare_alpha3/scripts/` | 平台 venv | 仅经 editable 安装 |
+
+## 测试
 
 ```bash
-# 环境：本工作树自带 uv 管理的 venv（Python 3.13）
-.venv/bin/python -m pip --version 2>/dev/null || export PATH=/home/gaolei/.local/bin:$PATH
-uv pip install --python .venv/bin/python -e . --no-deps      # editable 重装（换工作树后需重跑）
-uv pip install --python .venv/bin/python -e ../quant_core_shim --no-deps   # 评估内核 shim
+# lob_fact（emb，183 tests）
+cd tools/lob_fact && /data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest tests/ -q
 
-# 测试
-.venv/bin/python -m pytest tests/ -q
+# 策略（平台 venv，24 tests）
+cd ../.. && ../quant-platform-main/.venv/bin/python -m pytest tools/strategies/tests -q
+
+# 全量研究侧（emb；T1 用例自动 skip）
+/data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest tools/ -q
 ```
 
-## CLI 一览
+长任务运行前：`git -C ../quant-platform-main status --porcelain` 必须为空；运行产物带
+`platform_head()` 记录共享核版本。
 
-| 命令 | 作用 |
-|---|---|
-| `factorlab version` / `lint <spec.yaml>` | 版本 / spec 校验 |
-| `factorlab run <spec.yaml>` | 跑因子：计算 → 评估 → 分层回测 → artifact（`--chunk-days` 分块） |
-| `factorlab list` / `show <name>` | 因子清单 / 单因子详情 |
-| `factorlab corr` / `svd` / `resic` | 相关性 / SVD / 横截面联合诊断 |
-| `factorlab serve` | Web 可视化（FastAPI） |
-| `factorlab op list\|doc\|add\|remove` | 算子注册表管理 |
-| `factorlab data rebuild\|refresh\|update\|verify` | 平台库（DuckDB）数据链 |
-| `factorlab catalog dump\|docs` | 列/算子活目录（docs/catalog.md 同源生成） |
+## 平台文档（在 main worktree）
 
-## 数据后端
-
-- **duckdb**（默认）：平台库 `data/factorlab.duckdb`（相对 CWD；`FACTORLAB_PLATFORM_DB`
-  可覆盖），由 `factorlab data rebuild/update/refresh` 维护（数据源 = teajoin Tushare 代理）。
-- **ch**：`FACTORLAB_DATA_BACKEND=ch`（`FACTORLAB_CH_HOST/PORT/DATABASE`），ClickHouse
-  事实库由工作区 `projects/quant-platform-research/tools/ch_ingest/` 灌入。
-
-## 仓库纪律（摘要）
-
-- `main` 只收平台改动（`src/factorlab/`、`tests/`、`docs/interface.md`、
-  `docs/superpowers/`、`docs/data-ops-playbook.md`、`docs/teajoin-guide.md`、README、pyproject）；
-  研究内容（`factor/`、`docs/factors/`、`tools/`、`docs/strategies/`）进 **`research` 分支**
-  （同仓库的第二个 worktree：`../quant-platform-research`）。
-- 任何代码改动遵循 TDD（先失败测试再加实现），提交前全量 `pytest -q` 通过；
-  文档与实现同步（详见 `CLAUDE.md`）。
+- 接口/DSL/CLI：`../quant-platform-main/docs/interface.md`
+- 列/算子活目录：`../quant-platform-main/docs/catalog.md`
+- 数据运维：`../quant-platform-main/docs/data-ops-playbook.md`
+- 工作区数据地图：`../../docs/data-map.md`（workspace 仓库）

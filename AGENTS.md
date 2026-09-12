@@ -1,29 +1,29 @@
-# 工作流与技能约定
+# 研究侧工作流与技能
 
-本仓库的协作代理（Claude Code / Codex 等）工作流约定。硬性工程纪律见 `CLAUDE.md`。
+本 worktree（research 分支）的协作代理约定。硬性纪律见 `CLAUDE.md`。
 
 ## 技能（Skills）
 
-- **平台侧**（本仓库无关分支差异）：用户级技能 `~/.claude/skills/`：
-  `factorlab-dsl`（因子 DSL/spec 编写）、`factorlab-data`、`factorlab-ch-pipeline`、
-  `factorlab-backtest`、`factorlab-evaluate`、`quark-share-download`（网盘批量下载）。
-- **研究侧**（仅 `research` worktree）：`../quant-platform-research/.claude/skills/factor-mine/`
-  （挖因子循环：种子→假设审核→变异→实现→审核→入库）。
-- 技能发现：Claude Code 自动发现上述目录；新增技能放对应位置并在此登记。
+- `.claude/skills/factor-mine/` —— **挖因子循环**（本 worktree 专属）：
+  种子因子 → 隐含假设分析 → 假设审核（语义矛盾/数据可实现）→ 变异/精确化 →
+  实现 → subagent 审核 → 跑结果 → 按模板入库。
+- 平台侧技能（用户级 `~/.claude/skills/`）：`factorlab-dsl`（写 spec/DSL）、
+  `factorlab-data`、`factorlab-ch-pipeline`、`factorlab-backtest`、`factorlab-evaluate`、
+  `quark-share-download`（网盘下载）。
 
 ## 标准工作流
 
-1. **需求澄清**：写代码前先厘清需求与边界（不明确就问，不猜）。
-2. **计划**：多步骤任务先出实施计划（含验收标准），再动手。
-3. **TDD**：红-绿-重构——先写失败测试（断言来自设计文档/规格，不是实现），
-   再写最小实现；替换为存根必败的测试才算有效。
-4. **执行**：逐任务推进；每个任务收尾跑相关测试。
-5. **审查**：关键改动做代码审查（正确性/复用/简化）。
-6. **收尾**：全量 `pytest -q` 通过 + 文档同步 + 按分支纪律提交。
+1. **假设先行**：新因子/策略先写清"市场行为假设 + 为什么可交易"，再动手实现。
+2. **TDD**：工具代码先失败测试再实现（金样/逐值断言，硬编码存根必败）。
+3. **对拍**：与平台内核共享入口的批算（如 1m 特征）必须过 `check-day` 单日对拍
+   （max|Δ|=0）才算完成。
+4. **留证**：运行产出（state.json、sha256 摘要、对拍报告）落对应工具的 output/notes；
+   关键结论进因子档案 `docs/factors/<name>.md`（front matter + 六节模板）。
+5. **提交**：改动进 research 分支；平台侧改动去 main worktree（见 CLAUDE.md）。
 
-## 调试与验证
+## 调试
 
-- 修 bug：先复现（最小用例）→ 定位根因 → 修复 → 回归测试锁死。
-- 完成前必须验证"真的通了"：跑真实入口（CLI/API）+ 真实数据，不用"测试通过"
-  替代"端到端可用"。
-- 证据留痕：关键验证命令与输出存档（工作区级见 `stock/docs/verification/`）。
+- 数据问题先查 `../../docs/data-map.md`（哪个表是谁生产的、生产者在哪）。
+- 批算异常先看 flock 单写者门与 `_SUCCESS` 事务边界（半成品分区不入库）。
+- 数字不对时先确认用的是**哪个内核**（`tools/_env.py::ensure_platform()` 的落位断言
+  就是为此存在）与哪个解释器（T1/T2 映射表见 CLAUDE.md）。

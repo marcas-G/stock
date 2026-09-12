@@ -1,56 +1,41 @@
-# FactorLab 项目指南
+# 研究 worktree 项目指南（research 分支）
 
-个人因子 DSL 计算平台（`expr_codegen` + `polars_ta` 内核，Rust `quant_core` 评估，
-平台自有 DuckDB 数据层）。工作流与技能约定见 `AGENTS.md`（Superpowers 框架）。
+本工作树 = `quant-platform` 仓库 research 分支。**只承载研究内容**：
+`tools/`（lob_fact / ch_ingest / converters / 1m_features / strategies / quark_download）、
+`factor/`、`docs/factors/`、`docs/strategies/`、`.claude/skills/`。
 
 ## 硬性要求
 
-### 分支约定：研究不污染平台主线（最高优先级）
+### 单一共享核（最高优先级，2026-09-12 起）
 
-- `main` 只收**平台改动**：`src/factorlab/`、`tests/`（平台测试）、`docs/interface.md`、
-  `docs/superpowers/`（平台设计与计划）、`docs/data-ops-playbook.md`、`docs/teajoin-guide.md`、
-  README、pyproject 等。
-- **研究内容**（因子定义与档案 `factor/`、`docs/factors/`、策略回测 `tools/`、
-  `docs/strategies/`、factor-mine 技能与 playbook）一律提交到
-  **`research` 分支**（同仓库独立 worktree：`../quant-platform-research`），绝不进 `main`。
-- `results/`（挖掘轮次产物）为**本地运行产物，不入任何分支**（`.gitignore` 已忽略；
-  大 parquet/artifact 本地留存，需要归档时走工作区 `stock/_archive/` 机制）。
-- 远程仓库结构与本地一致：`main` 纯平台，`research` 存研究。
-- 若某项改动同时涉及平台与研究（如数据层新增字段被因子使用）：平台部分提交到
-  `main`（提交信息用平台前缀 `feat(data)`/`fix(engine)` 等），研究部分提交到 `research`。
-- 禁止以研究主题（`feat(factor)`/`feat(strategy)` 等）作为 `main` 提交信息。
+- 平台源码/测试/平台文档的**唯一副本在 main worktree**（`../quant-platform-main/`）；
+  本分支**不携带** `src/`、`tests/`、`docs/interface.md`、`docs/catalog.md`、
+  `docs/data-ops-playbook.md`、`docs/teajoin-guide.md`（曾有副本，已实测漂移后退役）。
+- 研究工具 import 平台代码**必须**经 `tools/_env.py::ensure_platform()`
+  （注入 main/src + 落位断言；解析到别处即 RuntimeError）。禁止任何新的
+  `sys.path` 手写注入或本地副本。
+- **平台改动一律提交到 main worktree 的 main 分支**（提交前缀 `feat(...)`/`fix(...)`/
+  `docs(...)` 平台语义）；research 分支提交前缀用 `feat(tools)`/`refactor(tools)`/
+  `docs(factors)` 等研究语义。**本分支不再与 main 合并**（共享核经安装/注入到达）。
 
-### 文档和测试必须做好、写全面（最高优先级）
+### 文档和测试（最高优先级）
 
-任何代码改动，验收时同时检查文档与测试是否同步、全面，不满足不算完成：
-
-**测试**：
-- 所有功能遵循 TDD：先写失败测试，再写最小实现，测试转绿才提交。
-- 测试必须覆盖**正常路径、边界条件、错误路径**三类场景，禁止只测 happy path。
-- 测试验证真实行为（真实数据/真实计算），不用 mock 糊弄；依赖外部资源的
-  集成测试用 `@pytest.mark.integration` 标记，环境缺失时 skip 而非假实现。
-- 涉及数据窗口/分组/对齐语义（TS/CS/GP 分区、周频对齐、停牌补全等）必须有
-  能捕获跨资产泄漏、未来函数、错位这类错误的回归测试（多资产/多日期面板）。
-- 提交前运行全量测试套件并确认全部通过（`python -m pytest -q`）。
-
-**文档**：
-- 代码提交必须同步更新相应文档：新增/变更的 Python API、CLI 命令、DSL 语法
-  写入 `docs/interface.md`；设计决策与里程碑写入 `docs/superpowers/specs/` 与
-  `docs/superpowers/plans/`。
-- 新模块、新接口必须有使用说明（签名、行为、错误语义），不允许"代码即文档"。
-- 文档与实现冲突时，文档必须修订到与实现一致，并在 `docs/interface.md` 注明。
-- 实现中发现的设计缺口（计划/规格与实现不符）必须记录到对应设计/计划文档。
+- TDD：先写失败测试再实现；测试覆盖正常/边界/错误路径；断言真实行为，不用 mock 糊弄。
+- 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**
+  （T1 用例经 `pytest.importorskip` 在 emb 下 skip，用平台 venv 跑真验）。
+- 提交前跑本 worktree 相关测试：`pytest tools/ -q`（emb）+ T1 用平台 venv 补跑。
+- 文档：研究侧文档进本分支；平台契约文档在 main worktree（引用写
+  `../quant-platform-main/docs/...`）；数据位置以 workspace `docs/data-map.md` 为准。
 
 ## 环境事实
 
-- Python 3.13（本工作树自带 uv 管理 venv：`.venv/`；解释器 `.venv/bin/python`）。
-  工作树/目录移动后需重装 editable：
-  `uv pip install --python .venv/bin/python -e . --no-deps --no-build-isolation`；
-  评估依赖 `quant_core`（shim 包在 `../quant_core_shim`，同样以 editable 装入本 venv）。
-- 平台库 `data/factorlab.duckdb`（`settings.platform_db`，`FACTORLAB_PLATFORM_DB`
-  可覆盖）为**唯一数据源**：因子计算只读消费；写入仅经
-  `factorlab data rebuild/update/refresh`。
-- `daily.code` 为纯数字（`000001`），`stock_basic_tushare.ts_code` 带后缀
-  （`000001.SZ`）；`symbol` 列是两者桥梁。
-- 目标机器约 16GB 内存且无页面文件：SQL-first、float32、DuckDB `memory_limit`
-  等内存护栏是运行时硬约束（主 spec 6.1）。
+- **解释器双轨（刻意不统一**，统一会改 polars 补丁版本威胁 lob_fact 字节级重跑）：
+  - T1（`1m_features/`、`strategies/`，需完整 factorlab）= `../quant-platform-main/.venv/bin/python`（3.13，uv）；
+  - T2（`lob_fact/`、`converters/`、`ch_ingest/`）= emb（3.11）`/data/students/gaolei/anaconda3/envs/emb/bin/python`。
+- CH：`127.0.0.1:8123` db=factorlab（`ch_ingest/reconcile.py` 需平台 venv——emb 缺
+  clickhouse_connect）。
+- 数据根：`../../data/{raw,fact,calib,ref}`（单点在平台 `core.factio.paths`；本分支旧
+  config 常量逐步收敛）。
+- 16GB 内存无页面文件：批算单进程 + 流式 + 及时释放；长任务 nice，禁止并行重活。
+- lob_fact 校准常量（W1 冻结值 + `pins.sha256` 金样）**不可改**：改动即让 183 测试与
+  历史结论失效，需走再校准流程。
