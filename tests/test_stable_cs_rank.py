@@ -7,7 +7,7 @@ import polars as pl
 import pytest
 
 from factorlab.core.numerics import float64_ulp_distance_scalar
-from factorlab.ops.stable_rank import (STABLE_RANK_MAX_ULPS, cs_stable_rank,
+from factorlab.core.ops.stable_rank import (STABLE_RANK_MAX_ULPS, cs_stable_rank,
                                        rewrite_stable_rank, validate_tie_ulps)
 
 
@@ -237,10 +237,10 @@ def test_signed_zero_subnormal_row_order_independent():
 
 def test_registry_cs_rank_owned_by_stable():
     """get_op("cs_rank") → stable 实现、version 0.2.0（§9）。"""
-    from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
-    from factorlab.ops.platform_ops import register_platform_ops
-    from factorlab.ops.registry import get_op, reset_registry
-    from factorlab.ops.stable_rank import register_stable_rank_ops
+    from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
+    from factorlab.core.ops.platform_ops import register_platform_ops
+    from factorlab.core.ops.registry import get_op, reset_registry
+    from factorlab.core.ops.stable_rank import register_stable_rank_ops
     reset_registry()
     register_polars_ta_ops()
     register_platform_ops()
@@ -260,9 +260,9 @@ def test_registry_cs_rank_owned_by_stable():
 
 def test_registry_cs_rank_not_vendor():
     """vendor 0.1.0 的 cs_rank 不再注册（canonical 名归 stable）。"""
-    from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
-    from factorlab.ops.registry import get_op, reset_registry
+    from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
+    from factorlab.core.ops.registry import get_op, reset_registry
     reset_registry()
     register_polars_ta_ops()   # 不调 register_stable_rank_ops
-    from factorlab.ops.registry import has_op
+    from factorlab.core.ops.registry import has_op
     assert not has_op("cs_rank") or get_op("cs_rank").version != "0.1.0"

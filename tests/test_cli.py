@@ -4,7 +4,7 @@ import yaml
 
 from factorlab import __version__
 from factorlab.cli.main import app
-from factorlab.ops import registry
+from factorlab.core.ops import registry
 
 
 runner = CliRunner()
@@ -56,7 +56,7 @@ def test_op_add_and_remove(tmp_path):
     plugin_path = tmp_path / "my_op.py"
     plugin_path.write_text(textwrap.dedent('''
         import polars as pl
-        from factorlab.ops.registry import factor_op
+        from factorlab.core.ops.registry import factor_op
 
         @factor_op("cli_dummy", kind="el", version="0.1.0")
         def cli_dummy(x: pl.Expr) -> pl.Expr:
@@ -80,7 +80,7 @@ def test_op_doc_prints_registered_operator(tmp_path):
     plugin_path = tmp_path / "doc_op.py"
     plugin_path.write_text(textwrap.dedent('''
         import polars as pl
-        from factorlab.ops.registry import factor_op
+        from factorlab.core.ops.registry import factor_op
 
         @factor_op("doc_dummy", kind="el", version="0.2.0")
         def doc_dummy(x: pl.Expr) -> pl.Expr:

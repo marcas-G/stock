@@ -10,8 +10,8 @@ import polars as pl
 import pytest
 
 from factorlab.engine.compute import compute_formula
-from factorlab.ops.registry import factor_op, reset_registry
-from factorlab.ops.universe_masking import apply_universe_masking
+from factorlab.core.ops.registry import factor_op, reset_registry
+from factorlab.core.ops.universe_masking import apply_universe_masking
 
 
 def _df(rows: list[tuple], mask: bool = True) -> pl.DataFrame:

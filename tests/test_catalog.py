@@ -180,17 +180,17 @@ def test_operators_schema_and_platform_owned_complete():
     assert "cs_stable_rank" in inv
     # cs_rank 是 stable dense rank 的公式层别名（alias 不在 op list——
     # 注册清单与 list_ops() 同源）；别名可写、canonical 在册
-    from factorlab.ops import registry as _reg
+    from factorlab.core.ops import registry as _reg
     assert _reg.has_op("cs_rank") and _reg.get_op("cs_rank").name == "cs_stable_rank"
 
 
 def test_registry_inventory_matches_runtime_registry():
     """注册清单必须来自当前 registry.list_ops()（非手抄目录）——与 compute_formula
     相同的幂等注册链触发后逐名一致。"""
-    from factorlab.ops.platform_ops import register_platform_ops
-    from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
-    from factorlab.ops.stable_rank import register_stable_rank_ops
-    from factorlab.ops import registry
+    from factorlab.core.ops.platform_ops import register_platform_ops
+    from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
+    from factorlab.core.ops.stable_rank import register_stable_rank_ops
+    from factorlab.core.ops import registry
 
     register_polars_ta_ops()
     register_platform_ops()

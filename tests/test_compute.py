@@ -61,7 +61,7 @@ def test_compute_accepts_platform_thin_ops():
         "volume": [1000.0, 1100.0],
     })
     formula = '''
-from factorlab.ops.platform_ops import returns, adv20
+from factorlab.core.ops.platform_ops import returns, adv20
 signal = returns(close) + adv20(volume)
 '''
     result = compute_formula(df, formula)
@@ -77,7 +77,7 @@ def test_compute_partitions_platform_ops_by_asset():
         "open": [9.0, 11.0, 90.0, 100.0],
         "volume": [100.0, 120.0, 1000.0, 1100.0],
     })
-    r = compute_formula(df, "from factorlab.ops.platform_ops import returns\nsignal = returns(close)")
+    r = compute_formula(df, "from factorlab.core.ops.platform_ops import returns\nsignal = returns(close)")
     assert r["signal"].null_count() == 2  # 每资产首行应为 null
     values = r.filter(pl.col("code") == "A").select("signal").to_series().to_list()
     assert values[0] is None
@@ -135,7 +135,7 @@ def test_compute_vwap_cumulative_by_asset():
         "close": [10.0, 12.0, 100.0, 110.0],
         "volume": [100.0, 120.0, 1000.0, 1100.0],
     })
-    r = compute_formula(df, "from factorlab.ops.platform_ops import vwap\nsignal = vwap(close, close, close, volume)")
+    r = compute_formula(df, "from factorlab.core.ops.platform_ops import vwap\nsignal = vwap(close, close, close, volume)")
     b = r.filter(pl.col("code") == "B").sort("date")["signal"].to_list()
     assert b[0] == pytest.approx(100.0)                      # 资产内累计首行 = 自身
     assert b[1] == pytest.approx(105.238095)                 # 不含 A 的数据
@@ -147,7 +147,7 @@ def test_compute_partitions_aliased_platform_op_by_asset():
         "code": ["A", "A", "B", "B"],
         "close": [10.0, 12.0, 100.0, 110.0],
     })
-    r = compute_formula(df, "from factorlab.ops.platform_ops import returns as ret\nsignal = ret(close)")
+    r = compute_formula(df, "from factorlab.core.ops.platform_ops import returns as ret\nsignal = ret(close)")
     assert r["signal"].null_count() == 2  # 别名后的薄封装同样按资产分区
 
 

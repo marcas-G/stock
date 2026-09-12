@@ -1,5 +1,5 @@
-from factorlab.ops import registry
-from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
+from factorlab.core.ops import registry
+from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
 
 
 def test_registers_core_wq_operators():
@@ -9,7 +9,7 @@ def test_registers_core_wq_operators():
         assert registry.get_op(name).kind in {"ts", "cs"}
     # M6-07C2J：cs_rank canonical 名归平台 stable（vendor 不再注册）——由
     # register_stable_rank_ops 注册（aliases=("cs_rank",)）
-    from factorlab.ops.stable_rank import register_stable_rank_ops
+    from factorlab.core.ops.stable_rank import register_stable_rank_ops
     register_stable_rank_ops()
     assert registry.get_op("cs_rank").kind == "cs"
     assert registry.get_op("cs_rank").version == "0.2.0"

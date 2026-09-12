@@ -26,7 +26,7 @@ import numpy as np
 import polars as pl
 
 from factorlab.core.numerics import float64_ulp_distance
-from factorlab.ops.registry import factor_op
+from factorlab.core.ops.registry import factor_op
 
 STABLE_RANK_MAX_ULPS = 4
 
@@ -191,7 +191,7 @@ def rewrite_stable_rank(source: str) -> str:
     rewriter = _Rewriter()
     out = ast.unparse(rewriter.visit(tree))
     if rewriter.used:
-        out = "from factorlab.ops.stable_rank import cs_stable_rank\n" + out
+        out = "from factorlab.core.ops.stable_rank import cs_stable_rank\n" + out
     return out
 
 

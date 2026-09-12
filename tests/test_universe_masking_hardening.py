@@ -13,8 +13,8 @@ import polars as pl
 import pytest
 
 from factorlab.engine.compute import compute_formula
-from factorlab.ops import universe_masking as um
-from factorlab.ops.registry import factor_op, reset_registry
+from factorlab.core.ops import universe_masking as um
+from factorlab.core.ops.registry import factor_op, reset_registry
 
 
 def _df(rows: list[tuple]) -> pl.DataFrame:
@@ -59,9 +59,9 @@ def test_cs_import_alias_numerical_isolation():
 # ================================================================
 
 def test_gp_import_alias_transformer():
-    """`from factorlab.ops.platform_ops import gp_rank as gr; signal = gr(industry, close)`——
+    """`from factorlab.core.ops.platform_ops import gp_rank as gr; signal = gr(industry, close)`——
     canonical=gp_rank：group key 不 mask、数据参数 mask；**callable 名保持 alias 不改写**。"""
-    formula = ("from factorlab.ops.platform_ops import gp_rank as gr\n"
+    formula = ("from factorlab.core.ops.platform_ops import gp_rank as gr\n"
                "signal = gr(industry, close)")
     out = um.apply_universe_masking(formula, "__factorlab_universe_active")
     tree = ast.parse(out)

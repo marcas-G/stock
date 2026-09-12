@@ -182,6 +182,6 @@ def test_internal_binding_rejected_even_without_mask():
 
 def test_in_universe_binding_rejected():
     """in_universe 不能作为用户绑定名（引擎 PIT 标记列的命名空间）。"""
-    from factorlab.ops.universe_masking import validate_reserved_bindings
+    from factorlab.core.ops.universe_masking import validate_reserved_bindings
     with pytest.raises(ValueError, match="reserved internal name"):
         validate_reserved_bindings("in_universe = close\nsignal = in_universe")

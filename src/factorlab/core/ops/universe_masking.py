@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import ast
 
-from factorlab.ops.registry import get_op, has_op
+from factorlab.core.ops.registry import get_op, has_op
 
 # CS/GP 算子的"数据参数"位置（参与截面统计、需 active mask 的参数）：
 # group key（gp_rank/gp_mean 的第 0 参）不需要改 null（分组键语义——键含全
@@ -150,9 +150,9 @@ def apply_universe_masking(source: str, mask_name: str) -> str:
     - kind=cs/gp 但 registry 未声明数据参数位置 → ValueError（fail fast，含 operator name）
     - **不改写用户 callable**：mask 只包数据参数，调用名保持原样（alias 原样）
     """
-    from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
-    from factorlab.ops.platform_ops import register_platform_ops
-    from factorlab.ops.stable_rank import register_stable_rank_ops
+    from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
+    from factorlab.core.ops.platform_ops import register_platform_ops
+    from factorlab.core.ops.stable_rank import register_stable_rank_ops
     register_polars_ta_ops()   # 幂等：独立调用时注册表可能为空
     register_platform_ops()
     register_stable_rank_ops()   # M6-07C2J：cs_rank canonical 归平台 stable（alias 解析需要）

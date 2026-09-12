@@ -1,7 +1,7 @@
 import pytest
 
 from factorlab.core.factor.errors import FactorDSLError
-from factorlab.ops.platform_ops import inline_defs, rewrite_expr_methods
+from factorlab.core.ops.platform_ops import inline_defs, rewrite_expr_methods
 
 
 def test_inline_single_def_with_window_ops():

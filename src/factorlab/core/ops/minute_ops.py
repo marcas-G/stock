@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from factorlab.ops.registry import factor_op
+from factorlab.core.ops.registry import factor_op
 
 _PARTITION = ["code", "date"]
 _ORDER = "minute_index"
@@ -110,7 +110,7 @@ _DAY_OPS = {"day_last": day_last, "day_first": day_first, "day_sum": day_sum,
 # extra_codes 注入用同一名单（compute_formula scope="bars_1m" 与注册表同源防漂移）
 IMPORT_NAMES = (*_IM_OPS, *_DAY_OPS)
 EXTRA_CODES = (
-    "from factorlab.ops.minute_ops import ("
+    "from factorlab.core.ops.minute_ops import ("
     + ", ".join(IMPORT_NAMES)
     + ")"
 )

@@ -7,7 +7,7 @@ import polars as pl
 
 from factorlab.core.factor.ast_gate import ALLOWED_EXPR_METHODS
 from factorlab.core.factor.errors import FactorDSLError
-from factorlab.ops.registry import factor_op
+from factorlab.core.ops.registry import factor_op
 
 
 def returns(close: pl.Expr) -> pl.Expr:

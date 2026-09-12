@@ -55,7 +55,7 @@ ALLOWED_NODES = {
 ALLOWED_IMPORT_PREFIXES = (
     "polars",
     "polars_ta.prefix.",
-    "factorlab.ops.",
+    "factorlab.core.ops.",
 )
 
 FORBIDDEN_CALLS = {"eval", "exec", "open", "compile", "__import__"}

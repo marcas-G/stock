@@ -2,9 +2,9 @@ import pytest
 
 from factorlab.engine.partitions import reject_future_shifts, validate_partition_calls
 from factorlab.core.factor.errors import FactorDSLError
-from factorlab.ops import registry
-from factorlab.ops.platform_ops import inline_defs, register_platform_ops
-from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
+from factorlab.core.ops import registry
+from factorlab.core.ops.platform_ops import inline_defs, register_platform_ops
+from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
 
 
 @pytest.fixture(autouse=True)
@@ -12,7 +12,7 @@ def _registered_ops():
     registry.reset_registry()
     register_polars_ta_ops()
     register_platform_ops()
-    from factorlab.ops.stable_rank import register_stable_rank_ops
+    from factorlab.core.ops.stable_rank import register_stable_rank_ops
     register_stable_rank_ops()   # M6-07C2J：cs_rank canonical 归平台 stable
 
 
@@ -129,7 +129,7 @@ def test_allows_positive_const_and_reassignment():
 
 def test_import_alias_resolves_to_known_op():
     validate_partition_calls(
-        "from factorlab.ops.platform_ops import returns as ret\nsignal = ret(close)"
+        "from factorlab.core.ops.platform_ops import returns as ret\nsignal = ret(close)"
     )
 
 

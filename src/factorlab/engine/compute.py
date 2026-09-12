@@ -24,16 +24,16 @@ from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.engine.forward import DEFAULT_FORWARD_HORIZONS, compute_forward_returns
 from factorlab.engine.partitions import reject_future_shifts, validate_partition_calls
 from factorlab.core.factor.ast_gate import validate_formula
-from factorlab.ops.platform_ops import (
+from factorlab.core.ops.platform_ops import (
     expand_platform_macros,
     expand_user_macros,
     inline_defs,
     register_platform_ops,
     rewrite_expr_methods,
 )
-from factorlab.ops.minute_ops import EXTRA_CODES, register_minute_ops
-from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
-from factorlab.ops.universe_masking import (apply_universe_masking,
+from factorlab.core.ops.minute_ops import EXTRA_CODES, register_minute_ops
+from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
+from factorlab.core.ops.universe_masking import (apply_universe_masking,
                                             validate_reserved_bindings)
 from factorlab.process.registry import run_process_chain
 from factorlab.core.spec import FactorSpec
@@ -126,7 +126,7 @@ def compute_formula(
     formula = inline_defs(formula)  # def 内联（幂等：无 def 原样返回）——窗口算子合法化为顶层 ts_ 调用
     formula = rewrite_expr_methods(formula)  # 元素级方法链 → 函数调用（expr_codegen 不支持属性调用）
     formula = expand_platform_macros(formula)  # 薄封装 → ts_ 表达式，保证按 asset 分区
-    from factorlab.ops.stable_rank import rewrite_stable_rank
+    from factorlab.core.ops.stable_rank import rewrite_stable_rank
     formula = rewrite_stable_rank(formula)  # M6-07C2I：cs_rank → 平台 stable 实现（+ import）
     if universe_mask is not None:
         # M6-03：CS/GP 算子的数据参数包 if_else(mask, arg, None)——TS 仍见完整
@@ -137,7 +137,7 @@ def compute_formula(
     register_polars_ta_ops()  # 幂等；保证分区校验能识别 ts_/cs_/ta_ 算子
     register_platform_ops()
     register_minute_ops()  # 幂等注册 im_*/day_*（minute scope 公式面；daily 的拒门在下方）
-    from factorlab.ops.stable_rank import register_stable_rank_ops
+    from factorlab.core.ops.stable_rank import register_stable_rank_ops
     register_stable_rank_ops()  # 幂等注册 cs_stable_rank（registry 可能被 reset_registry 清空）
     _check_future_inputs(formula)
     # scope 门（变换后文本——宏残余/内联 def 已就位）：bars_1m 静态门 vs daily 拒分钟算子
@@ -174,9 +174,9 @@ def compute_formula(
         # 代码头部，非序列）。模块别名 import 形式在 codegen 作用域不可用
         # （实测），必须直接 import 名。bars_1m scope：追加 minute_ops 名（单
         # 字符串多行——minute 红测试实测通过；与注册表名单同源防漂移）。
-        extra_codes=("from factorlab.ops.platform_ops import cs_mean, cs_rank\n"
+        extra_codes=("from factorlab.core.ops.platform_ops import cs_mean, cs_rank\n"
                      + EXTRA_CODES) if scope == "bars_1m"
-        else "from factorlab.ops.platform_ops import cs_mean, cs_rank",
+        else "from factorlab.core.ops.platform_ops import cs_mean, cs_rank",
     ).collect()
     # 兜底：codegen 结果缺失声明输出（变换语义偏差）也点名报错
     missing = [o for o in outputs if o not in result.columns]

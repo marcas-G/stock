@@ -6,7 +6,7 @@ import json
 import shutil
 from pathlib import Path
 
-from factorlab.ops import registry
+from factorlab.core.ops import registry
 
 
 MANIFEST = "manifest.json"

@@ -3,7 +3,7 @@ import textwrap
 import polars as pl
 import pytest
 
-from factorlab.ops import plugins, registry
+from factorlab.core.ops import plugins, registry
 
 
 def write_plugin(plugin_dir, name="dummy_op"):
@@ -11,7 +11,7 @@ def write_plugin(plugin_dir, name="dummy_op"):
     path = plugin_dir / "my_ops.py"
     path.write_text(textwrap.dedent(f'''
         import polars as pl
-        from factorlab.ops.registry import factor_op
+        from factorlab.core.ops.registry import factor_op
 
         @factor_op("{name}", kind="ts", version="0.1.0")
         def {name}(x: pl.Expr, n: int) -> pl.Expr:

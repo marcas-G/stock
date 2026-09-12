@@ -2,7 +2,7 @@
 
 from polars_ta.prefix import ta, tdx, wq
 
-from factorlab.ops.registry import factor_op
+from factorlab.core.ops.registry import factor_op
 
 
 _WQ_TS = (

@@ -31,11 +31,11 @@ from factorlab.data.verify import (
 )
 from factorlab.engine import reserved as _reserved
 from factorlab.core.factor.ast_gate import ALLOWED_EXPR_METHODS
-from factorlab.ops import registry as _registry
-from factorlab.ops.platform_ops import register_platform_ops
-from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
-from factorlab.ops.minute_ops import register_minute_ops
-from factorlab.ops.stable_rank import register_stable_rank_ops
+from factorlab.core.ops import registry as _registry
+from factorlab.core.ops.platform_ops import register_platform_ops
+from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
+from factorlab.core.ops.minute_ops import register_minute_ops
+from factorlab.core.ops.stable_rank import register_stable_rank_ops
 
 SCHEMA_VERSION = 1
 
@@ -349,7 +349,7 @@ def _gates() -> list[dict]:
                 "tests/test_partitions.py::test_rejects_window_op_inside_def",
                 "tests/test_partitions.py::test_import_alias_of_window_op_inside_def_rejected",
             ],
-            "probe": "from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops\nregister_polars_ta_ops()\nfrom factorlab.engine.partitions import validate_partition_calls\nvalidate_partition_calls('def f(x):\\n    return ts_mean(x, 5)\\nsignal = f(close)')",
+            "probe": "from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops\nregister_polars_ta_ops()\nfrom factorlab.engine.partitions import validate_partition_calls\nvalidate_partition_calls('def f(x):\\n    return ts_mean(x, 5)\\nsignal = f(close)')",
         },
         {
             "id": "gate_def_varargs",
@@ -362,7 +362,7 @@ def _gates() -> list[dict]:
             "tests": [
                 "tests/test_inline_defs.py::test_inline_def_varargs_kwonly_rejected",
             ],
-            "probe": "from factorlab.ops.platform_ops import inline_defs\ninline_defs('def f(x, *args):\\n    return x + args\\n\\nsignal = f(close, 1)')",
+            "probe": "from factorlab.core.ops.platform_ops import inline_defs\ninline_defs('def f(x, *args):\\n    return x + args\\n\\nsignal = f(close, 1)')",
         },
         {
             "id": "gate_def_keyword_call",
@@ -375,7 +375,7 @@ def _gates() -> list[dict]:
             "tests": [
                 "tests/test_inline_defs.py::test_inline_def_keyword_args_rejected",
             ],
-            "probe": "from factorlab.ops.platform_ops import inline_defs\ninline_defs('def f(x, n):\\n    return x + n\\n\\nsignal = f(close, n=1)')",
+            "probe": "from factorlab.core.ops.platform_ops import inline_defs\ninline_defs('def f(x, n):\\n    return x + n\\n\\nsignal = f(close, n=1)')",
         },
         {
             "id": "gate_def_recursion",
@@ -389,7 +389,7 @@ def _gates() -> list[dict]:
                 "tests/test_inline_defs.py::test_inline_recursive_def_rejected",
                 "tests/test_inline_defs.py::test_inline_indirect_recursion_rejected",
             ],
-            "probe": "from factorlab.ops.platform_ops import inline_defs\ninline_defs('def f(x):\\n    return f(x)\\n\\nsignal = f(close)')",
+            "probe": "from factorlab.core.ops.platform_ops import inline_defs\ninline_defs('def f(x):\\n    return f(x)\\n\\nsignal = f(close)')",
         },
         {
             "id": "gate_negative_shift",
@@ -462,7 +462,7 @@ def _gates() -> list[dict]:
                 "tests/test_universe_masking_hardening.py::test_reserved_assignment_fails",
                 "tests/test_input_surface.py::test_in_universe_binding_rejected",
             ],
-            "probe": "from factorlab.ops.universe_masking import validate_reserved_bindings\nvalidate_reserved_bindings('in_universe = 1')",
+            "probe": "from factorlab.core.ops.universe_masking import validate_reserved_bindings\nvalidate_reserved_bindings('in_universe = 1')",
         },
         {
             "id": "gate_reserved_read",

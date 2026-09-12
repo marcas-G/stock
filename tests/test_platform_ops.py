@@ -2,8 +2,8 @@ import polars as pl
 import pytest
 
 from factorlab.core.factor.errors import FactorDSLError
-from factorlab.ops import registry
-from factorlab.ops.platform_ops import (
+from factorlab.core.ops import registry
+from factorlab.core.ops.platform_ops import (
     adv20,
     expand_platform_macros,
     expand_user_macros,

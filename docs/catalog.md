@@ -177,7 +177,7 @@ validate_partition_calls('signal = no_such_op(close, 3)')
 - 报错文案样板：`不能在 def 内使用，请直接写在公式顶层`
 - 修法：把窗口语义提到公式顶层（def 只做元素级/参数化组合）；或把窗口结果作为实参传入 def
 - 触发探针：```python
-from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
+from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
 register_polars_ta_ops()
 from factorlab.engine.partitions import validate_partition_calls
 validate_partition_calls('def f(x):\n    return ts_mean(x, 5)\nsignal = f(close)')
@@ -191,7 +191,7 @@ validate_partition_calls('def f(x):\n    return ts_mean(x, 5)\nsignal = f(close)
 - 报错文案样板：`不支持 *args/**kwargs 参数`
 - 修法：形参全部改写为确定的位置参数表（可带缺省值）——内联展开需要确定形参绑定
 - 触发探针：```python
-from factorlab.ops.platform_ops import inline_defs
+from factorlab.core.ops.platform_ops import inline_defs
 inline_defs('def f(x, *args):\n    return x + args\n\nsignal = f(close, 1)')
 ```
 - 对照测试：`tests/test_inline_defs.py::test_inline_def_varargs_kwonly_rejected`
@@ -203,7 +203,7 @@ inline_defs('def f(x, *args):\n    return x + args\n\nsignal = f(close, 1)')
 - 报错文案样板：`调用不支持关键字参数`
 - 修法：def 调用按形参定义顺序给位置实参
 - 触发探针：```python
-from factorlab.ops.platform_ops import inline_defs
+from factorlab.core.ops.platform_ops import inline_defs
 inline_defs('def f(x, n):\n    return x + n\n\nsignal = f(close, n=1)')
 ```
 - 对照测试：`tests/test_inline_defs.py::test_inline_def_keyword_args_rejected`
@@ -215,7 +215,7 @@ inline_defs('def f(x, n):\n    return x + n\n\nsignal = f(close, n=1)')
 - 报错文案样板：`递归 def 不支持内联: `
 - 修法：改写为非递归结构（把递归体展开为有限层或改为顶层窗口组合）
 - 触发探针：```python
-from factorlab.ops.platform_ops import inline_defs
+from factorlab.core.ops.platform_ops import inline_defs
 inline_defs('def f(x):\n    return f(x)\n\nsignal = f(close)')
 ```
 - 对照测试：`tests/test_inline_defs.py::test_inline_recursive_def_rejected`, `tests/test_inline_defs.py::test_inline_indirect_recursion_rejected`
@@ -267,7 +267,7 @@ _check_future_inputs('x = close + forward_return_5d')
 - 报错文案样板：`（平台内部保留：`
 - 修法：改名——内部名是引擎运行时命名空间（__factorlab_* 前缀 / in_universe），不由模板占用
 - 触发探针：```python
-from factorlab.ops.universe_masking import validate_reserved_bindings
+from factorlab.core.ops.universe_masking import validate_reserved_bindings
 validate_reserved_bindings('in_universe = 1')
 ```
 - 对照测试：`tests/test_universe_masking_hardening.py::test_reserved_assignment_fails`, `tests/test_input_surface.py::test_in_universe_binding_rejected`
@@ -306,7 +306,7 @@ validate_partition_calls('signal = no_such_op(close, 3)')
 - 报错文案样板：`不能在 def 内使用，请直接写在公式顶层`
 - 修法：把窗口语义提到公式顶层（def 只做元素级/参数化组合）；或把窗口结果作为实参传入 def
 - 触发探针：```python
-from factorlab.ops.polars_ta_wrappers import register_polars_ta_ops
+from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
 register_polars_ta_ops()
 from factorlab.engine.partitions import validate_partition_calls
 validate_partition_calls('def f(x):\n    return ts_mean(x, 5)\nsignal = f(close)')
@@ -319,7 +319,7 @@ validate_partition_calls('def f(x):\n    return ts_mean(x, 5)\nsignal = f(close)
 - 报错文案样板：`不支持 *args/**kwargs 参数`
 - 修法：形参全部改写为确定的位置参数表（可带缺省值）——内联展开需要确定形参绑定
 - 触发探针：```python
-from factorlab.ops.platform_ops import inline_defs
+from factorlab.core.ops.platform_ops import inline_defs
 inline_defs('def f(x, *args):\n    return x + args\n\nsignal = f(close, 1)')
 ```
 - 对照测试：`tests/test_inline_defs.py::test_inline_def_varargs_kwonly_rejected`
@@ -330,7 +330,7 @@ inline_defs('def f(x, *args):\n    return x + args\n\nsignal = f(close, 1)')
 - 报错文案样板：`调用不支持关键字参数`
 - 修法：def 调用按形参定义顺序给位置实参
 - 触发探针：```python
-from factorlab.ops.platform_ops import inline_defs
+from factorlab.core.ops.platform_ops import inline_defs
 inline_defs('def f(x, n):\n    return x + n\n\nsignal = f(close, n=1)')
 ```
 - 对照测试：`tests/test_inline_defs.py::test_inline_def_keyword_args_rejected`
@@ -341,7 +341,7 @@ inline_defs('def f(x, n):\n    return x + n\n\nsignal = f(close, n=1)')
 - 报错文案样板：`递归 def 不支持内联: `
 - 修法：改写为非递归结构（把递归体展开为有限层或改为顶层窗口组合）
 - 触发探针：```python
-from factorlab.ops.platform_ops import inline_defs
+from factorlab.core.ops.platform_ops import inline_defs
 inline_defs('def f(x):\n    return f(x)\n\nsignal = f(close)')
 ```
 - 对照测试：`tests/test_inline_defs.py::test_inline_recursive_def_rejected`, `tests/test_inline_defs.py::test_inline_indirect_recursion_rejected`
@@ -388,7 +388,7 @@ _check_future_inputs('x = close + forward_return_5d')
 - 报错文案样板：`（平台内部保留：`
 - 修法：改名——内部名是引擎运行时命名空间（__factorlab_* 前缀 / in_universe），不由模板占用
 - 触发探针：```python
-from factorlab.ops.universe_masking import validate_reserved_bindings
+from factorlab.core.ops.universe_masking import validate_reserved_bindings
 validate_reserved_bindings('in_universe = 1')
 ```
 - 对照测试：`tests/test_universe_masking_hardening.py::test_reserved_assignment_fails`, `tests/test_input_surface.py::test_in_universe_binding_rejected`
