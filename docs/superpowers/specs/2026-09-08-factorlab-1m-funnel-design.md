@@ -1,7 +1,8 @@
 # bars_1m 漏斗机制（Interface #2）— 设计规格
 
 日期：2026-09-08。配套计划：`docs/superpowers/plans/2026-09-08-factorlab-1m-funnel.md`。
-状态：已实现（W1-W6 完成，main 见文末验证记录；W7 研究侧批算工具独立推进）。
+状态：已实现（W1-W7 全部完成；验证记录见文末——main W1-W6，研究侧 W7 提交于
+`research` 分支 b5a963c，产物 = 全史折日特征 parquet）。
 
 ## 背景与决策
 
@@ -236,6 +237,11 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
 - R7（warmup_days）：分钟链忽略 ctx.warmup_days（日内窗无预热概念）；summary
   不标注键（B4.3"标注"项省略——语义由 runtime_semantics=minute_intraday_fold_v1
   承载）；注入列 adv20 左窗引擎独立预取（固定 20 交易日，与 ctx 无关）。
+- R8（Compare 左操作数，W7 收尾覆盖率审计发现）：_fold_const 的 Compare 分支
+  原只查 comparators（右侧），**序列在左的比较**（signal = close > 1 直出）会被
+  误判为折日常数放行——此前仅靠运行时 (date, code) 组内 n_unique==1 断言（R6
+  双保险）兜底；现静态门直接拒（两侧都须折日常数），错误表"折日"文案路径提前
+  命中。日频路径不受影响（日频不用此 fold）。
 - 其余规格行（B1.1/B2/B3/B4.1/B4.2/B4.5/B4.6/B4.7/B5/B6.2-B6.4/B7）与实现
   逐条一致；差异仅措辞级（如引擎门文案比错误表更具体，测试按文案子串匹配）。
 
@@ -260,11 +266,29 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
   run_factor_minute）。CLI 分钟 e2e（CH 假库）exit 0 + summary
   runtime_semantics/interface/grid_rows_per_day + 评估链接入；日频 CLI 零回归。
   全量 2419 passed。
-- W6（本 commit feat(engine)）：tests/test_minute_prod_e2e.py 真 CH 三对拍
+- W6（dd31181 feat(engine)）：tests/test_minute_prod_e2e.py 真 CH 三对拍
   PASSED（2026-08-07..2026-08-21 生产库 10 交易日 × 2 code）：loader 逐
   (code, 交易日) == CH 直连 count == 240；day_last(close) == minute_index 239
   行 close（同 f32 源）== daily 面 raw close f64（rel ≤ 1e-5）；分钟 label ==
   日频链同窗面板子集逐值全等（含 null 形态）；summary/产物元数据。文档收口：
   interface.md 分钟面 API/门/修订注记同步；本规格状态翻转 + 修订记录。
   全量 2420 passed（含新 prod e2e）。
+- W7（research b5a963c，tools/1m_features/）：全市场折日特征批算工具 + 全史
+  产物。与平台共用 compute_minute_factor_panel 纯入口（B4.7：批算==引擎）；
+  check-day 闸门 2024-01-15 真数据交叉对拍：引擎（CH run_factor_minute 同
+  spec）× 本地 parquet 路径 5249 键，vwap30_bias/open30_amt_share 两特征
+  max|Δ| = 0.0 逐值一致；batch 单进程按月流式 + state.json 断点续跑 + del/gc
+  （实测单月峰值 RSS ≈7GB，16GB 无页面文件机建议 POLARS_MAX_THREADS=4）；
+  全史 2020-01..2026-08 共 80 月 7,721,191 行/特征（键唯一、有序、两特征文件
+  键集一致，Σ月部分 == merged）。数据缺口政策（2025-12 起 daily_fact 冻结池
+  与 bars zip 源池漂移——无当日日线键引擎同样 fail-fast 不可算）：剔除并逐月
+  计数；vwap30_bias 0/0 死盘 NaN=1176、open30_amt_share 日线 amount 洞
+  null=72（2026-06 十一 code）按 B2 保留原样 + QA 计数。README/产物文档齐。
+  平台侧（main）：全量 2420 passed 13 skipped 零回归（本文档为其最终收口）。
+- W7 收尾审计（6fca689 后）：覆盖率抽查落档——engine/minute.py 86%、minute_gate
+  .py 98%、ops/minute_ops.py 91%、data/intraday.py 99%（全量套件口径，模块抽查
+  线 ≥85 全过）；catalog 活文档 `factorlab catalog docs` 重生成 diff == 0 无漂移
+  （im_*/day_* 目录行与代码同源）；审计补测 3 个 gate 直调用例（折叠子分支/
+  AnnAssign/缺失 outputs），红→绿过程发现 Compare 左操作数漏检 → 修复 + R8 记
+  录。全量 2423 passed 13 skipped。
 

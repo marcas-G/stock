@@ -1,10 +1,15 @@
 import os
+from pathlib import Path
 
 import pytest
 
 # 平台库（main 工作树 data/factorlab.duckdb，只读引用——M4a 起唯一数据源；
-# 旧只读库（date/code 列）已废弃：无 stock_basic/adj_factor 等平台表）
-REAL_DB = "C:/Users/ThinkPad/quant-platform/data/factorlab.duckdb"
+# 旧只读库（date/code 列）已废弃：无 stock_basic/adj_factor 等平台表）。
+# 默认按本文件相对定位到工作树（移动/换机不再失效）；FACTORLAB_REAL_DB 可覆盖。
+REAL_DB = os.environ.get(
+    "FACTORLAB_REAL_DB",
+    str(Path(__file__).resolve().parents[1] / "data" / "factorlab.duckdb"),
+)
 
 
 @pytest.fixture

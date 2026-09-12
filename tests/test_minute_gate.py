@@ -115,3 +115,60 @@ def test_minute_scope_forbids_universe_mask():
         compute_formula(_min_df(), "signal = day_last(close)",
                         universe_mask="__factorlab_universe_active",
                         scope="bars_1m")
+
+
+# ---------------------------------------------------------------- gate 直调层
+# 下列为 validate_minute_scope/折叠判定分支的直调补测（compute_formula 变换链会
+# 先期常量折叠/改写，部分折叠子分支只在此层可达）——行为锚点仍为 B2.4/B3.4。
+from factorlab.engine.minute_gate import validate_minute_scope
+
+
+def test_gate_direct_window_shift_arithmetic_folds():
+    """窗口/位移参数的算术折叠（B3.4 门漏 = codegen 静默生成未来行）：四则组合
+    折叠为负/零位移必拒；未知算子形态（Pow 不折叠）保守放行（运行时另层兜底）。"""
+    for bad in ("signal = day_last(im_delay(close, 1 + 2 - 4))",   # Add+Sub → -1
+                "signal = day_last(im_delay(close, 3 - 4))",       # Sub → -1
+                "signal = day_last(im_delay(close, 2 * 3 - 6))",   # Mult → 0
+                "signal = day_last(im_delay(close, 7 % 2 - 8))",   # Mod+Sub → -7
+                "signal = day_last(im_delay(close, 6 // 7))",      # FloorDiv → 0
+                "signal = day_last(im_delay(close, 10 / 5 - 2))",  # Div → 0
+                "signal = day_last(im_delay(close, d=0))",         # kw d → 0
+                "_k = -3\nsignal = day_last(im_delay(close, d=_k))"):
+        with pytest.raises(ValueError, match="im_delay"):
+            validate_minute_scope(bad, ["signal"])
+    # 折叠为正位移/正窗口 → 放行（保守：Pow 不折叠 k=None 也放行）
+    validate_minute_scope(
+        "signal = day_last(im_delay(close, 7 % 2))\n"
+        "s2 = day_sum(im_mean(close, 2 * 3))", ["signal", "s2"])
+    validate_minute_scope("signal = day_last(im_delay(close, 2 ** 4))",
+                          ["signal"])
+
+
+def test_gate_direct_fold_combinators():
+    """折日 fold 判定组合子：未知列名=序列（拒）、一元负序列（拒）、BoolOp 含
+    序列（拒）、Compare 对序列（拒）、一元保常数函数与 if_else 全常数（放行）、
+    未注册调用（拒）——B2.4 折日语义的逐分支锚点。"""
+    for bad in ("signal = day_last(close) + mystery_col",
+                "signal = -im_sum(close, 5)",
+                "signal = (day_last(close) > 0) & (close > 1)",
+                "signal = day_last(close) > close",
+                "signal = day_sum(amount) + 1\n"
+                "s2 = mystery_fn(day_last(close))",
+                "signal = if_else(mystery_col > 1, day_sum(amount), 0)"):
+        with pytest.raises(ValueError, match="折日"):
+            validate_minute_scope(bad, ["signal", "s2"] if "s2" in bad
+                                  else ["signal"])
+    validate_minute_scope(
+        "a = abs(day_sum(amount))\n"
+        "b = if_else(day_last(close) > 10, day_sum(amount), a)",
+        ["a", "b"])
+
+
+def test_gate_direct_annotated_and_missing_outputs():
+    """顶层 AnnAssign（类型注解赋值）入 assigns 表；declared output 未在公式产生
+    → continue（缺列核对留给 compute_formula 声明不符报错，门不越位）。"""
+    validate_minute_scope("signal: float = day_last(close)", ["signal"])
+    validate_minute_scope("signal = day_last(close)", ["signal", "nosuch"])
+    with pytest.raises(ValueError, match="im_delay"):
+        validate_minute_scope("_k = 0\nsignal: float = day_last(im_delay("
+                              "close, _k))", ["signal"])

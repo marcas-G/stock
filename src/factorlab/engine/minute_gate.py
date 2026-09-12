@@ -161,7 +161,10 @@ def _fold_const(node: ast.expr, assigns: dict[str, ast.expr],
     if t is ast.BoolOp:
         return all(_fold_const(v, assigns, memo) for v in node.values)
     if t is ast.Compare:
-        return all(_fold_const(cmp, assigns, memo) for cmp in node.comparators)
+        # 比较两侧都须折日常数——只查 comparators 会放行序列在左的比较
+        # （close > 1 直出 = 非折日输出；此前靠运行时 dedup 双保险兜底）
+        return _fold_const(node.left, assigns, memo) \
+            and all(_fold_const(cmp, assigns, memo) for cmp in node.comparators)
     if t is ast.Call:
         name = node.func.id
         if name in _DAY_CALLS:             # day_*：折日常数（子参数任意）

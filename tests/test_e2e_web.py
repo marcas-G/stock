@@ -1,8 +1,8 @@
 """M5 端到端集成：真实 results 目录的 Web 可视化冒烟。
 
-真实 results 目录在 main 工作树（C:/Users/ThinkPad/quant-platform/results/，
-含 m4b_smoke/acceptance/demo_vol_skew）——与 conftest REAL_DB 同模式：
-绝对路径引用 + 缺失 skip（FACTORLAB_RESULTS_DIR 可覆盖）。
+真实 results 目录默认取本工作树的 `results/`（相对本文件定位；含
+m4b_smoke/acceptance/demo_vol_skew 等）——与 conftest REAL_DB 同模式：
+缺失即 skip（FACTORLAB_RESULTS_DIR 可覆盖，指向别处的 results）。
 """
 import os
 from pathlib import Path
@@ -13,7 +13,8 @@ from fastapi.testclient import TestClient
 from factorlab.web.app import create_app
 
 REAL_RESULTS = Path(os.environ.get(
-    "FACTORLAB_RESULTS_DIR", "C:/Users/ThinkPad/quant-platform/results"
+    "FACTORLAB_RESULTS_DIR",
+    str(Path(__file__).resolve().parents[1] / "results"),
 ))
 
 pytestmark = pytest.mark.integration

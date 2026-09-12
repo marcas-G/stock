@@ -1,22 +1,29 @@
-# Superpowers 工作流
+# 工作流与技能约定
 
-本目录使用 Superpowers 技能框架进行软件开发。技能位于 `.agents/skills/`，由 Codex 自动发现。
+本仓库的协作代理（Claude Code / Codex 等）工作流约定。硬性工程纪律见 `CLAUDE.md`。
 
-## 核心规则
+## 技能（Skills）
 
-- 任何行动之前，先检查是否有技能适用；只要有 1% 可能适用就必须调用对应技能。
-- 优先级：用户指令 > 技能 > 默认行为。
+- **平台侧**（本仓库无关分支差异）：用户级技能 `~/.claude/skills/`：
+  `factorlab-dsl`（因子 DSL/spec 编写）、`factorlab-data`、`factorlab-ch-pipeline`、
+  `factorlab-backtest`、`factorlab-evaluate`、`quark-share-download`（网盘批量下载）。
+- **研究侧**（仅 `research` worktree）：`../quant-platform-research/.claude/skills/factor-mine/`
+  （挖因子循环：种子→假设审核→变异→实现→审核→入库）。
+- 技能发现：Claude Code 自动发现上述目录；新增技能放对应位置并在此登记。
 
 ## 标准工作流
 
-1. `brainstorming` — 写代码前先厘清需求、探索方案、分块确认设计。
-2. `writing-plans` — 把设计拆成 2-5 分钟可完成的小任务。
-3. `test-driven-development` — 红-绿-重构，先写失败测试。
-4. `executing-plans` / `subagent-driven-development` — 逐任务执行。
-5. `requesting-code-review` — 任务之间做审查。
-6. `finishing-a-development-branch` — 收尾、合并、清理。
+1. **需求澄清**：写代码前先厘清需求与边界（不明确就问，不猜）。
+2. **计划**：多步骤任务先出实施计划（含验收标准），再动手。
+3. **TDD**：红-绿-重构——先写失败测试（断言来自设计文档/规格，不是实现），
+   再写最小实现；替换为存根必败的测试才算有效。
+4. **执行**：逐任务推进；每个任务收尾跑相关测试。
+5. **审查**：关键改动做代码审查（正确性/复用/简化）。
+6. **收尾**：全量 `pytest -q` 通过 + 文档同步 + 按分支纪律提交。
 
 ## 调试与验证
 
-- 修复 bug 用 `systematic-debugging`（四阶段根因分析）。
-- 完成前用 `verification-before-completion` 确认问题真的解决。
+- 修 bug：先复现（最小用例）→ 定位根因 → 修复 → 回归测试锁死。
+- 完成前必须验证"真的通了"：跑真实入口（CLI/API）+ 真实数据，不用"测试通过"
+  替代"端到端可用"。
+- 证据留痕：关键验证命令与输出存档（工作区级见 `stock/docs/verification/`）。
