@@ -55,3 +55,13 @@
 10. **CH 灌入状态与 schema 漂移检查**（低优先）
     现状：`ch_ingest/state.json/` 记录已完成月份；ddl.sql 与 CH 实际 schema 未做逐列核对。
     启动条件：下次灌库前跑一次 ddl diff。
+
+11. **深度重构 WS6 剩余项**（2026-09-12 登记）
+    ① P-5 批算编排单点：端口已在 `ports/batch.py` 定义 + `InlineOrchestrator` 契约测试绿；
+    真实实现 `adapters/batch_flock.py`（flock+ProcessPool+看门狗+_SUCCESS）与三份样板
+    （converters/extract_sz_cancels/run_lob_batch）的切换未做——需逐工具真实批算 + 字节级重跑对照，
+    下一轮专项。
+    ② `tools/ch_ingest` 拆分（common/table_ops）与路径取 `core.factio.paths`。
+    ③ 生产读点（`run_lob_batch._read_date`、`factor_panel._read_tick`）收敛到
+    `adapters.tick_read`（诊断四处已收敛）——生产路径改动需字节级门。
+    ④ catalog 拆分（`core/catalog_model` + `adapters/catalog_docs`，4g 推迟项）。

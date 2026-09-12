@@ -30,6 +30,25 @@
 | `projects/quant-platform-main`（+research）仓库内部 | src 分层、results/ 口径、duckdb 数据链重建、两分支 docs 重叠仍有架构不确定性 | `pending-items.md` #5 |
 | `projects/ashare_alpha3` 内部 | layer1-3 管线、fundamentals 缺源、golden 链路待考 | `pending-items.md` #5/#9 |
 
+## 递归子树 #1：策略挖掘系统深度重构（WS0-WS8，2026-09-12）
+
+spec = `projects/quant-platform-main/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md`。
+
+| 需求（spec §3） | 证据 | 状态 |
+|---|---|---|
+| REQ-Q-008 单副本（research 无平台 src/tests） | `docs/verification/WS1/` | ● |
+| REQ-Q-001 纯核（无 I/O 依赖可导入） | `tests/test_architecture.py` 双门 + `docs/verification/WS3/` | ● |
+| REQ-Q-004 依赖方向（core ✗→ 外层） | 同上（静态门） | ● |
+| REQ-Q-010 旧路径零残留（代码） | 各批 grep/collect 门 + `docs/verification/WS4/` | ● |
+| REQ-Q-010 旧路径零残留（文档） | `tests/test_doc_paths_exist.py`（interface.md 全路径可解析）+ `docs/verification/WS7/` | ● |
+| REQ-Q-002 端口 ≥2 实现 | `tests/test_ports_contract.py`（P-1/P-6 真实现 + 全部内存桩；P-2..P-5 真实现随 WS4/WS6 接线） | ◐ |
+| REQ-Q-007 位级/catalog 一致 | 各批全量位级测试绿 + catalog diff==0 | ● |
+| DER-005 列契约单点（factio.schema） | `core/factio/schema.py` + `docs/verification/WS6/` | ● |
+| DER-008 路径单点（factio.paths） | 平台 `core/factio/paths.py` + 研究 `tools/lob_fact/core/config.py` 派生 | ● |
+| DER-010 研究侧注入单点（_env.py + 落位断言） | `tools/_env.py` + 架构门 | ● |
+| REQ-F-009 纯核入口（GP 消费面） | `factorlab.core.engine.*`（无文件系统/数据库） | ● |
+| WS6 剩余（P-5 编排单点、ch_ingest 拆分、生产读点收敛） | `docs/pending-items.md` #11 | ○ |
+
 ## 变更程序
 
 1. 新增需求/元素 → 先在本表加行（含 LF 与验证方法），再实施。
