@@ -1,0 +1,19 @@
+=== WS2 纯增量性核查（2026-09-12 15:23:24）===
+--- 变更面（应只有新增：ports/ 与两个测试文件）---
+?? src/factorlab/ports/
+?? tests/_doubles.py
+?? tests/test_ports_contract.py
+
+--- 既有文件是否被改动（应为空）---
+（无对既有文件的改动 ✓）
+
+--- 契约测试明细 ---
+tests/test_ports_contract.py::test_read_port_semantics PASSED            [ 12%]
+tests/test_ports_contract.py::test_read_port_real_duckdb_satisfies_protocol PASSED [ 25%]
+tests/test_ports_contract.py::test_artifact_write_contract PASSED        [ 37%]
+tests/test_ports_contract.py::test_panel_store_contract PASSED           [ 50%]
+tests/test_ports_contract.py::test_fact_source_contract PASSED           [ 62%]
+tests/test_ports_contract.py::test_batch_orchestrator_contract PASSED    [ 75%]
+tests/test_ports_contract.py::test_batch_orchestrator_resume_skips_done PASSED [ 87%]
+tests/test_ports_contract.py::test_eval_kernel_contract PASSED           [100%]
+============================== 8 passed in 0.96s ===============================
