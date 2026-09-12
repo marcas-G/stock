@@ -85,7 +85,8 @@ _FORBIDDEN_TOP = ("duckdb", "clickhouse_connect", "requests")
 _FORBIDDEN_PREFIX = ("factorlab.data", "factorlab.ports", "factorlab.adapters",
                      "factorlab.app", "factorlab.surfaces", "factorlab.artifacts",
                      "factorlab.cli", "factorlab.web", "factorlab.process")
-_IO_ATTRS = ("read_parquet", "scan_parquet", "write_parquet", "read_csv")
+_IO_ATTRS = ("read_parquet", "scan_parquet", "write_parquet", "read_csv",
+             "glob", "write_text", "write_bytes")  # 数据文件读写在 adapters；core 只可 read_text 载配置
 
 
 def test_core_has_no_io_or_outer_imports():

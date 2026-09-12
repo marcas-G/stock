@@ -16,7 +16,8 @@ from factorlab.data.refresh import refresh, refresh_indexes
 from factorlab.data.verify import verify_all
 from factorlab.core.factor.errors import FactorDSLError
 from factorlab.core.factor.ast_gate import validate_formula
-from factorlab.core.ops import plugins, registry
+from factorlab.adapters import plugins
+from factorlab.core.ops import registry
 from factorlab.core.spec import load_spec
 
 

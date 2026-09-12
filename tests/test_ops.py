@@ -3,7 +3,8 @@ import textwrap
 import polars as pl
 import pytest
 
-from factorlab.core.ops import plugins, registry
+from factorlab.adapters import plugins
+from factorlab.core.ops import registry
 
 
 def write_plugin(plugin_dir, name="dummy_op"):
