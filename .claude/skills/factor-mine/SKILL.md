@@ -16,7 +16,7 @@ description: 挖因子循环。随机选一个已入库因子为种子，分析�
 ## 前置检查
 
 1. 因子库非空：`ls docs/factors/*.md`（排除 `_template.md`），空则报错并停止。
-2. 平台数据可用：CLI 不报错（平台库在 `data/factorlab.duckdb`）。
+2. 平台数据可用：CLI 不报错（平台库在 main worktree 的 `data/factorlab.duckdb`——当前库不存在，CH 后端可用时以 `FACTORLAB_DATA_BACKEND=ch` 运行）。
 3. 每轮开工前向用户播报：`第 k/N 轮：种子=<seed>`，然后继续（不等待）。
 
 ## CLI 调用方式（重要）
@@ -25,8 +25,8 @@ description: 挖因子循环。随机选一个已入库因子为种子，分析�
 命令均代换为 `$FLAB`）：
 
 ```bash
-FLAB=/c/Users/ThinkPad/AppData/Roaming/Python/Python313/Scripts/factorlab.exe
-# 或先验证：where factorlab / pip show factorlab 找到 console script 路径
+# 平台 venv 的 console script（Linux；Windows 路径为历史残留，2026-09-12 清理）
+FLAB=/data/students/gaolei/stock/projects/quant-platform-main/.venv/bin/factorlab
 ```
 
 前置检查用：`$FLAB list`。
