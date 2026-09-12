@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) 
 from _env import ensure_platform  # noqa: E402
 
 ensure_platform()
-pytest.importorskip("factorlab.data.source", reason="T1 测试需平台 venv（factorlab + duckdb）")
+pytest.importorskip("factorlab.adapters.read.source", reason="T1 测试需平台 venv（factorlab + duckdb）")
 
 import polars as pl  # noqa: E402
 from strategy_crash_bottom import strategy_backtest  # noqa: E402

@@ -31,7 +31,7 @@ from _env import ensure_platform  # noqa: E402
 
 ensure_platform()
 
-from factorlab.data.source import load_daily  # noqa: E402
+from factorlab.adapters.read.source import load_daily  # noqa: E402
 
 K_DEFAULT = 20
 COST_BPS_DEFAULT = 35  # 双边（买入+卖出），基点
