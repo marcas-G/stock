@@ -310,13 +310,17 @@ def write_multi_output_factor_artifacts(output_dir: Path,
 # --------------------------------------------------------------------------
 
 def _load_summary(result_dir: Path) -> dict:
-    p = result_dir / SUMMARY_FILE
-    if not p.exists():
-        raise ValueError(f"summary.json 不存在: {result_dir}")
-    data = json.loads(p.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError(f"summary.json 根结构必须是 dict，实际 {type(data).__name__}")
-    return data
+    """读 summary.json（单点 = adapters.results_fs.read_summary；WS4f）。
+
+    错误语义：缺失/非法 JSON → ValueError（本模块契约；文案保留原前缀）。
+    """
+    from factorlab.adapters.results_fs import read_summary
+    try:
+        return read_summary(result_dir / SUMMARY_FILE)
+    except FileNotFoundError as exc:
+        raise ValueError(f"summary.json 不存在: {result_dir}") from exc
+    except ValueError as exc:
+        raise ValueError(f"summary.json 根结构必须是 dict 或非法 JSON: {exc}") from exc
 
 
 def _check_format_version(summary: dict) -> None:

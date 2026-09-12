@@ -66,5 +66,5 @@ class ParquetPanelStore:
         if df.schema["date"] == pl.String:
             df = df.with_columns(pl.col("date").str.to_date())
         else:
-            df = df.with_columns(pl.col("date").cast(pl.Date))
+            df = df.with_columns(pl.col("date").cast(pl.Date, strict=False))
         return df

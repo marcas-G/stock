@@ -158,28 +158,13 @@ def orthogonalized_ic(weekly_wide: pl.DataFrame, target_col: str,
 
 def _read_aligned_panel(results_dir: pathlib.Path, name: str, fwd_col: str,
                         keep_fwd: bool) -> pl.DataFrame:
-    """读单输出 run 的 panel.parquet → [date, code, name(, fwd_col)] 周频对齐。
+    """读单输出 run 的 panel（读单点 = adapters.panel_store；WS4f）→ 周频对齐输出
+    [date, code, name(, fwd_col)]。
 
-    - 文件缺失 → FileNotFoundError（与 correlation 同文案风格）。
-    - panel 无字面 signal 列（多输出 run）→ ValueError（专门文案）。
-    - date cast pl.Date（容忍字符串日期写盘）；signal → 因子名。
+    缺失/多输出/日期 cast 语义逐字保留（见 ParquetPanelStore.read_aligned_panel）。
     """
-    p = pathlib.Path(results_dir) / name / "panel.parquet"
-    if not p.exists():
-        raise FileNotFoundError(f"因子 {name} 无结果（results/{name}/panel.parquet）")
-    # 先查 schema 再 select：缺 signal 列要报专门文案，而不是 polars 的
-    # ColumnNotFoundError（无字面 signal 列 = 多输出 run 的 panel）
-    if "signal" not in pl.read_parquet_schema(p):
-        raise ValueError(
-            f"因子 {name} 的 panel 缺 signal 列（多输出 run 的 panel 无字面 signal 列）"
-            f"——仅支持单输出 run 的 panel")
-    cols = ["date", "code", "signal"] + ([fwd_col] if keep_fwd else [])
-    df = pl.scan_parquet(p).select(cols).collect().rename({"signal": name})
-    # 字符串日期（测试样板）走 str.to_date()；Date32（真实 panel）直接 cast
-    if df.schema["date"] == pl.String:
-        df = df.with_columns(pl.col("date").str.to_date())
-    else:
-        df = df.with_columns(pl.col("date").cast(pl.Date, strict=False))
+    from factorlab.adapters.panel_store import ParquetPanelStore
+    df = ParquetPanelStore().read_aligned_panel(results_dir, name, fwd_col, keep_fwd)
     return align_weekly(df).select(["date", "code", name] +
                                    ([fwd_col] if keep_fwd else []))
 

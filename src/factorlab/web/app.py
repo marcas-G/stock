@@ -29,18 +29,15 @@ def _safe_name(name: str) -> str:
 
 
 def _load_summary(results_dir: Path, name: str) -> dict:
-    """读取因子 summary.json；缺失/损坏 → 404。入口先校验 name（防御纵深）。"""
+    """读取因子 summary.json；缺失/损坏 → 404（单点 = adapters.results_fs；WS4f）。"""
     name = _safe_name(name)
-    path = results_dir / name / "summary.json"
-    if not path.exists():
-        raise HTTPException(status_code=404, detail=f"因子 {name} 不存在")
+    from factorlab.adapters.results_fs import read_summary
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+        return read_summary(results_dir / name / "summary.json")
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"因子 {name} 不存在") from exc
+    except ValueError as exc:
         raise HTTPException(status_code=404, detail=f"因子 {name} 的 summary 损坏") from exc
-    if not isinstance(data, dict):
-        raise HTTPException(status_code=404, detail=f"因子 {name} 的 summary 损坏")
-    return data
 
 
 def _group(d: dict, key: str) -> dict:
@@ -162,8 +159,9 @@ def create_app(results_dir: Path) -> FastAPI:
         # 相关因子热力图：与库内其他有结果因子（复用 correlation 模块，降级不崩溃）
         try:
             from factorlab.eval.correlation import factor_correlation
-            all_names = sorted(p.parent.name for p in results_dir.glob("*/panel.parquet")
-                               if p.parent.name != name)
+            from factorlab.adapters.panel_store import ParquetPanelStore
+            all_names = [n for n in ParquetPanelStore().list_factors(results_dir)
+                         if n != name]
             if all_names:
                 cm = factor_correlation([name] + all_names, results_dir, sample_weeks=10)
                 # 非 finite（无有效周 → nan）的对不参与展示排序/热力图（rank_corr==rank_corr 排除 NaN）

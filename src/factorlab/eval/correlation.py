@@ -17,14 +17,9 @@ WEEKLY_SAMPLE_STOCKS = 5000
 
 def _load_signal(results_dir: pathlib.Path, name: str,
                  dates: list | None = None) -> pl.DataFrame:
-    """读因子 panel 的 date/code/signal（dates 非 None 时 lazy 先过滤——省内存）。"""
-    p = pathlib.Path(results_dir) / name / "panel.parquet"
-    if not p.exists():
-        raise FileNotFoundError(f"因子 {name} 无结果（results/{name}/panel.parquet）")
-    lf = pl.scan_parquet(p)
-    if dates is not None:
-        lf = lf.filter(pl.col("date").is_in(dates))
-    return (lf.select(["date", "code", "signal"]).rename({"signal": name}).collect())
+    """读因子 panel 的 date/code/signal（单点 = adapters.panel_store；WS4f）。"""
+    from factorlab.adapters.panel_store import ParquetPanelStore
+    return ParquetPanelStore().load_signal_columns(results_dir, name, dates=dates)
 
 
 def _sample_dates(df: pl.DataFrame, n: int, seed: int) -> list:
@@ -145,8 +140,8 @@ def factor_svd(names: list[str] | None, results_dir: str | pathlib.Path,
       loadings（每因子 {name, PC1..PCn} 载荷）。
     """
     if names is None:
-        names = sorted(p.parent.name for p in
-                       pathlib.Path(results_dir).glob("*/panel.parquet"))
+        from factorlab.adapters.panel_store import ParquetPanelStore
+        names = ParquetPanelStore().list_factors(pathlib.Path(results_dir))
     if len(names) < 2:
         raise ValueError("至少需要 2 个因子")
     joined = _join_panels(names, pathlib.Path(results_dir),
