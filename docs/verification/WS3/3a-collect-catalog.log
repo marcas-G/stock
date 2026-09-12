@@ -1,0 +1,16 @@
+=== WS3a 搬迁日志（2026-09-12 15:30:58）===
+moved: domain numerics qa factor spec → src/factorlab/core/
+受影响并重指文件数: 90（src+tests）
+残留旧路径引用: 0
+
+=== 收集检查 ===
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2448 tests collected in 4.36s
+
+=== catalog 重生成 ===
+/data/students/gaolei/stock/projects/quant-platform-main/.venv/bin/python: No module named factorlab.__main__; 'factorlab' is a package and cannot be directly executed
+
+=== test_catalog（diff==0 门）===
+FAILED tests/test_catalog.py::test_markdown_docs_file_committed_and_fresh - A...
+1 failed, 26 passed in 1.88s
