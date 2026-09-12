@@ -1,6 +1,6 @@
 # 策略挖掘系统 · 深度重构 + 端口化设计（P0-P4）
 
-> 状态：WS0 进行中（设计定稿，待 WS1 起实施）。设计方法 = 《递归式需求驱动系统工程开发手册
+> 状态：**WS0-WS8 完成（2026-09-12），P8 Mission satisfied**；剩余项见 pending-items #11。设计方法 = 《递归式需求驱动系统工程开发手册
 > （NASA SE × V-Model）》P0-P4 递归分解；本文即 workspace `docs/pending-items.md` #5
 > 「仓库内部重构」递归子树的 P0-P4 文档。
 > 执行计划与阶段门见 workspace `docs/verification/WS*/` 证据目录与同批 plan 文档。
@@ -214,6 +214,28 @@ WS6 研究侧重排 + 编排单点 → WS7 文档/skills/安装面 → WS8 P7/P8
 ≈21 天保守工作量；检查点 WS1 / WS3-4 / WS6 / WS8。
 
 ## 11. 验证记录
+
+### WS6（2026-09-12）：研究侧重排 — PASS（部分；剩余项 pending #11）
+lob_fact 包化（core/store/pipeline/diag；`store` 而非 `io`——stdlib `io` 在 sys.modules 必然遮蔽）；
+路径单点（`core/config.py` 由 `core.factio.paths` 派生，经 `tools/_env` 落位断言）；
+时间解析单点（`qa/streams.hms_to_ms` 委托 `factio.timeparse`）；tick 读单点
+（4 个诊断读点 → `adapters.tick_read`；cancels 契约入 `factio.schema`）；
+6c：`extract_sz_cancels` 去 `cvt.SCHEMAS` 全局注册 → `MonthWriter(schema=)`。
+未做（登记 pending #11）：P-5 编排真实实现与三样板切换、ch_ingest 拆分、
+生产读点（run_lob_batch/factor_panel）收敛、catalog 拆分——均需字节级重跑门配套。
+门：lob 183 passed；1m check-day max|Δ|=0。
+
+### WS7（2026-09-12）：文档面收口 — PASS
+interface.md 64 处路径重指 + `tests/test_doc_paths_exist.py`（全路径解析 + 负向自检；
+抓出两条无后缀漏网）；CLAUDE.md 架构分层节 / AGENTS.md 速览；factor-mine skill 清 Windows 残留。
+门：全量 2462 passed/13 skipped。
+
+### WS8（2026-09-12）：P7/P8 收口 — PASS
+V 链全绿：V1 2462/13 · V2 研究 183 + T1 24（emb skip 不假通过）· V3 catalog diff==0 ·
+V4 位级 66 · V5 **旧 match= 行零改动**（+9 全为新增测试）· V7/V8/V9 架构门 17 · V10 代码旧路径 0 ·
+V11 路径单点（仅 notes/ 历史豁免）· V12 CH 全库一致 · V13 1m max|Δ|=0 · V14 金样 183 ·
+V17 数据零变更。P8 判定 Mission satisfied（`docs/verification/final/03-p8.md`）。
+过程中修复：T1 测试 importorskip 目标随迁址失效导致的**假 skip**（终验抓出）。
 
 ### WS5（2026-09-12）：app 层与装配单点 — PASS
 注册单点 `core/ops/registration.ensure_all_ops_registered`（幂等；`app.bootstrap.install_operators`
