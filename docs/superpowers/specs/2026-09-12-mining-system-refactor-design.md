@@ -215,4 +215,17 @@ WS6 研究侧重排 + 编排单点 → WS7 文档/skills/安装面 → WS8 P7/P8
 
 ## 11. 验证记录
 
-（随各 WS 收口在此回填；格式沿 tick-lob-fact spec 惯例）
+### WS0（2026-09-12）：基线冻结 — PASS
+平台 2423 passed / 13 skipped；研究 183 passed；位级 66 passed；catalog 27 passed；
+692/442 计数、漂移面 5 文件、df、RSS（2020-01 单月 3.87GiB）落证。
+证据：workspace `docs/verification/WS0/`。
+
+### WS1（2026-09-12）：跨 worktree 收敛（DER-002）— PASS
+`git merge main`→research 后 `git rm -r src tests`（190 文件）+ 退役平台手册 4 份 +
+`tools/_env.py` 单点（强制提权队首 + 落位断言）+ T1 接入 + 策略工具迁 `tools/strategies/`。
+门：平台 2427/13（=基线+4 架构门）；研究 183+1skip（T1 24 用例在平台 venv 全过，
+emb 下 importorskip 干净 skip）；单副本 `ls-tree -r research` src/tests = 0；
+`1m_features check-day 2020-01-02` 经共享核 + 真实 CH 逐值一致（max|Δ|=0）；
+692/442 不变。过程发现并修复：`_env` 优先级守卫太弱（editable .pth 在尾部 →
+强制提权）、架构门首版漏 `-r` 假绿（修正后如实红→绿）、shell 门路径假阳性。
+证据：workspace `docs/verification/WS1/`；提交 main `34f3919`、research `feff0f8`/`9cba8dc`/`8e01168`。
