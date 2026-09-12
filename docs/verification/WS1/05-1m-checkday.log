@@ -1,0 +1,7 @@
+2026-09-12 15:20:04.294 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-12 15:20:04.326 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+local 3541 | engine 3541 | 交 3541 | 仅local 0 | 仅engine 0
+vwap30_bias: 交集 3541 行  max|Δ|=0.000e+00
+open30_amt_share: 交集 3541 行  max|Δ|=0.000e+00
+check-day 2020-01-02 PASSED（引擎 × 本地 3541 行逐值一致）
+总耗时 14.3s  peakRSS=1.19GB
