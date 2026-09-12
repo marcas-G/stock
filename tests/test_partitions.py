@@ -1,6 +1,6 @@
 import pytest
 
-from factorlab.engine.partitions import reject_future_shifts, validate_partition_calls
+from factorlab.core.engine.partitions import reject_future_shifts, validate_partition_calls
 from factorlab.core.factor.errors import FactorDSLError
 from factorlab.core.ops import registry
 from factorlab.core.ops.platform_ops import inline_defs, register_platform_ops

@@ -16,8 +16,8 @@ import polars as pl
 import pytest
 
 import dualbridge
-from factorlab.engine.compute import RunContext, run_factor
-from factorlab.engine.minute import compute_minute_factor_panel, run_factor_minute
+from factorlab.core.engine.compute import RunContext, run_factor
+from factorlab.core.engine.minute import compute_minute_factor_panel, run_factor_minute
 from factorlab.core.spec import load_spec
 
 _N_TOTAL = 46           # 种子交易日总数（20 warm + 6 样本 + 20 tail）
@@ -356,7 +356,7 @@ def test_compute_minute_factor_panel_pure_chunk_contract(ch_db, tmp_path):
     # pure 入口不接 DB——code 保持读面原形（000001）；与引擎 artifact 对齐用同一
     # canonical map（引擎在 artifact boundary canonicalize，契约在引擎侧）
     from factorlab.data.universe import resolve_canonical_code_map
-    from factorlab.engine.compute import _canonicalize_artifact_codes
+    from factorlab.core.engine.compute import _canonicalize_artifact_codes
     cm = resolve_canonical_code_map(rd, ["000001", "600519"])
     pure = _canonicalize_artifact_codes(pure, cm)
     assert pure.equals(full.panel.select(["date", "code", "signal"]))

@@ -22,7 +22,7 @@ from factorlab.artifacts import (FactorArtifactBundle, SIGNAL_FILE, LABELS_FILE,
                                  write_factor_artifacts)
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
-from factorlab.engine.compute import RunContext, run_factor
+from factorlab.core.engine.compute import RunContext, run_factor
 from factorlab.core.spec import load_spec
 
 

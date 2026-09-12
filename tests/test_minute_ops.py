@@ -11,7 +11,7 @@ import polars as pl
 import pytest
 import yaml
 
-from factorlab.engine.compute import compute_formula
+from factorlab.core.engine.compute import compute_formula
 from factorlab.core.spec import FactorSpec
 
 _D1, _D2 = dt.date(2026, 8, 20), dt.date(2026, 8, 21)

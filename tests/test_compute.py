@@ -1,7 +1,7 @@
 import pytest
 import polars as pl
 
-from factorlab.engine.compute import _ts_window_days, compute_formula
+from factorlab.core.engine.compute import _ts_window_days, compute_formula
 
 
 def test_compute_formula_returns_signal_column():

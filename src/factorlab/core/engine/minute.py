@@ -40,7 +40,7 @@ from factorlab.data.source import load_daily
 from factorlab.data.universe import resolve_candidate_codes, resolve_universe_frame
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
-from factorlab.engine.compute import (
+from factorlab.core.engine.compute import (
     FactorResult,
     RunContext,
     _build_legacy_panel,

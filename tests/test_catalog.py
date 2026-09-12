@@ -36,7 +36,7 @@ from factorlab.catalog import (
 )
 from factorlab.cli.main import app
 from factorlab.data import source as src
-from factorlab.engine.reserved import (
+from factorlab.core.engine.reserved import (
     FUTURE_NAMES,
     FUTURE_PREFIXES,
     INTERNAL_NAMES,

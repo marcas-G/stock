@@ -3,7 +3,7 @@ import json
 import polars as pl
 import pytest
 
-from factorlab.engine.compute import RunContext, run_factor
+from factorlab.core.engine.compute import RunContext, run_factor
 from factorlab.core.spec import load_spec
 
 

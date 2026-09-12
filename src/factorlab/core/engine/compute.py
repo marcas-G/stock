@@ -21,8 +21,8 @@ from factorlab.data.source import load_daily
 from factorlab.data.universe import align_to_listing, resolve_candidate_codes, resolve_universe_frame
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
-from factorlab.engine.forward import DEFAULT_FORWARD_HORIZONS, compute_forward_returns
-from factorlab.engine.partitions import reject_future_shifts, validate_partition_calls
+from factorlab.core.engine.forward import DEFAULT_FORWARD_HORIZONS, compute_forward_returns
+from factorlab.core.engine.partitions import reject_future_shifts, validate_partition_calls
 from factorlab.core.factor.ast_gate import validate_formula
 from factorlab.core.ops.platform_ops import (
     expand_platform_macros,
@@ -41,7 +41,7 @@ from factorlab.core.spec import FactorSpec
 # 名字类墙常量单点定义于 engine/reserved.py（M1 收拢，禁止散落字面量）：
 # FUTURE_PREFIXES/FUTURE_NAMES——future/label 字段显式引用 → fail fast
 # INTERNAL_PREFIX/INTERNAL_NAMES——引擎内部列（__factorlab_* / in_universe）读/绑定 → fail fast
-from factorlab.engine.reserved import (
+from factorlab.core.engine.reserved import (
     FUTURE_NAMES,
     FUTURE_PREFIXES,
     validate_internal_reads,
@@ -141,7 +141,7 @@ def compute_formula(
     register_stable_rank_ops()  # 幂等注册 cs_stable_rank（registry 可能被 reset_registry 清空）
     _check_future_inputs(formula)
     # scope 门（变换后文本——宏残余/内联 def 已就位）：bars_1m 静态门 vs daily 拒分钟算子
-    from factorlab.engine.minute_gate import (
+    from factorlab.core.engine.minute_gate import (
         reject_minute_ops_in_daily,
         validate_minute_scope,
     )

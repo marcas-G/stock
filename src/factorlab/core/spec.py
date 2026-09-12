@@ -7,7 +7,7 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, Field, model_validator
 
-from factorlab.engine.reserved import is_future_column, is_internal_name
+from factorlab.core.engine.reserved import is_future_column, is_internal_name
 
 
 NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]{0,63}$"

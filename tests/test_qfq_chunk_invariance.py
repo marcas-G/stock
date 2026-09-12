@@ -15,7 +15,7 @@ import polars as pl
 import pytest
 import yaml
 
-from factorlab.engine.compute import RunContext, run_factor
+from factorlab.core.engine.compute import RunContext, run_factor
 from factorlab.core.spec import FactorSpec
 
 _DAILY_COLS = [("ts_code", "str"), ("trade_date", "date"), ("open", "f64"),

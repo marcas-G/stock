@@ -29,7 +29,7 @@ from factorlab.data.verify import (
     _INTERNAL_COL_FIX,
     _INTERNAL_COL_SUFFIX,
 )
-from factorlab.engine import reserved as _reserved
+from factorlab.core.engine import reserved as _reserved
 from factorlab.core.factor.ast_gate import ALLOWED_EXPR_METHODS
 from factorlab.core.ops import registry as _registry
 from factorlab.core.ops.platform_ops import register_platform_ops
@@ -335,7 +335,7 @@ def _gates() -> list[dict]:
                 "tests/test_partitions.py::test_rejects_unknown_operator",
                 "tests/test_compute.py::test_compute_rejects_unknown_operator",
             ],
-            "probe": "from factorlab.engine.partitions import validate_partition_calls\nvalidate_partition_calls('signal = no_such_op(close, 3)')",
+            "probe": "from factorlab.core.engine.partitions import validate_partition_calls\nvalidate_partition_calls('signal = no_such_op(close, 3)')",
         },
         {
             "id": "gate_def_inner_window_op",
@@ -349,7 +349,7 @@ def _gates() -> list[dict]:
                 "tests/test_partitions.py::test_rejects_window_op_inside_def",
                 "tests/test_partitions.py::test_import_alias_of_window_op_inside_def_rejected",
             ],
-            "probe": "from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops\nregister_polars_ta_ops()\nfrom factorlab.engine.partitions import validate_partition_calls\nvalidate_partition_calls('def f(x):\\n    return ts_mean(x, 5)\\nsignal = f(close)')",
+            "probe": "from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops\nregister_polars_ta_ops()\nfrom factorlab.core.engine.partitions import validate_partition_calls\nvalidate_partition_calls('def f(x):\\n    return ts_mean(x, 5)\\nsignal = f(close)')",
         },
         {
             "id": "gate_def_varargs",
@@ -404,7 +404,7 @@ def _gates() -> list[dict]:
                 "tests/test_partitions.py::test_rejects_negative_delay_via_top_level_const",
                 "tests/test_partitions.py::test_rejects_negative_delay_via_alias_import",
             ],
-            "probe": "from factorlab.engine.partitions import reject_future_shifts\nreject_future_shifts('signal = ts_delay(close, -2)')",
+            "probe": "from factorlab.core.engine.partitions import reject_future_shifts\nreject_future_shifts('signal = ts_delay(close, -2)')",
         },
         {
             "id": "gate_future_column_input",
@@ -418,7 +418,7 @@ def _gates() -> list[dict]:
                 "tests/test_signal_label_runtime.py::test_formula_future_input_guard",
                 "tests/test_pool_formula.py::test_pool_reject_future_input",
             ],
-            "probe": "from factorlab.engine.compute import _check_future_inputs\n_check_future_inputs('x = close + forward_return_5d')",
+            "probe": "from factorlab.core.engine.compute import _check_future_inputs\n_check_future_inputs('x = close + forward_return_5d')",
         },
         {
             "id": "gate_future_surface_discipline",
@@ -476,7 +476,7 @@ def _gates() -> list[dict]:
                 "tests/test_input_surface.py::test_run_factor_rejects_reading_in_universe",
                 "tests/test_pool_formula.py::test_pool_reject_reserved_read",
             ],
-            "probe": "from factorlab.engine.reserved import validate_internal_reads\nvalidate_internal_reads('x = close + in_universe')",
+            "probe": "from factorlab.core.engine.reserved import validate_internal_reads\nvalidate_internal_reads('x = close + in_universe')",
         },
         {
             "id": "gate_spec_universe_exclusive",
@@ -531,7 +531,7 @@ def _gates() -> list[dict]:
             "tests": [
                 "tests/test_pool_formula.py::test_pool_reject_multi_statement",
             ],
-            "probe": "from factorlab.engine.compute import _normalize_pool_formula\n_normalize_pool_formula('def f():\\n    pass\\nx = 1')",
+            "probe": "from factorlab.core.engine.compute import _normalize_pool_formula\n_normalize_pool_formula('def f():\\n    pass\\nx = 1')",
         },
         {
             "id": "gate_pool_boolean_required",
@@ -544,7 +544,7 @@ def _gates() -> list[dict]:
             "tests": [
                 "tests/test_pool_formula.py::test_pool_reject_non_boolean_expression",
             ],
-            "probe": "from factorlab.engine.compute import _require_boolean_pool\n_require_boolean_pool('signal = 1 + 2')",
+            "probe": "from factorlab.core.engine.compute import _require_boolean_pool\n_require_boolean_pool('signal = 1 + 2')",
         },
         {
             "id": "gate_pool_bool_dtype",
@@ -557,7 +557,7 @@ def _gates() -> list[dict]:
             "tests": [
                 "tests/test_pool_formula.py::test_pool_reject_dtype_not_bool",
             ],
-            "probe": "from factorlab.engine.compute import _pool_cond_frame\nimport polars as pl\ndf = pl.DataFrame({'date': ['2024-01-02', '2024-01-02'], 'code': ['000001', '600519'], 'close': [10.0, 20.0]})\n_pool_cond_frame(df, 'signal = (close > 15) * 1')",
+            "probe": "from factorlab.core.engine.compute import _pool_cond_frame\nimport polars as pl\ndf = pl.DataFrame({'date': ['2024-01-02', '2024-01-02'], 'code': ['000001', '600519'], 'close': [10.0, 20.0]})\n_pool_cond_frame(df, 'signal = (close > 15) * 1')",
         },
         {
             "id": "gate_unknown_processor",

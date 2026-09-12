@@ -168,7 +168,7 @@ def test_inf_ordering():
 # ---------------- §33/15：真实 compute_formula 路径 ----------------
 
 def test_compute_formula_uses_stable_implementation():
-    from factorlab.engine.compute import compute_formula
+    from factorlab.core.engine.compute import compute_formula
     df = _df([1.0, np.nextafter(1.0, 2.0), 5.0])
     # rewrite 在 compute_formula 内生效
     out1 = compute_formula(df, "signal = cs_rank(x)")
@@ -180,14 +180,14 @@ def test_compute_formula_uses_stable_implementation():
 
 
 def test_alias_cannot_bypass_stable_rank():
-    from factorlab.engine.compute import compute_formula
+    from factorlab.core.engine.compute import compute_formula
     df = _df([1.0, np.nextafter(1.0, 2.0), 5.0])
     out = compute_formula(df, "from polars_ta.prefix.wq import cs_rank as r\nsignal = r(x)")
     assert out["signal"].to_list() == pytest.approx([0.0, 0.0, 1.0])  # stable 生效
 
 
 def test_user_defined_cs_rank_precedence():
-    from factorlab.engine.compute import compute_formula
+    from factorlab.core.engine.compute import compute_formula
     df = _df([1.0, 2.0, 5.0])
     out = compute_formula(df, "def cs_rank(x):\n    return x * 2\nsignal = cs_rank(x)")
     assert out["signal"].to_list() == pytest.approx([2.0, 4.0, 10.0])

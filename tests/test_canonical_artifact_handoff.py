@@ -11,7 +11,7 @@ import pytest
 from factorlab.data.backend import open_read
 from factorlab.data.universe import resolve_canonical_code_map
 from factorlab.core.domain.codes import is_canonical_stock_code
-from factorlab.engine.compute import RunContext, run_factor
+from factorlab.core.engine.compute import RunContext, run_factor
 from factorlab.strategy import (SelectionSpec, StrategySpec, WeightingSpec,
                                 build_rebalance_schedule,
                                 construct_target_portfolio,
@@ -80,7 +80,7 @@ def test_mapping_symbol_mismatch_fails(tmp_path):
 def test_artifact_transform_codes_only(tmp_path):
     db = _sb_db(tmp_path, [("000001", "000001.SZ"), ("600000", "600000.SH")])
     cmap = _map(db, ["000001", "600000"])
-    from factorlab.engine.compute import _canonicalize_artifact_codes
+    from factorlab.core.engine.compute import _canonicalize_artifact_codes
     frame = pl.DataFrame({
         "date": pl.Series([datetime.date(2024, 1, 2)] * 2, dtype=pl.Date),
         "code": pl.Series(["000001", "600000"], dtype=pl.String),
@@ -96,7 +96,7 @@ def test_artifact_transform_codes_only(tmp_path):
 def test_artifact_transform_label_null_mask(tmp_path):
     db = _sb_db(tmp_path, [("000001", "000001.SZ"), ("600000", "600000.SH")])
     cmap = _map(db, ["000001", "600000"])
-    from factorlab.engine.compute import _canonicalize_artifact_codes
+    from factorlab.core.engine.compute import _canonicalize_artifact_codes
     frame = pl.DataFrame({
         "date": pl.Series([datetime.date(2024, 1, 2)] * 2, dtype=pl.Date),
         "code": pl.Series(["600000", "000001"], dtype=pl.String),
@@ -112,7 +112,7 @@ def test_artifact_transform_label_null_mask(tmp_path):
 def test_artifact_transform_missing_symbol_fails(tmp_path):
     db = _sb_db(tmp_path, [("000001", "000001.SZ")])
     cmap = _map(db, ["000001"])
-    from factorlab.engine.compute import _canonicalize_artifact_codes
+    from factorlab.core.engine.compute import _canonicalize_artifact_codes
     frame = pl.DataFrame({"date": pl.Series([datetime.date(2024, 1, 2)], dtype=pl.Date),
                           "code": pl.Series(["999999"], dtype=pl.String),
                           "signal": pl.Series([1.0], dtype=pl.Float64)})
@@ -126,7 +126,7 @@ def test_artifact_transform_mapping_collision_fails(tmp_path):
     是 transform 层防御。"""
     cmap = pl.DataFrame({"symbol": ["000001", "000002"],
                          "code": ["000001.SZ", "000001.SZ"]})
-    from factorlab.engine.compute import _canonicalize_artifact_codes
+    from factorlab.core.engine.compute import _canonicalize_artifact_codes
     frame = pl.DataFrame({
         "date": pl.Series([datetime.date(2024, 1, 2)] * 2, dtype=pl.Date),
         "code": pl.Series(["000001", "000002"], dtype=pl.String),

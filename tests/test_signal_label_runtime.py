@@ -16,9 +16,9 @@ from factorlab.data.backend import DuckDBRd, open_read
 from factorlab.data.calendar import fill_suspensions, trading_calendar
 from factorlab.data.source import load_daily
 from factorlab.data.universe import align_to_listing, resolve_universe_frame
-from factorlab.engine.compute import (FactorResult, RunContext, _formula_columns,
+from factorlab.core.engine.compute import (FactorResult, RunContext, _formula_columns,
                                       compute_formula, fill_suspension_values, run_factor)
-from factorlab.engine.forward import compute_forward_returns
+from factorlab.core.engine.forward import compute_forward_returns
 from factorlab.data.adjust import view_prices
 from factorlab.process.registry import run_process_chain
 from factorlab.core.spec import FactorSpec

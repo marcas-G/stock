@@ -292,6 +292,9 @@ def _fill_duckdb(
         sql += f" LEFT JOIN index_daily m ON d.trade_date = m.trade_date AND m.ts_code = '{_MARKET_INDEX}'"
     sql += " WHERE substr(d.ts_code, 1, 6) IN (SELECT unnest(?)) AND d.trade_date < ?"
     sql += " GROUP BY substr(d.ts_code, 1, 6)"
+    # 行序契约：GROUP BY 后无序（hash 聚合顺序随负载变化，2026-09-12 全量套件实测
+    # 偶发反序）——显式 ORDER BY 首列（code）使输出确定。
+    sql += " ORDER BY 1"
     return rd.query_df(sql, [[c.split(".")[0] for c in codes],
                              before.replace("-", "")])
 
@@ -339,6 +342,7 @@ def _fill_ch(
     sql += f" WHERE {code_clause} AND d.trade_date < toDate(%(before)s)"
     params["before"] = before.replace("-", "")
     sql += " GROUP BY d.ts_code"
+    sql += " ORDER BY d.ts_code"   # 行序契约（同上：显式定序，前缀序即 code 序）
     df = rd.query_df(sql, params)
     return df.with_columns(
         pl.col("ts_code").str.split(".").list.first().alias("code")

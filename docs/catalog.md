@@ -165,7 +165,7 @@ signal = ts_mean(scale_shift(close), 20) - ts_delay(close, 5)
 - 报错文案样板：`未知算子: `
 - 修法：对照本目录「注册清单」（catalog dump / factorlab op list）改正名字：平台算子名全小写下划线式（ts_delay 而非 tsDelay），新算子走 op 插件注册
 - 触发探针：```python
-from factorlab.engine.partitions import validate_partition_calls
+from factorlab.core.engine.partitions import validate_partition_calls
 validate_partition_calls('signal = no_such_op(close, 3)')
 ```
 - 对照测试：`tests/test_partitions.py::test_rejects_unknown_operator`, `tests/test_compute.py::test_compute_rejects_unknown_operator`
@@ -179,7 +179,7 @@ validate_partition_calls('signal = no_such_op(close, 3)')
 - 触发探针：```python
 from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
 register_polars_ta_ops()
-from factorlab.engine.partitions import validate_partition_calls
+from factorlab.core.engine.partitions import validate_partition_calls
 validate_partition_calls('def f(x):\n    return ts_mean(x, 5)\nsignal = f(close)')
 ```
 - 对照测试：`tests/test_partitions.py::test_rejects_window_op_inside_def`, `tests/test_partitions.py::test_import_alias_of_window_op_inside_def_rejected`
@@ -227,7 +227,7 @@ inline_defs('def f(x):\n    return f(x)\n\nsignal = f(close)')
 - 报错文案样板：`不允许负位移（lookback 只能取过去）`
 - 修法：位移参数改正/0；需要未来窗口收益的语义由评估运行时 forward 计算，不由公式读未来
 - 触发探针：```python
-from factorlab.engine.partitions import reject_future_shifts
+from factorlab.core.engine.partitions import reject_future_shifts
 reject_future_shifts('signal = ts_delay(close, -2)')
 ```
 - 对照测试：`tests/test_partitions.py::test_rejects_negative_delay`, `tests/test_partitions.py::test_rejects_negative_delay_via_top_level_const`, `tests/test_partitions.py::test_rejects_negative_delay_via_alias_import`
@@ -239,7 +239,7 @@ reject_future_shifts('signal = ts_delay(close, -2)')
 - 报错文案样板：`future/label inputs are forbidden in factor formula: `
 - 修法：收益/未来窗口写成公式内对过去的引用（收益对齐与标签由评估框架 forward 计算，见已知近似）
 - 触发探针：```python
-from factorlab.engine.compute import _check_future_inputs
+from factorlab.core.engine.compute import _check_future_inputs
 _check_future_inputs('x = close + forward_return_5d')
 ```
 - 对照测试：`tests/test_signal_label_runtime.py::test_formula_future_input_guard`, `tests/test_pool_formula.py::test_pool_reject_future_input`
@@ -279,7 +279,7 @@ validate_reserved_bindings('in_universe = 1')
 - 报错文案样板：`（引擎内部列/标记，模板公式不可见）`
 - 修法：成员条件由池公式声明；模板只写数据列，不写运行时内部状态
 - 触发探针：```python
-from factorlab.engine.reserved import validate_internal_reads
+from factorlab.core.engine.reserved import validate_internal_reads
 validate_internal_reads('x = close + in_universe')
 ```
 - 对照测试：`tests/test_input_surface.py::test_run_factor_rejects_reading_in_universe`, `tests/test_pool_formula.py::test_pool_reject_reserved_read`
@@ -295,7 +295,7 @@ validate_internal_reads('x = close + in_universe')
 - 报错文案样板：`未知算子: `
 - 修法：对照本目录「注册清单」（catalog dump / factorlab op list）改正名字：平台算子名全小写下划线式（ts_delay 而非 tsDelay），新算子走 op 插件注册
 - 触发探针：```python
-from factorlab.engine.partitions import validate_partition_calls
+from factorlab.core.engine.partitions import validate_partition_calls
 validate_partition_calls('signal = no_such_op(close, 3)')
 ```
 - 对照测试：`tests/test_partitions.py::test_rejects_unknown_operator`, `tests/test_compute.py::test_compute_rejects_unknown_operator`
@@ -308,7 +308,7 @@ validate_partition_calls('signal = no_such_op(close, 3)')
 - 触发探针：```python
 from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
 register_polars_ta_ops()
-from factorlab.engine.partitions import validate_partition_calls
+from factorlab.core.engine.partitions import validate_partition_calls
 validate_partition_calls('def f(x):\n    return ts_mean(x, 5)\nsignal = f(close)')
 ```
 - 对照测试：`tests/test_partitions.py::test_rejects_window_op_inside_def`, `tests/test_partitions.py::test_import_alias_of_window_op_inside_def_rejected`
@@ -352,7 +352,7 @@ inline_defs('def f(x):\n    return f(x)\n\nsignal = f(close)')
 - 报错文案样板：`不允许负位移（lookback 只能取过去）`
 - 修法：位移参数改正/0；需要未来窗口收益的语义由评估运行时 forward 计算，不由公式读未来
 - 触发探针：```python
-from factorlab.engine.partitions import reject_future_shifts
+from factorlab.core.engine.partitions import reject_future_shifts
 reject_future_shifts('signal = ts_delay(close, -2)')
 ```
 - 对照测试：`tests/test_partitions.py::test_rejects_negative_delay`, `tests/test_partitions.py::test_rejects_negative_delay_via_top_level_const`, `tests/test_partitions.py::test_rejects_negative_delay_via_alias_import`
@@ -363,7 +363,7 @@ reject_future_shifts('signal = ts_delay(close, -2)')
 - 报错文案样板：`future/label inputs are forbidden in factor formula: `
 - 修法：收益/未来窗口写成公式内对过去的引用（收益对齐与标签由评估框架 forward 计算，见已知近似）
 - 触发探针：```python
-from factorlab.engine.compute import _check_future_inputs
+from factorlab.core.engine.compute import _check_future_inputs
 _check_future_inputs('x = close + forward_return_5d')
 ```
 - 对照测试：`tests/test_signal_label_runtime.py::test_formula_future_input_guard`, `tests/test_pool_formula.py::test_pool_reject_future_input`
@@ -399,7 +399,7 @@ validate_reserved_bindings('in_universe = 1')
 - 报错文案样板：`（引擎内部列/标记，模板公式不可见）`
 - 修法：成员条件由池公式声明；模板只写数据列，不写运行时内部状态
 - 触发探针：```python
-from factorlab.engine.reserved import validate_internal_reads
+from factorlab.core.engine.reserved import validate_internal_reads
 validate_internal_reads('x = close + in_universe')
 ```
 - 对照测试：`tests/test_input_surface.py::test_run_factor_rejects_reading_in_universe`, `tests/test_pool_formula.py::test_pool_reject_reserved_read`
@@ -443,7 +443,7 @@ spec.FactorSpec.model_validate({'name': 'f', 'category': 'custom', 'direction': 
 - 报错文案样板：`池公式 v1 语法只接受单个布尔表达式（裸表达式或单条赋值）`
 - 修法：成员条件写成一条布尔表达式（裸表达式或单条赋值——def 内联后仍是单条可接受）
 - 触发探针：```python
-from factorlab.engine.compute import _normalize_pool_formula
+from factorlab.core.engine.compute import _normalize_pool_formula
 _normalize_pool_formula('def f():\n    pass\nx = 1')
 ```
 - 对照测试：`tests/test_pool_formula.py::test_pool_reject_multi_statement`
@@ -454,7 +454,7 @@ _normalize_pool_formula('def f():\n    pass\nx = 1')
 - 报错文案样板：`池公式必须布尔可判定（表达式含比较 `>`/`<`/`==`/`!=` 或布尔运算，`
 - 修法：成员条件补比较/布尔运算（如 close > 20 或 (volume > 100) & (close > 20)）
 - 触发探针：```python
-from factorlab.engine.compute import _require_boolean_pool
+from factorlab.core.engine.compute import _require_boolean_pool
 _require_boolean_pool('signal = 1 + 2')
 ```
 - 对照测试：`tests/test_pool_formula.py::test_pool_reject_non_boolean_expression`
@@ -465,7 +465,7 @@ _require_boolean_pool('signal = 1 + 2')
 - 报错文案样板：`分支表达式不可作 v1 池公式`
 - 修法：成员条件去掉算术尾巴——写成比较/布尔式（(close > 15) & (volume > 100)）
 - 触发探针：```python
-from factorlab.engine.compute import _pool_cond_frame
+from factorlab.core.engine.compute import _pool_cond_frame
 import polars as pl
 df = pl.DataFrame({'date': ['2024-01-02', '2024-01-02'], 'code': ['000001', '600519'], 'close': [10.0, 20.0]})
 _pool_cond_frame(df, 'signal = (close > 15) * 1')

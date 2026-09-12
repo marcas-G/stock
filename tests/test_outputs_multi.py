@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from factorlab.engine.compute import compute_formula, run_factor
+from factorlab.core.engine.compute import compute_formula, run_factor
 from factorlab.core.spec import FactorSpec, load_spec
 from test_run_factor import _ctx, _tables
 
@@ -151,7 +151,7 @@ def test_run_factor_multi_one_codegen_pass(env, tmp_path, monkeypatch):
     """多输出共享一趟向量化 pass：run_factor 全程 codegen 调用计数 = 1。"""
     _env_seed(env)
     spec = _multi_spec(tmp_path)
-    import factorlab.engine.compute as compute_mod
+    import factorlab.core.engine.compute as compute_mod
     calls = []
     orig = compute_mod.codegen_exec
 

@@ -3,7 +3,7 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.engine.forward import compute_forward_returns
+from factorlab.core.engine.forward import compute_forward_returns
 
 
 def _panel():

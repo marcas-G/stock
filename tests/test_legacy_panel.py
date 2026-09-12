@@ -13,7 +13,7 @@ import pytest
 
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
-from factorlab.engine.compute import _build_legacy_panel
+from factorlab.core.engine.compute import _build_legacy_panel
 
 D1, D2, D3 = datetime.date(2024, 1, 2), datetime.date(2024, 1, 3), datetime.date(2024, 1, 4)
 

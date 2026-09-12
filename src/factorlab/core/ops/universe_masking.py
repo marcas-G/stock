@@ -52,7 +52,7 @@ _CS_GP_MASK_ARGS: dict[str, tuple[int, ...]] = {
 
 # 内部保留名常量收拢于 engine/reserved.py（M1：单点定义，禁止散落字面量）。
 # 绑定门覆盖内部名全部形态：__factorlab_* 前缀 + in_universe（PIT 标记列）。
-from factorlab.engine.reserved import INTERNAL_NAMES, INTERNAL_PREFIX
+from factorlab.core.engine.reserved import INTERNAL_NAMES, INTERNAL_PREFIX
 
 _RESERVED_SUFFIX = f"（平台内部保留：{INTERNAL_PREFIX}* 前缀 / {sorted(INTERNAL_NAMES)}）"
 

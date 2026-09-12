@@ -21,7 +21,7 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.engine.compute import run_factor
+from factorlab.core.engine.compute import run_factor
 from factorlab.core.spec import load_spec
 from test_attributes_face import _seed as attr_seed
 from test_run_factor import _DATES, _ctx, _seed as rf_seed
@@ -160,7 +160,7 @@ def test_pool_gp_over_industry_uses_full_skeleton_and_attrs(env, tmp_path, monke
     （主公式未引用属性——属性读取只应因池公式发生）；组统计在全骨架同行业内
     （银行 A1/C2——C 落选、null 组 D1/E2——E 落选）。"""
     attr_seed(env)
-    import factorlab.engine.compute as compute_mod
+    import factorlab.core.engine.compute as compute_mod
     calls = []
     real = getattr(compute_mod, "load_code_attributes", None)
     if real is None:

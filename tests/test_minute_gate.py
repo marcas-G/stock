@@ -13,7 +13,7 @@ import datetime as dt
 import polars as pl
 import pytest
 
-from factorlab.engine.compute import compute_formula
+from factorlab.core.engine.compute import compute_formula
 
 _D = dt.date(2026, 8, 20)
 
@@ -120,7 +120,7 @@ def test_minute_scope_forbids_universe_mask():
 # ---------------------------------------------------------------- gate 直调层
 # 下列为 validate_minute_scope/折叠判定分支的直调补测（compute_formula 变换链会
 # 先期常量折叠/改写，部分折叠子分支只在此层可达）——行为锚点仍为 B2.4/B3.4。
-from factorlab.engine.minute_gate import validate_minute_scope
+from factorlab.core.engine.minute_gate import validate_minute_scope
 
 
 def test_gate_direct_window_shift_arithmetic_folds():

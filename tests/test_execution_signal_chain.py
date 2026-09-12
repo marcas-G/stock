@@ -39,7 +39,7 @@ import polars as pl
 import pytest
 
 from factorlab.data.backend import open_read
-from factorlab.engine.compute import RunContext, run_factor
+from factorlab.core.engine.compute import RunContext, run_factor
 from factorlab.execution import (ExecutionSpec, load_backtest_result,
                                  run_backtest, save_backtest_result)
 from factorlab.core.spec import load_spec

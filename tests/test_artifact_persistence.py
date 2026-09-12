@@ -19,7 +19,7 @@ from factorlab.artifacts import (LABELS_FILE, LEGACY_PANEL_FILE, SIGNAL_FILE,
                                  load_signal_artifact)
 from factorlab.core.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
                                      InformationCutoff, SignalAvailability)
-from factorlab.engine.compute import RunContext, run_factor
+from factorlab.core.engine.compute import RunContext, run_factor
 from factorlab.core.spec import load_spec
 
 

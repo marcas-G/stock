@@ -35,7 +35,7 @@ import polars as pl
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import (ExecutionTiming, InformationCutoff,
                                      SignalAvailability, SignalTiming)
-from factorlab.engine.forward import DEFAULT_FORWARD_HORIZONS
+from factorlab.core.engine.forward import DEFAULT_FORWARD_HORIZONS
 
 _FORWARD_RETURN_RE = re.compile(r"^forward_return_(\d+)d$")
 

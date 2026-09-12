@@ -12,7 +12,7 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.engine.compute import compute_formula
+from factorlab.core.engine.compute import compute_formula
 from factorlab.core.ops import universe_masking as um
 from factorlab.core.ops.registry import factor_op, reset_registry
 

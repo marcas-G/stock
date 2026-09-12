@@ -20,7 +20,7 @@ import polars as pl
 import pytest
 
 from factorlab.data.source import load_daily, load_daily_fill_state
-from factorlab.engine.compute import RunContext, compute_formula, run_factor
+from factorlab.core.engine.compute import RunContext, compute_formula, run_factor
 from test_run_factor import _ctx, _spec, _tables
 from test_source import _BASE_TABLES
 
