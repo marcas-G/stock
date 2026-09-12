@@ -15,7 +15,7 @@ import json
 import polars as pl
 import pytest
 
-from factorlab.artifacts import (FactorArtifactBundle, SIGNAL_FILE, LABELS_FILE,
+from factorlab.adapters.parquet_artifacts import (FactorArtifactBundle, SIGNAL_FILE, LABELS_FILE,
                                  LEGACY_PANEL_FILE, SUMMARY_FILE,
                                  load_factor_artifacts, load_label_artifact,
                                  load_signal_artifact, write_factor_artifacts)
@@ -452,7 +452,7 @@ def test_manifest_horizons_from_actual_columns(env, tmp_path):
     _seed(env)
     _run(env, tmp_path, _spec(tmp_path))
     s = _summary(tmp_path)
-    from factorlab.artifacts import extract_forward_horizons
+    from factorlab.adapters.parquet_artifacts import extract_forward_horizons
     lab = pl.read_parquet(tmp_path / "out" / LABELS_FILE)
     assert s["artifacts"]["labels"]["horizons"] == list(extract_forward_horizons(list(lab.columns)))
     assert s["artifacts"]["labels"]["horizons"] == [5, 20]

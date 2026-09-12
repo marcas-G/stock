@@ -14,7 +14,7 @@ provenance（不复制 signal 数据；不保存 source 路径——无 run-id/h
 不做 byte-identity binding）。
 
 版本语义：FORMAT_VERSION = 目录布局；SCHEMA_VERSION = 单个 persisted
-contract。与 M6 factor artifact（factorlab.artifacts）独立版本化。
+contract。与 M6 factor artifact（factorlab.adapters.parquet_artifacts）独立版本化。
 """
 
 from __future__ import annotations

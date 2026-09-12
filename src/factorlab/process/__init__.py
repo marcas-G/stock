@@ -1,1 +1,1 @@
-from factorlab.process import processors  # noqa: F401  # 导入即注册处理器
+from factorlab.adapters import process_ops  # noqa: F401  # 导入即注册处理器

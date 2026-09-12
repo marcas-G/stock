@@ -10,7 +10,7 @@ from factorlab.core.domain.frames import SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.strategy import (SelectionSpec, StrategySpec, WeightingSpec,
                                 construct_target_portfolio)
-from factorlab.strategy.artifacts import (REBALANCE_SCHEDULE_FILE,
+from factorlab.adapters.strategy_artifacts import (REBALANCE_SCHEDULE_FILE,
                                           STRATEGY_ARTIFACT_FORMAT_VERSION,
                                           STRATEGY_MANIFEST_FILE,
                                           STRATEGY_SPEC_SCHEMA_VERSION,
@@ -462,7 +462,7 @@ def test_bundle_frozen():
 def test_manifest_written_last(tmp_path, monkeypatch):
     """manifest 写失败（模拟核心文件写成功后的失败）→ manifest 不存在。"""
     sa, spec, schedule, target = _full_set(tmp_path)
-    from factorlab.strategy import artifacts as A
+    from factorlab.adapters import strategy_artifacts as A
     def boom(path, writer):
         raise RuntimeError("manifest boom")
     monkeypatch.setattr(A, "_write_text", boom)
@@ -563,7 +563,7 @@ def test_source_name_type_fails(tmp_path):
 def test_atomic_target_failure_new_dir(tmp_path, monkeypatch):
     """target writer 抛异常 → 新目录无 final、无 temp、无 manifest。"""
     sa, spec, schedule, target = _full_set(tmp_path)
-    from factorlab.strategy import artifacts as A
+    from factorlab.adapters import strategy_artifacts as A
     real = A._atomic_write_file
     def boom(path, writer):
         if path.name == TARGET_PORTFOLIO_FILE:
@@ -583,7 +583,7 @@ def test_atomic_target_failure_preserves_existing(tmp_path, monkeypatch):
     sa, spec, schedule, target = _full_set(tmp_path)
     _write(tmp_path, source_signal=sa, spec=spec, schedule=schedule, target=target)
     old_bytes = (tmp_path / TARGET_PORTFOLIO_FILE).read_bytes()
-    from factorlab.strategy import artifacts as A
+    from factorlab.adapters import strategy_artifacts as A
     real = A._atomic_write_file
     def boom(path, writer):
         if path.name == TARGET_PORTFOLIO_FILE:
@@ -600,7 +600,7 @@ def test_atomic_schedule_failure_preserves_existing(tmp_path, monkeypatch):
     sa, spec, schedule, target = _full_set(tmp_path)
     _write(tmp_path, source_signal=sa, spec=spec, schedule=schedule, target=target)
     old_bytes = (tmp_path / REBALANCE_SCHEDULE_FILE).read_bytes()
-    from factorlab.strategy import artifacts as A
+    from factorlab.adapters import strategy_artifacts as A
     real = A._atomic_write_file
     def boom(path, writer):
         if path.name == REBALANCE_SCHEDULE_FILE:
@@ -618,7 +618,7 @@ def test_manifest_atomic_failure_no_partial(tmp_path, monkeypatch):
     sa, spec, schedule, target = _full_set(tmp_path)
     _write(tmp_path, source_signal=sa, spec=spec, schedule=schedule, target=target)
     old = (tmp_path / STRATEGY_MANIFEST_FILE).read_text(encoding="utf-8")
-    from factorlab.strategy import artifacts as A
+    from factorlab.adapters import strategy_artifacts as A
     real = A._atomic_write_file
     def boom(path, writer):
         if path.name == STRATEGY_MANIFEST_FILE:
@@ -634,7 +634,7 @@ def test_manifest_atomic_failure_no_partial(tmp_path, monkeypatch):
 def test_incomplete_directory_rejected(tmp_path, monkeypatch):
     """target+schedule 成功、manifest 失败 → 无 manifest → loader 拒绝。"""
     sa, spec, schedule, target = _full_set(tmp_path)
-    from factorlab.strategy import artifacts as A
+    from factorlab.adapters import strategy_artifacts as A
     real = A._atomic_write_file
     def boom(path, writer):
         if path.name == STRATEGY_MANIFEST_FILE:

@@ -14,7 +14,7 @@ import duckdb
 import polars as pl
 import pytest
 
-from factorlab.artifacts import (LABELS_FILE, LEGACY_PANEL_FILE, SIGNAL_FILE,
+from factorlab.adapters.parquet_artifacts import (LABELS_FILE, LEGACY_PANEL_FILE, SIGNAL_FILE,
                                  SUMMARY_FILE, load_label_artifact,
                                  load_signal_artifact)
 from factorlab.core.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,

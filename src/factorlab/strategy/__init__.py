@@ -7,7 +7,7 @@ M8 Execution Runtime 已实现（execution/backtest.py run_backtest；CA Gate �
 真实信号链端到端验证）。
 """
 
-from factorlab.strategy.artifacts import (REBALANCE_SCHEDULE_FILE,
+from factorlab.adapters.strategy_artifacts import (REBALANCE_SCHEDULE_FILE,
                                           STRATEGY_ARTIFACT_FORMAT_VERSION,
                                           STRATEGY_MANIFEST_FILE,
                                           STRATEGY_SPEC_SCHEMA_VERSION,

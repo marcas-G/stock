@@ -15,7 +15,7 @@ from typing import Any
 import polars as pl
 import yaml
 
-from factorlab.artifacts import (write_factor_artifacts,
+from factorlab.adapters.parquet_artifacts import (write_factor_artifacts,
                                  write_multi_output_factor_artifacts)
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
@@ -479,7 +479,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
         rd.close()
 
     # M6-05：统一 artifact persistence——signal → labels → panel → summary（最后 = 完成标记）
-    from factorlab.artifacts import write_factor_artifacts
+    from factorlab.adapters.parquet_artifacts import write_factor_artifacts
     if signal_artifact is not None:
         summary = {
             "name": spec.name,
@@ -505,7 +505,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
         return FactorResult(spec=spec, signal_artifact=signal_artifact,
                             label_artifact=label_artifact, panel=panel, summary=summary)
     # M2（G1）多输出分支：per-output signal__<output>.parquet × N → labels → panel
-    from factorlab.artifacts import write_multi_output_factor_artifacts
+    from factorlab.adapters.parquet_artifacts import write_multi_output_factor_artifacts
     summary = {
         "name": spec.name,
         "category": spec.category,
@@ -713,7 +713,7 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
             "float32": ctx.float32,
             "spec_yaml": yaml.safe_dump(spec.model_dump(), allow_unicode=True),
         }
-        from factorlab.artifacts import write_factor_artifacts
+        from factorlab.adapters.parquet_artifacts import write_factor_artifacts
         summary = write_factor_artifacts(ctx.output_dir, signal_artifact,
                                          label_artifact, panel, summary)
         return FactorResult(spec=spec, signal_artifact=signal_artifact,
@@ -743,7 +743,7 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
         "float32": ctx.float32,
         "spec_yaml": yaml.safe_dump(spec.model_dump(), allow_unicode=True),
     }
-    from factorlab.artifacts import write_multi_output_factor_artifacts
+    from factorlab.adapters.parquet_artifacts import write_multi_output_factor_artifacts
     summary = write_multi_output_factor_artifacts(ctx.output_dir, signal_frames,
                                                   meta, label_artifact, panel,
                                                   summary)

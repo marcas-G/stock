@@ -17,7 +17,7 @@ M8-06B：backtest runtime（run_backtest → BacktestResult）。
 
 from factorlab.core.execution.accounting import summarize_execution_accounting
 from factorlab.execution.backtest import MarksPolicy, run_backtest
-from factorlab.execution.persistence import (load_backtest_result,
+from factorlab.adapters.execution_store import (load_backtest_result,
                                              save_backtest_result)
 from factorlab.execution.calendar import resolve_execution_schedule
 from factorlab.core.execution.costs import (ExecutionCostBreakdown,

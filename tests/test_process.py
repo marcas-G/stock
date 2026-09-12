@@ -12,7 +12,7 @@ industry 可空（"str?"）、daily_basic.trade_date 为 "date"（duckdb VARCHAR
 import polars as pl
 import pytest
 
-from factorlab.process import processors  # noqa: F401  # 注册副作用
+from factorlab.adapters import process_ops  # noqa: F401  # 注册副作用
 from factorlab.core.process.registry import (ProcessCtx, get_processor,
                                         parse_chain_item, run_process_chain)
 
