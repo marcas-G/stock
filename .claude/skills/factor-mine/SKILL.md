@@ -26,7 +26,7 @@ description: 挖因子循环。随机选一个已入库因子为种子，分析�
 
 ```bash
 # 平台 venv 的 console script（Linux；Windows 路径为历史残留，2026-09-12 清理）
-FLAB=/data/students/gaolei/stock/projects/quant-platform-main/.venv/bin/factorlab
+FLAB=/data/students/gaolei/stock/platform/.venv/bin/factorlab
 ```
 
 前置检查用：`$FLAB list`。

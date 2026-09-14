@@ -18,7 +18,7 @@
 
 3. **20260817.7z 解包**（5.3G）
    现状：`data/raw/20260817.7z` 未解包；ashare `ticks_root` 指向 `data/raw/20260817`（不存在）。
-   未决因：磁盘 96% 占用，解包需额外空间 + 大量 IO；sharding 内是单日全码。
+     未决因：解包需额外空间 + 大量 IO（**启动前先 `df` 复核余量**——2026-09-15 实测 338G 可用）；sharding 内是单日全码。
    启动条件：磁盘腾出空间后单独执行；解包后更新 data-map A11 行。
 
 4. **ashare fundamentals 缺源**
@@ -28,8 +28,8 @@
 
 ## 仓库与工程
 
-5. **递归子树：仓库内部重构**（各需单独跑 P0-P4）
-   - `quant-platform-main`（+research worktree）：results/ 口径与 .gitignore 矛盾（S5 已按
+5. **递归子树：仓库内部重构**（2026-09-15 部分完成 → 见 #14）
+   - 平台与研究树（单仓单树后为 `platform/` 与 `research/`）：results/ 口径与 .gitignore 矛盾（S5 已按
      "本地化不入库"口径修订文档）、duckdb 数据链、两分支 docs 重叠。
    - `ashare_alpha3`：layer1-3 管线内部结构、.venv 与项目耦合、validation 输出散落。
 
@@ -78,7 +78,11 @@
        **副本**（实测逐字节相同）——改名必须与技能更新同批，否则技能立刻断。属用户侧动作。
     ③ **tools 入口统一为 `run.py` 子命令形态**（C2）：涉及 6 个工具的 CLI 重构，需各自的
        冒烟测试先行；本轮只补齐了 README 与统一命名规范文档。
-13. **平台侧原子写补齐**（R4b 剩余）：`adapters/execution_store.save_*` 与
+13. **G-READ 转强制**（AST 级判据）：当前为报告模式——剩余 7 处直读经逐处核对均为
+    合法（manifest/自有产物/元数据/流式灌库/daily 小切片）；grep 无法区分「事实表读」
+    与「manifest 读」，需改成 AST 分析（读的目标是否指向 tick_fact/lob_fact/bars_1m 根）。
+
+14. **平台侧原子写补齐**（R4b 剩余）：`adapters/execution_store.save_*` 与
     `app/evaluate.publish_run`（现直写 weekly.parquet + summary.json）→ tmp+fsync+os.replace。
     与 `adapters/batch_flock.py`（P-5 编排真实现，兑现 `ports/batch.py` 声明）同批做——
     两者都动平台写路径，需要回测/评估的位级对照。

@@ -33,6 +33,10 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+# R4b：写侧单点（标记/锁/state/原子写）。lib 只需 tools/ 上 sys.path（不依赖平台）。
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from lib import writekit as W  # noqa: E402
+
 # ---- 源布局（workspace 归并 2026-09-12：数据统一入 <stock>/data/{raw,fact,calib}） ----
 STOCK_ROOT = '/data/students/gaolei/stock'
 DATA_ROOT = f'{STOCK_ROOT}/data'
@@ -438,8 +442,7 @@ def _cleanup_month(data_dir, state_dir):
 def _committed_ok(data_dir, state_dir):
     """_SUCCESS 存在时的轻量校验: schema + num_rows + row groups"""
     try:
-        with open(os.path.join(state_dir, '_conversion.json')) as f:
-            conv = json.load(f)
+        conv = W.load_state(state_dir, name='_conversion.json')   # R4b：state 单点（原子写/空文件容错）
         with pq.ParquetFile(os.path.join(data_dir, 'part-000.parquet')) as pf:
             return (pf.schema_arrow == SCHEMA_PROD
                     and pf.metadata.num_rows == conv['rows']
@@ -457,8 +460,7 @@ def convert_month_worker(ym):
 
     if os.path.exists(success):
         if _committed_ok(data_dir, state_dir):
-            with open(os.path.join(state_dir, '_conversion.json')) as f:
-                conv = json.load(f)
+            conv = W.load_state(state_dir, name='_conversion.json')   # R4b：state 单点
             err_csv = os.path.join(state_dir, '_conversion_errors.csv')
             n_err = 0
             if os.path.exists(err_csv) and os.path.getsize(err_csv) > 0:
@@ -545,8 +547,7 @@ def _convert_month(ym, year, month, data_dir, state_dir):
         man = pd.DataFrame(manifest_rows)
         man.to_parquet(os.path.join(state_dir, '_daily_manifest.parquet'),
                        compression='zstd')
-        with open(os.path.join(state_dir, '_conversion.json'), 'w') as f:
-            json.dump(conv, f, indent=2, ensure_ascii=False)
+        W.save_state(state_dir, conv, name='_conversion.json')   # R4b：原子写
         os.replace(tmp_parquet, out_parquet)   # 数据分区最后提交
         open(os.path.join(data_dir, '_SUCCESS'), 'w').close()  # 事务边界, 最后写
     except Exception:

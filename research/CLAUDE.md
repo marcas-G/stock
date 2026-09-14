@@ -1,41 +1,42 @@
-# 研究 worktree 项目指南（research 分支）
+# 研究树项目指南（单仓单树，2026-09-15 起）
 
-本工作树 = `quant-platform` 仓库 research 分支。**只承载研究内容**：
-`tools/`（lob_fact / ch_ingest / converters / 1m_features / strategies / quark_download）、
-`factor/`、`docs/factors/`、`docs/strategies/`、`.claude/skills/`。
+本目录 = `stock/research/`。旧的双分支纪律（main=平台 / research=研究、独立 worktree）已退役——
+现在按**目录**分权：本目录只收研究内容；平台代码在 `../platform/`；工作区文档在 `../docs/`。
+（工作区级总纲见仓库根 `CLAUDE.md`，此处只写研究树特有约定。）
 
 ## 硬性要求
 
-### 单一共享核（最高优先级，2026-09-12 起）
+### 目录与共享核
 
-- 平台源码/测试/平台文档的**唯一副本在 main worktree**（`../quant-platform-main/`）；
-  本分支**不携带** `src/`、`tests/`、`docs/interface.md`、`docs/catalog.md`、
-  `docs/data-ops-playbook.md`、`docs/teajoin-guide.md`（曾有副本，已实测漂移后退役）。
-- 研究工具 import 平台代码**必须**经 `tools/_env.py::ensure_platform()`
-  （注入 main/src + 落位断言；解析到别处即 RuntimeError）。禁止任何新的
-  `sys.path` 手写注入或本地副本。
-- **平台改动一律提交到 main worktree 的 main 分支**（提交前缀 `feat(...)`/`fix(...)`/
-  `docs(...)` 平台语义）；research 分支提交前缀用 `feat(tools)`/`refactor(tools)`/
-  `docs(factors)` 等研究语义。**本分支不再与 main 合并**（共享核经安装/注入到达）。
+- **本目录只收研究内容**：`factor/`、`tools/`、`docs/`（factors/strategies/playbook/研究独有 spec）。
+  提交前缀用研究语义：`feat(factor)` / `feat(tools)` / `docs(factors)` / `refactor(tools)`。
+- **平台代码只有一份**：`../platform/src`。研究工具不得复制平台代码；引用平台一律经
+  `tools/_env.py::ensure_platform()`（注入 + 落位断言；解析到别处即 RuntimeError）。
+  **emb 装不了 factorlab（requires-python≥3.13）** → 注入是唯一通道。
+- **数据接口只用单点**（R4 收敛）：读 tick/lob/bars 经 `adapters.tick_read` / `adapters.lob_read` /
+  `adapters.bars_read`（研究侧薄封装 `tools/lib/tickdata.py`）；写/标记/锁/断点经
+  `tools/lib/writekit.py`（`_SUCCESS` + state JSON 两种形态，禁止新形态）。
+  分区路径一律取 `core.factio.partitions`，**不得自拼 `year=/month=`**（G-CONTRACT 门）。
 
-### 文档和测试（最高优先级）
+### 文档和测试
 
-- TDD：先写失败测试再实现；测试覆盖正常/边界/错误路径；断言真实行为，不用 mock 糊弄。
-- 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**
-  （T1 用例经 `pytest.importorskip` 在 emb 下 skip，用平台 venv 跑真验）。
-- 提交前跑本 worktree 相关测试：`pytest tools/ -q`（emb）+ T1 用平台 venv 补跑。
-- 文档：研究侧文档进本分支；平台契约文档在 main worktree（引用写
-  `../quant-platform-main/docs/...`）；数据位置以 workspace `docs/data-map.md` 为准。
+- TDD：先写失败测试再实现；覆盖正常/边界/错误路径；断言真实行为，不用 mock 糊弄。
+- 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**（T1 用例用
+  `pytest.importorskip`，在 emb 下 skip、平台 venv 真跑）。
+- 提交前跑：`emb -m pytest research/tools -q`（T2）+ `platform/.venv/bin/python -m pytest
+  research/tools/{strategies,ch_ingest,factor_lib}/tests -q`（T1）。
+- 因子新增/改名/归档：**必须**同步档案（`docs/factors/<族>/<短名>.md`）并重生成索引
+  `../docs/index/factors.md`（`build_index.py --check` 是常驻门）。
+- 数据位置与血缘以 `../docs/data-map.md` 为唯一权威；目录约定以 `../docs/directory-conventions.md` 为准。
 
 ## 环境事实
 
-- **解释器双轨（刻意不统一**，统一会改 polars 补丁版本威胁 lob_fact 字节级重跑）：
-  - T1（`1m_features/`、`strategies/`，需完整 factorlab）= `../quant-platform-main/.venv/bin/python`（3.13，uv）；
-  - T2（`lob_fact/`、`converters/`、`ch_ingest/`）= emb（3.11）`/data/students/gaolei/anaconda3/envs/emb/bin/python`。
-- CH：`127.0.0.1:8123` db=factorlab（`ch_ingest/reconcile.py` 需平台 venv——emb 缺
-  clickhouse_connect）。
-- 数据根：`../../data/{raw,fact,calib,ref}`（单点在平台 `core.factio.paths`；本分支旧
-  config 常量逐步收敛）。
-- 16GB 内存无页面文件：批算单进程 + 流式 + 及时释放；长任务 nice，禁止并行重活。
-- lob_fact 校准常量（W1 冻结值 + `pins.sha256` 金样）**不可改**：改动即让 183 测试与
-  历史结论失效，需走再校准流程。
+- **解释器双轨（刻意不统一**，统一会改 polars 补丁版本、威胁 lob_fact 字节级重跑）：
+  T1 = `../platform/.venv/bin/python`；T2 = `emb`（`/data/students/gaolei/anaconda3/envs/emb`）。
+- CH：`127.0.0.1:8123`（HTTP；19000 是 tcp client 端口）。库 `factorlab`；对账用
+  `platform/.venv/bin/python research/tools/ch_ingest/reconcile.py`（`make reconcile`）。
+- 数据根：`../data/{raw,fact,calib,ref}`（单点在平台 `core.factio.paths`）；**`data/` 零改动**（只读消费）。
+- 16GB 内存无页面文件（目标机）：批算单进程 + 流式 + 及时释放；`lob_fact` 校准常量与
+  `fixtures/pins.sha256` 金样**不可改**（改动即让 183 测试与历史结论失效，需走再校准流程）。
+- 判读口径：因子"同公式多假设"（direction/params/process 差异）是**研究变体**，不是重复条目——
+  索引的「变体组」章节成组展示（R5 实测 152 个里 0 个真重复）；归档与否属研究者判断。

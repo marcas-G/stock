@@ -7,7 +7,7 @@
 - **平台侧**（本仓库无关分支差异）：用户级技能 `~/.claude/skills/`：
   `factorlab-dsl`（因子 DSL/spec 编写）、`factorlab-data`、`factorlab-ch-pipeline`、
   `factorlab-backtest`、`factorlab-evaluate`、`quark-share-download`（网盘批量下载）。
-- **研究侧**（仅 `research` worktree）：`../quant-platform-research/.claude/skills/factor-mine/`
+- **研究侧技能**（单树后在仓库根）：`.claude/skills/factor-mine/`
   （挖因子循环：种子→假设审核→变异→实现→审核→入库）。
 - 技能发现：Claude Code 自动发现上述目录；新增技能放对应位置并在此登记。
 

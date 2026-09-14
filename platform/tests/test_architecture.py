@@ -1,7 +1,6 @@
 """架构门（单仓单树版；2026-09-15 R2 重写）。
 
-取代两 worktree 时代的门（旧门依赖 `git ls-tree research` 与 `../quant-platform-research`，
-单树后不成立）：
+取代两 worktree 时代的门（旧门依赖 research 分支树查询与旧 worktree 相对路径，单树后不成立）：
 - 旧门 1/2（research 分支不得携带平台 src/tests 与平台手册）→ **目录不互串**：
   platform/ 顶层无研究目录、research/ 顶层无平台源码/测试，契约 4 篇全仓单副本；
 - 旧门 3/4（`tools/_env.py` 单点 + 落位断言）→ 路径改指 `platform/src`，**且不再 skip**

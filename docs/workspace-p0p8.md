@@ -1,5 +1,10 @@
 # 工作区 P0-P8（System-of-Interest = `/data/students/gaolei/stock`）
 
+> **历史记录（冻结，2026-09-15）**：本文档记录的是 **2026-09-12 工作区清理战役**当时的布局与结论，
+> 其中的目录路径（两 worktree 形态）已随后续的**单仓单树重构**失效——当前布局以
+> `directory-conventions.md` 与 `data-map.md` 为准，本文件不改写（保留当时的证据链）。
+
+
 按《递归式需求驱动系统工程开发手册》（NASA SE × V-Model）对工作区本身做的系统工程分解。
 方法论：P0-P4 递归定义（本文件）→ 阶段执行 S1-S5（P5/P6）→ 逐层验证（P7）→ 使命判定（P8）。
 五条纪律贯穿：No Leap / No Orphan / Single Primary Ownership / No Hidden Design /

@@ -38,13 +38,13 @@ uv pip install --python .venv/bin/python -e ../quant_core_shim --no-deps   # 评
 - **duckdb**（默认）：平台库 `data/factorlab.duckdb`（相对 CWD；`FACTORLAB_PLATFORM_DB`
   可覆盖），由 `factorlab data rebuild/update/refresh` 维护（数据源 = teajoin Tushare 代理）。
 - **ch**：`FACTORLAB_DATA_BACKEND=ch`（`FACTORLAB_CH_HOST/PORT/DATABASE`），ClickHouse
-  事实库由工作区 `projects/quant-platform-research/tools/ch_ingest/` 灌入。
+  事实库由 `research/tools/ch_ingest/` 灌入。
 
 ## 仓库纪律（摘要）
 
 - `main` 只收平台改动（`src/factorlab/`、`tests/`、`docs/interface.md`、
   `docs/superpowers/`、`docs/data-ops-playbook.md`、`docs/teajoin-guide.md`、README、pyproject）；
   研究内容（`factor/`、`docs/factors/`、`tools/`、`docs/strategies/`）进 **`research` 分支**
-  （同仓库的第二个 worktree：`../quant-platform-research`）。
+  （研究树在仓库根的兄弟目录 `../research/`）。
 - 任何代码改动遵循 TDD（先失败测试再加实现），提交前全量 `pytest -q` 通过；
   文档与实现同步（详见 `CLAUDE.md`）。

@@ -1,0 +1,34 @@
+=== R6 门（2026-09-15 01:08）===
+--- 结构门 ---
+    ✓ platform/ 顶层无 factor|tools 目录
+    ✓ research/ 顶层无平台 src|tests
+    ✓ docs/interface.md 单副本
+    ✓ docs/catalog.md 单副本
+    ✓ docs/data-ops-playbook.md 单副本
+    ✓ docs/teajoin-guide.md 单副本
+    ✓ 无 platform→research 依赖
+    ✓ 活文件零残留（豁免：3 份历史文档 + data-map 归档行）
+    ✓ platform pythonpath=src
+    ✓ platform/src/factorlab 存在
+    ✓ research 有 testpaths
+    ✓ 根无 pyproject.toml
+    ✓ 自检通过（能抓到迁移遗漏）
+    ✓ G-IMPORTS 通过（扫描 296 个文件）
+    ✓ 索引一致 ✓
+    ✓ factorlab → platform/src ✓
+
+--- 研究侧 emb ---
+...........................................................              [100%]
+203 passed, 2 skipped in 6.83s
+--- T1（平台 venv）---
+...................................                                      [100%]
+35 passed in 1.67s
+--- 数据接口门（报告模式）---
+    · 平台 src 表名字面量（factio 外）: 1 处 —— R4 收敛目标 0
+    · 研究侧分区拼接字面量: 21 处 —— R4 收敛到 core.factio.partitions
+    · 列契约单点 core/factio/schema.py: 41 行（应保持唯一来源）
+    · 形态 '_SUCCESS': 35 处
+    · 形态 '\.done': 10 处
+    · 形态 '_conversion\.json': 4 处
+    · —— R4 目标：ch_ingest 的 state.json/ 目录与 _conversion.json 并入统一 state
+    · 研究侧直读处数: 7 —— R4 目标：tick/lob/bars 一律经 adapters.tick_read / adapters.lob_read

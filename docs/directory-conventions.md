@@ -1,17 +1,24 @@
 # 目录公约（directory-conventions）
 
-工作区布局的唯一权威约定。与磁盘不一致时：先改磁盘回约定，或按变更程序改本公约（二选一，
-不允许长期不一致）。
+**结构与分类规则**的唯一权威（数据资产的实例归属见 `data-map.md`；两者冲突或与磁盘不一致时
+以磁盘为准并修订文档——2026-09-15 R6 明确分层，取代两份文档此前互相声明的"赢过磁盘"）。
+
+> **2026-09-15 单仓单树重构后修订**：工作区根 = **一个 git 仓库**（`stock/`，远端 `marcas-G/stock`），
+> 内含 `platform/`（平台树）、`research/`（研究树）、`docs/`（文档树）；`data/`、`_archive/`、
+> `projects/` 为本地目录（gitignore）。旧的两 worktree 布局**已退役**
+> （历史与过程见 `docs/verification/R1..R2/` 与 `docs/verification/archive/`）。
 
 ## 1. 根目录收敛承诺（REQ-WS-001）
 
-根目录**恒为 7 项**：`README.md`、`.gitignore`、`.git/`、`docs/`、`data/`、`projects/`、`_archive/`。
+根目录**白名单恒为 12 项**：`README.md`、`CLAUDE.md`、`AGENTS.md`、`Makefile`、`.gitignore`、
+`.git/`、`.claude/`、`platform/`、`research/`、`docs/`、`data/`、`projects/`、`_archive/`。
 
-- 新数据 → **必须**入 `data/` 对应类别；新项目 → `projects/`；新文档 → `docs/`；
-  不确定归属的临时物 → `_archive/`（先归档再想）。
-- 禁止在根目录新建文件/目录；脚本、日志、图片、中间产物一律不进根。
-- 根仓库白名单式 .gitignore（`/*` 忽略 + 白名单 docs/README/.gitignore）保证
-  `git ls-files` ⊆ 文档，任何新增根文件都不会被误提交。
+- 三棵树各有归属：平台代码 → `platform/`；研究内容 → `research/`；文档 → `docs/`（树内细分见各自 README）。
+- 新数据 → **必须**入 `data/` 对应类别（五类判据见 §2）；不确定归属的临时物 → `_archive/`（先归档再想）。
+- **禁止在根目录新建条目**；脚本、日志、图片、中间产物一律不进根（工作区级脚本进 `scripts/`，
+  运行产物进各自树下的 gitignore 目录）。
+- 根 `.gitignore` 是**白名单式**（`/*` 忽略 + 逐项放行 + 显式忽略 `data/`/`results/`/`*.duckdb`）：
+  `git ls-files` 只会包含三棵树与根级文档，任何新增根文件都不会被误提交。
 
 ## 2. data/ 五类判据（一刀切归类）
 
@@ -30,23 +37,24 @@
 分区命名：事实库统一 Hive 风格 `year=YYYY/month=MM/`，一个交易日一个 parquet
 （`YYYYMMDD.parquet`）或 `part-000.parquet` + `_SUCCESS`。
 
-## 3. projects/ 归属规则
+## 3. 三棵树与 projects/（单仓单树后）
 
-| 项目 | 载体 | 分支纪律 |
+| 载体 | 角色 | 内容 |
 |---|---|---|
-| quant-platform-main | main worktree | 只收平台改动（src/factorlab、tests、docs/interface、catalog、superpowers、README、pyproject） |
-| quant-platform-research | research worktree（**同一 git 仓库**） | 研究内容（tools/、factor/、docs/factors/、docs/strategies/） |
-| quant_core_shim | 无 git 本地包 | 契约锚点；emb 环境 `pip install -e` |
-| ashare_alpha3 | 无 git 本地项目 | 项目自包含；config.yaml 消费 data/ |
+| `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`tests/`、`docs/`（契约 4 篇 + superpowers）、`scripts/` |
+| `research/`（仓库内） | **研究树**（唯一副本） | `tools/`（6 工具 + `lib/` + `factor_lib/`）、`factor/<族>/`（152 spec）、`docs/`（factors/strategies/playbook） |
+| `docs/`（仓库内） | **文档树** | 工作区约定（本文件、data-map、pending-items…）、`handbook/`、`index/`、`verification/` |
+| `projects/quant_core_shim` | 本地包（无 git） | 契约锚点；两个 venv 均 `pip install -e`（**绝对路径写死，勿移动**） |
+| `projects/ashare_alpha3` | 本地项目（无 git） | 自包含；`config.yaml` 消费 `data/` |
 
-- worktree 迁移程序（git 2.17.1 无 worktree repair）：先 `git worktree move` linked →
-  手工 `mv` main → 编辑 `quant-platform-research/.git` 的 gitdir 行 → 四查验证。
-  **禁止 `git worktree prune`**（悬空窗口会清元数据）。
-- 平台/研究同一仓库共享对象库；备份克隆等历史实体一律进 `_archive/`，不进 projects/。
+- 旧 worktree 迁移程序（`git worktree move` + 手工 gitdir 编辑 + 四查）**已随两 worktree 布局退役**；
+  历史过程见 `docs/verification/archive/`。
+- `projects/` 里两个本地项目**原位保留**（其 config 与 venv 的 editable finder 写死绝对路径）；
+  **不要再往里放新东西**——新代码进三棵树。
 
 ## 4. _archive/ 政策
 
-- 一切"疑似无用但不可证明是垃圾"的移除物先 mv 进 `_archive/<日期>-<阶段>/`，保留 **30 天**。
+- 一切"疑似无用但不可证明是垃圾"的移除物先 mv 进 `_archive/<日期>-<阶段>/`（保留期与程序见 `archive-policy.md`——**TTL 政策单点**）。
 - 每批必须附 manifest（来源/原因/恢复命令/到期日），manifest 入 `docs/verification/<阶段>/`
   并提交根仓库；`_archive/README.md` 只放政策指针。
 - 到期清理程序见 `docs/archive-policy.md`。

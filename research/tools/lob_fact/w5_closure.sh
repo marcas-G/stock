@@ -3,7 +3,7 @@
 # 前置：driver 打印 ALL DONE 且无 run_lob_batch 进程（单写者 flock 纪律）。
 # 日志：/tmp/w5_closure.log；产物：/tmp/w5_compact.json、/tmp/w5_audit.json
 set -u
-cd /data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact || exit 1
+cd "$(dirname "$0")" || exit 1   # R6：原为旧 worktree 绝对路径
 PY=/data/students/gaolei/anaconda3/envs/emb/bin/python
 LOG=/tmp/w5_closure.log
 exec >>"$LOG" 2>&1

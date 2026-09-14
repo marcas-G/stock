@@ -1,5 +1,5 @@
 # 研究 worktree（research 分支）：不承载平台包，不是可分发项目。
-# 平台共享核在 main worktree（projects/quant-platform-main/src），研究工具经
+# 平台共享核在单树的兄弟目录（platform/src），研究工具经
 # tools/_env.py 注入并断言落位（DER-010）；本文件只为 pytest 配置与依赖声明存在。
 [build-system]
 requires = ["setuptools>=68"]

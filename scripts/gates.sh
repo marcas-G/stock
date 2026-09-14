@@ -37,9 +37,15 @@ structure() {
   [ "$n" = "0" ] && ok "无 platform→research 依赖" || { bad "发现 $n 处 platform→research 引用"; grep -rn "research\." "$PLATFORM/src" --include=*.py | grep -v "['\"]" | head -3 | sed 's/^/      /'; }
 
   echo "[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）"
+  # 豁免：验证证据 / 平台与研究 spec 与笔记 / 门自身 / **三份带冻结横幅的历史文档** /
+  # data-map 的归档行（记录当时真实的备份克隆名）
   n=$(git grep -nI -e "quant-platform-main" -e "quant-platform-research" -e "projects/quant-platform" -- . \
-        "$FROZEN" 2>/dev/null | grep -vE '^docs/verification/|^platform/docs/superpowers/|^research/tools/lob_fact/notes/|^research/docs/superpowers/|^scripts/gates.sh' | wc -l)
-  if [ "$n" = "0" ]; then ok "活文件零残留"; else bad "活文件仍有 $n 处旧路径"; git grep -nI -e "quant-platform-main" -e "quant-platform-research" -- . "$FROZEN" 2>/dev/null | grep -vE 'verification/|superpowers/|notes/|gates.sh' | head -5 | sed 's/^/      /'; fi
+        ':!docs/verification' ':!platform/docs/superpowers' ':!research/tools/lob_fact/notes' ':!research/docs/superpowers' 2>/dev/null \
+      | grep -vE '^scripts/gates.sh:' \
+      | grep -vE '^docs/(workspace-p0p8|traceability-matrix|remote-cleanup-checklist)\.md:' \
+      | grep -v 'local-backup-20260903（975M' | wc -l)
+  if [ "$n" = "0" ]; then ok "活文件零残留（豁免：3 份历史文档 + data-map 归档行）";
+  else bad "活文件仍有 $n 处旧路径"; git grep -nI -e "quant-platform-main" -e "quant-platform-research" -- . 2>/dev/null | grep -vE 'verification/|superpowers/|notes/|gates.sh|workspace-p0p8|traceability-matrix|remote-cleanup-checklist' | head -5 | sed 's/^/      /'; fi
 
   echo "[G-PATHS] pyproject / pytest 路径自洽"
   grep -q 'pythonpath = \["src"\]' "$PLATFORM/pyproject.toml" && ok "platform pythonpath=src" || bad "platform pythonpath 异常"
@@ -82,6 +88,10 @@ dataiface() {
   info "—— R4 目标：ch_ingest 的 state.json/ 目录与 _conversion.json 并入统一 state"
 
   echo "[G-READ] 研究侧直读 tick/lob/bars parquet（应经平台单点）"
+  # 2026-09-15 R6 复核：剩余直读**逐处人工核对**后均为合法——
+  # manifest（conversion_manifest/cancels_manifest）、自有产物（1m merged/panel）、
+  # 元数据（reconcile 的 num_rows）、流式灌库（ingest 的 iter_batches）以及 daily_fact 的小切片。
+  # 转强制需 **AST 级判据**（区分「事实表读」与「manifest/自有产物读」，grep 做不到）——登记 pending #13。
   n=$(grep -rn --include=*.py -E "read_parquet\(|scan_parquet\(" "$RESEARCH/tools" 2>/dev/null | grep -vE "/tests/|/notes/|/diag/|fixtures" | wc -l)
   info "研究侧直读处数: $n —— R4 目标：tick/lob/bars 一律经 adapters.tick_read / adapters.lob_read"
   grep -rln --include=*.py -E "read_parquet\(|scan_parquet\(" "$RESEARCH/tools" 2>/dev/null | grep -vE "/tests/|/notes/|/diag/|fixtures" | sed 's/^/      /'

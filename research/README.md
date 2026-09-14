@@ -1,52 +1,56 @@
-# quant-platform-research（research worktree）
+# research —— 研究树（单仓单树）
 
-**研究分支工作树**：`quant-platform` 仓库（与 `../quant-platform-main` 同一 git 仓库）
-的 research 分支 checkout。只承载研究内容——**不携带平台源码、测试与平台文档**
-（2026-09-12 单一共享核收敛，见 spec `2026-09-12-mining-system-refactor-design.md`）。
+本目录 = 单仓单树里的**研究树**（`stock/research/`）。旧的两分支/worktree 布局已退役
+（2026-09-15 单仓单树重构，见 `docs/verification/R*/`）。平台代码在兄弟目录 `../platform/`。
 
 ## 目录
 
 | 路径 | 内容 |
 |---|---|
-| `tools/lob_fact/` | tick 订单簿重建工具链（引擎/锚定/因子面板/批算/QA/校准）|
-| `tools/ch_ingest/` | 事实库 → ClickHouse 灌入与对账 |
+| `factor/<族>/<短名>.yaml` | **152 个因子 spec**（14 族；族规则 `factor/_families.yaml`；索引 `../docs/index/factors.md`）|
+| `docs/factors/<族>/<短名>.md` | 因子档案（与 yaml **同族同短名**镜像；`xname` == spec.name）|
+| `docs/strategies/` | 策略档案（含结论：崩底反弹已实现、死等股灾已证伪）|
+| `docs/factor-mining-playbook.md` | 挖因子 playbook |
+| `docs/superpowers/` | **研究独有**的 spec/plan（平台 spec 在 `../platform/docs/superpowers/`，单副本）|
+| `tools/lib/` | 研究侧共享库：`tickdata`（读单点薄封装）/`writekit`（标记·锁·state·原子写）|
+| `tools/lob_fact/` | tick 订单簿重建工具链（引擎/锚定/因子面板/批算/QA/校准；183 tests + 金样 pins）|
+| `tools/ch_ingest/` | 事实库 → ClickHouse 灌入与对账（**唯一对账入口** `reconcile.py`）|
 | `tools/converters/` | raw zip → parquet 转换器（tick / minutes）|
-| `tools/1m_features/` | bars_1m 折日特征全史批算 |
+| `tools/1m_features/` | bars_1m 折日特征全史批算（`check-day` = 平台引擎 × 本地对拍门）|
 | `tools/strategies/` | 策略回测脚本（crash_bottom / wait_crash）|
-| `tools/quark_download/` | 网盘批量下载脚本 |
-| `factor/` | 152 个因子 spec.yaml |
-| `docs/factors/<族>/`、`docs/strategies/` | 因子档案（与 `factor/<族>/` 同族同短名）、策略文档 |
+| `tools/quark_download/` | 网盘批量下载脚本（→ `../data/raw/quark_downloaded/`）|
+| `tools/factor_lib/` | 因子库工具：`plan_rename`（族改名计划）/`build_index`（索引生成 + `--check` 门）|
 
 ## 共享核与解释器（重要）
 
-平台源码的**唯一副本**在 main worktree（`../quant-platform-main/src`）。研究工具经
-`tools/_env.py` 注入并**运行时断言**落位（解析到别处即 RuntimeError）。
+平台源码的**唯一副本**在 `../platform/src`。研究工具经 `tools/_env.py` 注入并**运行时断言**
+落位（解析到别处即 RuntimeError）。**emb 装不了 factorlab**（包要求 ≥3.13），所以注入是唯一通道。
 
-| 类型 | 工具 | 解释器 | 说明 |
-|---|---|---|---|
-| T1 需完整 factorlab | `1m_features/`、`strategies/` | 平台 venv `../quant-platform-main/.venv/bin/python` | editable 已生效；emb 下自动 skip |
-| T2 只需 core.factio | `lob_fact/`、`converters/`、`ch_ingest/`、`quark_download/` | emb `/data/students/gaolei/anaconda3/envs/emb/bin/python`（3.11）或平台 venv | `_env.ensure_platform()` 注入 |
-| T3 下游 | `../ashare_alpha3/scripts/` | 平台 venv | 仅经 editable 安装 |
+| 类型 | 工具 | 解释器 |
+|---|---|---|
+| **T1**（需完整 factorlab 或 clickhouse_connect） | `1m_features/`、`strategies/`、**`ch_ingest/`**（模块级 import clickhouse_connect）、`factor_lib/` | `../platform/.venv/bin/python`（3.13，uv） |
+| **T2**（只需 `core.factio`，纯 polars/arrow/numpy） | `lob_fact/`、`converters/`、`quark_download/` | `emb`（3.11）`/data/students/gaolei/anaconda3/envs/emb/bin/python` 或平台 venv |
+| **T3**（下游） | `../projects/ashare_alpha3/scripts/` | 平台 venv（仅经 editable 安装） |
 
 ## 测试
 
 ```bash
-# lob_fact（emb，183 tests）
-cd tools/lob_fact && /data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest tests/ -q
+# 研究侧全量（emb；T1 用例自动 skip——不假通过）
+/data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest research/tools -q
 
-# 策略（平台 venv，24 tests）
-cd ../.. && ../quant-platform-main/.venv/bin/python -m pytest tools/strategies/tests -q
+# T1（平台 venv，真跑）
+platform/.venv/bin/python -m pytest research/tools/{strategies/tests,ch_ingest/tests,factor_lib/tests} -q
 
-# 全量研究侧（emb；T1 用例自动 skip）
-/data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest tools/ -q
+# 分钟面 × 本地 parquet 逐值对拍（真 CH）
+FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python research/tools/1m_features/run_1m_feature.py check-day 2024-01-15
 ```
 
-长任务运行前：`git -C ../quant-platform-main status --porcelain` 必须为空；运行产物带
-`platform_head()` 记录共享核版本。
+长任务运行前：`git -C .. status --porcelain` 必须为空；运行产物用 `platform_head()` 记录共享核版本。
 
-## 平台文档（在 main worktree）
+## 平台文档（在兄弟目录）
 
-- 接口/DSL/CLI：`../quant-platform-main/docs/interface.md`
-- 列/算子活目录：`../quant-platform-main/docs/catalog.md`
-- 数据运维：`../quant-platform-main/docs/data-ops-playbook.md`
-- 工作区数据地图：`../../docs/data-map.md`（workspace 仓库）
+- 接口/DSL/CLI：`../platform/docs/interface.md`
+- 列/算子活目录：`../platform/docs/catalog.md`
+- 数据运维：`../platform/docs/data-ops-playbook.md`
+- 工作区数据地图与约定：`../docs/data-map.md`、`../docs/directory-conventions.md`
+- 因子索引：`../docs/index/factors.md`（自动生成，`build_index.py --check` 门）

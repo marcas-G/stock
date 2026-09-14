@@ -1,7 +1,7 @@
 """tools/strategies/strategy_crash_bottom.py 策略回测核心逻辑测试：top-K 选股、换手、成本、净值。
 
 T1 类（需完整 factorlab + duckdb）：用平台 venv 运行——
-  projects/quant-platform-main/.venv/bin/python -m pytest tools/strategies/tests -q
+  platform/.venv/bin/python -m pytest research/tools/strategies/tests -q
 emb（3.11）下自动 skip（importorskip），不是假通过。
 """
 import datetime
