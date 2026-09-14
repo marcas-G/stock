@@ -1,0 +1,13 @@
+CASE
+    WHEN endsWith(ts_code, '.BJ') THEN toFloat64(intDiv(toInt64(round(pre_close * 100)) * 130 + 50, 100)) / 100.0
+    WHEN substring(ts_code, 1, 3) IN ('688', '689') THEN toFloat64(intDiv(toInt64(round(pre_close * 100)) * 120 + 50, 100)) / 100.0
+    WHEN substring(ts_code, 1, 3) IN ('300', '301', '302') AND trade_date >= toDate('2020-08-24') THEN toFloat64(intDiv(toInt64(round(pre_close * 100)) * 120 + 50, 100)) / 100.0
+    WHEN 1 THEN toFloat64(intDiv(toInt64(round(pre_close * 100)) * 110 + 50, 100)) / 100.0
+  END
+@@@
+CASE
+    WHEN endsWith(ts_code, '.BJ') THEN toFloat64(intDiv(toInt64(round(pre_close * 100)) * 70 + 50, 100)) / 100.0
+    WHEN substring(ts_code, 1, 3) IN ('688', '689') THEN toFloat64(intDiv(toInt64(round(pre_close * 100)) * 80 + 50, 100)) / 100.0
+    WHEN substring(ts_code, 1, 3) IN ('300', '301', '302') AND trade_date >= toDate('2020-08-24') THEN toFloat64(intDiv(toInt64(round(pre_close * 100)) * 80 + 50, 100)) / 100.0
+    WHEN 1 THEN toFloat64(intDiv(toInt64(round(pre_close * 100)) * 90 + 50, 100)) / 100.0
+  END

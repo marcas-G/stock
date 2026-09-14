@@ -72,6 +72,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from common import connect, load_config  # noqa: E402
 
+from factorlab.core.factio.boards import (CHINEXT_PREFIXES,  # R4c 单点
+                                          STAR_PREFIXES)
+
 DDL = """
 CREATE TABLE IF NOT EXISTS {db}.stk_limit (
     ts_code    String,
@@ -85,11 +88,19 @@ CREATE TABLE IF NOT EXISTS {db}.stk_limit (
 # 带宽 → (整数乘数 up, 整数乘数 down)：cents×110/100 = ×1.10
 # 条件按序匹配；时变带宽（创业板 2020-08-24 起 ±20%）写进 WHEN 条件。
 # 302 = 创业板老段（302132.SZ 实查，2026-09-08，见模块 docstring）。
+def _sql_in(prefixes: tuple[str, ...]) -> str:
+    """前缀集合 → SQL IN 列表（'688', '689'）——前缀来源是 boards 单点。"""
+    return "(" + ", ".join(f"'{p}'" for p in prefixes) + ")"
+
+
+# R4c：前缀集合取 core.factio.boards（与标量/列式分类器同一来源）；
+# 涨跌停**带宽**的日期依赖（创业板注册制 2020-08-24 起 ±20%）留在本文件——那是限价规则，
+# 不是板块分类（board_of 不含日期语义）。
 _BANDS = [
     ("endsWith(ts_code, '.BJ')", 130, 70),          # 北交所（含精选层）±30%
-    ("substring(ts_code, 1, 3) IN ('688', '689')", 120, 80),   # 科创板 ±20%
-    ("substring(ts_code, 1, 3) IN ('300', '301', '302') "
-     "AND trade_date >= toDate('2020-08-24')", 120, 80),       # 创业板注册制 ±20%
+    (f"substring(ts_code, 1, 3) IN {_sql_in(STAR_PREFIXES)}", 120, 80),      # 科创板 ±20%
+    (f"substring(ts_code, 1, 3) IN {_sql_in(CHINEXT_PREFIXES)} "
+     "AND trade_date >= toDate('2020-08-24')", 120, 80),                    # 创业板注册制 ±20%
     ("1", 110, 90),                                 # 主板（含创业板早期）±10%
 ]
 

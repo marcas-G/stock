@@ -11,6 +11,10 @@ from pathlib import Path
 
 import pytest
 
+# ch_ingest 属 **T1**（模块级 import clickhouse_connect；emb 3.11 未装）：
+# 环境缺失时 skip 而非假通过，用平台 venv 跑真验（`platform/.venv/bin/python -m pytest ...`）。
+pytest.importorskip("clickhouse_connect", reason="ch_ingest 需 clickhouse_connect（T1：平台 venv）")
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))       # ch_ingest/
 import ingest_common as IC  # noqa: E402
 

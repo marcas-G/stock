@@ -14,6 +14,8 @@ import os
 
 import polars as pl
 
+from factorlab.core.factio.boards import zh_market_expr  # R4c 单点
+
 from common import connect, load_config
 
 DAILY_SRC = "/data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet"
@@ -99,13 +101,8 @@ def main():
     print("TRUNCATE + 灌 stock_basic", flush=True)
     client.command(f"TRUNCATE TABLE {db}.stock_basic")
     code = pl.col("code")
-    market = (
-        pl.when(code.str.ends_with(".BJ")).then(pl.lit("北交所"))
-        .when(code.str.slice(0, 3).is_in(["688", "689"])).then(pl.lit("科创板"))
-        .when(code.str.slice(0, 3).is_in(["300", "301", "302"])).then(pl.lit("创业板"))
-        .otherwise(pl.lit("主板"))
-        .alias("market")
-    )
+    # R4c：板块分类收敛到 core.factio.boards（标量/列式同规则，前缀集合单点）
+    market = zh_market_expr(code).alias("market")
     basic_stocks = (
         df.group_by("code").agg(pl.col("trade_date").min().alias("list_date"))
         .with_columns(

@@ -29,6 +29,15 @@ os.environ.setdefault('OMP_NUM_THREADS', '2')
 # (12 worker 满 CPU 死循环 5.5h) → 切系统 malloc, 规避分配器层问题
 os.environ.setdefault('PYARROW_JEMALLOC', '0')
 import io, glob, json, time, argparse, zipfile, signal, multiprocessing, fcntl
+import sys as _sys
+from pathlib import Path as _Path
+
+# R4c：时间解析收敛到 core.factio.timeparse（此前本文件自写一份 numpy 版同规则实现）
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))      # tools/
+from _env import ensure_platform as _ensure_platform  # noqa: E402
+
+_ensure_platform()
+from factorlab.core.factio.timeparse import parse_ms_numpy as _parse_ms_numpy  # noqa: E402
 import pandas as pd, numpy as np, pyarrow as pa, pyarrow.parquet as pq
 from concurrent.futures import ProcessPoolExecutor
 
@@ -106,12 +115,12 @@ SNAP_NUM_BEFORE_STR = 5  # price, volume, amount, n_trades, iopv
 
 
 def parse_ms(t: pd.Series) -> np.ndarray:
-    t = t.astype(np.int64).to_numpy()
-    h = t // 10000000
-    mm = (t // 100000) % 100
-    ss = (t // 1000) % 100
-    sub = t % 1000
-    return ((h * 3600 + mm * 60 + ss) * 1000 + sub).astype(np.int32)
+    """HHMMSSsss 字符串 → ms-of-day（int32）。
+
+    R4c 收敛：实现单点在 `core.factio.timeparse`（三入口 parity 由测试锁）；
+    本函数退化为**薄封装**（pandas Series 入参 → numpy 入口）。
+    """
+    return _parse_ms_numpy(t.astype(np.int64).to_numpy())
 
 
 def to_int64_nullable(v: np.ndarray) -> pa.Array:
