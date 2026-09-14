@@ -1,6 +1,6 @@
 # tools/1m_features — bars_1m 全市场折日特征批算（W7）
 
-研究侧工具：把平台分钟漏斗机制（`factorlab.engine.minute`，W1–W6 已实现）用到
+研究侧工具：把平台分钟漏斗机制（`factorlab.core.engine.minute`，W1–W6 已实现）用到
 真实特征、全市场、全历史（2020-01..2026-08）批算。**批算结果 == 平台引擎结果**
 ——两者共用同一纯计算入口 `compute_minute_factor_panel`，且经单日交叉对拍闸门
 （`check-day`）在真实生产数据上逐值验证（max|Δ|=0.0）。
@@ -13,9 +13,9 @@ B2/B6 一致：im_* 窗口 = 分钟槽位、严格日内；折日输出 (date, c
 
 ## 数据源（本机事实库，只读）
 
-- bars：`/data/students/gaolei/stock/bars_1m/year=YYYY/month=MM/part-000.parquet`
+- bars：`/data/students/gaolei/stock/data/fact/bars_1m/year=YYYY/month=MM/part-000.parquet`
   240 槽/交易日固定网格，raw，amount 元 / volume 股；缺口全在整日层
-- daily：`/data/students/gaolei/stock/daily/daily_fact.parquet`
+- daily：`/data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet`
   （code 带后缀 '000001.SZ'；注入列按 (code, 交易日) 有行情行序列滚动——停牌日
   自动隔开，adv20 语义与日频 adv20 相同）
 

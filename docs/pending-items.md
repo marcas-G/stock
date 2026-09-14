@@ -67,3 +67,18 @@
     ③ 生产读点（`run_lob_batch._read_date`、`factor_panel._read_tick`）收敛到
     `adapters.tick_read`（诊断四处已收敛）——生产路径改动需字节级门。
     ④ catalog 拆分（`core/catalog_model` + `adapters/catalog_docs`，4g 推迟项）。
+
+12. **数据接口收口剩余专项**（2026-09-15 R4 登记）
+    ① **表名常量单点**（`core/factio/tables.py`）：平台 `read/*` 的 duckdb|ch 编译对里
+       **约 460 处表名字面量**（R0 基线）。收敛需逐条改 SQL 字符串，风险 > 收益 →
+       需与"位级门 + 全库 reconcile"配套的专项轮次。
+    ② **研究侧工具入口改名**（R4d C1-C3）：`quark_download_v2.py`→`download_level2.py`、
+       `quark_download_server.py`→`download_share_dir.py`、`quark_share.py`→`share_manifest.py`。
+       **阻塞点**：用户级技能 `~/.claude/skills/quark-share-download/scripts/` 里有这三个文件的
+       **副本**（实测逐字节相同）——改名必须与技能更新同批，否则技能立刻断。属用户侧动作。
+    ③ **tools 入口统一为 `run.py` 子命令形态**（C2）：涉及 6 个工具的 CLI 重构，需各自的
+       冒烟测试先行；本轮只补齐了 README 与统一命名规范文档。
+13. **平台侧原子写补齐**（R4b 剩余）：`adapters/execution_store.save_*` 与
+    `app/evaluate.publish_run`（现直写 weekly.parquet + summary.json）→ tmp+fsync+os.replace。
+    与 `adapters/batch_flock.py`（P-5 编排真实现，兑现 `ports/batch.py` 声明）同批做——
+    两者都动平台写路径，需要回测/评估的位级对照。

@@ -1,24 +1,24 @@
 # ch_ingest — 事实库 → ClickHouse 灌入管线
 
 把用户三大事实库（daily_fact / bars_1m / tick_fact parquet）全量灌入本机
-ClickHouse（`127.0.0.1:19000`，库 `factorlab`，见 `/data/students/gaolei/clickhouse/`）。
+ClickHouse（`127.0.0.1:8123` HTTP——clickhouse-connect 仅支持 HTTP；`19000` 是 tcp client 端口，见 `config.yaml`）。库 `factorlab`。
 
 ## 表与源
 
 | CH 表 | 源 | 行数 | 任务粒度 |
 |---|---|---|---|
-| daily / adj_factor / daily_basic / trade_cal / stock_basic | `stock/daily/daily_fact.parquet` | 18,162,795 | 单进程，TRUNCATE 幂等 |
+| daily / adj_factor / daily_basic / trade_cal / stock_basic | `data/fact/daily_fact/daily_fact.parquet`（相对 `stock/`） | 18,162,795 | 单进程，TRUNCATE 幂等 |
 | stk_limit（派生：板块带宽 × pre_close，规则见脚本 docstring） | `factorlab.daily` | 17,889,079 | `derive_stk_limit.py`，TRUNCATE+INSERT 全量 |
-| adj_detail / adj_event（派生：daily_fact 除权 7 列） | `stock/daily/daily_fact.parquet` | 18,162,795 / 57,173 | `ashare_alpha3/scripts/12_ch_adj_backfill.py`，DROP+CREATE 全量 |
-| bars_1m | `stock/bars_1m/year=YYYY/month=MM/` | 1,854,876,240 | 月分区 ×80 |
-| tick_trades / tick_orders / tick_snapshots | `stock/tick_fact/{trades,orders,snapshots}/year=YYYY/month=MM/` | 98.6 亿 | 月分区 ×13×3 |
+| adj_detail / adj_event（派生：daily_fact 除权 7 列） | `data/fact/daily_fact/daily_fact.parquet`（相对 `stock/`） | 18,162,795 / 57,173 | `ashare_alpha3/scripts/12_ch_adj_backfill.py`，DROP+CREATE 全量 |
+| bars_1m | `data/fact/bars_1m/year=YYYY/month=MM/` | 1,854,876,240 | 月分区 ×80 |
+| tick_trades / tick_orders / tick_snapshots | `data/fact/tick_fact/{trades,orders,snapshots}/year=YYYY/month=MM/` | 98.6 亿 | 月分区 ×13×3 |
 
 ## 用法
 
 ```bash
 # 0) 先起 CH（或 start.sh）
 # 1) 建库建表（幂等）
-/path/to/clickhouse client --port 19000 < ddl.sql
+/path/to/clickhouse client --port 8123   # HTTP（clickhouse-connect 用） < ddl.sql
 
 # 2) daily 层（18M 行，单进程 ~分钟级）
 python ingest_daily.py

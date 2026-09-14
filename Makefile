@@ -3,7 +3,7 @@ SHELL := /bin/bash
 PLATFORM_PY := platform/.venv/bin/python
 EMB_PY      := /data/students/gaolei/anaconda3/envs/emb/bin/python
 
-.PHONY: help test-platform test-research test-all gates lint-factors index clean
+.PHONY: help test-platform test-research test-all gates lint-factors index reconcile clean
 
 help:
 	@echo "make test-platform   平台全量测试（约 7 分钟；基线 2486 passed / 13 skipped）"
@@ -11,6 +11,7 @@ help:
 	@echo "make gates           全套常驻门（结构/契约/标记/旧路径/索引/文档路径）"
 	@echo "make lint-factors    全库因子 spec lint（152/152）"
 	@echo "make index           重生成 docs/index/factors.md"
+	@echo "make reconcile       CH 灌入对账（唯一对账入口；依赖 ClickHouse 在线）"
 
 test-platform:
 	cd platform && .venv/bin/python -m pytest -q
@@ -31,6 +32,10 @@ lint-factors:
 
 index:
 	python3 scripts/gen_factors_index.py
+
+# CH 灌入对账（R4d：唯一对账入口）。需 ClickHouse 在线 + 平台 venv（clickhouse_connect）。
+reconcile:
+	$(PLATFORM_PY) research/tools/ch_ingest/reconcile.py
 
 clean:
 	find . -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true

@@ -86,7 +86,7 @@
 （止盈/长持有到修复）都会稀释收益。全期收益上限 = alpha 区持仓占比 ×
 alpha 收益（当前 18% × 82% ≈ 11.5%）——突破需双引擎（常态层 + 危机层）。
 
-### 外部方法论对照：知乎"死等股灾"战法（`tools/strategy_wait_crash.py`）
+### 外部方法论对照：知乎"死等股灾"战法（`tools/strategies/strategy_wait_crash.py`）
 
 用户提供的知乎战法（空仓等恐慌、金字塔分批、1-2 日快速止盈、10% 硬止损、
 科技/半导体 ETF 标的）**原样实现**（半导体行业 197 股等权代理 ETF，000300
@@ -111,7 +111,7 @@ alpha 收益（当前 18% × 82% ≈ 11.5%）——突破需双引擎（常态�
 
 ## 6. 工具
 
-- `tools/strategy_crash_bottom.py`：策略回测与蒙特卡洛
+- `tools/strategies/strategy_crash_bottom.py`：策略回测与蒙特卡洛
   （`--k`/`--skip-first-week`/`--no-limit-down`/`--mc` 为主线参数；
   `--intensity`/`--stop-loss`/`--rebalance`/`--take-profit`/`--stock-stop-loss`/
   `--max-hold`/`--k-buy` 为已证伪实验保留）。
