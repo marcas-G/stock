@@ -30,3 +30,12 @@ TICK_SNAP_COLS = ["trade_date", "code", "time_ms", "price", "volume",
 
 CANCELS_COLS = ["code", "trade_date", "time_ms", "trade_no", "side",
                 "order_ref", "volume"]   # SZ 撤单表（extract_sz_cancels 产出）
+
+# ---- lob_fact 三表（R4a 新增：读单点 adapters/lob_read.py 的投影/校验契约）----
+# 列名与顺序取 2026-06-10 真实日文件（实测 13/10/8 列）；integration 门锁"声明 ⊆ 实际"。
+LOB_EVENTS_COLS = ["code", "trade_date", "time_ms", "seq", "kind", "phase", "side",
+                   "price_x10000", "prev_vol", "new_vol", "qty", "id", "otype"]
+LOB_SWEEP_META_COLS = ["code", "trade_date", "time_ms", "seq", "phase", "side",
+                       "price_x10000", "vol_before", "tail_order", "tail_resid"]
+LOB_CHECKPOINTS_COLS = ["code", "trade_date", "time_ms", "seq", "side",
+                        "price_x10000", "vol", "n_queue"]

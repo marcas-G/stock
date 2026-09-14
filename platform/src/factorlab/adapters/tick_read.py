@@ -26,29 +26,31 @@ _TABLE_COLS = {
 }
 
 
-def tick_month_files(table_dir: str, day: str) -> list[Path]:
+def tick_month_files(table_dir: str, day: str, root: Path | None = None) -> list[Path]:
     """该 (表, 日) 所在月目录下全部 part 文件（排序确定；目录缺失 → 空表）。
 
     从 core/factio 下沉（文件系统枚举属 I/O；core 只保留路径派生与表名映射）。
     """
-    d = _paths.tick_month_dir(table_dir, day)
+    d = _paths.tick_month_dir(table_dir, day, root)
     return sorted(d.glob("*.parquet")) if d.is_dir() else []
 
 
 def read_tick_table(table: str, day: str, *, codes: Sequence[str] | None = None,
-                    columns: Sequence[str] | None = None) -> pl.DataFrame:
+                    columns: Sequence[str] | None = None,
+                    root: Path | None = None) -> pl.DataFrame:
     """读 tick_fact 的 (表, 日) 数据。
 
     table ∈ {trades, orders, snapshots}（目录名）；day = 'YYYYMMDD'。
     codes 给定时按 code 过滤（ts_code 带后缀，与事实库一致）。
     缺月目录/无 part → FileNotFoundError（不静默返回空表）。
+    root 缺省 = factio.paths.tick_fact_root()（工具/测试可传自定义根，R4a 保留该能力）。
     """
     if table not in _TABLE_COLS:
         raise ValueError(f"未知 tick 表: {table!r}（可用: {sorted(_TABLE_COLS)}）")
-    files = tick_month_files(table, day)
+    files = tick_month_files(table, day, root)
     if not files:
         raise FileNotFoundError(
-            f"无数据: tick_fact/{table} {day}（{paths.tick_month_dir(table, day)}）")
+            f"无数据: tick_fact/{table} {day}（{paths.tick_month_dir(table, day, root)}）")
     date = dt.datetime.strptime(day, "%Y%m%d").date()
     proj = list(columns) if columns is not None else list(_TABLE_COLS[table])
     lf = pl.scan_parquet(files).filter(pl.col("trade_date") == date)

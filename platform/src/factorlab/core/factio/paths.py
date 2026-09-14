@@ -58,9 +58,12 @@ def lob_calib_root() -> Path:
     return CALIB_ROOT / "lob_fact_calib"
 
 
-def tick_month_dir(table_dir: str, day: str) -> Path:
-    """tick 表月分区目录：<fact>/tick_fact/<table_dir>/year=YYYY/month=MM。
+def tick_month_dir(table_dir: str, day: str, root: Path | None = None) -> Path:
+    """tick 表月分区目录：<root>/<table_dir>/year=YYYY/month=MM。
 
     table_dir 用目录名（trades/orders/snapshots/cancels），见 tick_month.TICK_TABLE_DIRS。
+    root 缺省 = tick_fact_root()；测试与工具可传自定义根（R4a 保留该能力）。
+    路径规则与 factio.partitions.partition_dir 同源（此处仅加 root 缺省）。
     """
-    return tick_fact_root() / table_dir / f"year={day[:4]}" / f"month={day[4:6]}"
+    base = tick_fact_root() if root is None else Path(root)
+    return base / table_dir / f"year={day[:4]}" / f"month={day[4:6]}"
