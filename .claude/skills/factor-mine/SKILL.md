@@ -15,7 +15,7 @@ description: 挖因子循环。随机选一个已入库因子为种子，分析�
 
 ## 前置检查
 
-1. 因子库非空：`ls docs/factors/*.md`（排除 `_template.md`），空则报错并停止。
+1. 因子库非空：`ls research/docs/factors/*/*.md`（家族子目录；模板在 `research/docs/factors/_template.md`），空则报错并停止。
 2. 平台数据可用：CLI 不报错（平台库在 main worktree 的 `data/factorlab.duckdb`——当前库不存在，CH 后端可用时以 `FACTORLAB_DATA_BACKEND=ch` 运行）。
 3. 每轮开工前向用户播报：`第 k/N 轮：种子=<seed>`，然后继续（不等待）。
 
@@ -47,7 +47,7 @@ EOF
 - 同一批连续轮次内种子互不重复（`USED` 为已用种子列表，逐轮累加；
   执行时把占位符替换成 Python 集合字面量，如 `USED = {'reversal_20d'}`）；
   所有种子都轮过一遍后循环回来（忽略 USED）。
-- 读 `docs/factors/<seed>.md` 全文 + `factor/<seed>.yaml`。
+- 读 `research/docs/factors/<族>/<stem>.md` 全文 + `research/factor/<族>/<stem>.yaml`（族见 `research/factor/_families.yaml`、索引见 `docs/index/factors.md`）。
 
 ### 2. 假设分析（用 assumption-review.md 模板）
 
@@ -93,7 +93,7 @@ assumption-review.md §0。
   `--set` 仅用于同结构参数扫描）。
 - 语义↔代码映射表：每条变异语义 → 公式行（写在变异点记录里）。
 - 沿用平台自由代码公式（def/参数化，见 `docs/interface.md` §formula 与
-  `factor/vol_run_energy.yaml` 范例）。direction 语义要与变异后假设一致。
+  `research/factor/vol_run_energy/vol_run_energy.yaml` 范例）。direction 语义要与变异后假设一致。
 
 ### 6. 代码审核（独立 subagent）
 
@@ -113,12 +113,12 @@ factorlab run factor/<name>.yaml
 ### 8. 入库
 
 1. 对照 `docs/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
-2. 复制 `docs/factors/_template.md` → `docs/factors/<name>.md`，逐节填写：
+2. 复制 `research/docs/factors/_template.md` → `research/docs/factors/<族>/<stem>.md`，逐节填写：
    验证数据快照自 `results/<name>/summary.json`（注明快照日期）；
    状态按判定（候选/观察中/无效）；§2 逻辑写变异后的假设表达。
-3. 种子档案 `docs/factors/<seed>.md` §5 迭代历史加一行（日期/新因子/变异点/结果/结论）。
+3. 种子档案 `research/docs/factors/<族>/<stem>.md` §5 迭代历史加一行（日期/新因子/变异点/结果/结论）。
 4. 互链：新档案 §6 备注链接 `[<seed>.md](<seed>.md)`；种子档案对应行注明新档案。
-5. `git add factor/<name>.yaml docs/factors/<name>.md docs/factors/<seed>.md`
+5. `git add research/factor/<族>/<stem>.yaml research/docs/factors/<族>/<stem>.md`（并重生成索引：`python3 research/tools/factor_lib/build_index.py`）
    → `git commit -m "feat(factor): <name> — <变异点一句话>"`。
 
 ## 全局规则
@@ -144,5 +144,5 @@ factorlab run factor/<name>.yaml
 
 - `assumption-review.md` — §2/§3 假设分析与审核工作模板（本 skill 目录内）
 - `code-review.md` — §6 subagent 代码审核提示词（本 skill 目录内）
-- `docs/factors/_template.md` — 入库档案模板
+- `research/docs/factors/_template.md` — 入库档案模板
 - `docs/factor-mining-playbook.md` — 评估阈值与方法论

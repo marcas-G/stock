@@ -1,0 +1,18 @@
+# 因子族表 SSOT（R5）：目录 → 名字前缀规则；由 tools/factor_lib/plan_rename.py 读取。
+# 规则：factor/<族>/<stem>.yaml，stem = name 去掉该族声明的前缀（保留语义后缀）。
+# `name:` 字段**不变**（全局唯一，与 results/<name>/ 一致）——改名只动文件路径。
+families:
+  reversal_20d:        [reversal_20d]
+  reversal_10d:        [reversal_10d]
+  reversal_5d:         [reversal_5d]
+  reversal_rsi:        [rsi]
+  momentum_20d:        [momentum_20d]
+  vol_run_energy:      [vol_run_energy]
+  crash_bottom_leader: [crash_bottom_leader]
+  value:               [value]
+  dividend:            [dividend]
+  quality:             [quality]
+  liquidity:           [amihud_illiq, turnover, volume_ratio]
+  volatility:          [low_vol, low_downside, max_effect]
+  size:                [small_cap]
+  misc:                []          # 无前缀可归属的单例（closing_strength 等）

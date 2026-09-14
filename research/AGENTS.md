@@ -18,7 +18,8 @@
 3. **对拍**：与平台内核共享入口的批算（如 1m 特征）必须过 `check-day` 单日对拍
    （max|Δ|=0）才算完成。
 4. **留证**：运行产出（state.json、sha256 摘要、对拍报告）落对应工具的 output/notes；
-   关键结论进因子档案 `docs/factors/<name>.md`（front matter + 六节模板）。
+   关键结论进因子档案 `docs/factors/<族>/<stem>.md`（front matter + 六节模板）；
+   新增/改名后重生成索引 `docs/index/factors.md`（有 byte-equality 门）。
 5. **提交**：改动进 research 分支；平台侧改动去 main worktree（见 CLAUDE.md）。
 
 ## 调试

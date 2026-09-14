@@ -15,7 +15,7 @@
 | `tools/strategies/` | 策略回测脚本（crash_bottom / wait_crash）|
 | `tools/quark_download/` | 网盘批量下载脚本 |
 | `factor/` | 152 个因子 spec.yaml |
-| `docs/factors/`、`docs/strategies/` | 因子档案与策略文档 |
+| `docs/factors/<族>/`、`docs/strategies/` | 因子档案（与 `factor/<族>/` 同族同短名）、策略文档 |
 
 ## 共享核与解释器（重要）
 

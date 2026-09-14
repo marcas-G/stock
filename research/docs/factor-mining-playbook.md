@@ -12,7 +12,7 @@
 
 **单因子迭代循环**（每次 10-20 分钟）：
 1. 从模板（§2）选接近的因子类型，替换公式/参数
-2. `factorlab run factor/demo.yaml`（或 `--no-backtest` 快速版）
+2. `factorlab run research/factor/<族>/<stem>.yaml`（或 `--no-backtest` 快速版）
 3. 读 `summary.json` 评估（或 `factorlab show demo`）
 4. 按 §4 判断：有效 → 深化（调参/换口径/加 process）；无效 → 换思路
 5. 有效因子用 `factorlab list` 管理，`factorlab serve` 可视化对比
@@ -303,7 +303,7 @@ ts_skewness/ts_kurtosis/ts_cum_sum/ts_delay/ts_delta 等）、`ta/tdx` 族（RSI
 ## 7. 因子入库与管理
 
 ```
-factorlab run factor/my_factor.yaml          # 计算 + 评估 + 分层回测
+factorlab run research/factor/<族>/<stem>.yaml   # 计算 + 评估 + 分层回测
 factorlab list                               # 查看所有因子（IC/spread 排序）
 factorlab show my_factor                     # 单因子完整摘要
 factorlab serve                              # Web 可视化（IC 曲线/净值曲线）
@@ -316,8 +316,8 @@ factorlab serve                              # Web 可视化（IC 曲线/净值�
 （如 `momentum_20d_win100`），results 独立目录与默认变体并存——同因子多参数
 对比用 `--set` 即可，无需复制/修改 spec（§2.6）。
 
-**因子档案（md）**：每个因子在 `docs/factors/<name>.md` 维护一份研究档案
-（模板：`docs/factors/_template.md`），与 `factor/<name>.yaml` 并行存放：
+**因子档案（md）**：每个因子在 `research/docs/factors/<族>/<stem>.md` 维护一份研究档案
+（模板：`research/docs/factors/_template.md`），与 `research/factor/<族>/<stem>.yaml` 同族同短名并行存放：
 
 - `yaml` = 机器可执行定义；`md` = 人读研究记录（逻辑动机、参数表、验证结果
   快照、迭代历史、风险备注）。
