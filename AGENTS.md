@@ -1,0 +1,36 @@
+# 工作流与技能（stock 单仓单树）
+
+## 挖因子循环（skill: `.claude/skills/factor-mine/`）
+
+1. **假设**：写清经济逻辑与预期方向（`docs(factors)` 档案的「假设」节）。
+2. **实现**：`research/factor/<族>/<短名>.yaml`。自定义处理函数优先写在 `formula` 里的 `def`
+   （零注册、本因子专用）；稳定后再提升为 `ts_`/`cs_` 前缀的插件算子（`factorlab op add`）。
+3. **自检**：`platform/.venv/bin/factorlab lint <spec>`（秒级）。全库 lint 必须 152/152 通过。
+4. **跑**：`FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/factorlab run <spec>`；看 IC/分层/换手。
+5. **归档**：同族同名档案 `research/docs/factors/<族>/<短名>.md` + 重生成 `docs/index/factors.md`。
+6. **记账**：把结论（含负结论）写进档案；未决项进 `docs/pending-items.md`。
+
+## 提交与证据纪律
+
+- 提交信息：`<type>(<scope>): <做了什么>`；**一次提交只动一棵树**（platform / research / docs）。
+- 每轮结构/行为改动都要留**可复现证据**：`docs/verification/<轮次>/`（命令 + 原始输出 + 门结果）。
+- 门优先于断言："测试全绿" ≠ "链路能跑"——涉及入口/装配/数据接口的改动，**必须真跑一次**
+  （真 CH 或真 parquet）并留下输出。
+- 破坏性/不可逆操作（删除、强推、覆盖远端）**先备份后执行**，并把退路（bundle/tag/路径）写进证据。
+
+## 工具链速查
+
+| 目的 | 命令 |
+|---|---|
+| 平台测试 | `cd platform && .venv/bin/python -m pytest -q` |
+| 研究测试（T2） | `emb/bin/python -m pytest research/tools -q` |
+| 研究测试（T1） | `platform/.venv/bin/python -m pytest research/tools/strategies/tests -q` |
+| 分钟面 × 本地 parquet 对拍 | `FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python research/tools/1m_features/run_1m_feature.py check-day 2024-01-15` |
+| CH 灌入对账 | `platform/.venv/bin/python research/tools/ch_ingest/reconcile.py` |
+| 常驻门 | `make gates` |
+
+## 已知的"别踩"
+
+- 平台 duckdb 库不存在 → 用 `FACTORLAB_DATA_BACKEND=ch`；`exclude_st` 一类依赖平台库的 universe 规则不可用。
+- 写算子必须带分区前缀（`ts_`/`cs_`），裸名注册会被拒（静默退化为元素级 = 跨资产泄漏）。
+- `research/tools/lob_fact/core/config.py` 的校准常量与 `fixtures/pins.sha256` 是冻结金样。
