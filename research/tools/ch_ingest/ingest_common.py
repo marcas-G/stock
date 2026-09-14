@@ -3,48 +3,40 @@
 任务 = (table, year, month)，对应源 parquet `year=YYYY/month=MM/part-*.parquet`
 （part-000 为原始转换输出，part-001 为 2026-09-03 救援合并，二者均须灌入）。
 幂等：每任务先 `ALTER TABLE ... DROP PARTITION 'YYYYMM'` 再插（整月原子替换）。
-断点：`<state_dir>/<table>_<yyyymm>.done` 标记文件（主进程跳过已完成任务）。
+断点：**单个 JSON 文件**（`state.json`，键 `<table>_<yyyymm>`；R4b 由"目录里 119 个
+.done 空文件"统一而来——旧目录经 `lib.writekit.migrate_legacy_done_dir` 留档迁移）。
+标记**只由主进程写**（worker 结果经 imap_unordered 回流后记录；避免 JSON 并发写）。
 worker 用 pyarrow iter_batches 流式（tick 单月最大 3.5 亿行，不可整月 collect）。
 """
 from __future__ import annotations
 
-import glob
 import os
+import sys
+from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from common import connect, load_config
+# 研究侧平台注入单点（R4：本模块现在消费 core.factio 的分区/列契约与 lib.writekit）
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))       # tools/
+from _env import ensure_platform  # noqa: E402
 
-# 各表投影列（按 DDL 顺序；源 parquet 列序与 DDL 不同）
+ensure_platform()
+from factorlab.core.factio import partitions, paths  # noqa: E402
+from factorlab.core.factio.schema import (BARS_1M_COLS, TICK_ORDERS_COLS,  # noqa: E402
+                                          TICK_SNAP_COLS, TICK_TRADES_COLS)
+from lib import writekit as W  # noqa: E402
+
+from common import connect, load_config  # noqa: E402
+
+# 各表投影列：**从 core/factio/schema 派生**（R4c 收敛：此前是第 3 套独立拷贝）。
+# 源 parquet 列序与 DDL 不同 → 按 DDL/契约顺序投影后入 CH；改契约即改此处，
+# tests/test_ch_ingest_layout.py 锁"派生结果 == 历史列表"（防静默漂移）。
 PROJECTION = {
-    "bars_1m": [
-        "datetime", "trade_date", "code", "minute_index", "session_type",
-        "open", "high", "low", "close", "amount", "volume",
-    ],
-    "tick_trades": [
-        "trade_date", "code", "time_ms", "trade_no", "bs", "price_x10000",
-        "volume", "ask_seq", "bid_seq",
-    ],
-    "tick_orders": [
-        "trade_date", "code", "time_ms", "order_no", "exch_order_no",
-        "order_type", "bs", "price_x10000", "volume",
-    ],
-    "tick_snapshots": [
-        "trade_date", "code", "time_ms",
-        "price", "volume", "amount", "n_trades", "iopv", "trade_flag", "bs",
-        "cum_volume", "cum_amount", "high", "low", "open", "prev_close",
-        "ask_p1", "ask_p2", "ask_p3", "ask_p4", "ask_p5",
-        "ask_p6", "ask_p7", "ask_p8", "ask_p9", "ask_p10",
-        "ask_v1", "ask_v2", "ask_v3", "ask_v4", "ask_v5",
-        "ask_v6", "ask_v7", "ask_v8", "ask_v9", "ask_v10",
-        "bid_p1", "bid_p2", "bid_p3", "bid_p4", "bid_p5",
-        "bid_p6", "bid_p7", "bid_p8", "bid_p9", "bid_p10",
-        "bid_v1", "bid_v2", "bid_v3", "bid_v4", "bid_v5",
-        "bid_v6", "bid_v7", "bid_v8", "bid_v9", "bid_v10",
-        "wavg_ask", "wavg_bid", "ask_total", "bid_total",
-        "unweighted_index", "n_issues", "n_up", "n_down", "n_flat",
-    ],
+    "bars_1m": list(BARS_1M_COLS),
+    "tick_trades": list(TICK_TRADES_COLS),
+    "tick_orders": list(TICK_ORDERS_COLS),
+    "tick_snapshots": list(TICK_SNAP_COLS),
 }
 
 # 源 parquet → CH 类型 cast（只列需要转换的；未列出的列保持原类型）
@@ -57,10 +49,10 @@ TICK_DIR = {"tick_trades": "trades", "tick_orders": "orders", "tick_snapshots": 
 
 
 def src_root(table: str) -> str:
-    """源 parquet 根目录（年分区）。"""
+    """源 parquet 根目录（年分区）。R4c：路径取 core.factio.paths 单点（原硬编码）。"""
     if table == "bars_1m":
-        return "/data/students/gaolei/stock/data/fact/bars_1m"
-    return f"/data/students/gaolei/stock/data/fact/tick_fact/{TICK_DIR[table]}"
+        return str(paths.bars_1m_root())
+    return str(paths.tick_fact_root() / TICK_DIR[table])
 
 
 def discover_tasks(table: str) -> list[tuple[str, str]]:
@@ -70,36 +62,67 @@ def discover_tasks(table: str) -> list[tuple[str, str]]:
     按文件收会重复任务, reconcile 双计数且并行重灌同月会互相 DROP 竞态。
     """
     tasks = set()
-    for p in glob.glob(os.path.join(src_root(table), "year=*", "month=*", "part-*.parquet")):
-        if not os.path.exists(os.path.join(os.path.dirname(p), "_SUCCESS")):
-            print(f"  跳过无 _SUCCESS 的 {p}", flush=True)
-            continue
-        year = os.path.basename(os.path.dirname(os.path.dirname(p))).split("=")[1]
-        month = os.path.basename(os.path.dirname(p)).split("=")[1]
-        tasks.add((table, year, month))
+    root = Path(src_root(table))
+    for ydir in sorted(root.glob("year=*")):
+        for mdir in sorted(ydir.glob("month=*")):
+            if not any(mdir.glob("part-*.parquet")):
+                continue
+            if not W.has_success(mdir):          # R4b：标记语义单点
+                print(f"  跳过无 _SUCCESS 的 {mdir}", flush=True)
+                continue
+            tasks.add((table, ydir.name.split("=")[1], mdir.name.split("=")[1]))
     return sorted(tasks)
 
 
-def done_marker(state_dir: str, task: tuple[str, str]) -> str:
+_PROGRESS: dict | None = None
+
+
+def _task_key(task: tuple[str, str]) -> str:
     table, year, month = task
-    return os.path.join(state_dir, f"{table}_{year}{month}.done")
+    return f"{table}_{year}{month}"
 
 
-def is_done(state_dir: str, task: tuple[str, str]) -> bool:
-    return os.path.exists(done_marker(state_dir, task))
+def _progress() -> dict:
+    """读断点（单次加载 + 进程内缓存）；首次调用顺带迁移旧目录形态。"""
+    global _PROGRESS
+    if _PROGRESS is None:
+        p = Path(state_dir())
+        migrated = W.migrate_legacy_done_dir(p)     # 旧 state.json/ 目录 → 留档
+        _PROGRESS = W.load_state(p.parent, p.name)
+        if migrated:
+            _PROGRESS.update(migrated)
+            W.save_state(p.parent, _PROGRESS, p.name)
+            print(f"  断点已迁移：{len(migrated)} 条 .done → {p.name}（旧目录留档为 {p.name}.legacy-*）",
+                  flush=True)
+    return _PROGRESS
 
 
-def mark_done(state_dir: str, task: tuple[str, str]):
-    with open(done_marker(state_dir, task), "w", encoding="utf-8") as f:
-        f.write("ok")
+def is_done(state_dir_arg: str | None, task: tuple[str, str]) -> bool:
+    """该任务是否已完成（参数 state_dir_arg 保留仅为兼容调用点；实际用模块单点）。"""
+    return _progress().get(_task_key(task), False) is True
+
+
+def mark_done(state_dir_arg: str | None, task: tuple[str, str]) -> None:
+    """记录完成（**只应主进程调用**；原子写 JSON）。
+
+    `state_dir_arg` 保留是为兼容既有调用点签名（历史上传的是 state 目录字符串）；
+    实际读写走模块单点 `state_dir()`。
+    """
+    prog = _progress()
+    prog[_task_key(task)] = True
+    p = Path(state_dir())
+    W.save_state(p.parent, prog, p.name)
 
 
 def parquet_path(task: tuple[str, str]) -> list[str]:
     table, year, month = task
     # 2026-09-03: 救援后月份目录含 part-000 + part-001, 重灌必须收全
-    parts = sorted(glob.glob(os.path.join(
-        src_root(table), f"year={year}", f"month={month}", "part-*.parquet")))
-    return parts
+    # R4c：分区路径规则取 core.factio.partitions 单点
+    root = Path(src_root(table))
+    if table == "bars_1m":
+        p = partitions.bars_month_part(root, int(year), int(month))
+        return [str(p)] if p.is_file() else []
+    return sorted(str(x) for x in root.glob(f"year={year}/month={month}/part-*.parquet"))
 
 
 def source_rows(task: tuple[str, str]) -> int:
@@ -146,9 +169,7 @@ def run_pool(table: str, tasks: list[tuple[str, str]]):
     """主进程：8 worker 并行灌入，失败任务保留标记，可重跑。"""
     import multiprocessing as mp
 
-    sdir = state_dir()
-    os.makedirs(sdir, exist_ok=True)
-    todo = [t for t in tasks if not is_done(sdir, t)]
+    todo = [t for t in tasks if not is_done(None, t)]
     done = len(tasks) - len(todo)
     print(f"{table}: 任务 {len(tasks)}（已完成 {done}，待跑 {len(todo)}）", flush=True)
     if not todo:

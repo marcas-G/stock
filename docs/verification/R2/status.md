@@ -37,3 +37,19 @@
 - [x] 单树可用：平台 CLI/测试、研究 T1/T2、`_env` 注入全部在新路径下实测通过
 - [x] 常驻门脚本就位（结构门强制 + 数据接口门报告模式）
 - [x] 数据接口基线（R0 `02-structure-and-dataiface.txt`）作为 R4 的"改前"对照
+
+
+## 补充发现（2026-09-15，R4b 期间）：**未跟踪的运行时产物**也需要迁移
+
+R2 的纯移动门只覆盖 **git 跟踪**文件；被 `.gitignore` 忽略的运行时产物仍留在旧 worktree
+（git mv 不会搬它们）。实测清单与处置：
+
+| 位置（旧 → 新） | 大小 | 处置 |
+|---|---|---|
+| `projects/quant-platform-research/tools/1m_features/output/` → `research/tools/1m_features/output/` | 244M（80 个月目录 + 2 个 merged parquet + state.json） | 同盘 `mv` ✓ |
+| `…/tools/ch_ingest/state.json/`（119 个 `.done`） → `research/tools/ch_ingest/` | 480K | 同盘 `mv` ✓，随后按 R4b **迁移为 JSON**（旧目录留档 `state.json.legacy-20260915/`） |
+| `…/tools/lob_fact/_batch/` | 不存在（无批算断点） | — |
+| `platform` 侧 | 仅 `__pycache__`/`.pytest_cache`/`egg-info`（可再生） | 不搬（新位置会重新生成） |
+
+**门缺口与补救**：纯移动门应显式包含"未跟踪运行时产物"一节；本轮以 R4b 的 state 迁移
+（含留档）与 `1m_features output` 实测可用（check-day 依赖 merged parquet）作为验证。
