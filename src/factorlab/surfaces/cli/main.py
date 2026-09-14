@@ -30,6 +30,11 @@ app.add_typer(op_app, name="op")
 @app.callback()
 def main() -> None:
     """factorlab 因子 DSL 计算平台"""
+    # 装配单点（2026-09-14）：CLI 组回调处装齐注册面（算子族 + process 处理器），
+    # 新增子命令自动覆盖——否则 `op list` 会打印空表（注册靠 import 副作用，
+    # CLI 进程此前从不 import 实现模块），且 catalog dump 的关闸指引正是 `op list`。
+    from factorlab.app.bootstrap import ensure_assembly
+    ensure_assembly()
 
 
 @app.command()

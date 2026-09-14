@@ -25,6 +25,19 @@ def install_processors() -> None:
     ensure_processors_registered()
 
 
+def ensure_assembly() -> None:
+    """**单点装配**：幂等安装全部注册面（算子族 + process 处理器）。
+
+    任何入口（CLI 组回调、run_factor/run_factor_minute、未来新表面）都可安全调用。
+    为什么必须在"能跑起来"的每个入口都装：注册靠 `@factor_op`/`@register_processor`
+    装饰器的 **import 副作用**，一旦某条入口链没 import 到实现模块，注册表就是空的
+    ——已发生两次（2026-09-12 process 处理器、2026-09-14 CLI `op list` 打印 `[]`），
+    且两次都被测试的导入顺序掩盖。装配点显式化 + 子进程回归测试是这类缺陷的解药。
+    """
+    install_operators()
+    install_processors()
+
+
 def open_read(data_backend: str | None = None, db_path: Path | None = None,
               max_memory: str | None = None) -> ReadPort:
     """打开读句柄。data_backend None → settings.data_backend（默认 duckdb）。

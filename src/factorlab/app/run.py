@@ -334,10 +334,12 @@ def _compute_labels(
 
 
 def _ensure_assembly() -> None:
-    """防御性装配（幂等）：算子族 + process 处理器——核心入口不依赖调用顺序。"""
-    from factorlab.app.bootstrap import install_operators, install_processors
-    install_operators()
-    install_processors()
+    """防御性装配（幂等）：算子族 + process 处理器——核心入口不依赖调用顺序。
+
+    实现在 `app.bootstrap.ensure_assembly`（单点）；此处保留薄封装供入口自证。
+    """
+    from factorlab.app.bootstrap import ensure_assembly
+    ensure_assembly()
 
 
 def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
