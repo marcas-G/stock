@@ -215,6 +215,39 @@ WS6 研究侧重排 + 编排单点 → WS7 文档/skills/安装面 → WS8 P7/P8
 
 ## 11. 验证记录
 
+### POST-WS8 缺陷修复（2026-09-14）：能力实演暴露两处缺陷 — 已修（commit ce3ffcc）
+P8 之后按用户要求做**能力实演**（真 CH 端到端跑因子 + 库级分析），暴露两个测试套件
+未覆盖的缺陷——两处都不是"重构把对的改错了"的臆断，均有定位证据：
+
+1. **process 处理器注册丢失**（WS3/WS5 包重排的 regression）：run 链不再 import 旧
+   `factorlab.process.__init__`（注册副作用所在）→ 实跑 CLI 即
+   `KeyError: 未知处理器: winsorize（可用: ）`。套件掩盖机制 = 导入顺序依赖
+   （test_process 先 import）。修复 = 装配点显式化（`install_processors` /
+   `_ensure_assembly`，docstring 之后调用）+ **注册缺失即 RuntimeError 守卫**
+   （不做静默 no-op）+ 3 个子进程回归用例（含守卫红绿）。
+   架构含义：DER-003「注册即装配」原只覆盖算子族，本轮补齐 process 族——**注册副作用
+   不得作为隐式契约**（No Hidden Design）。
+2. **process 链 NaN 毒化**（旧缺陷，非重构引入；refactor 前后 diff 可证 body 未动）：
+   polars `NaN > 0` 为 True → 截面含任一 NaN 时 std=NaN 被判有效 → 整截面 NaN、IC 归零
+   （真实数据 332 只退市/无数据股触发）。修复 = 四个截面处理器统一 `fill_nan(None)`
+   （NaN ≡ 无效观测，输出 null，评估层照常过滤）+ 4 个用例。
+
+门：平台全量 **2469 passed / 13 skipped**（基线 2462 → 2469 = +7 新增用例，逐项登记）；
+真 CH 复验 momentum_demo n_weeks 0→25、ic_mean=0.0347；三因子库级 list/corr/svd/resic 全通。
+教训（记为下轮回归清单）：**"测试全绿"不等于"链路能跑"**——注册/装配类副作用缺陷与
+NaN 语义类缺陷都在单元测试的盲区，实跑门（真数据 + 全链）应作为收口标准动作。
+
+3. **CLI `op list` 空注册表**（同上缺陷类，同日第二例 · commit 944cfb6）：`factorlab op list`
+   打印 `[]`——CLI 进程从不 import 算子族实现模块，`@factor_op` 装饰器副作用未发生。
+   危害被放大：`catalog dump` 的未知算子关闸指引正是"对照「注册清单」（catalog dump /
+   factorlab op list）改正名字"，空表反噬写因子的 AI。修复 = `app.bootstrap.ensure_assembly`
+   **单点装配** + CLI 组回调调用（全部子命令与未来新增命令自动覆盖）+ 子进程回归用例。
+   **根因归纳**：同一缺陷类在 3 天内出现 3 次（process 处理器 / NaN 语义 / CLI op list），
+   前两次是"装配副作用充当隐式契约"、第三次是"语义前提未写进处理器契约"——**凡契约靠
+   副作用或默认语义成立，就必须有显式装配点 + 实跑门**（本 spec §5.1 依赖方向门之外，建议
+   下一轮补一条"注册面完整性门"：任一入口调用后，其声明依赖的注册表必须非空）。
+   终态门：平台全量 **2470 passed / 13 skipped**。
+
 ### WS6（2026-09-12）：研究侧重排 — PASS（部分；剩余项 pending #11）
 lob_fact 包化（core/store/pipeline/diag；`store` 而非 `io`——stdlib `io` 在 sys.modules 必然遮蔽）；
 路径单点（`core/config.py` 由 `core.factio.paths` 派生，经 `tools/_env` 落位断言）；
