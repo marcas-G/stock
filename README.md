@@ -47,7 +47,8 @@ make gates                # 结构/契约/标记/旧路径/索引 全套常驻�
 
 ## 环境事实（容易踩的坑）
 
-- **两套解释器（刻意不统一）**：平台 = `platform/.venv`（Python 3.13，uv 管理）；研究 T2 工具 = `emb`（3.11，`/data/students/gaolei/anaconda3/envs/emb`）。T1 工具（`research/tools/strategies`、`1m_features`）用平台 venv。
+- **两套解释器（刻意不统一）**：平台 = `platform/.venv`（Python 3.13，uv 管理）；研究 T2 = `emb`（3.11，`/data/students/gaolei/anaconda3/envs/emb`）。
+  **T1 = 平台 venv**：`research/tools/strategies`、`1m_features`、**`ch_ingest`**（它模块级 import `clickhouse_connect`）。
 - `emb` **装不了** `factorlab`（包要求 ≥3.13）——T2 靠 `research/tools/_env.py` 注入 `platform/src` 并做落位断言，这是唯一注入点。
 - **当前生产读路径是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）：平台 duckdb 库不存在（teajoin token 过期，见 [docs/pending-items.md](docs/pending-items.md) #1）。
 - **`data/` 零改动**：任何操作都不得写入 `data/`；只读消费。

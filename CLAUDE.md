@@ -57,8 +57,10 @@ surfaces(cli,web) → app(装配) → ports(6 契约) → core(纯核)
 
 - 平台 venv：`platform/.venv`（Python 3.13，uv）。移动目录后重装：
   `cd platform && uv pip install --python .venv/bin/python -e . --no-deps --no-build-isolation`。
-- 研究 T2：`/data/students/gaolei/anaconda3/envs/emb/bin/python`（3.11）；平台代码经 `research/tools/_env.py`
-  注入 `platform/src`（唯一注入点，含落位断言）。**emb 装不了 factorlab（requires-python>=3.13）**。
+- 研究侧解释器：**T2**（`lob_fact/`、`converters/`，只需 `core.factio`）= `emb`（3.11）；
+  **T1**（`strategies/`、`1m_features/`、`ch_ingest/`——ch_ingest 模块级 import `clickhouse_connect`）= `platform/.venv`。
+  平台代码经 `research/tools/_env.py` 注入 `platform/src`（唯一注入点，含落位断言）；
+  **emb 装不了 factorlab（requires-python>=3.13）**。
 - CH：`127.0.0.1:8123` db=factorlab。目标机 16GB 无页面文件 → 批算单进程 + 流式 + 及时释放。
 - `projects/` 里的 `quant_core_shim` 被两个 venv 以 editable 引用（绝对路径写死）——原位保留，勿移动。
 - lob_fact 校准常量（W1 冻结值 + `pins.sha256` 金样）**不可改**：改动即让 183 测试与历史结论失效。
