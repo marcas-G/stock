@@ -33,8 +33,8 @@ structure() {
   done
 
   echo "[G-BOUNDARY] platform/ 不得 import research/"
-  n=$(grep -rn "research\.\|from research\|import research" "$PLATFORM/src" "$PLATFORM/tests" --include=*.py 2>/dev/null | wc -l)
-  [ "$n" = "0" ] && ok "无 platform→research 依赖" || { bad "发现 $n 处 platform→research 引用"; grep -rn "research\." "$PLATFORM/src" --include=*.py | head -3 | sed 's/^/      /'; }
+  n=$(grep -rn "research\.\|from research\|import research" "$PLATFORM/src" "$PLATFORM/tests" --include=*.py 2>/dev/null | grep -v "['\"]" | wc -l)   # 排除字符串字面量（门自匹配）
+  [ "$n" = "0" ] && ok "无 platform→research 依赖" || { bad "发现 $n 处 platform→research 引用"; grep -rn "research\." "$PLATFORM/src" --include=*.py | grep -v "['\"]" | head -3 | sed 's/^/      /'; }
 
   echo "[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）"
   n=$(git grep -nI -e "quant-platform-main" -e "quant-platform-research" -e "projects/quant-platform" -- . \
