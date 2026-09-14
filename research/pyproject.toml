@@ -1,0 +1,33 @@
+# 研究 worktree（research 分支）：不承载平台包，不是可分发项目。
+# 平台共享核在 main worktree（projects/quant-platform-main/src），研究工具经
+# tools/_env.py 注入并断言落位（DER-010）；本文件只为 pytest 配置与依赖声明存在。
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quant-research"
+version = "0.1.0"
+description = "Research tools on top of the shared factorlab core (main worktree)"
+requires-python = ">=3.11"
+dependencies = [
+    "polars>=1.38",
+    "pandas",
+    "numpy>=1.26",
+    "pyarrow>=20",  # 本机 glibc 2.27: >=21 无 cp313 manylinux wheel, 只能 20.x
+    "clickhouse-connect>=1.7",  # ch_ingest 灌入/对账
+    "pyyaml>=6",  # ch_ingest config.yaml
+    "psutil>=7.2",  # 批算资源审计
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools]
+packages = []  # 研究分支不分发任何包（工具按脚本运行）
+
+[tool.pytest.ini_options]
+testpaths = ["tools"]
+markers = [
+    "integration: 依赖真实数据源（ClickHouse factorlab 库 / 本地事实库）的集成测试（数据源缺失时跳过）",
+]

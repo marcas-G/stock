@@ -1,0 +1,36 @@
+# 框架与工具目录（保留在工作区，但不纳入版本控制）
+/superpowers/
+/.agents/
+/.worktrees/
+/.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.coverage
+.coverage.*
+htmlcov/
+
+# 平台运行时数据
+data/
+# 源码包例外：M3a 数据层模块
+!src/factorlab/data/
+results/
+
+# 敏感配置（tushare/teajoin token 等）
+.env
+*.duckdb
+*.duckdb.wal
+*.parquet
+
+# 编辑器/系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
