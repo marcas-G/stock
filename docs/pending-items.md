@@ -37,9 +37,11 @@
    程序见 `docs/archive-policy.md`；三个真实决策点（tick_dev 去留 / minutes-raw 深度血缘 /
    备份克隆目录清空）。
 
-7. **用户执行项（远端）**
-   - 陈旧远端分支删除 push（清单见 `remote-cleanup-checklist.md`）；
-   - 根 workspace 仓库首次 push（remote 待定；建议私有仓 `stock-workspace`）。
+7. **用户执行项（远端）** ✅ 2026-09-14 完成
+   - ✅ 5 个陈旧远端分支已删（删前归档为本地 tag `archive/*`，SHA 5/5 对账）；
+   - ✅ 根 workspace 仓库已推（仓库改名 `quant-platform`→`stock`，工作区文档为
+     `workspace` 分支；与平台 `main`、研究 `research` 并列，见 `remote-cleanup-checklist.md` §4）。
+   - 遗留可选项：仓库当前**公开**，如需转私有见 §4 后续说明。
 
 8. **挂起计划：FactorMine v1（挖因子编程语言）**
    现状：计划已完成（`~/.claude/plans/` 历史）+ 三项拍板决策（嵌入式 AST DSL / 语言核心
