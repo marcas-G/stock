@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+import datetime
+from pathlib import Path
+
+import polars as pl
+
+from factorlab.config import settings
+from factorlab.adapters.fetcher import TeaJoinClient
+from factorlab.adapters.mirror_db import PlatformDB
+from factorlab.adapters.rebuild import DAILY_TABLES, load_manifest, save_manifest
+
+
+def refresh(db: PlatformDB, client: TeaJoinClient, manifest_path: Path | None = None) -> dict:
+    """增量续拉行情表：重试 manifest 中 failed 日期，并从 last_updated 续拉到最新交易日。
+
+    起始日期取最早 failed 日（若有）——failed 旧日期即使 ≤ last_updated 也重拉；
+    单日失败记入该表 failed（与 rebuild 同语义），成功则从 failed 移除。
+    """
+    manifest_path = manifest_path or (settings.data_dir / "manifest.json")
+    manifest = load_manifest(manifest_path)
+    last = manifest.get("last_updated")
+    if not last:
+        raise ValueError("manifest 无 last_updated，请先 rebuild")
+
+    # 重试窗口：起始取最早的 failed 日（若早于 last_updated 也要覆盖到）
+    failed_all = [d for t in DAILY_TABLES for d in manifest.get(t, {}).get("failed", [])]
+    start_from = min(failed_all) if failed_all else last
+
+    today = datetime.date.today().strftime("%Y%m%d")
+    cal = client.fetch("trade_cal", {"exchange": "SSE", "start_date": start_from, "end_date": today})
+    new_dates = sorted(d for d in cal.filter(pl.col("is_open").cast(pl.Int32) == 1)["cal_date"].to_list()
+                       if d > last or d in failed_all)
+    if not new_dates:
+        return {"new_dates": [], "tables": {}}
+
+    report: dict = {"new_dates": new_dates, "tables": {}}
+    for table in DAILY_TABLES:
+        completed = set(manifest.get(table, {}).get("completed", []))
+        failed = set(manifest.get(table, {}).get("failed", []))
+        rows = 0
+        for d in new_dates:
+            try:
+                df = client.fetch(table, {"trade_date": d})
+                db.upsert(table, df, keys=["trade_date", "ts_code"])  # 默认 dedup=True（refresh 可能重拉）
+                completed.add(d)
+                failed.discard(d)
+                rows += df.height
+            except Exception:
+                failed.add(d)  # 失败日记入 failed，下次 refresh 重试
+        manifest.setdefault(table, {})["completed"] = sorted(completed)
+        manifest.setdefault(table, {})["failed"] = sorted(failed)
+        report["tables"][table] = {"rows": rows, "failed": sorted(failed)}
+    manifest["last_updated"] = new_dates[-1]  # failed 日也算已处理，推进避免重复拉
+    save_manifest(manifest_path, manifest)
+    return report
+
+
+def refresh_indexes(db: PlatformDB, client: TeaJoinClient, manifest_path: Path | None = None) -> dict:
+    """指数增量：index_daily 从 last_updated 到最新交易日；index_weight 补新月份。
+
+    手动触发的 data update 链路的一部分；返回各指数新增行数与失败。
+    """
+    from factorlab.adapters.rebuild import INDEX_CODES, load_manifest, save_manifest
+
+    manifest_path = manifest_path or (settings.data_dir / "manifest.json")
+    manifest = load_manifest(manifest_path)
+    last = manifest.get("last_updated")
+    if not last:
+        raise ValueError("manifest 无 last_updated，请先 rebuild")
+    today = datetime.date.today().strftime("%Y%m%d")
+
+    report: dict = {"index_daily": {"rows": 0, "failed": []}, "index_weight": {"rows": 0, "failed": []}}
+
+    # index_daily：每个指数从 last_updated 到 today（单次请求拉全区间）
+    for code in INDEX_CODES:
+        try:
+            df = client.fetch("index_daily", {"ts_code": code, "start_date": last, "end_date": today})
+            if df.height:
+                db.upsert("index_daily", df, keys=["trade_date", "ts_code"])
+                report["index_daily"]["rows"] += df.height
+        except Exception as exc:
+            report["index_daily"]["failed"].append(f"{code}: {str(exc)[:80]}")
+
+    # index_weight：新月份（当前月最后交易日不在 completed 则拉取）
+    cal = client.fetch("trade_cal", {"exchange": "SSE", "start_date": last, "end_date": today})
+    month_dates = sorted(
+        d for d in cal.filter(pl.col("is_open").cast(pl.Int32) == 1)["cal_date"].to_list()
+        if d[:6] != last[:6] or d > last  # 新月份或同月新日期
+    )
+    completed = set(manifest.get("index_weight", {}).get("completed", []))
+    for d in month_dates:
+        if d in completed:
+            continue
+        try:
+            for code in INDEX_CODES:
+                w = client.fetch("index_weight", {"index_code": code, "trade_date": d})
+                if w.height:
+                    db.upsert("index_weight", w, keys=["index_code", "trade_date"])
+                    report["index_weight"]["rows"] += w.height
+            completed.add(d)
+        except Exception as exc:
+            report["index_weight"]["failed"].append(f"{d}: {str(exc)[:80]}")
+    manifest["index_weight"] = {"completed": sorted(completed), "failed": []}
+    save_manifest(manifest_path, manifest)
+    return report

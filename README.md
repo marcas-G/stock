@@ -1,54 +1,50 @@
-# stock — 个人量化研究工作区
+# factorlab
 
-数据资产、代码项目与工程文档的统一工作区（2026-09-12 按 V-Model 手册
-（`docs/递归式需求驱动系统工程开发手册：NASA Systems Engineering × V-Model.md`）
-完成清理重构）。
+个人因子计算平台（M1–M8 已交付）：spec.yaml 因子 DSL（`expr_codegen` + `polars_ta` 内核，
+TS/CS/GP 分区 + 池公式 + 多输出）、分块计算、日频/分钟双链、Rust `quant_core` 周频评估、
+分层回测、Web 可视化、M7 策略组合、M8 执行运行时、PIT 正确性收口、读路径双后端
+（DuckDB 平台库 | ClickHouse）。
 
-## 根目录导览（固定 7 项，见 `docs/directory-conventions.md`）
+**权威文档**：`docs/interface.md`（CLI/Spec/DSL/Python API 全量）+ `docs/catalog.md`
+（列/算子活目录）。本 README 只给入口。
 
-| 条目 | 是什么 |
-|---|---|
-| `data/` | 全部数据资产（raw / fact / panel / calib / ref 五类）——定位入口：`docs/data-map.md` |
-| `projects/` | 全部代码项目（platform 双 worktree、quant_core_shim、ashare_alpha3） |
-| `docs/` | 工作区工程文档（P0-P8、数据地图、目录公约、追踪矩阵、验证证据） |
-| `_archive/` | 30 天可逆归档区（2026-10-12 到期，政策见 `docs/archive-policy.md`） |
-| `README.md` | 本文件 |
-| `.gitignore` | 根仓库白名单（只跟踪文档，其余全忽略） |
-| `.git/` | 工作区文档版本库（只含 docs/；数据与代码各自的 git 在各自目录） |
-
-## 三条工具链（新路径）
+## 快速开始
 
 ```bash
-# 1) 平台（factorlab）：worktree 在 projects/ 下，editable 安装在 emb 环境
-cd projects/quant-platform-main && /data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest tests/ -q
+# 环境：本工作树自带 uv 管理的 venv（Python 3.13）
+.venv/bin/python -m pip --version 2>/dev/null || export PATH=/home/gaolei/.local/bin:$PATH
+uv pip install --python .venv/bin/python -e . --no-deps      # editable 重装（换工作树后需重跑）
+uv pip install --python .venv/bin/python -e ../quant_core_shim --no-deps   # 评估内核 shim
 
-# 2) 研究工具（lob_fact 等）：路径单点在 tools/lob_fact/config.py
-cd projects/quant-platform-research/tools/lob_fact
-/data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest tests/ -q      # 183 tests
-
-# 3) ClickHouse 灌入/对账（127.0.0.1:8123, db=factorlab）
-cd projects/quant-platform-research/tools/ch_ingest
-/data/students/gaolei/anaconda3/envs/emb/bin/python reconcile.py             # 只读对账（全一致才 exit 0）
+# 测试
+.venv/bin/python -m pytest tests/ -q
 ```
 
-## 文档索引
+## CLI 一览
 
-- `docs/workspace-p0p8.md` — 工作区 P0-P8 系统工程文档（需求、逻辑、架构、验证、使命判定）
-- `docs/data-map.md` — 数据地图（每个数据单元的位置/生产者/血缘/消费者）
-- `docs/directory-conventions.md` — 目录公约（data/ 五类判据、projects/ 归属、根收敛承诺）
-- `docs/traceability-matrix.md` — 需求→逻辑功能→架构元素→验证证据 追踪矩阵
-- `docs/archive-policy.md` — 归档政策（30 天 TTL、恢复程序、到期清理）
-- `docs/pending-items.md` — 未决事项登记（不在清理范围、需后续排期）
-- `docs/remote-cleanup-checklist.md` — 远端分支清理与首次 push 清单（用户执行）
-- `docs/verification/` — S1-S5 各阶段验证证据（命令输出原文）
+| 命令 | 作用 |
+|---|---|
+| `factorlab version` / `lint <spec.yaml>` | 版本 / spec 校验 |
+| `factorlab run <spec.yaml>` | 跑因子：计算 → 评估 → 分层回测 → artifact（`--chunk-days` 分块） |
+| `factorlab list` / `show <name>` | 因子清单 / 单因子详情 |
+| `factorlab corr` / `svd` / `resic` | 相关性 / SVD / 横截面联合诊断 |
+| `factorlab serve` | Web 可视化（FastAPI） |
+| `factorlab op list\|doc\|add\|remove` | 算子注册表管理 |
+| `factorlab data rebuild\|refresh\|update\|verify` | 平台库（DuckDB）数据链 |
+| `factorlab catalog dump\|docs` | 列/算子活目录（docs/catalog.md 同源生成） |
 
-## 数据速览（详见 data-map.md）
+## 数据后端
 
-| 资产 | 位置 | 规模 |
-|---|---|---|
-| 逐笔事实库 | `data/fact/tick_fact/` | 82G（orders/trades/snapshots/cancels） |
-| 订单簿重建 | `data/fact/lob_fact/` | 113G（events/sweep_meta/checkpoints，250/250 交易日） |
-| 分钟事实库 | `data/fact/bars_1m/` | 19G（80 个月） |
-| 日线事实 | `data/fact/daily_fact/` | 435M（18.16M 行） |
-| 原始下载 | `data/raw/quark_downloaded/` | 111G（74,630 zip） |
-| ClickHouse | `127.0.0.1:8123` db=factorlab | tick_orders 5.81B 行等 8 表 |
+- **duckdb**（默认）：平台库 `data/factorlab.duckdb`（相对 CWD；`FACTORLAB_PLATFORM_DB`
+  可覆盖），由 `factorlab data rebuild/update/refresh` 维护（数据源 = teajoin Tushare 代理）。
+- **ch**：`FACTORLAB_DATA_BACKEND=ch`（`FACTORLAB_CH_HOST/PORT/DATABASE`），ClickHouse
+  事实库由工作区 `projects/quant-platform-research/tools/ch_ingest/` 灌入。
+
+## 仓库纪律（摘要）
+
+- `main` 只收平台改动（`src/factorlab/`、`tests/`、`docs/interface.md`、
+  `docs/superpowers/`、`docs/data-ops-playbook.md`、`docs/teajoin-guide.md`、README、pyproject）；
+  研究内容（`factor/`、`docs/factors/`、`tools/`、`docs/strategies/`）进 **`research` 分支**
+  （同仓库的第二个 worktree：`../quant-platform-research`）。
+- 任何代码改动遵循 TDD（先失败测试再加实现），提交前全量 `pytest -q` 通过；
+  文档与实现同步（详见 `CLAUDE.md`）。

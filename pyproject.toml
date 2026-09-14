@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "factorlab"
+version = "0.1.0"
+description = "Personal factor DSL computation platform"
+requires-python = ">=3.13"
+dependencies = [
+    "polars>=1.38",
+    "numpy>=1.26",  # 逐周横截面 OLS（eval.cross_section）/ eval.correlation 运行时依赖
+    "duckdb>=1.5",
+    "pyarrow>=20",  # 本机 glibc 2.27: >=21 无 cp313 manylinux wheel, 只能 20.x
+    "clickhouse-connect>=1.7",  # ClickHouse 读后端 (ch_source)
+    "pyyaml>=6",
+    "pydantic>=2.12",
+    "pydantic-settings>=2.14",
+    "expr-codegen>=0.16.6",
+    "polars-ta>=0.5.17",
+    "typer>=0.27",
+    "rich>=14",
+    "fastapi>=0.136",
+    "uvicorn>=0.45",
+    "jinja2>=3.1",
+    "plotly>=6.7",
+    "requests>=2.32",
+    "psutil>=7.2",
+    "quant-core>=0.1.0",  # Rust 评估内核（PyO3；源见 quant-data 项目归档，本仓库仅声明）
+]
+
+[project.optional-dependencies]
+talib = ["TA-Lib>=0.7.1"]
+dev = ["pytest>=8", "pytest-cov>=6"]
+
+[project.scripts]
+factorlab = "factorlab.surfaces.cli.main:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+factorlab = ["surfaces/web/templates/*.html", "surfaces/web/static/*.js"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "integration: 依赖真实数据源（ClickHouse factorlab 库 / duckdb 平台库）的集成测试（数据源缺失时跳过）",
+]

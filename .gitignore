@@ -1,4 +1,41 @@
+# ===== 单仓单树 .gitignore（R1 合并过渡态；R2 收敛为最终版）=====
+# 根白名单：仓库根只放行受控条目——本地大目录（data/ 392G、_archive/、projects/）永不被跟踪。
+# （R1 期间平台内容尚在根级，故同时放行 src/ tests/ 等；R2 迁入 platform/ 后收敛。）
 /*
 !/README.md
+!/CLAUDE.md
+!/AGENTS.md
+!/Makefile
 !/.gitignore
 !/docs/
+!/scripts/
+!/src/
+!/tests/
+!/pyproject.toml
+!/platform/
+!/research/
+!/.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.coverage
+.coverage.*
+htmlcov/
+
+# 平台运行时数据与产物（防御性显式声明：即使白名单被改错也不入版本控制）
+data/
+results/
+*.duckdb
+
+# 框架与工具目录
+/superpowers/
+/.agents/
+/.worktrees/
+/.claude/settings.local.json

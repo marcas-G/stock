@@ -1,0 +1,681 @@
+"""M8-01：Execution Domain Contracts——PortfolioState / OrderBatch / enums。
+
+架构边界：TargetPortfolio（ideal weights，M7）≠ PortfolioState（actual
+cash/share inventory）。二者之间必须经过 Execution Runtime（M8-02..06）。
+
+- PortfolioState：as_of_date + phase（PRE/POST_EXECUTION——同一天开盘前/后
+  不是同一个 state）+ cash + sparse positions（quantity / sellable_quantity，
+  Int64；T+1 transition 属后续 Execution state transition，本任务只定义关系）
+- OrderBatch：一个 TargetPortfolio decision 在一个实际执行日期/时点的**净**
+  订单集合（decision_date → execution_date > decision_date；ExecutionTiming
+  复用 M6；orders 严格 code/side/quantity，每 code 至多 1 行）
+- 不定义 Fill/Trade/PnL/NAV/MarketSnapshot（M8-04/05 之前锁定这些 contract
+  过早）；不读取行情/DB；不实现任何执行算法
+"""
+
+from __future__ import annotations
+
+import datetime
+import math
+from dataclasses import dataclass
+from enum import Enum
+
+import polars as pl
+
+from factorlab.core.domain.codes import is_canonical_stock_code
+from factorlab.core.domain.timing import ExecutionTiming
+
+
+class OrderSide(Enum):
+    """订单方向（M8 v1 long-only：仅 BUY/SELL，无 SHORT/COVER）。"""
+
+    BUY = "buy"
+    SELL = "sell"
+
+
+class QuantityRuleKind(Enum):
+    """Per-security 申报数量规则（M8-01B）——描述交易数量语义，不是证券分类名。
+
+    - ROUND_LOT_100：沪市普通/深市主板/创业板（BUY >=100 且 %100==0；
+      SELL 允许整手 + 一次完整零股 remainder）
+    - STAR_MIN_200_STEP_1：科创板（BUY >=200 步进 1；SELL >=200，
+      holding<200 只能全卖）
+    - BSE_MIN_100_STEP_1：北交所（BUY >=100 步进 1；SELL >=100，
+      holding<100 只能全卖）
+    """
+
+    ROUND_LOT_100 = "round_lot_100"
+    STAR_MIN_200_STEP_1 = "star_min_200_step_1"
+    BSE_MIN_100_STEP_1 = "bse_min_100_step_1"
+
+
+class PortfolioStatePhase(Enum):
+    """实际组合状态时点（同一天开盘交易前 vs 交易后不是同一 state）。"""
+
+    PRE_EXECUTION = "pre_execution"
+    POST_EXECUTION = "post_execution"
+
+
+class ExecutionDataQualityError(ValueError):
+    """Execution-critical market evidence is missing or internally inconsistent.
+
+    - MarketOpenSnapshot 的 execution-data quality invariant 违反（has_daily=True
+      但 open/pre_close 非法；has_limit=True 但 up/down 非法；open 在合法 limits
+      之外）→ 本异常
+    - 继承 ValueError（旧 consumer 的 except ValueError 仍可捕获）
+    - 不是 MarketOpenSnapshot 结构错误（schema/dtype/duplicate/canonical/order/
+      null-Boolean/implication——那些是 program/domain construction error，保持
+      普通 ValueError）
+    - 语义：DATA UNKNOWN ≠ TRADE REJECTED——数据坏必须 fail fast，不能模拟成
+      no-fill/跳过/全现金（M8-04A Gate）
+    """
+
+
+class OpenOrderDisposition(Enum):
+    """NEXT_OPEN 市场状态下的订单 disposition（market eligibility，非成交）。
+
+    - FILLABLE：market 层可成交（fillable_price = raw open）
+    - BLOCKED_*：保守假设下不可成交（fillable_price = null）
+    - 数据异常不是 disposition——缺/坏 evidence 必须抛
+      ExecutionDataQualityError（DATA UNKNOWN ≠ TRADE REJECTED）
+    """
+
+    FILLABLE = "fillable"
+    BLOCKED_SUSPENSION = "blocked_suspension"
+    BLOCKED_LIMIT_UP = "blocked_limit_up"
+    BLOCKED_LIMIT_DOWN = "blocked_limit_down"
+
+
+_POSITIONS_COLUMNS = ["code", "quantity", "sellable_quantity"]
+_ORDERS_COLUMNS = ["code", "side", "quantity"]
+
+
+def _require_date(value, field: str) -> datetime.date:
+    if not isinstance(value, datetime.date) or isinstance(value, datetime.datetime):
+        raise ValueError(
+            f"{field} 必须为 datetime.date（datetime.datetime/str/int 均拒绝，"
+            f"收到 {value!r}）")
+    return value
+
+
+def _check_positions_schema(frame: pl.DataFrame) -> None:
+    if list(frame.columns) != _POSITIONS_COLUMNS:
+        raise ValueError(
+            f"positions 必须严格为 code/quantity/sellable_quantity 三列"
+            f"（收到 {frame.columns}）——禁止 weight/price/market_value/cost 等")
+    if frame.schema["code"] != pl.String:
+        raise ValueError(f"positions.code dtype 必须为 String（收到 {frame.schema['code']}）")
+    if frame.schema["quantity"] != pl.Int64:
+        raise ValueError(f"positions.quantity dtype 必须为 Int64（收到 {frame.schema['quantity']}）")
+    if frame.schema["sellable_quantity"] != pl.Int64:
+        raise ValueError(
+            f"positions.sellable_quantity dtype 必须为 Int64（收到 {frame.schema['sellable_quantity']}）")
+
+
+def _check_positions_content(frame: pl.DataFrame) -> None:
+    if not frame.height:
+        return
+    dup = frame.group_by("code").len().filter(pl.col("len") > 1)
+    if dup.height:
+        raise ValueError(f"positions code 重复 {dup.height} 组——不 dedup/合并")
+    bad_code = frame.filter(~pl.col("code").map_elements(
+        is_canonical_stock_code, return_dtype=pl.Boolean).fill_null(False))
+    if bad_code.height:
+        raise ValueError(
+            f"positions 含非 canonical code: {bad_code['code'].unique().to_list()}")
+    bad_q = frame.filter((pl.col("quantity") <= 0))
+    if bad_q.height:
+        raise ValueError(
+            f"positions.quantity 必须 > 0（{bad_q['quantity'].unique().to_list()}）"
+            f"——sparse holdings 不保存 0 行")
+    bad_s = frame.filter((pl.col("sellable_quantity") < 0)
+                         | (pl.col("sellable_quantity") > pl.col("quantity")))
+    if bad_s.height:
+        raise ValueError(
+            f"sellable_quantity 必须 0 <= s <= quantity"
+            f"（{bad_s['sellable_quantity'].unique().to_list()}）")
+    if not frame.equals(frame.sort("code")):
+        raise ValueError("positions 必须按 code 稳定排序——不自动排序"
+                         "（artifact diff/hash/reproducibility）")
+
+
+@dataclass(frozen=True)
+class PortfolioState:
+    """实际组合状态（actual holdings）：as_of_date + phase + cash + sparse 持股。
+
+    - cash：可用于证券交易的账户现金（>=0 finite float；可提现/结算现金
+      语义未区分）
+    - positions：sparse holdings——code String / quantity Int64 >0 /
+      sellable_quantity Int64 ∈ [0, quantity]；code unique + canonical +
+      稳定排序；无日期列（共享 as_of_date/phase）；空 typed frame 合法
+      （cash-only state）
+    - 不保存 weights/price/market_value/cost_basis（估值属 M8-05）
+    """
+
+    as_of_date: datetime.date
+    phase: PortfolioStatePhase
+    cash: float
+    positions: pl.DataFrame
+
+    def __post_init__(self) -> None:
+        _require_date(self.as_of_date, "as_of_date")
+        if not isinstance(self.phase, PortfolioStatePhase):
+            raise ValueError(
+                f"phase 必须为 PortfolioStatePhase 实例（收到 {type(self.phase).__name__}）")
+        c = self.cash
+        if isinstance(c, bool) or not isinstance(c, (int, float)):
+            raise ValueError(f"cash 必须为数值（收到 {c!r}）")
+        if not math.isfinite(c) or c < 0:
+            raise ValueError(f"cash 必须 finite 且 >= 0（收到 {c!r}）")
+        _check_positions_schema(self.positions)
+        _check_positions_content(self.positions)
+
+
+def _check_orders_schema(frame: pl.DataFrame) -> None:
+    if list(frame.columns) != _ORDERS_COLUMNS:
+        raise ValueError(
+            f"orders 必须严格为 code/side/quantity 三列（收到 {frame.columns}）"
+            f"——禁止 target_weight/signal/price/cost 等")
+    if frame.schema["code"] != pl.String:
+        raise ValueError(f"orders.code dtype 必须为 String（收到 {frame.schema['code']}）")
+    if frame.schema["side"] != pl.String:
+        raise ValueError(f"orders.side dtype 必须为 String（收到 {frame.schema['side']}）")
+    if frame.schema["quantity"] != pl.Int64:
+        raise ValueError(f"orders.quantity dtype 必须为 Int64（收到 {frame.schema['quantity']}）")
+
+
+def _check_orders_content(frame: pl.DataFrame) -> None:
+    if not frame.height:
+        return
+    dup = frame.group_by("code").len().filter(pl.col("len") > 1)
+    if dup.height:
+        raise ValueError(
+            f"orders code 重复 {dup.height} 组——OrderBatch 是净订单，每 code "
+            f"至多 1 行（buy/sell 同 code 必须先 net）")
+    bad_code = frame.filter(~pl.col("code").map_elements(
+        is_canonical_stock_code, return_dtype=pl.Boolean).fill_null(False))
+    if bad_code.height:
+        raise ValueError(
+            f"orders 含非 canonical code: {bad_code['code'].unique().to_list()}")
+    bad_side = frame.filter(pl.col("side").is_null()
+                           | ~pl.col("side").is_in(["buy", "sell"]))
+    if bad_side.height:
+        raise ValueError(
+            f"orders.side 仅允许 'buy'/'sell'（OrderSide.value；收到 "
+            f"{bad_side['side'].unique().to_list()}——BUY/long/short/cover 拒绝）")
+    bad_q = frame.filter(pl.col("quantity") <= 0)
+    if bad_q.height:
+        raise ValueError(
+            f"orders.quantity 必须 > 0（{bad_q['quantity'].unique().to_list()}）")
+    if not frame.equals(frame.sort("code")):
+        raise ValueError("orders 必须按 code 稳定排序——不自动排序")
+
+
+@dataclass(frozen=True)
+class OrderBatch:
+    """净订单集合（一个 TargetPortfolio decision 的 execution 意图）。
+
+    - decision_date：策略决策日（未来对应 TargetPortfolio.decision_dates）
+    - execution_date：calendar resolver 解析出的真实交易日期（> decision_date；
+      本任务不负责计算）
+    - execution_timing：复用 M6 ExecutionTiming（NEXT_OPEN/NEXT_CLOSE——
+      不新建 OrderTiming/ExecutionPoint）
+    - orders：严格 code String / side String("buy"/"sell") / quantity Int64>0；
+      code unique（净订单）；稳定排序；空 typed batch 合法（目标==当前，
+      execution event 存在但 0 orders）
+    - 不携带 target_weight/signal/price/cost（share-space action）
+    """
+
+    decision_date: datetime.date
+    execution_date: datetime.date
+    execution_timing: ExecutionTiming
+    orders: pl.DataFrame
+
+    def __post_init__(self) -> None:
+        _require_date(self.decision_date, "decision_date")
+        _require_date(self.execution_date, "execution_date")
+        if self.execution_date <= self.decision_date:
+            raise ValueError(
+                f"execution_date 必须 > decision_date（收到 decision="
+                f"{self.decision_date} execution={self.execution_date}）")
+        if not isinstance(self.execution_timing, ExecutionTiming):
+            raise ValueError(
+                f"execution_timing 必须为 ExecutionTiming 实例（收到 "
+                f"{type(self.execution_timing).__name__}）")
+        _check_orders_schema(self.orders)
+        _check_orders_content(self.orders)
+
+
+# ---------------------------------------------------------------------------
+# M8-02：ExecutionSchedule（calendar resolver 输出）
+# ---------------------------------------------------------------------------
+
+_SCHEDULE_COLUMNS = ["decision_date", "execution_date", "execution_timing"]
+
+
+@dataclass(frozen=True)
+class ExecutionSchedule:
+    """decision_date → execution_date 映射（每 portfolio decision 恰一个
+    execution event）。
+
+    - 严格三列：decision_date(Date) / execution_date(Date) /
+      execution_timing(String = ExecutionTiming.value)
+    - decision_date unique；execution_date > decision_date（严格）；
+      decision ASC 且 execution 随 decision 序列严格递增（NEXT_OPEN/
+      NEXT_CLOSE 均解析到下一交易日）；不自动 sort
+    - 空 typed schedule 合法（schema 保持）
+    """
+
+    frame: pl.DataFrame
+
+    def __post_init__(self) -> None:
+        f = self.frame
+        if list(f.columns) != _SCHEDULE_COLUMNS:
+            raise ValueError(
+                f"ExecutionSchedule.frame 必须严格为 decision_date/execution_date/"
+                f"execution_timing 三列（收到 {f.columns}）")
+        if f.schema["decision_date"] != pl.Date:
+            raise ValueError(
+                f"decision_date dtype 必须为 Date（收到 {f.schema['decision_date']}）")
+        if f.schema["execution_date"] != pl.Date:
+            raise ValueError(
+                f"execution_date dtype 必须为 Date（收到 {f.schema['execution_date']}）")
+        if f.schema["execution_timing"] != pl.String:
+            raise ValueError(
+                f"execution_timing dtype 必须为 String（收到 {f.schema['execution_timing']}）")
+        if f.height:
+            # M8-02A：三列均 non-null（不依赖 sorted() 偶然 TypeError）
+            for col in ("decision_date", "execution_date", "execution_timing"):
+                nulls = f.filter(pl.col(col).is_null())
+                if nulls.height:
+                    raise ValueError(
+                        f"ExecutionSchedule.{col} 不允许 null"
+                        f"（{nulls.height} 行——non-null contract）")
+            dup = f.group_by("decision_date").len().filter(pl.col("len") > 1)
+            if dup.height:
+                raise ValueError(
+                    f"decision_date 重复 {dup.height} 组——每 portfolio decision "
+                    f"恰一个 execution event")
+            bad = f.filter(pl.col("execution_date") <= pl.col("decision_date"))
+            if bad.height:
+                raise ValueError(
+                    f"execution_date 必须 > decision_date（{bad.height} 行违规）")
+            for v in f["execution_timing"].unique().to_list():
+                try:
+                    ExecutionTiming(v)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"execution_timing 必须为 ExecutionTiming.value"
+                        f"（收到 {v!r}——open/close/NEXT_OPEN/tomorrow 拒绝）") from exc
+            # M8-02A：严格递增（相邻 <），不依赖 sorted(list) 表达 strict
+            dec = f["decision_date"].to_list()
+            ex = f["execution_date"].to_list()
+            if any(a >= b for a, b in zip(dec, dec[1:])):
+                raise ValueError(
+                    "decision_date 必须严格递增（相邻 <）——不自动排序")
+            if any(a >= b for a, b in zip(ex, ex[1:])):
+                raise ValueError(
+                    "execution_date 必须严格递增（相邻 <）——不自动排序")
+
+
+# ---------------------------------------------------------------------------
+# M8-02：MarketOpenSnapshot（execution_date 的市场开盘证据）
+# ---------------------------------------------------------------------------
+
+_SNAPSHOT_COLUMNS = ["code", "open", "pre_close", "up_limit", "down_limit",
+                     "has_daily", "has_limit", "has_suspend_record",
+                     "is_suspended_at_open"]
+
+
+@dataclass(frozen=True)
+class MarketOpenSnapshot:
+    """execution_date 的市场开盘证据（不是 tradability/fill 判定）。
+
+    - 严格 9 列：code(String) / open(Float64) / pre_close(Float64) /
+      up_limit(Float64) / down_limit(Float64) / has_daily(Boolean) /
+      has_limit(Boolean) / has_suspend_record(Boolean) /
+      is_suspended_at_open(Boolean)
+    - code canonical + unique + 稳定排序；无 date 列（共享 execution_date）
+    - has_daily=True → open/pre_close non-null finite >0；False → null
+    - has_limit=True → up/down non-null finite >0 且 down <= up；False → null
+    - has_suspend_record = date-level raw event presence（当天任何
+      suspend/resume record → True）
+    - is_suspended_at_open = 09:30 temporal suspension evidence（suspend_type
+      + suspend_timing 推导 NEXT_OPEN reference 时点停牌状态——**不是**
+      can_trade/is_tradable；M8-04 定义 fill 语义）
+    - implication：is_suspended_at_open=True → has_suspend_record=True
+      （converse 不成立：record=True/open=False 合法——R/NULL、later S）
+    - 价格是 raw daily.open（禁止 qfq/hfq 复权价作成交价）
+    """
+
+    execution_date: datetime.date
+    frame: pl.DataFrame
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.execution_date, datetime.date) \
+                or isinstance(self.execution_date, datetime.datetime):
+            raise ValueError(
+                f"execution_date 必须为 datetime.date（收到 {self.execution_date!r}）")
+        f = self.frame
+        if list(f.columns) != _SNAPSHOT_COLUMNS:
+            raise ValueError(
+                f"MarketOpenSnapshot.frame 必须严格为 9 列（收到 {f.columns}）"
+                f"——禁止 is_tradable/can_buy 等推断字段")
+        expected = {"code": pl.String, "open": pl.Float64, "pre_close": pl.Float64,
+                    "up_limit": pl.Float64, "down_limit": pl.Float64,
+                    "has_daily": pl.Boolean, "has_limit": pl.Boolean,
+                    "has_suspend_record": pl.Boolean,
+                    "is_suspended_at_open": pl.Boolean}
+        for col, dtype in expected.items():
+            if f.schema[col] != dtype:
+                raise ValueError(
+                    f"snapshot.{col} dtype 必须为 {dtype}（收到 {f.schema[col]}）")
+        if f.height:
+            dup = f.group_by("code").len().filter(pl.col("len") > 1)
+            if dup.height:
+                raise ValueError(f"snapshot code 重复 {dup.height} 组")
+            bad_code = f.filter(~pl.col("code").map_elements(
+                is_canonical_stock_code, return_dtype=pl.Boolean).fill_null(False))
+            if bad_code.height:
+                raise ValueError(
+                    f"snapshot 含非 canonical code: {bad_code['code'].unique().to_list()}")
+            if not f.equals(f.sort("code")):
+                raise ValueError("snapshot 必须按 code 稳定排序——不自动排序")
+            # M8-02A/B：四个 evidence flags 必须 non-null Boolean（无第三
+            # "unknown" 状态——数据覆盖 uncertainty 由 global coverage gates
+            # 单独表达；null 穿透 Polars 三值逻辑会绕过 conditional invariants）
+            for flag in ("has_daily", "has_limit", "has_suspend_record",
+                         "is_suspended_at_open"):
+                nulls = f.filter(pl.col(flag).is_null())
+                if nulls.height:
+                    raise ValueError(
+                        f"snapshot.{flag} 不允许 null（{nulls.height} 行）"
+                        f"——evidence 必须非空 Boolean（True=有证据/False=无证据）")
+            bad_daily = f.filter(pl.col("has_daily")
+                                 & (~pl.col("open").is_finite()
+                                    | (pl.col("open") <= 0)
+                                    | pl.col("open").is_null()
+                                    | ~pl.col("pre_close").is_finite()
+                                    | (pl.col("pre_close") <= 0)
+                                    | pl.col("pre_close").is_null()))
+            if bad_daily.height:
+                raise ExecutionDataQualityError(
+                    f"has_daily=True 要求 open/pre_close non-null finite >0"
+                    f"（{bad_daily['code'].to_list()}）——execution-data quality "
+                    f"invariant 违反（M8-04A：open=0 等 source 坏证据 fail fast）")
+            bad_no_daily = f.filter(~pl.col("has_daily")
+                                    & (pl.col("open").is_not_null()
+                                       | pl.col("pre_close").is_not_null()))
+            if bad_no_daily.height:
+                raise ValueError(
+                    f"has_daily=False 要求 open/pre_close 为 null"
+                    f"（{bad_no_daily['code'].to_list()}）")
+            bad_limit = f.filter(pl.col("has_limit")
+                                 & (pl.col("up_limit").is_null()
+                                    | ~pl.col("up_limit").is_finite()
+                                    | (pl.col("up_limit") <= 0)
+                                    | pl.col("down_limit").is_null()
+                                    | ~pl.col("down_limit").is_finite()
+                                    | (pl.col("down_limit") <= 0)
+                                    | (pl.col("down_limit") > pl.col("up_limit"))))
+            if bad_limit.height:
+                raise ExecutionDataQualityError(
+                    f"has_limit=True 要求 up/down non-null finite >0 且 down<=up"
+                    f"（{bad_limit['code'].to_list()}）——execution-data quality "
+                    f"invariant 违反（M8-04A：dn=NULL sentinel / BSE dn=0 等 "
+                    f"source 坏证据 fail fast，不自动判无限制）")
+            bad_no_limit = f.filter(~pl.col("has_limit")
+                                    & (pl.col("up_limit").is_not_null()
+                                       | pl.col("down_limit").is_not_null()))
+            if bad_no_limit.height:
+                raise ValueError(
+                    f"has_limit=False 要求 up/down_limit 为 null"
+                    f"（{bad_no_limit['code'].to_list()}）")
+            # M8-02B：implication invariant——open suspended 必须有 raw record
+            bad_impl = f.filter(~pl.col("has_suspend_record")
+                                & pl.col("is_suspended_at_open"))
+            if bad_impl.height:
+                raise ValueError(
+                    f"is_suspended_at_open=True 要求 has_suspend_record=True"
+                    f"（{bad_impl['code'].to_list()}——record=False/open=True "
+                    f"非法；converse 合法）")
+
+
+# ---------------------------------------------------------------------------
+# M8-04B：OpenFillAssessment（market eligibility，非成交）
+# ---------------------------------------------------------------------------
+
+_ASSESSMENT_COLUMNS = ["code", "side", "quantity", "disposition", "fillable_price"]
+
+
+def _check_assessment_content(frame: pl.DataFrame) -> None:
+    if not frame.height:
+        return
+    dup = frame.group_by("code").len().filter(pl.col("len") > 1)
+    if dup.height:
+        raise ValueError(
+            f"assessment code 重复 {dup.height} 组——继承 OrderBatch 每 code 至多 1 行")
+    bad_code = frame.filter(~pl.col("code").map_elements(
+        is_canonical_stock_code, return_dtype=pl.Boolean).fill_null(False))
+    if bad_code.height:
+        raise ValueError(
+            f"assessment 含非 canonical code: {bad_code['code'].unique().to_list()}")
+    bad_q = frame.filter(pl.col("quantity") <= 0)
+    if bad_q.height:
+        raise ValueError(
+            f"assessment.quantity 必须 Int64 > 0（{bad_q['quantity'].unique().to_list()}）"
+            f"——不改变原订单数量")
+    bad_side = frame.filter(pl.col("side").is_null()
+                            | ~pl.col("side").is_in(["buy", "sell"]))
+    if bad_side.height:
+        raise ValueError(
+            f"assessment.side 仅允许 'buy'/'sell'（OrderSide.value；收到 "
+            f"{bad_side['side'].unique().to_list()}）")
+    bad_disp = []
+    for v in frame["disposition"].unique().to_list():
+        try:
+            OpenOrderDisposition(v)
+        except ValueError as exc:
+            raise ValueError(
+                f"assessment.disposition 必须可反解 OpenOrderDisposition"
+                f"（收到 {v!r}——filled/blocked/unknown/suspend/limit 拒绝）") from exc
+    # FILLABLE ↔ non-null finite >0 price；BLOCKED_* ↔ null price
+    fillable = frame.filter(pl.col("disposition") == OpenOrderDisposition.FILLABLE.value)
+    bad_fp = fillable.filter(~pl.col("fillable_price").is_finite()
+                             | (pl.col("fillable_price") <= 0)
+                             | pl.col("fillable_price").is_null())
+    if bad_fp.height:
+        raise ValueError(
+            f"FILLABLE 要求 fillable_price non-null finite >0"
+            f"（{bad_fp['code'].to_list()}）")
+    blocked = frame.filter(pl.col("disposition") != OpenOrderDisposition.FILLABLE.value)
+    bad_bp = blocked.filter(pl.col("fillable_price").is_not_null())
+    if bad_bp.height:
+        raise ValueError(
+            f"BLOCKED_* 要求 fillable_price = null"
+            f"（{bad_bp['code'].to_list()}）")
+    if not frame.equals(frame.sort("code")):
+        raise ValueError("assessment 必须按 code 稳定排序——不自动排序")
+
+
+@dataclass(frozen=True)
+class OpenFillAssessment:
+    """NEXT_OPEN 市场状态下每条订单的 market eligibility（M8-04B 输出）。
+
+    - 与 OrderBatch 一一对应：(code, side, quantity) 逐行完全一致；
+      每 code 至多 1 行；code canonical + 稳定排序
+    - disposition ∈ OpenOrderDisposition（4 类）；FILLABLE →
+      fillable_price = raw snapshot.open；BLOCKED_* → fillable_price null
+    - 只是 market eligibility——不是实际成交/FillBatch（M8-04C 才处理
+      funding/现金/数量）；不含 PortfolioState/cash/T+1/fee/NAV
+    - 数据异常（缺/坏 execution evidence）不在 assessment 中表达——
+      assess_open_fillability 抛 ExecutionDataQualityError（DATA UNKNOWN
+      ≠ TRADE REJECTED）
+    """
+
+    decision_date: datetime.date
+    execution_date: datetime.date
+    execution_timing: ExecutionTiming
+    frame: pl.DataFrame
+
+    def __post_init__(self) -> None:
+        _require_date(self.decision_date, "decision_date")
+        _require_date(self.execution_date, "execution_date")
+        if self.execution_date <= self.decision_date:
+            raise ValueError(
+                f"execution_date 必须 > decision_date（收到 decision="
+                f"{self.decision_date} execution={self.execution_date}）")
+        if not isinstance(self.execution_timing, ExecutionTiming):
+            raise ValueError(
+                f"execution_timing 必须为 ExecutionTiming 实例（收到 "
+                f"{type(self.execution_timing).__name__}）")
+        f = self.frame
+        if list(f.columns) != _ASSESSMENT_COLUMNS:
+            raise ValueError(
+                f"OpenFillAssessment.frame 必须严格为 code/side/quantity/"
+                f"disposition/fillable_price 五列（收到 {f.columns}）"
+                f"——禁止 filled_qty/fill_price/cost 等")
+        expected = {"code": pl.String, "side": pl.String, "quantity": pl.Int64,
+                    "disposition": pl.String, "fillable_price": pl.Float64}
+        for col, dtype in expected.items():
+            if f.schema[col] != dtype:
+                raise ValueError(
+                    f"assessment.{col} dtype 必须为 {dtype}（收到 {f.schema[col]}）")
+        _check_assessment_content(f)
+
+
+# ---------------------------------------------------------------------------
+# M8-04C：FillBatch（sparse actual fills——cost-aware realized funding 输出）
+# ---------------------------------------------------------------------------
+
+_FILL_COLUMNS = ["code", "side", "order_quantity", "filled_quantity",
+                 "reference_price", "execution_price", "gross_notional",
+                 "commission", "stamp_tax", "transfer_fee", "total_fees",
+                 "effective_cash_delta"]
+
+
+def _check_fill_content(frame: pl.DataFrame) -> None:
+    if not frame.height:
+        return
+    dup = frame.group_by("code").len().filter(pl.col("len") > 1)
+    if dup.height:
+        raise ValueError(
+            f"FillBatch code 重复 {dup.height} 组——OrderBatch 是净订单，"
+            f"每 code 至多 1 行")
+    bad_code = frame.filter(~pl.col("code").map_elements(
+        is_canonical_stock_code, return_dtype=pl.Boolean).fill_null(False))
+    if bad_code.height:
+        raise ValueError(
+            f"FillBatch 含非 canonical code: {bad_code['code'].unique().to_list()}")
+    bad_side = frame.filter(pl.col("side").is_null()
+                            | ~pl.col("side").is_in(["buy", "sell"]))
+    if bad_side.height:
+        raise ValueError(
+            f"FillBatch.side 仅允许 'buy'/'sell'（OrderSide.value）")
+    bad_q = frame.filter((pl.col("order_quantity") <= 0)
+                         | (pl.col("filled_quantity") <= 0)
+                         | (pl.col("filled_quantity") > pl.col("order_quantity")))
+    if bad_q.height:
+        raise ValueError(
+            f"order_quantity > 0 且 0 < filled_quantity <= order_quantity"
+            f"（{bad_q['code'].to_list()}）——sparse fills 只保存 positive fill")
+    for col in ("reference_price", "execution_price", "gross_notional"):
+        bad_p = frame.filter(~pl.col(col).is_finite() | (pl.col(col) <= 0))
+        if bad_p.height:
+            raise ValueError(
+                f"FillBatch.{col} 必须 finite > 0（{bad_p['code'].to_list()}）")
+    for col in ("commission", "stamp_tax", "transfer_fee", "total_fees"):
+        bad_f = frame.filter(~pl.col(col).is_finite() | (pl.col(col) < 0))
+        if bad_f.height:
+            raise ValueError(
+                f"FillBatch.{col} 必须 finite >= 0（{bad_f['code'].to_list()}）")
+    # gross exact（同一 Float64 运算顺序，不 epsilon repair）
+    bad_g = frame.filter(pl.col("gross_notional")
+                         != pl.col("execution_price") * pl.col("filled_quantity"))
+    if bad_g.height:
+        raise ValueError(
+            f"gross_notional 必须 == execution_price × filled_quantity"
+            f"（{bad_g['code'].to_list()}）")
+    # total_fees exact component sum
+    bad_t = frame.filter(pl.col("total_fees")
+                         != pl.col("commission") + pl.col("stamp_tax")
+                         + pl.col("transfer_fee"))
+    if bad_t.height:
+        raise ValueError(
+            f"total_fees 必须 == commission + stamp_tax + transfer_fee"
+            f"（{bad_t['code'].to_list()}）")
+    buys = frame.filter(pl.col("side") == "buy")
+    bad_b = buys.filter((pl.col("stamp_tax") != 0)
+                        | (pl.col("effective_cash_delta")
+                           != -(pl.col("gross_notional") + pl.col("total_fees")))
+                        | (pl.col("effective_cash_delta") >= 0))
+    if bad_b.height:
+        raise ValueError(
+            f"BUY 要求 stamp_tax=0 且 effective_cash_delta = "
+            f"-(gross_notional + total_fees) < 0（{bad_b['code'].to_list()}）")
+    sells = frame.filter(pl.col("side") == "sell")
+    bad_s = sells.filter((pl.col("effective_cash_delta")
+                          != pl.col("gross_notional") - pl.col("total_fees"))
+                         | (pl.col("effective_cash_delta") <= 0))
+    if bad_s.height:
+        raise ValueError(
+            f"SELL 要求 effective_cash_delta = gross_notional - total_fees > 0"
+            f"（{bad_s['code'].to_list()}）")
+    if not frame.equals(frame.sort("code")):
+        raise ValueError("FillBatch 必须按 code 稳定排序——不自动排序")
+
+
+@dataclass(frozen=True)
+class FillBatch:
+    """cost-aware realized fills（M8-04C 输出）——**sparse actual fills**。
+
+    - 只保存 filled_quantity > 0 的实际成交：BLOCKED order / funding-zero
+      BUY → 无行（原因由 upstream OpenFillAssessment + OrderBatch 持有，
+      不在 FillBatch 重建 blocked_reason/fill_status 第二套 authority）
+    - 严格 12 列：code/side/order_quantity/filled_quantity/reference_price/
+      execution_price/gross_notional/commission/stamp_tax/transfer_fee/
+      total_fees/effective_cash_delta
+    - reference_price = OpenFillAssessment.fillable_price（= raw open）；
+      execution_price = slippage 后价格；gross = execution_price × filled；
+      fees 来自 ExecutionCostBreakdown（唯一成本 authority）；BUY delta
+      = -(gross+fees) < 0；SELL delta = gross-fees > 0
+    - 与 OrderBatch 每 code 至多 1 行对应；code canonical + 稳定排序；
+      空 typed batch 合法
+    - **不修改 PortfolioState**（cash/quantity/sellable 迁移属 M8-04D）；
+      不含 NAV/PnL/cost basis
+    """
+
+    decision_date: datetime.date
+    execution_date: datetime.date
+    execution_timing: ExecutionTiming
+    frame: pl.DataFrame
+
+    def __post_init__(self) -> None:
+        _require_date(self.decision_date, "decision_date")
+        _require_date(self.execution_date, "execution_date")
+        if self.execution_date <= self.decision_date:
+            raise ValueError(
+                f"execution_date 必须 > decision_date（收到 decision="
+                f"{self.decision_date} execution={self.execution_date}）")
+        if not isinstance(self.execution_timing, ExecutionTiming):
+            raise ValueError(
+                f"execution_timing 必须为 ExecutionTiming 实例（收到 "
+                f"{type(self.execution_timing).__name__}）")
+        f = self.frame
+        if list(f.columns) != _FILL_COLUMNS:
+            raise ValueError(
+                f"FillBatch.frame 必须严格为 12 列（收到 {f.columns}）"
+                f"——禁止 blocked_reason/fill_status/market_disposition 等")
+        expected = {"code": pl.String, "side": pl.String,
+                    "order_quantity": pl.Int64, "filled_quantity": pl.Int64,
+                    "reference_price": pl.Float64,
+                    "execution_price": pl.Float64,
+                    "gross_notional": pl.Float64, "commission": pl.Float64,
+                    "stamp_tax": pl.Float64, "transfer_fee": pl.Float64,
+                    "total_fees": pl.Float64,
+                    "effective_cash_delta": pl.Float64}
+        for col, dtype in expected.items():
+            if f.schema[col] != dtype:
+                raise ValueError(
+                    f"FillBatch.{col} dtype 必须为 {dtype}（收到 {f.schema[col]}）")
+        _check_fill_content(f)
