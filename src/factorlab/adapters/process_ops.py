@@ -99,18 +99,28 @@ def _fetch_mv_slice(rd: ReadPort, d_min: str, d_max: str, codes: list[str],
 
 @register_processor
 def winsorize(df: pl.DataFrame, ctx, quantile: float = 0.99) -> pl.DataFrame:
-    """截面分位数去极值：quantile=0.99 → 上下各 (1-q)/2 分位数 clip。"""
+    """截面分位数去极值：quantile=0.99 → 上下各 (1-q)/2 分位数 clip。
+
+    NaN 视为**无效观测**（2026-09-14 修复）：分位数在有限值上计算，NaN 行输出 null
+    ——否则 NaN 参与分位数会把 clip 边界拉坏（polars 中 NaN 排序在最大侧）。
+    """
     if not 0.5 <= quantile < 1.0:
         raise ValueError(f"winsorize quantile 必须在 [0.5, 1.0): {quantile}")
     q_lo, q_hi = (1 - quantile) / 2, (1 + quantile) / 2
-    x = _x(df)
+    x = _x(df).fill_nan(None)
     return df.with_columns(x.clip(x.quantile(q_lo).over("date"), x.quantile(q_hi).over("date")).alias(SIGNAL))
 
 
 @register_processor
 def standardize(df: pl.DataFrame, ctx) -> pl.DataFrame:
-    """截面 z-score；零方差截面输出 null（NaN 不是 null，fillna 无法处理）。"""
-    x = _x(df)
+    """截面 z-score；零方差截面输出 null。
+
+    NaN 视为**无效观测**（2026-09-14 修复，实跑 CLI 抓到的严重缺陷）：polars 中
+    `NaN > 0` 为 True，若截面含任一 NaN，std=NaN 会被判为"有效"→ 整截面变 NaN
+    （真实数据里退市股 close 缺失即触发，全表 IC 归零）。修复后 NaN 行输出 null
+    （评估层过滤 null ✓），有效值照常标准化。
+    """
+    x = _x(df).fill_nan(None)
     std = x.std().over("date")
     return df.with_columns(pl.when(std > 0).then((x - x.mean().over("date")) / std).otherwise(None).alias(SIGNAL))
 
@@ -120,20 +130,19 @@ register_processor(name="zscore")(standardize)
 
 @register_processor
 def csranknorm(df: pl.DataFrame, ctx) -> pl.DataFrame:
-    """截面排名归一化到 (0, 1)。"""
-    x = _x(df)
+    """截面排名归一化到 (0, 1)；NaN 视为无效观测（不参与排名，输出 null）。"""
+    x = _x(df).fill_nan(None)
     return df.with_columns((x.rank().over("date") / (x.count().over("date") + 1)).alias(SIGNAL))
 
 
 @register_processor
 def robustzscore(df: pl.DataFrame, ctx) -> pl.DataFrame:
-    """中位数/MAD 稳健标准化；MAD=0 的截面输出 null。"""
-    x = _x(df)
+    """中位数/MAD 稳健标准化；MAD=0 的截面输出 null；NaN 视为无效观测（同上修复）。"""
+    x = _x(df).fill_nan(None)
     med = x.median().over("date")
     mad = (x - med).abs().median().over("date")
     scaled = (x - med) / (1.4826 * mad)
     return df.with_columns(pl.when((1.4826 * mad) > 0).then(scaled).otherwise(None).alias(SIGNAL))
-
 
 @register_processor
 def clip(df: pl.DataFrame, ctx, lower: float, upper: float) -> pl.DataFrame:
@@ -206,3 +215,30 @@ def neutralize(df: pl.DataFrame, ctx, by: str = "market") -> pl.DataFrame:
             (x - x.mean().over(["date", "_mv_decile"])).alias(SIGNAL)
         ).drop("total_mv", "_mv_decile")
     raise ValueError(f"neutralize 不支持的 by: {by}（market|industry|size）")
+
+
+_BUILTIN_PROCESSORS = ("winsorize", "standardize", "zscore", "csranknorm",
+                       "robustzscore", "clip", "fillna", "neutralize")
+
+
+def ensure_processors_registered() -> None:
+    """幂等：保证本模块全部内置处理器已注册（import 时的装饰器副作用即完成注册）。
+
+    显式装配入口——供 app.bootstrap.install_processors 与 run 链防御性调用；
+    生产回归（2026-09-12 实跑 CLI 抓到）：run 链曾未 import 本模块 → 注册表空
+    → `未知处理器: winsorize（可用: ）`。测试套件因 test_process 先 import 而
+    掩盖（顺序依赖），故加子进程回归测试免疫顺序。
+
+    守卫（2026-09-14）：注册丢失时**抛 RuntimeError 点名缺失项**，不做静默 no-op
+    ——否则"注册机制将来被打断"会退化成同样的静默故障。
+    """
+    from factorlab.core.process.registry import get_processor
+    missing = []
+    for name in _BUILTIN_PROCESSORS:
+        try:
+            get_processor(name)
+        except KeyError:
+            missing.append(name)
+    if missing:
+        raise RuntimeError(f"process 处理器注册缺失: {', '.join(missing)}"
+                           "（process_ops 的 import 副作用未生效）")

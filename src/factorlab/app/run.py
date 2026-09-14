@@ -333,6 +333,13 @@ def _compute_labels(
                          "forward_return_20d"]).sort(["date", "code"])
 
 
+def _ensure_assembly() -> None:
+    """防御性装配（幂等）：算子族 + process 处理器——核心入口不依赖调用顺序。"""
+    from factorlab.app.bootstrap import install_operators, install_processors
+    install_operators()
+    install_processors()
+
+
 def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
     """M6-03 装配链路：两条独立 runtime——
 
@@ -343,6 +350,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
     Signal 路径绝不计算 forward returns；Label 路径独立调用 compute_forward_returns。
     legacy panel = signal LEFT JOIN labels（CLI/eval 兼容视图）。
     interface 门（2026-09-08）：bars_1m 分钟模板走 run_factor_minute（折日引擎）。"""
+    _ensure_assembly()
     if getattr(spec, "interface", "daily") != "daily":
         raise ValueError(
             f"run_factor 只接日频 interface: daily 的 spec（收到 {spec.interface!r}"
@@ -572,6 +580,7 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
     之后展开链（共享 helper）→ 候选/日历/uf → 注入列 + bars 分块折日 → label
     单趟全窗（_compute_labels 复用，键集过滤对齐）→ canonical → artifact 落盘
     （write_factor_artifacts/write_multi_output_factor_artifacts，契约零放宽）。"""
+    _ensure_assembly()
     if getattr(spec, "interface", "daily") != "bars_1m":
         raise ValueError("run_factor_minute 只接 interface: bars_1m 的 spec"
                          "（日频 spec 走 run_factor）")

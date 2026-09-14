@@ -317,3 +317,54 @@ def test_neutralize_industry_missing_info(env):
     with pytest.raises(ValueError, match="缺少行业信息"):
         run_process_chain(df, ["neutralize(by: industry)"],
                           ctx=ProcessCtx(db=env.rd))
+
+
+# ================================================================
+# NaN 安全（2026-09-14 实跑抓到：polars `NaN > 0` 为 True → NaN std 毒化整个截面）
+# ================================================================
+
+def _nan_section() -> pl.DataFrame:
+    """同一截面：3 只有效值 + 1 只 NaN（模拟退市股 close 缺失 → signal NaN）。"""
+    return pl.DataFrame({
+        "date": ["2024-01-02"] * 4,
+        "code": ["A", "B", "C", "D"],
+        "signal": [1.0, 2.0, 3.0, float("nan")],
+    })
+
+
+def test_standardize_nan_does_not_poison_cross_section():
+    out = run_process_chain(_nan_section(), ["standardize()"], ctx=None)
+    vals = out.sort("code")["signal"].to_list()
+    # 有效三只仍被标准化（均值 2、std 1 → -1/0/1），NaN 行 → null（不参与统计）
+    assert vals[0] == pytest.approx(-1.0) and vals[1] == pytest.approx(0.0) \
+        and vals[2] == pytest.approx(1.0)
+    assert vals[3] is None
+    # 负行为：若 NaN 未被隔离，整列会全为 NaN（历史缺陷）
+    assert out["signal"].is_nan().sum() == 0
+
+
+def test_winsorize_nan_safe():
+    df = pl.DataFrame({
+        "date": ["2024-01-02"] * 5,
+        "code": ["A", "B", "C", "D", "E"],
+        "signal": [1.0, 2.0, 3.0, 100.0, float("nan")],
+    })
+    out = run_process_chain(df, ["winsorize(quantile=0.5)"], ctx=None).sort("code")
+    vals = out["signal"].to_list()
+    assert vals[4] is None                       # NaN → null
+    assert out["signal"].is_nan().sum() == 0
+    assert vals[3] < 100.0                       # 极值被 clip（分位数在有限值上算）
+
+
+def test_robustzscore_nan_safe():
+    out = run_process_chain(_nan_section(), ["robustzscore()"], ctx=None).sort("code")
+    vals = out["signal"].to_list()
+    assert vals[3] is None and out["signal"].is_nan().sum() == 0
+    assert vals[1] == pytest.approx(0.0)         # 中位数 B 归零
+
+
+def test_csranknorm_nan_safe():
+    out = run_process_chain(_nan_section(), ["csranknorm()"], ctx=None).sort("code")
+    vals = out["signal"].to_list()
+    assert vals[3] is None
+    assert out["signal"].is_nan().sum() == 0

@@ -19,6 +19,12 @@ def install_operators() -> None:
     ensure_all_ops_registered()
 
 
+def install_processors() -> None:
+    """装配点：幂等注册全部 process 处理器（DER-003 同款；实现见 adapters.process_ops）。"""
+    from factorlab.adapters.process_ops import ensure_processors_registered
+    ensure_processors_registered()
+
+
 def open_read(data_backend: str | None = None, db_path: Path | None = None,
               max_memory: str | None = None) -> ReadPort:
     """打开读句柄。data_backend None → settings.data_backend（默认 duckdb）。
