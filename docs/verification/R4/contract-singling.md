@@ -11,7 +11,7 @@
 ## 未竟（登记 pending）
 - **表名常量**（core/factio/tables.py）：平台 read/* 的 duckdb|ch 编译对里 460 处表名字面量，
   收敛需逐条改 SQL 字符串 + 位级门配套；风险高于收益，登记为下一轮专项。
-- run_lob_batch 的  投影已改从 lib.tickdata.PROJECTIONS（R4a）；其派生子集守卫在 lib 内。
+- run_lob_batch 的 `_TICK_COLS` 投影已改从 lib.tickdata.PROJECTIONS 派生（R4a）；「投影 ⊆ 契约列」的守卫在 lib 内（import 期校验）。
 
 ## 解释器映射修正
 ch_ingest **属 T1**（模块级 import clickhouse_connect，emb 未装）——此前文档写 T2 有误；
