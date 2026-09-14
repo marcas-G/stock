@@ -1,0 +1,19 @@
+# R0 备份（2026-09-15）
+
+## 根仓库（workspace 分支）
+  tag pre-monorepo/workspace -> a045d7d
+
+## 平台仓库（main + research + archive/local-backup）
+  分支清单: archive/local-backup-20260903 main research 
+  tag pre-monorepo/main -> ad17f3b
+  tag pre-monorepo/research -> eec9990
+  tag pre-monorepo/local-backup-20260903 -> e66b349
+
+## bundle 校验
+  4cb8fa35072b0b230f5020c14afd661466140bc5 refs/tags/archive/factorlab-m1-foundation
+  ad17f3b5468763450958a3dd07c157da0516355f HEAD
+  这个包记录一个完整历史。
+--- 追加到证据 ---
+  -rw-rw-r-- 1 gaolei gaolei 3.8M 9月  15 00:12 pre-monorepo-2026-09-15-platform.bundle
+  -rw-rw-r-- 1 gaolei gaolei 100K 9月  15 00:12 pre-monorepo-2026-09-15-root.bundle
+  bundle verify(root): 这个包记录一个完整历史。

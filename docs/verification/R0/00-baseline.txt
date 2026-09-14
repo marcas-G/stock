@@ -1,0 +1,24 @@
+# R0 基线冻结（2026-09-15）
+
+## 三个 ref 的 HEAD
+root(workspace)              a045d7d41aaf9a0d18cd60cfa74884884a8629e0 workspace
+platform(main)               ad17f3b5468763450958a3dd07c157da0516355f main
+research(research)           eec999047d7c8e7437196b48e55aa7d6a41b0081 research
+
+## 文件计数（git ls-files）
+root                         79
+platform                     268
+research                     445
+
+## worktree 关系（修正 F1 的证据）
+/data/students/gaolei/stock/projects/quant-platform-main      ad17f3b [main]
+/data/students/gaolei/stock/projects/quant-platform-research  eec9990 [research]
+merge-base main research = 1d999bc
+
+## 磁盘与内存
+/dev/sda5       7.8T  7.1T  338G   96% /data
+              总计         已用        空闲      共享    缓冲/缓存    可用
+内存：         125          29           1           1          94          93
+
+## git 版本
+git version 2.17.1

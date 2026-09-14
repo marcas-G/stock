@@ -1,0 +1,29 @@
+# R0 数据链路验证基线（2026-09-15）
+
+## 1. stale import 复核（factio.tick_month 是否还有 tick_month_files）
+  core/factio/tick_month.py 内容: def 数量=0
+  adapters/tick_read.py 里的定义: 29:def tick_month_files(table_dir: str, day: str) -> list[Path]:
+
+## 2. 研究侧 T2 测试（emb 3.11）
+........................................................................ [ 78%]
+.......................................                                  [100%]
+183 passed, 1 skipped in 6.07s
+
+## 3. T1 测试（平台 venv 3.13）
+........................                                                 [100%]
+24 passed in 0.47s
+
+## 4. lob_fact 金样 pins.sha256 对账
+scenarios/market_sweep.csv: 成功
+scenarios/near_far_adds.csv: 成功
+scenarios/partial_cancel.csv: 成功
+scenarios/phases.csv: 成功
+scenarios/sz_market_u.csv: 成功
+pins 校验：14/14 文件全部成功
+=== 1m check-day 基线 ===
+2026-09-15 00:11:57.104 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+local 5249 | engine 5249 | 交 5249 | 仅local 0 | 仅engine 0
+vwap30_bias: 交集 5249 行  max|Δ|=0.000e+00
+open30_amt_share: 交集 5249 行  max|Δ|=0.000e+00
+check-day 2024-01-15 PASSED（引擎 × 本地 5249 行逐值一致）
+总耗时 5.5s  peakRSS=1.77GB

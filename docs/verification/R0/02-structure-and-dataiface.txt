@@ -1,0 +1,81 @@
+# R0 结构与数据接口基线清单（2026-09-15）
+
+## 1. 路径耦合面（提及旧 worktree 名的文件）
+### 平台侧（6 文件）
+  AGENTS.md
+  CLAUDE.md
+  README.md
+  docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md
+  scripts/gate_shared_core.sh
+  tests/test_architecture.py
+### 研究侧（17 文件）
+  .claude/skills/factor-mine/SKILL.md
+  CLAUDE.md
+  README.md
+  docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md
+  pyproject.toml
+  tools/_env.py
+  tools/lob_fact/notes/w3diag/lagtest.py
+  tools/lob_fact/notes/w3diag/probe_carried.py
+  tools/lob_fact/notes/w3diag/probe_edge.py
+  tools/lob_fact/notes/w3diag/probe_pxadd.py
+  tools/lob_fact/notes/w3diag/prof_rank.py
+  tools/lob_fact/notes/w3diag/setrate10.py
+  tools/lob_fact/notes/w3diag/unattr_prof.py
+  tools/lob_fact/notes/w4diag/parity_probe.py
+  tools/lob_fact/notes/w5_full_history_memo.md
+  tools/lob_fact/w5_closure.sh
+  tools/strategies/tests/test_strategy.py
+
+## 2. 数据接口：读侧方式分布（平台 src）
+  ReadPort 调用点（query_df/query_rows）：46
+  直连 duckdb.connect：4 处
+    …/factorlab/adapters/mirror_db.py:22:        return duckdb.connect(str(self.path), read_only=read_only)
+    …/factorlab/adapters/duckdb_read.py:66:                con = duckdb.connect(str(self.path), read_only=True)
+    …/factorlab/adapters/read/verify.py:163:    with duckdb.connect(str(ref), read_only=True) as ref_con:
+    …/factorlab/adapters/rebuild.py:651:    with duckdb.connect(str(final_path)) as con:
+  直读 parquet（read_parquet/scan_parquet）：11 处
+    …/factorlab/eval/correlation.py
+    …/factorlab/adapters/execution_store.py
+    …/factorlab/adapters/panel_store.py
+    …/factorlab/adapters/parquet_artifacts.py
+    …/factorlab/surfaces/web/app.py
+    …/factorlab/adapters/strategy_artifacts.py
+    …/factorlab/adapters/tick_read.py
+
+## 3. 数据接口：研究侧直读点（tick/lob/bars）
+  研究侧 parquet 直读总处数: 36
+    projects/quant-platform-research/tools/lob_fact/pipeline/run_lob_batch.py
+    projects/quant-platform-research/tools/lob_fact/core/factor_panel.py
+    projects/quant-platform-research/tools/ch_ingest/reconcile.py
+    projects/quant-platform-research/tools/lob_fact/tests/test_run_lob_batch.py
+    projects/quant-platform-research/tools/lob_fact/diag/verify_cancels_sample.py
+    projects/quant-platform-research/tools/lob_fact/diag/audit_w5.py
+    projects/quant-platform-research/tools/lob_fact/diag/calibrate_w1.py
+    projects/quant-platform-research/tools/lob_fact/tests/test_factor_panel.py
+    projects/quant-platform-research/tools/ch_ingest/ingest_daily.py
+    projects/quant-platform-research/tools/lob_fact/notes/w4diag/parity_probe.py
+    projects/quant-platform-research/tools/1m_features/run_1m_feature.py
+    projects/quant-platform-research/tools/strategies/strategy_crash_bottom.py
+
+## 4. 完成标记形态
+  _SUCCESS 出现处: 29
+  .done    出现处: 2
+  state.json 出现处: 17
+  _conversion.json 出现处: 3
+  flock 出现处: 16
+
+## 5. 列契约拷贝
+  core/factio/schema.py 列常量: 5
+  ch_ingest PROJECTION 行数: 181
+  run_lob_batch._TICK_COLS: 512:_TICK_COLS = {
+569:            .select(_TICK_COLS[tbl]).collect())
+
+## 6. P-5 编排实现是否存在
+  ls: 无法访问'projects/quant-platform-main/src/factorlab/adapters/batch_flock.py': 没有那个文件或目录
+  ports/batch.py 声明的契约: 46 行
+
+## 7. 研究侧 stale import 复核（probe_open.py）
+  30:    from factorlab.adapters.tick_read import read_tick_table
+  31:    from factorlab.core.factio.tick_month import tick_month_files
+  32:    if not tick_month_files('snapshots', day):
