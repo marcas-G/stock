@@ -20,10 +20,25 @@ REAL_RESULTS = Path(os.environ.get(
 pytestmark = pytest.mark.integration
 
 
+# 历史档冒烟因子（本文件断言的固定名字）——目录存在 ≠ 是这批产物：
+# 用户自己的挖掘轮次也会写 results/，仅判"目录存在"会把新结果误当历史档而假失败。
+FIXTURE_FACTORS = ("m4b_smoke", "demo_vol_skew", "momentum_20d")
+
+
+def missing_fixture_factors(results_dir: Path) -> list[str]:
+    """results 目录里缺失的历史档因子名（空列表 = 齐备，可跑真断言）。"""
+    return [name for name in FIXTURE_FACTORS
+            if not (results_dir / name / "summary.json").is_file()]
+
+
 @pytest.fixture
 def real_results_dir():
     if not REAL_RESULTS.is_dir():
         pytest.skip(f"真实 results 目录不存在: {REAL_RESULTS}")
+    missing = missing_fixture_factors(REAL_RESULTS)
+    if missing:
+        pytest.skip(f"真实 results 缺历史档因子 {missing}（目录存在但非该批产物；"
+                    f"设 FACTORLAB_RESULTS_DIR 指向含这些因子的目录）")
     return REAL_RESULTS
 
 
@@ -56,3 +71,15 @@ def test_web_factor_missing_real_404(real_results_dir):
     # 真实数据错误路径：不存在的因子 → 404
     resp = TestClient(create_app(real_results_dir)).get("/factor/ghost")
     assert resp.status_code == 404
+
+
+def test_missing_fixture_factors_detects_partial_results(tmp_path):
+    """守卫：仅当历史档因子齐备才跑真断言——用户自有 results 不得假失败。"""
+    (tmp_path / "my_own_factor").mkdir()
+    (tmp_path / "my_own_factor" / "summary.json").write_text("{}", encoding="utf-8")
+    assert missing_fixture_factors(tmp_path) == list(FIXTURE_FACTORS)
+
+    for name in FIXTURE_FACTORS:
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "summary.json").write_text("{}", encoding="utf-8")
+    assert missing_fixture_factors(tmp_path) == []

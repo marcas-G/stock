@@ -44,7 +44,7 @@ from factorlab.core.engine.reserved import (
 _PARAM_PATTERN = re.compile(r"\$\{(\w+)\}")
 
 
-def _substitute_params(formula: str, params: dict[str, Any]) -> str:
+def substitute_params(formula: str, params: dict[str, Any]) -> str:
     """顶层参数替换：formula 内 ${name} 文本引用 → 字面量（str(params[name])）。
 
     文本替换（非 AST）：宏体/def 体内的 ${} 同样可见——宏体由调用方对 operators
@@ -497,9 +497,9 @@ def prepare_formula_pipeline(spec: FactorSpec) -> tuple[str, str | None]:
     （v1 文法：单布尔表达式，赋值名归一 signal；保留名绑定门在归一**前**跑，
     读取/未来引用/布尔可判定门在归一后跑）。返回 (formula, pool)。
     """
-    formula = _substitute_params(spec.formula or "", spec.params)
+    formula = substitute_params(spec.formula or "", spec.params)
     operators = {
-        name: op.model_copy(update={"formula": _substitute_params(op.formula, spec.params)})
+        name: op.model_copy(update={"formula": substitute_params(op.formula, spec.params)})
         for name, op in spec.operators.items()
     }
     formula = expand_user_macros(formula, operators)
@@ -515,7 +515,7 @@ def prepare_formula_pipeline(spec: FactorSpec) -> tuple[str, str | None]:
     # ---- M4（G2）池公式：与主公式同一展开/门链（打开 DB 前全部完成）----
     pool = None
     if spec.universe.formula is not None:
-        pool = _substitute_params(spec.universe.formula, spec.params)
+        pool = substitute_params(spec.universe.formula, spec.params)
         pool = expand_user_macros(pool, operators)
         validate_reserved_bindings(pool)
         pool = _normalize_pool_formula(pool)

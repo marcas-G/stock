@@ -16,6 +16,7 @@ from factorlab.adapters.refresh import refresh, refresh_indexes
 from factorlab.adapters.read.verify import verify_all
 from factorlab.core.factor.errors import FactorDSLError
 from factorlab.core.factor.ast_gate import validate_formula
+from factorlab.core.engine.compute import substitute_params
 from factorlab.adapters import plugins
 from factorlab.core.ops import registry
 from factorlab.core.spec import load_spec
@@ -44,12 +45,25 @@ def version() -> None:
 
 @app.command()
 def lint(spec_path: Path) -> None:
-    """校验 YAML Spec 与 factor formula AST。"""
+    """校验 YAML Spec 与 factor formula AST（与引擎同序：先 ${param} 替换再校验）。
+
+    校验范围：formula / factors[].formula / universe.formula（池公式）/ operators 宏体。
+    2026-09-14 修复：此前拿未替换文本（`${win}` 不是合法 Python）直接过 AST 门，
+    对文档化的 params 模板假报"语法错误"（全库 152 spec 中 15 个受影响）——
+    写因子的第一条命令就误报，等于门失效。
+    """
     try:
         spec = load_spec(spec_path)
-        formulas = [spec.formula] if spec.formula is not None else [item.formula for item in spec.factors or []]
-        for formula in formulas:
-            validate_formula(formula)
+        sources: list[str] = []
+        if spec.formula is not None:
+            sources.append(spec.formula)
+        else:
+            sources.extend(item.formula for item in spec.factors or [])
+        if spec.universe.formula is not None:
+            sources.append(spec.universe.formula)
+        sources.extend(op.formula for op in (spec.operators or {}).values())
+        for source in sources:
+            validate_formula(substitute_params(source, spec.params))
     except (ValueError, FactorDSLError) as exc:
         console.print(str(exc))
         raise typer.Exit(code=1) from exc
