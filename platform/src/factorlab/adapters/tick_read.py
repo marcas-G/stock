@@ -13,7 +13,7 @@ from pathlib import Path
 
 import polars as pl
 
-from factorlab.core.factio import paths
+from factorlab.core.factio import partitions, paths
 from factorlab.core.factio.schema import (CANCELS_COLS, TICK_ORDERS_COLS,
                                           TICK_SNAP_COLS, TICK_TRADES_COLS)
 from factorlab.core.factio import paths as _paths
@@ -57,3 +57,22 @@ def read_tick_table(table: str, day: str, *, codes: Sequence[str] | None = None,
     if codes is not None:
         lf = lf.filter(pl.col("code").is_in(list(codes)))
     return lf.select(proj).collect()
+
+
+def count_tick_month(table: str, year: int, month: int, *,
+                     root: Path | None = None) -> int:
+    """该月**行数**（逐 part 惰性 count 求和——不物化数据；对账用）。
+
+    `diag/verify_cancels_sample` 的整月 manifest↔表对账用它（R4a 收敛）。
+    """
+    if table not in _TABLE_COLS:
+        raise ValueError(f"未知 tick 表: {table!r}（可用: {sorted(_TABLE_COLS)}）")
+    base = paths.tick_fact_root() if root is None else Path(root)
+    month_dir = partitions.partition_dir(base, table=table, year=year, month=month)
+    files = sorted(month_dir.glob("part-*.parquet")) if month_dir.is_dir() else []
+    if not files:
+        raise FileNotFoundError(f"无数据: tick_fact/{table} {year}-{month:02d}（{month_dir}）")
+    total = 0
+    for f in files:
+        total += pl.scan_parquet(f).select(pl.len()).collect().item()
+    return total

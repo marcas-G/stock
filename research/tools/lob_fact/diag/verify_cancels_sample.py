@@ -82,10 +82,10 @@ def main():
         print('== 整月 manifest vs 表行数')
         for ym in sorted({d[:6] for d in m['trade_date'].unique()}):
             y, mo = ym[:4], ym[4:]
-            fs = sorted(glob.glob(f'{CANC}/year={y}/month={mo}/part-*.parquet'))
-            if not fs:
+            try:   # R4a：行数对账经平台单点（逐 part 惰性 count，不物化）
+                rows = count_tick_month('cancels', int(y), int(mo), root=C.TICK_FACT_ROOT.rstrip('/'))
+            except FileNotFoundError:
                 print(f'  {ym}: 表缺失'); bad += 1; continue
-            rows = pl.scan_parquet(fs).collect().height
             msum = int(m.filter(m['trade_date'].str.starts_with(ym))['n_cancels'].sum())
             print(f'  {ym}: manifest={msum:,} 表={rows:,} -> '
                   f'{"OK" if msum == rows else "MISMATCH"}')

@@ -47,6 +47,10 @@ structure() {
   grep -q 'testpaths' "$RESEARCH/pyproject.toml" && ok "research 有 testpaths" || bad "research pyproject 缺 testpaths"
   [ -f "$ROOT/pyproject.toml" ] && bad "根目录不应有 pyproject.toml（防 rootdir 抢占）" || ok "根无 pyproject.toml"
 
+  echo "[G-IMPORTS] 全仓 factorlab.* 导入可解析（含负向自检）"
+  if "$PLATFORM/.venv/bin/python" scripts/check_imports.py --selftest >/dev/null 2>&1; then ok "自检通过（能抓到迁移遗漏）"; else bad "自检失败——门失效"; fi
+  if out=$("$PLATFORM/.venv/bin/python" scripts/check_imports.py 2>&1); then ok "$(echo "$out" | tail -1)"; else bad "导入解析失败"; echo "$out" | head -8 | sed 's/^/      /'; fi
+
   echo "[G-VENV] 平台 editable 落位断言"
   resolved=$("$PLATFORM/.venv/bin/python" -c "import factorlab;print(factorlab.__file__)" 2>/dev/null || echo "")
   case "$resolved" in

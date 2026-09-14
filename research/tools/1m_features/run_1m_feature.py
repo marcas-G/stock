@@ -38,6 +38,7 @@ import polars as pl
 
 # 共享核单点注入 + 落位断言（DER-010；T1：platform venv 运行）
 import os as _os
+from pathlib import Path  # noqa: E402
 import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # tools/
@@ -45,12 +46,15 @@ from _env import ensure_platform, platform_head  # noqa: E402
 
 ensure_platform()
 
+from factorlab.adapters.bars_read import read_bars_month  # noqa: E402
 from factorlab.core.engine.minute import compute_minute_factor_panel  # noqa: E402
+from factorlab.core.factio import partitions, paths  # noqa: E402
 from features import FEATURE_NAMES, FORMULA  # noqa: E402
 
 # ---------------------------------------------------------------- 路径常量
-DEFAULT_BARS_ROOT = "/data/students/gaolei/stock/data/fact/bars_1m"
-DEFAULT_DAILY = "/data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet"
+# 路径字面量收敛到 core.factio.paths 单点（R4c；原先硬编码 /data/students/gaolei/...）
+DEFAULT_BARS_ROOT = str(paths.bars_1m_root())
+DEFAULT_DAILY = str(paths.daily_fact_path())
 INJ_LEFT_CAL_DAYS = 40      # ≥20 交易日（CN 最长假期 ~10 天）的日历余量
 INJ_COLS = ["trade_date", "code", "close", "amount", "volume"]
 
@@ -72,20 +76,23 @@ def _iter_months(bars_root: str):
         year = int(entry[5:])
         mdir = os.path.join(bars_root, entry)
         for m in sorted(os.listdir(mdir)):
-            if m.startswith("month=") and os.path.exists(
-                    os.path.join(mdir, m, "part-000.parquet")):
+            if m.startswith("month=") and partitions.bars_month_part(
+                    Path(bars_root), year, int(m[6:])).exists():
                 out.append((year, int(m[6:])))
     return out
 
 
 def _month_part(bars_root: str, y: int, m: int) -> str:
-    return os.path.join(bars_root, f"year={y}", f"month={m:02d}",
-                        "part-000.parquet")
+    """（保留给 --only/日志显示）单月 part 路径——规则取 core.factio.partitions 单点。"""
+    return str(partitions.bars_month_part(Path(bars_root), y, m))
 
 
-def _load_month_bars(part: str) -> pl.DataFrame:
-    """单月 bars 帧（重命名 trade_date→date；仅批算所需列——投影裁剪内存）。"""
-    return (pl.scan_parquet(part).select(_BAR_COLS).collect()
+def _load_month_bars(bars_root: str, y: int, m: int) -> pl.DataFrame:
+    """单月 bars 帧（重命名 trade_date→date；仅批算所需列——投影裁剪内存）。
+
+    R4a：I/O 收敛到平台单点 `adapters.bars_read.read_bars_month`（投影仍由本工具声明）。
+    """
+    return (read_bars_month(Path(bars_root), year=y, month=m, columns=_BAR_COLS)
             .rename({"trade_date": "date"}))
 
 
@@ -179,8 +186,7 @@ def cmd_batch(args) -> int:
 
 
 def _run_month(y: int, m: int, key: str, args) -> int:
-    part = _month_part(args.bars_root, y, m)
-    bars = _load_month_bars(part)
+    bars = _load_month_bars(args.bars_root, y, m)
     lo = bars["date"].min() - dt.timedelta(days=INJ_LEFT_CAL_DAYS)
     hi = bars["date"].max()
     daily = _load_daily_slice(args.daily, lo, hi)
@@ -254,10 +260,12 @@ def cmd_check_day(args) -> int:
     """平台引擎（CH 生产库 run_factor_minute）× 本地工具（同 parquet 事实、
     同公式、同注入列语义）单日交叉对拍——W7 验收闸门。"""
     day = dt.date.fromisoformat(args.day)
-    part = next(_month_part(args.bars_root, y, m) for (y, m)
-                in _iter_months(args.bars_root)
-                if (y, m) == (day.year, day.month))
-    bars = _load_month_bars(part)
+    month = next(((y, m) for (y, m) in _iter_months(args.bars_root)
+                  if (y, m) == (day.year, day.month)), None)
+    if month is None:
+        print(f"{day} 所在月无 bars 数据（{day.year}-{day.month:02d}）")
+        return 1
+    bars = _load_month_bars(args.bars_root, *month)
     bars = bars.filter(pl.col("date") == day)
     if bars.height == 0:
         print(f"{day} 无 bars（非交易日/隔离窗）")
@@ -268,7 +276,7 @@ def cmd_check_day(args) -> int:
                                         daily=inj)
 
     # ---- 引擎侧（CH 生产库，同 spec/公式/窗口）----
-    from factorlab.core.engine.compute import RunContext
+    from factorlab.app.context import RunContext  # R2：装配容器已迁 app 层
     from factorlab.app.run import run_factor_minute
     import pathlib
     import tempfile

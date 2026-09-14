@@ -39,7 +39,14 @@ LIMIT_DOWN = -9.8  # 主板跌停识别阈值（pct_chg <= 该值视为跌停买
 
 
 def load_panel(panel_path: Path) -> pl.DataFrame:
-    return pl.read_parquet(panel_path)
+    """读 `results/<name>/panel.parquet`（R4a：经平台单点 adapters.panel_store）。
+
+    传入完整路径（CLI 习惯），内部拆成 (results_dir, name) 交给单点——
+    语义与旧 `pl.read_parquet` 一致（全列）。
+    """
+    from factorlab.adapters.panel_store import ParquetPanelStore
+    p = Path(panel_path)
+    return ParquetPanelStore().load_panel(p.parent.parent, p.parent.name)
 
 
 def load_mkt20(db_path: Path) -> pl.DataFrame:

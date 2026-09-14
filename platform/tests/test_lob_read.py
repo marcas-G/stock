@@ -79,3 +79,36 @@ def test_real_files_match_declared_column_contract(table, declared):
     actual = list(pl.scan_parquet(f).collect_schema().names())
     missing = [c for c in declared if c not in actual]
     assert not missing, f"{table} 契约列不在实际文件中: {missing}（实际 {actual}）"
+
+
+# ---- R4a 第二批：bars 读单点 + tick 月行数（对账用）----
+
+def test_bars_month_files_and_missing(tmp_path):
+    import polars as pl
+    from factorlab.adapters.bars_read import bars_month_files, read_bars_month
+    d = tmp_path / "year=2026" / "month=06"
+    d.mkdir(parents=True)
+    pl.DataFrame({"trade_date": [__import__("datetime").date(2026, 6, 10)],
+                  "code": ["000001.SZ"], "minute_index": [0], "close": [1.0],
+                  "amount": [1.0], "volume": [1.0]}).write_parquet(d / "part-000.parquet")
+    assert [p.name for p in bars_month_files(tmp_path, year=2026, month=6)] == ["part-000.parquet"]
+    got = read_bars_month(tmp_path, year=2026, month=6, columns=["code", "close"])
+    assert got.columns == ["code", "close"] and got.height == 1
+    with pytest.raises(FileNotFoundError, match="无数据: bars_1m 2026-07"):
+        read_bars_month(tmp_path, year=2026, month=7)
+
+
+def test_count_tick_month(tmp_path):
+    import datetime as _dt
+    import polars as pl
+    from factorlab.adapters.tick_read import count_tick_month
+    d = tmp_path / "trades" / "year=2026" / "month=06"
+    d.mkdir(parents=True)
+    rows = [{"trade_date": _dt.date(2026, 6, 10), "code": "000001.SZ",
+             "time_ms": i, "trade_no": i, "bs": 1, "price_x10000": 100,
+             "volume": 1, "ask_seq": 0, "bid_seq": 0} for i in range(5)]
+    pl.DataFrame(rows).write_parquet(d / "part-000.parquet")
+    pl.DataFrame(rows[:3]).write_parquet(d / "part-001.parquet")   # 多 part 求和
+    assert count_tick_month("trades", 2026, 6, root=tmp_path) == 8
+    with pytest.raises(FileNotFoundError):
+        count_tick_month("trades", 2026, 7, root=tmp_path)
