@@ -25,17 +25,23 @@ def install_processors() -> None:
     ensure_processors_registered()
 
 
-def ensure_assembly() -> None:
-    """**单点装配**：幂等安装全部注册面（算子族 + process 处理器）。
+def ensure_assembly(plugin_dir: Path | None = None) -> None:
+    """**单点装配**：幂等安装全部注册面（算子族 + process 处理器 + 用户插件算子）。
 
     任何入口（CLI 组回调、run_factor/run_factor_minute、未来新表面）都可安全调用。
     为什么必须在"能跑起来"的每个入口都装：注册靠 `@factor_op`/`@register_processor`
     装饰器的 **import 副作用**，一旦某条入口链没 import 到实现模块，注册表就是空的
-    ——已发生两次（2026-09-12 process 处理器、2026-09-14 CLI `op list` 打印 `[]`），
-    且两次都被测试的导入顺序掩盖。装配点显式化 + 子进程回归测试是这类缺陷的解药。
+    ——已发生三次（2026-09-12 process 处理器、2026-09-14 CLI `op list` 打印 `[]`、
+    同日插件算子 `op add` 可见但 run 链报"未知算子"），且都被测试的导入顺序掩盖。
+    装配点显式化 + 实跑回归测试是这类缺陷的解药。
+
+    plugin_dir 缺省 None → `settings.plugin_dir`（调用时读取，便于测试注入）。
     """
     install_operators()
     install_processors()
+    from factorlab.adapters import plugins
+    from factorlab.config import settings
+    plugins.discover_plugins(plugin_dir or settings.plugin_dir)
 
 
 def open_read(data_backend: str | None = None, db_path: Path | None = None,

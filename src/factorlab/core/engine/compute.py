@@ -149,6 +149,27 @@ def compute_formula(
     if missing_declared:
         raise ValueError(
             f"因子脚本未产出声明输出列: {missing_declared}（outputs 声明与实际定义不符）")
+    # M3（G6）：组算子翻译产物符号注入 codegen 作用域——gp_ 前缀函数
+    # （gp_mean/gp_rank，已注册 registry/分区校验/masking）经 expr_codegen
+    # printer 翻译为 cs_<名>(<去 key>) + .over(_DATE_, '<key>')：key 只作
+    # 分区列、按日×组分区。生成代码 exec 需解析翻译产物 cs_mean/cs_rank
+    # （platform_ops 模块符号，不注册——公式层直写会被 partition 门拒），
+    # 否则 NameError。extra_codes 无条件追加 import 头（未使用 import 无
+    # 副作用；codegen_exec 的 extra_codes 是单字符串——整体直接复制进生成
+    # 代码头部，非序列）。模块别名 import 形式在 codegen 作用域不可用
+    # （实测），必须直接 import 名。bars_1m scope：追加 minute_ops 名（单
+    # 字符串多行——minute 红测试实测通过；与注册表名单同源防漂移）。
+    extra_codes = ("from factorlab.core.ops.platform_ops import cs_mean, cs_rank\n"
+                   + EXTRA_CODES) if scope == "bars_1m" \
+        else "from factorlab.core.ops.platform_ops import cs_mean, cs_rank"
+    # 第三方插件算子作用域（2026-09-14）：生成代码以**裸名字**调用算子，名字必须在
+    # 其 exec 作用域内绑定；插件算子没有公式层 import 可用，故由加载器登记来源模块
+    # （adapters.plugins.mark_source_module），此处注入 import 头。无插件登记 →
+    # 字符串不追加，生成代码逐字节不变（位级门前提）。
+    from factorlab.core.ops import registry as _ops_registry
+    _plugin_imports = _ops_registry.source_import_lines()
+    if _plugin_imports:
+        extra_codes = extra_codes + "\n" + "\n".join(_plugin_imports)
     result = codegen_exec(
         df.lazy(),
         formula,
@@ -156,19 +177,7 @@ def compute_formula(
         style="polars",
         date=date,
         asset=asset,
-        # M3（G6）：组算子翻译产物符号注入 codegen 作用域——gp_ 前缀函数
-        # （gp_mean/gp_rank，已注册 registry/分区校验/masking）经 expr_codegen
-        # printer 翻译为 cs_<名>(<去 key>) + .over(_DATE_, '<key>')：key 只作
-        # 分区列、按日×组分区。生成代码 exec 需解析翻译产物 cs_mean/cs_rank
-        # （platform_ops 模块符号，不注册——公式层直写会被 partition 门拒），
-        # 否则 NameError。extra_codes 无条件追加 import 头（未使用 import 无
-        # 副作用；codegen_exec 的 extra_codes 是单字符串——整体直接复制进生成
-        # 代码头部，非序列）。模块别名 import 形式在 codegen 作用域不可用
-        # （实测），必须直接 import 名。bars_1m scope：追加 minute_ops 名（单
-        # 字符串多行——minute 红测试实测通过；与注册表名单同源防漂移）。
-        extra_codes=("from factorlab.core.ops.platform_ops import cs_mean, cs_rank\n"
-                     + EXTRA_CODES) if scope == "bars_1m"
-        else "from factorlab.core.ops.platform_ops import cs_mean, cs_rank",
+        extra_codes=extra_codes,
     ).collect()
     # 兜底：codegen 结果缺失声明输出（变换语义偏差）也点名报错
     missing = [o for o in outputs if o not in result.columns]

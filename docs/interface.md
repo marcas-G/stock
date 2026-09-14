@@ -521,18 +521,53 @@ register_platform_ops()   # returns/vwap/adv20/gp_rank/gp_mean（cs_mean/cs_rank
 import polars as pl
 from factorlab.core.ops.registry import factor_op
 
-@factor_op("tail_ratio", kind="ts", version="0.1.0")
-def tail_ratio(x: pl.Expr, n: int) -> pl.Expr:
+@factor_op("ts_tail_ratio", kind="ts", version="0.1.0")
+def ts_tail_ratio(x: pl.Expr, n: int) -> pl.Expr:
     spread = x.rolling_quantile(0.9, window_size=n) - x.rolling_quantile(0.1, window_size=n)
     return spread / x.rolling_std(window_size=n)
 ```
 
 `kind` 取值：`el | ts | cs | gp | ta`。
 
+**分区前缀铁律（2026-09-14 实测加门）**：引擎据**名字前缀**（不是 `kind`）决定分区语义——
+`ts_` → `.over(asset, order_by=date)`；`cs_` → `.over(date)`；`gp_` → 翻译为
+`cs_<后缀>(...).over(date, <key>)`；**其余前缀与裸名一律当元素级函数**（行级、无分区）。
+
+| kind | 插件命名要求 | 说明 |
+|---|---|---|
+| `ts` / `ta` | **必须** `ts_` 前缀 | ta 族内置即 `ts_MACD`/`ts_RSI` 形态；函数体写裸 `x.rolling_*`，分区由引擎施加 |
+| `cs` | **必须** `cs_` 前缀 | 函数体写横截面原语，分区由引擎施加 |
+| `el` | 裸名即可 | 元素级（无窗口、无分组）——裸名语义本就如此 |
+| `gp` | **暂不支持插件自定义** | printer 会把 `gp_X` 译成 `cs_X` 且要求该符号可导入（内置仅 cs_mean/cs_rank）；组算子请在公式内用 `gp_rank`/`gp_mean` 组合 |
+
+裸名注册 `kind="ts"` 的算子**会在注册期报错**（不是静默）。裸名的两种实测静默失效
+（证据见 `tests/test_plugin_partition_prefix.py`）：①**行序窗口**——生成代码无 `.over()`，
+滚动窗口跨 code 块边界（9 日假库实测：分区版首窗 null，裸名版 19.33——窗口吃到另一
+code 的行）；②**预热提取失效**——`_ts_window_days` 只认 `ts_/ta_` 前缀，裸名窗口对引擎
+不可见（`tail_ratio(x,20)` → 0 天，`ts_tail_ratio(x,20)` → 20 天），加载不足时窗口首段
+静默错值。真实日频主链上二者**可能**恰好逐位相同（满载历史 + 窗口裁剪把污染行裁掉，
+实测一次 sha256 相同）——那是加载策略的巧合而非保证，工具路径/短帧/非常规行序即显形。
+
+已装违规插件不阻断 CLI——`op list` 告警并禁用该算子（引用它的公式在分区门报"未知
+算子"），`op add --force` 改名后重新注册。
+
 ### 插件管理
 
 用户插件放在 `~/.factorlab/plugins/`。插件文件必须只定义纯函数，并通过
-`factor_op` 注册算子。`op add` 会做 AST 安全扫描。
+`factor_op` 注册算子。`op add` 会做 AST 安全扫描（含上面的分区前缀门）。
+
+**三种自定义"处理函数"的层级**（按复用范围递增）：
+
+1. **公式内 `def`（零注册，本次专用）**——写在 spec 的 `formula` 里即可；计算前
+   **内联展开**（窗口算子提升为顶层 `ts_*` 调用 → 分区正确）、def 调 def、多语句函数体。
+   约束：函数体仅赋值 + 单个 `return`；禁递归；体只能用**已注册算子与元素级函数**
+   （不能直接写 `x.rolling_*`——那是属性调用，AST 门拒）。仅本 spec 可见。
+2. **`operators` 宏（零注册，spec 内参数化复用）**——`name: {params: [...], formula: "单表达式"}`，
+   公式内 `name(args)` 计算前展开。仍只在本 spec 可见（跨 spec 复用靠复制或提升到 3）。
+3. **全局注册（跨因子复用）**——`@factor_op` 写进插件 .py + `factorlab op add`；
+   `op list`/`op doc` 可见，任何 spec 的公式可直接调用；run 链在装配点自动加载。
+   **提升代价**：函数体从"算子组合"改写为"polars 表达式原语"（`x.rolling_*`），
+   并按上表加分区前缀——分区语义由引擎按前缀施加，函数体内不写 `.over()`。
 
 ### `factorlab.app.run.run_factor(spec, ctx) -> FactorResult`
 
