@@ -1,0 +1,202 @@
+{
+ "days": [
+  {
+   "code": "000155",
+   "day": "20250822",
+   "n_parquet": 50633,
+   "n_raw": 50633,
+   "equal": true,
+   "read_ms": {
+    "orders": 60.2,
+    "trades": 40.6,
+    "cancels": 16.9,
+    "snapshots": 133.3
+   },
+   "map_ms": 213.4
+  },
+  {
+   "code": "000155",
+   "day": "20260803",
+   "n_parquet": 152408,
+   "n_raw": 152408,
+   "equal": true,
+   "read_ms": {
+    "orders": 71.8,
+    "trades": 37.3,
+    "cancels": 106.2,
+    "snapshots": 151.8
+   },
+   "map_ms": 429.4
+  },
+  {
+   "code": "000021",
+   "day": "20260706",
+   "n_parquet": 1687462,
+   "n_raw": 1687462,
+   "equal": true,
+   "read_ms": {
+    "orders": 231.7,
+    "trades": 189.3,
+    "cancels": 92.1,
+    "snapshots": 206.8
+   },
+   "map_ms": 3171.0
+  },
+  {
+   "code": "000021",
+   "day": "20260803",
+   "n_parquet": 1246800,
+   "n_raw": 1246800,
+   "equal": true,
+   "read_ms": {
+    "orders": 154.6,
+    "trades": 176.2,
+    "cancels": 45.7,
+    "snapshots": 117.9
+   },
+   "map_ms": 2409.8
+  },
+  {
+   "code": "000333",
+   "day": "20260513",
+   "n_parquet": 337047,
+   "n_raw": 337047,
+   "equal": true,
+   "read_ms": {
+    "orders": 210.5,
+    "trades": 252.6,
+    "cancels": 32.3,
+    "snapshots": 167.1
+   },
+   "map_ms": 827.9
+  },
+  {
+   "code": "000333",
+   "day": "20251215",
+   "n_parquet": 401796,
+   "n_raw": 401796,
+   "equal": true,
+   "read_ms": {
+    "orders": 275.6,
+    "trades": 244.0,
+    "cancels": 89.2,
+    "snapshots": 293.2
+   },
+   "map_ms": 827.7
+  },
+  {
+   "code": "600036",
+   "day": "20251215",
+   "n_parquet": 364470,
+   "n_raw": 364470,
+   "equal": true,
+   "read_ms": {
+    "orders": 194.5,
+    "trades": 166.5,
+    "snapshots": 237.2
+   },
+   "map_ms": 754.8
+  },
+  {
+   "code": "600036",
+   "day": "20260513",
+   "n_parquet": 343219,
+   "n_raw": 343219,
+   "equal": true,
+   "read_ms": {
+    "orders": 399.4,
+    "trades": 401.4,
+    "snapshots": 171.7
+   },
+   "map_ms": 684.7
+  },
+  {
+   "code": "600184",
+   "day": "20260803",
+   "n_parquet": 100356,
+   "n_raw": 100356,
+   "equal": true,
+   "read_ms": {
+    "orders": 114.7,
+    "trades": 51.9,
+    "snapshots": 109.7
+   },
+   "map_ms": 258.7
+  },
+  {
+   "code": "600184",
+   "day": "20250915",
+   "n_parquet": 77589,
+   "n_raw": 77589,
+   "equal": true,
+   "read_ms": {
+    "orders": 337.0,
+    "trades": 336.6,
+    "snapshots": 377.3
+   },
+   "map_ms": 205.5
+  },
+  {
+   "code": "688708",
+   "day": "20260821",
+   "n_parquet": 11450,
+   "n_raw": 11450,
+   "equal": true,
+   "read_ms": {
+    "orders": 161.4,
+    "trades": 140.2,
+    "snapshots": 222.3
+   },
+   "map_ms": 80.7
+  },
+  {
+   "code": "301632",
+   "day": "20260821",
+   "n_parquet": 19948,
+   "n_raw": 19948,
+   "equal": true,
+   "read_ms": {
+    "orders": 162.0,
+    "trades": 142.0,
+    "cancels": 39.8,
+    "snapshots": 227.9
+   },
+   "map_ms": 113.1
+  },
+  {
+   "code": "000810",
+   "day": "20250915",
+   "n_parquet": 337520,
+   "n_raw": 337520,
+   "equal": true,
+   "read_ms": {
+    "orders": 134.8,
+    "trades": 117.0,
+    "cancels": 20.4,
+    "snapshots": 179.6
+   },
+   "map_ms": 654.0
+  },
+  {
+   "code": "000887",
+   "day": "20260210",
+   "n_parquet": 96653,
+   "n_raw": 96653,
+   "equal": true,
+   "read_ms": {
+    "orders": 278.2,
+    "trades": 304.9,
+    "cancels": 69.2,
+    "snapshots": 301.1
+   },
+   "map_ms": 275.4
+  }
+ ],
+ "total": {
+  "n_days": 14,
+  "n_equal": 14,
+  "read_s": 8.9,
+  "map_s": 10.9,
+  "raw_s": 19.8
+ }
+}
