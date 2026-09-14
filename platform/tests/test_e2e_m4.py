@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from factorlab.surfaces.cli.main import app
 from factorlab.app.run import run_factor
-from factorlab.core.engine.compute import RunContext
+from factorlab.app.context import RunContext
 from factorlab.core.eval.alignment import align_weekly
 from factorlab.core.eval.layered import layered_backtest
 from factorlab.adapters.rust_ic import evaluate_factor_weekly

@@ -20,7 +20,7 @@ from factorlab.adapters.parquet_artifacts import (LABELS_FILE, LEGACY_PANEL_FILE
 from factorlab.core.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
                                      InformationCutoff, SignalAvailability)
 from factorlab.app.run import run_factor
-from factorlab.core.engine.compute import RunContext
+from factorlab.app.context import RunContext
 from factorlab.core.spec import load_spec
 
 

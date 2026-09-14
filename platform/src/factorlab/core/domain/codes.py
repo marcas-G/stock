@@ -1,4 +1,4 @@
-"""Canonical research security identifier contract（M6-07B4）。
+r"""Canonical research security identifier contract（M6-07B4）。
 
 平台 research universe 只接受标准 A 股证券标识（canonical v1）：
 

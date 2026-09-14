@@ -1,73 +1,89 @@
-"""架构门：共享核单副本（DER-002 / REQ-Q-008）。
+"""架构门（单仓单树版；2026-09-15 R2 重写）。
 
-research 分支不得携带平台 src/tests 与平台手册（物理单副本，杜绝副本漂移）；
-研究工具必须经 tools/_env.py 解析到 main worktree 的共享核（落位断言）。
-这些门把"分支纪律"从人工遵守变成可执行断言。
+取代两 worktree 时代的门（旧门依赖 `git ls-tree research` 与 `../quant-platform-research`，
+单树后不成立）：
+- 旧门 1/2（research 分支不得携带平台 src/tests 与平台手册）→ **目录不互串**：
+  platform/ 顶层无研究目录、research/ 顶层无平台源码/测试，契约 4 篇全仓单副本；
+- 旧门 3/4（`tools/_env.py` 单点 + 落位断言）→ 路径改指 `platform/src`，**且不再 skip**
+  （单树下 research/ 永远在场——"条件不满足就跳过"会把门变成死门，静默失效）；
+- 纯核双门（静态 AST + 隔离运行）**保留并加强**：禁 import 名单加入 `factorlab.config`
+  （`RunContext` 已迁 `app/context.py`，core→config 的欠账结清）；新增 config 叶门
+  （config 不得 import 其他 factorlab 模块，且 import 期不得产生文件系统副作用）。
 """
 from __future__ import annotations
 
 import subprocess
 from pathlib import Path
 
-import pytest
+REPO = Path(__file__).resolve().parents[1]        # platform/
+ROOT = REPO.parent                                # 仓库根
+RESEARCH = ROOT / "research"
+PLATFORM = REPO
 
-REPO = Path(__file__).resolve().parents[1]           # quant-platform-main
-RESEARCH = REPO.parent / "quant-platform-research"   # linked worktree（同仓库 research 分支）
-
-_PLATFORM_DOCS = {"interface.md", "catalog.md", "data-ops-playbook.md", "teajoin-guide.md"}
+_CONTRACT_DOCS = {"interface.md", "catalog.md", "data-ops-playbook.md", "teajoin-guide.md"}
 
 
 def _git(*args: str) -> str:
-    return subprocess.run(["git", "-C", str(REPO), *args],
+    return subprocess.run(["git", "-C", str(ROOT), *args],
                           capture_output=True, text=True, check=True).stdout
 
 
-def _tree_paths() -> list[str]:
-    """research 分支树的**递归**全路径清单（-r 必须：只列顶层会让断言永真）。"""
-    return _git("ls-tree", "-r", "research", "--name-only").splitlines()
+def _tracked() -> list[str]:
+    """全仓**递归**跟踪路径清单（-r 必须：只列顶层会让断言永真）。"""
+    return _git("ls-files").splitlines()
 
 
-def test_research_branch_has_no_platform_copy():
-    """DER-002：research 分支树中不得出现 src/ 或 tests/ 前缀的任何文件。"""
-    offenders = [p for p in _tree_paths() if p.split("/", 1)[0] in ("src", "tests")]
-    assert not offenders, (
-        f"research 分支仍携带平台代码/测试副本：共 {len(offenders)} 条，"
-        f"前 5 条 {offenders[:5]}")
+# ================================================================
+# G-COPY：三棵树内容不互串 · 契约文档单副本
+# ================================================================
+
+def test_platform_tree_has_no_research_content():
+    """platform/ 顶层只放平台内容（因子库/工具属 research/）。"""
+    offenders = [p for p in _tracked()
+                 if p.startswith("platform/") and p.split("/")[1] in ("factor", "tools")]
+    assert not offenders, f"platform/ 顶层出现研究目录：{offenders[:5]}"
 
 
-def test_research_branch_has_no_platform_docs():
-    """平台手册不得在 research 树中（同一漂移类；引用应指向 ../quant-platform-main）。"""
-    offenders = [p for p in _tree_paths() if p.rsplit("/", 1)[-1] in _PLATFORM_DOCS]
-    assert not offenders, f"research 分支仍携带平台文档副本: {offenders}"
+def test_research_tree_has_no_platform_copy():
+    """research/ 顶层不得携带平台源码/测试，也不得携带平台契约文档。"""
+    bad_top = [p for p in _tracked()
+               if p.startswith("research/") and p.split("/")[1] in ("src", "tests")]
+    assert not bad_top, f"research/ 顶层携带平台 src/tests：{bad_top[:5]}"
+    bad_docs = [p for p in _tracked()
+                if p.startswith("research/") and p.rsplit("/", 1)[-1] in _CONTRACT_DOCS]
+    assert not bad_docs, f"research/ 携带平台契约文档副本：{bad_docs}"
 
+
+def test_contract_docs_have_single_copy():
+    """契约 4 篇全仓各只一份（活文档单点，防漂移）。"""
+    for name in sorted(_CONTRACT_DOCS):
+        paths = [p for p in _tracked() if p.endswith(f"/docs/{name}")]
+        assert len(paths) == 1, f"{name} 副本数 {len(paths)}（应为 1）: {paths}"
+
+
+# ================================================================
+# G-INJECT / G-RESOLVE：研究侧平台路径注入单点（DER-010）
+# ================================================================
 
 def test_research_tools_declare_env_single_point():
-    """研究侧平台路径注入必须收敛到 tools/_env.py 单点（DER-010）。
-
-    tools/ 内不得出现指向平台目录的手写 sys.path 注入字面量。
-    """
-    if not (RESEARCH / "tools").is_dir():
-        pytest.skip("research worktree 不在本机")
+    """研究侧 tools/ 内不得出现指向平台目录的手写 sys.path 注入（应走 _env.py）。"""
     hits = []
     for py in (RESEARCH / "tools").rglob("*.py"):
         if py.name == "_env.py" or "notes" in py.parts:
             continue  # _env.py 是单点本身；notes/ 为历史诊断豁免
         text = py.read_text(encoding="utf-8", errors="ignore")
         for i, line in enumerate(text.splitlines(), 1):
-            if "sys.path.insert" in line and (
-                    "quant-platform-main" in line or "quant-platform-research" in line):
-                hits.append(f"{py.relative_to(RESEARCH)}:{i}")
-    assert not hits, f"研究侧存在直写平台路径的 sys.path 注入（应走 _env.py）: {hits}"
+            if "sys.path.insert" in line and "platform" in line:
+                hits.append(f"{py.relative_to(ROOT)}:{i}")
+    assert not hits, f"研究侧直写平台路径的 sys.path 注入（应走 _env.py）: {hits}"
 
 
-@pytest.mark.integration
-def test_research_tools_resolve_main_core():
-    """tools/_env.py 的落位断言在真实 research worktree 下通过（不落副本）。"""
-    if not (RESEARCH / "tools" / "_env.py").is_file():
-        pytest.skip("research worktree 不在本机")
+def test_env_resolves_platform_src():
+    """`research/tools/_env.py` 的落位断言：解析必须落在 platform/src（不 skip）。"""
+    env_py = RESEARCH / "tools" / "_env.py"
+    assert env_py.is_file(), f"缺少注入单点: {env_py}"
     py = REPO / ".venv" / "bin" / "python"
-    if not py.is_file():
-        pytest.skip("平台 venv 不存在")
+    assert py.is_file(), f"平台 venv 不存在: {py}"
     code = ("import sys; sys.path.insert(0, 'tools'); "
             "from _env import ensure_platform; print(ensure_platform())")
     out = subprocess.run([str(py), "-c", code], cwd=str(RESEARCH),
@@ -77,24 +93,39 @@ def test_research_tools_resolve_main_core():
 
 
 # ================================================================
-# 纯核门（DER-001 / REQ-Q-001）：core 不得依赖 I/O 或外层模块
+# G-BOUNDARY：platform 不得依赖 research
+# ================================================================
+
+def test_platform_does_not_import_research():
+    hits = []
+    for base in (PLATFORM / "src", PLATFORM / "tests"):
+        for py in base.rglob("*.py"):
+            for i, line in enumerate(py.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+                stripped = line.strip()
+                if stripped.startswith(("import research", "from research")):
+                    hits.append(f"{py.relative_to(ROOT)}:{i}")
+    assert not hits, f"platform 侧出现 research 依赖：{hits[:5]}"
+
+
+# ================================================================
+# 纯核门（DER-001 / REQ-Q-001）：core 不得依赖 I/O、外层模块或 config
 # ================================================================
 
 CORE = REPO / "src" / "factorlab" / "core"
 _FORBIDDEN_TOP = ("duckdb", "clickhouse_connect", "requests")
 _FORBIDDEN_PREFIX = ("factorlab.data", "factorlab.ports", "factorlab.adapters",
-                     "factorlab.app", "factorlab.surfaces", "factorlab.adapters.parquet_artifacts",
-                     "factorlab.cli", "factorlab.web", "factorlab.process", "factorlab.surfaces")
+                     "factorlab.app", "factorlab.surfaces", "factorlab.cli",
+                     "factorlab.web", "factorlab.process", "factorlab.config",
+                     "factorlab.artifacts")
 _IO_ATTRS = ("read_parquet", "scan_parquet", "write_parquet", "read_csv",
              "glob", "write_text", "write_bytes")  # 数据文件读写在 adapters；core 只可 read_text 载配置
 
 
 def test_core_has_no_io_or_outer_imports():
-    """静态门：core 内不得 import 外部 I/O 依赖/外层模块，不得调 parquet/CSV 读写。
+    """静态门：core 内不得 import 外部 I/O 依赖/外层模块/config，不得调 parquet/CSV 读写。
 
-    （docstring 里把 read_csv 当反例提及不算——按 AST 的 Import/属性调用判定。
-      `factorlab.config` 暂未列入：RunContext 默认值仍读 settings，WS5 随
-      RunOptions 值对象去除。）
+    `factorlab.config` 自 2026-09-15 起列入禁单：`RunContext`（带 settings 默认值的
+    装配容器）已迁 `app/context.py`，core 对配置的最后一处依赖随之断开。
     """
     import ast as _ast
     offenders: list[str] = []
@@ -120,7 +151,6 @@ def test_core_imports_without_io_deps():
 
     与静态门互为双胞胎：静态门管"写了什么"，本门管"载入时真的不需要什么"。
     """
-    import subprocess
     import sys
     code = (
         "import sys\n"
@@ -134,3 +164,33 @@ def test_core_imports_without_io_deps():
                          capture_output=True, text=True)
     assert out.returncode == 0, f"隔离导入失败:\n{out.stderr}"
     assert "CORE_PURE_OK" in out.stdout
+
+
+# ================================================================
+# G-NOSIDE：config 是叶——不 import 其他层，且导入无文件系统副作用
+# ================================================================
+
+def test_config_is_a_leaf_module():
+    """config.py 不得 import 任何 factorlab 子模块（L0 叶：谁都可读它，它不读谁）。"""
+    import ast as _ast
+    src = (REPO / "src" / "factorlab" / "config.py").read_text(encoding="utf-8")
+    tree = _ast.parse(src)
+    offenders = [f"{n.lineno} {n.module}" for n in _ast.walk(tree)
+                 if isinstance(n, _ast.ImportFrom) and n.module and n.module.startswith("factorlab")]
+    assert not offenders, f"config 依赖了 factorlab 其他模块：{offenders}"
+
+
+def test_importing_config_has_no_filesystem_side_effect():
+    """导入 config 不得创建目录（`plugin_dir.mkdir` 已移到装配点）。"""
+    import sys
+    import tempfile
+    with tempfile.TemporaryDirectory() as home:
+        code = ("import factorlab.config as c; "
+                "print('CONFIG_IMPORT_OK')")
+        out = subprocess.run([sys.executable, "-c", code], cwd=str(REPO),
+                             capture_output=True, text=True,
+                             env={"HOME": home, "PATH": "/usr/bin:/bin"})
+        assert out.returncode == 0, f"导入失败:\n{out.stderr}"
+        assert "CONFIG_IMPORT_OK" in out.stdout
+        leftovers = [p.name for p in Path(home).iterdir()]
+        assert not leftovers, f"导入 config 产生了文件系统副作用: {leftovers}"

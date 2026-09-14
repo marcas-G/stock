@@ -20,7 +20,7 @@ from factorlab.adapters.read.calendar import trading_calendar
 from factorlab.adapters.intraday import load_bars_1m_codes
 from factorlab.adapters.read.source import load_daily
 from factorlab.app.run import run_factor
-from factorlab.core.engine.compute import RunContext
+from factorlab.app.context import RunContext
 from factorlab.app.run import run_factor_minute
 from factorlab.core.spec import load_spec
 

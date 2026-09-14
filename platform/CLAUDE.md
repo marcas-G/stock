@@ -5,20 +5,17 @@
 
 ## 硬性要求
 
-### 分支约定：研究不污染平台主线（最高优先级）
+### 目录分权（2026-09-15 起，取代旧的两分支纪律；最高优先级）
 
-- `main` 只收**平台改动**：`src/factorlab/`、`tests/`（平台测试）、`docs/interface.md`、
-  `docs/superpowers/`（平台设计与计划）、`docs/data-ops-playbook.md`、`docs/teajoin-guide.md`、
-  README、pyproject 等。
-- **研究内容**（因子定义与档案 `factor/`、`docs/factors/`、策略回测 `tools/`、
-  `docs/strategies/`、factor-mine 技能与 playbook）一律提交到
-  **`research` 分支**（同仓库独立 worktree：`../quant-platform-research`），绝不进 `main`。
-- `results/`（挖掘轮次产物）为**本地运行产物，不入任何分支**（`.gitignore` 已忽略；
-  大 parquet/artifact 本地留存，需要归档时走工作区 `stock/_archive/` 机制）。
-- 远程仓库结构与本地一致：`main` 纯平台，`research` 存研究。
-- 若某项改动同时涉及平台与研究（如数据层新增字段被因子使用）：平台部分提交到
-  `main`（提交信息用平台前缀 `feat(data)`/`fix(engine)` 等），研究部分提交到 `research`。
-- 禁止以研究主题（`feat(factor)`/`feat(strategy)` 等）作为 `main` 提交信息。
+本目录 = 单仓单树里的**平台树**（`stock/platform/`）。旧的双分支纪律（main=平台 /
+research=研究、独立 worktree）已退役，改按**目录**分权：
+
+- 本目录只收平台改动：`src/factorlab/`、`tests/`、`docs/`（契约 4 篇 + superpowers）、`scripts/`。
+  提交前缀用平台语义：`feat(engine)` / `fix(adapters)` / `docs(interface)` / `refactor(core)`。
+- 研究内容在**兄弟目录** `../research/`（`factor/`、`tools/`、`docs/`）——**不进本目录**。
+  跨树改动分目录分别提交。
+- `results/`（运行产物）与 `data/`、`.venv/` 一律不入库（根 `.gitignore` 三重保护）。
+- 工作区级约定（数据地图、目录约定、未决事项）在仓库根 `docs/`，本文件不重复。
 
 ### 文档和测试必须做好、写全面（最高优先级）
 
@@ -63,13 +60,14 @@ surfaces/ (cli/web)  →  app/ (bootstrap/run/evaluate)  →  ports/ (6 条契�
 
 ## 环境事实
 
-- Python 3.13（本工作树自带 uv 管理 venv：`.venv/`；解释器 `.venv/bin/python`）。
-  工作树/目录移动后需重装 editable：
+- Python 3.13（本目录自带 uv 管理 venv：`.venv/`；解释器 `.venv/bin/python`）。
+  目录移动后需重装 editable：
   `uv pip install --python .venv/bin/python -e . --no-deps --no-build-isolation`；
   评估依赖 `quant_core`（shim 包在 `../quant_core_shim`，同样以 editable 装入本 venv）。
-- 平台库 `data/factorlab.duckdb`（`settings.platform_db`，`FACTORLAB_PLATFORM_DB`
-  可覆盖）为**唯一数据源**：因子计算只读消费；写入仅经
+- 平台库 `data/factorlab.duckdb`（`settings.platform_db`）**当前不存在**（teajoin token 过期）：
+  生产读路径用 `FACTORLAB_DATA_BACKEND=ch`（ClickHouse）。写入仅经
   `factorlab data rebuild/update/refresh`。
+- 数据位置以仓库根 `docs/data-map.md` 为唯一权威；本目录**不得写入** `../data/`。
 - `daily.code` 为纯数字（`000001`），`stock_basic_tushare.ts_code` 带后缀
   （`000001.SZ`）；`symbol` 列是两者桥梁。
 - 目标机器约 16GB 内存且无页面文件：SQL-first、float32、DuckDB `memory_limit`

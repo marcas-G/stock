@@ -41,7 +41,9 @@ def ensure_assembly(plugin_dir: Path | None = None) -> None:
     install_processors()
     from factorlab.adapters import plugins
     from factorlab.config import settings
-    plugins.discover_plugins(plugin_dir or settings.plugin_dir)
+    target = plugin_dir or settings.plugin_dir
+    target.mkdir(parents=True, exist_ok=True)   # 目录创建单点（原 config import 期副作用）
+    plugins.discover_plugins(target)
 
 
 def open_read(data_backend: str | None = None, db_path: Path | None = None,

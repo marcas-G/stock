@@ -29,7 +29,8 @@ import polars as pl
 import pytest
 
 from factorlab.app.run import run_factor
-from factorlab.core.engine.compute import RunContext, compute_formula
+from factorlab.app.context import RunContext
+from factorlab.core.engine.compute import compute_formula
 from factorlab.core.spec import load_spec
 from test_run_factor import _DATES
 

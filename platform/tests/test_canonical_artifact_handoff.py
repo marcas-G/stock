@@ -12,7 +12,7 @@ from factorlab.app.bootstrap import open_read
 from factorlab.adapters.read.universe import resolve_canonical_code_map
 from factorlab.core.domain.codes import is_canonical_stock_code
 from factorlab.app.run import run_factor
-from factorlab.core.engine.compute import RunContext
+from factorlab.app.context import RunContext
 from factorlab.strategy import (SelectionSpec, StrategySpec, WeightingSpec,
                                 build_rebalance_schedule,
                                 construct_target_portfolio,

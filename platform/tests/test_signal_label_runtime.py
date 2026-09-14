@@ -18,8 +18,8 @@ from factorlab.adapters.read.calendar import fill_suspensions, trading_calendar
 from factorlab.adapters.read.source import load_daily
 from factorlab.adapters.read.universe import align_to_listing, resolve_universe_frame
 from factorlab.app.run import run_factor
-from factorlab.core.engine.compute import (FactorResult, RunContext, _formula_columns,
-                                           compute_formula, fill_suspension_values)
+from factorlab.app.context import RunContext
+from factorlab.core.engine.compute import (FactorResult, _formula_columns, compute_formula, fill_suspension_values)
 from factorlab.core.engine.forward import compute_forward_returns
 from factorlab.adapters.read.adjust import view_prices
 from factorlab.core.process.registry import run_process_chain

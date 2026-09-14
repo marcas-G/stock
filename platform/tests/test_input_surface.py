@@ -21,7 +21,8 @@ import pytest
 
 from factorlab.adapters.read.source import load_daily, load_daily_fill_state
 from factorlab.app.run import run_factor
-from factorlab.core.engine.compute import RunContext, compute_formula
+from factorlab.app.context import RunContext
+from factorlab.core.engine.compute import compute_formula
 from test_run_factor import _ctx, _spec, _tables
 from test_source import _BASE_TABLES
 

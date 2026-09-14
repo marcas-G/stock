@@ -17,7 +17,7 @@ import pytest
 
 import dualbridge
 from factorlab.app.run import run_factor
-from factorlab.core.engine.compute import RunContext
+from factorlab.app.context import RunContext
 from factorlab.app.run import run_factor_minute
 from factorlab.core.engine.minute import compute_minute_factor_panel
 from factorlab.core.spec import load_spec

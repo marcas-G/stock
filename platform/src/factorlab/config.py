@@ -31,4 +31,5 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-settings.plugin_dir.mkdir(parents=True, exist_ok=True)
+# 注：不得在此处创建目录（import 副作用）——`plugin_dir` 的创建移到装配点
+# `app.bootstrap.ensure_assembly()`（2026-09-15 R2，G-NOSIDE 门）。

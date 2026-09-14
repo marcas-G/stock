@@ -19,12 +19,8 @@ from factorlab.adapters.parquet_artifacts import (write_factor_artifacts,
                                  write_multi_output_factor_artifacts)
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
-from factorlab.core.engine.compute import (
-    _WARMUP_SAFETY_PAD, _build_legacy_panel, _canonicalize_artifact_codes,
-    _chunk_keep, _formula_columns, _pool_cond_frame, _ts_window_days,
-    compute_formula,
-    FactorResult, RunContext, fill_suspension_values, label_lookahead_end,
-    prepare_formula_pipeline)
+from factorlab.app.context import RunContext
+from factorlab.core.engine.compute import (_WARMUP_SAFETY_PAD, _build_legacy_panel, _canonicalize_artifact_codes, _chunk_keep, _formula_columns, _pool_cond_frame, _ts_window_days, compute_formula, FactorResult, fill_suspension_values, label_lookahead_end, prepare_formula_pipeline)
 from factorlab.core.engine.forward import (DEFAULT_FORWARD_HORIZONS,
                                            compute_forward_returns)
 from factorlab.core.engine.minute import (_ADV20_LEFT_DAYS,

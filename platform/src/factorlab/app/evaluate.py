@@ -17,7 +17,8 @@ from pathlib import Path
 import polars as pl
 
 from factorlab.core.domain.frames import SignalArtifact  # noqa: F401  (类型语义文档)
-from factorlab.core.engine.compute import FactorResult, RunContext
+from factorlab.app.context import RunContext
+from factorlab.core.engine.compute import FactorResult
 from factorlab.core.eval.alignment import align_weekly
 from factorlab.core.eval.layered import layered_backtest
 from factorlab.adapters.rust_ic import evaluate_factor_weekly

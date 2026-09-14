@@ -40,7 +40,7 @@ import pytest
 
 from factorlab.app.bootstrap import open_read
 from factorlab.app.run import run_factor
-from factorlab.core.engine.compute import RunContext
+from factorlab.app.context import RunContext
 from factorlab.execution import (ExecutionSpec, load_backtest_result,
                                  run_backtest, save_backtest_result)
 from factorlab.core.spec import load_spec

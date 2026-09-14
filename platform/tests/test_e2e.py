@@ -4,7 +4,7 @@ import polars as pl
 import pytest
 
 from factorlab.app.run import run_factor
-from factorlab.core.engine.compute import RunContext
+from factorlab.app.context import RunContext
 from factorlab.core.spec import load_spec
 
 

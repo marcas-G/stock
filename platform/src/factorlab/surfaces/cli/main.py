@@ -157,7 +157,7 @@ def run_factor_cli(
     --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
     --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。"""
     from factorlab.app.run import run_factor, run_factor_minute
-    from factorlab.core.engine.compute import RunContext
+    from factorlab.app.context import RunContext
     from factorlab.app.evaluate import evaluate_run, publish_run
 
     overrides = {}
