@@ -1,0 +1,224 @@
+{
+  "cases": {
+    "lob/lob_checkpoints/one-code": {
+      "cols": [
+        "code",
+        "trade_date",
+        "time_ms",
+        "seq",
+        "side",
+        "price_x10000",
+        "vol",
+        "n_queue"
+      ],
+      "digest": "b95a7696c4071abc2f5091cf369d0282",
+      "rows": 17716
+    },
+    "lob/lob_events/one-code": {
+      "cols": [
+        "code",
+        "trade_date",
+        "time_ms",
+        "seq",
+        "kind",
+        "phase",
+        "side",
+        "price_x10000",
+        "prev_vol",
+        "new_vol",
+        "qty",
+        "id",
+        "otype"
+      ],
+      "digest": "c64460077370cea7d198825deb3c2105",
+      "rows": 116891
+    },
+    "lob/lob_sweep_meta/one-code": {
+      "cols": [
+        "code",
+        "trade_date",
+        "time_ms",
+        "seq",
+        "phase",
+        "side",
+        "price_x10000",
+        "vol_before",
+        "tail_order",
+        "tail_resid"
+      ],
+      "digest": "45575e250a84eb8a629195c9d20ef1d2",
+      "rows": 14547
+    },
+    "tick/cancels/one-code": {
+      "cols": [
+        "code",
+        "time_ms",
+        "side",
+        "order_ref",
+        "volume"
+      ],
+      "digest": "3635f52e484c24b5b64d2080a26e79e8",
+      "rows": 17642
+    },
+    "tick/cancels/whole-day": {
+      "cols": [
+        "code",
+        "time_ms",
+        "side",
+        "order_ref",
+        "volume"
+      ],
+      "digest": "6d3b80f1fdf99313d2611659103993e3",
+      "rows": 3389213
+    },
+    "tick/orders/one-code": {
+      "cols": [
+        "code",
+        "time_ms",
+        "order_type",
+        "bs",
+        "price_x10000",
+        "volume",
+        "exch_order_no"
+      ],
+      "digest": "f6427ff541782ac8e32e6842ffaa0d2b",
+      "rows": 55300
+    },
+    "tick/orders/whole-day": {
+      "cols": [
+        "code",
+        "time_ms",
+        "order_type",
+        "bs",
+        "price_x10000",
+        "volume",
+        "exch_order_no"
+      ],
+      "digest": "2812c3b4874136439b8c0eec2c4b3fdb",
+      "rows": 25813985
+    },
+    "tick/snapshots/one-code": {
+      "cols": [
+        "code",
+        "time_ms",
+        "bid_p1",
+        "bid_p2",
+        "bid_p3",
+        "bid_p4",
+        "bid_p5",
+        "bid_p6",
+        "bid_p7",
+        "bid_p8",
+        "bid_p9",
+        "bid_p10",
+        "bid_v1",
+        "bid_v2",
+        "bid_v3",
+        "bid_v4",
+        "bid_v5",
+        "bid_v6",
+        "bid_v7",
+        "bid_v8",
+        "bid_v9",
+        "bid_v10",
+        "ask_p1",
+        "ask_p2",
+        "ask_p3",
+        "ask_p4",
+        "ask_p5",
+        "ask_p6",
+        "ask_p7",
+        "ask_p8",
+        "ask_p9",
+        "ask_p10",
+        "ask_v1",
+        "ask_v2",
+        "ask_v3",
+        "ask_v4",
+        "ask_v5",
+        "ask_v6",
+        "ask_v7",
+        "ask_v8",
+        "ask_v9",
+        "ask_v10"
+      ],
+      "digest": "b9a1d7c42561a8af66b099dd270a2761",
+      "rows": 4767
+    },
+    "tick/snapshots/whole-day": {
+      "cols": [
+        "code",
+        "time_ms",
+        "bid_p1",
+        "bid_p2",
+        "bid_p3",
+        "bid_p4",
+        "bid_p5",
+        "bid_p6",
+        "bid_p7",
+        "bid_p8",
+        "bid_p9",
+        "bid_p10",
+        "bid_v1",
+        "bid_v2",
+        "bid_v3",
+        "bid_v4",
+        "bid_v5",
+        "bid_v6",
+        "bid_v7",
+        "bid_v8",
+        "bid_v9",
+        "bid_v10",
+        "ask_p1",
+        "ask_p2",
+        "ask_p3",
+        "ask_p4",
+        "ask_p5",
+        "ask_p6",
+        "ask_p7",
+        "ask_p8",
+        "ask_p9",
+        "ask_p10",
+        "ask_v1",
+        "ask_v2",
+        "ask_v3",
+        "ask_v4",
+        "ask_v5",
+        "ask_v6",
+        "ask_v7",
+        "ask_v8",
+        "ask_v9",
+        "ask_v10"
+      ],
+      "digest": "e42daec09729d3482a2b4afd18eaa66b",
+      "rows": 1389110
+    },
+    "tick/trades/one-code": {
+      "cols": [
+        "code",
+        "time_ms",
+        "price_x10000",
+        "volume",
+        "ask_seq",
+        "bid_seq"
+      ],
+      "digest": "59fd6ca11576bfe0af8f948b1a41de28",
+      "rows": 33092
+    },
+    "tick/trades/whole-day": {
+      "cols": [
+        "code",
+        "time_ms",
+        "price_x10000",
+        "volume",
+        "ask_seq",
+        "bid_seq"
+      ],
+      "digest": "7ee769a6f9230d9e078805774d4f722c",
+      "rows": 16309577
+    }
+  },
+  "code": "000155.SZ",
+  "day": "20260610",
+  "impl": "new"
+}
