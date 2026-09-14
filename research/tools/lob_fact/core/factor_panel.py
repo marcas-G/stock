@@ -49,6 +49,8 @@ from pathlib import Path
 
 import polars as pl
 
+from lib import tickdata as T  # noqa: E402  （R4a：数据读取薄封装）
+
 from core import config as C
 from pipeline import run_lob_batch as R
 
@@ -691,23 +693,13 @@ def _first_diff(xa, xb, n=5):
 # ---------- 表读入 / 单 code-day 驱动 ----------
 
 def _read_lob(lob_root, table, day, code):
-    p = os.path.join(lob_root, table, f'year={day.year}',
-                     f'month={day.month:02d}', f'{day:%Y%m%d}.parquet')
-    if not os.path.exists(p):
-        return None
-    return (pl.scan_parquet(p)
-            .filter((pl.col('code') == code) & (pl.col('trade_date') == day))
-            .collect())
+    """单 code 的 lob 日文件（R4a：收敛到平台单点 adapters.lob_read 经 lib.tickdata）。"""
+    return T.read_lob(table, day, codes=[code], root=lob_root, missing_ok=True)
 
 
 def _read_tick(tick_root, table, day, code):
-    parts = sorted(glob.glob(os.path.join(tick_root, table, f'year={day.year}',
-                                          f'month={day.month:02d}', '*.parquet')))
-    if not parts:
-        return None
-    return (pl.scan_parquet(parts)
-            .filter((pl.col('trade_date') == day) & (pl.col('code') == code))
-            .select(R._TICK_COLS[table]).collect())
+    """单 code 的 tick 月切片（投影 = 研究侧声明；缺数据 → None）。"""
+    return T.read_tick(table, day, codes=[code], root=tick_root, missing_ok=True)
 
 
 def _anchors(snaps):

@@ -28,7 +28,7 @@ def first_snap(code, day):
     """首张连续快照（time_ms ≥ OPEN）10 档 ladder bid/ask（best-first）+ snap_ms
     —— 读 tick_fact snapshots（time_ms 已 ms-of-day；与 W1 open_queue 同源同口径）"""
     from factorlab.adapters.tick_read import read_tick_table
-    from factorlab.core.factio.tick_month import tick_month_files
+    from factorlab.adapters.tick_read import tick_month_files  # R4a 修：函数已从 factio 下沉到 adapters
     if not tick_month_files('snapshots', day):
         return None, None, None
     df = read_tick_table('snapshots', day,

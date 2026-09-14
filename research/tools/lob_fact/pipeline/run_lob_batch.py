@@ -41,6 +41,8 @@ import pyarrow.parquet as pq
 
 from diag.measure_w3 import GATE_PRES
 
+from lib import tickdata as T  # noqa: E402  （R4a：数据读取薄封装）
+
 import argparse, datetime as dt, fcntl, glob, hashlib, json, signal, time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 import multiprocessing
@@ -558,15 +560,12 @@ def _init_worker(cfg):
 
 
 def _read_date(tbl, day):
-    """date-major 月文件切片 (RG 剪枝按 trade_date; 列裁剪; 该表该日全 code)"""
-    y, m, d = int(day[:4]), int(day[4:6]), int(day[6:8])
-    parts = sorted(glob.glob(os.path.join(
-        _G['tick_root'], tbl, f'year={y}', f'month={m:02d}', '*.parquet')))
-    if not parts:
-        return None
-    return (pl.scan_parquet(parts)
-            .filter(pl.col('trade_date') == dt.date(y, m, d))
-            .select(_TICK_COLS[tbl]).collect())
+    """该表该日全 code 的 tick 切片（R4a：实现收敛到平台单点 adapters.tick_read）。
+
+    投影 = 研究侧声明（lib.tickdata.PROJECTIONS，import 期校验是平台契约的子集）；
+    缺月目录/无 part → None（批算按日跳过）。
+    """
+    return T.read_tick(tbl, day, root=_G['tick_root'], missing_ok=True)
 
 
 def _sha256(path, chunk=1 << 20):
