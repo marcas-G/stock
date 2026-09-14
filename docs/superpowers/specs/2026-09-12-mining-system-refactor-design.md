@@ -259,7 +259,16 @@ NaN 语义类缺陷都在单元测试的盲区，实跑门（真数据 + 全链�
    `cs_`、el 免前缀、gp 暂不支持），并把两例泄漏固化为证据测试
    `tests/test_plugin_partition_prefix.py`。已装违规插件不阻断 CLI（discovery 告警 + 禁用，
    避免堵死 `op remove` 修复路径）。
-   终态门：平台全量 **2480 passed / 13 skipped**（基线 2462 → 2480 = +18，逐项登记）。
+5. **`lint` 假报错 + Web 集成测试假失败**（同日第 5/6 处，用户"写因子→跑结果"追问暴露 ·
+   commit e83fb2d）：lint 拿**未替换**文本过 AST 门 → 文档化 `params`/`${name}` 模板假报
+   "语法错误"（全库 152 spec 中 15 个，写因子第一条命令即误报）；修法 = 与引擎同序
+   （`substitute_params` → `validate_formula`）+ 校验范围补全池公式与宏体。
+   Web 集成测试 fixture 只判 `results/` 目录存在却断言历史档因子 → 用户首跑自己的因子
+   即由 skip 变 fail（404）；修法 = 按**具体产物**判 skip。
+   归纳（新增一类）：**门本身也会假失败**——"真错与假错无法区分"与"用户正常操作触发
+   假红"都是交付级缺陷，门必须与实现同序、按具体前提判定。
+
+   终态门：平台全量 **2486 passed / 13 skipped**（基线 2462 → 2486 = +24，逐项登记）。
 
 ### WS6（2026-09-12）：研究侧重排 — PASS（部分；剩余项 pending #11）
 lob_fact 包化（core/store/pipeline/diag；`store` 而非 `io`——stdlib `io` 在 sys.modules 必然遮蔽）；
