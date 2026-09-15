@@ -86,7 +86,13 @@
     合法（manifest/自有产物/元数据/流式灌库/daily 小切片）；grep 无法区分「事实表读」
     与「manifest 读」，需改成 AST 分析（读的目标是否指向 tick_fact/lob_fact/bars_1m 根）。
 
-14. **平台侧原子写补齐**（R4b 剩余）【R10 进展：**两份编排样板已切到 `BatchFlock`**——
+14. **平台侧原子写补齐**（R4b 剩余）【R12 进展：**`app.evaluate.publish_run` 已转原子**——
+    改经 `adapters.results_fs.write_run_outputs`（tmp + fsync + os.replace），顺带把
+    `app/analysis/correlation` 的直读 panel、`surfaces/web` 的直读 weekly 与 `surfaces/cli` 的
+    `results_dir.glob("*/summary.json")` 一并收口到 `results_fs`/`panel_store` 单点，并新增
+    架构门 `test_results_io_only_in_adapters`（app/surfaces 不得读写产物或拼布局字面量）。
+    **遗留**：`adapters/execution_store.save_*` 的原子写；`run_lob_batch` 切 P-5（内存闸门 +
+    审计回调两个专有缝）】【R10 进展：**两份编排样板已切到 `BatchFlock`**——
     `converters/convert_tick_to_parquet` 与 `lob_fact/extract_sz_cancels` 自建的
     "spawn 进程池 + 在飞窗口 + 停滞重启重试 + 逐结果处理" 整段删除，改用
     `BatchFlock(..., mp_context='spawn', max_inflight=…, stall_policy='requeue', on_result=…)`；

@@ -19,6 +19,7 @@
 | `R9/` | **未竟项收口**（G-READ AST 转强制、MonthWriter 并入 writekit、调仓成本建模、P4-batch_flock 平台实现；R8c 漏接线抓回） |
 | `R10/` | **收口后半**（调仓成本 spec 级接线；两份编排样板切到 BatchFlock 并扩 5 个契约缝，真数据内容逐值等价） |
 | `R11/` | **解耦与可复用**（G-TOPO 拓扑门抓出并拆掉三处耦合；月分片写入骨架 `lib/monthflow` 单点化） |
+| `R12/` | **平台侧 results 单点收口**（架构门列出 4 处绕过：correlation/web/cli 直读 + publish 非原子 → 全改经 `results_fs`/`panel_store`） |
 
 > 计划里的 R3（研究侧结构）与 R4（数据接口）在执行中合并为 R4 一批完成（两者动的是同一批文件）。
 
