@@ -703,10 +703,11 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 - `compute_minute_factor_panel(bars, formula, *, outputs=None, daily=None)
   -> pl.DataFrame` B4.7 **面板级纯计算入口**（loader 无关；引擎测试与批算工具
   共用同一代码路径）：date 列规范化（trade_date→date）→ 结构列/date dtype/
-  minute_index dtype 校验 → daily 注入快照存在时逐键 left join（bars 有行而
-  日线缺 → fail fast）→ 未知列报错助手（点名实际可用列）→ **240 网格断言**
-  （(date, code) 组行数恒 240 且 minute_index 组内唯一；违者 ValueError 文案
-  含"bars_1m 网格不完整/跨日泄漏疑似"）→ compute_formula(scope="bars_1m")
+  minute_index dtype 校验 → session_type 存在时须 ∈ {0,1,2}（R02-I5）→ daily
+  注入快照存在时逐键 left join（bars 有行而日线缺 → fail fast）→ 未知列报错
+  助手（点名实际可用列）→ **240 网格断言**（(date, code) 组行数恒 240、
+  minute_index 组内唯一且范围 0..239；违者 ValueError 文案含"bars_1m 网格
+  不完整/跨日泄漏疑似"）→ compute_formula(scope="bars_1m")
   → 折日输出组内 (date, code) 唯一性断言（双保险，修订 R6）→ keep-first
   dedup → 返回 [date, code, *outputs]（排序）。
 - **注入列（B6，固定公开名，_formula_columns 按名探测供给）**：`prev_close`
@@ -719,6 +720,11 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
   日频算符（ts_*/ta_*/cs_*/gp_*，含 returns/vwap/adv20 宏展开后残余）在分钟
   scope 门拒绝；im_delay k<0/k=0 拒绝。日频 scope 引用 im_*/day_* → 拒绝。
   网格/折日双断言是跨日泄漏的机械保证（B3.5）。
+- **参数硬校验双防线（R02-C1，2026-09-15）**：静态门折叠 Pow/IfExp/`abs`/`int`
+  常量形态并解析 `from ... import ... as` 别名（`2**2-5`→-1 不再静默取未来
+  分钟；别名 `imd(...)` 与跨层 `tm(...)` 同样按原名判）；`im_*` 运行时在
+  `minute_ops` 逐调用硬校验（k/window 必须 int 且 >= 1，拒 bool/float）作为
+  最后防线——静态门漏掉的动态形态在此 fail fast。
 - **修订注记（实现期，W4-W6，规格同步）**：R1 池公式、R4 process、R5 闭区间
   强制、R3 空窗 raise（规格错误表原"空帧不抛"行已随修订）；R2 adv20 滚动语义
   （有行情日序列）；R6 折日双保险实施形态（组内 n_unique==1 断言 + keep-first
@@ -894,6 +900,11 @@ polars 函数，不触库）。补全后输出按日期升序、组内代码顺�
 `robustzscore()`、`neutralize(by=market|industry|size)`、`clip(lower, upper)`、
 `fillna(method=value|forward|industry_mean)`。截面类处理器按 `.over("date")` 分组；
 `fillna(method=forward)` 按代码内日期前向；`clip`/`fillna(value)` 为元素级。
+
+**无效观测统一门（R02-I2，2026-09-15）**：所有处理器入口把非有限值（NaN/±Inf）
+视为无效观测 → null：不参与分位数/均值/排名/demeaning 统计、不留在输出（`clip`
+不把 Inf 静默截成边界；`fillna` 先归缺失再填）。此前仅 NaN 被隔离，Inf 会毒化
+`standardize` 的 std（整日截面全 NaN）。
 
 **spec 文件内的链项必须用 `=` 分隔**（`neutralize(by=industry)`），`key: value` 冒号
 写法会被 YAML 解析为映射而报错。
