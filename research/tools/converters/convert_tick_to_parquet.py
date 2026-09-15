@@ -38,7 +38,8 @@ from _env import ensure_platform as _ensure_platform  # noqa: E402
 
 _ensure_platform()
 from lib import writekit as W  # noqa: E402  （R8c 漏接线：锁/标记单点；R9 由 end-to-end 测试抓回）
-from factorlab.core.factio.timeparse import parse_ms_numpy as _parse_ms_numpy  # noqa: E402
+from lib import tickkit as K  # noqa: E402  （R11：共享小件单点，含时间解析薄封装）
+from lib.monthflow import MonthPartitionSink  # noqa: E402  （R11：月分片写入骨架）
 import pandas as pd, numpy as np, pyarrow as pa, pyarrow.parquet as pq
 
 from factorlab.core.factio import partitions, paths  # noqa: E402  （R8c：路径/分区单点）
@@ -46,7 +47,7 @@ from factorlab.adapters.batch_flock import BatchFlock  # noqa: E402  （R10：P-
 from factorlab.ports.batch import Task  # noqa: E402
 ROOT = f'{paths.quark_root()}/'
 OUT = f'{paths.tick_fact_root()}/'
-DAY_RE = __import__('re').compile(r'^(\d{8})$')
+DAY_RE = K.DAY_RE               # R11：单点在 lib/tickkit
 
 # ---------------- Schema (冻结) ----------------
 TRADES_SCHEMA = pa.schema([
@@ -117,13 +118,7 @@ SNAP_DTYPES = {c: 'str' for c in SNAP_STR} | {c: 'float64' for c in SNAP_FLOAT}
 SNAP_NUM_BEFORE_STR = 5  # price, volume, amount, n_trades, iopv
 
 
-def parse_ms(t: pd.Series) -> np.ndarray:
-    """HHMMSSsss 字符串 → ms-of-day（int32）。
-
-    R4c 收敛：实现单点在 `core.factio.timeparse`（三入口 parity 由测试锁）；
-    本函数退化为**薄封装**（pandas Series 入参 → numpy 入口）。
-    """
-    return _parse_ms_numpy(t.astype(np.int64).to_numpy())
+parse_ms = K.parse_ms          # R11：实现单点在 lib/tickkit（平台 timeparse 薄封装）
 
 
 def to_int64_nullable(v: np.ndarray) -> pa.Array:
@@ -134,15 +129,15 @@ def to_int32_nullable(v: np.ndarray) -> pa.Array:
     return pa.array(pd.array(v, dtype='Int32'), type=pa.int32())
 
 
-def date_arr(day, n):
-    # numpy>=2 把无分隔符 'YYYYMMDD' 当整数天（1970+20251103 天）→ date32 溢出为负值
-    # （tick_fact 全库 trade_date 列因此损坏，2026-08-26 定位）。显式加分隔符。
-    iso = f"{day[:4]}-{day[4:6]}-{day[6:]}"
-    return pa.array(np.full(n, np.datetime64(iso, 'D')), type=pa.date32())
+date_arr = K.date_arr           # R11：实现单点在 lib/tickkit
 
 
 def _run_one_zip(task):
-    """BatchFlock 的 worker 适配器（模块级 → spawn 可 pickle）：只算不回写。"""
+    """BatchFlock 的 worker 适配器（模块级 → spawn 可 pickle）：只算不回写。
+
+    R11 注记：一次批量替换按"首个 `def date_arr` 到 `def process_zip`"切片，把这个函数
+    一并切掉了（`NameError` 由真跑暴露）——批量改写必须逐段校验，这就是一例。
+    """
     d, z = task.payload
     return process_zip(z, d)
 
@@ -331,9 +326,9 @@ def main():
         return
 
     t0 = time.time()
-    writers = {}   # (name, ym) -> MonthWriter
-    buffers = {}   # (name, ym) -> [tab]
-    n_buf = {}     # (name, ym) -> zip count
+    # R11：缓冲/阈值 flush/月分片写入收进 lib/monthflow（单一实现 + 两条事故回归测试）
+    sink = MonthPartitionSink(OUT, schema_of=lambda n: SCHEMAS[n],
+                              flush_units=FLUSH_ZIPS, kind_of=lambda key: key)
     errors, man_rows = [], []
     # 限流提交: in-flight <= MAX_INFLIGHT, 完成一个才提交下一个
     # (2026-08-25 教训: 74k future 全量提交 + 主进程写盘慢 → 已完成结果堆积 OOM 122GB)
@@ -362,21 +357,7 @@ def main():
             tt, ot, snt, mrow = payload
             ym = d[:6]
             for name, tab in [('trades', tt), ('orders', ot), ('snapshots', snt)]:
-                key = (name, ym)
-                buffers.setdefault(key, []).append(tab)
-                n_buf[key] = n_buf.get(key, 0) + 1
-                if n_buf[key] >= FLUSH_ZIPS:
-                    # 2026-08-26 修复: 绝不能用 setdefault(key, MonthWriter(...))
-                    # —— setdefault 对已存在 key 仍会求值第二个参数, 每次 flush
-                    # 都新建一个 MonthWriter 并 O_TRUNC 截断活跃 tmp 文件
-                    # (run4 守卫抓到 1024≠490143; run5 活跃文件 blocks=1% 证实
-                    # 截断后稀疏恢复, 写后检查看不见). 显式 if, 零副作用.
-                    if key not in writers:
-                        writers[key] = W.MonthWriter(OUT, name, ym[:4], ym[4:],
-                                                     schema=SCHEMAS[name])
-                    big = pa.concat_tables(buffers.pop(key))
-                    writers[key].append(big)
-                    n_buf[key] = 0  # 2026-08-26 bugfix: 不重置则每 zip 都 flush
+                sink.add((name, ym), tab)   # R11：骨架负责缓冲/阈值/事故修法
             man_rows.append(mrow)
         if n_done % 5000 == 0:
             print(f'  {n_done}/{len(tasks)} zips done, elapsed '
@@ -399,17 +380,10 @@ def main():
                 errors.append(('', '', 'converter_stall', r.error))
         print(f'转换失败 {rep.failed} 个单元（记账见 conversion_errors.csv；可重跑）',
               flush=True)
-    # flush 尾部缓冲 + close
-    for key, tabs in buffers.items():
-        if tabs:
-            name, ym = key
-            if key not in writers:  # 同 flush 处: 显式 if, 禁用 setdefault 副作用
-                writers[key] = W.MonthWriter(OUT, name, ym[:4], ym[4:],
-                                                      schema=SCHEMAS[name])
-            writers[key].append(pa.concat_tables(tabs))
+    # R11：尾部 flush + close + _SUCCESS 都是骨架的收尾（历史逐字节同形）
+    closed = sink.close_all()
     summary = {}
-    for key, w in sorted(writers.items()):
-        p, rows = w.close()
+    for key, (p, rows) in closed.items():
         summary[key] = {'rows': rows, 'bytes': os.path.getsize(p)}
         print(f'{key[0]} {key[1]}: {rows:,} rows -> {os.path.getsize(p)/1e9:.2f} GB')
         # _SUCCESS 标记：分区目录整体写完（Spark 惯例；ingest 侧 discover_tasks

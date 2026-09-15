@@ -35,8 +35,11 @@ from core import config as C
 from core.qa import streams as S
 from core import anchoring as A
 
-GATE_PRES = 0.97     # M1a 档位存现门: W3 校准 10 日实测 0.9862-0.9999 (最差 fast SZ
-                     # 000021@20260706), 门 0.97 留重建故障余量 (真丢档/丢段 presence 崩 <0.9)
+# M1a 档位存现门单点在 core/config.GATE_PRES（R11 收敛：此前 diag 与 config 各一份）
+from core.config import GATE_PRES  # noqa: E402,F401
+
+# 门值 0.97 依据：W3 校准 10 日实测 0.9862-0.9999（最差 fast SZ 000021@20260706），
+# 留重建故障余量（真丢档/丢段 presence 崩 <0.9）。
 
 
 def load_events(code, day):

@@ -37,13 +37,13 @@ os.environ.setdefault('OMP_NUM_THREADS', '2')
 os.environ.setdefault('PYARROW_JEMALLOC', '0')
 os.environ.setdefault('POLARS_MAX_THREADS', '4')
 import sys
-# 研究工具间引用：复用转换器（其 import 链已设 env 并导入 pyarrow）。
-# WS6c：不再用 `cvt.SCHEMAS['cancels']=...` 模块级注册——MonthWriter 显式吃
-# schema=CANCELS_SCHEMA（见下方实例化处）。
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    'converters'))
-import convert_tick_to_parquet as cvt
+# R11：此前把 tools/ 放上路径靠的是 `import convert_tick_to_parquet` 的**副作用**（借兄弟
+# 工具的自举）。去掉横向依赖后自己 bootstrap —— 可执行文件自己负责路径，这是应有形态。
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))                       # tools/
+from lib import tickkit as K  # noqa: E402  （R11：共享小件单点）
+from lib.monthflow import MonthPartitionSink  # noqa: E402  （R11：月分片写入骨架）
+from factorlab.core.factio import paths  # noqa: E402  （R11：路径取平台单点，原经 cvt 借
 from lib import writekit as W  # noqa: E402  （R8c：锁/标记单点）
 from factorlab.adapters.batch_flock import BatchFlock  # noqa: E402  （R10：P-5 编排单点）
 from factorlab.ports.batch import Task  # noqa: E402
@@ -60,7 +60,11 @@ CANCELS_SCHEMA = pa.schema([
     pa.field('side', pa.uint8()), pa.field('order_ref', pa.int64()),
     pa.field('volume', pa.int32())])
 
-OUT = os.path.join(cvt.OUT, 'cancels')
+# R11：原经 `ROOT/TICK_OUT` 借路径（工具↔工具横向 import）；现各自取平台单点。
+# 尾斜杠与历史同形（下游字符串拼接逐字节不变）。
+ROOT = f'{paths.quark_root()}/'            # raw：quark_downloaded/<YYYYMMDD>/<code>/<code>.<EX>.zip
+TICK_OUT = f'{paths.tick_fact_root()}/'
+OUT = os.path.join(TICK_OUT, 'cancels')
 FLUSH_ZIPS = 12   # 每 N 个 code-day 写一个 row group (~19 万行, SZ 撤单日均 ~1.6 万行)
 STALL_S = 900
 MAX_INFLIGHT_MUL = 3
@@ -105,7 +109,7 @@ def extract_cancel_rows(df, trade_date):
     good_ref = has_bid | has_ask
     n_bad_vol = int((vol <= 0).sum())
     ok = good_ref & (vol > 0)
-    tm = cvt.parse_ms(sub['时间'][ok])
+    tm = K.parse_ms(sub['时间'][ok])
     out = {
         'time_ms': [int(x) for x in tm],
         'trade_no': sub['成交编号'].to_numpy()[ok].astype(np.int64).tolist(),
@@ -158,7 +162,7 @@ def make_table(code, day, out):
     n = len(out['trade_no'])
     return pa.Table.from_arrays([
         pa.array(np.repeat(code, n)),
-        cvt.date_arr(day, n),
+        K.date_arr(day, n),
         pa.array(out['time_ms'], pa.int32()),
         pa.array(out['trade_no'], pa.int64()),
         pa.array(out['side'], pa.uint8()),
@@ -232,7 +236,7 @@ def main():
                 print(f'清理 stale tmp: {p}', flush=True)
                 os.unlink(p)
 
-    all_dirs = sorted(d for d in os.listdir(cvt.ROOT) if cvt.DAY_RE.match(d))
+    all_dirs = sorted(d for d in os.listdir(ROOT) if K.DAY_RE.match(d))
     weekend = [d for d in all_dirs
                if dt.date(int(d[:4]), int(d[4:6]), int(d[6:8])).weekday() >= 5]
     workdays = [d for d in all_dirs if d not in weekend]
@@ -248,7 +252,7 @@ def main():
     if not workdays:
         print('no workdays to process'); return
     if args.dry_run:
-        n = sum(len(glob.glob(os.path.join(cvt.ROOT, d, '*', '*.SZ.zip')))
+        n = sum(len(glob.glob(os.path.join(ROOT, d, '*', '*.SZ.zip')))
                 for d in workdays)
         print(f'dry-run: {len(workdays)} days, {n} SZ zips'); return
 
@@ -265,14 +269,15 @@ def main():
         if os.path.exists(final):
             print(f'半写月重建: unlink {final}', flush=True)
             os.unlink(final)
-        for z in sorted(glob.glob(os.path.join(cvt.ROOT, d, '*', '*.SZ.zip'))):
+        for z in sorted(glob.glob(os.path.join(ROOT, d, '*', '*.SZ.zip'))):
             pending.append((d, z))
     print(f'pending zips = {len(pending)}', flush=True)
 
     t0 = time.time()
-    writers = {}   # ym -> MonthWriter
-    buffers = {}   # ym -> [tab]
-    n_buf = {}     # ym -> zip count
+    # R11：缓冲/阈值 flush/月分片写入收进 lib/monthflow（单一实现 + 两条事故回归测试）
+    sink = MonthPartitionSink(TICK_OUT, schema_of=lambda _n: CANCELS_SCHEMA,
+                              flush_units=FLUSH_ZIPS,
+                              kind_of=lambda ym: ('cancels', ym))
     man_rows, errors = [], []
     n_done = 0
     MAX_INFLIGHT = max(args.workers * MAX_INFLIGHT_MUL, 12)
@@ -288,16 +293,7 @@ def main():
             errors.append((d, os.path.basename(z)[:-4], 'parse_error', payload[1]))
         else:
             tab, mrow = payload
-            ym = d[:6]
-            buffers.setdefault(ym, []).append(tab)
-            n_buf[ym] = n_buf.get(ym, 0) + 1
-            if n_buf[ym] >= FLUSH_ZIPS:
-                if ym not in writers:  # 显式 if (setdefault 副作用教训)
-                    writers[ym] = W.MonthWriter(
-                        os.path.join(cvt.OUT), 'cancels', ym[:4], ym[4:],
-                        schema=CANCELS_SCHEMA)
-                writers[ym].append(pa.concat_tables(buffers.pop(ym)))
-                n_buf[ym] = 0
+            sink.add(d[:6], tab)   # R11：骨架负责缓冲/阈值/事故修法
             man_rows.append(mrow)
         if n_done % 2000 == 0:
             print(f'  {n_done} zips done (total {len(tasks)}), '
@@ -317,22 +313,16 @@ def main():
         print(f'提取失败 {rep.failed} 个单元（记账进 errors；可重跑，已 _SUCCESS 的月不动）',
               flush=True)
 
-    # flush 尾部 + close (写 _SUCCESS = 完成标记)
-    for ym, tabs in buffers.items():
-        if tabs:
-            if ym not in writers:
-                writers[ym] = W.MonthWriter(os.path.join(cvt.OUT), 'cancels',
-                                              ym[:4], ym[4:],
-                                              schema=CANCELS_SCHEMA)
-            writers[ym].append(pa.concat_tables(tabs))
+    # R11：尾部 flush + close 由骨架收尾；`_SUCCESS` 仍是本工具的**条件**语义
+    # （only-day 不落、月内有错不落——见下方注释），故 mark_success=False 自行处置。
+    closed = sink.close_all(mark_success=False)
     summary = {}
     # _SUCCESS = 整月完成标记 (resume 依据)。仅两条件全满足才写:
     #   (1) 全量模式 (only_day 会误导后续全量跳过整月 —— 2026-09-09 事故实录);
     #   (2) 该月无任何错误/隔离 zip (有错 → 不落标记 → 下次全量自动整月重建修复)
     err_ym = {d[:6] for d, c, e, x in errors if len(d) == 8}
     full_month = set()
-    for ym, w in sorted(writers.items()):
-        p, rows = w.close()
+    for ym, (p, rows) in closed.items():
         summary[ym] = {'rows': rows, 'bytes': os.path.getsize(p)}
         print(f'cancels {ym}: {rows:,} rows -> {os.path.getsize(p)/1e9:.3f} GB', flush=True)
         if not args.only_day and ym not in err_ym:
@@ -344,7 +334,7 @@ def main():
                   flush=True)
 
     # ---- manifest: 新行 + 已 _SUCCESS 月的历史行 (跳过月不回读则索引缺失) ----
-    mdir = os.path.join(cvt.OUT, '_manifest')
+    mdir = os.path.join(TICK_OUT, '_manifest')
     os.makedirs(mdir, exist_ok=True)
     hist = []
     mpath = os.path.join(mdir, 'cancels_manifest.parquet')
@@ -399,7 +389,7 @@ def main():
             'n_codes': mdf['code'].nunique(),
             'n_rows': int(mdf['n_cancels'].sum()),
             'sum_vol': int(mdf['sum_vol'].sum()),
-            'weeks_months': sorted(set(writers) | set(summary)),
+            'weeks_months': sorted(set(closed) | set(summary)),   # R11：writers → 骨架收尾结果
             'n_errors': len(errors), 'elapsed_s': round(time.time() - t0, 1)}
     with open(os.path.join(mdir, 'cancels_summary.json'), 'w') as f:
         json.dump(meta, f, ensure_ascii=False, indent=1)

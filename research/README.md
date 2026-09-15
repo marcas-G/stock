@@ -12,7 +12,7 @@
 | `docs/strategies/` | 策略档案（含结论：崩底反弹已实现、死等股灾已证伪）|
 | `docs/factor-mining-playbook.md` | 挖因子 playbook |
 | `docs/superpowers/` | **研究独有**的 spec/plan（平台 spec 在 `../platform/docs/superpowers/`，单副本）|
-| `tools/lib/` | 研究侧共享库：`tickdata`（读单点薄封装）/`writekit`（标记·锁·state·原子写）|
+| `tools/lib/` | 研究侧共享库：`tickdata`（读单点薄封装）· `writekit`（标记·锁·state·原子写·流式月写入器）· `tickkit`（转换小件）· `monthflow`（月分片写入骨架）|
 | `tools/lob_fact/` | tick 订单簿重建工具链（引擎/锚定/因子面板/批算/QA/校准；185 tests + 金样 pins）|
 | `tools/ch_ingest/` | 事实库 → ClickHouse 灌入与对账（**唯一对账入口** `reconcile.py`）|
 | `tools/converters/` | raw zip → parquet 转换器（tick / minutes）|
@@ -20,7 +20,7 @@
 | `tools/strategies/` | 策略回测脚本（crash_bottom / wait_crash）|
 | `tools/quark_download/` | 网盘批量下载脚本（→ `../data/raw/quark_downloaded/`）|
 | `tools/factor_lib/` | 因子库工具：`plan_rename`（族改名计划）/`build_index`（索引生成 + `--check` 门）|
-| `tools/*/tests/` | 各工具测试：`lob_fact` 185（金样 pins）· `lib` 19 · `converters` 7 · `quark_download` 4 · `1m_features` 5（T1）· 其余 T1 35 |
+| `tools/*/tests/` | 各工具测试：`lob_fact` 185（金样 pins）· `lib` 25 · `converters` 9 · `quark_download` 4 · `1m_features` 5（T1）· 其余 T1 35 |
 
 ## 共享核与解释器（重要）
 
@@ -36,7 +36,7 @@
 ## 测试
 
 ```bash
-# 研究侧全量（emb；T1 用例自动 skip——不假通过）    基线 220 passed / 3 skipped
+# 研究侧全量（emb；T1 用例自动 skip——不假通过）    基线 231 passed / 3 skipped
 /data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest research/tools -q
 
 # T1（平台 venv，真跑）                            基线 40 passed

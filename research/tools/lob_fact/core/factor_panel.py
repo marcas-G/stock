@@ -5,7 +5,7 @@
       （档删除）+ lob_checkpoints（n_queue 分钟口径）→ 采样时刻 band 视图 → 因子
   B = ReplayB —— **独立最小重放**: 按规格重写簿语义（不 import engine.py），
       输入 tick_fact 归一化事件（表→事件映射复用 W4a 已验证的机械转换
-      run_lob_batch.orders_to_events/trades_to_events/cancels_to_events），
+      core/events.orders_to_events/trades_to_events/cancels_to_events），
       重放得全簿 + 物化发射视图 shadow → 因子
 
 M7 门（`m7_gate`）四项：
@@ -53,7 +53,7 @@ from lib import tickdata as T  # noqa: E402  （R4a：数据读取薄封装）
 from factorlab.core.factio import partitions  # noqa: E402  （R8c：分区规则单点）
 
 from core import config as C
-from pipeline import run_lob_batch as R
+from core import events as _events
 
 GRID_1S = 1_000
 GRID_1M = 60_000
@@ -744,7 +744,7 @@ def run_code_day(code, day, tick_root, lob_root, grids=('1s', '1m')):
     o = _read_tick(tick_root, 'orders', day, code)
     t = _read_tick(tick_root, 'trades', day, code)
     c = _read_tick(tick_root, 'cancels', day, code)
-    evs = R.parquet_events(code, day,
+    evs = _events.parquet_events(code, day,
                            o.to_dicts() if o is not None else [],
                            t.to_dicts() if t is not None else [],
                            c.to_dicts() if c is not None else [])
