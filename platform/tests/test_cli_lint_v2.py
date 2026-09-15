@@ -60,6 +60,15 @@ def test_lint_rejects_unknown_operator_with_op_meta(tmp_path):
     assert "未知算子" in r.output and "op_meta" in r.output
 
 
+def test_lint_rejects_platform_macro_import_with_guidance(tmp_path):
+    # R03-M1：误 import 平台宏 → lint 清晰报错（非深层裸 traceback），文案"请裸用"
+    p = _spec(tmp_path, "from polars_ta.prefix.wq import returns\nsignal = returns(close)")
+    r = runner.invoke(app, ["lint", str(p)])
+    assert r.exit_code == 1
+    assert "平台宏 returns 请裸用" in r.output
+    assert "Traceback" not in r.output
+
+
 def test_lint_rejects_outputs_mismatch(tmp_path):
     p = _spec(tmp_path, "signal = close", extra='outputs: ["signal", "alpha"]\n')
     r = runner.invoke(app, ["lint", str(p)])

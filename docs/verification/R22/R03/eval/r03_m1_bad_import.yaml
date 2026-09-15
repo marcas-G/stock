@@ -1,0 +1,13 @@
+name: r03_m1_bad_import
+category: custom
+direction: 1
+universe:
+  codes: ["000001.SZ"]
+date:
+  start: "2024-01-02"
+  end: "2024-01-12"
+process:
+  - standardize()
+formula: |
+  from polars_ta.prefix.wq import returns
+  signal = returns(close)

@@ -70,6 +70,31 @@ def _is_allowed_import(module: str | None) -> bool:
     return module is not None and module.startswith(ALLOWED_IMPORT_PREFIXES)
 
 
+def _platform_macro_names() -> frozenset[str]:
+    """平台宏名单单点在 `core.ops.platform_ops`（与注册面同源）——延迟导入避免
+    ast_gate ↔ platform_ops 模块级成环（后者模块级 import 本模块的
+    ALLOWED_EXPR_METHODS）。"""
+    from factorlab.core.ops.platform_ops import PLATFORM_MACRO_NAMES
+    return PLATFORM_MACRO_NAMES
+
+
+def _reject_platform_macro_import(alias: ast.alias, node: ast.AST) -> None:
+    """平台宏（returns/vwap/adv20/gp_rank/gp_mean）必须裸用——import 即报错。
+
+    R03-M1：`from polars_ta.prefix.wq import returns`（宏不在 vendor 面）会在
+    expr_codegen exec 阶段以 ImportError 裸堆栈收场，用户看不到"应裸用"的指引；
+    本门在 codegen 前 fail fast。任何模块（含宏的定义模块）一律拒绝——统一入口，
+    避免别名/定义模块 import 绕过并造成后续静默分区语义问题。
+    """
+    if alias.name in _platform_macro_names():
+        raise FactorDSLError(
+            f"平台宏 {alias.name} 请裸用（不要 import）——平台在编译期自动展开；"
+            "从模块 import 会得到未定义符号或深层报错",
+            getattr(node, "lineno", None),
+            getattr(node, "col_offset", None),
+        )
+
+
 def validate_formula(source: str) -> None:
     try:
         tree = ast.parse(source)
@@ -86,6 +111,7 @@ def validate_formula(source: str) -> None:
 
         if isinstance(node, ast.Import):
             for alias in node.names:
+                _reject_platform_macro_import(alias, node)
                 if not _is_allowed_import(alias.name):
                     raise FactorDSLError(
                         f"禁止导入模块: {alias.name}",
@@ -94,6 +120,8 @@ def validate_formula(source: str) -> None:
                     )
 
         if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                _reject_platform_macro_import(alias, node)
             if not _is_allowed_import(node.module):
                 raise FactorDSLError(
                     f"禁止导入模块: {node.module}",

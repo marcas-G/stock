@@ -424,7 +424,9 @@ combine:
 - **参数引用**：formula 内 `${name}` 文本引用 spec.params（见 §2 `params`）——
   宏体/def 体内同样可见，编译期替换为字面量。
 - 平台薄封装算子（`returns/vwap/adv20`）在解析期**展开为 `ts_` 表达式**再交给
-  `expr_codegen`，保证按 asset 分区。import 别名（`returns as ret`）同样生效。
+  `expr_codegen`，保证按 asset 分区。**必须裸用**：从任何模块 import 宏名
+  （含 `from polars_ta.prefix.wq import returns`）都在 ast gate 被拒（R03-M1，
+  codegen 前 fail fast；展开器内部的别名解析保留，gate 之后的变换不耦合）。
 - **组算子（M3）**：`gp_rank(key, x)` / `gp_mean(key, x)`（gp_ 前缀族）按
   date + group key 分组。`expr_codegen` 把 gp_ 前缀函数翻译为
   `cs_<名>(<去 key>).over(_DATE_, '<key 列>')`——key 只作分区列、不参与函数体
@@ -446,8 +448,9 @@ combine:
   （不含 if_else）；方法链基表达式不可为裸 Name（如 `_d.abs()` 被拒，
   需用 `abs(_d)` 函数形式）。
 
-平台薄封装算子从 `factorlab.core.ops.platform_ops` 导入；注册到注册表的算子可通过
-`factorlab op list` 查看。
+平台薄封装/宏算子（`returns/vwap/adv20/gp_rank/gp_mean`）在公式中**裸用**——平台
+编译期自动展开/注册，import 同名符号被 ast gate 拒绝（R03-M1）；注册到注册表的
+算子可通过 `factorlab op list` 查看。
 
 ### 池公式（`universe.formula`，M4/G2 公式化股票池）
 
@@ -508,6 +511,12 @@ returns 恒在 raw 价格上、复权视图之前计算（池条件才消费视�
 ### `factorlab.core.factor.ast_gate.validate_formula(source: str) -> None`
 
 校验因子脚本。失败抛出 `factorlab.core.factor.errors.FactorDSLError`。
+
+**平台宏 import 门（R03-M1）**：`returns/vwap/adv20/gp_rank/gp_mean`（名单单点 =
+`core.ops.platform_ops.PLATFORM_MACRO_NAMES`，与注册面同源）必须**裸用**；从任何
+模块（含 `polars_ta.prefix.*` 与定义模块 `factorlab.core.ops.platform_ops`）import
+这些名字都在 codegen 前 fail fast：`平台宏 <name> 请裸用（不要 import）——…`。
+`compute_formula`、`prepare_static` 与 `factorlab lint` 同门生效。
 
 ### `factorlab.core.engine.compute.compute_formula(df, formula, asset="code", date="date", universe_mask=None, outputs=None) -> pl.DataFrame`
 

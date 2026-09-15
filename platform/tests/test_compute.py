@@ -60,8 +60,8 @@ def test_compute_accepts_platform_thin_ops():
         "close": [10.0, 12.0],
         "volume": [1000.0, 1100.0],
     })
+    # R03-M1：平台宏/薄封装必须**裸用**（import 被 ast gate 拒绝）
     formula = '''
-from factorlab.core.ops.platform_ops import returns, adv20
 signal = returns(close) + adv20(volume)
 '''
     result = compute_formula(df, formula)
@@ -77,11 +77,20 @@ def test_compute_partitions_platform_ops_by_asset():
         "open": [9.0, 11.0, 90.0, 100.0],
         "volume": [100.0, 120.0, 1000.0, 1100.0],
     })
-    r = compute_formula(df, "from factorlab.core.ops.platform_ops import returns\nsignal = returns(close)")
+    r = compute_formula(df, "signal = returns(close)")
     assert r["signal"].null_count() == 2  # 每资产首行应为 null
     values = r.filter(pl.col("code") == "A").select("signal").to_series().to_list()
     assert values[0] is None
     assert values[1] == pytest.approx(0.2)
+
+
+def test_compute_rejects_platform_macro_import_with_guidance():
+    # R03-M1：误 import 平台宏在 codegen 前 fail fast（clearly FactorDSLError，
+    # 修复前是 expr_codegen exec 阶段 ImportError 裸堆栈）
+    from factorlab.core.factor.errors import FactorDSLError
+    df = pl.DataFrame({"date": ["2020-01-01"], "code": ["A"], "close": [10.0]})
+    with pytest.raises(FactorDSLError, match="平台宏 returns 请裸用"):
+        compute_formula(df, "from polars_ta.prefix.wq import returns\nsignal = returns(close)")
 
 
 def test_compute_def_with_window_op_inlined():
@@ -135,20 +144,19 @@ def test_compute_vwap_cumulative_by_asset():
         "close": [10.0, 12.0, 100.0, 110.0],
         "volume": [100.0, 120.0, 1000.0, 1100.0],
     })
-    r = compute_formula(df, "from factorlab.core.ops.platform_ops import vwap\nsignal = vwap(close, close, close, volume)")
+    r = compute_formula(df, "signal = vwap(close, close, close, volume)")
     b = r.filter(pl.col("code") == "B").sort("date")["signal"].to_list()
     assert b[0] == pytest.approx(100.0)                      # 资产内累计首行 = 自身
     assert b[1] == pytest.approx(105.238095)                 # 不含 A 的数据
 
 
-def test_compute_partitions_aliased_platform_op_by_asset():
-    df = pl.DataFrame({
-        "date": ["2020-01-01", "2020-01-02", "2020-01-01", "2020-01-02"],
-        "code": ["A", "A", "B", "B"],
-        "close": [10.0, 12.0, 100.0, 110.0],
-    })
-    r = compute_formula(df, "from factorlab.core.ops.platform_ops import returns as ret\nsignal = ret(close)")
-    assert r["signal"].null_count() == 2  # 别名后的薄封装同样按资产分区
+def test_compute_rejects_aliased_platform_macro_import():
+    # R03-M1：别名 import 同样在门前拒绝（含别名形态）
+    from factorlab.core.factor.errors import FactorDSLError
+    df = pl.DataFrame({"date": ["2020-01-01"], "code": ["A"], "close": [10.0]})
+    with pytest.raises(FactorDSLError, match="平台宏 returns 请裸用"):
+        compute_formula(
+            df, "from factorlab.core.ops.platform_ops import returns as ret\nsignal = ret(close)")
 
 
 # ---------- _ts_window_days ----------

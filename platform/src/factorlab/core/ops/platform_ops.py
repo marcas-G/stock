@@ -70,18 +70,29 @@ def gp_mean(key: pl.Expr, x: pl.Expr) -> pl.Expr:
     return x.mean()
 
 
+# 平台宏/薄封装名单（**单点声明**）：公式层必须裸用（编译期自动展开/注册），
+# 从任何模块 import 都在 ast gate 被拒（R03-M1：误 import 得到 codegen exec
+# 深层裸堆栈，无"请裸用"指引）。
+_PLATFORM_OPS: dict[str, tuple[callable, str, str]] = {
+    "returns": (returns, "ts", "0.1.0"),
+    "vwap": (vwap, "ts", "0.1.0"),
+    "adv20": (adv20, "ts", "0.1.0"),
+    "gp_rank": (gp_rank, "gp", "0.2.0"),
+    "gp_mean": (gp_mean, "gp", "0.2.0"),
+}
+PLATFORM_MACRO_NAMES: frozenset[str] = frozenset(_PLATFORM_OPS)
+
+
 def register_platform_ops() -> None:
     """幂等注册平台薄封装算子，供分区校验与 op list 使用。
 
     gp_ 前缀族（M3）：注册名即公式调用名——必须带 gp_ 前缀（expr_codegen 分区
     识别的前提）。不带前缀的组算子名一律不注册（partition 门按"未知算子"
-    拒绝——宁报错不静默跨日混组）。
+    拒绝——宁报错不静默跨日混组）。注册面与 `PLATFORM_MACRO_NAMES`（ast gate
+    的 import 门名单）同源：`_PLATFORM_OPS` 单点。
     """
-    factor_op("returns", kind="ts", version="0.1.0")(returns)
-    factor_op("vwap", kind="ts", version="0.1.0")(vwap)
-    factor_op("adv20", kind="ts", version="0.1.0")(adv20)
-    factor_op("gp_rank", kind="gp", version="0.2.0")(gp_rank)
-    factor_op("gp_mean", kind="gp", version="0.2.0")(gp_mean)
+    for name, (fn, kind, version) in _PLATFORM_OPS.items():
+        factor_op(name, kind=kind, version=version)(fn)
 
 
 # ---------------------------------------------------------------------------

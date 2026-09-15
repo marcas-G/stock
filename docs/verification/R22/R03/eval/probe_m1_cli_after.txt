@@ -1,0 +1,16 @@
+# R03-M1 after-fix 实证：compute_formula + factorlab lint 均给清晰 FactorDSLError
+# 命令1: platform/.venv/bin/python docs/verification/R22/R03/eval/probe_r03_eval.py   (M1 段)
+# 命令2: platform/.venv/bin/factorlab lint docs/verification/R22/R03/eval/r03_m1_bad_import.yaml; echo rc=$?
+
+--- probe_r03_eval.py M1 段 ---
+=== R03-M1: 误 import 平台宏 ===
+compute_formula: FactorDSLError: 1:0: 平台宏 returns 请裸用（不要 import）——平台在编译期自动展开；从模块 import 会得到未定义符号或深层报错
+traceback tail:
+      ...<4 lines>...
+      )
+  factorlab.core.factor.errors.FactorDSLError: 1:0: 平台宏 returns 请裸用（不要 import）——平台在编译期自动展开；从模块 import 会得到未定义符号或深层报错
+
+--- factorlab lint ---
+1:0: 平台宏 returns 请裸用（不要 import）——平台在编译期自动展开；从模块 import 
+会得到未定义符号或深层报错
+rc=1

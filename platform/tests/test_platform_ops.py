@@ -33,6 +33,26 @@ def test_register_platform_ops_exposes_ops():
         assert registry.get_op(name).kind == kind
 
 
+def test_platform_macro_names_single_point():
+    # R03-M1：ast gate 的宏名单与注册面同源（单点声明，防名单漂移）
+    from factorlab.core.ops.platform_ops import PLATFORM_MACRO_NAMES
+    registry.reset_registry()
+    register_platform_ops()
+    assert PLATFORM_MACRO_NAMES == frozenset(
+        {"returns", "vwap", "adv20", "gp_rank", "gp_mean"})
+    for name in PLATFORM_MACRO_NAMES:
+        assert registry.has_op(name)
+
+
+def test_expand_platform_macros_still_handles_aliases():
+    # transform 级契约（gate 之前的语义）：别名调用仍被展开——gate 与展开器互不耦合，
+    # 防"门前拒绝"改动误伤展开器本身
+    out = expand_platform_macros(
+        "from polars_ta.prefix.wq import returns as ret\nsignal = ret(close)")
+    assert "ts_delay" in out
+    assert "ret(close)" not in out
+
+
 # ---- expand_user_macros（spec.operators 内联宏） ----
 
 
