@@ -16,7 +16,7 @@ from factorlab.core.domain import (ExecutionDataQualityError, ExecutionSchedule,
                               OpenOrderDisposition, OrderBatch, OrderSide,
                               PortfolioStatePhase)
 from factorlab.core.domain.timing import ExecutionTiming
-from factorlab.execution import assess_open_fillability
+from factorlab.app.backtest import assess_open_fillability
 
 D1 = datetime.date(2024, 1, 2)
 E1 = datetime.date(2024, 1, 3)

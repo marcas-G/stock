@@ -90,9 +90,9 @@ def _timing_from_json(d) -> "SignalTiming":
         exec_ = d["default_earliest_execution"]
     except KeyError as exc:
         raise ValueError(f"source_signal.timing 缺少字段: {exc}") from exc
-    for name, value, enum in (("information_cutoff", cutoff, InformationCutoff),
-                              ("available_at", avail, SignalAvailability),
-                              ("default_earliest_execution", exec_, ExecutionTiming)):
+    for name, value in (("information_cutoff", cutoff),
+                        ("available_at", avail),
+                        ("default_earliest_execution", exec_)):
         if not isinstance(value, str):
             raise ValueError(f"source_signal.timing.{name} 必须为 str（收到 {value!r}）")
     try:

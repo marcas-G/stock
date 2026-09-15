@@ -18,7 +18,7 @@ import duckdb
 import polars as pl
 
 from factorlab.core.domain import PortfolioStatePhase
-from factorlab.execution import ExecutionSpec, run_backtest
+from factorlab.app.backtest import ExecutionSpec, run_backtest
 from factorlab.app.bootstrap import open_read
 from test_backtest_runtime import D1, D2, D3, D8, _add_daily, _cal_db, _target
 

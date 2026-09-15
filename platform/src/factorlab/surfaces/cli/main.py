@@ -7,7 +7,7 @@ import typer
 from rich.console import Console
 
 from factorlab import __version__
-from factorlab.catalog import catalog_json, render_catalog_markdown
+from factorlab.adapters.catalog import catalog_json, render_catalog_markdown
 from factorlab.config import settings
 from factorlab.adapters.fetcher import TeaJoinClient
 from factorlab.adapters.mirror_db import PlatformDB
@@ -403,7 +403,7 @@ def corr_factors(names: list[str] = typer.Argument(...)) -> None:
     if len(names) < 2:
         console.print("错误: 至少需要 2 个因子", style="red")
         raise typer.Exit(code=1)
-    from factorlab.eval.correlation import factor_correlation
+    from factorlab.app.analysis.correlation import factor_correlation
     try:
         m = factor_correlation(names, settings.results_dir)
     except FileNotFoundError as e:
@@ -420,7 +420,7 @@ def svd_factors(names: list[str] = typer.Argument(None),
     用法: factorlab svd [name1 name2 ...] [--weeks 15]
     缺省 names = 全部有 panel 的因子（排除验证目录）。
     """
-    from factorlab.eval.correlation import factor_svd
+    from factorlab.app.analysis.correlation import factor_svd
     results_dir = settings.results_dir
     if not names:
         skip = {"acceptance", "demo_vol_skew", "m4b_smoke"}
@@ -464,7 +464,7 @@ def resic_factors(
     预测力）与整组联合回归 R²。--target <名>：只评估该候选相对显式基准组。
     近共线（相关≈0.9999）会放大 resIC 数值噪声——建议先跑 factorlab corr / svd。
     """
-    from factorlab.eval.cross_section import joint_diagnostics
+    from factorlab.app.analysis.cross_section import joint_diagnostics
 
     try:
         r = joint_diagnostics(names, settings.results_dir, target=target,

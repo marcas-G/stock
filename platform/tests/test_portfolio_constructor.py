@@ -10,7 +10,7 @@ from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMe
 from factorlab.core.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
                                      InformationCutoff, SignalAvailability,
                                      SignalTiming)
-from factorlab.strategy import SelectionSpec, StrategySpec, WeightingSpec
+from factorlab.core.strategy import SelectionSpec, StrategySpec, WeightingSpec
 from factorlab.core.strategy.constructor import construct_target_portfolio
 
 D1, D2, D3 = (datetime.date(2024, 1, 2), datetime.date(2024, 1, 3),

@@ -13,11 +13,11 @@ from factorlab.adapters.read.universe import resolve_canonical_code_map
 from factorlab.core.domain.codes import is_canonical_stock_code
 from factorlab.app.run import run_factor
 from factorlab.app.context import RunContext
-from factorlab.strategy import (SelectionSpec, StrategySpec, WeightingSpec,
-                                build_rebalance_schedule,
-                                construct_target_portfolio,
-                                load_strategy_artifacts,
-                                write_strategy_artifacts)
+from factorlab.core.strategy import (SelectionSpec, StrategySpec, WeightingSpec,
+                                     build_rebalance_schedule,
+                                     construct_target_portfolio)
+from factorlab.adapters.strategy_artifacts import (load_strategy_artifacts,
+                                                  write_strategy_artifacts)
 
 
 def _sb_db(tmp_path, rows):

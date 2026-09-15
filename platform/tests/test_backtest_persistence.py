@@ -14,7 +14,7 @@ from factorlab.core.domain import (BacktestResult, NavSeries, PortfolioState,
                               TargetPortfolioMeta)
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.app.bootstrap import open_read
-from factorlab.execution import (ExecutionSpec, load_backtest_result,
+from factorlab.app.backtest import (ExecutionSpec, load_backtest_result,
                                  run_backtest, save_backtest_result)
 
 D1 = datetime.date(2024, 1, 2)

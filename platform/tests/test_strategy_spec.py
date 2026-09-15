@@ -5,7 +5,7 @@ import math
 import pytest
 from pydantic import ValidationError
 
-from factorlab.strategy import SelectionSpec, StrategySpec, WeightingSpec
+from factorlab.core.strategy import SelectionSpec, StrategySpec, WeightingSpec
 
 
 def _spec(**over):

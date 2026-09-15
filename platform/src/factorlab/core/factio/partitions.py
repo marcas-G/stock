@@ -14,11 +14,18 @@ from __future__ import annotations
 from datetime import date as _date
 from pathlib import Path
 
+# 年/月分区**目录名前缀**单点：派生路径（`partition_dir`）与**枚举**（glob/listdir）
+# 共用同一对常量——枚举侧此前各写 `"year="` 字面量，且用 `entry[5:]` 位置切片，
+# 前缀一改就静默错位（R8c）。研究侧两处（ch_ingest.discover_tasks、1m_features._iter_months）
+# 经 `partitions.YEAR_PREFIX/MONTH_PREFIX` 取用。
+YEAR_PREFIX = "year="
+MONTH_PREFIX = "month="
+
 
 def partition_dir(root: Path, *, table: str | None, year: int, month: int) -> Path:
     """`{root}[/{table}]/year=YYYY/month=MM`（月份零填充两位）。"""
     base = root if table is None else root / table
-    return base / f"year={year}" / f"month={month:02d}"
+    return base / f"{YEAR_PREFIX}{year}" / f"{MONTH_PREFIX}{month:02d}"
 
 
 def tick_parts_pattern(root: Path, table: str, year: int, month: int) -> str:

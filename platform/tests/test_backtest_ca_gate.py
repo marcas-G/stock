@@ -24,9 +24,9 @@ import polars as pl
 import pytest
 
 from factorlab.app.bootstrap import open_read
-from factorlab.adapters.read.execution import load_adj_event_window
+from factorlab.adapters.read.market_open import load_adj_event_window
 from factorlab.core.domain import ExecutionDataQualityError
-from factorlab.execution import ExecutionSpec, run_backtest
+from factorlab.app.backtest import ExecutionSpec, run_backtest
 from test_backtest_marks_policy import (D5, D9, _A, _B, _halt_db, _spec)
 from test_backtest_runtime import D1, D2, D3, D8, _target
 

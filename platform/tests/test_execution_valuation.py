@@ -19,7 +19,7 @@ import pytest
 
 from factorlab.core.domain import (PortfolioMarkSnapshot, PortfolioState,
                               PortfolioStatePhase, PortfolioValuation)
-from factorlab.execution import value_portfolio
+from factorlab.app.backtest import value_portfolio
 
 E1 = datetime.date(2024, 1, 3)
 

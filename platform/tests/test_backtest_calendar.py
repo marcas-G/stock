@@ -15,7 +15,7 @@ from factorlab.core.domain import (ExecutionSchedule, TargetPortfolio,
 from factorlab.core.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING,
                                      ExecutionTiming, SignalTiming,
                                      InformationCutoff, SignalAvailability)
-from factorlab.execution import resolve_execution_schedule
+from factorlab.app.backtest import resolve_execution_schedule
 
 D0 = datetime.date(2024, 1, 5)    # Fri open
 D1 = datetime.date(2024, 1, 6)    # Sat
@@ -234,8 +234,8 @@ def test_independent_of_position_rows(env, tmp_path):
 def test_integration_schedule_to_snapshot(env, tmp_path):
     """§95：真实 TargetPortfolio → schedule → snapshot（同 execution_date、
     canonical codes、raw open evidence）。"""
-    from factorlab.adapters.read.execution import load_market_open_frame
-    from factorlab.execution import load_market_open_snapshot
+    from factorlab.adapters.read.market_open import load_market_open_frame
+    from factorlab.app.backtest import load_market_open_snapshot
 
     tables = _cal_tables([D0, D3])
     tables["daily"][1].append((D3.strftime("%Y%m%d"), "000001.SZ", 10.5, 10.0))

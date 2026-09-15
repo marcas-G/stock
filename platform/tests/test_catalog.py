@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from factorlab.catalog import (
+from factorlab.adapters.catalog import (
     STUB_WORDS,
     build_catalog,
     catalog_json,

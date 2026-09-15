@@ -41,14 +41,14 @@ import pytest
 from factorlab.app.bootstrap import open_read
 from factorlab.app.run import run_factor
 from factorlab.app.context import RunContext
-from factorlab.execution import (ExecutionSpec, load_backtest_result,
+from factorlab.app.backtest import (ExecutionSpec, load_backtest_result,
                                  run_backtest, save_backtest_result)
 from factorlab.core.spec import load_spec
-from factorlab.strategy import (SelectionSpec, StrategySpec, WeightingSpec,
-                                build_rebalance_schedule,
-                                construct_target_portfolio,
-                                load_strategy_artifacts,
-                                write_strategy_artifacts)
+from factorlab.core.strategy import (SelectionSpec, StrategySpec, WeightingSpec,
+                                     build_rebalance_schedule,
+                                     construct_target_portfolio)
+from factorlab.adapters.strategy_artifacts import (load_strategy_artifacts,
+                                                  write_strategy_artifacts)
 
 # 交易日序列（与 test_run_factor._DATES 同 6 天；D6=1/9 供末 event advance）
 _DATES = [datetime.date(2024, 1, 2), datetime.date(2024, 1, 3),

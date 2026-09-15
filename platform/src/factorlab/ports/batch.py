@@ -38,6 +38,8 @@ class BatchReport:
         return [r for r in self.results if r.status == "failed"]
 
 
+# 注：vulture 会把下面协议方法的形参报成"未使用变量"——协议**只有签名没有实现**，
+# 形参即契约词汇（本模块是 ports/，见 platform/CLAUDE.md 分层），保留。
 @runtime_checkable
 class BatchOrchestrator(Protocol):
     def run(self, tasks: Sequence[Task], worker: Callable[[Task], Any], *,

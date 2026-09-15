@@ -51,12 +51,12 @@ def layered_backtest(
     panel: pl.DataFrame,
     direction: int,
     n_groups: int = 10,
-    cost: float = 0.0,
     forward_col: str = "forward_return_5d",
 ) -> dict:
     """分层回测：每期按 signal 分档，各档 forward 等权平均累积净值；long-short = D1 - D10。
 
-    输入周频面板（date/code/signal/forward_col）。cost 参数预留（当前不建模调仓成本）。
+    输入周频面板（date/code/signal/forward_col）。**不建模调仓成本**（原 `cost` 形参是
+    静默 no-op，R8 删除；成本建模见 `docs/pending-items.md` #15）。
 
     语义：
     - direction=1 时 D1 = signal 最高档，direction=-1 时 D1 = signal 最低档（rank 方向控制）。

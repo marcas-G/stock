@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import polars as pl
 
-BOARDS = ("MAIN", "STAR", "CHINEXT", "BJ")
 _EXCHANGES = ("SH", "SZ", "BJ")
 
 # 板块前缀集合（R4c：研究侧 SQL/表达式与标量分类器共用同一组前缀，防两处漂移）

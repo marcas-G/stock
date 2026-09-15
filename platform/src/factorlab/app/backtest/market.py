@@ -6,7 +6,7 @@ import datetime
 
 from factorlab.ports.read import ReadPort
 from factorlab.adapters.read.calendar import trading_calendar
-from factorlab.adapters.read.execution import load_market_open_frame
+from factorlab.adapters.read.market_open import load_market_open_frame
 from factorlab.core.domain.execution import MarketOpenSnapshot
 
 

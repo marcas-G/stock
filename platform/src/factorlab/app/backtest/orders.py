@@ -35,7 +35,7 @@ from factorlab.core.domain.execution import (ExecutionSchedule, ExecutionTiming,
                                         PortfolioState, PortfolioStatePhase,
                                         QuantityRuleKind)
 from factorlab.core.domain.portfolio import TargetPortfolio
-from factorlab.execution.rules import (is_valid_buy_quantity,
+from factorlab.app.backtest.rules import (is_valid_buy_quantity,
                                        is_valid_sell_quantity,
                                        project_buy_quantity,
                                        project_sell_quantity)
@@ -67,7 +67,7 @@ def construct_order_batch(
         RuntimeError: 内部不变量破坏（安全网，不应触发）
     """
     # ---- type guards（显式，不自动转换）----
-    from factorlab.execution.rules import SecurityQuantityRules
+    from factorlab.app.backtest.rules import SecurityQuantityRules
     if not isinstance(target, TargetPortfolio):
         raise TypeError(
             f"target 必须为 TargetPortfolio（收到 {type(target).__name__}）")

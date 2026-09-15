@@ -15,7 +15,7 @@ import pytest
 from factorlab.core.domain import (ExecutionAccountingSummary, FillBatch,
                               PortfolioState, PortfolioStatePhase)
 from factorlab.core.domain.timing import ExecutionTiming
-from factorlab.execution import summarize_execution_accounting
+from factorlab.app.backtest import summarize_execution_accounting
 
 D1 = datetime.date(2024, 1, 2)
 E1 = datetime.date(2024, 1, 3)

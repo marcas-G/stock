@@ -52,3 +52,17 @@ def test_invalid_day_is_rejected():
     for bad in ("2026-06-10", "2026061", "2026061x"):
         with pytest.raises(ValueError, match="day"):
             partitions.lob_day_file(Path("/r"), "lob_events", bad)
+
+
+def test_year_month_prefixes_are_single_source_for_enumeration():
+    """枚举年/月目录（glob/listdir）时的前缀也不得各处自拼。
+
+    研究侧两处此前各写 `"year="` / `"month="` 字面量：`ch_ingest.discover_tasks`
+    与 `1m_features._iter_months`（后者还用 `entry[5:]` 这类**位置切片**，前缀一改
+    就静默错位）→ 前缀与切片偏移都必须来自本单点。
+    """
+    assert partitions.YEAR_PREFIX == "year="
+    assert partitions.MONTH_PREFIX == "month="
+    # partition_dir 自身也必须由这两个前缀构成（否则"单点"是假的）
+    assert str(partitions.partition_dir(Path("/r"), table="orders", year=2026, month=6)) == \
+        f"/r/orders/{partitions.YEAR_PREFIX}2026/{partitions.MONTH_PREFIX}06"

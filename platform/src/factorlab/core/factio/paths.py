@@ -13,7 +13,7 @@ STOCK_ROOT = Path(os.environ.get("FACTORLAB_STOCK_ROOT", "/data/students/gaolei/
 DATA_ROOT = STOCK_ROOT / "data"
 RAW_ROOT = DATA_ROOT / "raw"
 FACT_ROOT = DATA_ROOT / "fact"
-PANEL_ROOT = DATA_ROOT / "panel"
+PANEL_ROOT = DATA_ROOT / "panel"   # 预留面板区（docs/data-map.md A12；当前空，零消费者属预期）
 CALIB_ROOT = DATA_ROOT / "calib"
 REF_ROOT = DATA_ROOT / "ref"
 

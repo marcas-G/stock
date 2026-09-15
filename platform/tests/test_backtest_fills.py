@@ -22,7 +22,7 @@ from factorlab.core.domain import (ExecutionDataQualityError, ExecutionSchedule,
                               PortfolioState, PortfolioStatePhase,
                               QuantityRuleKind)
 from factorlab.core.domain.timing import ExecutionTiming
-from factorlab.execution import (ExecutionCostSpec, SecurityQuantityRules,
+from factorlab.app.backtest import (ExecutionCostSpec, SecurityQuantityRules,
                                  assess_open_fillability, project_buy_quantity,
                                  project_sell_quantity, realize_open_fills)
 

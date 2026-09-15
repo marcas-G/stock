@@ -14,7 +14,7 @@ import pytest
 
 from factorlab.core.domain import (FillBatch, PortfolioState, PortfolioStatePhase)
 from factorlab.core.domain.timing import ExecutionTiming
-from factorlab.execution import apply_fill_batch
+from factorlab.app.backtest import apply_fill_batch
 
 D1 = datetime.date(2024, 1, 2)
 E1 = datetime.date(2024, 1, 3)

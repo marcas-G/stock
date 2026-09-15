@@ -93,7 +93,6 @@ def create_app(results_dir: Path) -> FastAPI:
     @app.middleware("http")
     async def no_cache(request, call_next):
         """页面与图表数据不缓存（因子结果会更新）。"""
-        from starlette.responses import Response
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         return response
@@ -158,7 +157,7 @@ def create_app(results_dir: Path) -> FastAPI:
                 layered["net_values"], layered.get("dates", []))
         # 相关因子热力图：与库内其他有结果因子（复用 correlation 模块，降级不崩溃）
         try:
-            from factorlab.eval.correlation import factor_correlation
+            from factorlab.app.analysis.correlation import factor_correlation
             from factorlab.adapters.panel_store import ParquetPanelStore
             all_names = [n for n in ParquetPanelStore().list_factors(results_dir)
                          if n != name]

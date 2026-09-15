@@ -3,7 +3,7 @@ import tempfile
 import polars as pl
 import pytest
 
-from factorlab.eval.correlation import factor_correlation
+from factorlab.app.analysis.correlation import factor_correlation
 
 
 def _write_panel(td, name, signals):
@@ -68,7 +68,7 @@ def test_three_factor_matrix():
 
 def test_svd_identifies_orthogonal_structure():
     """SVD：两个同源因子 + 一个正交因子 → 第一奇异值主导、载荷分离。"""
-    from factorlab.eval.correlation import factor_svd
+    from factorlab.app.analysis.correlation import factor_svd
     import tempfile
     with tempfile.TemporaryDirectory() as td:
         signals = [(f"2024-01-0{i}", f"{j:06d}", float(i * 100 + j))
@@ -93,7 +93,7 @@ def test_svd_identifies_orthogonal_structure():
 
 def test_svd_sampling_deterministic():
     """同 seed 抽样 → 结果确定。"""
-    from factorlab.eval.correlation import factor_svd
+    from factorlab.app.analysis.correlation import factor_svd
     import tempfile
     with tempfile.TemporaryDirectory() as td:
         signals = [(f"2024-01-0{i}", f"{j:06d}", float(i * 100 + j))

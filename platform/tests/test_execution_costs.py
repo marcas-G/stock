@@ -10,7 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 from factorlab.core.domain import OrderSide
-from factorlab.execution import (ExecutionCostBreakdown, ExecutionCostSpec,
+from factorlab.app.backtest import (ExecutionCostBreakdown, ExecutionCostSpec,
                                  ExecutionSpec, compute_execution_cost)
 
 BUY = OrderSide.BUY

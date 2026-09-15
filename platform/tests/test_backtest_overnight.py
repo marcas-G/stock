@@ -18,7 +18,7 @@ import pytest
 
 from factorlab.core.domain import (FillBatch, PortfolioState, PortfolioStatePhase)
 from factorlab.core.domain.timing import ExecutionTiming
-from factorlab.execution import advance_to_next_trading_day
+from factorlab.app.backtest import advance_to_next_trading_day
 
 # 2024-01-05 Friday open；01-06/07 closed；01-08 Monday open
 FRI = datetime.date(2024, 1, 5)
@@ -374,7 +374,7 @@ def test_output_passes_validator(env):
 
 def test_no_blanket_release_source_audit():
     """overnight.py 不得出现 sellable=quantity 等价逻辑。"""
-    from factorlab.execution import overnight as mod
+    from factorlab.app.backtest import overnight as mod
     src = inspect.getsource(mod)
     assert "alias(\"sellable_quantity\")" not in src
     assert "sellable_quantity = quantity" not in src
@@ -382,7 +382,7 @@ def test_no_blanket_release_source_audit():
 
 
 def test_no_forbidden_dependencies():
-    from factorlab.execution import overnight as mod
+    from factorlab.app.backtest import overnight as mod
     src = inspect.getsource(mod)
     for forbidden in ("compute_execution_cost", "ExecutionCostSpec",
                       "MarketOpenSnapshot", "OpenFillAssessment",

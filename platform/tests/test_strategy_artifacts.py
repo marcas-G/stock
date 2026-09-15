@@ -8,8 +8,8 @@ import pytest
 
 from factorlab.core.domain.frames import SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
-from factorlab.strategy import (SelectionSpec, StrategySpec, WeightingSpec,
-                                construct_target_portfolio)
+from factorlab.core.strategy import (SelectionSpec, StrategySpec, WeightingSpec,
+                                     construct_target_portfolio)
 from factorlab.adapters.strategy_artifacts import (REBALANCE_SCHEDULE_FILE,
                                           STRATEGY_ARTIFACT_FORMAT_VERSION,
                                           STRATEGY_MANIFEST_FILE,

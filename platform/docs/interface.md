@@ -60,9 +60,10 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 - **复权视图（adjustment）**：spec `adjustment` 字段（`raw|qfq|hfq|pit_qfq`，
   默认 `qfq`）决定因子计算所用价格口径（`view_prices`，见 §4）；前向收益恒用
   **total_return 口径**（raw close×adj，先于复权视图计算、避免二次复权）。
-- **eval 包**（`factorlab.eval`）：`alignment.align_weekly`（ISO 周最后交易日
-  对齐）、`metrics.coverage_report`（覆盖率）、`rust_ic.evaluate_factor_weekly`
-  （`quant_core` 周频评估桥接，见 §4）。
+- **eval 包**（`factorlab.core.eval`）：`alignment.align_weekly`（ISO 周最后交易日
+  对齐）、`metrics.coverage_report`（覆盖率）；`rust_ic.evaluate_factor_weekly`
+  （`quant_core` 周频评估桥接，见 §4）在 `factorlab.adapters.rust_ic`（R8 分层：纯计算
+  在 core、I/O 与内核桥接在 adapters）。
 - **`default_universe` 接线**：`factorlab run` 缺省 `--universe` 时回落
   `settings.default_universe`（`FACTORLAB_DEFAULT_UNIVERSE`），未配置再用 spec
   内联 universe（见 §4 `resolve_codes`）。
@@ -699,7 +700,7 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 （`MIN_STOCKS`）的周 ic = null（秩相关不稳健，含有效股票为 0 的周）。
 返回 `(date, ic)` 按日期排序——`factorlab.surfaces.web` 详情页 IC 曲线数据源。
 
-### `factorlab.eval.cross_section`：横截面联合诊断（resIC）
+### `factorlab.app.analysis.cross_section`：横截面联合诊断（resIC）
 
 给定一组因子的逐周横截面 OLS 诊断（A 层单因子评估的多因子补充，纯 polars
 + numpy——无回归库依赖）。数学口径权威记载于
@@ -885,11 +886,11 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
 - `direction` 原样透传为 int（`0` 实测按 `-1` 处理，属 quant_core 内部语义，桥接层
   不校验）。
 
-### `factorlab.core.eval.layered.layered_backtest(panel, direction, n_groups=10, cost=0.0) -> dict`
+### `factorlab.core.eval.layered.layered_backtest(panel, direction, n_groups=10, forward_col="forward_return_5d") -> dict`
 
 分层回测：每期按 signal 分档，各档 forward 等权平均累积净值；long-short = 最佳档 −
 最差档净值差。输入**周频面板**（date/code/signal/forward_return_5d，即
-`align_weekly` 输出）；`cost` 参数预留（当前不建模调仓成本）。
+`align_weekly` 输出）；**不建模调仓成本**（无 `cost` 形参，见 `docs/pending-items.md` #15）。
 
 语义：
 
@@ -1112,7 +1113,7 @@ ts_code 匹配 ^\d{6}\.(SH|SZ|BJ)$  且  symbol == ts_code 前六位
     raise `ValueError`（文案含违规列名），不产出会污染读面供给的最终库；修法 =
     上游入库去掉该列后重灌整表（`upsert` 按 key 合并，表已存在不会新增/删除列）。
 
-- `factorlab.catalog`（M5 活文档数据体）：`build_catalog()`（组装目录 dict——
+- `factorlab.adapters.catalog`（M5 活文档数据体；R8 从包顶层归位到 adapters）：`build_catalog()`（组装目录 dict——
   常量/registry 同源 + `validate_catalog` 通过才返回）、`validate_catalog(cat)`
   （描述完整性门：空字段/占位式 STUB_WORDS 拒绝并点名 json 路径）、
   `catalog_json()`（确定性 JSON 字符串）、`render_catalog_markdown()`（目录正文）。
@@ -1551,7 +1552,7 @@ Execution Runtime     [M8 ✓——M8-06B orchestration / M8-06C persistence，
                        见下方 M8-06B/06C 条目]
 ```
 
-**StrategySpec**（`factorlab.strategy`，与 FactorSpec 严格分离）：
+**StrategySpec**（`factorlab.core.strategy`，与 FactorSpec 严格分离）：
 
 ```
 name               ^[A-Za-z_][A-Za-z0-9_]{0,63}$
@@ -1893,7 +1894,7 @@ PortfolioState（actual cash/share inventory）
 
 ### M8-01 Execution Domain Contracts
 
-**ExecutionSpec**（`factorlab.execution`，extra=forbid + frozen）：
+**ExecutionSpec**（`factorlab.core.execution.spec`，extra=forbid + frozen）：
 
 ```
 initial_cash   positive finite float（bool/string 拒绝；int 规范化 float）
@@ -1993,7 +1994,7 @@ OrderBatch（每 code 至多 1 行，code ASC）
 ```
 
 **construct_order_batch(target, schedule, state, snapshot, quantity_rules, *,
-decision_date) -> OrderBatch**（`factorlab.execution`）——单 execution event
+decision_date) -> OrderBatch**（`factorlab.app.backtest.orders`）——单 execution event
 planner（一次调用 = 一个 decision_date → 一个 OrderBatch；完整历史循环属
 M8-06）：
 

@@ -28,7 +28,7 @@ from factorlab.core.domain import (ExecutionSchedule, MarketOpenSnapshot,
 from factorlab.core.domain.timing import (DEFAULT_EOD_SIGNAL_TIMING, ExecutionTiming,
                                      InformationCutoff, SignalAvailability,
                                      SignalTiming)
-from factorlab.execution import (SecurityQuantityRules, construct_order_batch,
+from factorlab.app.backtest import (SecurityQuantityRules, construct_order_batch,
                                  is_valid_buy_quantity, is_valid_sell_quantity)
 
 D1 = datetime.date(2024, 1, 2)     # decision date
@@ -161,7 +161,7 @@ def _qty(batch, code, side=None):
 # ================================================================
 
 def test_api_exists():
-    from factorlab.execution import construct_order_batch
+    from factorlab.app.backtest import construct_order_batch
     assert callable(construct_order_batch)
 
 

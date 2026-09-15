@@ -22,7 +22,7 @@ from factorlab.core.domain import (PortfolioStatePhase, TargetPortfolio,
                               TargetPortfolioMeta)
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.app.bootstrap import open_read
-from factorlab.execution import (ExecutionSpec, MarksPolicy, run_backtest)
+from factorlab.app.backtest import (ExecutionSpec, MarksPolicy, run_backtest)
 
 D1 = datetime.date(2024, 1, 2)    # Tue
 D2 = datetime.date(2024, 1, 3)    # Wed
@@ -278,7 +278,7 @@ def test_no_db_writes(tmp_path):
 
 
 def test_source_audit_no_strategy_engine():
-    from factorlab.execution import backtest as mod
+    from factorlab.app.backtest import backtest as mod
     src = inspect.getsource(mod)
     for forbidden in ("strategy", "engine", "SignalArtifact", "StrategySpec",
                       "duckdb"):

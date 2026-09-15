@@ -11,7 +11,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlab.eval.cross_section import cs_r2, joint_diagnostics, orthogonalized_ic
+from factorlab.app.analysis.cross_section import cs_r2, joint_diagnostics, orthogonalized_ic
 from factorlab.core.eval.ic_series import weekly_ic
 
 N = 40  # 默认股票数（≥ MIN_STOCKS 30）
@@ -465,7 +465,7 @@ def test_joint_target_mode_with_empty_base_raises(tmp_path):
 
 
 def test_joint_wide_row_guard_violation_raises(tmp_path, monkeypatch):
-    import factorlab.eval.cross_section as cs_mod
+    import factorlab.app.analysis.cross_section as cs_mod
     x, w = _ortho_vectors()
     weeks = 2
     xx = np.tile(x, (weeks, 1))

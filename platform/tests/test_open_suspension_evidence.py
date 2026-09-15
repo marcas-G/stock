@@ -23,9 +23,9 @@ import polars as pl
 import pytest
 
 from factorlab.app.bootstrap import open_read
-from factorlab.adapters.read.execution import load_market_open_frame
+from factorlab.adapters.read.market_open import load_market_open_frame
 from factorlab.core.domain import MarketOpenSnapshot
-from factorlab.execution import load_market_open_snapshot
+from factorlab.app.backtest import load_market_open_snapshot
 
 EXEC = datetime.date(2024, 1, 8)
 D = EXEC.strftime("%Y%m%d")

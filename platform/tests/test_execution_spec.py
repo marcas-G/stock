@@ -5,7 +5,7 @@ import math
 import pytest
 from pydantic import ValidationError
 
-from factorlab.execution import ExecutionSpec
+from factorlab.app.backtest import ExecutionSpec
 
 
 def _spec(**over):

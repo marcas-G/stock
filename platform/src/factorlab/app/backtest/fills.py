@@ -39,9 +39,9 @@ from factorlab.core.domain.execution import (ExecutionDataQualityError,
                                         OpenOrderDisposition, OrderBatch,
                                         OrderSide, PortfolioState,
                                         PortfolioStatePhase, QuantityRuleKind)
-from factorlab.execution.rules import SecurityQuantityRules
+from factorlab.app.backtest.rules import SecurityQuantityRules
 from factorlab.core.execution.costs import compute_execution_cost
-from factorlab.execution.rules import (is_valid_buy_quantity,
+from factorlab.app.backtest.rules import (is_valid_buy_quantity,
                                        is_valid_sell_quantity,
                                        project_buy_quantity)
 from factorlab.core.execution.spec import ExecutionCostSpec

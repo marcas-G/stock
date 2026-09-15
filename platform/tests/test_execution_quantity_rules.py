@@ -12,7 +12,7 @@ import polars as pl
 import pytest
 
 from factorlab.core.domain.execution import QuantityRuleKind
-from factorlab.execution import (resolve_security_quantity_rules,
+from factorlab.app.backtest import (resolve_security_quantity_rules,
                                  is_valid_buy_quantity,
                                  is_valid_sell_quantity)
 

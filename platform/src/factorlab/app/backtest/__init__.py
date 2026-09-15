@@ -16,20 +16,20 @@ M8-06B：backtest runtime（run_backtest → BacktestResult）。
 """
 
 from factorlab.core.execution.accounting import summarize_execution_accounting
-from factorlab.execution.backtest import MarksPolicy, run_backtest
+from factorlab.app.backtest.backtest import MarksPolicy, run_backtest
 from factorlab.adapters.execution_store import (load_backtest_result,
                                              save_backtest_result)
-from factorlab.execution.calendar import resolve_execution_schedule
+from factorlab.app.backtest.calendar import resolve_execution_schedule
 from factorlab.core.execution.costs import (ExecutionCostBreakdown,
                                        compute_execution_cost)
 from factorlab.core.execution.fillability import assess_open_fillability
-from factorlab.execution.fills import realize_open_fills
-from factorlab.execution.market import load_market_open_snapshot
-from factorlab.execution.orders import construct_order_batch
-from factorlab.execution.overnight import advance_to_next_trading_day
+from factorlab.app.backtest.fills import realize_open_fills
+from factorlab.app.backtest.market import load_market_open_snapshot
+from factorlab.app.backtest.orders import construct_order_batch
+from factorlab.app.backtest.overnight import advance_to_next_trading_day
 from factorlab.core.execution.state import apply_fill_batch
 from factorlab.core.execution.valuation import value_portfolio
-from factorlab.execution.rules import (SecurityQuantityRules,
+from factorlab.app.backtest.rules import (SecurityQuantityRules,
                                        is_valid_buy_quantity,
                                        is_valid_sell_quantity,
                                        project_buy_quantity,

@@ -471,7 +471,6 @@ def _check_assessment_content(frame: pl.DataFrame) -> None:
         raise ValueError(
             f"assessment.side 仅允许 'buy'/'sell'（OrderSide.value；收到 "
             f"{bad_side['side'].unique().to_list()}）")
-    bad_disp = []
     for v in frame["disposition"].unique().to_list():
         try:
             OpenOrderDisposition(v)
