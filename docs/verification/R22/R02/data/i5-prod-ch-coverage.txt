@@ -1,0 +1,17 @@
+R01-TOOLS-I5 补 真实 CH 实测：正常日 100% 不误伤，人为缺口日 fail
+==================================================================
+命令：
+  cd /data/students/gaolei/stock/platform
+  .venv/bin/python -c "<_gates_ch + _coverage_members_ch + _new_listing_exempt_codes
+    + stk_limit_coverage_violation 跑 2024-02-23 / 2026-08-14 真实生产库；
+    再在 2024-02-23 真实集合上人为扣掉 60% 行模拟生产漏派生>"
+
+输出：
+2024-02-23: daily=5345 limit_rows=5345 expected=5345 covered=5345 ratio=1.0000 exempt=280 violation=None
+2026-08-14: daily=5529 limit_rows=5529 expected=5529 covered=5529 ratio=1.0000 exempt=0 violation=None
+synthetic 60% gap -> stk_limit 当日覆盖率异常：2138/5345 = 40.0%（阈值 50%）——缺失 3207 只应有涨跌停的证券（样本 ['300671.SZ', ...
+
+判读：
+- 真实正常日 coverage=100%（expected 恰等于 stk_limit 行数）→ 门不误伤；
+- 人为扣掉 60% 行（生产漏派生形态）→ 40% < 50% 阈值 fail loudly；
+- exempt 计数含 D 之后上市的 code（与 expected 求交后不影响判定，仅展示原始集合）。

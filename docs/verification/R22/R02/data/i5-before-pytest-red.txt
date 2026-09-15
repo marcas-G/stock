@@ -1,0 +1,20 @@
+R01-TOOLS-I5 补 复现（修复前）：stk_limit 市场级覆盖率无兜底门
+================================================================
+源码：/tmp/opencode/r22-c2-before/platform（git archive e60d2b2）
+命令：
+  cp tests/test_market_open_snapshot.py /tmp/opencode/r22-c2-before/platform/tests/
+  cd /tmp/opencode/r22-c2-before/platform
+  PYTHONPATH=src /data/students/gaolei/stock/platform/.venv/bin/python -m pytest -q \
+     tests/test_market_open_snapshot.py -k stk_limit_coverage
+
+Fixture（双腿）：30 只当日 daily（pre_close 非空）仅 5 只有 stk_limit 行（生产
+漏派生形态）→ 修复前无市场级覆盖率门，snapshot 正常返回。
+
+输出：
+FAILED tests/test_market_open_snapshot.py::test_stk_limit_coverage_pure_thresholds
+FAILED tests/test_market_open_snapshot.py::test_stk_limit_coverage_gap_fails_loudly[duckdb]
+FAILED tests/test_market_open_snapshot.py::test_stk_limit_coverage_gap_fails_loudly[ch]
+3 failed, 4 passed, 61 deselected in 2.52s
+
+关键形态：test_stk_limit_coverage_gap_fails_loudly ... Failed: DID NOT RAISE
+ValueError（异常缺口日被静默 fail-open；单证券缺行是合法无限制，日级缺口不是）。
