@@ -23,9 +23,12 @@ Domain 层（domain/frames.py）只负责数据契约，不负责文件系统 I/
 
 from __future__ import annotations
 
+import fcntl
+import hashlib
 import json
 import os
 import re
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -51,10 +54,89 @@ LEGACY_PANEL_SCHEMA_VERSION = 1
 # 文件名常量（单一来源——禁止 compute.py/loader/tests 各自手写字符串）
 SIGNAL_FILE = "signal.parquet"
 LABELS_FILE = "labels.parquet"
+# R02-I8：覆盖写失效 tombstone 与单写者锁（与 M8-I1 strategy/execution 同语义）
+SUMMARY_STALE_FILE = "summary.json.stale"
+RUN_WRITE_LOCK_FILE = ".factorlab-run.lock"
 # R16：布局文件名**不在本模块再定义一份**——单点在 adapters/results_fs（同名别名仅为
 # 历史调用点保留；`read_summary` 也从那里来）。改布局只改一处。
 from factorlab.adapters.results_fs import (PANEL_NAME as LEGACY_PANEL_FILE,  # noqa: E402
                                           SUMMARY_NAME as SUMMARY_FILE)
+
+
+class ArtifactWriteLocked(ValueError):
+    """同一 output_dir 已有 run 在落盘（单写者 flock 被占用）。
+
+    ValueError 子类：CLI 的 `(ValueError, FileNotFoundError, FactorDSLError)`
+    处理路径直接给出干净错误 + exit 1（不裸 traceback）。
+    """
+
+
+@contextmanager
+def _run_write_lock(output_dir: Path):
+    """output_dir 级单写者 flock（非阻塞）：并发 run 落盘 → fail fast。
+
+    锁粒度 = artifact 落盘窗口（compute 阶段不持锁——两个 run 计算完先后落盘
+    仍各自原子且最后写者完整；同刻落盘直接拒绝，不产生交叉混合文件）。
+    """
+    lock_path = output_dir / RUN_WRITE_LOCK_FILE
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = open(lock_path, "a")
+    try:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            raise ArtifactWriteLocked(
+                f"output_dir 已有 factorlab run 在落盘（单写者锁被占）: "
+                f"{output_dir}——并发写同一目录会产生 signal/labels/summary "
+                f"混合 artifact，fail fast；请等待或更换 output_dir"
+                f"（锁文件 {RUN_WRITE_LOCK_FILE}）") from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    finally:
+        handle.close()
+
+
+def _invalidate_summary(output_dir: Path) -> Path | None:
+    """R02-I8：覆盖写前把旧 summary.json 原子失效（rename 为 .stale tombstone）。
+
+    必须在任何 core 数据文件写入之前调用——崩溃/磁盘满后主 manifest 缺失 =
+    incomplete directory（loader 拒绝），旧 summary 不可能与新 signal/labels/
+    panel 拼成可加载的混合 bundle（与 R01-M8-I1 同一语义）。
+    """
+    m = output_dir / SUMMARY_FILE
+    if not m.exists():
+        return None
+    stale = output_dir / SUMMARY_STALE_FILE
+    os.replace(m, stale)
+    return stale
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _attach_hashes(artifacts: dict[str, Any], output_dir: Path) -> None:
+    """写盘后给每 artifact 条目补内容 sha256（load 端交叉校验的锚点）。"""
+    for entry in artifacts.values():
+        entry["sha256"] = _sha256_file(output_dir / entry["file"])
+
+
+def _verify_hash(entry: dict[str, Any], path: Path, name: str) -> None:
+    """manifest 声明 sha256 与磁盘不一致 → 拒绝加载（混合/外来数据）。
+
+    历史目录（R21 前写出的 manifest）无 sha256 字段 → 保持可读（不追溯失效）。
+    """
+    declared = entry.get("sha256")
+    if declared is None:
+        return
+    actual = _sha256_file(path)
+    if declared != actual:
+        raise ValueError(
+            f"{name} 内容 sha256 与 manifest 不一致：manifest={str(declared)[:12]}… "
+            f"磁盘={actual[:12]}…——禁止加载「manifest + 外来/混合数据」"
+            f"（R02-I8 交叉校验；如为手工修改请重跑 run）")
 
 
 def signal_multi_file(output: str) -> str:
@@ -248,16 +330,22 @@ def write_factor_artifacts(output_dir: Path, signal_artifact: SignalArtifact,
     _check_no_internal_columns(panel, "panel")
     validate_label_schema_v1(label_artifact)
     output_dir.mkdir(parents=True, exist_ok=True)
-    _atomic_write(output_dir / SIGNAL_FILE,
-                  lambda p: signal_artifact.frame.write_parquet(p))
-    _atomic_write(output_dir / LABELS_FILE,
-                  lambda p: label_artifact.frame.write_parquet(p))
-    _atomic_write(output_dir / LEGACY_PANEL_FILE,
-                  lambda p: panel.write_parquet(p))
-    manifest = build_manifest(signal_artifact, label_artifact, panel)
-    summary = {**summary, **manifest}
-    _atomic_write(output_dir / SUMMARY_FILE, lambda p: p.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8"))
+    with _run_write_lock(output_dir):
+        # R02-I8：旧 manifest 先失效（必须在任何 core 文件写入之前）
+        stale = _invalidate_summary(output_dir)
+        _atomic_write(output_dir / SIGNAL_FILE,
+                      lambda p: signal_artifact.frame.write_parquet(p))
+        _atomic_write(output_dir / LABELS_FILE,
+                      lambda p: label_artifact.frame.write_parquet(p))
+        _atomic_write(output_dir / LEGACY_PANEL_FILE,
+                      lambda p: panel.write_parquet(p))
+        manifest = build_manifest(signal_artifact, label_artifact, panel)
+        _attach_hashes(manifest["artifacts"], output_dir)
+        summary = {**summary, **manifest}
+        _atomic_write(output_dir / SUMMARY_FILE, lambda p: p.write_text(
+            json.dumps(summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8"))
+        if stale is not None:
+            stale.unlink(missing_ok=True)     # 覆盖写成功：清理 tombstone
     return summary
 
 
@@ -293,17 +381,23 @@ def write_multi_output_factor_artifacts(output_dir: Path,
     _check_no_internal_columns(panel, "panel")
     validate_label_schema_v1(label_artifact)
     output_dir.mkdir(parents=True, exist_ok=True)
-    for o, frame in signals.items():
-        _atomic_write(output_dir / signal_multi_file(o),
-                      lambda p, f=frame: f.write_parquet(p))
-    _atomic_write(output_dir / LABELS_FILE,
-                  lambda p: label_artifact.frame.write_parquet(p))
-    _atomic_write(output_dir / LEGACY_PANEL_FILE,
-                  lambda p: panel.write_parquet(p))
-    manifest = build_multi_output_manifest(signals, meta, label_artifact, panel)
-    summary = {**summary, **manifest}
-    _atomic_write(output_dir / SUMMARY_FILE, lambda p: p.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8"))
+    with _run_write_lock(output_dir):
+        # R02-I8：旧 manifest 先失效（必须在任何 core 文件写入之前）
+        stale = _invalidate_summary(output_dir)
+        for o, frame in signals.items():
+            _atomic_write(output_dir / signal_multi_file(o),
+                          lambda p, f=frame: f.write_parquet(p))
+        _atomic_write(output_dir / LABELS_FILE,
+                      lambda p: label_artifact.frame.write_parquet(p))
+        _atomic_write(output_dir / LEGACY_PANEL_FILE,
+                      lambda p: panel.write_parquet(p))
+        manifest = build_multi_output_manifest(signals, meta, label_artifact, panel)
+        _attach_hashes(manifest["artifacts"], output_dir)
+        summary = {**summary, **manifest}
+        _atomic_write(output_dir / SUMMARY_FILE, lambda p: p.write_text(
+            json.dumps(summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8"))
+        if stale is not None:
+            stale.unlink(missing_ok=True)     # 覆盖写成功：清理 tombstone
     return summary
 
 
@@ -417,6 +511,7 @@ def load_signal_artifact(result_dir: Path) -> SignalArtifact:
     path = result_dir / SIGNAL_FILE
     if not path.exists():
         raise ValueError(f"signal.parquet 不存在: {path}（禁止 fallback 到 panel.parquet）")
+    _verify_hash(sig, path, "signal")          # R02-I8：内容交叉校验
     frame = pl.read_parquet(path)
     if sig["rows"] != frame.height:
         raise ValueError(f"signal manifest rows {sig['rows']} != 实际 parquet rows {frame.height}")
@@ -444,6 +539,7 @@ def load_label_artifact(result_dir: Path) -> LabelArtifact:
     path = result_dir / LABELS_FILE
     if not path.exists():
         raise ValueError(f"labels.parquet 不存在: {path}")
+    _verify_hash(lab, path, "labels")          # R02-I8：内容交叉校验
     frame = pl.read_parquet(path)
     if lab["rows"] != frame.height:
         raise ValueError(f"labels manifest rows {lab['rows']} != 实际 parquet rows {frame.height}")

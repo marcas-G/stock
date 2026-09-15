@@ -291,3 +291,87 @@ def test_chunked_artifacts_match_memory(tmp_path):
     loaded_lab = load_label_artifact(tmp_path / "out_c")
     assert loaded_sig.frame.equals(r.signal_artifact.frame)
     assert loaded_lab.frame.equals(r.label_artifact.frame)
+
+
+# ================================================================
+# R02-I8 — run 产物落盘：单写者锁 + manifest 先失效 + 内容 hash 交叉校验
+# （与 M8-I1 同语义：并发 fail fast；崩溃窗口绝不产生可加载的混合 bundle）
+# ================================================================
+
+def test_manifest_records_content_hash(tmp_path):
+    """新 manifest 每 core artifact 记录 sha256（load 端交叉校验的锚点）。"""
+    import re
+    from factorlab.adapters import parquet_artifacts as A
+    build_db(tmp_path)
+    _run(tmp_path, _spec(tmp_path))
+    s = json.loads((tmp_path / "out" / SUMMARY_FILE).read_text(encoding="utf-8"))
+    for name in ("signal", "labels", "panel"):
+        h = s["artifacts"][name].get("sha256")
+        assert isinstance(h, str) and re.fullmatch(r"[0-9a-f]{64}", h), name
+
+
+def test_signal_content_hash_mismatch_rejected(tmp_path):
+    """R02-I8：signal.parquet 被外来内容替换（行列相同）→ hash 不一致拒绝加载。"""
+    build_db(tmp_path)
+    _run(tmp_path, _spec(tmp_path))
+    out = tmp_path / "out"
+    sig = pl.read_parquet(out / SIGNAL_FILE)
+    tampered = sig.with_columns((pl.col("signal") * 2).alias("signal"))
+    assert tampered.shape == sig.shape          # 行/列不变——旧校验测不出
+    tampered.write_parquet(out / SIGNAL_FILE)
+    with pytest.raises(ValueError, match="sha256|hash|内容"):
+        load_signal_artifact(out)
+
+
+def test_failed_overwrite_never_hybrid_loadable(tmp_path, monkeypatch):
+    """R02-I8：覆盖写中途失败（labels 写注入 OSError）→ 旧 manifest 必须先失效，
+    load 必须 fail loudly——绝不返回「新 signal + 旧 labels/summary」混合体。"""
+    from factorlab.adapters import parquet_artifacts as A
+    build_db(tmp_path)
+    _run(tmp_path, _spec(tmp_path))                 # A 完整落盘
+    out = tmp_path / "out"
+    real = A._atomic_write
+    calls = {"n": 0}
+
+    def flaky(path, writer):
+        calls["n"] += 1
+        if calls["n"] == 2:                          # signal → labels 之间崩溃
+            raise OSError("disk full simulated during labels write")
+        return real(path, writer)
+
+    monkeypatch.setattr(A, "_atomic_write", flaky)
+    with pytest.raises(OSError):
+        _run(tmp_path, _spec(tmp_path, formula="signal = -close"))   # B 覆盖写
+    assert not (out / SUMMARY_FILE).exists()
+    assert (out / A.SUMMARY_STALE_FILE).exists()
+    with pytest.raises(ValueError, match="summary"):
+        load_signal_artifact(out)
+
+
+def test_concurrent_run_write_fails_fast(tmp_path):
+    """R02-I8：单写者锁被占（并发 run 落盘）→ 第二个 writer fail fast。
+
+    不串行化也不覆盖：并发写同一 output_dir 会产生 signal/labels/summary 交叉混合。
+    """
+    import fcntl
+    from factorlab.adapters import parquet_artifacts as A
+    build_db(tmp_path)
+    _run(tmp_path, _spec(tmp_path))
+    out = tmp_path / "out"
+    lock_path = out / A.RUN_WRITE_LOCK_FILE
+    with open(lock_path, "a") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(ValueError, match="锁|并发|落盘"):
+            _run(tmp_path, _spec(tmp_path, formula="signal = -close"))
+
+
+def test_successful_overwrite_removes_tombstone(tmp_path):
+    """覆盖写成功 → summary.json.stale tombstone 清理，新 bundle 可加载且是新内容。"""
+    from factorlab.adapters import parquet_artifacts as A
+    build_db(tmp_path)
+    _run(tmp_path, _spec(tmp_path))
+    _run(tmp_path, _spec(tmp_path, formula="signal = -close"))
+    out = tmp_path / "out"
+    assert not (out / A.SUMMARY_STALE_FILE).exists()
+    loaded = load_signal_artifact(out)
+    assert loaded.frame["signal"].max() < 0        # B 的负值（不是 A 的正值）
