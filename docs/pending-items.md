@@ -86,7 +86,16 @@
     合法（manifest/自有产物/元数据/流式灌库/daily 小切片）；grep 无法区分「事实表读」
     与「manifest 读」，需改成 AST 分析（读的目标是否指向 tick_fact/lob_fact/bars_1m 根）。
 
-14. **平台侧原子写补齐**（R4b 剩余）【R9 进展：**`adapters/batch_flock.py` 已实现并测试**（8 passed：
+14. **平台侧原子写补齐**（R4b 剩余）【R10 进展：**两份编排样板已切到 `BatchFlock`**——
+    `converters/convert_tick_to_parquet` 与 `lob_fact/extract_sz_cancels` 自建的
+    "spawn 进程池 + 在飞窗口 + 停滞重启重试 + 逐结果处理" 整段删除，改用
+    `BatchFlock(..., mp_context='spawn', max_inflight=…, stall_policy='requeue', on_result=…)`；
+    契约为此扩了 5 个可选缝（`max_inflight`/`mp_context`/`initializer`/`stall_policy`/`on_result`），
+    真数据切换前后**内容逐值等价**（20 code 的 tick 三表 672k/1.04M/91k 行 + manifest；
+    30 code 的 cancels 341,940 行 + manifest；行序随完成顺序，既有性质）。
+    **遗留**：`run_lob_batch` 仍保留自有循环——它额外需要**内存低水位派单闸门**（16GB 无页面
+    文件的硬约束）与**周期性审计回调**（runbook 取证），属该工具专有面，未纳入契约。
+    **R9 进展：**`adapters/batch_flock.py` 已实现并测试**（8 passed：
     契约一致 + 锁占用零执行 + 断点保留既有 key + 看门狗按时收敛 + 有失败不落 `_SUCCESS`），
     `ports/batch.py` 的"No Orphan"缺口闭合；**遗留**：三份编排样板（converters / extract_sz_cancels /
     run_lob_batch）切到该实现——它们要么 worker 回传大表（要先改成 worker 自行落盘），要么自带

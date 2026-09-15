@@ -1,0 +1,16 @@
+SZ code 数: 30（20250812）
+== 切换前（HEAD）==
+cancels 202508: 341,940 rows -> 0.003 GB
+  202508: 不落 _SUCCESS (only-day 模式)
+zips_done=30 errors=0 rows=341,940 elapsed_s=2
+== 切换后（当前工作树）==
+cancels 202508: 341,940 rows -> 0.003 GB
+  202508: 不落 _SUCCESS (only-day 模式)
+zips_done=30 errors=0 rows=341,940 elapsed_s=2
+== parquet 清单与 sha256 ==
+diff: /tmp/r10_base_root.sha: 没有那个文件或目录
+diff: /tmp/r10_new_root.sha: 没有那个文件或目录
+字节不同（预期：行序随完成顺序）→ 做全列排序逐值对照
+  ✓ 内容逐值相等（行序不同）: data/fact/tick_fact/_manifest/cancels_manifest.parquet  行数=30
+  ✓ 内容逐值相等（行序不同）: data/fact/tick_fact/cancels/year=2025/month=08/part-000.parquet  行数=341940
+PASS：内容逐值等价
