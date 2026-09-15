@@ -28,8 +28,10 @@
 - TDD：先写失败测试再实现；覆盖正常/边界/错误路径；断言真实行为，不用 mock 糊弄。
 - 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**。
 - 提交前跑对应测试：平台 `cd platform && .venv/bin/python -m pytest -q`（基线 **2543 passed / 13 skipped**）；
-  研究 `emb/bin/python -m pytest research/tools -q`（基线 **225 passed / 3 skipped**）+ T1
+  研究 `emb/bin/python -m pytest research/tools -q`（基线 **231 passed / 3 skipped**）+ T1
   `platform/.venv/bin/python -m pytest research/tools/{strategies,ch_ingest,factor_lib,1m_features}/tests -q`（**40**）。
+- 工具拓扑门：`python scripts/check_tool_layering.py`（core 不反依赖 / 生产不带诊断 /
+  工具不互相 import / lib 是叶子）+ `--selftest`。
 - 数据接口门（AST）：`python scripts/check_dataiface.py`（ENFORCED：研究侧分区字面量 / 标记路径构造；
   REPORT：平台表名 / 研究侧直读）+ `--selftest`。
 - 涉及数据窗口/分组/对齐语义的改动必须有能捕获跨资产泄漏、未来函数、错位的回归测试。

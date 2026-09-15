@@ -1,0 +1,14 @@
+code 数: 20（20250812）
+== 切换前 ==
+trades 202508: 672,170 rows -> 0.00 GB
+errors=0 total_elapsed_s=3
+== 切换后 ==
+trades 202508: 672,170 rows -> 0.00 GB
+errors=0 total_elapsed_s=3
+== 对照 ==
+sha256 不同（行序随完成顺序）→ 全列排序逐值对照：
+  ✓ 内容逐值相等（行序不同）: data/fact/tick_fact/_manifest/conversion_manifest.parquet  行数=20
+  ✓ 内容逐值相等（行序不同）: data/fact/tick_fact/orders/year=2025/month=08/part-000.parquet  行数=1040267
+  ✓ 内容逐值相等（行序不同）: data/fact/tick_fact/snapshots/year=2025/month=08/part-000.parquet  行数=91129
+  ✓ 内容逐值相等（行序不同）: data/fact/tick_fact/trades/year=2025/month=08/part-000.parquet  行数=672170
+PASS：内容逐值等价

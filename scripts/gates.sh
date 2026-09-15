@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # stock 工作区常驻门（单仓单树）
 #
-# 用法：bash scripts/gates.sh [--all|--structure|--dataiface]
+# 用法：bash scripts/gates.sh [--all|--structure|--topo|--dataiface]
 # 设计：分两档——
 #   [强制] 结构门：现在就必须绿，红了即失败退出；
 #   [判定] 数据接口门：R8c 起由 `scripts/check_dataiface.py` 做 **AST 判据**
@@ -72,6 +72,14 @@ structure() {
 }
 
 # ── 数据接口门（R4 前为报告模式）────────────────────────────────
+topo() {
+  # R11：工具拓扑（依赖方向 / 横向耦合）。判据与自检见 scripts/check_tool_layering.py。
+  PY=${PLATFORM}/.venv/bin/python
+  [ -x "$PY" ] || PY=python3
+  "$PY" scripts/check_tool_layering.py || FAIL=1
+  "$PY" scripts/check_tool_layering.py --selftest || FAIL=1
+}
+
 dataiface() {
   # R8c：从"报告模式 grep 计数"升级为 AST 判定——
   #   ENFORCED：研究侧分区字面量（`year=` 只许 partitions 产出）、标记路径构造（只许 writekit）；
@@ -89,7 +97,8 @@ echo "== stock gates =="
 case "$MODE" in
   --structure) structure ;;
   --dataiface) dataiface ;;
-  *) structure; echo; dataiface ;;
+  --topo) topo ;;
+  *) structure; echo; topo; echo; dataiface ;;
 esac
 echo
 if [ "$FAIL" = "0" ]; then echo "结构门：全绿"; else echo "结构门：有失败（见上）"; fi
