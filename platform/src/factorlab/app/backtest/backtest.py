@@ -41,6 +41,7 @@ import polars as pl
 
 from factorlab.ports.read import ReadPort
 from factorlab.adapters.read.market_open import load_adj_event_window
+from factorlab.adapters.read.minute_window import load_execution_window
 from factorlab.core.domain.accounting import PortfolioMarkSnapshot
 from factorlab.core.domain.backtest import (BacktestResult, ExecutionArtifact,
                                        NavSeries)
@@ -49,11 +50,14 @@ from factorlab.core.domain.execution import (ExecutionDataQualityError,
                                         OpenOrderDisposition, PortfolioState,
                                         PortfolioStatePhase)
 from factorlab.core.domain.portfolio import TargetPortfolio
+from factorlab.core.domain.timing import ExecutionTiming
 from factorlab.core.execution.accounting import summarize_execution_accounting
 from factorlab.app.backtest.calendar import resolve_execution_schedule
 from factorlab.core.execution.fillability import assess_open_fillability
-from factorlab.app.backtest.fills import realize_open_fills
+from factorlab.app.backtest.fills import (realize_open_fills,
+                                      realize_window_fills)
 from factorlab.app.backtest.market import load_market_open_snapshot
+from factorlab.core.execution.minute_window import WindowBacktestResult
 from factorlab.app.backtest.orders import construct_order_batch
 from factorlab.app.backtest.overnight import (TrailingUnresolvedError,
                                           advance_to_next_trading_day)
@@ -68,11 +72,86 @@ _EMPTY_POS = pl.DataFrame(
      "quantity": pl.Series([], dtype=pl.Int64),
      "sellable_quantity": pl.Series([], dtype=pl.Int64)})
 
+_EMPTY_MINUTES = pl.DataFrame(
+    {"code": pl.Series([], dtype=pl.String),
+     "minute_index": pl.Series([], dtype=pl.Int64),
+     "open": pl.Series([], dtype=pl.Float64),
+     "high": pl.Series([], dtype=pl.Float64),
+     "low": pl.Series([], dtype=pl.Float64),
+     "close": pl.Series([], dtype=pl.Float64),
+     "volume": pl.Series([], dtype=pl.Float64),
+     "amount": pl.Series([], dtype=pl.Float64),
+     "session_type": pl.Series([], dtype=pl.Int64)})
+
 
 class MarksPolicy(Enum):
-    """NAV marks 来源策略（v1 只实现 OPEN_BASED）。"""
+    """NAV marks 来源策略。
+
+    - OPEN_BASED：execution date raw open（NEXT_OPEN v1）
+    - WINDOW_END_BASED：执行日**窗口末分钟 close**（NEXT_WINDOW；该 code 当日
+      无分钟行 → 沿用 mark_map 上次 mark——停牌冻结语义同 OPEN_BASED）
+    """
 
     OPEN_BASED = "open_based"
+    WINDOW_END_BASED = "window_end_based"
+
+
+def _canonicalize_window(minute_frame: pl.DataFrame, codes: list[str],
+                         exec_date) -> pl.DataFrame:
+    """批读 6 位 code → canonical ts_code（读契约输出 6 位；M8 全链 canonical）。"""
+    mapping = {c.split(".")[0]: c for c in codes}
+    unknown = sorted({c for c in minute_frame["code"].to_list()
+                      if "." not in c and c not in mapping})
+    if unknown:
+        raise ExecutionDataQualityError(
+            f"{unknown} 出现在分钟 frame 但不在 planning codes 中——"
+            f"读取范围外数据（cross-object coverage bug）")
+    return minute_frame.with_columns(
+        pl.when(pl.col("code").is_in(list(mapping)))
+        .then(pl.col("code").replace_strict(mapping))
+        .otherwise(pl.col("code")).alias("code"))
+
+
+def _window_open_prices(minute_frame: pl.DataFrame, codes: list[str],
+                        exec_date) -> dict[str, float]:
+    """窗口首分钟 open 规划参考价（缺任一 code → fail fast，不发明价格）。"""
+    valid = minute_frame.filter(pl.col("open").is_not_null())
+    first = valid.sort(["code", "minute_index"]).unique(
+        subset=["code"], keep="first")
+    m = dict(zip(first["code"].to_list(), first["open"].to_list()))
+    missing = [c for c in codes if c not in m]
+    if missing:
+        raise ExecutionDataQualityError(
+            f"{missing} 在 {exec_date} 缺窗口首分钟 open（分钟数据缺失/停牌）"
+            f"——NEXT_WINDOW 规划参考价 fail fast（不发明价格）")
+    return {c: float(m[c]) for c in codes}
+
+
+def _marks_from_window(minute_frame: pl.DataFrame, codes: list[str], date, *,
+                       mark_map: dict[str, float]) -> PortfolioMarkSnapshot:
+    """窗口末分钟 close → mark（无分钟行 → 沿用 mark_map 上次 mark）。"""
+    rows = []
+    for code in sorted(codes):
+        sub = minute_frame.filter(pl.col("code") == code)
+        close = None
+        if sub.height:
+            valid = sub.filter(pl.col("close").is_not_null())
+            if valid.height:
+                close = valid.sort("minute_index")["close"][-1]
+        if close is not None:
+            mark_map[code] = close
+            mark = close
+        else:
+            mark = mark_map.get(code)
+            if mark is None:
+                raise ExecutionDataQualityError(
+                    f"{code} 在 {date} 无窗口分钟 close 且 run mark_map 无先前 "
+                    f"mark——无法估值（结构上不应发生，防御性 fail）")
+        rows.append((code, mark))
+    frame = pl.DataFrame(rows, schema=["code", "mark_price"], orient="row")
+    frame = frame.with_columns(pl.col("code").cast(pl.String),
+                               pl.col("mark_price").cast(pl.Float64))
+    return PortfolioMarkSnapshot(as_of_date=date, frame=frame)
 
 
 def _marks_from_snapshot(snapshot, codes: list[str], date, *,
@@ -172,10 +251,26 @@ def run_backtest(
             f"{type(execution_spec).__name__}——cost model 显式选择 Gate）")
     if not isinstance(rd, ReadPort):
         raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
-    if marks is not MarksPolicy.OPEN_BASED:
+
+    # ---- R22 timing 分派：NEXT_OPEN（默认，零改动）/ NEXT_WINDOW / NEXT_CLOSE 拒绝 ----
+    timing = execution_spec.execution_timing
+    is_window = timing is ExecutionTiming.NEXT_WINDOW
+    if timing is ExecutionTiming.NEXT_CLOSE:
         raise NotImplementedError(
-            f"MarksPolicy v1 仅支持 OPEN_BASED（收到 {marks!r}——"
-            f"caller-explicit/stale policy 未实现）")
+            "NEXT_CLOSE 未实现（设计非目标；既有 7 处显式拒绝保持不动）")
+    if marks not in (MarksPolicy.OPEN_BASED, MarksPolicy.WINDOW_END_BASED):
+        raise NotImplementedError(
+            f"MarksPolicy 仅支持 OPEN_BASED/WINDOW_END_BASED（收到 {marks!r}"
+            f"——caller-explicit/stale policy 未实现）")
+    if marks is MarksPolicy.WINDOW_END_BASED and not is_window:
+        raise ValueError(
+            "MarksPolicy.WINDOW_END_BASED 仅适用于 execution_timing="
+            "NEXT_WINDOW（NEXT_OPEN 必须用 OPEN_BASED）")
+    minute_window = execution_spec.minute_window
+    if is_window and minute_window is None:                   # pydantic 已拦
+        raise ValueError("NEXT_WINDOW 缺 minute_window")
+
+    window_details: list[pl.DataFrame] = []
 
     # ---- 决策序列（R01-M8-I4：range 内 target/schedule 一致）----
     all_dates = list(target.decision_dates)
@@ -280,40 +375,91 @@ def run_backtest(
         plan_target, plan_state, plan_snapshot, plan_rules = plan
 
         # ---- 已关闭 pipeline（plan 输入已 mask；成交/记账用真实对象）----
-        orders = construct_order_batch(plan_target, schedule, plan_state,
-                                       plan_snapshot, plan_rules,
-                                       decision_date=decision_d)
+        if is_window:
+            window_codes = plan_snapshot.frame["code"].to_list()
+            if window_codes:
+                minute_frame = _canonicalize_window(
+                    load_execution_window(rd, window_codes,
+                                          exec_date.isoformat(),
+                                          minute_window.start,
+                                          minute_window.end),
+                    window_codes, exec_date)
+                planning_prices = _window_open_prices(minute_frame, window_codes,
+                                                      exec_date)
+            else:
+                minute_frame = _EMPTY_MINUTES
+                planning_prices = {}
+            orders = construct_order_batch(
+                plan_target, schedule, plan_state, plan_snapshot, plan_rules,
+                decision_date=decision_d, planning_prices=planning_prices)
+        else:
+            minute_frame = None
+            orders = construct_order_batch(plan_target, schedule, plan_state,
+                                           plan_snapshot, plan_rules,
+                                           decision_date=decision_d)
         assessment = assess_open_fillability(orders, snapshot)
-        fills = realize_open_fills(orders, assessment, state, snapshot, rules,
-                                   execution_spec.cost_model)
+        if is_window:
+            realized = realize_window_fills(
+                orders, state, minute_frame=minute_frame, snapshot=snapshot,
+                spec=minute_window, quantity_rules=rules,
+                cost_spec=execution_spec.cost_model)
+            fills = realized.fill_batch
+            window_details.append(realized.detail)
+        else:
+            fills = realize_open_fills(orders, assessment, state, snapshot,
+                                       rules, execution_spec.cost_model)
         post = apply_fill_batch(state, fills)
         accounting = summarize_execution_accounting(state, fills, post)
 
-        # ---- open-based marks + valuation + sanity（冻结沿用 mark_map）----
+        # ---- marks + valuation + sanity（冻结沿用 mark_map）----
         pre_codes = state.positions["code"].to_list()
         post_codes = post.positions["code"].to_list()
-        pre_marks = _marks_from_snapshot(snapshot, pre_codes, exec_date,
-                                         mark_map=mark_map)
-        post_marks = _marks_from_snapshot(snapshot, post_codes, exec_date,
-                                          mark_map=mark_map)
+        if is_window:
+            pre_marks = _marks_from_window(minute_frame, pre_codes, exec_date,
+                                           mark_map=mark_map)
+            post_marks = _marks_from_window(minute_frame, post_codes, exec_date,
+                                            mark_map=mark_map)
+        else:
+            pre_marks = _marks_from_snapshot(snapshot, pre_codes, exec_date,
+                                             mark_map=mark_map)
+            post_marks = _marks_from_snapshot(snapshot, post_codes, exec_date,
+                                              mark_map=mark_map)
         pre_nav = value_portfolio(state, pre_marks)
         post_nav = value_portfolio(post, post_marks)
         total_fees = fills.frame["total_fees"].sum() if fills.frame.height \
             else 0.0
-        slippage_free = fills.frame.height == 0 or bool(
-            (fills.frame["execution_price"]
-             == fills.frame["reference_price"]).all())
-        if slippage_free:
-            # 浮点容差（2026-09-08 真实段实测）：合成价（小整数/二分位）恰好
-            # 二进制可表示 → exact 相等成立；真实价（任意小数 × 大 qty 累计）
-            # 单 ulp 噪声（~1e-10@7e5）即破坏 exact 比较。rel 1e-9/abs 1e-6
-            # 只放行 float 舍入，真实缺陷（错价/错 qty/漏记账）偏差 ≥ 分级别。
-            if not math.isclose(post_nav.nav, pre_nav.nav - total_fees,
+        if is_window:
+            # 窗口执行零差异锚：NAV 变化 == 成交 mark-to-market + 费用
+            # （mark 与成交价口径不同，NEXT_OPEN 的零成本不变式不适用）
+            expected_delta = 0.0
+            for code, side, filled, exec_p in fills.frame.select(
+                    ["code", "side", "filled_quantity",
+                     "execution_price"]).iter_rows():
+                m = mark_map[code]
+                expected_delta += (filled * (m - exec_p) if side == "buy"
+                                   else filled * (exec_p - m))
+            expected_delta -= total_fees
+            if not math.isclose(post_nav.nav, pre_nav.nav + expected_delta,
                                 rel_tol=1e-9, abs_tol=1e-6):
                 raise RuntimeError(
-                    f"{exec_date} value-neutrality sanity 失败：POST NAV "
-                    f"{post_nav.nav} != PRE NAV {pre_nav.nav} - fees "
-                    f"{total_fees}")
+                    f"{exec_date} NEXT_WINDOW NAV 恒等式失败：POST NAV "
+                    f"{post_nav.nav} != PRE NAV {pre_nav.nav} + MTM "
+                    f"{expected_delta}（fees {total_fees}）")
+        else:
+            slippage_free = fills.frame.height == 0 or bool(
+                (fills.frame["execution_price"]
+                 == fills.frame["reference_price"]).all())
+            if slippage_free:
+                # 浮点容差（2026-09-08 真实段实测）：合成价（小整数/二分位）恰好
+                # 二进制可表示 → exact 相等成立；真实价（任意小数 × 大 qty 累计）
+                # 单 ulp 噪声（~1e-10@7e5）即破坏 exact 比较。rel 1e-9/abs 1e-6
+                # 只放行 float 舍入，真实缺陷（错价/错 qty/漏记账）偏差 ≥ 分级别。
+                if not math.isclose(post_nav.nav, pre_nav.nav - total_fees,
+                                    rel_tol=1e-9, abs_tol=1e-6):
+                    raise RuntimeError(
+                        f"{exec_date} value-neutrality sanity 失败：POST NAV "
+                        f"{post_nav.nav} != PRE NAV {pre_nav.nav} - fees "
+                        f"{total_fees}")
 
         # ---- disposition 计数（只读诊断）----
         counts = [0, 0, 0, 0]
@@ -351,6 +497,12 @@ def run_backtest(
         pl.col("cash").cast(pl.Float64),
         pl.col("market_value").cast(pl.Float64),
         pl.col("nav").cast(pl.Float64))
+    if is_window:
+        return WindowBacktestResult(
+            artifacts=tuple(artifacts), nav_series=NavSeries(frame=nav_frame),
+            final_state=final_state if trailing else state,
+            trailing_unresolved=trailing,
+            window_fills=tuple(window_details), execution_spec=execution_spec)
     return BacktestResult(artifacts=tuple(artifacts),
                           nav_series=NavSeries(frame=nav_frame),
                           final_state=final_state if trailing else state,

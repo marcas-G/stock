@@ -57,8 +57,14 @@ def construct_order_batch(
     quantity_rules,
     *,
     decision_date: datetime.date,
+    planning_prices: dict[str, float] | None = None,
 ) -> OrderBatch:
     """规划一个 execution event 的净订单（见模块 docstring）。
+
+    planning_prices：可选显式规划参考价（code → price）；缺省 None = 沿用
+    `snapshot.open`（NEXT_OPEN 零改动）。NEXT_WINDOW 传窗口首分钟 open
+    （R22：规划 equity / target shares / sell funding 用窗口参考价；任一
+    planning code 缺价 → fail fast，不发明价格）。
 
     Raises:
         TypeError: 任一输入类型不匹配（不自动转换）
@@ -198,16 +204,36 @@ def construct_order_batch(
                 f"(has_daily=False)——M8-03 需以 raw open 计算 planning equity / "
                 f"target shares / sell funding；fillability 判定属 M8-04")
 
+    # ---- planning reference price（缺省 = snapshot.open；R22 窗口参考价）----
+    price_by_code = open_by_code
+    if planning_prices is not None:
+        if not isinstance(planning_prices, dict):
+            raise ValueError(
+                f"planning_prices 必须为 dict[str, float]（收到 "
+                f"{type(planning_prices).__name__}）")
+        missing_px = [c for c in planning_codes if c not in planning_prices]
+        if missing_px:
+            raise ValueError(
+                f"planning_prices 缺 planning_codes 的参考价 {missing_px}"
+                f"——NEXT_WINDOW 规划价 fail fast（不发明价格）")
+        for c in planning_codes:
+            p = planning_prices[c]
+            if isinstance(p, bool) or not isinstance(p, (int, float)) \
+                    or not math.isfinite(p) or p <= 0:
+                raise ValueError(
+                    f"planning_prices[{c!r}] 必须 finite > 0（收到 {p!r}）")
+        price_by_code = planning_prices
+
     # ---- planning equity / target value / ideal target shares ----
     # （all-cash：target shares=0，无需 equity——只生成 SELL intent）
     equity = 0.0
     if not is_all_cash:
         equity = state.cash + sum(
-            qty_by_code.get(c, 0) * open_by_code[c] for c in planning_codes)
+            qty_by_code.get(c, 0) * price_by_code[c] for c in planning_codes)
         ideal_by_code: dict[str, int] = {}
         for _date, code, weight in selected_target.iter_rows():
             target_value = weight * equity
-            ideal_by_code[code] = math.floor(target_value / open_by_code[code])
+            ideal_by_code[code] = math.floor(target_value / price_by_code[code])
 
     # ---- delta / SELL（sellable cap + quantity projection）----
     sell_orders: list[tuple[str, int]] = []     # (code, quantity)
@@ -225,7 +251,7 @@ def construct_order_batch(
             if projected > 0:
                 sell_orders.append((code, projected))
                 if not is_all_cash:
-                    sell_notional += projected * open_by_code[code]
+                    sell_notional += projected * price_by_code[code]
 
     # ---- BUY（provisional projection → sell-first funding → 比例缩放）----
     buy_budget = state.cash + (sell_notional if not is_all_cash else 0.0)
@@ -239,7 +265,7 @@ def construct_order_batch(
             if projected > 0:
                 provisional.append((code, projected))
     provisional_notional = sum(
-        q * open_by_code[c] for c, q in provisional) if not is_all_cash else 0.0
+        q * price_by_code[c] for c, q in provisional) if not is_all_cash else 0.0
 
     final_buys: list[tuple[str, int]] = []
     if provisional:
@@ -254,7 +280,7 @@ def construct_order_batch(
                     final_buys.append((code, projected))
 
     # ---- funding invariant（final spend <= buy_budget，float 容差内）----
-    final_spend = sum(q * open_by_code[c] for c, q in final_buys)
+    final_spend = sum(q * price_by_code[c] for c, q in final_buys)
     tol = _BUDGET_TOL * max(1.0, buy_budget)
     if final_spend > buy_budget + tol:
         raise RuntimeError(
