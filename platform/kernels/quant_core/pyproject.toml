@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quant-core"
+version = "0.1.0"
+description = "quant_core 评估内核的 Python shim（契约一致的占位实现，供 factorlab run 评估阶段；Rust 内核未来同包名替换）"
+requires-python = ">=3.10"
+dependencies = [
+    "polars>=1.38",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]

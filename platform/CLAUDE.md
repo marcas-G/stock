@@ -61,9 +61,10 @@ surfaces/ (cli/web)  →  app/ (bootstrap/run/evaluate)  →  ports/ (6 条契�
 ## 环境事实
 
 - Python 3.13（本目录自带 uv 管理 venv：`.venv/`；解释器 `.venv/bin/python`）。
-  目录移动后需重装 editable：
-  `uv pip install --python .venv/bin/python -e . --no-deps --no-build-isolation`；
-  评估依赖 `quant_core`（shim 包在 `../quant_core_shim`，同样以 editable 装入本 venv）。
+  目录移动后重装 editable + 落位断言：`bash ../scripts/reinstall_editable.sh`
+  （等价于 `uv pip install --python .venv/bin/python -e . -e kernels/quant_core --no-deps --no-build-isolation`）。
+  评估依赖 `quant_core`（R18 起在 **`platform/kernels/quant_core/`**——内核发行物唯一声明点；
+  仅装入本 venv，**emb(T2) 不装**：research 侧零消费者）。
 - 平台库 `data/factorlab.duckdb`（`settings.platform_db`）**当前不存在**（teajoin token 过期）：
   生产读路径用 `FACTORLAB_DATA_BACKEND=ch`（ClickHouse）。写入仅经
   `factorlab data rebuild/update/refresh`。
