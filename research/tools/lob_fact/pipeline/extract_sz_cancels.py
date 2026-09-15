@@ -45,13 +45,14 @@ sys.path.insert(0, os.path.join(
     'converters'))
 import convert_tick_to_parquet as cvt
 from lib import writekit as W  # noqa: E402  （R8c：锁/标记单点）
+from factorlab.adapters.batch_flock import BatchFlock  # noqa: E402  （R10：P-5 编排单点）
+from factorlab.ports.batch import Task  # noqa: E402
 from pathlib import Path  # noqa: E402
 from factorlab.core.factio import partitions  # noqa: E402  （R8c：分区规则单点）
-import io, glob, json, time, argparse, zipfile, signal, multiprocessing   # R8c：fcntl 随锁收敛删除
+import io, glob, json, time, argparse, zipfile, signal   # R10：multiprocessing 随编排收敛删除
 import numpy as np, pandas as pd
 import datetime as dt
 import pyarrow as pa
-from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
 
 CANCELS_SCHEMA = pa.schema([
     pa.field('code', pa.string()), pa.field('trade_date', pa.date32()),
@@ -198,6 +199,15 @@ def _process_zip(z, day):
         return ('error', f'{type(e).__name__}: {e}')
 
 
+def _run_one_zip(task):
+    """BatchFlock 的 worker 适配器（模块级 → spawn 可 pickle）。
+
+    只做"算"，父进程侧的事（缓冲/写盘/记账）一律在 `on_result`。
+    """
+    d, z = task.payload
+    return process_zip(z, d)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--workers', type=int, default=6)
@@ -264,74 +274,48 @@ def main():
     buffers = {}   # ym -> [tab]
     n_buf = {}     # ym -> zip count
     man_rows, errors = [], []
-    ctx = multiprocessing.get_context('spawn')
-    MAX_INFLIGHT = max(args.workers * MAX_INFLIGHT_MUL, 12)
     n_done = 0
-    stall_streak = 0
-    while True:
-        stall = False
-        ex = ProcessPoolExecutor(max_workers=args.workers, mp_context=ctx)
-        futs = {}
-        try:
-            for _ in range(MAX_INFLIGHT):
-                if not pending: break
-                d, z = pending.pop()
-                futs[ex.submit(process_zip, z, d)] = (d, z)
-            while futs:
-                done, _ = wait(futs, timeout=STALL_S, return_when=FIRST_COMPLETED)
-                if not done:
-                    stall = True
-                    print(f'STALL: {STALL_S}s 无完成 → 重启 worker '
-                          f'(in-flight={len(futs)} pending={len(pending)})', flush=True)
-                    break
-                for fu in done:
-                    d, z = futs.pop(fu)
-                    n_done += 1
-                    r = fu.result()
-                    if r is None:
-                        errors.append((d, os.path.basename(z)[:-4], 'date_shifted', ''))
-                    elif isinstance(r, tuple) and r[0] == 'error':
-                        errors.append((d, os.path.basename(z)[:-4], 'parse_error', r[1]))
-                    else:
-                        tab, mrow = r
-                        ym = d[:6]
-                        buffers.setdefault(ym, []).append(tab)
-                        n_buf[ym] = n_buf.get(ym, 0) + 1
-                        if n_buf[ym] >= FLUSH_ZIPS:
-                            if ym not in writers:  # 显式 if (setdefault 副作用教训)
-                                writers[ym] = W.MonthWriter(
-                                    os.path.join(cvt.OUT), 'cancels', ym[:4], ym[4:],
-                                    schema=CANCELS_SCHEMA)
-                            writers[ym].append(pa.concat_tables(buffers.pop(ym)))
-                            n_buf[ym] = 0
-                        man_rows.append(mrow)
-                if n_done % 2000 == 0:
-                    print(f'  {n_done} zips done (total {len(pending)+len(futs)+n_done}), '
-                          f'elapsed {time.time()-t0:.0f}s', flush=True)
-                while len(futs) < MAX_INFLIGHT and pending:
-                    d2, z2 = pending.pop()
-                    futs[ex.submit(process_zip, z2, d2)] = (d2, z2)
-        finally:
-            ex.shutdown(wait=False, cancel_futures=True)
-        if stall:
-            stall_streak += 1
-            for pid in list(getattr(ex, '_processes', {})):
-                try:
-                    os.kill(pid, signal.SIGKILL); os.waitpid(pid, 0)
-                except (OSError, ChildProcessError):
-                    pass
-            if stall_streak >= 3:
-                print(f'连续 {stall_streak} 次 STALL → 放弃剩余 {len(pending)} zip',
-                      flush=True)
-                errors.append(('', '', 'extractor_stall',
-                               f'abandoned {len(pending)} zips after {stall_streak} stalls'))
-                break
-            for d, z in futs.values():
-                pending.append((d, z))
-            print(f'  worker 已清理, 剩余 {len(pending)} zip, 重建 executor', flush=True)
-            continue
-        stall_streak = 0
-        break
+    MAX_INFLIGHT = max(args.workers * MAX_INFLIGHT_MUL, 12)
+
+    def on_result(task, payload):
+        """父进程侧消费（R10）：worker 只回传表与回执行，缓冲/落盘/记账都在这里。"""
+        nonlocal n_done
+        d, z = task.payload
+        n_done += 1
+        if payload is None:
+            errors.append((d, os.path.basename(z)[:-4], 'date_shifted', ''))
+        elif isinstance(payload, tuple) and payload[0] == 'error':
+            errors.append((d, os.path.basename(z)[:-4], 'parse_error', payload[1]))
+        else:
+            tab, mrow = payload
+            ym = d[:6]
+            buffers.setdefault(ym, []).append(tab)
+            n_buf[ym] = n_buf.get(ym, 0) + 1
+            if n_buf[ym] >= FLUSH_ZIPS:
+                if ym not in writers:  # 显式 if (setdefault 副作用教训)
+                    writers[ym] = W.MonthWriter(
+                        os.path.join(cvt.OUT), 'cancels', ym[:4], ym[4:],
+                        schema=CANCELS_SCHEMA)
+                writers[ym].append(pa.concat_tables(buffers.pop(ym)))
+                n_buf[ym] = 0
+            man_rows.append(mrow)
+        if n_done % 2000 == 0:
+            print(f'  {n_done} zips done (total {len(tasks)}), '
+                  f'elapsed {time.time()-t0:.0f}s', flush=True)
+
+    # R10：编排收敛到平台 P-5（BatchFlock）——原先本文件自建的
+    # "spawn 进程池 + workers*3 在飞窗口 + 停滞重启重试 + 逐结果处理" 整段删掉；
+    # 语义逐条对齐：spawn（fork 会复制父进程缓冲，16GB 目标机直接爆）✓、
+    # in-flight = max(workers*3, 12) ✓、停滞 STALL_S 退队列重试 3 次后放弃并记账 ✓、
+    # 结果按完成顺序回调 ✓、worker 异常记账不中断 ✓。
+    tasks = [Task(key=f'{d}|{os.path.basename(z)}', payload=(d, z)) for d, z in pending]
+    rep = BatchFlock().run(
+        tasks, _run_one_zip, workers=args.workers, stall_s=STALL_S,
+        mp_context='spawn', max_inflight=MAX_INFLIGHT,
+        stall_policy='requeue', stall_strikes=3, on_result=on_result)
+    if rep.failed:
+        print(f'提取失败 {rep.failed} 个单元（记账进 errors；可重跑，已 _SUCCESS 的月不动）',
+              flush=True)
 
     # flush 尾部 + close (写 _SUCCESS = 完成标记)
     for ym, tabs in buffers.items():

@@ -28,7 +28,7 @@ os.environ.setdefault('OMP_NUM_THREADS', '2')
 # 2026-08-26 死锁修复: pyarrow 17 默认 jemalloc 内存池长生命周期累积损坏嫌疑
 # (12 worker 满 CPU 死循环 5.5h) → 切系统 malloc, 规避分配器层问题
 os.environ.setdefault('PYARROW_JEMALLOC', '0')
-import io, glob, json, time, argparse, zipfile, signal, multiprocessing   # R8c：fcntl 随锁收敛删除
+import io, glob, json, time, argparse, zipfile, signal   # R10：multiprocessing 随编排收敛删除
 import sys as _sys
 from pathlib import Path as _Path
 
@@ -40,9 +40,10 @@ _ensure_platform()
 from lib import writekit as W  # noqa: E402  （R8c 漏接线：锁/标记单点；R9 由 end-to-end 测试抓回）
 from factorlab.core.factio.timeparse import parse_ms_numpy as _parse_ms_numpy  # noqa: E402
 import pandas as pd, numpy as np, pyarrow as pa, pyarrow.parquet as pq
-from concurrent.futures import ProcessPoolExecutor
 
 from factorlab.core.factio import partitions, paths  # noqa: E402  （R8c：路径/分区单点）
+from factorlab.adapters.batch_flock import BatchFlock  # noqa: E402  （R10：P-5 编排单点）
+from factorlab.ports.batch import Task  # noqa: E402
 ROOT = f'{paths.quark_root()}/'
 OUT = f'{paths.tick_fact_root()}/'
 DAY_RE = __import__('re').compile(r'^(\d{8})$')
@@ -138,6 +139,12 @@ def date_arr(day, n):
     # （tick_fact 全库 trade_date 列因此损坏，2026-08-26 定位）。显式加分隔符。
     iso = f"{day[:4]}-{day[4:6]}-{day[6:]}"
     return pa.array(np.full(n, np.datetime64(iso, 'D')), type=pa.date32())
+
+
+def _run_one_zip(task):
+    """BatchFlock 的 worker 适配器（模块级 → spawn 可 pickle）：只算不回写。"""
+    d, z = task.payload
+    return process_zip(z, d)
 
 
 def process_zip(z, day):
@@ -275,6 +282,7 @@ def _process_zip(z, day):
 
 SCHEMAS = {'trades': TRADES_SCHEMA, 'orders': ORDERS_SCHEMA, 'snapshots': SNAP_SCHEMA}
 FLUSH_ZIPS = 6  # 累积多少个 zip 写一个 row group (~250k 行 trades)
+STALL_S = 900        # 停滞判定窗（R10：作为 BatchFlock 的 stall_s）
 _TMP_SEQ = 0  # 同进程内 tmp 路径唯一化 (pid+序号, 任何重复创建都不共享路径)
 
 
@@ -323,7 +331,6 @@ def main():
         return
 
     t0 = time.time()
-    from concurrent.futures import wait, FIRST_COMPLETED
     writers = {}   # (name, ym) -> MonthWriter
     buffers = {}   # (name, ym) -> [tab]
     n_buf = {}     # (name, ym) -> zip count
@@ -335,101 +342,63 @@ def main():
                for z in sorted(glob.glob(os.path.join(ROOT, d, '*', '*.zip')))]
     n_done = 0
     last_milestone = 0
-    # ---- executor 自愈循环 (2026-08-26 死锁修复) ----
-    # 12 worker 曾全部满 CPU 卡死 5.5h (n_done 永久停滞)。fork 继承/系统事件/单 zip
-    # 数据均已实验排除; jemalloc 累积损坏为最强嫌疑 (PYARROW_JEMALLOC=0 已规避)。
-    # 本循环兜底: wait 900s 无任何完成 → 杀全部 worker → 未完成 zip 重新入队 →
-    # 重建 executor 继续。无论根因为何, 转换必然完成 (卡死 zip 自动重试)。
-    ctx = multiprocessing.get_context('spawn')  # spawn: 全新解释器, 排除 fork 变量
-    STALL_S = 900
-    stall_streak = 0
-    while True:
-        stall = False
-        ex = ProcessPoolExecutor(max_workers=args.workers, mp_context=ctx)
-        futs = {}
-        try:
-            for _ in range(MAX_INFLIGHT):
-                if not pending:
-                    break
-                d, z = pending.pop()
-                futs[ex.submit(process_zip, z, d)] = (d, z)
-            while futs:
-                done, _ = wait(futs, timeout=STALL_S, return_when=FIRST_COMPLETED)
-                if not done:
-                    stall = True
-                    print(f'STALL: {STALL_S}s 无任何完成 → 重启 worker '
-                          f'(in-flight={len(futs)}, pending={len(pending)})',
-                          flush=True)
-                    break
-                for fu in done:
-                    d, z = futs.pop(fu)
-                    n_done += 1
-                    r = fu.result()
-                    if r is None:
-                        errors.append((d, os.path.basename(z)[:-4], 'date_shifted', ''))
-                    elif isinstance(r, tuple) and r[0] == 'error':
-                        errors.append((d, os.path.basename(z)[:-4], 'parse_error', r[1]))
-                    else:
-                        tt, ot, snt, mrow = r
-                        ym = d[:6]
-                        for name, tab in [('trades', tt), ('orders', ot), ('snapshots', snt)]:
-                            key = (name, ym)
-                            buffers.setdefault(key, []).append(tab)
-                            n_buf[key] = n_buf.get(key, 0) + 1
-                            if n_buf[key] >= FLUSH_ZIPS:
-                                # 2026-08-26 修复: 绝不能用 setdefault(key, MonthWriter(...))
-                                # —— setdefault 对已存在 key 仍会求值第二个参数, 每次 flush
-                                # 都新建一个 MonthWriter 并 O_TRUNC 截断活跃 tmp 文件
-                                # (run4 守卫抓到 1024≠490143; run5 活跃文件 blocks=1% 证实
-                                # 截断后稀疏恢复, 写后检查看不见). 显式 if, 零副作用.
-                                if key not in writers:
-                                    writers[key] = W.MonthWriter(OUT, name, ym[:4], ym[4:],
-                                                      schema=SCHEMAS[name])
-                                big = pa.concat_tables(buffers.pop(key))
-                                writers[key].append(big)
-                                n_buf[key] = 0  # 2026-08-26 bugfix: 不重置则每 zip 都 flush
-                        man_rows.append(mrow)
-                if n_done % 5000 == 0:
-                    total = n_done + len(futs) + len(pending)
-                    print(f'  {n_done}/{total} zips done, elapsed '
-                          f'{time.time()-t0:.0f}s', flush=True)
-                else:
-                    last_print = (n_done // 5000) * 5000
-                    if last_print != last_milestone:
-                        total = n_done + len(futs) + len(pending)
-                        print(f'  {n_done}/{total} zips done (milestone {last_print} '
-                              f'skipped), elapsed {time.time()-t0:.0f}s', flush=True)
-                        last_milestone = last_print
-                # 补提交, 维持 in-flight 窗口 (2026-08-25 bugfix: 之前漏了这行导致
-                # 只处理初始 MAX_INFLIGHT 个 zip 就退出)
-                while len(futs) < MAX_INFLIGHT and pending:
-                    d2, z2 = pending.pop()
-                    futs[ex.submit(process_zip, z2, d2)] = (d2, z2)
-        finally:
-            # 不等待卡死 worker (shutdown(wait=True) 会挂死); cancel 未启动任务
-            ex.shutdown(wait=False, cancel_futures=True)
-        if stall:
-            stall_streak += 1
-            # 卡死 worker 还活着 (shutdown(wait=False) 不等它们) → 杀掉回收
-            for pid in list(getattr(ex, '_processes', {})):
-                try:
-                    os.kill(pid, signal.SIGKILL)
-                    os.waitpid(pid, 0)
-                except (OSError, ChildProcessError):
-                    pass
-            if stall_streak >= 3:
-                print(f'连续 {stall_streak} 次 STALL → 放弃剩余 {len(pending)} zip',
-                      flush=True)
-                errors.append(('', '', 'converter_stall',
-                               f'abandoned {len(pending)} zips after {stall_streak} stalls'))
-                break
-            # 未完成任务重新入队 (卡死 zip 自动重试)
-            for d, z in futs.values():
-                pending.append((d, z))
-            print(f'  worker 已清理, 剩余 {len(pending)} zip, 重建 executor', flush=True)
-            continue
-        stall_streak = 0
-        break
+    # ---- 编排收敛到平台 P-5（R10）----
+    # 原先本文件自建的"spawn 进程池自愈循环"整段删掉：2026-08-26 的死锁兜底
+    # （wait 900s 无完成 → 杀 worker → 未完成 zip 重新入队 → 重建 executor）
+    # 正是 `BatchFlock(stall_policy='requeue', stall_strikes=3)` 的语义。
+    # 逐条对齐：spawn（fork 会复制主进程缓冲；2026-08-25 OOM 122GB 教训）✓、
+    # in-flight=max(workers*3,12) 限流（74k future 全量提交 → OOM 教训）✓、
+    # 停滞 900s 重启+重试 ✓、失败记账不中断 ✓、结果按完成顺序回调 ✓。
+    def on_result(task, payload):
+        """主进程侧消费（缓冲 + 记账）；worker 只回传表与回执行。"""
+        nonlocal n_done, last_milestone
+        d, z = task.payload
+        n_done += 1
+        if payload is None:
+            errors.append((d, os.path.basename(z)[:-4], 'date_shifted', ''))
+        elif isinstance(payload, tuple) and payload[0] == 'error':
+            errors.append((d, os.path.basename(z)[:-4], 'parse_error', payload[1]))
+        else:
+            tt, ot, snt, mrow = payload
+            ym = d[:6]
+            for name, tab in [('trades', tt), ('orders', ot), ('snapshots', snt)]:
+                key = (name, ym)
+                buffers.setdefault(key, []).append(tab)
+                n_buf[key] = n_buf.get(key, 0) + 1
+                if n_buf[key] >= FLUSH_ZIPS:
+                    # 2026-08-26 修复: 绝不能用 setdefault(key, MonthWriter(...))
+                    # —— setdefault 对已存在 key 仍会求值第二个参数, 每次 flush
+                    # 都新建一个 MonthWriter 并 O_TRUNC 截断活跃 tmp 文件
+                    # (run4 守卫抓到 1024≠490143; run5 活跃文件 blocks=1% 证实
+                    # 截断后稀疏恢复, 写后检查看不见). 显式 if, 零副作用.
+                    if key not in writers:
+                        writers[key] = W.MonthWriter(OUT, name, ym[:4], ym[4:],
+                                                     schema=SCHEMAS[name])
+                    big = pa.concat_tables(buffers.pop(key))
+                    writers[key].append(big)
+                    n_buf[key] = 0  # 2026-08-26 bugfix: 不重置则每 zip 都 flush
+            man_rows.append(mrow)
+        if n_done % 5000 == 0:
+            print(f'  {n_done}/{len(tasks)} zips done, elapsed '
+                  f'{time.time()-t0:.0f}s', flush=True)
+        else:
+            last_print = (n_done // 5000) * 5000
+            if last_print != last_milestone:
+                print(f'  {n_done}/{len(tasks)} zips done (milestone {last_print} '
+                      f'skipped), elapsed {time.time()-t0:.0f}s', flush=True)
+                last_milestone = last_print
+
+    tasks = [Task(key=f'{d}|{os.path.basename(z)}', payload=(d, z)) for d, z in pending]
+    rep = BatchFlock().run(
+        tasks, _run_one_zip, workers=args.workers, stall_s=STALL_S,
+        mp_context='spawn', max_inflight=MAX_INFLIGHT,
+        stall_policy='requeue', stall_strikes=3, on_result=on_result)
+    if rep.failed:
+        for r in rep.failures:
+            if r.error and r.error.startswith('stall'):
+                errors.append(('', '', 'converter_stall', r.error))
+        print(f'转换失败 {rep.failed} 个单元（记账见 conversion_errors.csv；可重跑）',
+              flush=True)
     # flush 尾部缓冲 + close
     for key, tabs in buffers.items():
         if tabs:
