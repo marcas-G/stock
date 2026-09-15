@@ -27,6 +27,7 @@ flock 单实例 + 900s stall 看门狗 + state.json 断点 (month→date) + MemA
 原子) + conversion_manifest 输入守卫 + 月 _SUCCESS。
 """
 import os
+import sys
 
 # ---- 线程上限: 必须先于任何 polars/arrow/pandas import 落位 (批算内存纪律;
 # spawn worker 每次 import 本模块同样生效; setdefault 不覆盖用户显式设置) ----
@@ -39,12 +40,22 @@ import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+# ---- R14：真正的路径自举（可执行文件自己负责路径）----
+# 此前本文件头部的 `sys.path.insert` 写在 docstring 里（是**示例文本**，不生效），
+# 直接执行 `python pipeline/run_lob_batch.py` 会在下面第一行 import 就 ModuleNotFoundError
+# （测试走 in-process 导入 + conftest 铺路，所以一直没暴露；R14 真跑对照时抓到）。
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # lob_fact/
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))                                                 # tools/
+
 from core.config import GATE_PRES  # R11：校准常量单点在 core/config（此前从 diag 取）
 
 from lib import tickdata as T  # noqa: E402  （R4a：数据读取薄封装）
 from lib import writekit as W  # noqa: E402  （R8c：锁/标记单点）
 from pathlib import Path  # noqa: E402  （R8c：模块级，供分区路径派生）
 from factorlab.core.factio import partitions  # noqa: E402  （R8c：分区规则单点）
+from factorlab.adapters.batch_flock import BatchFlock  # noqa: E402  （R14：P-5 编排单点）
+from factorlab.ports.batch import Task  # noqa: E402
 
 import argparse, datetime as dt, glob, hashlib, json, signal, time   # R8c：fcntl 随锁收敛删除
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
@@ -513,6 +524,11 @@ def _sha256(path, chunk=1 << 20):
     return h.hexdigest()
 
 
+def _run_one_date(task):
+    """BatchFlock 的 worker 适配器（模块级 → spawn 可 pickle）：只算，父进程侧在 on_result。"""
+    return process_date(task.key)
+
+
 def process_date(day):
     """单 date: 4 表 date-major 切读 → 逐表 sort('code') 零拷贝组界 (_code_bounds;
     W4d 定标弃 partition_by — 实测 +4.6GB RSS 纯拷贝) → manifest 序逐 code 守卫 +
@@ -772,6 +788,12 @@ def main(argv=None):
         todo = []
 
     def audit(when):
+        ex = _pool['ex']            # R14：池由 pool_hook 交回来（含停滞重建后的新池）
+        if ex is None:
+            print(f'{when},{os.getpid()},parent,{_proc_rss_kb(os.getpid())},'
+                  f'{_mem_avail_kb()}\n', end='', file=audit_f)
+            audit_f.flush()
+            return
         for pid in list(getattr(ex, '_processes', {})):
             rss = _proc_rss_kb(pid)
             if rss is not None:
@@ -780,94 +802,67 @@ def main(argv=None):
                       f'{_proc_rss_kb(os.getpid())},{_mem_avail_kb()}\n')
         audit_f.flush()
 
-    ctx = multiprocessing.get_context('spawn')
     MAX_INFLIGHT = max(args.workers * 3, 12)
-    pending = list(reversed(todo))     # pop() 取尾部 → 日期正序
-    stall_streak = 0
-    last_act = time.time()
-    last_aud = 0.0
-    ex = ProcessPoolExecutor(max_workers=args.workers, mp_context=ctx,
-                             initializer=_init_worker, initargs=(cfg,))
-    futs = {}
+    _pool = {'ex': None}
+
+    def on_result(task, payload):
+        """父进程侧消费（R14）：day_rows.jsonl + 三分类记账 + 每 date 收尾审计。"""
+        nonlocal n_done_run
+        d = task.key
+        if isinstance(payload, Exception):
+            err_rows.append((d, 'date_exc', repr(payload)[:300]))
+            print(f'{d}: 异常 {payload!r}', flush=True)
+            return
+        rows_f.write(json.dumps(payload, ensure_ascii=False) + '\n')
+        rows_f.flush()
+        n_done_run += 1
+        out = apply_day_result(payload, done, hard_days, err_rows)
+        if out == 'ok':
+            print(f'{d}: OK codes={payload["n_codes"]} rows='
+                  f'{sum(v["rows"] for v in payload["tables"].values())} '
+                  f'eng={payload["engine_ms"]}s fail={payload["n_fail"]} '
+                  f'[{time.time()-t0:.0f}s]', flush=True)
+        elif out == 'hard':
+            print(f'{d}: OK_HARD codes={payload["n_codes"]} fail={payload["n_fail"]} '
+                  f'已落盘 (门拒 code-day 见 day_rows, 交审计裁决) '
+                  f'[{time.time()-t0:.0f}s]', flush=True)
+        else:
+            print(f'{d}: DATE_FAIL codes={payload["n_codes"]} '
+                  f'fail={payload["n_fail"]} errs={payload["errors"]}', flush=True)
+        audit(time.time())      # 每 date 完结算一笔峰值
+
+    # R14：编排收敛到平台 P-5——原先本文件自建的"spawn 池 + 在飞窗口 + 内存低水位派单 +
+    # 900s 停滞重启重试 + 逐日审计"整段删掉。逐条对齐：spawn ✓、in-flight=max(workers*3,12) ✓、
+    # **内存闸门**（`throttle` 按 MemAvailable 低水位）✓、停滞 900s 杀 worker 退队列重试 3 次 ✓、
+    # **周期审计**（`on_tick` + `on_tick_s=AUDIT_S`，读 worker RSS 靠 `pool_hook` 拿当前池）✓、
+    # 每 date 的记账/打印/审计在 `on_result` ✓。
+    def _mem_gate() -> bool:
+        avail = _mem_avail_kb()
+        return True if avail is None else avail >= LOW_WATER_KB
+
+    tasks = [Task(key=d, payload=None) for d in todo]        # todo 已按日期序
     try:
-        while pending or futs:
-            # 节流 + 补单
-            while len(futs) < MAX_INFLIGHT and pending:
-                avail = _mem_avail_kb()
-                if avail is not None and avail < LOW_WATER_KB:
-                    break                    # 低水位: 等审计 tick 再派
-                d = pending.pop()
-                futs[ex.submit(process_date, d)] = d
-            now = time.time()
-            if now - last_aud >= AUDIT_S:
-                audit(now)
-                last_aud = now
-            if not futs:
-                time.sleep(AUDIT_S)
-                continue
-            done_f, _ = wait(futs, timeout=AUDIT_S, return_when=FIRST_COMPLETED)
-            if not done_f:
-                if time.time() - last_act > STALL_S:
-                    stall_streak += 1
-                    print(f'STALL {STALL_S}s 无完成 → SIGKILL worker '
-                          f'(in-flight={len(futs)} pending={len(pending)})',
-                          flush=True)
-                    for pid in list(getattr(ex, '_processes', {})):
-                        try:
-                            os.kill(pid, signal.SIGKILL)
-                            os.waitpid(pid, 0)
-                        except (OSError, ChildProcessError):
-                            pass
-                    if stall_streak >= 3:
-                        print(f'连续 {stall_streak} STALL → 放弃剩余 '
-                              f'{len(pending)+len(futs)} date', flush=True)
-                        for d in futs.values():
-                            err_rows.append((d, 'stall_abandon',
-                                             f'{stall_streak} stalls'))
-                        pending.clear()
-                        futs.clear()
-                        break
-                    for d in futs.values():
-                        pending.append(d)
-                    futs = {}
-                    ex.shutdown(wait=False, cancel_futures=True)
-                    ex = ProcessPoolExecutor(
-                        max_workers=args.workers, mp_context=ctx,
-                        initializer=_init_worker, initargs=(cfg,))
-                    last_act = time.time()
-                    print(f'  worker 已清理, 剩余 {len(pending)} date, 重建 executor',
-                          flush=True)
-                continue
-            last_act = time.time()
-            for fu in done_f:
-                d = futs.pop(fu)
-                try:
-                    p = fu.result()
-                except Exception as e:
-                    err_rows.append((d, 'date_exc', repr(e)[:300]))
-                    print(f'{d}: 异常 {e!r}', flush=True)
-                    continue
-                rows_f.write(json.dumps(p, ensure_ascii=False) + '\n')
-                rows_f.flush()
-                n_done_run += 1
-                out = apply_day_result(p, done, hard_days, err_rows)
-                if out == 'ok':
-                    print(f'{d}: OK codes={p["n_codes"]} rows='
-                          f'{sum(v["rows"] for v in p["tables"].values())} '
-                          f'eng={p["engine_ms"]}s fail={p["n_fail"]} '
-                          f'[{time.time()-t0:.0f}s]', flush=True)
-                elif out == 'hard':
-                    print(f'{d}: OK_HARD codes={p["n_codes"]} fail={p["n_fail"]} '
-                          f'已落盘 (门拒 code-day 见 day_rows, 交审计裁决) '
-                          f'[{time.time()-t0:.0f}s]', flush=True)
-                else:
-                    print(f'{d}: DATE_FAIL codes={p["n_codes"]} '
-                          f'fail={p["n_fail"]} errs={p["errors"]}', flush=True)
-                audit(time.time())      # 每 date 完结算一笔峰值
+        # 原语义：首轮必记一笔（此时池已建、worker 已起 → CSV 里 parent 与 worker 两类行都在）
+        audit(time.time())
+        rep = BatchFlock().run(
+            tasks, _run_one_date, workers=args.workers, stall_s=STALL_S,
+            mp_context='spawn', max_inflight=MAX_INFLIGHT,
+            initializer=_init_worker, initargs=(cfg,),
+            stall_policy='requeue', stall_strikes=3,
+            throttle=_mem_gate,
+            on_tick=lambda: audit(time.time()), on_tick_s=AUDIT_S,
+            pool_hook=lambda pool: _pool.__setitem__('ex', pool),
+            on_result=on_result)
+        if rep.failed:
+            for r in rep.failures:
+                if r.error and r.error.startswith('stall'):
+                    err_rows.append((r.key, 'stall_abandon', r.error))
+            print(f'批算失败 {rep.failed} 个 date（记账见 day_rows/err_rows；可重跑）', flush=True)
     finally:
         rows_f.close()
         audit_f.close()
-        ex.shutdown(wait=False, cancel_futures=True)
+        if _pool['ex'] is not None:
+            _pool['ex'].shutdown(wait=False, cancel_futures=True)
     # state 落盘 (断点: done = 已落盘日 (含 hard); plan_n = 全月计划数)
     state = state_update(state, month, done, len(plan_all), hard_days)
     W.save_state(bdir, state)               # R8c：断点写单点（tmp + os.replace）
