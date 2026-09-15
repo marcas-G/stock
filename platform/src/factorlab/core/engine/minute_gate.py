@@ -27,13 +27,49 @@ _IM_CALLS = frozenset({"im_mean", "im_sum", "im_std", "im_max", "im_min",
                        "im_median", "im_delay"})
 # 一元保常数函数（元素级单参；参数折日常数 → 结果折日常数）
 _UNARY_CONST = frozenset({"abs", "log", "log1p", "sqrt", "exp", "sign", "floor"})
+# 常量调用折叠表（R02-C1：abs/int 常量参数在门内折叠为数值）
+_CONST_CALLS = {"abs": abs, "int": int}
+# 常量比较折叠表（IfExp 常量测试）
+_OPS_CMP = {ast.Lt: lambda a, b: a < b, ast.LtE: lambda a, b: a <= b,
+            ast.Gt: lambda a, b: a > b, ast.GtE: lambda a, b: a >= b,
+            ast.Eq: lambda a, b: a == b, ast.NotEq: lambda a, b: a != b}
+
+
+def _import_aliases(tree: ast.AST) -> dict[str, str]:
+    """`from X import name as alias` → {alias: name}（R02-C1：alias 不得绕过门）。
+
+    仅解析 ImportFrom 的别名（调用形态 `alias(...)` 是 Name 调用）；`import X.Y as Z`
+    的调用是属性调用（`Z.fn(...)`），不在本门 Name 调用覆盖面。"""
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.asname:
+                    aliases[alias.asname] = alias.name
+    return aliases
+
+
+def _resolve_aliases(tree: ast.AST) -> ast.AST:
+    """调用名规范化：alias 调用改写为原名（B3.2/B3.4 判定按原名执行）。"""
+    aliases = _import_aliases(tree)
+    if not aliases:
+        return tree
+
+    class _Resolve(ast.NodeTransformer):
+        def visit_Call(self, node: ast.Call) -> ast.expr:
+            node = self.generic_visit(node)
+            if isinstance(node.func, ast.Name) and node.func.id in aliases:
+                node.func = ast.Name(id=aliases[node.func.id], ctx=ast.Load())
+            return node
+
+    return _Resolve().visit(tree)
 
 
 def _try_num(node: ast.expr, consts: dict[str, int | float]) -> int | float | None:
-    """常量算术折叠：字面量/一元 ±/Name-in-consts/BinOp 四则（含整除/取模）→ 数值
-    或 None（含非常量成分）。窗口/位移参数的算术形态必须静态可见：2-3 → -1，
-    若放行则 codegen 生成 shift(-1) = 取未来行（B3.4 门漏）。Pow 不折叠（幂指数
-    展开耗时且门不需要）。"""
+    """常量算术折叠：字面量/一元 ±/Name-in-consts/BinOp 四则（含整除/取模/Pow）/
+    abs/int 单参调用/常量 IfExp → 数值或 None（含非常量成分）。窗口/位移参数的
+    算术形态必须静态可见：2-3 → -1、2**2-5 → -1、2**0-1 → 0，若放行则 codegen
+    生成 shift(-1) = 取未来行 / 窗口 0 空集（B3.4 门漏，R02-C1 实测）。"""
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) \
             and not isinstance(node.value, bool):
         return node.value
@@ -42,6 +78,25 @@ def _try_num(node: ast.expr, consts: dict[str, int | float]) -> int | float | No
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
         v = _try_num(node.operand, consts)
         return -v if v is not None and isinstance(node.op, ast.USub) else v
+    if isinstance(node, ast.IfExp):
+        cond = _try_bool(node.test, consts)
+        if cond is None:
+            return None
+        return _try_num(node.body if cond else node.orelse, consts)
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
+            and len(node.args) == 1 and not node.keywords:
+        fn = _CONST_CALLS.get(node.func.id)
+        if fn is None:
+            return None
+        v = _try_num(node.args[0], consts)
+        if v is None:
+            return None
+        try:
+            out = fn(v)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        return out if isinstance(out, (int, float)) and not isinstance(out, bool) \
+            else None
     if isinstance(node, ast.BinOp):
         left, right = _try_num(node.left, consts), _try_num(node.right, consts)
         if left is None or right is None:
@@ -58,8 +113,34 @@ def _try_num(node: ast.expr, consts: dict[str, int | float]) -> int | float | No
             return left // right
         if isinstance(node.op, ast.Mod):
             return left % right
+        if isinstance(node.op, ast.Pow):
+            # 指数过大/非整不折叠（保守；运行时与常量表仍可见其他形态），
+            # 但小整数幂必须折叠——2**2-5 = -1 曾静默取未来行。
+            if not isinstance(right, int) or abs(right) > 64:
+                return None
+            try:
+                v = left ** right
+            except (OverflowError, ZeroDivisionError):
+                return None
+            return v if isinstance(v, (int, float)) else None
         return None
     return None
+
+
+def _try_bool(node: ast.expr, consts: dict[str, int | float]) -> bool | None:
+    """常量布尔折叠：literal_eval（True/比较字面量）+ 单比较的常量两侧。"""
+    if isinstance(node, ast.Compare) and len(node.ops) == 1 \
+            and len(node.comparators) == 1:
+        left = _try_num(node.left, consts)
+        right = _try_num(node.comparators[0], consts)
+        if left is None or right is None:
+            return None
+        return _OPS_CMP.get(type(node.ops[0]), lambda a, b: None)(left, right)
+    try:
+        v = ast.literal_eval(node)
+    except (ValueError, SyntaxError, TypeError):
+        return None
+    return bool(v) if isinstance(v, (bool, int, float)) else None
 
 
 def _top_consts(tree: ast.AST) -> dict[str, int | float]:
@@ -75,12 +156,13 @@ def _top_consts(tree: ast.AST) -> dict[str, int | float]:
     return consts
 
 
-def _call_arg(node: ast.Call, kw_name: str) -> ast.expr | None:
-    """第二位置参数或 kw（im_delay 用 d、窗口族用 window）。"""
+def _call_arg(node: ast.Call, kw_name: str | tuple[str, ...]) -> ast.expr | None:
+    """第二位置参数或 kw（im_delay 用 d/k、窗口族用 window）。"""
     if len(node.args) >= 2:
         return node.args[1]
+    names = (kw_name,) if isinstance(kw_name, str) else kw_name
     for kw in node.keywords:
-        if kw.arg == kw_name:
+        if kw.arg in names:
             return kw.value
     return None
 
@@ -102,26 +184,34 @@ def _reject_cross_layer(tree: ast.AST) -> None:
 
 def _check_im_params(tree: ast.AST) -> None:
     """B3.4：im_delay 位移 <= 0 拒（负 = 未来/零 = 无意义）；im_* 窗口 < 1 拒。
-    覆盖字面量/算术折叠/顶层常量间接/kw 形态（shift 位移负值若放行 = codegen
-    生成 polars shift(-1) 取未来行——门即未来函数防线）。"""
+    覆盖字面量/算术折叠（四则/Pow/IfExp/abs/int）/顶层常量间接/kw 形态；非 int
+    静态值（bool/float）同样拒（运行时另有硬校验——见 minute_ops，这是主防线）。"""
     consts = _top_consts(tree)
     for node in _call_names(tree):
         name = node.func.id
         if name == "im_delay":
-            arg = _call_arg(node, "d")
+            arg = _call_arg(node, ("d", "k"))
             k = _try_num(arg, consts) if arg is not None else None
-            if k is not None and k < 0:
+            if k is None:
+                continue
+            if isinstance(k, bool) or not isinstance(k, int):
                 raise ValueError(
-                    f"im_delay 不允许负位移（{node.lineno}:{node.col_offset}，"
+                    f"im_delay 位移必须为 int（{node.lineno}:{node.col_offset}，"
+                    f"收到 {k!r}——bool/float 非法；日内位移 k>=1）")
+            if k < 1:
+                raise ValueError(
+                    f"im_delay 不允许 k<1（{node.lineno}:{node.col_offset}，"
                     f"k={k}——lookback 只能取过去；日内位移 k>=1）")
-            if k is not None and k == 0:
-                raise ValueError(
-                    f"im_delay 位移不能为 0（{node.lineno}:{node.col_offset}——"
-                    f"无意义自引用；日内位移 k>=1）")
         elif name in _IM_CALLS:
             arg = _call_arg(node, "window")
             w = _try_num(arg, consts) if arg is not None else None
-            if w is not None and w < 1:
+            if w is None:
+                continue
+            if isinstance(w, bool) or not isinstance(w, int):
+                raise ValueError(
+                    f"{name} 窗口参数必须为 int（{node.lineno}:"
+                    f"{node.col_offset}，收到 {w!r}——bool/float 非法）")
+            if w < 1:
                 raise ValueError(
                     f"{name} 窗口参数必须 >= 1 分钟（{node.lineno}:"
                     f"{node.col_offset}，收到 {w}）")
@@ -182,7 +272,7 @@ def _fold_const(node: ast.expr, assigns: dict[str, ast.expr],
 
 def validate_minute_scope(formula: str, outputs: list[str]) -> None:
     """bars_1m scope 静态门（宏/def 展开完成后文本上执行）。ValueError 带指引。"""
-    tree = ast.parse(formula)
+    tree = _resolve_aliases(ast.parse(formula))
     _reject_cross_layer(tree)
     _check_im_params(tree)
     assigns = _top_assigns(tree)
@@ -200,9 +290,10 @@ def validate_minute_scope(formula: str, outputs: list[str]) -> None:
 
 
 def reject_minute_ops_in_daily(formula: str) -> None:
-    """日频 scope（缺省 daily）：公式含 im_*/day_* 调用 → ValueError（分钟算子
-    只在 interface: bars_1m；明确报错而非 codegen 深层 NameError）。"""
-    tree = ast.parse(formula)
+    """日频 scope（缺省 daily）：公式含 im_*/day_* 调用（含 import alias）→
+    ValueError（分钟算子只在 interface: bars_1m；明确报错而非 codegen 深层
+    NameError / 静默执行）。"""
+    tree = _resolve_aliases(ast.parse(formula))
     for node in _call_names(tree):
         if node.func.id.startswith(_MINUTE_PREFIXES):
             raise ValueError(

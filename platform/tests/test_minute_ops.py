@@ -221,3 +221,41 @@ formula: |
     from factorlab.core.spec import load_spec
     spec = load_spec(p)
     assert spec.interface == "bars_1m" and spec.adjustment == "raw"
+
+
+# ---------------- R02-C1 运行时硬校验（门漏形态的最后防线） ----------------
+from factorlab.core.ops import minute_ops  # noqa: E402
+
+
+def test_im_delay_runtime_rejects_non_positive_or_non_int():
+    """`im_delay` 运行时硬校验（静态门可被别名/动态形态绕过，这是最后防线）：
+    k 必须为 int 且 >= 1；bool 拒（True 是 int 子类）、float 拒。"""
+    x = pl.col("close")
+    for bad in (-1, 0, True, 1.0, -0.5, "1"):
+        with pytest.raises(ValueError, match="im_delay"):
+            minute_ops.im_delay(x, bad)
+    with pytest.raises(ValueError, match="im_delay"):
+        minute_ops.im_delay(x, k=-1)
+    # 合法 k 产出真实位移（非存根：组首 k 行 null、其余位移对拍）
+    df = pl.DataFrame({
+        "date": [dt.date(2026, 8, 20)] * 4, "code": ["A"] * 4,
+        "minute_index": [0, 1, 2, 3], "close": [10.0, 11.0, 12.0, 13.0]})
+    out = df.select(minute_ops.im_delay(pl.col("close"), 2).alias("v"))
+    assert out["v"].to_list() == [None, None, 10.0, 11.0]
+
+
+def test_im_window_runtime_rejects_lt_one_or_non_int():
+    """im_* 窗口族运行时硬校验：window 必须为 int 且 >= 1（窗口 0 此前静默输出
+    0.0）；bool/float 拒。全部窗口算子逐一验证。"""
+    x = pl.col("close")
+    for op in (minute_ops.im_mean, minute_ops.im_sum, minute_ops.im_std,
+               minute_ops.im_max, minute_ops.im_min, minute_ops.im_median):
+        for bad in (0, -5, True, 1.5):
+            with pytest.raises(ValueError, match=op.__name__):
+                op(x, bad)
+    # 合法窗口产出真实滚动（与手工参照对拍，非存根）
+    df = pl.DataFrame({
+        "date": [dt.date(2026, 8, 20)] * 3, "code": ["A"] * 3,
+        "minute_index": [0, 1, 2], "close": [1.0, 3.0, 5.0]})
+    out = df.select(minute_ops.im_mean(pl.col("close"), 2).alias("v"))
+    assert out["v"].to_list() == [None, 2.0, 4.0]

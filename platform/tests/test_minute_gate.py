@@ -109,6 +109,32 @@ def test_daily_scope_rejects_minute_ops():
             compute_formula(daily, bad)
 
 
+def test_daily_scope_rejects_aliased_minute_ops():
+    """R02-C1：日频 scope 经 import alias 调 im_* 同样拒（否则 codegen 里 import
+    语句照常执行，分钟算子静默进日频公式）。"""
+    daily = pl.DataFrame({"date": [_D, _D], "code": ["A", "B"], "close": [1.0, 2.0]})
+    with pytest.raises(ValueError, match="bars_1m|分钟"):
+        compute_formula(
+            daily,
+            "from factorlab.core.ops.minute_ops import im_mean as imn\n"
+            "signal = imn(close, 5)")
+
+
+def test_minute_scope_rejects_aliased_future_shift_e2e():
+    """R02-C1 e2e：computed 面板入口上 alias 形态的负位移/零窗口必须拒，
+    不得执行出未来分钟折日值（probe7/11 实测此前 ACCEPTED）。"""
+    for bad in (
+        "from factorlab.core.ops.minute_ops import im_delay as imd\n"
+        "signal = day_sum(imd(close, -1))",
+        "from factorlab.core.ops.minute_ops import im_mean as imn\n"
+        "signal = day_sum(imn(close, 0))",
+        "signal = day_sum(im_delay(close, 2 ** 2 - 5))",
+        "signal = day_sum(im_mean(close, 2 ** 0 - 1))",
+    ):
+        with pytest.raises(ValueError, match="im_delay|窗口|分钟"):
+            _run(bad)
+
+
 def test_minute_scope_forbids_universe_mask():
     """minute scope 装配面无 CS mask（截面掩码是日频机制）→ 显式拒。"""
     with pytest.raises(ValueError, match="universe_mask"):
@@ -124,8 +150,9 @@ from factorlab.core.engine.minute_gate import validate_minute_scope
 
 
 def test_gate_direct_window_shift_arithmetic_folds():
-    """窗口/位移参数的算术折叠（B3.4 门漏 = codegen 静默生成未来行）：四则组合
-    折叠为负/零位移必拒；未知算子形态（Pow 不折叠）保守放行（运行时另层兜底）。"""
+    """窗口/位移参数的算术折叠（B3.4 门漏 = codegen 静默生成未来行）：四则/Pow/
+    IfExp/abs/int 常量形态折叠为负/零位移必拒（R02-C1：此前 Pow/IfExp/Call 不折叠
+    → 2**2-5 静默 shift(-1) 取未来分钟）。"""
     for bad in ("signal = day_last(im_delay(close, 1 + 2 - 4))",   # Add+Sub → -1
                 "signal = day_last(im_delay(close, 3 - 4))",       # Sub → -1
                 "signal = day_last(im_delay(close, 2 * 3 - 6))",   # Mult → 0
@@ -136,12 +163,67 @@ def test_gate_direct_window_shift_arithmetic_folds():
                 "_k = -3\nsignal = day_last(im_delay(close, d=_k))"):
         with pytest.raises(ValueError, match="im_delay"):
             validate_minute_scope(bad, ["signal"])
-    # 折叠为正位移/正窗口 → 放行（保守：Pow 不折叠 k=None 也放行）
+    # 折叠为正位移/正窗口 → 放行
     validate_minute_scope(
         "signal = day_last(im_delay(close, 7 % 2))\n"
         "s2 = day_sum(im_mean(close, 2 * 3))", ["signal", "s2"])
     validate_minute_scope("signal = day_last(im_delay(close, 2 ** 4))",
                           ["signal"])
+
+
+def test_gate_direct_pow_ifexp_call_folds():
+    """R02-C1（实测绕过：`2**2-5` 过门且 == im_delay(-1)；`2**0-1` 窗口 0 静默
+    输出 0.0）：Pow/IfExp/abs/int 常量折叠必须进静态门——否则 codegen 静默生成
+    未来行/空窗口。"""
+    for bad in ("signal = day_last(im_delay(close, 2 ** 2 - 5))",   # Pow → -1
+                "signal = day_last(im_delay(close, 2 ** 0 - 1))",   # Pow → 0
+                "signal = day_last(im_delay(close, 0 ** 2))",       # Pow → 0
+                "signal = day_last(im_delay(close, -abs(1)))",      # Call+USub → -1
+                "signal = day_last(im_delay(close, -abs(-1)))",     # Call+USub → -1
+                "signal = day_last(im_delay(close, int(-1)))",      # Call → -1
+                "signal = day_last(im_delay(close, -1 if True else 1))",
+                "signal = day_last(im_delay(close, -1 if 1 > 0 else 1))"):
+        with pytest.raises(ValueError, match="im_delay"):
+            validate_minute_scope(bad, ["signal"])
+    for bad in ("signal = day_sum(im_mean(close, 2 ** 0 - 1))",     # Pow → 0
+                "signal = day_sum(im_mean(close, 2 ** 2 - 5))",     # Pow → -1
+                "signal = day_sum(im_mean(close, int(0)))",         # Call → 0
+                "signal = day_sum(im_mean(close, -abs(0)))"):       # Call → 0
+        with pytest.raises(ValueError, match="窗口"):
+            validate_minute_scope(bad, ["signal"])
+    # 正参数形态不误伤
+    validate_minute_scope(
+        "signal = day_last(im_delay(close, abs(-3)))\n"
+        "s2 = day_sum(im_mean(close, int(30)))", ["signal", "s2"])
+
+
+def test_gate_resolves_import_aliases():
+    """R02-C1：`from ...minute_ops import im_delay as imd` 不得绕过 B3.4 门；
+    ts_/cs_ 等跨层别名同样按原名判（B3.2）。"""
+    validate_minute_scope  # noqa: B018 —— 显式声明本测试直调门
+    for bad in (
+        "from factorlab.core.ops.minute_ops import im_delay as imd\n"
+        "signal = day_sum(imd(close, -1))",
+        "from factorlab.core.ops.minute_ops import im_delay as imd\n"
+        "signal = day_sum(imd(close, 2 ** 2 - 5))",
+        "from factorlab.core.ops.minute_ops import im_mean as imn\n"
+        "signal = day_sum(imn(close, 0))",
+        "from polars_ta.prefix.wq import ts_mean as tm\n"
+        "signal = day_last(tm(close, 5))",
+    ):
+        with pytest.raises(ValueError, match="im_delay|窗口|ts_|分钟"):
+            validate_minute_scope(bad, ["signal"])
+    # 别名指向合法参数仍放行
+    validate_minute_scope(
+        "from factorlab.core.ops.minute_ops import im_delay as imd\n"
+        "signal = day_sum(imd(close, 3))", ["signal"])
+
+
+def test_gate_alias_does_not_treat_import_name_as_call():
+    """import 语句本身不得被误判为调用（`import x as im_delay` 不是 im_* 调用）。"""
+    validate_minute_scope(
+        "from factorlab.core.ops.minute_ops import day_sum as _ds\n"
+        "signal = _ds(close)", ["signal"])
 
 
 def test_gate_direct_fold_combinators():

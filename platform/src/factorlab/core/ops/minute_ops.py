@@ -11,8 +11,15 @@ expr_codegen CL 通道 + compute_formula(scope="bars_1m") 的 extra_codes 注入
 - im_*（kind="im"）：日内窗口，窗口参数 = 分钟（int >= 1）；含当前行、组内首
   n-1 行 null（polars_ta ts_mean 同语义）；窗口严格限当日，无跨日。
 - day_*（kind="day"）：每 (code, date) 组广播常数（折日语义；值不依赖行序）。
+
+运行时硬校验（R02-C1，最后防线）：静态门（minute_gate）是主防线，但 import alias
+（`from ...minute_ops import im_delay as imd`）与门不可折叠的动态形态会绕过静态
+检查——故 im_* 在运行时逐调用硬校验参数（k/window 必须 int 且 >= 1，拒 bool），
+门漏形态在此 fail fast，不允许 codegen 静默 shift(-1) 取未来分钟或窗口 0 空集。
 """
 from __future__ import annotations
+
+import numbers
 
 import polars as pl
 
@@ -22,46 +29,72 @@ _PARTITION = ["code", "date"]
 _ORDER = "minute_index"
 
 
-def _roll(x: pl.Expr, window: int, method: str) -> pl.Expr:
+def _check_window(window, op: str) -> int:
+    """日内窗口参数运行时硬校验：int（拒 bool/float）且 >= 1。"""
+    if isinstance(window, bool) or not isinstance(window, numbers.Integral):
+        raise ValueError(
+            f"{op} 窗口参数必须为 int（收到 {window!r}——bool/float 非法；"
+            f"日内窗口是整分钟数）")
+    if window < 1:
+        raise ValueError(
+            f"{op} 窗口参数必须 >= 1 分钟（收到 {window}——日内窗口只取过去"
+            f"且非空）")
+    return int(window)
+
+
+def _check_shift(k, op: str = "im_delay") -> int:
+    """位移参数运行时硬校验：int（拒 bool/float）且 >= 1（k<1 = 未来/无意义）。"""
+    if isinstance(k, bool) or not isinstance(k, numbers.Integral):
+        raise ValueError(
+            f"{op} 位移必须为 int（收到 {k!r}——bool/float 非法；日内位移是"
+            f"整分钟数）")
+    if k < 1:
+        raise ValueError(
+            f"{op} 不允许 k<1（收到 {k}——lookback 只能取过去；日内位移 k>=1）")
+    return int(k)
+
+
+def _roll(x: pl.Expr, window: int, method: str, op: str) -> pl.Expr:
     """组内有序滚动（order_by 无 tie——240 网格确定性；窗口严格限 (code, date)）。"""
-    return getattr(x, method)(window).over(_PARTITION, order_by=_ORDER)
+    w = _check_window(window, op)
+    return getattr(x, method)(w).over(_PARTITION, order_by=_ORDER)
 
 
 # ---------------- im_* 日内窗口族（含当前行；首 n-1 行 null） ----------------
 
 def im_mean(x: pl.Expr, window: int) -> pl.Expr:
     """日内滚动均值（窗口 = 分钟，含当前行；组内首 n-1 行 null）。"""
-    return _roll(x, window, "rolling_mean")
+    return _roll(x, window, "rolling_mean", "im_mean")
 
 
 def im_sum(x: pl.Expr, window: int) -> pl.Expr:
     """日内滚动和。"""
-    return _roll(x, window, "rolling_sum")
+    return _roll(x, window, "rolling_sum", "im_sum")
 
 
 def im_std(x: pl.Expr, window: int) -> pl.Expr:
     """日内滚动标准差（ddof=1，同 polars_ta ts_std_dev）。"""
-    return _roll(x, window, "rolling_std")
+    return _roll(x, window, "rolling_std", "im_std")
 
 
 def im_max(x: pl.Expr, window: int) -> pl.Expr:
     """日内滚动最大。"""
-    return _roll(x, window, "rolling_max")
+    return _roll(x, window, "rolling_max", "im_max")
 
 
 def im_min(x: pl.Expr, window: int) -> pl.Expr:
     """日内滚动最小。"""
-    return _roll(x, window, "rolling_min")
+    return _roll(x, window, "rolling_min", "im_min")
 
 
 def im_median(x: pl.Expr, window: int) -> pl.Expr:
     """日内滚动中位数。"""
-    return _roll(x, window, "rolling_median")
+    return _roll(x, window, "rolling_median", "im_median")
 
 
 def im_delay(x: pl.Expr, k: int) -> pl.Expr:
-    """日内位移（k >= 1 分钟；k=0/k<0 由 minute_gate 静态拒）。组首 k 行 null。"""
-    return x.shift(k).over(_PARTITION, order_by=_ORDER)
+    """日内位移（k >= 1 分钟；k=0/k<0 静态门 + 运行时硬校验双拒）。组首 k 行 null。"""
+    return x.shift(_check_shift(k)).over(_PARTITION, order_by=_ORDER)
 
 
 # ---------------- day_* 折日族（组内广播常数） ----------------
