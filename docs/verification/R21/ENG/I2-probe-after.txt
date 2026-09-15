@@ -1,0 +1,12 @@
+# command: platform/.venv/bin/python docs/verification/R21/ENG/probe_eng.py I2
+# date: 2026-09-15T20:04:36+08:00
+# repo: dd01bd9
+# probe_eng.py I2 @ 2026-09-15T20:04:36
+[I2] 插件 AST 安全扫描：from os import system 绕过
+  扫描 'from os import system': REJECT 插件禁止导入: os
+  扫描 'from os.path import join': REJECT 插件禁止导入: os.path
+  扫描 'from subprocess import run': REJECT 插件禁止导入: subprocess
+  扫描 'import os.path': REJECT 插件禁止导入: ['os.path']
+  add_plugin evil: REJECT ValueError 插件禁止导入: os
+  marker exists: False
+

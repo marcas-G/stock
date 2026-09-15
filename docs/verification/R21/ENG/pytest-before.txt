@@ -1,0 +1,525 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_partitions.py tests/test_polars_ta_wrappers.py tests/test_cli_lint_params.py tests/test_ops.py tests/test_run_factor.py -k '<R21 ENG new tests>'
+# date: 2026-09-15T19:53:42+08:00
+FF.FF.FFFFFF.FFFFFFFFF..FFFF....FFFF..                                   [100%]
+=================================== FAILURES ===================================
+_______________________ test_rejects_negative_subscript ________________________
+
+    def test_rejects_negative_subscript():
+        # C1（R01-ENG-C1）：expr_codegen 把 X[k] 编译为 ts_delay(X, k)——负下标 = 未来函数。
+        # 只查 ast.Call 的旧门漏掉这一语法糖（close[-1] 实测 signal(t)=close(t+1)）。
+>       with pytest.raises(ValueError, match="负位移"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_partitions.py:133: Failed
+_____________ test_rejects_negative_subscript_via_top_level_const ______________
+
+    def test_rejects_negative_subscript_via_top_level_const():
+>       with pytest.raises(ValueError, match="负位移"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_partitions.py:140: Failed
+_________ test_rejects_negative_shift_via_name_inside_unary_and_binop __________
+
+    def test_rejects_negative_shift_via_name_inside_unary_and_binop():
+        # C2（R01-ENG-C2）：_shift_value 只回退裸 Name；-_n / 1-_n / 0-_n 内嵌 Name
+        # 时漏网（实测 E2E shift(-3)）。常量表折叠必须递归进 UnaryOp/BinOp。
+        for expr in ("-_n", "1 - _n", "0 - _n", "-_n * 1", "-(_n)"):
+>           with pytest.raises(ValueError, match="负位移"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests/test_partitions.py:159: Failed
+_____________ test_rejects_negative_shift_via_alias_and_name_const _____________
+
+    def test_rejects_negative_shift_via_alias_and_name_const():
+>       with pytest.raises(ValueError, match="负位移"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_partitions.py:164: Failed
+___________ test_cs_resid_registered_canonical_with_regression_alias ___________
+
+name = 'cs_resid'
+
+    def get_op(name: str) -> OperatorDef:
+        target = _ALIASES.get(name, name)
+        try:
+>           return _REGISTRY[target]
+                   ^^^^^^^^^^^^^^^^^
+E           KeyError: 'cs_resid'
+
+src/factorlab/core/ops/registry.py:123: KeyError
+
+The above exception was the direct cause of the following exception:
+
+    def test_cs_resid_registered_canonical_with_regression_alias():
+        """vendor 0.5.17 的 canonical 名是 cs_resid；cs_regression_resid 必须是真别名。"""
+        _register_all()
+>       canonical = registry.get_op("cs_resid")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_polars_ta_wrappers.py:44: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'cs_resid'
+
+    def get_op(name: str) -> OperatorDef:
+        target = _ALIASES.get(name, name)
+        try:
+            return _REGISTRY[target]
+        except KeyError as exc:
+>           raise KeyError(f"未知算子: {name}") from exc
+E           KeyError: '未知算子: cs_resid'
+
+src/factorlab/core/ops/registry.py:125: KeyError
+_________________ test_cs_resid_and_alias_compute_real_values __________________
+
+    def test_cs_resid_and_alias_compute_real_values():
+        """实际 compute_formula 可调用（旧实现 cs_regression_resid 调用即 NameError）。"""
+        import polars as pl
+        from factorlab.core.engine.compute import compute_formula
+        _register_all()
+        volumes = [1.0, 2.0, 4.0, 8.0, 2.0, 3.0, 5.0, 9.0]
+        # date 1：close = 3*volume（完全共线 → OLS 残差≈0）；date 2：加噪声
+        closes = [3.0, 6.0, 12.0, 24.0, 7.0, 9.0, 15.0, 29.0]
+        df = pl.DataFrame({
+            "date": [1, 1, 1, 1, 2, 2, 2, 2],
+            "code": ["a", "b", "c", "d"] * 2,
+            "close": closes,
+            "volume": volumes,
+        })
+        for fn in ("cs_resid", "cs_regression_resid"):
+>           out = compute_formula(df, f"signal = {fn}(close, volume)")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_polars_ta_wrappers.py:66: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/factorlab/core/engine/compute.py:143: in compute_formula
+    validate_partition_calls(formula)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+source = 'signal = cs_resid(close, volume)'
+
+    def validate_partition_calls(source: str) -> None:
+        """拒绝未知算子调用；公式内 def 函数、已知 ts_/cs_/gp_/ta_ 算子与平台薄封装、元素级函数放行。
+    
+        同时拒绝 def 体内的窗口/截面算子：expr_codegen 把用户 def 当黑盒整体放进
+        元素级分区执行，def 内的 ts_/cs_ 调用会在全表上跑窗口，跨资产泄漏。放开条件
+        是宏展开器能把窗口语义显式写成顶层 ts_ 调用。
+        """
+        tree = ast.parse(source)
+        defined = {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
+        aliases = _alias_map(tree)
+    
+        for node in _call_names(tree):
+            name = aliases.get(node.func.id, node.func.id)
+            if name in defined or name in _ELEMENTWISE:
+                continue
+            if not registry.has_op(name):
+>               raise FactorDSLError(f"未知算子: {name}", node.lineno, node.col_offset)
+E               factorlab.core.factor.errors.FactorDSLError: 1:9: 未知算子: cs_resid
+
+src/factorlab/core/engine/partitions.py:47: FactorDSLError
+______________________ test_lint_rejects_future_subscript ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_lint_rejects_future_subsc0')
+
+    def test_lint_rejects_future_subscript(tmp_path):
+        result = runner.invoke(app, ["lint", str(_formula_spec(tmp_path, "signal = close[-1]"))])
+>       assert result.exit_code == 1, result.output
+E       AssertionError: OK lint_sem_demo
+E         
+E       assert 0 == 1
+E        +  where 0 = <Result okay>.exit_code
+
+tests/test_cli_lint_params.py:119: AssertionError
+_______________ test_lint_rejects_negative_shift_via_named_const _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_lint_rejects_negative_shi0')
+
+    def test_lint_rejects_negative_shift_via_named_const(tmp_path):
+        result = runner.invoke(app, [
+            "lint", str(_formula_spec(tmp_path, "_n = 3\nsignal = ts_delay(close, -_n)"))])
+>       assert result.exit_code == 1, result.output
+E       AssertionError: OK lint_sem_demo
+E         
+E       assert 0 == 1
+E        +  where 0 = <Result okay>.exit_code
+
+tests/test_cli_lint_params.py:126: AssertionError
+______________________ test_lint_rejects_unknown_operator ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_lint_rejects_unknown_oper0')
+
+    def test_lint_rejects_unknown_operator(tmp_path):
+        result = runner.invoke(app, ["lint", str(_formula_spec(tmp_path, "signal = no_such_op(close)"))])
+>       assert result.exit_code == 1, result.output
+E       AssertionError: OK lint_sem_demo
+E         
+E       assert 0 == 1
+E        +  where 0 = <Result okay>.exit_code
+
+tests/test_cli_lint_params.py:132: AssertionError
+________________ test_lint_rejects_future_shift_in_pool_formula ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_lint_rejects_future_shift0')
+
+    def test_lint_rejects_future_shift_in_pool_formula(tmp_path):
+        result = runner.invoke(app, [
+            "lint", str(_formula_spec(tmp_path, "signal = close", universe='formula: "close[-1] > 10"'))])
+>       assert result.exit_code == 1, result.output
+E       AssertionError: OK lint_sem_demo
+E         
+E       assert 0 == 1
+E        +  where 0 = <Result okay>.exit_code
+
+tests/test_cli_lint_params.py:139: AssertionError
+_________ test_lint_rejects_review_probe_specs[future_subscript.yaml] __________
+
+fname = 'future_subscript.yaml'
+
+    @pytest.mark.parametrize("fname", [
+        "future_subscript.yaml", "future_const.yaml", "neg_shift_lint.yaml",
+    ])
+    def test_lint_rejects_review_probe_specs(fname):
+        """I5 验收：三类 R01 review probe spec 必须 exit≠0（此前全部 exit 0）。"""
+        result = runner.invoke(app, ["lint", str(_EVIDENCE / fname)])
+>       assert result.exit_code == 1, f"{fname} 过 lint（语义门缺失）: {result.output}"
+E       AssertionError: future_subscript.yaml 过 lint（语义门缺失）: OK future_subscript_probe
+E         
+E       assert 0 == 1
+E        +  where 0 = <Result okay>.exit_code
+
+tests/test_cli_lint_params.py:155: AssertionError
+___________ test_lint_rejects_review_probe_specs[future_const.yaml] ____________
+
+fname = 'future_const.yaml'
+
+    @pytest.mark.parametrize("fname", [
+        "future_subscript.yaml", "future_const.yaml", "neg_shift_lint.yaml",
+    ])
+    def test_lint_rejects_review_probe_specs(fname):
+        """I5 验收：三类 R01 review probe spec 必须 exit≠0（此前全部 exit 0）。"""
+        result = runner.invoke(app, ["lint", str(_EVIDENCE / fname)])
+>       assert result.exit_code == 1, f"{fname} 过 lint（语义门缺失）: {result.output}"
+E       AssertionError: future_const.yaml 过 lint（语义门缺失）: OK future_const_probe
+E         
+E       assert 0 == 1
+E        +  where 0 = <Result okay>.exit_code
+
+tests/test_cli_lint_params.py:155: AssertionError
+__________ test_lint_rejects_review_probe_specs[neg_shift_lint.yaml] ___________
+
+fname = 'neg_shift_lint.yaml'
+
+    @pytest.mark.parametrize("fname", [
+        "future_subscript.yaml", "future_const.yaml", "neg_shift_lint.yaml",
+    ])
+    def test_lint_rejects_review_probe_specs(fname):
+        """I5 验收：三类 R01 review probe spec 必须 exit≠0（此前全部 exit 0）。"""
+        result = runner.invoke(app, ["lint", str(_EVIDENCE / fname)])
+>       assert result.exit_code == 1, f"{fname} 过 lint（语义门缺失）: {result.output}"
+E       AssertionError: neg_shift_lint.yaml 过 lint（语义门缺失）: OK neg_shift_lint_probe
+E         
+E       assert 0 == 1
+E        +  where 0 = <Result okay>.exit_code
+
+tests/test_cli_lint_params.py:155: AssertionError
+_______ test_plugin_importfrom_bypass_rejected[from os import system\n] ________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_plugin_importfrom_bypass_0')
+stmt = 'from os import system\n'
+
+    @pytest.mark.parametrize("stmt", [
+        "from os import system\n",
+        "from os.path import join\n",
+        "from subprocess import run\n",
+        "from shutil import copyfile\n",
+    ])
+    def test_plugin_importfrom_bypass_rejected(tmp_path, stmt):
+        """I2：`from os import system` 等 ImportFrom 形态曾绕过 ast.Import 检查。"""
+        registry.reset_registry()
+>       with pytest.raises(ValueError, match="禁止导入"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_ops.py:178: Failed
+______ test_plugin_importfrom_bypass_rejected[from os.path import join\n] ______
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_plugin_importfrom_bypass_1')
+stmt = 'from os.path import join\n'
+
+    @pytest.mark.parametrize("stmt", [
+        "from os import system\n",
+        "from os.path import join\n",
+        "from subprocess import run\n",
+        "from shutil import copyfile\n",
+    ])
+    def test_plugin_importfrom_bypass_rejected(tmp_path, stmt):
+        """I2：`from os import system` 等 ImportFrom 形态曾绕过 ast.Import 检查。"""
+        registry.reset_registry()
+>       with pytest.raises(ValueError, match="禁止导入"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_ops.py:178: Failed
+_____ test_plugin_importfrom_bypass_rejected[from subprocess import run\n] _____
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_plugin_importfrom_bypass_2')
+stmt = 'from subprocess import run\n'
+
+    @pytest.mark.parametrize("stmt", [
+        "from os import system\n",
+        "from os.path import join\n",
+        "from subprocess import run\n",
+        "from shutil import copyfile\n",
+    ])
+    def test_plugin_importfrom_bypass_rejected(tmp_path, stmt):
+        """I2：`from os import system` 等 ImportFrom 形态曾绕过 ast.Import 检查。"""
+        registry.reset_registry()
+>       with pytest.raises(ValueError, match="禁止导入"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_ops.py:178: Failed
+____ test_plugin_importfrom_bypass_rejected[from shutil import copyfile\n] _____
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_plugin_importfrom_bypass_3')
+stmt = 'from shutil import copyfile\n'
+
+    @pytest.mark.parametrize("stmt", [
+        "from os import system\n",
+        "from os.path import join\n",
+        "from subprocess import run\n",
+        "from shutil import copyfile\n",
+    ])
+    def test_plugin_importfrom_bypass_rejected(tmp_path, stmt):
+        """I2：`from os import system` 等 ImportFrom 形态曾绕过 ast.Import 检查。"""
+        registry.reset_registry()
+>       with pytest.raises(ValueError, match="禁止导入"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_ops.py:178: Failed
+___________ test_plugin_importfrom_side_effect_blocked_before_import ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_plugin_importfrom_side_ef0')
+
+    def test_plugin_importfrom_side_effect_blocked_before_import(tmp_path):
+        """I2 E2E：非法 ImportFrom 插件在 import 前被拒（marker 文件未创建、注册表零污染）。"""
+        registry.reset_registry()
+        plugin_dir = tmp_path / "plugins"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        marker = tmp_path / "plugin_executed"
+        path = plugin_dir / "evil.py"
+        path.write_text(textwrap.dedent(f'''
+            from os import system
+            import polars as pl
+            from factorlab.core.ops.registry import factor_op
+    
+            system("touch {marker}")
+    
+            @factor_op("ts_evil_probe", kind="ts", version="0.1.0")
+            def ts_evil_probe(x: pl.Expr, d: int = 1) -> pl.Expr:
+                return x - d
+        '''), encoding="utf-8")
+>       with pytest.raises(ValueError, match="禁止导入"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_ops.py:200: Failed
+__________ test_builtin_override_rejected_before_import_without_force __________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_builtin_override_rejected0')
+
+    def test_builtin_override_rejected_before_import_without_force(tmp_path):
+        """I3：插件声明 ts_mean（内建）时，未 --force 必须在 import（执行副作用/替换注册表）之前抛错。"""
+        registry.reset_registry()
+        from factorlab.core.ops.registration import ensure_all_ops_registered
+        ensure_all_ops_registered()
+        before = registry.get_op("ts_mean")
+        plugin_dir = tmp_path / "plugins"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        marker = tmp_path / "meta_executed"
+        path = plugin_dir / "meta.py"
+        path.write_text(textwrap.dedent(f'''
+            from pathlib import Path
+            import polars as pl
+            from factorlab.core.ops.registry import factor_op
+    
+            Path("{marker}").write_text("executed", encoding="utf-8")
+    
+            @factor_op("ts_mean", kind="ts", version="9.9.9")
+            def ts_mean(x: pl.Expr, d: int = 1) -> pl.Expr:
+                return x * 0
+    
+            @factor_op("ts_new_probe", kind="ts", version="0.1.0")
+            def ts_new_probe(x: pl.Expr, d: int = 1) -> pl.Expr:
+                return x - d
+        '''), encoding="utf-8")
+>       with pytest.raises(ValueError, match="已存在"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_ops.py:231: Failed
+______________ test_run_factor_rejects_negative_subscript[duckdb] ______________
+
+env = <conftest._EnvDuck object at 0x7f1a15147750>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_run_factor_rejects_negati0')
+
+    def test_run_factor_rejects_negative_subscript(env, tmp_path):
+        # C1 E2E：close[-1] 即 ts_delay(close,-1)，引擎必须拒绝（不能算出 close(t+1)）
+        _seed(env, n_days=12)
+        spec = _formula_spec(tmp_path, "signal = close[-1]")
+>       with pytest.raises(FactorDSLError, match="负位移"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE FactorDSLError
+
+tests/test_run_factor.py:784: Failed
+----------------------------- Captured stderr call -----------------------------
+2026-09-15 19:53:46.006 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 19:53:46.035 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+________________ test_run_factor_rejects_negative_subscript[ch] ________________
+
+env = <conftest._EnvCh object at 0x7f1a1510d950>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_run_factor_rejects_negati1')
+
+    def test_run_factor_rejects_negative_subscript(env, tmp_path):
+        # C1 E2E：close[-1] 即 ts_delay(close,-1)，引擎必须拒绝（不能算出 close(t+1)）
+        _seed(env, n_days=12)
+        spec = _formula_spec(tmp_path, "signal = close[-1]")
+>       with pytest.raises(FactorDSLError, match="负位移"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE FactorDSLError
+
+tests/test_run_factor.py:784: Failed
+________ test_run_factor_rejects_negative_shift_via_named_const[duckdb] ________
+
+env = <conftest._EnvDuck object at 0x7f1a1510dd10>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_run_factor_rejects_negati2')
+
+    def test_run_factor_rejects_negative_shift_via_named_const(env, tmp_path):
+        # C2 E2E：-_n 内嵌 Name 的负位移必须拒绝（实测旧代码产出 shift(-3)）
+        _seed(env, n_days=12)
+        spec = _formula_spec(tmp_path, "_n = 3\nsignal = ts_delay(close, -_n)")
+>       with pytest.raises(FactorDSLError, match="负位移"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE FactorDSLError
+
+tests/test_run_factor.py:792: Failed
+----------------------------- Captured stderr call -----------------------------
+2026-09-15 19:53:47.085 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 19:53:47.111 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+__________ test_run_factor_rejects_negative_shift_via_named_const[ch] __________
+
+env = <conftest._EnvCh object at 0x7f1a15145f90>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_run_factor_rejects_negati3')
+
+    def test_run_factor_rejects_negative_shift_via_named_const(env, tmp_path):
+        # C2 E2E：-_n 内嵌 Name 的负位移必须拒绝（实测旧代码产出 shift(-3)）
+        _seed(env, n_days=12)
+        spec = _formula_spec(tmp_path, "_n = 3\nsignal = ts_delay(close, -_n)")
+>       with pytest.raises(FactorDSLError, match="负位移"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE FactorDSLError
+
+tests/test_run_factor.py:792: Failed
+_____________ test_chunk_days_rejects_cumulative_operator[duckdb] ______________
+
+env = <conftest._EnvDuck object at 0x7f1a0d576570>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_chunk_days_rejects_cumula0')
+
+    def test_chunk_days_rejects_cumulative_operator(env, tmp_path):
+        # I1：ts_cum_sum 每块重置 → 分块违反"逐 cell 一致"文档承诺。
+        # 整段跑合法；分块路径必须在跑之前 fail fast（指引单块跑）。
+        _seed(env, n_days=12)
+        spec = _formula_spec(tmp_path, "signal = ts_cum_sum(close)")
+        full = run_factor(spec, _ctx(env, tmp_path / "out_cum_full"))
+        assert full.signal_artifact.frame.height > 0
+>       with pytest.raises(ValueError, match="累计算子"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_run_factor.py:823: Failed
+----------------------------- Captured stderr call -----------------------------
+2026-09-15 19:53:49.237 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 19:53:49.263 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+_______________ test_chunk_days_rejects_cumulative_operator[ch] ________________
+
+env = <conftest._EnvCh object at 0x7f1a0d576450>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_chunk_days_rejects_cumula1')
+
+    def test_chunk_days_rejects_cumulative_operator(env, tmp_path):
+        # I1：ts_cum_sum 每块重置 → 分块违反"逐 cell 一致"文档承诺。
+        # 整段跑合法；分块路径必须在跑之前 fail fast（指引单块跑）。
+        _seed(env, n_days=12)
+        spec = _formula_spec(tmp_path, "signal = ts_cum_sum(close)")
+        full = run_factor(spec, _ctx(env, tmp_path / "out_cum_full"))
+        assert full.signal_artifact.frame.height > 0
+>       with pytest.raises(ValueError, match="累计算子"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_run_factor.py:823: Failed
+_____________ test_chunk_days_rejects_vwap_macro_expansion[duckdb] _____________
+
+env = <conftest._EnvDuck object at 0x7f1a1487d480>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_chunk_days_rejects_vwap_m0')
+
+    def test_chunk_days_rejects_vwap_macro_expansion(env, tmp_path):
+        # vwap 经 expand_platform_macros 展开为 ts_cum_sum → 同样拦截（展开后扫描）
+        _seed(env, n_days=12)
+        spec = _formula_spec(tmp_path, "signal = vwap(high, low, close, volume)")
+>       with pytest.raises(ValueError, match="累计算子"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_run_factor.py:832: Failed
+----------------------------- Captured stderr call -----------------------------
+2026-09-15 19:53:51.379 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 19:53:51.426 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+_______________ test_chunk_days_rejects_vwap_macro_expansion[ch] _______________
+
+env = <conftest._EnvCh object at 0x7f1a0f5f3ce0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1012/test_chunk_days_rejects_vwap_m1')
+
+    def test_chunk_days_rejects_vwap_macro_expansion(env, tmp_path):
+        # vwap 经 expand_platform_macros 展开为 ts_cum_sum → 同样拦截（展开后扫描）
+        _seed(env, n_days=12)
+        spec = _formula_spec(tmp_path, "signal = vwap(high, low, close, volume)")
+>       with pytest.raises(ValueError, match="累计算子"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_run_factor.py:832: Failed
+=========================== short test summary info ============================
+FAILED tests/test_partitions.py::test_rejects_negative_subscript - Failed: DI...
+FAILED tests/test_partitions.py::test_rejects_negative_subscript_via_top_level_const
+FAILED tests/test_partitions.py::test_rejects_negative_shift_via_name_inside_unary_and_binop
+FAILED tests/test_partitions.py::test_rejects_negative_shift_via_alias_and_name_const
+FAILED tests/test_polars_ta_wrappers.py::test_cs_resid_registered_canonical_with_regression_alias
+FAILED tests/test_polars_ta_wrappers.py::test_cs_resid_and_alias_compute_real_values
+FAILED tests/test_cli_lint_params.py::test_lint_rejects_future_subscript - As...
+FAILED tests/test_cli_lint_params.py::test_lint_rejects_negative_shift_via_named_const
+FAILED tests/test_cli_lint_params.py::test_lint_rejects_unknown_operator - As...
+FAILED tests/test_cli_lint_params.py::test_lint_rejects_future_shift_in_pool_formula
+FAILED tests/test_cli_lint_params.py::test_lint_rejects_review_probe_specs[future_subscript.yaml]
+FAILED tests/test_cli_lint_params.py::test_lint_rejects_review_probe_specs[future_const.yaml]
+FAILED tests/test_cli_lint_params.py::test_lint_rejects_review_probe_specs[neg_shift_lint.yaml]
+FAILED tests/test_ops.py::test_plugin_importfrom_bypass_rejected[from os import system\n]
+FAILED tests/test_ops.py::test_plugin_importfrom_bypass_rejected[from os.path import join\n]
+FAILED tests/test_ops.py::test_plugin_importfrom_bypass_rejected[from subprocess import run\n]
+FAILED tests/test_ops.py::test_plugin_importfrom_bypass_rejected[from shutil import copyfile\n]
+FAILED tests/test_ops.py::test_plugin_importfrom_side_effect_blocked_before_import
+FAILED tests/test_ops.py::test_builtin_override_rejected_before_import_without_force
+FAILED tests/test_run_factor.py::test_run_factor_rejects_negative_subscript[duckdb]
+FAILED tests/test_run_factor.py::test_run_factor_rejects_negative_subscript[ch]
+FAILED tests/test_run_factor.py::test_run_factor_rejects_negative_shift_via_named_const[duckdb]
+FAILED tests/test_run_factor.py::test_run_factor_rejects_negative_shift_via_named_const[ch]
+FAILED tests/test_run_factor.py::test_chunk_days_rejects_cumulative_operator[duckdb]
+FAILED tests/test_run_factor.py::test_chunk_days_rejects_cumulative_operator[ch]
+FAILED tests/test_run_factor.py::test_chunk_days_rejects_vwap_macro_expansion[duckdb]
+FAILED tests/test_run_factor.py::test_chunk_days_rejects_vwap_macro_expansion[ch]
+27 failed, 11 passed, 98 deselected in 11.01s

@@ -1,0 +1,6 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_backtest_fills.py tests/test_backtest_orders.py tests/test_backtest_overnight.py
+# captured: GREEN after I2 fix (order_quantity=委托量, filled=实际成交)
+    ~pl.col("decision_date").map_elements(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+237 passed, 65 warnings in 8.12s

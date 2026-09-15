@@ -1,0 +1,6 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_backtest_runtime.py tests/test_backtest_ca_gate.py tests/test_backtest_calendar.py tests/test_backtest_fills.py tests/test_backtest_marks_policy.py tests/test_backtest_overnight.py tests/test_backtest_orders.py tests/test_backtest_persistence.py tests/test_execution_signal_chain.py tests/test_canonical_artifact_handoff.py tests/test_strategy_artifacts.py
+# captured: M7/M8 regression surface after all fixes
+    ~pl.col("decision_date").map_elements(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+452 passed, 244 warnings in 178.59s (0:02:58)

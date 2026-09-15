@@ -1,0 +1,6 @@
+# command: rm emptyadj.duckdb (probe scratch db, backup /tmp/opencode/r21-m7/emptyadj.duckdb.bak); cd platform && PYTHONPATH=/tmp/opencode/r21-m7/src .venv/bin/python /tmp/opencode/reviewer-m8/probe1_empty_adj.py (HEAD market_open.py)
+# captured: BEFORE I3 fix — empty adj window Null dtype
+height: 0
+schema: Schema({'code': Null, 'trade_date': Null})
+still height: 0 Schema({'code': Null, 'trade_date': Null})
+raw: Schema({'code': Null, 'trade_date': Null})

@@ -1,0 +1,1 @@
+79f68fee4f73c8778774a5f74822298b52bf56d20c2fb5bebbfd657de11235f6  daily_fact.parquet.new

@@ -1,0 +1,6 @@
+# R01-TOOLS-I9 GREEN（修复后，最终版）
+$ platform/.venv/bin/python -m pytest -q research/tools/universe_stages/tests/test_preflight.py
+exit=0
+
+........                                                                 [100%]
+8 passed in 2.98s

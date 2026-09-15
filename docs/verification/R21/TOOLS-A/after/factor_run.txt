@@ -1,0 +1,3 @@
+2026-09-15 21:35:42.843 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 21:35:42.885 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+r21_probe_preclose: n_weeks=0 ic_mean=nan spread=nan

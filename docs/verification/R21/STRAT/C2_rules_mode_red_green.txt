@@ -1,0 +1,9 @@
+$ platform/.venv/bin/python -m pytest -q research/tools/strategies/tests/test_strategy.py -k rules_mode_holdings_reset   # 修复前（临时移除段界重置）
+research/tools/strategies/tests/test_strategy.py:419: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/strategies/tests/test_strategy.py::test_strategy_rules_mode_holdings_reset_at_segment_boundary
+1 failed, 29 deselected in 0.38s
+
+$ platform/.venv/bin/python -m pytest -q research/tools/strategies/tests   # 修复恢复后
+..............................                                           [100%]
+30 passed in 0.58s

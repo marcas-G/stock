@@ -1,0 +1,4 @@
+$ cd platform && .venv/bin/python -m pytest -q tests/test_pit_universe.py
+........................................................................ [ 80%]
+..................                                                       [100%]
+90 passed in 12.83s

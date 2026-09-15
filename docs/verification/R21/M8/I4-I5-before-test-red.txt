@@ -1,0 +1,24 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_backtest_runtime.py::test_decision_range_ignores_out_of_range_trailing tests/test_backtest_runtime.py::test_trailing_unresolved_legal_termination_preserves_results
+# captured: RED before I4/I5 fix
+                f"原日期/不 drop）")
+E           ValueError: 2024-01-04 后无下一开放日（trailing unresolved——不保持原日期/不 drop）
+
+src/factorlab/app/backtest/overnight.py:86: ValueError
+=============================== warnings summary ===============================
+tests/test_backtest_runtime.py::test_decision_range_ignores_out_of_range_trailing
+tests/test_backtest_runtime.py::test_trailing_unresolved_legal_termination_preserves_results
+  /data/students/gaolei/stock/platform/src/factorlab/core/domain/portfolio.py:151: PolarsInefficientMapWarning: 
+  Expr.map_elements is significantly slower than the native expressions API.
+  Only use if you absolutely CANNOT implement your logic otherwise.
+  Replace this expression...
+    - pl.col("decision_date").map_elements(lambda d: ...)
+  with this one instead:
+    + pl.col("decision_date").is_in(known)
+  
+    ~pl.col("decision_date").map_elements(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_backtest_runtime.py::test_decision_range_ignores_out_of_range_trailing
+FAILED tests/test_backtest_runtime.py::test_trailing_unresolved_legal_termination_preserves_results
+2 failed, 2 warnings in 1.55s

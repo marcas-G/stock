@@ -1,0 +1,12 @@
+# command: platform/.venv/bin/python docs/verification/R21/ENG/probe_eng.py C1
+# date: 2026-09-15T20:04:01+08:00
+# repo: dd01bd9
+# probe_eng.py C1 @ 2026-09-15T20:04:01
+[C1] 未来函数旁路#1：signal = close[-1]（应被拒）
+  validate_formula('signal = close[-1]'): PASS（旁路未修复）
+  reject_future_shifts: REJECT FactorDSLError: 1:9: close[-1] 不允许负位移（下标 = ts_delay，lookback 只能取过去）
+  正向控制 close[1]: PASS
+  正向控制 close[0]: PASS
+  正向控制 close[n]: PASS
+  E2E run_factor close[-1]: REJECT FactorDSLError: 1:9: close[-1] 不允许负位移（下标 = ts_delay，lookback 只能取过去）
+

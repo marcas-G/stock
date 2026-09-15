@@ -1,0 +1,21 @@
+tables: ['adj_detail', 'adj_event', 'adj_factor', 'bars_1m', 'daily', 'daily_basic', 'index_daily', 'stk_limit', 'stock_basic', 'tick_orders', 'tick_snapshots', 'tick_trades', 'trade_cal']
+daily 18162795
+stk_limit 17889079
+adj_factor 18162795
+daily_basic 18162795
+trade_cal 8772
+stock_basic 5866
+adj_detail 18162795
+adj_event 57173
+bars_1m 1853379840
+tick_trades 3797289378
+tick_orders 5810986406
+tick_snapshots 344059684
+stk_limit min/max date: [(datetime.date(1996, 12, 16), datetime.date(2026, 8, 21))]
+daily min/max: [(datetime.date(1990, 12, 19), datetime.date(2026, 8, 21), 5866)]
+date<1996-12-16 in daily: 263014
+stk_limit rows < min date: 0
+daily_basic nulls: [(18162795, 18162795, 18162795, 18162795, 18162795, 18162795, 1289000, 1289000)]
+adj_detail nan/null: [(18162795, 1289000, 0)]
+adj_detail div nan/null: [(0, 18105621, 4359)]
+trade_cal is_open: [(1, 8772)]

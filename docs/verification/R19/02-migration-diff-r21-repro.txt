@@ -1,0 +1,11 @@
+$ platform/.venv/bin/python docs/verification/R19/gen-02-migration-diff.py
+== R19 02-migration-diff 最小可复现生成（R21 补存）==
+摘要序列化：sha256(json.dumps(Table.to_pydict(), sort_keys=True, default=str, ensure_ascii=False))[:16]
+
+600519（全量 zip） rows=5973 digest=768f9f31c0a653a1
+600591（退市 xlsx） rows=1772 codes=['600591.SH'] digest=9e5ab2e9eaaf3ccd
+
+OUT_SCHEMA 列序 == FINAL_COLS：✓
+
+不可复现（如实声明）：旧侧 `旧=` 数值、-x/+y 结构化 diff —— 旧源已删（仅 .pyc）。
+[exit=0]

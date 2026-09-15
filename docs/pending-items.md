@@ -67,19 +67,37 @@
     现状：`ch_ingest/state.json/` 记录已完成月份；ddl.sql 与 CH 实际 schema 未做逐列核对。
     启动条件：下次灌库前跑一次 ddl diff。
 
-11. **深度重构 WS6 剩余项**（2026-09-12 登记）
-    ① P-5 批算编排单点：端口已在 `ports/batch.py` 定义 + `InlineOrchestrator` 契约测试绿；
-    真实实现 `adapters/batch_flock.py`（flock+ProcessPool+看门狗+_SUCCESS）与三份样板
-    （converters/extract_sz_cancels/run_lob_batch）的切换未做——需逐工具真实批算 + 字节级重跑对照，
-    下一轮专项。
-    ② `tools/ch_ingest` 拆分（common/table_ops）与路径取 `core.factio.paths`。
-    ③ 生产读点（`run_lob_batch._read_date`、`factor_panel._read_tick`）收敛到
-    `adapters.tick_read`（诊断四处已收敛）——生产路径改动需字节级门。
-    ④ catalog 拆分（`core/catalog_model` + `adapters/catalog_docs`，4g 推迟项）。
+11. **深度重构 WS6 剩余项**（2026-09-12 登记；**2026-09-15 R21 核对：①②③ 已完成，④ 未做**）
+    - ✅ ① P-5 批算编排单点（R14 完成）：`adapters/batch_flock.py` 真实落地（flock + ProcessPool +
+      看门狗 + `_SUCCESS`），三份编排样板（convert_tick / extract_sz_cancels / run_lob_batch）
+      全部切换、各自自建进程池循环删除，切换前后逐值/字节等价——见 `docs/verification/R14/`；
+      `research/CLAUDE.md` 已同步为"批算编排只用单点"。
+    - ✅ ② `tools/ch_ingest` 拆分 + 路径单点（R15 完成）：`ingest_common.py`（五职责 202 行）拆为
+      `ch_source` / `ch_state` / `ch_write` + 只转发门面；源/路径取 `core.factio.paths`
+      （实测 `ch_source.py:41`、`ingest_daily.py:35`、`reconcile.py:32`）——见
+      `docs/verification/R15/status.md`。
+    - ✅ ③ 生产读点收敛到 `adapters.tick_read`（R4a/R21 复核）：`run_lob_batch._read_date`
+      （`research/tools/lob_fact/pipeline/run_lob_batch.py:526`）与 `factor_panel._read_tick`
+      （`research/tools/lob_fact/core/factor_panel.py:701`）均经 `lib.tickdata` 薄封装到平台单点。
+    - ❌ ④ catalog 拆分（`core/catalog_model` + `adapters/catalog_docs`）：**未做**——R21 实测
+      仍为单模块 `platform/src/factorlab/adapters/catalog.py`；保留为未竟项。
+    **原表述保留如下**（R21 只加核对结论，不改写历史）：
+    > ① P-5 批算编排单点：端口已在 `ports/batch.py` 定义 + `InlineOrchestrator` 契约测试绿；
+    > 真实实现 `adapters/batch_flock.py`（flock+ProcessPool+看门狗+_SUCCESS）与三份样板
+    > （converters/extract_sz_cancels/run_lob_batch）的切换未做——需逐工具真实批算 + 字节级重跑对照，
+    > 下一轮专项。
+    > ② `tools/ch_ingest` 拆分（common/table_ops）与路径取 `core.factio.paths`。
+    > ③ 生产读点（`run_lob_batch._read_date`、`factor_panel._read_tick`）收敛到
+    > `adapters.tick_read`（诊断四处已收敛）——生产路径改动需字节级门。
+    > ④ catalog 拆分（`core/catalog_model` + `adapters/catalog_docs`，4g 推迟项）。
 
-12. **数据接口收口剩余专项**（2026-09-15 R4 登记）
+12. **数据接口收口剩余专项**（2026-09-15 R4 登记；R21 校正 ① 计数口径）
     ① **表名常量单点**（`core/factio/tables.py`）：平台 `read/*` 的 duckdb|ch 编译对里
-       **约 460 处表名字面量**（R0 基线）。收敛需逐条改 SQL 字符串，风险 > 收益 →
+       **68 处表名字面量**（R21 门实测）。**口径** = `scripts/check_dataiface.py::report_platform_tables()`
+       的 AST 字符串常量出现**处数**，范围 `platform/src` 且排除 `core/factio/`，docstring 不计；
+       输出见 `docs/verification/R21/EVID/I7-dataiface-count.txt`。R0 文本的"~460 处"系
+       grep 口径（注释/测试/SQL 文档串都算入），**与门不可比，引用以门实测为准**。
+       收敛需逐条改 SQL 字符串，风险 > 收益 →
        需与"位级门 + 全库 reconcile"配套的专项轮次。
     ② **研究侧工具入口改名**（R4d C1-C3）：`quark_download_v2.py`→`download_level2.py`、
        `quark_download_server.py`→`download_share_dir.py`、`quark_share.py`→`share_manifest.py`。

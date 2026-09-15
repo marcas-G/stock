@@ -1,0 +1,3 @@
+$ /data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest -q research/tools/converters/tests research/tools/lib/tests
+.......................................                                  [100%]
+39 passed in 9.15s

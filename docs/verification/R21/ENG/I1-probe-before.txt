@@ -1,0 +1,15 @@
+# command: platform/.venv/bin/python docs/verification/R21/ENG/probe_eng.py I1
+# date: 2026-09-15T19:51:56+08:00
+# repo: dd01bd9
+2026-09-15 19:51:59.126 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 19:51:59.162 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-15 19:51:59.990 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 19:52:00.018 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-15 19:52:00.643 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 19:52:00.669 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+# probe_eng.py I1 @ 2026-09-15T19:51:57
+[I1] --chunk-days × 累计算子（文档承诺逐 cell 一致）
+  ts_cum_sum(close): full==chunk10 -> False（不一致 14 行）
+  vwap(...): full==chunk10 -> False（不一致 14 行）
+  控制 ts_mean(close,3): full==chunk10 -> True
+

@@ -1,0 +1,15 @@
+# command: cd /data/students/gaolei/stock/platform && .venv/bin/python /tmp/opencode/reviewer-m8/probe4_exec_hybrid.py
+# captured: AFTER I1 fix — failed overwrite must leave no loadable hybrid
+/data/students/gaolei/stock/platform/src/factorlab/core/domain/portfolio.py:151: PolarsInefficientMapWarning: 
+Expr.map_elements is significantly slower than the native expressions API.
+Only use if you absolutely CANNOT implement your logic otherwise.
+Replace this expression...
+  - pl.col("decision_date").map_elements(lambda d: ...)
+with this one instead:
+  + pl.col("decision_date").is_in(known)
+
+  ~pl.col("decision_date").map_elements(
+A nav: [1000000.0, 1075000.0]
+B nav: [1000000.0, 1100000.0]
+write B failed as simulated: disk full simulated at nav write
+hybrid load failed: ValueError manifest 缺失: /tmp/opencode/reviewer-m8/probe4_artifacts/manifest.json（检测到 manifest.json.stale——上次覆盖写中断/失败，该目录产物已失效）

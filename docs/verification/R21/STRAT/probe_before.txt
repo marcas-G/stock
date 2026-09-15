@@ -1,0 +1,7 @@
+$ platform/.venv/bin/python /tmp/opencode/reviewer-strat/probe_strategy_cost.py
+episodes: [('2024-01-05', '2024-01-12'), ('2024-01-26', '2024-01-26')]
+weeks: 3 total_cost: 0.0035 avg_turnover: 0.3333333333333333
+weekly_returns: [0.0265, 0.03, 0.03]
+mc long FAILED: KeyError 'returns'
+panel .SZ + limit_down 6-digit -> weeks 1 nav 1.1
+panel .SZ + limit_down .SZ     -> weeks 0 err 无触发周

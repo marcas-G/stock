@@ -1,0 +1,18 @@
+# R01-ENG-I4 需要协调处理：platform/docs/catalog.md 需再生成（本 agent 按边界未改）
+# date: 2026-09-15
+#
+# 背景：I4 把 vendor canonical 名注册为 cs_resid（cs_regression_resid 为 registry
+# 别名）；catalog.md 是 registry 的逐字节活文档快照（test_catalog.py 强制）。
+#
+# 当前唯一失败测试：
+#   cd platform && .venv/bin/python -m pytest -q tests/test_catalog.py
+#   FAILED tests/test_catalog.py::test_markdown_docs_file_committed_and_fresh
+#
+# 唯一差异（platform/docs/catalog.md:64）：
+#   - `cs_regression_resid`（cs v0.1.0）
+#   + `cs_resid`（cs v0.1.0）
+#
+# 建议修复（一条命令，生成器与测试同源）：
+#   platform/.venv/bin/factorlab catalog docs --out platform/docs/catalog.md
+#
+# 验证：cd platform && .venv/bin/python -m pytest -q tests/test_catalog.py  # 27 passed

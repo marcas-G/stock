@@ -1,0 +1,16 @@
+........................................................................ [ 26%]
+........................................................................ [ 53%]
+........................................................................ [ 80%]
+................................................s....                    [100%]
+=========================== short test summary info ============================
+SKIPPED [1] research/tools/1m_features/tests/test_1m_feature.py:26: T1 测试需平台 venv（expr_codegen → core.engine）
+SKIPPED [1] research/tools/ashare_ingest/tests/test_import_daily_delisted.py:24: import_daily 需 openpyxl
+SKIPPED [1] research/tools/ashare_ingest/tests/test_layout.py:15: import_daily 需 openpyxl（emb 未装）
+SKIPPED [1] research/tools/ch_ingest/tests/test_ch_data_semantics.py:15: ch_ingest 属 T1（平台 venv）
+SKIPPED [1] research/tools/ch_ingest/tests/test_ch_ingest_layout.py:16: ch_ingest 需 clickhouse_connect（T1：平台 venv）
+SKIPPED [1] research/tools/ch_ingest/tests/test_ch_state_concurrency.py:18: ch_ingest 属 T1（平台 venv）
+SKIPPED [1] research/tools/ch_ingest/tests/test_ch_write_exit.py:15: ch_ingest 属 T1（平台 venv）
+SKIPPED [1] research/tools/ch_ingest/tests/test_ingest_daily_derive.py:19: ch_ingest 属 T1（平台 venv）
+SKIPPED [1] research/tools/strategies/tests/test_strategy.py:20: T1 测试需平台 venv（factorlab + duckdb）
+SKIPPED [1] research/tools/universe_stages/tests/test_preflight.py:190: run_layer2 CLI 需 duckdb（T1 = platform/.venv）
+268 passed, 10 skipped in 22.73s

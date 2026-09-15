@@ -1,0 +1,198 @@
+# R01-TOOLS-I9 RED（修复前 = git HEAD 实现；测试为最终版）
+# 复现：对 universe_paths.py + run_layer1/2/3 共 4 文件 git checkout -- 后运行（随后已恢复修复版）
+$ platform/.venv/bin/python -m pytest -q research/tools/universe_stages/tests/test_preflight.py
+exit=1
+
+FFFFFFF.                                                                 [100%]
+=================================== FAILURES ===================================
+___ test_preflight_layer1_missing_fundamentals_names_file_path_and_guidance ____
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1187/test_preflight_layer1_missing_0')
+
+    def test_preflight_layer1_missing_fundamentals_names_file_path_and_guidance(tmp_path):
+        _write_layer1_sources(tmp_path, with_fundamentals=False)
+        r = _run_py(_MISSING_PROBE.format(call="u.preflight_layer1(from_golden=False)"), tmp_path)
+>       assert r.returncode == 2, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 3, in <module>
+E             u.preflight_layer1(from_golden=False)
+E             ^^^^^^^^^^^^^^^^^^
+E         AttributeError: module 'universe_paths' has no attribute 'preflight_layer1'
+E         
+E         During handling of the above exception, another exception occurred:
+E         
+E         Traceback (most recent call last):
+E           File "<string>", line 4, in <module>
+E             except u.MissingInput as e:
+E                    ^^^^^^^^^^^^^^
+E         AttributeError: module 'universe_paths' has no attribute 'MissingInput'
+E         
+E       assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '-c', "import sys;sys.path.insert(0, '...Input as e:\n           ^^^^^^^^^^^^^^\nAttributeError: module \'universe_paths\' has no attribute \'MissingInput\'\n').returncode
+
+research/tools/universe_stages/tests/test_preflight.py:115: AssertionError
+_____________ test_preflight_layer1_passes_when_all_sources_exist ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1187/test_preflight_layer1_passes_w0')
+
+    def test_preflight_layer1_passes_when_all_sources_exist(tmp_path):
+        _write_layer1_sources(tmp_path)
+        code = (
+            "import universe_paths as u\n"
+            "r = u.preflight_layer1(from_golden=False)\n"
+            "assert set(r) == {'daily_fact', 'fundamentals', 'index_daily'}, r\n"
+            "assert all(p.is_file() for p in r.values())\n"
+            "print('PASSED')\n")
+        r = _run_py(code, tmp_path)
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 2, in <module>
+E             r = u.preflight_layer1(from_golden=False)
+E                 ^^^^^^^^^^^^^^^^^^
+E         AttributeError: module 'universe_paths' has no attribute 'preflight_layer1'
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '-c', "import sys;sys.path.insert(0, '...False)\n        ^^^^^^^^^^^^^^^^^^\nAttributeError: module \'universe_paths\' has no attribute \'preflight_layer1\'\n').returncode
+
+research/tools/universe_stages/tests/test_preflight.py:132: AssertionError
+____________ test_preflight_layer1_from_golden_also_requires_golden ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1187/test_preflight_layer1_from_gol0')
+
+    def test_preflight_layer1_from_golden_also_requires_golden(tmp_path):
+        _write_layer1_sources(tmp_path)
+        r = _run_py(_MISSING_PROBE.format(call="u.preflight_layer1(from_golden=True)"), tmp_path)
+>       assert r.returncode == 2, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 3, in <module>
+E             u.preflight_layer1(from_golden=True)
+E             ^^^^^^^^^^^^^^^^^^
+E         AttributeError: module 'universe_paths' has no attribute 'preflight_layer1'
+E         
+E         During handling of the above exception, another exception occurred:
+E         
+E         Traceback (most recent call last):
+E           File "<string>", line 4, in <module>
+E             except u.MissingInput as e:
+E                    ^^^^^^^^^^^^^^
+E         AttributeError: module 'universe_paths' has no attribute 'MissingInput'
+E         
+E       assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '-c', "import sys;sys.path.insert(0, '...Input as e:\n           ^^^^^^^^^^^^^^\nAttributeError: module \'universe_paths\' has no attribute \'MissingInput\'\n').returncode
+
+research/tools/universe_stages/tests/test_preflight.py:139: AssertionError
+___________ test_preflight_layer3_missing_tick_dir_points_to_unpack ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1187/test_preflight_layer3_missing_0')
+
+    def test_preflight_layer3_missing_tick_dir_points_to_unpack(tmp_path):
+        r = _run_py(
+            "import universe_paths as u\n"
+            "try:\n"
+            "    u.preflight_layer3('20260817')\n"
+            "except u.MissingInput as e:\n"
+            "    print('MISSING:', e)\n"
+            "    raise SystemExit(2)\n"
+            "print('PASSED')\n",
+            tmp_path)
+>       assert r.returncode == 2, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 3, in <module>
+E             u.preflight_layer3('20260817')
+E             ^^^^^^^^^^^^^^^^^^
+E         AttributeError: module 'universe_paths' has no attribute 'preflight_layer3'
+E         
+E         During handling of the above exception, another exception occurred:
+E         
+E         Traceback (most recent call last):
+E           File "<string>", line 4, in <module>
+E             except u.MissingInput as e:
+E                    ^^^^^^^^^^^^^^
+E         AttributeError: module 'universe_paths' has no attribute 'MissingInput'
+E         
+E       assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '-c', "import sys;sys.path.insert(0, '...Input as e:\n           ^^^^^^^^^^^^^^\nAttributeError: module \'universe_paths\' has no attribute \'MissingInput\'\n').returncode
+
+research/tools/universe_stages/tests/test_preflight.py:155: AssertionError
+______________ test_preflight_layer3_passes_when_tick_dir_exists _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1187/test_preflight_layer3_passes_w0')
+
+    def test_preflight_layer3_passes_when_tick_dir_exists(tmp_path):
+        (tmp_path / "data" / "raw" / "20260817").mkdir(parents=True)
+        code = (
+            "import universe_paths as u\n"
+            "r = u.preflight_layer3('20260817')\n"
+            "assert r['ticks'].is_dir(), r\n"
+            "print('PASSED')\n")
+        r = _run_py(code, tmp_path)
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 2, in <module>
+E             r = u.preflight_layer3('20260817')
+E                 ^^^^^^^^^^^^^^^^^^
+E         AttributeError: module 'universe_paths' has no attribute 'preflight_layer3'
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '-c', "import sys;sys.path.insert(0, '...817\')\n        ^^^^^^^^^^^^^^^^^^\nAttributeError: module \'universe_paths\' has no attribute \'preflight_layer3\'\n').returncode
+
+research/tools/universe_stages/tests/test_preflight.py:170: AssertionError
+__________ test_run_layer1_cli_fails_cleanly_on_missing_fundamentals ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1187/test_run_layer1_cli_fails_clea0')
+
+    def test_run_layer1_cli_fails_cleanly_on_missing_fundamentals(tmp_path):
+        root = tmp_path / "stockroot"
+        _write_layer1_sources(root, with_fundamentals=False)
+        out = tmp_path / "universes"
+        cfg = _cfg_with(tmp_path, "universes", out)
+        r = subprocess.run(
+            [sys.executable, str(_SCRIPT_LAYER1), "--config", str(cfg),
+             "--scan-date", "2026-07-31"],
+            env=_cli_env(root), capture_output=True, text=True, timeout=600)
+        assert r.returncode != 0
+        out_text = r.stdout + r.stderr
+        assert "fundamentals" in out_text
+>       assert "pending-items.md #4" in out_text
+E       assert 'pending-items.md #4' in 'Traceback (most recent call last):\n  File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_la...st-of-gaolei/pytest-1187/test_run_layer1_cli_fails_clea0/stockroot/data/fact/fundamentals/fundamentals_pti.parquet\'\n'
+
+research/tools/universe_stages/tests/test_preflight.py:186: AssertionError
+_____________ test_run_layer2_cli_fails_cleanly_on_missing_golden ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1187/test_run_layer2_cli_fails_clea0')
+
+    @pytest.mark.skipif(not _HAS_DUCKDB,
+                        reason="run_layer2 CLI 需 duckdb（T1 = platform/.venv）")
+    def test_run_layer2_cli_fails_cleanly_on_missing_golden(tmp_path):
+        root = tmp_path / "stockroot"
+        out = tmp_path / "research"
+        cfg = _cfg_with(tmp_path, "research", out)
+        r = subprocess.run(
+            [sys.executable, str(_SCRIPT_LAYER2), "--config", str(cfg),
+             "--scan-date", "2026-07-31"],
+            env=_cli_env(root), capture_output=True, text=True, timeout=600)
+        assert r.returncode != 0
+        out_text = r.stdout + r.stderr
+        assert "v4_top300.parquet" in out_text
+>       assert "Traceback (most recent call last)" not in out_text
+E       assert 'Traceback (...t call last)' not in "Traceback (...0.parquet'\n"
+E         
+E         'Traceback (most recent call last)' is contained here:
+E           Traceback (most recent call last):
+E             File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_layer2_sas.py", line 60, in <module>
+E               raise SystemExit(main())
+E                                ~~~~^^
+E             File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_layer2_sas.py", line 35, in main...
+E         
+E         ...Full output truncated (28 lines hidden), use '-vv' to show
+
+research/tools/universe_stages/tests/test_preflight.py:203: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/universe_stages/tests/test_preflight.py::test_preflight_layer1_missing_fundamentals_names_file_path_and_guidance
+FAILED research/tools/universe_stages/tests/test_preflight.py::test_preflight_layer1_passes_when_all_sources_exist
+FAILED research/tools/universe_stages/tests/test_preflight.py::test_preflight_layer1_from_golden_also_requires_golden
+FAILED research/tools/universe_stages/tests/test_preflight.py::test_preflight_layer3_missing_tick_dir_points_to_unpack
+FAILED research/tools/universe_stages/tests/test_preflight.py::test_preflight_layer3_passes_when_tick_dir_exists
+FAILED research/tools/universe_stages/tests/test_preflight.py::test_run_layer1_cli_fails_cleanly_on_missing_fundamentals
+FAILED research/tools/universe_stages/tests/test_preflight.py::test_run_layer2_cli_fails_cleanly_on_missing_golden
+7 failed, 1 passed in 3.32s

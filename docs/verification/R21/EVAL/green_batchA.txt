@@ -1,0 +1,5 @@
+# cmd: cd platform && .venv/bin/python -m pytest -q tests/test_layered.py tests/test_ic_series.py tests/test_quant_core_shim.py
+# date: 2026-09-15T20:24:42+08:00
+# C1/I6/C2/I7/I8/I9 修复后 GREEN
+...................................................                      [100%]
+51 passed in 1.58s

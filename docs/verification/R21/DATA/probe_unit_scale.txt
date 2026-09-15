@@ -1,0 +1,2 @@
+identity (pre-fix): [{'volume': 1234.0, 'amount': 5678.0}]
+normalized (fix) : [{'volume': 123400.0, 'amount': 5678000.0}]

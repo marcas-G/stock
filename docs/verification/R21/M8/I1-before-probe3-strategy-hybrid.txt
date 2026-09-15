@@ -1,0 +1,24 @@
+# command: cd /data/students/gaolei/stock/platform && .venv/bin/python /tmp/opencode/reviewer-m8/probe3_stale_manifest.py
+# captured: BEFORE fix (baseline dd01bd9 + parallel agents' tree state)
+/data/students/gaolei/stock/platform/src/factorlab/core/domain/portfolio.py:151: PolarsInefficientMapWarning: 
+Expr.map_elements is significantly slower than the native expressions API.
+Only use if you absolutely CANNOT implement your logic otherwise.
+Replace this expression...
+  - pl.col("decision_date").map_elements(lambda d: ...)
+with this one instead:
+  + pl.col("decision_date").is_in(known)
+
+  ~pl.col("decision_date").map_elements(
+A loaded: 2 strategy_x
+write failed as simulated: disk full simulated during schedule write
+LOADED HYBRID: spec.name = strategy_x signal_name = alpha_x target source_signal_name = alpha_x rows = 2
+target frame:
+ shape: (2, 3)
+┌───────────────┬───────────┬───────────────┐
+│ decision_date ┆ code      ┆ target_weight │
+│ ---           ┆ ---       ┆ ---           │
+│ date          ┆ str       ┆ f64           │
+╞═══════════════╪═══════════╪═══════════════╡
+│ 2024-01-02    ┆ 000001.SZ ┆ 1.0           │
+│ 2024-01-03    ┆ 000001.SZ ┆ 1.0           │
+└───────────────┴───────────┴───────────────┘

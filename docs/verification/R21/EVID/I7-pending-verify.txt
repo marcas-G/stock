@@ -1,0 +1,37 @@
+== R01-EVID-I7 核实（R21）==
+
+① P-5：R14 标题 = # R14 三份编排样板全部切换（P-5 收口）（2026-09-15）
+research/tools/converters/convert_tick_to_parquet.py:47:from factorlab.adapters.batch_flock import BatchFlock  # noqa: E402  （R10：P-5 编排单点）
+research/tools/converters/convert_tick_to_parquet.py:139:    """BatchFlock 的 worker 适配器（模块级 → spawn 可 pickle）：只算不回写。
+research/tools/converters/convert_tick_to_parquet.py:283:STALL_S = 900        # 停滞判定窗（R10：作为 BatchFlock 的 stall_s）
+research/tools/converters/convert_tick_to_parquet.py:357:    # 正是 `BatchFlock(stall_policy='requeue', stall_strikes=3)` 的语义。
+research/tools/converters/convert_tick_to_parquet.py:387:    rep = BatchFlock().run(
+research/tools/lob_fact/pipeline/extract_sz_cancels.py:48:from factorlab.adapters.batch_flock import BatchFlock  # noqa: E402  （R10：P-5 编排单点）
+
+② ch_ingest 拆分（R15）：
+5:（门面/转发），拆完仍由既有测试与真数据门守。
+7:## 1. `ch_ingest/ingest_common.py` → 三模块 + 门面
+11:| `ch_source.py` | 列投影 / 类型 cast / 源路径 / 任务发现 / 源行数（源侧**只读**，投影从 `core/factio/schema` 派生） | 85 |
+12:| `ch_state.py` | 断点（单 JSON、只由主进程写、`.done` 目录迁移兼容、`_PROGRESS` 缓存） | 66 |
+13:| `ch_write.py` | 流式灌入 worker、主进程编排、CH↔源对账 | 110 |
+research/tools/ch_ingest/ch_source.py:41:    """源 parquet 根目录（年分区）。R4c：路径取 core.factio.paths 单点（原硬编码）。"""
+research/tools/ch_ingest/ingest_daily.py:35:DAILY_SRC = str(paths.daily_fact_path())   # R8：取 factio.paths（原硬编码绝对路径）
+research/tools/ch_ingest/reconcile.py:32:DAILY_SRC = str(paths.daily_fact_path())   # R8：取 factio.paths（原硬编码绝对路径）
+
+③ tick_read 收敛：
+def _read_date(tbl, day):
+    """该表该日全 code 的 tick 切片（R4a：实现收敛到平台单点 adapters.tick_read）。
+
+    投影 = 研究侧声明（lib.tickdata.PROJECTIONS，import 期校验是平台契约的子集）；
+    缺月目录/无 part → None（批算按日跳过）。
+    """
+    return T.read_tick(tbl, day, root=_G['tick_root'], missing_ok=True)
+def _read_tick(tick_root, table, day, code):
+    """单 code 的 tick 月切片（投影 = 研究侧声明；缺数据 → None）。"""
+    return T.read_tick(table, day, codes=[code], root=tick_root, missing_ok=True)
+
+④ catalog 拆分未做：
+platform/src/factorlab/adapters/catalog.py
+
+== #12① 门口径（见 I7-dataiface-count.txt）==
+6:[G-CONTRACT/平台表名字面量] REPORT：68 处（未竟 → docs/pending-items.md #12①）

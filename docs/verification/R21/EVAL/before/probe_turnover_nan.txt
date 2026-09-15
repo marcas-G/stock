@@ -1,0 +1,19 @@
+# cmd: cd platform && .venv/bin/python /tmp/opencode/reviewer-eval/probe_turnover_nan.py
+# date: 2026-09-15T20:20:45+08:00
+=== (1) _turnover: uses correctly the LAST week of each bucket? ===
+sorted-order turnover: 0.25  expected 0.25 (1 of 4 changed)
+shuffled-order turnover: 0.25
+distinguishing case (expected 0.5): 0.5
+
+=== (2) weekly_ic (Web curve) vs kernel (summary) with NaN rows ===
+kernel ic.mean/std: 1.0 0.0  n_weeks: 4
+weekly_ic raw:       [0.5384615384615384, 0.6153846153846154, 1.0, 1.0]  mean: 0.7884615384615384
+weekly_ic NaN-filt:  [1.0, 1.0, 1.0, 1.0]  mean: 1.0
+Web curve (raw weekly_ic) vs summary: DIVERGES
+
+=== (3) 2-stock week: weekly_ic null vs kernel counts ===
+weekly_ic ic: [None]  kernel n_weeks: 1  kernel ic.mean: 1.0
+
+=== (4) inf signal: weekly_ic vs kernel ===
+weekly_ic raised: ValueError 评估面板缺少列: ['forward_return_5d']
+kernel coverage: {'pct_valid': 0.75, 'total_rows': 4, 'valid_rows': 3}  n_weeks: 1  ic: 1.0

@@ -1,0 +1,38 @@
+tasks: 11414 (full/incr/delisted: 5546/5532/336)
+  清理旧分片 11411 个
+  parsed 500/11414
+  parsed 1000/11414
+  parsed 1500/11414
+  parsed 2000/11414
+  parsed 2500/11414
+  parsed 3000/11414
+  parsed 3500/11414
+  parsed 4000/11414
+  parsed 4500/11414
+  parsed 5000/11414
+  parsed 5500/11414
+  parsed 6000/11414
+  parsed 6500/11414
+  parsed 7000/11414
+  parsed 7500/11414
+  parsed 8000/11414
+  parsed 8500/11414
+  parsed 9000/11414
+  parsed 9500/11414
+  parsed 10000/11414
+  parsed 10500/11414
+  parsed 11000/11414
+parsed 11414/11414 files, errors: 3
+  ERROR 920680: StopIteration: 
+  ERROR 920305: StopIteration: 
+  ERROR 000047: StopIteration: 
+  merged 1000/5861 codes
+  merged 2000/5861 codes
+  merged 3000/5861 codes
+  merged 4000/5861 codes
+  merged 5000/5861 codes
+unique rows: 18124805, codes: 5861
+OHLC invalid rows: 0
+wrote data/fact/daily_fact/daily_fact.parquet.new (454.8 MB)
+date range: 1990-12-19 .. 2026-08-21
+sidecar: data/fact/daily_fact/delisted_codes.parquet (331 退市代码，329 个有交易日)

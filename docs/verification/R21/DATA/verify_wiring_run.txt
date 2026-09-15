@@ -1,0 +1,5 @@
+patched run.py loaded; all anchors matched
+pit_qfq FULL/60/120 equal: True True
+event-day 95 signal (expect raw 19.50, factor=1.0): 19.499999610907018
+UNWIRED (current run.py) pit_qfq FULL/60 equal: False ← False = 修复前的分块依赖
+prod 600005 GATE FIRED: 检测到 1 个仍标记上市但行情长期断流的 code：600005 last_close=None。面板最后日期 2026-08-14，阈值 250 交易日无成交——疑似退市股未灌入 stock_basic.delist_date（数据侧 M6-07B/TOOLS 灌入前 full-history PIT 不可信），fa

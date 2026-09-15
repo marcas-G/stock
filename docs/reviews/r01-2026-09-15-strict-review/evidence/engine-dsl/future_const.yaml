@@ -1,0 +1,11 @@
+name: future_const_probe
+category: custom
+direction: 1
+universe:
+  codes: ["000001.SZ"]
+date:
+  start: "2024-01-01"
+  end: "2024-01-31"
+formula: |
+  _n = 3
+  signal = ts_delay(close, -_n)

@@ -1,0 +1,65 @@
+# R01-TOOLS-I10 RED（修复前：--only-day 覆盖整月产物；无 --out-root）
+$ platform/.venv/bin/python -m pytest -q research/tools/converters/tests/test_convert_tick_e2e.py
+exit=1
+
+..FF                                                                     [100%]
+=================================== FAILURES ===================================
+______ test_only_day_writes_to_validation_root_and_leaves_month_untouched ______
+
+mini_root = PosixPath('/tmp/pytest-of-gaolei/pytest-1097/test_only_day_writes_to_valida0')
+
+    def test_only_day_writes_to_validation_root_and_leaves_month_untouched(mini_root):
+        """R01-TOOLS-I10：单日模式绝不覆盖月产物——先有整月产物，再跑 --only-day。
+    
+        整月数据/manifest 必须逐字节不变；单日输出必须落在独立 validation 根。
+        """
+        fact = mini_root / "data" / "fact" / "tick_fact"
+        month = fact / "trades" / "year=2025" / "month=08"
+        month.mkdir(parents=True, exist_ok=True)
+        prod_part = month / "part-000.parquet"
+        prod_part.write_bytes(b"FULL-MONTH-ARTIFACT-DO-NOT-TOUCH")
+        (month / "_SUCCESS").write_bytes(b"")
+        man_dir = fact / "_manifest"
+        man_dir.mkdir(parents=True, exist_ok=True)
+        prod_man = man_dir / "conversion_manifest.parquet"
+        prod_man.write_bytes(b"FULL-MONTH-MANIFEST")
+    
+        env = dict(os.environ, FACTORLAB_STOCK_ROOT=str(mini_root))
+        r = subprocess.run(
+            [sys.executable, os.path.join(_HERE, "..", "convert_tick_to_parquet.py"),
+             "--only-day", DAY, "--workers", "1"],
+            env=env, capture_output=True, text=True, timeout=900)
+        assert r.returncode == 0, r.stdout[-3000:] + r.stderr[-3000:]
+    
+>       assert prod_part.read_bytes() == b"FULL-MONTH-ARTIFACT-DO-NOT-TOUCH", \
+            "单日模式覆盖了整月产物"
+E       AssertionError: 单日模式覆盖了整月产物
+E       assert b'PAR1\x15\x0...7\x00\x00PAR1' == b'FULL-MONTH-...-DO-NOT-TOUCH'
+E         
+E         At index 0 diff: b'P' != b'F'
+E         Use -v to get more diff
+
+research/tools/converters/tests/test_convert_tick_e2e.py:145: AssertionError
+__________________ test_only_day_refuses_production_out_root ___________________
+
+mini_root = PosixPath('/tmp/pytest-of-gaolei/pytest-1097/test_only_day_refuses_producti0')
+
+    def test_only_day_refuses_production_out_root(mini_root):
+        """把 --out-root 显式指到生产根时必须拒绝（单日绝不写月分区）。"""
+        fact = mini_root / "data" / "fact" / "tick_fact"
+        env = dict(os.environ, FACTORLAB_STOCK_ROOT=str(mini_root))
+        r = subprocess.run(
+            [sys.executable, os.path.join(_HERE, "..", "convert_tick_to_parquet.py"),
+             "--only-day", DAY, "--workers", "1", "--out-root", str(fact)],
+            env=env, capture_output=True, text=True, timeout=900)
+        assert r.returncode != 0, "指向生产根的 --only-day 必须被拒绝"
+>       assert "拒绝" in (r.stdout + r.stderr)
+E       AssertionError: assert '拒绝' in ('' + 'usage: convert_tick_to_parquet.py [-h] [--workers WORKERS]\n                                  [--only-day ONLY_DAY] [...cognized arguments: --out-root /tmp/pytest-of-gaolei/pytest-1097/test_only_day_refuses_producti0/data/fact/tick_fact\n')
+E        +  where '' = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '/data/students/gaolei/stock/research/...ognized arguments: --out-root /tmp/pytest-of-gaolei/pytest-1097/test_only_day_refuses_producti0/data/fact/tick_fact\n').stdout
+E        +  and   'usage: convert_tick_to_parquet.py [-h] [--workers WORKERS]\n                                  [--only-day ONLY_DAY] [...cognized arguments: --out-root /tmp/pytest-of-gaolei/pytest-1097/test_only_day_refuses_producti0/data/fact/tick_fact\n' = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '/data/students/gaolei/stock/research/...ognized arguments: --out-root /tmp/pytest-of-gaolei/pytest-1097/test_only_day_refuses_producti0/data/fact/tick_fact\n').stderr
+
+research/tools/converters/tests/test_convert_tick_e2e.py:172: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/converters/tests/test_convert_tick_e2e.py::test_only_day_writes_to_validation_root_and_leaves_month_untouched
+FAILED research/tools/converters/tests/test_convert_tick_e2e.py::test_only_day_refuses_production_out_root
+2 failed, 2 passed in 7.09s

@@ -1,0 +1,6 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_atomicio.py tests/test_market_open_snapshot.py tests/test_open_fillability.py tests/test_open_suspension_evidence.py tests/test_execution_accounting.py tests/test_execution_costs.py tests/test_execution_domain.py tests/test_execution_quantity_rules.py tests/test_execution_spec.py tests/test_execution_state.py tests/test_execution_valuation.py tests/test_architecture.py test_ast_gate.py
+# captured: adapters/domain/architecture regression surface after all fixes
+........................................................................ [ 76%]
+........................................................................ [ 88%]
+................................................................         [100%]
+568 passed in 21.91s

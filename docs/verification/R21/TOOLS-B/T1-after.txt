@@ -1,0 +1,6 @@
+# TOOLS-B T1 全量（universe_stages + converters；最终版）
+$ platform/.venv/bin/python -m pytest -q research/tools/universe_stages/tests research/tools/converters/tests
+exit=0
+
+................................                                         [100%]
+32 passed in 11.94s

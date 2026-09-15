@@ -1,0 +1,27 @@
+# cmd: cd platform && .venv/bin/python /tmp/opencode/reviewer-eval/probe_layered.py
+# date: 2026-09-15T20:20:44+08:00
+=== (1) one-valid-stock week: bt.periods vs kernel.n_weeks ===
+bt periods: 2  kernel n_weeks: 1  dates(bt): 2  net_values D1 len: 2
+
+=== (2) NaN signal / fwd rows ===
+bt periods: 3  kernel n_weeks: 3
+bt D1 net last: 1.1881  D10 net last: nan
+kernel spread: -0.09000000000000001  coverage: {'pct_valid': 0.9333, 'total_rows': 30, 'valid_rows': 28}
+NaN signal rank (polars): [{'code': '000000', 'signal': nan, 'r': 1}, {'code': '000001', 'signal': 1.0, 'r': 10}, {'code': '000002', 'signal': 2.0, 'r': 9}]
+NaN fwd group mean (polars mean over 10 with one NaN): [{'date': datetime.date(2024, 1, 19), 'forward_return_5d': nan}]
+
+=== (3) cost alignment: net = gross - rate*turnover ===
+turnover D1: [0.0, 1.0, 1.0, 1.0]
+gross returns D1: [1.02, 1.0302, 1.040502, 1.050907]
+costed net D1: [1.02, 0.5202, 0.265302, 0.135304]
+manual net last: 0.13530402 kernel: 0.13530402
+
+=== (4) right-join order with an empty middle week for one group ===
+turnover D1: [0.0, 1.0, 1.0, 0.0]
+D1 net: [1.1, 1.045, 1.1495, 1.26445]
+D2 net: [0.95, 0.95, 0.9025, 0.857375]
+
+=== (5) long_short summary when the spread only loses ===
+D1: [0.98, 0.9604, 0.941192] D2: [1.05, 1.1025, 1.157625]
+long_short: [-0.07, -0.1421, -0.216433]
+summary long_short: {'annual_return': -3.64, 'annual_vol': 0.0, 'sharpe': 0.0, 'max_drawdown': -0.0, 'win_rate': 0.0}

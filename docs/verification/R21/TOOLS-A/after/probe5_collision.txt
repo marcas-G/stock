@@ -1,0 +1,10 @@
+== 2015-01-19 daily: rows sharing the same (close,pre_close) as 000038.SZ ==
+same close count: (0,)
+('600075.SH', 6.67, 6.74, 6.48, 6.51, 6.72, -3.125)
+
+== distinct closes on 2015-01-19 vs number of codes ==
+(2367, 1552, 1552)
+
+== adj_factor <= 0 counts by year ==
+
+== 000018.SZ Jan 2015 ==

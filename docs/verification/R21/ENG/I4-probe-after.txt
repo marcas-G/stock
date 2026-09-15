@@ -1,0 +1,12 @@
+# command: platform/.venv/bin/python docs/verification/R21/ENG/probe_eng.py I4
+# date: 2026-09-15T20:04:15+08:00
+# repo: dd01bd9
+2026-09-15 20:04:17.279 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 20:04:17.308 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+# probe_eng.py I4 @ 2026-09-15T20:04:15
+[I4] cs_regression_resid/cs_resid 注册与实际可调用
+  registry.has_op(cs_resid): True
+  registry.has_op(cs_regression_resid): True
+  compute_formula cs_resid(close, volume): OK values=[0.4235294117647058, 0.8470588235294116, 0.6941176470588233, -0.6117647058823534]
+  compute_formula cs_regression_resid(close, volume): OK values=[0.4235294117647058, 0.8470588235294116, 0.6941176470588233, -0.6117647058823534]
+

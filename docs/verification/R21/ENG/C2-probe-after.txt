@@ -1,0 +1,13 @@
+# command: platform/.venv/bin/python docs/verification/R21/ENG/probe_eng.py C2
+# date: 2026-09-15T20:04:05+08:00
+# repo: dd01bd9
+# probe_eng.py C2 @ 2026-09-15T20:04:05
+[C2] 未来函数旁路#2：_n=3; ts_delay(close, -_n)（应被拒）
+  -_n: REJECT FactorDSLError: 2:9: ts_delay 不允许负位移（lookback 只能取过去）
+  1 - _n: REJECT FactorDSLError: 2:9: ts_delay 不允许负位移（lookback 只能取过去）
+  0 - _n: REJECT FactorDSLError: 2:9: ts_delay 不允许负位移（lookback 只能取过去）
+  -_n * 1: REJECT FactorDSLError: 2:9: ts_delay 不允许负位移（lookback 只能取过去）
+  控制 字面量 -1: REJECT（不应发生）1:9: ts_delay 不允许负位移（lookback 只能取过去）
+  控制 正向 _n=3: PASS
+  E2E run_factor -_n: REJECT FactorDSLError: 2:9: ts_delay 不允许负位移（lookback 只能取过去）
+

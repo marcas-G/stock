@@ -1,0 +1,9 @@
+# command: platform/.venv/bin/python docs/verification/R21/ENG/probe_eng.py I5
+# date: 2026-09-15T20:04:18+08:00
+# repo: dd01bd9
+# probe_eng.py I5 @ 2026-09-15T20:04:18
+[I5] factorlab lint 语义门
+  future_subscript.yaml: exit=1 out='1:9: close[-1] 不允许负位移（下标 = ts_delay，lookback 只能取过去）'
+  future_const.yaml: exit=1 out='2:9: ts_delay 不允许负位移（lookback 只能取过去）'
+  neg_shift_lint.yaml: exit=1 out='1:31: 未知算子: no_such_op'
+

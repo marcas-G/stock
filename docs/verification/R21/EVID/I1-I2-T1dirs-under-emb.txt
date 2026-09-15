@@ -1,0 +1,6 @@
+1m_features      emb: 1 skipped in 0.14s
+ashare_ingest    emb: 3 skipped in 0.01s
+ch_ingest        emb: 5 skipped in 0.02s
+factor_lib       emb: 5 passed in 1.10s
+strategies       emb: 1 skipped in 0.13s
+universe_stages  emb: 17 passed, 2 skipped in 3.20s

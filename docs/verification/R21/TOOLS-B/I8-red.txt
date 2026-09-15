@@ -1,0 +1,119 @@
+# R01-TOOLS-I8 RED（修复前 = git HEAD 实现；测试为最终版）
+# 复现：对 run_layer3_tick.py / readers/tick.py / universe_paths.py git checkout -- 后运行（随后已恢复修复版）
+$ platform/.venv/bin/python -m pytest -q research/tools/universe_stages/tests/test_layer3_tick_guard.py
+exit=1
+
+FFFFF                                                                    [100%]
+=================================== FAILURES ===================================
+_______________ test_non_trade_date_event_is_skipped_with_reason _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffb60470d60>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1182/test_non_trade_date_event_is_s0')
+
+    def test_non_trade_date_event_is_skipped_with_reason(monkeypatch, tmp_path):
+        _patch_store(monkeypatch, _ticks())
+        events = [pd.Timestamp(f"{DAY_TS} 10:30"), pd.Timestamp("2026-08-16 10:30")]
+    
+>       code, rows, err, issues = L3._worker(("000001.SZ", DAY, events, str(tmp_path)))
+        ^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: not enough values to unpack (expected 4, got 3)
+
+research/tools/universe_stages/tests/test_layer3_tick_guard.py:67: ValueError
+________________ test_feature_exception_is_marked_not_swallowed ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffaf1987ce0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1182/test_feature_exception_is_mark0')
+
+    def test_feature_exception_is_marked_not_swallowed(monkeypatch, tmp_path):
+        _patch_store(monkeypatch, _ticks())
+    
+        def boom(*args, **kwargs):
+            raise RuntimeError("synthetic feature failure")
+    
+        monkeypatch.setattr(L3, "event_reversal_features", boom)
+    
+>       code, rows, err, issues = L3._worker(
+        ^^^^^^^^^^^^^^^^^^^^^^^
+            ("000001.SZ", DAY, [pd.Timestamp(f"{DAY_TS} 10:30")], str(tmp_path)))
+E       ValueError: not enough values to unpack (expected 4, got 3)
+
+research/tools/universe_stages/tests/test_layer3_tick_guard.py:89: ValueError
+________________ test_invalid_event_time_is_skipped_with_reason ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffaf18dc710>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1182/test_invalid_event_time_is_ski0')
+
+    def test_invalid_event_time_is_skipped_with_reason(monkeypatch, tmp_path):
+        _patch_store(monkeypatch, _ticks())
+    
+>       code, rows, err, issues = L3._worker(
+        ^^^^^^^^^^^^^^^^^^^^^^^
+            ("000001.SZ", DAY, ["not-a-timestamp"], str(tmp_path)))
+E       ValueError: not enough values to unpack (expected 4, got 3)
+
+research/tools/universe_stages/tests/test_layer3_tick_guard.py:102: ValueError
+___________________ test_reader_refuses_to_relabel_other_day ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1182/test_reader_refuses_to_relabel0')
+
+    def test_reader_refuses_to_relabel_other_day(tmp_path):
+        root = tmp_path / DAY
+        d = root / "000001.SZ"
+        d.mkdir(parents=True)
+        (d / "逐笔成交.csv").write_text(
+            "时间,成交价格,成交数量,BS标志\n093000000,100000,100,B\n", encoding="gbk")
+    
+        store = WindTickStore(str(root))
+>       with pytest.raises(ValueError, match=r"20260817.*20260701"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+research/tools/universe_stages/tests/test_layer3_tick_guard.py:118: Failed
+________ test_cli_records_skipped_events_and_writes_only_matching_rows _________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1182/test_cli_records_skipped_event0')
+
+    def test_cli_records_skipped_events_and_writes_only_matching_rows(tmp_path):
+        """CLI 端到端：混合事件（当日 + 前一日）→ 只落当日行 + issues 文件留原因。"""
+        root = tmp_path / "stockroot"
+        tick_dir = root / "data" / "raw" / DAY / "000001.SZ"
+        tick_dir.mkdir(parents=True)
+        _tick_csv(tick_dir / "逐笔成交.csv", DAY_TS)
+    
+        out = tmp_path / "research_out"
+        out.mkdir()
+        pd.DataFrame({"code": ["000001.SZ"], "hv_pi12": [1.0],
+                      "shock_drop_mean": [0.05]}).to_parquet(
+            out / f"sas_features_{DAY_TS}.parquet", index=False)
+        pd.DataFrame({"code": ["000001.SZ", "000001.SZ"],
+                      "datetime": [pd.Timestamp(f"{DAY_TS} 10:30"),
+                                   pd.Timestamp("2026-08-16 10:30")]}).to_parquet(
+            out / f"sas_events_{DAY_TS}.parquet", index=False)
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            f"outputs:\n  research: {out}\nlayer3:\n  default_top_k: 50\n",
+            encoding="utf-8")
+    
+        env = dict(os.environ, FACTORLAB_STOCK_ROOT=str(root),
+                   PYTHONPATH=os.pathsep.join(
+                       [str(_PLATFORM_SRC), os.environ.get("PYTHONPATH", "")]))
+        r = subprocess.run(
+            [sys.executable, _SCRIPT, "--config", str(cfg),
+             "--scan-date", DAY_TS, "--workers", "1"],
+            env=env, capture_output=True, text=True, timeout=600)
+        assert r.returncode == 0, r.stdout[-3000:] + r.stderr[-3000:]
+    
+        feat = pd.read_parquet(out / f"layer3_tick_features_{DAY_TS}.parquet")
+>       assert len(feat) == 1, "非当日事件不得出现在产物行里"
+E       AssertionError: 非当日事件不得出现在产物行里
+E       assert 2 == 1
+E        +  where 2 = len(        code  ... post_window_return\n0  000001.SZ  ...                0.0\n1  000001.SZ  ...                NaN\n\n[2 rows x 7 columns])
+
+research/tools/universe_stages/tests/test_layer3_tick_guard.py:160: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/universe_stages/tests/test_layer3_tick_guard.py::test_non_trade_date_event_is_skipped_with_reason
+FAILED research/tools/universe_stages/tests/test_layer3_tick_guard.py::test_feature_exception_is_marked_not_swallowed
+FAILED research/tools/universe_stages/tests/test_layer3_tick_guard.py::test_invalid_event_time_is_skipped_with_reason
+FAILED research/tools/universe_stages/tests/test_layer3_tick_guard.py::test_reader_refuses_to_relabel_other_day
+FAILED research/tools/universe_stages/tests/test_layer3_tick_guard.py::test_cli_records_skipped_events_and_writes_only_matching_rows
+5 failed in 1.38s

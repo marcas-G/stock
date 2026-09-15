@@ -1,0 +1,4 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_partitions.py tests/test_polars_ta_wrappers.py tests/test_cli_lint_params.py tests/test_ops.py tests/test_run_factor.py -k '<R21 ENG new tests>'
+# date: 2026-09-15T19:55:34+08:00
+......................................                                   [100%]
+38 passed, 98 deselected in 7.81s

@@ -1,0 +1,6 @@
+# R01-TOOLS-I8 GREEN（修复后，最终版）
+$ platform/.venv/bin/python -m pytest -q research/tools/universe_stages/tests/test_layer3_tick_guard.py
+exit=0
+
+.....                                                                    [100%]
+5 passed in 1.38s

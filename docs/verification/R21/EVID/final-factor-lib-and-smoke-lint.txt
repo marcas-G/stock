@@ -1,0 +1,5 @@
+$ platform/.venv/bin/python -m pytest research/tools/factor_lib/tests -q   # 标注+模板改动后复跑
+.....                                                                    [100%]
+5 passed in 1.05s
+$ platform/.venv/bin/factorlab lint docs/verification/R12/r12_smoke.yaml
+OK r12_smoke

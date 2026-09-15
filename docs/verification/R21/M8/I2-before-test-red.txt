@@ -1,0 +1,23 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_backtest_fills.py::test_partial_buy_order_quantity_auditable tests/test_backtest_fills.py::test_partial_buy_fill_batch_validator_accepts_filled_lt_order
+# captured: RED before I2 fix — order_quantity == filled_quantity
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+__________________ test_partial_buy_order_quantity_auditable ___________________
+
+    def test_partial_buy_order_quantity_auditable():
+        """R01-M8-I2：部分成交行必须同时可审计委托量（1000）与实际成交量（400）——
+        order_quantity 保留决策/委托数量，filled_quantity 为 funding 缩量后的实际
+        成交；cash/gross 仍基于 filled。"""
+        o = _orders([("000001.SZ", "buy", 1000)])
+        a = _assessment([("000001.SZ", "buy", 1000, "fillable", 10.0)])
+        st = _state(4_000.0, [])
+        b = _realize(orders=o, assessment=a, state=st)
+        r = _fills(b, "000001.SZ")
+>       assert r[2] == 1000         # order_quantity = 委托数量（不随成交缩水）
+        ^^^^^^^^^^^^^^^^^^^
+E       assert 400 == 1000
+
+tests/test_backtest_fills.py:787: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_backtest_fills.py::test_partial_buy_order_quantity_auditable
+1 failed, 1 passed in 0.93s

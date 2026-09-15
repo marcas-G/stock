@@ -1,0 +1,9 @@
+# command: platform/.venv/bin/python docs/verification/R21/ENG/probe_eng.py I5
+# date: 2026-09-15T19:52:06+08:00
+# repo: dd01bd9
+# probe_eng.py I5 @ 2026-09-15T19:52:06
+[I5] factorlab lint 语义门
+  future_subscript.yaml: exit=0 out='OK future_subscript_probe'
+  future_const.yaml: exit=0 out='OK future_const_probe'
+  neg_shift_lint.yaml: exit=0 out='OK neg_shift_lint_probe'
+

@@ -1,0 +1,5 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_backtest_persistence.py -k 'execution_timing or next_close'
+# captured: AFTER fix, I7 tests GREEN
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 passed, 26 deselected, 4 warnings in 2.46s

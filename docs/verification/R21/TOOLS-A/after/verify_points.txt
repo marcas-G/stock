@@ -1,0 +1,28 @@
+[PASS] C1 600519 total_mv≈1350.6×125008.16 got=168836020.896
+[PASS] C1 600519 turnover≈0.4410 got=0.4409913720832304
+[PASS] C1 000001 total_mv=close×total_shares got=22142153.3508 exp=22142153.3508
+[PASS] C1 000001 turnover=vol/(float×1e4)×100 got=0.44787267236379447
+[PASS] DATA-C2 300842 pre_close=50.07 got=50.07
+[PASS] DATA-C2 300842 pct≈+1.82% got=1.8174555622128885
+[PASS] DATA-C2 2025 除权日 pre_close 全公式一致 bad=0/4925
+[PASS] I1 adj_factor 无 NaN/<=0 非空值 got=0
+[PASS] I1 latest adj_factor<=0 为 0 got=0
+[PASS] I1 adj_factor NULL 覆盖 NaN/负值 got=1259244
+[PASS] I1 600811 amount 全 NULL got=7598
+[PASS] C2 000018.SZ 假历史已清除 got=0
+[PASS] C2 000023.SZ 假历史已清除 got=0
+[PASS] C2 000024.SZ 假历史已清除 got=0
+[PASS] C2 000033.SZ 假历史已清除 got=0
+[PASS] C2 000038.SZ 假历史已清除 got=0
+[PASS] C2 600811 归位（7598 行，末日 2025-04-14） got=7598 dmax=2025-04-14
+[PASS] C2 sidecar 600811 last=2025-04-14 
+[PASS] C2 600811 delist_date=2025-04-15 got=2025-04-15
+[PASS] delist_date 有覆盖 got=329
+[PASS] delist_date > list_date got=0
+[PASS] 600005.SH delist_date = last+1 got=2017-02-14 last=2017-02-13
+[PASS] PIT：2026-08-14 无已退市 code 仍 is_listed got=0
+[PASS] 920305.BJ delist_date 非空（空文件+断流兜底） got=2026-04-30
+[PASS] I4 300842 除权日 band=60.08/40.06 got=60.08/40.06
+[PASS] I4 2025 全市场 stk_limit 与 pre_close 带一致 got=0
+
+TOOLS-A 定点验收: ALL PASS

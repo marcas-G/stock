@@ -1,0 +1,12 @@
+== before ==
+daily amount [('amount', 'Float64')]
+adj_factor adj_factor [('adj_factor', 'Float64')]
+stock_basic delist_date []
+SQL> ALTER TABLE factorlab.daily MODIFY COLUMN amount Nullable(Float64)
+SQL> ALTER TABLE factorlab.adj_factor MODIFY COLUMN adj_factor Nullable(Float64)
+SQL> ALTER TABLE factorlab.stock_basic ADD COLUMN IF NOT EXISTS delist_date Nullable(Date) AFTER industry
+== after ==
+daily amount [('amount', 'Nullable(Float64)')]
+adj_factor adj_factor [('adj_factor', 'Nullable(Float64)')]
+stock_basic delist_date [('delist_date', 'Nullable(Date)')]
+== stock_basic 列序 == ['symbol', 'ts_code', 'list_date', 'market', 'industry', 'delist_date']

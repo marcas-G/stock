@@ -1,0 +1,10 @@
+$ platform/.venv/bin/python -m pytest -q research/tools/quark_download/tests/test_quark_download.py -k server_main   # 修复前（HEAD 死入口）
+research/tools/quark_download/quark_download_server.py:84: NameError
+=========================== short test summary info ============================
+FAILED research/tools/quark_download/tests/test_quark_download.py::test_server_main_cookie_missing_exits_with_message_not_nameerror
+FAILED research/tools/quark_download/tests/test_quark_download.py::test_server_main_proceeds_past_cookie_check_with_manifest
+2 failed, 6 deselected in 0.17s
+
+$ platform/.venv/bin/python -m pytest -q research/tools/quark_download/tests/test_quark_download.py   # 修复后
+........                                                                 [100%]
+8 passed in 0.48s

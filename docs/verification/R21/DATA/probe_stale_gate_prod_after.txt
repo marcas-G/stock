@@ -1,0 +1,4 @@
+trading days in window: 634 2024-01-02 .. 2026-08-14
+600005: panel_rows=634 raw_rows=0 listed@ref=True -> GATE FIRED:
+检测到 1 个仍标记上市但行情长期断流的 code：600005 last_close=None。面板最后日期 2026-08-14，阈值 250 交易日无成交——疑似退市股未灌入 stock_basic.delist_date（数据侧 M6-07B/TOOLS 灌入前 full-history PIT 不可信），fail loudly 不产出结果；如确为极端长期停牌请核对数据源。
+600018: panel_rows=634 raw_rows=634 listed@ref=True -> GATE PASS (no stale)

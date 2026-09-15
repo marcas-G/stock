@@ -1,0 +1,10 @@
+name: r21_probe_preclose
+category: custom
+direction: 1
+universe:
+  codes: ["300842"]
+date:
+  start: "2024-04-08"
+  end: "2024-04-12"
+formula: |
+  signal = pct_chg + pre_close * 0.0

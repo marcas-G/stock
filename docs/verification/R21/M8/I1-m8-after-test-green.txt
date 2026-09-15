@@ -1,0 +1,5 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_backtest_persistence.py -k 'failed_overwrite or content_hash or cross_check or extra_event'
+# captured: AFTER fix, I1-m8 tests GREEN
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+5 passed, 25 deselected, 5 warnings in 3.29s

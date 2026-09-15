@@ -57,3 +57,20 @@ panel 载入；缺失语义与 `load_panel` 一致，文案单点仍在 `ports.p
 - `run_lob_batch` 切 P-5（它额外需要内存低水位派单闸门与周期性审计回调两个专有缝）；
 - `test_e2e_web.py` 4 条因缺历史 results fixture 而 skip —— 需要一批固定产物或改造成自造 fixture
   （本轮已用 serve+curl 冒烟覆盖同一路径，但没把它固化成测试）。
+
+## 6. R21 补录：真 CH 端到端原始输出（2026-09-15，R01-EVID-C2）
+
+R01 评审指出 §3/§4 的"真 CH 端到端"只有陈述、目录无原始输出（**R12 当时的运行输出确未存档**）。
+R21 于当前代码（含 R21 修复）**重跑**并补存原始输出；以下为补录，不是当时输出：
+
+- **spec**：原始 `r12_smoke` spec 未随仓存档，按本文口径复原并入库为
+  `docs/verification/R12/r12_smoke.yaml`（2026-06 一个月 × 4 码，`signal = close`，无窗口依赖）。
+- **运行**（真 CH）：
+  `cd platform && FACTORLAB_DATA_BACKEND=ch .venv/bin/factorlab run ../docs/verification/R12/r12_smoke.yaml --output-dir /tmp/opencode/r21-recheck/r12-root/r12_smoke`
+  → 原始输出 `r21-recheck-run.txt`：exit=0，`r12_smoke: n_weeks=3`（4 码小样本，档位不足提示属预期）。
+- **布局/原子性/list/show**：原始输出 `r21-recheck-layout.txt`——5 件产物在 `<root>/<name>/`
+  （panel/labels/signal/weekly.parquet + summary.json），无 `*.tmp`/`.*tmp*` 残渣，
+  `factorlab list` / `show r12_smoke` 走新单点路径正常。
+- **口径注**：`--output-dir` 是**因子落盘目录**（`interface.md`：缺省 `results/<name>`）；
+  `list`/`show`/`serve` 的"结果根"由 `FACTORLAB_RESULTS_DIR` 控制，本次以
+  `<root>/r12_smoke` 复现文档中的 `<root>/<name>/` 布局。

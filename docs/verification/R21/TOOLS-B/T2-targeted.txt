@@ -1,0 +1,9 @@
+# TOOLS-B T2（两个目标目录，emb，-rs 列 skip 原因）
+$ /data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest -q -rs research/tools/universe_stages/tests research/tools/converters/tests
+exit=0
+
+.............s...............                                            [100%]
+=========================== short test summary info ============================
+SKIPPED [1] research/tools/universe_stages/tests/test_daily_fact.py:5: readers.daily 经 universe_paths 模块级 import factorlab
+SKIPPED [1] research/tools/universe_stages/tests/test_preflight.py:190: run_layer2 CLI 需 duckdb（T1 = platform/.venv）
+28 passed, 2 skipped in 11.54s

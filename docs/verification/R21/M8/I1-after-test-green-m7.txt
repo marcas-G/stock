@@ -1,0 +1,6 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_strategy_artifacts.py
+# captured: GREEN after I1 (M7 side) fix
+    ~pl.col("decision_date").map_elements(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+65 passed, 63 warnings in 2.44s

@@ -1,0 +1,13 @@
+$ platform/.venv/bin/python -m pytest -q research/tools/quark_download/tests/test_quark_download.py -k partial_link 2>&1 | tail -8
+  FAILED 20240101 000001.SZ.zip: no link
+  FAILED 20240101 000002.SZ.zip: no link
+day 1/1 20240101: ok=0 (0 MB/min, 0.0 min elapsed)
+
+DONE: 0/2 files, 0.0 min
+=========================== short test summary info ============================
+FAILED research/tools/quark_download/tests/test_quark_download.py::test_v2_partial_link_failure_keeps_successful_urls
+1 failed, 8 deselected in 0.10s
+
+$ platform/.venv/bin/python -m pytest -q research/tools/quark_download/tests/test_quark_download.py   # 修复后
+.........                                                                [100%]
+9 passed in 0.47s

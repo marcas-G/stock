@@ -1,0 +1,9 @@
+$ platform/.venv/bin/python -m pytest -q research/tools/strategies/tests/test_strategy.py -k 'normalizes_code_format or segment_boundary or holdings_reset or long_episodes'
+
+research/tools/strategies/tests/test_strategy.py:436: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/strategies/tests/test_strategy.py::test_strategy_limit_down_normalizes_code_format
+FAILED research/tools/strategies/tests/test_strategy.py::test_strategy_segment_boundary_charges_liquidation_and_reentry
+FAILED research/tools/strategies/tests/test_strategy.py::test_strategy_holdings_reset_across_episodes_blocked_without_reset
+FAILED research/tools/strategies/tests/test_strategy.py::test_strategy_long_episodes_carry_returns_for_monte_carlo
+4 failed, 1 passed, 24 deselected in 0.47s

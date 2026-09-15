@@ -1,0 +1,7 @@
+$ platform/.venv/bin/python docs/verification/R21/STRAT/probe_strategy_cost_after.py   # 基于评审 probe，仅最后一次 print 用 .get('nav')（weeks=0 时无 nav 为合法修复结果）
+episodes: [('2024-01-05', '2024-01-12'), ('2024-01-26', '2024-01-26')]
+weeks: 3 total_cost: 0.0105 avg_turnover: 1.0
+weekly_returns: [0.0265, 0.03, 0.023]
+mc long ok 1
+panel .SZ + limit_down 6-digit -> weeks 0 err 无触发周 nav None
+panel .SZ + limit_down .SZ     -> weeks 0 err 无触发周

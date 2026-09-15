@@ -1,0 +1,7 @@
+$ /data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest -q research/tools/lob_fact/tests/test_extract_sz_cancels.py   # 修复后 T2 单模块
+..........                                                               [100%]
+10 passed in 0.74s
+
+$ /data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest -q research/tools/lob_fact/tests/test_platform_bootstrap.py   # 修复后 T2 自举测试
+..                                                                       [100%]
+2 passed in 3.32s

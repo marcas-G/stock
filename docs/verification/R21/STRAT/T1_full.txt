@@ -1,0 +1,4 @@
+$ platform/.venv/bin/python -m pytest -q research/tools/strategies/tests research/tools/lob_fact/tests research/tools/quark_download/tests   # 交付前最终
+........................................................................ [ 93%]
+..............                                                           [100%]
+230 passed in 9.28s

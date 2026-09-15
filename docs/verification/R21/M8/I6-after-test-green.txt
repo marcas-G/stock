@@ -1,0 +1,5 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_backtest_persistence.py -k 'artifact_count or manifest_columns or created_at or runtime_version or date_range'
+# captured: AFTER fix, I6 tests GREEN
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6 passed, 24 deselected, 7 warnings in 3.03s

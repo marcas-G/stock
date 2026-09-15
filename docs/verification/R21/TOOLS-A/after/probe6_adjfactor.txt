@@ -1,0 +1,25 @@
+== the 5 contaminated codes: row spans ==
+000018.SZ [(0, datetime.date(1970, 1, 1), datetime.date(1970, 1, 1))]
+000023.SZ [(0, datetime.date(1970, 1, 1), datetime.date(1970, 1, 1))]
+000024.SZ [(0, datetime.date(1970, 1, 1), datetime.date(1970, 1, 1))]
+000033.SZ [(0, datetime.date(1970, 1, 1), datetime.date(1970, 1, 1))]
+000038.SZ [(0, datetime.date(1970, 1, 1), datetime.date(1970, 1, 1))]
+600811.SH [(7598, datetime.date(1994, 1, 6), datetime.date(2025, 4, 14))]
+
+== adj_factor problems ==
+NaN adj_factor: 0
+<=0 adj_factor: 0
+close <= 0: 0
+open<=0 or high<=0 or low<=0: 0
+adj_factor<=0 by code count: 0
+adj_factor<=0 rows by year (2020+):
+
+== sample 2026 bad adj_factor rows with matching daily ==
+
+== per-code latest adj_factor <=0 (breaks qfq base) ==
+codes whose latest adj_factor <= 0: (0,)
+
+== close<=0 samples ==
+
+== nan adj_factor rows: delisted only? ==
+(0, 0)

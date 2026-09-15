@@ -1,0 +1,36 @@
+== R13 Web 冒烟（R21 复跑；结果根 = /tmp/opencode/r21-recheck/r12-root；端口 8129）==
+$ FACTORLAB_RESULTS_DIR=/tmp/opencode/r21-recheck/r12-root .venv/bin/factorlab serve --port 8129 &
+$ curl -s -o home.html -w 'GET / -> %{http_code}\n' http://127.0.0.1:8129/
+GET / -> 200
+$ curl -s -o detail.html -w 'GET /factor/r12_smoke -> %{http_code}\n' http://127.0.0.1:8129/factor/r12_smoke
+GET /factor/r12_smoke -> 200
+
+== 页面标题/关键区块标记 ==
+../docs/verification/R13/r21-recheck-web-home.html:<title>FactorLab</title>
+../docs/verification/R13/r21-recheck-web-detail.html:<title>r12_smoke - FactorLab</title>
+<h1>r12_smoke</h1>
+<h2>IC 曲线</h2>
+<h2>十分位收益</h2>
+<h2>分层回测净值</h2>
+<h2 style="margin: 20px 0 8px">Spec 原文</h2>
+
+== 详情页 IC/分层关键字计数 ==
+IC         4
+分层     1
+净值     1
+weekly     0
+r12_smoke  3
+canvas     0
+
+== serve 日志 ==
+INFO:     Started server process [25526]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8129 (Press CTRL+C to quit)
+INFO:     127.0.0.1:51568 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51570 - "GET /factor/r12_smoke HTTP/1.1" 200 OK
+[server stopped pid=25526]
+
+== HTML 产物 ==
+-rw-rw-r-- 1 gaolei gaolei 27794 9月  15 21:44 ../docs/verification/R13/r21-recheck-web-detail.html
+-rw-rw-r-- 1 gaolei gaolei   843 9月  15 21:44 ../docs/verification/R13/r21-recheck-web-home.html

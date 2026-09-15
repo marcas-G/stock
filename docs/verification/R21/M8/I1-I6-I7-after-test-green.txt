@@ -1,0 +1,6 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_backtest_persistence.py
+# captured: GREEN after I1(M8)/I6/I7 fixes
+    ~pl.col("decision_date").map_elements(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+30 passed, 27 warnings in 11.64s

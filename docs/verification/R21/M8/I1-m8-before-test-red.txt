@@ -1,0 +1,12 @@
+# command: cd platform && .venv/bin/python -m pytest -o pythonpath=/tmp/opencode/r21-m7/src -q tests/test_backtest_persistence.py -k 'failed_overwrite or content_hash or cross_check or extra_event'
+# captured: BEFORE fix (HEAD execution_store.py), I1-m8 tests RED
+    ~pl.col("decision_date").map_elements(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_backtest_persistence.py::test_failed_overwrite_never_hybrid_loadable
+FAILED tests/test_backtest_persistence.py::test_file_content_hash_mismatch_fails
+FAILED tests/test_backtest_persistence.py::test_nav_series_artifact_cross_check_fails
+FAILED tests/test_backtest_persistence.py::test_final_state_cross_check_fails
+FAILED tests/test_backtest_persistence.py::test_extra_event_index_row_fails
+5 failed, 25 deselected, 5 warnings in 3.78s

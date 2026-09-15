@@ -1,0 +1,2 @@
+36c64f70bd79eaf795709fa1ec8ee273654d99675b2cbb4eef8ed5e00b58fe7e  data/fact/daily_fact/daily_fact.parquet
+36c64f70bd79eaf795709fa1ec8ee273654d99675b2cbb4eef8ed5e00b58fe7e  data/fact/daily_fact/daily_fact.parquet.bak-R21

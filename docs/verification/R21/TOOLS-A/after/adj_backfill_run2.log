@@ -1,0 +1,9 @@
+[adj_detail] table ready (0s)
+[adj_event] table ready (0s)
+  batch 20/46 | detail 8,000,000 | event 23,401 | 28s since last
+  batch 40/46 | detail 16,000,000 | event 48,790 | 27s since last
+  batch 46/46 | detail 18,124,805 | event 57,173 | 8s since last
+[adj_detail] rows in CH: 18,124,805
+[adj_event] rows in CH: 57,173
+[adj_event] uniq (ts_code, trade_date): 57,173
+DONE in 64s (parquet rows: 18,124,805)

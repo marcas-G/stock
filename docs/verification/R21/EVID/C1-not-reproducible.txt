@@ -1,0 +1,54 @@
+== R01-EVID-C1 复现证据（R21 实测，2026-09-15）==
+
+$ find platform/results -mindepth 1 | wc -l   # results/ 内容数
+0
+
+$ ls -la platform/results/
+总用量 8
+drwxrwxr-x 2 gaolei gaolei 4096 9月  15 01:10 .
+drwxrwxr-x 9 gaolei gaolei 4096 9月  15 15:39 ..
+
+$ find . -name '*.duckdb' -not -path './.git/*' 2>/dev/null   # 平台库不存在
+[无输出=无 duckdb]
+
+$ ls data/ | grep -i duckdb || echo '（data/ 下无 duckdb）'
+（data/ 下无 duckdb）
+
+== CH: SHOW TABLES FROM factorlab ==
+adj_detail
+adj_event
+adj_factor
+bars_1m
+daily
+daily_basic
+index_daily
+stk_limit
+stock_basic
+tick_orders
+tick_snapshots
+tick_trades
+trade_cal
+
+== CH: SELECT count() FROM factorlab.stock_st（应报 UNKNOWN_TABLE）==
+Code: 60. DB::Exception: Unknown table expression identifier 'factorlab.stock_st' in scope SELECT count() FROM factorlab.stock_st. (UNKNOWN_TABLE) (version 26.3.22.7 (official build))
+
+== 依赖 exclude_st 的 spec 数（CH 上缺 stock_st → 这些 spec 的全体档案口径不可复跑）==
+$ grep -l 'exclude_st' research/factor/*/*.yaml | wc -l
+152
+$ ls research/factor/*/*.yaml | wc -l （总 spec 数）
+152
+
+== 平台库重建入口（恢复条件之一）==
+$ platform/.venv/bin/factorlab data rebuild --help | head -12
+                                                                                
+ Usage: factorlab data rebuild [OPTIONS]                                        
+                                                                                
+ teajoin 全量重建平台数据（暂存库 → 稀疏剔除 → 最终库）。                       
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --start                    <str>  [default: 20000104]                        │
+│ --end                      <str>                                             │
+│ --resume    --no-resume           [default: resume]                          │
+│ --help                            Show this message and exit.                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+

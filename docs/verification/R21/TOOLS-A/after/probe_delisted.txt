@@ -1,0 +1,6 @@
+600005.SH [('600005', '600005.SH', datetime.date(1999, 8, 3))] last daily: 2017-02-13
+000003.SZ [('000003', '000003.SZ', datetime.date(1991, 7, 3))] last daily: 2002-06-13
+600001.SH [('600001', '600001.SH', datetime.date(1998, 1, 22))] last daily: 2009-12-28
+600018.SH [('600018', '600018.SH', datetime.date(2000, 7, 19))] last daily: 2026-08-21
+uf 600005 @2026-08-14: [{'date': datetime.date(2026, 8, 14), 'code': '600005', 'in_universe': False, 'is_listed': False, 'list_days': 9873, 'is_st': None, 'exchange': 'SSE'}]
+load_daily 600005 week rows: []

@@ -1,0 +1,11 @@
+# cmd: cd platform && .venv/bin/python /tmp/opencode/reviewer-eval/probe_web.py
+# date: 2026-09-15T20:31:38+08:00
+/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+status: 200
+chart y values: [-0.9933259176863182, -0.9933259176863182, -0.9879866518353726, -0.9906562847608453, -0.9942157953281424, -0.9915461624026697, -0.992880978865406, -0.9937708565072303, -0.9902113459399332, -0.9919911012235818]
+weekly_ic 5d  mean : 0.9923025583982202
+weekly_ic 20d mean : -0.9919911012235817
+summary evaluation.ic.mean (20d): -0.9919911012235817
+chart matches 5d : False
+chart matches 20d: True

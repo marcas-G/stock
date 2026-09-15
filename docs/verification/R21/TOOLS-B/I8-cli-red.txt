@@ -1,0 +1,49 @@
+# R01-TOOLS-I8 CLI RED（旧 run_layer3_tick.py：非当日事件产出 NaN 伪窗口）
+# 复现：git checkout -- research/tools/universe_stages/scripts/run_layer3_tick.py 后运行（随后已恢复修复版）
+$ platform/.venv/bin/python -m pytest -q research/tools/universe_stages/tests/test_layer3_tick_guard.py::test_cli_records_skipped_events_and_writes_only_matching_rows
+exit=1
+
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_cli_records_skipped_events_and_writes_only_matching_rows _________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1073/test_cli_records_skipped_event0')
+
+    def test_cli_records_skipped_events_and_writes_only_matching_rows(tmp_path):
+        """CLI 端到端：混合事件（当日 + 前一日）→ 只落当日行 + issues 文件留原因。"""
+        root = tmp_path / "stockroot"
+        tick_dir = root / "data" / "raw" / DAY / "000001.SZ"
+        tick_dir.mkdir(parents=True)
+        _tick_csv(tick_dir / "逐笔成交.csv", DAY_TS)
+    
+        out = tmp_path / "research_out"
+        out.mkdir()
+        pd.DataFrame({"code": ["000001.SZ"], "hv_pi12": [1.0],
+                      "shock_drop_mean": [0.05]}).to_parquet(
+            out / f"sas_features_{DAY_TS}.parquet", index=False)
+        pd.DataFrame({"code": ["000001.SZ", "000001.SZ"],
+                      "datetime": [pd.Timestamp(f"{DAY_TS} 10:30"),
+                                   pd.Timestamp("2026-08-16 10:30")]}).to_parquet(
+            out / f"sas_events_{DAY_TS}.parquet", index=False)
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            f"outputs:\n  research: {out}\nlayer3:\n  default_top_k: 50\n",
+            encoding="utf-8")
+    
+        env = dict(os.environ, FACTORLAB_STOCK_ROOT=str(root))
+        r = subprocess.run(
+            [sys.executable, _SCRIPT, "--config", str(cfg),
+             "--scan-date", DAY_TS, "--workers", "1"],
+            env=env, capture_output=True, text=True, timeout=600)
+        assert r.returncode == 0, r.stdout[-3000:] + r.stderr[-3000:]
+    
+        feat = pd.read_parquet(out / f"layer3_tick_features_{DAY_TS}.parquet")
+>       assert len(feat) == 1, "非当日事件不得出现在产物行里"
+E       AssertionError: 非当日事件不得出现在产物行里
+E       assert 2 == 1
+E        +  where 2 = len(        code  ... post_window_return\n0  000001.SZ  ...                0.0\n1  000001.SZ  ...                NaN\n\n[2 rows x 7 columns])
+
+research/tools/universe_stages/tests/test_layer3_tick_guard.py:152: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/universe_stages/tests/test_layer3_tick_guard.py::test_cli_records_skipped_events_and_writes_only_matching_rows
+1 failed in 1.37s

@@ -1,0 +1,12 @@
+dtypes: {'date': Date, 'code': String, 'in_universe': Boolean, 'is_listed': Boolean, 'list_days': Int64, 'is_st': Boolean, 'exchange': String}
+shape: (4, 7)
+┌────────────┬────────┬─────────────┬───────────┬───────────┬───────┬──────────┐
+│ date       ┆ code   ┆ in_universe ┆ is_listed ┆ list_days ┆ is_st ┆ exchange │
+│ ---        ┆ ---    ┆ ---         ┆ ---       ┆ ---       ┆ ---   ┆ ---      │
+│ date       ┆ str    ┆ bool        ┆ bool      ┆ i64       ┆ bool  ┆ str      │
+╞════════════╪════════╪═════════════╪═══════════╪═══════════╪═══════╪══════════╡
+│ 2024-05-31 ┆ 000001 ┆ true        ┆ true      ┆ 151       ┆ null  ┆ SZSE     │
+│ 2024-05-31 ┆ 000002 ┆ true        ┆ true      ┆ 1612      ┆ null  ┆ SZSE     │
+│ 2024-06-01 ┆ 000001 ┆ true        ┆ true      ┆ 152       ┆ null  ┆ SZSE     │
+│ 2024-06-01 ┆ 000002 ┆ false       ┆ false     ┆ 1613      ┆ null  ┆ SZSE     │
+└────────────┴────────┴─────────────┴───────────┴───────────┴───────┴──────────┘

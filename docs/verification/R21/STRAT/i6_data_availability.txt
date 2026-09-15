@@ -1,0 +1,22 @@
+$ FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python docs/verification/R21/STRAT/i6_probe_data_availability.py
+{
+  "ch_database": "factorlab",
+  "has_index_daily": true,
+  "index_daily_rows": 0,
+  "index_daily_000852_rows": 0,
+  "has_stock_st": false,
+  "daily_basic_circ_mv_nonnull": {
+    "n": 5333,
+    "n_circ": 0
+  },
+  "panel": {
+    "path": "results/crash_bottom_leader_timed/panel.parquet",
+    "rows": 11947238,
+    "signal_nonnull": 0,
+    "signal_nonzero": 0,
+    "date_range": [
+      "2015-01-05",
+      "2026-07-31"
+    ]
+  }
+}

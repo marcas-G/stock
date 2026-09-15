@@ -1,0 +1,15 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_ast_gate.py tests/test_compute.py tests/test_cli_lint_params.py tests/test_cli_op_registry.py tests/test_cli.py tests/test_partitions.py tests/test_ops.py tests/test_plugin_run_path.py tests/test_plugin_partition_prefix.py tests/test_polars_ta_wrappers.py tests/test_pool_formula.py tests/test_platform_ops.py tests/test_universe_aware_formula.py tests/test_minute_gate.py tests/test_m6_semantic_guards.py tests/test_outputs_multi.py tests/test_run_factor.py tests/test_chunk_label_exactness.py tests/test_suspension_chunk_invariance.py tests/test_qfq_chunk_invariance.py
+# date: 2026-09-15T20:08:08+08:00
+........................................................................ [ 17%]
+........................................................................ [ 35%]
+........................................................................ [ 53%]
+........................................................................ [ 71%]
+........................................................................ [ 89%]
+...........................................                              [100%]
+=============================== warnings summary ===============================
+tests/test_cli.py::test_svd_command_outputs_spectrum
+  /data/students/gaolei/stock/platform/src/factorlab/app/analysis/correlation.py:52: DeprecationWarning: the argument `columns` for `DataFrame.pivot` is deprecated. It was renamed to `on` in version 1.0.0.
+    joined = long.pivot(index=["date", "code"], columns="factor",
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+403 passed, 1 warning in 139.39s (0:02:19)

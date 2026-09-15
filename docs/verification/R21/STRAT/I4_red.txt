@@ -1,0 +1,17 @@
+$ platform/.venv/bin/python -m pytest -q research/tools/lob_fact/tests/test_platform_bootstrap.py   # 修复前
+E         !!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+E         no tests collected, 1 error in 0.65s
+E         
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '-m', 'pytest', '-q', '--collect-only'...!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\nno tests collected, 1 error in 0.65s\n", stderr='').returncode
+
+research/tools/lob_fact/tests/test_platform_bootstrap.py:69: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/lob_fact/tests/test_platform_bootstrap.py::test_tickkit_bootstraps_platform_not_ambient
+FAILED research/tools/lob_fact/tests/test_platform_bootstrap.py::test_extract_sz_cancels_single_module_collects_and_runs
+2 failed in 1.64s
+
+$ platform/.venv/bin/python -m pytest -q research/tools/lob_fact/tests/test_platform_bootstrap.py   # I4 T1 自举（含单模块 collection + 单跑）
+..                                                                       [100%]
+2 passed in 2.81s

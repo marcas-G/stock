@@ -1,0 +1,97 @@
+== 布局/权限/list/show（R21 复跑 R12/R13 冒烟产物；结果根 = /tmp/opencode/r21-recheck/r12-root）==
+$ find /tmp/opencode/r21-recheck/r12-root -type f | sort
+/tmp/opencode/r21-recheck/r12-root/r12_smoke/labels.parquet
+/tmp/opencode/r21-recheck/r12-root/r12_smoke/panel.parquet
+/tmp/opencode/r21-recheck/r12-root/r12_smoke/signal.parquet
+/tmp/opencode/r21-recheck/r12-root/r12_smoke/summary.json
+/tmp/opencode/r21-recheck/r12-root/r12_smoke/weekly.parquet
+
+$ ls -la /tmp/opencode/r21-recheck/r12-root/r12_smoke/
+总用量 32
+drwxrwxr-x 2 gaolei gaolei 4096 9月  15 21:43 .
+drwxrwxr-x 3 gaolei gaolei 4096 9月  15 21:43 ..
+-rw-rw-r-- 1 gaolei gaolei 1904 9月  15 21:43 labels.parquet
+-rw-rw-r-- 1 gaolei gaolei 3811 9月  15 21:43 panel.parquet
+-rw-rw-r-- 1 gaolei gaolei 1933 9月  15 21:43 signal.parquet
+-rw-rw-r-- 1 gaolei gaolei 7752 9月  15 21:43 summary.json
+-rw-rw-r-- 1 gaolei gaolei 2443 9月  15 21:43 weekly.parquet
+
+$ stat -c '%a %U:%G %n' 产物
+664 gaolei:gaolei /tmp/opencode/r21-recheck/r12-root/r12_smoke/labels.parquet
+664 gaolei:gaolei /tmp/opencode/r21-recheck/r12-root/r12_smoke/panel.parquet
+664 gaolei:gaolei /tmp/opencode/r21-recheck/r12-root/r12_smoke/signal.parquet
+664 gaolei:gaolei /tmp/opencode/r21-recheck/r12-root/r12_smoke/summary.json
+664 gaolei:gaolei /tmp/opencode/r21-recheck/r12-root/r12_smoke/weekly.parquet
+
+$ find <root> \( -name '.*tmp*' -o -name '*.tmp' \) -print  # no tmp residue
+[无输出=无 tmp 残渣]
+
+$ umask
+0002
+
+$ FACTORLAB_RESULTS_DIR=/tmp/opencode/r21-recheck/r12-root .venv/bin/factorlab list
+r12_smoke | custom | dir=1 | ic=-0.20000000000000004 | spread=nan | 
+2026-09-15T21:43:55
+
+$ FACTORLAB_RESULTS_DIR=/tmp/opencode/r21-recheck/r12-root .venv/bin/factorlab show r12_smoke
+=== r12_smoke ===
+spec: adjustment: qfq
+category: custom
+combine: null
+cost_rate: 0.0
+date:
+  end: '2026-06-30'
+  start: '2026-06-01'
+description: ''
+direction: 1
+factors: null
+formula: 'signal = close
+
+  '
+interface: daily
+name: r12_smoke
+operators: {}
+outputs: null
+params: {}
+process: []
+target: forward_return_5d
+universe:
+  codes:
+  - 000001.SZ
+  - 600519.SH
+  - 000002.SZ
+  - 600036.SH
+  formula: null
+  ref: null
+  rules: null
+
+universe: 4 只 | 2026-06-01 ~ 2026-06-30 | rows=84 | null_ratio=0.0
+IC: {'mean': -0.20000000000000004, 'std': 0.34641016151377546, 't_stat': 
+-1.0000000000000002, 'ir': -0.5773502691896258, 'n_weeks': 3, 'recent_26w_mean':
+-0.20000000000000004, 'recent_26w_t': -1.0000000000000002, 'sign_consistent': 
+0.3333333333333333}
+十分位 spread: {'ret': nan}
+换手: {'monthly': nan, 'quarterly': nan} | 覆盖: {'pct_valid': 1.0, 
+'total_rows': 12, 'valid_rows': 12}
+评估: ic={'mean': -0.20000000000000004, 'std': 0.34641016151377546, 't_stat': 
+-1.0000000000000002, 'ir': -0.5773502691896258, 'n_weeks': 3, 'recent_26w_mean':
+-0.20000000000000004, 'recent_26w_t': -1.0000000000000002, 'sign_consistent': 
+0.3333333333333333}
+分层回测: {'D1': {'annual_return': -0.552883, 'annual_vol': 0.159197, 'sharpe': 
+-3.472951, 'max_drawdown': -0.043686, 'win_rate': 0.333333}, 'D2': 
+{'annual_return': 0.0, 'annual_vol': 0.0, 'sharpe': 0.0, 'max_drawdown': 0.0, 
+'win_rate': 0.0}, 'D3': {'annual_return': -0.714414, 'annual_vol': 0.176484, 
+'sharpe': -4.048048, 'max_drawdown': -0.05469, 'win_rate': 0.333333}, 'D4': 
+{'annual_return': 0.0, 'annual_vol': 0.0, 'sharpe': 0.0, 'max_drawdown': 0.0, 
+'win_rate': 0.0}, 'D5': {'annual_return': 0.0, 'annual_vol': 0.0, 'sharpe': 0.0,
+'max_drawdown': 0.0, 'win_rate': 0.0}, 'D6': {'annual_return': -0.291913, 
+'annual_vol': 0.317651, 'sharpe': -0.918972, 'max_drawdown': -0.060015, 
+'win_rate': 0.333333}, 'D7': {'annual_return': 0.0, 'annual_vol': 0.0, 'sharpe':
+0.0, 'max_drawdown': 0.0, 'win_rate': 0.0}, 'D8': {'annual_return': -0.271764, 
+'annual_vol': 0.013459, 'sharpe': -20.192739, 'max_drawdown': -0.00828, 
+'win_rate': 0.0}, 'D9': {'annual_return': 0.0, 'annual_vol': 0.0, 'sharpe': 0.0,
+'max_drawdown': 0.0, 'win_rate': 0.0}, 'D10': {'annual_return': 0.0, 
+'annual_vol': 0.0, 'sharpe': 0.0, 'max_drawdown': 0.0, 'win_rate': 0.0}, 
+'long_short': {'annual_return': -0.552883, 'annual_vol': 0.159197, 'sharpe': 
+-3.472952, 'max_drawdown': -3.631057, 'win_rate': 0.333333}}
+[exit=0]

@@ -1,0 +1,16 @@
+# R12 真 CH 端到端冒烟 spec（R21 补录；原始 spec 未随仓存档，按 status.md 口径复原：
+# 2026-06 一个月 × 4 码；`signal = close` 保证无窗口/无额外数据依赖）。
+# 跑法（见同目录 r21-recheck-*.txt）：
+#   cd platform && FACTORLAB_DATA_BACKEND=ch .venv/bin/factorlab run \
+#     ../docs/verification/R12/r12_smoke.yaml --output-dir <results_root>
+name: r12_smoke
+category: custom
+direction: 1
+universe:
+  codes: ["000001.SZ", "600519.SH", "000002.SZ", "600036.SH"]
+date:
+  start: "2026-06-01"
+  end: "2026-06-30"
+process: []
+formula: |
+  signal = close

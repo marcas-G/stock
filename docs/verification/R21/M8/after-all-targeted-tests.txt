@@ -1,0 +1,5 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_backtest_persistence.py tests/test_backtest_runtime.py tests/test_backtest_ca_gate.py tests/test_backtest_fills.py tests/test_strategy_artifacts.py
+# captured: AFTER all fixes — 全部目标测试文件 green
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+211 passed, 117 warnings in 22.74s

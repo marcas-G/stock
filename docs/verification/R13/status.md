@@ -46,3 +46,17 @@ M7-04A 历史签名兼容，历史调用点零改动。
   pending #14 至此只剩这一项；
 - 研究侧 `writekit` 与研究工具自身的原子写（跨树，不属本轮平台侧范围；研究侧已由
   `lib/writekit` 单点覆盖）。
+
+## 5. R21 补录：权限回归复验 + Web 冒烟原始输出（2026-09-15，R01-EVID-C2）
+
+R01 评审指出 §3 的"真 CH 端到端 / Web 冒烟"只有陈述、目录无原始输出（**R13 当时的运行输出
+确未存档**）。R21 于当前代码（含 R21 修复）重跑并补存；以下为补录，不是当时输出：
+
+- **权限回归复验**（本文 §2 的核心结论）：复用 R12 补录的同一 `r12_smoke` 真 CH 产物，
+  `stat -c '%a %U:%G %n'` 五件全 **664**（umask 0002）——原始输出见
+  `R12/r21-recheck-layout.txt` 末段。
+- **Web 冒烟**（`factorlab serve` + curl，端口 8129；`FACTORLAB_RESULTS_DIR` 指向补录产物根）：
+  `GET /` → **200**；`GET /factor/r12_smoke` → **200** 且含 `IC 曲线` / `十分位收益` /
+  `分层回测净值` 区块（`read_weekly` 单点路径生效）。
+  原始输出：`r21-recheck-web.txt`；页面原文：`r21-recheck-web-home.html`、
+  `r21-recheck-web-detail.html`；serve 日志含两条 200 访问记录。

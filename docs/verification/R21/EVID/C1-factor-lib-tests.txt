@@ -1,0 +1,3 @@
+$ platform/.venv/bin/python -m pytest research/tools/factor_lib/tests -q
+.....                                                                    [100%]
+5 passed in 1.03s

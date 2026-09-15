@@ -1,0 +1,12 @@
+# command: cd platform && .venv/bin/python -m pytest -o pythonpath=/tmp/opencode/r21-m7/src -q tests/test_backtest_persistence.py -k 'artifact_count or manifest_columns or created_at or runtime_version or date_range'
+# captured: BEFORE fix (HEAD execution_store.py), I6 tests RED
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_backtest_persistence.py::test_load_rejects_bool_artifact_count
+FAILED tests/test_backtest_persistence.py::test_load_rejects_manifest_columns_mismatch
+FAILED tests/test_backtest_persistence.py::test_load_rejects_invalid_created_at
+FAILED tests/test_backtest_persistence.py::test_load_rejects_invalid_runtime_version
+FAILED tests/test_backtest_persistence.py::test_load_rejects_date_range_mismatch
+FAILED tests/test_backtest_persistence.py::test_load_rejects_missing_date_range
+6 failed, 24 deselected, 7 warnings in 3.84s

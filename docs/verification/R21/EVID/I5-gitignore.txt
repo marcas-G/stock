@@ -1,0 +1,38 @@
+== I5：凭据路径 gitignore 证据（R21）==
+
+$ git ls-files | grep -iE 'cookie|secret|credential|token|\.env'   # 修复前
+(无跟踪)
+
+$ git check-ignore -v research/tools/quark_cookies.txt platform/.env   # 修复后（应命中 .gitignore）
+.gitignore:43:quark_cookies.*	research/tools/quark_cookies.txt
+platform/.gitignore:27:.env	platform/.env
+[exit=0]
+
+$ git status --short .gitignore platform/README.md
+ M .gitignore
+ M platform/README.md
+
+说明：全仓同类扫描结果（见 status: 无 .env/cookie 实体文件、无跟踪凭据；quark_share.py 的 cookies 路径为 CLI 实参）
+
+== 同类路径全仓扫描（I5 补录）==
+$ git ls-files | grep -iE 'cookie|secret|credential|token|\.env|api[_-]?key|passwd|password'  → 无（已在上）
+$ find . -maxdepth 4 \( -name '.env' -o -iname '*cookie*' -o -iname '*credential*' -o -iname '*secret*' \) -not -path './.git/*' -not -path './data/*' -not -path './_archive/*'
+（无实体文件）
+
+-- 工具 config.yaml：无凭据字段（ch_ingest 的 password 为空串，随仓属既定事实）
+6:  password: ""
+
+-- 工具级 .gitignore：产物目录已各自忽略（state.json*/_staging/validation/output）
+--- research/tools/1m_features/.gitignore
+output/
+--- research/tools/ashare_ingest/.gitignore
+_staging/
+validation/
+__pycache__/
+--- research/tools/ch_ingest/.gitignore
+state.json*
+__pycache__/
+
+-- platform/research 的 .gitignore 早已 ignore .env（本仓无 .env 文件）
+platform/.gitignore:27:.env
+research/.gitignore:27:.env

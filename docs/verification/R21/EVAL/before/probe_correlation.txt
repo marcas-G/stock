@@ -1,0 +1,23 @@
+# cmd: cd platform && .venv/bin/python /tmp/opencode/reviewer-eval/probe_correlation.py
+# date: 2026-09-15T20:20:45+08:00
+=== case 1 ties ===
+correlation.py rank_corr: 0.778236397748593
+average-rank Spearman  : 0.7999999999999998
+MATCH: False
+
+=== case 2 NaN rows ===
+correlation.py rank_corr: 0.5827392120075048  n_weeks: 3
+pairwise-deletion ref  : 0.846153846153846
+MATCH: False
+
+=== case 3 only 2 valid rows (30+ raw rows, 38 NaN) ===
+rank_corr: 1.0  pearson: 0.0  n_weeks: 3
+(per-week raw height = 40 >= 30 -> NOT skipped; truth undefined)
+
+=== case 4 daily vs weekly accounting ===
+n_weeks reported: 10 (10 daily dates -> counted as 10 'weeks')
+
+=== case 5 guard subsampling ===
+joined height after >10-row guard (limit 5/week): 5
+codes kept: ['000020', '000019', '000018', '000017', '000016']
+(selection is first-in-frame-order, not random)

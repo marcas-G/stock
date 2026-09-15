@@ -1,0 +1,11 @@
+# command: platform/.venv/bin/python docs/verification/R21/ENG/probe_eng.py I3
+# date: 2026-09-15T20:04:37+08:00
+# repo: dd01bd9
+# probe_eng.py I3 @ 2026-09-15T20:04:37
+[I3] 插件静默覆盖内建算子（import 先于冲突检查）
+  before ts_mean: 0.1.0 polars_ta.wq.time_series
+  add_plugin meta: REJECT ValueError 算子已存在: ['ts_mean']，使用 --force 覆盖
+  after  ts_mean: 0.1.0 polars_ta.wq.time_series
+  builtin unchanged: True
+  marker exists: False
+

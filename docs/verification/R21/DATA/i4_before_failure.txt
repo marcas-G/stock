@@ -1,0 +1,2 @@
+E               polars.exceptions.ComputeError: could not append value: 2024-06-01 of type: date to the builder; make sure that all rows have the same schema or consider increasing `infer_schema_length`
+.venv/lib/python3.13/site-packages/polars/_utils/construction/dataframe.py:600: ComputeError

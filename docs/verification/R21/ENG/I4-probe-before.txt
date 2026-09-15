@@ -1,0 +1,12 @@
+# command: platform/.venv/bin/python docs/verification/R21/ENG/probe_eng.py I4
+# date: 2026-09-15T19:52:03+08:00
+# repo: dd01bd9
+2026-09-15 19:52:05.458 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 19:52:05.484 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+# probe_eng.py I4 @ 2026-09-15T19:52:03
+[I4] cs_regression_resid/cs_resid 注册与实际可调用
+  registry.has_op(cs_resid): False
+  registry.has_op(cs_regression_resid): True
+  compute_formula cs_resid(close, volume): FAIL FactorDSLError: 1:9: 未知算子: cs_resid
+  compute_formula cs_regression_resid(close, volume): FAIL NameError: name 'cs_regression_resid' is not defined
+

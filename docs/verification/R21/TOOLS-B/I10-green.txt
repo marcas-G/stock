@@ -1,0 +1,6 @@
+# R01-TOOLS-I10 GREEN（修复后，最终版）
+$ platform/.venv/bin/python -m pytest -q research/tools/converters/tests/test_convert_tick_e2e.py
+exit=0
+
+....                                                                     [100%]
+4 passed in 9.03s

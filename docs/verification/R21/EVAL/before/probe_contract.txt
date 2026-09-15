@@ -1,0 +1,34 @@
+# cmd: cd platform && .venv/bin/python /tmp/opencode/reviewer-eval/probe_contract.py
+# date: 2026-09-15T20:20:47+08:00
+### vector1 field-by-field vs §4.3
+  ok   n_weeks                  expected=12                       got=12                      
+  ok   n_stocks_avg             expected=10.0                     got=10.0                    
+  ok   ic.mean                  expected=0.9810571308693253       got=0.9810571308693253      
+  ok   ic.std                   expected=0.018368207210560795     got=0.018368207210560795    
+  ok   ic.t_stat                expected=185.01977643375477       got=185.01977643375477      
+  ok   ic.ir                    expected=53.41060886471636        got=53.41060886471636       
+  ok   ic.recent_26w_mean       expected=0.9810571308693253       got=0.9810571308693253      
+  ok   ic.recent_26w_t          expected=185.01977643375477       got=185.01977643375477      
+  ok   ic.sign_consistent       expected=1.0                      got=1.0                     
+  ok   pearson_ic.mean          expected=0.9837347038396591       got=0.9837347038396591      
+  ok   pearson_ic.t_stat        expected=220.15672375517144       got=220.15672375517144      
+  ok   spread                   expected=-0.8999999999999995      got=-0.8999999999999995     
+  ok   turnover.monthly         expected=0.0                      got=0.0                     
+  ok   coverage.pct_valid       expected=1.0                      got=1.0                     
+  ok   coverage.valid_rows      expected=120                      got=120                     
+  groups match: True [6.6000000000000005, 6.755, 6.91, 6.900000000000001, 7.055, 7.210000000000001, 7.2, 7.355, 7.510000000000001, 7.5]
+independent vector1: ic.mean 0.9810571308693253 std 0.018368207210560802 t(n_weeks) 185.0197764337547 sign 1.0 spread -0.9000000000000012
+independent groups: [6.6, 6.755, 6.91, 6.9, 7.055, 7.21, 7.2, 7.355, 7.51, 7.5]
+shim        groups: [6.6, 6.755, 6.91, 6.9, 7.055, 7.21, 7.2, 7.355, 7.51, 7.5]
+
+### vector2 1-based {3,7} -> NaN on w1,w6 (2024-01-12/02-16)
+    n_weeks=10 ic.mean=0.9809049206795543 pearson.mean=0.9820824319438068 coverage={'pct_valid': 0.8333, 'total_rows': 120, 'valid_rows': 100}
+    documented: n_weeks=10 ic.mean=0.9809049206795543 pearson.mean=0.9827829304187394 coverage pct_valid=0.8333
+    match: n_weeks=True ic=True pearson=False
+
+### vector2 0-based {3,7} -> NaN on w3,w7 (2024-01-26/02-23)
+    n_weeks=10 ic.mean=0.9809049206795543 pearson.mean=0.9827829304187394 coverage={'pct_valid': 0.8333, 'total_rows': 120, 'valid_rows': 100}
+    documented: n_weeks=10 ic.mean=0.9820824 pearson.mean=None coverage pct_valid=0.8333
+    match: n_weeks=True ic=False pearson=True
+
+### vector3 empty: ic/pearson/turnover all-NaN: False pearson True spread True groups [] turnover {'monthly': nan, 'quarterly': nan} coverage {'pct_valid': 0.0, 'total_rows': 0, 'valid_rows': 0}

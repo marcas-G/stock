@@ -1,0 +1,14 @@
+# command: cd platform && .venv/bin/python -m pytest -o pythonpath=/tmp/opencode/r21-m7/src -q tests/test_strategy_artifacts.py -k 'content_hash or hybrid or missing_content_hash or stores_content_hash or tombstone or manifest_atomic_failure'
+# captured: RED before I1 (M7 side) fix — HEAD strategy_artifacts.py, hybrid/hash tests must fail
+    + pl.col("decision_date").is_in(known)
+  
+    ~pl.col("decision_date").map_elements(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_strategy_artifacts.py::test_manifest_stores_content_hash - ...
+FAILED tests/test_strategy_artifacts.py::test_failed_overwrite_never_hybrid_loadable
+FAILED tests/test_strategy_artifacts.py::test_content_hash_mismatch_fails - F...
+FAILED tests/test_strategy_artifacts.py::test_missing_content_hash_field_fails
+FAILED tests/test_strategy_artifacts.py::test_manifest_atomic_failure_no_partial
+5 failed, 1 passed, 59 deselected, 6 warnings in 1.04s

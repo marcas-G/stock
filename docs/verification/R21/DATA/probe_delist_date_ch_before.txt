@@ -1,0 +1,20 @@
+        nan_to_null=nan_to_null,
+    )
+  File "/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/functools.py", line 934, in wrapper
+    return dispatch(args[0].__class__)(*args, **kw)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/_utils/construction/dataframe.py", line 686, in _sequence_of_tuple_to_pydf
+    return _sequence_of_sequence_to_pydf(
+        first_element,
+    ...<6 lines>...
+        nan_to_null=nan_to_null,
+    )
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/_utils/construction/dataframe.py", line 600, in _sequence_of_sequence_to_pydf
+    pydf = PyDataFrame.from_rows(
+        data,
+        schema=local_schema_override or None,
+        infer_schema_length=infer_schema_length,
+    )
+polars.exceptions.ComputeError: could not append value: 2024-06-01 of type: date to the builder; make sure that all rows have the same schema or consider increasing `infer_schema_length`
+
+it might also be that a value overflows the data-type's capacity

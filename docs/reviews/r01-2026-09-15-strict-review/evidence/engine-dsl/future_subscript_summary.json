@@ -1,0 +1,73 @@
+{
+  "name": "future_subscript_probe",
+  "category": "custom",
+  "direction": 1,
+  "universe_count": 1,
+  "candidate_count": 1,
+  "codes": [
+    "000001.SZ"
+  ],
+  "date_start": "2024-01-02",
+  "date_end": "2024-03-01",
+  "panel_rows": 44,
+  "signal_rows": 44,
+  "label_rows": 44,
+  "signal_null_ratio": 0.0227,
+  "runtime_semantics": "pit_universe_signal_label_v1",
+  "process": [],
+  "adjustment": "qfq",
+  "float32": true,
+  "spec_yaml": "adjustment: qfq\ncategory: custom\ncombine: null\ncost_rate: 0.0\ndate:\n  end: '2024-03-01'\n  start: '2024-01-02'\ndescription: ''\ndirection: 1\nfactors: null\nformula: 'signal = close[-1]\n\n  '\ninterface: daily\nname: future_subscript_probe\noperators: {}\noutputs: null\nparams: {}\nprocess: []\ntarget: forward_return_5d\nuniverse:\n  codes:\n  - 000001.SZ\n  formula: null\n  ref: null\n  rules: null\n",
+  "artifact_format_version": 1,
+  "artifacts": {
+    "signal": {
+      "file": "signal.parquet",
+      "schema_version": 1,
+      "rows": 44,
+      "columns": [
+        "date",
+        "code",
+        "signal"
+      ],
+      "meta": {
+        "name": "future_subscript_probe",
+        "frequency": "1d",
+        "adjustment": "qfq",
+        "timing": {
+          "information_cutoff": "close",
+          "available_at": "after_close",
+          "default_earliest_execution": "next_open"
+        }
+      }
+    },
+    "labels": {
+      "file": "labels.parquet",
+      "schema_version": 1,
+      "rows": 44,
+      "columns": [
+        "date",
+        "code",
+        "forward_return_5d",
+        "forward_return_20d"
+      ],
+      "horizons": [
+        5,
+        20
+      ]
+    },
+    "panel": {
+      "file": "panel.parquet",
+      "schema_version": 1,
+      "rows": 44,
+      "columns": [
+        "date",
+        "code",
+        "signal",
+        "forward_return_5d",
+        "forward_return_20d",
+        "close"
+      ],
+      "role": "legacy_compatibility_view"
+    }
+  }
+}

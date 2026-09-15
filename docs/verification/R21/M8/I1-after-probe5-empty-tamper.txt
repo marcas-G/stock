@@ -1,0 +1,9 @@
+# command: cd platform && .venv/bin/python /tmp/opencode/reviewer-m8/probe5_empty_tamper.py
+# captured: AFTER I1/I6/I7 fix — empty roundtrip + tamper fail-closed preserved
+saved empty: 0 None None
+loaded empty: 0 0 1000.0 2024-01-02
+unknown version fail-closed: 不支持 schema_version '2'（当前仅 1——无 silent migration）
+missing file fail-closed: artifact 文件缺失: artifacts/fills.parquet
+
+-- swap nav from another run (demo of no cross-check) --
+(skip; covered by probe4 hybrid)

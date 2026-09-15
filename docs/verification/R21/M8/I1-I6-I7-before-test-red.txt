@@ -1,0 +1,27 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_backtest_persistence.py -k 'failed_overwrite or content_hash or cross_check or extra_event or trailing_result or execution_timing or artifact_count or manifest_columns or created_at or runtime_version or date_range'
+# captured: RED before I1/I6/I7 fixes
+  Replace this expression...
+    - pl.col("decision_date").map_elements(lambda d: ...)
+  with this one instead:
+    + pl.col("decision_date").is_in(known)
+  
+    ~pl.col("decision_date").map_elements(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_backtest_persistence.py::test_failed_overwrite_never_hybrid_loadable
+FAILED tests/test_backtest_persistence.py::test_file_content_hash_mismatch_fails
+FAILED tests/test_backtest_persistence.py::test_nav_series_artifact_cross_check_fails
+FAILED tests/test_backtest_persistence.py::test_final_state_cross_check_fails
+FAILED tests/test_backtest_persistence.py::test_extra_event_index_row_fails
+FAILED tests/test_backtest_persistence.py::test_trailing_result_roundtrip - V...
+FAILED tests/test_backtest_persistence.py::test_manifest_persists_execution_timing
+FAILED tests/test_backtest_persistence.py::test_load_rejects_missing_execution_timing
+FAILED tests/test_backtest_persistence.py::test_load_rejects_next_close_execution_timing
+FAILED tests/test_backtest_persistence.py::test_load_rejects_bool_artifact_count
+FAILED tests/test_backtest_persistence.py::test_load_rejects_manifest_columns_mismatch
+FAILED tests/test_backtest_persistence.py::test_load_rejects_invalid_created_at
+FAILED tests/test_backtest_persistence.py::test_load_rejects_invalid_runtime_version
+FAILED tests/test_backtest_persistence.py::test_load_rejects_date_range_mismatch
+FAILED tests/test_backtest_persistence.py::test_load_rejects_missing_date_range
+15 failed, 15 deselected, 15 warnings in 8.51s

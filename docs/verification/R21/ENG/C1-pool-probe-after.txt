@@ -1,0 +1,9 @@
+# command: platform/.venv/bin/python docs/verification/R21/ENG/probe_c1_pool.py
+# date: 2026-09-15T20:07:03+08:00
+# repo: dd01bd9
+2026-09-15 20:07:05.649 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 20:07:05.679 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-15 20:07:05.709 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 20:07:05.754 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+pool 'close[-1] > 5': REJECT FactorDSLError: 1:9: close[-1] 不允许负位移（下标 = ts_delay，lookback 只能取过去）
+pool 'close[1] >= 0': ACCEPTED rows=43

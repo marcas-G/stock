@@ -1,0 +1,11 @@
+$ platform/.venv/bin/python -m pytest -q research/tools/lob_fact/tests/test_run_lob_batch.py -k 'm2_classification or records_m2_m3 or structural or structural_error'   # 修复前
+=========================== short test summary info ============================
+FAILED research/tools/lob_fact/tests/test_run_lob_batch.py::test_day_gate_m2_classification_identity
+FAILED research/tools/lob_fact/tests/test_run_lob_batch.py::test_process_date_records_m2_m3_diagnostics
+FAILED research/tools/lob_fact/tests/test_run_lob_batch.py::test_day_outcome_structural_gate_reasons_are_error_not_hard
+FAILED research/tools/lob_fact/tests/test_run_lob_batch.py::test_main_cli_structural_error_exits_nonzero_no_success
+4 failed, 29 deselected in 1.32s
+
+$ platform/.venv/bin/python -m pytest -q research/tools/lob_fact/tests/test_run_lob_batch.py   # 修复后（全文件）
+.................................                                        [100%]
+33 passed in 3.71s

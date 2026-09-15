@@ -1,0 +1,6 @@
+# command: rm -f emptyadj.duckdb; cd platform && .venv/bin/python /tmp/opencode/reviewer-m8/probe1_empty_adj.py
+# captured: AFTER I3 fix — typed empty (String/Date)
+height: 0
+schema: Schema({'code': String, 'trade_date': Date})
+still height: 0 Schema({'code': String, 'trade_date': Date})
+raw: Schema({'code': Null, 'trade_date': Null})

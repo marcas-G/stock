@@ -1,0 +1,25 @@
+== R01-EVID-I4 修复证据（R21，2026-09-15）==
+
+== 修复后：六份 spec 状态行 ==
+2026-08-15-factorlab-m3a-data-layer-design.md                  状态：已实现（M3a 数据层已交付；原"待评审"为文档漂移，R21 补正。数据面现状见
+2026-08-16-factorlab-m3b-data-platform-design.md               状态：已实现（M3b 平台数据平台已交付；原"待评审"为文档漂移，R21 补正。现行数据链见
+2026-08-16-factorlab-m4a-engine-eval-design.md                 状态：已实现（M4a 引擎接入与评估已交付；原"待评审"为文档漂移，R21 补正。现状见
+2026-08-16-factorlab-m4b-single-factor-eval-design.md          状态：已实现（M4b 单因子评估深化已交付；原"待评审"为文档漂移，R21 补正。
+2026-08-16-factorlab-m5-web-design.md                          状态：已实现（M5 Web 已交付；原"待评审"为文档漂移，R21 补正。现状见 `platform/docs/interface.md`）
+2026-08-17-factorlab-free-form-formula-design.md               状态：已实现（自由代码 formula 表达已交付；原"待评审"为文档漂移，R21 补正。现状见
+
+== m4b 勘误头（文首）==
+
+> **勘误（R21，2026-09-15）**：本文 §1 与 §6 对 `layered_backtest(..., cost=...)` 的表述
+> 已过期——`cost` 形参自 R8 删除（原为静默 no-op：签名收下、计算不用），R9 起真建模为
+> `cost_rate: float = 0.0`（`net = gross − cost_rate × turnover`，见
+> `platform/docs/interface.md` §`layered_backtest` 与 `docs/pending-items.md` #15）。
+> **正文保留原设计原貌，不改写**；引用签名时以 `cost_rate` 为准。
+
+
+== 复查：目标六份已无 '状态：待评审'（grep 仅命中新状态行里的引述）==
+(0 命中)
+
+== 范围外仍为待评审的 spec（如实列出，未动）==
+research/docs/superpowers/specs/2026-08-17-factorlab-factor-mine-skill-design.md
+research/docs/superpowers/specs/2026-08-18-factorlab-correlation-and-classic-seeds-design.md

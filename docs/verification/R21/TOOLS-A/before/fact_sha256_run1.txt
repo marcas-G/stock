@@ -1,0 +1,2 @@
+83a87dc72f8d54d08ae274d1b7ca8207e21ce8ca430260791be282757da1c1a7  daily_fact.parquet.new
+36c64f70bd79eaf795709fa1ec8ee273654d99675b2cbb4eef8ed5e00b58fe7e  daily_fact.parquet.bak-R21

@@ -1,0 +1,30 @@
+# cmd: cd platform && .venv/bin/python /tmp/opencode/reviewer-eval/probe_kernel_adversarial.py
+# date: 2026-09-15T20:20:47+08:00
+=== (a) tie handling: decile groups under row-order shuffle ===
+row order A groups: [0.01, 0.05, 0.02, 0.06, 0.03, 0.07, 0.04, 0.08, 0.05, 0.09]
+row order B groups: [0.05, 0.01, 0.06, 0.02, 0.07, 0.03, 0.08, 0.04, 0.09, 0.05]
+same?  False
+spread A/B: -0.08 0.0
+indep ordinal-rank spread (avg-rank corr): 0.7212121212121211
+weekly_ic-style average-rank corr (avg ranks): 0.5432512781572743
+NOTE: kernel uses pl.corr(spearman) for IC (average ranks) but ordinal ranks for deciles.
+
+=== (b) degenerate weeks (constant fwd) vs t_stat denominator ===
+n_weeks: 5  ic.mean: 0.9878787878787878  ic.std: 0.012121212121212144  t_stat: 182.2395401662325
+independent: ok weeks ic = [0.9999999999999999, 0.9757575757575757, 0.9878787878787878]  mean/std: 0.9878787878787878 0.012121212121212088
+t with denominator n_ok=3: 141.16214081686385
+t with denominator n_weeks=5: 182.23954016623335
+kernel t       : 182.2395401662325
+sign_consistent: kernel 0.6  (count>0 / n_weeks; n_ok-based would be 3 / 3 = 1.0 )
+pearson mean: 0.9822571305050425  t: 278.81615547493595
+
+=== (c) turnover: does bucket .last() pick the true last week? ===
+kernel turnover monthly: 0.0
+independent turnover monthly (true last week): 0.0
+kernel turnover monthly under row shuffle: 0.0
+kernel turnover quarterly under row shuffle: nan
+
+=== (d) NaN handling in kernel ===
+coverage: {'pct_valid': 0.9333, 'total_rows': 30, 'valid_rows': 28}  n_weeks: 3
+ic.mean vs independent with NaN rows dropped and remaining rows per week:
+           independent NaN-dropped per-week ic: [1.0, 0.9999999999999999, 0.9999999999999999] mean: 1.0

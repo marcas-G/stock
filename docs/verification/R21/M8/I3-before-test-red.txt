@@ -1,0 +1,14 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_backtest_ca_gate.py::test_loader_existing_table_empty_window_typed tests/test_backtest_ca_gate.py::test_loader_existing_table_empty_codes_typed
+# captured: RED before I3 fix — Null dtype empty frame
+E       AssertionError: assert Schema({'code..._date': Null}) == {'code': Stri...e_date': Date}
+E         
+E         Differing items:
+E         {'code': Null} != {'code': String}
+E         {'trade_date': Null} != {'trade_date': Date}
+E         Use -v to get more diff
+
+tests/test_backtest_ca_gate.py:286: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_backtest_ca_gate.py::test_loader_existing_table_empty_window_typed
+FAILED tests/test_backtest_ca_gate.py::test_loader_existing_table_empty_codes_typed
+2 failed in 1.30s

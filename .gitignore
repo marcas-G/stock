@@ -35,3 +35,12 @@ htmlcov/
 /.agents/
 /.worktrees/
 /.claude/settings.local.json
+
+# 凭据类（永不入库）
+# quark 下载 cookie：QUARK_COOKIE_FILE 缺省外的工具目录旁回退路径
+# research/tools/quark_cookies.txt（读点 quark_client.py:33-35）
+quark_cookies.txt
+quark_cookies.*
+# 环境变量文件：factorlab Settings env_file=".env"（platform/.env 等，平台树在白名单内）
+.env
+.env.*
