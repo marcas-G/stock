@@ -1,0 +1,17 @@
+$ cd platform && .venv/bin/python -m pytest tests/test_semantics.py -q
+
+==================================== ERRORS ====================================
+___________________ ERROR collecting tests/test_semantics.py ___________________
+ImportError while importing test module '/data/students/gaolei/stock/platform/tests/test_semantics.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_semantics.py:5: in <module>
+    from factorlab.core.engine.semantics import NodeInfo, SemanticError, infer
+E   ModuleNotFoundError: No module named 'factorlab.core.engine.semantics'
+=========================== short test summary info ============================
+ERROR tests/test_semantics.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.17s
