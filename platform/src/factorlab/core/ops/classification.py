@@ -81,6 +81,17 @@ def window_spec(meta: OpMeta, args: list[ast.expr],
     return None
 
 
+# 平台自有算子元数据（非 polars_ta 生成表）：CS/GP 分区 + universe mask 数据参数。
+# 运行时 canonical：cs_rank 经 rewrite_stable_rank → cs_stable_rank（掩码查后者）。
+PLATFORM_OP_META: tuple[tuple, ...] = (
+    ("cs_stable_rank", "cs", None, (0,)),
+    ("cs_rank", "cs", None, (0,)),
+    ("cs_mean", "cs", None, (0,)),
+    ("gp_rank", "gp", None, (1,)),
+    ("gp_mean", "gp", None, (1,)),
+)
+
+
 def method_denied_guidance(name: str) -> str | None:
     """上下文歧义方法（.rank/.over/.max 等）的拒绝指引；非拒绝方法 → None。
 
@@ -102,5 +113,7 @@ def default_catalog() -> Catalog:
         cat = Catalog()
         build_ta_catalog(cat)
         build_polars_catalog(cat)
+        for name, part, win, mask in PLATFORM_OP_META:
+            cat.add(OpMeta(name, part, win, mask, "platform", name), replace=True)
         _default = cat
     return _default
