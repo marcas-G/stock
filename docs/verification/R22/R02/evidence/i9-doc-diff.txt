@@ -1,0 +1,61 @@
+# command: git diff -- platform/docs/superpowers/specs/2026-08-26-quant-core-contract.md docs/verification/R21/README.md docs/verification/R21/DATA/README.md docs/verification/R21/EVID/README.md
+# date: 2026-09-15T23:55:59+08:00
+diff --git a/docs/verification/R21/DATA/README.md b/docs/verification/R21/DATA/README.md
+index 770c4ef..094003e 100644
+--- a/docs/verification/R21/DATA/README.md
++++ b/docs/verification/R21/DATA/README.md
+@@ -15,9 +15,17 @@ test_qfq_chunk_invariance.py test_audit.py` + rebuild/refresh/source 相关共 2
+ 
+ GREEN 原始输出：`green_c1.txt` / `green_i3.txt` / `green_i4.txt` / `green_i5_i6.txt` / `green_i7_i8.txt`。
+ 
+-接线验证（app/run.py 未改；把总结的接线片段 patch 到 run.py 内存副本真跑）：
+-`verify_wiring_run.py` + `verify_wiring_run.txt`（pit_qfq FULL/60/120 位级一致；当前
+-run.py 未接线 FULL/60 仍 False；生产 600005 gate fired）。
++接线验证（**R02-I9(c) 更正：R21 实际已接线**，此前"未改 app/run.py"口径作废）：
+ 
+-边界遵守：未改 `app/run.py`（接线片段在总结）、未改 `research/**`、
+-`docs/reviews/**`、`platform/docs/interface.md`、`catalog.md`。
++- 中间态（归档保留、未改）：`verify_wiring_run.py` + `verify_wiring_run.txt` 把总结的接线
++  片段 patch 到 `app/run.py` **内存副本**真跑——pit_qfq FULL/60/120 位级一致；当时工作区
++  `run.py` 尚未接线（FULL/60 仍 False）；生产 600005 gate fired。该文件记录的是接线前证据。
++- 接线后（R21 正式落树）：`fc2858c` 已改 `app/run.py`——`assert_no_stale_listed`
++  接入 run 链（fill-seed 之前），生产路径生效。
++- run_factor 级回归：committed 侧未见（`fc2858c` 只带 staleness 单测）；由 **R02-C2 在本轮补充**
++  （`platform/tests/test_pit_staleness.py::test_run_factor_short_window_dead_price_rejected`
++  / `test_run_factor_chunked_dead_price_rejected` 等，另一 agent 工作区进行中）。
++
++边界遵守（写档时口径）：EVID 侧未改 `research/**`、`docs/reviews/**`；
++`app/run.py` 后由 `fc2858c` 接线（见上）；`platform/docs/interface.md`/`catalog.md`
++分别由 `08432ab`/`ea2ebfe` 在本轮同步。
+diff --git a/docs/verification/R21/EVID/README.md b/docs/verification/R21/EVID/README.md
+index 2575be4..6c91988 100644
+--- a/docs/verification/R21/EVID/README.md
++++ b/docs/verification/R21/EVID/README.md
+@@ -1,7 +1,10 @@
+ # R21 EVID 修复证据索引（R01-EVID-C1/C2/I1/I2/I4/I5/I6/I7/I8）
+ 
+ - 范围：只动文档/证据层；**未改**任何代码（`platform/src/**`、`research/tools/**` 零改动）、
+-  `docs/reviews/**` 零改动、`platform/docs/interface.md|catalog.md` 零改动。
++  `docs/reviews/**` 零改动。
++  （**R02-I9(d) 更正归属**：`platform/docs/interface.md|catalog.md` 零改动仅指 **EVID 子系统自身**；
++  **R21 全轮**已由 `08432ab` 修改 `interface.md` 结构/语义、playbook、spec 状态与 quant-core
++  契约勘误，`catalog.md` 由 `ea2ebfe` 同步。原文"零改动"未限定主体，对读者有误导，特此更正。）
+ - 口径：所有实测在 **R21 工作区**（含其他 7 个子系统的修复，未提交）执行，故基线数字与
+   R01 评审时的 245/59 不同（新增了测试）；平台全量测试由 coordinator 负责，本目录不碰。
+ - 命令默认 cwd = `/data/students/gaolei/stock`（另有注明的除外）。
+diff --git a/docs/verification/R21/README.md b/docs/verification/R21/README.md
+index de6e19b..a936229 100644
+--- a/docs/verification/R21/README.md
++++ b/docs/verification/R21/README.md
+@@ -41,6 +41,16 @@
+ - `STRAT/` R01-STRAT-C1/C2/C3/I4-I8（probe 前后 + T1/T2 + I6 数据可得性）
+ - `EVID/` R01-EVID-C1/C2/I1-I8（标注/补录/勘误 + 门结果）
+ 
++## R02 / R22 关系（2026-09-15 补）
++
++- R02 严格评审将本轮 **R01-ENG-I3**（插件 import 别名/动态注册）重开为 **R02-I7**，
++  并将本目录 `ENG/`、`DATA/`、`EVID/` 三份 README 的证据漂移记为 **R02-I9(a)-(d)**；
++  延续修复/复跑证据见 `docs/verification/R22/R02/`（`plugins/` + `evidence/`）。
++- 本目录 README 已按 R02-I9 更正：ENG 补精确复跑命令、DATA 更新为已接线状态（`fc2858c`）、
++  EVID 更正 `interface.md` 归属（`08432ab`）。
++- R

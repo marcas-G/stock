@@ -1,7 +1,10 @@
 # R21 EVID 修复证据索引（R01-EVID-C1/C2/I1/I2/I4/I5/I6/I7/I8）
 
 - 范围：只动文档/证据层；**未改**任何代码（`platform/src/**`、`research/tools/**` 零改动）、
-  `docs/reviews/**` 零改动、`platform/docs/interface.md|catalog.md` 零改动。
+  `docs/reviews/**` 零改动。
+  （**R02-I9(d) 更正归属**：`platform/docs/interface.md|catalog.md` 零改动仅指 **EVID 子系统自身**；
+  **R21 全轮**已由 `08432ab` 修改 `interface.md` 结构/语义、playbook、spec 状态与 quant-core
+  契约勘误，`catalog.md` 由 `ea2ebfe` 同步。原文"零改动"未限定主体，对读者有误导，特此更正。）
 - 口径：所有实测在 **R21 工作区**（含其他 7 个子系统的修复，未提交）执行，故基线数字与
   R01 评审时的 245/59 不同（新增了测试）；平台全量测试由 coordinator 负责，本目录不碰。
 - 命令默认 cwd = `/data/students/gaolei/stock`（另有注明的除外）。

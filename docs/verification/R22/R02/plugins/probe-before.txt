@@ -1,0 +1,20 @@
+# command: R02I7_SRC=/tmp/opencode/r02i7/before_src platform/.venv/bin/python docs/verification/R22/R02/plugins/probe_plugin_isolation.py
+# note: before_src = HEAD 的 factorlab 包副本 + git show HEAD 的 plugins.py/registry.py（修复前）
+# date: 2026-09-15T23:53:06+08:00
+# repo HEAD: e60d2b2
+[env] sys.path[0]: /tmp/opencode/r02i7/before_src
+[alias] add_plugin -> ValueError: 算子已存在: ['ts_mean']，使用 --force 覆盖
+[alias] import 副作用 marker 存在: True
+[alias] registry ts_mean 被替换: True（version=9.9.9）
+[alias] 新增注册残留 ts_alias_new: True
+[alias] manifest 落盘: False
+[dynamic] add_plugin -> ValueError: 算子已存在: ['ts_mean']，使用 --force 覆盖
+[dynamic] import 副作用 marker 存在: True
+[dynamic] registry ts_mean 被替换: True（version=9.9.9）
+[dynamic] 新增注册残留 ts_dyn_new: True
+[dynamic] manifest 落盘: False
+[named_const] add_plugin -> ValueError: 算子已存在: ['ts_mean']，使用 --force 覆盖
+[named_const] import 副作用 marker 存在: True
+[named_const] registry ts_mean 被替换: True（version=9.9.9）
+[named_const] manifest 落盘: False
+[env] workdir: /tmp/r02i7-probe-ax0y7sc5

@@ -41,6 +41,16 @@
 - `STRAT/` R01-STRAT-C1/C2/C3/I4-I8（probe 前后 + T1/T2 + I6 数据可得性）
 - `EVID/` R01-EVID-C1/C2/I1-I8（标注/补录/勘误 + 门结果）
 
+## R02 / R22 关系（2026-09-15 补）
+
+- R02 严格评审将本轮 **R01-ENG-I3**（插件 import 别名/动态注册）重开为 **R02-I7**，
+  并将本目录 `ENG/`、`DATA/`、`EVID/` 三份 README 的证据漂移记为 **R02-I9(a)-(d)**；
+  延续修复/复跑证据见 `docs/verification/R22/R02/`（`plugins/` + `evidence/`）。
+- 本目录 README 已按 R02-I9 更正：ENG 补精确复跑命令、DATA 更新为已接线状态（`fc2858c`）、
+  EVID 更正 `interface.md` 归属（`08432ab`）。
+- R22 为开放算子底座专项（独立任务线），总览见
+  `docs/verification/R22/open-operators-summary.md`。
+
 ## 数据重灌影响（R01-TOOLS-C1/C2、DATA-C1/C2、TOOLS-I1/I4）
 
 - 新 `data/fact/daily_fact/daily_fact.parquet` sha256 `79f68fee4f73c877…`，18,124,805 行 / 5,861 codes（旧 18,162,795，备份 `*.bak-R21`）

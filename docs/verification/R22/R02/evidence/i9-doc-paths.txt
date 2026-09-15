@@ -1,0 +1,4 @@
+# command: platform/.venv/bin/python -m pytest -q platform/tests/test_doc_paths_exist.py (cwd=仓库根)
+# date: 2026-09-15T23:55:44+08:00
+..                                                                       [100%]
+2 passed in 3.34s

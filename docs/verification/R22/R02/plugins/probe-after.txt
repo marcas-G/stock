@@ -1,0 +1,19 @@
+# command: platform/.venv/bin/python docs/verification/R22/R02/plugins/probe_plugin_isolation.py
+# date: 2026-09-15T23:53:07+08:00
+# repo HEAD: e60d2b2（工作区含 R02-I7 修复）
+[env] sys.path[0]: /data/students/gaolei/stock/platform/src
+[alias] add_plugin -> ValueError: 算子已存在: ['ts_mean']，使用 --force 覆盖
+[alias] import 副作用 marker 存在: False
+[alias] registry ts_mean 被替换: False（version=0.1.0）
+[alias] 新增注册残留 ts_alias_new: False
+[alias] manifest 落盘: False
+[dynamic] add_plugin -> ValueError: 算子已存在: ['ts_mean']，使用 --force 覆盖
+[dynamic] import 副作用 marker 存在: True
+[dynamic] registry ts_mean 被替换: False（version=0.1.0）
+[dynamic] 新增注册残留 ts_dyn_new: False
+[dynamic] manifest 落盘: False
+[named_const] add_plugin -> ValueError: 算子已存在: ['ts_mean']，使用 --force 覆盖
+[named_const] import 副作用 marker 存在: False
+[named_const] registry ts_mean 被替换: False（version=0.1.0）
+[named_const] manifest 落盘: False
+[env] workdir: /tmp/r02i7-probe-vc2ynmut

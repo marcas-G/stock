@@ -1,0 +1,35 @@
+# R02-I9(b) 复跑验证：R21/ENG/README.md 逐 finding 命令 + 重整整组 -k
+# date: 2026-09-15T23:54:47+08:00
+# repo HEAD: e60d2b2
+
+$ cd platform && .venv/bin/python -m pytest -q tests/test_partitions.py::test_rejects_negative_subscript tests/test_partitions.py::test_rejects_negative_subscript_via_top_level_const tests/test_partitions.py::test_allows_forward_and_zero_and_unknown_subscript tests/test_run_factor.py::test_run_factor_rejects_negative_subscript tests/test_run_factor.py::test_run_factor_accepts_positive_subscript
+.......                                                                  [100%]
+7 passed in 3.56s
+
+$ cd platform && .venv/bin/python -m pytest -q tests/test_partitions.py::test_rejects_negative_shift_via_name_inside_unary_and_binop tests/test_partitions.py::test_rejects_negative_shift_via_alias_and_name_const tests/test_partitions.py::test_allows_positive_folded_shift_via_name_const tests/test_run_factor.py::test_run_factor_rejects_negative_shift_via_named_const tests/test_run_factor.py::test_run_factor_accepts_positive_named_const_shift
+.......                                                                  [100%]
+7 passed in 3.10s
+
+$ cd platform && .venv/bin/python -m pytest -q tests/test_run_factor.py::test_chunk_days_rejects_cumulative_operator tests/test_run_factor.py::test_chunk_days_rejects_vwap_macro_expansion tests/test_run_factor.py::test_chunk_days_rejects_cumulative_in_pool_formula tests/test_run_factor.py::test_chunk_days_allows_window_operator_control tests/test_run_factor.py::test_cumulative_ops_used_resolves_import_alias
+.........                                                                [100%]
+9 passed in 4.68s
+
+$ cd platform && .venv/bin/python -m pytest -q tests/test_ops.py::test_plugin_importfrom_bypass_rejected tests/test_ops.py::test_plugin_importfrom_side_effect_blocked_before_import
+.....                                                                    [100%]
+5 passed in 0.60s
+
+$ cd platform && .venv/bin/python -m pytest -q tests/test_ops.py::test_builtin_override_rejected_before_import_without_force
+.                                                                        [100%]
+1 passed in 0.62s
+
+$ cd platform && .venv/bin/python -m pytest -q tests/test_polars_ta_wrappers.py::test_cs_resid_registered_canonical_with_regression_alias tests/test_polars_ta_wrappers.py::test_cs_resid_and_alias_compute_real_values
+..                                                                       [100%]
+2 passed in 1.69s
+
+$ cd platform && .venv/bin/python -m pytest -q tests/test_cli_lint_params.py::test_lint_rejects_unknown_operator tests/test_cli_lint_params.py::test_lint_rejects_negative_shift_via_named_const tests/test_cli_lint_params.py::test_lint_rejects_future_subscript tests/test_cli_lint_params.py::test_lint_rejects_future_shift_in_pool_formula tests/test_cli_lint_params.py::test_lint_accepts_positive_subscript tests/test_cli_lint_params.py::test_lint_rejects_review_probe_specs
+........                                                                 [100%]
+8 passed in 1.71s
+
+$ cd platform && .venv/bin/python -m pytest -q <5 files> -k '<重建表达式，见 README>'
+.......................................                                  [100%]
+39 passed, 106 deselected in 8.37s

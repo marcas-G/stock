@@ -1,0 +1,181 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_ops.py::test_alias_import_override_rejected_before_import_without_force tests/test_ops.py::test_dynamic_registration_conflict_rolls_back_registry tests/test_ops.py::test_named_const_registration_rejected_before_import tests/test_ops.py::test_plugin_import_error_rolls_back_partial_registrations tests/test_ops.py::test_alias_import_new_operator_accepted tests/test_ops.py::test_dynamic_override_allowed_with_force
+# note: 修复前代码（plugins.py/registry.py 临时回退 HEAD；测试文件为 R02-I7 新增）
+# date: 2026-09-15T23:53:16+08:00
+FFFF..                                                                   [100%]
+=================================== FAILURES ===================================
+_______ test_alias_import_override_rejected_before_import_without_force ________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1300/test_alias_import_override_rej0')
+
+    def test_alias_import_override_rejected_before_import_without_force(tmp_path):
+        """R02-I7：`factor_op as fop` 别名形态必须与字面形态同等在 import 前拒绝。
+    
+        历史缺陷（probe 实测）：AST 只认 `factor_op`/`register_op` 字面调用名 → 别名
+        形态 declared=[]，import 先执行（副作用发生、内建被替换、新算子残留），随后才
+        发现冲突且无回滚。修复 = AST 解析 import 别名，冲突预检恢复前移。
+        """
+        registry.reset_registry()
+        from factorlab.core.ops.registration import ensure_all_ops_registered
+        ensure_all_ops_registered()
+        before = registry.get_op("ts_mean")
+        plugin_dir = tmp_path / "plugins"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        marker = tmp_path / "alias_executed"
+        path = plugin_dir / "alias_ops.py"
+        path.write_text(textwrap.dedent(f'''
+            from pathlib import Path
+            import polars as pl
+            from factorlab.core.ops.registry import factor_op as fop
+    
+            Path("{marker}").write_text("executed", encoding="utf-8")
+    
+            @fop("ts_mean", kind="ts", version="9.9.9")
+            def ts_mean(x: pl.Expr, d: int = 1) -> pl.Expr:
+                return x * 0
+    
+            @fop("ts_alias_new", kind="ts", version="0.1.0")
+            def ts_alias_new(x: pl.Expr, d: int = 1) -> pl.Expr:
+                return x - d
+        '''), encoding="utf-8")
+        with pytest.raises(ValueError, match="已存在"):
+            plugins.add_plugin(path, plugin_dir=plugin_dir, force=False)
+>       assert not marker.exists(), "别名冲突在 import 之后才发现（插件副作用已执行）"
+E       AssertionError: 别名冲突在 import 之后才发现（插件副作用已执行）
+E       assert not True
+E        +  where True = exists()
+E        +    where exists = PosixPath('/tmp/pytest-of-gaolei/pytest-1300/test_alias_import_override_rej0/alias_executed').exists
+
+tests/test_ops.py:274: AssertionError
+____________ test_dynamic_registration_conflict_rolls_back_registry ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1300/test_dynamic_registration_conf0')
+
+    def test_dynamic_registration_conflict_rolls_back_registry(tmp_path):
+        """R02-I7：静态不可判定的动态名冲突 → import 后回滚**整个注册面**再抛错。
+    
+        回滚覆盖面：被覆盖算子恢复、新增注册清除、别名映射恢复、源模块登记清除、
+        sys.modules 合成模块条目清除、清单/文件不落盘。
+        """
+        registry.reset_registry()
+        from factorlab.core.ops.registration import ensure_all_ops_registered
+        ensure_all_ops_registered()
+        before = registry.get_op("ts_mean")
+        before_cs_demean = registry.get_op("cs_demean")
+        plugin_dir = tmp_path / "plugins"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        path = tmp_path / "dyn_ops.py"
+        path.write_text(textwrap.dedent('''
+            import polars as pl
+            from factorlab.core.ops.registry import factor_op
+    
+            NAME = "ts_" + "mean"
+            NEW = "ts_dyn_new"
+    
+            @factor_op(NAME, kind="ts", version="9.9.9")
+            def ts_mean(x: pl.Expr, d: int = 1) -> pl.Expr:
+                return x * 0
+    
+            @factor_op(NEW, kind="ts", version="0.1.0")
+            def ts_dyn_new(x: pl.Expr, d: int = 1) -> pl.Expr:
+                return x - d
+    
+            @factor_op("ts_alias_steal", kind="ts", version="0.1.0",
+                       aliases=("cs_demean",))
+            def ts_alias_steal(x: pl.Expr, d: int = 1) -> pl.Expr:
+                return x - d
+        '''), encoding="utf-8")
+        with pytest.raises(ValueError, match="已存在"):
+            plugins.add_plugin(path, plugin_dir=plugin_dir, force=False)
+>       assert registry.get_op("ts_mean") == before, "被覆盖内建未回滚"
+E       AssertionError: 被覆盖内建未回滚
+E       assert OperatorDef(n...rce_module='') == OperatorDef(n...rce_module='')
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing attributes:
+E         ['version', 'func', 'doc']
+E         
+E         Drill down into differing attribute version:
+E           version: '9.9.9' != '0.1.0'...
+E         
+E         ...Full output truncated (9 lines hidden), use '-vv' to show
+
+tests/test_ops.py:316: AssertionError
+_____________ test_named_const_registration_rejected_before_import _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1300/test_named_const_registration_0')
+
+    def test_named_const_registration_rejected_before_import(tmp_path):
+        """R02-I7 前移：单一赋值的字符串常量（`NAME = "ts_mean"`）按动态形态静态折叠。"""
+        registry.reset_registry()
+        from factorlab.core.ops.registration import ensure_all_ops_registered
+        ensure_all_ops_registered()
+        before = registry.get_op("ts_mean")
+        plugin_dir = tmp_path / "plugins"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        marker = tmp_path / "named_executed"
+        path = plugin_dir / "named_ops.py"
+        path.write_text(textwrap.dedent(f'''
+            from pathlib import Path
+            import polars as pl
+            from factorlab.core.ops.registry import factor_op
+    
+            Path("{marker}").write_text("executed", encoding="utf-8")
+            NAME = "ts_mean"
+    
+            @factor_op(NAME, kind="ts", version="9.9.9")
+            def ts_mean(x: pl.Expr, d: int = 1) -> pl.Expr:
+                return x * 0
+        '''), encoding="utf-8")
+        with pytest.raises(ValueError, match="已存在"):
+            plugins.add_plugin(path, plugin_dir=plugin_dir, force=False)
+>       assert not marker.exists(), "命名常量冲突未前移（副作用已执行）"
+E       AssertionError: 命名常量冲突未前移（副作用已执行）
+E       assert not True
+E        +  where True = exists()
+E        +    where exists = PosixPath('/tmp/pytest-of-gaolei/pytest-1300/test_named_const_registration_0/named_executed').exists
+
+tests/test_ops.py:367: AssertionError
+__________ test_plugin_import_error_rolls_back_partial_registrations ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1300/test_plugin_import_error_rolls0')
+
+    def test_plugin_import_error_rolls_back_partial_registrations(tmp_path):
+        """R02-I7：插件 import 中途抛错 → 部分注册与 sys.modules 条目一并回滚。"""
+        registry.reset_registry()
+        from factorlab.core.ops.registration import ensure_all_ops_registered
+        ensure_all_ops_registered()
+        before_ops = {op.name: op for op in registry.list_ops()}
+        plugin_dir = tmp_path / "plugins"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        path = plugin_dir / "broken_ops.py"
+        path.write_text(textwrap.dedent('''
+            import polars as pl
+            from factorlab.core.ops.registry import factor_op
+    
+            @factor_op("ts_partial_probe", kind="ts", version="0.1.0")
+            def ts_partial_probe(x: pl.Expr) -> pl.Expr:
+                return x
+    
+            raise RuntimeError("boom")
+        '''), encoding="utf-8")
+        with pytest.raises(RuntimeError, match="boom"):
+            plugins.add_plugin(path, plugin_dir=plugin_dir, force=False)
+>       assert {op.name: op for op in registry.list_ops()} == before_ops
+E       AssertionError: assert {'adv20': Ope...dule=''), ...} == {'adv20': Ope...dule=''), ...}
+E         
+E         Omitting 55 identical items, use -vv to show
+E         Left contains 1 more item:
+E         {'ts_partial_probe': OperatorDef(name='ts_partial_probe',
+E                                          kind='ts',
+E                                          version='0.1.0',
+E                                          func=<function ts_partial_probe at 0x7f3e5ffaf240>,...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+tests/test_ops.py:420: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_ops.py::test_alias_import_override_rejected_before_import_without_force
+FAILED tests/test_ops.py::test_dynamic_registration_conflict_rolls_back_registry
+FAILED tests/test_ops.py::test_named_const_registration_rejected_before_import
+FAILED tests/test_ops.py::test_plugin_import_error_rolls_back_partial_registrations
+4 failed, 2 passed in 0.69s
