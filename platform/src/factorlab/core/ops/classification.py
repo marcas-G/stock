@@ -81,6 +81,15 @@ def window_spec(meta: OpMeta, args: list[ast.expr],
     return None
 
 
+def method_denied_guidance(name: str) -> str | None:
+    """上下文歧义方法（.rank/.over/.max 等）的拒绝指引；非拒绝方法 → None。
+
+    数据来自生成表 `_generated_polars_methods.DENIED_GUIDANCE`（纯数据，无 IO）。
+    """
+    from factorlab.core.ops._generated_polars_methods import DENIED_GUIDANCE
+    return DENIED_GUIDANCE.get(name)
+
+
 _default: Catalog | None = None
 
 

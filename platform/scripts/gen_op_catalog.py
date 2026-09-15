@@ -33,7 +33,9 @@ from pathlib import Path
 
 import polars as pl
 
-OUT = Path(__file__).resolve().parents[1] / "src/factorlab/core/ops/_generated_ta_ops.py"
+_OPS_DIR = Path(__file__).resolve().parents[1] / "src/factorlab/core/ops"
+OUT = _OPS_DIR / "_generated_ta_ops.py"
+OUT_POLARS = _OPS_DIR / "_generated_polars_methods.py"
 # 模块顺序 = expr_codegen 生成代码的 star import 优先序（wq > ta > tdx，后者先导入被覆盖）
 MODULES = ("polars_ta.prefix.wq", "polars_ta.prefix.ta", "polars_ta.prefix.tdx")
 
@@ -240,26 +242,178 @@ def render(rows: list[dict]) -> str:
     return HEADER + body + FOOTER
 
 
+# ============================ polars Expr 方法/访问器分类 ============================
+#
+# Spike 2：dir(pl.Expr) 公开名分三桶——逐元素（默认放行）/ 窗口（ts）/ 上下文歧义
+# （拒绝 + 指引）。版本锁：公开名必须被三桶之一覆盖，polars 升级新增名 → 生成
+# 不一致 + 版本锁测试失败（强制人工复核）。
+
+# 窗口族：窗口参数在显式 args 中的位置（self 不计）→ arg:N；全历史累计/递归 → unbounded
+POLARS_TS_WINDOWS: dict[str, str] = {
+    "shift": "arg:0",
+    "diff": "arg:0",
+    "pct_change": "arg:0",
+    "rolling_mean": "arg:0",
+    "rolling_sum": "arg:0",
+    "rolling_min": "arg:0",
+    "rolling_max": "arg:0",
+    "rolling_std": "arg:0",
+    "rolling_var": "arg:0",
+    "rolling_median": "arg:0",
+    "rolling_skew": "arg:0",
+    "rolling_kurtosis": "arg:0",
+    "rolling_quantile": "arg:0",
+    "rolling_rank": "arg:0",
+    "rolling_map": "arg:0",
+    "rolling_mean_by": "arg:1",
+    "rolling_sum_by": "arg:1",
+    "rolling_min_by": "arg:1",
+    "rolling_max_by": "arg:1",
+    "rolling_std_by": "arg:1",
+    "rolling_var_by": "arg:1",
+    "rolling_median_by": "arg:1",
+    "rolling_quantile_by": "arg:1",
+    "rolling_rank_by": "arg:1",
+    "cum_sum": "unbounded",
+    "cum_max": "unbounded",
+    "cum_min": "unbounded",
+    "cum_prod": "unbounded",
+    "cum_count": "unbounded",
+    "ewm_mean": "unbounded",
+    "ewm_std": "unbounded",
+    "ewm_sum": "unbounded",
+    "ewm_var": "unbounded",
+    "ewm_mean_by": "unbounded",
+    "ewm_sum_by": "unbounded",
+    "cumulative_eval": "unbounded",
+    "peak_max": "unbounded",
+    "peak_min": "unbounded",
+    "forward_fill": "unbounded",
+}
+
+_GUIDE_GROUP = "改用语义明确的 cs_/gp_ 算子或显式分组（Plan 3 by=）"
+_GUIDE_ORDER = "排序/选行语义不明确；时序请用 shift/diff/rolling_*"
+
+# 上下文歧义方法：拒绝 + 指引（tailored 文本；其余走通用指引）
+POLARS_DENIED_GUIDANCE: dict[str, str] = {
+    "over": _GUIDE_GROUP,
+    "rank": _GUIDE_GROUP,
+    "quantile": _GUIDE_GROUP,
+    "median": _GUIDE_GROUP,
+    "mode": _GUIDE_GROUP,
+    "qcut": "改用 Plan 3 的 cut 原语（显式分组语义）",
+    "cut": "改用 Plan 3 的 cut 原语（显式分组语义）",
+    "filter": "分组过滤语义不明确；请在池公式/universe 中表达",
+    "sort": _GUIDE_ORDER,
+    "sort_by": _GUIDE_ORDER,
+    "gather": "行选择会跨资产/跨时间取值，语义不明确",
+    "gather_every": "行选择会跨资产/跨时间取值，语义不明确",
+    "get": "按下标取值（跨资产/跨时间），语义不明确",
+    "reverse": "反转序列 = 取未来值（未来函数）",
+    "backward_fill": "用未来值回填（未来函数）",
+    "interpolate": "插值使用未来已知点（未来函数）",
+    "interpolate_by": "插值使用未来已知点（未来函数）",
+    "rle": "游程编码依赖全序列状态，语义不明确",
+    "rle_id": "游程编号依赖全序列状态，语义不明确",
+    "map_elements": "任意 Python 回调不可静态验证（含未来函数风险）",
+    "map_batches": "任意 Python 回调不可静态验证（含未来函数风险）",
+    "pipe": "任意 Python 回调不可静态验证（含未来函数风险）",
+    "register_plugin": "注册外部插件不在公式层开放面内",
+    "deserialize": "反序列化不是因子计算算子",
+    "from_json": "解析 JSON 不是因子计算算子",
+    "inspect": "调试输出不是因子计算算子",
+    "hash": "哈希不是因子计算算子",
+    "hist": "直方图是绘图命名空间",
+}
+
+# 聚合/结构/元数据族：整列（或组内）归约/选行——上下文歧义（通用指引拒绝）
+POLARS_DENIED: tuple[str, ...] = (
+    "agg_groups", "all", "any", "append", "approx_n_unique", "arg_max", "arg_min",
+    "arg_sort", "arg_true", "arg_unique", "bottom_k", "bottom_k_by", "count",
+    "drop_nans", "drop_nulls", "entropy", "exclude", "explode", "extend_constant",
+    "first", "flatten", "has_nulls", "head", "implode", "index_of", "is_duplicated",
+    "is_empty", "is_first_distinct", "is_last_distinct", "is_sorted", "is_unique",
+    "item", "kurtosis", "last", "len", "limit", "lower_bound", "max", "max_by",
+    "mean", "min", "min_by", "n_unique", "nan_max", "nan_min", "null_count", "product",
+    "rechunk", "repeat_by", "reshape", "rolling", "sample", "search_sorted",
+    "set_sorted", "shrink_dtype", "shuffle", "skew", "slice", "std", "sum", "tail",
+    "top_k", "top_k_by", "unique", "unique_counts", "upper_bound", "value_counts", "var",
+)
+
+
+def classify_polars() -> tuple[list[str], dict[str, str], dict[str, str]]:
+    """dir(pl.Expr) 公开名 → (EL 名单, TS 窗口表, 拒绝指引表)。"""
+    public = {m for m in dir(pl.Expr) if not m.startswith("_")}
+    ts_unknown = set(POLARS_TS_WINDOWS) - public
+    deny_unknown = (set(POLARS_DENIED) | set(POLARS_DENIED_GUIDANCE)) - public
+    if ts_unknown or deny_unknown:
+        raise SystemExit(
+            f"polars {pl.__version__} 方法清单与人工清单不符（需人工复核）: "
+            f"TS 缺失={sorted(ts_unknown)} DENY 缺失={sorted(deny_unknown)}")
+    denied = set(POLARS_DENIED) | set(POLARS_DENIED_GUIDANCE)
+    el = sorted(public - set(POLARS_TS_WINDOWS) - denied)
+    guidance = {name: POLARS_DENIED_GUIDANCE.get(
+        name, "该方法语义取决于上下文（分组/排序/聚合），Plan 1 不开放；"
+              "请改用 cs_/gp_ 算子或 Plan 3 的 by= 分组")
+        for name in sorted(denied)}
+    return el, dict(POLARS_TS_WINDOWS), guidance
+
+
+def render_polars(el: list[str], ts_windows: dict[str, str],
+                  guidance: dict[str, str]) -> str:
+    def _set(name: str, items) -> str:
+        body = "".join(f"    {i!r},\n" for i in items)
+        return f"{name} = frozenset({{\n{body}}})\n"
+
+    windows = "".join(f"    {k!r}: {v!r},\n" for k, v in sorted(ts_windows.items()))
+    guide = "".join(f"    {k!r}: {v!r},\n" for k, v in sorted(guidance.items()))
+    return (
+        "# 由 platform/scripts/gen_op_catalog.py 生成；勿手改（--check 校验）。\n"
+        f"# polars 版本锁基准：{pl.__version__}（dir(pl.Expr) 公开名"
+        f" {len(el) + len(ts_windows) + len(guidance)} 个）\n"
+        "from factorlab.core.ops.classification import Catalog, OpMeta\n\n"
+        + _set("EL_METHODS", el)
+        + "\n" + _set("TS_METHODS", sorted(ts_windows))
+        + "\nTS_WINDOWS = {\n" + windows + "}\n"
+        + "\n" + _set("DENIED_METHODS", sorted(guidance))
+        + "\nDENIED_GUIDANCE = {\n" + guide + "}\n"
+        + "\n\ndef build_polars_catalog(catalog: Catalog) -> None:\n"
+        "    for name in EL_METHODS:\n"
+        "        catalog.add(OpMeta(f\".{name}\", \"el\", None, (), \"polars_method\","
+        " f\".{name}\"), replace=True)\n"
+        "    for name in TS_METHODS:\n"
+        "        catalog.add(OpMeta(f\".{name}\", \"ts\", TS_WINDOWS[name], (),"
+        " \"polars_method\", f\".{name}\"), replace=True)\n"
+    )
+
+
+def _check_or_write(path: Path, text: str, check: bool) -> bool:
+    if check:
+        if not path.exists():
+            print(f"产物不存在: {path}", file=sys.stderr)
+            return False
+        if path.read_text(encoding="utf-8") != text:
+            print(f"分类表产物与生成不一致: {path}（请重新生成）", file=sys.stderr)
+            return False
+        return True
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return True
+
+
 def main(argv: list[str]) -> int:
+    check = "--check" in argv
     rows = collect_rows()
-    text = render(rows)
-    if "--check" in argv:
-        if not OUT.exists():
-            print(f"产物不存在: {OUT}", file=sys.stderr)
-            return 1
-        current = OUT.read_text(encoding="utf-8")
-        if current != text:
-            print("分类表产物与生成不一致：请运行 scripts/gen_op_catalog.py 重新生成",
-                  file=sys.stderr)
-            return 1
-        return 0
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(text, encoding="utf-8")
-    parts: dict[str, int] = {}
-    for r in rows:
-        parts[r["partition"]] = parts.get(r["partition"], 0) + 1
-    print(f"生成 {len(rows)} 条（{parts}）")
-    return 0
+    el, ts_windows, guidance = classify_polars()
+    ok = _check_or_write(OUT, render(rows), check)
+    ok = _check_or_write(OUT_POLARS, render_polars(el, ts_windows, guidance), check) and ok
+    if not check:
+        parts: dict[str, int] = {}
+        for r in rows:
+            parts[r["partition"]] = parts.get(r["partition"], 0) + 1
+        print(f"polars_ta: {len(rows)} 条（{parts}）")
+        print(f"polars 方法: el={len(el)} ts={len(ts_windows)} denied={len(guidance)}")
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

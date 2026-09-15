@@ -121,3 +121,53 @@ def test_ta_catalog_size_floor():
     build_ta_catalog(c)
     usable = [m for m in c.all() if m.source == "polars_ta"]
     assert len(usable) >= 350                       # Spike 1 结论：350~400
+
+
+# ============================ Task 3: polars 方法/访问器分类表 ============================
+
+
+def test_polars_methods_version_locked():
+    import polars as pl
+
+    from factorlab.core.ops._generated_polars_methods import (
+        DENIED_METHODS,
+        EL_METHODS,
+        TS_METHODS,
+    )
+    public = {m for m in dir(pl.Expr) if not m.startswith("_")}
+    covered = set(EL_METHODS) | set(TS_METHODS) | set(DENIED_METHODS)
+    missing = public - covered
+    assert not missing, f"polars 升级后有未分类方法，请补清单: {sorted(missing)}"
+
+
+def test_polars_methods_buckets_are_disjoint():
+    from factorlab.core.ops._generated_polars_methods import (
+        DENIED_METHODS,
+        EL_METHODS,
+        TS_METHODS,
+    )
+    e, t, d = set(EL_METHODS), set(TS_METHODS), set(DENIED_METHODS)
+    assert not (e & t) and not (e & d) and not (t & d), "方法分类桶不得重叠"
+
+
+def test_ambiguous_denied_has_guidance():
+    from factorlab.core.ops.classification import default_catalog
+    c = default_catalog()
+    assert c.get(".rank") is None           # 方法 .rank() 不作算子开放（指引 by=）
+    assert c.get("ts_mean") is not None
+    assert c.get(".rolling_mean").partition == "ts"
+    assert c.get(".rolling_mean").window == "arg:0"
+    assert c.get(".shift").window == "arg:0"
+    assert c.get(".cum_sum").window == "unbounded"
+    assert c.get(".ewm_mean").window == "unbounded"
+    # 未来/顺序敏感方法必须拒绝而不是当 el 放行
+    assert c.get(".backward_fill") is None
+    assert c.get(".interpolate") is None
+    assert c.get(".reverse") is None
+
+
+def test_denied_method_guidance_text():
+    from factorlab.core.ops.classification import method_denied_guidance
+    msg = method_denied_guidance("rank")
+    assert msg is not None and "by=" in msg
+    assert method_denied_guidance("rolling_mean") is None
