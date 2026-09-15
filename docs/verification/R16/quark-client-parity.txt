@@ -1,0 +1,7 @@
+  ✓ http vs 原实现[0]（逐字相同）
+  ✓ http vs 原实现[1]（逐字相同）
+  ✓ download_file vs 原实现[0]（逐字相同）
+  ✓ download_file vs 原实现[1]（逐字相同）
+  ✓ get_download_urls 行为清单 4 条
+  ✓ get_stoken 行为清单 6 条
+PASS：共享实现与原实现等价（逐字对照 + 行为清单；差异仅限声明过的三项）

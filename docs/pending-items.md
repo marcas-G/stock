@@ -75,7 +75,7 @@
     ② **研究侧工具入口改名**（R4d C1-C3）：`quark_download_v2.py`→`download_level2.py`、
        `quark_download_server.py`→`download_share_dir.py`、`quark_share.py`→`share_manifest.py`。
        **阻塞点**：用户级技能 `~/.claude/skills/quark-share-download/scripts/` 里有这三个文件的
-       **副本**（实测逐字节相同）——改名必须与技能更新同批，否则技能立刻断。属用户侧动作。
+       **副本**（实测逐字节相同）；**R16 后同步还需一并拷 `quark_client.py`**（传输层单点，见 `R16/`）——改名必须与技能更新同批，否则技能立刻断。属用户侧动作。
     ③ **tools 入口统一为 `run.py` 子命令形态**（C2）：涉及 6 个工具的 CLI 重构，需各自的
        冒烟测试先行；本轮只补齐了 README 与统一命名规范文档。
 13. ✅ **2026-09-15 完成**（`scripts/check_dataiface.py::check_g_read`）：AST 取直读目标表达式，
