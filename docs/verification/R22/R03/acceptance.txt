@@ -1,0 +1,35 @@
+# R22/R02/R03 最终验收记录（2026-09-16，coordinator 实跑）
+
+工作区 HEAD：20f22c2（含开放算子 Plan 1、分钟执行、R02 2C+9I、R03 5 项修复提交）
+说明：research/ 下有挖矿循环**在途未提交文件**（159 spec、docs/index/factors.md），
+本验收中 T2/门的红仅由这些在途文件引起，与 R21/R22/R02/R03 修复无关（详见下）。
+
+## 平台全量（冻结代码树）
+
+命令：`cd platform && .venv/bin/python -m pytest -q`
+结果：**2976 passed, 13 skipped**，894s，exit 0（R01 基线 2570；R21 2696；R22 2930）
+
+## 研究侧
+
+| 命令 | 结果 | 说明 |
+|---|---|---|
+| `emb/bin/python -m pytest research/tools -q`（T2） | 275 passed / 10 skipped / **2 failed** | 2 failed 均为 `factor_lib/tests/test_index.py`：挖矿循环在途（159 spec vs 索引陈旧、tripwire 硬编码 152），非本轮修复回归 |
+| `platform/.venv/bin/python -m pytest research/tools/{strategies,ch_ingest,1m_features,ashare_ingest,universe_stages,converters}/tests -q`（T1 子集） | **138 passed** | 同上排除挖矿在途的 factor_lib |
+| `make lint-factors` | **159 通过 / 0 失败** | 含挖矿新增 spec（库只增不删） |
+| `bash scripts/gates.sh` | 结构门：仅 G-INDEX 红（索引与 159 spec 生成器输出不一致，挖矿在途）；数据接口门 ENFORCED 全绿；G-READ/G-MARK/G-CONTRACT 等其余全绿 | 索引由挖矿循环重生成后即恢复 |
+
+## R01/R02/R03 台账
+
+- R01 63 行 + R02 16 行 + R03 5 行 = **84 行全部 fixed-claimed，0 open**
+- R01 七条 reopened/partial 均带闭环注记（C2 da8bba0+f55befa / I6a dc8c2b6 / I6b fb62c08+0d09bf5 /
+  I7 7c8e26a / I5 620940a / I7-I8 契约指针 a9bd28c）
+- R02 关键 Critical：C1 808c40b（分钟门三防线 + 运行时硬校验）、C2 da8bba0+f55befa（窗口无关 + 零迁移守护）
+- R03：I1 79d256a（ST 显式降级开关 + summary 审计）、I2 136c30d（coverage 口径）、I3 0455502（退化档位告警）、
+  I4 28a8f42（codegen 常量折叠守卫）、I5 df6851f+c7b3d66（ts_cum_count 注册可用）
+
+## 关键基线
+
+- R22 零迁移：6 代表 spec（reversal_20d/momentum_20d/vol_run_energy_symrun/low_vol_20d/turnover_accel/reversal_20d_wcorr）
+  经 `tests/test_regression_152.py` 逐值对比 `ic.{mean,t_stat,ir}` |Δ|=0、n_weeks 相等（integration，平台全量内实跑）
+- NEXT_OPEN 零差异：分钟执行 Plan Task 5 digest 探针 ZERO-DIFF（见 R22/minute-execution 证据）
+- 数据语义复验：600519 单位、300842 除权参考价、600811 归位、600005 退市 is_listed=False、stk_limit 覆盖率门
