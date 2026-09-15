@@ -56,6 +56,21 @@ def test_failure_leaves_no_target_and_no_tmp(tmp_path):
     assert [p.name for p in target.parent.iterdir() if ".tmp" in p.name] == []
 
 
+def test_commit_failure_leaves_no_target_and_no_tmp(tmp_path, monkeypatch):
+    """提交阶段失败（fsync/replace）同样不留 tmp、目标不动（R01-DATA-I6 暴露）。"""
+    target = tmp_path / "z.bin"
+    atomicio.atomic_write_bytes(target, b"keep")
+
+    def boom(tmp: Path, tgt: Path) -> None:
+        raise OSError("fsync failed")
+
+    monkeypatch.setattr(atomicio, "_commit", boom)
+    with pytest.raises(OSError, match="fsync failed"):
+        atomicio.atomic_write_bytes(target, b"new")
+    assert target.read_bytes() == b"keep"
+    assert [p.name for p in tmp_path.iterdir() if ".tmp" in p.name] == []
+
+
 def test_overwrite_existing_is_atomic(tmp_path):
     p = atomicio.atomic_write_text(tmp_path / "s.json", '{"v": 1}')
     atomicio.atomic_write_text(p, '{"v": 2}')

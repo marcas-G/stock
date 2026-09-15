@@ -510,16 +510,24 @@ def _uf_skeleton_ch(
       （与 duckdb String 形态对齐，共享后处理 strptime 不变）——不能用
       formatDateTime('%Y%m%d')：SQL 字面含 % 与 clickhouse-connect 的
       Python % 绑定冲突（unsupported format character）
-    - delist_col='NULL' 时输出字面 NULL（列缺失——退市信息不可用视为 NULL）
+    - delist_date（R01-DATA-I4）：TOOLS/M6-07B 灌入后为 Nullable(Date)，旧环境
+      可能是 String——统一 toString(toYYYYMMDD(toDateOrNull(toString(col)))) 归一
+      为 'YYYYMMDD' 字符串（Date/String/NULL/空串全兼容；裸 Date 直接进
+      pl.String schema 会在 DataFrame 构造期 ComputeError）。列缺失 →
+      delist_col='NULL' 输出字面 NULL（退市信息不可用视为 NULL）
     - stock_st join 在 Date 上等值（trade_date Date = d.date Date；stock_st 为
       上游 teajoin 环境灌入表，本机无源时该 JOIN 不可用——resolve 层有
       缺表显式报错路径，M8 语义由 ch_db 假库测试覆盖）
     - 两层 LEFT JOIN 前提：code 恒来自 stock_basic
     """
     db = settings.ch_database
+    delist_expr = (
+        "NULL" if delist_col == "NULL"
+        else (f"toString(toYYYYMMDD(toDateOrNull(toString({delist_col}))))"
+              f" AS delist_date"))
     select_cols = (f"d.date, c.code, b.ts_code, "
                    f"toString(toYYYYMMDD(b.list_date)) AS list_date, "
-                   f"{delist_col} AS delist_date")
+                   f"{delist_expr}")
     sql = (
         f"SELECT {select_cols}"
         # arrayJoin 不能作 FROM 层 table function（26.3 UNKNOWN_FUNCTION）——

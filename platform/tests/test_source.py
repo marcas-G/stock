@@ -12,7 +12,7 @@ import polars as pl
 import pytest
 
 from factorlab.app.bootstrap import open_read
-from factorlab.adapters.read.source import load_daily
+from factorlab.adapters.read.source import load_daily, load_daily_fill_state
 
 # ---------------------------------------------------------------
 # 共享数据集（原 build_db：tushare 原始列名——ts_code 带后缀/trade_date 'YYYYMMDD'/vol）
@@ -108,8 +108,20 @@ def test_load_daily_maps_platform_columns(env):
 
 
 def test_load_daily_maps_volume_column(env):
-    _seed_base(env)
-    df = load_daily(env.rd, ["000001"], cols=["volume"]).collect()
+    """vol → volume 映射 + I7 canonical 单位（duckdb 源 手 ×100 / ch 源 股 恒等）。"""
+    raw = [1000.0, 1100.0] if env.backend == "duckdb" else [100000.0, 110000.0]
+    env.seed({
+        "daily": ([("ts_code", "str"), ("trade_date", "date"), ("close", "f64"),
+                   ("vol", "f64")],
+                  [("000001.SZ", "20240102", 10.5, raw[0]),
+                   ("000001.SZ", "20240103", 11.0, raw[1])]),
+        "adj_factor": ([("ts_code", "str"), ("trade_date", "date"), ("adj_factor", "f64")],
+                       [("000001.SZ", "20240102", 1.0),
+                        ("000001.SZ", "20240103", 1.0)]),
+        "stock_basic": ([("symbol", "str"), ("ts_code", "str")],
+                        [("000001", "000001.SZ")]),
+    })
+    df = load_daily(env.rd, ["000001"], cols=["volume"], float32=False).collect()
     assert "volume" in df.columns  # vol → volume
     assert df["volume"].to_list() == [100000.0, 110000.0]
 
@@ -231,6 +243,49 @@ def test_market_index_ret_loaded(env):
     df = load_daily(env.rd, ["000001"], cols=["close", "idx_ret"]).collect()
     assert df["idx_ret"].to_list() == pytest.approx([0.01] * 3)  # pct_chg=1.0 → 0.01
 
+
+# ---------------------------------------------------------------
+# R01-DATA-I7：duckdb 源单位（teajoin 原始：手/千元）→ canonical（股/元）
+# ---------------------------------------------------------------
+
+def test_load_daily_normalizes_duckdb_units(env):
+    """duckdb 平台库由 data rebuild 落 teajoin 原始单位（vol=手、amount=千元），
+    ch 灌入侧已是 股/元——读面必须把 duckdb 腿 ×100/×1000 归一，两腿 canonical
+    一致。恒等映射（不转换）的实现会让 duckdb 腿断言失败。"""
+    raw_vol = 1234.0 if env.backend == "duckdb" else 123400.0     # 手 vs 股
+    raw_amt = 5678.0 if env.backend == "duckdb" else 5678000.0    # 千元 vs 元
+    env.seed({
+        "daily": ([("ts_code", "str"), ("trade_date", "date"), ("close", "f64"),
+                   ("vol", "f64"), ("amount", "f64")],
+                  [("000001.SZ", "20240102", 10.0, raw_vol, raw_amt)]),
+        "adj_factor": ([("ts_code", "str"), ("trade_date", "date"),
+                        ("adj_factor", "f64")],
+                       [("000001.SZ", "20240102", 1.0)]),
+        "stock_basic": ([("symbol", "str"), ("ts_code", "str")],
+                        [("000001", "000001.SZ")]),
+    })
+    df = load_daily(env.rd, ["000001"], cols=["close", "volume", "amount"],
+                    float32=False).collect()
+    assert df["volume"].to_list() == [123400.0]
+    assert df["amount"].to_list() == [5678000.0]
+
+
+def test_load_daily_fill_state_normalizes_duckdb_units(env):
+    """fill_state（跨 chunk 左边界 seed）与 load_daily 同单位契约。"""
+    raw_vol = 12.0 if env.backend == "duckdb" else 1200.0
+    env.seed({
+        "daily": ([("ts_code", "str"), ("trade_date", "date"), ("close", "f64"),
+                   ("vol", "f64")],
+                  [("000001.SZ", "20240102", 10.0, raw_vol)]),
+        "adj_factor": ([("ts_code", "str"), ("trade_date", "date"),
+                        ("adj_factor", "f64")],
+                       [("000001.SZ", "20240102", 1.0)]),
+        "stock_basic": ([("symbol", "str"), ("ts_code", "str")],
+                        [("000001", "000001.SZ")]),
+    })
+    fs = load_daily_fill_state(env.rd, ["000001"], before="2024-01-03",
+                               cols=["close", "volume"], float32=False)
+    assert fs["volume"].to_list() == [1200.0]
 
 # ---------------------------------------------------------------
 # 错误路径

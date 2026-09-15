@@ -38,6 +38,7 @@ def refresh(db: PlatformDB, client: TeaJoinClient, manifest_path: Path | None = 
     for table in DAILY_TABLES:
         completed = set(manifest.get(table, {}).get("completed", []))
         failed = set(manifest.get(table, {}).get("failed", []))
+        errors: dict[str, str] = {}
         rows = 0
         for d in new_dates:
             try:
@@ -45,12 +46,16 @@ def refresh(db: PlatformDB, client: TeaJoinClient, manifest_path: Path | None = 
                 db.upsert(table, df, keys=["trade_date", "ts_code"])  # 默认 dedup=True（refresh 可能重拉）
                 completed.add(d)
                 failed.discard(d)
+                errors.pop(d, None)   # 重试成功清除历史原因
                 rows += df.height
-            except Exception:
+            except Exception as exc:
                 failed.add(d)  # 失败日记入 failed，下次 refresh 重试
+                errors[d] = str(exc)[:120]   # R01-DATA-I8：失败原因随报告/manifest 输出
         manifest.setdefault(table, {})["completed"] = sorted(completed)
         manifest.setdefault(table, {})["failed"] = sorted(failed)
-        report["tables"][table] = {"rows": rows, "failed": sorted(failed)}
+        manifest.setdefault(table, {})["failed_errors"] = errors
+        report["tables"][table] = {"rows": rows, "failed": sorted(failed),
+                                   "failed_errors": errors}
     manifest["last_updated"] = new_dates[-1]  # failed 日也算已处理，推进避免重复拉
     save_manifest(manifest_path, manifest)
     return report

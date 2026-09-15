@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,7 @@ import duckdb
 import polars as pl
 
 from factorlab.config import settings
+from factorlab.adapters.atomicio import atomic_write_text
 from factorlab.adapters.fetcher import TeaJoinClient
 from factorlab.adapters.mirror_db import PlatformDB
 from factorlab.core.domain.codes import (CANONICAL_TS_CODE_PATTERN,
@@ -25,16 +27,39 @@ DEFAULT_END = "20261231"
 
 
 def load_manifest(path: Path) -> dict:
-    """读取断点续传 manifest；文件不存在时返回空 dict。"""
+    """读取断点续传 manifest；文件不存在时返回空 dict。
+
+    R01-DATA-I6：截断 JSON / 非映射 JSON（旧非原子写的崩溃残留）→ 隔离为
+    `<name>.corrupt-<ns>` 后返回 {}（容错恢复；坏文件保留供审计，不静默删除）。
+    """
     if not path.exists():
         return {}
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        data = None
+    if not isinstance(data, dict):
+        _quarantine_manifest(path)
+        return {}
+    return data
+
+
+def _quarantine_manifest(path: Path) -> None:
+    """坏 manifest 移出原位（唯一后缀，不覆盖历史证据）。"""
+    try:
+        path.replace(path.with_name(f"{path.name}.corrupt-{time.time_ns()}"))
+    except OSError:
+        pass
 
 
 def save_manifest(path: Path, manifest: dict) -> None:
-    """落盘 manifest（每批调用，供中断后断点续传）。"""
+    """落盘 manifest（每批调用，供中断后断点续传）。
+
+    R01-DATA-I6：走 atomicio 原子写（R13 单点 tmp+fsync+os.replace）——
+    崩溃/磁盘满不留截断 JSON（截断 Manifest 无法加载会破坏断点续传本身）。
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_text(path, json.dumps(manifest, ensure_ascii=False, indent=2))
 
 
 @dataclass
@@ -428,10 +453,24 @@ def _rebuild_daily_table(
 
     并发 5 路（~250 req/min < teajoin 450/min 上限）；duckdb 单写者——worker 只
     fetch，主线程用复用连接串行 upsert（dedup=False 纯 INSERT）+ manifest 更新；
-    每 20 个结果落盘一次（崩溃窗口 20 日重拉可接受，integrity 可查）。
+    每 20 个结果落盘一次。
+
+    R01-DATA-I5：manifest 每 20 批落盘留下"已 INSERT 未记录"的崩溃窗口。表启动
+    时用 staging 内 DISTINCT trade_date 对账补记 completed（upsert_on 按日事务
+    原子 + 单写者前提：日期在表 ⇔ 该日已完整落库）——续跑既不重拉也不重插，
+    不产生 (trade_date, ts_code) 重复行；build_final_db 的 integrity gate 兜底。
     """
     completed = set(manifest.get(table, {}).get("completed", []))
     failed = set(manifest.get(table, {}).get("failed", []))
+    # 崩溃对账：staging 已落日期视为完成（含未写 manifest 的崩溃窗口）
+    exists = con.execute(
+        "SELECT 1 FROM information_schema.tables"
+        " WHERE table_schema = 'main' AND table_name = ?", [table]).fetchone()
+    if exists:
+        existing = {str(r[0]) for r in
+                    con.execute(f'SELECT DISTINCT trade_date FROM "{table}"').fetchall()}
+        completed |= existing
+        failed -= existing
     fetched: list[str] = []
     total_rows = 0
     todo = [d for d in dates if d not in completed]
@@ -512,6 +551,10 @@ def rebuild_all(
     # 3. 行情 7 表按日（worker 并发 fetch，主线程串行写入复用连接）
     with db.connect() as con:
         for table in DAILY_TABLES:
+            if not resume:
+                # R01-DATA-I5：--no-resume = 忽略既有进度全量重拉——先清空旧行，
+                # 避免重插产生 (trade_date, ts_code) 重复
+                con.execute(f'DROP TABLE IF EXISTS "{table}"')
             report["tables"][table] = _rebuild_daily_table(
                 db, con, client, table, dates, manifest, manifest_path, max_workers=max_workers
             )
@@ -621,12 +664,24 @@ def build_final_db(
     无保留列的表跳过建表；最终库已存在时整体替换（CREATE OR REPLACE，schema 收缩生效）。
     返回 {"excluded_fields": {table: [cols]}, "tables": [最终库表]}。
 
+    R01-DATA-I5：产出前跑 staging.integrity_check()，daily 存在重复
+    (trade_date, ts_code) 组即拒绝建库（重复行会让下游 join/行数膨胀——
+    宁可 BLOCKED 不产出污染读面的最终库）。
+
     M5（design §5.3/§7-3）数据侧收口：最终库读面带违规列（引擎内部保留名
     __factorlab_*/in_universe、未来前缀列 forward_*/future_*/target/label——
     读面按构造即 PIT）→ fail fast 拒绝重建，不产出会污染读面供给的最终库。
     """
     if not staging.path.exists():
         raise ValueError(f"暂存库不存在: {staging.path}")
+    # R01-DATA-I5：integrity gate（只拦重复行——其他规则可能因 scope/缺表跳过）
+    integrity = staging.integrity_check()
+    dup = integrity.get("daily", {}).get("duplicate_rows", {})
+    if dup and not dup.get("skipped") and not dup.get("passed", True):
+        raise ValueError(
+            f"staging daily 含 {dup.get('failed')} 个 (trade_date, ts_code) 重复组"
+            f"——拒绝产出最终库（检查 rebuild 对账/清理 staging 后重试）: "
+            f"{dup.get('details')}")
     # 延迟 import：verify 顶层 import 本模块（assess_sparsity）——函数内收口，
     # 避免 rebuild ↔ verify 循环 import
     from factorlab.adapters.read.verify import ENGINE_SURFACE_TABLES, validate_surface_columns

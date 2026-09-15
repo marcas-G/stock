@@ -100,6 +100,7 @@ def view_prices(
     asof: datetime.date | None = None,
     adj_col: str = "adj_factor",
     qfq_base_col: str | None = None,
+    pit_qfq_base_col: str | None = None,
 ) -> pl.DataFrame:
     """价格视图：RAW 原样；QFQ 前复权（adj/adj[latest]）；HFQ 后复权（×adj）；
     PIT_QFQ 动态前复权（adj/adj[asof]，研究日视角防未来）。
@@ -108,6 +109,12 @@ def view_prices(
     factor = adj_col / qfq_base_col（与 chunk 划分无关），禁止计算块内 latest。
     默认（qfq_base_col=None）保持 standalone contract：以当前 df 内每 code
     最新非 null adj 为 base。HFQ/PIT_QFQ 忽略该参数。
+
+    R01-DATA-I3：pit_qfq_base_col 非 None 时 pit_qfq 使用**全局 asof base**
+    （load_pit_qfq_base_adj 按 asof 从 DB 取每 code 最新 adj），factor =
+    adj_col / pit_qfq_base_col——chunk 与 full 共用同一 base（asof 全局固定），
+    禁止从传入帧 filter(date<=asof) 计算块内 latest。默认 None 保持 standalone
+    contract（帧内 asof 最新非 null adj）。
     """
     if view not in PRICE_VIEWS:
         raise ValueError(f"未知价格视图 view: {view}（支持 {PRICE_VIEWS}）")
@@ -131,6 +138,11 @@ def view_prices(
     elif view == "hfq":
         factor = pl.col(adj_col)
     else:  # pit_qfq
+        if pit_qfq_base_col is not None:
+            # I3：全局 asof base（外部 join 列）——factor 与 chunk 划分无关
+            factor = pl.col(adj_col) / pl.col(pit_qfq_base_col)
+            scaled = [pl.col(c) * factor for c in _PRICE_COLS if c in df.columns]
+            return df.with_columns(scaled)
         base = (
             df.filter(pl.col("date") <= asof)
             .sort("date")
@@ -193,6 +205,21 @@ def load_qfq_base_adj(rd, date_end: str | None) -> pl.DataFrame:
     （duckdb|ch）。adj_factor 全表按 code 聚合，无 codes 参数。
     """
     return _QFQ_BASE_IMPL[rd.backend](rd, date_end)
+
+
+def load_pit_qfq_base_adj(rd, asof: str | None) -> pl.DataFrame:
+    """全局 pit_qfq asof base（R01-DATA-I3）：每代码在 <= asof 的**最新非 null**
+    adj_factor（argMax(adj_factor, trade_date)）。
+
+    与 load_qfq_base_adj 同一 SQL/语义（仅有效期末不同——这里是研究日 asof），
+    列名独立（__factorlab_pit_qfq_base_adj）以免与 qfq 固定 sample base 混淆。
+    runtime 把该列 join 进 panel 后传 view_prices(pit_qfq_base_col=...)——
+    FULL/CHUNK（含 warmup 块）共用同一 base，asof 全局固定。asof 为 ISO
+    'YYYY-MM-DD' 或 'YYYYMMDD'；rd 为读句柄（duckdb|ch）。
+    """
+    base = load_qfq_base_adj(rd, asof)
+    return base.select(["code", "__factorlab_qfq_base_adj"]).rename(
+        {"__factorlab_qfq_base_adj": "__factorlab_pit_qfq_base_adj"})
 
 
 def total_return(close: pl.Expr, adj: pl.Expr) -> pl.Expr:

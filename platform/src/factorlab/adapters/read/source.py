@@ -9,6 +9,15 @@ from factorlab.ports.read import ReadPort
 
 # 平台库 daily 列映射：引擎列名 → tushare 原始列名（SQL 别名阶段完成）
 _COL_MAP = {"volume": "vol"}
+# R01-DATA-I7：duckdb 平台库单位 → canonical 引擎单位（股/元）。
+# 契约（platform/docs/catalog.md volume/amount 行）：引擎列 volume=股、amount=元。
+# - ch 灌入（research/tools/ch_ingest）已按 股/元 落库 → 读面不转换；
+# - duckdb 平台库由 data rebuild 直接落 teajoin（tushare 约定）原始值：
+#     vol = 手（1 手 = 100 股）→ ×100
+#     amount = 千元 → ×1000
+#   归一发生在读适配层（唯一 engine-column 边界），两后端同公式结果一致；
+#   禁止恒等映射（否则 duckdb 全量重建后公式值静默漂移 100×/1000×）。
+_DUCKDB_UNIT_SCALE = {"vol": 100.0, "amount": 1000.0}
 # 平台库 daily 默认加载列（cols=None 时；turnover/total_mv/circ_mv 在 daily_basic，按需请求）
 _PLATFORM_COLS = ("open", "high", "low", "close", "pre_close", "change", "pct_chg", "volume", "amount")
 # cols 请求的平台语义列 → daily_basic 来源列（left join）
@@ -125,6 +134,26 @@ def _unknown_col_message(unknown: list[str], available: list[str]) -> str:
 # - ch:     trade_date 为 Date（arrow 读回即 pl.Date，无需 strptime）；ts_code 去后缀同
 
 
+def _duckdb_daily_expr(col: str) -> str:
+    """duckdb daily 源列 → SELECT 表达式（I7：源单位归一为 股/元）。"""
+    src = _COL_MAP.get(col, col)
+    scale = _DUCKDB_UNIT_SCALE.get(src)
+    if scale is None:
+        return f"d.{src} AS {col}"
+    return f"(d.{src} * {scale}) AS {col}"
+
+
+def _duckdb_fill_expr(col: str) -> str:
+    """duckdb fill-state 聚合表达式（last non-null，含 I7 单位归一）。"""
+    src = _COL_MAP.get(col, col)
+    agg = (f"last(d.{src} ORDER BY d.trade_date) "
+           f"FILTER (WHERE d.{src} IS NOT NULL)")
+    scale = _DUCKDB_UNIT_SCALE.get(src)
+    if scale is None:
+        return f"{agg} AS {col}"
+    return f"({agg}) * {scale} AS {col}"
+
+
 def _load_daily_duckdb(
     rd: ReadPort,
     codes: list[str],
@@ -135,7 +164,8 @@ def _load_daily_duckdb(
     basic_cols: list[str],
     want_adj: bool,
 ) -> pl.DataFrame:
-    """duckdb 版 load_daily：SQL + 位置参数 + VARCHAR→Date 解码（SQL 逐字同迁移前）。"""
+    """duckdb 版 load_daily：SQL + 位置参数 + VARCHAR→Date 解码 + I7 单位归一
+    （vol 手→股 ×100、amount 千元→元 ×1000；见 _DUCKDB_UNIT_SCALE）。"""
     where = ["substr(d.ts_code, 1, 6) IN (SELECT unnest(?))"]
     params: list[object] = [[c.split(".")[0] for c in codes]]
     for bound, op in ((date_start, ">="), (date_end, "<=")):
@@ -146,7 +176,7 @@ def _load_daily_duckdb(
     select_items = ["d.trade_date AS trade_date", "d.ts_code AS ts_code"]
     if want_adj:
         select_items.append("a.adj_factor")
-    select_items += [f"d.{_COL_MAP.get(c, c)} AS {c}" for c in daily_cols]
+    select_items += [_duckdb_daily_expr(c) for c in daily_cols]
     select_items += [f"b.{_DAILY_BASIC_MAP.get(c, c)} AS {c}" for c in basic_cols]
     if "idx_ret" in requested:
         select_items.append("(m.pct_chg / 100.0) AS idx_ret")
@@ -266,16 +296,14 @@ def _fill_duckdb(
     want_adj: bool,
     want_idx: bool,
 ) -> pl.DataFrame:
-    """duckdb 版 fill_state：last-...-FILTER（跳过 NULL 行）+ GROUP BY code。"""
+    """duckdb 版 fill_state：last-...-FILTER（跳过 NULL 行）+ GROUP BY code
+    + I7 单位归一（与 load_daily 同契约）。"""
     select_items = ["substr(d.ts_code, 1, 6) AS code"]
     if want_adj:
         select_items.append(
             "last(a.adj_factor ORDER BY d.trade_date) "
             "FILTER (WHERE a.adj_factor IS NOT NULL) AS adj_factor")
-    select_items += [
-        f"last(d.{_COL_MAP.get(c, c)} ORDER BY d.trade_date) "
-        f"FILTER (WHERE d.{_COL_MAP.get(c, c)} IS NOT NULL) AS {c}"
-        for c in daily_cols]
+    select_items += [_duckdb_fill_expr(c) for c in daily_cols]
     select_items += [
         f"last(b.{_DAILY_BASIC_MAP.get(c, c)} ORDER BY d.trade_date) "
         f"FILTER (WHERE b.{_DAILY_BASIC_MAP.get(c, c)} IS NOT NULL) AS {c}"

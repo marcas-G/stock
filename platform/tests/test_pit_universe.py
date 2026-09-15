@@ -4,7 +4,8 @@
 句柄 env.rd；中途"加行"语义 → 第二次 env.seed（dualbridge 幂等：DROP+CREATE
 只替换列出的表）。表列型按生产 ch DDL 建模：list_date "date"（ch 编译器
 toYYYYMMDD(Date)；duckdb 腿 = VARCHAR 'YYYYMMDD' 同平台形态）、delist_date
-"str?"（可空）、stock_st trade_date "date"。
+"date?"（R01-DATA-I4：CH Nullable(Date)；duckdb 腿仍 VARCHAR）、stock_st
+trade_date "date"。
 
 核心 invariant：Universe membership at t 不能依赖 t 之后的数据
 （ST / listing / delisting 均须 PIT）。
@@ -25,7 +26,7 @@ LIST_A, LIST_B, DELIST_C = "20240101", "20240115", "20240601"
 
 _SB_COLS = [("ts_code", "str"), ("symbol", "str"), ("exchange", "str"),
             ("list_date", "date"), ("industry", "str?"), ("market", "str"),
-            ("delist_date", "str?")]
+            ("delist_date", "date?")]
 _ST_COLS = [("ts_code", "str"), ("name", "str"), ("trade_date", "date"),
             ("type", "str"), ("type_name", "str")]
 _DAILY_COLS = [("ts_code", "str"), ("trade_date", "date"), ("close", "f64")]
@@ -631,6 +632,29 @@ def test_unmatched_candidate_nullable_text_stays_string(env):
     assert row.height == 1
     assert row["is_listed"][0] is False
     assert uf["is_listed"].dtype == pl.Boolean
+
+
+def test_delist_date_string_column_compatible(env):
+    """R01-DATA-I4 兼容面：delist_date 为 String（旧环境）时语义不变。
+
+    新环境（TOOLS/M6-07B 灌入）为 Nullable(Date)，主 fixture 已按 date? 锁死；
+    本测试锁 String 列不回归（ch 编译器 toString 归一必须对两种类型都成立）。
+    """
+    sb_cols = [c for c in _SB_COLS if c[0] != "delist_date"] + [("delist_date", "str?")]
+    env.seed({
+        "stock_basic": (sb_cols, [
+            ("000001.SZ", "000001", "SZSE", LIST_A, "银行", "主板", None),
+            ("000002.SZ", "000002", "SZSE", "20200101", "地产", "主板", DELIST_C),
+        ]),
+        "daily": (_DAILY_COLS, []),
+        "trade_cal": (_CAL_COLS, []),
+    })
+    uf = resolve_universe_frame(spec_with(rules={"exchanges": ["SSE", "SZSE"]}),
+                                env.rd, ["2024-05-31", "2024-06-01"])
+    c = uf.filter(pl.col("code") == "000002").sort("date")
+    days = {str(r["date"]): bool(r["is_listed"]) for r in c.iter_rows(named=True)}
+    assert days["2024-05-31"] is True
+    assert days["2024-06-01"] is False
 
 
 def test_has_st_false_keeps_is_st_boolean(env):

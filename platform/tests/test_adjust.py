@@ -3,7 +3,7 @@ import datetime
 import polars as pl
 import pytest
 
-from factorlab.adapters.read.adjust import view_prices, total_return
+from factorlab.adapters.read.adjust import load_pit_qfq_base_adj, view_prices, total_return
 
 
 def _panel():
@@ -176,3 +176,64 @@ def test_view_hfq_and_pit_unchanged_with_base_param():
     out = view_prices(df, "pit_qfq", asof=datetime.date(2024, 1, 3),
                       qfq_base_col="__factorlab_qfq_base_adj")
     assert out["close"].to_list() == pytest.approx([10.0, 11.0, 12.0, 13.5])
+
+
+# ================================================================
+# R01-DATA-I3：pit_qfq 全局 base（asof 固定，与 chunk 划分无关）
+# ================================================================
+
+def _pit_base_frame():
+    return pl.DataFrame({"code": ["A"], "__factorlab_pit_qfq_base_adj": [1.5]})
+
+
+def test_view_pit_qfq_global_base_full_equals_chunked():
+    """R01-DATA-I3 复现：asof=2024-01-10 的全局 base 提供后，full 与分块逐值一致。
+
+    probe_pit_chunk 旧行为：full [6.67,7.33,8,9] vs chunked [10,11,8,9]。
+    """
+    asof = datetime.date(2024, 1, 10)
+    df = _panel().join(_pit_base_frame(), on="code", how="left")
+    col = "__factorlab_pit_qfq_base_adj"
+    full = view_prices(df, "pit_qfq", asof=asof, pit_qfq_base_col=col)
+    c1 = view_prices(df.filter(pl.col("date") <= datetime.date(2024, 1, 3)),
+                     "pit_qfq", asof=asof, pit_qfq_base_col=col)
+    c2 = view_prices(df.filter(pl.col("date") >= datetime.date(2024, 1, 4)),
+                     "pit_qfq", asof=asof, pit_qfq_base_col=col)
+    merged = pl.concat([c1, c2]).sort("date")
+    assert full["close"].to_list() == pytest.approx([10.0 / 1.5, 11.0 / 1.5, 8.0, 9.0])
+    assert merged["close"].to_list() == full["close"].to_list()
+    # 不允许块内 latest 复活：chunk2 首行若用块内 base（1.5）之外的旧值会变 10/11 以下
+    assert c2["close"].to_list() == pytest.approx([8.0, 9.0])
+
+
+def test_view_pit_qfq_global_base_differs_from_frame_latest():
+    """全局 base 与帧内最新 adj 不同时必须以全局 base 为准（防未来信息）。"""
+    asof = datetime.date(2024, 1, 3)
+    df = _panel().join(_pit_base_frame(), on="code", how="left")  # base=1.5 > 帧内 asof 最新 1.0
+    out = view_prices(df, "pit_qfq", asof=asof,
+                      pit_qfq_base_col="__factorlab_pit_qfq_base_adj")
+    # factor = adj/base = [1/1.5, 1/1.5, 1, 1]
+    assert out["close"].to_list() == pytest.approx([10.0 / 1.5, 11.0 / 1.5, 8.0, 9.0])
+
+
+def test_view_pit_qfq_no_global_base_keeps_frame_fallback():
+    """无全局 base 时保持 standalone 语义（asof 帧内 latest）——不破坏既有契约。"""
+    out = view_prices(_panel(), "pit_qfq", asof=datetime.date(2024, 1, 3))
+    assert out["close"].to_list() == pytest.approx([10.0, 11.0, 12.0, 13.5])
+
+
+def test_load_pit_qfq_base_adj_latest_per_code_at_asof(env):
+    """R01-DATA-I3：base = 每 code 在 <= asof 的**最新非 null** adj（双腿）。"""
+    env.seed({
+        "adj_factor": ([("ts_code", "str"), ("trade_date", "date"), ("adj_factor", "f64")], [
+            ("000001.SZ", "20240102", 1.0),
+            ("000001.SZ", "20240105", 1.5),
+            ("000001.SZ", "20240201", 2.0),   # asof 之后——不得参与
+            ("600519.SH", "20231220", 3.0),
+        ]),
+    })
+    base = load_pit_qfq_base_adj(env.rd, "2024-01-10")
+    got = {r["code"]: r["__factorlab_pit_qfq_base_adj"]
+           for r in base.iter_rows(named=True)}
+    assert got == {"000001": 1.5, "600519": 3.0}
+    assert base.columns == ["code", "__factorlab_pit_qfq_base_adj"]

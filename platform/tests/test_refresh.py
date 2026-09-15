@@ -178,6 +178,25 @@ def test_refresh_records_failed(tmp_path, monkeypatch):
     assert manifest["last_updated"] == "20240104"          # 已处理范围末端，推进避免重复拉
 
 
+def test_refresh_records_failed_errors(tmp_path, monkeypatch):
+    """R01-DATA-I8：失败日期必须携带错误原因（playbook 报告承诺含原因）。
+
+    rebuild 的 _rebuild_daily_table 已记录 failed_errors；refresh 不得丢弃。
+    """
+    db = PlatformDB(tmp_path / "p.duckdb")
+    manifest_path = tmp_path / "manifest.json"
+    save_manifest(manifest_path, {"last_updated": "20240103"})
+    client = _client(monkeypatch, pl.DataFrame({
+        "trade_date": ["20240104"], "ts_code": ["A.SZ"], "close": [12.0],
+    }), fail_dates={"20240104"})
+    report = refresh(db, client, manifest_path=manifest_path)
+    errors = report["tables"]["daily"]["failed_errors"]
+    assert "20240104" in errors
+    assert "拉取失败" in errors["20240104"]                # 原始异常信息不丢
+    manifest = load_manifest(manifest_path)
+    assert manifest["daily"]["failed_errors"]["20240104"] == errors["20240104"]
+
+
 def test_refresh_indexes_pulls_new_daily_and_month(tmp_path, monkeypatch):
     """指数增量：index_daily 从 last_updated 到 today；index_weight 补新月份。"""
     from factorlab.adapters.refresh import refresh_indexes

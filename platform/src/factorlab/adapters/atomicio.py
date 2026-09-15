@@ -61,7 +61,13 @@ def atomic_write(path: str | Path, writer: Callable[[Path], None]) -> Path:
     except BaseException:
         tmp.unlink(missing_ok=True)
         raise
-    return _commit(tmp, target)
+    try:
+        return _commit(tmp, target)
+    except BaseException:
+        # 提交阶段失败（fsync/replace）同样不留 tmp——R01-DATA-I6 实测：
+        # _commit 在外层 try 之外时，replace 失败会把 tmp 残留于同目录
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def atomic_write_bytes(path: str | Path, data: bytes) -> Path:

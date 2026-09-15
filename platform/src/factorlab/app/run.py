@@ -28,7 +28,9 @@ from factorlab.core.engine.minute import (_ADV20_LEFT_DAYS,
                                           compute_minute_factor_panel)
 from factorlab.adapters.intraday import load_bars_1m_codes
 from factorlab.core.spec import FactorSpec
-from factorlab.adapters.read.adjust import load_qfq_base_adj, view_prices
+from factorlab.adapters.read.adjust import (load_pit_qfq_base_adj, load_qfq_base_adj,
+                                            view_prices)
+from factorlab.adapters.read.staleness import assert_no_stale_listed
 from factorlab.adapters.read.attributes import attributes_visible, load_code_attributes
 from factorlab.app.bootstrap import open_read
 from factorlab.ports.read import ReadPort
@@ -132,6 +134,7 @@ def _compute_signal(
     date_end: str,
     cal: pl.Series,
     base_adj: pl.DataFrame | None = None,
+    pit_base_adj: pl.DataFrame | None = None,
     outputs: list[str] | None = None,
     pool: str | None = None,
 ) -> pl.DataFrame:
@@ -172,6 +175,7 @@ def _compute_signal(
     panel = align_to_listing(raw, uf)   # is_listed skeleton（停牌日保留 null 行）
     if panel.height == 0:
         raise ValueError("日期段无数据，可运行 data refresh（M3b）")
+    assert_no_stale_listed(panel, uf)   # R01-DATA-C1：listed 但长期断流 fail loudly
     adjustment = getattr(spec, "adjustment", None) or ctx.adjustment
     # ---- M6-07C2F：boundary fill state（跨 chunk 左边界 seed）----
     # 长期停牌跨块时 load_start 落在停牌中 → 块内无前值 → fill 无法初始化 →
@@ -186,6 +190,11 @@ def _compute_signal(
         # base 与 chunk 划分无关：FULL/CHUNK 共用 run_factor 传入的同一 base。
         panel = panel.join(base_adj, on="code", how="left")
         qfq_base_col = "__factorlab_qfq_base_adj"
+    pit_qfq_base_col = None
+    if adjustment == "pit_qfq" and pit_base_adj is not None:
+        # R01-DATA-I3：pit_qfq 全局 asof base——FULL/CHUNK 共用同一列
+        panel = panel.join(pit_base_adj, on="code", how="left")
+        pit_qfq_base_col = "__factorlab_pit_qfq_base_adj"
     panel = fill_suspension_values(panel)
     if _seeded:
         # seed 只参与 fill 初始化——formula 前必须彻底删除（§15/16）
@@ -193,10 +202,13 @@ def _compute_signal(
     asof = None
     if adjustment == "pit_qfq":
         asof = datetime.date.fromisoformat(spec.date.end) if spec.date.end else panel["date"].max()
-    panel = view_prices(panel, adjustment, asof=asof, qfq_base_col=qfq_base_col)
+    panel = view_prices(panel, adjustment, asof=asof, qfq_base_col=qfq_base_col,
+                        pit_qfq_base_col=pit_qfq_base_col)
     if qfq_base_col is not None:
         # internal base 不进用户公式（compute_formula 前 drop）与 artifact
         panel = panel.drop(qfq_base_col)
+    if pit_qfq_base_col is not None:
+        panel = panel.drop(pit_qfq_base_col)
     if attr_df is not None:
         # M3（G6）：属性 join（view 后）——属性每 code 整段常量，与 align/fill 的
         # (code, date) 骨架正交；join 键 symbol = panel.code（canonicalization 在
@@ -252,6 +264,7 @@ def _compute_labels(
     cal: pl.Series,
     pool: str | None = None,
     base_adj: pl.DataFrame | None = None,
+    pit_base_adj: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     """Label Runtime（M6-03）：listed market history → compute_forward_returns →
     active-at-t keys → LabelArtifact frame。
@@ -306,14 +319,21 @@ def _compute_labels(
     if adjustment == "qfq" and base_adj is not None:
         panel = panel.join(base_adj, on="code", how="left")
         qfq_base_col = "__factorlab_qfq_base_adj"
+    pit_qfq_base_col = None
+    if adjustment == "pit_qfq" and pit_base_adj is not None:
+        panel = panel.join(pit_base_adj, on="code", how="left")
+        pit_qfq_base_col = "__factorlab_pit_qfq_base_adj"
     asof = None
     if adjustment == "pit_qfq":
         asof = (datetime.date.fromisoformat(spec.date.end)
                 if spec.date.end else panel["date"].max())
-    panel = view_prices(panel, adjustment, asof=asof, qfq_base_col=qfq_base_col)
+    panel = view_prices(panel, adjustment, asof=asof, qfq_base_col=qfq_base_col,
+                        pit_qfq_base_col=pit_qfq_base_col)
     if qfq_base_col is not None:
         # internal base 不进用户公式与 artifact（同 _compute_signal）
         panel = panel.drop(qfq_base_col)
+    if pit_qfq_base_col is not None:
+        panel = panel.drop(pit_qfq_base_col)
     if attr_df is not None:
         panel = panel.join(attr_df, left_on="code", right_on="symbol",
                            how="left")
@@ -389,12 +409,18 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
         # effective_end：spec.date.end（非交易日合法，取 <= end 最后 adj）或
         # 研究 calendar 最后一天（无 end 时不读库中未来 adj_factor）。
         adjustment = getattr(spec, "adjustment", None) or ctx.adjustment
+        effective_end = spec.date.end if spec.date.end \
+            else (cal[-1].isoformat() if cal.len() else None)
         if adjustment == "qfq":
-            effective_end = spec.date.end if spec.date.end \
-                else (cal[-1].isoformat() if cal.len() else None)
             base_adj = load_qfq_base_adj(rd, effective_end)
+            pit_base_adj = None
+        elif adjustment == "pit_qfq":
+            # R01-DATA-I3：pit_qfq 的 asof base 全局装载（与 chunk 划分无关）
+            base_adj = None
+            pit_base_adj = load_pit_qfq_base_adj(rd, effective_end)
         else:
             base_adj = None
+            pit_base_adj = None
         if ctx.chunk_days is None:
             start_d = datetime.date.fromisoformat(spec.date.start) if spec.date.start else None
             end_d = datetime.date.fromisoformat(spec.date.end) if spec.date.end else None
@@ -428,14 +454,15 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
             sig = _compute_signal(rd, ctx, spec, formula, codes, signal_uf,
                                   load_start.isoformat() if load_start else None,
                                   chunk_end.isoformat() if chunk_end else None,
-                                  signal_cal, base_adj, outputs=outputs,
-                                  pool=pool)
+                                  signal_cal, base_adj, pit_base_adj=pit_base_adj,
+                                  outputs=outputs, pool=pool)
             lab = _compute_labels(rd, ctx, spec, codes, label_uf,
                                   (load_start if pool is not None else chunk_start).isoformat()
                                   if (load_start if pool is not None else chunk_start) else None,
                                   label_end.isoformat() if label_end else None,
                                   label_cal,
-                                  pool=pool, base_adj=base_adj)
+                                  pool=pool, base_adj=base_adj,
+                                  pit_base_adj=pit_base_adj)
             if ctx.chunk_days is not None:
                 # 双边裁剪 [chunk_start, chunk_end]：right-lookahead rows 不得
                 # 进入任何输出（signal/label/panel）；每块算完即裁剪到对齐输出列
@@ -453,7 +480,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
                 "池公式无成员——全样本没有 (date, code) 同时满足 骨架 ∧ 池条件"
                 "（公式/阈值可能过严；空池不产出空 artifact，fail fast）")
         if ctx.chunk_days is not None:
-            del sig_parts, lab_parts, signal_cal, label_cal, base_adj  # 立即释放块级引用（评估阶段省内存）
+            del sig_parts, lab_parts, signal_cal, label_cal, base_adj, pit_base_adj  # 立即释放块级引用（评估阶段省内存）
         # M7-05：artifact boundary canonicalization——内部 symbol（"000001"）→
         # canonical ts_code（"000001.SZ"，stock_basic reference data，一次 mapping）。
         # Signal/Label/panel 正式 artifact 的 code 必须为 canonical research

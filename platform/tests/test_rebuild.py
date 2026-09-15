@@ -6,7 +6,8 @@ import pytest
 from factorlab.config import Settings
 from factorlab.adapters.fetcher import TeaJoinClient
 from factorlab.adapters.mirror_db import PlatformDB
-from factorlab.adapters.rebuild import INDEX_CODES, RebuildScope, load_manifest, rebuild_all, save_manifest
+from factorlab.adapters.rebuild import (INDEX_CODES, RebuildScope, build_final_db,
+                                        load_manifest, rebuild_all, save_manifest)
 
 
 def _sb_l():
@@ -78,6 +79,67 @@ def test_manifest_roundtrip(tmp_path):
 
 def test_manifest_missing_defaults(tmp_path):
     assert load_manifest(tmp_path / "nope.json") == {}
+
+
+# ================================================================
+# R01-DATA-I6：manifest 原子写 + 截断容错
+# ================================================================
+
+def test_load_manifest_truncated_json_quarantined(tmp_path):
+    """写一半的截断 manifest（旧非原子写崩溃残留）→ 容错返回 {} + 隔离坏文件。"""
+    path = tmp_path / "manifest.json"
+    path.write_text('{"daily": {"completed": ["20240102"], "fail', encoding="utf-8")
+    assert load_manifest(path) == {}
+    assert not path.exists()                              # 坏文件不残留原位
+    quarantined = list(tmp_path.glob("manifest.json.corrupt*"))
+    assert len(quarantined) == 1                          # 证据保留可审计
+    assert "20240102" in quarantined[0].read_text(encoding="utf-8")
+
+
+def test_load_manifest_non_dict_json_quarantined(tmp_path):
+    """合法 JSON 但非映射（null/[]）同样不容忍——否则下游 .get 崩溃。"""
+    path = tmp_path / "manifest.json"
+    path.write_text("null", encoding="utf-8")
+    assert load_manifest(path) == {}
+    assert list(tmp_path.glob("manifest.json.corrupt*"))
+    path.write_text("[1, 2]", encoding="utf-8")
+    assert load_manifest(path) == {}
+
+
+def test_save_manifest_atomic_failure_keeps_previous(tmp_path, monkeypatch):
+    """原子写单点（R13）：提交失败 → 旧 manifest 原样、无 tmp 残留。"""
+    import factorlab.adapters.atomicio as atomicio
+
+    path = tmp_path / "manifest.json"
+    save_manifest(path, {"keep": True})
+
+    def boom(tmp, target):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(atomicio, "_commit", boom)
+    with pytest.raises(OSError, match="disk full"):
+        save_manifest(path, {"new": True})
+    assert load_manifest(path) == {"keep": True}          # 旧内容完整
+    assert list(tmp_path.glob("*.tmp")) == []             # 失败不留痕
+
+
+def test_save_manifest_via_atomicio(tmp_path, monkeypatch):
+    """save_manifest 必须走 atomicio（R13 单点）——不得直接 write_text。"""
+    import factorlab.adapters.rebuild as rebuild_mod
+    import factorlab.adapters.atomicio as atomicio
+
+    calls = []
+    real = atomicio.atomic_write_text
+
+    def spy(path, text, encoding="utf-8"):
+        calls.append((str(path), encoding))
+        return real(path, text, encoding)
+
+    monkeypatch.setattr(rebuild_mod, "atomic_write_text", spy, raising=False)
+    path = tmp_path / "manifest.json"
+    save_manifest(path, {"x": 1})
+    assert calls and calls[0][0] == str(path)
+    assert load_manifest(path) == {"x": 1}
 
 
 def test_rebuild_all_populates_tables(tmp_path, monkeypatch):
@@ -322,3 +384,74 @@ def test_rebuild_accepts_string_is_open(tmp_path, monkeypatch):
     report = rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
                          manifest_path=tmp_path / "m.json")
     assert db.query("SELECT count(*) AS n FROM daily")["n"][0] == 2
+
+
+# ================================================================
+# R01-DATA-I5：崩溃续跑不产生 (trade_date, ts_code) 重复行
+# ================================================================
+
+def test_rebuild_resume_after_crash_no_duplicate_rows(tmp_path, monkeypatch):
+    """崩溃窗口复现：上次已 INSERT 但 manifest 未记录（每 20 批落盘）的日期，
+    续跑必须不产生重复行——staging 表已落日期（按日事务原子）对账为已完成，
+    不重拉不重插。"""
+    db = PlatformDB(tmp_path / "staging.duckdb")
+    client = _fake_client(monkeypatch, _tables())
+    manifest_path = tmp_path / "manifest.json"
+    # 上次跑到 20240103 已写入但 crash（manifest 只记录到 20240102）
+    db.upsert("daily", pl.DataFrame({
+        "trade_date": ["20240102"], "ts_code": ["A.SZ"], "close": [10.0]}),
+        keys=["trade_date", "ts_code"])
+    db.upsert("daily", pl.DataFrame({
+        "trade_date": ["20240103"], "ts_code": ["A.SZ"], "close": [10.5]}),
+        keys=["trade_date", "ts_code"])
+    save_manifest(manifest_path, {"daily": {"completed": ["20240102"], "failed": []}})
+    report = rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+                         manifest_path=manifest_path)
+    assert report["tables"]["daily"]["dates_fetched"] == []      # 已在库 → 不重拉
+    assert db.query("SELECT count(*) AS n FROM daily")["n"][0] == 2      # 无重复
+    dup = db.query("""SELECT count(*) AS n FROM (
+        SELECT trade_date, ts_code, count(*) c FROM daily GROUP BY 1, 2 HAVING c > 1)""")["n"][0]
+    assert dup == 0
+    assert db.query("SELECT close FROM daily WHERE trade_date = '20240103'")["close"][0] == 10.5
+    manifest = load_manifest(manifest_path)
+    assert manifest["daily"]["completed"] == ["20240102", "20240103"]   # 对账补记
+
+
+def test_rebuild_resume_false_replaces_existing_rows(tmp_path, monkeypatch):
+    """resume=False 语义 = 忽略既有进度全量重拉：先清空目标表，旧行不得残留/重复。"""
+    db = PlatformDB(tmp_path / "staging.duckdb")
+    client = _fake_client(monkeypatch, _tables())
+    manifest_path = tmp_path / "manifest.json"
+    db.upsert("daily", pl.DataFrame({
+        "trade_date": ["20240102"], "ts_code": ["A.SZ"], "close": [9.9]}),
+        keys=["trade_date", "ts_code"])
+    save_manifest(manifest_path, {"daily": {"completed": ["20240102", "20240103"], "failed": []}})
+    report = rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+                         resume=False, manifest_path=manifest_path)
+    assert report["tables"]["daily"]["dates_fetched"] == ["20240102", "20240103"]
+    assert db.query("SELECT count(*) AS n FROM daily")["n"][0] == 2
+    assert db.query("SELECT close FROM daily WHERE trade_date = '20240102'")["close"][0] == 10.0
+
+
+def test_build_final_db_aborts_on_duplicate_daily(tmp_path):
+    """staging 含重复 (trade_date, ts_code) → build_final_db 拒绝产出最终库。"""
+    staging = PlatformDB(tmp_path / "staging.duckdb")
+    staging.upsert("daily", pl.DataFrame({
+        "trade_date": ["20240102", "20240102"], "ts_code": ["A.SZ", "A.SZ"],
+        "close": [10.0, 10.5]}), keys=[])   # keys=[] 普通 INSERT → 重复行
+    assert staging.query("SELECT count(*) AS n FROM daily")["n"][0] == 2
+    with pytest.raises(ValueError, match="重复组"):
+        build_final_db(staging, tmp_path / "final.duckdb")
+    assert not (tmp_path / "final.duckdb").exists()   # 不产出会污染读面的最终库
+
+
+def test_build_final_db_ok_without_duplicates(tmp_path):
+    """对照：无重复时正常产出（gate 不误伤合法 rebuild 产物）。"""
+    staging = PlatformDB(tmp_path / "staging.duckdb")
+    staging.upsert("daily", pl.DataFrame({
+        "trade_date": ["20240102"], "ts_code": ["A.SZ"], "close": [10.0]}),
+        keys=["trade_date", "ts_code"])
+    out = build_final_db(staging, tmp_path / "final.duckdb")
+    assert "daily" in out["tables"]
+    assert PlatformDB(tmp_path / "final.duckdb").query(
+        "SELECT count(*) AS n FROM daily")["n"][0] == 1

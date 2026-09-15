@@ -6,6 +6,7 @@
     "str"     VARCHAR                String
     "str?"    VARCHAR（NULL 天然）    Nullable(String)   （需 NULL 语义的字符串列）
     "date"    VARCHAR 'YYYYMMDD'     Date          （读函数各自 decode 成 pl.Date/str）
+    "date?"   VARCHAR（NULL 天然）    Nullable(Date)     （可空 PIT 日期列，如 delist_date）
     "f64"     DOUBLE                 Float64
     "f64?"    DOUBLE（NULL 天然）     Nullable(Float64)  （需 NULL 语义的数值列）
     "i64"     BIGINT                 Int64
@@ -29,15 +30,18 @@ import datetime
 import polars as pl
 
 KIND_DUCKDB = {"str": "VARCHAR", "str?": "VARCHAR", "date": "VARCHAR",
+               "date?": "VARCHAR",
                "f64": "DOUBLE", "f64?": "DOUBLE", "i64": "BIGINT",
                "i32": "INT", "f32": "FLOAT", "datetime": "TIMESTAMP",
                "u8": "USMALLINT", "u16": "USMALLINT", "u32": "UINTEGER",
                "u64": "UBIGINT"}
 KIND_CH = {"str": "String", "str?": "Nullable(String)", "date": "Date",
+           "date?": "Nullable(Date)",
            "f64": "Float64", "f64?": "Nullable(Float64)", "i64": "Int64",
            "i32": "Int32", "f32": "Float32", "datetime": "DateTime64(3)",
            "u8": "UInt8", "u16": "UInt16", "u32": "UInt32", "u64": "UInt64"}
 PL_TYPES = {"str": pl.String, "str?": pl.String, "date": pl.Date,
+            "date?": pl.Date,
             "f64": pl.Float64, "f64?": pl.Float64, "i64": pl.Int64,
             "i32": pl.Int32, "f32": pl.Float32, "datetime": pl.Datetime("ms"),
             "u8": pl.UInt8, "u16": pl.UInt16, "u32": pl.UInt32,
@@ -81,7 +85,7 @@ def seed_ch(client, database: str, tables: dict) -> None:
             continue
         data = {}
         for (name, kind), col in zip(cols, zip(*rows)):
-            if kind == "date":
+            if kind in ("date", "date?"):
                 data[name] = [datetime.date(int(v[:4]), int(v[4:6]), int(v[6:8]))
                               if v is not None else None for v in col]
             else:

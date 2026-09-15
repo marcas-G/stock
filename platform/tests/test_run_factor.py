@@ -406,8 +406,11 @@ formula: |
     result = run_factor(load_spec(spec_path), _ctx(env, tmp_path / "out_v"))
     assert result.panel.height > 0
     a = result.panel.filter(pl.col("code") == "000001.SZ").sort("date")
-    # 展开后 signal = close * volume：首日 = 11 × 1000
-    assert a["signal"][0] == pytest.approx(11 * 1000.0)
+    # 展开后 signal = close × volume：首日 = 11 × canonical volume（股）
+    # I7：duckdb 平台库源 vol=手（seeded 1000）→ 读面 ×100 归一为股；
+    # ch 灌入源已是股 → 恒等。两腿 canonical 一致。
+    canonical_vol = 1000.0 * (100.0 if env.backend == "duckdb" else 1.0)
+    assert a["signal"][0] == pytest.approx(11 * canonical_vol)
 
 
 def test_run_factor_spec_adjustment_raw(env, tmp_path):
@@ -519,7 +522,9 @@ formula: |
 """, encoding="utf-8")
     result = run_factor(load_spec(spec_path), _ctx(env, tmp_path / "out_param_col"))
     a = result.panel.filter(pl.col("code") == "000001.SZ").sort("date")["signal"]
-    assert a[0] == pytest.approx(1000.0 * 2)
+    # I7：canonical volume（股）——duckdb 源 vol=手 ×100 / ch 源已是股
+    canonical_vol = 1000.0 * (100.0 if env.backend == "duckdb" else 1.0)
+    assert a[0] == pytest.approx(canonical_vol * 2)
 
 
 def test_run_factor_unknown_param_rejected(env, tmp_path):
