@@ -1,0 +1,10 @@
+# command: platform/.venv/bin/python -m pytest -q research/tools/ashare_ingest/tests
+# date: 2026-09-16T00:19:19+08:00
+# context: R02-I6b 收尾 — 3 个既有空 sheet stub（000047/920305/920680）此前令重灌 exit 1；修复为'无表头 = 无数据跳过'
+
+== 真实 stub 解析（修复后）==
+000047 -> None (skip, not error)
+920305 -> None (skip, not error)
+920680 -> None (skip, not error)
+
+25 passed

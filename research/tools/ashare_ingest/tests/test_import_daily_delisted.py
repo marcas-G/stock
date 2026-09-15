@@ -138,6 +138,24 @@ def test_delisted_code_column_empty_values_fall_back_to_filename():
     assert df["code"].unique().tolist() == ["000003.SZ"]
 
 
+def test_empty_sheet_is_skipped_not_parse_error():
+    """空 sheet（无表头行）= 数据可得性事实，不是解析错误。
+
+    R02-I6b 收尾：真实 3 个既有 stub（000047/920305/920680 空 sheet）此前
+    `next(it)` 抛 StopIteration → worker 记为解析错误 → 重灌整体 exit 1。
+    修复后：_parse_one 返回 None（两条路径），重灌继续、退出码 0；退市目录的
+    文件名兜底仍进 sidecar（空文件本身是权威退市信号）。
+    """
+    wb = openpyxl.Workbook()
+    wb.active  # 保留一个空 sheet，无任何行
+    buf = io.BytesIO()
+    wb.save(buf)
+    wb.close()
+    payload = buf.getvalue()
+    assert import_daily._parse_one("920305", payload, delisted=True) is None
+    assert import_daily._parse_one("920305", payload, delisted=False) is None
+
+
 # ── shard 命名 / merge 分组 ────────────────────────────────────────────
 def test_worker_shard_names_unique_and_embed_real_code(tmp_path, monkeypatch):
     """5 个错标文件同映射 600811.SH：shard 名必须唯一（含 idx）且可解析出真代码。"""

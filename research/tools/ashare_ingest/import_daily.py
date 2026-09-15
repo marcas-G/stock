@@ -145,7 +145,12 @@ def _parse_xlsx(payload: bytes) -> pd.DataFrame:
     wb = openpyxl.load_workbook(io.BytesIO(payload), read_only=True, data_only=True)
     ws = wb.active
     it = ws.iter_rows(values_only=True)
-    header = [str(x) for x in next(it)]
+    first = next(it, None)
+    if first is None:
+        # 空 sheet（无表头行）：数据可得性事实，不是解析错误 → 视同无数据跳过
+        wb.close()
+        return None
+    header = [str(x) for x in first]
     missing = MUST_COLS - set(header)
     if missing:
         raise ValueError(f'missing xlsx columns: {sorted(missing)}')
@@ -170,7 +175,13 @@ def _parse_one(code6: str, payload: bytes, delisted: bool = False):
         # 无 code 列/全空 → 文件名 code6 兜底。
         wb = openpyxl.load_workbook(io.BytesIO(payload), read_only=True, data_only=True)
         it = wb.active.iter_rows(values_only=True)
-        header = [str(x) for x in next(it)]
+        first = next(it, None)
+        if first is None:
+            # 空 sheet（无表头行）：3 个既有 stub（000047/920305/920680）即此形态；
+            # 数据可得性事实而非解析错误 → 跳过，不改变退出码（仍进退市 sidecar）
+            wb.close()
+            return None
+        header = [str(x) for x in first]
         need = ['date', 'open', 'high', 'low', 'close', 'volume']
         if any(c not in header for c in need):
             wb.close()
@@ -218,7 +229,7 @@ def _parse_one(code6: str, payload: bytes, delisted: bool = False):
             df[cn] = np.nan
         return df.rename(columns={'date': 'trade_date'})[FINAL_COLS]
     df = _parse_xlsx(payload)
-    if df.empty:
+    if df is None or df.empty:
         return None
     df['code'] = code6 + market_of(code6)
     df = df.rename(columns={'流通股本': 'float_shares', '总股本': 'total_shares',
