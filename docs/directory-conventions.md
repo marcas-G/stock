@@ -44,7 +44,7 @@
 | 载体 | 角色 | 内容 |
 |---|---|---|
 | `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`kernels/quant_core/`（评估内核 shim = 内核发行物唯一声明点，R18 起）、`tests/`、`docs/`（契约 4 篇 + superpowers）、`scripts/` |
-| `research/`（仓库内） | **研究树**（唯一副本） | `tools/`（6 工具 + `lib/` + `factor_lib/`）、`factor/<族>/`（152 spec）、`docs/`（factors/strategies/playbook） |
+| `research/`（仓库内） | **研究树**（唯一副本） | `tools/`（7 工具：lob_fact / converters / 1m_features / ch_ingest / quark_download / strategies / **ashare_ingest**（R19 收编）+ `lib/` + `factor_lib/`）、`factor/<族>/`（152 spec）、`docs/`（factors/strategies/playbook） |
 | `docs/`（仓库内） | **文档树** | 工作区约定（本文件、data-map、pending-items…）、`handbook/`、`index/`、`verification/` |
 | `projects/ashare_alpha3` | 本地项目（无 git） | 自包含；`config.yaml` 消费 `data/`。**待收编**（R19/R20：数据侧 → `research/tools/ashare_ingest/`、股票池段 → `research/tools/universe_stages/`） |
 
@@ -69,8 +69,10 @@
 
 ## 5. 路径写法纪律（防再生"三轨"）
 
-- **代码内路径一律单点**：工具自身目录的 `config.py` 定义根（如 `tools/lob_fact/config.py` 的
-  `STOCK_ROOT`→`DATA_ROOT`→四根派生）；同目录脚本 `import config`，禁止再写绝对路径字面量。
+- **代码内路径一律单点**：工具自身目录的路径模块定义根（lob_fact 用 `config.py` 的
+  `STOCK_ROOT`→`DATA_ROOT`→四根派生；**新工具用 `datapaths.py`**——R19 实测：工具内 `config.py`
+  会与 `lob_fact/core/config.py` 撞名而被 G-TOPO 判『跨工具 import』，故**工具自取的模块名要全局唯一**）；
+  同目录脚本 `import datapaths`，禁止再写绝对路径字面量。
 - 跨工具引用用**相对定位**（如 `extract_sz_cancels.py` 相对定位 `../converters`），禁止
   写死工作区绝对前缀。
 - 平台侧用 `FACTORLAB_*` 环境变量（`config.py` 默认相对路径），不写绝对路径。

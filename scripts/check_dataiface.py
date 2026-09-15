@@ -28,7 +28,10 @@ PLATFORM_SRC = REPO / "platform" / "src"
 RESEARCH_TOOLS = REPO / "research" / "tools"
 
 # 研究侧合同门排除的诊断/历史目录（与 R4 起沿用的豁免面一致）
-SKIP_PARTS = ("/tests/", "/notes/", "/diag/", "__pycache__")
+SKIP_PARTS = ("/tests/", "/notes/", "/diag/", "__pycache__", "/.venv/")
+# ^ R19：补 `/.venv/`（与 check_imports.py 对齐）。原先不含 → 一旦某工具 `pip install -e .`
+#   就地建 venv，pip/setuptools 自带的 `_vendor/typing_extensions.py`、`setuptools/msvc.py`
+#   会触发 G-CONTRACT 4 处 + G-MARK 1 处**强制判红**（实测见 docs/verification/R19/ 与 pending #19）。
 
 # 事实库年分区前缀：**只有** factio.partitions 能产出它（研究侧产品目录用 month=YYYY-MM，
 # 无 year=），故以它作判据；docstring 里的 `year=YYYY` 布局说明不算。
@@ -65,6 +68,19 @@ G_READ_ALLOWED = {
         "日线注入列小切片（INJ_COLS 5 列），非逐笔事实表；R15 拆分后从 run_1m_feature.py 迁来",
     ("research/tools/1m_features/run_1m_feature.py", "cmd_merge", "p"):
         "自有产物合并（output/month=YYYY-MM/part.parquet）",
+    # ── R19 收编的 ashare_ingest（数据侧）：6 处，逐条理由 ────────────────────────
+    ("research/tools/ashare_ingest/check_inputs.py", "main", "path"):
+        "入口自检：三资产只取 head(20) 校验列契约，不是数据路径消费",
+    ("research/tools/ashare_ingest/import_daily.py", "main", "p"):
+        "自有分片合并（<工具>/_staging/daily_tmp 内自产中间文件）",
+    ("research/tools/ashare_ingest/import_fundamentals.py", "main", "daily_path"):
+        "daily_fact 是基本面生产者的**输入源**（生产者视角），路径已取 factio.paths 单点",
+    ("research/tools/ashare_ingest/import_fundamentals.py", "main", "a.fin_parquet"):
+        "外部 Windows TDX 财务导出（非工作区资产；源缺失见 pending #4）",
+    ("research/tools/ashare_ingest/validate_tick.py", "main", "TICK_MANIFEST"):
+        "conversion_manifest —— tick 转换回执清单，非事实表（与 lob_fact 两处同款）",
+    ("research/tools/ashare_ingest/validate_tick.py", "main", "datapaths.daily_fact()"):
+        "对账取源（tick 回执 vs 日线），与 ch_ingest/reconcile.py 的 DAILY_SRC 同款理由",
 }
 _READ_CALLS = {"read_parquet", "scan_parquet", "ParquetFile"}
 # 硬规则：目标表达式里出现事实库名或分区标记 → 任何理由都不豁免（必须走平台单点）

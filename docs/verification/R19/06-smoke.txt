@@ -1,0 +1,14 @@
+== check_inputs 真跑（预期：fundamentals 缺源 → exit 1，见 pending #4）==
+INPUT CHECK
+('daily_fact', '/data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet', True, [])
+('benchmark_daily_pre', '/data/students/gaolei/stock/data/ref/000905.SH.parquet', True, [])
+('fundamentals_pti', '/data/students/gaolei/stock/data/fact/fundamentals/fundamentals_pti.parquet', False, [])
+IMPORTANT: daily_fact must represent a complete market trading calendar window; suspended rows may be absent because windowing is market-date based.
+IMPORTANT: adj_factor is the causal cumulative adjustment factor; pre/hf prices are derived at read time by the pool-stage reader (universe_stages.data.daily).
+exit=1
+
+== import_index 冒烟（--out 指向 /tmp，绝不写 data/）==
+    d = r.json().get('data', {}).get(SYMBOL, {})
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+exit=0

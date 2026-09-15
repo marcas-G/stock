@@ -1,0 +1,27 @@
+== 06 validate_tick：修复后首次真跑（原实现因 dtype 不对称，从未产出过产物）==
+tick code-days: 74466, TDX rows in scope: 1025529
+matched: 74466, tick-only (TDX 无): 0
+large deviations: 308
+{
+ "n_tick_code_days": 74466,
+ "n_matched": 74466,
+ "n_tick_only": 0,
+ "n_tdx_only": 951063,
+ "E_vol": {
+  "median": 0.0,
+  "p95": 4.1961451692882575e-08,
+  "p99": 0.0012846332232305119,
+  "max": 0.15273015674124027
+ },
+ "E_amt": {
+  "median": 2.0965293386819552e-08,
+  "p95": 4.867930675388985e-08,
+  "p99": 0.0012878943984999602,
+  "max": 0.15191272157112276
+ },
+ "E_open": {
+  "median": 0.0,
+
+real	0m9.097s
+user	0m26.293s
+sys	0m13.921s

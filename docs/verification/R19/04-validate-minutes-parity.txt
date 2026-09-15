@@ -1,0 +1,32 @@
+== 05 validate_minutes：旧实现 vs 新实现（同一个月，2026/07）==
+
+-- 旧：projects/ashare_alpha3/scripts/05_validate_minutes_vs_daily.py --months 2026/07 --
+Traceback (most recent call last):
+  File "/data/students/gaolei/stock/projects/ashare_alpha3/scripts/05_validate_minutes_vs_daily.py", line 26, in <module>
+    from alpha3.config import load_config, ensure_output_dirs
+ModuleNotFoundError: No module named 'alpha3'
+
+real	0m0.590s
+user	0m4.933s
+sys	0m0.118s
+
+-- 新：research/tools/ashare_ingest/validate_minutes.py --months 2026/07 --
+day_close  vs daily close : median=2.05e-08 p95=4.51e-08 p99=5.22e-08 max=4.36e-03
+sum_amount vs daily amount: median=2.06e-08 p95=4.77e-08 p99=5.63e-08 max=1.22e-05
+sum_volume vs daily volume: median=1.11e-06 p95=2.13e-05 p99=5.39e-05 max=9.90e+01
+wrote /tmp/r19_new/minute_daily_crosscheck.json
+
+real	0m45.105s
+user	0m42.411s
+sys	0m7.820s
+-- 旧（补 PYTHONPATH=src 才能跑——原项目无 conftest/无可复现配方，这本身就是证据）--
+day_close  vs daily close : median=2.05e-08 p95=4.51e-08 p99=5.22e-08 max=4.36e-03
+sum_amount vs daily amount: median=2.06e-08 p95=4.77e-08 p99=5.63e-08 max=1.22e-05
+sum_volume vs daily volume: median=1.11e-06 p95=2.13e-05 p99=5.39e-05 max=9.90e+01
+wrote /tmp/r19_old/minute_daily_crosscheck.json
+
+-- 逐字节对照 --
+  ✓ 两份 JSON **逐字节相同**
+  sha256:
+b75b77c7f3ec99bcad18fa62061effa2b8e8d5507b49c77059183ebe90dbf895  /tmp/r19_old/minute_daily_crosscheck.json
+b75b77c7f3ec99bcad18fa62061effa2b8e8d5507b49c77059183ebe90dbf895  /tmp/r19_new/minute_daily_crosscheck.json

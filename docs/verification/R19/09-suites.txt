@@ -1,0 +1,24 @@
+== T2（emb）：research/tools 全量（基线 231 passed / 3 skipped）==
+........................................................................ [ 91%]
+.....................                                                    [100%]
+237 passed, 4 skipped in 12.00s
+
+== T1（平台 venv）：strategies/ch_ingest/factor_lib/1m_features + ashare_ingest ==
+...................................................                      [100%]
+51 passed in 8.33s
+== 跳过原因（T2）==
+SKIPPED [1] research/tools/1m_features/tests/test_1m_feature.py:26: T1 测试需平台 venv（expr_codegen → core.engine）
+SKIPPED [1] research/tools/ashare_ingest/tests/test_layout.py:15: import_daily 需 openpyxl（emb 未装）
+SKIPPED [1] research/tools/ch_ingest/tests/test_ch_ingest_layout.py:16: ch_ingest 需 clickhouse_connect（T1：平台 venv）
+SKIPPED [1] research/tools/strategies/tests/test_strategy.py:20: T1 测试需平台 venv（factorlab + duckdb）
+237 passed, 4 skipped in 12.09s
+
+== 各目录收集数（T2 解释器）==
+  strategies       no tests collected in 0.14s
+  ch_ingest        no tests collected in 0.02s
+  factor_lib       5 tests collected in 0.02s
+  1m_features      no tests collected in 0.16s
+  ashare_ingest    no tests collected in 0.01s
+  converters       9 tests collected in 0.56s
+  lob_fact         185 tests collected in 0.63s
+  quark_download   6 tests collected in 0.01s

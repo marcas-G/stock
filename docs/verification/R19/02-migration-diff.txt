@@ -1,0 +1,26 @@
+== 迁移的结构化对照（旧 → 新，逐文件 diff 统计）==
+  03_import_fundamentals.py          → import_fundamentals.py    -3/+8 行
+  05_validate_minutes_vs_daily.py    → validate_minutes.py       -17/+38 行
+  06_validate_tick_vs_daily.py       → validate_tick.py          -11/+21 行
+  02_import_index.py                 → import_index.py           -1/+3 行
+  01_import_daily.py                 → import_daily.py           -9/+17 行
+  00_check_inputs.py                 → check_inputs.py           -14/+31 行
+  （每处增删都对应上面脚本里声明过的编辑锚点）
+
+  diff 只应含：import 行 / argparse 默认值 / docstring / dtype 修复 / 路径改经 config
+
+== 生产者（import_daily）行为摘要：新旧  逐值对照 ==
+摘要法：Table.from_pandas → replace_schema_metadata(None) → to_pydict() 的 sha256[:16]
+（禁用它本身的字节 sha：pandas/pyarrow 会把版本串写进 schema metadata）
+Traceback (most recent call last):
+  File "<stdin>", line 10, in <module>
+  File "<stdin>", line 7, in load
+  File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/data/students/gaolei/stock/research/tools/ashare_ingest/import_daily.py", line 36, in <module>
+    import config  # 工具内配置/路径单点（R19）
+    ^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'config'
+  600519（全量 zip，600519）   旧=20d50f4ffe085c75 新=20d50f4ffe085c75  ✓ 相同
+  600591（退市分支）        旧=47087654dd333b64 新=47087654dd333b64  ✓ 相同
+  OUT_SCHEMA 列序一致：✓

@@ -1,0 +1,7 @@
+== G-READ 登记后复扫（R19：ashare_ingest 6 处直读逐条登记 + SKIP_PARTS 补 .venv）==
+[G-READ] ENFORCED：研究侧直读 parquet 只允许登记点，且不指向事实库分区
+  ✓ 0 处违规（登记 12 个理由明确的直读点；新增未登记即失败）
+数据接口门：ENFORCED 全绿
+
+== 门自检 ==
+  ✓ 负向自检：分区字面量 3 / 标记直构 3 / 直读 3 / 漏 import 1 处违规被抓到；docstring、writekit API、print 文案、登记过的 manifest 读均不误伤

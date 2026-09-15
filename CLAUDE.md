@@ -28,8 +28,9 @@
 - TDD：先写失败测试再实现；覆盖正常/边界/错误路径；断言真实行为，不用 mock 糊弄。
 - 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**。
 - 提交前跑对应测试：平台 `cd platform && .venv/bin/python -m pytest -q`（基线 **2570 passed / 13 skipped**（R18 后；+11 = 取回的 quant_core 契约测试））；
-  研究 `emb/bin/python -m pytest research/tools -q`（基线 **231 passed / 3 skipped**）+ T1
-  `platform/.venv/bin/python -m pytest research/tools/{strategies,ch_ingest,factor_lib,1m_features}/tests -q`（**40**）。
+  研究 `emb/bin/python -m pytest research/tools -q`（基线 **237 passed / 4 skipped**）+ T1
+  `platform/.venv/bin/python -m pytest research/tools/{strategies,ch_ingest,factor_lib,1m_features,ashare_ingest}/tests -q`（**51**）。
+  （R19 实测口径；此前文本里的 231/40 与 Makefile 的 2486 互相矛盾，已统一为实测值。）
 - 工具拓扑门：`python scripts/check_tool_layering.py`（core 不反依赖 / 生产不带诊断 /
   工具不互相 import / lib 是叶子）+ `--selftest`。
 - 数据接口门（AST）：`python scripts/check_dataiface.py`（ENFORCED：研究侧分区字面量 / 标记路径构造；

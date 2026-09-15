@@ -18,7 +18,9 @@ test-platform:
 
 test-research:
 	$(EMB_PY) -m pytest research/tools -q
-	$(PLATFORM_PY) -m pytest research/tools/strategies/tests -q
+	$(PLATFORM_PY) -m pytest research/tools/strategies/tests research/tools/ch_ingest/tests \
+	  research/tools/factor_lib/tests research/tools/1m_features/tests \
+	  research/tools/ashare_ingest/tests -q
 
 test-all: test-platform test-research
 

@@ -32,6 +32,10 @@
    - 平台与研究树（单仓单树后为 `platform/` 与 `research/`）：results/ 口径与 .gitignore 矛盾（S5 已按
      "本地化不入库"口径修订文档）、duckdb 数据链、两分支 docs 重叠。
    - `ashare_alpha3`：layer1-3 管线内部结构、.venv 与项目耦合、validation 输出散落。
+  **进度 2026-09-15（R19）**：数据侧已收编为 `research/tools/ashare_ingest/`（A5/A10/基本面生产 +
+  两对账），CH 派生表脚本归位 `ch_ingest/adj_backfill.py`；空壳 `.venv`/缓存/孤儿产物已清，
+  `06` 的 merge dtype bug 已修（真跑产出 74,466 code-days 对账）。**剩余**：股票池段（layer1-3 +
+  10/11/20/30/40 + references）的读取层收口与搬迁 → `research/tools/universe_stages/`（R20）。
 
 6. **30 天归档到期清理**（2026-10-12）
    程序见 `docs/archive-policy.md`；三个真实决策点（tick_dev 去留 / minutes-raw 深度血缘 /
@@ -136,11 +140,22 @@
     启动条件：需要环境可复现时，先补 `uv lock`（或冻结快照转 requirements）+ 在验证机上
     按声明重建一次并跑三门（平台全量 / 研究 T1+T2 / lob_fact 金样），代价须一并评估。
 
-19. **`check_dataiface.py` 的 SKIP_PARTS 缺 `.venv`**（R18 登记，实测是"未来的雷"）
+19. ✅ **2026-09-15 R19 已修**：`SKIP_PARTS` 补 `/.venv/`（与 `check_imports.py` 对齐）。
+    原登记（保留过程）：**`check_dataiface.py` 的 SKIP_PARTS 缺 `.venv`**（R18 登记，实测是『未来的雷』）
     现状：`SKIP_PARTS = ("/tests/", "/notes/", "/diag/", "__pycache__")` **不含 `.venv`**
     （`check_imports.py` 的含）。实测：把任一含 `.venv` 的目录纳入扫描面，`pip`/`setuptools`
     自带的 `_vendor/typing_extensions.py`、`setuptools/msvc.py` 会分别触发
     **G-CONTRACT 4 处 + G-MARK 1 处 ENFORCED 判红**。
     今天不红只因为扫描面 `research/tools/**` 下恰好没有 `.venv`——一旦某工具
     `pip install -e .` 就地建 venv，强制门会莫名变红。
-    启动条件：R20 随 ashare 收编同批修（加 `.venv` 进 SKIP_PARTS 并跑 `--selftest`）。
+    启动条件：~~R20~~ → R19 已随 ashare 收编同批修（已跑 `--selftest` 绿）。
+
+20. **G-READ 看不见 SQL 内嵌的 `read_parquet`**（R19 登记，实测）
+    现状：G-READ 只认 `read_parquet/scan_parquet/ParquetFile` 的**方法调用**（AST），
+    而 duckdb 侧 `con.execute("... FROM read_parquet('...')")` 把读藏在 SQL 字符串里——
+    实测两处不在门内：`ashare_ingest/validate_minutes.py`（bars_1m 全库聚合，SQL 内嵌）
+    与 `universe_stages`（R20 迁入后的 30 号 5m 聚合，同款）。
+    影响：这两处对本轮 G-READ 是**盲区**（R19 以"人工复核 + 证据写明"补位，未造假绿）。
+    未决因：把判据扩到"字符串里含 read_parquet(" 会命中大量 SQL 构造样板，需先设计
+    "哪些 SQL 是数据读路径"的正向判据（如限定 `execute(` 的实参常量 + 目标含事实库名）。
+    启动条件：下次动这两个 SQL 读路径时一并设计（R19 起两处均已按 partitions 单点取文件）。
