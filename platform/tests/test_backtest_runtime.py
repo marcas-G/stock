@@ -227,6 +227,63 @@ def test_decision_range_empty_fails(tmp_path):
                                          datetime.date(2024, 5, 2)))
 
 
+def _trailing_db(tmp_path):
+    """日历止于 D3：decisions (D1,D2,D3) 中 D3 为 trailing unresolved。"""
+    db = _cal_db(tmp_path, [(D1, 1), (D2, 1), (D3, 1)])
+    _add_daily(db, D2, "000001.SZ", 10.0)
+    _add_daily(db, D3, "000001.SZ", 11.0)
+    db.close()
+    return tmp_path / "b.duckdb"
+
+
+def test_decision_range_ignores_out_of_range_trailing(tmp_path):
+    """R01-M8-I4：decision_range 只解析范围内 decisions——范围外尾部未决
+    决策（D3 后无下一开放日）不得拖垮范围内 run；全量 run 仍在 D3 fail。"""
+    db = _trailing_db(tmp_path)
+    t = _target(dates=(D1, D2, D3), weights=[
+        (D1, {"000001.SZ": 1.0}), (D2, {"000001.SZ": 1.0}),
+        (D3, {"000001.SZ": 1.0})])
+    with pytest.raises(ValueError, match="无下一开放日|trailing"):
+        _run(target=t, db_path=db)
+    r = _run(target=t, db_path=db, decision_range=(D1, D1))
+    assert len(r.artifacts) == 1
+    assert r.artifacts[0].decision_date == D1
+    assert r.artifacts[0].execution_date == D2
+    assert r.final_state.as_of_date == D3
+    assert r.trailing_unresolved is False
+
+
+def test_in_range_trailing_decision_still_fails(tmp_path):
+    """R01-M8-I4 边界（spec 原文）：范围内 decision 本身无下一开放日（无
+    execution date 可解析）仍是硬错误——§6.3 合法终止只适用于已有 execution
+    的 trailing advance，不适用于无 event 可跑的 decision。"""
+    db = _trailing_db(tmp_path)
+    t = _target(dates=(D1, D2, D3), weights=[
+        (D1, {"000001.SZ": 1.0}), (D2, {"000001.SZ": 1.0}),
+        (D3, {"000001.SZ": 1.0})])
+    with pytest.raises(ValueError, match="无下一开放日|trailing"):
+        _run(target=t, db_path=db, decision_range=(D3, D3))
+
+
+def test_trailing_unresolved_legal_termination_preserves_results(tmp_path):
+    """R01-M8-I5（m8-06a §6.3）：最后一个 execution 后无下一开放日 → 合法
+    终止：返回全部中间 artifacts/nav（不 drop、不 fail 全 run）；
+    final_state = 最后 POST state + trailing_unresolved=True。"""
+    db = _trailing_db(tmp_path)
+    t = _target(dates=(D1, D2), weights=[
+        (D1, {"000001.SZ": 1.0}), (D2, {"000001.SZ": 1.0})])
+    r = _run(target=t, db_path=db)
+    assert len(r.artifacts) == 2
+    assert [a.execution_date for a in r.artifacts] == [D2, D3]
+    assert r.nav_series.frame.height == 2
+    assert r.nav_series.frame["nav"].to_list() == [1_000_000.0, 1_100_000.0]
+    assert r.trailing_unresolved is True
+    assert r.final_state.phase is PortfolioStatePhase.POST_EXECUTION
+    assert r.final_state.as_of_date == D3
+    assert r.final_state.cash == r.artifacts[-1].post_state.cash
+    assert r.final_state.positions.equals(r.artifacts[-1].post_state.positions)
+
+
 # ================================================================
 # marks / data gates
 # ================================================================

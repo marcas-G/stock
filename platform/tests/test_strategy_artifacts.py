@@ -473,6 +473,79 @@ def test_manifest_written_last(tmp_path, monkeypatch):
     assert (tmp_path / REBALANCE_SCHEDULE_FILE).exists()
 
 
+def test_manifest_stores_content_hash(tmp_path):
+    """R01-M8-I1：manifest 必须记录每 core 文件的内容 hash（load 端复核）。"""
+    sa, spec, schedule, target = _full_set(tmp_path)
+    _write(tmp_path, source_signal=sa, spec=spec, schedule=schedule,
+           target=target)
+    m = _manifest(tmp_path)
+    for key in ("target_portfolio", "rebalance_schedule"):
+        h = m["artifacts"][key].get("sha256")
+        assert isinstance(h, str) and len(h) == 64
+
+
+def test_failed_overwrite_never_hybrid_loadable(tmp_path, monkeypatch):
+    """R01-M8-I1（M7 侧）：覆盖写中途失败（schedule 写注入 OSError）→ 旧
+    manifest 必须先失效——load 必须 fail loudly，绝不返回新旧混合 bundle。"""
+    sa, spec, schedule, target = _full_set(tmp_path)
+    _write(tmp_path, source_signal=sa, spec=spec, schedule=schedule,
+           target=target)
+    # bundle B：不同 strategy/signal/k（probe3 场景）
+    sa_b = _signal(name="alpha_y")
+    spec_b = _spec(name="strategy_y", signal_name="alpha_y",
+                   selection={"method": "top_k", "k": 1})
+    sch_b = build_rebalance_schedule(sa_b, spec_b)
+    tp_b = construct_target_portfolio(sa_b, spec_b)
+
+    from factorlab.adapters import strategy_artifacts as A
+    real = A._atomic_write_file
+    calls = {"n": 0}
+
+    def flaky(path, writer):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise OSError("disk full simulated during schedule write")
+        return real(path, writer)
+
+    monkeypatch.setattr(A, "_atomic_write_file", flaky)
+    with pytest.raises(OSError):
+        _write(tmp_path, source_signal=sa_b, spec=spec_b,
+               schedule=sch_b, target=tp_b)
+    # 旧 manifest 已失效（tombstone）——不得返回旧/新混合体
+    assert not (tmp_path / STRATEGY_MANIFEST_FILE).exists()
+    with pytest.raises(ValueError, match="manifest"):
+        load_strategy_artifacts(tmp_path)
+
+
+def test_content_hash_mismatch_fails(tmp_path):
+    """R01-M8-I1：目标 parquet 被替换（行数/列相同、内容不同）而 manifest
+    未变 → hash 不一致必须拒绝加载「manifest + 外来数据」混合体。"""
+    sa, spec, schedule, target = _full_set(tmp_path)
+    _write(tmp_path, source_signal=sa, spec=spec, schedule=schedule,
+           target=target)
+    t = pl.read_parquet(tmp_path / TARGET_PORTFOLIO_FILE)
+    t2 = t.with_columns(
+        pl.when(pl.col("code") == "000001.SZ")
+        .then(pl.lit(0.4)).otherwise(pl.lit(0.6))
+        .alias("target_weight"))
+    t2.write_parquet(tmp_path / TARGET_PORTFOLIO_FILE)
+    with pytest.raises(ValueError, match="sha256|hash|内容"):
+        load_strategy_artifacts(tmp_path)
+
+
+def test_missing_content_hash_field_fails(tmp_path):
+    """R01-M8-I1：manifest 缺 sha256（legacy）→ 显式拒绝，不静默放行。"""
+    sa, spec, schedule, target = _full_set(tmp_path)
+    _write(tmp_path, source_signal=sa, spec=spec, schedule=schedule,
+           target=target)
+    m = _manifest(tmp_path)
+    m["artifacts"]["target_portfolio"].pop("sha256", None)
+    (tmp_path / STRATEGY_MANIFEST_FILE).write_text(json.dumps(m),
+                                                   encoding="utf-8")
+    with pytest.raises(ValueError, match="sha256|hash"):
+        load_strategy_artifacts(tmp_path)
+
+
 # ================================================================
 # M7-04A：parquet atomicity + load-side provenance closure
 # ================================================================
@@ -614,7 +687,9 @@ def test_atomic_schedule_failure_preserves_existing(tmp_path, monkeypatch):
 
 
 def test_manifest_atomic_failure_no_partial(tmp_path, monkeypatch):
-    """manifest 写失败 → 无半截 manifest（旧 manifest 也不被破坏）。"""
+    """R01-M8-I1 新契约：覆盖写时旧 manifest 先失效（tombstone）——manifest
+    写失败后主 manifest 不存在（无半截 manifest、旧 manifest 也不得与新数据
+    组成可加载混合体）；tombstone 保留诊断。"""
     sa, spec, schedule, target = _full_set(tmp_path)
     _write(tmp_path, source_signal=sa, spec=spec, schedule=schedule, target=target)
     old = (tmp_path / STRATEGY_MANIFEST_FILE).read_text(encoding="utf-8")
@@ -627,8 +702,22 @@ def test_manifest_atomic_failure_no_partial(tmp_path, monkeypatch):
     monkeypatch.setattr(A, "_atomic_write_file", boom)
     with pytest.raises(RuntimeError):
         _write(tmp_path, source_signal=sa, spec=spec, schedule=schedule, target=target)
-    assert (tmp_path / STRATEGY_MANIFEST_FILE).read_text(encoding="utf-8") == old
+    assert not (tmp_path / STRATEGY_MANIFEST_FILE).exists()
+    stale = tmp_path / (STRATEGY_MANIFEST_FILE + ".stale")
+    assert stale.read_text(encoding="utf-8") == old
     assert not any(p.name.endswith(".tmp") for p in tmp_path.iterdir())
+    with pytest.raises(ValueError, match="manifest"):
+        load_strategy_artifacts(tmp_path)
+
+
+def test_successful_overwrite_removes_tombstone(tmp_path, monkeypatch):
+    """覆盖写成功后不得残留 .stale tombstone（目录回到精确三文件布局）。"""
+    sa, spec, schedule, target = _full_set(tmp_path)
+    _write(tmp_path, source_signal=sa, spec=spec, schedule=schedule, target=target)
+    _write(tmp_path, source_signal=sa, spec=spec, schedule=schedule, target=target)
+    files = {p.name for p in tmp_path.iterdir()}
+    assert files == {TARGET_PORTFOLIO_FILE, REBALANCE_SCHEDULE_FILE,
+                     STRATEGY_MANIFEST_FILE}
 
 
 def test_incomplete_directory_rejected(tmp_path, monkeypatch):

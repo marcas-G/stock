@@ -39,6 +39,14 @@ from factorlab.core.domain.execution import (ExecutionTiming, FillBatch,
                                         PortfolioState, PortfolioStatePhase)
 
 
+class TrailingUnresolvedError(ValueError):
+    """最后一个 execution 后无下一开放日（trailing unresolved）。
+
+    m8-06a §6.3：属**合法终止**信号（不是数据错误）——run 在该点终止、不 drop
+    中间结果。ValueError 子类保持既有 fail-fast 调用方语义（R01-M8-I5）。
+    """
+
+
 def advance_to_next_trading_day(
     state: PortfolioState,
     fills: FillBatch,
@@ -83,7 +91,7 @@ def advance_to_next_trading_day(
             f"不自动向后找")
     idx = bisect.bisect_right(cal_list, state.as_of_date)
     if idx >= len(cal_list):
-        raise ValueError(
+        raise TrailingUnresolvedError(
             f"{state.as_of_date} 后无下一开放日（trailing unresolved——不保持"
             f"原日期/不 drop）")
     next_date = cal_list[idx]

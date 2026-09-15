@@ -269,6 +269,23 @@ def test_loader_missing_table_typed_empty(tmp_path):
     assert out.schema == {"code": pl.String, "trade_date": pl.Date}
 
 
+def test_loader_existing_table_empty_window_typed(tmp_path):
+    """表存在但窗口过滤后 0 行 → 与缺表分支同款 typed empty
+    （code String/trade_date Date）——不得退化为 Null dtype（R01-M8-I3）。"""
+    db = _adj_db(tmp_path, adj=[(D1, _A)])   # 表有行，但窗口 [D3, D8] 内 0 行
+    out = _adj_rows(db, start=D3, end=D8, codes=[_A])
+    assert out.height == 0
+    assert out.schema == {"code": pl.String, "trade_date": pl.Date}
+
+
+def test_loader_existing_table_empty_codes_typed(tmp_path):
+    """表存在、窗口有行但 codes 子集过滤后 0 行 → typed empty（同上）。"""
+    db = _adj_db(tmp_path, adj=[(D5, _A)])
+    out = _adj_rows(db, start=D3, end=D8, codes=[_B])
+    assert out.height == 0
+    assert out.schema == {"code": pl.String, "trade_date": pl.Date}
+
+
 def test_loader_guards(tmp_path):
     db = _adj_db(tmp_path)
     with pytest.raises(ValueError, match="空窗口"):

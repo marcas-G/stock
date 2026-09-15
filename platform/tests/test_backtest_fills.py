@@ -775,6 +775,33 @@ def test_partial_buy_fees_based_on_filled():
     assert r[7] == 8.0          # commission 基于 filled（8000*0.001=8 > min 5）
 
 
+def test_partial_buy_order_quantity_auditable():
+    """R01-M8-I2：部分成交行必须同时可审计委托量（1000）与实际成交量（400）——
+    order_quantity 保留决策/委托数量，filled_quantity 为 funding 缩量后的实际
+    成交；cash/gross 仍基于 filled。"""
+    o = _orders([("000001.SZ", "buy", 1000)])
+    a = _assessment([("000001.SZ", "buy", 1000, "fillable", 10.0)])
+    st = _state(4_000.0, [])
+    b = _realize(orders=o, assessment=a, state=st)
+    r = _fills(b, "000001.SZ")
+    assert r[2] == 1000         # order_quantity = 委托数量（不随成交缩水）
+    assert r[3] == 400          # filled_quantity = 实际成交
+    assert r[2] != r[3]         # 部分成交可表达
+    assert r[6] == 4000.0       # gross 基于 filled
+    assert b.frame["effective_cash_delta"][0] == -4000.0
+
+
+def test_partial_buy_fill_batch_validator_accepts_filled_lt_order():
+    """FillBatch 域契约允许 0 < filled < order——部分成交是合法状态。"""
+    b = _realize(orders=_orders([("000001.SZ", "buy", 1000)]),
+                 assessment=_assessment([("000001.SZ", "buy", 1000, "fillable", 10.0)]),
+                 state=_state(4_000.0, []))
+    assert isinstance(b, FillBatch)
+    assert b.frame.height == 1
+    assert b.frame.schema["order_quantity"] == pl.Int64
+    assert b.frame.schema["filled_quantity"] == pl.Int64
+
+
 def test_sell_unchanged_by_buy_shortage():
     """BUY 资金不足不影响已 FILLABLE SELL（sell-first）。"""
     o = _orders([("000001.SZ", "sell", 1000), ("600000.SH", "buy", 1000)])

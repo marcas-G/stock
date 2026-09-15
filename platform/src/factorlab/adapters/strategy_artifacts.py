@@ -19,6 +19,7 @@ contract。与 M6 factor artifact（factorlab.adapters.parquet_artifacts）独�
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from dataclasses import dataclass
@@ -34,6 +35,7 @@ from factorlab.core.strategy.spec import StrategySpec
 TARGET_PORTFOLIO_FILE = "target_portfolio.parquet"
 REBALANCE_SCHEDULE_FILE = "rebalance_schedule.parquet"
 STRATEGY_MANIFEST_FILE = "strategy_manifest.json"
+STRATEGY_MANIFEST_STALE_FILE = STRATEGY_MANIFEST_FILE + ".stale"
 
 STRATEGY_ARTIFACT_FORMAT_VERSION = 1
 TARGET_PORTFOLIO_SCHEMA_VERSION = 1
@@ -124,6 +126,25 @@ def _write_text(path: Path, text: str) -> None:
     _atomic_write_file(path, lambda tmp: tmp.write_text(text, encoding="utf-8"))
 
 
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _invalidate_manifest(output_dir: Path) -> Path | None:
+    """R01-M8-I1：覆盖写前把旧 manifest 原子失效（rename 为 .stale tombstone）。
+
+    必须在任何 core 数据文件写入之前调用——崩溃/磁盘满后主 manifest 缺失 =
+    incomplete directory（loader 拒绝），旧 manifest 不可能与新数据文件拼成
+    可加载的混合 bundle。
+    """
+    m = output_dir / STRATEGY_MANIFEST_FILE
+    if not m.exists():
+        return None
+    stale = output_dir / STRATEGY_MANIFEST_STALE_FILE
+    os.replace(m, stale)
+    return stale
+
+
 # ---------------------------------------------------------------------------
 # Cross-object invariants（所有 I/O 前完成）
 # ---------------------------------------------------------------------------
@@ -198,6 +219,8 @@ def write_strategy_artifacts(
     tp_path = output_dir / TARGET_PORTFOLIO_FILE
     sch_path = output_dir / REBALANCE_SCHEDULE_FILE
     mani_path = output_dir / STRATEGY_MANIFEST_FILE
+    # R01-M8-I1：旧 manifest 先失效（必须在任何 core 文件写入之前）
+    stale = _invalidate_manifest(output_dir)
 
     # 1. target（直接来自 TargetPortfolio.frame；atomic sibling-temp replace）
     _atomic_write_file(tp_path, lambda tmp: target.frame.write_parquet(tmp))
@@ -205,7 +228,7 @@ def write_strategy_artifacts(
     sch = pl.DataFrame({"decision_date": pl.Series(
         schedule.decision_dates, dtype=pl.Date)})
     _atomic_write_file(sch_path, lambda tmp: sch.write_parquet(tmp))
-    # 3. manifest（最后 = core artifacts complete）
+    # 3. manifest（最后 = core artifacts complete；含内容 hash——load 复核）
     manifest = {
         "strategy_artifact_format_version": STRATEGY_ARTIFACT_FORMAT_VERSION,
         "strategy_spec": {
@@ -224,6 +247,7 @@ def write_strategy_artifacts(
                 "schema_version": TARGET_PORTFOLIO_SCHEMA_VERSION,
                 "rows": target.frame.height,
                 "columns": target.frame.columns,
+                "sha256": _sha256_file(tp_path),
                 "meta": {
                     "strategy_name": target.meta.strategy_name,
                     "source_signal_name": target.meta.source_signal_name,
@@ -240,10 +264,13 @@ def write_strategy_artifacts(
                 "columns": _SCHEDULE_COLUMNS,
                 "frequency": schedule.frequency,
                 "source_signal_name": schedule.source_signal_name,
+                "sha256": _sha256_file(sch_path),
             },
         },
     }
     _write_text(mani_path, json.dumps(manifest, ensure_ascii=False, indent=2))
+    if stale is not None:
+        stale.unlink(missing_ok=True)         # 覆盖写成功：清理 tombstone
     return manifest
 
 
@@ -254,9 +281,13 @@ def write_strategy_artifacts(
 def _load_manifest(result_dir: Path) -> dict:
     p = result_dir / STRATEGY_MANIFEST_FILE
     if not p.exists():
+        stale = result_dir / STRATEGY_MANIFEST_STALE_FILE
+        hint = ("（检测到 strategy_manifest.json.stale——上次覆盖写中断/"
+                "失败，该目录产物已失效）" if stale.exists() else "")
         raise ValueError(
             f"{STRATEGY_MANIFEST_FILE} 不存在——不是完整的 versioned strategy "
-            f"artifact directory（目录级事务未实现，manifest 缺失 = incomplete）")
+            f"artifact directory（目录级事务未实现，manifest 缺失 = incomplete）"
+            f"{hint}")
     try:
         data = json.loads(p.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -318,6 +349,26 @@ def _check_rows_columns(disk: pl.DataFrame, m: dict, label: str) -> None:
             f"disk=({disk.height}, {disk.columns}) manifest=({rows}, {cols})")
 
 
+def _check_file_hash(result_dir: Path, m: dict, label: str) -> None:
+    """R01-M8-I1：磁盘文件内容 hash 必须与 manifest 记录一致。
+
+    防止「manifest 描述 bundle A、磁盘文件来自 bundle B」的混合 artifact
+    （同 rows/columns 但内容不同的覆盖写残留）。
+    """
+    h = m.get("sha256")
+    if not isinstance(h, str) or len(h) != 64:
+        raise ValueError(
+            f"{label} manifest 缺合法 sha256（legacy/损坏 manifest）——"
+            f"拒绝加载（无内容绑定即不可信）")
+    p = result_dir / m["file"]
+    actual = _sha256_file(p)
+    if actual != h:
+        raise ValueError(
+            f"{label} 内容 hash 与 manifest 不一致（manifest={h[:12]}… "
+            f"disk={actual[:12]}…）——文件被替换或来自不同 bundle，"
+            f"拒绝拼接混合 artifact")
+
+
 def _signal_meta_from_manifest(m: dict) -> SignalMeta:
     ss = m["source_signal"]
     if not isinstance(ss, dict):
@@ -373,6 +424,7 @@ def load_rebalance_schedule(result_dir: Path) -> RebalanceSchedule:
         raise ValueError(f"{REBALANCE_SCHEDULE_FILE} 缺失——不 fallback")
     disk = pl.read_parquet(p)
     _check_rows_columns(disk, sch_m, "rebalance_schedule")
+    _check_file_hash(result_dir, sch_m, "rebalance_schedule")
     if disk.schema["decision_date"] != pl.Date:
         raise ValueError(
             f"rebalance_schedule.decision_date dtype 必须为 Date"
@@ -400,6 +452,7 @@ def load_target_portfolio(result_dir: Path) -> TargetPortfolio:
         raise ValueError(f"{TARGET_PORTFOLIO_FILE} 缺失——绝不从 panel/signal 推断")
     disk = pl.read_parquet(p)
     _check_rows_columns(disk, tp_m, "target_portfolio")
+    _check_file_hash(result_dir, tp_m, "target_portfolio")
     schedule = load_rebalance_schedule(result_dir)
     tm = tp_m["meta"]
     meta = TargetPortfolioMeta(

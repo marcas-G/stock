@@ -372,7 +372,8 @@ def load_adj_event_window(
     rows = _ADJ_ROWS_IMPL[rd.backend](rd, s, e, codes)
     events = [(r[0], _normalize_event_date(r[1])) for r in rows]
     out = pl.DataFrame(events, schema=["code", "trade_date"], orient="row")
-    if out.height:
-        out = out.with_columns(pl.col("code").cast(pl.String),
-                               pl.col("trade_date").cast(pl.Date))
+    # 无条件 cast：空 list 行构造 → Null dtype 陷阱；cast(Null → String/Date)
+    # 得到 typed empty（与缺表分支同款契约——R01-M8-I3）
+    out = out.with_columns(pl.col("code").cast(pl.String),
+                           pl.col("trade_date").cast(pl.Date))
     return out

@@ -21,7 +21,8 @@
   slippage legal-bound（down <= execution_price <= up，越界 ValueError 不
   clipping——bounded slippage model 未实现）
 - 成本唯一 authority = compute_execution_cost（不手写第二份费用公式）；
-  BUY partial 费用基于 filled_quantity 重算
+  BUY partial 费用基于 filled_quantity 重算；fill 行 order_quantity = 委托量、
+  filled_quantity = 实际成交（R01-M8-I2：部分成交在 fill 行可审计）
 - SELL proceeds 先于 BUY funding 入账（deterministic accounting convention，
   不是交易所微观顺序声明）；blocked SELL 提供 0 现金
 - 不修改任何输入；不创建 POST state；无 NAV/PnL；NEXT_OPEN only
@@ -272,7 +273,10 @@ def realize_open_fills(
         breakdown = compute_execution_cost(side=OrderSide.BUY,
                                            reference_price=price,
                                            quantity=q, spec=cost_spec)
-        rows.append((code, "buy", q, q, price, breakdown.execution_price,
+        # R01-M8-I2：order_quantity = 委托数量（assessment/orders 行），
+        # filled_quantity = funding 缩量后的实际成交——部分成交在 fill 行可审计
+        order_qty = ass_map[code][1]
+        rows.append((code, "buy", order_qty, q, price, breakdown.execution_price,
                      breakdown.gross_notional, breakdown.commission,
                      breakdown.stamp_tax, breakdown.transfer_fee,
                      breakdown.total_fees, breakdown.effective_cash_delta))

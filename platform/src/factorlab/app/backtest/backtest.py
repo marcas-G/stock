@@ -19,7 +19,9 @@ run_backtest 只做 orchestration（M8-06A §3 契约）：
   - 除权事件由 CA Gate 拦截（WS5：窗口 (prev_exec, exec] 内 held(PRE) 命中
     adj_event 行 → ExecutionDataQualityError + decision_range 分段指引；
     armed = 多事件 + 持仓非空，armed 且事件表缺失 → fail-closed）
-- 全链 fail fast（ExecutionDataQualityError/ValueError 直接传播）
+- 全链 fail fast（ExecutionDataQualityError/ValueError 直接传播）——例外：
+  m8-06a §6.3 最后一个 execution 后无下一开放日 = 合法终止（保留中间
+  artifacts/nav，BacktestResult.trailing_unresolved=True；R01-M8-I5）
 - zero-cost zero-slippage 每 event 断言 value-neutrality（POST NAV ==
   PRE NAV @ 同 basis marks）；slippage-free 时 NAV drag == total_fees
 - memory-only runtime object（无 persistence/DB 写入）
@@ -53,7 +55,8 @@ from factorlab.core.execution.fillability import assess_open_fillability
 from factorlab.app.backtest.fills import realize_open_fills
 from factorlab.app.backtest.market import load_market_open_snapshot
 from factorlab.app.backtest.orders import construct_order_batch
-from factorlab.app.backtest.overnight import advance_to_next_trading_day
+from factorlab.app.backtest.overnight import (TrailingUnresolvedError,
+                                          advance_to_next_trading_day)
 from factorlab.app.backtest.rules import (SecurityQuantityRules,
                                        resolve_security_quantity_rules)
 from factorlab.core.execution.spec import ExecutionSpec
@@ -149,11 +152,16 @@ def run_backtest(
 ) -> BacktestResult:
     """按 target.decision_dates 顺序编排完整 execution pipeline。
 
+    decision_range 为 decision 级过滤（target.decision_dates ∩ range）——
+    schedule 只解析范围内 decisions（范围外 trailing unresolved 不影响本 run）。
+
     rd 为读句柄（duckdb|ch，经 data/backend.open_read 打开）。
 
     Raises:
         TypeError / ValueError / NotImplementedError / ExecutionDataQualityError
-          ——全部直接传播（fail fast，不 per-day skip）
+          ——全部直接传播（fail fast，不 per-day skip）。例外：最后一个
+          execution 的 overnight advance 遇到 trailing unresolved（§6.3）
+          → 合法终止返回（trailing_unresolved=True）。
     """
     if not isinstance(target, TargetPortfolio):
         raise TypeError(
@@ -169,16 +177,23 @@ def run_backtest(
             f"MarksPolicy v1 仅支持 OPEN_BASED（收到 {marks!r}——"
             f"caller-explicit/stale policy 未实现）")
 
-    # ---- 决策序列 ----
+    # ---- 决策序列（R01-M8-I4：range 内 target/schedule 一致）----
     all_dates = list(target.decision_dates)
+    scoped_target = target
     if decision_range is not None:
         lo, hi = decision_range
         all_dates = [d for d in all_dates if lo <= d <= hi]
-    if not all_dates:
-        raise ValueError("decision_range 内无任何 decision——empty run 拒绝")
+        if not all_dates:
+            raise ValueError("decision_range 内无任何 decision——empty run 拒绝")
+        # 只解析 range 内 decisions 的 schedule——范围外（含尾部未决）决策
+        # 不参与本次 run，也不得使其失败
+        scoped_target = TargetPortfolio(
+            frame=target.frame.filter(
+                pl.col("decision_date").is_in(all_dates)),
+            decision_dates=tuple(all_dates), meta=target.meta)
 
-    # ---- schedule（全 target——construct_order_batch 要求全局一致）----
-    schedule = resolve_execution_schedule(target, rd)
+    # ---- schedule（scoped target——construct_order_batch 要求全局一致）----
+    schedule = resolve_execution_schedule(scoped_target, rd)
 
     def _exec_date(d):
         r = schedule.frame.filter(pl.col("decision_date") == d)
@@ -192,6 +207,8 @@ def run_backtest(
 
     artifacts = []
     nav_rows = []
+    trailing = False
+    final_state = None
     # run 内最近一次真实 open mark（停牌冻结沿用；无历史表查询）
     mark_map: dict[str, float] = {}
     for decision_d in all_dates:
@@ -213,7 +230,8 @@ def run_backtest(
                             held_codes=state.positions["code"].to_list())
 
         # ---- 市场证据（planning codes = current ∪ target(d)）----
-        t_rows = target.frame.filter(pl.col("decision_date") == decision_d)
+        t_rows = scoped_target.frame.filter(
+            pl.col("decision_date") == decision_d)
         codes = sorted(set(state.positions["code"].to_list())
                        | set(t_rows["code"].to_list()))
         snapshot = load_market_open_snapshot(rd, execution_date=exec_date,
@@ -233,7 +251,7 @@ def run_backtest(
             snapshot.frame.select(["code", "has_daily"]).iter_rows()
             if not has_daily)
         if not halted:
-            plan = (target, state, snapshot, rules)     # 无停牌：原对象（A7）
+            plan = (scoped_target, state, snapshot, rules)  # 无停牌：原对象（A7）
         else:
             visible = [c for c in codes if c not in halted]
             plan_state = PortfolioState(as_of_date=state.as_of_date,
@@ -248,15 +266,15 @@ def run_backtest(
                 frame=rules.frame.filter(pl.col("code").is_in(visible)))
             halt_t = sorted(set(t_rows["code"].to_list()) & set(halted))
             if not halt_t:
-                plan_target = target                    # 停牌码全在持仓侧
+                plan_target = scoped_target             # 停牌码全在持仓侧
             else:
                 t_vis = t_rows.filter(~pl.col("code").is_in(halted))
-                meta_d = (replace(target.meta,
+                meta_d = (replace(scoped_target.meta,
                                   gross_exposure=float(
                                       t_vis["target_weight"].sum()))
-                          if t_vis.height else target.meta)
+                          if t_vis.height else scoped_target.meta)
                 plan_target = TargetPortfolio(
-                    frame=t_vis, decision_dates=target.decision_dates,
+                    frame=t_vis, decision_dates=scoped_target.decision_dates,
                     meta=meta_d)
             plan = (plan_target, plan_state, plan_snapshot, plan_rules)
         plan_target, plan_state, plan_snapshot, plan_rules = plan
@@ -313,7 +331,17 @@ def run_backtest(
                          post_nav.nav))
 
         # ---- overnight → 下一 PRE（最后 event 也 advance——final_state）----
-        state = advance_to_next_trading_day(post, fills, rd)
+        try:
+            state = advance_to_next_trading_day(post, fills, rd)
+        except TrailingUnresolvedError:
+            # m8-06a §6.3：最后一个 execution 后无下一开放日 = 合法终止——
+            # 保留已产出的 artifacts/nav（不 drop）；final_state = 最后 POST
+            # （无 next open，不以合成日期冒充 PRE）。非最后决策仍 fail。
+            if decision_d != all_dates[-1]:
+                raise
+            trailing = True
+            final_state = post
+            break
 
     nav_frame = pl.DataFrame(nav_rows, schema=["execution_date", "cash",
                                                "market_value", "nav"],
@@ -325,4 +353,5 @@ def run_backtest(
         pl.col("nav").cast(pl.Float64))
     return BacktestResult(artifacts=tuple(artifacts),
                           nav_series=NavSeries(frame=nav_frame),
-                          final_state=state)
+                          final_state=final_state if trailing else state,
+                          trailing_unresolved=trailing)

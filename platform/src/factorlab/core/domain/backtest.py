@@ -147,16 +147,43 @@ class BacktestResult:
     - nav_series：与 artifacts 一一对应的 NAV 序列
     - final_state：最后 execution event 的 advance_to_next_trading_day 输出
       （PRE @ next open——可能超出 data cutoff，仅 calendar truth）
+    - trailing_unresolved：最后一个 execution 后无下一开放日（m8-06a §6.3
+      合法终止）——此时 final_state = 最后 POST state（无 next open 可 advance，
+      不以合成日期冒充 PRE；R01-M8-I5）
     """
 
     artifacts: tuple
     nav_series: NavSeries
     final_state: PortfolioState
+    trailing_unresolved: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.artifacts, tuple):
             raise ValueError("artifacts 必须为 tuple")
-        if self.final_state.phase is not PortfolioStatePhase.PRE_EXECUTION:
+        if not isinstance(self.trailing_unresolved, bool):
+            raise ValueError(
+                f"trailing_unresolved 必须为 bool（收到 "
+                f"{type(self.trailing_unresolved).__name__}）")
+        if self.trailing_unresolved:
+            if self.final_state.phase is not PortfolioStatePhase.POST_EXECUTION:
+                raise ValueError(
+                    "trailing_unresolved=True 时 final_state 必须为最后 "
+                    "execution 的 POST_EXECUTION（不得合成 PRE @ next open）")
+            if not self.artifacts:
+                raise ValueError(
+                    "trailing_unresolved=True 需要至少一个 execution artifact")
+            last = self.artifacts[-1]
+            if self.final_state.as_of_date != last.execution_date:
+                raise ValueError(
+                    "trailing final_state.as_of_date 必须 == 最后 artifact "
+                    "execution_date")
+            if self.final_state.cash != last.post_state.cash \
+                    or not self.final_state.positions.equals(
+                        last.post_state.positions):
+                raise ValueError(
+                    "trailing final_state 必须逐字段等于最后 artifact 的 "
+                    "post_state")
+        elif self.final_state.phase is not PortfolioStatePhase.PRE_EXECUTION:
             raise ValueError("final_state 必须为 PRE_EXECUTION")
         if len(self.artifacts) != self.nav_series.frame.height:
             raise ValueError(
