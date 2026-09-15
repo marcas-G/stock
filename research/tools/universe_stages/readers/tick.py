@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 from pathlib import Path
+import re
+
 import numpy as np
 import pandas as pd
+
+_DAY_DIR_RE = re.compile(r'\d{8}')
 
 
 @dataclass
@@ -45,6 +49,13 @@ class WindTickStore(TickStore):
         super().__init__(root)
 
     def read_trade_csv(self, code: str, trade_date: str) -> pd.DataFrame:
+        # R01-TOOLS-I8：目录日 ≠ 请求日时拒绝读取——本方法用 trade_date 重标时间戳，
+        # 跨日调用等于把某日的逐笔伪装成请求日的窗口（静默编造）。
+        root_name = Path(self.root).name
+        if _DAY_DIR_RE.fullmatch(root_name) and root_name != trade_date:
+            raise ValueError(
+                f'拒绝跨日重标时间戳: tick 目录 {root_name} != 请求日 {trade_date}'
+                f'（会把 {root_name} 的逐笔伪装成 {trade_date} 的窗口）')
         path = Path(self.root) / f'{code}' / '逐笔成交.csv'
         if not path.exists():
             raise FileNotFoundError(f'tick file not found: {path}')

@@ -82,7 +82,7 @@ def test_main_e2e_writes_partitions_marker_and_manifest(mini_root):
     env = dict(os.environ, FACTORLAB_STOCK_ROOT=str(mini_root))
     r = subprocess.run(
         [sys.executable, os.path.join(_HERE, "..", "convert_tick_to_parquet.py"),
-         "--only-day", DAY, "--workers", "1"],
+         "--workers", "1"],
         env=env, capture_output=True, text=True, timeout=900)
     assert r.returncode == 0, r.stdout[-3000:] + r.stderr[-3000:]
 
@@ -106,10 +106,10 @@ def test_main_e2e_writes_partitions_marker_and_manifest(mini_root):
 
 
 def test_main_e2e_second_run_is_noop_without_force(mini_root):
-    """重跑同日：月份已有 `_SUCCESS` → 跳过（不重复转换，产物字节不变）。"""
+    """重跑同日：确定性重写，产物字节不变（覆盖写而非跳过；字节相等由冻结 schema 保证）。"""
     env = dict(os.environ, FACTORLAB_STOCK_ROOT=str(mini_root))
     cmd = [sys.executable, os.path.join(_HERE, "..", "convert_tick_to_parquet.py"),
-           "--only-day", DAY, "--workers", "1"]
+           "--workers", "1"]
     assert subprocess.run(cmd, env=env, capture_output=True, text=True,
                           timeout=900).returncode == 0
     part = mini_root / "data" / "fact" / "tick_fact" / "trades" / "year=2025" / "month=08" / "part-000.parquet"
@@ -117,3 +117,57 @@ def test_main_e2e_second_run_is_noop_without_force(mini_root):
     r2 = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=900)
     assert r2.returncode == 0, r2.stderr[-2000:]
     assert part.read_bytes() == before, "已有 _SUCCESS 的月不得被重写"
+
+
+def test_only_day_writes_to_validation_root_and_leaves_month_untouched(mini_root):
+    """R01-TOOLS-I10：单日模式绝不覆盖月产物——先有整月产物，再跑 --only-day。
+
+    整月数据/manifest 必须逐字节不变；单日输出必须落在独立 validation 根。
+    """
+    fact = mini_root / "data" / "fact" / "tick_fact"
+    month = fact / "trades" / "year=2025" / "month=08"
+    month.mkdir(parents=True, exist_ok=True)
+    prod_part = month / "part-000.parquet"
+    prod_part.write_bytes(b"FULL-MONTH-ARTIFACT-DO-NOT-TOUCH")
+    (month / "_SUCCESS").write_bytes(b"")
+    man_dir = fact / "_manifest"
+    man_dir.mkdir(parents=True, exist_ok=True)
+    prod_man = man_dir / "conversion_manifest.parquet"
+    prod_man.write_bytes(b"FULL-MONTH-MANIFEST")
+
+    env = dict(os.environ, FACTORLAB_STOCK_ROOT=str(mini_root))
+    r = subprocess.run(
+        [sys.executable, os.path.join(_HERE, "..", "convert_tick_to_parquet.py"),
+         "--only-day", DAY, "--workers", "1"],
+        env=env, capture_output=True, text=True, timeout=900)
+    assert r.returncode == 0, r.stdout[-3000:] + r.stderr[-3000:]
+
+    assert prod_part.read_bytes() == b"FULL-MONTH-ARTIFACT-DO-NOT-TOUCH", \
+        "单日模式覆盖了整月产物"
+    assert prod_man.read_bytes() == b"FULL-MONTH-MANIFEST", \
+        "单日模式覆盖了整月 manifest"
+
+    val = mini_root / "data" / "calib" / "tick_fact_validation"
+    for name, schema in (("trades", CT.TRADES_SCHEMA), ("orders", CT.ORDERS_SCHEMA),
+                         ("snapshots", CT.SNAP_SCHEMA)):
+        part = val / name / "year=2025" / "month=08" / "part-000.parquet"
+        assert part.is_file(), f"单日验证产物未落 {part}"
+        pf = pq.ParquetFile(part)
+        assert pf.schema_arrow == schema
+        assert pf.metadata.num_rows == {"trades": 8, "orders": 6, "snapshots": 6}[name]
+        assert (val / name / "year=2025" / "month=08" / "_SUCCESS").is_file()
+    man = pq.ParquetFile(val / "_manifest" / "conversion_manifest.parquet")
+    assert man.metadata.num_rows == len(CODES)
+
+
+def test_only_day_refuses_production_out_root(mini_root):
+    """把 --out-root 显式指到生产根时必须拒绝（单日绝不写月分区）。"""
+    fact = mini_root / "data" / "fact" / "tick_fact"
+    env = dict(os.environ, FACTORLAB_STOCK_ROOT=str(mini_root))
+    r = subprocess.run(
+        [sys.executable, os.path.join(_HERE, "..", "convert_tick_to_parquet.py"),
+         "--only-day", DAY, "--workers", "1", "--out-root", str(fact)],
+        env=env, capture_output=True, text=True, timeout=900)
+    assert r.returncode != 0, "指向生产根的 --only-day 必须被拒绝"
+    assert "拒绝" in (r.stdout + r.stderr)
+    assert not (fact / "trades").exists(), "生产根必须零写入"

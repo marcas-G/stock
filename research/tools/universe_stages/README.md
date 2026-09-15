@@ -54,4 +54,6 @@ T2（emb）：
 ```
 
 依赖真实数据源的集成路径当前不跑：fundamentals 源缺失（pending #4）、`20260817` tick
-归档未解包（pending #3）、golden 股池生成链未留存（pending #9）。
+归档未解包（pending #3）、golden 股池生成链未留存（pending #9）。各脚本入口先跑
+`universe_paths.preflight_layer{1,2,3}()`：缺源时 `MissingInput` 会点名**具体路径 + 获取路径**
+（不再裸 `FileNotFoundError`）。逐层可执行状态见 `MIGRATION_GAP.md` 的 Executable status 表。

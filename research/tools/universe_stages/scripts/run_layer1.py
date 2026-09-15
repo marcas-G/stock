@@ -49,6 +49,10 @@ def main() -> int:
     p.add_argument('--end')
     a = p.parse_args()
     cfg = universe_paths.load_config(a.config)
+    try:  # R01-TOOLS-I9：缺源 fail fast（点名路径 + 获取路径），不裸 FileNotFoundError
+        universe_paths.preflight_layer1(from_golden=a.from_golden)
+    except universe_paths.MissingInput as e:
+        raise SystemExit(f'universe_stages layer1 前置数据缺失：\n{e}')
     out = universe_paths.out_dir(cfg, 'universes')
 
     store = DailyStore(universe_paths.daily_fact())

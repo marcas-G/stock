@@ -18,7 +18,8 @@ Manifest: tick_fact/_manifest/conversion_manifest.parquet + conversion_errors.cs
 
 用法:
   python convert_tick_to_parquet.py --workers 16
-  python convert_tick_to_parquet.py --only-day 20260821   # 单日验证
+  python convert_tick_to_parquet.py --only-day 20260821
+      # 单日验证：默认落 calib/tick_fact_validation，**绝不覆盖** tick_fact 月产物
 """
 import os
 # 线程限制必须在 pyarrow import 前设置 (2026-08-26 教训: 8 worker × 40 线程 pyarrow
@@ -47,6 +48,8 @@ from factorlab.adapters.batch_flock import BatchFlock  # noqa: E402  （R10：P-
 from factorlab.ports.batch import Task  # noqa: E402
 ROOT = f'{paths.quark_root()}/'
 OUT = f'{paths.tick_fact_root()}/'
+# R01-TOOLS-I10：单日验证的独立根（与生产月产物物理隔离；对标 bars_1m_validation）
+VALIDATION_ROOT = str(paths.CALIB_ROOT / 'tick_fact_validation')
 DAY_RE = K.DAY_RE               # R11：单点在 lib/tickkit
 
 # ---------------- Schema (冻结) ----------------
@@ -284,24 +287,35 @@ _TMP_SEQ = 0  # 同进程内 tmp 路径唯一化 (pid+序号, 任何重复创建
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--workers', type=int, default=16)
-    ap.add_argument('--only-day', default=None)
+    ap.add_argument('--only-day', default=None,
+                    help='单日验证（默认落 tick_fact_validation，绝不覆盖月产物）')
+    ap.add_argument('--out-root', default=None,
+                    help='显式输出根（默认：全量 → tick_fact；--only-day → tick_fact_validation）')
     ap.add_argument('--dry-run', action='store_true')
     args = ap.parse_args()
 
+    # ---- R01-TOOLS-I10：单日验证与生产月产物物理隔离（此前 --only-day 会把整月
+    # part-000.parquet 原子替换成单日文件 —— 一个"单日验证"就毁掉整月）----
+    out_root = args.out_root or (VALIDATION_ROOT if args.only_day else OUT)
+    if args.only_day and os.path.abspath(out_root) == os.path.abspath(OUT):
+        raise SystemExit(
+            f'拒绝: --only-day 不得写入生产根 {OUT}（会原子替换整月产物为单日文件）。\n'
+            f'单日验证请省略 --out-root（默认 {VALIDATION_ROOT}），或指定另一个 --out-root。')
+
     # ---- 单实例锁 (2026-08-26 事故: 4 进程并发写同一输出路径, O_TRUNC 互清,
     # 35/35 文件 100% blocks 丢失, 全量数据被销毁). flock 不阻塞, 已有实例则退出. ----
-    os.makedirs(OUT, exist_ok=True)
+    os.makedirs(out_root, exist_ok=True)
     try:   # R8c：单写者锁收敛到 lib.writekit（原为第 4 份自写 flock）
-        _LOCK = W.acquire_lock(os.path.join(OUT, '.converter.lock'))  # 局部变量：函数返回即放锁，勿删
+        _LOCK = W.acquire_lock(os.path.join(out_root, '.converter.lock'))  # 局部变量：函数返回即放锁，勿删
     except W.LockBusy:
-        print(f'另一个转换实例正在运行 (锁 {OUT}/.converter.lock 被占用) → 退出',
+        print(f'另一个转换实例正在运行 (锁 {out_root}/.converter.lock 被占用) → 退出',
               flush=True)
         return
     # 清理上次异常退出遗留的 tmp 文件 (正常关闭已 os.replace, 残留必为孤儿)
-    for d0 in os.listdir(OUT):
+    for d0 in os.listdir(out_root):
         if d0.startswith('.') or d0 == '_manifest':
             continue
-        for root, _, files in os.walk(os.path.join(OUT, d0)):
+        for root, _, files in os.walk(os.path.join(out_root, d0)):
             for f in files:
                 if '.tmp.' in f:
                     p = os.path.join(root, f)
@@ -327,7 +341,7 @@ def main():
 
     t0 = time.time()
     # R11：缓冲/阈值 flush/月分片写入收进 lib/monthflow（单一实现 + 两条事故回归测试）
-    sink = MonthPartitionSink(OUT, schema_of=lambda n: SCHEMAS[n],
+    sink = MonthPartitionSink(out_root, schema_of=lambda n: SCHEMAS[n],
                               flush_units=FLUSH_ZIPS, kind_of=lambda key: key)
     errors, man_rows = [], []
     # 限流提交: in-flight <= MAX_INFLIGHT, 完成一个才提交下一个
@@ -392,7 +406,7 @@ def main():
         W.mark_success(os.path.dirname(p))   # R8c：标记语义单点（lib.writekit）
 
     # manifest
-    mdir = os.path.join(OUT, '_manifest')
+    mdir = os.path.join(out_root, '_manifest')
     os.makedirs(mdir, exist_ok=True)
     mdf = pd.DataFrame(man_rows)
     mdf['trade_date'] = pd.to_datetime(mdf['trade_date'], format='%Y%m%d').dt.date
@@ -408,6 +422,8 @@ def main():
         os.path.join(mdir, 'conversion_errors.csv'), index=False)
     meta = {'dataset': 'A_share_tick_fact', 'schema_version': '1.0',
             'code_format': 'XXXXXX.SH/.SZ/.BJ', 'source': 'Wind quark_downloaded',
+            'mode': 'validation' if args.only_day else 'production',
+            'out_root': out_root,
             'workdays': len(workdays), 'weekend_isolated_dirs': weekend,
             'tables': {'trades': {'rows': summary.get(('trades', ''),
                                                       {}).get('rows', 0)}, },

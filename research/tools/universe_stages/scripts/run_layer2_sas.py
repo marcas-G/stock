@@ -30,6 +30,10 @@ def main() -> int:
     p.add_argument('--top-k', type=int, default=300)
     a = p.parse_args()
     cfg = universe_paths.load_config(a.config)
+    try:  # R01-TOOLS-I9：缺源 fail fast（点名路径 + 获取路径）
+        universe_paths.preflight_layer2()
+    except universe_paths.MissingInput as e:
+        raise SystemExit(f'universe_stages layer2 前置数据缺失：\n{e}')
     out = universe_paths.out_dir(cfg, 'research')
 
     ranked = pd.read_parquet(universe_paths.golden_universe())
