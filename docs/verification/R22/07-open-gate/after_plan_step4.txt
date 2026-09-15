@@ -1,0 +1,4 @@
+$ cd platform && .venv/bin/python -m pytest tests/test_open_ops_e2e.py tests/test_run_factor.py tests/test_platform_ops.py -q
+........................................................................ [ 72%]
+...........................                                              [100%]
+99 passed in 34.88s

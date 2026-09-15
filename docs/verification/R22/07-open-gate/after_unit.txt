@@ -1,0 +1,3 @@
+$ cd platform && .venv/bin/python -m pytest tests/test_open_ops_e2e.py -q
+........                                                                 [100%]
+8 passed in 2.04s
