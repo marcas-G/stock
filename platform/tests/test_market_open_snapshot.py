@@ -416,3 +416,71 @@ def test_record_true_open_true_legal():
     """record=True / open=True 合法（S/NULL、S covering 09:30）。"""
     s = _mk_snapshot(flags_suspend=[True, True], flags_open=[True, True])
     assert s.frame["is_suspended_at_open"].all()
+
+
+# ================================================================
+# R01-TOOLS-I5 补：stk_limit 当日覆盖率兜底门（市场级；fail-open 单行语义不变）
+#
+# R21 把「缺行 = 合法无限制」下沉到订单级（fillability），但生产漏派生
+# （ch_ingest/derive_stk_limit 整天/大半市场缺口）在订单级无法分辨——需要
+# 市场级覆盖率 gate：expected = 当日有 daily 且 pre_close 非空（应有涨跌停）
+# 的证券；covered = expected ∩ 当日 stk_limit 行。覆盖率低于阈值且剔除
+# 「注册制新股前 5 交易日」近似豁免后仍低 → fail loudly。
+# ================================================================
+
+def _coverage_seed(env, n=30, covered=30, new_listing=0):
+    """n 个 code 当日 daily（pre_close 非空）；前 covered 个有 stk_limit 行；
+    new_listing>0 时后 new_listing 个 code 视为注册制前 5 交易日新股
+    （stock_basic list_date = 前一交易日 → 合法豁免）。"""
+    codes = [f"{i:06d}.SZ" for i in range(1, n + 1)]
+    tables = {
+        "trade_cal": (_CAL_COLS, [(_D, 1), (_P, 1)]),
+        "daily": (_DAILY_COLS, [(_D, c, 10.0, 9.8) for c in codes]),
+        "stk_limit": (_LIMIT_COLS, [(_D, c, 11.0, 9.0) for c in codes[:covered]]),
+    }
+    if new_listing:
+        exempt = codes[covered:]
+        tables["stock_basic"] = (
+            [("symbol", "str"), ("ts_code", "str"), ("list_date", "date")],
+            [(c[:6], c, _P) for c in exempt])
+    env.seed(tables)
+
+
+def test_stk_limit_coverage_pure_thresholds():
+    """纯函数：小样本不判；恰 50% 通过；低于阈值 fail；豁免降分母后通过。"""
+    from factorlab.adapters.read.market_open import stk_limit_coverage_violation
+    expected = {f"{i:06d}.SZ" for i in range(30)}
+    assert stk_limit_coverage_violation(set(), set()) is None          # 空日
+    assert stk_limit_coverage_violation(set(list(expected)[:10]), set()) is None
+    half = set(list(expected)[:15])
+    assert stk_limit_coverage_violation(expected, half) is None        # 恰 50%
+    bad = set(list(expected)[:14])
+    msg = stk_limit_coverage_violation(expected, bad)
+    assert msg is not None and "stk_limit" in msg and "覆盖率" in msg
+    exempt = set(list(expected)[15:])
+    assert stk_limit_coverage_violation(expected, bad, exempt_codes=exempt) is None
+
+
+def test_stk_limit_coverage_healthy_day_ok(env):
+    """30 只全有 stk_limit → 覆盖率 100%，snapshot 正常。"""
+    _coverage_seed(env, n=30, covered=30)
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC,
+                                     codes=["000001.SZ"])
+    assert snap.frame.height == 1
+
+
+def test_stk_limit_coverage_gap_fails_loudly(env):
+    """30 只仅 5 只有 stk_limit（生产漏派生形态）→ 覆盖率门 fail loudly。"""
+    _coverage_seed(env, n=30, covered=5)
+    with pytest.raises(ValueError, match="stk_limit.*覆盖率|覆盖率"):
+        load_market_open_snapshot(env.rd, execution_date=EXEC,
+                                  codes=["000001.SZ"])
+
+
+def test_stk_limit_coverage_new_listing_exempt(env):
+    """12 只有行 + 18 只注册制新股（list_date=前一交易日，合法无限制）→
+    剔除豁免后 12/12 通过（不把合法豁免误判为生产缺口）。"""
+    _coverage_seed(env, n=30, covered=12, new_listing=18)
+    snap = load_market_open_snapshot(env.rd, execution_date=EXEC,
+                                     codes=["000001.SZ"])
+    assert snap.frame.height == 1

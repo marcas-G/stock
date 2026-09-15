@@ -31,6 +31,7 @@ import datetime
 import polars as pl
 
 from factorlab.config import settings
+from factorlab.adapters.read.calendar import trading_calendar
 from factorlab.ports.read import ReadPort
 from factorlab.core.domain.codes import is_canonical_stock_code
 
@@ -38,30 +39,148 @@ _SNAPSHOT_COLUMNS = ["code", "open", "pre_close", "up_limit", "down_limit",
                      "has_daily", "has_limit", "has_suspend_record",
                      "is_suspended_at_open"]
 
+# R01-TOOLS-I5 补：市场级 stk_limit 覆盖率兜底门。R21 把「缺行 = 合法无限制」
+# 下沉到订单级（fillability fail-open）；生产漏派生（整天/大半市场缺口）在订单级
+# 无 listing-age 证据可分辩——这里按「当日应有涨跌停的证券」覆盖率兜底。
+STK_LIMIT_COVERAGE_MIN_SAMPLE = 20      # 有效样本 < 此值不判（小样本无统计意义）
+STK_LIMIT_COVERAGE_MIN_COVERAGE = 0.5   # 有效覆盖率 < 此值 → fail loudly
+_STK_LIMIT_MIN_DATE = datetime.date(1996, 12, 16)   # 涨跌停制度实施日
+
+
+def stk_limit_coverage_violation(
+    expected_codes,
+    limit_codes,
+    *,
+    exempt_codes=None,
+    min_sample: int = STK_LIMIT_COVERAGE_MIN_SAMPLE,
+    min_coverage: float = STK_LIMIT_COVERAGE_MIN_COVERAGE,
+) -> str | None:
+    """纯函数（R01-TOOLS-I5 补）：当日 stk_limit 覆盖率判定。
+
+    expected_codes：当日应有涨跌停的证券（有 daily 且 pre_close 非空——上市首日
+    由生产者 pre_close NULL 不派生行）；limit_codes：当日有 stk_limit 行的证券；
+    exempt_codes：合法豁免（注册制新股前 5 交易日等近似集合）——从分母剔除。
+    有效样本 < min_sample → 不判；有效覆盖率 < min_coverage → fail 文案；
+    否则 None（通过）。
+    """
+    effective = set(expected_codes) - set(exempt_codes or ())
+    if len(effective) < min_sample:
+        return None
+    covered = effective & set(limit_codes)
+    ratio = len(covered) / len(effective)
+    if ratio >= min_coverage:
+        return None
+    missing = sorted(effective - set(limit_codes))[:10]
+    return (
+        f"stk_limit 当日覆盖率异常：{len(covered)}/{len(effective)} = {ratio:.1%}"
+        f"（阈值 {min_coverage:.0%}）——缺失 {len(effective) - len(covered)} 只"
+        f"应有涨跌停的证券（样本 {missing}）。疑似生产漏派生"
+        f"（research/tools/ch_ingest/derive_stk_limit），非合法豁免"
+        f"（上市首日 pre_close NULL / 注册制新股前 5 交易日不派生行）；"
+        f"fail loudly 不静默 fail-open。")
+
+
+def _as_list_date(value) -> datetime.date | None:
+    """stock_basic.list_date 归一（duckdb 'YYYYMMDD' str / ch Date）。"""
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+    if isinstance(value, str) and len(value) >= 8 and value[:8].isdigit():
+        return datetime.date(int(value[:4]), int(value[4:6]), int(value[6:8]))
+    return None
+
+
+def _new_listing_exempt_codes(rd: ReadPort,
+                              execution_date: datetime.date) -> set[str]:
+    """近似豁免（R01-TOOLS-I5 补）：list_date 落在 D 前 5 个交易日内的 code。
+
+    注册制新股上市前 5 交易日无涨跌幅（生产者不派生行，见 derive_stk_limit
+    制度边界）。stock_basic 缺表/缺列 → 空集（不豁免）；近似放宽只减小分母
+    （非注册制新股也被豁免），不产生假阳性。
+    """
+    if "stock_basic" not in rd.tables():
+        return set()
+    cols = rd.columns("stock_basic")
+    if "list_date" not in cols or "ts_code" not in cols:
+        return set()
+    if rd.backend == "duckdb":
+        rows = rd.query_rows("SELECT ts_code, list_date FROM stock_basic")
+    else:
+        rows = rd.query_rows(
+            f"SELECT ts_code, list_date FROM {settings.ch_database}.stock_basic")
+    cal = trading_calendar(rd, date_end=execution_date.isoformat()).to_list()
+    if not cal:
+        return set()
+    cutoff = cal[-5] if len(cal) >= 5 else cal[0]
+    exempt: set[str] = set()
+    for ts_code, raw in rows:
+        d = _as_list_date(raw)
+        if d is not None and d >= cutoff:
+            exempt.add(ts_code)
+    return exempt
+
 # --------------------------------------------------------------------------
 # 编译对：market evidence 三查询（duckdb SQL 逐字同迁移前）
 # --------------------------------------------------------------------------
 
-def _gates_duckdb(rd: ReadPort, d: str) -> tuple[int, int]:
-    """全市场 coverage（trade_cal 开市 ≠ 数据可用）。"""
-    gd = rd.query_rows("SELECT COUNT(*) FROM daily WHERE trade_date = ?", [d])[0][0]
-    gl = rd.query_rows("SELECT COUNT(*) FROM stk_limit WHERE trade_date = ?", [d])[0][0]
-    return gd, gl
+def _gates_duckdb(rd: ReadPort, d: str) -> tuple[int, int, int, int]:
+    """全市场 coverage（trade_cal 开市 ≠ 数据可用）+ 应有涨跌停/覆盖计数。"""
+    row = rd.query_rows(
+        "SELECT "
+        "(SELECT COUNT(*) FROM daily WHERE trade_date = ?),"
+        "(SELECT COUNT(*) FROM stk_limit WHERE trade_date = ?),"
+        "(SELECT COUNT(DISTINCT ts_code) FROM daily"
+        " WHERE trade_date = ? AND pre_close IS NOT NULL),"
+        "(SELECT COUNT(DISTINCT ts_code) FROM daily"
+        " WHERE trade_date = ? AND pre_close IS NOT NULL"
+        "   AND ts_code IN (SELECT ts_code FROM stk_limit WHERE trade_date = ?))",
+        [d, d, d, d, d])[0]
+    return tuple(int(v) for v in row)
 
 
-def _gates_ch(rd: ReadPort, d: str) -> tuple[int, int]:
-    """coverage ch 版：Date 主键 toDate 过滤。"""
+def _gates_ch(rd: ReadPort, d: str) -> tuple[int, int, int, int]:
+    """coverage ch 版：Date 主键 toDate 过滤 + 应有涨跌停/覆盖计数。"""
     db = settings.ch_database
-    gd = rd.query_rows(
-        f"SELECT count() FROM {db}.daily WHERE trade_date = toDate(%(d)s)",
-        {"d": d})[0][0]
-    gl = rd.query_rows(
-        f"SELECT count() FROM {db}.stk_limit WHERE trade_date = toDate(%(d)s)",
-        {"d": d})[0][0]
-    return gd, gl
+    row = rd.query_rows(
+        f"SELECT "
+        f"(SELECT count() FROM {db}.daily WHERE trade_date = toDate(%(d)s)),"
+        f"(SELECT count() FROM {db}.stk_limit WHERE trade_date = toDate(%(d)s)),"
+        f"(SELECT count(DISTINCT ts_code) FROM {db}.daily"
+        f" WHERE trade_date = toDate(%(d)s) AND pre_close IS NOT NULL),"
+        f"(SELECT count(DISTINCT ts_code) FROM {db}.daily"
+        f" WHERE trade_date = toDate(%(d)s) AND pre_close IS NOT NULL"
+        f"   AND ts_code IN (SELECT ts_code FROM {db}.stk_limit"
+        f"                   WHERE trade_date = toDate(%(d)s)))",
+        {"d": d})[0]
+    return tuple(int(v) for v in row)
 
 
 _GATES_IMPL = {"duckdb": _gates_duckdb, "ch": _gates_ch}
+
+
+def _coverage_members_duckdb(rd: ReadPort, d: str) -> tuple[set[str], set[str]]:
+    expected = {r[0] for r in rd.query_rows(
+        "SELECT DISTINCT ts_code FROM daily"
+        " WHERE trade_date = ? AND pre_close IS NOT NULL", [d])}
+    limits = {r[0] for r in rd.query_rows(
+        "SELECT DISTINCT ts_code FROM stk_limit WHERE trade_date = ?", [d])}
+    return expected, limits
+
+
+def _coverage_members_ch(rd: ReadPort, d: str) -> tuple[set[str], set[str]]:
+    db = settings.ch_database
+    expected = {r[0] for r in rd.query_rows(
+        f"SELECT DISTINCT ts_code FROM {db}.daily"
+        f" WHERE trade_date = toDate(%(d)s) AND pre_close IS NOT NULL", {"d": d})}
+    limits = {r[0] for r in rd.query_rows(
+        f"SELECT DISTINCT ts_code FROM {db}.stk_limit"
+        f" WHERE trade_date = toDate(%(d)s)", {"d": d})}
+    return expected, limits
+
+
+_COVERAGE_MEMBERS_IMPL = {"duckdb": _coverage_members_duckdb,
+                          "ch": _coverage_members_ch}
 
 
 def _market_rows_duckdb(rd: ReadPort, d: str, codes: list[str]) -> tuple[list, list, list]:
@@ -239,7 +358,7 @@ def load_market_open_frame(
 
     d = execution_date.strftime("%Y%m%d")
     # ---- coverage gates（calendar truth ≠ data availability）----
-    global_daily, global_limit = _GATES_IMPL[rd.backend](rd, d)
+    global_daily, global_limit, expected, covered = _GATES_IMPL[rd.backend](rd, d)
     if global_daily == 0:
         raise ValueError(
             f"execution date {execution_date} outside available daily "
@@ -249,6 +368,18 @@ def load_market_open_frame(
         raise ValueError(
             f"execution date {execution_date} stk_limit coverage 0 行"
             f"（limit evidence 无当天覆盖——fail）")
+    # R01-TOOLS-I5 补：覆盖率兜底——当日应有涨跌停的证券覆盖率异常低（生产
+    # 漏派生）→ 明细复核（剔除上市前 5 交易日近似豁免后仍低）→ fail loudly。
+    # 单证券缺行仍是合法无限制（fillability fail-open，语义不变）。
+    if (execution_date >= _STK_LIMIT_MIN_DATE
+            and expected >= STK_LIMIT_COVERAGE_MIN_SAMPLE
+            and covered / expected < STK_LIMIT_COVERAGE_MIN_COVERAGE):
+        daily_codes, limit_codes = _COVERAGE_MEMBERS_IMPL[rd.backend](rd, d)
+        exempt = _new_listing_exempt_codes(rd, execution_date)
+        violation = stk_limit_coverage_violation(
+            daily_codes, limit_codes, exempt_codes=exempt)
+        if violation:
+            raise ValueError(f"execution date {execution_date}: {violation}")
 
     # ---- daily/stk_limit/suspend_d（duplicate fail 在行处理处）----
     daily_rows, limit_rows, raw_events = _MARKET_ROWS_IMPL[rd.backend](rd, d, codes)
