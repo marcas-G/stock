@@ -64,6 +64,12 @@ G_READ_ALLOWED = {
         "daily_fact 是灌入的**输入源**（生产者视角），路径已取 factio.paths 单点",
     ("research/tools/ch_ingest/reconcile.py", "_reconcile", "DAILY_SRC"):
         "同上：对账取源行数",
+    ("research/tools/ch_ingest/reconcile.py", "_source_event_count", "DAILY_SRC"):
+        "R21 I7：派生表 adj_event 对账的源事件谓词复算（只扫事件 4 列）",
+    ("research/tools/ch_ingest/reconcile.py", "_source_date_range", "DAILY_SRC"):
+        "R21 I7：daily/adj_detail 日期范围对账（只扫 trade_date 一列）",
+    ("research/tools/ch_ingest/ingest_daily.py", "load_delisted_sidecar", "p"):
+        "R21 delist_date：A5 伴生 sidecar（自产元数据，非事实表分区）",
     ("research/tools/1m_features/panel_io.py", "_load_daily_slice", "daily_path"):
         "日线注入列小切片（INJ_COLS 5 列），非逐笔事实表；R15 拆分后从 run_1m_feature.py 迁来",
     ("research/tools/1m_features/run_1m_feature.py", "cmd_merge", "p"):
@@ -71,8 +77,8 @@ G_READ_ALLOWED = {
     # ── R19 收编的 ashare_ingest（数据侧）：6 处，逐条理由 ────────────────────────
     ("research/tools/ashare_ingest/check_inputs.py", "main", "path"):
         "入口自检：三资产只取 head(20) 校验列契约，不是数据路径消费",
-    ("research/tools/ashare_ingest/import_daily.py", "main", "p"):
-        "自有分片合并（<工具>/_staging/daily_tmp 内自产中间文件）",
+    ("research/tools/ashare_ingest/import_daily.py", "_merge_code", "p"):
+        "自有分片合并（<工具>/_staging/daily_tmp 内自产中间文件；R21 从 main 抽函数）",
     ("research/tools/ashare_ingest/import_fundamentals.py", "main", "daily_path"):
         "daily_fact 是基本面生产者的**输入源**（生产者视角），路径已取 factio.paths 单点",
     ("research/tools/ashare_ingest/import_fundamentals.py", "main", "a.fin_parquet"):
