@@ -886,11 +886,18 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
 - `direction` 原样透传为 int（`0` 实测按 `-1` 处理，属 quant_core 内部语义，桥接层
   不校验）。
 
-### `factorlab.core.eval.layered.layered_backtest(panel, direction, n_groups=10, forward_col="forward_return_5d") -> dict`
+### `factorlab.core.eval.layered.layered_backtest(panel, direction, n_groups=10, forward_col="forward_return_5d", cost_rate=0.0) -> dict`
 
 分层回测：每期按 signal 分档，各档 forward 等权平均累积净值；long-short = 最佳档 −
 最差档净值差。输入**周频面板**（date/code/signal/forward_return_5d，即
-`align_weekly` 输出）；**不建模调仓成本**（无 `cost` 形参，见 `docs/pending-items.md` #15）。
+`align_weekly` 输出）。**调仓成本**（R9 起建模，可验证口径）：
+
+- `cost_rate` = 每单位**单边换手**的买卖总成本（费率语义；如 A 股约 0.0007 = 0.1% 印花税
+  + 双边佣金 0.005%×2 + 少量冲击，**由调用方给**，默认 0.0 = 与历史零成本结果逐值一致）；
+- 每期净收益 `net_t = gross_t − cost_rate × turnover_t`；`turnover_t = 1 − |S_t∩S_{t−1}|/|S_t|`
+  （等权、忽略漂移；首期 0、档空期 0）；
+- 返回值新增 `cost_rate` 与 `turnover`（各档逐期序列，`long_short` = 两腿之和）——成本可审计，
+  不是黑箱；**spec 级接线（把费率写进因子/策略 spec）待费率口径的研究决策后再做**。
 
 语义：
 
@@ -1189,6 +1196,20 @@ snapshots 共 ~14B 行）；duckdb 平台文件无 intraday 表 → duckdb 后�
 `datetime` 统一 **naive Asia/Shanghai 墙钟 ms**（stored epoch = 源 wall；
 arrow 读回带服务器 tz → `convert_time_zone("UTC")` 后剥）。空结果（当日无数据）
 返回同投影空 frame 不抛。生产真数据 e2e 见 tests/test_intraday_prod_e2e.py。
+
+### `factorlab.adapters.batch_flock.BatchFlock().run(tasks, worker, *, workers=1, stall_s=None, lock_path=None, state_path=None, success_marker=None) -> BatchReport`（R9）
+
+P-5 批算编排真实现（`factorlab.ports.batch.BatchOrchestrator`；`Task(key, payload)` / `Result(key, status, metrics, error)` / `BatchReport(done, failed, skipped, results)` 在端口模块定义）：
+
+- **失败记账不中断**：单元异常 → `Result(status="failed", error="<类型>: <消息>")`，其余照跑；
+- **断点**：`state_path`（JSON，`{"done": [...]}` 与裸列表两种历史形态都读）里的 key 直接 `skipped`；
+  每完成一个就原子写回（tmp+fsync+replace+目录 fsync）并**保留既有 key**；
+- **单写者**：`lock_path` 被占 → `BatchLocked`，且**一个任务都不跑**（调用方惯例退出码 3）；
+- **停滞看门狗**：`stall_s` 秒内无任何完成 → 在飞单元记为 `failed("stall: …")` 并**立即**返回，
+  在跑的子进程 SIGKILL 回收（不挂死、不静默吞任务）；
+- **`_SUCCESS`**：仅当 `failed == 0`（空批视为无失败）才落 `success_marker` 空文件，有失败**不落**。
+
+`worker` 会在子进程里执行 → 必须是**模块级可 pickle** 的函数，且应自己落盘（只回传小字典作 metrics）。
 
 ## 4.1 Domain contracts（M6-01）
 

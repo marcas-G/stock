@@ -22,6 +22,33 @@ def _group_assign(panel: pl.DataFrame, n_groups: int, direction: int) -> pl.Data
     )
 
 
+def _turnover_series(df: pl.DataFrame, n_groups: int, dates: list) -> dict[str, list[float]]:
+    """各档逐期**单边换手**：`1 − |S_t ∩ S_{t−1}| / |S_t|`（等权、忽略持仓漂移）。
+
+    口径（与净值语义对齐，写入 interface.md）：
+    - 首期无上一期持仓 → 0（不凭空收费）；
+    - **档空期不建仓也不平仓**（与"档空期 0 收益、净值保持"同源）→ 记 0，且不作为下一期的
+      "上一期持仓"；
+    - 成员集合按 `code` 取交并，等权组合下 1 − 重合率即为被替换掉的比例。
+    """
+    members = df.group_by(["date", "_group"]).agg(pl.col("code").sort().alias("_codes"))
+    have = {(d, g): set(codes) for d, g, codes in members.iter_rows()}
+    out: dict[str, list[float]] = {}
+    for g in range(n_groups):
+        prev: set | None = None
+        series: list[float] = []
+        for d in dates:
+            cur = have.get((d, g))
+            if not cur:
+                series.append(0.0)
+                prev = None
+                continue
+            series.append(0.0 if prev is None else 1.0 - len(cur & prev) / len(cur))
+            prev = cur
+        out[f"D{g + 1}"] = series
+    return out
+
+
 def _summary_metrics(net_values: pl.Series, returns: pl.Series) -> dict:
     """净值序列摘要：年化收益/波动/夏普/最大回撤/胜率。"""
     if len(returns) == 0:
@@ -52,11 +79,17 @@ def layered_backtest(
     direction: int,
     n_groups: int = 10,
     forward_col: str = "forward_return_5d",
+    cost_rate: float = 0.0,
 ) -> dict:
     """分层回测：每期按 signal 分档，各档 forward 等权平均累积净值；long-short = D1 - D10。
 
-    输入周频面板（date/code/signal/forward_col）。**不建模调仓成本**（原 `cost` 形参是
-    静默 no-op，R8 删除；成本建模见 `docs/pending-items.md` #15）。
+    输入周频面板（date/code/signal/forward_col）。**调仓成本**按可验证口径建模（R9）：
+
+    - `cost_rate` = 每单位**单边换手**的买卖总成本（费率语义，例：A 股单边约 0.0007 ≈
+      0.1% 印花税 + 双边佣金 0.005%×2 + 少量冲击，按公开费率估算，实际由调用方给）；
+    - 每期净收益 `net_t = gross_t − cost_rate × turnover_t`，`turnover_t` 见
+      `_turnover_series`（首期 0、档空期 0、等权 1 − 重合率）；
+    - 默认 0.0 = 与历史"零成本"结果**逐值一致**；换手序列与费率一并写入返回值（可审计）。
 
     语义：
     - direction=1 时 D1 = signal 最高档，direction=-1 时 D1 = signal 最低档（rank 方向控制）。
@@ -82,12 +115,15 @@ def layered_backtest(
     ).sort(["date", "_group"])
 
     dates = sorted(df["date"].unique().to_list())
+    turnover = _turnover_series(df, n_groups, dates)     # R9：成本建模依据（逐期披露）
     net_values: dict[str, list[float]] = {}
     returns_by_group: dict[str, list[float]] = {}
     for g in range(n_groups):
         gdf = group_ret.filter(pl.col("_group") == g)
         rets = gdf.join(pl.DataFrame({"date": dates}), on="date", how="right")["_ret"]
         rets = rets.fill_null(0.0)  # 档空期视为 0 收益（净值保持）
+        if cost_rate:
+            rets = rets - pl.Series(turnover[f"D{g + 1}"]) * cost_rate
         nv = (1.0 + rets).cum_prod().to_list()
         label = f"D{g + 1}"
         net_values[label] = [round(v, 8) for v in nv]
@@ -98,6 +134,10 @@ def layered_backtest(
     net_values["long_short"] = [round(a - b, 8) for a, b in zip(d1, d10)]
     ls_returns = [round(a - b, 8) for a, b in zip(
         returns_by_group["D1"], returns_by_group[f"D{n_groups}"])]
+    # long-short 两腿各换一侧 → 换手相加（**不是相减**：差值序列的换手没有"差"的语义）；
+    # 成本已隐含在两腿各自的净值里（long_short = 两腿净值的差）。
+    turnover["long_short"] = [round(a + b, 8) for a, b in zip(
+        turnover["D1"], turnover[f"D{n_groups}"])]
 
     summary: dict[str, dict] = {}
     for label in list(net_values):
@@ -119,4 +159,6 @@ def layered_backtest(
         "summary": summary,
         "dates": [str(d) for d in dates],
         "empty_groups": empty_groups,
+        "cost_rate": float(cost_rate),      # 成本口径披露（R9）
+        "turnover": turnover,
     }

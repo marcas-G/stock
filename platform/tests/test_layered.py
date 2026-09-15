@@ -161,3 +161,78 @@ def test_layered_backtest_default_forward_col_is_5d():
     result = layered_backtest(_dual_panel_single_week(), direction=1, n_groups=2)
     assert result["net_values"]["D1"][-1] == 1.02
     assert result["net_values"]["D2"][-1] == 1.01
+
+
+# ── 调仓成本（R9：#15。原 `cost` 形参是**静默 no-op**，删除后按可验证口径重做）──
+def test_cost_default_is_noop_but_discloses_turnover():
+    """默认 `cost_rate=0.0` 必须与不带该参数逐值一致；换手序列仍然披露（可审计）。"""
+    base = layered_backtest(_weekly_panel(weeks=4, wiggle=0.001), direction=1)
+    zero = layered_backtest(_weekly_panel(weeks=4, wiggle=0.001), direction=1,
+                            cost_rate=0.0)
+    assert zero["net_values"] == base["net_values"]
+    assert zero["summary"] == base["summary"]
+    assert zero["cost_rate"] == 0.0
+    assert set(zero["turnover"]) >= {"D1", "D10", "long_short"}
+    assert len(zero["turnover"]["D1"]) == zero["periods"]
+
+
+def test_cost_is_zero_when_membership_never_changes():
+    """每周同码同 signal → 分档成员不变 → 换手 0 → 费率再大也不扣钱。"""
+    panel = _weekly_panel(weeks=4, wiggle=0.001)
+    free = layered_backtest(panel, direction=1)
+    costed = layered_backtest(panel, direction=1, cost_rate=0.01)
+    assert costed["turnover"]["D1"] == [0.0] * 4
+    assert costed["net_values"] == free["net_values"]
+
+
+def test_cost_charges_exactly_rate_times_turnover():
+    """成员整组轮换（换手=1）→ 每期净收益 = 毛收益 − 费率；首期无上一期 → 不收费。"""
+    import datetime as _dt
+    rows = []
+    for w, codes in enumerate([("A1", "A2"), ("B1", "B2"), ("C1", "C2")]):
+        for i, c in enumerate(codes):
+            rows.append({"date": _dt.date(2024, 1, 5) + _dt.timedelta(weeks=w),
+                         "code": c, "signal": 1.0 - i * 0.1,
+                         "forward_return_5d": 0.02})
+    panel = pl.DataFrame(rows)
+    free = layered_backtest(panel, direction=1, n_groups=1)
+    costed = layered_backtest(panel, direction=1, n_groups=1, cost_rate=0.002)
+    assert costed["turnover"]["D1"] == [0.0, 1.0, 1.0]
+    # n_groups=1 → D1 与 D10 是同一档 → long_short 两腿换手相加 = 2.0；差值序列的
+    # long_short 净值恒 0（同档相减），成本不影响它
+    assert costed["turnover"]["long_short"] == [0.0, 2.0, 2.0]
+    assert free["net_values"]["D1"] == pytest.approx([1.02, 1.02 ** 2, 1.02 ** 3])
+    assert costed["net_values"]["D1"] == pytest.approx(
+        [1.02, 1.02 * 1.018, 1.02 * 1.018 * 1.018])
+    # 成本只减不增（存根忽略 cost_rate 就会在这里失败）
+    assert costed["summary"]["D1"]["annual_return"] < free["summary"]["D1"]["annual_return"]
+
+
+def test_cost_is_monotone_in_rate():
+    """费率越大净值越低——**必须在有换手的面板上测**：静态面板换手=0，费率不起作用。"""
+    import datetime as _dt
+    rows = []
+    for w in range(6):
+        for i, c in enumerate((f"{w}A", f"{w}B")):     # 每周整组轮换 → 换手=1
+            rows.append({"date": _dt.date(2024, 1, 5) + _dt.timedelta(weeks=w),
+                         "code": c, "signal": 1.0 - i * 0.1,
+                         "forward_return_5d": 0.02})
+    panel = pl.DataFrame(rows)
+    nv = [layered_backtest(panel, direction=1, n_groups=1, cost_rate=r)
+          ["net_values"]["D1"][-1] for r in (0.0, 0.001, 0.005)]
+    assert nv[0] > nv[1] > nv[2], nv
+
+
+def test_cost_empty_group_weeks_are_not_charged():
+    """档空期：不建仓也不平仓（与"档空期 0 收益、净值保持"一致）→ 换手记 0。"""
+    import datetime as _dt
+    d0, d1 = _dt.date(2024, 1, 5), _dt.date(2024, 1, 12)
+    panel = pl.DataFrame({
+        "date": [d0, d0, d1, d1],
+        "code": ["A1", "A2", "A1", "A2"],
+        "signal": [1.0, 0.9, 0.5, None],           # d1 只剩一只有效（另一只 signal 空）
+        "forward_return_5d": [0.02, 0.01, 0.03, None],
+    })
+    r = layered_backtest(panel, direction=1, n_groups=2, cost_rate=0.01)
+    assert r["turnover"]["D1"][0] == 0.0           # 首期无上一期
+    assert r["turnover"]["D2"][1] == 0.0           # d1 的 D2 档无人 → 不收费
