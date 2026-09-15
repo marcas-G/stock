@@ -9,7 +9,7 @@ ClickHouse（`127.0.0.1:8123` HTTP——clickhouse-connect 仅支持 HTTP；`190
 |---|---|---|---|
 | daily / adj_factor / daily_basic / trade_cal / stock_basic | `data/fact/daily_fact/daily_fact.parquet`（相对 `stock/`） | 18,162,795 | 单进程，TRUNCATE 幂等 |
 | stk_limit（派生：板块带宽 × pre_close，规则见脚本 docstring） | `factorlab.daily` | 17,889,079 | `derive_stk_limit.py`，TRUNCATE+INSERT 全量 |
-| adj_detail / adj_event（派生：daily_fact 除权 7 列） | `data/fact/daily_fact/daily_fact.parquet`（相对 `stock/`） | 18,162,795 / 57,173 | `ashare_alpha3/scripts/12_ch_adj_backfill.py`，DROP+CREATE 全量 |
+| adj_detail / adj_event（派生：daily_fact 除权 7 列） | `data/fact/daily_fact/daily_fact.parquet`（相对 `stock/`） | 18,162,795 / 57,173 | `ch_ingest/adj_backfill.py`（R19 从 ashare 项目 12 号脚本归位），DROP+CREATE 全量 |
 | bars_1m | `data/fact/bars_1m/year=YYYY/month=MM/` | 1,854,876,240 | 月分区 ×80 |
 | tick_trades / tick_orders / tick_snapshots | `data/fact/tick_fact/{trades,orders,snapshots}/year=YYYY/month=MM/` | 98.6 亿 | 月分区 ×13×3 |
 
@@ -32,7 +32,7 @@ python ingest_tick.py --trades      # 只灌 trades
 
 # 5) 派生表（daily 灌完才可跑）
 python derive_stk_limit.py          # stk_limit（规则见脚本 docstring）
-python ../ashare_alpha3/scripts/12_ch_adj_backfill.py   # adj_detail + adj_event
+python research/tools/ch_ingest/adj_backfill.py   # adj_detail + adj_event（T1）
 
 # 6) 对账（退出码 0=全一致）
 python reconcile.py

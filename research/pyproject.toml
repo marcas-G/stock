@@ -18,6 +18,8 @@ dependencies = [
     "clickhouse-connect>=1.7",  # ch_ingest 灌入/对账
     "pyyaml>=6",  # ch_ingest config.yaml
     "psutil>=7.2",  # 批算资源审计
+    "openpyxl>=3.1",  # ashare_ingest/import_daily（通达信 xlsx 导出解析）
+    "requests>=2.31",  # ashare_ingest/import_index（腾讯 kline 接口）
 ]
 
 [project.optional-dependencies]

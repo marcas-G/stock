@@ -1,0 +1,11 @@
+# ashare_ingest（数据侧）：A5 日线事实 / A10 指数基准 / 基本面 的生产与对账
+#
+# 注意：**事实库路径不在这里**——一律由 `datapaths.py` 经 `factorlab.core.factio.paths`
+# 计算（支持 FACTORLAB_STOCK_ROOT 换根）。本文件只放工具自己的旋钮。
+outputs:
+  staging: null       # xlsx 分片与 duckdb 落盘区（默认 <工具目录>/_staging，不入 git）
+  validation: null    # 对账 JSON 产物（默认 <工具目录>/validation，不入 git）
+
+ingest:
+  workers: 4          # xlsx 解析并发（16GB 目标机的保守值；内存紧张时再降）
+  batch_rows: 400000  # 流式批大小（`import_daily` 合并 / `import_fundamentals`）
