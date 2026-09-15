@@ -61,8 +61,8 @@ G_READ_ALLOWED = {
         "daily_fact 是灌入的**输入源**（生产者视角），路径已取 factio.paths 单点",
     ("research/tools/ch_ingest/reconcile.py", "_reconcile", "DAILY_SRC"):
         "同上：对账取源行数",
-    ("research/tools/1m_features/run_1m_feature.py", "_load_daily_slice", "daily_path"):
-        "日线注入列小切片（INJ_COLS 5 列），非逐笔事实表",
+    ("research/tools/1m_features/panel_io.py", "_load_daily_slice", "daily_path"):
+        "日线注入列小切片（INJ_COLS 5 列），非逐笔事实表；R15 拆分后从 run_1m_feature.py 迁来",
     ("research/tools/1m_features/run_1m_feature.py", "cmd_merge", "p"):
         "自有产物合并（output/month=YYYY-MM/part.parquet）",
 }

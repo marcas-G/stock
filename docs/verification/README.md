@@ -22,6 +22,7 @@
 | `R12/` | **平台侧 results 单点收口**（架构门列出 4 处绕过：correlation/web/cli 直读 + publish 非原子 → 全改经 `results_fs`/`panel_store`） |
 | `R13/` | **原子写单点**（四份实现收成 `adapters/atomicio` + execution_store 补齐；抓回 R12 的产物权限 0600 回归） |
 | `R14/` | **P-5 收口**（契约补 throttle/on_tick/pool_hook 三缝 + 派单改 FIFO；`run_lob_batch` 切换，真数据单日 **sha256 全等**；顺带修好该工具"直接跑不起来"） |
+| `R15/` | **职责拆分**（`ch_ingest` 五职责→三模块+门面、`1m_features` 单体→三模块；第 5 个自建池切 P-5；真 CH 对账全库一致 + check-day `max\|Δ\|=0`） |
 
 > 计划里的 R3（研究侧结构）与 R4（数据接口）在执行中合并为 R4 一批完成（两者动的是同一批文件）。
 
