@@ -9,7 +9,9 @@
 `max_inflight`（在飞上限，worker 慢时流水线化）、`mp_context`（如 `"spawn"`——fork 会
 连父进程的大缓冲一起复制，产量循环必须用 spawn）、`initializer`/`initargs`（worker 预热）、
 `stall_policy`/`stall_strikes`（`fail` 缺省 | `requeue` 退回队列重试）、
-`on_result(task, result_or_exc)`（父进程逐结果回调——"worker 算、父进程写"的数据流）。
+`on_result(task, result_or_exc)`（父进程逐结果回调——"worker 算、父进程写"的数据流）、
+`throttle()`（派单闸门：False 则本轮不派新单）、`on_tick`/`on_tick_s`（周期回调）、
+`pool_hook(pool)`（池创建即回调——审计要读 worker 进程 RSS 时用）。
 **未纳入**：内存低水位派单闸门与周期性审计回调（run_lob_batch 专有，绑 16GB 内存纪律与
 runbook 取证，见 `docs/pending-items.md#14`）。
 """
@@ -57,4 +59,7 @@ class BatchOrchestrator(Protocol):
             max_inflight: int | None = None, mp_context: str | None = None,
             initializer: Callable[..., None] | None = None, initargs: tuple = (),
             stall_policy: str = "fail", stall_strikes: int = 3,
-            on_result: Callable[[Task, Any], None] | None = None) -> BatchReport: ...
+            on_result: Callable[[Task, Any], None] | None = None,
+            throttle: Callable[[], bool] | None = None,
+            on_tick: Callable[[], None] | None = None, on_tick_s: float | None = None,
+            pool_hook: Callable[[Any], None] | None = None) -> BatchReport: ...

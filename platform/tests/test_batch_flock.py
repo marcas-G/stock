@@ -221,3 +221,50 @@ def test_mp_context_spawn_is_supported():
 def test_invalid_mp_context_names_the_error():
     with pytest.raises(ValueError):
         BatchFlock().run([Task(key="a")], _noop, workers=1, mp_context="nope")
+
+
+# ── R14：产量循环专有缝（run_lob_batch 的内存闸门与周期审计）──────────
+def test_throttle_gates_dispatch():
+    """`throttle()` 返回 False → 本轮不再派单（低水位等下一 tick），返回 True 后照派。"""
+    calls = {"n": 0}
+    order: list[str] = []
+
+    def gate():
+        calls["n"] += 1
+        return calls["n"] > 2          # 前两次拒绝派单，之后放行
+
+    rep = BatchFlock().run([Task(key=f"t{i}") for i in range(3)], _noop,
+                           workers=1, throttle=gate,
+                           on_result=lambda t, r: order.append(t.key))
+    assert rep.done == 3, "闸门只是推迟派单，不得丢任务"
+    assert order == ["t0", "t1", "t2"], "派单顺序保持"
+    assert calls["n"] >= 4, "闸门被反复征询（低水位期间每 tick 一次）"
+
+
+def test_on_tick_fires_periodically_while_waiting():
+    """`on_tick`：等结果期间按 `on_tick_s` 周期回调（run_lob_batch 的 rss 审计靠它）。"""
+    ticks: list[float] = []
+    rep = BatchFlock().run([Task(key="slow")], _sleep_long, workers=1,
+                           stall_s=30, on_tick=lambda: ticks.append(time.time()),
+                           on_tick_s=0.2)
+    assert rep.done == 1
+    assert len(ticks) >= 2, f"0.6s 任务 + 0.2s 周期应至少回调 2 次，实测 {len(ticks)}"
+
+
+def _sleep_long(t: Task):
+    time.sleep(0.6)
+    return {"ok": True}
+
+
+def test_throttle_and_on_tick_defaults_keep_old_semantics():
+    rep = BatchFlock().run([Task(key="a")], _noop, workers=1)
+    assert (rep.done, rep.failed, rep.skipped) == (1, 0, 0)
+
+
+def test_pool_hook_exposes_pool_for_observability():
+    """`pool_hook`：池创建即回调（run_lob_batch 的 rss 审计要按 worker pid 读内存）。"""
+    seen: list[object] = []
+    rep = BatchFlock().run([Task(key="a")], _noop, workers=1,
+                           pool_hook=lambda pool: seen.append(pool))
+    assert rep.done == 1
+    assert seen and hasattr(seen[0], "_processes"), "hook 必须拿到真实进程池对象"

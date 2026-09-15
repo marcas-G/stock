@@ -6,6 +6,8 @@
 （它们的热路径需要字节级重跑对照，且各自的 manifest/月门语义不同）。
 
 语义（与 `tests/_doubles.InlineOrchestrator` 对齐，另加只有真实现才有的四条）：
+- **派单按任务序（FIFO）**：与 `InlineOrchestrator` 桩一致（历史工具各自 `pop()` 的 LIFO
+  顺序不影响内容，但会让"任务序"这一直觉契约失效）；
 - **失败记账不中断**：单元异常 → `Result(status="failed")`，其余照跑；
 - **断点**：`state_path` 里的 key 直接 `skipped`，每完成一个就原子写回（**保留既有 key**）；
 - **单写者**：`lock_path` 被占 → `BatchLocked`，且**一个任务都不跑**（不半途进批算）；
@@ -24,6 +26,7 @@ import json
 import os
 import signal
 import tempfile
+import time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from pathlib import Path
 from typing import Any, Callable, Sequence
@@ -82,7 +85,8 @@ class BatchFlock:
     """`ports.batch.BatchOrchestrator` 的真实现（进程池版）。"""
 
     @staticmethod
-    def _pool(workers: int, initializer, initargs, mp_context: str | None = None):
+    def _pool(workers: int, initializer, initargs, mp_context: str | None = None,
+              pool_hook: Callable[[Any], None] | None = None):
         """建进程池。`mp_context="spawn"` 是产量循环的硬要求：**fork 会连父进程已缓冲的
         大表一起复制**（16GB 无页面文件的目标机直接爆），研究侧三份样板都用 spawn。"""
         kw: dict = {}
@@ -92,7 +96,10 @@ class BatchFlock:
         if initializer is not None:
             kw["initializer"] = initializer
             kw["initargs"] = tuple(initargs)
-        return ProcessPoolExecutor(max_workers=workers, **kw)
+        pool = ProcessPoolExecutor(max_workers=workers, **kw)
+        if pool_hook is not None:
+            pool_hook(pool)     # 池（含停滞重建后的新池）一创建就交给调用方观测
+        return pool
 
     @staticmethod
     def _hook(on_result, task: Task, payload) -> str | None:
@@ -114,7 +121,11 @@ class BatchFlock:
             max_inflight: int | None = None, mp_context: str | None = None,
             initializer: Callable[..., None] | None = None, initargs: tuple = (),
             stall_policy: str = "fail", stall_strikes: int = 3,
-            on_result: Callable[[Task, Any], None] | None = None) -> BatchReport:
+            on_result: Callable[[Task, Any], None] | None = None,
+            throttle: Callable[[], bool] | None = None,
+            on_tick: Callable[[], None] | None = None,
+            on_tick_s: float | None = None,
+            pool_hook: Callable[[Any], None] | None = None) -> BatchReport:
         tasks = list(tasks)
         if workers < 1:
             raise ValueError(f"workers 必须 >= 1（收到 {workers}）")
@@ -153,35 +164,59 @@ class BatchFlock:
 
             if pending:
                 queue = list(pending)
+                head = 0                 # FIFO：按任务序派单（与桩一致）
                 strikes = 0
-                ex = self._pool(workers, initializer, initargs, mp_context)
+                ex = self._pool(workers, initializer, initargs, mp_context, pool_hook)
                 stalled = False
                 try:
                     futs: dict = {}
+                    last_tick = time.monotonic()
+                    last_act = time.monotonic()
                     while futs or queue:
-                        while queue and len(futs) < inflight:
-                            i = queue.pop()
+                        while head < len(queue) and len(futs) < inflight:
+                            if throttle is not None and not throttle():
+                                break       # 资源低水位：本轮不派新单，等下一 tick
+                            i = queue[head]
+                            head += 1
                             futs[ex.submit(worker, tasks[i])] = i
+                        if on_tick is not None and on_tick_s is not None:
+                            if time.monotonic() - last_tick >= on_tick_s:
+                                on_tick()
+                                last_tick = time.monotonic()
                         if not futs:
-                            break
-                        done_futs, _ = wait(futs, timeout=stall_s,
+                            if head >= len(queue):
+                                break
+                            # 无处可等（闸门挡住派单）：睡一个 tick 再试
+                            time.sleep(min(on_tick_s or 1.0, 5.0))
+                            continue
+                        timeout = stall_s
+                        if on_tick is not None and on_tick_s is not None:
+                            left = on_tick_s - (time.monotonic() - last_tick)
+                            timeout = min(timeout, max(left, 0.05)) if timeout \
+                                else left
+                        done_futs, _ = wait(futs, timeout=timeout,
                                             return_when=FIRST_COMPLETED)
-                        if not done_futs:
+                        # 停滞以**距上次完成的时间**判定：周期回调会把单次 wait 超时切短，
+                        # 按"这一次没等到"判停滞会误报（R14 实测：0.2s tick 立刻触发 strikes）。
+                        if done_futs:
+                            last_act = time.monotonic()
+                        if not done_futs and (stall_s is None
+                                              or time.monotonic() - last_act >= stall_s):
                             strikes += 1
                             if stall_policy == "requeue" and strikes < stall_strikes:
                                 # 停滞：退回队列重试（三份产量循环的语义）
                                 print(f"STALL: {stall_s}s 无完成 → 清理 worker 重试 "
                                       f"（第 {strikes}/{stall_strikes} 次，"
-                                      f"in-flight={len(futs)} queue={len(queue)}）", flush=True)
-                                queue.extend(futs.values())
+                                      f"in-flight={len(futs)} queue={len(queue) - head}）", flush=True)
+                                queue.extend(futs.values())   # 在飞单元退回队尾（FIFO）
                                 futs = {}
                                 ex.shutdown(wait=False, cancel_futures=True)
                                 _kill_workers(ex)
-                                ex = self._pool(workers, initializer, initargs, mp_context)
+                                ex = self._pool(workers, initializer, initargs, mp_context, pool_hook)
                                 continue
                             # 放弃：在飞单元全部记账为 stalled 并**立即**收敛返回（不挂死）
                             stalled = True
-                            n_left = len(futs) + len(queue)
+                            n_left = len(futs) + (len(queue) - head)
                             for fu, i in list(futs.items()):
                                 results[i] = Result(
                                     key=tasks[i].key, status="failed",
@@ -189,7 +224,7 @@ class BatchFlock:
                                           f"（strikes={strikes}，放弃 {n_left} 个单元）")
                                 report.failed += 1
                                 fu.cancel()
-                            for i in queue:
+                            for i in queue[head:]:
                                 results[i] = Result(
                                     key=tasks[i].key, status="failed",
                                     error=f"stall: 前序单元停滞放弃（strikes={strikes}）")

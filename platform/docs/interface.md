@@ -1245,11 +1245,11 @@ P-5 批算编排真实现（`factorlab.ports.batch.BatchOrchestrator`；`Task(ke
 如载入只读 manifest）、`stall_policy`/`stall_strikes`（`"fail"` 缺省 | `"requeue"` 把在飞单元
 退回队列重试）、`on_result(task, result_or_exc)`（父进程**逐结果回调**，按完成顺序；失败传异常；
 回调自身抛错 → 该单元记 failed。**"worker 算、父进程写"的数据流靠它**，否则只能把整张表塞进
-`metrics`）。协议参数名与真实现的漂移由 `tests/test_ports_contract.py` 的签名比对守住。
+`metrics`）。**R14 再补三条产量循环专有缝**：`throttle()`（派单闸门：返回 False 则本轮不派新单——16GB 目标机按 `MemAvailable` 低水位派单）、`on_tick`/`on_tick_s`（等结果期间的周期回调——runbook 的 rss/内存审计）、`pool_hook(pool)`（池一创建即回调，含停滞重建后的新池——审计要按 worker pid 读 RSS 时据此拿到池）。派单为 **FIFO（任务序）**，与契约桩一致；停滞判定按"距上次完成的时间"（周期回调会切短单次等待，按次判定会误报）。协议参数名与真实现的漂移由 `tests/test_ports_contract.py` 的签名比对守住。
 
-已采用：`converters/convert_tick_to_parquet` 与 `lob_fact/extract_sz_cancels`（R10，真实数据
-切换前后**内容逐值等价**）；`run_lob_batch` 仍保留自有循环——它额外需要**内存低水位派单闸门**
-与**周期性审计回调**（绑 16GB 内存纪律与 runbook 取证），属未纳入的专有面（见 `docs/pending-items.md#14`）。
+已采用（**三份编排样板全部切换**）：`converters/convert_tick_to_parquet`、
+`lob_fact/extract_sz_cancels`（R10）、`lob_fact/pipeline/run_lob_batch`（R14）——切换前后
+真实数据**内容逐值等价**（详见 `docs/verification/R10/`、`R14/`）。
 
 ## 4.1 Domain contracts（M6-01）
 
