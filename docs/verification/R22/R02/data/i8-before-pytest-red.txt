@@ -1,0 +1,21 @@
+R02-I8 RED：新测试在修复前源码（HEAD e60d2b2）上失败 —— 5 failed / 17 passed
+==============================================================================
+命令：
+  cp <worktree>/tests/test_artifact_persistence.py <worktree>/tests/conftest.py \
+     /tmp/opencode/r22-c2-before/platform/tests/
+  cd /tmp/opencode/r22-c2-before/platform
+  PYTHONPATH=src /data/students/gaolei/stock/platform/.venv/bin/python -m pytest -q \
+     tests/test_artifact_persistence.py
+
+  FAILED test_manifest_records_content_hash
+  FAILED test_signal_content_hash_mismatch_rejected
+  FAILED test_failed_overwrite_never_hybrid_loadable
+  FAILED test_concurrent_run_write_fails_fast
+  FAILED test_successful_overwrite_removes_tombstone
+5 failed, 17 passed in 9.72s
+
+关键形态：
+- test_signal_content_hash_mismatch_rejected：同形状篡改后 load_signal_artifact
+  不抛错（静默加载外来内容）；
+- test_failed_overwrite_never_hybrid_loadable：崩溃后 SUMMARY_FILE 仍存在且
+  load 成功（新旧混合可加载）。

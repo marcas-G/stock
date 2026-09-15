@@ -1,0 +1,22 @@
+R02-I8 复现（修复前）：run 产物落盘无锁 + 崩溃窗口混合 artifact + 同形状篡改静默加载
+======================================================================================
+源码：/tmp/opencode/r22-c2-before/platform（git archive e60d2b2 platform/src；
+parquet_artifacts 与本轮修复前一致）
+命令：
+  PLATFORM_ROOT=/tmp/opencode/r22-c2-before/platform \
+    /data/students/gaolei/stock/platform/.venv/bin/python \
+    docs/verification/R22/R02/data/probe_i8_publish_race.py
+
+输出：
+[hybrid] B crashed: simulated crash at labels write
+[hybrid] summary.json exists=True tombstone exists=False
+[hybrid] load_signal OK -> signal.max=-10.0 （>0 = A 的 manifest + B 的 signal 混合）
+[hybrid] load_labels OK (rows=20)
+[concurrent] second run OK（无锁——可交叉覆盖）
+[tamper] load_signal OK -> signal.max=0.0（静默混合）
+
+判读：
+- hybrid：run B 在 signal 落盘后、labels 前崩溃 → 旧 summary.json 未失效，
+  loader 读到 B 的 signal（负值）配 A 的 summary/labels（行列表相同）——静默混合可加载；
+- concurrent：外部持"锁"（修复前无锁语义）第二个 run 照常覆盖；
+- tamper：signal.parquet 被同形状外来内容替换 → loader 静默加载零值。

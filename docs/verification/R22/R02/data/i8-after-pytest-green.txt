@@ -1,0 +1,8 @@
+R02-I8 GREEN：修复后 tests/test_artifact_persistence.py 22 passed
+==================================================================
+命令：
+  cd /data/students/gaolei/stock/platform
+  .venv/bin/python -m pytest -q tests/test_artifact_persistence.py
+
+......................                                                   [100%]
+22 passed in 9.19s

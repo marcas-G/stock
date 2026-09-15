@@ -1,0 +1,22 @@
+R02-I8 复现（修复后）：单写者锁 + manifest 先失效 + sha256 交叉校验
+====================================================================
+命令：
+  PLATFORM_ROOT=/data/students/gaolei/stock/platform \
+    /data/students/gaolei/stock/platform/.venv/bin/python \
+    docs/verification/R22/R02/data/probe_i8_publish_race.py
+
+修复：write_factor_artifacts / write_multi_output_factor_artifacts 落盘接
+output_dir flock（非阻塞，占用 → ArtifactWriteLocked fail fast）；旧 summary.json
+在任何 core 文件写入前 rename 为 summary.json.stale（tombstone）；每 artifact 条目
+写内容 sha256；loader 复核 manifest sha256 与磁盘一致。
+
+输出：
+[hybrid] B crashed: simulated crash at labels write
+[hybrid] summary.json exists=False tombstone exists=True
+[hybrid] load_signal RAISED: summary.json 不存在: /tmp/opencode/r22-i8-probe/hybrid
+[hybrid] load_labels RAISED: summary.json 不存在: /tmp/opencode/r22-i8-probe/hybrid
+[concurrent] second run RAISED: output_dir 已有 factorlab run 在落盘（单写者锁被占）: /tmp/opencode/r22-i8-probe/concurrent——
+[tamper] load_signal RAISED: signal 内容 sha256 与 manifest 不一致：manifest=1eebe5ace0ba… 磁盘=74df0bcbe83e…——禁止加载「ma
+
+判读：崩溃窗口（signal 后 labels 前）不再可加载（manifest 缺失 = incomplete，
+tombstone 可见）；并发第二个 run fail fast；同形状篡改被 sha256 交叉校验拒绝。
