@@ -31,6 +31,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 import polars as pl
 
@@ -45,7 +46,9 @@ from factorlab.core.execution.costs import compute_execution_cost
 from factorlab.app.backtest.rules import (is_valid_buy_quantity,
                                        is_valid_sell_quantity,
                                        project_buy_quantity)
-from factorlab.core.execution.spec import ExecutionCostSpec
+from factorlab.core.execution.minute_window import (MinuteBar, MinuteFill,
+                                                simulate_window)
+from factorlab.core.execution.spec import ExecutionCostSpec, MinuteWindowSpec
 
 _EMPTY_FILLS = pl.DataFrame(
     {"code": pl.Series([], dtype=pl.String),
@@ -316,3 +319,310 @@ def realize_open_fills(
                      execution_date=orders.execution_date,
                      execution_timing=orders.execution_timing,
                      frame=frame)
+
+
+# ================================================================
+# R22：NEXT_WINDOW 窗口成交（realize_window_fills）
+# ================================================================
+
+_EMPTY_WINDOW_DETAIL = pl.DataFrame(
+    {"code": pl.Series([], dtype=pl.String),
+     "side": pl.Series([], dtype=pl.String),
+     "minute_index": pl.Series([], dtype=pl.Int64),
+     "quantity": pl.Series([], dtype=pl.Int64),
+     "price": pl.Series([], dtype=pl.Float64),
+     "fell_back": pl.Series([], dtype=pl.Boolean)})
+
+_WINDOW_MINUTE_COLS = ("code", "minute_index", "open", "high", "low", "close",
+                       "volume", "amount")
+
+
+@dataclass(frozen=True)
+class WindowRealizedResult:
+    """窗口成交结果：既有 FillBatch 契约 + 未成交明细 + 分钟级成交明细。
+
+    - fill_batch：每 code 一行（aggregate：filled = Σ 分钟成交，reference_price
+      = 分钟成交价加权平均，成本经 compute_execution_cost 一次聚合——与
+      NEXT_OPEN 的「每订单一行」一致）
+    - unfilled：{code: 未成交数量}（只含 >0 的 code；市场/现金/封板原因合并在
+      数量中，原因 authority 在 assessment/minutes）
+    - detail：分钟级成交（code/side/minute_index/quantity/price/fell_back；
+      price 为引擎口径价（滑点前），FillBatch.reference_price 为其加权平均）
+    """
+
+    fill_batch: FillBatch
+    unfilled: dict
+    detail: pl.DataFrame
+
+
+def _minute_bars(minute_frame: pl.DataFrame) -> dict[str, dict[int, MinuteBar]]:
+    """9 列分钟 frame → {code: {minute_index: MinuteBar}}（契约校验 fail fast）。"""
+    missing = [c for c in _WINDOW_MINUTE_COLS if c not in minute_frame.columns]
+    if missing:
+        raise ValueError(
+            f"minute_frame 缺列 {missing}（期望 {list(_WINDOW_MINUTE_COLS)}）"
+            f"——契约违约")
+    out: dict[str, dict[int, MinuteBar]] = {}
+    for r in minute_frame.iter_rows(named=True):
+        out.setdefault(r["code"], {})[int(r["minute_index"])] = MinuteBar(
+            minute_index=int(r["minute_index"]), open=r["open"], high=r["high"],
+            low=r["low"], close=r["close"], volume=float(r["volume"]),
+            amount=float(r["amount"]))
+    return out
+
+
+def _scale_minute_fills(fills: list[MinuteFill], scale: float) -> list[MinuteFill]:
+    """按比例缩减分钟成交量（floor；0 量分钟丢弃——现金约束）。"""
+    out: list[MinuteFill] = []
+    for f in fills:
+        q = math.floor(f.quantity * scale)
+        if q > 0:
+            out.append(MinuteFill(minute_index=f.minute_index, quantity=q,
+                                  price=f.price, fell_back=f.fell_back))
+    return out
+
+
+def realize_window_fills(
+    orders: OrderBatch,
+    state: PortfolioState,
+    *,
+    minute_frame: pl.DataFrame,
+    snapshot: MarketOpenSnapshot,
+    spec: MinuteWindowSpec,
+    quantity_rules: SecurityQuantityRules,
+    cost_spec: ExecutionCostSpec,
+) -> WindowRealizedResult:
+    """realize NEXT_WINDOW 分钟窗口成交（见 design.md §2 真实约束）。
+
+    顺序：SELL 先于 BUY（sell proceeds 先入账），逐 code：
+    simulate_window（参与率/触发/封板/兜底）→ 成本（compute_execution_cost，
+    每 code 聚合一次）→ BUY 现金约束（不足按比例缩减分钟量，严格现金 >= 0）。
+
+    Raises:
+        TypeError: 参数类型不匹配
+        ValueError: cross-object/quantity-rule/inventory/slippage-bound/
+          分钟 frame 契约违规
+        ExecutionDataQualityError: has_daily=False（缺可执行价证据，fail fast）
+        RuntimeError: 现金约束迭代破坏 / 期末现金为负（安全网）
+    """
+    if not isinstance(orders, OrderBatch):
+        raise TypeError(f"orders 必须为 OrderBatch（收到 {type(orders).__name__}）")
+    if not isinstance(state, PortfolioState):
+        raise TypeError(
+            f"state 必须为 PortfolioState（收到 {type(state).__name__}）")
+    if not isinstance(snapshot, MarketOpenSnapshot):
+        raise TypeError(
+            f"snapshot 必须为 MarketOpenSnapshot（收到 {type(snapshot).__name__}）")
+    if not isinstance(spec, MinuteWindowSpec):
+        raise TypeError(
+            f"spec 必须为 MinuteWindowSpec（收到 {type(spec).__name__}）")
+    if not isinstance(quantity_rules, SecurityQuantityRules):
+        raise TypeError(
+            f"quantity_rules 必须为 SecurityQuantityRules（收到 "
+            f"{type(quantity_rules).__name__}）")
+    if not isinstance(cost_spec, ExecutionCostSpec):
+        raise TypeError(
+            f"cost_spec 必须为 ExecutionCostSpec（收到 {type(cost_spec).__name__}）")
+    if state.as_of_date != orders.execution_date:
+        raise ValueError(
+            f"state.as_of_date {state.as_of_date} != orders.execution_date "
+            f"{orders.execution_date}")
+    if state.phase is not PortfolioStatePhase.PRE_EXECUTION:
+        raise ValueError(
+            f"state.phase 必须为 PRE_EXECUTION（收到 {state.phase.value}）")
+    if snapshot.execution_date != orders.execution_date:
+        raise ValueError(
+            f"snapshot.execution_date {snapshot.execution_date} != "
+            f"orders.execution_date {orders.execution_date}")
+
+    # ---- snapshot / rules / positions maps ----
+    snap_map: dict[str, tuple] = {}
+    for code, open_, pc, up, dn, has_daily, has_limit, _rec, susp \
+            in snapshot.frame.iter_rows():
+        snap_map[code] = (open_, pc, up, dn, has_daily, has_limit, susp)
+    rule_map: dict[str, QuantityRuleKind] = {}
+    for code, _mkt, rule_str in quantity_rules.frame.iter_rows():
+        rule_map[code] = QuantityRuleKind(rule_str)
+    pos_map: dict[str, tuple[int, int]] = {}
+    for code, qty, sellable in state.positions.iter_rows():
+        pos_map[code] = (qty, sellable)
+
+    bars_map = _minute_bars(minute_frame)
+
+    def _gate(code: str):
+        """日级证据闸门 + 分钟 bars；返回 (bars, up, dn, has_limit) 或 None
+        （suspended 跳过）。"""
+        if code not in snap_map:
+            raise ValueError(
+                f"order code {code} 不在 snapshot 中——cross-object coverage bug")
+        _o, _pc, up, dn, has_daily, has_limit, susp = snap_map[code]
+        if not has_daily:
+            raise ExecutionDataQualityError(
+                f"{code} missing executable price evidence (has_daily=False)"
+                f"——DATA UNKNOWN ≠ TRADE REJECTED，不模拟 no-fill")
+        if susp:
+            return None
+        return (bars_map.get(code, {}),
+                up if has_limit else None, dn if has_limit else None, has_limit)
+
+    # ---- 1. revalidation（quantity-rule / inventory，含全部订单）----
+    for code, side, qty in orders.orders.iter_rows():
+        if code not in rule_map:
+            raise ValueError(f"order code {code} 不在 quantity_rules 中")
+        rule = rule_map[code]
+        if side == "buy":
+            if not is_valid_buy_quantity(rule, qty):
+                raise ValueError(
+                    f"BUY {code} {qty} 未通过 is_valid_buy_quantity（{rule}）")
+        else:
+            if code not in pos_map:
+                raise ValueError(
+                    f"SELL {code} 在 PRE state 无 position——inventory check fail")
+            hold, sellable = pos_map[code]
+            if qty > sellable:
+                raise ValueError(f"SELL {code} {qty} 超出 sellable_quantity {sellable}")
+            if qty > hold:
+                raise ValueError(f"SELL {code} {qty} 超出 holding {hold}")
+            if not is_valid_sell_quantity(rule, holding_quantity=hold,
+                                          sell_quantity=qty):
+                raise ValueError(
+                    f"SELL {code} {qty}（holding {hold}）未通过 "
+                    f"is_valid_sell_quantity（{rule}）")
+
+    rows: list[tuple] = []
+    detail_rows: list[tuple] = []
+    unfilled: dict[str, int] = {}
+
+    # ---- 2. SELL 先（无现金约束；proceeds 供 BUY）----
+    sell_net = 0.0
+    for code, side, qty in orders.orders.iter_rows():
+        if side != "sell":
+            continue
+        gate = _gate(code)
+        if gate is None:
+            unfilled[code] = qty
+            continue
+        bars, up, dn, has_limit = gate
+        result = simulate_window(bars, side="sell", target_qty=qty, spec=spec,
+                                 ref_price=snap_map[code][1], limit_up=up,
+                                 limit_down=dn)
+        if result.filled_qty == 0:
+            unfilled[code] = qty
+            continue
+        breakdown = compute_execution_cost(
+            side=OrderSide.SELL, reference_price=result.avg_price,
+            quantity=result.filled_qty, spec=cost_spec)
+        if has_limit:
+            _check_price_bounds(breakdown, code, up, dn)
+        rows.append((code, "sell", qty, result.filled_qty, result.avg_price,
+                     breakdown.execution_price, breakdown.gross_notional,
+                     breakdown.commission, breakdown.stamp_tax,
+                     breakdown.transfer_fee, breakdown.total_fees,
+                     breakdown.effective_cash_delta))
+        sell_net += breakdown.effective_cash_delta
+        for f in result.fills:
+            detail_rows.append((code, "sell", f.minute_index, f.quantity,
+                                f.price, f.fell_back))
+
+    # ---- 3. BUY：现金约束（available = state.cash + Σ sell net）----
+    available = state.cash + sell_net
+    for code, side, qty in orders.orders.iter_rows():
+        if side != "buy":
+            continue
+        gate = _gate(code)
+        if gate is None:
+            unfilled[code] = qty
+            continue
+        bars, up, dn, has_limit = gate
+        result = simulate_window(bars, side="buy", target_qty=qty, spec=spec,
+                                 ref_price=snap_map[code][1], limit_up=up,
+                                 limit_down=dn)
+        minute_fills = list(result.fills)
+        q = sum(f.quantity for f in minute_fills)
+        if q == 0:
+            unfilled[code] = qty
+            continue
+        required = 0.0
+        while q > 0:
+            ref = sum(f.price * f.quantity for f in minute_fills) / q
+            breakdown = compute_execution_cost(
+                side=OrderSide.BUY, reference_price=ref, quantity=q,
+                spec=cost_spec)
+            if has_limit:
+                _check_price_bounds(breakdown, code, up, dn)
+            required = -breakdown.effective_cash_delta
+            if required <= available:
+                break
+            scale = available / required
+            nxt = _scale_minute_fills(minute_fills, scale)
+            nq = sum(f.quantity for f in nxt)
+            if nq == q:
+                raise RuntimeError(
+                    f"BUY {code} 现金缩减迭代无 progress（scale={scale}）")
+            minute_fills, q = nxt, nq
+        if q == 0:
+            unfilled[code] = qty
+            continue
+        ref_final = sum(f.price * f.quantity for f in minute_fills) / q
+        rows.append((code, "buy", qty, q, ref_final,
+                     breakdown.execution_price, breakdown.gross_notional,
+                     breakdown.commission, breakdown.stamp_tax,
+                     breakdown.transfer_fee, breakdown.total_fees,
+                     breakdown.effective_cash_delta))
+        for f in minute_fills:
+            detail_rows.append((code, "buy", f.minute_index, f.quantity,
+                                f.price, f.fell_back))
+        remaining = qty - q
+        if remaining > 0:
+            unfilled[code] = remaining
+        available -= required
+
+    # ---- 4. build FillBatch（code ASC）/ detail ----
+    if rows:
+        frame = pl.DataFrame(rows, schema=["code", "side", "order_quantity",
+                                           "filled_quantity", "reference_price",
+                                           "execution_price", "gross_notional",
+                                           "commission", "stamp_tax",
+                                           "transfer_fee", "total_fees",
+                                           "effective_cash_delta"], orient="row")
+        frame = frame.with_columns(
+            pl.col("code").cast(pl.String), pl.col("side").cast(pl.String),
+            pl.col("order_quantity").cast(pl.Int64),
+            pl.col("filled_quantity").cast(pl.Int64),
+            pl.col("reference_price").cast(pl.Float64),
+            pl.col("execution_price").cast(pl.Float64),
+            pl.col("gross_notional").cast(pl.Float64),
+            pl.col("commission").cast(pl.Float64),
+            pl.col("stamp_tax").cast(pl.Float64),
+            pl.col("transfer_fee").cast(pl.Float64),
+            pl.col("total_fees").cast(pl.Float64),
+            pl.col("effective_cash_delta").cast(pl.Float64))
+        frame = frame.sort("code")
+    else:
+        frame = _EMPTY_FILLS
+    if detail_rows:
+        detail = pl.DataFrame(detail_rows, schema=["code", "side",
+                                                   "minute_index", "quantity",
+                                                   "price", "fell_back"],
+                              orient="row")
+        detail = detail.with_columns(
+            pl.col("code").cast(pl.String), pl.col("side").cast(pl.String),
+            pl.col("minute_index").cast(pl.Int64),
+            pl.col("quantity").cast(pl.Int64),
+            pl.col("price").cast(pl.Float64),
+            pl.col("fell_back").cast(pl.Boolean))
+    else:
+        detail = _EMPTY_WINDOW_DETAIL
+
+    cash_after = state.cash + frame["effective_cash_delta"].sum()
+    if not math.isfinite(cash_after) or cash_after < 0:
+        raise RuntimeError(
+            f"cash_after {cash_after} 非法（必须 finite >= 0）——窗口 funding "
+            f"不变量破坏，不允许负现金 tolerance/clamp")
+
+    return WindowRealizedResult(
+        fill_batch=FillBatch(decision_date=orders.decision_date,
+                             execution_date=orders.execution_date,
+                             execution_timing=orders.execution_timing,
+                             frame=frame),
+        unfilled=unfilled, detail=detail)
