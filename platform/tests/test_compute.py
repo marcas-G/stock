@@ -190,3 +190,50 @@ def test_ts_window_float_window_ignored():
 
 def test_ts_window_qualified_name_and_ta_family():
     assert _ts_window_days("signal = wq.ts_sum(close, 10) + ta_MA(close, 5)") == 10
+
+
+# ---------- R03-I4 / R02-I1：codegen 执行期守卫（常量折叠 / 分组键全空） ----------
+
+from factorlab.core.factor.errors import FactorDSLError  # noqa: E402
+
+
+def _guard_panel():
+    return pl.DataFrame({
+        "date": ["2024-01-01"] * 4 + ["2024-01-02"] * 4,
+        "code": ["a", "b", "c", "d"] * 2,
+        "close": [1.0, 2.0, 3.0, 4.0, 2.0, 3.0, 4.0, 5.0],
+    })
+
+
+def test_rejects_folded_constant_data_arg():
+    """R03-I4：`x - x + 1.0` 被 sympy 折叠为常量 → 必须 FactorDSLError（非 AttributeError）。"""
+    with pytest.raises(FactorDSLError, match="折叠|常量"):
+        compute_formula(_guard_panel(), "signal = ts_cum_sum(close - close + 1.0)",
+                        outputs=["signal"])
+
+
+def test_rejects_literal_constant_data_arg():
+    with pytest.raises(FactorDSLError, match="字面量|常量"):
+        compute_formula(_guard_panel(), "signal = ts_cum_sum(1.0)", outputs=["signal"])
+
+
+def test_positive_control_cum_sum_expression():
+    out = compute_formula(_guard_panel(), "signal = ts_cum_sum(close)", outputs=["signal"])
+    assert out["signal"].to_list() == [1.0, 2.0, 3.0, 4.0, 3.0, 5.0, 7.0, 9.0]
+
+
+def test_gp_key_all_null_fails_loud():
+    """R02-I1：生产 industry 全空 → gp_* 不得静默塌成单组全市场统计。"""
+    df = _guard_panel().with_columns(pl.lit(None, dtype=pl.String).alias("industry"))
+    with pytest.raises(ValueError, match="全空"):
+        compute_formula(df, "signal = gp_rank(industry, close)", outputs=["signal"])
+
+
+def test_gp_key_with_values_ok():
+    df = _guard_panel().with_columns(
+        pl.Series("industry", ["银行", "银行", "白酒", "白酒"] * 2))
+    out = compute_formula(df, "signal = gp_rank(industry, close)", outputs=["signal"])
+    assert out["signal"].null_count() == 0
+    # 组内排名：银行组 a=1,b=2；白酒组 c=1,d=2（每日各两组独立）
+    day0 = out.filter(pl.col("date") == "2024-01-01").sort("code")["signal"].to_list()
+    assert day0 == [1.0, 2.0, 1.0, 2.0]

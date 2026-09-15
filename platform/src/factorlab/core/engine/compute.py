@@ -17,6 +17,7 @@ from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.core.engine.forward import DEFAULT_FORWARD_HORIZONS, compute_forward_returns
 from factorlab.core.engine.partitions import check_causality
 from factorlab.core.factor.ast_gate import validate_formula
+from factorlab.core.factor.errors import FactorDSLError
 from factorlab.core.ops.platform_ops import (
     expand_platform_macros,
     expand_user_macros,
@@ -67,6 +68,58 @@ def _check_future_inputs(formula: str) -> None:
         if col in FUTURE_NAMES or col.startswith(FUTURE_PREFIXES):
             raise ValueError(
                 f"future/label inputs are forbidden in factor formula: {col!r}")
+
+
+def _reject_constant_data_args(formula: str) -> None:
+    """R03-I4：窗口/截面/分组算子的数据参数为纯字面量 → fail fast。
+
+    `ts_cum_sum(1.0)` 这类形态会在 codegen 执行期以 `'float' object has no
+    attribute 'cum_sum'` 深崩（lint 检不到）。这里在 codegen 前把"所有位置参数
+    都是字面量"的 ts_/cs_/gp_ 调用转为 FactorDSLError。
+    """
+    from factorlab.core.ops import registry
+
+    tree = ast.parse(formula)
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+            continue
+        name = node.func.id
+        if not registry.has_op(name):
+            continue
+        if registry.get_op(name).kind not in {"ts", "cs", "gp"}:
+            continue
+        if not node.args:
+            continue
+        if all(isinstance(a, ast.Constant) and not isinstance(a.value, str)
+               for a in node.args):
+            raise FactorDSLError(
+                f"算子 {name} 的数据参数是纯字面量（{ast.unparse(node)}）——"
+                f"{name} 需要表达式参数；常见根因：代数化简（如 `x - x + 1.0`）"
+                f"把表达式折叠成了常量。请改写公式传真实列/表达式",
+                node.lineno, node.col_offset)
+
+
+def _check_gp_group_keys(formula: str, df: pl.DataFrame) -> None:
+    """R02-I1：gp_* 分组键在面板中全空 → 分组塌成单组（静默全市场），fail fast。
+
+    生产 `stock_basic.industry` 全空（无行业源）时，`gp_rank(x, industry)` 会被
+    expr_codegen 翻成 `.over(date, 'industry')`——单组全市场统计，用户看不到任何
+    告警。这里在 codegen 前检查键列的覆盖率（列不在面板则跳过——装配链会先报缺列）。
+    """
+    if df.height == 0:
+        return
+    tree = ast.parse(formula)
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                and node.func.id.startswith("gp_") and len(node.args) >= 2):
+            continue
+        key = node.args[0]   # gp_rank(key, x)/gp_mean(key, x)：key 是第 1 参数
+        if isinstance(key, ast.Name) and key.id in df.columns:
+            if df[key.id].null_count() == df.height:
+                raise ValueError(
+                    f"gp_* 分组键 {key.id!r} 在面板中全空（覆盖率 0）——"
+                    f"{node.func.id} 会塌成单组全市场统计（静默语义错误）；"
+                    f"请先补齐该属性列（当前生产无行业源）或改用 cs_* 口径")
 
 
 def normalize_calls(source: str, catalog,
@@ -203,6 +256,8 @@ def compute_formula(
     else:
         reject_minute_ops_in_daily(formula)
     check_causality(formula, catalog)     # R22：未来门统一（分类表推断，全形态）
+    _reject_constant_data_args(formula)   # R03-I4：ts_/cs_/gp_ 数据参数纯字面量 → 明确报错
+    _check_gp_group_keys(formula, df)     # R02-I1：gp_ 分组键全空 → 不静默塌单组
     # M2：声明的输出必须在公式顶层赋值中产生（变换完成后再核对）——codegen 前
     # fail fast，点名缺哪个；避免未定义名退化成 NameError 深层报错
     _require_declared_outputs(formula, outputs)
@@ -229,15 +284,26 @@ def compute_formula(
         extra_codes = extra_codes + "\n" + "\n".join(_plugin_imports)
     if _normalized_imports:
         extra_codes = extra_codes + "\n" + _normalized_imports
-    result = codegen_exec(
-        df.lazy(),
-        formula,
-        over_null="partition_by",
-        style="polars",
-        date=date,
-        asset=asset,
-        extra_codes=extra_codes,
-    ).collect()
+    try:
+        result = codegen_exec(
+            df.lazy(),
+            formula,
+            over_null="partition_by",
+            style="polars",
+            date=date,
+            asset=asset,
+            extra_codes=extra_codes,
+        ).collect()
+    except FactorDSLError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        # R03-I4：代数化简（sympy）会把表达式折叠成常量（如 `x - x + 1.0`），
+        # 生成代码在 exec/collect 期以 AttributeError/TypeError 深崩；lint 静态门
+        # 检不到。这里转成带指引的 FactorDSLError（保留原始错误），不再裸堆栈。
+        raise FactorDSLError(
+            "因子公式在 codegen 执行期失败（常见根因：代数化简把表达式折叠为"
+            "常量，如 `x - x + 1.0`；也可能是引用了运行期不存在的名字）。"
+            f"原始错误: {type(exc).__name__}: {exc}") from exc
     # 兜底：codegen 结果缺失声明输出（变换语义偏差）也点名报错
     missing = [o for o in outputs if o not in result.columns]
     if missing:

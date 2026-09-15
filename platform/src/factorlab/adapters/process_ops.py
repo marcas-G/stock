@@ -174,7 +174,20 @@ def fillna(df: pl.DataFrame, ctx, method: str = "value", value: float = 0.0) -> 
         if ctx is None or ctx.db is None:
             raise ValueError("fillna(method=industry_mean) 需要 ProcessCtx(db) 上下文")
         industry = _fetch_industry(_ctx_rd(ctx))
+        if industry.height == 0:
+            # R02-I1：stock_basic.industry 全空（生产无行业源）——join 后全 null，
+            # `.over(["date","industry"])` 会塌成单组全市场均值（静默语义错误）
+            raise ValueError(
+                "fillna(method=industry_mean) 不可用：stock_basic.industry 全空"
+                "（当前无行业数据源）——会静默塌成单组全市场均值；"
+                "请改用 fillna(value)/fillna(forward)，或先补齐行业数据")
         enriched = df.join(industry.rename({"symbol": "code"}), on="code", how="left")
+        if enriched.height and enriched["industry"].null_count() == enriched.height:
+            # 行业表非空但与面板 code 零匹配（symbol 口径漂移）同样会塌单组
+            raise ValueError(
+                "fillna(method=industry_mean) 不可用：请求 code 无任何行业映射"
+                f"（industry 表 {industry.height} 行，join 后覆盖率 0）——"
+                "会静默塌成单组全市场均值；请核对 stock_basic.symbol 口径")
         return enriched.with_columns(
             x.fill_null(x.mean().over(["date", "industry"])).alias(SIGNAL)
         ).drop("industry")

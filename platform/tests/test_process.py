@@ -465,3 +465,19 @@ def test_negative_inf_treated_as_invalid_in_standardize():
     vals = out["signal"].to_list()
     assert vals[0] is None
     assert vals[1:] == [pytest.approx(-1.0), pytest.approx(0.0), pytest.approx(1.0)]
+
+
+def test_fillna_industry_mean_all_null_industry_fails_loud(env):
+    """R02-I1：生产 stock_basic.industry 100% NULL → 不得静默塌成单组全市场均值。"""
+    env.seed({
+        "stock_basic": (
+            [("symbol", "str"), ("ts_code", "str"), ("industry", "str?")],
+            [("A", "A.SZ", None), ("B", "B.SZ", None),
+             ("C", "C.SZ", None), ("D", "D.SZ", None)]),
+    })
+    df = _panel().with_columns(
+        pl.when(pl.col("code") == "D").then(None).otherwise(pl.col("signal")).alias("signal")
+    )
+    with pytest.raises(ValueError, match="industry"):
+        run_process_chain(df, ["fillna(method: industry_mean)"],
+                          ctx=ProcessCtx(db=env.rd))
