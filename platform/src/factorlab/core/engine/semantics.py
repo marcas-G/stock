@@ -133,24 +133,26 @@ def _window_value(meta: OpMeta, call: ast.Call, params: dict | None,
         pos = int(meta.window.split(":")[1])
         if pos < len(call.args):
             folded = _fold_consts(call.args[pos], consts)
-            if isinstance(folded, int) and not isinstance(folded, bool):
+            if isinstance(folded, (int, float)) and not isinstance(folded, bool):
                 return folded
         for kw in call.keywords:
             if kw.arg in _WINDOW_KW_NAMES:
                 folded = _fold_consts(kw.value, consts)
-                if isinstance(folded, int) and not isinstance(folded, bool):
+                if isinstance(folded, (int, float)) and not isinstance(folded, bool):
                     return folded
     return None
 
 
 class _Inferrer:
     def __init__(self, catalog: Catalog, params: dict | None, consts: dict,
-                 aliases: dict[str, str], defined: set[str]) -> None:
+                 aliases: dict[str, str], defined: set[str],
+                 strict_unknown: bool = True) -> None:
         self.catalog = catalog
         self.params = params
         self.consts = consts
         self.aliases = aliases
         self.defined = defined
+        self.strict_unknown = strict_unknown
         self.infos: dict[int, NodeInfo] = {}
 
     # ---- 通用 ----
@@ -197,6 +199,8 @@ class _Inferrer:
                 return self._apply_meta(meta, node, children)
             if name in _ELEMENTWISE:
                 return self._combine(children)
+            if not self.strict_unknown:
+                return self._combine(children)   # 旧入口：未知算子不因语义门报错
             raise SemanticError(
                 f"未知算子 {name}；若为自定义/外部函数请补 op_meta"
                 f"（例：op_meta:\n  {name}: {{partition: ts, window: ${{win}}}}）",
@@ -207,6 +211,8 @@ class _Inferrer:
             meta = self.catalog.get(f".{attr}")
             if meta is not None:
                 return self._apply_meta(meta, node, children)
+            if not self.strict_unknown:
+                return self._combine(children)
             from factorlab.core.ops.classification import method_denied_guidance
             guidance = method_denied_guidance(attr)
             if guidance is not None:
@@ -234,11 +240,11 @@ class _Inferrer:
         unbounded = child_ub
         if meta.window == "unbounded" or w == "unbounded":
             unbounded = True
-        elif isinstance(w, int) and not isinstance(w, bool):
+        elif isinstance(w, (int, float)) and not isinstance(w, bool):
             if w >= 0:
-                extra_lb = w
+                extra_lb = int(w)
             else:
-                extra_fw = -w
+                extra_fw = int(-w)
 
         keys: tuple[str, ...]
         order: str | None
@@ -270,12 +276,14 @@ class _Inferrer:
         return replace(base, forward=base.forward + (-k))
 
 
-def infer(source: str | ast.AST, catalog: Catalog,
-          params: dict | None = None) -> dict[int, NodeInfo]:
+def infer(source: str | ast.AST, catalog: Catalog, params: dict | None = None,
+          *, strict_unknown: bool = True) -> dict[int, NodeInfo]:
     """自底向上推断；返回 {id(ast.Node): NodeInfo}。
 
     `source` 可以是源码字符串（内部 ast.parse）或已解析的 AST（调用方持树时
     用同一棵树的 id() 查询，避免重复 parse 的 id 失配）。
+    `strict_unknown=False`：未知算子/方法按 el 继承（旧 reject_future_shifts
+    入口的既有分工——未知归 validate 管，未来门不误报）。
     """
     tree = ast.parse(source) if isinstance(source, str) else source
     inferrer = _Inferrer(
@@ -284,6 +292,7 @@ def infer(source: str | ast.AST, catalog: Catalog,
         consts=_top_level_consts(tree),
         aliases=_alias_map(tree),
         defined={n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)},
+        strict_unknown=strict_unknown,
     )
     inferrer.visit(tree)
     return inferrer.infos
