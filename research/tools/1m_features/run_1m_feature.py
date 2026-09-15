@@ -1,30 +1,9 @@
-#!/usr/bin/env python
-"""run_1m_feature.py — bars_1m 全市场折日特征批算（研究侧，tools/1m_features）。
+"""1m_features CLI 与编排（R16）：batch / merge / check-day 三个子命令。
 
-与平台机制共用同一计算入口（factorlab.core.engine.minute.compute_minute_factor_panel，
-B4.7：批算结果 == 平台引擎结果），读源为本地事实库 parquet：
-- bars：  /data/students/gaolei/stock/data/fact/bars_1m/year=YYYY/month=MM/part-000.parquet
-  （1,854,876,240 行 2020-01..2026-08，240 槽/交易日网格，raw）
-- daily： /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet（日级注入列源：
-  eod_close/prev_close/day_amt/day_vol/adv20_*——与 CH 生产库同源同值）
-
-子命令：
-- batch：按月流式批算 → output/month=YYYY-MM/part.parquet + state.json 断点续跑
-  （单进程串行、禁多进程互踩；逐月 del+gc，失败月记 state 并继续，全部失败月
-  列于退出报告）
-- merge：逐特征合并为单文件 vwap30_bias.parquet / open30_amt_share.parquet
-  （[date, code, <feature>]，(date, code) 排序；tmp+rename 原子落盘，幂等）
-- check-day YYYY-MM-DD：平台引擎（CH 生产库 run_factor_minute，同 spec 同公式
-  同窗口）× 本地 parquet 工具路径 单日交叉对拍——失败退出非 0。
-
-内存/CPU 铁律：单进程；一次只驻留一个月 bars 帧（≈1.1GB）+ 注入切片 + 折日输
-出；月间显式 del + gc.collect()。实测单月峰值 RSS ≈7GB（2024-01，polars 默认
-线程 7.5GB / POLARS_MAX_THREADS=4 时 6.9GB——峰值主要在月帧 × 窗算子的中间
-列，不是线程放大）；16GB 无页面文件机器上跑批建议限 4 线程（月间释放 + 断点
-续跑，RSS 上限 ≈7GB 留有系统余量）。
+职责拆出后本文件只留"编排 + CLI"：月份解析与枚举 → `discovery.py`；输入装配（读 bars/daily、
+注入列）→ `panel_io.py`；因子公式 → `features.py`（早已独立）。**兼容转发**：三个历史私有名
+（`_parse_ym`/`_iter_months`/`_build_daily_injections`）在此 re-export，测试与历史调用点零改动。
 """
-from __future__ import annotations
-
 import argparse
 import datetime as dt
 import gc
@@ -36,7 +15,6 @@ import time
 
 import polars as pl
 
-# 共享核单点注入 + 落位断言（DER-010；T1：platform venv 运行）
 import os as _os
 from pathlib import Path  # noqa: E402
 import sys as _sys
@@ -52,73 +30,13 @@ from factorlab.core.factio import partitions, paths  # noqa: E402
 from features import FEATURE_NAMES, FORMULA  # noqa: E402
 from lib import writekit as W  # noqa: E402  （R8c：state/原子写单点）
 
-# ---------------------------------------------------------------- 路径常量
-# 路径字面量收敛到 core.factio.paths 单点（R4c；原先硬编码 /data/students/gaolei/...）
-DEFAULT_BARS_ROOT = str(paths.bars_1m_root())
-DEFAULT_DAILY = str(paths.daily_fact_path())
-INJ_LEFT_CAL_DAYS = 40      # ≥20 交易日（CN 最长假期 ~10 天）的日历余量
-INJ_COLS = ["trade_date", "code", "close", "amount", "volume"]
 
-_BAR_COLS = ["trade_date", "code", "minute_index", "close", "amount", "volume"]
-_MAXABS_TOL = 1e-6          # 引擎×本地对拍容差（同源 f64，应逐位相等）
+from discovery import _iter_months, _month_part, _parse_ym  # noqa: E402,F401  （兼容转发）
+from panel_io import _build_daily_injections, _load_daily_slice, _load_month_bars  # noqa: E402,F401
+from discovery import (DEFAULT_BARS_ROOT, DEFAULT_DAILY,  # noqa: E402,F401
+                       INJ_COLS, INJ_LEFT_CAL_DAYS, _MAXABS_TOL)   # _BAR_COLS 归 panel_io 自用
 
 
-def _parse_ym(s: str) -> tuple[int, int]:
-    y, m = s.split("-", 1)
-    return int(y), int(m)
-
-
-def _iter_months(bars_root: str):
-    """(year, month) 升序（数据存在性以 part 文件为准）。"""
-    out = []
-    yp, mp = partitions.YEAR_PREFIX, partitions.MONTH_PREFIX   # R8c：前缀/偏移单点
-    for entry in sorted(os.listdir(bars_root)):
-        if not entry.startswith(yp):
-            continue
-        year = int(entry[len(yp):])
-        mdir = os.path.join(bars_root, entry)
-        for m in sorted(os.listdir(mdir)):
-            if m.startswith(mp) and partitions.bars_month_part(
-                    Path(bars_root), year, int(m[len(mp):])).exists():
-                out.append((year, int(m[len(mp):])))
-    return out
-
-
-def _month_part(bars_root: str, y: int, m: int) -> str:
-    """（保留给 --only/日志显示）单月 part 路径——规则取 core.factio.partitions 单点。"""
-    return str(partitions.bars_month_part(Path(bars_root), y, m))
-
-
-def _load_month_bars(bars_root: str, y: int, m: int) -> pl.DataFrame:
-    """单月 bars 帧（重命名 trade_date→date；仅批算所需列——投影裁剪内存）。
-
-    R4a：I/O 收敛到平台单点 `adapters.bars_read.read_bars_month`（投影仍由本工具声明）。
-    """
-    return (read_bars_month(Path(bars_root), year=y, month=m, columns=_BAR_COLS)
-            .rename({"trade_date": "date"}))
-
-
-def _load_daily_slice(daily_path: str, lo: dt.date, hi: dt.date) -> pl.DataFrame:
-    return (pl.scan_parquet(daily_path)
-            .select(INJ_COLS)
-            .filter(pl.col("trade_date").is_between(lo, hi))
-            .collect())
-
-
-def _build_daily_injections(daily: pl.DataFrame) -> pl.DataFrame:
-    """B6 注入列——与 factorlab.core.engine.minute._build_daily_injections 同语义
-    （本地 parquet 版；adv20 在"有行情日行序列"上滚动，停牌日自动隔开）。
-    帧序：load 后按 (code, trade_date) 排序 → over("code") 组内按帧序确定。"""
-    daily = daily.sort(["code", "trade_date"])
-    return daily.with_columns(
-        pl.col("close").alias("eod_close"),
-        pl.col("close").shift(1).over("code").alias("prev_close"),
-        pl.col("amount").alias("day_amt"),
-        pl.col("volume").alias("day_vol"),
-        pl.col("amount").rolling_mean(20).over("code").alias("adv20_amt"),
-        pl.col("volume").rolling_mean(20).over("code").alias("adv20_vol"),
-    ).select(["trade_date", "code", "eod_close", "prev_close", "day_amt",
-              "day_vol", "adv20_amt", "adv20_vol"])
 
 
 def _rss_gb() -> float:
@@ -127,6 +45,8 @@ def _rss_gb() -> float:
 
 # R8c：本地 `_atomic_write_json`/`_atomic_write_df` 已删——落盘/断点统一走
 # `lib/writekit`（tmp + fsync + os.replace），研究侧不留第二套写实现。
+
+
 
 
 # ---------------------------------------------------------------- batch

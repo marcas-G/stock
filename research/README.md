@@ -14,9 +14,9 @@
 | `docs/superpowers/` | **研究独有**的 spec/plan（平台 spec 在 `../platform/docs/superpowers/`，单副本）|
 | `tools/lib/` | 研究侧共享库：`tickdata`（读单点薄封装）· `writekit`（标记·锁·state·原子写·流式月写入器）· `tickkit`（转换小件）· `monthflow`（月分片写入骨架）|
 | `tools/lob_fact/` | tick 订单簿重建工具链（引擎/锚定/因子面板/批算/QA/校准；185 tests + 金样 pins）|
-| `tools/ch_ingest/` | 事实库 → ClickHouse 灌入与对账（**唯一对账入口** `reconcile.py`）|
+| `tools/ch_ingest/` | 事实库 → ClickHouse 灌入与对账（**唯一对账入口** `reconcile.py`）；职责三分：`ch_source`（源侧只读）/ `ch_state`（断点）/ `ch_write`（灌入+编排+对账），`ingest_common` 只转发 |
 | `tools/converters/` | raw zip → parquet 转换器（tick / minutes）|
-| `tools/1m_features/` | bars_1m 折日特征全史批算（`check-day` = 平台引擎 × 本地对拍门）|
+| `tools/1m_features/` | bars_1m 折日特征全史批算（`check-day` = 平台引擎 × 本地对拍门）；职责三分：`discovery`（月份口径/枚举）/ `panel_io`（输入装配）/ `features`（公式），`run_1m_feature` 只留 CLI 与编排 |
 | `tools/strategies/` | 策略回测脚本（crash_bottom / wait_crash）|
 | `tools/quark_download/` | 网盘批量下载脚本（→ `../data/raw/quark_downloaded/`）|
 | `tools/factor_lib/` | 因子库工具：`plan_rename`（族改名计划）/`build_index`（索引生成 + `--check` 门）|

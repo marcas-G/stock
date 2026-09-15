@@ -16,7 +16,9 @@ import pytest
 pytest.importorskip("clickhouse_connect", reason="ch_ingest 需 clickhouse_connect（T1：平台 venv）")
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))       # ch_ingest/
-import ingest_common as IC  # noqa: E402
+import ingest_common as IC  # noqa: E402  （公共面：公开名转发，见 R15）
+import ch_source  # noqa: E402
+import ch_state  # noqa: E402
 
 from factorlab.core.factio import paths  # noqa: E402
 from factorlab.core.factio.schema import (BARS_1M_COLS, TICK_ORDERS_COLS,  # noqa: E402
@@ -71,8 +73,8 @@ def test_src_root_uses_factio_paths_not_hardcoded():
 
 def test_state_json_roundtrip(tmp_path, monkeypatch):
     """断点：单 JSON 形态 + 原子写 + 主进程记账（不再有 .done 目录）。"""
-    monkeypatch.setattr(IC, "state_dir", lambda: str(tmp_path / "state.json"))
-    monkeypatch.setattr(IC, "_PROGRESS", None)
+    monkeypatch.setattr(ch_state, "state_dir", lambda: str(tmp_path / "state.json"))
+    monkeypatch.setattr(ch_state, "_PROGRESS", None)
     assert not IC.is_done(("bars_1m", "2026", "06"))
     IC.mark_done(("bars_1m", "2026", "06"))
     assert IC.is_done(("bars_1m", "2026", "06"))
@@ -86,8 +88,8 @@ def test_state_migrates_legacy_done_dir(tmp_path, monkeypatch):
     legacy = tmp_path / "state.json"
     legacy.mkdir()
     (legacy / "bars_1m_202501.done").write_text("ok", encoding="utf-8")
-    monkeypatch.setattr(IC, "state_dir", lambda: str(legacy))
-    monkeypatch.setattr(IC, "_PROGRESS", None)
+    monkeypatch.setattr(ch_state, "state_dir", lambda: str(legacy))
+    monkeypatch.setattr(ch_state, "_PROGRESS", None)
     assert IC.is_done(("bars_1m", "2025", "01")) is True
     assert (tmp_path / "state.json").is_file()
     assert (tmp_path / "state.json.legacy-20260915").is_dir()
@@ -102,7 +104,7 @@ def test_discover_tasks_requires_success_marker(tmp_path, monkeypatch):
         (d / "part-000.parquet").write_bytes(b"x")
         if mark:
             (d / "_SUCCESS").write_bytes(b"")
-    monkeypatch.setattr(IC, "src_root", lambda table: str(root / "orders"))
+    monkeypatch.setattr(ch_source, "src_root", lambda table: str(root / "orders"))
     assert IC.discover_tasks("tick_orders") == [("tick_orders", "2026", "06")]
 
 

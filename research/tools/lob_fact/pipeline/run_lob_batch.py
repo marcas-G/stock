@@ -58,8 +58,6 @@ from factorlab.adapters.batch_flock import BatchFlock  # noqa: E402  （R14：P-
 from factorlab.ports.batch import Task  # noqa: E402
 
 import argparse, datetime as dt, glob, hashlib, json, signal, time   # R8c：fcntl 随锁收敛删除
-from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
-import multiprocessing
 
 from core import config as C
 from core import anchoring as A
