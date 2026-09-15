@@ -241,6 +241,32 @@ def test_throttle_gates_dispatch():
     assert calls["n"] >= 4, "闸门被反复征询（低水位期间每 tick 一次）"
 
 
+def test_throttle_closed_without_futures_stalls_instead_of_hanging():
+    """R02-I3：throttle 持续 False 且无在飞 future 时，stall 看门狗必须收敛
+    （此前该分支只 sleep+continue，永远到不了 stall 判定 → 挂死；probe6 实测
+    12s 超时。生产 `run_lob_batch._mem_gate` 即 throttle 路径）。"""
+    t0 = time.time()
+    rep = BatchFlock().run([Task(key="a")], _noop, workers=1,
+                           throttle=lambda: False, stall_s=0.4)
+    elapsed = time.time() - t0
+    assert elapsed < 3.0, f"应在 stall_s 后收敛，实测 {elapsed:.1f}s"
+    assert (rep.done, rep.failed) == (0, 1)
+    assert "stall" in rep.results[0].error.lower()
+    assert rep.results[0].key == "a"
+
+
+def test_throttle_closed_requeue_gives_up_after_strikes():
+    """throttle 持续 False + requeue：重试 strikes 次后放弃（不死循环）。"""
+    t0 = time.time()
+    rep = BatchFlock().run([Task(key="a")], _noop, workers=1,
+                           throttle=lambda: False, stall_s=0.2,
+                           on_tick=lambda: None, on_tick_s=0.05,
+                           stall_policy="requeue", stall_strikes=2)
+    assert time.time() - t0 < 5.0
+    assert (rep.done, rep.failed) == (0, 1)
+    assert "stall" in rep.results[0].error.lower()
+
+
 def test_on_tick_fires_periodically_while_waiting():
     """`on_tick`：等结果期间按 `on_tick_s` 周期回调（run_lob_batch 的 rss 审计靠它）。"""
     ticks: list[float] = []

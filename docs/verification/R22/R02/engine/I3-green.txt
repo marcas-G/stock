@@ -1,0 +1,10 @@
+# I3 GREEN —— 修复后版本 + 全量 test_batch_flock.py
+# cmd: cd platform && .venv/bin/python -m pytest -q tests/test_batch_flock.py
+......................                                                   [100%]
+=============================== warnings summary ===============================
+tests/test_batch_flock.py: 26 warnings
+  /home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/popen_fork.py:67: DeprecationWarning: This process (pid=11238) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+22 passed, 26 warnings in 9.84s

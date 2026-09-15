@@ -186,7 +186,31 @@ class BatchFlock:
                         if not futs:
                             if head >= len(queue):
                                 break
-                            # 无处可等（闸门挡住派单）：睡一个 tick 再试
+                            # 无处可等（闸门挡住派单）：同样按距上次完成的时间记账
+                            # 停滞——否则 throttle 持续 False 时永远到不了下面的
+                            # stall 判定，看门狗形同虚设（R02-I3 实测挂死；生产
+                            # `run_lob_batch._mem_gate` 即此路径）。
+                            if stall_s is not None \
+                                    and time.monotonic() - last_act >= stall_s:
+                                strikes += 1
+                                if stall_policy == "requeue" \
+                                        and strikes < stall_strikes:
+                                    print(f"STALL: {stall_s}s 无完成（闸门挡住派单）"
+                                          f" → 第 {strikes}/{stall_strikes} 次重试",
+                                          flush=True)
+                                    continue
+                                stalled = True
+                                n_left = len(queue) - head
+                                for i in queue[head:]:
+                                    results[i] = Result(
+                                        key=tasks[i].key, status="failed",
+                                        error=f"stall: {stall_s}s 内无任何单元完成"
+                                              f"（strikes={strikes}，闸门挡住派单，"
+                                              f"放弃 {n_left} 个单元）")
+                                    report.failed += 1
+                                queue.clear()
+                                break
+                            # 睡一个 tick 再试（等闸门放行或周期回调）
                             time.sleep(min(on_tick_s or 1.0, 5.0))
                             continue
                         timeout = stall_s

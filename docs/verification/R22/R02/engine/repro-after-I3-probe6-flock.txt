@@ -1,0 +1,5 @@
+# cmd: cd platform && timeout 20 .venv/bin/python /tmp/opencode/reviewer-r02-newturf/probe6_flock_throttle.py
+# before: 挂死 12s 超时（report I3）
+
+dispatch with permanently-closed throttle (watchdog should fire, but...)
+returned: 0 1 0
