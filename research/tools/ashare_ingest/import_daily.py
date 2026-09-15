@@ -26,6 +26,10 @@ R21 另产出退市 sidecar（`delisted_codes.parquet`：code/last_trade_date，
 `ingest_daily.py` 据此写 stock_basic.delist_date = last_trade_date + 1（平台
 语义 is_listed = t < delist_date）。
 
+R02-I6b：解析错误必须让进程退出码 ≠ 0（错误计数摘要落 stdout）；in-file code
+列**非空但归一化失败**（含已 canonical 形态）→ ValueError 点名原始值，不再
+静默回退文件名；code 列缺失/全空才是合法兜底。
+
 排除：200xxx（深B）、900xxx（沪B）。920xxx 为北交所新代码段，保留。
 
 2026-09-07 增补（早期白名单丢字段修复——xlsx 47 列规格只取了 10 列）：
@@ -117,7 +121,9 @@ def market_of(code6: str) -> str:
 def normalize_src_code(raw) -> str | None:
     """退市文件 in-file code（'sh.600811'/'sz.000003'/'bj.920305'）→ canonical。
 
-    非该形态（如已 canonical 的 '600811.SH'、空串、None）→ None（调用方走兜底）。
+    非该形态（如已 canonical 的 '600811.SH'、空串、None）→ None。
+    调用方须区分两类 None（R02-I6b）：空值可走文件名兜底；**非空却归一化失败**
+    是数据可疑信号，必须显式报错，不得静默回退文件名。
     """
     if raw is None:
         return None
@@ -177,12 +183,22 @@ def _parse_one(code6: str, payload: bytes, delisted: bool = False):
         df = pd.DataFrame(rows, columns=keep_names)
         real = None
         if 'code' in df.columns:
-            codes = {c for c in (normalize_src_code(v) for v in df['code'])
+            raw = df['code'].dropna().astype(str).str.strip()
+            raw = raw[raw != '']
+            codes = {c for c in (normalize_src_code(v) for v in raw)
                      if c is not None}
+            unparsed = sorted({v for v in raw if normalize_src_code(v) is None})
             if len(codes) > 1:
                 raise ValueError(
                     f'delisted xlsx in-file code 冲突（文件名 {code6}）：'
                     f'{sorted(codes)}')
+            if unparsed:
+                # R02-I6b：非空 in-file code 归一化失败 = 数据可疑；此前静默回退
+                # 文件名会让错标文件重演 R21 TOOLS-C2 的假历史。点名原始值 fail fast。
+                raise ValueError(
+                    f'delisted xlsx in-file code 无法归一化（文件名 {code6}）：'
+                    f'{unparsed[:5]}（{len(unparsed)} 种）——期望 sh./sz./bj.+6 位数字；'
+                    f'拒绝静默回退文件名')
             real = next(iter(codes)) if codes else None
             df = df.drop(columns=['code'])
         if real is None:
@@ -427,6 +443,13 @@ def main():
             sidecar, [(c, delisted_last.get(c)) for c in sorted(delisted_reals)])
         print(f'sidecar: {sidecar} ({len(delisted_reals)} 退市代码，'
               f'{sum(1 for c in delisted_reals if c in delisted_last)} 个有交易日)')
+
+    if errors:
+        # R02-I6b：解析错误必须改变进程退出码（此前只打印，cron/CI 误报成功）；
+        # 已解析分片仍合并落盘，便于用 --merge-only 复核后再修源重跑。
+        print(f'解析错误 {len(errors)} 个：退出码 1（前 10 条见上；修复源文件后重跑，'
+              f'或用 --merge-only 复核现有分片）', flush=True)
+        raise SystemExit(1)
 
 
 def _write_delisted_sidecar(path: Path, rows: list[tuple[str, object]]) -> None:

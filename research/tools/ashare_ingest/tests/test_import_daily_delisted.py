@@ -105,6 +105,39 @@ def test_delisted_conflicting_infile_codes_fails_loud():
         import_daily._parse_one("000018", payload, delisted=True)
 
 
+@pytest.mark.parametrize("bad", ["600811.SH", "sh600811", "600811"])
+def test_delisted_nonempty_unparseable_code_fails_loud(bad):
+    """R02-I6b：code 列非空却零解析 → 拒绝静默回退文件名（点名原始值）。
+
+    修复前行 178-189：`codes` 空集 → `real=None` → 文件名兜底，错标 000018 数据
+    会被再次贴错标签（R21 TOOLS-C2 的病灶）：参数化三种非法形态都必须报错。
+    """
+    payload = _delisted_xlsx(bad, ["2024-01-02"], [1.0])
+    with pytest.raises(ValueError, match="无法归一化") as ei:
+        import_daily._parse_one("000018", payload, delisted=True)
+    assert bad in str(ei.value)
+
+
+def test_delisted_mixed_parsed_and_unparseable_code_fails_loud():
+    """一半能解析一半垃圾：也不能只取交集静默丢证据。"""
+    payload = _xlsx_bytes(
+        [None, "date", "code", "open", "high", "low", "close", "volume"],
+        [[0, "2024-01-02", "sh.600811", 1, 1, 1, 1.0, 1],
+         [1, "2024-01-03", "banana", 1, 1, 1, 1.0, 1]])
+    with pytest.raises(ValueError, match="banana"):
+        import_daily._parse_one("000018", payload, delisted=True)
+
+
+def test_delisted_code_column_empty_values_fall_back_to_filename():
+    """有 code 列但逐行全空 → 仍是合法兜底（与"非空零解析"区分开）。"""
+    payload = _xlsx_bytes(
+        [None, "date", "code", "open", "high", "low", "close", "volume"],
+        [[0, "2002-06-12", None, 1.0, 1.0, 1.0, 2.0, 100.0]])
+    df = import_daily._parse_one("000003", payload, delisted=True)
+    assert df is not None
+    assert df["code"].unique().tolist() == ["000003.SZ"]
+
+
 # ── shard 命名 / merge 分组 ────────────────────────────────────────────
 def test_worker_shard_names_unique_and_embed_real_code(tmp_path, monkeypatch):
     """5 个错标文件同映射 600811.SH：shard 名必须唯一（含 idx）且可解析出真代码。"""
@@ -215,3 +248,30 @@ def test_e2e_delisted_file_lands_on_real_code_and_sidecar(tmp_path):
     # 空文件也不丢：文件名 code 进 sidecar（last 无数据 → null）
     assert sc.filter(pl.col("code") == "000047.SZ").height == 1
     assert sc.filter(pl.col("code") == "000047.SZ")["last_trade_date"][0] is None
+
+
+def test_e2e_parse_error_exits_nonzero_with_summary(tmp_path):
+    """R02-I6b：解析错误必须改变整体退出码（cron/CI 不能在错误的 daily_fact 上绿）。
+
+    修复前 main() 只打印 errors（行 354-360），`main()` 返回 None → exit 0。
+    """
+    src = tmp_path / "raw"
+    dl_dir = src / "退市股"
+    dl_dir.mkdir(parents=True)
+    full_zip = src / "19910101至上月底07月31日A股日k线.zip"
+    with zipfile.ZipFile(full_zip, "w") as z:
+        z.writestr("A股日k线/000001.xlsx", _normal_xlsx(["2024-01-02"], [10.0]))
+    # 非空 in-file code 但无法归一化 → _worker 记错误，不落 shard
+    (dl_dir / "000018_神州长城.xlsx").write_bytes(
+        _delisted_xlsx("600811.SH", ["2024-01-02"], [1.0]))
+    out = tmp_path / "out" / "daily_fact.parquet"
+    stage = tmp_path / "staging"
+    r = subprocess.run(
+        [sys.executable, str(TOOL / "import_daily.py"),
+         "--src-dir", str(src), "--out", str(out), "--tmp", str(stage),
+         "--workers", "1"],
+        capture_output=True, text=True)
+    assert r.returncode != 0, r.stdout + r.stderr
+    assert "ERROR" in r.stdout, r.stdout
+    assert "600811.SH" in r.stdout, "错误摘要必须点名原始值"
+    assert "解析错误" in r.stdout and "退出码 1" in r.stdout, r.stdout
