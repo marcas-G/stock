@@ -14,6 +14,7 @@ test_run_factor_default_db_is_platform），其余纯函数测试（_formula_col
 
 import datetime
 import json
+import warnings
 from pathlib import Path
 
 import polars as pl
@@ -22,6 +23,8 @@ import pytest
 import dualbridge
 from factorlab.app.run import run_factor
 from factorlab.app.context import RunContext
+from factorlab.adapters.read.universe import STDegradedWarning
+from factorlab.config import settings
 from factorlab.core.engine.compute import _formula_columns
 from factorlab.core.factor.errors import FactorDSLError
 from factorlab.core.spec import load_spec
@@ -916,3 +919,79 @@ def test_cumulative_ops_used_resolves_import_alias():
            "signal = cs(close) + ts_cum_max(open)")
     assert cumulative_ops_used(src) == ["ts_cum_max", "ts_cum_sum"]
     assert cumulative_ops_used("signal = ts_mean(close, 3)") == []
+
+
+# ---------- R03-I1：exclude_st 缺 stock_st 的显式降级 ----------
+
+
+def _st_degrade_spec(tmp_path, name="demo_st", outputs=None):
+    """rules 池带 exclude_st 的 spec；outputs 非 None 时多输出（signal/neg）。"""
+    if outputs:
+        outs_line = f"outputs: [{', '.join(outputs)}]\n"
+        body = "  signal = close / open - 1\n  neg = -(close / open - 1)\n"
+    else:
+        outs_line = ""
+        body = "  signal = close / open - 1\n"
+    path = tmp_path / f"{name}.yaml"
+    path.write_text(f"""
+name: {name}
+category: custom
+direction: 1
+universe:
+  rules: {{exclude_st: true, exchanges: ["SSE", "SZSE"]}}
+date:
+  start: "2024-01-02"
+  end: "2024-01-09"
+{outs_line}formula: |
+{body}""", encoding="utf-8")
+    return load_spec(path)
+
+
+def _seed_no_st(env):
+    """生产 CH 形态：无 stock_st 表（exclude_st 的降级触发条件）。"""
+    tables = _tables()
+    tables.pop("stock_st")
+    env.seed(tables)
+
+
+@pytest.mark.parametrize("outputs", [None, ["signal", "neg"]])
+def test_run_factor_st_degrade_allow_summary_and_warning(env, tmp_path, monkeypatch, outputs):
+    """开关 allow + 无 stock_st：run 正常产出 + STDegradedWarning + summary st_degrade=true
+    （单输出/多输出两条 summary 分支都审计）。"""
+    _seed_no_st(env)
+    monkeypatch.setattr(settings, "st_degrade", "allow")
+    spec = _st_degrade_spec(tmp_path, outputs=outputs)
+    out = tmp_path / ("out_multi" if outputs else "out_single")
+    with pytest.warns(STDegradedWarning, match="ST 未知按非 ST 处理，结果为无 ST 口径"):
+        result = run_factor(spec, _ctx(env, out))
+    assert result.panel.height > 0
+    assert result.summary["st_degrade"] is True
+    summary = json.loads((out / "summary.json").read_text(encoding="utf-8"))
+    assert summary["st_degrade"] is True
+
+
+def test_run_factor_st_degrade_default_fails(env, tmp_path):
+    """默认（fail）+ 无 stock_st：run 入口 fail fast（不得静默产出无 ST 结果）。"""
+    _seed_no_st(env)
+    spec = _st_degrade_spec(tmp_path)
+    with pytest.raises(ValueError, match="stock_st"):
+        run_factor(spec, _ctx(env, tmp_path / "out"))
+
+
+def test_run_factor_st_degrade_noop_when_table_present(env, tmp_path, monkeypatch):
+    """有 stock_st 时开关 allow 无副作用：不告警、summary st_degrade=false、ST 股照常剔除。"""
+    tables = _tables()
+    # 000001 全窗 ST（coverage = 样本窗）→ exclude_st 生效把它剔出面板
+    tables["stock_st"] = ([("ts_code", "str"), ("trade_date", "date")],
+                          [("000001.SZ", d) for d in _DATES])
+    env.seed(tables)
+    monkeypatch.setattr(settings, "st_degrade", "allow")
+    spec = _st_degrade_spec(tmp_path)
+    with warnings.catch_warnings(record=True) as rec:
+        warnings.simplefilter("always")
+        result = run_factor(spec, _ctx(env, tmp_path / "out"))
+    assert not [w for w in rec if issubclass(w.category, STDegradedWarning)]
+    assert result.summary["st_degrade"] is False
+    # 候选集不受 exclude_st 影响（动态 PIT 条件）；面板成员才是 ST 过滤的结果
+    assert result.summary["codes"] == ["000001.SZ", "600519.SH"]
+    assert set(result.panel["code"].unique().to_list()) == {"600519.SH"}

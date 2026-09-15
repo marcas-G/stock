@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import re
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -548,6 +549,33 @@ def _uf_skeleton_ch(
 _UF_SKELETON_IMPL = {"duckdb": _uf_skeleton_duckdb, "ch": _uf_skeleton_ch}
 
 
+class STDegradedWarning(UserWarning):
+    """R03-I1：exclude_st=true 但库中无 stock_st 表、FACTORLAB_ST_DEGRADE=allow
+    显式降级时的响亮告警（结果为无 ST 口径——is_st=null，in_universe 不做 ST 过滤）。"""
+
+
+def _st_degrade_on(settings) -> bool:
+    return str(getattr(settings, "st_degrade", "fail")).strip().lower() == "allow"
+
+
+def st_degrade_active(
+    spec: FactorSpec,
+    rd: ReadPort,
+    *,
+    override: str | None = None,
+    settings=settings,
+) -> bool:
+    """本 spec/run 是否命中 ST 显式降级：exclude_st=true ∧ 无 stock_st 表 ∧ 开关 allow。
+
+    run 入口用于把降级事实写进 summary（审计）；判据与 resolve_universe_frame 一致
+    （缺 stock_st；空表/coverage 外仍 fail fast）。
+    """
+    data = _resolve_universe_data(spec, override, settings)
+    rules = data.get("rules", {}) if "rules" in data else {}
+    return (_st_degrade_on(settings) and bool(rules.get("exclude_st"))
+            and "stock_st" not in rd.tables())
+
+
 def resolve_universe_frame(
     spec: FactorSpec,
     rd: ReadPort,
@@ -565,6 +593,8 @@ def resolve_universe_frame(
     list_days = t − list_date（自然日）；is_st = 当日 stock_st 快照出现；
     exchange = ts_code 后缀（.SH→SSE/.SZ→SZSE/.BJ→BSE）。
     exclude_st=true 且 stock_st 缺表 → ValueError（fail fast）；false 且缺表 → is_st=null。
+    R03-I1 例外：显式开关 FACTORLAB_ST_DEGRADE=allow 时缺表降级为无 ST 口径——
+    warnings.warn（STDegradedWarning）+ is_st=null + 不做 ST 过滤；默认仍 fail fast。
     """
     data = _resolve_universe_data(spec, override, settings)
     rules = data.get("rules", {}) if "rules" in data else {}
@@ -586,7 +616,17 @@ def resolve_universe_frame(
     has_st = "stock_st" in tables
     exclude_st = bool(rules.get("exclude_st"))
     if exclude_st and not has_st:
-        raise ValueError("exclude_st 需要 stock_st 表（平台库由 data rebuild 生成）——不能默认所有股票非 ST")
+        if _st_degrade_on(settings):
+            # R03-I1：显式降级——has_st 保持 False → is_st 全 null（unknown ≠ false），
+            # in_universe 不做 ST 过滤；事实必须响亮告警 + run summary st_degrade 审计
+            warnings.warn(
+                "ST 未知按非 ST 处理，结果为无 ST 口径：exclude_st=true 但库中无 "
+                "stock_st 表，FACTORLAB_ST_DEGRADE=allow 已显式降级（is_st=null、"
+                "in_universe 不做 ST 过滤）。需真实 ST 过滤请灌入 stock_st 并保持"
+                "开关默认 fail fast。",
+                STDegradedWarning, stacklevel=2)
+        else:
+            raise ValueError("exclude_st 需要 stock_st 表（平台库由 data rebuild 生成）——不能默认所有股票非 ST")
     # ST coverage（v1 contract：min/max trade_date；内部 gap 的精确 provenance 留给 Data Coverage Registry）
     st_cov: tuple[str, str] | None = None
     if has_st:

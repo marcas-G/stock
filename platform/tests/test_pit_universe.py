@@ -13,12 +13,15 @@ trade_date "date"。
 
 import copy
 import datetime
+import warnings
 
 import polars as pl
 import pytest
 
-from factorlab.adapters.read.universe import (align_to_universe, resolve_candidate_codes,
-                                     resolve_universe_frame)
+from factorlab.adapters.read.universe import (STDegradedWarning, align_to_universe,
+                                     resolve_candidate_codes,
+                                     resolve_universe_frame, st_degrade_active)
+from factorlab.config import settings
 from factorlab.core.spec import FactorSpec
 
 # A: 2024-01-01 上市（无退市）；B: 2024-01-15 上市；C: 2020-01-01 上市、2024-06-01 退市
@@ -225,6 +228,61 @@ def test_st_table_missing_exclude_st_false_is_st_null(env):
                                 env.rd, DATES)
     assert uf["is_st"].null_count() == uf.height      # is_st = null（无法判断）
     assert uf.filter(pl.col("code") == "000001").filter(pl.col("in_universe")).height > 0
+
+
+# ---- R03-I1：ST 显式降级开关（FACTORLAB_ST_DEGRADE=allow） ----
+
+def test_st_degrade_allow_warns_is_st_null_no_st_filter(env, monkeypatch):
+    """开关 allow + 缺 stock_st + exclude_st=true → 显式降级：
+    响亮告警（含"无 ST 口径"）、is_st 全 null（unknown ≠ false）、in_universe 不做 ST 过滤。"""
+    _seed(env, drop=["stock_st"])
+    monkeypatch.setattr(settings, "st_degrade", "allow")
+    spec = spec_with(rules={"exclude_st": True, "exchanges": ["SSE", "SZSE"]})
+    assert st_degrade_active(spec, env.rd) is True
+    with pytest.warns(STDegradedWarning, match="ST 未知按非 ST 处理，结果为无 ST 口径"):
+        uf = resolve_universe_frame(spec, env.rd, DATES)
+    assert uf["is_st"].dtype == pl.Boolean
+    assert uf["is_st"].null_count() == uf.height
+    # 库内假数据里 000001 于 2024-03-01 本应是 ST（_BASE_TABLES）——降级后不过滤
+    a = uf.filter((pl.col("code") == "000001")
+                  & (pl.col("date") == datetime.date(2024, 3, 1)))
+    assert a["in_universe"][0] is True
+
+
+def test_st_degrade_switch_off_still_fails_fast(env, monkeypatch):
+    """显式关闭（fail）+ 缺表 + exclude_st=true → 仍 ValueError（默认语义不因开关存在而放宽）。"""
+    _seed(env, drop=["stock_st"])
+    monkeypatch.setattr(settings, "st_degrade", "fail")
+    spec = spec_with(rules={"exclude_st": True, "exchanges": ["SSE", "SZSE"]})
+    assert st_degrade_active(spec, env.rd) is False
+    with pytest.raises(ValueError, match="stock_st"):
+        resolve_universe_frame(spec, env.rd, DATES)
+
+
+def test_st_degrade_allow_no_effect_when_st_table_present(env, monkeypatch):
+    """有 stock_st 时开关 allow 无副作用：不告警、正常 ST 过滤、st_degrade_active=False。"""
+    _seed(env)
+    monkeypatch.setattr(settings, "st_degrade", "allow")
+    spec = spec_with(rules={"exclude_st": True, "exchanges": ["SSE", "SZSE"]})
+    assert st_degrade_active(spec, env.rd) is False
+    with warnings.catch_warnings(record=True) as rec:
+        warnings.simplefilter("always")
+        uf = resolve_universe_frame(spec, env.rd, ["2024-03-01", "2024-03-04"])
+    assert not [w for w in rec if issubclass(w.category, STDegradedWarning)]
+    a = uf.filter(pl.col("code") == "000001").sort("date")
+    st = {str(r["date"]): (bool(r["is_st"]), bool(r["in_universe"]))
+          for r in a.iter_rows(named=True)}
+    assert st["2024-03-01"] == (True, False)
+
+
+def test_st_degrade_not_active_without_exclude_st(env, monkeypatch):
+    """缺表但 exclude_st=false → 开关无意义：st_degrade_active=False，is_st null 行为不变。"""
+    _seed(env, drop=["stock_st"])
+    monkeypatch.setattr(settings, "st_degrade", "allow")
+    spec = spec_with(rules={"exchanges": ["SSE", "SZSE"]})
+    assert st_degrade_active(spec, env.rd) is False
+    uf = resolve_universe_frame(spec, env.rd, DATES)
+    assert uf["is_st"].null_count() == uf.height
 
 
 # ---------------------------------------------------------------- candidate codes

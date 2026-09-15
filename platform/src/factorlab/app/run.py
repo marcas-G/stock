@@ -39,7 +39,7 @@ from factorlab.ports.read import ReadPort
 from factorlab.adapters.read.calendar import chunk_calendar, trading_calendar
 from factorlab.adapters.read.source import load_daily, load_daily_tail_dates
 from factorlab.adapters.read.universe import (align_to_listing, resolve_candidate_codes,
-                                     resolve_universe_frame)
+                                     resolve_universe_frame, st_degrade_active)
 from factorlab.core.process.registry import run_process_chain
 
 
@@ -406,6 +406,8 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
         raise FileNotFoundError(f"数据库不存在: {ctx.db_path}（可运行 data refresh 或检查路径）") from exc
     try:
         codes = resolve_candidate_codes(spec, rd, override=ctx.universe_override)
+        # R03-I1：ST 显式降级事实进 summary（审计；判据同 resolve_universe_frame）
+        st_degrade = st_degrade_active(spec, rd, override=ctx.universe_override)
         cal = trading_calendar(rd, date_start=spec.date.start, date_end=spec.date.end)
         # trade_cal 含未来公告日（~94 个到 20261231）：补全面板截断到今天，不产生未来 null 行
         today = datetime.date.today()
@@ -537,6 +539,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
             "name": spec.name,
             "category": spec.category,
             "direction": spec.direction,
+            "st_degrade": st_degrade,   # R03-I1：ST 显式降级事实（审计）
             "universe_count": len(codes),   # 兼容字段（legacy 语义——候选集规模）
             "candidate_count": len(codes),
             "codes": codes,
@@ -562,6 +565,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
         "name": spec.name,
         "category": spec.category,
         "direction": spec.direction,
+        "st_degrade": st_degrade,   # R03-I1：ST 显式降级事实（审计）
         "universe_count": len(codes),
         "candidate_count": len(codes),
         "codes": codes,
@@ -662,6 +666,8 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
             f"数据库不存在: {ctx.db_path}（可运行 data refresh 或检查路径）") from exc
     try:
         codes = resolve_candidate_codes(spec, rd, override=ctx.universe_override)
+        # R03-I1：ST 显式降级事实进 summary（审计；分钟链共用 resolve_universe_frame）
+        st_degrade = st_degrade_active(spec, rd, override=ctx.universe_override)
         cal = trading_calendar(rd, date_start=spec.date.start,
                                date_end=spec.date.end)
         today = datetime.date.today()
@@ -751,6 +757,7 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
             "name": spec.name,
             "category": spec.category,
             "direction": spec.direction,
+            "st_degrade": st_degrade,   # R03-I1：ST 显式降级事实（审计）
             "universe_count": len(codes),
             "candidate_count": len(codes),
             "codes": codes,
@@ -779,6 +786,7 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
         "name": spec.name,
         "category": spec.category,
         "direction": spec.direction,
+        "st_degrade": st_degrade,   # R03-I1：ST 显式降级事实（审计）
         "universe_count": len(codes),
         "candidate_count": len(codes),
         "codes": codes,

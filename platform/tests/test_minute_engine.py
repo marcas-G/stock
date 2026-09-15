@@ -19,6 +19,8 @@ import dualbridge
 from factorlab.app.run import run_factor
 from factorlab.app.context import RunContext
 from factorlab.app.run import run_factor_minute
+from factorlab.adapters.read.universe import STDegradedWarning
+from factorlab.config import settings
 from factorlab.core.engine.minute import compute_minute_factor_panel
 from factorlab.core.spec import load_spec
 
@@ -417,6 +419,35 @@ def test_minute_unknown_column_error_assistant(ch_db, tmp_path):
     spec = _spec(tmp_path, "unk", "signal = no_such_column / eod_close")
     with pytest.raises(ValueError, match="可用列"):
         run_factor_minute(spec, _ctx(tmp_path / "o"))
+
+
+def test_minute_st_degrade_allow_summary_and_warning(ch_db, tmp_path, monkeypatch):
+    """R03-I1：分钟链共用 PIT resolve——缺 stock_st + exclude_st + 开关 allow 时
+    正常产出 + STDegradedWarning + summary st_degrade=true（分钟 summary 同样审计）。"""
+    _seed(ch_db)
+    client, db = ch_db
+    client.command(f"DROP TABLE IF EXISTS {db}.stock_st")
+    monkeypatch.setattr(settings, "st_degrade", "allow")
+    path = tmp_path / "m_st.yaml"
+    path.write_text(f"""
+name: m_st
+category: custom
+direction: 1
+interface: bars_1m
+adjustment: raw
+universe:
+  rules: {{exclude_st: true, exchanges: ["SSE", "SZSE"]}}
+date:
+  start: "{_SAMPLE[0].isoformat()}"
+  end: "{_SAMPLE[-1].isoformat()}"
+formula: |
+  signal = day_last(close)
+""", encoding="utf-8")
+    spec = load_spec(path)
+    with pytest.warns(STDegradedWarning, match="ST 未知按非 ST 处理，结果为无 ST 口径"):
+        mr = run_factor_minute(spec, _ctx(tmp_path / "out"))
+    assert mr.panel.height > 0
+    assert mr.summary["st_degrade"] is True
 
 
 def test_compute_minute_factor_panel_pure_chunk_contract(ch_db, tmp_path):

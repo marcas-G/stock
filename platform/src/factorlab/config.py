@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     results_dir: Path = Path("results")  # FACTORLAB_RESULTS_DIR 可覆盖；run --output-dir 缺省根目录
     universes_dir: Path = Path.home() / ".factorlab" / "universes"
     default_universe: str | None = None
+    # ST 显式降级（R03-I1）：exclude_st=true 且库中无 stock_st 表时——
+    # "fail"（默认）= ValueError fail fast（ST unknown 绝不当 non-ST）；
+    # "allow" = 显式降级为无 ST 口径并响亮告警（is_st=null、in_universe 不做 ST 过滤）
+    st_degrade: str = "fail"  # "fail" | "allow"（FACTORLAB_ST_DEGRADE）
 
 
 settings = Settings()
