@@ -1,0 +1,23 @@
+R22 生产 CH 端到端冒烟：入口/装配改动后真跑一次（真 CH + 真落盘）
+=========================================================================
+命令：
+  cd /data/students/gaolei/stock/platform
+  .venv/bin/python -c "run_factor(load_spec('/tmp/opencode/r22-prod-run/spec.yaml'),
+    RunContext(data_backend='ch', output_dir=Path('/tmp/opencode/r22-prod-run/out')))"
+  （spec：codes 600519.SH/000001.SZ，2024-01-02..2024-02-23，signal=close）
+
+输出：
+PROD CH RUN OK: {'panel_rows': 66, 'signal_rows': 66, 'label_rows': 66,
+ 'date_start': '2024-01-02', 'date_end': '2024-02-23',
+ 'signal_null_ratio': 0.0, 'adjustment': 'qfq'}
+codes: ['000001.SZ', '600519.SH']
+
+落盘目录（R02-I8 语义生效）：
+.factorlab-run.lock（单写者锁，空闲时 0 字节）
+labels.parquet / panel.parquet / signal.parquet / summary.json
+summary.artifacts 每项含 sha256：signal 64f4acd232a7 / labels 292a851c73ae /
+panel daaa35ad127c（无 summary.json.stale 残留）
+
+判读：C2（staleness 门）/ I4（adv20 左窗）/ I8（锁+失效+hash）改动后，真实
+生产 CH 入口全链真跑成功、产物完整可加载；健康 code 的窗口无关 staleness
+门不误伤。
