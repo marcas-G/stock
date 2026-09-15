@@ -1,0 +1,30 @@
+# Stub mutation 检查（CLAUDE.md 完成标准 #3：替换为硬编码存根后测试必须失败）
+# 时间: 2026-09-15T22:58:17+08:00
+
+## Mutation 1: simulate_window 硬编码返回 filled=target / price=ref
+# 命令: cd platform && .venv/bin/python -m pytest tests/test_minute_window.py tests/test_window_fills.py tests/test_backtest_window_runtime.py -q
+
+FAILED tests/test_backtest_window_runtime.py::test_next_window_sell_and_rebalance
+FAILED tests/test_backtest_window_runtime.py::test_next_window_marks_flag_accepted
+FAILED tests/test_backtest_window_runtime.py::test_window_unfilled_when_volume_capped
+30 failed, 16 passed, 9 warnings in 3.11s
+
+## Mutation 2: load_execution_window 直接返回空 frame（不读 bars_1m）
+# 命令: cd platform && .venv/bin/python -m pytest tests/test_read_minute_window.py -q
+
+FAILED tests/test_read_minute_window.py::test_null_ohlc_kept_for_caller_to_skip
+FAILED tests/test_read_minute_window.py::test_suffix_code_input_normalized - ...
+8 failed, 3 passed in 0.83s
+
+## Mutation 3: run_backtest 窗口成交喂空 minute_frame（wiring 存根）
+# 命令: cd platform && .venv/bin/python -m pytest tests/test_backtest_window_runtime.py tests/test_execution_store_window.py -q
+
+FAILED tests/test_backtest_window_runtime.py::test_window_unfilled_when_volume_capped
+FAILED tests/test_execution_store_window.py::test_window_save_load_roundtrip
+5 failed, 12 passed, 16 warnings in 4.29s
+
+## 恢复后复跑（证明 mutation 前全绿）
+# 命令: cd platform && .venv/bin/python -m pytest tests/test_minute_window.py tests/test_read_minute_window.py tests/test_window_fills.py tests/test_backtest_window_runtime.py tests/test_execution_store_window.py -q
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+64 passed, 16 warnings in 5.00s
