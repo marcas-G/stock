@@ -7,6 +7,9 @@
 """
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from typer.testing import CliRunner
 
 from factorlab.surfaces.cli.main import app
@@ -88,3 +91,65 @@ operators:
     result = runner.invoke(app, ["lint", str(_write(tmp_path, text))])
     assert result.exit_code == 1, result.output
     assert "语法错误" in result.stdout
+
+
+# ---------- R01-ENG C1/C2/I5：lint 必须跑引擎同序语义门 ----------
+
+_EVIDENCE = (Path(__file__).resolve().parents[2]
+             / "docs/reviews/r01-2026-09-15-strict-review/evidence/engine-dsl")
+
+
+def _formula_spec(tmp_path, formula: str, universe: str = 'codes: ["000001.SZ"]'):
+    body = "\n".join("  " + line for line in formula.splitlines())
+    path = tmp_path / "s_sem.yaml"
+    path.write_text(f"""
+name: lint_sem_demo
+category: custom
+direction: 1
+universe:
+  {universe}
+formula: |
+{body}
+""", encoding="utf-8")
+    return path
+
+
+def test_lint_rejects_future_subscript(tmp_path):
+    result = runner.invoke(app, ["lint", str(_formula_spec(tmp_path, "signal = close[-1]"))])
+    assert result.exit_code == 1, result.output
+    assert "负位移" in result.stdout
+
+
+def test_lint_rejects_negative_shift_via_named_const(tmp_path):
+    result = runner.invoke(app, [
+        "lint", str(_formula_spec(tmp_path, "_n = 3\nsignal = ts_delay(close, -_n)"))])
+    assert result.exit_code == 1, result.output
+    assert "负位移" in result.stdout
+
+
+def test_lint_rejects_unknown_operator(tmp_path):
+    result = runner.invoke(app, ["lint", str(_formula_spec(tmp_path, "signal = no_such_op(close)"))])
+    assert result.exit_code == 1, result.output
+    assert "未知算子" in result.stdout
+
+
+def test_lint_rejects_future_shift_in_pool_formula(tmp_path):
+    result = runner.invoke(app, [
+        "lint", str(_formula_spec(tmp_path, "signal = close", universe='formula: "close[-1] > 10"'))])
+    assert result.exit_code == 1, result.output
+    assert "负位移" in result.stdout
+
+
+def test_lint_accepts_positive_subscript(tmp_path):
+    result = runner.invoke(app, ["lint", str(_formula_spec(tmp_path, "signal = close[1]"))])
+    assert result.exit_code == 0, result.output
+    assert "OK" in result.stdout
+
+
+@pytest.mark.parametrize("fname", [
+    "future_subscript.yaml", "future_const.yaml", "neg_shift_lint.yaml",
+])
+def test_lint_rejects_review_probe_specs(fname):
+    """I5 验收：三类 R01 review probe spec 必须 exit≠0（此前全部 exit 0）。"""
+    result = runner.invoke(app, ["lint", str(_EVIDENCE / fname)])
+    assert result.exit_code == 1, f"{fname} 过 lint（语义门缺失）: {result.output}"

@@ -61,7 +61,7 @@
 - `cs_demean`（cs v0.1.0）
 - `cs_mad_zscore`（cs v0.1.0）
 - `cs_quantile`（cs v0.1.0）
-- `cs_regression_resid`（cs v0.1.0）
+- `cs_resid`（cs v0.1.0）
 - `cs_scale`（cs v0.1.0）
 - `cs_stable_rank`（cs v0.2.0）
 - `cs_zscore`（cs v0.1.0）

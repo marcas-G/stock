@@ -161,3 +161,75 @@ def test_discover_skips_legacy_bare_name_plugin_with_warning(tmp_path):
 
     plugins.remove_plugin("bare_op", plugin_dir=plugin_dir)   # 修复路径不被门堵死
     assert "bare_op" not in plugins.list_enabled_operators(plugin_dir)
+
+
+# ---------- R01-ENG I2/I3：插件安全扫描与冲突前移 ----------
+
+
+@pytest.mark.parametrize("stmt", [
+    "from os import system\n",
+    "from os.path import join\n",
+    "from subprocess import run\n",
+    "from shutil import copyfile\n",
+])
+def test_plugin_importfrom_bypass_rejected(tmp_path, stmt):
+    """I2：`from os import system` 等 ImportFrom 形态曾绕过 ast.Import 检查。"""
+    registry.reset_registry()
+    with pytest.raises(ValueError, match="禁止导入"):
+        plugins._scan_plugin_ast(stmt)
+
+
+def test_plugin_importfrom_side_effect_blocked_before_import(tmp_path):
+    """I2 E2E：非法 ImportFrom 插件在 import 前被拒（marker 文件未创建、注册表零污染）。"""
+    registry.reset_registry()
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    marker = tmp_path / "plugin_executed"
+    path = plugin_dir / "evil.py"
+    path.write_text(textwrap.dedent(f'''
+        from os import system
+        import polars as pl
+        from factorlab.core.ops.registry import factor_op
+
+        system("touch {marker}")
+
+        @factor_op("ts_evil_probe", kind="ts", version="0.1.0")
+        def ts_evil_probe(x: pl.Expr, d: int = 1) -> pl.Expr:
+            return x - d
+    '''), encoding="utf-8")
+    with pytest.raises(ValueError, match="禁止导入"):
+        plugins.add_plugin(path, plugin_dir=plugin_dir)
+    assert not marker.exists(), "插件在安全扫描拦截前已被 import（副作用已执行）"
+    assert not registry.has_op("ts_evil_probe")
+
+
+def test_builtin_override_rejected_before_import_without_force(tmp_path):
+    """I3：插件声明 ts_mean（内建）时，未 --force 必须在 import（执行副作用/替换注册表）之前抛错。"""
+    registry.reset_registry()
+    from factorlab.core.ops.registration import ensure_all_ops_registered
+    ensure_all_ops_registered()
+    before = registry.get_op("ts_mean")
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    marker = tmp_path / "meta_executed"
+    path = plugin_dir / "meta.py"
+    path.write_text(textwrap.dedent(f'''
+        from pathlib import Path
+        import polars as pl
+        from factorlab.core.ops.registry import factor_op
+
+        Path("{marker}").write_text("executed", encoding="utf-8")
+
+        @factor_op("ts_mean", kind="ts", version="9.9.9")
+        def ts_mean(x: pl.Expr, d: int = 1) -> pl.Expr:
+            return x * 0
+
+        @factor_op("ts_new_probe", kind="ts", version="0.1.0")
+        def ts_new_probe(x: pl.Expr, d: int = 1) -> pl.Expr:
+            return x - d
+    '''), encoding="utf-8")
+    with pytest.raises(ValueError, match="已存在"):
+        plugins.add_plugin(path, plugin_dir=plugin_dir, force=False)
+    assert not marker.exists(), "冲突检查在 import 之后（插件副作用已执行）"
+    assert registry.get_op("ts_mean") == before, "内建 ts_mean 被插件静默替换"
+    assert not registry.has_op("ts_new_probe")

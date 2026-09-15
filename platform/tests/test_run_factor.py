@@ -23,6 +23,7 @@ import dualbridge
 from factorlab.app.run import run_factor
 from factorlab.app.context import RunContext
 from factorlab.core.engine.compute import _formula_columns
+from factorlab.core.factor.errors import FactorDSLError
 from factorlab.core.spec import load_spec
 
 _DATES = ["20240102", "20240103", "20240104", "20240105", "20240108", "20240109"]
@@ -751,3 +752,123 @@ def test_chunked_pure_cs_consistency(env, tmp_path):
     assert joined.height == full.panel.height == 12 * 2
     diff = (joined["signal"] - joined["signal_c"]).abs().max()
     assert float(diff) < 1e-9
+
+
+# ---------- R01-ENG C1/C2：未来函数门 E2E ----------
+
+
+def _formula_spec(tmp_path, formula: str, name: str = "demo_guard",
+                  end: str = "2024-01-17"):
+    body = "\n".join("  " + line for line in formula.splitlines())
+    path = tmp_path / f"{name}.yaml"
+    path.write_text(f"""
+name: {name}
+category: custom
+direction: 1
+universe:
+  codes: ["000001.SZ", "600519.SH"]
+date:
+  start: "2024-01-02"
+  end: "{end}"
+formula: |
+{body}
+process: []
+""", encoding="utf-8")
+    return load_spec(path)
+
+
+def test_run_factor_rejects_negative_subscript(env, tmp_path):
+    # C1 E2E：close[-1] 即 ts_delay(close,-1)，引擎必须拒绝（不能算出 close(t+1)）
+    _seed(env, n_days=12)
+    spec = _formula_spec(tmp_path, "signal = close[-1]")
+    with pytest.raises(FactorDSLError, match="负位移"):
+        run_factor(spec, _ctx(env, tmp_path / "out_sub"))
+
+
+def test_run_factor_rejects_negative_shift_via_named_const(env, tmp_path):
+    # C2 E2E：-_n 内嵌 Name 的负位移必须拒绝（实测旧代码产出 shift(-3)）
+    _seed(env, n_days=12)
+    spec = _formula_spec(tmp_path, "_n = 3\nsignal = ts_delay(close, -_n)")
+    with pytest.raises(FactorDSLError, match="负位移"):
+        run_factor(spec, _ctx(env, tmp_path / "out_const"))
+
+
+def test_run_factor_accepts_positive_subscript(env, tmp_path):
+    # 正向控制：close[1] = ts_delay(close,1) 是合法 lookback（不得误杀）
+    _seed(env, n_days=12)
+    spec = _formula_spec(tmp_path, "signal = close[1]")
+    result = run_factor(spec, _ctx(env, tmp_path / "out_pos"))
+    frame = result.signal_artifact.frame.sort(["code", "date"])
+    assert frame.height > 0
+    assert 0 < frame["signal"].null_count() < frame.height
+
+
+def test_run_factor_accepts_positive_named_const_shift(env, tmp_path):
+    _seed(env, n_days=12)
+    spec = _formula_spec(tmp_path, "_n = 3\nsignal = ts_delay(close, _n)")
+    result = run_factor(spec, _ctx(env, tmp_path / "out_pos_named"))
+    assert result.signal_artifact.frame.height > 0
+
+
+# ---------- R01-ENG I1：分块 × 累计算子 fail fast ----------
+
+
+def test_chunk_days_rejects_cumulative_operator(env, tmp_path):
+    # I1：ts_cum_sum 每块重置 → 分块违反"逐 cell 一致"文档承诺。
+    # 整段跑合法；分块路径必须在跑之前 fail fast（指引单块跑）。
+    _seed(env, n_days=12)
+    spec = _formula_spec(tmp_path, "signal = ts_cum_sum(close)")
+    full = run_factor(spec, _ctx(env, tmp_path / "out_cum_full"))
+    assert full.signal_artifact.frame.height > 0
+    with pytest.raises(ValueError, match="累计算子"):
+        run_factor(spec, _ctx(env, tmp_path / "out_cum_chunk",
+                              chunk_days=3, warmup_days=1))
+
+
+def test_chunk_days_rejects_vwap_macro_expansion(env, tmp_path):
+    # vwap 经 expand_platform_macros 展开为 ts_cum_sum → 同样拦截（展开后扫描）
+    _seed(env, n_days=12)
+    spec = _formula_spec(tmp_path, "signal = vwap(high, low, close, volume)")
+    with pytest.raises(ValueError, match="累计算子"):
+        run_factor(spec, _ctx(env, tmp_path / "out_vwap_chunk",
+                              chunk_days=3, warmup_days=1))
+
+
+def test_chunk_days_allows_window_operator_control(env, tmp_path):
+    # 负向控制：窗口算子（非累计）分块继续可用（不得把门扩大成"分块全禁"）
+    _seed(env, n_days=12)
+    spec = _formula_spec(tmp_path, "signal = ts_mean(close, 3)")
+    result = run_factor(spec, _ctx(env, tmp_path / "out_win_chunk",
+                                   chunk_days=3, warmup_days=1))
+    assert result.signal_artifact.frame.height > 0
+
+
+def test_chunk_days_rejects_cumulative_in_pool_formula(env, tmp_path):
+    # I1：累计算子出现在池公式（universe.formula）同样拦截（helper 同时扫 pool）
+    _seed(env, n_days=12)
+    path = tmp_path / "pool_cum.yaml"
+    path.write_text("""
+name: demo_pool_cum
+category: custom
+direction: 1
+universe:
+  formula: "ts_cum_sum(close) > 0"
+date:
+  start: "2024-01-02"
+  end: "2024-01-17"
+formula: |
+  signal = close
+process: []
+""", encoding="utf-8")
+    spec = load_spec(path)
+    with pytest.raises(ValueError, match="累计算子"):
+        run_factor(spec, _ctx(env, tmp_path / "out_pool_cum",
+                              chunk_days=3, warmup_days=1))
+
+
+def test_cumulative_ops_used_resolves_import_alias():
+    from factorlab.core.engine.compute import cumulative_ops_used
+    src = ("from polars_ta.prefix.wq import ts_cum_sum as cs\n"
+           "signal = cs(close) + ts_cum_max(open)")
+    assert cumulative_ops_used(src) == ["ts_cum_max", "ts_cum_sum"]
+    assert cumulative_ops_used("signal = ts_mean(close, 3)") == []

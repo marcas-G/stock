@@ -127,6 +127,52 @@ def test_allows_positive_const_and_reassignment():
     reject_future_shifts("_d = -3\n_d = 5\nsignal = ts_delay(close, _d)")
 
 
+def test_rejects_negative_subscript():
+    # C1（R01-ENG-C1）：expr_codegen 把 X[k] 编译为 ts_delay(X, k)——负下标 = 未来函数。
+    # 只查 ast.Call 的旧门漏掉这一语法糖（close[-1] 实测 signal(t)=close(t+1)）。
+    with pytest.raises(ValueError, match="负位移"):
+        reject_future_shifts("signal = close[-1]")
+    with pytest.raises(ValueError, match="负位移"):
+        reject_future_shifts("signal = close[-2] + open")
+
+
+def test_rejects_negative_subscript_via_top_level_const():
+    with pytest.raises(ValueError, match="负位移"):
+        reject_future_shifts("_k = 2\nsignal = close[-_k]")
+    with pytest.raises(ValueError, match="负位移"):
+        reject_future_shifts("_k = -2\nsignal = close[_k]")
+
+
+def test_allows_forward_and_zero_and_unknown_subscript():
+    # 正向 close[1] = ts_delay(close, 1) 是合法 lookback；close[0]/-0 退化为自身；
+    # 未知变量放行（与既有"无法静态判断 → 保守放行"方向一致）。
+    reject_future_shifts("signal = close[1]")
+    reject_future_shifts("signal = close[0]")
+    reject_future_shifts("signal = close[-0]")
+    reject_future_shifts("signal = close[n]")
+
+
+def test_rejects_negative_shift_via_name_inside_unary_and_binop():
+    # C2（R01-ENG-C2）：_shift_value 只回退裸 Name；-_n / 1-_n / 0-_n 内嵌 Name
+    # 时漏网（实测 E2E shift(-3)）。常量表折叠必须递归进 UnaryOp/BinOp。
+    for expr in ("-_n", "1 - _n", "0 - _n", "-_n * 1", "-(_n)"):
+        with pytest.raises(ValueError, match="负位移"):
+            reject_future_shifts(f"_n = 3\nsignal = ts_delay(close, {expr})")
+
+
+def test_rejects_negative_shift_via_alias_and_name_const():
+    with pytest.raises(ValueError, match="负位移"):
+        reject_future_shifts(
+            "from polars_ta.prefix import ts_delay as td\n"
+            "_n = 3\nsignal = td(close, -_n)")
+
+
+def test_allows_positive_folded_shift_via_name_const():
+    # -_n + 2*_n = 3（正向）——递归折叠后必须放行，不得把正常命名常量误杀
+    reject_future_shifts("_n = 3\nsignal = ts_delay(close, -_n + 2 * _n)")
+    reject_future_shifts("_n = 3\nsignal = ts_delta(close, _n - 1)")
+
+
 def test_import_alias_resolves_to_known_op():
     validate_partition_calls(
         "from factorlab.core.ops.platform_ops import returns as ret\nsignal = ret(close)"

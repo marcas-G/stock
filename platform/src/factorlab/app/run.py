@@ -20,7 +20,7 @@ from factorlab.adapters.parquet_artifacts import (write_factor_artifacts,
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.app.context import RunContext
-from factorlab.core.engine.compute import (_WARMUP_SAFETY_PAD, _build_legacy_panel, _canonicalize_artifact_codes, _chunk_keep, _formula_columns, _pool_cond_frame, _ts_window_days, compute_formula, FactorResult, fill_suspension_values, label_lookahead_end, prepare_formula_pipeline)
+from factorlab.core.engine.compute import (_WARMUP_SAFETY_PAD, _build_legacy_panel, _canonicalize_artifact_codes, _chunk_keep, _formula_columns, _pool_cond_frame, _ts_window_days, compute_formula, FactorResult, fill_suspension_values, label_lookahead_end, prepare_formula_pipeline, reject_cumulative_chunking)
 from factorlab.core.engine.forward import (DEFAULT_FORWARD_HORIZONS,
                                            compute_forward_returns)
 from factorlab.core.engine.minute import (_ADV20_LEFT_DAYS,
@@ -357,6 +357,10 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
     if spec.factors is not None:
         raise NotImplementedError("多因子 factors/combine 组合不在平台范围（平台定位单因子计算与评估）")
     formula, pool = prepare_formula_pipeline(spec)  # 展开链（打开数据库前完成，见 helper docstring）
+    if ctx.chunk_days is not None:
+        # R01-ENG-I1：累计算子（ts_cum_*/vwap 展开）分块每块重置，违反 interface.md
+        # 「分块计算」逐 cell 一致承诺——打开数据库前 fail fast（文案指引单块跑）
+        reject_cumulative_chunking(formula, pool)
     # M2（G1）：outputs 声明（spec 加载期四规则已校验）——缺省 [signal] = legacy
     outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
     signal_artifact: SignalArtifact | None = None

@@ -25,7 +25,8 @@ from factorlab.core.ops.platform_ops import (
     rewrite_expr_methods,
 )
 from factorlab.core.ops.minute_ops import EXTRA_CODES, register_minute_ops
-from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
+from factorlab.core.ops.polars_ta_wrappers import (register_polars_ta_ops,
+                                                   rewrite_polars_ta_aliases)
 from factorlab.core.ops.universe_masking import (apply_universe_masking,
                                             validate_reserved_bindings)
 from factorlab.core.spec import FactorSpec
@@ -120,6 +121,7 @@ def compute_formula(
     formula = expand_platform_macros(formula)  # 薄封装 → ts_ 表达式，保证按 asset 分区
     from factorlab.core.ops.stable_rank import rewrite_stable_rank
     formula = rewrite_stable_rank(formula)  # M6-07C2I：cs_rank → 平台 stable 实现（+ import）
+    formula = rewrite_polars_ta_aliases(formula)  # R01-ENG-I4：cs_regression_resid → vendor cs_resid
     if universe_mask is not None:
         # M6-03：CS/GP 算子的数据参数包 if_else(mask, arg, None)——TS 仍见完整
         # listed history，CS 只见当日 active universe。mask 列必须已存在于 df。
@@ -212,6 +214,49 @@ def _formula_columns(formula: str) -> list[str]:
     names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
     cols = names - defined - imported - called - annotated - _ELEMENTWISE_COLS - {"signal"}
     return sorted(c for c in cols if not c.startswith("_") and c not in {"date", "code"})
+
+
+# R01-ENG-I1：依赖"块内全历史"的累计算子族（vendor ts_cum_* 无窗口参数，
+# 定义即 cum_sum/cum_max/... 全历史累计）。--chunk-days 每块独立跑完整流水线
+# → 每块重新累计，违反 docs/interface.md「分块计算」的"与单块整段跑逐 cell
+# 一致"承诺（实测 ts_cum_sum/vwap 分块差异 14 行）。
+_CUMULATIVE_PREFIX = "ts_cum_"
+
+
+def cumulative_ops_used(source: str) -> list[str]:
+    """公式引用的累计算子名（ts_cum_* 族；import 别名解析，未知名不报错）。"""
+    tree = ast.parse(source)
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                aliases[alias.asname or alias.name] = alias.name
+    used: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            name = aliases.get(node.func.id, node.func.id)
+            if name.startswith(_CUMULATIVE_PREFIX):
+                used.add(name)
+    return sorted(used)
+
+
+def reject_cumulative_chunking(formula: str, pool: str | None = None) -> None:
+    """分块 × 累计算子 fail fast（R01-ENG-I1）。
+
+    调用方保证 formula/pool 已过 `prepare_formula_pipeline`（宏展开后文本——
+    vwap 已展开为 ts_cum_sum）。任一累计算子出现即拒绝：分块下每块重置，
+    结果与整段跑不再逐 cell 一致；单块整段跑（chunk_days=None）语义正确，
+    文案指引用户去掉 --chunk-days 或改用窗口算子。
+    """
+    names = set(cumulative_ops_used(formula))
+    if pool is not None:
+        names.update(cumulative_ops_used(pool))
+    if names:
+        raise ValueError(
+            f"累计算子 {sorted(names)} 与 --chunk-days 分块不兼容：累计算子依赖"
+            f"块内全历史，分块时每块重新累计，结果不再与整段跑逐 cell 一致"
+            f"（docs/interface.md §分块计算）。请去掉 --chunk-days 单块整段跑，"
+            f"或改用非累计算子（如 ts_sum/ts_mean 窗口算子）")
 
 
 _WINDOW_PREFIXES = ("ts_", "ta_")  # 窗口参数在第二位置的算子族（tdx_* 参数语义不同，不提取）
