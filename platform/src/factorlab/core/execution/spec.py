@@ -15,8 +15,12 @@
 from __future__ import annotations
 
 import math
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (BaseModel, ConfigDict, Field, field_validator,
+                      model_validator)
+
+from factorlab.core.domain.timing import ExecutionTiming
 
 
 class ExecutionCostSpec(BaseModel):
@@ -72,8 +76,163 @@ class ExecutionCostSpec(BaseModel):
         return float(v)
 
 
+class SliceSpec(BaseModel):
+    """分钟窗口子切片（R22）：[start, end] 闭区间 + 目标量权重。
+
+    - minute_index 语义同 data contract（0=09:25 开盘集合竞价、239=15:00）
+    - weight 必须 finite > 0（SliceSpec 自身只管单点合法；权重和 = 1 /
+      切片顺序 / 重叠 / 落在窗口内由 MinuteWindowSpec 跨字段校验）
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    start: int
+    end: int
+    weight: float
+
+    @field_validator("start", "end", mode="before")
+    @classmethod
+    def _int_index(cls, v, info) -> int:
+        if isinstance(v, bool) or not isinstance(v, int):
+            raise ValueError(
+                f"{info.field_name} 必须为 int（bool/str/float 拒绝，收到 {v!r}）")
+        if not 0 <= v <= 239:
+            raise ValueError(
+                f"{info.field_name} 必须 0 <= {info.field_name} <= 239"
+                f"（收到 {v!r}）")
+        return v
+
+    @field_validator("weight", mode="before")
+    @classmethod
+    def _weight(cls, v) -> float:
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            raise ValueError(f"weight 必须为数值（收到 {v!r}）")
+        if not math.isfinite(v):
+            raise ValueError(f"weight 必须 finite（收到 {v!r}）")
+        if v <= 0:
+            raise ValueError(f"weight 必须 > 0（收到 {v!r}）")
+        return float(v)
+
+    @model_validator(mode="after")
+    def _bounds(self):
+        if self.end < self.start:
+            raise ValueError(
+                f"SliceSpec end 必须 >= start（收到 start={self.start}, "
+                f"end={self.end}）")
+        return self
+
+
+class TriggerSpec(BaseModel):
+    """价格触发配置（R22 V1：limit / vwap_offset）。
+
+    - mode="limit"：静态限价，基准 ref ∈ {pre_close, window_open, window_vwap}
+    - mode="vwap_offset"：limit 随窗口累计 VWAP 滚动（ref 忽略）
+    - offset_bps：买 limit = ref×(1+offset/1e4)；卖 limit = ref×(1-offset/1e4)
+      ——负值 = 买更低价 / 卖更高价；finite（bool 拒绝）
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    mode: Literal["limit", "vwap_offset"]
+    ref: Literal["pre_close", "window_open", "window_vwap"] = "pre_close"
+    offset_bps: float = 0.0
+
+    @field_validator("offset_bps", mode="before")
+    @classmethod
+    def _offset(cls, v) -> float:
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            raise ValueError(f"offset_bps 必须为数值（收到 {v!r}）")
+        if not math.isfinite(v):
+            raise ValueError(f"offset_bps 必须 finite（收到 {v!r}）")
+        return float(v)
+
+
+class MinuteWindowSpec(BaseModel):
+    """分钟执行窗口配置（R22）：窗口 + 价格口径 + 分批 + 参与率 + 触发 + 兜底。
+
+    - start/end：minute_index 闭区间（0=09:25、239=15:00；data contract 为准）
+    - price_basis：成交价口径（vwap = Σamount/Σvolume；其余按分钟 bar 口径）
+    - slices：分批（缺省 = 单切片 [start,end] 权重 1）；按 start 升序、互不
+      重叠、落在窗口内、权重和 = 1（容差 1e-9）、每片 weight > 0
+    - participation：单分钟成交 ≤ participation × minute.volume（0<r<=1）
+    - trigger：价格触发；None = 必成交（窗口内按参与率成交）
+    - fallback：窗口结束仍未成完 → none=不成交；close=最后窗口 close 兜底
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    start: int
+    end: int
+    price_basis: Literal["vwap", "open", "close", "twap", "mid"] = "vwap"
+    slices: list[SliceSpec] | None = None
+    participation: float = 0.10
+    trigger: TriggerSpec | None = None
+    fallback: Literal["none", "close"] = "none"
+
+    @field_validator("start", "end", mode="before")
+    @classmethod
+    def _int_index(cls, v, info) -> int:
+        if isinstance(v, bool) or not isinstance(v, int):
+            raise ValueError(
+                f"{info.field_name} 必须为 int（bool/str/float 拒绝，收到 {v!r}）")
+        if not 0 <= v <= 239:
+            raise ValueError(
+                f"{info.field_name} 必须 0 <= {info.field_name} <= 239"
+                f"（收到 {v!r}）")
+        return v
+
+    @field_validator("participation", mode="before")
+    @classmethod
+    def _participation(cls, v) -> float:
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            raise ValueError(f"participation 必须为数值（收到 {v!r}）")
+        if not math.isfinite(v):
+            raise ValueError(f"participation 必须 finite（收到 {v!r}）")
+        if not 0 < v <= 1:
+            raise ValueError(
+                f"participation 必须 0 < r <= 1（收到 {v!r}）")
+        return float(v)
+
+    @model_validator(mode="after")
+    def _cross_fields(self):
+        if self.end < self.start:
+            raise ValueError(
+                f"MinuteWindowSpec end 必须 >= start（收到 start={self.start}, "
+                f"end={self.end}）")
+        if self.slices is None:
+            return self
+        if not self.slices:
+            raise ValueError("slices 若提供必须非空（空列表 → 用 None 表达单切片）")
+        prev = None
+        for s in self.slices:
+            if s.start < self.start or s.end > self.end:
+                raise ValueError(
+                    f"slice [{s.start}, {s.end}] 必须落在窗口 "
+                    f"[{self.start}, {self.end}] 内（收到越界切片）")
+            if prev is not None:
+                if s.start <= prev.start:
+                    raise ValueError(
+                        f"slices 必须按 start 严格升序（收到 {prev.start} → "
+                        f"{s.start}）")
+                if s.start <= prev.end:
+                    raise ValueError(
+                        f"slices 不得重叠（[{prev.start}, {prev.end}] 与 "
+                        f"[{s.start}, {s.end}] 重叠）")
+            prev = s
+        total = sum(s.weight for s in self.slices)
+        if abs(total - 1.0) > 1e-9:
+            raise ValueError(
+                f"slices 权重和必须 = 1（容差 1e-9，收到 {total!r}）")
+        return self
+
+
 class ExecutionSpec(BaseModel):
-    """执行配置（long-only A 股、嵌套成本模型、无全局数量规则）。"""
+    """执行配置（long-only A 股、嵌套成本模型、无全局数量规则）。
+
+    - execution_timing：默认 NEXT_OPEN（向后兼容）；NEXT_WINDOW 必须提供
+      minute_window（分钟窗口执行配置）；NEXT_OPEN/NEXT_CLOSE 禁止携带窗口
+      ——timing 语义不复制（复用 M6 ExecutionTiming）
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -81,6 +240,8 @@ class ExecutionSpec(BaseModel):
     # default_factory：每个 ExecutionSpec 实例独立 cost_model（frozen 对象
     # 虽不可变，仍避免 pydantic 默认值实例共享）
     cost_model: ExecutionCostSpec = Field(default_factory=ExecutionCostSpec)
+    execution_timing: ExecutionTiming = ExecutionTiming.NEXT_OPEN
+    minute_window: MinuteWindowSpec | None = None
 
     @field_validator("initial_cash", mode="before")
     @classmethod
@@ -95,3 +256,16 @@ class ExecutionSpec(BaseModel):
         if v <= 0:
             raise ValueError(f"initial_cash 必须 > 0（收到 {v!r}）")
         return float(v)
+
+    @model_validator(mode="after")
+    def _timing_window_consistency(self):
+        if self.execution_timing is ExecutionTiming.NEXT_WINDOW:
+            if self.minute_window is None:
+                raise ValueError(
+                    "execution_timing=NEXT_WINDOW 必须提供 minute_window"
+                    "（窗口执行配置缺失，禁止隐式默认窗口）")
+        elif self.minute_window is not None:
+            raise ValueError(
+                f"execution_timing={self.execution_timing.value} 禁止携带 "
+                f"minute_window（仅 NEXT_WINDOW 使用分钟窗口）")
+        return self

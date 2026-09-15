@@ -30,9 +30,17 @@ class SignalAvailability(Enum):
 
 
 class ExecutionTiming(Enum):
-    """默认最早可执行时点。"""
+    """默认最早可执行时点。
+
+    - NEXT_OPEN：次日开盘（M8 v1 默认；日级 fillability @ raw open）
+    - NEXT_WINDOW：次日分钟窗口内执行（R22 扩展；窗口/口径/触发由
+      ExecutionSpec.minute_window 配置；执行日与 NEXT_OPEN 相同，均为
+      严格 > decision 的下一交易日）
+    - NEXT_CLOSE：保留枚举（v1 显式拒绝，7 处 NotImplementedError 不动）
+    """
 
     NEXT_OPEN = "next_open"
+    NEXT_WINDOW = "next_window"
     NEXT_CLOSE = "next_close"
 
 
