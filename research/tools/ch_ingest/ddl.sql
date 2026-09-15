@@ -16,14 +16,14 @@ CREATE TABLE IF NOT EXISTS factorlab.daily (
     change     Nullable(Float64),      -- 派生：close - pre_close
     pct_chg    Nullable(Float64),      -- 派生：(close/pre_close - 1) * 100
     vol        Float64,                -- 单位=股（源 parquet 原生；与 tushare "手"差 100 倍，见 README）
-    amount     Float64
+    amount     Nullable(Float64)       -- R21 I1：退市股源 amount=NaN → NULL（旧版非 Nullable 灌成 0）
 ) ENGINE = MergeTree
   ORDER BY (ts_code, trade_date);
 
 CREATE TABLE IF NOT EXISTS factorlab.adj_factor (
     ts_code String,
     trade_date Date,
-    adj_factor Float64
+    adj_factor Nullable(Float64)       -- R21 I1：NaN/<=0 → NULL（qfq 基准 argMax 跳过）
 ) ENGINE = MergeTree
   ORDER BY (ts_code, trade_date);
 
@@ -51,9 +51,15 @@ CREATE TABLE IF NOT EXISTS factorlab.stock_basic (
     ts_code   String,                  -- symbol + 交易所后缀
     list_date Date,                    -- 代理 = 该代码在 daily_fact 的最早 trade_date（非真实上市日）
     market    String,                  -- 板块名规范值：主板/创业板/科创板/北交所（平台 execution rules 显式消费，非 code 推断替代）
-    industry  Nullable(String)         -- 恒 NULL：无行业数据源（fillna(industry_mean)/neutralize(industry) 降级）
+    industry  Nullable(String),        -- 恒 NULL：无行业数据源（fillna(industry_mean)/neutralize(industry) 降级）
+    delist_date Nullable(Date)         -- R21 DATA-C1：退市日（sidecar last_trade+1 / 断流>250 兜底）；平台 is_listed = t < delist_date
 ) ENGINE = MergeTree
   ORDER BY (symbol, ts_code);
+-- R21 存量库迁移（CREATE IF NOT EXISTS 不改已有列类型/不补列；已执行，见
+-- docs/verification/R21/TOOLS-A/after/ddl_alter.txt）：
+--   ALTER TABLE factorlab.daily      MODIFY COLUMN amount     Nullable(Float64);
+--   ALTER TABLE factorlab.adj_factor MODIFY COLUMN adj_factor Nullable(Float64);
+--   ALTER TABLE factorlab.stock_basic ADD COLUMN IF NOT EXISTS delist_date Nullable(Date) AFTER industry;
 
 CREATE TABLE IF NOT EXISTS factorlab.index_daily (
     ts_code String,

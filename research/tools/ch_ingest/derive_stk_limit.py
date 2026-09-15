@@ -1,8 +1,10 @@
 """factorlab.stk_limit 派生（closeout spec §3 ①：研究侧数据任务，2026-09-08 执行）
 
 涨跌停价 = round(pre_close × (1±带宽), 2)，四舍五入到分。源 = CH factorlab.daily
-的 pre_close（raw 口径：close per-code shift，组内首行 NULL——首行即上市首日，
-无昨收 → **无涨跌停行**（平台 has_limit=False 语义 = 无限制，近似注册制首日）。
+的 pre_close（R21 DATA-C2 起 = **除权参考价**：除权日由 ingest_daily 按
+div_cash/div_bonus/div_transfer/rights_num/rights_price 重算，无事件日 = 昨收；
+组内首行 NULL——首行即上市首日，无昨收 → **无涨跌停行**（平台 has_limit=False
+语义 = 无限制，近似注册制首日）。因此除权日带宽与交易所口径一致（R21 I4）。
 
 制度边界（2026-09-08 实查校准，非一率套带宽）：
   - trade_date < 1996-12-16（涨跌停制度实施日）→ **不派生行**——该时代无涨跌
@@ -39,9 +41,9 @@ intDiv(cents×(100±b×100)+50, 100)，再 ÷100 得元。避免 Float64 ×1.1 �
 在 .005 边界上的舍入偏差（交易所口径 = 十进制 half-up）。
 
 已知近似（v1 接受，文档记录）：
-  - 除权日 pre_close 未做除权调整（daily.pre_close ≡ 昨收原值）→ 该日带宽价
-    按未调昨收计算；close 越带宽的除权缺口行仅剩此类（实查 ≈ adj_event 日），
-    除权持仓由 CA Gate 拦，不产生订单级误判路径。
+  - ~~除权日 pre_close 未做除权调整~~（R21 TOOLS-I4 已修：DATA-C2 修复后
+    daily.pre_close = 除权参考价，2025 除权日带宽偏离率归零，见 reconcile
+    与 docs/verification/R21/TOOLS-A/after/probe2）。
   - 长期停牌复牌日 / 退市整理期首日无涨跌幅（复牌日历史规则）→ 带宽按
     stale pre_close 近似给出，close 越带宽；无名称/停牌原因源可辨（daily 无
     停牌列，缺行=停牌推断在 daily_fact 层成立但原因未知）。实查归因：2026 年
@@ -58,6 +60,8 @@ intDiv(cents×(100±b×100)+50, 100)，再 ÷100 得元。避免 Float64 ×1.1 �
     日 +21% 等）越带宽 → 豁免段。灌入 17,889,079 行。
   - 2026-09-08 v4：302 段漏配（302132.SZ 创业板老股按 ±10% 算，2026-06-12
     普通日 +10.78% 越界）→ 并 300/301 组重灌。
+  - 2026-09-15 R21：daily.pre_close 换除权参考价（DATA-C2），本表 TRUNCATE+
+    重灌即修正除权日带宽；SQL 抽 `_derived_rows_sql` 供 reconcile 复用计数。
 
 幂等：CREATE IF NOT EXISTS + TRUNCATE + INSERT…SELECT（纯 SQL，CH server 侧
 执行，无 python 侧数据物化）。平台契约（data/execution.py）：stk_limit 表
@@ -131,24 +135,36 @@ def _select_clause() -> tuple[str, str]:
     return up_expr, dn_expr
 
 
-def main() -> None:
-    client = connect()
-    db = load_config()["ch"]["database"]
-    client.command(DDL.format(db=db))
-    client.command(f"TRUNCATE TABLE {db}.stk_limit")
-
+def _derived_rows_sql(db: str) -> str:
+    """stk_limit 的派生行集 SQL（INSERT 与 reconcile 计数共用，单点防漂移）。"""
     up_expr, dn_expr = _select_clause()
     # rn = 该 code 上市以来交易行序号（首日 pre_close NULL 行也算 rn=1，占位；
     # 注册制段的全部历史都 ≥ 各自豁免起点，rn 无需按段重算）
-    sql = (
-        f"INSERT INTO {db}.stk_limit (ts_code, trade_date, up_limit, down_limit) "
-        f"SELECT ts_code, trade_date, {up_expr}, {dn_expr} FROM ("
+    return (
+        f"SELECT ts_code, trade_date, {up_expr} AS up_limit, {dn_expr} AS down_limit FROM ("
         f"  SELECT ts_code, trade_date, pre_close,"
         f"         row_number() OVER (PARTITION BY ts_code ORDER BY trade_date) AS rn"
         f"  FROM {db}.daily"
         f"  WHERE trade_date >= {_MIN_DATE}"
         f") WHERE pre_close IS NOT NULL"
         f"  AND NOT ({_REG_SEG} AND rn <= 5)"
+    )
+
+
+def expected_rows_sql(db: str) -> str:
+    """期望 stk_limit 行数（reconcile 独立复算；与 INSERT 共用谓词）。"""
+    return f"SELECT count() FROM ({_derived_rows_sql(db)})"
+
+
+def main() -> None:
+    client = connect()
+    db = load_config()["ch"]["database"]
+    client.command(DDL.format(db=db))
+    client.command(f"TRUNCATE TABLE {db}.stk_limit")
+
+    sql = (
+        f"INSERT INTO {db}.stk_limit (ts_code, trade_date, up_limit, down_limit) "
+        + _derived_rows_sql(db)
     )
     print("派生灌入 stk_limit（pre_close 非空行）...", flush=True)
     client.command(sql)

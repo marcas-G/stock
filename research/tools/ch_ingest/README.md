@@ -7,11 +7,21 @@ ClickHouse（`127.0.0.1:8123` HTTP——clickhouse-connect 仅支持 HTTP；`190
 
 | CH 表 | 源 | 行数 | 任务粒度 |
 |---|---|---|---|
-| daily / adj_factor / daily_basic / trade_cal / stock_basic | `data/fact/daily_fact/daily_fact.parquet`（相对 `stock/`） | 18,162,795 | 单进程，TRUNCATE 幂等 |
-| stk_limit（派生：板块带宽 × pre_close，规则见脚本 docstring） | `factorlab.daily` | 17,889,079 | `derive_stk_limit.py`，TRUNCATE+INSERT 全量 |
-| adj_detail / adj_event（派生：daily_fact 除权 7 列） | `data/fact/daily_fact/daily_fact.parquet`（相对 `stock/`） | 18,162,795 / 57,173 | `ch_ingest/adj_backfill.py`（R19 从 ashare 项目 12 号脚本归位），DROP+CREATE 全量 |
-| bars_1m | `data/fact/bars_1m/year=YYYY/month=MM/` | 1,854,876,240 | 月分区 ×80 |
+| daily / adj_factor / daily_basic / trade_cal / stock_basic | `data/fact/daily_fact/daily_fact.parquet`（相对 `stock/`） | 18,124,805（R21 重生成实测） | 单进程，TRUNCATE 幂等 |
+| stk_limit（派生：板块带宽 × pre_close，规则见脚本 docstring） | `factorlab.daily` | 17,854,764（R21 重灌） | `derive_stk_limit.py`，TRUNCATE+INSERT 全量 |
+| adj_detail / adj_event（派生：daily_fact 除权 7 列） | `data/fact/daily_fact/daily_fact.parquet`（相对 `stock/`） | 18,124,805 / 57,173 | `ch_ingest/adj_backfill.py`（R19 从 ashare 项目 12 号脚本归位），DROP+CREATE 全量 |
+| bars_1m | `data/fact/bars_1m/year=YYYY/month=MM/` | 1,853,379,840（R21 probe 实测） | 月分区 ×80 |
 | tick_trades / tick_orders / tick_snapshots | `data/fact/tick_fact/{trades,orders,snapshots}/year=YYYY/month=MM/` | 98.6 亿 | 月分区 ×13×3 |
+
+R21 行数为重灌后实测；每次重生成 daily_fact 后以 `reconcile.py` 输出为准（README 数字只在
+明显漂移时更新——对账门本身按源 parquet metadata 动态取数，不读本表）。
+
+R21 存量库迁移（CREATE IF NOT EXISTS 不改已有列，需显式 ALTER；2026-09-15 已执行）：
+```sql
+ALTER TABLE factorlab.daily      MODIFY COLUMN amount     Nullable(Float64);
+ALTER TABLE factorlab.adj_factor MODIFY COLUMN adj_factor Nullable(Float64);
+ALTER TABLE factorlab.stock_basic ADD COLUMN IF NOT EXISTS delist_date Nullable(Date) AFTER industry;
+```
 
 ## 用法
 
@@ -54,15 +64,29 @@ python reconcile.py
 
 ## 数据口径（与源事实库一致，注意与 tushare 差异）
 
-- `vol` 单位 = **股**（tushare 是手=×100）；`amount` = 元
-- `pre_close/change/pct_chg` 为 raw 派生（per-code shift，组内首日 NULL）
-- `total_mv` = close×total_shares/1e4（万元）；`turnover_rate` = vol/float_shares×100
-- `daily_basic` 后 5 列（circ_mv/pe_ttm/pb/dv_ratio/volume_ratio）为占位空列（无数据源）
+- `vol` 单位 = **股**（tushare 是手=×100）；`amount` = 元；退市股无 amount/复权源 →
+  `amount`/`adj_factor` 为 **NULL**（R21 I1；旧版非 Nullable 灌成 0）
+- `pre_close/change/pct_chg`（R21 DATA-C2）：无事件日 = 昨收；**除权除息日 = 除权参考价**
+  `round((prev - div_cash/10 + rights_price×rights_num/10) / (1 + div_bonus/10 + div_transfer/10), 2)`
+  （half-up；单位：元或股/10股），与 platform/docs/catalog.md 承诺一致；组内首日 NULL
+- `total_mv` = close×total_shares（源 total_shares 单位=万股 → 万元；R21 C1 修 1e4）；
+  `turnover_rate` = vol/(float_shares×1e4)×100（%）
+- `adj_factor` <=0（vendor 后复权价异常）归 NULL——qfq 基准 `argMax` 跳过 NULL（R21 I1）
+- `daily_basic` 后 5 列（circ_mv/pe_ttm/pb/dv_ratio/volume_ratio）为占位空列（无数据源；
+  平台读路径 `_PLATFORM_COLS` 仍映射它们，DDL 保留；**不要在文档/目录里宣传可用**）
 - `stock_basic.list_date` 为 daily_fact 最早交易日代理；`industry` 恒 NULL
+- `stock_basic.delist_date`（R21 DATA-C1 生产侧）：退市目录 sidecar 权威
+  （`data/fact/daily_fact/delisted_codes.parquet`，in-file code 优先、文件名兜底、空文件也算）
+  + 断流兜底（不在 sidecar 且 >250 交易日无数据）→ `最后交易日 + 1 天`；
+  平台语义 `is_listed = t < delist_date`
 - `stock_basic.market` = 板块名规范值（主板/创业板/科创板/北交所，段规则同
   derive_stk_limit.py）；平台 execution rules loader 显式消费（2026-09-08
   ch_prod 真实段实测补列）
-- `index_daily` 空表（可选灌 000852.SH）
+- `index_daily` 空表（可选灌 000852.SH；平台 `idx_ret` LEFT JOIN 依赖表存在，
+  移除会破坏读路径——advertise 应停止，见 R21 I6 建议）
 - `stk_limit` 仅覆盖有涨跌停的日子：<1996-12-16 无行、上市首日（pre_close NULL）无行、
-  注册制新股前 5 交易日无行（缺行 = 平台 has_limit=False = 无限制，合法）
+  注册制新股前 5 交易日无行（缺行 = 平台 has_limit=False = 无限制，合法；
+  R21 I5 已与平台 fillability 统一——缺行按 raw open FILLABLE，不再 fail-closed）
 - `adj_detail` 全量行级；`adj_event` 仅除权事件日（div_cash/div_bonus/div_transfer/rights_num ≠ 0）
+- `reconcile.py`（R21 I7）对账 daily 5 表行数 + daily 恒等式/日期范围 + 派生三表
+  （stk_limit 期望行数独立复算、band/日期不变量；adj_detail/adj_event 行数与 uniq）

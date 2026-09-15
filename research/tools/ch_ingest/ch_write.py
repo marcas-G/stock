@@ -24,7 +24,10 @@ from ch_state import is_done, mark_done  # noqa: E402
 from common import connect, load_config  # noqa: E402
 
 def ingest_task(task: tuple[str, str]) -> tuple[str, int]:
-    """子进程入口：DROP PARTITION → 流式插入 (part-000+001 全收) → 标记完成。"""
+    """子进程入口：DROP PARTITION → 流式插入 (part-000+001 全收)。
+
+    标记完成**由主进程**在 on_result 里做（R21 I2：worker 写断点会丢标记）。
+    """
     table, year, month = task
     client = connect()
     db = load_config()["ch"]["database"]
@@ -46,7 +49,6 @@ def ingest_task(task: tuple[str, str]) -> tuple[str, int]:
                 batch = batch.cast(pa.schema(fields))
             client.insert_arrow(table, batch, database=db)
             rows += batch.num_rows
-    mark_done(task)
     return f"{table}/{partition}", rows
 
 
@@ -57,23 +59,24 @@ def _ingest_one(task):
     return ingest_task(task.key)
 
 
-def run_pool(table: str, tasks: list[tuple[str, str]]):
+def run_pool(table: str, tasks: list[tuple[str, str]]) -> int:
     """主进程：并行灌入（R15 起编排走平台 P-5），已完成任务跳过，失败单元保留标记可重跑。
 
-    与旧实现（`mp.Pool.imap_unordered`）的唯一语义差别是**失败处理**：旧版首个异常即中断整批；
-    现按项目纪律"失败记账并继续"，收尾列出失败单元（调用方据此定退出码）——与该模块原本
-    "失败任务保留标记，可重跑"的意图一致。
+    R21 修复两点：
+    - I2：完成标记**只由主进程**在 `on_result` 成功分支写（worker 不再碰断点）；
+    - I3：返回失败数（调用方据此定退出码；旧版忽略返回值 → 失败仍 exit 0）。
     """
     todo = [t for t in tasks if not is_done(t)]
     done = len(tasks) - len(todo)
     print(f"{table}: 任务 {len(tasks)}（已完成 {done}，待跑 {len(todo)}）", flush=True)
     if not todo:
-        return
+        return 0
     workers = load_config()["ingest"]["workers"]
 
     def _report(t, r):
         d = t.key
         if isinstance(r, tuple):
+            mark_done(d)        # 主进程记账（flock + 新鲜读改写）
             print(f"  {d[0]}/{d[1]}{d[2]}: {r[1]:,} rows", flush=True)
         else:
             print(f"  {d[0]}/{d[1]}{d[2]}: 失败 {r!r}", flush=True)
@@ -88,6 +91,7 @@ def run_pool(table: str, tasks: list[tuple[str, str]]):
               flush=True)
     else:
         print(f"{table}: 全部完成", flush=True)
+    return rep.failed
 
 def reconcile(table: str, tasks: list[tuple[str, str]]) -> tuple[int, int]:
     """对账：CH system.parts sum(rows)（分区精确行数）vs 源 parquet 行数。返回 (ch, src)。"""

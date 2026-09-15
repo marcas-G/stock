@@ -19,7 +19,8 @@ def main():
         print(f"{TABLE}: CH={ch:,} 源={src:,} 一致" if ch == src else
               f"{TABLE}: 不一致 CH={ch:,} 源={src:,}", flush=True)
         sys.exit(0 if ch == src else 1)
-    run_pool(TABLE, discover_tasks(TABLE))
+    failed = run_pool(TABLE, discover_tasks(TABLE))
+    sys.exit(1 if failed else 0)     # I3：失败分区不得 exit 0（cron/CI 误报成功）
 
 
 if __name__ == "__main__":

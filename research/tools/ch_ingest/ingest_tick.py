@@ -26,8 +26,10 @@ def main():
             ok &= match
             print(f"{t}: CH={ch:,} 源={src:,} {'一致' if match else '不一致'}", flush=True)
         sys.exit(0 if ok else 1)
+    failed = 0
     for t in tables:
-        run_pool(t, discover_tasks(t))
+        failed += run_pool(t, discover_tasks(t))
+    sys.exit(1 if failed else 0)     # I3：任一表有失败分区即非 0
 
 
 if __name__ == "__main__":
