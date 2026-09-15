@@ -40,6 +40,7 @@ preflight 从未执行；旧测试用 `PYTHONPATH=platform/src` 注入掩盖。
 |---|---|
 | `I6b-red-t1.txt` | 新测试修复前 T1 红：3 种非法形态 + 混合形态 DID NOT RAISE；e2e 解析错误仍 `exit 0` |
 | `I6b-green-t1.txt` | 修复后 `platform/.venv/bin/python -m pytest .../test_import_daily_delisted.py -q` → 15 passed |
+| `I6b-real-data-scan.txt` | 真实 371 个退市 xlsx 只读扫描：368 个归一化成功（新 fail-fast 不误伤）；3 个空 sheet stub（000047/920305/920680）是**既有**解析错误（R21 重灌日志同 errors: 3） |
 
 测试（`research/tools/ashare_ingest/tests/test_import_daily_delisted.py`）：
 `test_delisted_nonempty_unparseable_code_fails_loud[600811.SH|sh600811|600811]`、
@@ -83,4 +84,7 @@ preflight 从未执行；旧测试用 `PYTHONPATH=platform/src` 注入掩盖。
   负责（本工具只落「不要 advertise」结论，未碰 platform/）。
 - I6b 解析错误时**仍合并落盘已解析分片**再 exit 1（与原行为一致，保留 `--merge-only`
   复核路径）；若以后要求「解析错误即不落盘」，需另立项（会改变续跑语义）。
+- **真实源有 3 个既有坏文件**（`000047/920305/920680`，4954B 空 sheet，R21 日志 errors: 3）：
+  修好 I6b 后生产重灌 `import_daily.py` 会因它们整体 exit 1（这正是 finding 要的纪律）。
+  coordinator 需决定：修复/删除这 3 个 stub 源，或作为已知可接受错误另行登记。本次未重灌 CH。
 - I6a 只保证 T2 下 `--help` 与缺源 preflight 可达；layer2 真跑仍属 T1（duckdb）。

@@ -1,0 +1,21 @@
+# R02-I6b 附加证据：真实退市源在新 fail-fast 规则下的只读扫描（平台 venv）
+
+# 扫描脚本：/tmp/opencode/scan_delisted_codes.py（只读 openpyxl；与 import_daily.normalize_src_code 同规则）
+files=371 empty_payload=0 no_code_col=0 parsed_ok=368
+unparseable-or-error:
+  000047_深中侨A.xlsx ['EXC StopIteration: ']
+  920305_云创数据.xlsx ['EXC StopIteration: ']
+  920680_广道数字.xlsx ['EXC StopIteration: ']
+
+# 结论：371 个文件全部有 code 列；368 个按 sh./sz./bj. 归一化成功（R21 TOOLS-C2 口径）；
+#       3 个 4954B 空 sheet（无任何行）→ StopIteration —— 这是**既有**解析错误，不是新规则误伤。
+
+# 交叉印证（R21 重灌日志同样 errors: 3，当时只打印不改退出码 = R01-TOOLS-I3 partial）：
+25:parsed 11414/11414 files, errors: 3
+26:  ERROR 920680: StopIteration: 
+27:  ERROR 920305: StopIteration: 
+28:  ERROR 000047: StopIteration: 
+
+# 影响（须 coordinator 知悉）：新规则下生产重灌 import_daily.py 将因这 3 个 stub 文件整体 exit 1
+#（这正是 finding 要求的 exit≠0 纪律）；已解析分片仍落盘，可 --merge-only 复核。修复这 3 个源
+# 文件（或明确登记为可接受错误）前，重灌命令的退出码会非 0。本次未重灌 CH、未改 parquet。
