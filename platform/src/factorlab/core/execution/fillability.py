@@ -9,14 +9,21 @@
        决定性 market evidence，不需要 daily/limit 即可 blocked）
     2. daily evidence（非 suspended + has_daily=False → ExecutionDataQualityError
        ——missing executable open price evidence；DATA UNKNOWN ≠ TRADE REJECTED）
-    3. limit evidence（非 suspended + has_limit=False →
-       ExecutionDataQualityError——缺失 ≠ 无限制）
-    4. open-vs-limit consistency（open > up / open < down → DataQualityError，
-       raw Float64 比较，无 tolerance）
-    5. adverse-limit queue（BUY @ open==up → BLOCKED_LIMIT_UP；SELL @
-       open==dn → BLOCKED_LIMIT_DOWN——conservative v1 assumption，不是历史
-       queue 重建；无逐笔/queue-position evidence 平台不重建 queue fill）
-    6. FILLABLE @ open（interior、BUY @ dn、SELL @ up）
+    3. limit evidence（非 suspended + has_limit=False → **合法无限制**：生产者
+       ch_ingest 只在 <1996-12-16、上市首日（pre_close NULL）、注册制新股前 5
+       交易日缺 stk_limit 行（README「缺行 = has_limit=False = 无限制」）→
+       按 raw open FILLABLE，不 fail-closed）
+    4. open-vs-limit consistency（**仅 has_limit=True**：open > up / open < down
+       → DataQualityError，raw Float64 比较，无 tolerance）
+    5. adverse-limit queue（**仅 has_limit=True**：BUY @ open==up →
+       BLOCKED_LIMIT_UP；SELL @ open==dn → BLOCKED_LIMIT_DOWN——conservative
+       v1 assumption，不是历史 queue 重建）
+    6. FILLABLE @ open（interior、BUY @ dn、SELL @ up，以及 has_limit=False）
+
+R21 TOOLS-I5：旧版第 3 步对 has_limit=False fail-closed，与生产者契约矛盾。
+"应有行但缺"（生产者漏派生）在 fillability 层无 listing-age 证据可分辩——
+由数据面 integrity/coverage 门负责（生产侧 reconcile 不变量 + 平台 coverage
+gate），不在订单级内核发明推断。
 
 边界：
 - 不接收 PortfolioState（cash/sellable 属 M8-04C）；不接收 DB（evidence 全部
@@ -88,30 +95,25 @@ def assess_open_fillability(
                 f"{code} missing executable open price evidence "
                 f"(has_daily=False)——DATA UNKNOWN ≠ TRADE REJECTED，"
                 f"不模拟 no-fill")
-        # 3. limit evidence
-        if not has_limit:
-            raise ExecutionDataQualityError(
-                f"{code} missing limit evidence (has_limit=False)——缺失 ≠ "
-                f"无涨跌幅限制（M8-04A：92,147 daily rows 无 stk_limit join），"
-                f"fail fast")
-        # 4. open-vs-limit consistency（raw 比较，无 tolerance）
-        if open_ > up or open_ < dn:
-            raise ExecutionDataQualityError(
-                f"{code} open={open_} 在合法 limits [down={dn}, up={up}] 之外"
-                f"（raw Float64 比较，无 tolerance）——M8-04A outside-limit "
-                f"evidence，fail fast")
-        # 5. adverse-limit queue（conservative assumption）
-        if side == "buy":
-            if open_ == up:
+        # 3/4/5. limit evidence：has_limit=False = 合法无限制（生产者缺行语义）
+        # → 无 band 证据可查，直接进入 FILLABLE @ raw open。
+        if has_limit:
+            # 4. open-vs-limit consistency（raw 比较，无 tolerance）
+            if open_ > up or open_ < dn:
+                raise ExecutionDataQualityError(
+                    f"{code} open={open_} 在合法 limits [down={dn}, up={up}] 之外"
+                    f"（raw Float64 比较，无 tolerance）——M8-04A outside-limit "
+                    f"evidence，fail fast")
+            # 5. adverse-limit queue（conservative assumption）
+            if side == "buy" and open_ == up:
                 disp = OpenOrderDisposition.BLOCKED_LIMIT_UP
                 rows.append((code, side, quantity, disp.value, None))
                 continue
-        else:
-            if open_ == dn:
+            if side == "sell" and open_ == dn:
                 disp = OpenOrderDisposition.BLOCKED_LIMIT_DOWN
                 rows.append((code, side, quantity, disp.value, None))
                 continue
-        # 6. FILLABLE @ raw open（interior / BUY@dn / SELL@up）
+        # 6. FILLABLE @ raw open（interior / BUY@dn / SELL@up / has_limit=False）
         rows.append((code, side, quantity, OpenOrderDisposition.FILLABLE.value,
                      open_))
 

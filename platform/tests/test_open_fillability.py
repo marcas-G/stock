@@ -397,10 +397,25 @@ def test_non_suspended_missing_daily_data_quality_error():
         _assess(snapshot=s)
 
 
-def test_non_suspended_missing_limit_data_quality_error():
+def test_non_suspended_missing_limit_accepted_as_no_limit():
+    """stk_limit 缺行 = 合法无限制（<1996、上市首日、注册制前 5 日）→ FILLABLE@raw open。
+
+    统一口径（R01-TOOLS-I5）：生产者 `ch_ingest/README.md`「缺行=无限制」是权威语义；
+    fillability 不得 fail-closed。缺 daily 证据仍 fail（见上一条）。
+    """
     s = _snap([("000001.SZ", 10.0, 9.8, None, None, True, False, False, False)])
-    with pytest.raises(ExecutionDataQualityError, match="limit"):
-        _assess(snapshot=s)
+    a = _assess(snapshot=s)
+    assert _disp(a, "000001.SZ") == ("fillable", 10.0)
+
+
+def test_no_limit_buy_sell_both_fillable_at_open():
+    """无涨跌幅证据：BUY/SELL 都按 raw open 可成交（不产生 blocked_limit_*）。"""
+    s = _snap([("000001.SZ", 10.0, 9.8, None, None, True, False, False, False),
+               ("000002.SZ", 20.0, 19.8, None, None, True, False, False, False)])
+    a = _assess(_orders([("000001.SZ", "buy", 1000),
+                         ("000002.SZ", "sell", 500)]), snapshot=s)
+    assert _disp(a, "000001.SZ") == ("fillable", 10.0)
+    assert _disp(a, "000002.SZ") == ("fillable", 20.0)
 
 
 def test_open_above_upper_data_quality_error():
