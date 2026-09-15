@@ -16,6 +16,11 @@ Rust 内核完成后在**同目录换 build backend**（同名包，`import quan
   turnover{monthly,quarterly}（相邻 4/12 周桶间 decile 组归属变化比例）、
   weighting="equal_weight"、monotonic（组均值与组号 spearman 符号）、
   NaN 行视为无效观测、有效周 = ≥2 只有效股票（秩相关退化周计入 n_weeks 但不参与 IC 统计）。
+- **R01-EVAL-I7/I8 统计口径修正**（2026-09-15，契约 §3.1/§6 待勘误）：
+  t_stat/pearson t_stat/sign_consistent 的分母 = **IC 可计算周数 n_ok**（退化周不进
+  统计分母；n_weeks 字段仍按契约含退化周）；decile 用 **average rank** 对称分位映射
+  `floor((2·avg_rank−1)·10/(2·n))`（并列同档、行序无关；无并列 n=10 时与旧
+  ordinal 公式等价，§4.3 向量不变）。
 
 周度 spearman 与平台 `factorlab.core.eval.ic_series.weekly_ic` 同源（pl.corr spearman，
 MIN_STOCKS=3）——逐期对拍测试见平台 `tests/test_quant_core_shim.py`（10 项，含逐期对拍；
@@ -155,10 +160,14 @@ def evaluate_factor(
         return result
 
     # 每周横截面：股票数、rank 十分位组、spearman/pearson 相关
+    # decile = average rank 的对称分位映射：floor((2·avg_rank − 1)·10 / (2·n))，clip [0,9]。
+    # average rank 保证并列 signal 同档（旧 ordinal rank 会让并列随输入行序漂移），
+    # 无并列时（avg_rank = 整数）等价于旧公式在 n=10 的行为（§4.3 向量不变）。
     df = df.with_columns(
         pl.col("signal").count().over("date").alias("_n"),
-        (pl.col("signal").rank("ordinal").over("date") * 10
-         // (pl.col("signal").count().over("date") + 1)).clip(0, 9).alias("_decile"),
+        (((2 * pl.col("signal").rank("average").over("date") - 1) * 10)
+         / (2 * pl.col("signal").count().over("date"))).floor().clip(0, 9)
+        .cast(pl.Int64).alias("_decile"),
     )
     per = df.group_by("date").agg(
         pl.corr(pl.col("signal"), pl.col("fwd"), method="spearman").alias("ic"),
@@ -166,7 +175,7 @@ def evaluate_factor(
         pl.col("_n").first().alias("n_stocks"),
     ).sort("date")
     # 有效周 = 股票数达标（实测：2 只也计数）；秩相关退化（常数序列 → NaN）的周
-    # 计入 n_weeks 但不参与 ic 统计（实测：常数 fwd 面板 n_weeks 仍为周数，ic 为 nan）
+    # 计入 n_weeks 但不参与 IC 统计（实测：常数 fwd 面板 n_weeks 仍为周数，ic 为 nan）
     n_weeks = per.filter(pl.col("n_stocks") >= MIN_STOCKS).height
     result["n_weeks"] = n_weeks
     result["ic"]["n_weeks"] = n_weeks
@@ -182,21 +191,25 @@ def evaluate_factor(
         return result  # 周存在但秩相关全部退化 → ic/pearson 统计保持 nan
 
     ics = ok["ic"].to_list()
+    n_ok = len(ics)  # 统计分母 = IC 可计算周（退化周不进 t/sign 分母）
     ic_mean, ic_std = _stats(ics)
     result["ic"]["mean"] = ic_mean
     result["ic"]["std"] = ic_std
-    result["ic"]["t_stat"] = _t_stat(ic_mean, ic_std, n_weeks)
+    result["ic"]["t_stat"] = _t_stat(ic_mean, ic_std, n_ok)
     result["ic"]["ir"] = ic_mean / ic_std if ic_std > 0 else _NAN
     recent = ics[-26:]  # 周序已按日期排序：最后 ≤26 周子窗口
     r_mean, r_std = _stats(recent)
     result["ic"]["recent_26w_mean"] = r_mean
     result["ic"]["recent_26w_t"] = _t_stat(r_mean, r_std, len(recent))
-    result["ic"]["sign_consistent"] = sum(1 for x in ics if x > 0) / n_weeks
+    result["ic"]["sign_consistent"] = sum(1 for x in ics if x > 0) / n_ok
 
-    pearsons = ok["pearson"].to_list()
-    p_mean, p_std = _stats(pearsons)
-    result["pearson_ic"]["mean"] = p_mean
-    result["pearson_ic"]["t_stat"] = _t_stat(p_mean, p_std, n_weeks)
+    pearsons = ok.filter(
+        pl.col("pearson").is_not_null() & pl.col("pearson").is_finite()
+    )["pearson"].to_list()
+    if pearsons:
+        p_mean, p_std = _stats(pearsons)
+        result["pearson_ic"]["mean"] = p_mean
+        result["pearson_ic"]["t_stat"] = _t_stat(p_mean, p_std, len(pearsons))
 
     result["n_stocks_avg"] = float(ok["n_stocks"].mean())
 

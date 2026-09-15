@@ -55,7 +55,9 @@ def _write_factor(results_dir, name, with_weekly=True, with_layered=True):
         rows = []
         for w, d in enumerate(["2024-01-05", "2024-01-12"]):
             for s in range(10):
-                rows.append({"date": d, "code": f"{s:06d}", "signal": float(s), "forward_return_5d": 0.01})
+                # signal 与 fwd 单调（IC 可计算；R01-EVAL-I9 的数值断言依赖它）
+                rows.append({"date": d, "code": f"{s:06d}", "signal": float(s),
+                             "forward_return_5d": float(s) * 0.01})
         pl.DataFrame(rows).write_parquet(out / "weekly.parquet")
 
 
@@ -184,7 +186,8 @@ def test_factor_detail_has_correlation_block(tmp_path):
     for w, d in enumerate(["2024-01-05", "2024-01-12"]):
         for s in range(40):
             rows.append({"date": d, "code": f"{s:06d}", "signal": float(s)})
-    pl.DataFrame(rows).write_parquet(tmp_path / "alpha_1" / "panel.parquet")
+    pl.DataFrame(rows).with_columns(
+        pl.col("date").str.to_date()).write_parquet(tmp_path / "alpha_1" / "panel.parquet")
     # 第二个因子：只有 panel
     out2 = tmp_path / "beta_2"
     out2.mkdir()
@@ -192,7 +195,8 @@ def test_factor_detail_has_correlation_block(tmp_path):
     for w, d in enumerate(["2024-01-05", "2024-01-12"]):
         for s in range(40):
             rows2.append({"date": d, "code": f"{s:06d}", "signal": float(s * 2)})
-    pl.DataFrame(rows2).write_parquet(out2 / "panel.parquet")
+    pl.DataFrame(rows2).with_columns(
+        pl.col("date").str.to_date()).write_parquet(out2 / "panel.parquet")
     client = TestClient(create_app(results_dir=tmp_path))
     r = client.get("/factor/alpha_1")
     assert r.status_code == 200
@@ -206,3 +210,110 @@ def test_factor_detail_correlation_single_factor(tmp_path):
     r = client.get("/factor/alpha_1")
     assert r.status_code == 200
     assert "correlation-chart" not in r.text
+
+
+# ── R01-EVAL-I1/I5/I7/I9：target 接线 / 缺字段降级 / 图表数值断言 ──
+def _chart_figure(html: str, chart_id: str) -> dict:
+    import re
+    m = re.search(rf'Plotly\.newPlot\("{chart_id}",\s*', html)
+    assert m, f"页面未找到 {chart_id} 图表"
+    fig, _ = json.JSONDecoder().raw_decode(html[m.end():])
+    return fig
+
+
+def _write_dual_target_factor(tmp_path, name, target, include_20d=True):
+    """5d 与 20d 符号相反的周频面板 + evaluation.target 声明。"""
+    out = tmp_path / name
+    out.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for w, d in enumerate(["2024-01-05", "2024-01-12", "2024-01-19"]):
+        for s in range(30):
+            row = {"date": d, "code": f"{s:06d}", "signal": float(s),
+                   "forward_return_5d": 0.1 * s + w * 0.001}
+            if include_20d:
+                row["forward_return_20d"] = -0.1 * s + w * 0.001
+            rows.append(row)
+    pl.DataFrame(rows).write_parquet(out / "weekly.parquet")
+    ic_mean = -1.0 if target == "forward_return_20d" else 1.0
+    (out / "summary.json").write_text(json.dumps({
+        "name": name, "category": "demo", "direction": 1,
+        "universe_count": 30, "date_start": "2024-01-05", "date_end": "2024-01-19",
+        "panel_rows": 90, "signal_null_ratio": 0.0, "spec_yaml": "name: demo",
+        "evaluation": {"target": target, "ic": {"mean": ic_mean, "t_stat": 10.0},
+                       "decile_returns": {"spread": {"ret": 0.01}, "groups": []},
+                       "turnover": {"monthly": 0.1}, "coverage": {"pct_valid": 1.0}},
+    }, ensure_ascii=False), encoding="utf-8")
+
+
+def test_factor_detail_ic_curve_uses_spec_target(tmp_path):
+    """R01-EVAL-I1：20d 因子详情页的 IC 曲线必须来自 forward_return_20d
+    （旧实现固定 5d → 同页 summary 与曲线符号相反）。"""
+    _write_dual_target_factor(tmp_path, "f20", "forward_return_20d")
+    client = TestClient(create_app(results_dir=tmp_path))
+    resp = client.get("/factor/f20")
+    assert resp.status_code == 200
+    y = _chart_figure(resp.text, "ic-chart")["data"][0]["y"]
+    assert len(y) == 3
+    assert all(v == pytest.approx(-1.0) for v in y)   # 20d 与 signal 完全负相关
+    assert max(y) < 0                                 # 旧实现（5d）会给 +1.0
+
+
+def test_factor_detail_5d_target_regression(tmp_path):
+    """target=forward_return_5d → 曲线取 5d（回归锁，不是恒取 20d）。"""
+    _write_dual_target_factor(tmp_path, "f5", "forward_return_5d")
+    client = TestClient(create_app(results_dir=tmp_path))
+    y = _chart_figure(client.get("/factor/f5").text, "ic-chart")["data"][0]["y"]
+    assert all(v == pytest.approx(1.0) for v in y)
+
+
+def test_factor_detail_target_column_missing_degrades(tmp_path):
+    """target=20d 但 weekly 无该列 → 不画错曲线，IC 区域降级（200 + 占位提示）。"""
+    _write_dual_target_factor(tmp_path, "f20x", "forward_return_20d", include_20d=False)
+    client = TestClient(create_app(results_dir=tmp_path))
+    resp = client.get("/factor/f20x")
+    assert resp.status_code == 200
+    assert "无周频数据" in resp.text
+    assert "ic-chart" not in resp.text
+
+
+def test_factor_detail_missing_top_level_scalars_degrade(tmp_path):
+    """R01-EVAL-I5：top-level 标量（signal_null_ratio/universe_count/…）缺失 →
+    降级显示 —，不得 None*100 → 500。"""
+    out = tmp_path / "bare"
+    out.mkdir(parents=True)
+    (out / "summary.json").write_text(json.dumps({
+        "name": "bare", "spec_yaml": "name: bare", "direction": 1,
+        "evaluation": {"ic": {"mean": 0.05, "t_stat": 1.5}},
+    }, ensure_ascii=False), encoding="utf-8")
+    client = TestClient(create_app(results_dir=tmp_path))
+    resp = client.get("/factor/bare")
+    assert resp.status_code == 200
+    assert "null=—" in resp.text            # 旧实现 None*100 → TypeError 500
+    assert "bare" in resp.text
+
+
+def test_factor_detail_nan_t_stat_not_labelled_significant(tmp_path):
+    """R01-EVAL-I7（UI 侧）：t_stat 为 NaN 时不得落入"显著/不显著"误标 → —。"""
+    _write_factor(tmp_path, "nan_t")
+    p = tmp_path / "nan_t" / "summary.json"
+    s = json.loads(p.read_text(encoding="utf-8"))
+    s["evaluation"]["ic"]["t_stat"] = float("nan")
+    p.write_text(json.dumps(s, ensure_ascii=False), encoding="utf-8")
+    client = TestClient(create_app(results_dir=tmp_path))
+    resp = client.get("/factor/nan_t")
+    assert resp.status_code == 200
+    assert "IC t_stat" in resp.text
+    assert "<div class=\"hint\">—</div>" in resp.text
+    assert "不显著" not in resp.text
+
+
+def test_factor_detail_chart_values_numeric(tmp_path):
+    """R01-EVAL-I9：web e2e 数值断言——IC 曲线与十分位柱值来自真实数据，
+    不是只查页面字符串。"""
+    _write_factor(tmp_path, "num_ok")
+    resp = TestClient(create_app(results_dir=tmp_path)).get("/factor/num_ok")
+    assert resp.status_code == 200
+    ic_y = _chart_figure(resp.text, "ic-chart")["data"][0]["y"]
+    assert ic_y == pytest.approx([1.0, 1.0])          # signal 与 fwd 完全单调
+    decile_y = _chart_figure(resp.text, "decile-chart")["data"][0]["y"]
+    assert decile_y == pytest.approx([0.03, 0.01])    # 与 summary.decile_returns.groups 一致

@@ -16,7 +16,7 @@
         {{ "%.4f"|format(summary.evaluation.ic.mean) if summary.evaluation.ic.mean is not none else "—" }}</div></div>
     <div class="metric"><div class="label">IC t_stat</div>
       <div class="value">{{ "%.2f"|format(summary.evaluation.ic.t_stat) if summary.evaluation.ic.t_stat is not none else "—" }}</div>
-      <div class="hint">{{ "显著" if summary.evaluation.ic.t_stat is not none and summary.evaluation.ic.t_stat|abs >= 2 else "不显著" }}</div></div>
+      <div class="hint">{{ "显著" if summary.evaluation.ic.t_stat is not none and summary.evaluation.ic.t_stat|abs >= 2 else ("不显著" if summary.evaluation.ic.t_stat is not none else "—") }}</div></div>
     <div class="metric"><div class="label">十分位 spread</div>
       <div class="value">{{ "%.4f"|format(summary.evaluation.decile_returns.spread.ret) if summary.evaluation.decile_returns.spread.ret is not none else "—" }}</div></div>
     <div class="metric"><div class="label">月换手</div>
@@ -24,11 +24,11 @@
     <div class="metric"><div class="label">覆盖</div>
       <div class="value">{{ "%.0f%%"|format(summary.evaluation.coverage.pct_valid * 100) if summary.evaluation.coverage.pct_valid is not none else "—" }}</div></div>
     <div class="metric"><div class="label">universe</div>
-      <div class="value">{{ summary.universe_count }}</div>
-      <div class="hint">{{ summary.date_start }} ~ {{ summary.date_end }}</div></div>
+      <div class="value">{{ summary.universe_count if summary.universe_count is not none else "—" }}</div>
+      <div class="hint">{{ (summary.date_start if summary.date_start is not none else "—") ~ " ~ " ~ (summary.date_end if summary.date_end is not none else "—") }}</div></div>
     <div class="metric"><div class="label">面板</div>
-      <div class="value">{{ summary.panel_rows }}</div>
-      <div class="hint">null={{ "%.1f%%"|format(summary.signal_null_ratio * 100) }}</div></div>
+      <div class="value">{{ summary.panel_rows if summary.panel_rows is not none else "—" }}</div>
+      <div class="hint">null={{ "%.1f%%"|format(summary.signal_null_ratio * 100) if summary.signal_null_ratio is not none else "—" }}</div></div>
   </div>
 
   {% if charts.ic %}

@@ -70,8 +70,9 @@ def test_weekly_ic_week_all_null():
     rows = []
     for d in dates:
         for s in range(5):
+            # week1 的 fwd 与 signal 同向（可计算）；week0 会被整体置 null
             rows.append({"date": d, "code": f"{s:06d}",
-                         "signal": float(s), "forward_return_5d": 0.01})
+                         "signal": float(s), "forward_return_5d": float(s) * 0.01})
     panel = pl.DataFrame(rows).with_columns(
         pl.when(pl.col("date") == dates[0]).then(None).otherwise(pl.col("signal")).alias("signal")
     )
@@ -107,3 +108,60 @@ def test_weekly_ic_missing_target_column():
     # 缺列（target 缺失）→ ValueError（不依赖 polars 的内部异常）
     with pytest.raises(ValueError, match="缺少列"):
         weekly_ic(_panel().drop("forward_return_5d"))
+
+
+# ── R01-EVAL-C2：NaN 行剔除（与 quant_core is_finite 同口径）──
+def test_weekly_ic_nan_rows_excluded_matches_kernel():
+    """R01-EVAL-C2：NaN 不是 null——weekly_ic 必须按 is_finite 剔除，
+    与 quant_core（同 web 同页 summary 的 kernel）逐周数值一致。"""
+    import quant_core
+    rows = []
+    for w in range(4):
+        d = datetime.date(2024, 1, 5) + datetime.timedelta(weeks=w)
+        for s in range(12):
+            rows.append({"date": d, "code": f"{s:06d}", "signal": float(s),
+                         "forward_return_5d": float(s) * 0.1})
+    rows[0]["signal"] = float("nan")           # week0 一只 signal NaN
+    rows[13]["forward_return_5d"] = float("nan")  # week1 一只 fwd NaN
+    panel = pl.DataFrame(rows)
+    wic = weekly_ic(panel)
+    assert wic["ic"].to_list() == pytest.approx([1.0, 1.0, 1.0, 1.0])
+    assert wic["ic"].null_count() == 0
+    kernel = quant_core.evaluate_factor(
+        panel["date"].dt.strftime("%Y-%m-%d").to_list(), panel["code"].to_list(),
+        panel["signal"].to_list(), panel["forward_return_5d"].to_list(), "_factor", 1)
+    assert float(wic["ic"].mean()) == pytest.approx(kernel["ic"]["mean"], abs=1e-12)
+
+
+def test_weekly_ic_infinite_signal_excluded():
+    """R01-EVAL-C2：inf 也必须剔除（is_finite），不能参与秩相关。"""
+    panel = pl.DataFrame({
+        "date": [datetime.date(2024, 1, 5)] * 4,
+        "code": ["a", "b", "c", "d"],
+        "signal": [1.0, 2.0, float("inf"), 4.0],
+        "forward_return_5d": [0.1, 0.2, 0.3, 0.4],
+    })
+    result = weekly_ic(panel)
+    # 有效 3 只完全单调 → ic = 1.0；旧实现把 inf 排进秩 → ≠ 1.0
+    assert result["ic"][0] == pytest.approx(1.0)
+
+
+def test_weekly_ic_constant_week_null_like_kernel_stat():
+    """R01-EVAL-C2：常数 target 周秩相关退化 → weekly_ic null（不参与统计），
+    kernel 也不把它计入 IC 统计（两边 stats 一致）。"""
+    import quant_core
+    rows = []
+    for w in range(3):
+        d = datetime.date(2024, 1, 5) + datetime.timedelta(weeks=w)
+        for s in range(6):
+            fwd = 0.01 if w == 1 else float(s) * 0.1
+            rows.append({"date": d, "code": f"{s:06d}", "signal": float(s),
+                         "forward_return_5d": fwd})
+    panel = pl.DataFrame(rows)
+    wic = weekly_ic(panel)
+    assert wic["ic"].to_list()[1] is None  # week1 退化 → null（不进统计）
+    finite = wic["ic"].drop_nulls()
+    kernel = quant_core.evaluate_factor(
+        panel["date"].dt.strftime("%Y-%m-%d").to_list(), panel["code"].to_list(),
+        panel["signal"].to_list(), panel["forward_return_5d"].to_list(), "_factor", 1)
+    assert float(finite.mean()) == pytest.approx(kernel["ic"]["mean"], abs=1e-12)

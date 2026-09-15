@@ -4,12 +4,16 @@
 m4b_smoke/acceptance/demo_vol_skew 等）——与 conftest REAL_DB 同模式：
 缺失即 skip（FACTORLAB_RESULTS_DIR 可覆盖，指向别处的 results）。
 """
+import json
 import os
+import re
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+from factorlab.adapters import results_fs
+from factorlab.core.eval.ic_series import weekly_ic
 from factorlab.surfaces.web.app import create_app
 
 REAL_RESULTS = Path(os.environ.get(
@@ -18,6 +22,13 @@ REAL_RESULTS = Path(os.environ.get(
 ))
 
 pytestmark = pytest.mark.integration
+
+
+def _chart_figure(html: str, chart_id: str) -> dict:
+    m = re.search(rf'Plotly\.newPlot\("{chart_id}",\s*', html)
+    assert m, f"页面未找到 {chart_id} 图表"
+    fig, _ = json.JSONDecoder().raw_decode(html[m.end():])
+    return fig
 
 
 # 历史档冒烟因子（本文件断言的固定名字）——目录存在 ≠ 是这批产物：
@@ -58,6 +69,20 @@ def test_web_factor_detail_real_charts(real_results_dir):
     assert "0.0786" in resp.text  # 真实 IC mean 格式化 %.4f（0.07857 → 0.0786）
     assert "Plotly" in resp.text  # 图表脚本与 figure JSON 内嵌
     assert "long_short" in resp.text  # 分层回测净值序列数据
+    # R01-EVAL-I1/I9：曲线数值 == 真实 weekly 面板按 summary.target 重算的 IC 序列
+    # （字符串断言升级为逐点数值断言；target 接错/取错列必败）
+    summary = json.loads(
+        (real_results_dir / "m4b_smoke" / "summary.json").read_text(encoding="utf-8"))
+    target = summary.get("evaluation", {}).get("target", "forward_return_5d")
+    expected = weekly_ic(results_fs.read_weekly(real_results_dir, "m4b_smoke"),
+                         target=target)["ic"].to_list()
+    y = _chart_figure(resp.text, "ic-chart")["data"][0]["y"]
+    assert len(y) == len(expected)
+    for got, want in zip(y, expected):
+        if want is None:
+            assert got is None
+        else:
+            assert got == pytest.approx(want, abs=1e-9)
 
 
 def test_web_factor_detail_degraded_real(real_results_dir):

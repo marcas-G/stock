@@ -174,3 +174,133 @@ def test_turnover_structure():
     r = quant_core.evaluate_factor(*_args(_panel()), "_factor", 1)
     assert 0.0 <= r["turnover"]["monthly"] <= 1.0
     assert r["turnover"]["quarterly"] != r["turnover"]["quarterly"]
+
+
+# ── R01-EVAL-I7：退化周不进统计分母 ──
+def test_degenerate_weeks_excluded_from_t_and_sign_denominators():
+    """R01-EVAL-I7：n_weeks 含退化周（契约字段口径），但 t_stat/sign_consistent
+    的分母只能是 IC 可计算周——常数 fwd 周不得虚增显著性。"""
+    import math
+    import statistics
+
+    import numpy as np
+    d0 = datetime.date(2024, 1, 5)
+    int_weeks = (
+        [float(s) * 0.01 for s in range(10)],                       # rank corr = 1
+        [float(9 - s) * 0.01 for s in range(10)],                   # rank corr = -1
+        [float(x) * 0.01 for x in [0, 1, 3, 2, 4, 5, 6, 7, 8, 9]],  # d=2 → 0.9878…
+    )
+    rows = []
+    fwds = []
+    for w in range(5):
+        d = d0 + datetime.timedelta(weeks=w)
+        for s in range(10):
+            fwd = int_weeks[w][s] if w < 3 else 0.005   # 后 2 周常数 → 退化
+            rows.append({"date": d, "code": f"{s:06d}", "signal": float(s), "fwd": fwd})
+        fwds.append([r["fwd"] for r in rows[-10:]])
+    r = quant_core.evaluate_factor(*_args(pl.DataFrame(rows)), "_factor", 1)
+
+    ics = [1.0, -1.0, 0.9878787878787879]
+    mean, std = statistics.fmean(ics), statistics.stdev(ics)
+    assert r["n_weeks"] == 5                                   # 契约字段：含退化周
+    assert r["ic"]["mean"] == pytest.approx(mean)
+    assert r["ic"]["std"] == pytest.approx(std)
+    assert r["ic"]["t_stat"] == pytest.approx(mean / (std / math.sqrt(3)))
+    assert r["ic"]["sign_consistent"] == pytest.approx(2 / 3)  # 2 正 / 3 可计算
+
+    ps = [float(np.corrcoef(np.arange(10), f)[0, 1]) for f in fwds[:3]]
+    pmean, pstd = float(np.mean(ps)), float(np.std(ps, ddof=1))
+    assert r["pearson_ic"]["mean"] == pytest.approx(pmean)
+    assert r["pearson_ic"]["t_stat"] == pytest.approx(pmean / (pstd / math.sqrt(3)))
+
+
+# ── R01-EVAL-I8：decile 并列 tie-aware（行序无关）──
+def _nan_eq(a: list[float], b: list[float]) -> bool:
+    return len(a) == len(b) and all(
+        (x != x and y != y) or x == y for x, y in zip(a, b))
+
+
+def test_decile_ties_row_order_invariant_numeric():
+    """R01-EVAL-I8：并列 signal 必须进同一档（average rank + 对称分位映射）。
+
+    并列对内部 fwd 故意不同：旧 ordinal rank 会把同值拆到不同档 → 行序敏感、
+    spread 漂移；tie-aware 下两组行序逐档一致、spread 精确 -0.05。"""
+    base = []
+    for s in range(12):
+        v = s // 2 + 1
+        fwd = v * 0.01 + (0.005 if s % 2 == 0 else -0.005)
+        base.append({"date": datetime.date(2024, 1, 5), "code": f"{s:06d}",
+                     "signal": float(v), "fwd": fwd})
+    a = quant_core.evaluate_factor(*_args(pl.DataFrame(base)), "_factor", 1)
+    b = quant_core.evaluate_factor(*_args(pl.DataFrame(list(reversed(base)))), "_factor", 1)
+    ga = [g["mean_ret"] for g in a["decile_returns"]["groups"]]
+    gb = [g["mean_ret"] for g in b["decile_returns"]["groups"]]
+    assert _nan_eq(ga, gb), f"行序改变了分档：{ga} vs {gb}"
+    # n=12 的对称映射：signal v → group floor((2v-1)*10/12)
+    expected_groups = {1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9}
+    for v, g in expected_groups.items():
+        assert ga[g] == pytest.approx(v * 0.01)  # 并列对 ±0.005 成对均值 = v*0.01
+    assert a["decile_returns"]["spread"]["ret"] == pytest.approx(-0.05)
+    assert b["decile_returns"]["spread"]["ret"] == pytest.approx(-0.05)
+
+
+def test_decile_heavy_ties_deterministic_nan_spread():
+    """R01-EVAL-I8（probe 场景）：5 个并列值 × 2 只——极端档无纪律组 → spread=NaN
+    也必须两侧一致（旧实现：-0.08 vs 0.0 的行序漂移）。"""
+    base = []
+    fwds = [0.01, 0.05, 0.02, 0.06, 0.03, 0.07, 0.04, 0.08, 0.05, 0.09]
+    for s in range(10):
+        base.append({"date": datetime.date(2024, 1, 5), "code": f"{s:06d}",
+                     "signal": float([1, 1, 2, 2, 3, 3, 4, 4, 5, 5][s]), "fwd": fwds[s]})
+    a = quant_core.evaluate_factor(*_args(pl.DataFrame(base)), "_factor", 1)
+    b = quant_core.evaluate_factor(*_args(pl.DataFrame(list(reversed(base)))), "_factor", 1)
+    ga = [g["mean_ret"] for g in a["decile_returns"]["groups"]]
+    gb = [g["mean_ret"] for g in b["decile_returns"]["groups"]]
+    assert _nan_eq(ga, gb), f"行序改变了分档：{ga} vs {gb}"
+    sa, sb = a["decile_returns"]["spread"]["ret"], b["decile_returns"]["spread"]["ret"]
+    assert sa != sa and sb != sb  # 极端档无组 → NaN（确定性，不是任一行序的数值）
+
+
+# ── R01-EVAL-I9：turnover 行为级测试（不只是范围）──
+def test_turnover_exact_value_and_row_order_invariant():
+    """桶内取最后一周 + 变化比例均值：手算期望 0.25；行序打乱结果不变。"""
+    dec_by_code_week = {
+        "A": [3, 0, 0, 2, 2, 1, 1, 0],
+        "B": [1, 1, 1, 1, 1, 1, 1, 1],
+        "C": [0, 2, 2, 2, 2, 2, 2, 2],
+        "D": [4, 4, 4, 4, 4, 4, 4, 4],
+    }
+    rows = []
+    d0 = datetime.date(2024, 1, 5)
+    for w in range(8):
+        for c, decs in dec_by_code_week.items():
+            rows.append({"date": d0 + datetime.timedelta(weeks=w), "code": c,
+                         "_decile": decs[w], "signal": 0.0})
+    df = pl.DataFrame(rows).with_columns(pl.col("_decile").cast(pl.Int64))
+    assert quant_core._turnover(df, 4) == pytest.approx(0.25)   # A 变档 1/4
+    shuffled = list(rows)
+    random.Random(0).shuffle(shuffled)
+    df_sh = pl.DataFrame(shuffled).with_columns(pl.col("_decile").cast(pl.Int64))
+    assert quant_core._turnover(df_sh, 4) == pytest.approx(0.25)
+
+    # 区分"桶内首周 vs 末周"：A 期望变（0.5），首周会误判为不变
+    dec2 = {"A": [3, 0, 0, 3, 3, 2, 2, 3], "B": [3, 0, 0, 3, 2, 2, 2, 2]}
+    rows2 = []
+    for w in range(8):
+        for c, decs in dec2.items():
+            rows2.append({"date": d0 + datetime.timedelta(weeks=w), "code": c,
+                          "_decile": decs[w], "signal": 0.0})
+    df2 = pl.DataFrame(rows2).with_columns(pl.col("_decile").cast(pl.Int64))
+    assert quant_core._turnover(df2, 4) == pytest.approx(0.5)
+
+
+def test_turnover_nan_when_buckets_insufficient():
+    """周数 < 2×window → NaN（不抛、不返回 0 伪装"不换手"）。"""
+    rows = []
+    d0 = datetime.date(2024, 1, 5)
+    for w in range(4):
+        rows.append({"date": d0 + datetime.timedelta(weeks=w), "code": "A",
+                     "_decile": w % 2, "signal": 0.0})
+    df = pl.DataFrame(rows).with_columns(pl.col("_decile").cast(pl.Int64))
+    assert quant_core._turnover(df, 4) != quant_core._turnover(df, 4)   # monthly 需 8 周
+    assert quant_core._turnover(df, 12) != quant_core._turnover(df, 12)  # quarterly 更不足

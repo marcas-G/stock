@@ -1,8 +1,10 @@
 import datetime
+import math
 
 import polars as pl
 import pytest
 
+from factorlab.adapters.rust_ic import evaluate_factor_weekly
 from factorlab.core.eval.layered import layered_backtest
 
 
@@ -228,11 +230,108 @@ def test_cost_empty_group_weeks_are_not_charged():
     import datetime as _dt
     d0, d1 = _dt.date(2024, 1, 5), _dt.date(2024, 1, 12)
     panel = pl.DataFrame({
-        "date": [d0, d0, d1, d1],
-        "code": ["A1", "A2", "A1", "A2"],
-        "signal": [1.0, 0.9, 0.5, None],           # d1 只剩一只有效（另一只 signal 空）
-        "forward_return_5d": [0.02, 0.01, 0.03, None],
+        "date": [d0, d0, d0, d1, d1, d1],
+        "code": ["A1", "A2", "A3", "A1", "A2", "A3"],
+        "signal": [1.0, 0.9, 0.8, 0.5, None, 0.4],     # d1 只剩两只有效（第三只 signal 空）
+        "forward_return_5d": [0.02, 0.01, 0.005, 0.03, None, 0.02],
     })
-    r = layered_backtest(panel, direction=1, n_groups=2, cost_rate=0.01)
-    assert r["turnover"]["D1"][0] == 0.0           # 首期无上一期
-    assert r["turnover"]["D2"][1] == 0.0           # d1 的 D2 档无人 → 不收费
+    r = layered_backtest(panel, direction=1, n_groups=3, cost_rate=0.01)
+    assert r["periods"] == 2                        # d1 两只有效 → 周仍有效（≥MIN_STOCKS）
+    assert r["turnover"]["D1"][0] == 0.0            # 首期无上一期
+    assert r["turnover"]["D3"][1] == 0.0            # d1 的 D3 档无人 → 不收费
+
+
+# ── R01-EVAL-C1/I6：NaN 不是 null；有效周口径与 kernel 对齐 ──
+def test_layered_backtest_nan_signal_excluded_from_top_decile():
+    """R01-EVAL-C1：NaN signal 必须剔除——polars rank 把 NaN 当最大（descending），
+    旧实现让 NaN 行占据 D1 首位（净值被 NaN 行的 fwd 污染）。"""
+    panel = pl.DataFrame({
+        "date": [datetime.date(2024, 1, 5)] * 4,
+        "code": ["000000", "000001", "000002", "000003"],
+        "signal": [float("nan"), 0.9, 0.1, 0.0],
+        "forward_return_5d": [1.0, 0.02, 0.01, 0.005],
+    })
+    result = layered_backtest(panel, direction=1, n_groups=4)
+    # 有效 3 只：D1 = 最高 signal(0.9) → 0.02；旧实现 D1 = NaN 行的 1.0 → 净值 2.0
+    assert result["net_values"]["D1"][-1] == pytest.approx(1.02)
+    assert result["net_values"]["D2"][-1] == pytest.approx(1.01)
+
+
+def test_layered_backtest_nan_forward_not_poisoning_nav_tail():
+    """R01-EVAL-C1：NaN forward 不能被当有效值进组均值（NaN 连乘让 D10 净值此后全 nan）。"""
+    rows = []
+    d = datetime.date(2024, 1, 5)
+    for s in range(10):
+        fwd = float(s) * 0.01
+        if s == 0:
+            fwd = float("nan")          # 最低 signal 档（D10）的 fwd
+        rows.append({"date": d, "code": f"{s:06d}", "signal": float(s),
+                     "forward_return_5d": fwd})
+    result = layered_backtest(pl.DataFrame(rows), direction=1)
+    for label, nv in result["net_values"].items():
+        assert all(math.isfinite(v) for v in nv), f"{label} 含非有限净值: {nv}"
+    for label, m in result["summary"].items():
+        assert all(math.isfinite(v) for v in m.values()), f"{label} summary 含非有限值: {m}"
+
+
+def test_layered_backtest_matches_kernel_on_nan_panel():
+    """R01-EVAL-C1：同含 NaN 面板，分层期数/净值与 kernel 容忍语义一致（不崩、全有限）。"""
+    rows = []
+    d0 = datetime.date(2024, 1, 5)
+    for w in range(3):
+        d = d0 + datetime.timedelta(weeks=w)
+        for s in range(10):
+            sig, fwd = float(s), float(s) * 0.01
+            if w == 1 and s == 0:
+                sig = float("nan")
+            if w == 2 and s == 0:
+                fwd = float("nan")
+            rows.append({"date": d, "code": f"{s:06d}", "signal": sig,
+                         "forward_return_5d": fwd})
+    panel = pl.DataFrame(rows)
+    bt = layered_backtest(panel, direction=1)
+    ev = evaluate_factor_weekly(panel, "t", 1)
+    assert bt["periods"] == ev["n_weeks"] == 3
+    assert all(math.isfinite(v) for v in bt["net_values"]["D1"])
+    assert all(math.isfinite(v) for v in bt["net_values"]["D10"])
+
+
+def test_layered_backtest_periods_matches_kernel_min_stocks():
+    """R01-EVAL-I6：periods 与 kernel n_weeks 同规则——单只有效股票的周不计入
+    （kernel MIN_STOCKS=2），`bt["periods"] == evaluation["n_weeks"]` 的 docstring
+    承诺由本测试锁死。"""
+    rows = []
+    d0 = datetime.date(2024, 1, 5)
+    for w, n in enumerate((5, 1)):
+        d = d0 + datetime.timedelta(weeks=w)
+        for s in range(n):
+            rows.append({"date": d, "code": f"{s:06d}", "signal": float(s + 1),
+                         "forward_return_5d": 0.01 * (s + 1)})
+    panel = pl.DataFrame(rows)
+    bt = layered_backtest(panel, direction=1)
+    ev = evaluate_factor_weekly(panel, "t", 1)
+    assert bt["periods"] == ev["n_weeks"] == 1
+    assert len(bt["dates"]) == 1
+    assert all(len(v) == 1 for v in bt["net_values"].values())
+
+
+def test_layered_backtest_two_stock_week_counted_like_kernel():
+    """边界回归：≥2 只有效股票的周仍计入（与 kernel MIN_STOCKS=2 一致，不误杀）。"""
+    d = datetime.date(2024, 1, 5)
+    panel = pl.DataFrame({
+        "date": [d, d],
+        "code": ["000001", "600519"],
+        "signal": [1.0, 2.0],
+        "forward_return_5d": [0.02, 0.01],
+    })
+    bt = layered_backtest(panel, direction=1)
+    ev = evaluate_factor_weekly(panel, "t", 1)
+    assert bt["periods"] == ev["n_weeks"] == 1
+
+
+def test_layered_min_stocks_constant_matches_kernel():
+    """I6 的常量同步锁：layered.MIN_STOCKS 与 quant_core.MIN_STOCKS 必须同值
+    （否则 periods == n_weeks 的承诺会随 kernel 改动静默失效）。"""
+    import quant_core
+    from factorlab.core.eval.layered import MIN_STOCKS
+    assert MIN_STOCKS == quant_core.MIN_STOCKS

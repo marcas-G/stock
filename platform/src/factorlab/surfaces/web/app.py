@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime
 from pathlib import Path
 
@@ -53,8 +54,10 @@ def _display(v):
 
 
 def _num(value) -> float | None:
-    """仅返回 float；None/非数字 → None（模板显示为 —）。"""
-    return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+    """仅返回有限 float；None/非数字/NaN/inf → None（模板显示为 —）。"""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value) if math.isfinite(value) else None
+    return None
 
 
 def _safe_summary(summary: dict) -> dict:
@@ -142,10 +145,18 @@ def create_app(results_dir: Path) -> FastAPI:
         has_weekly = False
         try:  # R12：weekly 读经 results 单点（缺失/损坏 → 同一降级路径）
             panel = results_fs.read_weekly(results_dir, name)
-            charts_data["ic"] = charts.ic_curve_figure(weekly_ic(panel))
+            # R01-EVAL-I1：IC 曲线必须与 summary 的评估口径同 target（spec.target）
+            target = ev.get("target") if isinstance(ev, dict) else None
+            if not isinstance(target, str):
+                outs = ev.get("outputs") if isinstance(ev, dict) else None
+                first = next(iter(outs.values()), None) if isinstance(outs, dict) else None
+                target = first.get("target") if isinstance(first, dict) else None
+            if not isinstance(target, str):
+                target = "forward_return_5d"   # legacy summary（无 target 字段）
+            charts_data["ic"] = charts.ic_curve_figure(weekly_ic(panel, target=target))
             has_weekly = True
         except (OSError, ValueError, pl.exceptions.PolarsError):
-            pass  # 损坏/缺列的 weekly.parquet → IC 曲线区域降级（其余图表照常）
+            pass  # 损坏/缺列的 weekly.parquet（含 target 列缺失）→ IC 曲线区域降级
         groups = summary["evaluation"]["decile_returns"]["groups"]
         if groups:
             charts_data["decile"] = charts.decile_bar_figure(groups)
