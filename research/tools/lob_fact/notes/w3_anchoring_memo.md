@@ -62,9 +62,19 @@ SZ 09:25:00-09:30:00 委托消息零行（W1），但 09:30 开盘簿带 09:15-0
   门语义迁至存现率（平静日 rank 0.9867-0.9985 ≥ W1 97.6% 语义由 M1b 延续报告）
 - **M1b rank 对齐价梯**（ladder_match；day-level pooled n_match/n_anchor + 每窗平均）
   —— 逐日/池化报告**不设门**（诊断 + 逐失败窗归因）
-- M2：命中档 vol_delta 聚合 + ghost 量/窗数 + unattributed 0（本批门）
+- M2：命中档 vol_delta 聚合 + ghost 量/窗数 + **差量全分类（本批门）**。
+  R01-STRAT-I7 修订（原文"unattributed 0（本批门）"有歧义/与实测矛盾）：门语义 =
+  `missing_vol == attributed_vol + unattributed_vol`（W1 §风险"不可分类 = bug"；
+  W3 §2"unattributed_vol 记录归因，不静默"）。**unattributed > 0 不是失败**——§4
+  校准集 10 日中 6 日 unattr 非零（最大 868,600，δ 尾）且 M4 全净、verdict() 从未
+  以 unattr 拒日；若按"unattr 必须 0"设门会把已证净的合法日全部误杀。"unattributed
+  0" 的正确读法是"**零不可归因（全分类）**"，不是"零 unattributed 量"。
+  生产 batch 已补 `m2_classification` 硬拒（pipeline/run_lob_batch.py day_gate）；
+  ghost_vol/vol_delta/M3 桶进 recs.m2/m3 记录面（原生产载荷只落 unattr，ghost/m3 丢弃）。
 - M3：引擎逐 fill 分桶（连续段 + fill 带价）：in_spread / below_bid / above_ask / no_quote，
-  ε=1 tick（EPS_TICKS×TICK_UNITS=100 units），分桶依据消费前双侧 best（与 qa.metrics 同口径）
+  ε=1 tick（EPS_TICKS×TICK_UNITS=100 units），分桶依据消费前双侧 best（与 qa.metrics 同口径）。
+  **本批为诊断记录，不设 0 阈值门**（memo 从未给 M3 门；§4 验收行为"M3 桶输出正常"；
+  桶/守恒正确性由 M4 逐单对拍 + M2 全分类承担）；生产 batch 现随 recs.m3 落载荷。
 - M4 逐单守恒 = **双实现交叉**（引擎 vs qa.ledger 账本，独立实现）：
   逐 id (side,price,added,filled,canceled,rem) 零 mismatch + Σ 守恒相等 + 桶映射全等
   （eng fill_excess+fill_over_rem == ledger fill_excess——live-order 超量 partial 单独成桶）

@@ -92,3 +92,84 @@ def test_shared_client_cookie_semantics(tmp_path, monkeypatch):
     monkeypatch.setattr(QC, "_FALLBACK_COOKIE", str(tmp_path / "also-missing.txt"))
     with pytest.raises(FileNotFoundError):
         QC.cookies()
+
+
+# ── R01-STRAT-C3：server 入口死代码（`if not COOKIES` → NameError）──────────
+# ── R01-STRAT-I8：v2 重试耗尽时不得清空已成功 URL ────────────────────────────
+def test_v2_partial_link_failure_keeps_successful_urls(tmp_path, monkeypatch):
+    """重试 3 次仍有缺链接时，只能丢失败项，已成功的 URL 必须保留——否则可下载的
+    文件也报 no link（实测：一天里部分缺链 → 全部漏下）。
+    修复前 `for ... else: urls = {}` 清空全部 → f1 也报 no link（红）。"""
+    import json
+    import quark_download_v2 as q2
+    entries = [
+        {"date": "20240101", "code": "000001.SZ", "fid": "f1",
+         "file": "000001.SZ.zip", "size": 3, "pdir_fid": "g1"},
+        {"date": "20240101", "code": "000002.SZ", "fid": "f2",
+         "file": "000002.SZ.zip", "size": 4, "pdir_fid": "g1"},
+    ]
+    mf = tmp_path / "manifest.json"
+    mf.write_text(json.dumps(entries), encoding="utf-8")
+    monkeypatch.setattr(q2, "MANIFEST", str(mf))
+    dest = tmp_path / "dl"
+    monkeypatch.setattr(q2, "DEST", str(dest))
+    monkeypatch.setattr(q2, "get_stoken", lambda *a, **k: "tok")
+    monkeypatch.setattr(q2.time, "sleep", lambda s: None)
+    monkeypatch.setattr(sys, "argv", ["quark_download_v2.py"])
+    calls = {"n": 0}
+
+    def fake_links(todo):
+        calls["n"] += 1
+        return {"f1": "https://cdn.invalid/f1"}, [e for e in todo if e["fid"] == "f2"]
+
+    monkeypatch.setattr(q2, "day_tokens_and_links", fake_links)
+
+    def fake_dl(url, out, expect):
+        with open(out, "wb") as fh:
+            fh.write(b"x" * expect)
+        return True, expect
+
+    monkeypatch.setattr(q2, "download_file", fake_dl)
+    q2.main()
+
+    # 应该做的: 链接成功的 f1 落盘
+    assert (dest / "20240101" / "000001.SZ" / "000001.SZ.zip").exists()
+    # 不应该做的: 缺链的 f2 不落盘（失败被计数，不拖累 f1）
+    assert not (dest / "20240101" / "000002.SZ").exists()
+    # 重试真实发生（3 次 × 每轮两次取链）
+    assert calls["n"] == 6, calls
+
+
+def test_server_main_cookie_missing_exits_with_message_not_nameerror(tmp_path):
+    """入口必须可启动：cookie 缺失 → 显式提示 + exit 1（不是 NameError 崩溃）。
+    修复前 `main()` 引用未定义 `COOKIES` → NameError traceback，入口从未可用。"""
+    env = dict(os.environ, QUARK_COOKIE_FILE=str(tmp_path / "nope.txt"))
+    code = (f"import sys; sys.path.insert(0, {_TOOL_DIR!r});"
+            " import quark_download_server as QS; QS.main()")
+    r = subprocess.run([sys.executable, "-c", code], env=env,
+                       capture_output=True, text=True)
+    out = r.stdout + r.stderr
+    assert r.returncode == 1, f"应显式退出 1（实际 {r.returncode}）：\n{out}"
+    assert "cookie" in out.lower(), out
+    assert "NameError" not in out and "COOKIES" not in out
+
+
+def test_server_main_proceeds_past_cookie_check_with_manifest(tmp_path, monkeypatch):
+    """cookie 文件存在时必须越过入口检查继续（读 manifest/stoken）——证明 COOKIES
+    解析用的是共享客户端口径（QUARK_COOKIE_FILE 跟随），不是硬编码/静默空串。"""
+    import quark_client as QC
+    import quark_download_server as QS
+    cookie = tmp_path / "cookie.txt"
+    cookie.write_text("  k=v  ", encoding="utf-8")
+    monkeypatch.setattr(QC, "COOKIE_PATH", str(cookie))
+    monkeypatch.setattr(QC, "_FALLBACK_COOKIE", str(tmp_path / "missing.txt"))
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("[]", encoding="utf-8")
+    monkeypatch.setattr(QS, "MANIFEST", str(manifest))
+
+    class _Stop(Exception):
+        pass
+
+    monkeypatch.setattr(QS, "get_stoken", lambda **kw: (_ for _ in ()).throw(_Stop("past-cookie")))
+    with pytest.raises(_Stop, match="past-cookie"):
+        QS.main()

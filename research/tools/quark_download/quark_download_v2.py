@@ -157,7 +157,11 @@ def main():
                     break
                 time.sleep(3)
             else:
-                urls = {}
+                # R01-STRAT-I8: 重试耗尽只丢弃仍缺链的失败项，保留已成功 URL——
+                # 原 `urls = {}` 把当天所有可下载文件一并判成 no link（全部漏下）。
+                missing_fids = {e["fid"] for e in missing}
+                urls = {f: u for f, u in urls.items()
+                        if f not in missing_fids and u}
 
             # 并行下载
             results = {}

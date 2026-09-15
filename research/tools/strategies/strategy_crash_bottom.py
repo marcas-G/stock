@@ -5,7 +5,9 @@
 - 选股：触发周按 signal 降序取 top K（默认 20），等权
 - 调仓：周频（周五对齐），触发期每周按最新信号全换（换手 = 新增股票比例）
 - 退出：掩码恢复 0 自动清仓
-- 成本：双边费率 cost_bps（默认 35bps = 佣金 2.5×2 + 印花税 5 + 冲击 10×2）
+- 成本：每笔成交按成交额 × cost_bps 计（买/卖各一次）；默认 35bps = 佣金 2.5×2 +
+  印花税 5 + 冲击 10×2（往返综合校准）；段界清仓（卖）与新段再建仓（买）各计一次
+  （R01-STRAT-C2）
 - 可交易性：买入日跌停（pct_chg <= -9.8%）的股票排除（买不进）
 - 持有收益：forward_return_5d（周频调仓恰好匹配 5 日持有期）
 
@@ -93,7 +95,14 @@ def strategy_backtest(
     )
     weekly = weekly.filter(pl.col("date") == pl.col("_week_end")).drop("_week_end")
     if limit_down is not None:
-        weekly = weekly.join(limit_down, on=["date", "code"], how="left")
+        # R01-STRAT-C1: panel 在 M7-05 后为 canonical ts_code（000001.SZ），而跌停表
+        # 历史上按 6 位 code 取（substr(ts_code,1,6)）→ 直接 join 永空、过滤静默失效。
+        # 两侧统一规范到 6 位再做 join（临时键，不改动 holdings/选股用的原 code）。
+        weekly = weekly.with_columns(pl.col("code").str.slice(0, 6).alias("_code6"))
+        ld = limit_down.with_columns(pl.col("code").str.slice(0, 6).alias("_code6"))
+        weekly = weekly.join(
+            ld.select(["date", "_code6", "pct_chg"]), on=["date", "_code6"], how="left",
+        ).drop("_code6")
         weekly = weekly.filter(pl.col("pct_chg").fill_null(0.0) > LIMIT_DOWN)
     active = weekly.filter(pl.col("signal").is_not_null())
     if mkt20 is not None:
@@ -112,12 +121,21 @@ def strategy_backtest(
     seg_peak = 1.0  # 段内净值峰值（止损用）
     stopped = False  # 本段已止损退出（等下次触发段）
     cycle_week = 0  # 调仓周期内周数（rebalance_weeks：0=调仓周）
+    prev_w = 0.0  # 上一周仓位权重（段界清仓成本按上段实际仓位计）
 
     for (week_end,), grp in active.sort("date").group_by("date", maintain_order=True):
+        # 段界清仓成本（R01-STRAT-C2）：触发断档 = 上一段结束，持仓按上段末仓位
+        # 模拟卖出（成本按卖出计入本周 r_net）；新段从空仓重建（本周换手 100% 含
+        # 买入成本）。修复前 holdings 跨段泄漏 → 新段同 top-K 时换手 0 且无清仓成本。
+        liq_cost, liq_turnover = 0.0, 0.0
         if prev_week_end is not None and week_end - prev_week_end > __import__("datetime").timedelta(days=10):
             # 触发断档：上一段结束
+            if holdings:
+                liq_turnover = len(holdings) / k
+                liq_cost = liq_turnover * prev_w * cost_bps / 10000
             episodes.append({**per_episode, "end": str(prev_week_end)})
             per_episode = {}
+            holdings = set() if not use_rules else {}  # 段界重置：新段从空仓重建
             seg_first = True
             seg_peak = 1.0
             stopped = False
@@ -194,8 +212,9 @@ def strategy_backtest(
             ret = float(fwd) if fwd is not None else 0.0
         elif w == 0:
             ret = 0.0  # 规则模式下空仓周（段首缓冲/止损）：无持仓无收益
-        # 净值变化率 = 1 + w×收益 - w×换手×成本率（仓位缩放同时缩放收益与成交额）
-        r_net = w * ret - w * turnover * cost_bps / 10000
+        # 净值变化率 = 1 + w×收益 - w×换手×成本率 - 段界清仓成本
+        # （仓位缩放同时缩放收益与成交额；清仓成本已按上段末仓位计，本周不再缩放）
+        r_net = w * ret - w * turnover * cost_bps / 10000 - liq_cost
         nav *= 1 + r_net
         if w > 0 and stop_loss is not None:
             seg_peak = max(seg_peak, nav)
@@ -207,14 +226,15 @@ def strategy_backtest(
         per_episode.setdefault("returns", []).append(r_net)  # 段内周收益（蒙特卡洛 block 单元）
         if stopped:
             per_episode["stopped"] = True
-        cost_paid += w * cost
-        turnover_sum += turnover
+        cost_paid += w * cost + liq_cost
+        turnover_sum += turnover + liq_turnover
         if w > 0:
             cycle_week = (cycle_week + 1) % max(rebalance_weeks, 1)  # 空仓周不消耗调仓周期
         prev_week_end = week_end
+        prev_w = w
         weeks.append(week_end)
         rets.append(r_net)
-        turnovers.append(turnover)
+        turnovers.append(turnover + liq_turnover)
     if per_episode:
         episodes.append({**per_episode, "end": str(prev_week_end)})
 
@@ -350,6 +370,8 @@ def strategy_long_backtest(
                 per_episode.setdefault("weeks", 0)
                 per_episode["weeks"] += 1
                 per_episode["cum_ret"] = per_episode.get("cum_ret", 1.0) * (1 + r_net)
+                # R01-STRAT-I5: 段内周收益 = monte_carlo(mode='episode') 的 block 单元
+                per_episode.setdefault("returns", []).append(r_net)
         nav *= 1 + r_net
         turnover_sum += turnover
         prev_week_end = week_end

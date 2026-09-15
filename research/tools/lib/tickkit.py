@@ -9,12 +9,21 @@ import 复用这几样东西——两条独立流水线为了几个常量/小函
 """
 from __future__ import annotations
 
+import os as _os
 import re
+import sys as _sys
 
 import numpy as np
 import pyarrow as pa
 
-from factorlab.core.factio.timeparse import parse_ms_numpy as _parse_ms_numpy
+# R01-STRAT-I4：模块级 `from factorlab...` 必须有自举——否则 T2（emb，无 factorlab
+# 安装）单跑 extract_sz_cancels 会 collection error，全量套跑靠测试顺序泄漏假绿。
+# 路径注入只经 _env.ensure_platform（落位断言；与 lib/tickdata.py 同模式）。
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # tools/
+from _env import ensure_platform as _ensure_platform  # noqa: E402
+
+_ensure_platform()
+from factorlab.core.factio.timeparse import parse_ms_numpy as _parse_ms_numpy  # noqa: E402
 
 DAY_RE = re.compile(r"^(\d{8})$")
 

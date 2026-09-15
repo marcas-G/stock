@@ -14,19 +14,8 @@ import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from quark_client import (DEST, HOST_PC, PWD_ID, UA, STOKEN_TTL,  # noqa: E402  （R16：共享客户端）
-                          download_file, get_download_urls, get_stoken, http)
-
-
-
-def _load_cookies():
-    for p in ("/tmp/quark_cookies.txt",
-              os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "..", "quark_cookies.txt")):
-        if os.path.exists(p):
-            return open(p).read().strip()
-    return ""
-
-
+                          cookies, download_file, get_download_urls,
+                          get_stoken, http)
 
 MANIFEST = "manifest_300.json"
 
@@ -92,8 +81,12 @@ def fresh_download_url(stoken, e):
 
 
 def main():
-    if not COOKIES:
-        print("cookie file not found at ../quark_cookies.txt")
+    # R01-STRAT-C3: 原 `if not COOKIES` 引用未定义名（入口 NameError 死代码，从未可用）。
+    # cookie 解析收敛到共享客户端 quark_client（缺失即 FileNotFoundError，不静默空串）。
+    try:
+        cookies()
+    except FileNotFoundError as e:
+        print(f"cookie file not found: {e}")
         sys.exit(1)
     base = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(base, MANIFEST), encoding="utf-8") as f:

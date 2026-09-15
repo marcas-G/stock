@@ -10,6 +10,7 @@
 import sys, os, json
 from datetime import date
 
+import pytest
 import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -210,8 +211,11 @@ def test_day_tables_sweep_and_banded_checkpoint_rows():
 
 # ---------- 日门 (batch 版: 无 m6; presence 圆整 5 位同 W3 verdict) ----------
 
-def _mk(present, anchor, conservation='PASS', orders=0, counters_equal=True):
-    qa = dict(day=dict(n_present=present, n_anchor=anchor),
+def _mk(present, anchor, conservation='PASS', orders=0, counters_equal=True,
+        missing=0, attributed=0, unattributed=0):
+    qa = dict(day=dict(n_present=present, n_anchor=anchor,
+                       missing_vol=missing, attributed_vol=attributed,
+                       unattributed_vol=unattributed),
               m4=dict(conservation=conservation, orders=orders,
                       counters_equal=counters_equal))
     return dict(qa=qa, code='000155.SZ', day='20260803')
@@ -249,6 +253,20 @@ def test_day_gate_presence_two_tier_and_vacuous():
     assert r['ok'] is True and r['band'] is True         # 0.9695 δ 带
     r = R.day_gate(_mk(1800, 2000))
     assert r['ok'] is True and r['band'] is True         # 0.90 整 = FLOOR 边界
+
+
+def test_day_gate_m2_classification_identity():
+    """R01-STRAT-I7: M2 差量全分类门（W1「不可分类 = bug」/W3「不静默」形式化）:
+    missing_vol 必须 == attributed + unattributed —— 违反 = 分类聚合 bug 硬拒。
+    unattributed > 0 但已记录（identity 成立）**不拒**: 校准集 6/10 日 unattr 非零
+    且 M4 全净（δ 尾），"unattr 必须为 0" 不是门（W3 memo 修订，证据见
+    notes/w3_anchoring_memo.md §3/§4）。"""
+    r = R.day_gate(_mk(100, 100, missing=1000, attributed=400, unattributed=600))
+    assert r['ok'] is True and r['reasons'] == []
+    bad = R.day_gate(_mk(100, 100, missing=1000, attributed=400, unattributed=500))
+    assert bad['ok'] is False and 'm2_classification' in bad['reasons']
+    bad2 = R.day_gate(_mk(100, 100, missing=0, attributed=10, unattributed=0))
+    assert bad2['ok'] is False and 'm2_classification' in bad2['reasons']
 
 
 def test_day_gate_handles_reversed_and_stub_must_fail():
@@ -598,6 +616,28 @@ def test_process_date_e2e_synthetic(tmp_path):
         assert p2['tables'][k]['rows'] == p['tables'][k]['rows']
 
 
+def test_process_date_records_m2_m3_diagnostics(tmp_path):
+    """R01-STRAT-I7 记录面: recs 必须携带 M2（ghost/unattr/delta_attribution）与
+    M3 桶——原先 run_day 算出的 ghost_vol/m3 在生产载荷里被丢（诊断面不完整）。
+    合成迷你日逐值断言: 唯一连续段带价 fill 落 print_in_spread；无锚 → 缺档全 0。"""
+    tick = tmp_path / 'tick'
+    lob = tmp_path / 'lob'
+    _mk_mini_tick(tick)
+    R._init_worker(dict(tick_root=str(tick), lob_root=str(lob),
+                        conv_manifest=str(tick / '_manifest' / 'conversion_manifest.parquet'),
+                        cancels_manifest=str(tick / '_manifest' / 'cancels_manifest.parquet')))
+    p = R.process_date(DSTR)
+    rec = next(r for r in p['recs'] if r['code'] == '000155.SZ')
+    assert rec['m2'] == dict(missing_vol=0, attributed_vol=0,
+                             unattributed_vol=0, ghost_vol=0,
+                             delta_attribution=1.0)
+    assert rec['m3'] == dict(print_in_spread=1, print_below_bid=0,
+                             print_above_ask=0, print_no_quote=0)
+    sh = next(r for r in p['recs'] if r['code'] == '600036.SH')
+    assert sh['m3'] == dict(print_in_spread=0, print_below_bid=0,
+                            print_above_ask=0, print_no_quote=0)
+
+
 def test_process_date_guard_mismatch_blocks(tmp_path):
     """输入守卫拒停: manifest 声明的行数 ≠ 实读 → code-day rec guard FAIL +
     date 级总数错 → payload ok=False (有错不静默, 不落 done)"""
@@ -630,7 +670,7 @@ def test_process_date_guard_mismatch_blocks(tmp_path):
 # 原子落盘 → 该 date 必须进 done (否则全部重跑永不自愈), 同时 hard_days 留痕交审计
 # 按失败率阈值裁决; 结构性错误 (守卫漂移/无 manifest code/异常) 才不 done 需重试。
 
-def _payload(day, n_fail=0, errors=(), tables=True):
+def _payload(day, n_fail=0, errors=(), tables=True, reason='m1a_presence'):
     """合成 process_date 载荷: recs 含 n_fail 个门拒 code-day"""
     recs = [dict(code=f'00000{i}.SZ', day=day, ok=True,
                  gate=dict(presence=0.99, vacuous=False, band=False, ok=True,
@@ -638,7 +678,7 @@ def _payload(day, n_fail=0, errors=(), tables=True):
     for i in range(n_fail):
         recs[i] = dict(code=f'30130{i}.SZ', day=day, ok=False,
                        gate=dict(presence=0.89981, vacuous=False, band=False,
-                                 ok=False, reasons=['m1a_presence'], notes=[]))
+                                 ok=False, reasons=[reason], notes=[]))
     return dict(day=day, ok=n_fail == 0 and not errors,
                 errors=list(errors), n_codes=10, recs=recs,
                 tables={'lob_events': dict(rows=100, bytes=9, sha256='x')}
@@ -678,6 +718,27 @@ def test_apply_day_result_records_hard_day_without_swallowing_error():
     assert '20260808' not in done
     assert errs == [('20260808', 'date_error', 'stall_abandon')]
     assert len(hard) == 1                             # 结构错不污染 hard_days
+
+
+def test_day_outcome_structural_gate_reasons_are_error_not_hard():
+    """R01-STRAT-I7: 结构性门失败（M4 守恒/桶对账、M2 分类聚合）不能当"已分类硬
+    失败"放行 —— 必须 error（不 done、不进 hard_days、月不能 SUCCESS）；仅数据面
+    门拒（M1a 存现 δ 滞后）才是 hard（W5 语义: "M4 PASS 才算已分类"）。"""
+    done, hard, errs = set(), [], []
+    assert R.apply_day_result(
+        _payload('20260807', n_fail=1, reason='m2_classification'),
+        done, hard, errs) == 'error'
+    assert '20260807' not in done and hard == []
+    assert errs and errs[0][0] == '20260807' and errs[0][1] == 'date_error'
+    done2, hard2, errs2 = set(), [], []
+    assert R.apply_day_result(
+        _payload('20260807', n_fail=1, reason='m4_conservation'),
+        done2, hard2, errs2) == 'error'
+    assert '20260807' not in done2 and hard2 == []
+    done3, hard3, errs3 = set(), [], []
+    assert R.apply_day_result(_payload('20260807', n_fail=1),
+                              done3, hard3, errs3) == 'hard'
+    assert '20260807' in done3 and len(hard3) == 1 and errs3 == []
 
 
 def test_state_update_persists_done_plan_and_hard_days():
@@ -899,6 +960,27 @@ def test_main_cli_lock_onlyday_and_finalize(tmp_path, monkeypatch, capsys):
     assert '仅收尾' in out and '20260803: OK' not in out
     assert (bdir / 'SUCCESS_202608').exists()
     assert R._sha256(str(ev_p)) == sha0          # 未重算 (字节同)
+
+
+def test_main_cli_structural_error_exits_nonzero_no_success(tmp_path, monkeypatch, capsys):
+    """R01-STRAT-I7 生产语义: 结构性错误（守卫漂移 → date error）时 batch 必须退出
+    非 0 且不落 SUCCESS —— 未完成不得静默返回 0 让上游当成功。"""
+    tick, lob = tmp_path / 'tick', tmp_path / 'lob'
+    _mk_mini_month(tick)
+    mf = tick / '_manifest' / 'conversion_manifest.parquet'
+    m = pl.read_parquet(mf)
+    m = m.with_columns(pl.when(pl.col('code') == '600036.SH')
+                       .then(pl.lit(99)).otherwise(pl.col('n_orders'))
+                       .alias('n_orders'))
+    m.write_parquet(mf)
+    monkeypatch.setattr(C, 'TICK_FACT_ROOT', str(tick))
+    monkeypatch.setattr(C, 'LOB_FACT_ROOT', str(lob))
+    with pytest.raises(SystemExit) as ex:
+        R.main(['--month', '202608', '--workers', '1'])
+    assert ex.value.code == 1
+    bdir = lob / '_batch'
+    assert not (bdir / 'SUCCESS_202608').exists()
+    assert '未完成' in capsys.readouterr().out
 
 
 def test_alloc_run_id_unique_on_collision(tmp_path):

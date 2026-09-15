@@ -333,6 +333,130 @@ def test_strategy_long_stops_adding_when_trigger_ends():
     assert r["episodes"][0]["weeks"] == 3
 
 
+# ---------- R01-STRAT-C1: 跌停过滤 code 口径（M7-05 canonical ts_code） ----------
+
+
+def test_strategy_limit_down_normalizes_code_format():
+    """panel 为 canonical ts_code（M7-05 后）时，6 位 code 的 limit_down 必须仍能命中：
+    - panel '000001.SZ' + limit_down '000001' → 跌停被排除（R01-STRAT-C1 静默失效点）；
+    - 反向格式（panel 6 位 + limit_down ts_code）同样命中（不单向依赖）；
+    - 非跌停（pct_chg > -9.8）不排除。
+    修复前：join 永空 → 跌停股仍被买入（weeks=1）→ 本测试失败。"""
+    from strategy_crash_bottom import strategy_backtest
+    d = datetime.date(2024, 1, 5)
+    panel = pl.DataFrame([{"date": d, "code": "000001.SZ", "signal": 1.0,
+                           "forward_return_5d": 0.10}])
+    ld6 = pl.DataFrame({"date": [d], "code": ["000001"], "pct_chg": [-10.0]})
+    r = strategy_backtest(panel, limit_down=ld6, k=1, cost_bps=0)
+    assert r["weeks"] == 0 and "error" in r
+    panel6 = pl.DataFrame([{"date": d, "code": "000001", "signal": 1.0,
+                            "forward_return_5d": 0.10}])
+    ld_ts = pl.DataFrame({"date": [d], "code": ["000001.SZ"], "pct_chg": [-10.0]})
+    r2 = strategy_backtest(panel6, limit_down=ld_ts, k=1, cost_bps=0)
+    assert r2["weeks"] == 0 and "error" in r2
+    ld_ok = pl.DataFrame({"date": [d], "code": ["000001"], "pct_chg": [1.0]})
+    r3 = strategy_backtest(panel, limit_down=ld_ok, k=1, cost_bps=0)
+    assert r3["weeks"] == 1
+    assert r3["nav"] == pytest.approx(1.10, rel=1e-12)
+
+
+# ---------- R01-STRAT-C2: 段边界清仓/再建仓成本 + holdings 跨段重置 ----------
+
+
+def _two_episode_panel() -> pl.DataFrame:
+    """probe_strategy_cost.py 场景：3 触发周（01-05/01-12/01-26），中间断档 14 天
+    → 段 1 = 前两周（持仓 A/B 不变），段 2 = 最后一周。"""
+    rows = []
+    for d in (datetime.date(2024, 1, 5), datetime.date(2024, 1, 12),
+              datetime.date(2024, 1, 26)):
+        for i, c in enumerate(("A", "B", "C", "D")):
+            rows.append({"date": d, "code": c, "signal": 4.0 - i,
+                         "forward_return_5d": 0.03})
+    return pl.DataFrame(rows)
+
+
+def test_strategy_segment_boundary_charges_liquidation_and_reentry():
+    """段边界：上段末持仓清仓（卖出成本）+ 新段首周重建仓（买入成本）。
+    probe 场景 2 段应 3 次成本：段 1 入场买入、段 1 清仓卖出、段 2 再入场买入；
+    修复前 holdings 跨段泄漏 → 段 2 换手 0、只收 1 次成本（total_cost=0.0035）→ 失败。"""
+    from strategy_crash_bottom import strategy_backtest
+    r = strategy_backtest(_two_episode_panel(), k=2, cost_bps=35)
+    assert r["weeks"] == 3
+    assert r["total_cost"] == pytest.approx(3 * 0.0035, abs=1e-12)
+    # 周 0 = 段 1 买入成本；周 1 = 持仓不变无成本；周 2 = 清仓成本 + 再建仓成本
+    assert r["weekly_returns"][0] == pytest.approx(0.03 - 0.0035, abs=1e-12)
+    assert r["weekly_returns"][1] == pytest.approx(0.03, abs=1e-12)
+    assert r["weekly_returns"][2] == pytest.approx(0.03 - 0.0035 - 0.0035, abs=1e-12)
+    assert r["nav"] == pytest.approx(1.0265 * 1.03 * 1.023, rel=1e-12)
+    # 清仓与再建仓的换手都算实际交易
+    assert r["avg_turnover"] == pytest.approx((1 + 0 + 2) / 3, abs=1e-12)
+
+
+def test_strategy_holdings_reset_across_episodes_blocked_without_reset():
+    """段 2 的首周必须重新买入：若 holdings 泄漏（旧实现），段 2 与段 1 同 top-K
+    时 new_codes 为空 → 换手 0；有重置后换手 100%。用不同 top-K 场景再加一层：
+    段 1 = A/B，段 2 信号顺序翻转 = D/C —— 无论是否泄漏都换手 100%，故本测试用
+    同 top-K 场景的换手差异锁死重置行为。"""
+    from strategy_crash_bottom import strategy_backtest
+    r = strategy_backtest(_two_episode_panel(), k=2, cost_bps=0)
+    # 三段换手里段 2 首周必须是 1.0（清仓 1.0 + 再建仓 1.0 → 计入 2.0）
+    assert r["avg_turnover"] == pytest.approx(1.0, abs=1e-12)
+
+
+def test_strategy_rules_mode_holdings_reset_at_segment_boundary():
+    """止盈止损（use_rules）模式的 holdings 是 dict，同样必须段界重置：
+    修复前跨段泄漏 → 新段首周走"已持仓"分支、换手 0（漏一次建仓成本）。"""
+    from strategy_crash_bottom import strategy_backtest
+    rows = []
+    for w in (0, 1, 4):  # 第 4 周与第 3 周断档
+        d = datetime.date(2024, 1, 5) + datetime.timedelta(weeks=w)
+        for i, code in enumerate(("A", "B", "C", "D")):
+            rows.append({"date": d, "code": code, "signal": 4.0 - i,
+                         "forward_return_5d": 0.02})
+    r = strategy_backtest(pl.DataFrame(rows), k=2, cost_bps=0, max_hold=10)
+    assert r["weeks"] == 3
+    # 段 1 首周买入 1.0；段 2 首周必须重建仓 1.0（+段界清仓 1.0）→ 合计 3.0
+    assert r["avg_turnover"] == pytest.approx(1.0, abs=1e-12)
+
+
+def test_strategy_segment_boundary_no_double_charge_without_next_episode():
+    """末段结束不强制清仓（无下段可建仓）：仅一段时保持原语义 1 次成本 ——
+    防止"段结束即清仓"误伤单个段的尾部。"""
+    from strategy_crash_bottom import strategy_backtest
+    rows = []
+    for d in (datetime.date(2024, 1, 5), datetime.date(2024, 1, 12)):
+        for i, c in enumerate(("A", "B", "C", "D")):
+            rows.append({"date": d, "code": c, "signal": 4.0 - i,
+                         "forward_return_5d": 0.03})
+    r = strategy_backtest(pl.DataFrame(rows), k=2, cost_bps=35)
+    assert r["total_cost"] == pytest.approx(0.0035, abs=1e-12)
+
+
+# ---------- R01-STRAT-I5: --long --mc episode 模式（episodes 无 returns） ----------
+
+
+def test_strategy_long_episodes_carry_returns_for_monte_carlo():
+    """--long 模式的 episode 必须携带段内周收益（Monte Carlo episode 采样的 block 单元）。
+    修复前：episodes 无 'returns' 键 → monte_carlo(mode='episode') KeyError。"""
+    from strategy_crash_bottom import monte_carlo, strategy_long_backtest
+    rows, mkt = [], []
+    for w, m in ((0, -0.10), (1, -0.09), (2, 0.01)):
+        d = datetime.date(2024, 1, 5) + datetime.timedelta(weeks=w)
+        mkt.append({"date": d, "mkt20": m})
+        for i, code in enumerate(("A", "B", "C", "D")):
+            rows.append({"date": d, "code": code, "signal": 4.0 - i,
+                         "forward_return_5d": 0.02})
+    r = strategy_long_backtest(pl.DataFrame(rows), k=2, cost_bps=0,
+                               mkt20=pl.DataFrame(mkt), batches=2, batch_gap=1)
+    assert r["episodes"], "应有触发段"
+    assert all(ep.get("returns") for ep in r["episodes"])
+    # 持仓周收益单元数 = episodes[0].weeks（修复退出周不属于持仓）
+    assert sum(len(ep["returns"]) for ep in r["episodes"]) == 2
+    mc = monte_carlo(r["weekly_returns"], r["episodes"], n_sims=20, mode="episode")
+    assert mc["n_units"] == len(r["episodes"]) == 1
+    assert mc["risk"]["p_active_negative"] <= 1.0
+
+
 # ---------- 死等股灾（知乎战法） ----------
 
 

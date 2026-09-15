@@ -2,6 +2,35 @@
 
 日期：2026-08-18 | 数据：2015-01-01 ~ 2026-07-31（11.5 年）
 
+> **状态（2026-09-15，R01-STRAT-I6 修订）：历史快照，当前数据状态下不可复现。**
+> §2/§3 数字产出于 2026-08-18，依赖当时的 duckdb 平台库（`data/factorlab.duckdb`，
+> 含 `index_daily` 000852.SH 与 `stock_st`）与 `results/crash_bottom_leader_timed/panel.parquet`；
+> 该库与产物已不在树内。2026-09-15 实测 CH 数据面：`index_daily` **0 行**、
+> `stock_st` **表缺失**、`daily_basic.circ_mv` 全 null → `idx_ret`/掩码全 null →
+> 重跑因子 signal 全 null（`n_weeks=0`）。真跑尝试与原始证据：
+> `docs/verification/R21/STRAT/i6_data_availability.txt`、`i6_factor_run.log`、
+> `i6_run_note.md`；全 null 的无效 panel 已删除（避免误当重跑结果）。
+>
+> **恢复条件（缺一不可）**：① `index_daily` 灌入 000852.SH 全历史（起点早于
+> 2015-01-01，留 20 日 warmup）；② `stock_st` 表可用（否则须显式接受移除
+> `exclude_st` 的全市场口径，如 `docs/verification/R21/STRAT/timed_no_exclude_st.yaml`）；
+> ③ 执行侧 duckdb 平台库（`daily.pct_chg` + `index_daily`）或等价读路径。
+>
+> **重跑命令链**：
+> ```
+> FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/factorlab run \
+>   research/factor/crash_bottom_leader/timed.yaml \
+>   --output-dir results/crash_bottom_leader_timed --no-backtest --chunk-days 500
+> platform/.venv/bin/python research/tools/strategies/strategy_crash_bottom.py \
+>   --panel results/crash_bottom_leader_timed/panel.parquet \
+>   --db <含 daily.pct_chg 与 index_daily 的 duckdb 平台库> \
+>   --k 30 --skip-first-week [--mc 1000]
+> ```
+>
+> **注意（R01-STRAT-C1/C2 已修）**：历史数字产自"跌停过滤静默失效 + 段界清仓成本
+> 未计"的代码；重跑时跌停过滤真实生效、段界清仓/再建仓成本真实扣减 → 预期年化/
+> 夏普低于表中数字（表中旧值为**低估**口径）。
+
 ## 1. 策略定义（完整规格，v2.0）
 
 | 层 | 规则 | 参数 | 验证状态 |
@@ -11,13 +40,16 @@
 | **选股** | 触发周按 signal（超跌秩+龙头秩）降序取 top K，等权 | **K = 30**（v2.0 从 20 升级） | ✓ K=10/20/30 单调、40 见顶 |
 | **调仓** | **周频**（周五对齐）按最新信号全换 | — | ✓ 必要机制（轮动是 alpha） |
 | **可交易性** | 买入日跌停（pct_chg <= -9.8%）排除 | 硬约束 | ✓ 年化 +20pp |
-| **成本** | 双边 35bps = 佣金 2.5×2 + 印花税 5 + 冲击 10×2 | — | — |
+| **成本** | 每笔成交按成交额×cost_bps（买/卖各一次；段界清仓与新段再建仓各计一次） | 35bps = 佣金 2.5×2 + 印花税 5 + 冲击 10×2（往返综合校准） | ✓ C2：段界成本已计（历史口径漏计，旧值为低估） |
 | **退出** | 掩码恢复 0 自动清仓；空仓期收益 0 | — | — |
 
 **策略本质**：信号驱动的轮动捕捉——每周换入"当下最被错杀的大票"，吃
 超跌反弹的周切片。不是"持有优质标的"（止盈止损/长持有期均证伪）。
 
 ## 2. 回测结果（v2.0：K=30 + 段首缓冲 + 跌停过滤 + 成本 35bps）
+
+> 历史快照（2026-08-18，不可复现条件见文首状态块）；且产自 C1/C2 修复前的代码 ——
+> 跌停过滤当时静默失效、段界清仓成本当时未计，以下数字为**低估**口径旧值。
 
 | 指标 | 值 |
 |------|----|

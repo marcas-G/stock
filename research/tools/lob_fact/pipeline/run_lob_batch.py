@@ -148,6 +148,10 @@ def day_gate(res):
     notes, 非 reasons); < GATE_FLOOR → m1a_presence 硬拒。M4 conservation PASS &
     逐单 0 mismatch & counters_equal; n_present>n_anchor 数据错拒; n_anchor=0 →
     vacuous 1.0 (不豁免 m4)。presence 圆整 5 位 (W3 verdict 同口径)。
+    **M2 差量全分类** (R01-STRAT-I7, W1「不可分类 = bug」/ W3「不静默」单点化):
+    missing_vol 必须 == attributed_vol + unattributed_vol；违反 = 分类聚合 bug →
+    m2_classification 硬拒。unattributed > 0 且已记录不拒 —— 校准集 unattr 非零
+    (= δ 尾) 且 M4 全净，「unattr 必须为 0」不是门 (W3 memo §3 已修订)。
     返回 dict(ok, presence, vacuous, band, reasons, notes)"""
     d = res['qa']['day']
     n_p, n_a = d['n_present'], d['n_anchor']
@@ -163,6 +167,11 @@ def day_gate(res):
             notes.append('m1a_delta_band')
         else:
             reasons.append('m1a_presence')
+    missing = int(d.get('missing_vol', 0))
+    att = int(d.get('attributed_vol', 0))
+    unattr = int(d.get('unattributed_vol', 0))
+    if missing != att + unattr or att < 0 or unattr < 0:
+        reasons.append('m2_classification')
     m4 = res['qa']['m4']
     if m4['conservation'] != 'PASS':
         reasons.append('m4_conservation')
@@ -213,13 +222,25 @@ def month_gate(day_rows):
 # 却永远不进 done → 该 date 反复重跑且月永不完成。W5 修订: 门拒 (已分类, 记录在 recs)
 # 与结构性错误 (守卫漂移/无 manifest code/异常 — 数据可能不全) 分流。
 
+# 结构性门拒 (R01-STRAT-I7): 不是"已分类数据面失败"而是确定性 bug/坏数据 ——
+# M4 守恒/桶对账失败、M2 差量分类聚合失败。必须 error 不 done, 不得进 hard_days
+# 走 ≤0.1% 审计豁免 (W5 语义: "code-day 门硬失败是已分类失败 (M4 PASS)")。
+_STRUCTURAL_GATE_REASONS = frozenset((
+    'm4_conservation', 'm4_orders', 'm4_counters', 'm2_classification'))
+
+
 def day_outcome(p):
     """日结三态: 'ok' 全 code-day 过门; 'hard' 数据已落盘 (tables 非空) 但存在
     已分类 code-day 门拒 → done + hard_days 留痕, 交审计按 ≤0.1% 阈值裁决;
-    'error' 结构性失败 (errors 非空 或 无落盘载荷) → 不 done, 下轮重试。"""
+    'error' 结构性失败 (errors 非空 / 无落盘载荷 / 结构性门拒) → 不 done,
+    下轮重试。"""
     if p.get('ok'):
         return 'ok'
     if p.get('errors') or not p.get('tables'):
+        return 'error'
+    reasons = {x for r in p.get('recs') or [] if not r.get('ok')
+               for x in (r.get('gate') or {}).get('reasons') or []}
+    if reasons & _STRUCTURAL_GATE_REASONS:
         return 'error'
     return 'hard'
 
@@ -616,6 +637,13 @@ def process_date(day):
                         missing_vol=d1['missing_vol'],
                         unattributed_vol=d1['unattributed_vol'],
                         delta_attr=round(d1['delta_attribution'], 4)),
+                # R01-STRAT-I7: M2/M3 诊断面完整落载荷（原 ghost_vol/m3 算出即丢）
+                m2=dict(missing_vol=d1['missing_vol'],
+                        attributed_vol=d1['attributed_vol'],
+                        unattributed_vol=d1['unattributed_vol'],
+                        ghost_vol=d1['ghost_vol'],
+                        delta_attribution=round(d1['delta_attribution'], 6)),
+                m3=dict(res['qa']['m3']),
                 m4=dict(conservation=m4['conservation'], orders=m4['orders'],
                         counters_equal=m4['counters_equal']),
                 n_events=len(evs), n_snaps=len(snaps),
@@ -943,6 +971,9 @@ def main(argv=None):
         print(f'\n{month}: 未完成 — done {len(done)}/{len(plan_all)}, '
               f'errors {len(err_rows)}, hard_days {len(hard_days)}, '
               f'月门 ok={mg["ok"]} (重跑续做; SUCCESS 只在全净完成后落)', flush=True)
+        print(f'summary -> {rdir}', flush=True)
+        # R01-STRAT-I7: 未完成 = 产物不完整, 退出非 0（上游不得当成功; 断点续跑不变）
+        raise SystemExit(1)
     print(f'summary -> {rdir}', flush=True)
 
 

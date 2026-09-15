@@ -45,6 +45,17 @@ GATE_PRES=0.97 承担池化存现门（sz/sh/per_day 池）+ GATE_FLOOR=0.90 日
 （presence < 0.90 = 真缺档/坏数据 FAIL）；[0.90, 0.97) → ok + band 标记 + note
 m1a_delta_band（δ 滞后分类，非失败）。
 
+## 2b. 门清单与失败分类（R01-STRAT-I7 补齐）
+
+生产 `day_gate` 硬门 = **M1a 存现（双阶） + M4 守恒/逐单/计数器 + M2 差量全分类**
+（`missing_vol == attributed_vol + unattributed_vol`，违反 = 分类聚合 bug）。
+M2 的量（unattributed/ghost/vol_delta）与 M3 桶是**记录面**（recs.m2/m3），不是
+0 阈值门——理由见 w3_anchoring_memo.md §3（校准集 unattr 非零且 M4 全净；M3 无
+memo 门，验收行为"桶输出正常"）。失败分类随之收紧：结构性门拒
+（`m4_*`/`m2_classification`）→ `day_outcome='error'`（不 done、不进 hard_days
+审计豁免）；仅数据面门拒（M1a δ 滞后带/硬底线）才是 hard。月未完成/含结构性
+error 时 `main` 退出非 0（不再静默返回 0；SUCCESS 语义不变）。
+
 ## 3. 性能定标（v2 实测）
 
 - 引擎 20260803 eng=825.9s / 20260804 eng=767.8s（单 worker 全 300 codes；
