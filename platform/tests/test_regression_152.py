@@ -51,7 +51,9 @@ def _ch_available() -> bool:
 def test_specs_lint_all():
     root = REPO / "research/factor"
     specs = sorted(root.glob("*/*.yaml"))
-    assert len(specs) == 152
+    # 原集 ≥152（只增不删——挖矿循环持续新增因子，硬等号会误伤正常增长；
+    # 低于 152 说明有删除，必须显式确认）
+    assert len(specs) >= 152, f"因子数少于原集 152（{len(specs)}）——有删除？"
     # 代表 spec 副本必须在位（值级回归的前置证据档）
     missing = [rel for rel in SPECS.values() if not (BASELINE_SPECS / rel).is_file()]
     assert not missing, f"基线 spec 副本缺失: {missing}"
