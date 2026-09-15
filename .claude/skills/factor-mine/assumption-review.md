@@ -71,7 +71,7 @@
 
 ## E. 数据可实现检查
 
-- 字段在平台库存在（`docs/interface.md` 字段表 / information_schema 核对）？
+- 字段在平台库存在（`platform/docs/interface.md` 字段表 / CH `system.columns` 核对）？
 - 窗口长度 < 可用历史（数据自 2000-01-04）？
 - 缺失率预估（对照种子 signal_null_ratio）可接受？
 - 新表达结构（比率/位置/差值）的算子在白名单/已注册？
