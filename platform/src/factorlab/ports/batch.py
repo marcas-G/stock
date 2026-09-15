@@ -4,6 +4,14 @@
 各工具只提供 `worker(task)` 与任务列表。失败语义：单元失败记账并继续，收尾报告
 列出全部失败单元（调用方据此定退出码）；已完成单元（state）跳过。
 实现者：adapters/batch_flock.py（WS6）、tests/_doubles.InlineOrchestrator。
+
+**R10 扩展缝**（三份产量循环实测共同需要的最小集；全部可选、缺省不变）：
+`max_inflight`（在飞上限，worker 慢时流水线化）、`mp_context`（如 `"spawn"`——fork 会
+连父进程的大缓冲一起复制，产量循环必须用 spawn）、`initializer`/`initargs`（worker 预热）、
+`stall_policy`/`stall_strikes`（`fail` 缺省 | `requeue` 退回队列重试）、
+`on_result(task, result_or_exc)`（父进程逐结果回调——"worker 算、父进程写"的数据流）。
+**未纳入**：内存低水位派单闸门与周期性审计回调（run_lob_batch 专有，绑 16GB 内存纪律与
+runbook 取证，见 `docs/pending-items.md#14`）。
 """
 from __future__ import annotations
 
@@ -45,4 +53,8 @@ class BatchOrchestrator(Protocol):
     def run(self, tasks: Sequence[Task], worker: Callable[[Task], Any], *,
             workers: int = 1, stall_s: int | None = None,
             lock_path: Path | None = None, state_path: Path | None = None,
-            success_marker: Path | None = None) -> BatchReport: ...
+            success_marker: Path | None = None,
+            max_inflight: int | None = None, mp_context: str | None = None,
+            initializer: Callable[..., None] | None = None, initargs: tuple = (),
+            stall_policy: str = "fail", stall_strikes: int = 3,
+            on_result: Callable[[Task, Any], None] | None = None) -> BatchReport: ...

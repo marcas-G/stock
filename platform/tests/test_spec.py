@@ -132,3 +132,24 @@ def test_spec_params_default_empty(tmp_path):
 def test_spec_params_parse(tmp_path):
     spec = load_spec(make_spec(tmp_path, params={"win": 200, "gain": 2.0, "name_x": "abc"}))
     assert spec.params == {"win": 200, "gain": 2.0, "name_x": "abc"}
+
+
+# ── 调仓成本（R10：#15 spec 级接线）────────────────────────────────
+def test_spec_cost_rate_default_zero(tmp_path):
+    """缺省 0.0 = 与历史"零成本"结果逐值一致（不写该字段的 spec 行为不变）。"""
+    assert load_spec(make_spec(tmp_path)).cost_rate == 0.0
+
+
+def test_spec_cost_rate_explicit(tmp_path):
+    assert load_spec(make_spec(tmp_path, cost_rate=0.0015)).cost_rate == 0.0015
+
+
+@pytest.mark.parametrize("bad", [-0.1, 1.0, 2.5, "abc"])
+def test_spec_cost_rate_rejects_out_of_range(tmp_path, bad):
+    """费率必须是 [0, 1) 的数：负数 / ≥1 / 非数字串都拒绝（不静默接受后当成 0）。
+
+    注：数字串 `"0.002"` 会被 pydantic 宽松模式转成 float 接受——这是既有口径
+    （其它 float 字段同款），不是本字段的例外。"""
+    with pytest.raises(Exception) as exc:
+        load_spec(make_spec(tmp_path, cost_rate=bad))
+    assert "cost_rate" in str(exc.value)

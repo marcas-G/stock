@@ -106,6 +106,10 @@ class FactorSpec(BaseModel):
     # im_*/day_* 算子 → run_factor_minute 折日输出——artifact 契约零放宽，
     # frequency 恒 "1d"/EOD/raw；分钟性只存在本字段与运行路径）。tick 预留。
     interface: Literal["daily", "bars_1m"] = "daily"
+    # 调仓成本（R10 / #15）：每单位**单边换手**的买卖总成本（费率语义，例 0.0007 ≈
+    # 0.1% 印花税 + 双边佣金 0.005%×2）；0.0（缺省）= 零成本，与历史结果逐值一致。
+    # 由 evaluate 透传到 layered_backtest，结果里回显 cost_rate 与 turnover（可审计）。
+    cost_rate: float = Field(default=0.0, ge=0.0, lt=1.0)
     # M2（G1）多信号输出：None → 下游按 ["signal"] 处理（缺省完全兼容旧 spec）。
     # 面板结构列 / artifact 落盘文件名冲突（date/code/close/panel/labels/summary）
     # 与内部/未来保留名一样不可作输出名（design doc §3.1（c）+ 文件命名安全）。

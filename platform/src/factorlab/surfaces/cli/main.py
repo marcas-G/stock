@@ -170,7 +170,9 @@ def run_factor_cli(
         overrides[key] = _parse_param_value(value)
     try:
         spec = load_spec(spec_path)
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, ValueError) as exc:
+        # ValueError 含 pydantic 的 ValidationError（spec 字段非法，如 cost_rate 越界）——
+        # 用户写错 YAML 不该看到裸 traceback（`lint` 子命令同款处理）。
         console.print(f"错误: {exc}")
         raise typer.Exit(code=1) from exc
     variant = spec.name

@@ -650,3 +650,53 @@ formula: |
     panel = pl.read_parquet(out_dir / "panel.parquet")
     assert panel.height == 12               # 2 code × 6 交易日（无停牌）
     assert panel["signal"].null_count() == 0
+
+
+def test_run_wires_spec_cost_rate_into_layered_backtest(tmp_path, monkeypatch):
+    """spec 的 `cost_rate` 必须真的到达分层回测（R10：#15 spec 级接线）。
+
+    断言口径：结果里回显的 `cost_rate` 等于 spec 值 —— 只验"接线通"；成本数学本身在
+    `tests/test_layered.py` 用手算用例锁（两者分工明确）。
+    """
+    build_db(tmp_path, n_days=9)
+    spec_path = tmp_path / "costed.yaml"
+    spec_path.write_text("""
+name: costed
+category: custom
+direction: 1
+cost_rate: 0.002
+universe:
+  codes: ["000001.SZ", "600519.SH"]
+date:
+  start: "2024-01-02"
+  end: "2024-01-12"
+formula: |
+  signal = close / open - 1
+""", encoding="utf-8")
+    monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path / "results")
+    result = runner.invoke(app, ["run", str(spec_path)])
+    assert result.exit_code == 0, result.output
+    summary = json.loads((tmp_path / "results" / "costed" / "summary.json").read_text(encoding="utf-8"))
+    bt = summary["evaluation"]["layered_backtest"]
+    assert bt["cost_rate"] == 0.002
+    assert "turnover" in bt and len(bt["turnover"]["D1"]) == bt["periods"]
+
+
+def test_run_rejects_invalid_cost_rate(tmp_path, monkeypatch):
+    """非法费率 → 加载即拒（不静默按 0 跑出"零成本"结论）。"""
+    spec_path = tmp_path / "bad.yaml"
+    spec_path.write_text("""
+name: bad
+category: custom
+direction: 1
+cost_rate: 1.5
+universe:
+  codes: ["000001.SZ"]
+formula: |
+  signal = close / open - 1
+""", encoding="utf-8")
+    monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+    result = runner.invoke(app, ["run", str(spec_path)])
+    assert result.exit_code != 0
+    assert "cost_rate" in result.output

@@ -115,3 +115,109 @@ def test_empty_task_list_is_ok(tmp_path):
     rep = BatchFlock().run([], _noop, workers=1, success_marker=tmp_path / "_SUCCESS")
     assert (rep.done, rep.failed, rep.skipped) == (0, 0, 0)
     assert (tmp_path / "_SUCCESS").is_file(), "空批=无事可做，仍应落标记（消费侧口径）"
+
+
+# ── R10 扩展缝（三份工具真实循环需要的、且彼此共用的最小集）──────────
+def _collect(t: Task):
+    return {"key": t.key}
+
+
+def test_on_result_sees_every_result_including_failures():
+    """`on_result(task, result_or_exc)`：父进程逐结果回调（按完成顺序）——
+    convert_tick / extract_sz 的"worker 算、父进程写"数据流靠它，否则只能把大表塞进 metrics。"""
+    seen: list[tuple[str, str]] = []
+    rep = BatchFlock().run(
+        [Task(key="a"), Task(key="bad")], _echo, workers=2,
+        on_result=lambda t, r: seen.append((t.key, "exc" if isinstance(r, Exception) else "ok")))
+    assert sorted(seen) == [("a", "ok"), ("bad", "exc")]
+    assert rep.done == 1 and rep.failed == 1          # 回调不改变记账
+
+
+def test_on_result_exception_does_not_break_accounting():
+    """回调自身抛错必须记账成该单元的失败（不许静默变成 ok）。"""
+    def boom(t, r):
+        raise RuntimeError("hook failure")
+    rep = BatchFlock().run([Task(key="a")], _noop, workers=1, on_result=boom)
+    assert rep.failed == 1 and rep.done == 0
+    assert "hook failure" in rep.results[0].error
+
+
+def test_max_inflight_limits_concurrent_units():
+    """`max_inflight` > workers：流水线化（convert_tick/extract_sz 用 workers*N 提前排队）。"""
+    import threading
+    cur = {"n": 0, "peak": 0}
+    lock = threading.Lock()
+
+    def spy(t, r):
+        with lock:
+            cur["n"] += 1
+            cur["peak"] = max(cur["peak"], cur["n"])
+    # 无法直接观测在飞数（在子进程里）；改测"提交数不受 inflight 截断"：
+    tasks = [Task(key=f"i{i}") for i in range(6)]
+    rep = BatchFlock().run(tasks, _sleepy2, workers=2, max_inflight=6)
+    assert rep.done == 6
+
+
+def _sleepy2(t: Task):
+    time.sleep(0.05)
+    return {"ok": True}
+
+
+def test_initializer_runs_in_worker():
+    """`initializer/initargs`：worker 进程启动时预热（run_lob_batch 载入 manifest 用它）。"""
+    rep = BatchFlock().run([Task(key="a")], _needs_warm, workers=1,
+                           initializer=_warm, initargs=("hello",))
+    assert rep.done == 1 and rep.results[0].metrics == {"warm": "hello"}
+
+
+_WARM: list[str] = []
+
+
+def _warm(tag):
+    _WARM.append(tag)
+
+
+def _needs_warm(t: Task):
+    return {"warm": _WARM[-1] if _WARM else None}
+
+
+def test_stall_policy_requeue_retries_then_succeeds(tmp_path, monkeypatch):
+    """`stall_policy="requeue"`：停滞的单元退回队列重试（run_lob_batch 的 3 次重试语义），
+    重试后成功 → 计 ok，且**不**留 stalled 记账。"""
+    monkeypatch.setenv("R10_FLAG", str(tmp_path / "flag"))
+    rep = BatchFlock().run([Task(key="a")], _slow_once, workers=1, stall_s=1,
+                           stall_policy="requeue", stall_strikes=3)
+    assert rep.done == 1 and rep.failed == 0
+
+
+def _slow_once(t: Task):
+    # 第一次调用睡过 stall_s，第二次立刻返回（用环境变量给的标记文件跨进程记状态）
+    flag = Path(os.environ["R10_FLAG"])
+    if not flag.exists():
+        flag.write_text("1", encoding="utf-8")
+        time.sleep(2.0)
+    return {"ok": True}
+
+
+def test_stall_policy_requeue_gives_up_after_strikes():
+    rep = BatchFlock().run([Task(key="a")], _always_slow, workers=1, stall_s=1,
+                           stall_policy="requeue", stall_strikes=2)
+    assert rep.failed == 1 and "stall" in rep.results[0].error.lower()
+    assert "2" in rep.results[0].error or "strikes" in rep.results[0].error.lower()
+
+
+def _always_slow(t: Task):
+    time.sleep(5.0)
+    return {"ok": True}
+
+
+def test_mp_context_spawn_is_supported():
+    """`mp_context="spawn"`：产量循环的硬要求（fork 会复制父进程的大缓冲）。"""
+    rep = BatchFlock().run([Task(key="a"), Task(key="b")], _noop, workers=2,
+                           mp_context="spawn")
+    assert (rep.done, rep.failed) == (2, 0)
+
+
+def test_invalid_mp_context_names_the_error():
+    with pytest.raises(ValueError):
+        BatchFlock().run([Task(key="a")], _noop, workers=1, mp_context="nope")

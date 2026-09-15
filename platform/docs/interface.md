@@ -1209,7 +1209,19 @@ P-5 批算编排真实现（`factorlab.ports.batch.BatchOrchestrator`；`Task(ke
   在跑的子进程 SIGKILL 回收（不挂死、不静默吞任务）；
 - **`_SUCCESS`**：仅当 `failed == 0`（空批视为无失败）才落 `success_marker` 空文件，有失败**不落**。
 
-`worker` 会在子进程里执行 → 必须是**模块级可 pickle** 的函数，且应自己落盘（只回传小字典作 metrics）。
+`worker` 会在子进程里执行 → 必须是**模块级可 pickle** 的函数。
+
+**R10 扩展缝**（三份产量循环实测共用的最小集，全部可选、缺省不变）：
+`max_inflight`（在飞上限，缺省 = `workers`）、`mp_context`（如 `"spawn"`——fork 会连父进程的
+大缓冲一起复制，16GB 目标机直接爆，产量循环必须 spawn）、`initializer`/`initargs`（worker 预热，
+如载入只读 manifest）、`stall_policy`/`stall_strikes`（`"fail"` 缺省 | `"requeue"` 把在飞单元
+退回队列重试）、`on_result(task, result_or_exc)`（父进程**逐结果回调**，按完成顺序；失败传异常；
+回调自身抛错 → 该单元记 failed。**"worker 算、父进程写"的数据流靠它**，否则只能把整张表塞进
+`metrics`）。协议参数名与真实现的漂移由 `tests/test_ports_contract.py` 的签名比对守住。
+
+已采用：`converters/convert_tick_to_parquet` 与 `lob_fact/extract_sz_cancels`（R10，真实数据
+切换前后**内容逐值等价**）；`run_lob_batch` 仍保留自有循环——它额外需要**内存低水位派单闸门**
+与**周期性审计回调**（绑 16GB 内存纪律与 runbook 取证），属未纳入的专有面（见 `docs/pending-items.md#14`）。
 
 ## 4.1 Domain contracts（M6-01）
 

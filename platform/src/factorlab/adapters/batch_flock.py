@@ -106,13 +106,48 @@ def _write_marker(path: Path) -> None:
 class BatchFlock:
     """`ports.batch.BatchOrchestrator` 的真实现（进程池版）。"""
 
+    @staticmethod
+    def _pool(workers: int, initializer, initargs, mp_context: str | None = None):
+        """建进程池。`mp_context="spawn"` 是产量循环的硬要求：**fork 会连父进程已缓冲的
+        大表一起复制**（16GB 无页面文件的目标机直接爆），研究侧三份样板都用 spawn。"""
+        kw: dict = {}
+        if mp_context is not None:
+            import multiprocessing
+            kw["mp_context"] = multiprocessing.get_context(mp_context)
+        if initializer is not None:
+            kw["initializer"] = initializer
+            kw["initargs"] = tuple(initargs)
+        return ProcessPoolExecutor(max_workers=workers, **kw)
+
+    @staticmethod
+    def _hook(on_result, task: Task, payload) -> str | None:
+        """调 `on_result`；返回**回调自身**的错误文本（None = 回调成功）。
+
+        回调成功与否**不改变**该单元本来的成败（worker 失败就是失败，回调只是观察）；
+        回调自己抛错则把该单元降级为失败——不许静默吞掉父进程侧写入失败。
+        """
+        try:
+            on_result(task, payload)
+            return None
+        except Exception as exc:  # noqa: BLE001 —— 回调失败即单元失败
+            return f"on_result 抛错: {type(exc).__name__}: {exc}"
+
     def run(self, tasks: Sequence[Task], worker: Callable[[Task], Any], *,
             workers: int = 1, stall_s: int | None = None,
             lock_path: Path | None = None, state_path: Path | None = None,
-            success_marker: Path | None = None) -> BatchReport:
+            success_marker: Path | None = None,
+            max_inflight: int | None = None, mp_context: str | None = None,
+            initializer: Callable[..., None] | None = None, initargs: tuple = (),
+            stall_policy: str = "fail", stall_strikes: int = 3,
+            on_result: Callable[[Task, Any], None] | None = None) -> BatchReport:
         tasks = list(tasks)
         if workers < 1:
             raise ValueError(f"workers 必须 >= 1（收到 {workers}）")
+        if stall_policy not in ("fail", "requeue"):
+            raise ValueError(f"stall_policy 只能是 fail|requeue（收到 {stall_policy!r}）")
+        inflight = max_inflight if max_inflight is not None else workers
+        if inflight < 1:
+            raise ValueError(f"max_inflight 必须 >= 1（收到 {inflight}）")
 
         # ---- 单写者锁：占用即退出，绝不半途进批算 ----
         lock_f = None
@@ -142,32 +177,70 @@ class BatchFlock:
                     pending.append(i)
 
             if pending:
-                ex = ProcessPoolExecutor(max_workers=workers)
+                queue = list(pending)
+                strikes = 0
+                ex = self._pool(workers, initializer, initargs, mp_context)
                 stalled = False
                 try:
-                    futs = {ex.submit(worker, tasks[i]): i for i in pending}
-                    while futs:
+                    futs: dict = {}
+                    while futs or queue:
+                        while queue and len(futs) < inflight:
+                            i = queue.pop()
+                            futs[ex.submit(worker, tasks[i])] = i
+                        if not futs:
+                            break
                         done_futs, _ = wait(futs, timeout=stall_s,
                                             return_when=FIRST_COMPLETED)
                         if not done_futs:
-                            # 停滞：在飞单元全部记账为 stalled 并**立即**收敛返回（不挂死）
+                            strikes += 1
+                            if stall_policy == "requeue" and strikes < stall_strikes:
+                                # 停滞：退回队列重试（三份产量循环的语义）
+                                print(f"STALL: {stall_s}s 无完成 → 清理 worker 重试 "
+                                      f"（第 {strikes}/{stall_strikes} 次，"
+                                      f"in-flight={len(futs)} queue={len(queue)}）", flush=True)
+                                queue.extend(futs.values())
+                                futs = {}
+                                ex.shutdown(wait=False, cancel_futures=True)
+                                _kill_workers(ex)
+                                ex = self._pool(workers, initializer, initargs, mp_context)
+                                continue
+                            # 放弃：在飞单元全部记账为 stalled 并**立即**收敛返回（不挂死）
                             stalled = True
+                            n_left = len(futs) + len(queue)
                             for fu, i in list(futs.items()):
                                 results[i] = Result(
                                     key=tasks[i].key, status="failed",
-                                    error=f"stall: {stall_s}s 内无任何单元完成")
+                                    error=f"stall: {stall_s}s 内无任何单元完成"
+                                          f"（strikes={strikes}，放弃 {n_left} 个单元）")
                                 report.failed += 1
                                 fu.cancel()
+                            for i in queue:
+                                results[i] = Result(
+                                    key=tasks[i].key, status="failed",
+                                    error=f"stall: 前序单元停滞放弃（strikes={strikes}）")
+                                report.failed += 1
                             futs.clear()
+                            queue.clear()
                             break
+                        strikes = 0
                         for fu in done_futs:
                             i = futs.pop(fu)
                             key = tasks[i].key
                             try:
                                 out = fu.result()
                             except Exception as exc:  # noqa: BLE001 —— 记账语义就是要吞下并继续
+                                hook_err = (self._hook(on_result, tasks[i], exc)
+                                            if on_result is not None else None)
+                                results[i] = Result(
+                                    key=key, status="failed",
+                                    error=hook_err or f"{type(exc).__name__}: {exc}")
+                                report.failed += 1
+                                continue
+                            hook_err = (self._hook(on_result, tasks[i], out)
+                                        if on_result is not None else None)
+                            if hook_err is not None:
                                 results[i] = Result(key=key, status="failed",
-                                                    error=f"{type(exc).__name__}: {exc}")
+                                                    error=hook_err)
                                 report.failed += 1
                                 continue
                             results[i] = Result(key=key, status="ok",
@@ -179,7 +252,7 @@ class BatchFlock:
                                 _write_state(Path(state_path), done)
                 finally:
                     # 正常路径所有 future 已取完 → wait=True 不会等出额外时间；
-                    # 停滞路径若 wait=True 会挂在卡死单元上（实测 1.5s+），故 wait=False + 强杀。
+                    # 放弃路径若 wait=True 会挂在卡死单元上（实测 1.5s+），故 wait=False + 强杀。
                     ex.shutdown(wait=not stalled, cancel_futures=stalled)
                     if stalled:
                         _kill_workers(ex)

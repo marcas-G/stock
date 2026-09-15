@@ -44,7 +44,8 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
                                             target=spec.target, weekly=weekly)
         if backtest:
             bt = layered_backtest(weekly, spec.direction, n_groups=groups,
-                                  forward_col=spec.target)
+                                  forward_col=spec.target,
+                                  cost_rate=spec.cost_rate)
             evaluation["layered_backtest"] = bt
             if bt.get("empty_groups"):
                 notes.append(f"档位 {bt['empty_groups']} 全期无股票——universe 过小或 --groups 过大")
@@ -59,7 +60,8 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
                                           target=spec.target, weekly=p)
             if backtest:
                 bt = layered_backtest(p, spec.direction, n_groups=groups,
-                                      forward_col=spec.target)
+                                      forward_col=spec.target,
+                                      cost_rate=spec.cost_rate)
                 ev_o["layered_backtest"] = bt
                 if bt.get("empty_groups"):
                     notes.append(f"输出 {o} 档位 {bt['empty_groups']} 全期无股票"

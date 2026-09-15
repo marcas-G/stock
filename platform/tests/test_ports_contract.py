@@ -151,6 +151,14 @@ def test_batch_orchestrator_contract():
     tasks = [Task(key="a"), Task(key="b"), Task(key="bad"), Task(key="c")]
     rep = org.run(tasks, worker, workers=1, stall_s=None,
                   lock_path=None, state_path=None, success_marker=None)
+    # R10 扩展缝：`runtime_checkable` 只查方法名，**参数名漂移它抓不到**——真实现必须
+    # 接受协议声明的每一个参数（真跑调用在 tests/test_batch_flock.py，那里有可 pickle 的 worker）。
+    import inspect
+    from factorlab.adapters.batch_flock import BatchFlock
+    proto = inspect.signature(BatchOrchestrator.run).parameters
+    impl = inspect.signature(BatchFlock.run).parameters
+    missing = [p for p in proto if p not in impl]
+    assert not missing, f"真实现缺少协议参数: {missing}"
     assert isinstance(rep, BatchReport)
     assert rep.done == 3 and rep.failed == 1 and rep.skipped == 0
     # 失败单元记账且继续（不中断后续任务）

@@ -134,7 +134,13 @@ class InlineOrchestrator:
 
     def run(self, tasks, worker, *, workers: int = 1, stall_s: int | None = None,
             lock_path: Path | None = None, state_path: Path | None = None,
-            success_marker: Path | None = None) -> BatchReport:
+            success_marker: Path | None = None,
+            max_inflight: int | None = None, mp_context=None,
+            initializer=None, initargs=(),
+            stall_policy: str = "fail", stall_strikes: int = 3,
+            on_result=None) -> BatchReport:
+        # R10 扩展缝：桩只按顺序执行（单进程），回调照调以保持"父进程侧消费"的语义；
+        # max_inflight / initializer / stall_policy 对单进程桩无意义，显式忽略。
         rep = BatchReport()
         for t in tasks:
             if t.key in self._done:
@@ -143,11 +149,15 @@ class InlineOrchestrator:
                 continue
             try:
                 out = worker(t)
+                if on_result is not None:
+                    on_result(t, out)
                 rep.done += 1
                 rep.results.append(Result(
                     key=t.key, status="ok",
                     metrics=out if isinstance(out, dict) else None))
             except Exception as exc:  # noqa: BLE001 —— 记账语义就是要吞下并继续
+                if on_result is not None:
+                    on_result(t, exc)
                 rep.failed += 1
                 rep.results.append(Result(
                     key=t.key, status="failed",
