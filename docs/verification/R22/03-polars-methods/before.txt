@@ -1,0 +1,59 @@
+$ cd platform && .venv/bin/python -m pytest tests/test_op_classification.py -q
+..............FFFF                                                       [100%]
+=================================== FAILURES ===================================
+______________________ test_polars_methods_version_locked ______________________
+
+    def test_polars_methods_version_locked():
+        import polars as pl
+    
+>       from factorlab.core.ops._generated_polars_methods import (
+            DENIED_METHODS,
+            EL_METHODS,
+            TS_METHODS,
+        )
+E       ModuleNotFoundError: No module named 'factorlab.core.ops._generated_polars_methods'
+
+tests/test_op_classification.py:132: ModuleNotFoundError
+___________________ test_polars_methods_buckets_are_disjoint ___________________
+
+    def test_polars_methods_buckets_are_disjoint():
+>       from factorlab.core.ops._generated_polars_methods import (
+            DENIED_METHODS,
+            EL_METHODS,
+            TS_METHODS,
+        )
+E       ModuleNotFoundError: No module named 'factorlab.core.ops._generated_polars_methods'
+
+tests/test_op_classification.py:144: ModuleNotFoundError
+______________________ test_ambiguous_denied_has_guidance ______________________
+
+    def test_ambiguous_denied_has_guidance():
+        from factorlab.core.ops.classification import default_catalog
+>       c = default_catalog()
+            ^^^^^^^^^^^^^^^^^
+
+tests/test_op_classification.py:155: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def default_catalog() -> Catalog:
+        """进程级默认目录：polars_ta 三库（签名感知）+ polars 方法/访问器。"""
+        global _default
+        if _default is None:
+            from factorlab.core.ops._generated_ta_ops import build_ta_catalog
+>           from factorlab.core.ops._generated_polars_methods import build_polars_catalog
+E           ModuleNotFoundError: No module named 'factorlab.core.ops._generated_polars_methods'
+
+src/factorlab/core/ops/classification.py:92: ModuleNotFoundError
+_______________________ test_denied_method_guidance_text _______________________
+
+    def test_denied_method_guidance_text():
+>       from factorlab.core.ops.classification import method_denied_guidance
+E       ImportError: cannot import name 'method_denied_guidance' from 'factorlab.core.ops.classification' (/data/students/gaolei/stock/platform/src/factorlab/core/ops/classification.py)
+
+tests/test_op_classification.py:170: ImportError
+=========================== short test summary info ============================
+FAILED tests/test_op_classification.py::test_polars_methods_version_locked - ...
+FAILED tests/test_op_classification.py::test_polars_methods_buckets_are_disjoint
+FAILED tests/test_op_classification.py::test_ambiguous_denied_has_guidance - ...
+FAILED tests/test_op_classification.py::test_denied_method_guidance_text - Im...
+4 failed, 14 passed in 1.65s
