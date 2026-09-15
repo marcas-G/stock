@@ -1,0 +1,50 @@
+# universe_stages（股票池段）：按因子值多级构建股票池 —— 第一层 V4 粗筛 / 第二层 SAS / 第三层 tick
+#
+# 注意：**事实库路径不在这里**——一律由 `universe_paths.py` 经 `factorlab.core.factio.paths` 计算
+# （支持 FACTORLAB_STOCK_ROOT 换根）。本文件只放：产物目录 + 三层的研究参数。
+#
+# `layer1/2/3` 的数值是**冻结阈值**（V4 移植 parity 的组成部分）：改动等于改研究口径，
+# 必须同步 docs/verification 证据与 parity 结论。
+outputs:
+  universes: null     # 第一层产物（默认 <工具>/outputs/universes，不入 git）
+  research: null      # 二/三层特征产物（默认 <工具>/outputs/research）
+  validation: null    # 对账/审计产物（默认 <工具>/outputs/validation）
+
+layer1:
+  min_cap_cny: 2000000000
+  max_cap_cny: 15000000000
+  min_list_days: 1095
+  max_debt_ratio: 0.75
+  min_median_amount_20: 15000000
+  fast_history_count: 90
+  fast_min_days: 61
+  history_count: 520
+  detail_min_days: 480
+  r20_min: -0.25
+  r20_max: 0.15
+  r60_min: -0.45
+  r60_max: 0.25
+  max_bottom_rebound: 0.25
+  min_turnover_health: 0.30
+  target_vol: 0.88
+  target_range60: 0.33
+  target_bottom: 0.52
+  target_rebound: 0.075
+  target_start: -0.025
+  top300: 300
+  top100: 100
+
+layer2:
+  lookback_trade_days: 40
+  z_window: 40
+  z_min_periods: 10
+  shock_z_thr: -2.0
+  amount_ratio_thr: 1.5
+  shock_amount_ratio: 2.0
+  min_high_volume_events: 3
+
+layer3:
+  default_top_k: 50
+  event_pre_seconds: 1800
+  event_post_seconds: 3600
+  large_trade_quantile: 0.95

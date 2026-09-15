@@ -16,8 +16,9 @@
 - **工具拓扑有门**（R11）：`python scripts/check_tool_layering.py`（G-TOPO）——core 不做反向
   依赖、生产不带 diag/notes、**工具之间不得互相 import**（共享代码落 `tools/lib/`：`tickdata` 读封装 /
   `tickkit` 转换小件 / `monthflow` 月分片写入骨架 / `writekit` 锁·标记·断点·原子写）、`lib/` 是叶子。
-  **命名坑（R19 实测）**：工具内的 `config.py` 会与 `lob_fact/core/config.py` 撞名，被 G-TOPO
-  判成『跨工具 import』——工具自己取模块名要全局唯一（本工具的路径单点因此叫 `datapaths.py`）。
+  **命名坑（R19/R20 实测）**：工具内的 `config.py` 会与 `lob_fact/core/config.py` 撞名，
+  两个工具都叫 `datapaths.py` 也会撞名，被 G-TOPO 判成『跨工具 import』——工具自己取模块名要
+  全局唯一（ashare_ingest 用 `datapaths.py`，universe_stages 用 `universe_paths.py`）。
   新增跨工具依赖会被门拦下，别绕过。
 - **批算编排只用单点**（R10 收敛）：`converters/convert_tick_to_parquet` 与
   `lob_fact/extract_sz_cancels` 的进程池/在飞窗口/停滞重试/结果回调一律走平台
@@ -33,8 +34,8 @@
 - TDD：先写失败测试再实现；覆盖正常/边界/错误路径；断言真实行为，不用 mock 糊弄。
 - 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**（T1 用例用
   `pytest.importorskip`，在 emb 下 skip、平台 venv 真跑）。
-- 提交前跑：`emb -m pytest research/tools -q`（T2，**实测基线 237 passed / 4 skipped**，2026-09-15 R19）+ `platform/.venv/bin/python -m pytest
-  research/tools/{strategies,ch_ingest,factor_lib,1m_features,ashare_ingest}/tests -q`（T1，**实测基线 51 passed**）。
+- 提交前跑：`emb -m pytest research/tools -q`（T2，**实测基线 245 passed / 4 skipped**，2026-09-15 R20）+ `platform/.venv/bin/python -m pytest
+  research/tools/{strategies,ch_ingest,factor_lib,1m_features,ashare_ingest,universe_stages}/tests -q`（T1，**实测基线 59 passed**）。
 - 因子新增/改名/归档：**必须**同步档案（`docs/factors/<族>/<短名>.md`）并重生成索引
   `../docs/index/factors.md`（`build_index.py --check` 是常驻门）。
 - 数据位置与血缘以 `../docs/data-map.md` 为唯一权威；目录约定以 `../docs/directory-conventions.md` 为准。
