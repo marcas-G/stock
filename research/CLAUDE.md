@@ -23,8 +23,8 @@
 - TDD：先写失败测试再实现；覆盖正常/边界/错误路径；断言真实行为，不用 mock 糊弄。
 - 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**（T1 用例用
   `pytest.importorskip`，在 emb 下 skip、平台 venv 真跑）。
-- 提交前跑：`emb -m pytest research/tools -q`（T2）+ `platform/.venv/bin/python -m pytest
-  research/tools/{strategies,ch_ingest,factor_lib}/tests -q`（T1）。
+- 提交前跑：`emb -m pytest research/tools -q`（T2，基线 220 passed / 3 skipped）+ `platform/.venv/bin/python -m pytest
+  research/tools/{strategies,ch_ingest,factor_lib,1m_features}/tests -q`（T1，基线 40 passed）。
 - 因子新增/改名/归档：**必须**同步档案（`docs/factors/<族>/<短名>.md`）并重生成索引
   `../docs/index/factors.md`（`build_index.py --check` 是常驻门）。
 - 数据位置与血缘以 `../docs/data-map.md` 为唯一权威；目录约定以 `../docs/directory-conventions.md` 为准。

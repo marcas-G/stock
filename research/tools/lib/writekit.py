@@ -26,21 +26,34 @@ SUCCESS_MARKER = "_SUCCESS"
 
 
 # ── 完成标记（_SUCCESS）────────────────────────────────────────────
-def success_marker(dir_path: str | Path) -> Path:
-    """该目录的完成标记路径。"""
-    return Path(dir_path) / SUCCESS_MARKER
+def success_marker(dir_path: str | Path, name: str = SUCCESS_MARKER) -> Path:
+    """该目录的完成标记路径（`name` 支持不同**粒度**的标记，见下）。"""
+    return Path(dir_path) / name
 
 
-def has_success(dir_path: str | Path) -> bool:
+def has_success(dir_path: str | Path, name: str = SUCCESS_MARKER) -> bool:
     """分区是否已完成（标记存在即可消费）。"""
-    return success_marker(dir_path).is_file()
+    return success_marker(dir_path, name).is_file()
 
 
-def mark_success(dir_path: str | Path) -> Path:
-    """写完成标记（**必须在数据落盘之后**调用；内容为空文件，与历史约定一致）。"""
-    p = success_marker(dir_path)
+def mark_success(dir_path: str | Path, name: str = SUCCESS_MARKER,
+                 payload: dict | None = None) -> Path:
+    """写完成标记（**必须在数据落盘之后**调用）。
+
+    粒度差异用 `name` 表达、附加信息用 `payload`，都不是第二套机制：
+    - 分区级：默认 `_SUCCESS` + 空文件（与历史字节一致）；
+    - 月级（跨 run 月门）：`SUCCESS_<YYYYMM>` + JSON 回执（`run_lob_batch` 的
+      `{month, n_code_day, gate, parity_ok, hard_days}`，人读；消费侧只判存在性）。
+    """
+    p = success_marker(dir_path, name)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_bytes(b"")
+    if payload is None:
+        p.write_bytes(b"")
+    else:
+        tmp = p.with_name(p.name + f".tmp.{os.getpid()}")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=1),
+                       encoding="utf-8")
+        os.replace(tmp, p)
     return p
 
 
@@ -95,29 +108,49 @@ class LockBusy(RuntimeError):
 class FileLock:
     """flock 单写者门（NB：占用即抛 LockBusy，不等待）。
 
-    用法：`with FileLock(dir / "_batch" / ".lock"): ...`
+    **生命周期 = 对象生命周期**：内部持文件对象（不是裸 fd），引用消失 → 文件对象
+    回收 → fd 关闭 → 锁自动释放（CPython 引用计数）。与四个工具的历史实现
+    （`lock_f = open(lock_path)` 的局部变量）语义一致，`main()` 返回即放锁。
+
+    用法：短临界区 `with FileLock(dir / "_batch" / ".lock"): ...`；
+    长任务整程持有见 `acquire_lock()`。
     """
 
     def __init__(self, path: str | Path):
         self.path = Path(path)
-        self._fd: int | None = None
+        self._f = None
 
     def __enter__(self) -> "FileLock":
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        fd = os.open(str(self.path), os.O_CREAT | os.O_RDWR, 0o644)
+        f = open(self.path, "a")
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
-            os.close(fd)
+            f.close()
             raise LockBusy(f"已有写者持有锁: {self.path}") from exc
-        self._fd = fd
+        self._f = f
         return self
 
+    def release(self) -> None:
+        """显式释放（幂等）。`with` 用法无需调用；`acquire_lock` 的调用方可选调用。"""
+        if self._f is not None:
+            fcntl.flock(self._f.fileno(), fcntl.LOCK_UN)
+            self._f.close()
+            self._f = None
+
     def __exit__(self, *exc) -> None:
-        if self._fd is not None:
-            fcntl.flock(self._fd, fcntl.LOCK_UN)
-            os.close(self._fd)
-            self._fd = None
+        self.release()
+
+
+def acquire_lock(path: str | Path) -> FileLock:
+    """取锁并**保持持有**：调用方把返回值绑到活得足够久的变量上。
+
+    长任务（批算 / 转换 / 抽取）在 `main()` 开头取一把整程持有——绑到函数局部变量即可，
+    函数返回（或进程退出）时自动释放；短临界区用 `with FileLock(...)`。
+    占用 → `LockBusy`（调用方打印并退出，惯例退出码见各工具）。
+    """
+    lock = FileLock(path)
+    return lock.__enter__()
 
 
 # ── 原子落盘（parquet）────────────────────────────────────────────

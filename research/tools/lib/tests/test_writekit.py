@@ -127,3 +127,65 @@ def test_migrate_is_idempotent_on_json(tmp_path):
 
 def test_migrate_missing_path_is_noop(tmp_path):
     assert W.migrate_legacy_done_dir(tmp_path / "nope") == {}
+
+
+def test_acquire_lock_holds_until_release(tmp_path):
+    """acquire_lock：返回对象持有即占锁；同进程再取 → LockBusy。"""
+    lock = tmp_path / ".lock"
+    held = W.acquire_lock(lock)
+    try:
+        with pytest.raises(W.LockBusy):
+            W.acquire_lock(lock)
+    finally:
+        held.__exit__(None, None, None)
+    W.acquire_lock(lock).__exit__(None, None, None)   # 释放后可再取
+
+
+def test_acquire_lock_released_when_object_dropped(tmp_path):
+    """锁的生命周期 == 返回对象的生命周期（引用消失即释放）。
+
+    依据（不是从实现推的）：四个工具的历史实现都是 `lock_f = open(...)` 的**函数局部**
+    变量——`main()` 返回后文件对象被回收、fd 关闭、锁自动释放；同进程重复调用
+    `main()`（干跑→实跑、连测两次幂等）依赖这一语义。若锁改成裸 fd 且无 `__del__`，
+    第一个 `main()` 就把锁永久留在进程里，后续调用全部假"锁占用"。
+    """
+    lock = tmp_path / ".lock"
+    held = W.acquire_lock(lock)
+    assert held is not None
+    del held                                     # == main() 局部变量出栈
+    again = W.acquire_lock(lock)                 # 不抛 LockBusy = 已被回收释放
+    again.release()
+
+
+def test_marker_name_parameter_supports_month_scoped_markers(tmp_path):
+    """标记**名字**是参数、机制是单点：`_batch/SUCCESS_YYYYMM`（run_lob_batch 的月级标记，
+    与分区级 `_SUCCESS` 粒度不同）也必须经同一对 API，而不是自己 join + open...
+
+    依据（不是从实现推的）：run_lob_batch 收尾要写 `_batch/SUCCESS_<month>`、
+    启动要判它存在——若各工具自拼名字，标记形态就重新分裂（G-MARK 门管的就是这件事）。
+    """
+    assert W.success_marker(tmp_path, name="SUCCESS_202608") == tmp_path / "SUCCESS_202608"
+    assert not W.has_success(tmp_path, name="SUCCESS_202608")
+    W.mark_success(tmp_path, name="SUCCESS_202608")
+    assert W.has_success(tmp_path, name="SUCCESS_202608")
+    assert not W.has_success(tmp_path)                     # 默认名不受影响
+    W.mark_success(tmp_path)                               # 两种标记可共存
+    assert (tmp_path / "_SUCCESS").is_file()
+    assert (tmp_path / "SUCCESS_202608").is_file()
+
+
+def test_marker_payload_is_still_a_marker(tmp_path):
+    """带回执的标记：`mark_success(..., payload=dict)` 写 JSON 回执，语义仍是"存在=完成"。
+
+    依据（不是从实现推的）：run_lob_batch 收尾落 `SUCCESS_<YYYYMM>` 时会写
+    `{month, n_code_day, gate, parity_ok, hard_days}`（跨 run 月门的人读回执），
+    启动侧只判存在性——回执是附加信息，不是第二套完成语义。
+    """
+    assert not W.has_success(tmp_path, name="SUCCESS_202608")
+    W.mark_success(tmp_path, name="SUCCESS_202608",
+                   payload={"month": "202608", "n_code_day": 3, "gate": {"sz": True}})
+    assert W.has_success(tmp_path, name="SUCCESS_202608")
+    assert json.loads((tmp_path / "SUCCESS_202608").read_text(encoding="utf-8")) == \
+        {"month": "202608", "n_code_day": 3, "gate": {"sz": True}}
+    # 空文件约定不变（分区级标记历史字节不变）
+    assert W.mark_success(tmp_path).read_bytes() == b""

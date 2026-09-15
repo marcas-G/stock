@@ -64,8 +64,8 @@ def read_tick(table: str, day: str | _dt.date, *, codes: Sequence[str] | None = 
 
     missing_ok=True → 缺月目录/无 part 返回 None（批算按日跳过）；False → 抛 FileNotFoundError。
     """
-    if table not in PROJECTIONS:
-        raise ValueError(f"未知 tick 表: {table!r}（可用: {sorted(PROJECTIONS)}）")
+    if table not in TICK_TABLES:
+        raise ValueError(f"未知 tick 表: {table!r}（可用: {sorted(TICK_TABLES)}）")
     cols = list(PROJECTIONS[table]) if columns is None else list(columns)
     try:
         return read_tick_table(table, _day_str(day), codes=codes, columns=cols,

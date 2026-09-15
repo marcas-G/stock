@@ -29,3 +29,19 @@ def test_roots_live_under_data_root():
     for name in ROOTS:
         p = getattr(C, name)
         assert p.startswith(C.DATA_ROOT + os.sep), f'{name} 不在 DATA_ROOT 下：{p}'
+
+
+# ── 分区路径合同（R8c：规则收敛到 core.factio.partitions 后必须逐字不变）──
+# 本测试**锁字符串合同**（不是从实现推的）：值取自收敛前各调用点使用的字面量表达式
+# `f'{TICK_FACT_ROOT}{tbl}/year={day[:4]}/month={day[4:6]}/'`，并额外钉住**尾斜杠**
+# ——调用方是 `f'{C.tick_month(...)}part-*.parquet'`，少一个斜杠就静默 glob 不到文件。
+def test_tick_month_string_contract():
+    for tbl, day in [('trades', '20260803'), ('snapshots', '20251231'),
+                     ('orders', '20260101'), ('cancels', '20260209')]:
+        assert C.tick_month(tbl, day) == (
+            f'{C.TICK_FACT_ROOT}{tbl}/year={day[:4]}/month={day[4:6]}/')
+
+
+def test_tick_month_keeps_trailing_slash_for_glob():
+    out = C.tick_month('trades', '20260803')
+    assert out.endswith('/') and '//' not in out[len(C.TICK_FACT_ROOT) - 1:]

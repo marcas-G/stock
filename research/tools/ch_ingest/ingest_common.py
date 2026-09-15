@@ -63,14 +63,17 @@ def discover_tasks(table: str) -> list[tuple[str, str]]:
     """
     tasks = set()
     root = Path(src_root(table))
-    for ydir in sorted(root.glob("year=*")):
-        for mdir in sorted(ydir.glob("month=*")):
+    # R8c：年月目录前缀与切片偏移取 core.factio.partitions 单点（原为字面量 + split("=")）
+    for ydir in sorted(root.glob(f"{partitions.YEAR_PREFIX}*")):
+        for mdir in sorted(ydir.glob(f"{partitions.MONTH_PREFIX}*")):
             if not any(mdir.glob("part-*.parquet")):
                 continue
             if not W.has_success(mdir):          # R4b：标记语义单点
                 print(f"  跳过无 _SUCCESS 的 {mdir}", flush=True)
                 continue
-            tasks.add((table, ydir.name.split("=")[1], mdir.name.split("=")[1]))
+            tasks.add((table,
+                       ydir.name[len(partitions.YEAR_PREFIX):],
+                       mdir.name[len(partitions.MONTH_PREFIX):]))
     return sorted(tasks)
 
 
@@ -97,17 +100,13 @@ def _progress() -> dict:
     return _PROGRESS
 
 
-def is_done(state_dir_arg: str | None, task: tuple[str, str]) -> bool:
-    """该任务是否已完成（参数 state_dir_arg 保留仅为兼容调用点；实际用模块单点）。"""
+def is_done(task: tuple[str, str]) -> bool:
+    """该任务是否已完成（state 单点见 `_progress()`/`state_dir()`）。"""
     return _progress().get(_task_key(task), False) is True
 
 
-def mark_done(state_dir_arg: str | None, task: tuple[str, str]) -> None:
-    """记录完成（**只应主进程调用**；原子写 JSON）。
-
-    `state_dir_arg` 保留是为兼容既有调用点签名（历史上传的是 state 目录字符串）；
-    实际读写走模块单点 `state_dir()`。
-    """
+def mark_done(task: tuple[str, str]) -> None:
+    """记录完成（**只应主进程调用**；原子写 JSON，落点 = `state_dir()` 模块单点）。"""
     prog = _progress()
     prog[_task_key(task)] = True
     p = Path(state_dir())
@@ -122,7 +121,8 @@ def parquet_path(task: tuple[str, str]) -> list[str]:
     if table == "bars_1m":
         p = partitions.bars_month_part(root, int(year), int(month))
         return [str(p)] if p.is_file() else []
-    return sorted(str(x) for x in root.glob(f"year={year}/month={month}/part-*.parquet"))
+    d = partitions.partition_dir(root, table=None, year=int(year), month=int(month))
+    return sorted(str(x) for x in d.glob("part-*.parquet"))
 
 
 def source_rows(task: tuple[str, str]) -> int:
@@ -153,7 +153,7 @@ def ingest_task(task: tuple[str, str]) -> tuple[str, int]:
                 batch = batch.cast(pa.schema(fields))
             client.insert_arrow(table, batch, database=db)
             rows += batch.num_rows
-    mark_done(state_dir(), task)
+    mark_done(task)
     return f"{table}/{partition}", rows
 
 
@@ -169,7 +169,7 @@ def run_pool(table: str, tasks: list[tuple[str, str]]):
     """主进程：8 worker 并行灌入，失败任务保留标记，可重跑。"""
     import multiprocessing as mp
 
-    todo = [t for t in tasks if not is_done(None, t)]
+    todo = [t for t in tasks if not is_done(t)]
     done = len(tasks) - len(todo)
     print(f"{table}: 任务 {len(tasks)}（已完成 {done}，待跑 {len(todo)}）", flush=True)
     if not todo:

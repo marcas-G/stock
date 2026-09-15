@@ -42,8 +42,11 @@ import pyarrow.parquet as pq
 from diag.measure_w3 import GATE_PRES
 
 from lib import tickdata as T  # noqa: E402  （R4a：数据读取薄封装）
+from lib import writekit as W  # noqa: E402  （R8c：锁/标记单点）
+from pathlib import Path  # noqa: E402  （R8c：模块级，供分区路径派生）
+from factorlab.core.factio import partitions  # noqa: E402  （R8c：分区规则单点）
 
-import argparse, datetime as dt, fcntl, glob, hashlib, json, signal, time
+import argparse, datetime as dt, glob, hashlib, json, signal, time   # R8c：fcntl 随锁收敛删除
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 import multiprocessing
 
@@ -384,7 +387,6 @@ def write_part(table_dir, date_str, df, pid, seq):
                 os.remove(tmp)
             except OSError:
                 pass
-    from pathlib import Path
     return Path(final), df.height
 
 
@@ -470,7 +472,6 @@ class _TableStream:
             os.fsync(dfd)
         finally:
             os.close(dfd)
-        from pathlib import Path
         return Path(self.final), self.n
 
     def abort(self):
@@ -651,8 +652,9 @@ def process_date(day):
                 st = streams.get(key)
                 if st is None:
                     st = streams[key] = _TableStream(
-                        os.path.join(_G['lob_root'], key, f'year={day[:4]}',
-                                     f'month={day[4:6]}'),
+                        str(partitions.partition_dir(Path(_G['lob_root']), table=key,
+                                                     year=int(day[:4]),
+                                                     month=int(day[4:6]))),
                         day, _pa_schema(_COL_TABLES[key]))
                 st.append(frame)
             m4 = res['qa']['m4']
@@ -770,10 +772,9 @@ def main(argv=None):
     # ---- 单实例锁 ----
     bdir = os.path.join(C.LOB_FACT_ROOT, '_batch')
     os.makedirs(bdir, exist_ok=True)
-    lock_f = open(os.path.join(bdir, '.lock'), 'w')
-    try:
-        fcntl.flock(lock_f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
+    try:   # R8c：单写者锁收敛到 lib.writekit
+        _LOCK = W.acquire_lock(os.path.join(bdir, '.lock'))  # 局部变量：函数返回即放锁，勿删
+    except W.LockBusy:
         print(f'另一批算实例正在运行 (锁占用) → 退出', flush=True)
         return
     # 清理孤儿 tmp (异常退出残留)
@@ -794,7 +795,8 @@ def main(argv=None):
     # 源月目录存在性硬查 (静默缺表 = 假数据)
     y, m = int(month[:4]), int(month[4:6])
     for t in _IN_TABLES:
-        d = os.path.join(C.TICK_FACT_ROOT, t, f'year={y}', f'month={m:02d}')
+        d = str(partitions.partition_dir(Path(C.TICK_FACT_ROOT), table=t,
+                                         year=y, month=m))
         if not glob.glob(os.path.join(d, '*.parquet')):
             raise SystemExit(f'源表缺失: {t} @ {month} ({d} 无 parquet)')
 
@@ -807,14 +809,10 @@ def main(argv=None):
     if not plan:
         print(f'{month}: manifest 无该月日期'); return
     # 断点 (state.json) + SUCCESS 标记
-    state_p = os.path.join(bdir, 'state.json')
-    state = {}
-    if os.path.exists(state_p):
-        with open(state_p) as f:
-            state = json.load(f)
+    state = W.load_state(bdir)              # R8c：断点读单点
     done = set((state.get('months') or {}).get(month, {}).get('done', []))
-    succ_p = os.path.join(bdir, f'SUCCESS_{month}')
-    if not args.force and os.path.exists(succ_p):
+    # R8c：月级标记同经 writekit（名字是参数，机制单点）；消费侧只判存在性
+    if not args.force and W.has_success(bdir, name=f'SUCCESS_{month}'):
         print(f'{month}: 已有 SUCCESS 标记 (--force 重跑) → 退出'); return
     todo = [d for d in plan if d not in done] if not args.force else list(plan)
     if args.dry_run:
@@ -939,10 +937,7 @@ def main(argv=None):
         ex.shutdown(wait=False, cancel_futures=True)
     # state 落盘 (断点: done = 已落盘日 (含 hard); plan_n = 全月计划数)
     state = state_update(state, month, done, len(plan_all), hard_days)
-    st_p_tmp = state_p + '.tmp'
-    with open(st_p_tmp, 'w') as f:
-        json.dump(state, f, ensure_ascii=False, indent=1)
-    os.replace(st_p_tmp, state_p)
+    W.save_state(bdir, state)               # R8c：断点写单点（tmp + os.replace）
 
     # ---- run summary (含每 (table,date) sha256 → 字节级重跑比对) ----
     parity = {'compared': False, 'mismatch_dates': [], 'ok': None}
@@ -1011,10 +1006,9 @@ def main(argv=None):
                   f, ensure_ascii=False, indent=1)
     complete = month_complete(done, plan_all, err_rows, mg)
     if complete:
-        with open(succ_p, 'w') as f:
-            json.dump(dict(month=month, n_code_day=len(recs), gate=mg['gate'],
-                           parity_ok=parity['ok'], hard_days=hard_days),
-                      f, ensure_ascii=False)
+        W.mark_success(bdir, name=f'SUCCESS_{month}', payload=dict(   # R8c：标记单点
+            month=month, n_code_day=len(recs), gate=mg['gate'],
+            parity_ok=parity['ok'], hard_days=hard_days))
         print(f'\n{month}: SUCCESS — code-day {len(recs)}, '
               f'月门 SZ={mg["gate"].get("sz")} SH={mg["gate"].get("sh")} '
               f'parity_ok={parity["ok"]} hard_days={len(hard_days)} '

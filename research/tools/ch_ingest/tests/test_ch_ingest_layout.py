@@ -73,9 +73,9 @@ def test_state_json_roundtrip(tmp_path, monkeypatch):
     """断点：单 JSON 形态 + 原子写 + 主进程记账（不再有 .done 目录）。"""
     monkeypatch.setattr(IC, "state_dir", lambda: str(tmp_path / "state.json"))
     monkeypatch.setattr(IC, "_PROGRESS", None)
-    assert not IC.is_done(None, ("bars_1m", "2026", "06"))
-    IC.mark_done(None, ("bars_1m", "2026", "06"))
-    assert IC.is_done(None, ("bars_1m", "2026", "06"))
+    assert not IC.is_done(("bars_1m", "2026", "06"))
+    IC.mark_done(("bars_1m", "2026", "06"))
+    assert IC.is_done(("bars_1m", "2026", "06"))
     assert (tmp_path / "state.json").is_file()
     assert json.loads((tmp_path / "state.json").read_text()) == {"bars_1m_202606": True}
     assert not (tmp_path / "state.json").is_dir()
@@ -88,7 +88,7 @@ def test_state_migrates_legacy_done_dir(tmp_path, monkeypatch):
     (legacy / "bars_1m_202501.done").write_text("ok", encoding="utf-8")
     monkeypatch.setattr(IC, "state_dir", lambda: str(legacy))
     monkeypatch.setattr(IC, "_PROGRESS", None)
-    assert IC.is_done(None, ("bars_1m", "2025", "01")) is True
+    assert IC.is_done(("bars_1m", "2025", "01")) is True
     assert (tmp_path / "state.json").is_file()
     assert (tmp_path / "state.json.legacy-20260915").is_dir()
 

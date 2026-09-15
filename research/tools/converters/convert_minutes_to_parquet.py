@@ -35,14 +35,19 @@ import pyarrow.parquet as pq
 
 # R4b：写侧单点（标记/锁/state/原子写）。lib 只需 tools/ 上 sys.path（不依赖平台）。
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from _env import ensure_platform as _ensure_platform  # noqa: E402
+
+_ensure_platform()
 from lib import writekit as W  # noqa: E402
+from pathlib import Path  # noqa: E402
+from factorlab.core.factio import partitions, paths  # noqa: E402
 
 # ---- 源布局（workspace 归并 2026-09-12：数据统一入 <stock>/data/{raw,fact,calib}） ----
-STOCK_ROOT = '/data/students/gaolei/stock'
-DATA_ROOT = f'{STOCK_ROOT}/data'
-SRC_DIR = f'{DATA_ROOT}/raw/minutes'              # 原始分钟 zip
-PROD_DIR = f'{DATA_ROOT}/fact/bars_1m'            # 事实库 Hive parquet
-VALIDATION_DIR = f'{DATA_ROOT}/calib/bars_1m_validation'   # 校验模式输出（可再生成）
+STOCK_ROOT = str(paths.STOCK_ROOT)
+DATA_ROOT = str(paths.DATA_ROOT)
+SRC_DIR = str(paths.minutes_root())               # 原始分钟 zip
+PROD_DIR = str(paths.bars_1m_root())              # 事实库 Hive parquet
+VALIDATION_DIR = str(paths.CALIB_ROOT / 'bars_1m_validation')   # 校验模式输出（可再生成）
 METADATA = f'{PROD_DIR}/_dataset_metadata.json'
 SOURCE_COLUMNS = ['open', 'high', 'low', 'close', 'amount', 'volume']
 COMPRESSION = 'zstd'
@@ -340,7 +345,7 @@ def _convert_one(member, reader, day8, unit_regime, out, errors, minute_dt, stat
     stats['n_rows'] += 240
 
 
-def convert_day(day8, unit_tbl, ntr_tbl, out_dir, errors, prod_gate=False,
+def convert_day(day8, unit_tbl, ntr_tbl, errors, prod_gate=False,
                 ohlc_schema=None):
     """转换一个交易日 → 返回 (stats, Arrow Table | None)"""
     reader, zp = open_reader(day8)
@@ -391,7 +396,7 @@ def run_validation(day, out_root):
 
     os.makedirs(out_root, exist_ok=True)
     errors = []
-    stats, table = convert_day(day, unit_tbl, ntr_tbl, out_root, errors,
+    stats, table = convert_day(day, unit_tbl, ntr_tbl, errors,
                                ohlc_schema=SCHEMA_VAL)
     if table is not None:
         pq.write_table(table, os.path.join(out_root, f'{day}.parquet'),
@@ -454,11 +459,13 @@ def _committed_ok(data_dir, state_dir):
 def convert_month_worker(ym):
     """一个 worker 负责一个完整月; _SUCCESS 为事务边界, 已提交且校验通过则跳过"""
     year, month = int(ym[:4]), int(ym[4:6])
-    data_dir = f'{PROD_DIR}/year={year}/month={month:02d}'
-    state_dir = f'{PROD_DIR}/_state/year={year}/month={month:02d}'
-    success = os.path.join(data_dir, '_SUCCESS')
+    data_dir = str(partitions.partition_dir(Path(PROD_DIR), table=None,
+                                           year=year, month=month))
+    state_dir = str(partitions.partition_dir(Path(PROD_DIR), table='_state',
+                                             year=year, month=month))
+    success = W.success_marker(data_dir)   # R8c：标记单点
 
-    if os.path.exists(success):
+    if W.has_success(data_dir):   # R8c：标记单点
         if _committed_ok(data_dir, state_dir):
             conv = W.load_state(state_dir, name='_conversion.json')   # R4b：state 单点
             err_csv = os.path.join(state_dir, '_conversion_errors.csv')
@@ -502,7 +509,7 @@ def _convert_month(ym, year, month, data_dir, state_dir):
         for zname in zips:
             day8 = zname[:8]
             zp = os.path.join(src_dir, zname)
-            stats, table = convert_day(day8, unit_tbl, ntr_tbl, None, errors,
+            stats, table = convert_day(day8, unit_tbl, ntr_tbl, errors,
                                        prod_gate=True, ohlc_schema=SCHEMA_PROD)
             if table is not None:
                 writer.write_table(table, row_group_size=262144)
@@ -549,7 +556,7 @@ def _convert_month(ym, year, month, data_dir, state_dir):
                        compression='zstd')
         W.save_state(state_dir, conv, name='_conversion.json')   # R4b：原子写
         os.replace(tmp_parquet, out_parquet)   # 数据分区最后提交
-        open(os.path.join(data_dir, '_SUCCESS'), 'w').close()  # 事务边界, 最后写
+        W.mark_success(data_dir)  # 事务边界, 最后写（R8c：标记单点）
     except Exception:
         try:
             writer.close()

@@ -44,7 +44,10 @@ sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     'converters'))
 import convert_tick_to_parquet as cvt
-import io, glob, json, time, argparse, zipfile, signal, multiprocessing, fcntl
+from lib import writekit as W  # noqa: E402  （R8c：锁/标记单点）
+from pathlib import Path  # noqa: E402
+from factorlab.core.factio import partitions  # noqa: E402  （R8c：分区规则单点）
+import io, glob, json, time, argparse, zipfile, signal, multiprocessing   # R8c：fcntl 随锁收敛删除
 import numpy as np, pandas as pd
 import datetime as dt
 import pyarrow as pa
@@ -206,10 +209,9 @@ def main():
 
     # ---- 单实例锁 (复用转换器教训: 并发写 = O_TRUNC 互清毁数据) ----
     os.makedirs(OUT, exist_ok=True)
-    lock_f = open(os.path.join(OUT, '.cancels_extract.lock'), 'w')
-    try:
-        fcntl.flock(lock_f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
+    try:   # R8c：单写者锁收敛到 lib.writekit
+        _LOCK = W.acquire_lock(os.path.join(OUT, '.cancels_extract.lock'))  # 局部变量：函数返回即放锁，勿删
+    except W.LockBusy:
         print(f'另一抽取实例正在运行 (锁占用) → 退出', flush=True)
         return
     # 清理孤儿 tmp (正常关闭已 os.replace; .tmp. 残留必为异常退出)
@@ -244,8 +246,9 @@ def main():
     pending = []
     for d in workdays:
         ym = d[:6]
-        sdir = os.path.join(OUT, f'year={ym[:4]}', f'month={ym[4:]}')
-        if os.path.exists(os.path.join(sdir, '_SUCCESS')):
+        sdir = str(partitions.partition_dir(Path(OUT), table=None,
+                                            year=int(ym[:4]), month=int(ym[4:])))
+        if W.has_success(sdir):   # R8c：标记语义单点
             continue
         # 半写月 (final 无 _SUCCESS) → 整月重建
         final = os.path.join(sdir, 'part-000.parquet')
@@ -349,8 +352,7 @@ def main():
         summary[ym] = {'rows': rows, 'bytes': os.path.getsize(p)}
         print(f'cancels {ym}: {rows:,} rows -> {os.path.getsize(p)/1e9:.3f} GB', flush=True)
         if not args.only_day and ym not in err_ym:
-            with open(os.path.join(os.path.dirname(p), '_SUCCESS'), 'w') as f:
-                f.write('')
+            W.mark_success(os.path.dirname(p))   # R8c：标记单点
             full_month.add(ym)
         else:
             print(f'  {ym}: 不落 _SUCCESS '

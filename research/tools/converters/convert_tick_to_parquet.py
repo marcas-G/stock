@@ -28,7 +28,7 @@ os.environ.setdefault('OMP_NUM_THREADS', '2')
 # 2026-08-26 死锁修复: pyarrow 17 默认 jemalloc 内存池长生命周期累积损坏嫌疑
 # (12 worker 满 CPU 死循环 5.5h) → 切系统 malloc, 规避分配器层问题
 os.environ.setdefault('PYARROW_JEMALLOC', '0')
-import io, glob, json, time, argparse, zipfile, signal, multiprocessing, fcntl
+import io, glob, json, time, argparse, zipfile, signal, multiprocessing   # R8c：fcntl 随锁收敛删除
 import sys as _sys
 from pathlib import Path as _Path
 
@@ -41,8 +41,9 @@ from factorlab.core.factio.timeparse import parse_ms_numpy as _parse_ms_numpy  #
 import pandas as pd, numpy as np, pyarrow as pa, pyarrow.parquet as pq
 from concurrent.futures import ProcessPoolExecutor
 
-ROOT = '/data/students/gaolei/stock/data/raw/quark_downloaded/'
-OUT = '/data/students/gaolei/stock/data/fact/tick_fact/'
+from factorlab.core.factio import partitions, paths  # noqa: E402  （R8c：路径/分区单点）
+ROOT = f'{paths.quark_root()}/'
+OUT = f'{paths.tick_fact_root()}/'
 DAY_RE = __import__('re').compile(r'^(\d{8})$')
 
 # ---------------- Schema (冻结) ----------------
@@ -285,7 +286,8 @@ class MonthWriter:
         """
         self.name = name
         self.schema = schema
-        ddir = os.path.join(base, name, f'year={y}', f'month={m}')
+        ddir = str(partitions.partition_dir(_Path(base), table=name,
+                                            year=int(y), month=int(m)))
         os.makedirs(ddir, exist_ok=True)
         self.final_path = os.path.join(ddir, 'part-000.parquet')
         # 唯一 tmp 路径: pid+序号, 任何来源的重复创建都绝不共享路径 (O_TRUNC
@@ -383,10 +385,9 @@ def main():
     # ---- 单实例锁 (2026-08-26 事故: 4 进程并发写同一输出路径, O_TRUNC 互清,
     # 35/35 文件 100% blocks 丢失, 全量数据被销毁). flock 不阻塞, 已有实例则退出. ----
     os.makedirs(OUT, exist_ok=True)
-    lock_f = open(os.path.join(OUT, '.converter.lock'), 'w')
-    try:
-        fcntl.flock(lock_f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
+    try:   # R8c：单写者锁收敛到 lib.writekit（原为第 4 份自写 flock）
+        _LOCK = W.acquire_lock(os.path.join(OUT, '.converter.lock'))  # 局部变量：函数返回即放锁，勿删
+    except W.LockBusy:
         print(f'另一个转换实例正在运行 (锁 {OUT}/.converter.lock 被占用) → 退出',
               flush=True)
         return
@@ -540,9 +541,7 @@ def main():
         # _SUCCESS 标记：分区目录整体写完（Spark 惯例；ingest 侧 discover_tasks
         # 以 _SUCCESS 存在为准，防半写分区入库）——writer.close() 已 fsync，
         # 此处补空标记即可
-        sdir = os.path.dirname(p)
-        with open(os.path.join(sdir, '_SUCCESS'), 'w') as f:
-            f.write('')
+        W.mark_success(os.path.dirname(p))   # R8c：标记语义单点（lib.writekit）
 
     # manifest
     mdir = os.path.join(OUT, '_manifest')

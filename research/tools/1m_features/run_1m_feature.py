@@ -42,7 +42,7 @@ from pathlib import Path  # noqa: E402
 import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # tools/
-from _env import ensure_platform, platform_head  # noqa: E402
+from _env import ensure_platform  # noqa: E402
 
 ensure_platform()
 
@@ -50,6 +50,7 @@ from factorlab.adapters.bars_read import read_bars_month  # noqa: E402
 from factorlab.core.engine.minute import compute_minute_factor_panel  # noqa: E402
 from factorlab.core.factio import partitions, paths  # noqa: E402
 from features import FEATURE_NAMES, FORMULA  # noqa: E402
+from lib import writekit as W  # noqa: E402  （R8c：state/原子写单点）
 
 # ---------------------------------------------------------------- 路径常量
 # 路径字面量收敛到 core.factio.paths 单点（R4c；原先硬编码 /data/students/gaolei/...）
@@ -70,15 +71,16 @@ def _parse_ym(s: str) -> tuple[int, int]:
 def _iter_months(bars_root: str):
     """(year, month) 升序（数据存在性以 part 文件为准）。"""
     out = []
+    yp, mp = partitions.YEAR_PREFIX, partitions.MONTH_PREFIX   # R8c：前缀/偏移单点
     for entry in sorted(os.listdir(bars_root)):
-        if not entry.startswith("year="):
+        if not entry.startswith(yp):
             continue
-        year = int(entry[5:])
+        year = int(entry[len(yp):])
         mdir = os.path.join(bars_root, entry)
         for m in sorted(os.listdir(mdir)):
-            if m.startswith("month=") and partitions.bars_month_part(
-                    Path(bars_root), year, int(m[6:])).exists():
-                out.append((year, int(m[6:])))
+            if m.startswith(mp) and partitions.bars_month_part(
+                    Path(bars_root), year, int(m[len(mp):])).exists():
+                out.append((year, int(m[len(mp):])))
     return out
 
 
@@ -123,19 +125,8 @@ def _rss_gb() -> float:
     return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1048576
 
 
-def _atomic_write_json(path: str, obj: dict) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(obj, f, ensure_ascii=False, indent=1, sort_keys=True)
-    os.replace(tmp, path)
-
-
-def _atomic_write_df(df: pl.DataFrame, path: str) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
-    df.write_parquet(tmp)
-    os.replace(tmp, path)
+# R8c：本地 `_atomic_write_json`/`_atomic_write_df` 已删——落盘/断点统一走
+# `lib/writekit`（tmp + fsync + os.replace），研究侧不留第二套写实现。
 
 
 # ---------------------------------------------------------------- batch
@@ -149,10 +140,7 @@ def cmd_batch(args) -> int:
         print("无匹配月份（--start/--end/--only 范围为空）")
         return 1
     os.makedirs(args.out, exist_ok=True)
-    state_path = os.path.join(args.out, "state.json")
-    state = {}
-    if os.path.exists(state_path):
-        state = json.load(open(state_path, encoding="utf-8"))
+    state = W.load_state(args.out)          # R8c：断点读单点
     failed = []
     for (y, m) in months:
         key = f"{y:04d}-{m:02d}"
@@ -168,12 +156,12 @@ def cmd_batch(args) -> int:
             failed.append((key, repr(exc)))
             state[key] = {"error": repr(exc), "updated": dt.datetime.now(
                 ).isoformat(timespec="seconds")}
-            _atomic_write_json(state_path, state)
+            W.save_state(args.out, state)       # R8c：断点写单点
             print(f"[{key}] 失败: {exc!r}")
             continue
         state[key] = {"rows": n, "updated": dt.datetime.now(
             ).isoformat(timespec="seconds")}
-        _atomic_write_json(state_path, state)
+        W.save_state(args.out, state)
         print(f"[{key}] OK rows={n}  {time.time() - t0:.1f}s  "
               f"peakRSS={_rss_gb():.2f}GB")
     if failed:
@@ -220,7 +208,11 @@ def _run_month(y: int, m: int, key: str, args) -> int:
     if any(qa[c]["non_finite"] for c in FEATURE_NAMES):
         print(f"[{key}] 非有限值: "
               + ", ".join(f"{c}={qa[c]['non_finite']}" for c in FEATURE_NAMES))
-    _atomic_write_df(panel, os.path.join(args.out, f"month={key}",
+    # R8c：落盘前按 (date, code) 稳定排序——引擎输出的行序**跨进程不定**
+    # （2026-09-15 实测：同代码同输入连跑两次 sha256 不同、排序后逐值相等），
+    # 排序让月产物字节可复现（`merge` 本来就 sort，产物口径不变）。
+    panel = panel.sort(["date", "code"])
+    W.atomic_write_df(panel, os.path.join(args.out, f"month={key}",
                                          "part.parquet"))
     del panel, bars, daily, inj
     gc.collect()
@@ -243,15 +235,12 @@ def cmd_merge(args) -> int:
     total = full.height
     for c in FEATURE_NAMES:
         out_path = os.path.join(args.out, f"{c}.parquet")
-        _atomic_write_df(full.select(["date", "code", c]), out_path)
+        W.atomic_write_df(full.select(["date", "code", c]), out_path)
         print(f"{c}: {out_path}（{total} 行）")
-    state = {}
-    state_path = os.path.join(args.out, "state.json")
-    if os.path.exists(state_path):
-        state = json.load(open(state_path, encoding="utf-8"))
+    state = W.load_state(args.out)          # R8c：断点读单点
     state["merged"] = {"rows": total, "updated": dt.datetime.now(
         ).isoformat(timespec="seconds"), "months": len(parts)}
-    _atomic_write_json(state_path, state)
+    W.save_state(args.out, state)               # R8c：断点写单点
     return 0
 
 

@@ -21,7 +21,15 @@ import threading
 
 PWD_ID = "1ae1c55c0a03"
 PASSCODE = "QNhy"
-COOKIES = open("/tmp/quark_cookies.txt").read().strip()
+# cookie 文件路径可配（默认沿用历史路径）；**懒读**——import 期不碰文件系统
+# （R8c：原先模块顶层 open() 让"cookie 不在"的机器连 import 都失败，也无法被测试）
+COOKIE_PATH = os.environ.get("QUARK_COOKIE_FILE", "/tmp/quark_cookies.txt")
+
+
+def _cookies() -> str:
+    """读 cookie 串（首尾空白剥掉）。缺失 → FileNotFoundError（不静默空 Cookie）。"""
+    with open(COOKIE_PATH, encoding="utf-8") as f:
+        return f.read().strip()
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36")
 HOST_PC = "https://drive-pc.quark.cn/1/clouddrive"
@@ -39,7 +47,7 @@ def http(url, body=None, retry=3, timeout=60):
         "Referer": "https://pan.quark.cn/",
         "User-Agent": UA,
         "Origin": "https://pan.quark.cn",
-        "Cookie": COOKIES,
+        "Cookie": _cookies(),
     }
     data = json.dumps(body).encode() if body is not None else None
     last = None
@@ -131,7 +139,7 @@ def get_download_urls(stoken, fid_tok_list):
 
 def download_file(url, out, expect_size):
     headers = {"User-Agent": UA, "Referer": "https://pan.quark.cn/",
-               "Cookie": COOKIES}
+               "Cookie": _cookies()}
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=300) as r:
         with open(out, "wb") as fh:
@@ -143,9 +151,8 @@ def download_file(url, out, expect_size):
     return os.path.getsize(out) == expect_size, os.path.getsize(out)
 
 
-def day_tokens_and_links(day_entries, day_fid, prefix_map):
-    """取一天内所有文件的下载直链。
-    prefix_map: {前缀名: {组名: [该组文件条目]}}(已有路径,直接 list 组目录)
+def day_tokens_and_links(day_entries):
+    """取一天内所有文件的下载直链（按 `pdir_fid` 组目录 list 拿 token）。
     返回 ({fid: url}, 缺失列表)"""
     # 收集每个 (前缀,组) 需要 list 的目录:fid 已知,直接 detail 组目录拿 token
     by_group = {}  # group_fid -> [entries]
@@ -214,13 +221,13 @@ def main():
         if todo:
             # 组目录 fid 已知,直接取链接(含 token 刷新保护)
             for attempt in range(3):
-                urls, missing = day_tokens_and_links(todo, None, None)
+                urls, missing = day_tokens_and_links(todo)
                 if not missing:
                     break
                 print(f"  {day}: {len(missing)} 无链接, 刷新 stoken 重试 "
                       f"{attempt+1}/3", flush=True)
                 get_stoken(force=True)
-                urls, missing = day_tokens_and_links(todo, None, None)
+                urls, missing = day_tokens_and_links(todo)
                 if not missing:
                     break
                 time.sleep(3)

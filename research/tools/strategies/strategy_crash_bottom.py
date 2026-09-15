@@ -218,7 +218,6 @@ def strategy_backtest(
     if per_episode:
         episodes.append({**per_episode, "end": str(prev_week_end)})
 
-    import statistics
     n = len(rets)
     if n == 0:
         return {"weeks": 0, "error": "无触发周"}

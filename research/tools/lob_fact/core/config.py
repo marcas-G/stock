@@ -6,7 +6,8 @@
 import os
 
 # ---- 价格刻度 ----
-PRICE_SCALE = 10000          # 价 ×10000 → 整数元×10000
+PRICE_SCALE = 10000          # 价 ×10000 → 整数元×10000（**文档性常量**：R8 实测无代码消费者，
+                             # 保留以固定 W1 冻结块的量纲约定；消费方都直接写字面量 10000）
 TICK_UNITS = 100             # 1 tick(0.01 元) 的整数单位
 EPS_TICKS = 1                # M3 打印价在簿价差 ε（tick 数）
 
@@ -39,7 +40,8 @@ _sys.path.insert(0, _os.path.dirname(_os.path.dirname(
 from _env import ensure_platform as _ensure_platform  # noqa: E402
 
 _ensure_platform()
-from factorlab.core.factio import paths as _paths  # noqa: E402
+from factorlab.core.factio import partitions, paths as _paths  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 STOCK_ROOT = str(_paths.STOCK_ROOT)
 DATA_ROOT = f'{STOCK_ROOT}/data'
@@ -68,7 +70,13 @@ def code_zip(code: str, day: str) -> str:
 
 
 def tick_month(tbl: str, day: str) -> str:
-    return f'{TICK_FACT_ROOT}{tbl}/year={day[:4]}/month={day[4:6]}/'
+    """tick 表月分区目录（**带尾斜杠**——调用方拼 `f'{...}part-*.parquet'`）。
+
+    R8c：规则取 `core.factio.partitions` 单点（原先本处自拼 `year=/month=`）；
+    root 仍取模块常量 `TICK_FACT_ROOT`（测试会 monkeypatch 它，不能改成 paths 直取）。
+    """
+    return str(partitions.partition_dir(Path(TICK_FACT_ROOT), table=tbl,
+                                        year=int(day[:4]), month=int(day[4:6]))) + '/'
 
 # 档位存现门（W3 校准冻结；原在 diag/measure_w3.py，WS6 收敛到 config 单点）
 GATE_PRES = 0.97

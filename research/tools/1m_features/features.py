@@ -28,8 +28,3 @@ FEATURE_NAMES = [VWAP30_BIAS, OPEN30_AMT_SHARE]
 
 FORMULA = f"""{VWAP30_BIAS} = day_last(im_sum(close * volume, 30) / im_sum(volume, 30) / eod_close - 1)
 {OPEN30_AMT_SHARE} = day_sum(if_else(minute_index < 30, amount, 0)) / day_amt"""
-
-DOC = {
-    VWAP30_BIAS: "开盘 30 分钟 VWAP 偏离日收盘（vwap30/eod_close − 1；raw 价格）",
-    OPEN30_AMT_SHARE: "前 30 根成交额占全天成交额比（day_sum(amt_{mi<30})/day_amt）",
-}

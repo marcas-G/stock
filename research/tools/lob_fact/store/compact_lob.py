@@ -24,7 +24,6 @@ CLI::
 """
 import argparse
 import datetime
-import fcntl
 import glob
 import hashlib
 import json
@@ -36,6 +35,9 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from core import config as C
+from lib import writekit as W  # noqa: E402  （R8c：锁/标记单点）
+from pathlib import Path  # noqa: E402
+from factorlab.core.factio import partitions  # noqa: E402  （R8c：分区规则单点）
 
 LOB_TABLES = ('lob_events', 'lob_sweep_meta', 'lob_checkpoints')
 ROW_GROUP_ROWS = 1_048_576     # W4d 定标 (events 最优几何)
@@ -197,7 +199,8 @@ def plan_files(root, months, tables=LOB_TABLES):
     out = []
     for m in months:
         for t in tables:
-            pat = os.path.join(root, t, f'year={m[:4]}', f'month={m[4:6]}', '*.parquet')
+            pat = os.path.join(str(partitions.partition_dir(
+                Path(root), table=t, year=int(m[:4]), month=int(m[4:6]))), '*.parquet')
             for p in sorted(glob.glob(pat)):
                 out.append((t, p))
     return out
@@ -220,10 +223,9 @@ def main(argv=None):
     lf = None
     if a.lock:
         os.makedirs(os.path.dirname(a.lock), exist_ok=True)
-        lf = open(a.lock, 'a')
-        try:
-            fcntl.flock(lf, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
+        try:   # R8c：单写者锁收敛到 lib.writekit（与批算共享同一把锁语义）
+            lf = W.acquire_lock(a.lock)
+        except W.LockBusy:
             print(f'批算实例持锁 ({a.lock}) → 拒绝重打包 (单写者纪律)', flush=True)
             rep = dict(dry_run=a.dry_run, locked=True, months=months,
                        n_files=0, bytes_before=0, bytes_after=0, files=[],
@@ -271,8 +273,7 @@ def main(argv=None):
             json.dump(rep, f, ensure_ascii=False, indent=1)
         print(f'report -> {a.out}', flush=True)
     if lf is not None:
-        fcntl.flock(lf, fcntl.LOCK_UN)
-        lf.close()
+        lf.release()   # R8c：显式释放（lib.writekit.FileLock）
     return 1 if n_fail else 0
 
 

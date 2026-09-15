@@ -50,6 +50,7 @@ from pathlib import Path
 import polars as pl
 
 from lib import tickdata as T  # noqa: E402  （R4a：数据读取薄封装）
+from factorlab.core.factio import partitions  # noqa: E402  （R8c：分区规则单点）
 
 from core import config as C
 from pipeline import run_lob_batch as R
@@ -822,8 +823,8 @@ def write_panel(out_root, grid, day, rows):
 
     布局 = <out_root>/panel_<grid>/year=YYYY/month=MM/YYYYMMDD.parquet
     (date 文件含全部 code; 逐 code-day 调用 write_panel 会覆盖 → 批量跑需先聚合)。"""
-    d = os.path.join(out_root, f'panel_{grid}', f'year={day.year}',
-                     f'month={day.month:02d}')
+    d = str(partitions.partition_dir(Path(out_root) / f'panel_{grid}', table=None,
+                                     year=day.year, month=day.month))
     os.makedirs(d, exist_ok=True)
     final = os.path.join(d, f'{day:%Y%m%d}.parquet')
     tmp = os.path.join(d, f'.{day:%Y%m%d}.parquet.tmp.{os.getpid()}')
