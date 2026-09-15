@@ -18,12 +18,14 @@ import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _TOOL_DIR = os.path.dirname(_HERE)
+sys.path.insert(0, _TOOL_DIR)      # 供同进程 import quark_client / 两个入口（子进程里另插一次）
 
 
 def _run_import(env_extra: dict) -> subprocess.CompletedProcess:
     env = dict(os.environ, **env_extra)
-    code = (f"import sys; sys.path.insert(0, {_TOOL_DIR!r}); import quark_download_v2 as q;"
-            " print(q.COOKIE_PATH); print(q.PREFIXES)")
+    code = (f"import sys; sys.path.insert(0, {_TOOL_DIR!r});"
+            " import quark_client as QC; import quark_download_v2 as q;"
+            " print(QC.COOKIE_PATH); print(q.PREFIXES)")
     return subprocess.run([sys.executable, "-c", code], env=env,
                           capture_output=True, text=True)
 
@@ -45,19 +47,48 @@ def test_prefixes_are_the_four_code_buckets():
     assert "60开头" in r.stdout and "68开头" in r.stdout
 
 
-def test_missing_cookie_is_explicit_error(tmp_path, monkeypatch):
-    """缺 cookie → 显式 FileNotFoundError（不静默用空串去请求）。"""
-    sys.path.insert(0, _TOOL_DIR)
-    import quark_download_v2 as q  # noqa: E402
-    monkeypatch.setattr(q, "COOKIE_PATH", str(tmp_path / "nope.txt"))
-    with pytest.raises(FileNotFoundError):
-        q._cookies()
+# ── R16：共享客户端（三个入口不再各写一份传输层）────────────────────
+def test_cookie_path_follows_env_and_missing_is_explicit(tmp_path, monkeypatch):
+    """cookie 路径跟随 `QUARK_COOKIE_FILE`；缺失时显式报错（不静默空串）——口径已收敛到
+    `quark_client`（R16 前 v2 在内部、server 在 import 期静默读，两套）。"""
+    code = (f"import sys; sys.path.insert(0, {_TOOL_DIR!r}); import quark_client as QC;"
+            " print(QC.COOKIE_PATH)")
+    env = dict(os.environ, QUARK_COOKIE_FILE=str(tmp_path / "nope.txt"))
+    r = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True)
+    assert r.returncode == 0 and r.stdout.strip() == str(tmp_path / "nope.txt"), r.stderr
 
 
-def test_cookie_read_is_stripped(tmp_path, monkeypatch):
-    sys.path.insert(0, _TOOL_DIR)
-    import quark_download_v2 as q  # noqa: E402
+def test_entries_share_one_transport_implementation():
+    """两个入口的 http/get_stoken/get_download_urls/download_file 必须是**同一个对象**
+    （来自 quark_client）——否则说明又长出了第二份实现。"""
+    import quark_client as QC
+    import quark_download_server as QS
+    import quark_download_v2 as Q2
+    import quark_share as QSH
+    for fn in ("http", "get_stoken", "get_download_urls", "download_file", "UA",
+               "HOST_PC", "PWD_ID", "STOKEN_TTL"):
+        assert getattr(Q2, fn) is getattr(QC, fn), f"v2.{fn} 不是共享实现"
+        assert getattr(QS, fn) is getattr(QC, fn), f"server.{fn} 不是共享实现"
+    assert QSH.UA is QC.UA, "share.UA 不是共享实现"
+
+
+def test_server_no_longer_reads_cookie_at_import(tmp_path):
+    """server 原先在 import 期读 cookie 文件（缺失时**静默空串**）——已收敛为懒读 + 显式报错。"""
+    env = dict(os.environ, QUARK_COOKIE_FILE=str(tmp_path / "nope.txt"))
+    code = (f"import sys; sys.path.insert(0, {_TOOL_DIR!r});"
+            " import quark_download_server as QS; print('IMPORT_OK')")
+    r = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True)
+    assert r.returncode == 0 and "IMPORT_OK" in r.stdout, r.stderr
+
+
+def test_shared_client_cookie_semantics(tmp_path, monkeypatch):
+    """共享客户端 cookie 口径：显式路径优先；两处都缺 → FileNotFoundError（不静默空串）。"""
+    import quark_client as QC
     p = tmp_path / "cookie.txt"
-    p.write_text("  k=v; k2=v2 \n", encoding="utf-8")
-    monkeypatch.setattr(q, "COOKIE_PATH", str(p))
-    assert q._cookies() == "k=v; k2=v2"      # 首尾空白/换行剥掉（HTTP 头值不能带换行）
+    p.write_text("  k=v  \n", encoding="utf-8")
+    monkeypatch.setattr(QC, "COOKIE_PATH", str(p))
+    assert QC.cookies() == "k=v"
+    monkeypatch.setattr(QC, "COOKIE_PATH", str(tmp_path / "missing.txt"))
+    monkeypatch.setattr(QC, "_FALLBACK_COOKIE", str(tmp_path / "also-missing.txt"))
+    with pytest.raises(FileNotFoundError):
+        QC.cookies()

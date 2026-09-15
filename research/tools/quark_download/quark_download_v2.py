@@ -18,57 +18,23 @@ import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+from quark_client import (HOST_PC, PWD_ID, UA, STOKEN_TTL,  # noqa: E402  （R16：共享客户端）
+                          download_file, get_download_urls, get_stoken, http)
 
-PWD_ID = "1ae1c55c0a03"
-PASSCODE = "QNhy"
 # cookie 文件路径可配（默认沿用历史路径）；**懒读**——import 期不碰文件系统
 # （R8c：原先模块顶层 open() 让"cookie 不在"的机器连 import 都失败，也无法被测试）
-COOKIE_PATH = os.environ.get("QUARK_COOKIE_FILE", "/tmp/quark_cookies.txt")
 
 
 def _cookies() -> str:
     """读 cookie 串（首尾空白剥掉）。缺失 → FileNotFoundError（不静默空 Cookie）。"""
     with open(COOKIE_PATH, encoding="utf-8") as f:
         return f.read().strip()
-UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36")
-HOST_PC = "https://drive-pc.quark.cn/1/clouddrive"
 MANIFEST = "manifest_tree_250d.json"
 DEST = "quark_downloaded"
 
 PREFIXES = ["00开头", "30开头", "60开头", "68开头"]
-STOKEN_TTL = 25 * 60  # 25 分钟刷新一次
 
 
-def http(url, body=None, retry=3, timeout=60):
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/plain, */*",
-        "Referer": "https://pan.quark.cn/",
-        "User-Agent": UA,
-        "Origin": "https://pan.quark.cn",
-        "Cookie": _cookies(),
-    }
-    data = json.dumps(body).encode() if body is not None else None
-    last = None
-    for attempt in range(retry):
-        req = urllib.request.Request(url, data=data, headers=headers)
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                return r.status, json.loads(r.read().decode())
-        except urllib.error.HTTPError as e:
-            try:
-                last = (e.code, json.loads(e.read().decode()))
-            except Exception:
-                last = (e.code, None)
-            if e.code in (401, 403):
-                break
-        except Exception as ex:
-            last = (0, str(ex))
-            if attempt == retry - 1:
-                break
-            time.sleep(2 * (attempt + 1))
-    return last if last else (0, None)
 
 
 # ---- stoken 管理 ----
@@ -76,19 +42,6 @@ _lock = threading.Lock()
 _state = {"stoken": None, "ts": 0}
 
 
-def get_stoken(force=False):
-    now = time.time()
-    with _lock:
-        if (not force and _state["stoken"]
-                and now - _state["ts"] < STOKEN_TTL):
-            return _state["stoken"]
-        s, r = http(f"{HOST_PC}/share/sharepage/token",
-                    {"pwd_id": PWD_ID, "passcode": PASSCODE})
-        assert s == 200 and r and r.get("status") == 200, f"token failed: {r}"
-        _state["stoken"] = r["data"]["stoken"]
-        _state["ts"] = now
-        print(f"  [stoken refreshed {time.strftime('%H:%M:%S')}]", flush=True)
-        return _state["stoken"]
 
 
 def detail(stoken, pdir, page=1, size=50):
@@ -120,35 +73,8 @@ def list_all(stoken, pdir):
     return items
 
 
-def get_download_urls(stoken, fid_tok_list):
-    """批量取下载直链(50/批),返回 {fid: url};dl-guest 链接丢弃"""
-    urls = {}
-    for i in range(0, len(fid_tok_list), 50):
-        chunk = fid_tok_list[i:i + 50]
-        body = {"fids": [f for f, _ in chunk], "pwd_id": PWD_ID,
-                "stoken": stoken, "fids_token": [t for _, t in chunk]}
-        s, r = http(f"{HOST_PC}/file/download?pr=ucpro&fr=pc&uc_param_str=", body)
-        if s == 200 and r and r.get("status") == 200:
-            for it in r.get("data") or []:
-                u = it.get("download_url") or ""
-                if u and "dl-guest" not in urllib.parse.urlparse(u).netloc:
-                    urls[it["fid"]] = u
-        time.sleep(0.3)
-    return urls
 
 
-def download_file(url, out, expect_size):
-    headers = {"User-Agent": UA, "Referer": "https://pan.quark.cn/",
-               "Cookie": _cookies()}
-    req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=300) as r:
-        with open(out, "wb") as fh:
-            while True:
-                chunk = r.read(1024 * 256)
-                if not chunk:
-                    break
-                fh.write(chunk)
-    return os.path.getsize(out) == expect_size, os.path.getsize(out)
 
 
 def day_tokens_and_links(day_entries):

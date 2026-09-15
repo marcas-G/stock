@@ -21,8 +21,7 @@ SEARCH_HOST = "https://api-album.quark.cn/api/share/file/search?biz_scene=share-
 _token_lock = threading.Lock()  # serializes token refresh across threads
 
 HOST = "https://drive-h.quark.cn/1/clouddrive/share/sharepage"
-UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36")
+from quark_client import UA  # noqa: E402  （R16：UA 单点；本文件的 http_json 面不同）
 
 
 def http_json(url, body=None, timeout=30, retries=5):

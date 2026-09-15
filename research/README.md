@@ -18,9 +18,9 @@
 | `tools/converters/` | raw zip → parquet 转换器（tick / minutes）|
 | `tools/1m_features/` | bars_1m 折日特征全史批算（`check-day` = 平台引擎 × 本地对拍门）；职责三分：`discovery`（月份口径/枚举）/ `panel_io`（输入装配）/ `features`（公式），`run_1m_feature` 只留 CLI 与编排 |
 | `tools/strategies/` | 策略回测脚本（crash_bottom / wait_crash）|
-| `tools/quark_download/` | 网盘批量下载脚本（→ `../data/raw/quark_downloaded/`）|
+| `tools/quark_download/` | 网盘批量下载脚本（→ `../data/raw/quark_downloaded/`）；传输/鉴权/下载层单点 `quark_client.py`（R16：三个入口原先各一份，逐字重复）|
 | `tools/factor_lib/` | 因子库工具：`plan_rename`（族改名计划）/`build_index`（索引生成 + `--check` 门）|
-| `tools/*/tests/` | 各工具测试：`lob_fact` 185（金样 pins）· `lib` 25 · `converters` 9 · `quark_download` 4 · `1m_features` 5（T1）· 其余 T1 35 |
+| `tools/*/tests/` | 各工具测试：`lob_fact` 185（金样 pins）· `lib` 25 · `converters` 9 · `quark_download` 6 · `1m_features` 5（T1）· 其余 T1 35 |
 
 ## 共享核与解释器（重要）
 
