@@ -146,13 +146,15 @@ def _window_value(meta: OpMeta, call: ast.Call, params: dict | None,
 class _Inferrer:
     def __init__(self, catalog: Catalog, params: dict | None, consts: dict,
                  aliases: dict[str, str], defined: set[str],
-                 strict_unknown: bool = True) -> None:
+                 strict_unknown: bool = True, assigns: dict[str, ast.expr] | None = None) -> None:
         self.catalog = catalog
         self.params = params
         self.consts = consts
         self.aliases = aliases
         self.defined = defined
         self.strict_unknown = strict_unknown
+        self.assigns = assigns or {}
+        self._resolving: set[str] = set()
         self.infos: dict[int, NodeInfo] = {}
 
     # ---- 通用 ----
@@ -169,7 +171,17 @@ class _Inferrer:
             return self._call(node)
         if isinstance(node, ast.Subscript):
             return self._subscript(node)
-        if isinstance(node, (ast.Name, ast.Constant, ast.Attribute)):
+        if isinstance(node, ast.Name):
+            # 变量引用链：顶层赋值表达式继承（循环引用由 _resolving 防呆）
+            target = self.assigns.get(node.id)
+            if target is not None and node.id not in self._resolving:
+                self._resolving.add(node.id)
+                try:
+                    return self.visit(target)
+                finally:
+                    self._resolving.discard(node.id)
+            return _EL
+        if isinstance(node, (ast.Constant, ast.Attribute)):
             return _EL
         children = [self.visit(c) for c in ast.iter_child_nodes(node)]
         return self._combine(children)
@@ -241,10 +253,10 @@ class _Inferrer:
         if meta.window == "unbounded" or w == "unbounded":
             unbounded = True
         elif isinstance(w, (int, float)) and not isinstance(w, bool):
-            if w >= 0:
-                extra_lb = int(w)
-            else:
+            if w < 0:
                 extra_fw = int(-w)
+            elif isinstance(w, int):
+                extra_lb = w          # 非整 float 窗口不计 lookback（旧 _ts_window_days 口径）
 
         keys: tuple[str, ...]
         order: str | None
@@ -286,6 +298,11 @@ def infer(source: str | ast.AST, catalog: Catalog, params: dict | None = None,
     入口的既有分工——未知归 validate 管，未来门不误报）。
     """
     tree = ast.parse(source) if isinstance(source, str) else source
+    assigns: dict[str, ast.expr] = {}
+    for stmt in getattr(tree, "body", []):
+        if (isinstance(stmt, ast.Assign) and len(stmt.targets) == 1
+                and isinstance(stmt.targets[0], ast.Name)):
+            assigns[stmt.targets[0].id] = stmt.value     # 源序 last-wins
     inferrer = _Inferrer(
         catalog=catalog,
         params=params,
@@ -293,6 +310,7 @@ def infer(source: str | ast.AST, catalog: Catalog, params: dict | None = None,
         aliases=_alias_map(tree),
         defined={n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)},
         strict_unknown=strict_unknown,
+        assigns=assigns,
     )
     inferrer.visit(tree)
     return inferrer.infos

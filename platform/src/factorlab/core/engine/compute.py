@@ -240,34 +240,94 @@ def cumulative_ops_used(source: str) -> list[str]:
     return sorted(used)
 
 
+def unbounded_ops(formula: str, pool: str | None = None,
+                  catalog=None) -> list[str]:
+    """公式/池公式中"全历史依赖"算子名（分类表驱动：window == "unbounded"）。
+
+    覆盖 ts_cum_* 族、ewm_* 方法、cum_* 方法、ts_OBV/ts_DMA/ts_resid 等人工覆盖
+    条目；import 别名解析；方法窗体计为 `.name`。未知算子跳过（归 validate 管）。
+    """
+    from factorlab.core.ops.classification import default_catalog
+    if catalog is None:
+        catalog = default_catalog()
+
+    def _scan(text: str) -> set[str]:
+        tree = ast.parse(text)
+        aliases: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                for alias in node.names:
+                    aliases[alias.asname or alias.name] = alias.name
+        out: set[str] = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if isinstance(node.func, ast.Name):
+                name = aliases.get(node.func.id, node.func.id)
+                display = name
+            elif isinstance(node.func, ast.Attribute):
+                name = f".{node.func.attr}"
+                display = name
+            else:
+                continue
+            meta = catalog.get(name)
+            if meta is not None and meta.window == "unbounded":
+                out.add(display)
+        return out
+
+    names = _scan(formula)
+    if pool is not None:
+        names |= _scan(pool)
+    return sorted(names)
+
+
 def reject_cumulative_chunking(formula: str, pool: str | None = None) -> None:
-    """分块 × 累计算子 fail fast（R01-ENG-I1）。
+    """分块 × 累计算子 fail fast（R01-ENG-I1；R22 改由分类表 unbounded 清单驱动）。
 
     调用方保证 formula/pool 已过 `prepare_formula_pipeline`（宏展开后文本——
-    vwap 已展开为 ts_cum_sum）。任一累计算子出现即拒绝：分块下每块重置，
+    vwap 已展开为 ts_cum_sum）。任一 unbounded 算子出现即拒绝：分块下每块重置，
     结果与整段跑不再逐 cell 一致；单块整段跑（chunk_days=None）语义正确，
     文案指引用户去掉 --chunk-days 或改用窗口算子。
     """
-    names = set(cumulative_ops_used(formula))
-    if pool is not None:
-        names.update(cumulative_ops_used(pool))
+    names = unbounded_ops(formula, pool)
     if names:
         raise ValueError(
-            f"累计算子 {sorted(names)} 与 --chunk-days 分块不兼容：累计算子依赖"
+            f"累计算子 {names} 与 --chunk-days 分块不兼容：累计算子依赖"
             f"块内全历史，分块时每块重新累计，结果不再与整段跑逐 cell 一致"
             f"（docs/interface.md §分块计算）。请去掉 --chunk-days 单块整段跑，"
             f"或改用非累计算子（如 ts_sum/ts_mean 窗口算子）")
 
 
+def required_lookback(formula: str, pool: str | None = None, catalog=None) -> int:
+    """窗口需求统一入口：公式与池公式的语义推断 lookback 最大值。
+
+    - 组合继承/嵌套窗口/变量引用链/方法窗口全部经 engine.semantics.infer；
+    - 未知算子/方法保守按元素级（strict_unknown=False，插件与分钟算子常见）；
+    - unbounded 算子不贡献有限 lookback（其分块互斥由 reject_cumulative_chunking 管）。
+    """
+    from factorlab.core.engine.semantics import infer
+    from factorlab.core.ops.classification import default_catalog
+    if catalog is None:
+        catalog = default_catalog()
+    need = 0
+    for text in (formula, pool):
+        if not text:
+            continue
+        infos = infer(text, catalog, strict_unknown=False)
+        need = max(need, max((i.lookback for i in infos.values()), default=0))
+    return need
+
+
 _WINDOW_PREFIXES = ("ts_", "ta_")  # 窗口参数在第二位置的算子族（tdx_* 参数语义不同，不提取）
 
 
-def _ts_window_days(formula: str) -> int:
-    """AST 提取公式窗口需求：ts_*/ta_* 窗口算子的窗口参数，**沿变量引用链叠加**。
+def _prefix_window_days(formula: str) -> int:
+    """旧口径前缀提取（兼容回退）：ts_*/ta_* 窗口算子第二位置常量窗口，沿变量链叠加。
 
+    保留原因（零迁移）：插件 ts_ 算子（未入分类表）与模块限定名 `wq.ts_sum` 的
+    窗口提取必须继续可用（tests/test_plugin_partition_prefix.py 契约）。
     嵌套滚动（如 robust_z 的 MAD = ts_median((x - ts_median(y, N)).abs(), N)）时，
-    med 的 N 窗被外层 N 窗消费 → 总需求 = 2N。chunked warmup 只覆盖单层 N 时，
-    每块嵌套滚动全 null（研究轮 204 根因）。窗口参数非常量时忽略该项；无窗口算子 → 0。
+    med 的 N 窗被外层 N 窗消费 → 总需求 = 2N。窗口参数非常量时忽略该项；无窗口算子 → 0。
     """
     tree = ast.parse(formula)
     assigns: dict[str, ast.expr] = {}
@@ -305,6 +365,17 @@ def _ts_window_days(formula: str) -> int:
     needs = [_need(n) for n in ast.walk(tree) if isinstance(n, ast.Call)]
     needs += [_need(expr) for expr in assigns.values()]
     return max(needs) if needs else 0
+
+
+def _ts_window_days(formula: str) -> int:
+    """窗口预热提取（兼容入口）= max(语义推断 lookback, 旧前缀回退)。
+
+    推断腿覆盖分类表全量（窗口可在 arg:2/3、方法窗体、变量链、非 ts_ 前缀库函数）；
+    前缀回退腿保留插件 ts_/ta_ 算子与 `wq.ts_sum` 模块限定名的窗口可见性。
+    取 max 保证预热只多不少（零迁移：旧值必为下界）。
+    """
+    return max(_prefix_window_days(formula),
+               required_lookback(formula))
 
 
 def fill_suspension_values(panel: pl.DataFrame) -> pl.DataFrame:

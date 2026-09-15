@@ -118,3 +118,14 @@ def test_error_carries_location():
     with pytest.raises(SemanticError) as exc:
         infer("signal = nope(close)", CAT)
     assert exc.value.line == 1
+
+
+def test_variable_chain_resolved():
+    i = info("_x = ts_mean(close, 20)\nsignal = abs(_x) + 1")
+    assert i.level == "ts" and i.lookback == 20
+
+
+def test_float_window_lookback_ignored_and_negative_forward():
+    # 旧 _ts_window_days 只认 int 窗口（2.5 → 0）；负 float 仍进未来门
+    assert info("signal = ts_mean(close, 2.5)").lookback == 0
+    assert info("signal = ts_delay(close, -1.0)").forward == 1
