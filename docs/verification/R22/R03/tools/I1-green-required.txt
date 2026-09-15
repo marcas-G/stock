@@ -1,0 +1,5 @@
+$ cd platform && ../platform/.venv/bin/python -m pytest -q tests/test_pit_universe.py tests/test_run_factor.py tests/test_e2e.py
+........................................................................ [ 37%]
+........................................................................ [ 75%]
+............................................sss                          [100%]
+188 passed, 3 skipped in 48.83s

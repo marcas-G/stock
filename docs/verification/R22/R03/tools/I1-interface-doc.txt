@@ -1,0 +1,8 @@
+$ # 说明：interface.md 的 ST 降级段（R03-I1）已随另一 R03 agent 的提交 0455502（R03-I3）落入 HEAD
+$ #   —— 其提交时把工作区中本段一并 staged（本文件因此无独立 diff）；下方为该提交中的本段 diff
+$ git show 0455502 -- platform/docs/interface.md | grep -A2 'ST 显式降级'
+ - **list_days**：`date − list_date`（**自然日**年龄，非交易日数）；**pre-list（date < list_date）→ list_days = null**
+ - **ST coverage**：以 `min/max(stock_st.trade_date)` 为 coverage（v1 contract，内部 gap 的精确 provenance 留给 Data Coverage Registry）——coverage 内：当日快照出现 → true、缺席 → false；**coverage 外：is_st = null（unknown ≠ false）**；`exclude_st=true` 且请求日期落在 coverage 外 → **ValueError（fail fast，错误含 requested date 与 coverage 区间）**；缺 stock_st 表：exclude_st=true → ValueError、false → is_st=null
++- **ST 显式降级（R03-I1，仅"缺表"一种 unknown）**：`exclude_st=true` 且库中**无** `stock_st` 表时，默认仍 **ValueError（fail fast，不把 unknown 当非 ST）**；只有显式设置 `FACTORLAB_ST_DEGRADE=allow`（`settings.st_degrade`，默认 `"fail"`）才降级为**无 ST 口径**——`warnings.warn` 响亮告警（文案含"ST 未知按非 ST 处理，结果为无 ST 口径"）、`is_st=null`（unknown ≠ false 语义保留）、`in_universe` 不做 ST 过滤；`run_factor`/`run_factor_minute`/`resolve_universe_frame` 调用方可用 `st_degrade_active(spec, rd, override=...)` 查询本 run 是否降级，run 摘要恒写 `st_degrade: true/false`（审计，不静默）。空 `stock_st` 表、请求日期在 coverage 外（后两种 unknown）**不受开关影响，仍 fail fast**。**挖矿口径**：CH 当前无 `stock_st`，全市场挖矿/复跑须显式 `FACTORLAB_ST_DEGRADE=allow` 接受无 ST 口径（挖矿 spec 保持库规范 `exclude_st: true`，不写"无 ST 影子 spec"）；有真实 `stock_st` 后应关开关按标准 ST 过滤复跑——降级结果与 ST 过滤结果口径不同，不得混比。
+ - **exchange**：ts_code 后缀（.SH→SSE / .SZ→SZSE / .BJ→BSE）；默认池 SSE+SZSE，不意外纳入 BSE
+ - 显式 codes 同样尊重上市/退市 PIT 状态（不自动增加 exclude_st/min_list_days 规则）

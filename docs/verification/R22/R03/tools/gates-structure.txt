@@ -1,0 +1,28 @@
+== stock gates ==
+[G-COPY] 三方内容不互串 · 契约文档单副本
+    ✓ platform/ 顶层无 factor|tools 目录
+    ✓ research/ 顶层无平台 src|tests
+    ✓ docs/interface.md 单副本
+    ✓ docs/catalog.md 单副本
+    ✓ docs/data-ops-playbook.md 单副本
+    ✓ docs/teajoin-guide.md 单副本
+[G-BOUNDARY] platform/ 不得 import research/
+    ✓ 无 platform→research 依赖
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+    ✓ 活文件零残留（豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）
+[G-PATHS] pyproject / pytest 路径自洽
+    ✓ platform pythonpath=src
+    ✓ platform/src/factorlab 存在
+    ✓ research 有 testpaths
+    ✓ 根无 pyproject.toml
+[G-IMPORTS] 全仓 factorlab.* 导入可解析（含负向自检）
+    ✓ 自检通过（能抓到迁移遗漏）
+    ✓ G-IMPORTS 通过（扫描 388 个文件）
+[G-INDEX] 因子索引与生成器一致
+    ✓ 索引一致 ✓
+[G-VENV] 平台 editable 落位断言
+    ✓ factorlab → platform/src ✓
+    ✓ quant_core → platform/kernels ✓
+
+结构门：全绿
+数据接口门：ENFORCED 判定（AST）+ REPORT 未竟计数（见 scripts/check_dataiface.py）

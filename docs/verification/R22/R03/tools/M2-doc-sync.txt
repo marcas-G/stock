@@ -1,0 +1,210 @@
+$ cd /data/students/gaolei/stock
+
+$ git status --porcelain -- .claude/skills/factor-mine research/docs/factors/_template.md platform/docs/interface.md
+ M .claude/skills/factor-mine/SKILL.md
+ M .claude/skills/factor-mine/assumption-review.md
+ M .claude/skills/factor-mine/code-review.md
+ M research/docs/factors/_template.md
+
+$ git diff -- .claude/skills/factor-mine research/docs/factors/_template.md
+diff --git a/.claude/skills/factor-mine/SKILL.md b/.claude/skills/factor-mine/SKILL.md
+index 80adebc..6b7ef4c 100644
+--- a/.claude/skills/factor-mine/SKILL.md
++++ b/.claude/skills/factor-mine/SKILL.md
+@@ -6,7 +6,7 @@ description: 挖因子循环。随机选一个已入库因子为种子，分析
+ # 挖因子（Factor Mining）
+ 
+ 以因子库中现有因子的**隐含假设**为挖点，循环产出更精确的因子表达。
+-参照设计：`docs/superpowers/specs/2026-08-17-factorlab-factor-mine-skill-design.md`。
++参照设计：`research/docs/superpowers/specs/2026-08-17-factorlab-factor-mine-skill-design.md`（2026-09-15 单仓单树前的路径以该文为准；现行路径以本 skill 为准）。
+ 
+ ## 输入
+ 
+@@ -16,7 +16,7 @@ description: 挖因子循环。随机选一个已入库因子为种子，分析
+ ## 前置检查
+ 
+ 1. 因子库非空：`ls research/docs/factors/*/*.md`（家族子目录；模板在 `research/docs/factors/_template.md`），空则报错并停止。
+-2. 平台数据可用：CLI 不报错（平台库在 main worktree 的 `data/factorlab.duckdb`——当前库不存在，CH 后端可用时以 `FACTORLAB_DATA_BACKEND=ch` 运行）。
++2. 平台数据可用：`FACTORLAB_DATA_BACKEND=ch $FLAB list` 不报错。平台 duckdb 库（`data/factorlab.duckdb`）不存在，**当前唯一可用读后端是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）；CH 无 `stock_st` 表时 `exclude_st` 默认 fail fast，显式降级开关与挖矿口径见 `platform/docs/interface.md` §4.2（`FACTORLAB_ST_DEGRADE=allow`）。
+ 3. 每轮开工前向用户播报：`第 k/N 轮：种子=<seed>`，然后继续（不等待）。
+ 
+ ## CLI 调用方式（重要）
+@@ -38,14 +38,16 @@ FLAB=/data/students/gaolei/stock/platform/.venv/bin/factorlab
+ ```bash
+ python - <<'EOF'
+ import random, pathlib
+-files = [p.stem for p in pathlib.Path('docs/factors').glob('*.md')
+-         if p.name != '_template.md' and p.stem not in USED]
++files = [f"{p.parent.name}/{p.stem}"
++         for p in pathlib.Path('research/docs/factors').glob('*/*.md')
++         if p.name != '_template.md' and f"{p.parent.name}/{p.stem}" not in USED]
+ print(random.choice(files))
+ EOF
+ ```
+ 
+ - 同一批连续轮次内种子互不重复（`USED` 为已用种子列表，逐轮累加；
+-  执行时把占位符替换成 Python 集合字面量，如 `USED = {'reversal_20d'}`）；
++  执行时把占位符替换成 Python 集合字面量，如 `USED = {'momentum_20d/reversal_20d'}`；
++  种子 = `族/stem`——glob 已适配 `research/docs/factors/<族>/` 子目录布局）；
+   所有种子都轮过一遍后循环回来（忽略 USED）。
+ - 读 `research/docs/factors/<族>/<stem>.md` 全文 + `research/factor/<族>/<stem>.yaml`（族见 `research/factor/_families.yaml`、索引见 `docs/index/factors.md`）。
+ 
+@@ -67,9 +69,9 @@ assumption-review.md §0。
+ ### 3. 假设审核（每条判定：成立 / 可疑 / 证伪 / 可精确化）
+ 
+ - **语义矛盾**：假设间互斥？与平台语义冲突？（TS/CS 分区、防未来、方向语义——
+-  见 `docs/interface.md` §DSL 语义与防未来、`docs/factor-mining-playbook.md` §3.3）
+-- **数据可实现**：字段存在性（`docs/interface.md` §数据字段；可查库
+-  `python -c "import duckdb;print(duckdb.connect('data/factorlab.duckdb').execute('select column_name from information_schema.columns where table_name=\'daily\'').fetchall())"`）、
++  见 `platform/docs/interface.md` §DSL 语义与防未来、`research/docs/factor-mining-playbook.md` §3.3）
++- **数据可实现**：字段存在性（`platform/docs/interface.md` §数据字段；可查 CH 临时库/生产库
++  `platform/.venv/bin/python -c "from factorlab.adapters import ch_read; print([r[0] for r in ch_read.query_rows(\"SELECT name FROM system.columns WHERE database='factorlab' AND table='daily'\")])"`）、
+   窗口长度 vs 历史（数据自 2000-01-04）、缺失率预估（种子档案 signal_null_ratio 参照）。
+ - **证据**：种子档案 §4 验证数据（IC/t/近 26 周/分层）+ 已知市场异象知识。
+ 
+@@ -89,30 +91,33 @@ assumption-review.md §0。
+ 
+ ### 5. 实现
+ 
+-- 写 `factor/<name>.yaml`，结构变异 = 新 spec（**不用 `--set`**；
++- 写 `research/factor/<族>/<name>.yaml`（族见 `research/factor/_families.yaml`），结构变异 = 新 spec（**不用 `--set`**；
+   `--set` 仅用于同结构参数扫描）。
+ - 语义↔代码映射表：每条变异语义 → 公式行（写在变异点记录里）。
+-- 沿用平台自由代码公式（def/参数化，见 `docs/interface.md` §formula 与
++- 沿用平台自由代码公式（def/参数化，见 `platform/docs/interface.md` §formula 与
+   `research/factor/vol_run_energy/vol_run_energy.yaml` 范例）。direction 语义要与变异后假设一致。
+ 
+ ### 6. 代码审核（独立 subagent）
+ 
+ 按 `.claude/skills/factor-mine/code-review.md` 提示词 dispatch 一个
+-general-purpose subagent，输入：变异点记录 + `factor/<name>.yaml` +
+-`factor/<seed>.yaml`。审核不通过则修复后重审（修复后必须再次审核）。
++general-purpose subagent，输入：变异点记录 + `research/factor/<族>/<name>.yaml` +
++`research/factor/<族>/<seed>.yaml`。审核不通过则修复后重审（修复后必须再次审核）。
+ 
+ ### 7. 运行
+ 
+ ```bash
+-factorlab run factor/<name>.yaml
++FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
++# 报 "exclude_st 需要 stock_st 表" 时：CH 无 stock_st（挖矿口径，见
++# platform/docs/interface.md §4.2）——加 FACTORLAB_ST_DEGRADE=allow 显式降级重跑：
++# FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow $FLAB run research/factor/<族>/<name>.yaml
+ ```
+ 
+ - 失败：读报错修复重跑（DSL 错误、内存限制、空面板等）。
+-- 成功：记录 `results/<name>/summary.json` 关键指标。
++- 成功：记录 `results/<name>/summary.json` 关键指标（`st_degrade: true` = 本次为无 ST 口径）。
+ 
+ ### 8. 入库
+ 
+-1. 对照 `docs/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
++1. 对照 `research/docs/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
+ 2. 复制 `research/docs/factors/_template.md` → `research/docs/factors/<族>/<stem>.md`，逐节填写：
+    验证数据快照自 `results/<name>/summary.json`（注明快照日期）；
+    状态按判定（候选/观察中/无效）；§2 逻辑写变异后的假设表达。
+@@ -145,4 +150,4 @@ factorlab run factor/<name>.yaml
+ - `assumption-review.md` — §2/§3 假设分析与审核工作模板（本 skill 目录内）
+ - `code-review.md` — §6 subagent 代码审核提示词（本 skill 目录内）
+ - `research/docs/factors/_template.md` — 入库档案模板
+-- `docs/factor-mining-playbook.md` — 评估阈值与方法论
++- `research/docs/factor-mining-playbook.md` — 评估阈值与方法论
+diff --git a/.claude/skills/factor-mine/assumption-review.md b/.claude/skills/factor-mine/assumption-review.md
+index 9c05abb..b7aa0a7 100644
+--- a/.claude/skills/factor-mine/assumption-review.md
++++ b/.claude/skills/factor-mine/assumption-review.md
+@@ -71,7 +71,7 @@
+ 
+ ## E. 数据可实现检查
+ 
+-- 字段在平台库存在（`docs/interface.md` 字段表 / information_schema 核对）？
++- 字段在平台库存在（`platform/docs/interface.md` 字段表 / CH `system.columns` 核对）？
+ - 窗口长度 < 可用历史（数据自 2000-01-04）？
+ - 缺失率预估（对照种子 signal_null_ratio）可接受？
+ - 新表达结构（比率/位置/差值）的算子在白名单/已注册？
+diff --git a/.claude/skills/factor-mine/code-review.md b/.claude/skills/factor-mine/code-review.md
+index cd04678..034f4c6 100644
+--- a/.claude/skills/factor-mine/code-review.md
++++ b/.claude/skills/factor-mine/code-review.md
+@@ -5,9 +5,9 @@
+ ## 输入材料（由调度者提供）
+ 
+ 1. 变异点记录：种子因子 <seed>、变异假设清单（保留/精确化/变异）、新因子名 <name>。
+-2. 新因子实现：`factor/<name>.yaml` 全文。
+-3. 种子因子实现：`factor/<seed>.yaml` 全文（对照物）。
+-4. 平台事实：数据字段（docs/interface.md §数据字段）、DSL 语义与防未来（§DSL 语义）、
++2. 新因子实现：`research/factor/<族>/<name>.yaml` 全文。
++3. 种子因子实现：`research/factor/<族>/<seed>.yaml` 全文（对照物）。
++4. 平台事实：数据字段（platform/docs/interface.md §数据字段）、DSL 语义与防未来（§DSL 语义）、
+    评估方向语义（direction）。
+ 
+ ## 检查清单
+@@ -21,7 +21,7 @@
+ 4. **分区正确**：TS/CS 算子前缀与语义匹配（wq.ts_* 时序、CS 横截面）。
+ 5. **方向语义**：direction 与变异后假设一致（信号高 ↔ 预期收益方向）。
+ 6. **平台规范**：name 合法（`^[A-Za-z_][A-Za-z0-9_]{0,63}$`）、字段必填齐全、
+-   自由代码公式语法（def/params）符合 docs/interface.md。
++   自由代码公式语法（def/params）符合 platform/docs/interface.md。
+ 
+ ## 输出格式
+ 
+diff --git a/research/docs/factors/_template.md b/research/docs/factors/_template.md
+index 840d47a..454e1c7 100644
+--- a/research/docs/factors/_template.md
++++ b/research/docs/factors/_template.md
+@@ -1,13 +1,13 @@
+ # 因子档案模板
+ 
+ > 本文件是因子档案的标准模板。**新建因子档案**：复制本文件为
+-> `docs/factors/<name>.md`，删除本说明块，按各章节填写。
+-> **可执行定义**：`factor/<name>.yaml`（机器执行）与本文档（人读档案）并行存放；
++> `docs/factors/<族>/<name>.md`（族目录与 spec 同族），删除本说明块，按各章节填写。
++> **可执行定义**：`factor/<族>/<name>.yaml`（机器执行）与本文档（人读档案）并行存放；
+ > 两者必须一致，改 yaml 后同步本档案。
+ 
+ <!-- 元信息块：参考项目惯例（自包含、标签化）。status 取值：探索中 / 候选 / 观察中 / 已废弃 -->
+ ---
+-xname: <因子名>              <!-- 与 factor/<name>.yaml 的 name 一致 -->
++xname: <因子名>              <!-- 与 factor/<族>/<name>.yaml 的 name 一致 -->
+ formula: |                   <!-- 一行核心公式摘要（完整公式见 §参数与实现） -->
+   <signal = ...>
+ tags: [<标签1>, <标签2>]     <!-- 挖掘方向、迭代阶段、相关文档 -->
+@@ -24,7 +24,7 @@ snapshot: <历史快照说明>     <!-- 可选：验证数字无 in-tree 产物/
+ 
+ | 项 | 值 |
+ |----|----|
+-| 名称 | `<name>`（= `factor/<name>.yaml`） |
++| 名称 | `<name>`（= `factor/<族>/<name>.yaml`） |
+ | 类别 | `<category>`（custom / 平台内置） |
+ | 方向 | `<1 | -1>`（正 = 值越大预期收益越高） |
+ | 状态 | `<status>` |
+@@ -67,7 +67,7 @@ adjustment: <qfq 等>
+ ### 实现（YAML 全文）
+ 
+ ```yaml
+-<factor/<name>.yaml 全文，与文件保持逐字一致>
++<factor/<族>/<name>.yaml 全文，与文件保持逐字一致>
+ ```
+ 
+ ## 4. 验证结果
+
+$ # 遗留漂移模式扫描（修复后 skill 目录应为空；template 的 docs/factor-mining-playbook.md
+$ #   是 research 根相对引用——template 位于 연구树内（research/docs/factors/），该写法正确）
+(空 — skill 目录无遗留漂移)
+
+$ # skill 引用路径存在性核对（seed 选择脚本/复核命令的真实运行）
+seed candidates=157 (族/stem)  sample=momentum_20d/decile
+档案无对应 spec 的种子: []
+
+$ # CH 列查询命令（skill §3 数据可实现检查）实测
+['ts_code', 'trade_date', 'open', 'high', 'low', 'close', 'pre_close', 'change', 'pct_chg', 'vol', 'amount']
+
+$ # 全部引用路径存在性
+OK  research/docs/superpowers/specs/2026-08-17-factorlab-factor-mine-skill-design.md
+OK  research/docs/factors/_template.md
+OK  research/factor/_families.yaml
+OK  docs/index/factors.md
+OK  platform/docs/interface.md
+OK  research/docs/factor-mining-playbook.md
+OK  research/factor/vol_run_energy/vol_run_energy.yaml
+OK  research/tools/factor_lib/build_index.py
