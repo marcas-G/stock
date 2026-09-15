@@ -13,7 +13,7 @@ import urllib.parse
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from quark_client import (HOST_PC, PWD_ID, UA, STOKEN_TTL,  # noqa: E402  （R16：共享客户端）
+from quark_client import (DEST, HOST_PC, PWD_ID, UA, STOKEN_TTL,  # noqa: E402  （R16：共享客户端）
                           download_file, get_download_urls, get_stoken, http)
 
 
@@ -29,7 +29,6 @@ def _load_cookies():
 
 
 MANIFEST = "manifest_300.json"
-DEST = "quark_downloaded"
 
 
 

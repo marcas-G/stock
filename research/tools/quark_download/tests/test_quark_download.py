@@ -66,7 +66,7 @@ def test_entries_share_one_transport_implementation():
     import quark_download_v2 as Q2
     import quark_share as QSH
     for fn in ("http", "get_stoken", "get_download_urls", "download_file", "UA",
-               "HOST_PC", "PWD_ID", "STOKEN_TTL"):
+               "HOST_PC", "PWD_ID", "STOKEN_TTL", "DEST"):
         assert getattr(Q2, fn) is getattr(QC, fn), f"v2.{fn} 不是共享实现"
         assert getattr(QS, fn) is getattr(QC, fn), f"server.{fn} 不是共享实现"
     assert QSH.UA is QC.UA, "share.UA 不是共享实现"

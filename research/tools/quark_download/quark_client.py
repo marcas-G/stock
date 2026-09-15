@@ -28,6 +28,7 @@ HOST_PC = "https://drive-pc.quark.cn/1/clouddrive"
 PWD_ID = "1ae1c55c0a03"          # 分享页 id（v2 与 server 同值）
 PASSCODE = "QNhy"                # 该分享的口令（取 token 时传）
 STOKEN_TTL = 25 * 60             # 25 分钟刷新一次（v2 口径）
+DEST = "quark_downloaded"        # 下载落点目录名（两入口同值）
 
 COOKIE_PATH = os.environ.get("QUARK_COOKIE_FILE", "/tmp/quark_cookies.txt")
 _FALLBACK_COOKIE = os.path.join(os.path.dirname(os.path.abspath(__file__)),

@@ -18,7 +18,7 @@ import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
-from quark_client import (HOST_PC, PWD_ID, UA, STOKEN_TTL,  # noqa: E402  （R16：共享客户端）
+from quark_client import (DEST, HOST_PC, PWD_ID, UA, STOKEN_TTL,  # noqa: E402  （R16：共享客户端）
                           download_file, get_download_urls, get_stoken, http)
 
 # cookie 文件路径可配（默认沿用历史路径）；**懒读**——import 期不碰文件系统
@@ -30,7 +30,6 @@ def _cookies() -> str:
     with open(COOKIE_PATH, encoding="utf-8") as f:
         return f.read().strip()
 MANIFEST = "manifest_tree_250d.json"
-DEST = "quark_downloaded"
 
 PREFIXES = ["00开头", "30开头", "60开头", "68开头"]
 

@@ -51,8 +51,10 @@ LEGACY_PANEL_SCHEMA_VERSION = 1
 # 文件名常量（单一来源——禁止 compute.py/loader/tests 各自手写字符串）
 SIGNAL_FILE = "signal.parquet"
 LABELS_FILE = "labels.parquet"
-LEGACY_PANEL_FILE = "panel.parquet"
-SUMMARY_FILE = "summary.json"
+# R16：布局文件名**不在本模块再定义一份**——单点在 adapters/results_fs（同名别名仅为
+# 历史调用点保留；`read_summary` 也从那里来）。改布局只改一处。
+from factorlab.adapters.results_fs import (PANEL_NAME as LEGACY_PANEL_FILE,  # noqa: E402
+                                          SUMMARY_NAME as SUMMARY_FILE)
 
 
 def signal_multi_file(output: str) -> str:

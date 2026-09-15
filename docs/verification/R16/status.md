@@ -43,6 +43,13 @@ G-TOPO 允许同工具内引用），三个入口只 import。
 | 门（结构 + 拓扑 + 数据接口 + 自检） | **全绿** | `gates.log` |
 | 三个入口"同一实现"身份断言 | `http`/`get_stoken`/`get_download_urls`/`download_file`/`UA`/`HOST_PC`/`PWD_ID`/`STOKEN_TTL` 在两个入口上是**同一个对象**；`quark_share.UA` 同源 | `tests/test_quark_download.py` |
 
+## 收尾：全树重复实现/同值常量扫描（自动，非人工点数）
+
+| 扫描 | 判据 | 结果 |
+|---|---|---|
+| 重复实现 | 模块级函数按 AST 归一化后**结构相同**（≥6 行体；排除 tests/notes/diag） | **0 组**（R8–R16 前是 4 类：4 份 flock、4 份 writer、4 份 `_SUCCESS`、3 份编排循环） |
+| 同值常量 | 模块级字符串常量同值出现在 **≥2 个模块** | 扫描发现 3 组 → 全部收口：`'quark_downloaded'`（DEST 收进 `quark_client`）、`'panel.parquet'`/`'summary.json'`（`parquet_artifacts` 改引 `results_fs` 的布局单点）→ **复扫 0 组** |
+
 ## 仍未做（不静默）
 
 - 三个入口的**改名**（R4 #12②：`quark_download_v2.py`→`download_level2.py` 等）仍阻塞于用户级技能
