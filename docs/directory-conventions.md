@@ -6,7 +6,9 @@
 > **2026-09-15 单仓单树重构后修订**：工作区根 = **一个 git 仓库**（`stock/`，远端 `marcas-G/stock`），
 > 内含 `platform/`（平台树）、`research/`（研究树）、`docs/`（文档树）；`data/`、`_archive/`、
 > `projects/` 为本地目录（gitignore）。旧的两 worktree 布局**已退役**
-> （历史与过程见 `docs/verification/R1..R2/` 与 `docs/verification/archive/`）。
+> （历史与过程见 `docs/verification/R1..R2/` 与 `docs/verification/archive/`）；
+> 合并前的两个遗留克隆 `quant-platform-main` / `quant-platform-research` **已于 2026-09-15 删除**（R17，
+> 证据 `docs/verification/R17/`）——`projects/` 实况自此与 §3 表逐条一致。
 
 ## 1. 根目录收敛承诺（REQ-WS-001）
 
@@ -51,6 +53,11 @@
   历史过程见 `docs/verification/archive/`。
 - `projects/` 里两个本地项目**原位保留**（其 config 与 venv 的 editable finder 写死绝对路径）；
   **不要再往里放新东西**——新代码进三棵树。
+- **`projects/` 实况 = 上表两行**（2026-09-15 R17 起）：合并前的两个遗留克隆
+  `quant-platform-main`（30M）与 `quant-platform-research`（5.7M，前者为其 linked worktree）**已删除**（R17）。
+  删前核验：两工作树 0 未提交/0 未跟踪；两 HEAD（`ad17f3b`/`eec9990`）在主仓对象库且各有
+  `pre-monorepo/*` tag 锚点；bundle 在 `_archive/backups/`。删除理由：历史与旧分支均已覆盖，
+  留着只会让"盘上 4 个、文档 2 个"长期对不上。
 
 ## 4. _archive/ 政策
 

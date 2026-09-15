@@ -40,14 +40,17 @@ structure() {
 
   echo "[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）"
   # 豁免：验证证据 / 平台与研究 spec 与笔记 / 门自身 / **三份带冻结横幅的历史文档** /
-  # data-map 的归档行（记录当时真实的备份克隆名）
+  # data-map 的归档行（记录当时真实的备份克隆名）/ **同行为删除记录的"活"文档行**。
+  # 判据：所剩行里，**同一行同时出现 R17**的算删除记录（提旧名却不提 R17 的仍报红——
+  # 活指针不会写 R17；写了就是自证造假，评审可抓）。2026-09-15 R17 起生效。
   n=$(git grep -nI -e "quant-platform-main" -e "quant-platform-research" -e "projects/quant-platform" -- . \
         ':!docs/verification' ':!platform/docs/superpowers' ':!research/tools/lob_fact/notes' ':!research/docs/superpowers' 2>/dev/null \
       | grep -vE '^scripts/gates.sh:' \
       | grep -vE '^docs/(workspace-p0p8|traceability-matrix|remote-cleanup-checklist)\.md:' \
-      | grep -v 'local-backup-20260903（975M' | wc -l)
-  if [ "$n" = "0" ]; then ok "活文件零残留（豁免：3 份历史文档 + data-map 归档行）";
-  else bad "活文件仍有 $n 处旧路径"; git grep -nI -e "quant-platform-main" -e "quant-platform-research" -- . 2>/dev/null | grep -vE 'verification/|superpowers/|notes/|gates.sh|workspace-p0p8|traceability-matrix|remote-cleanup-checklist' | head -5 | sed 's/^/      /'; fi
+      | grep -v 'local-backup-20260903（975M' \
+      | grep -vE 'R17' | wc -l)
+  if [ "$n" = "0" ]; then ok "活文件零残留（豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）";
+  else bad "活文件仍有 $n 处旧路径"; git grep -nI -e "quant-platform-main" -e "quant-platform-research" -- . 2>/dev/null | grep -vE 'verification/|superpowers/|notes/|gates.sh|workspace-p0p8|traceability-matrix|remote-cleanup-checklist|R17' | head -5 | sed 's/^/      /'; fi
 
   echo "[G-PATHS] pyproject / pytest 路径自洽"
   grep -q 'pythonpath = \["src"\]' "$PLATFORM/pyproject.toml" && ok "platform pythonpath=src" || bad "platform pythonpath 异常"
