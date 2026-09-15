@@ -39,7 +39,7 @@
 | C1 | `platform/`（仓库内） | 平台树 | src/factorlab、tests、docs/（契约 4 篇 + superpowers） |
 | C2 | `research/`（仓库内） | 研究树 | tools/、factor/（152 yaml，14 族）、docs/（factors 档案 + strategies + playbook） |
 | C3 | `platform/kernels/quant_core`（R18 起；原 `projects/quant_core_shim`） | 仓库内（内核发行物唯一声明点） | quant-core 0.1.0 shim（仅装 `platform/.venv`；Rust 版到位时同目录换 build backend） |
-| C4 | `projects/ashare_alpha3`（**R19/R20 收编中**） | 无 git（本地项目，仅剩股票池段） | 数据侧已完成 → `research/tools/ashare_ingest/`；股票池段 → `research/tools/universe_stages/`（R20） |
+| C4 | `projects/ashare_alpha3`（**R19/R20 收编完成**） | 无 git（本地项目，仅剩历史参考） | 数据侧已完成 → `research/tools/ashare_ingest/`；股票池段已完成 → `research/tools/universe_stages/`（R20） |
 
 ## D. 归档区
 

@@ -32,10 +32,11 @@
    - 平台与研究树（单仓单树后为 `platform/` 与 `research/`）：results/ 口径与 .gitignore 矛盾（S5 已按
      "本地化不入库"口径修订文档）、duckdb 数据链、两分支 docs 重叠。
    - `ashare_alpha3`：layer1-3 管线内部结构、.venv 与项目耦合、validation 输出散落。
-  **进度 2026-09-15（R19）**：数据侧已收编为 `research/tools/ashare_ingest/`（A5/A10/基本面生产 +
+   **进度 2026-09-15（R19/R20）**：数据侧已收编为 `research/tools/ashare_ingest/`（A5/A10/基本面生产 +
   两对账），CH 派生表脚本归位 `ch_ingest/adj_backfill.py`；空壳 `.venv`/缓存/孤儿产物已清，
-  `06` 的 merge dtype bug 已修（真跑产出 74,466 code-days 对账）。**剩余**：股票池段（layer1-3 +
-  10/11/20/30/40 + references）的读取层收口与搬迁 → `research/tools/universe_stages/`（R20）。
+  `06` 的 merge dtype bug 已修（真跑产出 74,466 code-days 对账）。**股票池段已在 R20 收编为
+  `research/tools/universe_stages/`**（layer1-3 + 10/11/20/30/40 + references/tests），
+  证据见 `docs/verification/R20/`。旧 `projects/ashare_alpha3` 仅作本地历史参考。
 
 6. **30 天归档到期清理**（2026-10-12）
    程序见 `docs/archive-policy.md`；三个真实决策点（tick_dev 去留 / minutes-raw 深度血缘 /
@@ -154,7 +155,7 @@
     现状：G-READ 只认 `read_parquet/scan_parquet/ParquetFile` 的**方法调用**（AST），
     而 duckdb 侧 `con.execute("... FROM read_parquet('...')")` 把读藏在 SQL 字符串里——
     实测两处不在门内：`ashare_ingest/validate_minutes.py`（bars_1m 全库聚合，SQL 内嵌）
-    与 `universe_stages`（R20 迁入后的 30 号 5m 聚合，同款）。
+    与 `universe_stages/readers/minute.py`（R20 迁入后的 5m 聚合，同款）。
     影响：这两处对本轮 G-READ 是**盲区**（R19 以"人工复核 + 证据写明"补位，未造假绿）。
     未决因：把判据扩到"字符串里含 read_parquet(" 会命中大量 SQL 构造样板，需先设计
     "哪些 SQL 是数据读路径"的正向判据（如限定 `execute(` 的实参常量 + 目标含事实库名）。

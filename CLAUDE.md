@@ -28,9 +28,9 @@
 - TDD：先写失败测试再实现；覆盖正常/边界/错误路径；断言真实行为，不用 mock 糊弄。
 - 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**。
 - 提交前跑对应测试：平台 `cd platform && .venv/bin/python -m pytest -q`（基线 **2570 passed / 13 skipped**（R18 后；+11 = 取回的 quant_core 契约测试））；
-  研究 `emb/bin/python -m pytest research/tools -q`（基线 **237 passed / 4 skipped**）+ T1
-  `platform/.venv/bin/python -m pytest research/tools/{strategies,ch_ingest,factor_lib,1m_features,ashare_ingest}/tests -q`（**51**）。
-  （R19 实测口径；此前文本里的 231/40 与 Makefile 的 2486 互相矛盾，已统一为实测值。）
+  研究 `emb/bin/python -m pytest research/tools -q`（基线 **245 passed / 4 skipped**）+ T1
+  `platform/.venv/bin/python -m pytest research/tools/{strategies,ch_ingest,factor_lib,1m_features,ashare_ingest,universe_stages}/tests -q`（**59**）。
+  （R20 实测口径；此前文本里的 231/40 与 Makefile 的 2486 互相矛盾，已统一为实测值。）
 - 工具拓扑门：`python scripts/check_tool_layering.py`（core 不反依赖 / 生产不带诊断 /
   工具不互相 import / lib 是叶子）+ `--selftest`。
 - 数据接口门（AST）：`python scripts/check_dataiface.py`（ENFORCED：研究侧分区字面量 / 标记路径构造；
@@ -70,5 +70,5 @@ surfaces(cli,web) → app(装配) → ports(6 契约) → core(纯核)
 - CH：`127.0.0.1:8123` db=factorlab。目标机 16GB 无页面文件 → 批算单进程 + 流式 + 及时释放。
 - 评估内核 `quant_core`（shim）自 R18 起在 **`platform/kernels/quant_core/`**（内核发行物唯一声明点，
   仅装入 `platform/.venv`；emb 不装）。重装 + 落位断言：`bash scripts/reinstall_editable.sh`。
-- `projects/` 仅剩 `ashare_alpha3`（待收编，见 `docs/pending-items.md` #5）；**不要再往里放新东西**。
+- `projects/ashare_alpha3` 已在 R19/R20 完成收编，仅作本地历史参考；**不要再往里放新东西**。
 - lob_fact 校准常量（W1 冻结值 + `pins.sha256` 金样）**不可改**：改动即让 183 测试与历史结论失效。

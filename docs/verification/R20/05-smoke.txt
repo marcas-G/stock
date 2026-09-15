@@ -1,0 +1,78 @@
+=== scripts/run_layer1.py --help ===
+usage: run_layer1.py [-h] [--config CONFIG] [--scan-date SCAN_DATE]
+                     [--factor-date FACTOR_DATE] [--from-golden]
+                     [--start START] [--end END]
+
+第一层：V4 月度粗筛 → `v4_top300_local` / `v4_top100_local` / `v4_eligible_local`。 R20
+收编自 ashare_alpha3 的 `10_run_layer1.py`（**筛选逻辑逐行保留**）：改动只有 路径经
+`universe_paths`、模块级代码收进 `main()`、输出默认落 `<工具>/outputs/universes`。 用法： python
+scripts/run_layer1.py --scan-date 2026-07-01 python scripts/run_layer1.py
+--from-golden --start 2020-01-01 --end 2026-07-31
+
+options:
+  -h, --help            show this help message and exit
+  --config CONFIG       工具配置（默认 <工具>/config.yaml）
+  --scan-date SCAN_DATE
+  --factor-date FACTOR_DATE
+  --from-golden         按 golden 输出里的全部历史 scan/factor 日期批量跑
+  --start START
+  --end END
+=== scripts/run_layer2_sas.py --help ===
+usage: run_layer2_sas.py [-h] [--config CONFIG] --scan-date SCAN_DATE
+                         [--top-k TOP_K]
+
+第二层：SAS/Activation —— 1m→5m 动态聚合 + 卖压冲击特征。 R20 收编自 ashare_alpha3 的
+`30_run_layer2_sas.py`（逻辑逐行保留）：改动只有 读取层改经
+`universe_paths`/`readers`，MinuteStore 现在按 `partitions` 派生的月文件清单读 （原为 config
+里的 `bars_1m_glob` 字符串）。
+
+options:
+  -h, --help            show this help message and exit
+  --config CONFIG
+  --scan-date SCAN_DATE
+  --top-k TOP_K
+=== scripts/run_layer3_tick.py --help ===
+usage: run_layer3_tick.py [-h] [--config CONFIG] --scan-date SCAN_DATE
+                          [--top-k TOP_K] [--workers WORKERS]
+
+第三层：tick 微观结构特征（仅 20260817 全市场逐笔成交可用）。 R20 收编自 ashare_alpha3 的
+`40_run_layer3_tick.py`（逻辑逐行保留）：改动只有 路径经 `universe_paths`、读取层改经
+`readers.tick`、输出默认落 `<工具>/outputs/research`。 流程：layer2
+特征（sas_features_*.parquet）→ 候选前 k → 每股 shock 事件 （sas_events_*.parquet 的
+datetime）→ WindTickStore 读逐笔成交 → 事件前/后窗口特征（signed flow、大单占比、反转）→ 输出。
+
+options:
+  -h, --help            show this help message and exit
+  --config CONFIG       工具配置（默认 <工具>/config.yaml）
+  --scan-date SCAN_DATE
+  --top-k TOP_K
+  --workers WORKERS
+=== scripts/tail_capture_audit.py --help ===
+usage: tail_capture_audit.py [-h] [--config CONFIG] [--ranked RANKED]
+
+尾部捕获审计：MFE 标签（60/120 日）+ Precision@K / Recall@K / Lift@K。 R20 收编自
+ashare_alpha3 的 `20_tail_capture_audit.py`（逻辑逐行保留）。 默认以 golden
+股池排序为输入（`--ranked` 可换成自有产物）。
+
+options:
+  -h, --help       show this help message and exit
+  --config CONFIG
+  --ranked RANKED  排序输入（默认 golden 股池）
+=== scripts/validate_layer1_parity.py --help ===
+usage: validate_layer1_parity.py [-h] [--config CONFIG] --scan-date SCAN_DATE
+
+第一层 parity：本地 Top300 vs golden（A9）逐项对比（Jaccard / rank / 数值差）。 R20 收编自
+ashare_alpha3 的 `11_validate_layer1_parity.py`（逻辑逐行保留）。 golden 是**上游 jqdata
+口径的一次性交付**（生成链路未留存，见 pending #9）， 只读对照。
+
+options:
+  -h, --help            show this help message and exit
+  --config CONFIG
+  --scan-date SCAN_DATE
+=== path override smoke ===
+/tmp/tmp.Vr8KBk9cZO/data/fact/daily_fact/daily_fact.parquet
+/tmp/tmp.Vr8KBk9cZO/data/ref/000905.SH.parquet
+/tmp/tmp.Vr8KBk9cZO/data/fact/fundamentals/fundamentals_pti.parquet
+/tmp/tmp.Vr8KBk9cZO/data/ref/universes/v4_top300.parquet
+/tmp/tmp.Vr8KBk9cZO/data/fact/bars_1m
+/tmp/tmp.Vr8KBk9cZO/data/raw/20260817

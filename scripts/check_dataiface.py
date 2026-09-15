@@ -81,6 +81,27 @@ G_READ_ALLOWED = {
         "conversion_manifest —— tick 转换回执清单，非事实表（与 lob_fact 两处同款）",
     ("research/tools/ashare_ingest/validate_tick.py", "main", "datapaths.daily_fact()"):
         "对账取源（tick 回执 vs 日线），与 ch_ingest/reconcile.py 的 DAILY_SRC 同款理由",
+    # ── R20 收编的 universe_stages（股票池段）：8 处，逐条理由 ──────────────────────
+    ("research/tools/universe_stages/readers/daily.py", "load_daily", "path or default_fact_path()"):
+        "股票池读取层消费 A5 日线事实；路径经 universe_paths→core.factio.paths 单点",
+    ("research/tools/universe_stages/readers/daily.py", "close_window", "self.path"):
+        "指数基准读取层（A10）消费 data/ref/000905.SH.parquet，非逐笔/分钟事实库",
+    ("research/tools/universe_stages/readers/fundamentals.py", "snapshot", "self.path"):
+        "基本面 PIT 读取层（当前源缺失见 pending #4）；路径经 universe_paths 单点",
+    ("research/tools/universe_stages/scripts/run_layer1.py", "main", "universe_paths.golden_universe()"):
+        "golden 股池是上游只读参考（A9，生成链未留存 pending #9），不是工作区事实库分区",
+    ("research/tools/universe_stages/scripts/run_layer2_sas.py", "main", "universe_paths.golden_universe()"):
+        "golden 股池是上游只读参考（A9），作为分层排序输入",
+    ("research/tools/universe_stages/scripts/tail_capture_audit.py", "main", "a.ranked or universe_paths.golden_universe()"):
+        "排序输入可以是自有产物，或退化为 golden 参考；golden 是只读参考非事实库分区",
+    ("research/tools/universe_stages/scripts/validate_layer1_parity.py", "main", "universe_paths.out_dir(cfg, 'universes') / 'v4_top300_local.parquet'"):
+        "第一层本地产物 v4_top300_local，属工具自身 output，不是事实库分区",
+    ("research/tools/universe_stages/scripts/validate_layer1_parity.py", "main", "universe_paths.golden_universe()"):
+        "golden 股池是上游只读参考（A9），用于 local vs golden 对照",
+    ("research/tools/universe_stages/scripts/run_layer3_tick.py", "main", "feats_path"):
+        "layer2 自有产物 sas_features_*.parquet，属本工具 output，不是事实库分区",
+    ("research/tools/universe_stages/scripts/run_layer3_tick.py", "main", "events_path"):
+        "layer2 自有产物 sas_events_*.parquet，属本工具 output，不是事实库分区",
 }
 _READ_CALLS = {"read_parquet", "scan_parquet", "ParquetFile"}
 # 硬规则：目标表达式里出现事实库名或分区标记 → 任何理由都不豁免（必须走平台单点）

@@ -27,6 +27,7 @@
 | `R17/` | **`projects/` 遗留克隆清理**（合并前两克隆删除；删前核验干净 + 历史/tag/bundle 三重覆盖；文档同步为"盘上=文档"） |
 | `R18/` | **quant_core 内核包收编**（`projects/quant_core_shim` → `platform/kernels/quant_core`；跨枝取回契约文档与逐期对拍测试 + 勘误头块；删 emb 无消费者安装；G-VENV 增正/反向断言 + 负向自检） |
 | `R19/` | **ashare 数据侧收编**（`ashare_alpha3` 的数据更新部分 → `research/tools/ashare_ingest/`；`12` → `ch_ingest/adj_backfill.py`；修 06 的 merge dtype 与 02 的未来日期两个真 bug；05 新旧 JSON 逐字节相同；G-TOPO 抓出 `config.py` 撞名 → 改 `datapaths.py`） |
+| `R20/` | **ashare 股票池段收编**（`ashare_alpha3` 的 layer1-3 + 10/11/20/30/40 + references/tests → `research/tools/universe_stages/`；G-TOPO 抓出 `datapaths.py` 同名撞名 → 改 `universe_paths.py`；补第三层脚本；T2/T1 245/59；全门绿） |
 
 > 计划里的 R3（研究侧结构）与 R4（数据接口）在执行中合并为 R4 一批完成（两者动的是同一批文件）。
 

@@ -9,7 +9,7 @@ stock/                     ← 仓库根（= 远端 github.com/marcas-G/stock �
 ├── docs/                  文档：工作区约定 + 数据地图 + 平台契约 + 研究档案 + 验证证据
 ├── data/                  【本地】事实库与原始数据（392G，不入库）
 ├── _archive/              【本地】30 天归档区（不入库）
-└── projects/              【本地】仅剩待收编的 ashare_alpha3（不入库，见下）
+└── projects/              【本地】ashare_alpha3 已收编完成，仅作历史参考（不入库，见下）
 ```
 
 ## 我该从哪里开始
@@ -52,7 +52,7 @@ make gates                # 结构/契约/标记/旧路径/索引 全套常驻�
 - `emb` **装不了** `factorlab`（包要求 ≥3.13）——T2 靠 `research/tools/_env.py` 注入 `platform/src` 并做落位断言，这是唯一注入点。
 - **当前生产读路径是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）：平台 duckdb 库不存在（teajoin token 过期，见 [docs/pending-items.md](docs/pending-items.md) #1）。
 - **`data/` 零改动**：任何操作都不得写入 `data/`；只读消费。
-- `projects/` 是历史遗留：合并前的两个旧克隆已于 2026-09-15 删除（R17）；`quant_core_shim` 已收编为 **`platform/kernels/quant_core/`**（R18）；仅剩 `ashare_alpha3` 待收编（R19/R20）。**不要再往里放新东西**——新代码进三棵树。
+- `projects/` 是历史遗留：合并前的两个旧克隆已于 2026-09-15 删除（R17）；`quant_core_shim` 已收编为 **`platform/kernels/quant_core/`**（R18）；`ashare_alpha3` 已收编完成（数据侧 R19 → `research/tools/ashare_ingest/`，股票池段 R20 → `research/tools/universe_stages/`），旧目录仅作本地历史参考。**不要再往里放新东西**——新代码进三棵树。
 
 ## 文档地图
 

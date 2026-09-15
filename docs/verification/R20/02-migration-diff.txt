@@ -1,0 +1,563 @@
+===== src/alpha3/data/daily.py -> readers/daily.py =====
+--- projects/ashare_alpha3/src/alpha3/data/daily.py	2026-08-23 02:25:02.841939766 +0800
++++ research/tools/universe_stages/readers/daily.py	2026-09-15 16:47:30.014512649 +0800
+@@ -8,16 +8,18 @@
+ """
+ from __future__ import annotations
+ from pathlib import Path
++
+ import pandas as pd
+ 
+-from alpha3.config import load_config
++import universe_paths  # 工具内路径单点（R20）
++
+ 
+ PRICE_COLS = ('open', 'high', 'low', 'close')
+ 
+ 
+ def default_fact_path() -> Path:
+-    cfg = load_config(Path(__file__).resolve().parents[3] / 'config.yaml')
+-    return Path(cfg['paths']['daily_fact'])
++    """A5 权威位（R20：原从 config.yaml 的 paths.daily_fact 读——那是第二份路径真相）。"""
++    return universe_paths.daily_fact()
+ 
+ 
+ def _anchor_factor(df: pd.DataFrame, anchor_date=None) -> pd.Series:
+# changes: +5 -3
+===== src/alpha3/data/fundamentals.py -> readers/fundamentals.py =====
+IDENTICAL
+===== src/alpha3/data/minute.py -> readers/minute.py =====
+--- projects/ashare_alpha3/src/alpha3/data/minute.py	2026-08-23 01:27:57.342754444 +0800
++++ research/tools/universe_stages/readers/minute.py	2026-09-15 16:01:01.562699695 +0800
+@@ -1,10 +1,43 @@
++"""分钟事实库（A3）读取：duckdb 侧聚合 1m → 5m（R20 收编自 ashare_alpha3 的 `alpha3.data.minute`）。
++
++两处声明过的改动：
++- 月文件清单由 `core.factio.partitions` 派生（原为 config.yaml 里的 `bars_1m_glob`
++  字符串 `…/year=*/month=*/*.parquet`——G-CONTRACT 的判定对象；YAML 不被扫，但那是
++  "违规温床"，收编时一并改成代码派生）；
++- duckdb 读**显式文件清单**（原为 glob），月份范围由此显式可控。
++
++**已知门盲区（如实记录，不造假绿）**：本模块的读藏在 SQL 字符串里
++（`read_parquet([...])`），G-READ 只认方法调用 → 看不见（pending #20 登记）。
++以 partitions 单点 + 人工复核补位。
++"""
++from __future__ import annotations
++
++from pathlib import Path
++
+ import duckdb
+ import pandas as pd
+ 
++from factorlab.core.factio import partitions
++
++
++def month_files(root: Path | str, start, end) -> list[str]:
++    """[start, end] 覆盖到的月份 → bars_1m 月 part 文件清单（规则取 partitions 单点）。"""
++    s, e = pd.Timestamp(start), pd.Timestamp(end)
++    out: list[str] = []
++    y, m = s.year, s.month
++    while (y, m) <= (e.year, e.month):
++        part = partitions.bars_month_part(Path(root), y, m)
++        if part.exists():
++            out.append(str(part))
++        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
++    if not out:
++        raise FileNotFoundError(f'bars_1m 无月文件：{root} [{s.date()} .. {e.date()}]')
++    return out
++
+ 
+ class MinuteStore:
+-    def __init__(self, parquet_glob: str, threads: int = 8):
+-        self.parquet_glob = parquet_glob
++    def __init__(self, root: Path | str, threads: int = 8):
++        self.root = Path(root)
+         self.con = duckdb.connect(database=':memory:')
+         self.con.execute(f"PRAGMA threads={int(threads)}")
+ 
+@@ -13,12 +46,15 @@
+         vals = ','.join("'" + str(x).replace("'", "''") + "'" for x in codes)
+         return f"({vals})"
+ 
++    def _files_sql(self, start, end) -> str:
++        return '[' + ','.join(f"'{f}'" for f in month_files(self.root, start, end)) + ']'
++
+     def query_1m(self, codes, start_date, end_date, continuous_only=False) -> pd.DataFrame:
+         session_filter = 'AND session_type = 1' if continuous_only else ''
+         sql = f"""
+         SELECT datetime, trade_date, code, minute_index, session_type,
+                open, high, low, close, amount, volume
+-        FROM read_parquet('{self.parquet_glob}', hive_partitioning=true)
++        FROM read_parquet({self._files_sql(start_date, end_date)}, hive_partitioning=true)
+         WHERE code IN {self._codes_sql(codes)}
+           AND trade_date BETWEEN DATE '{pd.Timestamp(start_date).date()}' AND DATE '{pd.Timestamp(end_date).date()}'
+           {session_filter}
+@@ -32,7 +68,7 @@
+           SELECT *,
+                  ((minute_index - 1) // 5)::INTEGER AS bucket_5m,
+                  (amount > 0 OR volume > 0) AS trade_active
+-          FROM read_parquet('{self.parquet_glob}', hive_partitioning=true)
++          FROM read_parquet({self._files_sql(start_date, end_date)}, hive_partitioning=true)
+           WHERE code IN {self._codes_sql(codes)}
+             AND trade_date BETWEEN DATE '{pd.Timestamp(start_date).date()}' AND DATE '{pd.Timestamp(end_date).date()}'
+             AND minute_index BETWEEN 1 AND 240
+# changes: +40 -4
+===== src/alpha3/data/tick.py -> readers/tick.py =====
+IDENTICAL
+===== src/alpha3/layer1/v4.py -> layer1/v4.py =====
+IDENTICAL
+===== src/alpha3/layer2/sas.py -> layer2/sas.py =====
+--- projects/ashare_alpha3/src/alpha3/layer2/sas.py	2026-08-23 02:18:11.220253389 +0800
++++ research/tools/universe_stages/layer2/sas.py	2026-09-15 16:00:42.801893589 +0800
+@@ -3,7 +3,7 @@
+ 
+ 
+ def label_shocks(bars5m: pd.DataFrame, cfg: dict):
+-    """bar 级 Sell Shock 标注（z-score 定义，与 scripts/sas_v0.py 一致）：
++    """bar 级 Sell Shock 标注（z-score 定义，与 scripts/ 下已验证的 SAS 语义一致（R20：sas_v0/v1.py 已不存在，语义由 tests/test_sas_zscore.py 固化））：
+     - 仅 session_class==0（纯连续竞价）
+     - r = close/prev_close-1（同日限制，跨日不计）
+     - r_mean/r_std/amount_med = 滚动 z_window bar，shift(1) 只含过去
+@@ -45,7 +45,7 @@
+ 
+ 
+ def build_event_features(bars5m: pd.DataFrame, cfg: dict):
+-    """每股一行聚合特征（列名对齐 scripts/sas_v1.py 的已验证形式）"""
++    """每股一行聚合特征（列名沿用已验证形式（同上，见 tests/test_sas_zscore.py））"""
+     hv = float(cfg.get('shock_amount_ratio', 2.0))
+     bars, is_shock = label_shocks(bars5m, cfg)
+     ev = shock_events(bars, is_shock, cfg)
+# changes: +2 -2
+===== src/alpha3/layer3/tick_features.py -> layer3/tick_features.py =====
+IDENTICAL
+===== src/alpha3/tail/audit.py -> tail/audit.py =====
+IDENTICAL
+===== src/alpha3/tail/labels.py -> tail/labels.py =====
+IDENTICAL
+===== src/alpha3/validation/parity.py -> validation/parity.py =====
+IDENTICAL
+===== scripts/10_run_layer1.py -> scripts/run_layer1.py =====
+--- projects/ashare_alpha3/scripts/10_run_layer1.py	2026-09-12 03:10:28.931006581 +0800
++++ research/tools/universe_stages/scripts/run_layer1.py	2026-09-15 16:47:30.018512821 +0800
+@@ -1,48 +1,93 @@
+ #!/usr/bin/env python3
+-import argparse, json
++"""第一层：V4 月度粗筛 → `v4_top300_local` / `v4_top100_local` / `v4_eligible_local`。
++
++R20 收编自 ashare_alpha3 的 `10_run_layer1.py`（**筛选逻辑逐行保留**）：改动只有
++路径经 `universe_paths`、模块级代码收进 `main()`、输出默认落 `<工具>/outputs/universes`。
++
++用法：
++  python scripts/run_layer1.py --scan-date 2026-07-01
++  python scripts/run_layer1.py --from-golden --start 2020-01-01 --end 2026-07-31
++"""
++from __future__ import annotations
++
++import argparse
++import json
++import os
++import sys
+ from pathlib import Path
++
+ import pandas as pd
+-from alpha3.config import load_config, ensure_output_dirs
+-from alpha3.data.daily import DailyStore, IndexDailyStore
+-from alpha3.data.fundamentals import FundamentalsStore
+-from alpha3.layer1.v4 import run_v4_snapshot
++
++# ---- R20：真正的路径自举（工具根 + tools/；`_env` 之外的平台注入仍走 tools/_env.py）----
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))            # universe_stages/
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
++    os.path.abspath(__file__)))))                                                          # tools/
++
++import universe_paths  # noqa: E402
++from layer1.v4 import run_v4_snapshot  # noqa: E402
++from readers.daily import DailyStore, IndexDailyStore  # noqa: E402
++from readers.fundamentals import FundamentalsStore  # noqa: E402
+ 
+ 
+ def run_one(cfg, store, fstore, istore, scan, factor=None):
+-    scan=pd.Timestamp(scan).normalize()
+-    factor=pd.Timestamp(factor).normalize() if factor is not None else store.previous_trade_date(scan)
+-    fundamentals=fstore.snapshot(factor)
+-    index_close=istore.close_window(factor, count=int(cfg['layer1'].get('history_count',520)))
+-    return (*run_v4_snapshot(store,fundamentals,index_close,scan,factor,cfg['layer1']), factor)
+-
+-p=argparse.ArgumentParser()
+-p.add_argument('--config',required=True)
+-p.add_argument('--scan-date')
+-p.add_argument('--factor-date')
+-p.add_argument('--from-golden',action='store_true',help='Run all historical scan/factor dates from golden V4 output')
+-p.add_argument('--start'); p.add_argument('--end')
+-a=p.parse_args(); cfg=load_config(a.config); ensure_output_dirs(cfg)
+-store=DailyStore(cfg['paths']['daily_fact']); fstore=FundamentalsStore(cfg['paths']['fundamentals_pti']); istore=IndexDailyStore(cfg['paths']['benchmark_daily_pre'])
+-out=Path(cfg['outputs']['universes']); out.mkdir(parents=True,exist_ok=True)
+-
+-if a.from_golden:
+-    g=pd.read_parquet(cfg['paths']['golden_v4_top300'])
+-    g['scan_date']=pd.to_datetime(g['scan_date']).dt.normalize(); g['factor_date']=pd.to_datetime(g['factor_date']).dt.normalize()
+-    dates=g[['scan_date','factor_date']].drop_duplicates().sort_values('scan_date')
+-    if a.start: dates=dates[dates['scan_date']>=pd.Timestamp(a.start)]
+-    if a.end: dates=dates[dates['scan_date']<=pd.Timestamp(a.end)]
+-    all300=[]; all100=[]; summaries=[]
+-    for r in dates.itertuples(index=False):
+-        t300,t100,ranked,summary,_=run_one(cfg,store,fstore,istore,r.scan_date,r.factor_date)
+-        all300.append(t300); all100.append(t100); summaries.append(summary)
+-        print('SCAN',summary)
+-    pd.concat(all300,ignore_index=True).to_parquet(out/'v4_top300_local.parquet',index=False)
+-    pd.concat(all100,ignore_index=True).to_parquet(out/'v4_top100_local.parquet',index=False)
+-    (out/'v4_scan_summary.json').write_text(json.dumps(summaries,ensure_ascii=False,indent=2),encoding='utf-8')
+-else:
+-    if not a.scan_date: raise SystemExit('--scan-date is required unless --from-golden')
+-    t300,t100,ranked,summary,factor=run_one(cfg,store,fstore,istore,a.scan_date,a.factor_date)
+-    t300.to_parquet(out/'v4_top300_local.parquet',index=False); t100.to_parquet(out/'v4_top100_local.parquet',index=False)
+-    ranked.to_parquet(out/'v4_eligible_local.parquet',index=False)
+-    (out/'v4_scan_summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
+-    print(summary)
++    scan = pd.Timestamp(scan).normalize()
++    factor = (pd.Timestamp(factor).normalize() if factor is not None
++              else store.previous_trade_date(scan))
++    fundamentals = fstore.snapshot(factor)
++    index_close = istore.close_window(factor, count=int(cfg['layer1'].get('history_count', 520)))
++    return (*run_v4_snapshot(store, fundamentals, index_close, scan, factor, cfg['layer1']), factor)
++
++
++def main() -> int:
++    p = argparse.ArgumentParser(description=__doc__)
++    p.add_argument('--config', default=None, help='工具配置（默认 <工具>/config.yaml）')
++    p.add_argument('--scan-date')
++    p.add_argument('--factor-date')
++    p.add_argument('--from-golden', action='store_true',
++                   help='按 golden 输出里的全部历史 scan/factor 日期批量跑')
++    p.add_argument('--start')
++    p.add_argument('--end')
++    a = p.parse_args()
++    cfg = universe_paths.load_config(a.config)
++    out = universe_paths.out_dir(cfg, 'universes')
++
++    store = DailyStore(universe_paths.daily_fact())
++    fstore = FundamentalsStore(universe_paths.fundamentals())
++    istore = IndexDailyStore(universe_paths.index_daily())
++
++    if a.from_golden:
++        g = pd.read_parquet(universe_paths.golden_universe())
++        g['scan_date'] = pd.to_datetime(g['scan_date']).dt.normalize()
++        g['factor_date'] = pd.to_datetime(g['factor_date']).dt.normalize()
++        dates = g[['scan_date', 'factor_date']].drop_duplicates().sort_values('scan_date')
++        if a.start:
++            dates = dates[dates['scan_date'] >= pd.Timestamp(a.start)]
++        if a.end:
++            dates = dates[dates['scan_date'] <= pd.Timestamp(a.end)]
++        all300, all100, summaries = [], [], []
++        for r in dates.itertuples(index=False):
++            t300, t100, ranked, summary, _ = run_one(cfg, store, fstore, istore, r.scan_date, r.factor_date)
++            all300.append(t300)
++            all100.append(t100)
++            summaries.append(summary)
++            print('SCAN', summary)
++        pd.concat(all300, ignore_index=True).to_parquet(out / 'v4_top300_local.parquet', index=False)
++        pd.concat(all100, ignore_index=True).to_parquet(out / 'v4_top100_local.parquet', index=False)
++        (out / 'v4_scan_summary.json').write_text(
++            json.dumps(summaries, ensure_ascii=False, indent=2), encoding='utf-8')
++    else:
++        if not a.scan_date:
++            raise SystemExit('--scan-date is required unless --from-golden')
++        t300, t100, ranked, summary, factor = run_one(
++            cfg, store, fstore, istore, a.scan_date, a.factor_date)
++        t300.to_parquet(out / 'v4_top300_local.parquet', index=False)
++        t100.to_parquet(out / 'v4_top100_local.parquet', index=False)
++        ranked.to_parquet(out / 'v4_eligible_local.parquet', index=False)
++        (out / 'v4_scan_summary.json').write_text(
++            json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
++        print(summary)
++    return 0
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+# changes: +87 -42
+===== scripts/11_validate_layer1_parity.py -> scripts/validate_layer1_parity.py =====
+--- projects/ashare_alpha3/scripts/11_validate_layer1_parity.py	2026-09-12 03:10:28.951007441 +0800
++++ research/tools/universe_stages/scripts/validate_layer1_parity.py	2026-09-15 16:47:30.018512821 +0800
+@@ -1,10 +1,39 @@
+ #!/usr/bin/env python3
+-import argparse,json
++"""第一层 parity：本地 Top300 vs golden（A9）逐项对比（Jaccard / rank / 数值差）。
++
++R20 收编自 ashare_alpha3 的 `11_validate_layer1_parity.py`（逻辑逐行保留）。
++golden 是**上游 jqdata 口径的一次性交付**（生成链路未留存，见 pending #9），
++只读对照。
++"""
++from __future__ import annotations
++
++import argparse
++import json
++import os
++import sys
+ from pathlib import Path
++
+ import pandas as pd
+-from alpha3.config import load_config
+-from alpha3.validation.parity import compare_top300
+-p=argparse.ArgumentParser(); p.add_argument('--config',required=True); p.add_argument('--scan-date',required=True); a=p.parse_args()
+-cfg=load_config(a.config)
+-local=pd.read_parquet(Path(cfg['outputs']['universes'])/'v4_top300_local.parquet'); golden=pd.read_parquet(cfg['paths']['golden_v4_top300'])
+-print(json.dumps(compare_top300(local,golden,a.scan_date),ensure_ascii=False,indent=2))
++
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
++    os.path.abspath(__file__)))))
++
++import universe_paths  # noqa: E402
++from validation.parity import compare_top300  # noqa: E402
++
++
++def main() -> int:
++    p = argparse.ArgumentParser(description=__doc__)
++    p.add_argument('--config', default=None)
++    p.add_argument('--scan-date', required=True)
++    a = p.parse_args()
++    cfg = universe_paths.load_config(a.config)
++    local = pd.read_parquet(universe_paths.out_dir(cfg, 'universes') / 'v4_top300_local.parquet')
++    golden = pd.read_parquet(universe_paths.golden_universe())
++    print(json.dumps(compare_top300(local, golden, a.scan_date), ensure_ascii=False, indent=2))
++    return 0
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+# changes: +36 -7
+===== scripts/20_tail_capture_audit.py -> scripts/tail_capture_audit.py =====
+--- projects/ashare_alpha3/scripts/20_tail_capture_audit.py	2026-09-12 03:10:29.043011394 +0800
++++ research/tools/universe_stages/scripts/tail_capture_audit.py	2026-09-15 16:47:30.018512821 +0800
+@@ -1,14 +1,44 @@
+ #!/usr/bin/env python3
++"""尾部捕获审计：MFE 标签（60/120 日）+ Precision@K / Recall@K / Lift@K。
++
++R20 收编自 ashare_alpha3 的 `20_tail_capture_audit.py`（逻辑逐行保留）。
++默认以 golden 股池排序为输入（`--ranked` 可换成自有产物）。
++"""
++from __future__ import annotations
++
+ import argparse
+-from pathlib import Path
++import os
++import sys
++
+ import pandas as pd
+-from alpha3.config import load_config,ensure_output_dirs
+-from alpha3.data.daily import DailyStore
+-from alpha3.tail.labels import future_mfe_labels
+-from alpha3.tail.audit import audit_ranked_pool
+-p=argparse.ArgumentParser(); p.add_argument('--config',required=True); p.add_argument('--ranked'); a=p.parse_args()
+-cfg=load_config(a.config); ensure_output_dirs(cfg)
+-ranked=pd.read_parquet(a.ranked or cfg['paths']['golden_v4_top300']); daily=DailyStore(cfg['paths']['daily_fact']).read()
+-labels=future_mfe_labels(daily,ranked,horizons=(60,120)); audit=audit_ranked_pool(ranked,labels,'tail_120_50',ks=(50,100,200,300))
+-out=Path(cfg['outputs']['validation']); labels.to_parquet(out/'tail_labels.parquet',index=False); audit.to_parquet(out/'tail_capture_audit.parquet',index=False)
+-print(audit.groupby('k')[['precision','recall','lift']].mean())
++
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
++    os.path.abspath(__file__)))))
++
++import universe_paths  # noqa: E402
++from readers.daily import DailyStore  # noqa: E402
++from tail.audit import audit_ranked_pool  # noqa: E402
++from tail.labels import future_mfe_labels  # noqa: E402
++
++
++def main() -> int:
++    p = argparse.ArgumentParser(description=__doc__)
++    p.add_argument('--config', default=None)
++    p.add_argument('--ranked', default=None, help='排序输入（默认 golden 股池）')
++    a = p.parse_args()
++    cfg = universe_paths.load_config(a.config)
++    out = universe_paths.out_dir(cfg, 'validation')
++
++    ranked = pd.read_parquet(a.ranked or universe_paths.golden_universe())
++    daily = DailyStore(universe_paths.daily_fact()).read()
++    labels = future_mfe_labels(daily, ranked, horizons=(60, 120))
++    audit = audit_ranked_pool(ranked, labels, 'tail_120_50', ks=(50, 100, 200, 300))
++    labels.to_parquet(out / 'tail_labels.parquet', index=False)
++    audit.to_parquet(out / 'tail_capture_audit.parquet', index=False)
++    print(audit.groupby('k')[['precision', 'recall', 'lift']].mean())
++    return 0
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+# changes: +41 -11
+===== scripts/30_run_layer2_sas.py -> scripts/run_layer2_sas.py =====
+--- projects/ashare_alpha3/scripts/30_run_layer2_sas.py	2026-09-12 03:10:29.047011566 +0800
++++ research/tools/universe_stages/scripts/run_layer2_sas.py	2026-09-15 16:47:30.018512821 +0800
+@@ -1,20 +1,60 @@
+ #!/usr/bin/env python3
++"""第二层：SAS/Activation —— 1m→5m 动态聚合 + 卖压冲击特征。
++
++R20 收编自 ashare_alpha3 的 `30_run_layer2_sas.py`（逻辑逐行保留）：改动只有
++读取层改经 `universe_paths`/`readers`，MinuteStore 现在按 `partitions` 派生的月文件清单读
++（原为 config 里的 `bars_1m_glob` 字符串）。
++"""
++from __future__ import annotations
++
+ import argparse
+-from pathlib import Path
++import os
++import sys
++
+ import pandas as pd
+-from alpha3.config import load_config,ensure_output_dirs
+-from alpha3.data.minute import MinuteStore
+-from alpha3.data.daily import DailyStore
+-from alpha3.layer2.sas import build_event_features
+-p=argparse.ArgumentParser(); p.add_argument('--config',required=True); p.add_argument('--scan-date',required=True); p.add_argument('--top-k',type=int,default=300); a=p.parse_args()
+-cfg=load_config(a.config); ensure_output_dirs(cfg)
+-ranked=pd.read_parquet(cfg['paths']['golden_v4_top300']); sd=pd.Timestamp(a.scan_date).normalize()
+-s=ranked[pd.to_datetime(ranked['scan_date']).dt.normalize()==sd].sort_values('rank').head(a.top_k)
+-if s.empty: raise SystemExit('snapshot not found')
+-daily=DailyStore(cfg['paths']['daily_fact']).read(codes=s['code'].tolist(),end=sd); cal=sorted(pd.to_datetime(daily['trade_date']).dt.normalize().unique())
+-dates=[d for d in cal if d<sd][-int(cfg['layer2']['lookback_trade_days']):]
+-if not dates: raise SystemExit('no lookback dates')
+-b5=MinuteStore(cfg['paths']['bars_1m_glob']).query_5m(s['code'].tolist(),dates[0],dates[-1])
+-feat,events=build_event_features(b5,cfg['layer2']); feat['scan_date']=sd; feat=feat.merge(s[['code','rank','score']],on='code',how='left')
+-out=Path(cfg['outputs']['research']); feat.to_parquet(out/f'sas_features_{sd.date()}.parquet',index=False); events.to_parquet(out/f'sas_events_{sd.date()}.parquet',index=False)
+-print('features',len(feat),'events',len(events))
++
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
++    os.path.abspath(__file__)))))
++
++import universe_paths  # noqa: E402
++from layer2.sas import build_event_features  # noqa: E402
++from readers.daily import DailyStore  # noqa: E402
++from readers.minute import MinuteStore  # noqa: E402
++
++
++def main() -> int:
++    p = argparse.ArgumentParser(description=__doc__)
++    p.add_argument('--config', default=None)
++    p.add_argument('--scan-date', required=True)
++    p.add_argument('--top-k', type=int, default=300)
++    a = p.parse_args()
++    cfg = universe_paths.load_config(a.config)
++    out = universe_paths.out_dir(cfg, 'research')
++
++    ranked = pd.read_parquet(universe_paths.golden_universe())
++    sd = pd.Timestamp(a.scan_date).normalize()
++    s = ranked[pd.to_datetime(ranked['scan_date']).dt.normalize() == sd] \
++        .sort_values('rank').head(a.top_k)
++    if s.empty:
++        raise SystemExit('snapshot not found')
++
++    daily = DailyStore(universe_paths.daily_fact()).read(codes=s['code'].tolist(), end=sd)
++    cal = sorted(pd.to_datetime(daily['trade_date']).dt.normalize().unique())
++    dates = [d for d in cal if d < sd][-int(cfg['layer2']['lookback_trade_days']):]
++    if not dates:
++        raise SystemExit('no lookback dates')
++
++    b5 = MinuteStore(universe_paths.bars_1m_root()).query_5m(
++        s['code'].tolist(), dates[0], dates[-1])
++    feat, events = build_event_features(b5, cfg['layer2'])
++    feat['scan_date'] = sd
++    feat = feat.merge(s[['code', 'rank', 'score']], on='code', how='left')
++    feat.to_parquet(out / f'sas_features_{sd.date()}.parquet', index=False)
++    events.to_parquet(out / f'sas_events_{sd.date()}.parquet', index=False)
++    print('features', len(feat), 'events', len(events))
++    return 0
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+# changes: +57 -17
+===== scripts/40_run_layer3_tick.py -> scripts/run_layer3_tick.py =====
+--- projects/ashare_alpha3/scripts/40_run_layer3_tick.py	2026-09-12 03:10:29.051011737 +0800
++++ research/tools/universe_stages/scripts/run_layer3_tick.py	2026-09-15 16:49:00.974420974 +0800
+@@ -1,19 +1,30 @@
+ #!/usr/bin/env python3
+ """第三层：tick 微观结构特征（仅 20260817 全市场逐笔成交可用）。
+ 
++R20 收编自 ashare_alpha3 的 `40_run_layer3_tick.py`（逻辑逐行保留）：改动只有
++路径经 `universe_paths`、读取层改经 `readers.tick`、输出默认落
++`<工具>/outputs/research`。
++
+ 流程：layer2 特征（sas_features_*.parquet）→ 候选前 k → 每股 shock 事件
+ （sas_events_*.parquet 的 datetime）→ WindTickStore 读逐笔成交 →
+ 事件前/后窗口特征（signed flow、大单占比、反转）→ 输出。
+ """
++from __future__ import annotations
++
+ import argparse
+ import multiprocessing as mp
+-from pathlib import Path
++import os
++import sys
+ 
+ import pandas as pd
+ 
+-from alpha3.config import load_config, ensure_output_dirs
+-from alpha3.data.tick import WindTickStore
+-from alpha3.layer3.tick_features import event_reversal_features
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
++    os.path.abspath(__file__)))))
++
++import universe_paths  # noqa: E402
++from layer3.tick_features import event_reversal_features  # noqa: E402
++from readers.tick import WindTickStore  # noqa: E402
+ 
+ PRE_SEC = 1800
+ POST_SEC = 3600
+@@ -40,21 +51,20 @@
+     return code, pd.DataFrame(rows), None
+ 
+ 
+-def main():
+-    p = argparse.ArgumentParser()
+-    p.add_argument('--config', required=True)
++def main() -> int:
++    p = argparse.ArgumentParser(description=__doc__)
++    p.add_argument('--config', default=None, help='工具配置（默认 <工具>/config.yaml）')
+     p.add_argument('--scan-date', required=True)
+     p.add_argument('--top-k', type=int)
+     p.add_argument('--workers', type=int, default=16)
+     a = p.parse_args()
+-    cfg = load_config(a.config)
+-    ensure_output_dirs(cfg)
++    cfg = universe_paths.load_config(a.config)
++    out = universe_paths.out_dir(cfg, 'research')
+     sd = pd.Timestamp(a.scan_date).normalize()
+-    k = a.top_k or cfg['layer3']['default_top_k']
++    k = a.top_k or int(cfg['layer3']['default_top_k'])
+ 
+-    research = Path(cfg['outputs']['research'])
+-    feats_path = research / f'sas_features_{sd.date()}.parquet'
+-    events_path = research / f'sas_events_{sd.date()}.parquet'
++    feats_path = out / f'sas_features_{sd.date()}.parquet'
++    events_path = out / f'sas_events_{sd.date()}.parquet'
+     if not feats_path.exists() or not events_path.exists():
+         raise SystemExit(f'run layer2 first (missing {feats_path} or {events_path})')
+ 
+@@ -64,7 +74,7 @@
+         raise SystemExit('no layer2 research columns available')
+     cands = sas.sort_values(cols, ascending=[False] * len(cols)).head(k)
+     events = pd.read_parquet(events_path)
+-    tick_root = cfg['paths'].get('ticks_root', '')
++    tick_root = universe_paths.ticks_root()
+     trade_date = sd.strftime('%Y%m%d')
+ 
+     per_code = {}
+@@ -92,10 +102,11 @@
+     if not ok:
+         raise SystemExit('nothing processed')
+     out_df = pd.concat(ok, ignore_index=True)
+-    out_path = research / f'layer3_tick_features_{sd.date()}.parquet'
++    out_path = out / f'layer3_tick_features_{sd.date()}.parquet'
+     out_df.to_parquet(out_path, index=False)
+     print(f'wrote {out_path} ({len(out_df)} event-rows, {out_df["code"].nunique()} codes)')
++    return 0
+ 
+ 
+ if __name__ == '__main__':
+-    main()
++    raise SystemExit(main())
+# changes: +27 -16
