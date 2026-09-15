@@ -17,10 +17,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))))
 
+# R02-I6a：入口显式自举共享核（universe_paths 模块级 import factorlab）——T2（emb）
+# 裸跑 --help 不再 ModuleNotFoundError；落位断言见 tools/_env.py。
+from _env import ensure_platform  # noqa: E402
+
+ensure_platform()
 import universe_paths  # noqa: E402
 from layer2.sas import build_event_features  # noqa: E402
 from readers.daily import DailyStore  # noqa: E402
-from readers.minute import MinuteStore  # noqa: E402
 
 
 def main() -> int:
@@ -48,6 +52,10 @@ def main() -> int:
     dates = [d for d in cal if d < sd][-int(cfg['layer2']['lookback_trade_days']):]
     if not dates:
         raise SystemExit('no lookback dates')
+
+    # R02-I6a：duckdb 只在真跑时按需 import（emb/T2 无 duckdb：--help 与缺源
+    # preflight 必须可达，模块级 import 会让这两条路径先崩在 duckdb 上）。
+    from readers.minute import MinuteStore  # noqa: PLC0415
 
     b5 = MinuteStore(universe_paths.bars_1m_root()).query_5m(
         s['code'].tolist(), dates[0], dates[-1])

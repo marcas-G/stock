@@ -23,6 +23,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))))                                                          # tools/
 
+# R02-I6a：入口显式自举共享核（universe_paths 模块级 import factorlab）——T2（emb）
+# 裸跑不再 ModuleNotFoundError，preflight 才有机会执行；落位断言见 tools/_env.py。
+from _env import ensure_platform  # noqa: E402
+
+ensure_platform()
 import universe_paths  # noqa: E402
 from layer1.v4 import run_v4_snapshot  # noqa: E402
 from readers.daily import DailyStore, IndexDailyStore  # noqa: E402
