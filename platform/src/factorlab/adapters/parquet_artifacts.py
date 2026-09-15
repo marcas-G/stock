@@ -122,13 +122,13 @@ def _meta_from_dict(sig_manifest: dict[str, Any]) -> SignalMeta:
 
 
 # --------------------------------------------------------------------------
-# 原子写（单文件 atomic：temp sibling + os.replace；目录级事务不实现——见风险）
+# 原子写（单文件 atomic；R13 起协议实现单点在 adapters/atomicio——
+# 目录级事务不实现，见风险章节）
 # --------------------------------------------------------------------------
 
 def _atomic_write(path: Path, writer) -> None:
-    tmp = path.with_name(path.name + ".tmp")
-    writer(tmp)
-    os.replace(tmp, path)
+    from factorlab.adapters.atomicio import atomic_write
+    atomic_write(path, writer)
 
 
 # --------------------------------------------------------------------------

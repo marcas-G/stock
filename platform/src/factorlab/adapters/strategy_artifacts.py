@@ -106,23 +106,18 @@ def _timing_from_json(d) -> "SignalTiming":
 
 
 # ---------------------------------------------------------------------------
-# 单文件 atomic write（M7-04A：sibling-temp + os.replace，三个 core 文件统一）
+# 单文件 atomic write（M7-04A 起；R13 起协议实现单点在 adapters/atomicio）
 # ---------------------------------------------------------------------------
 
 def _atomic_write_file(path: Path, writer) -> None:
-    """Path-oriented atomic write：writer(tmp) 成功 → os.replace(tmp, path)。
+    """Path-oriented atomic write（R13：协议实现单点在 `adapters/atomicio`）。
 
-    - temp 与 final 同目录同 filesystem（os.replace 跨 fs 不保证 atomic）
-    - writer 失败 → 删除 temp、原样抛异常（不吞错、不继续写后续文件）
-    - final 已存在时失败 → 旧 final 完整保持（绝不截断/覆盖）
+    语义与 M7-04A 相同且更强：temp 与 final 同 fs、writer 失败 → 删 temp 并原样抛
+    （不吞错、不继续写后续文件）、旧 final 完整保持；额外补 fsync（文件 + 目录）与
+    **权限与普通创建一致**（mkstemp 的 0600 曾被带到产物上）。
     """
-    tmp = path.with_name(path.name + ".tmp")
-    try:
-        writer(tmp)
-        os.replace(tmp, path)
-    except Exception:
-        tmp.unlink(missing_ok=True)
-        raise
+    from factorlab.adapters.atomicio import atomic_write
+    atomic_write(path, writer)
 
 
 def _write_text(path: Path, text: str) -> None:

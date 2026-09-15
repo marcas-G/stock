@@ -38,26 +38,10 @@ class BatchLocked(RuntimeError):
 
 
 def _write_state(path: Path, done: list[str]) -> None:
-    """原子写断点（tmp + fsync + os.replace + 目录 fsync），不留半截文件。"""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump({"done": done}, f, ensure_ascii=False, sort_keys=True, indent=1)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp_name, path)
-        dfd = os.open(str(path.parent), os.O_RDONLY)
-        try:
-            os.fsync(dfd)
-        finally:
-            os.close(dfd)
-    except BaseException:
-        try:
-            os.unlink(tmp_name)
-        except OSError:
-            pass
-        raise
+    """原子写断点（R13：协议单点在 adapters/atomicio）。"""
+    from factorlab.adapters.atomicio import atomic_write_text
+    atomic_write_text(path, json.dumps({"done": done}, ensure_ascii=False,
+                                       sort_keys=True, indent=1))
 
 
 def _read_state(path: Path) -> list[str]:
@@ -90,17 +74,8 @@ def _kill_workers(ex: ProcessPoolExecutor) -> None:
 
 
 def _write_marker(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
-    try:
-        os.close(fd)
-        os.replace(tmp_name, path)
-    except BaseException:
-        try:
-            os.unlink(tmp_name)
-        except OSError:
-            pass
-        raise
+    from factorlab.adapters.atomicio import atomic_write_bytes
+    atomic_write_bytes(path, b"")
 
 
 class BatchFlock:

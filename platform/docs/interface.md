@@ -166,6 +166,19 @@ factorlab run factor/crash_bottom_leader_timed.yaml --chunk-days 500   # 2015-20
 - 块大小 + warmup 应控制在约 850 交易日以内（单块内存 ≈ 已验证可跑的
   3.5 年量级）。
 
+### `factorlab.adapters.atomicio`：原子写单点（R13）
+
+平台里所有"落盘要么完整、要么不出现"的写都经此模块（原先四份实现，`execution_store` 还缺第五份）：
+
+- `atomic_write(path, writer)`：`writer(tmp)` 成功后替换（历史签名兼容，调用点零改动）；
+- `atomic_write_bytes / atomic_write_text / atomic_write_parquet`：常用形态；
+- 语义：同目录 `.<name>.<rand>.tmp` + 文件 `fsync` + `os.replace` + **目录 fsync** + 失败清理
+  （目标不出现、不留 tmp）+ **权限按 umask 设定**（`mkstemp` 的 0600 会把产物锁成同户可读——
+  2026-09-15 实测回归，见 `docs/verification/R13/`）。
+
+采用方：`parquet_artifacts` / `strategy_artifacts` / `results_fs.write_run_outputs` /
+`batch_flock`（state 与 `_SUCCESS`）/ `execution_store.save_backtest_result`。
+
 ### `factorlab.adapters.results_fs` / `factorlab.adapters.panel_store`：results 布局单点（R12）
 
 `results/` 的**文件名、路径拼装、读取语义、原子写**只有这两个模块知道；`app/` 与 `surfaces/`

@@ -153,10 +153,13 @@ def save_backtest_result(
             for code, qty, sell in st.positions.iter_rows():
                 po_rows.append((i, stage, code, qty, sell))
 
+    from factorlab.adapters.atomicio import atomic_write_parquet, atomic_write_text
+
     def _write(rel: str, rows: list, cols: dict) -> None:
         frame = pl.DataFrame(rows, schema=list(cols), orient="row")
         frame = _cast(frame, cols) if rows else _typed_empty(cols)
-        frame.write_parquet(out / rel)
+        # R13：全部产物走原子写单点（此前直写——崩溃/磁盘满会留半截 parquet）
+        atomic_write_parquet(frame, out / rel)
 
     _write("artifacts/execution_artifact.parquet", ea_rows,
            _SCHEMAS["artifacts/execution_artifact.parquet"])
@@ -184,7 +187,7 @@ def save_backtest_result(
         pl.col("cash").cast(pl.Float64), pl.col("code").cast(pl.String),
         pl.col("quantity").cast(pl.Int64),
         pl.col("sellable_quantity").cast(pl.Int64))
-    fs_frame.write_parquet(out / "state/final_state.parquet")
+    atomic_write_parquet(fs_frame, out / "state/final_state.parquet")
     ns = result.nav_series.frame
     _write("nav/nav_series.parquet", list(ns.iter_rows()),
            _SCHEMAS["nav/nav_series.parquet"])
@@ -210,8 +213,8 @@ def save_backtest_result(
                                if manifest.execution_date_end else None),
         "columns": manifest.columns,
     }
-    (out / "manifest.json").write_text(
-        json.dumps(doc, indent=1, ensure_ascii=False), encoding="utf-8")
+    atomic_write_text(out / "manifest.json",
+                      json.dumps(doc, indent=1, ensure_ascii=False))
     return manifest
 
 

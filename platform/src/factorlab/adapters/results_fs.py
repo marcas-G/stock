@@ -51,27 +51,11 @@ def write_run_outputs(out_dir: Path, *, weekly: pl.DataFrame, summary: dict) -> 
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    w_tmp = _tmp_for(out / WEEKLY_NAME)
-    s_tmp = _tmp_for(out / SUMMARY_NAME)
-    try:
-        weekly.write_parquet(w_tmp)
-        s_tmp.write_text(json.dumps(summary, ensure_ascii=False, indent=2, default=str),
-                         encoding="utf-8")
-        for tmp in (w_tmp, s_tmp):
-            with open(tmp, "rb") as f:
-                os.fsync(f.fileno())
-        os.replace(w_tmp, out / WEEKLY_NAME)
-        os.replace(s_tmp, out / SUMMARY_NAME)
-    except BaseException:
-        for tmp in (w_tmp, s_tmp):
-            tmp.unlink(missing_ok=True)
-        raise
-
-
-def _tmp_for(target: Path) -> Path:
-    fd, name = tempfile.mkstemp(dir=str(target.parent), prefix=f".{target.name}.", suffix=".tmp")
-    os.close(fd)
-    return Path(name)
+    # R13：原子写协议单点在 adapters/atomicio（并修掉 mkstemp → 产物 0600 的回归）
+    from factorlab.adapters.atomicio import atomic_write_parquet, atomic_write_text
+    atomic_write_parquet(weekly, out / WEEKLY_NAME)
+    atomic_write_text(out / SUMMARY_NAME,
+                      json.dumps(summary, ensure_ascii=False, indent=2, default=str))
 
 
 def read_summary(path: Path) -> dict:
