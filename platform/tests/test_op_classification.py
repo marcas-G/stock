@@ -74,3 +74,50 @@ def test_window_spec_param_resolved_by_caller():
 def test_canonical_defaults_to_name():
     meta = OpMeta("ts_mean", "ts", "arg:1", (), "builtin")
     assert meta.canonical == "ts_mean"
+
+
+# ============================ Task 2: polars_ta 全量分类表 ============================
+
+import subprocess  # noqa: E402
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[1]  # platform/
+
+
+def test_generated_ta_catalog_is_up_to_date():
+    r = subprocess.run([sys.executable, str(ROOT / "scripts/gen_op_catalog.py"), "--check"],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_ta_catalog_key_entries():
+    from factorlab.core.ops._generated_ta_ops import build_ta_catalog
+    c = Catalog()
+    build_ta_catalog(c)
+    # 窗口在第二位置（签名感知：d 有默认值也必须识别）
+    assert c.get("ts_mean").partition == "ts"
+    assert c.get("ts_mean").window == "arg:1"
+    # 窗口不在第二位置（ts_corr(x, y, d)）——必须扫描到真正的窗口参数
+    assert c.get("ts_corr").partition == "ts"
+    assert c.get("ts_corr").window == "arg:2"
+    # 从未注册过的库函数：开放面证据
+    assert c.get("ts_arg_max").partition == "ts"
+    assert c.get("ts_arg_max").window == "arg:1"
+    # 全历史累计 → unbounded
+    assert c.get("ts_cum_sum").window == "unbounded"
+    # 全大写 TA 风格 + 窗口签名 → ts（不是 el）
+    assert c.get("BBANDS") is not None
+    assert c.get("BBANDS").partition == "ts"
+    # CS 掩码参数（存量 cs_resid 双数据参数必须保持 (0,1)）
+    assert c.get("cs_quantile").partition == "cs"
+    assert c.get("cs_quantile").mask_args == (0,)
+    assert c.get("cs_resid").mask_args == (0, 1)
+
+
+def test_ta_catalog_size_floor():
+    from factorlab.core.ops._generated_ta_ops import build_ta_catalog
+    c = Catalog()
+    build_ta_catalog(c)
+    usable = [m for m in c.all() if m.source == "polars_ta"]
+    assert len(usable) >= 350                       # Spike 1 结论：350~400
