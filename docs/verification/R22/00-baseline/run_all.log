@@ -1,0 +1,24 @@
+reversal_20d: n_weeks=178 ic_mean=-0.0414988679293545 
+spread=-0.0042782242582516585
+=== reversal_20d/reversal_20d.yaml -> reversal_20d (exit=0)
+OK reversal_20d (summary -> /data/students/gaolei/stock/docs/verification/R22/00-baseline/reversal_20d.json)
+2026-09-15 22:22:17.587 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+momentum_20d: n_weeks=178 ic_mean=-0.0414988679293545 spread=0.00427822425825166
+=== momentum_20d/momentum_20d.yaml -> momentum_20d (exit=0)
+OK momentum_20d (summary -> /data/students/gaolei/stock/docs/verification/R22/00-baseline/momentum_20d.json)
+vol_run_energy_symrun: n_weeks=142 ic_mean=-0.025586657865997547 
+spread=-0.0029599917943449712
+=== vol_run_energy/symrun.yaml -> vol_run_energy_symrun (exit=0)
+OK vol_run_energy_symrun (summary -> /data/students/gaolei/stock/docs/verification/R22/00-baseline/vol_run_energy_symrun.json)
+low_vol_20d: n_weeks=178 ic_mean=0.07007485259689888 
+spread=-0.0021429222507061583
+=== volatility/low_vol_20d.yaml -> low_vol_20d (exit=0)
+OK low_vol_20d (summary -> /data/students/gaolei/stock/docs/verification/R22/00-baseline/low_vol_20d.json)
+2026-09-15 22:26:17.347 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+crash_bottom_leader_adv20: n_weeks=0 ic_mean=nan spread=nan
+=== crash_bottom_leader/adv20.yaml -> crash_bottom_leader_adv20 (exit=0)
+OK crash_bottom_leader_adv20 (summary -> /data/students/gaolei/stock/docs/verification/R22/00-baseline/crash_bottom_leader_adv20.json)
+reversal_20d_wcorr: n_weeks=178 ic_mean=-0.06746037692967563 
+spread=-0.004151493838018969
+=== reversal_20d/wcorr.yaml -> reversal_20d_wcorr (exit=0)
+OK reversal_20d_wcorr (summary -> /data/students/gaolei/stock/docs/verification/R22/00-baseline/reversal_20d_wcorr.json)

@@ -1,0 +1,6 @@
+$ FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/factorlab run docs/verification/R22/00-baseline/specs/volatility/low_vol_20d.yaml
+# cwd=/data/students/gaolei/stock/platform  tag=00-baseline  spec.name=low_vol_20d
+2026-09-15 22:24:10.083 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 22:24:10.116 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+low_vol_20d: n_weeks=178 ic_mean=0.07007485259689888 
+spread=-0.0021429222507061583

@@ -1,0 +1,2 @@
+错误: exclude_st 需要 stock_st 表（平台库由 data rebuild 
+生成）——不能默认所有股票非 ST
