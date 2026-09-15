@@ -492,3 +492,81 @@ def load_last_close_dates(
 
 _LOAD_DAILY_IMPL = {"duckdb": _load_daily_duckdb, "ch": _load_daily_ch}
 _FILL_STATE_IMPL = {"duckdb": _fill_duckdb, "ch": _fill_ch}
+
+
+def _tail_dates_duckdb(rd: ReadPort, codes: list[str], before: str,
+                       n: int) -> pl.DataFrame:
+    """duckdb 版：trade_date < before 的每 code 第 n 个最近行情行日期。"""
+    sql = (
+        "SELECT code, min(trade_date) AS warm_start FROM ("
+        " SELECT substr(d.ts_code, 1, 6) AS code, d.trade_date,"
+        "        row_number() OVER (PARTITION BY substr(d.ts_code, 1, 6)"
+        "                           ORDER BY d.trade_date DESC) AS rn"
+        " FROM daily d"
+        " JOIN adj_factor a ON d.trade_date = a.trade_date"
+        "                 AND d.ts_code = a.ts_code"
+        " WHERE substr(d.ts_code, 1, 6) IN (SELECT unnest(?))"
+        "   AND d.trade_date < ?"
+        ") WHERE rn <= ? GROUP BY code ORDER BY code")
+    df = rd.query_df(sql, [[c.split(".")[0] for c in codes],
+                           before.replace("-", ""), n])
+    if df.height == 0:
+        return pl.DataFrame(schema={"code": pl.String, "warm_start": pl.Date})
+    return df.with_columns(
+        pl.col("warm_start").cast(pl.String).str.strptime(pl.Date, "%Y%m%d"))
+
+
+def _tail_dates_ch(rd: ReadPort, codes: list[str], before: str,
+                   n: int) -> pl.DataFrame:
+    """ch 版：trade_date < before 的每 code 第 n 个最近行情行日期。"""
+    from factorlab.adapters.ch_read import daily_codes_clause
+
+    code_clause, params = daily_codes_clause(codes)
+    params["before"] = before.replace("-", "")
+    params["n"] = n
+    db = settings.ch_database
+    sql = (
+        f"SELECT ts_code, min(trade_date) AS warm_start FROM ("
+        f" SELECT d.ts_code, d.trade_date,"
+        f"        row_number() OVER (PARTITION BY d.ts_code"
+        f"                           ORDER BY d.trade_date DESC) AS rn"
+        f" FROM {db}.daily d"
+        f" JOIN {db}.adj_factor a ON d.trade_date = a.trade_date"
+        f"                       AND d.ts_code = a.ts_code"
+        f" WHERE {code_clause} AND d.trade_date < toDate(%(before)s)"
+        f") WHERE rn <= %(n)s GROUP BY ts_code ORDER BY ts_code")
+    df = rd.query_df(sql, params)
+    if df.height == 0:
+        return pl.DataFrame(schema={"code": pl.String, "warm_start": pl.Date})
+    return df.with_columns(
+        pl.col("ts_code").str.split(".").list.first().alias("code")
+    ).drop("ts_code")
+
+
+_TAIL_DATES_IMPL = {"duckdb": _tail_dates_duckdb, "ch": _tail_dates_ch}
+
+
+def load_daily_tail_dates(
+    rd: ReadPort,
+    codes: list[str],
+    *,
+    before: str,
+    n: int,
+) -> pl.DataFrame:
+    """R02-I4：每 code 在 trade_date < before 的第 n 个最近**行情行**日期。
+
+    adv20 左窗按「有行情行数」补足的 warm-start 锚点（`run_factor_minute` 取
+    min）：从该日起 load_daily，每 code 至少有 min(n, 全历史) 个前序行情行——
+    固定「start−n 交易日」窗口对待长停牌股会行情行不足 → rolling_mean 恒 null，
+    违反「20 个有行情交易日均值」契约。与 load_daily 同源（daily ⨝ adj_factor）；
+    无历史 code 缺席（其预热无从谈起）。
+    """
+    if not codes:
+        raise ValueError("codes 为空")
+    if n < 1:
+        raise ValueError(f"n 必须 >= 1（收到 {n}）")
+    df = _TAIL_DATES_IMPL[rd.backend](rd, codes, before, n)
+    if df.height:
+        df = df.with_columns(pl.col("code").cast(pl.String),
+                             pl.col("warm_start").cast(pl.Date))
+    return df

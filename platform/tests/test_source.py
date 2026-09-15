@@ -311,6 +311,47 @@ def test_load_daily_rejects_raw_platform_vol_name(env):
 
 
 # ---------------------------------------------------------------
+# R02-C2 / R02-I4：staleness 锚点 + adv20 warm-start 行情行补足（双腿）
+# ---------------------------------------------------------------
+
+def test_load_last_close_dates_picks_latest_non_null(env):
+    """R02-C2：每 code 最后非空 close 日期（daily ⨝ adj_factor）；bounds 语义。"""
+    from factorlab.adapters.read.source import load_last_close_dates
+    _seed_base(env)
+    lc = load_last_close_dates(env.rd, ["000001", "600519"], before="2024-02-01")
+    got = {r["code"]: r["last_close"] for r in lc.iter_rows(named=True)}
+    assert got == {"000001": datetime.date(2024, 1, 3),
+                   "600519": datetime.date(2024, 1, 2)}
+    # after 含入下界：000001 最后 close 恰在 01-03（>= after → 命中）
+    lc2 = load_last_close_dates(env.rd, ["000001"], before="2024-02-01",
+                                after="2024-01-03")
+    assert lc2["last_close"][0] == datetime.date(2024, 1, 3)
+    # 更晚下界 → 窗口内无 close → 缺席（不是 None 行）
+    lc3 = load_last_close_dates(env.rd, ["000001"], before="2024-02-01",
+                                after="2024-01-04")
+    assert lc3.height == 0
+    assert lc3.columns == ["code", "last_close"]
+
+
+def test_load_daily_tail_dates_counts_quote_rows(env):
+    """R02-I4：warm-start = start 前第 n 个最近**行情行**日期（停牌日不占行）。"""
+    from factorlab.adapters.read.source import load_daily_tail_dates
+    _seed_base(env)
+    tail = load_daily_tail_dates(env.rd, ["000001", "600519"],
+                                 before="2024-02-01", n=1)
+    got = {r["code"]: r["warm_start"] for r in tail.iter_rows(named=True)}
+    assert got == {"000001": datetime.date(2024, 1, 3),
+                   "600519": datetime.date(2024, 1, 2)}
+    tail2 = load_daily_tail_dates(env.rd, ["000001"], before="2024-02-01", n=2)
+    assert tail2["warm_start"][0] == datetime.date(2024, 1, 2)
+    # 历史行 < n：回落到最早一行（不缺席、不报错）
+    tail3 = load_daily_tail_dates(env.rd, ["600519"], before="2024-02-01", n=20)
+    assert tail3["warm_start"][0] == datetime.date(2024, 1, 2)
+    with pytest.raises(ValueError, match="n"):
+        load_daily_tail_dates(env.rd, ["000001"], before="2024-02-01", n=0)
+
+
+# ---------------------------------------------------------------
 # duckdb 文件语义（单腿）：只读并发 / 错误后无残留锁 / 缺失文件
 # ---------------------------------------------------------------
 

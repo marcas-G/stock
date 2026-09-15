@@ -50,18 +50,23 @@ def _amount(ci: int, i: int) -> float:
     return 1e6 * (1 + ci) + 1000.0 * i
 
 
-def _bars_rows(*, suspend: tuple | None = None, drop_one: tuple | None = None,
-               dup_index: bool = False):
+def _bars_rows(*, suspend=None, drop_one: tuple | None = None,
+               dup_index: bool = False, dates: list | None = None,
+               sample: list | None = None):
     """样本窗分钟网格：每 (code, 交易日) 恰 240 行；close[239] == 当日 daily close；
-    suspend = (symbol, date) 整日停牌（调用方已同步删 daily/adj）；drop_one =
-    (symbol, date) 去掉 mi=7 一行（239 网格）；dup_index 时该日 mi=8 改 7（重复）。"""
+    suspend = (symbol, date) 或 {(symbol, date)} 整日停牌（调用方已同步删
+    daily/adj）；drop_one = (symbol, date) 去掉 mi=7 一行（239 网格）；dup_index
+    时该日 mi=8 改 7（重复）。dates/sample 缺省为模块级 46 日总历/样本窗。"""
+    dates = dates if dates is not None else _DATES
+    sample = sample if sample is not None else _SAMPLE
+    sus = _suspend_set(suspend)
     rows = []
     for sym, ts, _b in _CODES:
         ci = [c[0] for c in _CODES].index(sym)
-        for d in _SAMPLE:
-            if suspend == (sym, d):
+        for d in sample:
+            if (sym, d) in sus:
                 continue
-            close = _close(ci, _DATES.index(d))
+            close = _close(ci, dates.index(d))
             mi_list = list(range(240))
             if drop_one == (sym, d) and not dup_index:
                 mi_list = mi_list[:7] + mi_list[8:]     # 缺 mi=7 → 239 行
@@ -77,22 +82,35 @@ def _bars_rows(*, suspend: tuple | None = None, drop_one: tuple | None = None,
     return rows
 
 
-def _seed(ch_db, *, suspend: tuple | None = None, drop_one: tuple | None = None,
-          dup_index: bool = False):
+def _suspend_set(suspend) -> frozenset:
+    """(symbol, date) | {(symbol, date)} | None → frozenset（停牌集合）。"""
+    if suspend is None:
+        return frozenset()
+    if isinstance(suspend, tuple):
+        return frozenset({suspend})
+    return frozenset(suspend)
+
+
+def _seed(ch_db, *, suspend=None, drop_one: tuple | None = None,
+          dup_index: bool = False, dates: list | None = None,
+          sample: list | None = None):
     """daily/adj_factor/stock_basic/trade_cal/bars_1m 全套一致种子（date 值
-    'YYYYMMDD' 字符串——dualbridge 'date' kind 契约）。"""
+    'YYYYMMDD' 字符串——dualbridge 'date' kind 契约）。suspend 支持单日或多日。"""
+    dates = dates if dates is not None else _DATES
+    sus = _suspend_set(suspend)
     client, db = ch_db
     daily_rows, adj_rows = [], []
     for sym, ts, _b in _CODES:
         ci = [c[0] for c in _CODES].index(sym)
-        for i, d in enumerate(_DATES):
-            if suspend == (sym, d):
+        for i, d in enumerate(dates):
+            if (sym, d) in sus:
                 continue
             c = _close(ci, i)
-            daily_rows.append((ts, _D[d], c - 0.4, c - 0.2, c - 0.6, c, c - 0.5,
+            daily_rows.append((ts, d.strftime("%Y%m%d"),
+                               c - 0.4, c - 0.2, c - 0.6, c, c - 0.5,
                                0.0, 0.0, 10000.0 + 1000.0 * ci + 100.0 * i,
                                _amount(ci, i)))
-            adj_rows.append((ts, _D[d], 1.0))
+            adj_rows.append((ts, d.strftime("%Y%m%d"), 1.0))
     tables = {
         "stock_basic": ([("symbol", "str"), ("ts_code", "str"),
                          ("exchange", "str"), ("list_date", "date"),
@@ -100,7 +118,7 @@ def _seed(ch_db, *, suspend: tuple | None = None, drop_one: tuple | None = None,
                         [("000001", "000001.SZ", "SZSE", "19910101", "银行"),
                          ("600519", "600519.SH", "SSE", "20010827", "白酒")]),
         "trade_cal": ([("cal_date", "date"), ("is_open", "i64")],
-                      [(_D[d], 1) for d in _DATES]),
+                      [(d.strftime("%Y%m%d"), 1) for d in dates]),
         "daily": ([("ts_code", "str"), ("trade_date", "date"), ("open", "f64"),
                    ("high", "f64"), ("low", "f64"), ("close", "f64"),
                    ("pre_close", "f64"), ("change", "f64"), ("pct_chg", "f64"),
@@ -114,14 +132,15 @@ def _seed(ch_db, *, suspend: tuple | None = None, drop_one: tuple | None = None,
                      ("close", "f32"), ("amount", "f64"), ("volume", "f64"),
                      ("datetime", "datetime")],
                     _bars_rows(suspend=suspend, drop_one=drop_one,
-                               dup_index=dup_index)),
+                               dup_index=dup_index, dates=dates, sample=sample)),
     }
     dualbridge.seed_ch(client, db, tables)
 
 
 def _spec(tmp_path, name: str, formula: str, *, interface: str = "bars_1m",
           adjustment: str = "raw", outputs: str | None = None,
-          pool: bool = False):
+          pool: bool = False, sample: list | None = None):
+    sample = sample if sample is not None else _SAMPLE
     path = tmp_path / f"{name}.yaml"
     universe = ("  formula: close > 15" if pool
                 else '  codes: ["000001.SZ", "600519.SH"]')
@@ -136,8 +155,8 @@ adjustment: {adjustment}
 universe:
 {universe}
 date:
-  start: "{_SAMPLE[0].isoformat()}"
-  end: "{_SAMPLE[-1].isoformat()}"
+  start: "{sample[0].isoformat()}"
+  end: "{sample[-1].isoformat()}"
 {f"outputs: [{outputs}]" if outputs else ""}
 formula: |
 {body}
@@ -264,6 +283,40 @@ d = day_amt
         assert row[5] == pytest.approx(_amount(ci, i), rel=1e-5)  # day_amt
         want_adv = sum(_amount(ci, j) for j in range(i - 19, i + 1)) / 20
         assert row[2] == pytest.approx(want_adv, rel=1e-4)        # adv20_amt
+
+
+def test_minute_adv20_covers_suspension_beyond_calendar_window(ch_db, tmp_path):
+    """R02-I4：停牌使固定 20 交易日左窗内行情行 < 20 时，adv20 仍按 20 个**有行情**
+    交易日均值（左窗按行情行数补足）——不得恒 null；prev_close = 停牌前最后行情。
+
+    Fixture：60 交易日全历，样本 = dates[40:46]；000001 停牌 dates[30:40]（10 日）——
+    旧实现固定左窗 dates[20:40] 内 000001 仅 10 个行情行 → adv20 null；按行情行数
+    补足后左窗回到 dates[10]（20 个行情行 dates[10..29]）。
+    """
+    dates = _bizdays(dt.date(2023, 9, 1), 60)
+    sample = dates[40:46]
+    _seed(ch_db, suspend={("000001", d) for d in dates[30:40]},
+          dates=dates, sample=sample)
+    spec = _spec(tmp_path, "i4", """
+a = adv20_amt
+p = prev_close
+""", outputs="a,p", sample=sample)
+    res = run_factor_minute(spec, _ctx(tmp_path / "out_i4"))
+    ts_by_code = [ts for _sym, ts, _b in _CODES]
+    for row in res.panel.sort(["date", "code"]).select(
+            ["date", "code", "a", "p"]).iter_rows():
+        date, code, adv, prev = row
+        ci = ts_by_code.index(code)
+        i = dates.index(date)
+        if code == "000001.SZ":
+            quote_idx = [j for j in range(0, i + 1) if not (30 <= j < 40)]
+        else:
+            quote_idx = list(range(0, i + 1))
+        last20 = quote_idx[-20:]
+        assert len(last20) == 20
+        want_adv = sum(_amount(ci, j) for j in last20) / 20
+        assert adv == pytest.approx(want_adv, rel=1e-4)      # 旧实现此处为 None
+        assert prev == pytest.approx(_close(ci, quote_idx[-2]), rel=1e-5)
 
 
 # ---------------- B4.1 网格断言（fail fast） ----------------

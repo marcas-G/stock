@@ -36,7 +36,7 @@ from factorlab.adapters.read.attributes import attributes_visible, load_code_att
 from factorlab.app.bootstrap import open_read
 from factorlab.ports.read import ReadPort
 from factorlab.adapters.read.calendar import chunk_calendar, trading_calendar
-from factorlab.adapters.read.source import load_daily
+from factorlab.adapters.read.source import load_daily, load_daily_tail_dates
 from factorlab.adapters.read.universe import (align_to_listing, resolve_candidate_codes,
                                      resolve_universe_frame)
 from factorlab.core.process.registry import run_process_chain
@@ -662,12 +662,14 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
             raise ValueError("日期段无数据，可运行 data refresh（M3b）")
         uf = resolve_universe_frame(spec, rd, dates=cal.to_list(),
                                     candidate_codes=codes)
-        # adv20 左窗：spec.start 在（以 spec.end 截断的）交易全历中的位置 − 20
-        full_cal = trading_calendar(rd, date_start=None, date_end=spec.date.end)
-        full_cal = full_cal.filter(full_cal <= today)
+        # R02-I4：adv20 左窗按「有行情行数」补足——每 code 取 start 前第 20 个
+        # 最近行情行日期，min 作为 warm 起点。固定「start−20 交易日」窗口在长
+        # 停牌股上行情行 < 20 → rolling_mean 恒 null，违反契约（20 个**有行情**
+        # 交易日均值；停牌日跳过——修订 R2）；prev_close 同口径（停牌前最后行情）。
         start_d = datetime.date.fromisoformat(spec.date.start)
-        pos = int(full_cal.search_sorted(start_d))
-        warm_start = full_cal[max(0, pos - _ADV20_LEFT_DAYS)]
+        tail = load_daily_tail_dates(rd, codes, before=start_d.isoformat(),
+                                     n=_ADV20_LEFT_DAYS)
+        warm_start = tail["warm_start"].min() if tail.height else start_d
         if ctx.chunk_days is None:
             chunks = [(cal[0], cal[-1])]    # 单块整段（minute 窗不跨日，无 warmup）
         else:
