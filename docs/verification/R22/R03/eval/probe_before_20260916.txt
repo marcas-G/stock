@@ -1,0 +1,35 @@
+# R03 评估链路 findings 复现 — BEFORE 修复（HEAD f55befa，2026-09-16）
+# 命令: platform/.venv/bin/python docs/verification/R22/R03/eval/probe_r03_eval.py 2>&1 | tee docs/verification/R22/R03/eval/probe_before_20260916.txt
+# 结论: I2 coverage total_rows=118(过滤后)/pct_valid=1.0（期望 total=120, pct≈0.9833）
+#       I3 groups 0,1,2,4,5,6=NaN spread=nan notes=[] 无告警
+#       M1 ImportError（expr_codegen exec 深层裸堆栈，无指引）
+
+2026-09-16 01:40:01.024 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 01:40:01.084 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+=== R03-I2: coverage vs signal_null_ratio ===
+panel rows=120 signal_null_ratio=0.0083
+coverage={'pct_valid': 1.0, 'total_rows': 118, 'valid_rows': 118}  (期望 total=120, valid≈118, pct_valid≈0.9833)
+
+=== R03-I3: tie-heavy 信号分层静默 NaN ===
+decile groups:
+  group=0 mean_ret=nan
+  group=1 mean_ret=nan
+  group=2 mean_ret=nan
+  group=3 mean_ret=2.95e-05
+  group=4 mean_ret=nan
+  group=5 mean_ret=nan
+  group=6 mean_ret=nan
+  group=7 mean_ret=0.0010695
+  group=8 mean_ret=0.002087
+  group=9 mean_ret=0.003097
+spread=nan monotonic=True
+layered empty_groups=[]
+notes=[]
+degenerate_groups=None
+
+=== R03-M1: 误 import 平台宏 ===
+compute_formula: ImportError: cannot import name 'returns' from 'polars_ta.prefix.wq' (/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars_ta/prefix/wq.py)
+traceback tail:
+      ~~~~^^^^^^^^^^^^^^^^
+    File "<string>", line 46, in <module>
+  ImportError: cannot import name 'returns' from 'polars_ta.prefix.wq' (/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars_ta/prefix/wq.py)

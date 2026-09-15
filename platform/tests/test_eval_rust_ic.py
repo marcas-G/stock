@@ -56,13 +56,49 @@ def test_evaluate_factor_weekly_missing_columns():
 def test_evaluate_factor_weekly_null_rows_filtered():
     # quant_core 拒绝 None（实测 TypeError）；桥接层须过滤 null 行。
     # 停牌补全（signal null）与尾部无未来数据（forward null）是真实管线常态。
+    # R03-I2：coverage 以**过滤前**对齐面板为口径——null 行计入 total 不计入 valid，
+    # 恒 1.0 的旧口径与同一 summary 的 signal_null_ratio 矛盾（误导）。
     rows = _panel().to_dicts()
     rows[5]["signal"] = None                      # 周内一只停牌股
     rows[-1]["forward_return_5d"] = None          # 最后一周无未来收益
     result = evaluate_factor_weekly(pl.DataFrame(rows), "demo", 1)
     assert result["n_weeks"] == 12
-    assert result["coverage"]["pct_valid"] == 1.0  # null 在桥接层过滤，quant_core 所见全有效
+    assert result["coverage"]["total_rows"] == 120
+    assert result["coverage"]["valid_rows"] == 118
+    assert result["coverage"]["pct_valid"] == pytest.approx(118 / 120, abs=1e-4)
     assert result["ic"]["mean"] == result["ic"]["mean"]
+
+
+def test_evaluate_factor_weekly_coverage_matches_signal_null_ratio():
+    # R03-I2：含 null 信号行的面板 → pct_valid ≈ 1 - null_ratio（不是恒 1.0）
+    rows = _panel().to_dicts()
+    for i in (0, 13, 27, 41, 55, 69, 83, 97, 111, 119):
+        rows[i]["signal"] = None
+    panel = pl.DataFrame(rows)
+    result = evaluate_factor_weekly(panel, "demo", 1)
+    null_ratio = panel["signal"].null_count() / panel.height
+    assert null_ratio == pytest.approx(10 / 120)
+    assert result["coverage"]["total_rows"] == 120
+    assert result["coverage"]["valid_rows"] == 110
+    assert result["coverage"]["pct_valid"] == pytest.approx(1 - null_ratio, abs=1e-4)
+    assert result["coverage"]["pct_valid"] < 1.0
+
+
+def test_evaluate_factor_weekly_coverage_all_valid():
+    # 对照：全有效面板 → pct_valid = 1.0（修复不得把所有面板都报出缺失）
+    result = evaluate_factor_weekly(_panel(), "demo", 1)
+    assert result["coverage"] == {"pct_valid": 1.0, "total_rows": 120, "valid_rows": 120}
+
+
+def test_evaluate_factor_weekly_coverage_nan_counts_invalid():
+    # NaN 不属 null 但 kernel 内部 is_finite 过滤——coverage 口径必须与
+    # 实际进入统计的行一致（NaN 行不计 valid）
+    rows = _panel().to_dicts()
+    rows[3]["signal"] = float("nan")
+    result = evaluate_factor_weekly(pl.DataFrame(rows), "demo", 1)
+    assert result["coverage"]["total_rows"] == 120
+    assert result["coverage"]["valid_rows"] == 119
+    assert result["coverage"]["pct_valid"] == pytest.approx(119 / 120, abs=1e-4)
 
 
 def test_evaluate_factor_weekly_empty_panel():

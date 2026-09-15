@@ -1,0 +1,8 @@
+# R03-I2 after-fix 真实数据实证（HEAD 工作区，2026-09-16）
+# 命令: platform/.venv/bin/python docs/verification/R22/R03/eval/probe_i2_real_extcnt.py 2>&1 | tee docs/verification/R22/R03/eval/probe_i2_real_extcnt_after.txt
+
+weekly rows        = 934236
+weekly signal_null_ratio = 0.0324
+coverage (after)   = {'pct_valid': 0.9599, 'total_rows': 934236, 'valid_rows': 896750}
+coverage (summary, before-fix run) = {'pct_valid': 1.0, 'total_rows': 896750, 'valid_rows': 896750}
+daily signal_null_ratio (summary)  = 0.0335

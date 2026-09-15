@@ -61,7 +61,8 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   默认 `qfq`）决定因子计算所用价格口径（`view_prices`，见 §4）；前向收益恒用
   **total_return 口径**（raw close×adj，先于复权视图计算、避免二次复权）。
 - **eval 包**（`factorlab.core.eval`）：`alignment.align_weekly`（ISO 周最后交易日
-  对齐）、`metrics.coverage_report`（覆盖率）；`rust_ic.evaluate_factor_weekly`
+  对齐）、`metrics.coverage_report`（覆盖率；valid = signal 非 null 且有限，
+  `target_col` 给定时 target 同样要求——调用方在过滤前计算，R03-I2）；`rust_ic.evaluate_factor_weekly`
   （`quant_core` 周频评估桥接，见 §4）在 `factorlab.adapters.rust_ic`（R8 分层：纯计算
   在 core、I/O 与内核桥接在 adapters）。
 - **`default_universe` 接线**：`factorlab run` 缺省 `--universe` 时回落
@@ -941,7 +942,13 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
 - `signal`/`target` 为 null 的行在桥接层**过滤**（quant_core 拒绝 Python `None`，
   实测 `TypeError: must be real number`）；停牌补全行与尾部无未来数据的 forward
   行均不进入评估。`NaN` 不属 null，quant_core 容忍（实测）。
-- 空面板（列齐全）不报错，透传后返回全 `nan` 结构（`n_weeks == 0`）。
+- **coverage 口径（R03-I2）**：以**过滤前**对齐面板计算——`total_rows` 含全部行，
+  `valid_rows` 只计 signal/target 非 null 且有限（`is_finite`）的行，`pct_valid` 与
+  同一 summary 的 `signal_null_ratio` 可对账。kernel 只见过滤后的行、自身 coverage
+  恒 1.0，桥接层以 kernel 形状覆盖返回值；`quant_core.evaluate_factor` 直调的
+  coverage 契约不变（shim 契约）。
+- 空面板（列齐全）不报错，透传后返回全 `nan` 结构（`n_weeks == 0`；coverage
+  `pct_valid=0.0`、`total_rows=0`）。
 - 列检查先于周频对齐：缺列的裸 `date`/`code` 空表（Null dtype）也报 `ValueError`，
   而非 polars dtype 错误。
 - `direction` 原样透传为 int（`0` 实测按 `-1` 处理，属 quant_core 内部语义，桥接层

@@ -94,3 +94,30 @@ def test_coverage_report():
 def test_coverage_report_empty():
     report = coverage_report(pl.DataFrame({"date": [], "code": [], "signal": []}))
     assert report["pct_valid"] == 0.0
+
+
+def test_coverage_report_counts_nan_invalid():
+    # R03-I2：valid = 非 null 且有限（NaN 不进 kernel 统计，不得计入 valid）
+    df = pl.DataFrame({
+        "date": [datetime.date(2024, 1, 5)] * 3,
+        "code": ["A", "B", "C"],
+        "signal": [1.0, float("nan"), None],
+    })
+    report = coverage_report(df)
+    assert report["total_rows"] == 3
+    assert report["valid_rows"] == 1
+    assert report["pct_valid"] == pytest.approx(1 / 3, abs=1e-3)
+
+
+def test_coverage_report_target_col_requires_target_valid():
+    # R03-I2：target_col 给定时 valid 还需 target 非 null 且有限
+    df = pl.DataFrame({
+        "date": [datetime.date(2024, 1, 5)] * 4,
+        "code": ["A", "B", "C", "D"],
+        "signal": [1.0, None, float("nan"), 2.0],
+        "forward_return_5d": [0.1, 0.2, 0.3, None],
+    })
+    report = coverage_report(df, "signal", target_col="forward_return_5d")
+    assert report["total_rows"] == 4
+    assert report["valid_rows"] == 1
+    assert report["pct_valid"] == 0.25

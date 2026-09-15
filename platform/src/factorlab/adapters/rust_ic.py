@@ -3,6 +3,7 @@ from __future__ import annotations
 import polars as pl
 
 from factorlab.core.eval.alignment import align_weekly
+from factorlab.core.eval.metrics import coverage_report
 
 
 def evaluate_factor_weekly(
@@ -21,6 +22,10 @@ def evaluate_factor_weekly(
     - signal/target 为 null 的行在桥接层过滤——quant_core 拒绝 None
       （实测 TypeError: must be real number）；停牌补全行与尾部无未来数据的
       forward 行均属此列，不会进入评估。NaN 不属 null，quant_core 容忍（实测）。
+    - coverage（R03-I2）：以**过滤前**对齐面板为口径——total 含全部行，
+      valid 只计 signal/target 非 null 且有限的行，再以 kernel 形状
+      （pct_valid/total_rows/valid_rows）覆盖返回值。kernel 只见过滤后的行、
+      自身 coverage 恒为 1.0，直接透传会与同一 summary 的 signal_null_ratio 矛盾。
     - 空面板（列齐全）直接透传，quant_core 返回全 nan 结构（实测不崩溃）。
     - direction 原样透传 int（约定 1/-1；0 实测按 -1 处理，属 quant_core 内部语义）。
     - weekly：调用方已对齐的周频面板（如 CLI 的 align_weekly 结果）——重复对齐
@@ -34,6 +39,7 @@ def evaluate_factor_weekly(
         raise ValueError(f"评估面板缺少列: {sorted(missing)}")
 
     weekly = align_weekly(panel) if weekly is None else weekly
+    coverage = coverage_report(weekly, "signal", target_col=target)
     weekly = weekly.filter(pl.col("signal").is_not_null() & pl.col(target).is_not_null())
 
     dates = weekly["date"].dt.strftime("%Y-%m-%d").to_list()
@@ -46,6 +52,11 @@ def evaluate_factor_weekly(
     # 调用方 target 权威覆盖（target 由平台传列值，非内核列名耦合；见
     # docs/superpowers/specs/2026-09-07-factorlab-daily-closeout-design.md §4.3）
     result["target"] = target
+    result["coverage"] = {
+        "pct_valid": coverage["pct_valid"],
+        "total_rows": coverage["total_rows"],
+        "valid_rows": coverage["valid_rows"],
+    }
     return result
 
 
