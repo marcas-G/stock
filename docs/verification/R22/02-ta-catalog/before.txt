@@ -1,0 +1,34 @@
+$ cd platform && .venv/bin/python -m pytest tests/test_op_classification.py -q
+...........FFF                                                           [100%]
+=================================== FAILURES ===================================
+___________________ test_generated_ta_catalog_is_up_to_date ____________________
+
+    def test_generated_ta_catalog_is_up_to_date():
+        r = subprocess.run([sys.executable, str(ROOT / "scripts/gen_op_catalog.py"), "--check"],
+                           capture_output=True, text=True)
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: /data/students/gaolei/stock/platform/.venv/bin/python: can't open file '/data/students/gaolei/stock/platform/scripts/gen_op_catalog.py': [Errno 2] No such file or directory
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '/data/students/gaolei/stock/platform/...n't open file '/data/students/gaolei/stock/platform/scripts/gen_op_catalog.py': [Errno 2] No such file or directory\n").returncode
+
+tests/test_op_classification.py:91: AssertionError
+_________________________ test_ta_catalog_key_entries __________________________
+
+    def test_ta_catalog_key_entries():
+>       from factorlab.core.ops._generated_ta_ops import build_ta_catalog
+E       ModuleNotFoundError: No module named 'factorlab.core.ops._generated_ta_ops'
+
+tests/test_op_classification.py:95: ModuleNotFoundError
+__________________________ test_ta_catalog_size_floor __________________________
+
+    def test_ta_catalog_size_floor():
+>       from factorlab.core.ops._generated_ta_ops import build_ta_catalog
+E       ModuleNotFoundError: No module named 'factorlab.core.ops._generated_ta_ops'
+
+tests/test_op_classification.py:119: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/test_op_classification.py::test_generated_ta_catalog_is_up_to_date
+FAILED tests/test_op_classification.py::test_ta_catalog_key_entries - ModuleN...
+FAILED tests/test_op_classification.py::test_ta_catalog_size_floor - ModuleNo...
+3 failed, 11 passed in 0.80s
