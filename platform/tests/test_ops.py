@@ -1,3 +1,4 @@
+import sys
 import textwrap
 
 import polars as pl
@@ -233,3 +234,188 @@ def test_builtin_override_rejected_before_import_without_force(tmp_path):
     assert not marker.exists(), "冲突检查在 import 之后（插件副作用已执行）"
     assert registry.get_op("ts_mean") == before, "内建 ts_mean 被插件静默替换"
     assert not registry.has_op("ts_new_probe")
+
+
+# ---------- R02-I7：插件 import 别名/动态注册的冲突前移与失败回滚 ----------
+
+
+def test_alias_import_override_rejected_before_import_without_force(tmp_path):
+    """R02-I7：`factor_op as fop` 别名形态必须与字面形态同等在 import 前拒绝。
+
+    历史缺陷（probe 实测）：AST 只认 `factor_op`/`register_op` 字面调用名 → 别名
+    形态 declared=[]，import 先执行（副作用发生、内建被替换、新算子残留），随后才
+    发现冲突且无回滚。修复 = AST 解析 import 别名，冲突预检恢复前移。
+    """
+    registry.reset_registry()
+    from factorlab.core.ops.registration import ensure_all_ops_registered
+    ensure_all_ops_registered()
+    before = registry.get_op("ts_mean")
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    marker = tmp_path / "alias_executed"
+    path = plugin_dir / "alias_ops.py"
+    path.write_text(textwrap.dedent(f'''
+        from pathlib import Path
+        import polars as pl
+        from factorlab.core.ops.registry import factor_op as fop
+
+        Path("{marker}").write_text("executed", encoding="utf-8")
+
+        @fop("ts_mean", kind="ts", version="9.9.9")
+        def ts_mean(x: pl.Expr, d: int = 1) -> pl.Expr:
+            return x * 0
+
+        @fop("ts_alias_new", kind="ts", version="0.1.0")
+        def ts_alias_new(x: pl.Expr, d: int = 1) -> pl.Expr:
+            return x - d
+    '''), encoding="utf-8")
+    with pytest.raises(ValueError, match="已存在"):
+        plugins.add_plugin(path, plugin_dir=plugin_dir, force=False)
+    assert not marker.exists(), "别名冲突在 import 之后才发现（插件副作用已执行）"
+    assert registry.get_op("ts_mean") == before, "内建 ts_mean 被别名插件替换且未回滚"
+    assert not registry.has_op("ts_alias_new"), "别名插件新增注册残留"
+    assert not (plugin_dir / "manifest.json").exists()
+
+
+def test_dynamic_registration_conflict_rolls_back_registry(tmp_path):
+    """R02-I7：静态不可判定的动态名冲突 → import 后回滚**整个注册面**再抛错。
+
+    回滚覆盖面：被覆盖算子恢复、新增注册清除、别名映射恢复、源模块登记清除、
+    sys.modules 合成模块条目清除、清单/文件不落盘。
+    """
+    registry.reset_registry()
+    from factorlab.core.ops.registration import ensure_all_ops_registered
+    ensure_all_ops_registered()
+    before = registry.get_op("ts_mean")
+    before_cs_demean = registry.get_op("cs_demean")
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    path = tmp_path / "dyn_ops.py"
+    path.write_text(textwrap.dedent('''
+        import polars as pl
+        from factorlab.core.ops.registry import factor_op
+
+        NAME = "ts_" + "mean"
+        NEW = "ts_dyn_new"
+
+        @factor_op(NAME, kind="ts", version="9.9.9")
+        def ts_mean(x: pl.Expr, d: int = 1) -> pl.Expr:
+            return x * 0
+
+        @factor_op(NEW, kind="ts", version="0.1.0")
+        def ts_dyn_new(x: pl.Expr, d: int = 1) -> pl.Expr:
+            return x - d
+
+        @factor_op("ts_alias_steal", kind="ts", version="0.1.0",
+                   aliases=("cs_demean",))
+        def ts_alias_steal(x: pl.Expr, d: int = 1) -> pl.Expr:
+            return x - d
+    '''), encoding="utf-8")
+    with pytest.raises(ValueError, match="已存在"):
+        plugins.add_plugin(path, plugin_dir=plugin_dir, force=False)
+    assert registry.get_op("ts_mean") == before, "被覆盖内建未回滚"
+    assert registry.get_op("cs_demean") == before_cs_demean, "别名映射未回滚"
+    assert not registry.has_op("ts_dyn_new"), "新增注册未清除"
+    assert not registry.has_op("ts_alias_steal"), "别名窃取注册未清除"
+    assert "factorlab_plugin_dyn_ops" not in sys.modules, "合成模块条目未清除"
+    assert not (plugin_dir / "manifest.json").exists()
+    assert not (plugin_dir / "dyn_ops.py").exists()
+
+
+def test_alias_import_new_operator_accepted(tmp_path):
+    """R02-I7 负向控制：别名解析不得把合规的新算子误拒（门只拦真冲突）。"""
+    registry.reset_registry()
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    path = plugin_dir / "alias_ok.py"
+    path.write_text(textwrap.dedent('''
+        import polars as pl
+        from factorlab.core.ops.registry import factor_op as fop
+
+        @fop("ts_alias_ok", kind="ts", version="0.1.0")
+        def ts_alias_ok(x: pl.Expr, d: int = 1) -> pl.Expr:
+            return x - d
+    '''), encoding="utf-8")
+    assert plugins.add_plugin(path, plugin_dir=plugin_dir) == ["ts_alias_ok"]
+    assert registry.get_op("ts_alias_ok").version == "0.1.0"
+
+
+def test_named_const_registration_rejected_before_import(tmp_path):
+    """R02-I7 前移：单一赋值的字符串常量（`NAME = "ts_mean"`）按动态形态静态折叠。"""
+    registry.reset_registry()
+    from factorlab.core.ops.registration import ensure_all_ops_registered
+    ensure_all_ops_registered()
+    before = registry.get_op("ts_mean")
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    marker = tmp_path / "named_executed"
+    path = plugin_dir / "named_ops.py"
+    path.write_text(textwrap.dedent(f'''
+        from pathlib import Path
+        import polars as pl
+        from factorlab.core.ops.registry import factor_op
+
+        Path("{marker}").write_text("executed", encoding="utf-8")
+        NAME = "ts_mean"
+
+        @factor_op(NAME, kind="ts", version="9.9.9")
+        def ts_mean(x: pl.Expr, d: int = 1) -> pl.Expr:
+            return x * 0
+    '''), encoding="utf-8")
+    with pytest.raises(ValueError, match="已存在"):
+        plugins.add_plugin(path, plugin_dir=plugin_dir, force=False)
+    assert not marker.exists(), "命名常量冲突未前移（副作用已执行）"
+    assert registry.get_op("ts_mean") == before
+
+
+def test_dynamic_override_allowed_with_force(tmp_path):
+    """R02-I7：--force 语义 = 明确允许覆盖（不回滚）；动态名/内建替换同样适用。"""
+    registry.reset_registry()
+    from factorlab.core.ops.registration import ensure_all_ops_registered
+    ensure_all_ops_registered()
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    path = plugin_dir / "dyn_force.py"
+    path.write_text(textwrap.dedent('''
+        import polars as pl
+        from factorlab.core.ops.registry import factor_op
+
+        NAME = "ts_" + "mean"
+
+        @factor_op(NAME, kind="ts", version="9.9.9")
+        def ts_mean(x: pl.Expr, d: int = 1) -> pl.Expr:
+            return x * 0
+
+        @factor_op("ts_force_new", kind="ts", version="0.1.0")
+        def ts_force_new(x: pl.Expr, d: int = 1) -> pl.Expr:
+            return x - d
+    '''), encoding="utf-8")
+    names = plugins.add_plugin(path, plugin_dir=plugin_dir, force=True)
+    assert names == ["ts_force_new"]
+    assert registry.get_op("ts_mean").version == "9.9.9", "--force 覆盖未生效"
+    assert registry.get_op("ts_force_new").version == "0.1.0"
+
+
+def test_plugin_import_error_rolls_back_partial_registrations(tmp_path):
+    """R02-I7：插件 import 中途抛错 → 部分注册与 sys.modules 条目一并回滚。"""
+    registry.reset_registry()
+    from factorlab.core.ops.registration import ensure_all_ops_registered
+    ensure_all_ops_registered()
+    before_ops = {op.name: op for op in registry.list_ops()}
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    path = plugin_dir / "broken_ops.py"
+    path.write_text(textwrap.dedent('''
+        import polars as pl
+        from factorlab.core.ops.registry import factor_op
+
+        @factor_op("ts_partial_probe", kind="ts", version="0.1.0")
+        def ts_partial_probe(x: pl.Expr) -> pl.Expr:
+            return x
+
+        raise RuntimeError("boom")
+    '''), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="boom"):
+        plugins.add_plugin(path, plugin_dir=plugin_dir, force=False)
+    assert {op.name: op for op in registry.list_ops()} == before_ops
+    assert "factorlab_plugin_broken_ops" not in sys.modules

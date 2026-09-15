@@ -50,27 +50,96 @@ _FORBIDDEN_NAMES = frozenset({"__builtins__"})
 _FORBIDDEN_CALLS = frozenset({"eval", "exec", "open", "compile", "__import__"})
 
 
-def _literal_plugin_ops(tree: ast.AST) -> list[tuple[str, str | None]]:
-    """静态提取插件声明的算子 (name, kind)——仅字面量实参/关键字。
+# 算子注册入口（插件仅这两种合法写法；包装后调用名可能是任意别名，见下）。
+_REGISTRATION_CALLS = frozenset({"factor_op", "register_op"})
 
-    动态注册（名字非常量）无法静态提取，由 import 后的兜底检查负责。
+
+def _registration_aliases(tree: ast.AST) -> dict[str, str]:
+    """注册入口的本地别名表：本地名 → `factor_op`/`register_op`/`registry`。
+
+    - `from ...registry import factor_op as fop` → {"fop": "factor_op"}
+    - `from ... import registry as reg` / `import ...registry as reg` → {"reg": "registry"}
+    - `fop = factor_op` / `fop = registry.factor_op` → {"fop": "factor_op"}
+
+    R02-I7 动机：不解析别名则 declared=[]，import（副作用/覆盖）先于冲突检查执行；
+    解析后别名形态与字面形态同等前移。
     """
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                local = alias.asname or alias.name
+                tail = alias.name.rsplit(".", 1)[-1]
+                if tail in _REGISTRATION_CALLS or tail == "registry":
+                    aliases[local] = tail
+        elif (isinstance(node, ast.Assign) and len(node.targets) == 1
+              and isinstance(node.targets[0], ast.Name)):
+            value = node.value
+            callee = value.id if isinstance(value, ast.Name) else getattr(value, "attr", "")
+            canonical = aliases.get(callee, callee)
+            if canonical in _REGISTRATION_CALLS:
+                aliases[node.targets[0].id] = canonical
+    return aliases
+
+
+def _single_str_consts(tree: ast.AST) -> dict[str, str]:
+    """单一赋值的字符串常量（`NAME = "ts_mean"`）→ 可静态折叠的注册名。
+
+    仅当名字在整棵树中恰好赋值一次且右值为字符串字面量时收录；多赋值/条件赋值有
+    歧义，宁可不解析（由 import 后快照回滚兜底）。
+    """
+    counts: dict[str, int] = {}
+    values: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            targets = [t for t in node.targets if isinstance(t, ast.Name)]
+            value = _literal_str(node.value)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            targets = [node.target]
+            value = _literal_str(node.value) if node.value is not None else None
+        else:
+            continue
+        for target in targets:
+            counts[target.id] = counts.get(target.id, 0) + 1
+            if value is None:
+                values.pop(target.id, None)
+            else:
+                values[target.id] = value
+    return {name: value for name, value in values.items() if counts.get(name) == 1}
+
+
+def _resolve_str(node: ast.expr, consts: dict[str, str]) -> str | None:
+    literal = _literal_str(node)
+    if literal is not None:
+        return literal
+    return consts.get(node.id) if isinstance(node, ast.Name) else None
+
+
+def _literal_plugin_ops(tree: ast.AST) -> list[tuple[str, str | None]]:
+    """静态提取插件声明的算子 (name, kind)——解析 import/赋值别名与单赋值常量。
+
+    动态注册（运行期拼接的名字）无法静态判定，由 import 后的兜底检查负责；但
+    字面量、别名、单一赋值命名常量三种形态都在 import 前完成冲突预检（R02-I7）。
+    """
+    aliases = _registration_aliases(tree)
+    consts = _single_str_consts(tree)
     declared: list[tuple[str, str | None]] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         func = node.func
-        fname = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
-        if fname not in {"factor_op", "register_op"}:
+        callee = (aliases.get(func.id, func.id) if isinstance(func, ast.Name)
+                  else getattr(func, "attr", ""))
+        if callee not in _REGISTRATION_CALLS:
             continue
-        name = _literal_str(node.args[0]) if node.args else None
+        name = _resolve_str(node.args[0], consts) if node.args else None
         if name is None:
             kw = next((k.value for k in node.keywords if k.arg == "name"), None)
-            name = _literal_str(kw) if kw is not None else None
-        kind = next((_literal_str(k.value) for k in node.keywords
-                     if k.arg == "kind" and _literal_str(k.value)), None)
+            name = _resolve_str(kw, consts) if kw is not None else None
+        kind = next((_resolve_str(k.value, consts) for k in node.keywords
+                     if k.arg == "kind"), None)
         if kind is None and len(node.args) > 1:
-            kind = _literal_str(node.args[1])
+            kind = _resolve_str(node.args[1], consts)
         if name:
             declared.append((name, kind))
     return declared
@@ -143,36 +212,48 @@ def add_plugin(path: str | Path, plugin_dir: Path, force: bool = False) -> list[
     manifest = _load_manifest(plugin_dir)
     existing = {item["name"] for item in manifest["operators"]}
 
-    # I3（R01-ENG-I3）：冲突检查**前移到 import 之前**——静态声明名与注册表
-    # （内建/已加载插件）及清单比对；未 --force 时在插件副作用执行前拒绝。
-    # 此前 import 先执行：`@factor_op("ts_mean", ...)` 会先替换内建、随后才发现
-    # 冲突（实测 ts_mean 版本变 9.9.9）。
+    # I3（R01-ENG-I3）+ R02-I7：冲突检查**前移到 import 之前**——静态声明名（含
+    # import 别名/命名常量的动态形态）与注册表（内建/已加载插件）及清单比对；
+    # 未 --force 时在插件副作用执行前拒绝。此前 import 先执行：
+    # `@factor_op("ts_mean", ...)` 会先替换内建、随后才发现冲突（实测 ts_mean 版本
+    # 变 9.9.9）；别名/运行期拼接名更会带着被污染的 registry 抛错且无回滚。
     declared_conflicts = sorted({name for name in declared
                                  if registry.has_op(name) or name in existing})
     if declared_conflicts and not force:
         raise ValueError(f"算子已存在: {declared_conflicts}，使用 --force 覆盖")
 
     before_defs = {op.name: op for op in registry.list_ops()}
-    module_name = _import_plugin(source_path)
-    new_names = {op.name for op in registry.list_ops()} - before_defs.keys()
-    # 兜底命名门：动态注册（名字非常量）绕过 AST 扫描时在此拦截（宁报错不静默）
-    for name in sorted(new_names):
-        error = registry.plugin_naming_error(name, registry.get_op(name).kind)
-        if error:
-            raise ValueError(f"插件 {error}")
-    # 兜底冲突检查：动态注册覆盖已注册算子（声明名非常量，静态预检无法发现）
-    overwritten = {name for name, prev in before_defs.items()
-                   if registry.get_op(name) != prev and name not in new_names}
-    registry.mark_source_module(new_names, module_name)
+    # R02-I7 兜底：运行期拼接等静态不可判定的注册名只能在 import 后暴露冲突。
+    # import 前取注册面快照，非 --force 拒绝时回滚（被覆盖算子恢复/新增注册清除/
+    # 别名映射恢复/sys.modules 合成模块清除），保证拒绝路径零污染。
+    snapshot = registry.snapshot_registry()
+    module_name: str | None = None
+    try:
+        module_name = _import_plugin(source_path)
+        new_names = {op.name for op in registry.list_ops()} - before_defs.keys()
+        # 兜底命名门：动态注册（名字非常量）绕过 AST 扫描时在此拦截（宁报错不静默）
+        for name in sorted(new_names):
+            error = registry.plugin_naming_error(name, registry.get_op(name).kind)
+            if error:
+                raise ValueError(f"插件 {error}")
+        # 兜底冲突检查：动态注册覆盖已注册算子（声明名非常量，静态预检无法发现）
+        overwritten = {name for name, prev in before_defs.items()
+                       if registry.get_op(name) != prev and name not in new_names}
+        registry.mark_source_module(new_names, module_name)
 
-    conflicts = (new_names & existing) | overwritten
-    if conflicts and not force:
-        raise ValueError(f"算子已存在: {sorted(conflicts)}，使用 --force 覆盖")
-    if not new_names:
-        if force and existing:
-            new_names = existing
-        else:
-            raise ValueError("插件未注册任何新算子")
+        conflicts = (new_names & existing) | overwritten
+        if conflicts and not force:
+            raise ValueError(f"算子已存在: {sorted(conflicts)}，使用 --force 覆盖")
+        if not new_names:
+            if force and existing:
+                new_names = existing
+            else:
+                raise ValueError("插件未注册任何新算子")
+    except BaseException:
+        # exec_module 中途抛错时 module_name 尚未赋值——按确定性合成名兜底清除
+        sys.modules.pop(module_name or plugin_module_name(source_path), None)
+        registry.restore_registry(snapshot)
+        raise
 
     dest = plugin_dir / source_path.name
     if source_path.resolve() != dest.resolve():

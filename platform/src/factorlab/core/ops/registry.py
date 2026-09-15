@@ -45,6 +45,26 @@ def reset_registry() -> None:
     _bump_revision()
 
 
+def snapshot_registry() -> tuple[dict[str, OperatorDef], dict[str, str]]:
+    """注册面快照（算子表 + 别名表；OperatorDef 不可变，浅拷贝即可精确还原）。
+
+    用途（R02-I7）：插件 import 会先执行副作用、再暴露冲突/命名错误——加载器在
+    import 前取快照，失败时 `restore_registry` 精确回滚（被覆盖算子恢复、区间内
+    新增注册清除），注册面零污染。纯内存操作，不改既有语义。
+    """
+    return dict(_REGISTRY), dict(_ALIASES)
+
+
+def restore_registry(snapshot: tuple[dict[str, OperatorDef], dict[str, str]]) -> None:
+    """恢复 `snapshot_registry()` 快照并 bump revision（丢弃区间内的 catalog 缓存）。"""
+    operators, aliases = snapshot
+    _REGISTRY.clear()
+    _REGISTRY.update(operators)
+    _ALIASES.clear()
+    _ALIASES.update(aliases)
+    _bump_revision()
+
+
 def factor_op(
     name: str,
     kind: OperatorKind,
