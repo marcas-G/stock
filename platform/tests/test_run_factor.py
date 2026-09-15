@@ -644,6 +644,45 @@ formula: |
     assert summary["adjustment"] == "pit_qfq"
 
 
+def test_run_factor_pit_qfq_full_equals_chunked(env, tmp_path):
+    """R02-I9：pit_qfq 全局 asof base 真接线（run_factor 级）——FULL 与 CHUNK
+    逐 cell 一致，且首块（除权事件前）已用全局 base（非块内 latest fallback）。
+
+    若 run_factor 未接线 pit_base_adj，chunk-2（01-02..01-03，事件 01-04 之前）
+    会退回帧内 latest=1.0 → signal=10.0；接线后 = 10×1.0/1.5（asof=end 全局 base）。
+    """
+    _seed(env, ex_date=True, n_days=12)
+    spec_path = tmp_path / "spec_pit_chunk.yaml"
+    spec_path.write_text("""
+name: demo_pit_chunk
+category: custom
+direction: 1
+universe:
+  codes: ["000001.SZ", "600519.SH"]
+date:
+  start: "2024-01-02"
+  end: "2024-01-17"
+adjustment: pit_qfq
+process: []
+formula: |
+  signal = close
+""", encoding="utf-8")
+    spec = load_spec(spec_path)
+    full = run_factor(spec, _ctx(env, tmp_path / "out_pit_full", float32=False))
+    chunked = run_factor(spec, _ctx(env, tmp_path / "out_pit_chunk",
+                                    float32=False, chunk_days=2, warmup_days=1))
+    joined = full.panel.join(chunked.panel, on=["date", "code"], how="inner",
+                             suffix="_c")
+    assert joined.height == full.panel.height == 12 * 2
+    diff = (joined["signal"] - joined["signal_c"]).abs().max()
+    assert float(diff) < 1e-9
+    # 显式锚点：首块（事件前）已应用全局 base=1.5（不是帧内 latest=1.0）
+    first = chunked.panel.filter(
+        (pl.col("code") == "000001.SZ")
+        & (pl.col("date") == datetime.date(2024, 1, 2)))
+    assert first["signal"][0] == pytest.approx(10 * 1.0 / 1.5)
+
+
 def test_formula_columns_extracts_data_cols_only():
     formula = '''
 from polars_ta.prefix.wq import ts_mean, ts_delay

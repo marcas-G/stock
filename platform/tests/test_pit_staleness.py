@@ -334,3 +334,15 @@ def test_run_factor_pre_window_close_under_threshold_ok(env, tmp_path):
                        _R02_LONG_DATES[204].isoformat(), name="under_threshold")
     result = run_factor(spec, _stale_ctx(env, tmp_path / "out_ok"))
     assert result.panel.height > 0
+
+
+def test_run_factor_wires_stale_gate_long_window(env, tmp_path):
+    """R02-I9：C1 staleness gate 真接线（run_factor 级，非内存 patch/纯函数调用）——
+    300 日全窗 + 无 delist_date 的库 + 窗口前断流 → run_factor 直接 ValueError。"""
+    env.seed(_stale_tables(_R02_LONG_DATES))
+    spec = _stale_spec(tmp_path, _R02_LONG_DATES[0].isoformat(),
+                       _R02_LONG_DATES[-1].isoformat(), name="wired_c1")
+    out = tmp_path / "out_wired"
+    with pytest.raises(ValueError, match="delist_date"):
+        run_factor(spec, _stale_ctx(env, out))
+    assert not (out / "summary.json").exists()
