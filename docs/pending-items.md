@@ -86,7 +86,7 @@
     合法（manifest/自有产物/元数据/流式灌库/daily 小切片）；grep 无法区分「事实表读」
     与「manifest 读」，需改成 AST 分析（读的目标是否指向 tick_fact/lob_fact/bars_1m 根）。
 
-14. **平台侧原子写补齐**（R4b 剩余）【R12 进展：**`app.evaluate.publish_run` 已转原子**——
+14. **平台侧原子写补齐**（R4b 剩余）【R13：**原子写部分全部完成**——协议收成单点 `adapters/atomicio`（原先四份实现，`execution_store.save_backtest_result` 的 10 个 parquet + manifest 是最后一处非原子写），并修掉 R12 引入的产物权限回归（mkstemp 0600 → 按 umask）。至此本条**只剩 `run_lob_batch` 切 P-5**（需内存低水位派单闸门 + 周期性审计回调两个专有缝）】【R12 进展：**`app.evaluate.publish_run` 已转原子**——
     改经 `adapters.results_fs.write_run_outputs`（tmp + fsync + os.replace），顺带把
     `app/analysis/correlation` 的直读 panel、`surfaces/web` 的直读 weekly 与 `surfaces/cli` 的
     `results_dir.glob("*/summary.json")` 一并收口到 `results_fs`/`panel_store` 单点，并新增
