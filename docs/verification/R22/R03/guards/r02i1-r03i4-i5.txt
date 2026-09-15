@@ -1,0 +1,14 @@
+# command: platform/.venv/bin/python /tmp/opencode/r03_guards_probe.py（工作目录=仓库根）
+# date: 2026-09-16T02:49:08+08:00
+# context: R02-I1 platform gate + R03-I4 codegen guard + R03-I5 ts_cum_count 可用性
+
+== R03-I4 after ==
+REJECT FactorDSLError: signal = ts_cum_sum(close - close + 1.0) -> 因子公式在 codegen 执行期失败（常见根因：代数化简把表达式折叠为常量，如 `x - x + 1.0`；也可能是引用了运行期不存在的名字）。原始错误: AttributeError: 'float' object 
+REJECT FactorDSLError: signal = ts_cum_sum(1.0) -> 1:9: 算子 ts_cum_sum 的数据参数是纯字面量（ts_cum_sum(1.0)）——ts_cum_sum 需要表达式参数；常见根因：代数化简（如 `x - x + 1.0`）把表达式折叠成了常量。请改写公式传
+positive control ts_cum_sum(close): [1.0, 2.0, 3.0, 4.0]
+
+== R03-I5 after（开放算子后 ts_cum_count 可用；unbounded 计入分块拒绝）==
+ts_cum_count compute: [1, 1, 1, 1]
+cumulative_ops_used: ['ts_cum_count']
+chunk guard REJECT: 累计算子 ['ts_cum_count'] 与 --chunk-days 分块不兼容：累计算子依赖块内全历史，分块时每块重新累计，结果不再与整段跑逐 cell 一致（docs/in
+ts_streak: None

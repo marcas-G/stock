@@ -31,6 +31,9 @@
 
 ## 已知的"别踩"
 
-- 平台 duckdb 库不存在 → 用 `FACTORLAB_DATA_BACKEND=ch`；`exclude_st` 一类依赖平台库的 universe 规则不可用。
+- 平台 duckdb 库不存在 → 用 `FACTORLAB_DATA_BACKEND=ch`。`exclude_st` 在 CH 无 `stock_st`
+  表时默认 fail fast；需要临时跑库内 spec 可用 `FACTORLAB_ST_DEGRADE=allow` 显式降级
+  （warning + `is_st=null` + summary `st_degrade: true`，结果为**无 ST 口径**，不可与 ST 过滤
+  run 混比；真实口径需补 `stock_st` 灌入——见 interface.md §4.2）。
 - 写算子必须带分区前缀（`ts_`/`cs_`），裸名注册会被拒（静默退化为元素级 = 跨资产泄漏）。
 - `research/tools/lob_fact/core/config.py` 的校准常量与 `fixtures/pins.sha256` 是冻结金样。
