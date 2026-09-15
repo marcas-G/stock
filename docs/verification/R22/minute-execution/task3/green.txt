@@ -1,0 +1,6 @@
+# 命令: cd platform && .venv/bin/python -m pytest tests/test_read_minute_window.py -q
+# 阶段: GREEN (after impl)
+# 时间: 2026-09-15T22:35:29+08:00
+
+...........                                                              [100%]
+11 passed in 0.71s

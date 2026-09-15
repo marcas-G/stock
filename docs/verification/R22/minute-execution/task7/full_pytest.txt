@@ -1,0 +1,88 @@
+# 命令: cd platform && .venv/bin/python -m pytest -q
+# 时间: 2026-09-15T22:49:18+08:00
+# HEAD: a96773c54312029af5e07cd48bef5bf5a5981a55
+
+........................................................................ [  2%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [ 10%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+........................................................................ [ 25%]
+.....................................sssssssssssss...................... [ 27%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 57%]
+........................................................................ [ 60%]
+........................................................................ [ 62%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 70%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 85%]
+........................................................................ [ 87%]
+........................................................................ [ 90%]
+........................................................................ [ 92%]
+........................................................................ [ 95%]
+........................................................................ [ 97%]
+...................................................................      [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_backtest_ca_gate.py: 14 warnings
+tests/test_backtest_calendar.py: 36 warnings
+tests/test_backtest_marks_policy.py: 11 warnings
+tests/test_backtest_orders.py: 65 warnings
+tests/test_backtest_persistence.py: 27 warnings
+tests/test_backtest_runtime.py: 13 warnings
+tests/test_backtest_window_runtime.py: 9 warnings
+tests/test_canonical_artifact_handoff.py: 1 warning
+tests/test_execution_signal_chain.py: 15 warnings
+tests/test_execution_store_window.py: 7 warnings
+tests/test_minute_execution_e2e.py: 2 warnings
+tests/test_portfolio_constructor.py: 26 warnings
+tests/test_portfolio_domain.py: 7 warnings
+tests/test_strategy_artifacts.py: 63 warnings
+  /data/students/gaolei/stock/platform/src/factorlab/core/domain/portfolio.py:151: PolarsInefficientMapWarning: 
+  Expr.map_elements is significantly slower than the native expressions API.
+  Only use if you absolutely CANNOT implement your logic otherwise.
+  Replace this expression...
+    - pl.col("decision_date").map_elements(lambda d: ...)
+  with this one instead:
+    + pl.col("decision_date").is_in(known)
+  
+    ~pl.col("decision_date").map_elements(
+
+tests/test_batch_flock.py: 26 warnings
+  /home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/popen_fork.py:67: DeprecationWarning: This process (pid=34857) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/test_cli.py::test_svd_command_outputs_spectrum
+tests/test_correlation.py::test_svd_identifies_orthogonal_structure
+tests/test_correlation.py::test_svd_sampling_deterministic
+tests/test_correlation.py::test_svd_sampling_deterministic
+tests/test_web.py::test_factor_detail_has_correlation_block
+tests/test_web.py::test_factor_detail_has_correlation_block
+  /data/students/gaolei/stock/platform/src/factorlab/app/analysis/correlation.py:100: DeprecationWarning: the argument `columns` for `DataFrame.pivot` is deprecated. It was renamed to `on` in version 1.0.0.
+    joined = long.pivot(index=["date", "code"], columns="factor",
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2862 passed, 13 skipped, 329 warnings in 511.15s (0:08:31)

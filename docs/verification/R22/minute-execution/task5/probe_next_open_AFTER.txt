@@ -1,0 +1,82 @@
+# 命令: cd platform && .venv/bin/python ../docs/verification/R22/minute-execution/probe_next_open.py
+# 时间: 2026-09-15T22:39:45+08:00
+# HEAD: 19ee1abdb5e926cae7fe954c351962208bec2576
+
+/data/students/gaolei/stock/platform/src/factorlab/core/domain/portfolio.py:151: PolarsInefficientMapWarning: 
+Expr.map_elements is significantly slower than the native expressions API.
+Only use if you absolutely CANNOT implement your logic otherwise.
+Replace this expression...
+  - pl.col("decision_date").map_elements(lambda d: ...)
+with this one instead:
+  + pl.col("decision_date").is_in(known)
+
+  ~pl.col("decision_date").map_elements(
+{
+ "n_artifacts": 4,
+ "nav": [
+  999641.054078,
+  1073802.4941762001,
+  1170975.2397118,
+  1254956.9708131999
+ ],
+ "final": {
+  "date": "2024-01-08",
+  "phase": "post_execution",
+  "cash": 1456.970813199965,
+  "positions": "88cc698febad069fd54b758dab0ad14a9e199dbd23f384954247db2afdf90898"
+ },
+ "events": [
+  {
+   "decision": "2024-01-02",
+   "execution": "2024-01-03",
+   "orders": "e88f1e5d445e320390896389c22e6a0e09b747f4283aa24794dc4386b934c09f",
+   "assessment": "0fd9127cf9bd56dc929d4c2ee6be2ba02892a7bd86b9dd7c8151e3d2568da958",
+   "fills": "cd7956424be103568c9132300346e3d7c27619ad938301798aae03dc96f1b73f",
+   "post_positions": "66b85a488d319f20ecbd99c97d998048a2fe221a60bbfb45dfffcc42c2af2365",
+   "pre_cash": 1000000.0,
+   "post_cash": 2641.0540780000156,
+   "nav_mv": 997000.0,
+   "nav": 999641.054078,
+   "fills_sha": "d805f01b11c06741c01dae48254e40dcb65ed47c72b4ed618aceb4648f54f9f0"
+  },
+  {
+   "decision": "2024-01-03",
+   "execution": "2024-01-04",
+   "orders": "037d36975c2b5c7428cb0b917706cd3e875ad0ff599ee009e9c8d4c924c7360d",
+   "assessment": "995d06caeea77f084122f11d2c22d8076a364acc2cb189ef782b6c77766a12a9",
+   "fills": "d7977bc7a919215920355a893fe0b68a4f9152dd3440bdb3a9506f3e22fb8cd2",
+   "post_positions": "2c6b52c1f4395233b6b996e2f452c5eb3076a4d2f2989f5825093b62c1b8cd6e",
+   "pre_cash": 2641.0540780000156,
+   "post_cash": 202.49417620000895,
+   "nav_mv": 1073600.0,
+   "nav": 1073802.4941762001,
+   "fills_sha": "7dccca2c24d2d49aea747df9b65d47dffd6ed349f0cd24f51640db12451a46e0"
+  },
+  {
+   "decision": "2024-01-04",
+   "execution": "2024-01-05",
+   "orders": "e38a7ac5bc380e3b155fbd1457e4222625970cdbbf9956aa43bc96c84d6a97a7",
+   "assessment": "e3e6535744a8d3c03c6f1c8c49caa22e89ae5b57614b102e8a47f5c64a62c574",
+   "fills": "b31ac1d81f9d412b9034f9d56a96ff1fe617c82dbd6f03562cfeba5249637fa3",
+   "post_positions": "7873f5a9cd9694b0e262dabe457a3a73fd2cc93304ce091f66815457e18c8336",
+   "pre_cash": 202.49417620000895,
+   "post_cash": 375.2397117999499,
+   "nav_mv": 1170600.0,
+   "nav": 1170975.2397118,
+   "fills_sha": "a697afbe99f247e0388e78ebd0a7b83ca225f918f207117b2b3de8474f427441"
+  },
+  {
+   "decision": "2024-01-05",
+   "execution": "2024-01-08",
+   "orders": "41ab28f93fa02b06bd8b9ac0085b0e9574aa936657c3e92511a5e5a421c6d8a0",
+   "assessment": "e9ea15c69d4625372580f2a3bde2c6480f2de0a7e25435d0d4999323701432cb",
+   "fills": "08f11d490a5ae3b9d3dec509ecb7498a2e52cce1f76e18acdee5392f244d9024",
+   "post_positions": "88cc698febad069fd54b758dab0ad14a9e199dbd23f384954247db2afdf90898",
+   "pre_cash": 375.2397117999499,
+   "post_cash": 1456.970813199965,
+   "nav_mv": 1253500.0,
+   "nav": 1254956.9708131999,
+   "fills_sha": "0faaf36e7f2ec673f1fc31c753a5e71c9885814b0ca968d2d640a02ee8f72eef"
+  }
+ ]
+}

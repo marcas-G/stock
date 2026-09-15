@@ -1,0 +1,19 @@
+# 命令: cd platform && FACTORLAB_DATA_BACKEND=ch .venv/bin/python -m pytest tests/test_minute_execution_e2e.py -q
+# 时间: 2026-09-15T22:47:54+08:00
+
+..                                                                       [100%]
+=============================== warnings summary ===============================
+tests/test_minute_execution_e2e.py::test_window_execution_on_ch_small_universe
+tests/test_minute_execution_e2e.py::test_sealed_limit_case_on_ch
+  /data/students/gaolei/stock/platform/src/factorlab/core/domain/portfolio.py:151: PolarsInefficientMapWarning: 
+  Expr.map_elements is significantly slower than the native expressions API.
+  Only use if you absolutely CANNOT implement your logic otherwise.
+  Replace this expression...
+    - pl.col("decision_date").map_elements(lambda d: ...)
+  with this one instead:
+    + pl.col("decision_date").is_in(known)
+  
+    ~pl.col("decision_date").map_elements(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2 passed, 2 warnings in 9.47s

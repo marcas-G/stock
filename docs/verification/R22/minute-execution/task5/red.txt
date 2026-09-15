@@ -1,0 +1,184 @@
+# 命令: cd platform && .venv/bin/python -m pytest tests/test_backtest_window_runtime.py -q
+# 阶段: RED (before impl)
+# 时间: 2026-09-15T22:38:15+08:00
+
+EEEFFEEFFF                                                               [100%]
+==================================== ERRORS ====================================
+___________ ERROR at setup of test_next_window_end_to_end_synthetic ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f65e0d0b230>
+
+    @pytest.fixture
+    def loader_calls(monkeypatch):
+        calls = []
+    
+        def fake(rd, codes, day, start, end):
+            calls.append({"codes": list(codes), "day": day, "start": start,
+                          "end": end})
+            day_date = datetime.date.fromisoformat(day)
+            return _minute_frame(day_date)
+    
+>       monkeypatch.setattr(backtest_mod, "load_execution_window", fake)
+E       AttributeError: <module 'factorlab.app.backtest.backtest' from '/data/students/gaolei/stock/platform/src/factorlab/app/backtest/backtest.py'> has no attribute 'load_execution_window'
+
+tests/test_backtest_window_runtime.py:89: AttributeError
+____________ ERROR at setup of test_next_window_sell_and_rebalance _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f65e0d0aea0>
+
+    @pytest.fixture
+    def loader_calls(monkeypatch):
+        calls = []
+    
+        def fake(rd, codes, day, start, end):
+            calls.append({"codes": list(codes), "day": day, "start": start,
+                          "end": end})
+            day_date = datetime.date.fromisoformat(day)
+            return _minute_frame(day_date)
+    
+>       monkeypatch.setattr(backtest_mod, "load_execution_window", fake)
+E       AttributeError: <module 'factorlab.app.backtest.backtest' from '/data/students/gaolei/stock/platform/src/factorlab/app/backtest/backtest.py'> has no attribute 'load_execution_window'
+
+tests/test_backtest_window_runtime.py:89: AttributeError
+____________ ERROR at setup of test_next_window_marks_flag_accepted ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f64b69bb410>
+
+    @pytest.fixture
+    def loader_calls(monkeypatch):
+        calls = []
+    
+        def fake(rd, codes, day, start, end):
+            calls.append({"codes": list(codes), "day": day, "start": start,
+                          "end": end})
+            day_date = datetime.date.fromisoformat(day)
+            return _minute_frame(day_date)
+    
+>       monkeypatch.setattr(backtest_mod, "load_execution_window", fake)
+E       AttributeError: <module 'factorlab.app.backtest.backtest' from '/data/students/gaolei/stock/platform/src/factorlab/app/backtest/backtest.py'> has no attribute 'load_execution_window'
+
+tests/test_backtest_window_runtime.py:89: AttributeError
+__________ ERROR at setup of test_window_unfilled_when_volume_capped ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f64868c8e20>
+
+    @pytest.fixture
+    def loader_calls(monkeypatch):
+        calls = []
+    
+        def fake(rd, codes, day, start, end):
+            calls.append({"codes": list(codes), "day": day, "start": start,
+                          "end": end})
+            day_date = datetime.date.fromisoformat(day)
+            return _minute_frame(day_date)
+    
+>       monkeypatch.setattr(backtest_mod, "load_execution_window", fake)
+E       AttributeError: <module 'factorlab.app.backtest.backtest' from '/data/students/gaolei/stock/platform/src/factorlab/app/backtest/backtest.py'> has no attribute 'load_execution_window'
+
+tests/test_backtest_window_runtime.py:89: AttributeError
+_______________ ERROR at setup of test_next_open_unchanged_smoke _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6486863950>
+
+    @pytest.fixture
+    def loader_calls(monkeypatch):
+        calls = []
+    
+        def fake(rd, codes, day, start, end):
+            calls.append({"codes": list(codes), "day": day, "start": start,
+                          "end": end})
+            day_date = datetime.date.fromisoformat(day)
+            return _minute_frame(day_date)
+    
+>       monkeypatch.setattr(backtest_mod, "load_execution_window", fake)
+E       AttributeError: <module 'factorlab.app.backtest.backtest' from '/data/students/gaolei/stock/platform/src/factorlab/app/backtest/backtest.py'> has no attribute 'load_execution_window'
+
+tests/test_backtest_window_runtime.py:89: AttributeError
+=================================== FAILURES ===================================
+___________________ test_window_marks_rejected_for_next_open ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1255/test_window_marks_rejected_for0')
+
+    def test_window_marks_rejected_for_next_open(tmp_path):
+        db = _db(tmp_path)
+        spec = ExecutionSpec.model_validate({"initial_cash": 10_000.0})
+        with pytest.raises(ValueError, match="WINDOW_END_BASED"):
+>           _run(_target((D1,)), db, spec, marks=MarksPolicy.WINDOW_END_BASED)
+                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: type object 'MarksPolicy' has no attribute 'WINDOW_END_BASED'
+
+tests/test_backtest_window_runtime.py:191: AttributeError
+_________________ test_window_requires_minute_open_fails_fast __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1255/test_window_requires_minute_op0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f64868c8c00>
+
+    def test_window_requires_minute_open_fails_fast(tmp_path, monkeypatch):
+        db = _db(tmp_path)
+    
+        def empty_loader(rd, codes, day, start, end):
+            return _minute_frame(datetime.date(2024, 1, 10))   # 无 bars
+    
+>       monkeypatch.setattr(backtest_mod, "load_execution_window", empty_loader)
+E       AttributeError: <module 'factorlab.app.backtest.backtest' from '/data/students/gaolei/stock/platform/src/factorlab/app/backtest/backtest.py'> has no attribute 'load_execution_window'
+
+tests/test_backtest_window_runtime.py:200: AttributeError
+________________________ test_next_close_still_rejected ________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1255/test_next_close_still_rejected0')
+
+    def test_next_close_still_rejected(tmp_path):
+        db = _db(tmp_path)
+        spec = ExecutionSpec.model_validate({"execution_timing": "next_close"})
+>       with pytest.raises(NotImplementedError, match="NEXT_CLOSE|next_close"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE NotImplementedError
+
+tests/test_backtest_window_runtime.py:240: Failed
+______________ test_next_window_requires_duckdb_minutes_fail_fast ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1255/test_next_window_requires_duck0')
+
+    def test_next_window_requires_duckdb_minutes_fail_fast(tmp_path):
+        """真实 loader（未 monkeypatch）：duckdb 后端 → NotImplementedError（仅 CH）。"""
+        db = _db(tmp_path)
+>       with pytest.raises(NotImplementedError, match="CH"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE NotImplementedError
+
+tests/test_backtest_window_runtime.py:247: Failed
+_______________________________ test_api_exists ________________________________
+
+    def test_api_exists():
+>       assert MarksPolicy.WINDOW_END_BASED.value == "window_end_based"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: type object 'MarksPolicy' has no attribute 'WINDOW_END_BASED'
+
+tests/test_backtest_window_runtime.py:252: AttributeError
+=============================== warnings summary ===============================
+tests/test_backtest_window_runtime.py::test_window_marks_rejected_for_next_open
+tests/test_backtest_window_runtime.py::test_next_close_still_rejected
+tests/test_backtest_window_runtime.py::test_next_window_requires_duckdb_minutes_fail_fast
+  /data/students/gaolei/stock/platform/src/factorlab/core/domain/portfolio.py:151: PolarsInefficientMapWarning: 
+  Expr.map_elements is significantly slower than the native expressions API.
+  Only use if you absolutely CANNOT implement your logic otherwise.
+  Replace this expression...
+    - pl.col("decision_date").map_elements(lambda d: ...)
+  with this one instead:
+    + pl.col("decision_date").is_in(known)
+  
+    ~pl.col("decision_date").map_elements(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_backtest_window_runtime.py::test_window_marks_rejected_for_next_open
+FAILED tests/test_backtest_window_runtime.py::test_window_requires_minute_open_fails_fast
+FAILED tests/test_backtest_window_runtime.py::test_next_close_still_rejected
+FAILED tests/test_backtest_window_runtime.py::test_next_window_requires_duckdb_minutes_fail_fast
+FAILED tests/test_backtest_window_runtime.py::test_api_exists - AttributeErro...
+ERROR tests/test_backtest_window_runtime.py::test_next_window_end_to_end_synthetic
+ERROR tests/test_backtest_window_runtime.py::test_next_window_sell_and_rebalance
+ERROR tests/test_backtest_window_runtime.py::test_next_window_marks_flag_accepted
+ERROR tests/test_backtest_window_runtime.py::test_window_unfilled_when_volume_capped
+ERROR tests/test_backtest_window_runtime.py::test_next_open_unchanged_smoke
+5 failed, 3 warnings, 5 errors in 1.56s

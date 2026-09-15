@@ -1,0 +1,26 @@
+# 命令: cd platform && .venv/bin/python -m pytest tests/test_backtest_runtime.py tests/test_backtest_orders.py tests/test_backtest_fills.py tests/test_backtest_overnight.py tests/test_execution_accounting.py tests/test_execution_valuation.py tests/test_backtest_marks_policy.py tests/test_execution_signal_chain.py -q
+# 时间: 2026-09-15T22:29:26+08:00
+# HEAD: 9a5c3d35edb1e1ad427692a4b3e1585b11faaf7e
+
+........................................................................ [ 22%]
+........................................................................ [ 44%]
+........................................................................ [ 66%]
+........................................................................ [ 89%]
+...................................                                      [100%]
+=============================== warnings summary ===============================
+tests/test_backtest_runtime.py: 13 warnings
+tests/test_backtest_orders.py: 65 warnings
+tests/test_backtest_marks_policy.py: 11 warnings
+tests/test_execution_signal_chain.py: 15 warnings
+  /data/students/gaolei/stock/platform/src/factorlab/core/domain/portfolio.py:151: PolarsInefficientMapWarning: 
+  Expr.map_elements is significantly slower than the native expressions API.
+  Only use if you absolutely CANNOT implement your logic otherwise.
+  Replace this expression...
+    - pl.col("decision_date").map_elements(lambda d: ...)
+  with this one instead:
+    + pl.col("decision_date").is_in(known)
+  
+    ~pl.col("decision_date").map_elements(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+323 passed, 104 warnings in 156.17s (0:02:36)

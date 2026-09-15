@@ -1,0 +1,20 @@
+# 命令: cd platform && .venv/bin/python -m pytest tests/test_execution_store_window.py -q
+# 阶段: RED (before impl; execution_store.py 已回退到 HEAD)
+# 时间: 2026-09-15T22:43:46+08:00
+
+
+==================================== ERRORS ====================================
+____________ ERROR collecting tests/test_execution_store_window.py _____________
+ImportError while importing test module '/data/students/gaolei/stock/platform/tests/test_execution_store_window.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_execution_store_window.py:13: in <module>
+    from factorlab.adapters.execution_store import (SCHEMA_VERSION,
+E   ImportError: cannot import name 'SCHEMA_VERSION_WINDOW' from 'factorlab.adapters.execution_store' (/data/students/gaolei/stock/platform/src/factorlab/adapters/execution_store.py)
+=========================== short test summary info ============================
+ERROR tests/test_execution_store_window.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.23s

@@ -1,0 +1,20 @@
+# 命令: cd platform && .venv/bin/python -m pytest tests/test_execution_store_window.py tests/test_backtest_persistence.py -q
+# 阶段: GREEN (after impl) + v1 持久化回归
+# 时间: 2026-09-15T22:44:27+08:00
+
+.....................................                                    [100%]
+=============================== warnings summary ===============================
+tests/test_execution_store_window.py: 7 warnings
+tests/test_backtest_persistence.py: 27 warnings
+  /data/students/gaolei/stock/platform/src/factorlab/core/domain/portfolio.py:151: PolarsInefficientMapWarning: 
+  Expr.map_elements is significantly slower than the native expressions API.
+  Only use if you absolutely CANNOT implement your logic otherwise.
+  Replace this expression...
+    - pl.col("decision_date").map_elements(lambda d: ...)
+  with this one instead:
+    + pl.col("decision_date").is_in(known)
+  
+    ~pl.col("decision_date").map_elements(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+37 passed, 34 warnings in 13.79s

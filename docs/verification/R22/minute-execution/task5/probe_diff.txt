@@ -1,0 +1,5 @@
+# NEXT_OPEN 逐值差异检查（剔除文件头/环境噪声行）：diff BEFORE vs AFTER
+# 命令: diff <(grep -vE '^#|^fatal:|^停止在' BEFORE) <(grep -vE '^#|^fatal:|^停止在' AFTER)
+# 时间: 2026-09-15T22:39:54+08:00
+
+ZERO-DIFF: NEXT_OPEN 数据逐值一致（sha256 digest + NAV + cash 全等）

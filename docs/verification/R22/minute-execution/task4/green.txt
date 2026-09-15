@@ -1,0 +1,7 @@
+# 命令: cd platform && .venv/bin/python -m pytest tests/test_window_fills.py tests/test_backtest_fills.py -q
+# 阶段: GREEN (after impl) + NEXT_OPEN 成交回归
+# 时间: 2026-09-15T22:37:19+08:00
+
+........................................................................ [ 75%]
+.......................                                                  [100%]
+95 passed in 2.19s

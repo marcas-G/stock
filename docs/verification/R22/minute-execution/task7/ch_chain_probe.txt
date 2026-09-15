@@ -1,0 +1,25 @@
+# 命令: cd platform && FACTORLAB_DATA_BACKEND=ch .venv/bin/python ../docs/verification/R22/minute-execution/task7/ch_chain_probe.py
+# 时间: 2026-09-15T22:48:36+08:00
+
+2026-09-15 22:48:40.553 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 22:48:40.583 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+/data/students/gaolei/stock/platform/src/factorlab/core/domain/portfolio.py:151: PolarsInefficientMapWarning: 
+Expr.map_elements is significantly slower than the native expressions API.
+Only use if you absolutely CANNOT implement your logic otherwise.
+Replace this expression...
+  - pl.col("decision_date").map_elements(lambda d: ...)
+with this one instead:
+  + pl.col("decision_date").is_in(known)
+
+  ~pl.col("decision_date").map_elements(
+[sample] 20 codes x 22 trading days: ['000001.SZ', '000002.SZ', '000004.SZ', '000006.SZ', '000007.SZ', '000008.SZ', '000009.SZ', '000010.SZ', '000011.SZ', '000012.SZ', '000014.SZ', '000016.SZ', '000017.SZ', '000019.SZ', '000020.SZ', '000021.SZ', '000025.SZ', '000026.SZ', '000027.SZ', '000028.SZ']
+[chain-1 run_factor] signal rows=420 dates=21 codes=20 name=r22_chain
+[chain-2 target] decisions=21 (2024-01-02..2024-01-30) rows=400 gross=1.0
+[chain-3 run_backtest NEXT_WINDOW] events=21 events_with_fills=20 nav[10000000.0 .. 10150838.972474378] trailing=False
+[parity] picked event=18 decision=2024-01-26 exec=2024-01-29 code=000009.SZ filled=700 ref=11.68454592363261 exec_px=11.685714378224974
+  minute_index  detail_price        sql(amount/volume)   qty
+             0  11.68454592363261    11.68454592363261    700
+  aggregate: sql_weighted_avg=11.68454592363261 vs FillBatch.reference_price=11.68454592363261 delta=0.000e+00
+[parity] OK（逐分钟 + 汇总 + 滑点 1bp 全对拍通过）
+[persistence] schema_version=2 window_fills events=21 detail rows=651 round-trip 逐值一致
+[done] CH 全链 + 对拍 + 持久化证据 OK
