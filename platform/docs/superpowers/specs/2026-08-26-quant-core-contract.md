@@ -89,6 +89,10 @@ fwd: list[float], factor="_factor", direction=1) -> dict`。
 }
 ```
 
+> 【R21 勘误 7a（就地指针）】上列结构里的 `t_stat: <mean/(std/√n_weeks)>` 为旧口径示意：
+> 自 R21 起实际分母 = **可计算周 n_ok**（非 NaN/非退化周）；`n_weeks` 字段语义不变（含退化周）。
+> 完整口径见文首头块勘误 7 与 §3.1 就地旁注。
+
 ### 3.1 统计公式（Rust 可对照实现）
 
 - **周 IC**（spearman）：每周横截面 `corr(signal, fwd)`，Spearman 秩相关（并列取平均秩）。
@@ -97,10 +101,10 @@ fwd: list[float], factor="_factor", direction=1) -> dict`。
   （实测：2 只股票的周计数；常数 fwd 面板 n_weeks 仍为周数）。
   注意与平台 weekly_ic 的 MIN_STOCKS=3 差异：3 是平台稳健性选择，对拍测试构造 ≥3 只面板避开。
 - **IC 统计基础**：仅使用 IC 可计算（非 NaN、非无穷）的周；`ic.mean/std`（ddof=1）、`ir=mean/std`。
-  `t_stat` 的分母 n = **n_weeks（含退化周）**（实测口径；pearson 同）。
+  `t_stat` 的分母 n = **n_weeks（含退化周）**（实测口径；pearson 同）。　【R21 勘误 7a：分母改为**可计算周 n_ok**（非 NaN/非退化）；`n_weeks` 字段语义不变】
 - **recent_26w**：按日期升序取可计算周序列的最后 ≤26 个；t 的分母 n = len(recent)。
-- **sign_consistent**：`count(ic > 0) / n_weeks`（分母含退化周）。
-- **十分位组**：每周 `ordinal_rank × 10 // (n_stocks_week + 1)`，clip 到 [0,9]（组 0 = 最小 signal）。
+- **sign_consistent**：`count(ic > 0) / n_weeks`（分母含退化周）。　【R21 勘误 7a：分母改为**可计算周 n_ok**】
+- **十分位组**：每周 `ordinal_rank × 10 // (n_stocks_week + 1)`，clip 到 [0,9]（组 0 = 最小 signal）。　【R21 勘误 7b：改为 **average-rank 对称分位** `floor((2r−1)·10/(2n))`，clip [0,9]——并列信号同档、分层与行序无关】
   每组 mean_ret = 该组各周横截面均值再按周平均；`groups` 恒 10 项，缺组填 NaN。
   `spread.ret = (g0 − g9) × direction`；任一组 NaN → spread NaN。
   `monotonic`：可计算组的 (组号, mean_ret) 的 Spearman 秩相关 > 0（组数 <3 → false）。
@@ -239,10 +243,10 @@ IC 统计仅基于 10 个可计算周；decile 组均值因周集变化而微移
 - `coverage.{pct_valid,total_rows,valid_rows}` 口径；decile spread 随 direction 翻转。
 
 **合理假设**（Rust 版实现后校准；差异点已在 shim 与本文档标注）：
-- `recent_26w_mean/t`、`sign_consistent`（分母含退化周）、`ir`（mean/std 口径）；
+- `recent_26w_mean/t`、`sign_consistent`（分母含退化周）、`ir`（mean/std 口径）；　【R21 勘误 7a：`sign_consistent` 分母改为**可计算周 n_ok**】
 - `turnover{monthly,quarterly}` 公式（4/12 周桶、桶内末周归属、变化比例均值）；
 - `weighting="equal_weight"`、`monotonic`（组均值 spearman 符号）；
-- NaN 行 = 无效观测（coverage 口径）；IC 统计 t_stat 分母 = n_weeks（含退化周）。
+- NaN 行 = 无效观测（coverage 口径）；IC 统计 t_stat 分母 = n_weeks（含退化周）。　【R21 勘误 7a：分母改为**可计算周 n_ok**】
 
 ## 7. 已知局限（m4a 记录延续）
 
