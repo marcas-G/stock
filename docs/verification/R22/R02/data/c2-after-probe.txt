@@ -1,0 +1,21 @@
+R02-C2 复现（修复后）：staleness 判定窗口无关 —— 240 日窗口/30d 分块均 fail loudly
+====================================================================================
+命令：
+  PLATFORM_ROOT=/data/students/gaolei/stock/platform \
+    /data/students/gaolei/stock/platform/.venv/bin/python \
+    docs/verification/R22/R02/data/probe_c2_short_window.py
+
+Fixture 同 c2-before-probe.txt。修复：`assert_no_stale_listed_db` 对「窗口内无
+close」的 listed code 做 550 自然日有界回看（anchor = 全历史 last non-null
+close），超阈值即 fail loudly；`_inject_fill_state_seed` 加 `assert_no_stale_seed`
+独立防线（seed 候选超阈值拒绝注入）。
+
+输出：
+factorlab=/data/students/gaolei/stock/platform/src/factorlab/__init__.py
+[window=300d] RAISED ValueError: 检测到 1 个仍标记上市但行情长期断流的 code：600005 last_close=2023-01-06。面板最后日期 2024-02-23，阈值 250 交易日无成交——疑似退市股未灌入 sto
+[window=240d] RAISED ValueError: 检测到 1 个仍标记上市但行情长期断流的 code：600005 last_close=2023-01-06。面板最后日期 2024-02-23，阈值 250 交易日无成交——疑似退市股未灌入 sto
+[window=240d chunk=30] RAISED ValueError: 检测到 1 个仍标记上市但行情长期断流的 code：600005 last_close=2023-01-06。面板最后日期 2024-01-12，阈值 250 交易日无成交——疑似退市股未灌入 sto
+[control gap=200d] RUN OK rows=200 non_null=200 signal_values=[14.399999618530273] date_range=2023-01-09..2023-10-13
+
+判读：240 日窗口/30d 分块从 RUN OK + signal=14.4（死价格）变为 ValueError；
+300 日窗口回归不松；gap=200≤250 负向控制仍 RUN OK（阈值语义不误伤）。

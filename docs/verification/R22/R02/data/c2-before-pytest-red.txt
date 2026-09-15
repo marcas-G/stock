@@ -1,0 +1,26 @@
+R02-C2 RED：新测试在修复前源码（HEAD e60d2b2）上失败 —— 8 failed / 13 passed
+==============================================================================
+命令：
+  cp <worktree>/tests/test_pit_staleness.py <worktree>/tests/conftest.py \
+     /tmp/opencode/r22-c2-before/platform/tests/
+  cd /tmp/opencode/r22-c2-before/platform
+  PYTHONPATH=src /data/students/gaolei/stock/platform/.venv/bin/python -m pytest -q \
+     tests/test_pit_staleness.py
+
+R02-C2 新增 8 条断言（窗口无关 gate + 240d 窗口/30d 分块不再复活死价格），
+全部先失败：
+  FAILED test_window_independent_gate_fires_when_last_close_before_short_window
+  FAILED test_window_independent_gate_respects_threshold
+  FAILED test_window_independent_gate_no_close_falls_back_to_window
+  FAILED test_window_independent_gate_requires_calendar_pair
+  FAILED test_run_factor_short_window_dead_price_rejected[duckdb]
+  FAILED test_run_factor_short_window_dead_price_rejected[ch]
+  FAILED test_run_factor_chunked_dead_price_rejected[duckdb]
+  FAILED test_run_factor_chunked_dead_price_rejected[ch]
+8 failed, 13 passed in 8.23s
+
+关键失败形态（run_factor 级，DID NOT RAISE = 死价格确实入了截面）：
+  test_run_factor_chunked_dead_price_rejected[duckdb] ...
+  > with pytest.raises(ValueError, match="600005"):
+  E Failed: DID NOT RAISE ValueError
+  tests/test_pit_staleness.py:325: Failed

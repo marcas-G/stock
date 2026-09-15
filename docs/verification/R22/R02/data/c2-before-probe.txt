@@ -1,0 +1,21 @@
+R02-C2 复现（修复前）：staleness gate 窗口依赖 —— 240 日窗口/30d 分块复活死价格
+================================================================================
+源码：git archive e60d2b2 platform/src → /tmp/opencode/r22-c2-before/platform
+命令：
+  PLATFORM_ROOT=/tmp/opencode/r22-c2-before/platform \
+    /data/students/gaolei/stock/platform/.venv/bin/python \
+    docs/verification/R22/R02/data/probe_c2_short_window.py
+
+Fixture：300 交易日全历（2023-01-02 起），600005.SH 只在前 5 个交易日有行情
+（close 14.0..14.4，最后成交 2023-01-06），stock_basic 无 delist_date（生产现状）。
+
+输出：
+factorlab=/tmp/opencode/r22-c2-before/platform/src/factorlab/__init__.py
+[window=300d] RAISED ValueError: 检测到 1 个仍标记上市但行情长期断流的 code：600005 last_close=2023-01-06。面板最后日期 2024-02-23，阈值 250 交易日无成交——疑似退市股未灌入 sto
+[window=240d] RUN OK rows=240 non_null=240 signal_values=[14.399999618530273] date_range=2023-03-27..2024-02-23
+[window=240d chunk=30] RUN OK rows=240 non_null=240 signal_values=[14.399999618530273] date_range=2023-03-27..2024-02-23
+[control gap=200d] RUN OK rows=200 non_null=200 signal_values=[14.399999618530273] date_range=2023-01-09..2023-10-13
+
+判读：300 日窗口旧 gate 触发（窗口内 stale days=295>250）；240 日窗口（240≤250）
+不触发，fill-seed 取窗口前 2023-01-06 死价格，signal=14.4 填满到 2024-02-23；
+30 日分块同（整段 240 日同样复活死价格）。

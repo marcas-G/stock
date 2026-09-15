@@ -1,0 +1,8 @@
+R02-C2 GREEN：修复后 tests/test_pit_staleness.py 21 passed（含 8 条新测试）
+============================================================================
+命令：
+  cd /data/students/gaolei/stock/platform
+  .venv/bin/python -m pytest -q tests/test_pit_staleness.py
+
+.....................                                                    [100%]
+21 passed in 7.79s
