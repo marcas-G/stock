@@ -15,7 +15,7 @@ from expr_codegen import codegen_exec
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.core.engine.forward import DEFAULT_FORWARD_HORIZONS, compute_forward_returns
-from factorlab.core.engine.partitions import reject_future_shifts, validate_partition_calls
+from factorlab.core.engine.partitions import check_causality
 from factorlab.core.factor.ast_gate import validate_formula
 from factorlab.core.ops.platform_ops import (
     expand_platform_macros,
@@ -67,6 +67,53 @@ def _check_future_inputs(formula: str) -> None:
         if col in FUTURE_NAMES or col.startswith(FUTURE_PREFIXES):
             raise ValueError(
                 f"future/label inputs are forbidden in factor formula: {col!r}")
+
+
+def normalize_calls(source: str, catalog,
+                    params: dict | None = None) -> tuple[str, str]:
+    """分类表驱动的调用规范化 + 静态校验（开放面闸门拆除后的替代门）。
+
+    - 校验单源 = engine.semantics.infer（strict）：未知算子/方法 → SemanticError
+      （含 op_meta 指引）；`ts_/cs_/gp_` 语法糖与库函数全量放行；
+    - 规范化改名：`meta.canonical != 调用名` → AST 改写为 canonical（Plan 1 生成表
+      的 canonical 均等于原名，属预留通道；import 块由 Plan 2 的算子档案模块提供）；
+    - 返回 (新源码, 额外 import 块字符串)。
+    """
+    from factorlab.core.engine.semantics import infer
+
+    tree = ast.parse(source)
+    infer(tree, catalog, params)          # 未命中/歧义 → op_meta 指引 fail fast
+    defined = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                aliases[alias.asname or alias.name] = alias.name
+
+    imports: set[str] = set()
+
+    class _Norm(ast.NodeTransformer):
+        def visit_Call(self, node: ast.Call) -> ast.expr:
+            node = self.generic_visit(node)
+            if isinstance(node.func, ast.Name):
+                current = node.func.id
+                key = aliases.get(current, current)
+            elif isinstance(node.func, ast.Attribute):
+                current = None
+                key = f".{node.func.attr}"
+            else:
+                return node
+            if key in defined:
+                return node
+            meta = catalog.get(key)
+            if meta is None or not meta.canonical or meta.canonical == key:
+                return node
+            if current is not None:
+                node.func = ast.Name(id=meta.canonical, ctx=ast.Load())
+            return node
+
+    out = ast.unparse(_Norm().visit(tree))
+    return out, "\n".join(sorted(imports))
 
 
 def _declared_output_names(formula: str) -> set[str]:
@@ -122,16 +169,21 @@ def compute_formula(
     from factorlab.core.ops.stable_rank import rewrite_stable_rank
     formula = rewrite_stable_rank(formula)  # M6-07C2I：cs_rank → 平台 stable 实现（+ import）
     formula = rewrite_polars_ta_aliases(formula)  # R01-ENG-I4：cs_regression_resid → vendor cs_resid
+    # DER-003：注册单点 = core.ops.registration.ensure_all_ops_registered（幂等）；
+    # R22：有效分类表 = 生成表 + 平台元数据 + 注册面全集（插件/分钟/平台算子）。
+    from factorlab.core.ops.registration import effective_catalog, ensure_all_ops_registered
+    ensure_all_ops_registered()
+    catalog = effective_catalog()
+    # R22 核心交付：分类表解析替代注册白名单（未知 → op_meta 指引）；
+    # canonical 改名与 import 注入预留通道（canonical != 原名时生效）。
+    formula, _normalized_imports = normalize_calls(formula, catalog)
     if universe_mask is not None:
         # M6-03：CS/GP 算子的数据参数包 if_else(mask, arg, None)——TS 仍见完整
         # listed history，CS 只见当日 active universe。mask 列必须已存在于 df。
+        # R22：mask_args 由分类表元数据提供（不再查静态表；未知算子由归一化门拒绝）。
         if universe_mask not in df.columns:
             raise ValueError(f"universe mask 列 {universe_mask!r} 不在输入数据中（内部保留列）")
-        formula = apply_universe_masking(formula, universe_mask)
-    # DER-003：注册单点 = core.ops.registration.ensure_all_ops_registered（幂等）；
-    # 此处防御性调用，保证核心被直接调用（测试/工具）时不依赖装配顺序。
-    from factorlab.core.ops.registration import ensure_all_ops_registered
-    ensure_all_ops_registered()
+        formula = apply_universe_masking(formula, universe_mask, catalog)
     _check_future_inputs(formula)
     # scope 门（变换后文本——宏残余/内联 def 已就位）：bars_1m 静态门 vs daily 拒分钟算子
     from factorlab.core.engine.minute_gate import (
@@ -142,8 +194,7 @@ def compute_formula(
         validate_minute_scope(formula, outputs)
     else:
         reject_minute_ops_in_daily(formula)
-    validate_partition_calls(formula)
-    reject_future_shifts(formula)
+    check_causality(formula, catalog)     # R22：未来门统一（分类表推断，全形态）
     # M2：声明的输出必须在公式顶层赋值中产生（变换完成后再核对）——codegen 前
     # fail fast，点名缺哪个；避免未定义名退化成 NameError 深层报错
     missing_declared = [o for o in outputs if o not in _declared_output_names(formula)]
@@ -171,6 +222,8 @@ def compute_formula(
     _plugin_imports = _ops_registry.source_import_lines()
     if _plugin_imports:
         extra_codes = extra_codes + "\n" + "\n".join(_plugin_imports)
+    if _normalized_imports:
+        extra_codes = extra_codes + "\n" + _normalized_imports
     result = codegen_exec(
         df.lazy(),
         formula,

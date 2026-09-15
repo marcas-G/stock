@@ -139,23 +139,39 @@ def validate_reserved_bindings(source: str) -> None:
                 f"{(node.asname or node.name)!r}{_RESERVED_SUFFIX}")
 
 
-def apply_universe_masking(source: str, mask_name: str) -> str:
+def _catalog_meta(name: str, catalog) -> tuple[object, str] | None:
+    """catalog 解析（alias → canonical → meta）；miss 返回 None。"""
+    meta = catalog.get(name)
+    if meta is not None:
+        return meta, name
+    if has_op(name):                       # registry alias → canonical
+        canonical = get_op(name).name
+        meta = catalog.get(canonical)
+        if meta is not None:
+            return meta, canonical
+    return None
+
+
+def apply_universe_masking(source: str, mask_name: str, catalog=None) -> str:
     """对公式中 kind=cs/gp 的算子做 universe mask 变换。
 
+    - catalog 给定（R22 引擎路径）：mask_args 由分类表元数据提供（不再查静态表）；
+      registry alias 经 canonical 名二次解析；
+    - catalog 缺省（兼容入口）：旧 registry kind + `_CS_GP_MASK_ARGS` 路径；
     - import alias 与 validate_partition_calls 一致解析（alias → canonical 算子名）
-    - registry alias 一律经 canonical OperatorDef.name 查 metadata
     - CS/GP keyword invocation → fail fast（M6 v1 positional-only）
-    - 未知算子放行（由 validate_partition_calls 报错）
-    - 用户 def 内的 CS/GP 调用不 mask（def 黑盒由 validate_partition_calls 拒绝）
-    - kind=cs/gp 但 registry 未声明数据参数位置 → ValueError（fail fast，含 operator name）
+    - 未知算子放行（由 catalog 解析/validate 报错）
+    - 用户 def 内的 CS/GP 调用不 mask（def 黑盒由校验门拒绝）
+    - kind=cs/gp 但未声明数据参数位置 → ValueError（fail fast，含 operator name）
     - **不改写用户 callable**：mask 只包数据参数，调用名保持原样（alias 原样）
     """
-    from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
-    from factorlab.core.ops.platform_ops import register_platform_ops
-    from factorlab.core.ops.stable_rank import register_stable_rank_ops
-    register_polars_ta_ops()   # 幂等：独立调用时注册表可能为空
-    register_platform_ops()
-    register_stable_rank_ops()   # M6-07C2J：cs_rank canonical 归平台 stable（alias 解析需要）
+    if catalog is None:
+        from factorlab.core.ops.polars_ta_wrappers import register_polars_ta_ops
+        from factorlab.core.ops.platform_ops import register_platform_ops
+        from factorlab.core.ops.stable_rank import register_stable_rank_ops
+        register_polars_ta_ops()   # 幂等：独立调用时注册表可能为空
+        register_platform_ops()
+        register_stable_rank_ops()   # M6-07C2J：cs_rank canonical 归平台 stable（alias 解析需要）
     tree = ast.parse(source)
     defined = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
     aliases = _alias_map(tree)
@@ -166,22 +182,35 @@ def apply_universe_masking(source: str, mask_name: str) -> str:
             if not isinstance(node.func, ast.Name) or node.func.id in defined:
                 return node
             name = aliases.get(node.func.id, node.func.id)   # alias → canonical 调用名
-            if not has_op(name):
-                return node
-            op = get_op(name)
-            if op.kind not in ("cs", "gp"):
-                return node
+            if catalog is not None:
+                resolved = _catalog_meta(name, catalog)
+                if resolved is None:
+                    return node                              # 未知 → 校验门报错
+                meta, canonical = resolved
+                kind = meta.partition
+                positions = meta.mask_args
+                display = canonical
+                if kind not in ("cs", "gp"):
+                    return node
+            else:
+                if not has_op(name):
+                    return node
+                op = get_op(name)
+                if op.kind not in ("cs", "gp"):
+                    return node
+                kind = op.kind
+                display = op.name
+                positions = _CS_GP_MASK_ARGS.get(display)
             if node.keywords:
                 raise ValueError(
-                    f"CS/GP operator {op.name} 不支持 keyword arguments"
+                    f"CS/GP operator {display} 不支持 keyword arguments"
                     f"（universe masking 无歧义要求 positional invocation，M6 v1）: "
                     f"{[k.arg for k in node.keywords]}")
-            canonical = op.name                               # registry alias → canonical
-            positions = _CS_GP_MASK_ARGS.get(canonical)
-            if positions is None:
+            if not positions:
                 raise ValueError(
-                    f"无法确认 {op.kind} 算子 {canonical} 的 universe masking 数据参数位置"
-                    f"——请在 _CS_GP_MASK_ARGS 声明或避免使用（fail fast，禁止按错误 universe 计算）")
+                    f"无法确认 {kind} 算子 {display} 的 universe masking 数据参数位置"
+                    f"——请补分类表 mask_args 或在 _CS_GP_MASK_ARGS 声明"
+                    f"（fail fast，禁止按错误 universe 计算）")
             for i in positions:
                 if i < len(node.args):
                     node.args[i] = ast.Call(

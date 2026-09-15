@@ -26,11 +26,23 @@ class OperatorDef:
 
 _REGISTRY: dict[str, OperatorDef] = {}
 _ALIASES: dict[str, str] = {}
+# 修订号：注册面任何变化 +1（effective_catalog 缓存失效键；测试隔离也依赖它）
+_REVISION = 0
+
+
+def revision() -> int:
+    return _REVISION
+
+
+def _bump_revision() -> None:
+    global _REVISION
+    _REVISION += 1
 
 
 def reset_registry() -> None:
     _REGISTRY.clear()
     _ALIASES.clear()
+    _bump_revision()
 
 
 def factor_op(
@@ -47,9 +59,13 @@ def factor_op(
             func=func,
             doc=func.__doc__ or "",
         )
+        changed = _REGISTRY.get(name) != op
         _REGISTRY[name] = op
         for alias in aliases:
+            changed = changed or _ALIASES.get(alias) != name
             _ALIASES[alias] = name
+        if changed:
+            _bump_revision()
         return func
 
     return decorator
@@ -62,10 +78,15 @@ def mark_source_module(names: Iterable[str], module: str) -> None:
     作用域内绑定——内置算子由公式自身 import 或宏展开提供，插件算子没有这一层，
     故由加载器登记来源模块，引擎据此注入 import 头。
     """
+    changed = False
     for name in names:
         op = _REGISTRY.get(name)
         if op is not None:
-            _REGISTRY[name] = replace(op, source_module=module)
+            new_op = replace(op, source_module=module)
+            changed = changed or new_op != op
+            _REGISTRY[name] = new_op
+    if changed:
+        _bump_revision()
 
 
 def source_import_lines() -> list[str]:

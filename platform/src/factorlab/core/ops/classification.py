@@ -50,6 +50,12 @@ class Catalog:
     def all(self) -> list[OpMeta]:
         return list(self._t.values())
 
+    def copy(self) -> "Catalog":
+        """浅拷贝（注册面 overlay 用；不改动共享单例）。"""
+        c = Catalog()
+        c._t = dict(self._t)
+        return c
+
     def name_sets(self) -> dict[str, set[str]]:
         out: dict[str, set[str]] = {"ts": set(), "cs": set(), "gp": set()}
         for m in self._t.values():
