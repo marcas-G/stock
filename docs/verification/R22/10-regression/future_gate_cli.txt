@@ -1,0 +1,11 @@
+$ .venv/bin/factorlab lint /tmp/opencode/r22/neg_window.yaml
+1:9: ts_rank(close, -20) 不允许负位移（lookback 只能取过去）
+exit=1
+
+$ .venv/bin/factorlab lint /tmp/opencode/r22/neg_method.yaml
+1:9: 禁止属性调用；请使用已导入的算子函数（元素级方法链仅限 ['abs', 'exp', 
+'floor', 'log', 'log1p', 'sign', 'sqrt']）
+exit=1
+
+$ .venv/bin/factorlab op list | 条目数（registry 注册面，非分类表）
+55

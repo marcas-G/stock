@@ -1,0 +1,3 @@
+$ cd platform && .venv/bin/python -m pytest tests/test_regression_152.py -q
+..                                                                       [100%]
+2 passed in 352.00s (0:05:52)
