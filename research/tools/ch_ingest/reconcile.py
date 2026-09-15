@@ -13,9 +13,11 @@ import sys
 
 import pyarrow.parquet as pq
 
+from factorlab.core.factio import paths  # R8：路径单点
+
 from common import connect, load_config
 
-DAILY_SRC = "/data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet"
+DAILY_SRC = str(paths.daily_fact_path())   # R8：取 factio.paths（原硬编码绝对路径）
 
 # (table, 源行数或 None=用 SQL 求, 说明)
 DAILY_TABLES = [

@@ -37,6 +37,7 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))      # tools/
 from _env import ensure_platform as _ensure_platform  # noqa: E402
 
 _ensure_platform()
+from lib import writekit as W  # noqa: E402  （R8c 漏接线：锁/标记单点；R9 由 end-to-end 测试抓回）
 from factorlab.core.factio.timeparse import parse_ms_numpy as _parse_ms_numpy  # noqa: E402
 import pandas as pd, numpy as np, pyarrow as pa, pyarrow.parquet as pq
 from concurrent.futures import ProcessPoolExecutor
@@ -268,106 +269,8 @@ def _process_zip(z, day):
     return (trades_tab, orders_tab, snaps_tab, mrow)
 
 
-class MonthWriter:
-    """每月每表一个 parquet 文件, 累积到一定行数 flush row group。
-
-    2026-08-26 互踩修复: 写入唯一 tmp 路径 (part-000.parquet.tmp.<pid>), 全部写完后
-    校验通过才 os.replace 到最终路径。write_table 返回时 pyarrow 内部缓冲可能尚未
-    全部落 fd (实测误报), 因此 append 只做尺寸单调性检查 (外部 O_TRUNC 必致 size
-    骤降); 文件静止期 (writer.close() + fsync 后) 做物理块完整性校验
-    (st_blocks*512 >= st_size*0.95) 与结构/行数校验, 通过才原子提交——
-    防止多实例并发写同一路径时静默毁数据 (4 进程互踩事故, 100% blocks 丢失)。"""
-
-    def __init__(self, base, name, y, m, schema=None):
-        """schema 显式传入（None → 模块级 SCHEMAS[name]）。
-
-        WS6c：抽取类工具（extract_sz_cancels）不再靠 `SCHEMAS['cancels']=...`
-        的模块级注册副作用——显式参数化，去隐式全局耦合。
-        """
-        self.name = name
-        self.schema = schema
-        ddir = str(partitions.partition_dir(_Path(base), table=name,
-                                            year=int(y), month=int(m)))
-        os.makedirs(ddir, exist_ok=True)
-        self.final_path = os.path.join(ddir, 'part-000.parquet')
-        # 唯一 tmp 路径: pid+序号, 任何来源的重复创建都绝不共享路径 (O_TRUNC
-        # 互踩的物理前提是共享路径); 校验通过后 os.replace 原子提交
-        global _TMP_SEQ
-        _TMP_SEQ += 1
-        self.path = os.path.join(ddir, f'part-000.parquet.tmp.{os.getpid()}.{_TMP_SEQ}')
-        self.writer = pq.ParquetWriter(self.path, self.schema or SCHEMAS[name],
-                                       compression='zstd', compression_level=3,
-                                       use_dictionary=['code', 'order_type', 'bs'])
-        self.rows = 0
-        self.max_size = os.path.getsize(self.path)  # 活跃写者文件只增不减
-
-    def append(self, tab):
-        if tab.num_rows:
-            # 截断检测必须在 write_table 之前 (2026-08-26 漏洞实测): 外部 O_TRUNC
-            # 后受害进程 fd offset 不变, 继续写会让 size 从 0 恢复到 >= 原大小 —
-            # 写后检查完全看不到异常 (事故精确模式: 截断到 1024/5532 后 1 秒内
-            # 稀疏恢复到 1.6GB). 单写者下写前 size 必须 == max_size, 截断必破坏
-            # 该等式, 且此刻尚未写新数据, 检测无竞态.
-            st = os.stat(self.path)
-            if st.st_size != self.max_size:
-                # 触发即取证: 列出所有转换相关进程 + 持有本文件 fd 的进程 + 锁状态
-                import subprocess
-                diag = [f'  本进程 pid={os.getpid()}']
-                try:
-                    out = subprocess.run(
-                        ['ps', '-eo', 'pid,ppid,etime,cmd'], capture_output=True,
-                        text=True, timeout=10).stdout
-                    for line in out.splitlines():
-                        if 'convert_tick' in line or 'spawn_main' in line:
-                            diag.append('  ' + line.strip())
-                except Exception as e:
-                    diag.append(f'  ps 失败: {e}')
-                diag.append(f'  持有 {self.path} fd 的进程:')
-                for p in sorted(os.listdir('/proc'), key=int):
-                    if not p.isdigit():
-                        continue
-                    try:
-                        for fd in os.listdir(f'/proc/{p}/fd'):
-                            tgt = os.readlink(f'/proc/{p}/fd/{fd}')
-                            if self.path.split('/')[-1] in tgt:
-                                diag.append(f'    pid {p}: fd {fd} → {tgt}')
-                    except OSError:
-                        pass
-                raise RuntimeError(
-                    f'文件被外部截断/修改! {self.path} size={st.st_size} 期望={self.max_size} '
-                    f'(pid={os.getpid()}) — 诊断:\n' + '\n'.join(diag))
-            self.writer.write_table(tab)
-            self.rows += tab.num_rows
-            self.max_size = os.path.getsize(self.path)
-
-    def close(self):
-        self.writer.close()  # 所有内部缓冲落 fd, 文件此刻静止
-        fd = os.open(self.path, os.O_RDONLY)
-        try:
-            os.fsync(fd)     # 强制写回 → st_blocks 反映真实物理分配
-        finally:
-            os.close(fd)
-        # 提交校验: 结构可读 + schema 一致 + 行数一致 + 物理分配完整
-        pf = pq.ParquetFile(self.path)
-        if pf.schema_arrow != (self.schema or SCHEMAS[self.name]):
-            raise RuntimeError(f'schema 不一致: {self.path}')
-        if pf.metadata.num_rows != self.rows:
-            raise RuntimeError(f'行数不一致: {self.path} '
-                               f'metadata={pf.metadata.num_rows} 期望={self.rows}')
-        st = os.stat(self.path)
-        got = st.st_blocks * 512
-        if got < st.st_size * 0.95:
-            raise RuntimeError(
-                f'提交前稀疏化检测失败: {self.path} size={st.st_size} '
-                f'blocks={st.st_blocks} (仅 {got/st.st_size:.1%} 物理分配) → '
-                f'文件有空洞, 放弃提交, 该月将重转')
-        os.replace(self.path, self.final_path)
-        dfd = os.open(os.path.dirname(self.final_path), os.O_RDONLY)
-        try:
-            os.fsync(dfd)
-        finally:
-            os.close(dfd)
-        return self.final_path, self.rows
+# R9：原 `MonthWriter`（唯一 tmp + fsync + st_blocks 完整性 + schema/行数校验）已移入
+# `lib/writekit`（研究侧**唯一**落盘实现）；此处保留 `SCHEMAS` 与 `FLUSH_ZIPS`。
 
 
 SCHEMAS = {'trades': TRADES_SCHEMA, 'orders': ORDERS_SCHEMA, 'snapshots': SNAP_SCHEMA}
@@ -480,7 +383,8 @@ def main():
                                 # (run4 守卫抓到 1024≠490143; run5 活跃文件 blocks=1% 证实
                                 # 截断后稀疏恢复, 写后检查看不见). 显式 if, 零副作用.
                                 if key not in writers:
-                                    writers[key] = MonthWriter(OUT, name, ym[:4], ym[4:])
+                                    writers[key] = W.MonthWriter(OUT, name, ym[:4], ym[4:],
+                                                      schema=SCHEMAS[name])
                                 big = pa.concat_tables(buffers.pop(key))
                                 writers[key].append(big)
                                 n_buf[key] = 0  # 2026-08-26 bugfix: 不重置则每 zip 都 flush
@@ -531,7 +435,8 @@ def main():
         if tabs:
             name, ym = key
             if key not in writers:  # 同 flush 处: 显式 if, 禁用 setdefault 副作用
-                writers[key] = MonthWriter(OUT, name, ym[:4], ym[4:])
+                writers[key] = W.MonthWriter(OUT, name, ym[:4], ym[4:],
+                                                      schema=SCHEMAS[name])
             writers[key].append(pa.concat_tables(tabs))
     summary = {}
     for key, w in sorted(writers.items()):

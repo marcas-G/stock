@@ -104,3 +104,33 @@ def test_discover_tasks_requires_success_marker(tmp_path, monkeypatch):
             (d / "_SUCCESS").write_bytes(b"")
     monkeypatch.setattr(IC, "src_root", lambda table: str(root / "orders"))
     assert IC.discover_tasks("tick_orders") == [("tick_orders", "2026", "06")]
+
+
+# ── daily 源路径单点（R8：原先两处硬编码绝对路径）──────────────────
+def test_daily_src_follows_overridden_stock_root(tmp_path):
+    """`FACTORLAB_STOCK_ROOT` 覆盖后，两个模块的 daily 源都必须跟着走。
+
+    依据（不是从实现推的）：硬编码 `/data/students/gaolei/stock/data/fact/daily_fact/...`
+    在换根/换机后会让灌入与对账**静默指向旧盘**；R4c 的路径单点纪律要求取
+    `core.factio.paths`。同机上"相等"不足以证明——用子进程换根才验证得了。
+    """
+    import os
+    import subprocess
+    code = (
+        "import sys; sys.path.insert(0, %r); import ingest_daily, reconcile;"
+        " print(ingest_daily.DAILY_SRC); print(reconcile.DAILY_SRC)"
+        % str(Path(__file__).resolve().parents[1])
+    )
+    env = dict(os.environ, FACTORLAB_STOCK_ROOT=str(tmp_path))
+    r = subprocess.run([sys.executable, "-c", code], env=env,
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    want = str(tmp_path / "data" / "fact" / "daily_fact" / "daily_fact.parquet")
+    assert r.stdout.split() == [want, want], r.stdout
+
+
+def test_daily_src_is_single_point():
+    """两个模块 + core.factio.paths 三处必须字面同一个值（不许第二份拼接）。"""
+    import ingest_daily
+    import reconcile
+    assert ingest_daily.DAILY_SRC == reconcile.DAILY_SRC == str(paths.daily_fact_path())

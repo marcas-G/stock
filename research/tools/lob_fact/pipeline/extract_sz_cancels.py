@@ -14,7 +14,7 @@ tick_fact trades 因此缺失 SZ 撤单流 (已逐日精确对账证实: tick_fa
 逐 code-day 双射对账 (n_blank==n_C, 空BS非C==0, C非空BS==0, ref 必>0, 量必>0),
 任何违规则该 zip 整包隔离入 cancels_errors.csv (不静默吞).
 
-复用 convert_tick_to_parquet.py 的 MonthWriter(唯一 tmp+fsync+st_blocks+schema 校验
+复用 lib/writekit 的 MonthWriter(唯一 tmp+fsync+st_blocks+schema 校验
 +os.replace 原子提交)/flock 单实例/stall 看门狗(spawn ProcessPool, 900s) 架构。
 
 输出: tick_fact/cancels/year=YYYY/month=MM/part-000.parquet (+_SUCCESS)
@@ -299,7 +299,7 @@ def main():
                         n_buf[ym] = n_buf.get(ym, 0) + 1
                         if n_buf[ym] >= FLUSH_ZIPS:
                             if ym not in writers:  # 显式 if (setdefault 副作用教训)
-                                writers[ym] = cvt.MonthWriter(
+                                writers[ym] = W.MonthWriter(
                                     os.path.join(cvt.OUT), 'cancels', ym[:4], ym[4:],
                                     schema=CANCELS_SCHEMA)
                             writers[ym].append(pa.concat_tables(buffers.pop(ym)))
@@ -337,7 +337,7 @@ def main():
     for ym, tabs in buffers.items():
         if tabs:
             if ym not in writers:
-                writers[ym] = cvt.MonthWriter(os.path.join(cvt.OUT), 'cancels',
+                writers[ym] = W.MonthWriter(os.path.join(cvt.OUT), 'cancels',
                                               ym[:4], ym[4:],
                                               schema=CANCELS_SCHEMA)
             writers[ym].append(pa.concat_tables(tabs))

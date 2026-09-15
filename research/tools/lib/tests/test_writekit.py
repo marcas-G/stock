@@ -14,7 +14,10 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from lib import writekit as W
+from _env import ensure_platform as _ensure_platform  # noqa: E402  （conftest 已把 tools/ 放上 path）
+
+_ensure_platform()   # MonthWriter 的分区规则取 core.factio.partitions（与真实调用方同前置）
+from lib import writekit as W  # noqa: E402
 
 
 # ── 完成标记 ────────────────────────────────────────────────────
@@ -189,3 +192,61 @@ def test_marker_payload_is_still_a_marker(tmp_path):
         {"month": "202608", "n_code_day": 3, "gate": {"sz": True}}
     # 空文件约定不变（分区级标记历史字节不变）
     assert W.mark_success(tmp_path).read_bytes() == b""
+
+
+# ── 流式月写入器（R9：从 converters 移入 writekit，能力一项不减）──────
+# 三项能力都来自真实事故，测试必须**打得到事故模式**，不是仪式性覆盖：
+# ① 唯一 tmp + fsync + 原子提交；② 追加前的 size 单调性（外部 O_TRUNC 必致骤降）；
+# ③ 提交前的物理块完整性（st_blocks*512 >= size*0.95，抓稀疏/空洞文件）。
+def _schema():
+    import pyarrow as pa
+    return pa.schema([('code', pa.string()), ('order_type', pa.string()),
+                      ('bs', pa.string()), ('price', pa.float64())])
+
+
+def _tab(n, start=0):
+    import pyarrow as pa
+    return pa.table({'code': [f'{i:06d}' for i in range(start, start + n)],
+                     'order_type': ['A'] * n, 'bs': ['B'] * n,
+                     'price': [float(i) for i in range(start, start + n)]},
+                    schema=_schema())
+
+
+def test_month_writer_streams_row_groups_and_commits_atomically(tmp_path):
+    w = W.MonthWriter(str(tmp_path), 'orders', 2026, 8, schema=_schema())
+    assert w.final_path == str(tmp_path / "orders" / "year=2026" / "month=08"
+                              / "part-000.parquet")
+    assert w.path.startswith(w.final_path) and ".tmp." in w.path, "必须写唯一 tmp"
+    for i in range(3):
+        w.append(_tab(10, start=i * 10))
+    assert not os.path.exists(w.final_path), "append 期间不得出现在最终路径"
+    final, rows = w.close()
+    assert rows == 30 and final == w.final_path
+    import pyarrow.parquet as pq
+    pf = pq.ParquetFile(final)
+    assert pf.metadata.num_rows == 30
+    assert pf.metadata.num_row_groups == 3, "逐次 append = 逐 row group（流式累积）"
+    assert pf.schema_arrow == _schema()
+    assert [p for p in os.listdir(os.path.dirname(final)) if ".tmp." in p] == []
+
+
+def test_month_writer_detects_external_truncation_before_writing(tmp_path):
+    """2026-08-26 互踩事故的**精确模式**：外部 O_TRUNC 后文件 size 会随写入稀疏恢复，
+    写后检查完全看不到异常——只有在 write_table **之前**比对 size == max_size 才抓得到。"""
+    w = W.MonthWriter(str(tmp_path), 'orders', 2026, 8, schema=_schema())
+    w.append(_tab(10))
+    with open(w.path, "r+b") as f:
+        f.truncate(0)                      # 模拟另一实例/进程的 O_TRUNC
+    with pytest.raises(RuntimeError, match="外部截断"):
+        w.append(_tab(10))
+
+
+def test_blocks_complete_flags_sparse_file(tmp_path):
+    """物理块完整性判据本身也要测：稀疏文件（有空洞）必须判 False，实写文件判 True。"""
+    sparse = tmp_path / "sparse.parquet"
+    with open(sparse, "wb") as f:
+        f.truncate(8 * 1024 * 1024)        # 只伸长度、不落块 → 全空洞
+    assert W.blocks_complete(str(sparse)) is False
+    real = tmp_path / "real.parquet"
+    real.write_bytes(b"x" * (1024 * 1024))
+    assert W.blocks_complete(str(real)) is True

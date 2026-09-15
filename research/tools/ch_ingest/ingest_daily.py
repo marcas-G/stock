@@ -14,11 +14,12 @@ import os
 
 import polars as pl
 
+from factorlab.core.factio import paths  # R8：路径单点
 from factorlab.core.factio.boards import zh_market_expr  # R4c 单点
 
 from common import connect, load_config
 
-DAILY_SRC = "/data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet"
+DAILY_SRC = str(paths.daily_fact_path())   # R8：取 factio.paths（原硬编码绝对路径）
 BATCH = 2_000_000  # insert_arrow 每批行数
 
 

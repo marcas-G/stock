@@ -21,8 +21,10 @@ import tempfile
 from pathlib import Path
 
 import polars as pl
+import pyarrow.parquet as pq
 
 SUCCESS_MARKER = "_SUCCESS"
+_TMP_SEQ = 0        # MonthWriter 的同进程 tmp 路径唯一化（pid+序号，永不共享路径）
 
 
 # ── 完成标记（_SUCCESS）────────────────────────────────────────────
@@ -151,6 +153,131 @@ def acquire_lock(path: str | Path) -> FileLock:
     """
     lock = FileLock(path)
     return lock.__enter__()
+
+
+class MonthWriter:
+    """每月每表一个 parquet 文件，累积到一定行数 flush 一个 row group（流式，不整月驻留）。
+
+    R9：本类原在 `research/tools/converters/convert_tick_to_parquet.py`，是研究侧**第二套**
+    落盘实现（writekit 已有 `atomic_write_df`）。移入此处后研究侧只有一个写模块，三项能力
+    **一项不少**——它们都来自真实事故：
+    ① 唯一 tmp 路径 + fsync + `os.replace` 原子提交（多实例 O_TRUNC 互踩，4 进程毁数据事故）；
+    ② 追加前 size 单调性（外部截断瞬间抓，写后检查看不到——稀疏恢复）；
+    ③ 提交前物理块完整性 `st_blocks*512 >= size*0.95`（100% blocks 丢失事故）。
+    
+
+    2026-08-26 互踩修复: 写入唯一 tmp 路径 (part-000.parquet.tmp.<pid>), 全部写完后
+    校验通过才 os.replace 到最终路径。write_table 返回时 pyarrow 内部缓冲可能尚未
+    全部落 fd (实测误报), 因此 append 只做尺寸单调性检查 (外部 O_TRUNC 必致 size
+    骤降); 文件静止期 (writer.close() + fsync 后) 做物理块完整性校验
+    (st_blocks*512 >= st_size*0.95) 与结构/行数校验, 通过才原子提交——
+    防止多实例并发写同一路径时静默毁数据 (4 进程互踩事故, 100% blocks 丢失)。"""
+
+    def __init__(self, base, name, y, m, schema, use_dictionary=("code", "order_type", "bs")):
+        """`schema` **必填**：写入契约由调用方显式给出（不从模块全局 SCHEMAS 隐式取，
+        WS6c 起抽取类工具就按这个口径调用）。`use_dictionary` 与历史默认一致——
+        换值会改 parquet 字节布局，批算产物即不可比对。
+        """
+        # 懒导入：writekit 其余部分**不依赖平台**（模块级不 import factorlab），
+        # 分区规则仍取单点；调用方在此之前都已 `_env.ensure_platform()`。
+        from factorlab.core.factio.partitions import partition_dir
+        self.name = name
+        self.schema = schema
+        ddir = str(partition_dir(Path(base), table=name, year=int(y), month=int(m)))
+        os.makedirs(ddir, exist_ok=True)
+        self.final_path = os.path.join(ddir, 'part-000.parquet')
+        # 唯一 tmp 路径: pid+序号, 任何来源的重复创建都绝不共享路径 (O_TRUNC
+        # 互踩的物理前提是共享路径); 校验通过后 os.replace 原子提交
+        global _TMP_SEQ
+        _TMP_SEQ += 1
+        self.path = os.path.join(ddir, f'part-000.parquet.tmp.{os.getpid()}.{_TMP_SEQ}')
+        self.writer = pq.ParquetWriter(self.path, self.schema,
+                                       compression='zstd', compression_level=3,
+                                       use_dictionary=list(use_dictionary))
+        self.rows = 0
+        self.max_size = os.path.getsize(self.path)  # 活跃写者文件只增不减
+
+    def append(self, tab):
+        if tab.num_rows:
+            # 截断检测必须在 write_table 之前 (2026-08-26 漏洞实测): 外部 O_TRUNC
+            # 后受害进程 fd offset 不变, 继续写会让 size 从 0 恢复到 >= 原大小 —
+            # 写后检查完全看不到异常 (事故精确模式: 截断到 1024/5532 后 1 秒内
+            # 稀疏恢复到 1.6GB). 单写者下写前 size 必须 == max_size, 截断必破坏
+            # 该等式, 且此刻尚未写新数据, 检测无竞态.
+            st = os.stat(self.path)
+            if st.st_size != self.max_size:
+                # 触发即取证: 列出所有转换相关进程 + 持有本文件 fd 的进程 + 锁状态
+                import subprocess
+                diag = [f'  本进程 pid={os.getpid()}']
+                try:
+                    out = subprocess.run(
+                        ['ps', '-eo', 'pid,ppid,etime,cmd'], capture_output=True,
+                        text=True, timeout=10).stdout
+                    for line in out.splitlines():
+                        if 'convert_tick' in line or 'spawn_main' in line:
+                            diag.append('  ' + line.strip())
+                except Exception as e:
+                    diag.append(f'  ps 失败: {e}')
+                diag.append(f'  持有 {self.path} fd 的进程:')
+                # R9 修复：原写法 `sorted(os.listdir('/proc'), key=int)` 在存在非数字
+                # 条目（如 /proc/fb）时**先崩在排序**——诊断路径本身反而掩盖了原始错误
+                # （2026-08-26 事故复盘时未触发，故一直没暴露）。
+                for p in sorted((e for e in os.listdir('/proc') if e.isdigit()), key=int):
+                    try:
+                        for fd in os.listdir(f'/proc/{p}/fd'):
+                            tgt = os.readlink(f'/proc/{p}/fd/{fd}')
+                            if self.path.split('/')[-1] in tgt:
+                                diag.append(f'    pid {p}: fd {fd} → {tgt}')
+                    except OSError:
+                        pass
+                raise RuntimeError(
+                    f'文件被外部截断/修改! {self.path} size={st.st_size} 期望={self.max_size} '
+                    f'(pid={os.getpid()}) — 诊断:\n' + '\n'.join(diag))
+            self.writer.write_table(tab)
+            self.rows += tab.num_rows
+            self.max_size = os.path.getsize(self.path)
+
+    def close(self):
+        self.writer.close()  # 所有内部缓冲落 fd, 文件此刻静止
+        fd = os.open(self.path, os.O_RDONLY)
+        try:
+            os.fsync(fd)     # 强制写回 → st_blocks 反映真实物理分配
+        finally:
+            os.close(fd)
+        # 提交校验: 结构可读 + schema 一致 + 行数一致 + 物理分配完整
+        pf = pq.ParquetFile(self.path)
+        if pf.schema_arrow != self.schema:
+            raise RuntimeError(f'schema 不一致: {self.path}')
+        if pf.metadata.num_rows != self.rows:
+            raise RuntimeError(f'行数不一致: {self.path} '
+                               f'metadata={pf.metadata.num_rows} 期望={self.rows}')
+        if not blocks_complete(self.path):
+            st = os.stat(self.path)
+            got = st.st_blocks * 512
+            raise RuntimeError(
+                f'提交前稀疏化检测失败: {self.path} size={st.st_size} '
+                f'blocks={st.st_blocks} (仅 {got/st.st_size:.1%} 物理分配) → '
+                f'文件有空洞, 放弃提交, 该月将重转')
+        os.replace(self.path, self.final_path)
+        dfd = os.open(os.path.dirname(self.final_path), os.O_RDONLY)
+        try:
+            os.fsync(dfd)
+        finally:
+            os.close(dfd)
+        return self.final_path, self.rows
+
+
+# ── 物理块完整性（提交前判据；R9 从 MonthWriter.close 抽出以便单独测）────
+def blocks_complete(path: str | Path, ratio: float = 0.95) -> bool:
+    """文件的**物理分配**是否与逻辑大小相符（稀疏/空洞文件判 False）。
+
+    为什么不用 size：O_TRUNC 后继续写会让 size 从 0 稀疏恢复到原大小，写后检查完全
+    看不到异常（2026-08-26 事故精确模式：blocks 100% 丢失而 size 毫发无损）。
+    """
+    st = os.stat(path)
+    if st.st_size == 0:
+        return True
+    return st.st_blocks * 512 >= st.st_size * ratio
 
 
 # ── 原子落盘（parquet）────────────────────────────────────────────
