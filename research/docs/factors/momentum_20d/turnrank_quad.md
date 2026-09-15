@@ -7,6 +7,7 @@ params: {}
 status: 无效（相对种子无改善）
 created_ts: 2026-08-17
 updated_ts: 2026-08-17
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # momentum_20d_turnrank_quad 因子档案

@@ -7,6 +7,7 @@ params: {}
 status: 无效（flow30 第四维边际）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # reversal_20d_cti_flow30 因子档案

@@ -7,6 +7,7 @@ params: {}
 status: 候选（强：IC 0.0661, t=5.14）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # max_effect_20d 因子档案

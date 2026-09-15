@@ -7,6 +7,7 @@ params: {}
 status: 候选（新全库最强：0.0721/7.40/0.555）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # reversal_20d_four_dim10 因子档案

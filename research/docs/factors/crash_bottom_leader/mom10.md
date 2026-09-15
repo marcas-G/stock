@@ -7,6 +7,7 @@ params: {}
 status: 无效（超跌窗口 20→10 证伪：t=1.77 不显著、符号不稳定）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # crash_bottom_leader_mom10 因子档案（10 日超跌窗口）

@@ -7,6 +7,7 @@ params: {}
 status: 候选（强候选：t/IR 近翻倍）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # momentum_20d_turnrank_extreme 因子档案

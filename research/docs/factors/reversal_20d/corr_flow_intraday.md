@@ -7,6 +7,7 @@ params: {}
 status: 候选（三维 IC 纪录：0.0607）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # reversal_20d_corr_flow_intraday 因子档案

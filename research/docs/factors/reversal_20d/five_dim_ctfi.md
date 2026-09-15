@@ -7,6 +7,7 @@ params: {}
 status: 无效（skew 第五维持平）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # reversal_20d_five_dim_ctfi 因子档案

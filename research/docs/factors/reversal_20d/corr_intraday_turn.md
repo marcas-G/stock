@@ -7,6 +7,7 @@ params: {}
 status: 候选（全库最强：IC/t/IR 三项纪录）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # reversal_20d_corr_intraday_turn 因子档案

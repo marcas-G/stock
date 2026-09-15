@@ -7,6 +7,7 @@ params: {}
 status: 候选（强候选：t=8.20/IR=0.611/spread 全库纪录）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # reversal_10d_intraday_extreme 因子档案

@@ -7,6 +7,7 @@ params: {}
 status: 观察中（可交易性龙头：IC 略低但 LS 夏普 2.45 最高；与种子等价替代）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # crash_bottom_leader_adv20 因子档案（成交额龙头）

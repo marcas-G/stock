@@ -7,6 +7,7 @@ params: {}
 status: 无效（极端小盘负溢价——方向反转）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # small_cap_extreme 因子档案

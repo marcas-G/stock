@@ -7,6 +7,7 @@ params: {}
 status: 无效（与 turn_skew_corr 数学等价——重复；skew 稀释 corr_turn）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # reversal_20d_corr_turn_skew 因子档案

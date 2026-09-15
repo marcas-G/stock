@@ -7,6 +7,7 @@ params: {}
 status: 无效（触发阈值 -8% → -6% 证伪：触发周 +44% 但触发期年化减半）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # crash_bottom_leader_timed_m6 因子档案（-6% 触发阈值）

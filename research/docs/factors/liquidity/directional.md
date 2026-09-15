@@ -7,6 +7,7 @@ params: {}
 status: 无效（定向量比无增益——放量方向被覆盖）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # volume_ratio_directional 因子档案

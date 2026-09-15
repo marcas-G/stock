@@ -7,6 +7,7 @@ params: {}
 status: 无效（总波动更优；近 26 周亮点）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # low_downside_vol_20d 因子档案

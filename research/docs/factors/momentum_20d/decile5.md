@@ -7,6 +7,7 @@ params: {}
 status: 无效（5 档劣化，10 档有边际信息）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # momentum_20d_decile5 因子档案

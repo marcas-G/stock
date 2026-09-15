@@ -7,6 +7,7 @@ params: {}
 status: 无效（与 winsorize 版等价）
 created_ts: 2026-08-17
 updated_ts: 2026-08-17
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # reversal_20d_nowin 因子档案

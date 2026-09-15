@@ -7,6 +7,7 @@ params: {}
 status: 观察中
 created_ts: 2026-08-17
 updated_ts: 2026-08-17
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # momentum_20d_vwap 因子档案

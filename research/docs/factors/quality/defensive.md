@@ -7,6 +7,7 @@ params: {}
 status: 候选（防御组合超股息 +123%）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # quality_defensive 因子档案

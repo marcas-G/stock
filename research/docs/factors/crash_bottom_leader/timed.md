@@ -7,6 +7,7 @@ params: {}
 status: 候选（11.5 年 106 触发周：IC t=2.84 显著、档位单调、long_short 夏普 2.21）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # crash_bottom_leader_timed 因子档案（市场级股灾抄底）

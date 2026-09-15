@@ -7,6 +7,7 @@ params: {win: 200, gain: 2.0, rl_win: 120}
 status: 无效（跨家族组合失败——量维度耦合）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # vol_run_energy_symrun_corr 因子档案

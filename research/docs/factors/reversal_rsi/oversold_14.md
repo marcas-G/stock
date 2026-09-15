@@ -7,6 +7,7 @@ params: {}
 status: 无效（RSI 完全对称——超买方向唯一有效）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # rsi_oversold_14 因子档案

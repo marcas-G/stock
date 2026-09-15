@@ -15,6 +15,7 @@ params: {<p1>: <默认值>, <p2>: <默认值>}
 status: 探索中
 created_ts: <YYYY-MM-DD>
 updated_ts: <YYYY-MM-DD>
+snapshot: <历史快照说明>     <!-- 可选：验证数字无 in-tree 产物/当前不可复跑时保留默认文案；重跑留证后删本行 -->
 ---
 
 # <因子名> 因子档案
@@ -73,7 +74,8 @@ adjustment: <qfq 等>
 
 > 数据快照自 `results/<name>/summary.json`（运行 `factorlab run` 后更新）。
 > 本表为某次快照；重跑后如需更新，用新的 summary.json 数值替换并刷新
-> `updated_ts` 与下方判定。
+> `updated_ts` 与下方判定。**若该快照的产物未随仓存档、当前环境不可复跑，
+> front matter 必须保留 `snapshot: 历史快照（...）` 标注**（口径见同目录 `README.md`）。
 
 ### 样本
 

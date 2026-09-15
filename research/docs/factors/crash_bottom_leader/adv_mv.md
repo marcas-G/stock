@@ -7,6 +7,7 @@ params: {}
 status: 无效（市值+成交额叠加证伪：t=0.68，维度冗余）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # crash_bottom_leader_adv_mv 因子档案（市值+成交额双龙头）

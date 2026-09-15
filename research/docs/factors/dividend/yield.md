@@ -7,6 +7,7 @@ params: {}
 status: 观察中（t=2.31 显著、spread 负）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # dividend_yield 因子档案

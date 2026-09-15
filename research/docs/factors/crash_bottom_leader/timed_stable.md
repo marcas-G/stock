@@ -7,6 +7,7 @@ params: {}
 status: 无效（触发期加回稳健成分证伪：IC 减半 t=1.20，冗余/方向冲突）
 created_ts: 2026-08-18
 updated_ts: 2026-08-18
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # crash_bottom_leader_timed_stable 因子档案（触发期稳健成分）

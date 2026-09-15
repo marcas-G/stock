@@ -34,8 +34,8 @@
 - TDD：先写失败测试再实现；覆盖正常/边界/错误路径；断言真实行为，不用 mock 糊弄。
 - 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**（T1 用例用
   `pytest.importorskip`，在 emb 下 skip、平台 venv 真跑）。
-- 提交前跑：`emb -m pytest research/tools -q`（T2，**实测基线 245 passed / 4 skipped**，2026-09-15 R20）+ `platform/.venv/bin/python -m pytest
-  research/tools/{strategies,ch_ingest,factor_lib,1m_features,ashare_ingest,universe_stages}/tests -q`（T1，**实测基线 59 passed**）。
+- 提交前跑：`emb -m pytest research/tools -q`（T2，**实测基线 268 passed / 10 skipped**，2026-09-15 R21）+ `platform/.venv/bin/python -m pytest
+  research/tools/{strategies,ch_ingest,factor_lib,1m_features,ashare_ingest,universe_stages}/tests -q`（T1，**实测基线 116 passed**）。
 - 因子新增/改名/归档：**必须**同步档案（`docs/factors/<族>/<短名>.md`）并重生成索引
   `../docs/index/factors.md`（`build_index.py --check` 是常驻门）。
 - 数据位置与血缘以 `../docs/data-map.md` 为唯一权威；目录约定以 `../docs/directory-conventions.md` 为准。
@@ -48,6 +48,6 @@
   `platform/.venv/bin/python research/tools/ch_ingest/reconcile.py`（`make reconcile`）。
 - 数据根：`../data/{raw,fact,calib,ref}`（单点在平台 `core.factio.paths`）；**`data/` 零改动**（只读消费）。
 - 16GB 内存无页面文件（目标机）：批算单进程 + 流式 + 及时释放；`lob_fact` 校准常量与
-  `fixtures/pins.sha256` 金样**不可改**（改动即让 183 测试与历史结论失效，需走再校准流程）。
+  `fixtures/pins.sha256` 金样**不可改**（改动即让 191 测试与历史结论失效，需走再校准流程）。
 - 判读口径：因子"同公式多假设"（direction/params/process 差异）是**研究变体**，不是重复条目——
   索引的「变体组」章节成组展示（R5 实测 152 个里 0 个真重复）；归档与否属研究者判断。
