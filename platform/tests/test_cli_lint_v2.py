@@ -1,0 +1,90 @@
+"""Task 8：lint 接入完整静态管线（分类表归一化 + 未来门 + 输出名检查；不触 DB）。
+
+与引擎同源：`prepare_static` = prepare_formula_pipeline（参数替换/宏/def 内联/
+薄封装）→ stable_rank 与 vendor alias 改写 → normalize_calls（分类表解析）→
+check_causality → 输出名检查。
+"""
+
+from __future__ import annotations
+
+from typer.testing import CliRunner
+
+from factorlab.surfaces.cli.main import app
+
+runner = CliRunner()
+
+
+def _spec(tmp_path, formula: str, *, universe: str = 'codes: ["000001.SZ"]',
+          extra: str = "") -> object:
+    body = "\n".join("  " + line for line in formula.splitlines())
+    path = tmp_path / "s.yaml"
+    path.write_text(f"""
+name: lint_v2_demo
+category: custom
+direction: 1
+universe:
+  {universe}
+date:
+  start: "2024-01-02"
+  end: "2024-01-12"
+{extra}formula: |
+{body}
+""", encoding="utf-8")
+    return path
+
+
+def test_lint_rejects_negative_shift(tmp_path):
+    p = _spec(tmp_path, "signal = ts_delay(close, -1)")
+    r = runner.invoke(app, ["lint", str(p)])
+    assert r.exit_code != 0 and "负位移" in r.output
+
+
+def test_lint_accepts_open_library_op(tmp_path):
+    # 开放面：此前报"未知算子"的库函数（ts_arg_max 不在 55 注册清单）现在 lint 通过
+    p = _spec(tmp_path, "signal = ts_arg_max(volume, 120)")
+    r = runner.invoke(app, ["lint", str(p)])
+    assert r.exit_code == 0, r.output
+    assert "OK" in r.output
+
+
+def test_lint_accepts_uppercase_library_op(tmp_path):
+    p = _spec(tmp_path, "signal = BBANDS(volume, 20)")
+    r = runner.invoke(app, ["lint", str(p)])
+    assert r.exit_code == 0, r.output
+
+
+def test_lint_rejects_unknown_operator_with_op_meta(tmp_path):
+    p = _spec(tmp_path, "signal = totally_new(volume)")
+    r = runner.invoke(app, ["lint", str(p)])
+    assert r.exit_code != 0
+    assert "未知算子" in r.output and "op_meta" in r.output
+
+
+def test_lint_rejects_outputs_mismatch(tmp_path):
+    p = _spec(tmp_path, "signal = close", extra='outputs: ["signal", "alpha"]\n')
+    r = runner.invoke(app, ["lint", str(p)])
+    assert r.exit_code != 0
+    assert "未产出声明输出列" in r.output
+
+
+def test_lint_rejects_future_in_pool_formula(tmp_path):
+    p = _spec(tmp_path, "signal = close", universe='formula: "close[-1] > 10"')
+    r = runner.invoke(app, ["lint", str(p)])
+    assert r.exit_code != 0 and "负位移" in r.output
+
+
+def test_lint_accepts_params_template_open_op(tmp_path):
+    text = """
+name: lint_v2_params
+category: custom
+direction: 1
+params: {win: 60}
+universe:
+  codes: ["000001.SZ"]
+formula: |
+  signal = ts_arg_max(volume, ${win})
+"""
+    p = tmp_path / "p.yaml"
+    p.write_text(text, encoding="utf-8")
+    r = runner.invoke(app, ["lint", str(p)])
+    assert r.exit_code == 0, r.output

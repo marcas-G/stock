@@ -134,6 +134,14 @@ def _declared_output_names(formula: str) -> set[str]:
     return declared
 
 
+def _require_declared_outputs(formula: str, outputs: list[str]) -> None:
+    """outputs 声明须在公式顶层赋值中产生，否则 fail fast 并点名缺失列。"""
+    missing = [o for o in outputs if o not in _declared_output_names(formula)]
+    if missing:
+        raise ValueError(
+            f"因子脚本未产出声明输出列: {missing}（outputs 声明与实际定义不符）")
+
+
 def compute_formula(
     df: pl.DataFrame,
     formula: str,
@@ -197,10 +205,7 @@ def compute_formula(
     check_causality(formula, catalog)     # R22：未来门统一（分类表推断，全形态）
     # M2：声明的输出必须在公式顶层赋值中产生（变换完成后再核对）——codegen 前
     # fail fast，点名缺哪个；避免未定义名退化成 NameError 深层报错
-    missing_declared = [o for o in outputs if o not in _declared_output_names(formula)]
-    if missing_declared:
-        raise ValueError(
-            f"因子脚本未产出声明输出列: {missing_declared}（outputs 声明与实际定义不符）")
+    _require_declared_outputs(formula, outputs)
     # M3（G6）：组算子翻译产物符号注入 codegen 作用域——gp_ 前缀函数
     # （gp_mean/gp_rank，已注册 registry/分区校验/masking）经 expr_codegen
     # printer 翻译为 cs_<名>(<去 key>) + .over(_DATE_, '<key>')：key 只作
@@ -676,6 +681,37 @@ def prepare_formula_pipeline(spec: FactorSpec) -> tuple[str, str | None]:
         pool = expand_platform_macros(pool)
         _check_future_inputs(pool)
         _require_boolean_pool(pool)  # 静态布尔可判定门（动态 dtype 门在求值后）
+    return formula, pool
+
+
+def prepare_static(spec: FactorSpec) -> tuple[str, str | None]:
+    """lint 用的完整静态管线（不触 DB、不做 universe masking）。
+
+    prepare_formula_pipeline（参数替换/宏展开/保留名门/def 内联/方法改写/薄封装
+    展开/未来输入门/池公式归一与布尔门）→ stable_rank 与 vendor alias 改写 →
+    分类表归一化（normalize_calls：未知算子 op_meta 指引）→ 未来门（check_causality
+    全形态）→ 输出名检查（outputs 声明须由公式产出）。引擎侧同一序列在
+    compute_formula 中执行（仅多一层 masking），lint 只是把失败提前到写因子第一步。
+    """
+    from factorlab.core.ops.polars_ta_wrappers import rewrite_polars_ta_aliases
+    from factorlab.core.ops.registration import effective_catalog, ensure_all_ops_registered
+    from factorlab.core.ops.stable_rank import rewrite_stable_rank
+
+    formula, pool = prepare_formula_pipeline(spec)
+    ensure_all_ops_registered()
+    catalog = effective_catalog()
+    formula = rewrite_stable_rank(formula)
+    formula = rewrite_polars_ta_aliases(formula)
+    formula, _ = normalize_calls(formula, catalog)
+    check_causality(formula, catalog)
+    outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
+    _require_declared_outputs(formula, outputs)
+    if pool is not None:
+        pool = rewrite_stable_rank(pool)
+        pool = rewrite_polars_ta_aliases(pool)
+        pool, _ = normalize_calls(pool, catalog)
+        check_causality(pool, catalog)
+        _require_declared_outputs(pool, ["signal"])
     return formula, pool
 
 

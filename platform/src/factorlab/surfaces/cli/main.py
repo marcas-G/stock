@@ -45,22 +45,19 @@ def version() -> None:
 
 @app.command()
 def lint(spec_path: Path) -> None:
-    """校验 YAML Spec 与 factor formula AST（与引擎同序：先 ${param} 替换再校验）。
+    """校验 YAML Spec 与 factor formula（与引擎同序：完整静态管线，不打开 DB）。
 
     校验范围：formula / factors[].formula / universe.formula（池公式）/ operators 宏体。
     2026-09-14 修复：此前拿未替换文本（`${win}` 不是合法 Python）直接过 AST 门，
     对文档化的 params 模板假报"语法错误"（全库 152 spec 中 15 个受影响）——
     写因子的第一条命令就误报，等于门失效。
-    R01-ENG-I5：除语法/白名单门外，再跑与引擎同序的**语义门**——
-    prepare_formula_pipeline（宏展开/def 内联/薄封装展开）后
-    validate_partition_calls（未知算子）+ reject_future_shifts（负位移/未来下标），
-    覆盖 formula 与池公式。lint 不打开 DB；引擎侧同一对门在 compute_formula
-    的 codegen 之前执行（读库后、计算前），lint 只是把同一失败提前到写因子的
-    第一条命令。
+    R22（Task 8）：lint 改用 `prepare_static`——参数替换 → 宏展开 → def 内联 →
+    薄封装展开 → stable_rank/vendor alias 改写 → 分类表归一化（开放面全量放行，
+    未知算子给 op_meta 指引）→ 未来门（全形态 行:列）→ 输出名检查。引擎侧
+    compute_formula 执行同一序列（仅多一层 universe masking），lint 只是把失败
+    提前到写因子的第一条命令。
     """
-    from factorlab.core.engine.partitions import (reject_future_shifts,
-                                                  validate_partition_calls)
-    from factorlab.core.engine.compute import prepare_formula_pipeline
+    from factorlab.core.engine.compute import prepare_static
 
     try:
         spec = load_spec(spec_path)
@@ -74,18 +71,13 @@ def lint(spec_path: Path) -> None:
         sources.extend(op.formula for op in (spec.operators or {}).values())
         for source in sources:
             validate_formula(substitute_params(source, spec.params))
-        # 语义门（引擎同序展开链；逐 formula/逐 factor，池公式随 pipeline 展开）
+        # 完整静态管线（引擎同序；逐 formula/逐 factor，池公式随 pipeline 展开）
         variants = ([spec] if spec.formula is not None
                     else [spec.model_copy(update={"formula": item.formula,
                                                   "factors": None})
                           for item in spec.factors or []])
         for variant in variants:
-            formula, pool = prepare_formula_pipeline(variant)
-            for text in (formula, pool):
-                if text is None:
-                    continue
-                validate_partition_calls(text)
-                reject_future_shifts(text)
+            prepare_static(variant)
     except (ValueError, FactorDSLError) as exc:
         console.print(str(exc))
         raise typer.Exit(code=1) from exc
