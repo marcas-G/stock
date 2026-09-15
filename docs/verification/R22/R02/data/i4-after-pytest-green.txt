@@ -1,0 +1,13 @@
+R02-I4 GREEN：修复后 tests/test_minute_engine.py 15 passed（含长停牌 adv20 用例）
+================================================================================
+命令：
+  cd /data/students/gaolei/stock/platform
+  .venv/bin/python -m pytest -q tests/test_minute_engine.py
+
+...............                                                          [100%]
+15 passed in 7.47s
+
+固定：run_factor_minute 的 adv20 左窗改为「每 code start 前第 20 个最近行情行
+日期取 min」（adapters/read/source.load_daily_tail_dates，daily ⨝ adj_factor 上的
+row_number 窗口）；停牌不占行 → 至少 min(20, 全历史) 个前序行情行；adv20 =
+20 个有行情交易日均值（停牌日跳过——修订 R2），prev_close = 停牌前最后行情。

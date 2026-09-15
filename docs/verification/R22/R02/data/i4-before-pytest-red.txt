@@ -1,0 +1,21 @@
+R02-I4 复现（修复前）：固定 20 交易日左窗遇长停牌 → adv20 恒 null
+===============================================================================
+源码：/tmp/opencode/r22-c2-before/platform（git archive e60d2b2）
+命令：
+  cp tests/test_minute_engine.py /tmp/opencode/r22-c2-before/platform/tests/
+  cd /tmp/opencode/r22-c2-before/platform
+  PYTHONPATH=src /data/students/gaolei/stock/platform/.venv/bin/python -m pytest -q \
+     tests/test_minute_engine.py -k adv20_covers_suspension
+
+Fixture（真 CH 临时库）：60 交易日全历，样本 = dates[40:46]；000001 停牌
+dates[30:40]（10 日）——固定左窗 dates[20:40] 内只有 10 个行情行（<20）。
+
+输出：
+FAILED tests/test_minute_engine.py::test_minute_adv20_covers_suspension_beyond_calendar_window
+...
+>           assert adv == pytest.approx(want_adv, rel=1e-4)      # 旧实现此处为 None
+E           assert None == 1021000.0 ± 102.1
+1 failed, 14 deselected in 2.15s
+
+判读：窗口内行情行 <20 → rolling_mean(20) 全 null（契约：20 个**有行情**交易日
+均值）。停牌日不占行、左窗必须按行情行数补足。
