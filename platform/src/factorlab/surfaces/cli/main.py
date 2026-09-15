@@ -16,6 +16,7 @@ from factorlab.adapters.refresh import refresh, refresh_indexes
 from factorlab.adapters.read.verify import verify_all
 from factorlab.core.factor.errors import FactorDSLError
 from factorlab.core.factor.ast_gate import validate_formula
+from factorlab.core.eval.layered import degenerate_decile_groups
 from factorlab.core.engine.compute import substitute_params
 from factorlab.adapters import plugins
 from factorlab.core.ops import registry
@@ -308,6 +309,15 @@ def show_factor(name: str) -> None:
     except (json.JSONDecodeError, OSError) as exc:
         console.print(f"错误: 因子 {name} 的 summary.json 读取失败: {exc}")
         raise typer.Exit(code=1) from exc
+
+    def _warn_degenerate(ev: dict, prefix: str = "") -> None:
+        # R03-I3：空档（mean_ret 非有限）→ 显著提示，避免 spread=nan 被读成"无分层效应"
+        degenerate = degenerate_decile_groups(ev.get("decile_returns") or {})
+        if degenerate:
+            console.print(f"警告: {prefix}十分位组 {degenerate}（0=最小 signal）全期无有效"
+                          "收益——信号重并列/离散，spread/单调性不可用；建议降低分组数"
+                          "或改用其他评估口径")
+
     console.print(f"=== {name} ===")
     console.print(f"spec: {summary.get('spec_yaml', '')}")
     console.print(f"universe: {summary.get('universe_count')} 只 | "
@@ -319,11 +329,13 @@ def show_factor(name: str) -> None:
         # 多输出：逐输出块（缺键 None/无 → 显示语义字段，不崩）
         for o, ev_o in per_outputs.items():
             console.print(f"输出: {o}")
+            _warn_degenerate(ev_o, prefix=f"输出 {o} ")
             console.print(f"  IC: {ev_o.get('ic')}")
             console.print(f"  十分位 spread: {ev_o.get('decile_returns', {}).get('spread')}")
             console.print(f"  换手: {ev_o.get('turnover')} | 覆盖: {ev_o.get('coverage')}")
             console.print(f"  分层回测: {ev_o.get('layered_backtest', {}).get('summary', '无')}")
         return
+    _warn_degenerate(ev)
     console.print(f"IC: {ev.get('ic')}")
     console.print(f"十分位 spread: {ev.get('decile_returns', {}).get('spread')}")
     console.print(f"换手: {ev.get('turnover')} | 覆盖: {ev.get('coverage')}")

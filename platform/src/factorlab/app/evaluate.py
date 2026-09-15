@@ -20,7 +20,7 @@ from factorlab.core.domain.frames import SignalArtifact  # noqa: F401  (类型�
 from factorlab.app.context import RunContext
 from factorlab.core.engine.compute import FactorResult
 from factorlab.core.eval.alignment import align_weekly
-from factorlab.core.eval.layered import layered_backtest
+from factorlab.core.eval.layered import degenerate_decile_groups, layered_backtest
 from factorlab.adapters.rust_ic import evaluate_factor_weekly
 from factorlab.core.spec import FactorSpec
 
@@ -33,6 +33,21 @@ class EvaluationOutcome:
     notes: list[str] = field(default_factory=list)   # 展示层提示（CLI 打印）
 
 
+def _mark_degenerate_deciles(evaluation: dict, notes: list[str], prefix: str = "") -> None:
+    """R03-I3：decile 空档（mean_ret 非有限）→ evaluation 落标记 + notes 显著提示。
+
+    高并列/离散信号经 average-rank 分位映射会跳档（组全期无成员）——kernel 静默
+    回填 NaN，CLI 只打印 spread=nan；这里把"结论不可用"显式化并给出降组数指引。
+    """
+    degenerate = degenerate_decile_groups(evaluation.get("decile_returns") or {})
+    if not degenerate:
+        return
+    evaluation.setdefault("decile_returns", {})["degenerate_groups"] = degenerate
+    notes.append(
+        f"{prefix}十分位组 {degenerate}（0=最小 signal）全期无有效收益——信号重并列/"
+        "离散时分位跳档，spread/单调性不可用；建议降低分组数或改用其他评估口径")
+
+
 def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
                  groups: int = 10, backtest: bool = True) -> EvaluationOutcome:
     """评估装配：align_weekly 一次 → 单输出顶层 / 多输出逐输出 → 可选分层回测。"""
@@ -42,6 +57,7 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
     if outputs == ["signal"]:
         evaluation = evaluate_factor_weekly(result.panel, spec.name, spec.direction,
                                             target=spec.target, weekly=weekly)
+        _mark_degenerate_deciles(evaluation, notes)
         if backtest:
             bt = layered_backtest(weekly, spec.direction, n_groups=groups,
                                   forward_col=spec.target,
@@ -58,6 +74,7 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
                 p = p.rename({o: "signal"})
             ev_o = evaluate_factor_weekly(p, spec.name, spec.direction,
                                           target=spec.target, weekly=p)
+            _mark_degenerate_deciles(ev_o, notes, prefix=f"输出 {o} ")
             if backtest:
                 bt = layered_backtest(p, spec.direction, n_groups=groups,
                                       forward_col=spec.target,

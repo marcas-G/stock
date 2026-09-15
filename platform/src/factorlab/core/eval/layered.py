@@ -1,9 +1,28 @@
 from __future__ import annotations
 
+import math
+
 import polars as pl
 
 WEEKS_PER_YEAR = 52
 MIN_STOCKS = 2  # 有效周最小股票数——与 quant_core.MIN_STOCKS 同值（契约 §3.1）；锁在测试中
+
+
+def degenerate_decile_groups(decile_returns: dict) -> list[int]:
+    """quant_core `decile_returns` 中"全期无有效收益"的组号（mean_ret 缺失或非有限）。
+
+    R03-I3：离散/重并列信号经 average-rank 对称分位映射会**跳档**——某些 decile
+    全期无成员，kernel 对这些组回填 NaN 且无告警（`layered_backtest.empty_groups`
+    是另一套 ordinal 分组口径，不会触发）。装配层据此生成 notes / summary 标记，
+    避免 spread=NaN 被读者当作"无分层效应"。缺 groups 键（旧结构）→ 空列表。
+    """
+    groups = (decile_returns or {}).get("groups") or []
+    out: list[int] = []
+    for g in groups:
+        value = g.get("mean_ret")
+        if value is None or not math.isfinite(float(value)):
+            out.append(int(g.get("group")))
+    return out
 
 
 def _group_assign(panel: pl.DataFrame, n_groups: int, direction: int) -> pl.DataFrame:

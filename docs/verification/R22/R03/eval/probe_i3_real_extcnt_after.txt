@@ -1,0 +1,20 @@
+# R03-I3 after-fix 真实数据实证（HEAD 工作区，2026-09-16）
+# 命令: platform/.venv/bin/python docs/verification/R22/R03/eval/probe_i3_real_extcnt.py 2>&1 | tee docs/verification/R22/R03/eval/probe_i3_real_extcnt_after.txt
+
+panel rows = 4419466
+decile groups (group, mean_ret):
+  0: nan
+  1: nan
+  2: 0.021197391690770583
+  3: 0.007471389848182958
+  4: 0.0010187703387497433
+  5: 0.04501145415300358
+  6: nan
+  7: 0.03472569599626239
+  8: -0.001318368527747424
+  9: -7.217781627834007e-05
+spread = nan
+layered empty_groups = []
+degenerate_groups    = [0, 1, 6]
+notes:
+  提示: 十分位组 [0, 1, 6]（0=最小 signal）全期无有效收益——信号重并列/离散时分位跳档，spread/单调性不可用；建议降低分组数或改用其他评估口径

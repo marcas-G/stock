@@ -1002,6 +1002,14 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
 边界：空面板或过滤后无有效行（signal 全 null）→ `periods=0`、`net_values={}`、
 `summary={}`（不崩溃、不产出平值假净值）；单期面板正常返回（各序列长度 1）。
 
+**空档检测（R03-I3）**：`degenerate_decile_groups(decile_returns) -> list[int]` 返回
+quant_core `decile_returns.groups` 中 `mean_ret` 缺失/非有限的组号（重并列/离散信号
+经 average-rank 对称分位映射跳档，某些 decile 全期无成员——`empty_groups` 是另一套
+ordinal 分组口径，不会触发）。`app.evaluate.evaluate_run` 检测非空时在
+`evaluation.decile_returns.degenerate_groups` 落标记并生成 notes（CLI `run` 打印
+`提示:`；`show` 打印 `警告:`，文案含降组数/换评估口径指引）；正常面板不产生该键
+（summary 逐字节不变）。
+
 CLI 消费：`factorlab run` 默认调用并把结果写入
 `summary.json.evaluation.layered_backtest`（`--no-backtest` 关闭、`--groups` 调档数）。
 
@@ -1344,6 +1352,7 @@ PIT 语义：
 - **listing**：`is_listed = list_date <= t AND (delist_date IS NULL OR t < delist_date)`（`t < delist_date` 平台语义）
 - **list_days**：`date − list_date`（**自然日**年龄，非交易日数）；**pre-list（date < list_date）→ list_days = null**
 - **ST coverage**：以 `min/max(stock_st.trade_date)` 为 coverage（v1 contract，内部 gap 的精确 provenance 留给 Data Coverage Registry）——coverage 内：当日快照出现 → true、缺席 → false；**coverage 外：is_st = null（unknown ≠ false）**；`exclude_st=true` 且请求日期落在 coverage 外 → **ValueError（fail fast，错误含 requested date 与 coverage 区间）**；缺 stock_st 表：exclude_st=true → ValueError、false → is_st=null
+- **ST 显式降级（R03-I1，仅"缺表"一种 unknown）**：`exclude_st=true` 且库中**无** `stock_st` 表时，默认仍 **ValueError（fail fast，不把 unknown 当非 ST）**；只有显式设置 `FACTORLAB_ST_DEGRADE=allow`（`settings.st_degrade`，默认 `"fail"`）才降级为**无 ST 口径**——`warnings.warn` 响亮告警（文案含"ST 未知按非 ST 处理，结果为无 ST 口径"）、`is_st=null`（unknown ≠ false 语义保留）、`in_universe` 不做 ST 过滤；`run_factor`/`run_factor_minute`/`resolve_universe_frame` 调用方可用 `st_degrade_active(spec, rd, override=...)` 查询本 run 是否降级，run 摘要恒写 `st_degrade: true/false`（审计，不静默）。空 `stock_st` 表、请求日期在 coverage 外（后两种 unknown）**不受开关影响，仍 fail fast**。**挖矿口径**：CH 当前无 `stock_st`，全市场挖矿/复跑须显式 `FACTORLAB_ST_DEGRADE=allow` 接受无 ST 口径（挖矿 spec 保持库规范 `exclude_st: true`，不写"无 ST 影子 spec"）；有真实 `stock_st` 后应关开关按标准 ST 过滤复跑——降级结果与 ST 过滤结果口径不同，不得混比。
 - **exchange**：ts_code 后缀（.SH→SSE / .SZ→SZSE / .BJ→BSE）；默认池 SSE+SZSE，不意外纳入 BSE
 - 显式 codes 同样尊重上市/退市 PIT 状态（不自动增加 exclude_st/min_list_days 规则）
 - 输入校验：dates 仅接受 datetime.date / ISO `YYYY-MM-DD`（非法格式、重复日期 fail fast）；candidate_codes 重复 fail fast；输出前主动验证 (date, code) 唯一

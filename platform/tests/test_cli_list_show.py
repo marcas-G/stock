@@ -141,3 +141,42 @@ def test_show_multi_output_missing_keys_no_crash(monkeypatch, tmp_path):
     result = runner.invoke(app, ["show", "multi_3"])
     assert result.exit_code == 0
     assert "输出: a" in result.stdout
+
+
+# ================================================================
+# R03-I3：重并列/离散信号的空档（decile mean_ret=NaN）show 显著提示
+# ================================================================
+
+def _degenerate_evaluation():
+    return {
+        "ic": {"mean": 0.05},
+        "decile_returns": {
+            "spread": {"ret": float("nan")},
+            "groups": [{"group": 0, "mean_ret": float("nan")},
+                       {"group": 1, "mean_ret": 0.01}],
+        },
+    }
+
+
+def test_show_warns_degenerate_decile_groups(monkeypatch, tmp_path):
+    monkeypatch.setenv("COLUMNS", "200")  # 防 rich 折行拆断断言文本
+    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+    _write_summary(tmp_path, "tie_heavy", evaluation=_degenerate_evaluation())
+    result = runner.invoke(app, ["show", "tie_heavy"])
+    assert result.exit_code == 0
+    assert "警告" in result.stdout
+    assert "[0]" in result.stdout
+    assert "全期无有效收益" in result.stdout
+    assert "建议降低分组数或改用其他评估口径" in result.stdout
+
+
+def test_show_no_warning_for_healthy_groups(monkeypatch, tmp_path):
+    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+    _write_summary(tmp_path, "healthy", evaluation={
+        "ic": {"mean": 0.05},
+        "decile_returns": {"spread": {"ret": 0.02},
+                           "groups": [{"group": 0, "mean_ret": 0.01}]},
+    })
+    result = runner.invoke(app, ["show", "healthy"])
+    assert result.exit_code == 0
+    assert "警告" not in result.stdout

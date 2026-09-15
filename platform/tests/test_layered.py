@@ -5,7 +5,7 @@ import polars as pl
 import pytest
 
 from factorlab.adapters.rust_ic import evaluate_factor_weekly
-from factorlab.core.eval.layered import layered_backtest
+from factorlab.core.eval.layered import degenerate_decile_groups, layered_backtest
 
 
 def _weekly_panel(weeks=4, stocks=10, wiggle=0.0):
@@ -335,3 +335,35 @@ def test_layered_min_stocks_constant_matches_kernel():
     import quant_core
     from factorlab.core.eval.layered import MIN_STOCKS
     assert MIN_STOCKS == quant_core.MIN_STOCKS
+
+
+# ── R03-I3：离散/重并列信号 → average-rank 分位跳档（组全期无收益）不得静默 ──
+def _tie_heavy_weekly(weeks=4, n=100):
+    """小整数计数信号：60% 并列 0 → 平均秩对称分位跳过多个 decile。"""
+    rows = []
+    for w in range(weeks):
+        d = datetime.date(2024, 1, 5) + datetime.timedelta(weeks=w)
+        for s in range(n):
+            sig = 0.0 if s < 60 else (1.0 if s < 80 else (2.0 if s < 95 else 3.0))
+            rows.append({"date": d, "code": f"{s:06d}", "signal": sig,
+                         "forward_return_5d": 0.001 * sig + 1e-6 * s})
+    return pl.DataFrame(rows)
+
+
+def test_degenerate_decile_groups_detects_tie_heavy():
+    ev = evaluate_factor_weekly(_tie_heavy_weekly(), "t", 1)
+    deg = degenerate_decile_groups(ev["decile_returns"])
+    assert deg == [0, 1, 2, 4, 5, 6]
+    by_group = {g["group"]: g["mean_ret"] for g in ev["decile_returns"]["groups"]}
+    assert all(not math.isfinite(by_group[g]) for g in deg)
+    assert not math.isfinite(ev["decile_returns"]["spread"]["ret"])
+
+
+def test_degenerate_decile_groups_continuous_no_false_positive():
+    ev = evaluate_factor_weekly(_weekly_panel(weeks=4, stocks=100), "t", 1)
+    assert degenerate_decile_groups(ev["decile_returns"]) == []
+
+
+def test_degenerate_decile_groups_missing_groups_key_is_empty():
+    # 旧 summary / 空结构（无 groups 键）→ 不报假警
+    assert degenerate_decile_groups({"spread": {"ret": float("nan")}}) == []
