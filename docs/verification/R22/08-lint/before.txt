@@ -1,0 +1,90 @@
+$ cd platform && .venv/bin/python -m pytest tests/test_cli_lint_v2.py -q
+.FFFF.F                                                                  [100%]
+=================================== FAILURES ===================================
+______________________ test_lint_accepts_open_library_op _______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1273/test_lint_accepts_open_library0')
+
+    def test_lint_accepts_open_library_op(tmp_path):
+        # 开放面：此前报"未知算子"的库函数（ts_arg_max 不在 55 注册清单）现在 lint 通过
+        p = _spec(tmp_path, "signal = ts_arg_max(volume, 120)")
+        r = runner.invoke(app, ["lint", str(p)])
+>       assert r.exit_code == 0, r.output
+E       AssertionError: 1:9: 未知算子: ts_arg_max
+E         
+E       assert 1 == 0
+E        +  where 1 = <Result SystemExit(1)>.exit_code
+
+tests/test_cli_lint_v2.py:46: AssertionError
+____________________ test_lint_accepts_uppercase_library_op ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1273/test_lint_accepts_uppercase_li0')
+
+    def test_lint_accepts_uppercase_library_op(tmp_path):
+        p = _spec(tmp_path, "signal = BBANDS(volume, 20)")
+        r = runner.invoke(app, ["lint", str(p)])
+>       assert r.exit_code == 0, r.output
+E       AssertionError: 1:9: 未知算子: BBANDS
+E         
+E       assert 1 == 0
+E        +  where 1 = <Result SystemExit(1)>.exit_code
+
+tests/test_cli_lint_v2.py:53: AssertionError
+_______________ test_lint_rejects_unknown_operator_with_op_meta ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1273/test_lint_rejects_unknown_oper0')
+
+    def test_lint_rejects_unknown_operator_with_op_meta(tmp_path):
+        p = _spec(tmp_path, "signal = totally_new(volume)")
+        r = runner.invoke(app, ["lint", str(p)])
+        assert r.exit_code != 0
+>       assert "未知算子" in r.output and "op_meta" in r.output
+E       AssertionError: assert ('未知算子' in '1:9: 未知算子: totally_new\n' and 'op_meta' in '1:9: 未知算子: totally_new\n')
+E        +  where '1:9: 未知算子: totally_new\n' = <Result SystemExit(1)>.output
+E        +  and   '1:9: 未知算子: totally_new\n' = <Result SystemExit(1)>.output
+
+tests/test_cli_lint_v2.py:60: AssertionError
+______________________ test_lint_rejects_outputs_mismatch ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1273/test_lint_rejects_outputs_mism0')
+
+    def test_lint_rejects_outputs_mismatch(tmp_path):
+        p = _spec(tmp_path, "signal = close", extra='outputs: ["signal", "alpha"]\n')
+        r = runner.invoke(app, ["lint", str(p)])
+>       assert r.exit_code != 0
+E       assert 0 != 0
+E        +  where 0 = <Result okay>.exit_code
+
+tests/test_cli_lint_v2.py:66: AssertionError
+__________________ test_lint_accepts_params_template_open_op ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1273/test_lint_accepts_params_templ0')
+
+    def test_lint_accepts_params_template_open_op(tmp_path):
+        text = """
+    name: lint_v2_params
+    category: custom
+    direction: 1
+    params: {win: 60}
+    universe:
+      codes: ["000001.SZ"]
+    formula: |
+      signal = ts_arg_max(volume, ${win})
+    """
+        p = tmp_path / "p.yaml"
+        p.write_text(text, encoding="utf-8")
+        r = runner.invoke(app, ["lint", str(p)])
+>       assert r.exit_code == 0, r.output
+E       AssertionError: 1:9: 未知算子: ts_arg_max
+E         
+E       assert 1 == 0
+E        +  where 1 = <Result SystemExit(1)>.exit_code
+
+tests/test_cli_lint_v2.py:90: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_cli_lint_v2.py::test_lint_accepts_open_library_op - Asserti...
+FAILED tests/test_cli_lint_v2.py::test_lint_accepts_uppercase_library_op - As...
+FAILED tests/test_cli_lint_v2.py::test_lint_rejects_unknown_operator_with_op_meta
+FAILED tests/test_cli_lint_v2.py::test_lint_rejects_outputs_mismatch - assert...
+FAILED tests/test_cli_lint_v2.py::test_lint_accepts_params_template_open_op
+5 failed, 2 passed in 1.82s

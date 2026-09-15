@@ -1,0 +1,8 @@
+$ .venv/bin/factorlab lint /tmp/opencode/r22/open_op.yaml
+OK open_op_probe
+exit=0
+
+$ .venv/bin/factorlab lint /tmp/opencode/r22/unknown_op.yaml
+1:9: 未知算子 totally_new；若为自定义/外部函数请补 op_meta（例：op_meta:
+  totally_new: {partition: ts, window: ${win}}）
+exit=1
