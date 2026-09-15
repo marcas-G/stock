@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS factorlab.stock_basic (
     ts_code   String,                  -- symbol + 交易所后缀
     list_date Date,                    -- 代理 = 该代码在 daily_fact 的最早 trade_date（非真实上市日）
     market    String,                  -- 板块名规范值：主板/创业板/科创板/北交所（平台 execution rules 显式消费，非 code 推断替代）
-    industry  Nullable(String),        -- 恒 NULL：无行业数据源（fillna(industry_mean)/neutralize(industry) 降级）
+    industry  Nullable(String),        -- 恒 NULL：无行业数据源（fillna(industry_mean)/gp_rank/gp_mean(industry,…) 塌成全市场单组；neutralize(by=industry) loud fail；不要 advertise——见 README）
     delist_date Nullable(Date)         -- R21 DATA-C1：退市日（sidecar last_trade+1 / 断流>250 兜底）；平台 is_listed = t < delist_date
 ) ENGINE = MergeTree
   ORDER BY (symbol, ts_code);

@@ -202,6 +202,11 @@ def main():
         .with_columns(
             pl.col("code").str.slice(0, 6).alias("symbol"),
             market,
+            # R02-I1 生产侧如实标注：daily_fact 与离线基本面源（TDX 财务）均无行业列
+            # → industry 恒 NULL（无源可补，不伪造）。影响：读路径 fillna(industry_mean)
+            # 与 gp_rank/gp_mean(industry,…) 的 .over([...,"industry"]) 塌成全市场单组；
+            # neutralize(by=industry) loud fail；catalog.md 的 industry 条目不要 advertise
+            # （生成源在 platform 侧，修复前见本目录 README「数据口径」）。
             pl.lit(None, dtype=pl.String).alias("industry"),
         )
         .join(delist, on="code", how="left")

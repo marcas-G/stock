@@ -52,8 +52,11 @@ python reconcile.py
 
 - **幂等**：任务 = (表, 年月分区)。重跑先 `ALTER TABLE ... DROP PARTITION 'YYYYMM'`
   再插 → 整月原子替换，无半量残片。
-- **断点**：`state.json/` 目录下 `<table>_<yyyymm>.done` 标记；已完成任务自动跳过。
-  失败任务无标记，重跑即可。
+- **断点**：单文件 `state.json`（键 `<table>_<yyyymm>`）。`mark_done` 只由主进程在
+  `state.json.lock` 上阻塞 flock 后「新鲜读盘 + 合并 + 原子写」，worker 不碰断点
+  （R21 TOOLS-I2：旧 8 worker 各自 read-modify-write 丢标记；`ch_write.run_pool`
+  也只由主进程 on_result 记账）。旧 `state.json/` 目录 + `.done` 文件形态自动迁移
+  留档（`state.json.legacy-*`），读取兼容 30 天。失败任务无键，重跑即可。
 - **流式**：pyarrow `iter_batches(5M)` → `insert_arrow`（按列名匹配，零转换）；
   tick 单月最大 3.5 亿行，不可整月物化。
 - **类型**：bars `minute_index` int16→UInt16 cast；tick trades `bs` 源即 UInt8；
@@ -74,7 +77,15 @@ python reconcile.py
 - `adj_factor` <=0（vendor 后复权价异常）归 NULL——qfq 基准 `argMax` 跳过 NULL（R21 I1）
 - `daily_basic` 后 5 列（circ_mv/pe_ttm/pb/dv_ratio/volume_ratio）为占位空列（无数据源；
   平台读路径 `_PLATFORM_COLS` 仍映射它们，DDL 保留；**不要在文档/目录里宣传可用**）
-- `stock_basic.list_date` 为 daily_fact 最早交易日代理；`industry` 恒 NULL
+- `stock_basic.list_date` 为 daily_fact 最早交易日代理
+- `stock_basic.industry` **恒 NULL**（R02-I1 生产侧如实标注）：daily_fact 无行业列，
+  离线基本面源（TDX 财务 parquet，当前本身缺源）也不含行业分类——**无源可补，不伪造**。
+  影响：读路径 `fillna(industry_mean)` 与 `gp_rank/gp_mean(industry,…)` 的
+  `.over([...,"industry"])` 会塌成全市场单组（静默产出全市场值）；`neutralize(by=industry)`
+  loud fail；`WHERE industry='半导体'` 一类筛选恒空。
+  结论：**不要 advertise**——`platform/docs/catalog.md` 的 `industry` 行（申万最新归属）
+  与生产数据面不符，其生成源在 platform 侧（本工具无权改，coordinator 侧登记）；
+  在补源落地前，研究侧一律按「industry 不可用」对待。
 - `stock_basic.delist_date`（R21 DATA-C1 生产侧）：退市目录 sidecar 权威
   （`data/fact/daily_fact/delisted_codes.parquet`，in-file code 优先、文件名兜底、空文件也算）
   + 断流兜底（不在 sidecar 且 >250 交易日无数据）→ `最后交易日 + 1 天`；
