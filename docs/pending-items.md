@@ -78,27 +78,54 @@
        **副本**（实测逐字节相同）——改名必须与技能更新同批，否则技能立刻断。属用户侧动作。
     ③ **tools 入口统一为 `run.py` 子命令形态**（C2）：涉及 6 个工具的 CLI 重构，需各自的
        冒烟测试先行；本轮只补齐了 README 与统一命名规范文档。
-13. **G-READ 转强制**（AST 级判据）：R8c 已给出 `scripts/check_dataiface.py`（AST + `--selftest`），
+13. ✅ **2026-09-15 完成**（`scripts/check_dataiface.py::check_g_read`）：AST 取直读目标表达式，
+    硬规则（目标含 `tick_fact`/`lob_fact`/`bars_1m`/`year=`/`month=` 即违规，无豁免）+ 登记制
+    （6 个理由明确的直读点；新增未登记即失败、登记点消失也失败）。原表述保留如下——
+    **G-READ 转强制**（AST 级判据）：R8c 已给出 `scripts/check_dataiface.py`（AST + `--selftest`），
     其中"研究侧分区字面量"与"标记路径构造"两条**已转 ENFORCED**；G-READ 仍是报告档——剩余 7 处直读经逐处核对均为
     合法（manifest/自有产物/元数据/流式灌库/daily 小切片）；grep 无法区分「事实表读」
     与「manifest 读」，需改成 AST 分析（读的目标是否指向 tick_fact/lob_fact/bars_1m 根）。
 
-14. **平台侧原子写补齐**（R4b 剩余）：`adapters/execution_store.save_*` 与
+14. **平台侧原子写补齐**（R4b 剩余）【R9 进展：**`adapters/batch_flock.py` 已实现并测试**（8 passed：
+    契约一致 + 锁占用零执行 + 断点保留既有 key + 看门狗按时收敛 + 有失败不落 `_SUCCESS`），
+    `ports/batch.py` 的"No Orphan"缺口闭合；**遗留**：三份编排样板（converters / extract_sz_cancels /
+    run_lob_batch）切到该实现——它们要么 worker 回传大表（要先改成 worker 自行落盘），要么自带
+    月门/manifest/审计 jsonl，需逐工具真实批算 + 字节级重跑对照，属专项轮次】：`adapters/execution_store.save_*` 与
     `app/evaluate.publish_run`（现直写 weekly.parquet + summary.json）→ tmp+fsync+os.replace。
     与 `adapters/batch_flock.py`（P-5 编排真实现，兑现 `ports/batch.py` 声明）同批做——
     两者都动平台写路径，需要回测/评估的位级对照。
 
-15. **调仓成本建模**（R8 登记，原 `cost` 形参已删）
+15. ✅ **2026-09-15 完成（函数级）**：`layered_backtest(..., cost_rate=0.0)` 真建模（原 `cost` 是
+    静默 no-op）——`net = gross − cost_rate × turnover`，换手 = `1 − |S_t∩S_{t−1}|/|S_t|`
+    （等权、首期 0、档空期 0），返回值披露 `cost_rate`/`turnover`（可审计）；默认 0.0 与历史
+    结果逐值一致（测试锁）；5 条新测试含"静态面板换手=0 → 费率不起作用""轮换面板可手算"
+    "费率单调减净值"。**仍待研究决策**：① 费率数值口径（是否含冲击成本）；② spec 级接线
+    （把费率写进因子/策略 spec）。原表述保留如下——
+    **调仓成本建模**（R8 登记，原 `cost` 形参已删）
     现状：`core/eval/layered.py::layered_backtest` 的 `cost: float = 0.0` 自 M4b 起就是
     **静默 no-op**（签名收下、计算不用）——调用方传 `cost=0.002` 会拿到"零成本"结论而无任何提示，
     比"没有该参数"更危险，故 R8 删除并同步 `platform/docs/interface.md` §layered_backtest。
     启动条件：需要成本口径（单边费率 / 换手×费率 / 冲击成本）的研究决策 + 与 `turnover`
     指标的口径对齐；实现后须同时改 interface.md 签名与分层回测的净值语义测试。
 
-16. **平台 `MonthWriter` 与研究 `lib.writekit` 落盘实现合并**（R8 登记）
+16. ✅ **2026-09-15 完成**（R9）：`MonthWriter` 移入 `research/tools/lib/writekit.py`（研究侧唯一
+    写模块），三项能力逐字保留（唯一 tmp+fsync+原子提交 / 追加前 size 单调性 / 提交前
+    `st_blocks` 完整性，新增 `blocks_complete()` 判据函数与 3 条事故模式测试）；顺带**修掉诊断
+    路径自身的崩溃**（`sorted(os.listdir('/proc'), key=int)` 遇到 `/proc/fb` 先炸，会掩盖原始错误）。
+    字节级对照：搬家前后 4 个 parquet **全列排序后逐值相等**；行序不定经实测为**既有**性质
+    （基线同码两次运行也不等）→ 见 #17。原表述保留如下——**平台 `MonthWriter` 与研究 `lib.writekit` 落盘实现合并**（R8 登记）
     现状：研究侧写盘已收敛到 `research/tools/lib/writekit.py`（`_SUCCESS` / state JSON /
     flock / 原子写）；平台上仍有 `adapters/parquet_artifacts.MonthWriter`，其三项独有能力
     来自真实事故、**不可丢**：① 物理块完整性校验（`st_blocks*512 >= st_size*0.95`，
     抓稀疏/截断文件）；② 追加写的大小单调性检查；③ 3.5e8 行/月级别的流式 row-group 累积
     （不整体载入内存）。合并须把这三项并入 writekit 并保留回归测试，且批算热路径要重跑
     字节级对照，故不并入 R8 的"最小改动"批次。
+
+17. **converters 月产物行序不定**（R9 登记，实测）
+    现状：`convert_tick` 的月 part 由多进程 worker **按完成顺序** append row group 累积，
+    行序随调度变化——实测同码同输入两次运行 sha256 不同（全列排序后逐值相等、manifest 内容相同）。
+    影响：任何"字节级重跑比对/增量重建"式校验对 tick 月产物不成立（内容稳定，字节不稳）。
+    未决因：修法与 1m_features 不同——那里整月只在内存里 5.7 万行可直接 sort；这里单月可达
+    3.5e8 行、MonthWriter 存在的意义就是**流式不驻留**，排序需外部归并（按 code 分区多次扫描）。
+    启动条件：确实需要字节可复现时，评估"按 code 分组落 part-001..N 再归并"或"落盘后外部排序"，
+    代价与收益须一起评估。

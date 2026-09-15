@@ -8,9 +8,9 @@
 本脚本只认**代码里的字符串常量**（AST 排除 docstring）与被调用方（排除 `print`）。
 
 判据分两档：
-- **ENFORCED**：已达到 0，门失败即红（研究侧分区字面量、标记路径构造）；
-- **REPORT**：未竟项，只打印计数并指向登记条目（平台表名字面量 → `docs/pending-items.md#12①`；
-  直读 → #13）。报告档**不判红**，但也**不谎报绿**：未竟就是未竟。
+- **ENFORCED**：已达到 0，门失败即红（研究侧分区字面量、标记路径构造、**研究侧直读**）；
+- **REPORT**：未竟项，只打印计数并指向登记条目（平台表名字面量 → `docs/pending-items.md#12①`）。
+  报告档**不判红**，但也**不谎报绿**：未竟就是未竟。
 
 用法：
     python scripts/check_dataiface.py [--selftest]
@@ -47,6 +47,28 @@ WRITEKIT_API = {
     "atomic_write_bytes", "FileLock",
 }
 WRITEKIT_MODULE = "lib/writekit.py"
+# G-READ：研究侧 **DataFrame 级直读**（`read_parquet`/`scan_parquet`）逐处登记。
+# 键 = (文件, 所在函数, 目标表达式源码)；新增直读点未登记即失败，登记点消失也失败
+# （白名单不会烂掉）。理由写进值里 —— No Hidden Design：每个直读点都答得出"为什么可以直接读"。
+# 边界（明确的）：`pq.ParquetFile` 的 metadata/流式用法**不在**本表（自有产物校验、
+# 灌入源流式读、源行数统计共 10 处，逐处复核见 R9 证据），但仍受下面的硬规则约束。
+G_READ_ALLOWED = {
+    ("research/tools/lob_fact/pipeline/run_lob_batch.py", "_init_worker", "path"):
+        "cancels_manifest —— 自产回执清单，非事实表",
+    ("research/tools/lob_fact/pipeline/run_lob_batch.py", "_month_codes", "mf"):
+        "conversion_manifest —— tick 转换回执清单",
+    ("research/tools/ch_ingest/ingest_daily.py", "main", "DAILY_SRC"):
+        "daily_fact 是灌入的**输入源**（生产者视角），路径已取 factio.paths 单点",
+    ("research/tools/ch_ingest/reconcile.py", "_reconcile", "DAILY_SRC"):
+        "同上：对账取源行数",
+    ("research/tools/1m_features/run_1m_feature.py", "_load_daily_slice", "daily_path"):
+        "日线注入列小切片（INJ_COLS 5 列），非逐笔事实表",
+    ("research/tools/1m_features/run_1m_feature.py", "cmd_merge", "p"):
+        "自有产物合并（output/month=YYYY-MM/part.parquet）",
+}
+_READ_CALLS = {"read_parquet", "scan_parquet", "ParquetFile"}
+# 硬规则：目标表达式里出现事实库名或分区标记 → 任何理由都不豁免（必须走平台单点）
+_FACT_MARKS = ("tick_fact", "lob_fact", "bars_1m", "year=", "month=")
 PLATFORM_TABLE_NAMES = (
     "stock_bars_1m", "bars_1m", "tick_orders", "tick_trades", "tick_snapshots",
     "stock_basic", "daily_basic", "adj_factor", "trade_cal", "stk_limit",
@@ -161,21 +183,82 @@ def report_platform_tables() -> list[str]:
     return hits
 
 
-def report_direct_reads() -> list[str]:
-    """REPORT：研究侧 `read_parquet/scan_parquet`（未竟项 #13：需判"事实表 vs manifest"）。"""
-    hits = []
-    pat = re.compile(r"\.(read_parquet|scan_parquet)\(")
+def check_writekit_alias() -> list[str]:
+    """ENFORCED：用了 `W.<api>` 却没导入 `lib.writekit` 的模块。
+
+    来历不是假想：R8c 把 4 份自写 flock 收敛到 writekit 时，`convert_tick_to_parquet`
+    漏了 import——模块能 import、纯函数/路径测试全绿，`main()` 一跑就 `NameError`
+    （真实数据跑批才暴露；R9 由端到端测试 + 本规则一起兜住）。
+    """
+    bad = []
     for p in _py_files(RESEARCH_TOOLS):
-        for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
-            if pat.search(line):
-                hits.append(f"{_rel(p)}:{i}")
-    return hits
+        tree = ast.parse(p.read_text(encoding="utf-8"), filename=str(p))
+        aliases = set()
+        for n in ast.walk(tree):
+            if isinstance(n, ast.ImportFrom):
+                for a in n.names:
+                    if a.name == "writekit" or (n.module or "").endswith("writekit"):
+                        aliases.add(a.asname or a.name)
+            elif isinstance(n, ast.Import):
+                for a in n.names:
+                    if a.name.endswith("writekit"):
+                        aliases.add(a.asname or a.name.split(".")[-1])
+        used = {n.value.id for n in ast.walk(tree)
+                if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)
+                and n.value.id in {"W", "writekit"}}
+        for name in sorted(used - aliases):
+            bad.append(f"{_rel(p)}: 使用了 `{name}.` 但未导入 lib.writekit"
+                       f"（模块可 import、main() 会 NameError）")
+    return bad
+
+
+def check_g_read() -> list[str]:
+    """ENFORCED（R9）：研究侧直读 parquet 只允许登记过的点，且**永不**指向事实库分区。
+
+    为什么需要 AST：grep 数不出"读的是谁"——`pl.read_parquet(path)` 里 `path` 是 manifest
+    还是 tick 事实表，只有把目标表达式解出来才能判。判据两条：
+    ① 硬规则：目标表达式含 `tick_fact`/`lob_fact`/`bars_1m`/`year=`/`month=` → 违规（无豁免）；
+    ② 登记制：其余直读点必须在 `G_READ_ALLOWED` 里，且登记项必须仍然存在（白名单不腐）。
+    """
+    bad: list[str] = []
+    seen: set[tuple[str, str, str]] = set()
+    for p in _py_files(RESEARCH_TOOLS):
+        rel = _rel(p)
+        tree = ast.parse(p.read_text(encoding="utf-8"), filename=str(p))
+        fn_of: dict[int, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for sub in ast.walk(node):
+                    fn_of[id(sub)] = node.name
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not node.args:
+                continue
+            fname = node.func.attr if isinstance(node.func, ast.Attribute) else \
+                getattr(node.func, "id", "")
+            if fname not in _READ_CALLS:
+                continue
+            src = ast.unparse(node.args[0])
+            key = (rel, fn_of.get(id(node), "<module>"), src)
+            hit = [m for m in _FACT_MARKS if m in src]
+            if hit:
+                bad.append(f"{rel}:{node.lineno}: {fname}({src}) 目标含事实库/分区标记 "
+                           f"{hit} —— 必须经 adapters.tick_read/lob_read/bars_read")
+            elif fname == "ParquetFile":
+                continue          # 边界见 G_READ_ALLOWED 注释
+            elif key not in G_READ_ALLOWED:
+                bad.append(f"{rel}:{node.lineno}: 未登记的直读 {fname}({src}) —— "
+                           f"应走平台单点；确有理由则登记进 scripts/check_dataiface.py")
+            else:
+                seen.add(key)
+    for key in sorted(set(G_READ_ALLOWED) - seen):
+        bad.append(f"白名单失效：{key[0]}::{key[1]}::{key[2]} 已不存在 —— 更新登记")
+    return bad
 
 
 def selftest() -> int:
     """负向自检：门必须能抓到真违规，且不误伤合法写法（否则门是死的）。"""
     import tempfile
-    global RESEARCH_TOOLS
+    global RESEARCH_TOOLS, G_READ_ALLOWED
     with tempfile.TemporaryDirectory() as td:
         fake = Path(td)
         (fake / "violate.py").write_text(
@@ -187,27 +270,58 @@ def selftest() -> int:
             '    open(os.path.join("/x", "_SUCCESS"), "w").close()\n'
             '    return p\n', encoding="utf-8")
         (fake / "clean.py").write_text(
+            'import polars as pl\n'
             'from lib import writekit as W\n'
             'from factorlab.core.factio import partitions\n'
             'def ok(day):\n'
             '    """布局说明 year=YYYY/month=MM 在 docstring 里合法。"""\n'
             '    W.mark_success("/x")\n'
             '    print("跳过无 _SUCCESS 的目录")\n'
-            '    return partitions.partition_dir("/x", table=None, year=2026, month=8)\n',
+            '    return partitions.partition_dir("/x", table=None, year=2026, month=8)\n'
+            'def ok_read(mf):\n'
+            '    return pl.scan_parquet(mf)   # 登记过的 manifest 读\n',
             encoding="utf-8")
-        saved = RESEARCH_TOOLS
+        (fake / "violate_w.py").write_text(
+            'def broken():\n'
+            '    return W.mark_success("/x")   # 用了 W 却没 import lib.writekit\n',
+            encoding="utf-8")
+        (fake / "violate_read.py").write_text(
+            'import polars as pl\n'
+            'def hard(p):\n'
+            '    return pl.scan_parquet("/x/lob_fact/lob_events/year=2026/month=08/1.parquet")\n'
+            'def unregistered(p):\n'
+            '    return pl.read_parquet(p)\n',
+            encoding="utf-8")
+        saved, saved_allow = RESEARCH_TOOLS, G_READ_ALLOWED
         RESEARCH_TOOLS = fake
+        clean_rel = _rel(fake / "clean.py")
+        # 只登记 clean.py 的 manifest 读；另加一条**失效**登记，验证白名单不腐
+        G_READ_ALLOWED = {
+            (clean_rel, "ok_read", "mf"): "自检：登记过的 manifest 读",
+            (clean_rel, "gone", "nope"): "自检：调用点已不存在",
+        }
         try:
             c1, c2 = check_contract_research(), check_mark_construction()
+            c3 = check_g_read()
+            c4 = check_writekit_alias()
         finally:
-            RESEARCH_TOOLS = saved
-    # 违规文件必须被抓到（几处不限），且合法文件一处都不许误报
+            RESEARCH_TOOLS, G_READ_ALLOWED = saved, saved_allow
+    # 违规文件必须被抓到（几处不限），合法文件一处都不许误报
+    read_bad = [x for x in c3 if "violate_read.py" in x]
+    stale = [x for x in c3 if "白名单失效" in x]
     ok = (len(c1) >= 1 and len(c2) >= 1 and
-          all("violate.py" in x for x in c1) and all("violate.py" in x for x in c2))
-    print(("  ✓" if ok else "  ✗") + f" 负向自检：违规文件抓到 {len(c1)}/{len(c2)} 处"
-          "（分区字面量/标记直构），docstring、writekit API、print 文案均不误伤")
+          all("violate" in x for x in c1) and all("violate" in x for x in c2) and
+          len(read_bad) == 2 and                                # 硬规则 + 未登记 各一
+          any("事实库/分区标记" in x for x in read_bad) and
+          any("未登记" in x for x in read_bad) and
+          len(stale) == 1 and                                   # 白名单不腐
+          len(c3) == 3 and                                      # 无其它误报
+          len(c4) == 1 and "violate_w.py" in c4[0])             # 漏 import 被抓到
+    print(("  ✓" if ok else "  ✗") + f" 负向自检：分区字面量 {len(c1)} / 标记直构 {len(c2)} / "
+          f"直读 {len(c3)} / 漏 import {len(c4)} 处违规被抓到；docstring、writekit API、"
+          "print 文案、登记过的 manifest 读均不误伤")
     if not ok:
-        for x in c1 + c2:
+        for x in c1 + c2 + c3 + c4:
             print(f"      {x}")
     return 0 if ok else 1
 
@@ -244,9 +358,24 @@ def main() -> int:
     for h in hits[:5]:
         print(f"      {h}")
 
-    hits = report_direct_reads()
-    print(f"[G-READ/研究侧直读 parquet] REPORT：{len(hits)} 处"
-          f"（未竟 → docs/pending-items.md #13，需判事实表 vs manifest）")
+    print("[G-MARK/接线] ENFORCED：用 `W.` 的模块必须导入 lib.writekit")
+    bad = check_writekit_alias()
+    if bad:
+        fail = 1
+        for b in bad:
+            print(f"  [BAD] {b}")
+    else:
+        print("  ✓ 0 处（漏 import 会在 main() 运行时才炸，门提前拦住）")
+
+    print("[G-READ] ENFORCED：研究侧直读 parquet 只允许登记点，且不指向事实库分区")
+    bad = check_g_read()
+    if bad:
+        fail = 1
+        for b in bad:
+            print(f"  [BAD] {b}")
+    else:
+        print(f"  ✓ 0 处违规（登记 {len(G_READ_ALLOWED)} 个理由明确的直读点；"
+              f"新增未登记即失败）")
 
     print("数据接口门：ENFORCED 全绿" if fail == 0 else "数据接口门：有失败（见上）")
     return fail

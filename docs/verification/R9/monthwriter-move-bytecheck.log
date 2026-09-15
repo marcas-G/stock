@@ -1,0 +1,20 @@
+基线已补 import
+输入 code 数: 20（20250812）
+== 搬家前（HEAD + 补 import）==
+trades 202508: 672,170 rows -> 0.00 GB
+errors=0 total_elapsed_s=3
+== 搬家后（当前工作树）==
+trades 202508: 672,170 rows -> 0.00 GB
+errors=0 total_elapsed_s=3
+== 逐字节对照 ==
+FAIL：不一致
+1,4c1,4
+< 67c58235ee2b48ea5cab5630b7b2b7c0586a7e7fc8c69552b676ca19dac117c3  ./_manifest/conversion_manifest.parquet
+< d0aeb2cea04b07196f1de18801d8cd59c60a0b9c5e4e37447f22ec70da5228b1  ./orders/year=2025/month=08/part-000.parquet
+< 36408285198bce60eedd2398cab698ad29d1d7fe055d66204b11206da20e839f  ./snapshots/year=2025/month=08/part-000.parquet
+< 0889777d399c67fac7ea4b7a9cdc190706af9b79158bf26ac23d072d2be424fe  ./trades/year=2025/month=08/part-000.parquet
+---
+> fdef3cfd81495bc06693b0e98bb0ef50fad4eaed7f157972942373b909340dd7  ./_manifest/conversion_manifest.parquet
+> 856bb83c40498f9cf3c812b55c08408006fb31c3c253d175e811cb909b8a2453  ./orders/year=2025/month=08/part-000.parquet
+> fd4dbb40470509ab3a7cd96e6792efeb51cd876e91d34f59a5dbbd854b304786  ./snapshots/year=2025/month=08/part-000.parquet
+> 5b419f91a6dadc07a1664a998849f96d5f43f8d8e3ffebcd64a8bec5bc7be9cf  ./trades/year=2025/month=08/part-000.parquet
