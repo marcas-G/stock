@@ -1,0 +1,10 @@
+== R18 基线：跨枝取件源核验 ==
+docs/superpowers/specs/2026-08-26-quant-core-contract.md
+  git a4efabd: 8d5f5181aa10ae3595372211d202d1e613e6a2cc19155af2f8710d132650feca
+  归档副本:     8d5f5181aa10ae3595372211d202d1e613e6a2cc19155af2f8710d132650feca
+tests/test_quant_core_shim.py
+  git a4efabd: 092420b1b26b217ef4ab4cf2eed70f530e0000b3dd81220e9f1f6ffb3f4b578a
+  归档副本:     092420b1b26b217ef4ab4cf2eed70f530e0000b3dd81220e9f1f6ffb3f4b578a
+
+== a4efabd 是否 HEAD 祖先 ==
+否（侧枝，tag: platform/pre-monorepo/local-backup-20260903 pre-monorepo/local-backup-20260903 )

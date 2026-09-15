@@ -125,3 +125,22 @@
     3.5e8 行、MonthWriter 存在的意义就是**流式不驻留**，排序需外部归并（按 code 分区多次扫描）。
     启动条件：确实需要字节可复现时，评估"按 code 分组落 part-001..N 再归并"或"落盘后外部排序"，
     代价与收益须一起评估。
+
+18. **venv 无法从依赖声明复现**（R18 登记，实测）
+    现状：`platform/pyproject.toml` 只声明 20 个依赖，而 `platform/.venv` 里实际有 **72 个包**
+    （未声明者含 pandas / openpyxl / plotly / black / numba / sympy / httpx…，见
+    `docs/verification/R18/04-venv-freeze.txt`）；全仓**无** `uv.lock` / `requirements*.txt`。
+    影响：venv 一旦丢失或重建，**得到的是另一个环境**（版本漂移会威胁 lob_fact 的字节级重跑
+    与 `pins.sha256` 金样）。故 `scripts/reinstall_editable.sh` **只做 editable 重装**，
+    不冒充重建入口。
+    启动条件：需要环境可复现时，先补 `uv lock`（或冻结快照转 requirements）+ 在验证机上
+    按声明重建一次并跑三门（平台全量 / 研究 T1+T2 / lob_fact 金样），代价须一并评估。
+
+19. **`check_dataiface.py` 的 SKIP_PARTS 缺 `.venv`**（R18 登记，实测是"未来的雷"）
+    现状：`SKIP_PARTS = ("/tests/", "/notes/", "/diag/", "__pycache__")` **不含 `.venv`**
+    （`check_imports.py` 的含）。实测：把任一含 `.venv` 的目录纳入扫描面，`pip`/`setuptools`
+    自带的 `_vendor/typing_extensions.py`、`setuptools/msvc.py` 会分别触发
+    **G-CONTRACT 4 处 + G-MARK 1 处 ENFORCED 判红**。
+    今天不红只因为扫描面 `research/tools/**` 下恰好没有 `.venv`——一旦某工具
+    `pip install -e .` 就地建 venv，强制门会莫名变红。
+    启动条件：R20 随 ashare 收编同批修（加 `.venv` 进 SKIP_PARTS 并跑 `--selftest`）。

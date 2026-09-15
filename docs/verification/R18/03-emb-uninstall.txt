@@ -1,0 +1,16 @@
+== R18.3 删 emb 的 quant_core 安装（无消费者的冒烟遗留）==
+判据：research/ 全树 .py/.toml/.yaml 对 quant_core 零命中（上面已核）；
+      research/pyproject.toml 无 quant-core 依赖声明。
+
+删除清单（emb = /data/students/gaolei/anaconda3/envs/emb/lib/python3.11/site-packages/）:
+  - __editable___quant_core_0_1_0_finder.py
+  - __editable__.quant_core-0.1.0.pth
+  - quant_core-0.1.0.dist-info/（含 pycache 一并清）
+不碰：easy-install.pth（其内容挂的是 BERT-pytorch，与本任务无关）
+
+恢复命令（若 T2 侧将来真需要内核）：
+  /data/students/gaolei/anaconda3/envs/emb/bin/python -m pip install -e platform/kernels/quant_core --no-deps
+
+-- 删除后核验 --
+ModuleNotFoundError: No module named 'quant_core'
+easy-install.pth 未动：/data/students/gaolei/BERT-pytorch

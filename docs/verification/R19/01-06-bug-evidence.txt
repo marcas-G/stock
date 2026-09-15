@@ -1,0 +1,14 @@
+=== /data/students/gaolei/anaconda3/bin/python（anaconda3）===
+pandas 2.2.3
+  manifest: {'code': dtype('O'), 'trade_date': dtype('O')}
+  daily   : {'code': dtype('O'), 'trade_date': dtype('O')}
+  merge OK: (74466, 2)
+=== platform/.venv/bin/python（.venv）===
+pandas 3.0.5
+  manifest: {'code': <StringDtype(na_value=nan)>, 'trade_date': dtype('O')}
+  daily   : {'code': <StringDtype(na_value=nan)>, 'trade_date': dtype('O')}
+  merge OK: (74466, 2)
+
+=== 定位：06 的错在自己那行 pd.to_datetime（只转 man，不转 daily）===
+  现状 merge → ValueError You are trying to merge on datetime64[s] and object columns for key 'trade_date'. If you w
+  修后 merge → OK，matched=74466 / 74466（tick-only 0）

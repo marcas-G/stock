@@ -25,6 +25,7 @@
 | `R15/` | **职责拆分**（`ch_ingest` 五职责→三模块+门面、`1m_features` 单体→三模块；第 5 个自建池切 P-5；真 CH 对账全库一致 + check-day `max\|Δ\|=0`） |
 | `R16/` | **quark 传输层单点**（三个入口各自的 `http`/`get_stoken`/下载/cookie 收进 `quark_client`；逐字对照 + 行为清单留证） |
 | `R17/` | **`projects/` 遗留克隆清理**（合并前两克隆删除；删前核验干净 + 历史/tag/bundle 三重覆盖；文档同步为"盘上=文档"） |
+| `R18/` | **quant_core 内核包收编**（`projects/quant_core_shim` → `platform/kernels/quant_core`；跨枝取回契约文档与逐期对拍测试 + 勘误头块；删 emb 无消费者安装；G-VENV 增正/反向断言 + 负向自检） |
 
 > 计划里的 R3（研究侧结构）与 R4（数据接口）在执行中合并为 R4 一批完成（两者动的是同一批文件）。
 

@@ -1,0 +1,9 @@
+== R18.1 契约资产取回（跨枝 → 入树）==
+源: git a4efabd:docs/superpowers/specs/2026-08-26-quant-core-contract.md
+    git a4efabd:tests/test_quant_core_shim.py
+落: platform/docs/superpowers/specs/2026-08-26-quant-core-contract.md（+勘误头块 6 条）
+    platform/tests/test_quant_core_shim.py（import 改 factorlab.core.eval.ic_series + 存在性断言）
+
+取回后测试（platform/.venv，polars 1.44.1）:
+...........                                                              [100%]
+11 passed in 0.75s

@@ -6,7 +6,7 @@ EMB_PY      := /data/students/gaolei/anaconda3/envs/emb/bin/python
 .PHONY: help test-platform test-research test-all gates lint-factors index reconcile clean
 
 help:
-	@echo "make test-platform   平台全量测试（约 7 分钟；基线 2486 passed / 13 skipped）"
+	@echo "make test-platform   平台全量测试（约 7 分钟；基线 2570 passed / 13 skipped（R18 后））"
 	@echo "make test-research   研究侧 T2（emb）+ T1（平台 venv）"
 	@echo "make gates           全套常驻门（结构/契约/标记/旧路径/索引/文档路径）"
 	@echo "make lint-factors    全库因子 spec lint（152/152）"

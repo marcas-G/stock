@@ -1,0 +1,17 @@
+== R18.2 shim 搬迁（projects/quant_core_shim → platform/kernels/quant_core）==
+纯移动核验：pyproject.toml 938a2a28…、quant_core/__init__.py 8332f389…（与源逐字节相同）
+
+-- 重装（uv；平台 venv 无 pip）--
+uv pip uninstall --python .venv/bin/python quant-core   → Uninstalled (from file:///…/projects/quant_core_shim)
+uv pip install -e platform/kernels/quant_core --no-deps --no-build-isolation → Installed (from file:///…/platform/kernels/quant_core)
+
+-- 落位解析（正向 + 反向断言）--
+  import quant_core → /data/students/gaolei/stock/platform/kernels/quant_core/quant_core/__init__.py
+  ✓ 落在 platform/kernels/quant_core 且不含 projects/
+
+-- venv 里是否还有指向 projects/ 的残留 --
+  （无输出=零残留）
+
+-- 搬迁后定向测试 --
+...................                                                      [100%]
+19 passed in 0.83s

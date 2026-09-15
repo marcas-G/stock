@@ -43,15 +43,16 @@
 
 | 载体 | 角色 | 内容 |
 |---|---|---|
-| `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`tests/`、`docs/`（契约 4 篇 + superpowers）、`scripts/` |
+| `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`kernels/quant_core/`（评估内核 shim = 内核发行物唯一声明点，R18 起）、`tests/`、`docs/`（契约 4 篇 + superpowers）、`scripts/` |
 | `research/`（仓库内） | **研究树**（唯一副本） | `tools/`（6 工具 + `lib/` + `factor_lib/`）、`factor/<族>/`（152 spec）、`docs/`（factors/strategies/playbook） |
 | `docs/`（仓库内） | **文档树** | 工作区约定（本文件、data-map、pending-items…）、`handbook/`、`index/`、`verification/` |
-| `projects/quant_core_shim` | 本地包（无 git） | 契约锚点；两个 venv 均 `pip install -e`（**绝对路径写死，勿移动**） |
-| `projects/ashare_alpha3` | 本地项目（无 git） | 自包含；`config.yaml` 消费 `data/` |
+| `projects/ashare_alpha3` | 本地项目（无 git） | 自包含；`config.yaml` 消费 `data/`。**待收编**（R19/R20：数据侧 → `research/tools/ashare_ingest/`、股票池段 → `research/tools/universe_stages/`） |
 
 - 旧 worktree 迁移程序（`git worktree move` + 手工 gitdir 编辑 + 四查）**已随两 worktree 布局退役**；
   历史过程见 `docs/verification/archive/`。
-- `projects/` 里两个本地项目**原位保留**（其 config 与 venv 的 editable finder 写死绝对路径）；
+- `quant_core_shim` 原为本地包，2026-09-15（R18）**已收编**为 `platform/kernels/quant_core/`
+  （仅装 `platform/.venv`；emb 的安装因 research 侧零消费者而删除）。
+- `projects/` 里仅剩 `ashare_alpha3` 一个本地项目；
   **不要再往里放新东西**——新代码进三棵树。
 - **`projects/` 实况 = 上表两行**（2026-09-15 R17 起）：合并前的两个遗留克隆
   `quant-platform-main`（30M）与 `quant-platform-research`（5.7M，前者为其 linked worktree）**已删除**（R17）。

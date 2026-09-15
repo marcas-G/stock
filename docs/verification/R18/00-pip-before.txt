@@ -1,0 +1,2 @@
+factorlab          0.1.0       /data/students/gaolei/stock/platform
+quant-core         0.1.0       /data/students/gaolei/stock/projects/quant_core_shim

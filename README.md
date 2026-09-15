@@ -9,7 +9,7 @@ stock/                     ← 仓库根（= 远端 github.com/marcas-G/stock �
 ├── docs/                  文档：工作区约定 + 数据地图 + 平台契约 + 研究档案 + 验证证据
 ├── data/                  【本地】事实库与原始数据（392G，不入库）
 ├── _archive/              【本地】30 天归档区（不入库）
-└── projects/              【本地】历史 worktree 与 shim（不入库，见下）
+└── projects/              【本地】仅剩待收编的 ashare_alpha3（不入库，见下）
 ```
 
 ## 我该从哪里开始
@@ -40,7 +40,7 @@ FACTORLAB_RESULTS_DIR=results .venv/bin/factorlab show <名>       # IC/分层/�
 ## 跑测试与门
 
 ```bash
-make test-platform        # 平台全量（约 7 分钟；基线 2486 passed / 13 skipped）
+make test-platform        # 平台全量（约 7 分钟；基线 2570 passed / 13 skipped（R18 后））
 make test-research        # 研究侧 T2（emb 3.11）+ T1（平台 venv）
 make gates                # 结构/契约/标记/旧路径/索引 全套常驻门
 ```
@@ -52,7 +52,7 @@ make gates                # 结构/契约/标记/旧路径/索引 全套常驻�
 - `emb` **装不了** `factorlab`（包要求 ≥3.13）——T2 靠 `research/tools/_env.py` 注入 `platform/src` 并做落位断言，这是唯一注入点。
 - **当前生产读路径是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）：平台 duckdb 库不存在（teajoin token 过期，见 [docs/pending-items.md](docs/pending-items.md) #1）。
 - **`data/` 零改动**：任何操作都不得写入 `data/`；只读消费。
-- `projects/` 是历史遗留（旧 worktree 与 `quant_core_shim`）：**不要再往里放新东西**，其中的 shim 仍被两个 venv 以 editable 依赖引用（绝对路径写死），故原位保留。
+- `projects/` 是历史遗留：合并前的两个旧克隆已于 2026-09-15 删除（R17）；`quant_core_shim` 已收编为 **`platform/kernels/quant_core/`**（R18）；仅剩 `ashare_alpha3` 待收编（R19/R20）。**不要再往里放新东西**——新代码进三棵树。
 
 ## 文档地图
 

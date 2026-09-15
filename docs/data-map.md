@@ -38,7 +38,7 @@
 |---|---|---|---|
 | C1 | `platform/`（仓库内） | 平台树 | src/factorlab、tests、docs/（契约 4 篇 + superpowers） |
 | C2 | `research/`（仓库内） | 研究树 | tools/、factor/（152 yaml，14 族）、docs/（factors 档案 + strategies + playbook） |
-| C3 | `projects/quant_core_shim` | 无 git（本地包） | quant-core 0.1.0 shim（emb 已 `pip install -e`） |
+| C3 | `platform/kernels/quant_core`（R18 起；原 `projects/quant_core_shim`） | 仓库内（内核发行物唯一声明点） | quant-core 0.1.0 shim（仅装 `platform/.venv`；Rust 版到位时同目录换 build backend） |
 | C4 | `projects/ashare_alpha3` | 无 git（本地项目） | A 股 alpha 项目（config.yaml 消费 A3/A5/A9/A10） |
 
 ## D. 归档区

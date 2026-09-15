@@ -46,6 +46,11 @@ S2 声明的指针悬空窗口在本阶段结束时关闭：路径全量重指�
 - 验证：`cat-file -t e66b349` = commit ✓；4 提交全在（e66b349/83e457e/418b7c5/a4efabd）
 - **该本地存档分支永不 push**（记入 remote-cleanup-checklist.md）
 - 备份目录已归档 `_archive/2026-09-12-S3/quant-platform-main.local-backup-20260903`（975M）
+- **2026-09-15 R18 补记**：该克隆里两件**活跃树没有**的资产已取回入 git——契约文档
+  `docs/superpowers/specs/2026-08-26-quant-core-contract.md` 与 `tests/test_quant_core_shim.py`
+  （取回自 `a4efabd`，两文件与归档副本 sha256 逐字节相同：`8d5f5181…` / `092420b1…`）。
+  → 到期清理（2026-10-12）**不再承载这两件的唯一副本**；archive-policy 的三个决策点里，
+  "备份克隆目录清空" 的**资产丢失面**因此缩小。
 
 ## 6. 豁免清单（路径不变但属历史记录，非死链）
 
