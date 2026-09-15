@@ -29,7 +29,7 @@ M5 在 M4b 结果落盘（summary.json/weekly.parquet）之上补齐浏览器可
   与 quant_core 同源定义；signal/target null 过滤、有效股票 < 3 的周 ic = null），
   详情页 IC 曲线数据源（见 §4）。
 - 集成测试 `tests/test_e2e_web.py`：真实 results 目录（main 工作树，3 个因子）
-  冒烟——列表含因子名、详情含图表数据、旧因子降级、缺失 404（见 §5）。
+  冒烟——列表含因子名、详情含图表数据、旧因子降级、缺失 404（见 §7 测试）。
 
 ## 0. M4b 汇总：分层回测与因子清单
 
@@ -75,7 +75,7 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 | 命令 | 说明 |
 |------|------|
 | `factorlab version` | 打印包版本 |
-| `factorlab lint <spec.yaml>` | 校验 Spec 与因子脚本 AST，失败时以非 0 退出 |
+| `factorlab lint <spec.yaml>` | 校验 Spec、AST 白名单与引擎同序语义门（未知算子/负位移/未来下标，含池公式），失败时以非 0 退出 |
 | `factorlab run <spec.yaml> [--universe U] [--max-memory M] [--output-dir DIR] [--no-float32] [--backtest/--no-backtest] [--groups N] [--set k=v ...] [--chunk-days N] [--warmup-days N]` | 计算因子并周频评估 + 分层回测（默认），落盘 `results/<name>/`（`--set` 生成 `results/<name>_<k><v>.../` 参数变体；`--chunk-days` 日期分块，见 §运行-分块计算） |
 | `factorlab list` | 列出已保存因子与最近运行摘要（扫描 `results_dir/*/summary.json`，按运行时间倒序） |
 | `factorlab show <name>` | 查看单因子完整摘要（spec 原文/评估/分层回测） |
@@ -84,7 +84,7 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 | `factorlab resic <name1> <name2> ... [--target 名] [--min-stocks 30]` | 横截面联合诊断：组内互评（默认，≥2 因子）或 `--target` 显式候选（可不在 names 中，基准应排除 target）。输出整组联合回归 R²（fwd ~ 整组逐周 OLS 均值）与每因子正交化残差 IC（resIC = 候选对基准逐周 OLS 残差 vs fwd 的周频 rankIC 均值/t 值 + 被基准解释 R²）。数据源 = results 多 run 单输出 panel 按周频对齐汇聚；每周样本 < max(min_stocks, 基准数+2) 剔除；错误路径 Exit 1（含"无结果"/"公共周"/多输出 panel 文案）。近共线因子建议先跑 corr/svd |
 | `factorlab op list` | 列出已注册算子 |
 | `factorlab op doc <name>` | 查看算子名称、类别、版本与 docstring |
-| `factorlab op add <plugin.py> [--force]` | 校验并注册用户插件；同名冲突需 `--force` |
+| `factorlab op add <plugin.py> [--force]` | 校验并注册用户插件；同名冲突（含内建算子名）在插件 import/副作用执行前拒绝，需 `--force` |
 | `factorlab op remove <name>` | 禁用用户插件，保留已计算历史结果 |
 | `factorlab serve [--port 8000] [--host 127.0.0.1]` | 启动只读 Web 可视化（浏览器查看已保存因子列表与图表，扫描 `results_dir`） |
 | `factorlab catalog dump [--out FILE]` | 列/算子活文档的机器可读 JSON（schema 元数据同源生成，供写因子的 AI 开写前阅读；缺省打 stdout） |
@@ -113,7 +113,9 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   退出提示。`--output-dir` 显式给出时优先于变体目录。
 - `--chunk-days N`：日期分块（交易日/块，`N >= 1`；缺省单块整段跑）。长样本
   （2015+ 全市场）超过 16GB 内存护栏时使用，语义保证与整段跑逐 cell 一致
-  （见下方"分块计算"）。
+  （见下方"分块计算"）。**累计算子（`ts_cum_sum`/`ts_cum_max`/`ts_cum_min`/
+  `ts_cum_prod` 及 `vwap` 宏展开产物）与分块不兼容**——分块下 fail fast
+  （R01-ENG-I1，见下方已知限制）。
 - `--warmup-days N`：TS 窗口预热天数（`N >= 0`；缺省按公式自动提取窗口最大值
   + 20 安全垫）。
 - **分钟面分派（W5）**：`interface: bars_1m` 的 spec（字段与口径见 §2）由 run
@@ -154,13 +156,19 @@ factorlab run factor/crash_bottom_leader_timed.yaml --chunk-days 500   # 2015-20
 - CS 算子（`cs_rank`/process 链的 winsorize/standardize 等 per-date 横截面）：
   块内每日期全市场股票完整，结果与整段跑一致；
 - qfq 复权：块内 `adj_factor` 按全局基准（样本末每代码最新 adj）归一，绝对水平
-  类因子（直接用 close 值的公式）跨块一致；hfq/pit_qfq 无需处理（hfq 无基准；
-  pit_qfq 的 asof 全局固定）。
+  类因子（直接用 close 值的公式）跨块一致；hfq 无基准无需处理；**pit_qfq 的
+  asof base 全局装载**（`argMax(adj_factor, trade_date) WHERE trade_date <= asof`
+  一次查库，FULL/CHUNK 共用同一 base 列——R01-DATA-I3 修复，此前按块内帧重算会
+  分块漂移）。
 
 **已知限制**：
 
 - 每块块尾的 `forward_return_h` 为 null（块尾无未来数据；单块跑只有样本末如此），
   周频评估时该周跳过，块大小 500 天时损失 <1%；
+- **累计算子**（`ts_cum_sum`/`ts_cum_max`/`ts_cum_min`/`ts_cum_prod`，含 `vwap`
+  宏展开产物）依赖块内全历史，分块每块重置 → 与整段跑逐 cell 不一致：引擎在
+  `--chunk-days` 下 **fail fast**（`ValueError`，指引去掉 `--chunk-days` 或改用
+  `ts_sum`/`ts_mean` 窗口算子）——R01-ENG-I1；
 - process 链的 `fillna(method="forward")` 在块首重新填充，块边界前几行与单块跑
   略异（低频使用）；
 - 块大小 + warmup 应控制在约 850 交易日以内（单块内存 ≈ 已验证可跑的
@@ -324,7 +332,10 @@ formula: |
 - **daily_basic 扩展字段**：公式可引用 `turnover/total_mv/circ_mv/pe_ttm/pb/dv_ratio/
   volume_ratio`（daily_basic left join 自动加载，历史早期覆盖不足 → 缺失传播，
   以 `signal_null_ratio` 呈现）。经典价值/技术因子（`value_bp`、`turnover_level` 等）
-  依赖这些字段。
+  依赖这些字段。**R21 数据缺口标注（R01-TOOLS-I6）**：ch 生产库
+  `circ_mv/pe_ttm/pb/dv_ratio/volume_ratio` 5 列为占位空列（100% NULL，无数据源），
+  引用可加载但信号恒缺失；`idx_ret`（index_daily）为空的 `000852.SH` 可选灌入位，
+  生产库当前恒 NULL。
 - `params`：可选顶层参数映射 `dict[str, number|str|bool]`（缺省空）。formula（含
   operators 宏体、def 体）内 `${name}` 文本引用在编译期替换为字面量；引用未声明
   的参数名报错。`factorlab run --set k=v` 覆盖（合并进 spec.params）并生成变体
@@ -583,7 +594,12 @@ code 的行）；②**预热提取失效**——`_ts_window_days` 只认 `ts_/ta
 ### 插件管理
 
 用户插件放在 `~/.factorlab/plugins/`。插件文件必须只定义纯函数，并通过
-`factor_op` 注册算子。`op add` 会做 AST 安全扫描（含上面的分区前缀门）。
+`factor_op` 注册算子。`op add` 会做 AST 安全扫描（含上面的分区前缀门）：
+拒绝危险导入（`import`/`from ... import` 两形态，含 os/sys/subprocess/socket/
+shutil 及 importlib/ctypes/builtins/pickle/multiprocessing 等间接入口）与
+`eval`/`exec`/`open`/`compile`/`__import__` 调用；**同名冲突（含内建算子名）
+在插件 import/副作用执行前拒绝**——未 `--force` 时不可能静默覆盖内建算子
+（R01-ENG-I2/I3）。
 
 **三种自定义"处理函数"的层级**（按复用范围递增）：
 
@@ -625,13 +641,16 @@ def 内联（窗口算子合法化）→ 元素级方法链改写 → 平台薄�
 `adjustment` 时以 spec 为准——spec 字段默认 qfq，未声明时即用默认值）、
 `data_backend: Literal["duckdb","ch"] | None = None`（默认 None → `settings.data_backend`，
 由 env `FACTORLAB_DATA_BACKEND` 覆盖）。run_factor 内部按 data_backend 经
-`data.backend.open_read` 开读句柄（见 §4.0 读路径双后端）；duckdb 后端用
+`factorlab.app.bootstrap.open_read` 开读句柄（见 §4.0 读路径双后端）；duckdb 后端用
 `db_path`，ch 后端忽略 db_path（直接连 `settings.ch_*` 配置库）。
 
 **pit_qfq 消费（M4b）**：spec `adjustment=pit_qfq` 时复权视图调用
-`view_prices(panel, "pit_qfq", asof=spec.date.end)`——研究日视角（asof 之后无信息）；
-`spec.date.end` 缺省时 `asof` 取面板数据末端日期。`spec.date.end` 为字符串，
-装配内转 `datetime.date`（view_prices 的 asof 只接受 date 对象）。
+`view_prices(panel, "pit_qfq", asof=spec.date.end, pit_qfq_base_col=...)`——研究日
+视角（asof 之后无信息）；`spec.date.end` 缺省时 `asof` 取面板数据末端日期。
+`spec.date.end` 为字符串，装配内转 `datetime.date`（view_prices 的 asof 只接受
+date 对象）。**R21（R01-DATA-I3）**：asof base 由 `load_pit_qfq_base_adj(rd, asof)`
+全局装载（`argMax(adj_factor, trade_date) WHERE trade_date <= asof`，每 code 一次），
+FULL/CHUNK 共用同一 base 列——保证分块结果与整段逐 cell 一致（此前按块内帧重算）。
 
 `FactorResult`：`spec`、`panel`（列：`date, code, <outputs…>, forward_return_5d,
 forward_return_20d, close`——legacy 单输出时 `<outputs…> = signal`；close 为复权
@@ -790,7 +809,7 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 ### `factorlab.adapters.read.universe.resolve_codes(spec, rd, override=None, settings=settings) -> list[str]`
 
 universe 解析优先级：`override` > spec 内联（`ref` 命名引用 / `codes` / `rules`）。
-返回纯数字代码列表（`daily.code` 格式）。`rd` 为读句柄（`data/backend.open_read`
+返回纯数字代码列表（`daily.code` 格式）。`rd` 为读句柄（`factorlab.app.bootstrap.open_read`
 打开，duckdb|ch——双后端化后签名统一 `rd`，旧 `db`/路径位置参数已废弃）。
 命名引用查 `~/.factorlab/universes/<name>.yaml`（或直接给文件路径）。
 `default_universe`（`FACTORLAB_DEFAULT_UNIVERSE`）由 `factorlab run --universe`
@@ -810,7 +829,10 @@ code 候选先经 stock_basic.symbol 匹配归一（ch 侧两层 IN 命中索引
 `pl.Date`；数值列 float32。列映射双腿一致：`trade_date`（'YYYYMMDD'）→ `date`、
 `ts_code`（'000001.SZ'）→ `code`（去后缀）、`vol`→`volume`、`turnover_rate`→
 `turnover`（daily_basic left join，cols 含 turnover/total_mv/circ_mv 时）；
-close 恒加载，adj_factor 恒 inner join。
+close 恒加载，adj_factor 恒 inner join。**R21 单位契约（R01-DATA-I7）**：离开读面
+的 canonical 单位恒为 `volume=股`、`amount=元`；duckdb 平台库（teajoin 源）原始
+为 `手`/`千元`，`adapters/read/source.py` 在读适配层显式 ×100/×1000 归一；ch
+灌入原生即股/元（恒等）。两腿消费者所见单位一致。
 
 **列供给：无字段白名单（M1，spec 决策③修订）**。`cols` 可请求：引擎特殊名字
 （`date/code/adj_factor/idx_ret`）、平台映射名（`open/high/low/close/pre_close/
@@ -1307,11 +1329,14 @@ PIT 语义：
 - **exchange**：ts_code 后缀（.SH→SSE / .SZ→SZSE / .BJ→BSE）；默认池 SSE+SZSE，不意外纳入 BSE
 - 显式 codes 同样尊重上市/退市 PIT 状态（不自动增加 exclude_st/min_list_days 规则）
 - 输入校验：dates 仅接受 datetime.date / ISO `YYYY-MM-DD`（非法格式、重复日期 fail fast）；candidate_codes 重复 fail fast；输出前主动验证 (date, code) 唯一
-- **delist_date 保护**：`stock_basic.delist_date` 是语义关键稀疏字段——`build_final_db` 的 sparsity pruning 不得物理删除（PROTECTED_SPARSE_FIELDS，仅保护显式字段，不关闭整体 pruning）；旧 DB 无 delist_date 列时仍可运行，但 **delisting PIT is incomplete**（不伪造退市日期）
+- **delist_date 保护**：`stock_basic.delist_date` 是语义关键稀疏字段——`build_final_db` 的 sparsity pruning 不得物理删除（PROTECTED_SPARSE_FIELDS，仅保护显式字段，不关闭整体 pruning）；旧 DB 无 delist_date 列时仍可运行，但 **delisting PIT is incomplete**（不伪造退市日期）。**R21 起**：ch 生产库 `stock_basic.delist_date` 已灌入（Nullable(Date)，代理 = 最后交易日 + 1 天，来源 = 退市股文件 in-file code 权威集合，断流兜底）；平台侧列兼容 Date 与 String 两形态（ch 编译器统一 `toString(toYYYYMMDD(...))`，R01-DATA-I4），且运行期有 staleness gate 兜底（见 §4.7）
 - **suspend_timing 保护（M8-02B0）**：`suspend_d.suspend_timing` 是 execution-critical sparse data 且受 final-DB sparsity pruning 保护——null = 停复牌事件无具体日内时间区间，non-null = 存在日内 temporal evidence（决定 open suspension semantics，M8-02B）；约 99% null 是其数据本身语义，不是无价值缺失。**restoration 使用既有 frozen staging（`data/rebuild_staging.duckdb`，DATA_CUTOFF 2026-08-14）重建 candidate final 后 backup + 原子替换，无任何 source refresh 发生**
 
 **PIT invariant**：membership at t 不能依赖 t 之后的数据（ST/listing/delisting 均 PIT；
-平台库 stock_basic 当前无 delist_date 列时退市信息不可用，is_listed 只基于 list_date）。
+平台库 stock_basic 缺 delist_date 列时退市信息不可用，is_listed 只基于 list_date——
+此时由运行期 staleness gate 兜底：listed 但最后非空 close 早于面板末日 >250 交易日
+（`adapters/read/staleness.py`，`run_factor` 面板加载后调用）→ **fail loudly**，
+不静默 forward-fill 死价格；R01-DATA-C1）。
 
 ## 4.3 Universe-Aware Signal/Label Runtime（M6-03）
 
@@ -1480,10 +1505,11 @@ integrity 或 immutable run identity（hash/data snapshot 属后续 reproducibil
 
 **Gate 状态（M6-07B1 修正——行情覆盖完整 ≠ 完整 PIT universe 可运行）**：
 - `MARKET_DATA_COVERAGE_GATE` = **READY**（2015-01-05→2026-08-14——纯行情覆盖）
-- `FULL_HISTORY_PIT_GATE` = **BLOCKED_BY_DELIST_DATE**——缺 delist_date 时退市股
-  `is_listed` 仍为 true → align_to_listing 保留 stale 行 → fill_suspension_values
-  前值填充 → **stale price 派生的 signal 仍 active**——PIT universe 语义缺失，
-  正式 full-A-share Gate 必须等待 delist_date 迁移
+- `FULL_HISTORY_PIT_GATE` = **R21 解除（ch）**——ch 生产库 `stock_basic.delist_date`
+  已灌入（329 codes，代理 = 最后交易日 + 1；R01-DATA-C1），退市股 `is_listed`
+  在退市后为 false，不再 forward-fill 死价格。缺列旧库（如未重建的 duckdb 平台库）
+  由运行期 staleness gate fail loudly 兜底（>250 交易日断流且 listed）；恢复路径 =
+  `data rebuild`（duckdb）或重灌 stock_basic（ch）
 - `ST_AWARE_GATE` = **NOT_READY**（code-level duplicate-ST repair complete；
   production smoke pending stock_basic migration / token availability）
 
@@ -1795,6 +1821,13 @@ strategy result dir
 - **provenance 边界**：记录 source SignalMeta（name/frequency/adjustment/
   timing）；**不绑定 source SignalArtifact byte identity**（hash/run-id 未
   实现——不伪装更强 provenance）；不保存 source 绝对路径
+- **R21 覆盖写恢复语义（R01-M8-I1）**：写新 bundle 前先把旧
+  `strategy_manifest.json` 原子失效（rename 为 `.stale` tombstone，load 检测
+  到 tombstone 即明示拒绝并报告上一 bundle 已失效）；每文件写入后记录
+  sha256，manifest **最后写**；load 侧交叉校验 sha256/列契约/nav 与
+  nav_series 逐行一致（不一致 fail loudly，绝不拼接"新数据 + 旧 manifest"
+  的混合 bundle）。失败后**不自动回滚**旧 bundle——恢复 = 重跑写
+  （R01-M8-I1 验收语义）
 - **版本语义**：STRATEGY_ARTIFACT_FORMAT_VERSION（目录布局）与
   TARGET_PORTFOLIO/REBALANCE_SCHEDULE/STRATEGY_SPEC SCHEMA_VERSION 独立于
   M6 factor artifact 版本
@@ -1819,7 +1852,44 @@ actual holdings：T+1/停牌/涨跌停/整手/费用/滑点/部分成交/现金�
 M8 Execution Runtime。现金是隐式 residual（cash = 1 - securities weight
 sum），不创建 CASH pseudo-security。
 
-## 6. M8-02 Execution Calendar + Market Open Snapshot
+### M7-05 Canonical Security Identity Handoff
+
+```
+M6 compute internals:
+    symbol（"000001"——内部计算 key，非跨 runtime public identity）
+
+        ↓  artifact boundary canonicalization
+
+M6 formal artifacts（Signal/Label/legacy panel）:
+    canonical ts_code（"000001.SZ"——is_canonical_stock_code）
+
+        ↓
+
+M7 / M8:
+    canonical ts_code only（Strategy/Execution canonical guard）
+```
+
+- **边界位置**：run_factor 在 signal/labels chunk concat 完成后、
+  SignalArtifact/LabelArtifact/legacy panel 构造前，执行一次
+  symbol→ts_code canonicalization（resolve_canonical_code_map——每 run 只
+  解析一次，不重复查 stock_basic）
+- **mapping 唯一数据来源**：stock_basic.symbol ↔ stock_basic.ts_code——
+  **禁止 prefix/exchange 启发式推断**（canonical identity 是 reference
+  data）。完整性（N 输入 → N 映射，缺失 fail）、唯一性（同 symbol 多
+  ts_code fail）、canonical 验证（is_canonical_stock_code +
+  is_canonical_stock_row：symbol == ts_code[:6]）
+- **legacy vendor alias（T600018.SH / TS0018.SH）**：不映射、不合并、不
+  drop——到达 artifact handoff 即 fail fast（M6-07B4 quarantine contract）
+- **M6 内部仍使用 symbol namespace**（load_daily/resolve/UniverseFrame/
+  align/compute 不动——大规模改造无必要）；只有正式 artifact 输出
+  canonical ts_code
+- **summary.codes** 与 signal.parquet.code 同一 canonical namespace
+  （candidate_count/universe_count 数值不变）
+- **旧 M7-05 前的 factor artifact 目录**（含 6 位 symbol code）不静默迁移
+
+## 6. M8 Execution Runtime
+
+### M8-02 Execution Calendar + Market Open Snapshot
 
 ```
 TargetPortfolio
@@ -1893,42 +1963,6 @@ canonical codes 的除权事件行（表契约 `adj_event(ts_code, trade_date)`�
 缺列 → fail fast；codes canonical + unique（duplicate fail）；end < start →
 ValueError；输出 code String / trade_date Date、(code, trade_date) 稳定排序。
 
-## 6. Canonical Security Identity Handoff（M7-05）
-
-```
-M6 compute internals:
-    symbol（"000001"——内部计算 key，非跨 runtime public identity）
-
-        ↓  artifact boundary canonicalization
-
-M6 formal artifacts（Signal/Label/legacy panel）:
-    canonical ts_code（"000001.SZ"——is_canonical_stock_code）
-
-        ↓
-
-M7 / M8:
-    canonical ts_code only（Strategy/Execution canonical guard）
-```
-
-- **边界位置**：run_factor 在 signal/labels chunk concat 完成后、
-  SignalArtifact/LabelArtifact/legacy panel 构造前，执行一次
-  symbol→ts_code canonicalization（resolve_canonical_code_map——每 run 只
-  解析一次，不重复查 stock_basic）
-- **mapping 唯一数据来源**：stock_basic.symbol ↔ stock_basic.ts_code——
-  **禁止 prefix/exchange 启发式推断**（canonical identity 是 reference
-  data）。完整性（N 输入 → N 映射，缺失 fail）、唯一性（同 symbol 多
-  ts_code fail）、canonical 验证（is_canonical_stock_code +
-  is_canonical_stock_row：symbol == ts_code[:6]）
-- **legacy vendor alias（T600018.SH / TS0018.SH）**：不映射、不合并、不
-  drop——到达 artifact handoff 即 fail fast（M6-07B4 quarantine contract）
-- **M6 内部仍使用 symbol namespace**（load_daily/resolve/UniverseFrame/
-  align/compute 不动——大规模改造无必要）；只有正式 artifact 输出
-  canonical ts_code
-- **summary.codes** 与 signal.parquet.code 同一 canonical namespace
-  （candidate_count/universe_count 数值不变）
-- **旧 M7-05 前的 factor artifact 目录**（含 6 位 symbol code）不静默迁移
-
-## 6. M8 Execution Runtime
 
 ### 架构边界
 
@@ -2651,6 +2685,12 @@ run_backtest(target, execution_spec, rd, *, marks=MarksPolicy.OPEN_BASED,
   ExecutionArtifact/NavSeries/BacktestResult 见 domain/backtest.py
   （artifact = primitive 输出快照，cash bridge invariant 校验；
   NavSeries per-event 严格递增、nav == cash + market_value exact）
+- **R21 trailing unresolved 语义（R01-M8-I5，m8-06a §6.3）**：最后一个
+  execution 后无下一开放日 → **合法终止**（不 fail 全 run、不 drop 中间
+  结果）：`BacktestResult.trailing_unresolved=True`，`final_state` = 最后
+  一个 POST_EXECUTION 快照；**非最后** decision 的未决 advance 仍是硬错误
+  （`ExecutionDataQualityError`）。decision_range 之外的尾部未决不参与本次
+  run 的编排（R01-M8-I4）
 
 **CA Gate（WS5；事件源 = `adj_event` 表）**：懒性触发——仅"多事件 + 持仓
 （held(PRE) 非空）"run 武装（单事件/空仓 no-op）。armed 且缺 `adj_event`
@@ -2680,9 +2720,13 @@ load_backtest_result(artifact_dir) -> BacktestResult
   NAV/accounting/fills）
 - manifest：schema_version "1" / artifact_type / created_at（可显式注入——
   确定性输出）/ runtime_version / artifact_count / columns（每文件列契约）；
-  **未知版本 fail fast——无 silent migration**
-- error contract：目录缺失 / manifest 缺失 / 缺文件 / 缺列 / dtype 不匹配
-  → ValueError（不自动修复）
+  **未知版本 fail fast——无 silent migration**。**R21 严格校验（R01-M8-I6/I7）**：
+  `artifact_count` 必须为 int 且等于实际加载数（bool 拒绝）、columns 与固定布局
+  全等、created_at/runtime_version 非空、日期范围与产物首末 execution date 一致、
+  `execution_timing` 持久化并在 load 时读取（缺字段 legacy 显式拒绝——不静默
+  硬编码 NEXT_OPEN）；每文件 sha256 与磁盘内容交叉校验
+- error contract：目录缺失 / manifest 缺失 / 缺文件 / 缺列 / dtype 不匹配 /
+  manifest 字段不满足上述严格校验 → ValueError（不自动修复）
 - 支持 empty BacktestResult（typed empty parquet）
 - BacktestResult / primitive / runtime 零修改
 
@@ -2698,7 +2742,7 @@ execution_spec, rd)`（M8-06B）→ `save_backtest_result`/
 排序（测试锁成员关系翻转）；干净窗口（无停牌/无除权事件）不触发冻结/CA
 路径——纯信号链回归锚；stub 替换（硬编码 constant target）后测试必败。
 
-## 6. 测试
+## 7. 测试
 
 运行：
 
@@ -2718,7 +2762,7 @@ params 替换 + run --set 变体，n_weeks > 50）），真实 results 目录 We
 （`tests/test_e2e_web.py`：列表含因子名/详情含图表数据/旧因子降级/缺失 404），
 以及 teajoin 集成测试（token 配置时真实拉取，`tests/test_e2e_data.py`）。
 
-## 6. 数据平台（M3b）
+## 8. 数据平台（M3b）
 
 数据平台层以 teajoin（Tushare 兼容代理）为数据源，落地本地 DuckDB 库供因子计算
 与回测只读使用。全链路：拉取（TeaJoinClient）→ 落库（PlatformDB）→ 全量重建/增量

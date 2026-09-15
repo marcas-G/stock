@@ -40,11 +40,11 @@ bash ../scripts/reinstall_editable.sh
 - **ch**：`FACTORLAB_DATA_BACKEND=ch`（`FACTORLAB_CH_HOST/PORT/DATABASE`），ClickHouse
   事实库由 `research/tools/ch_ingest/` 灌入。
 
-## 仓库纪律（摘要）
+## 仓库纪律（摘要，2026-09-15 单仓单树）
 
-- `main` 只收平台改动（`src/factorlab/`、`tests/`、`docs/interface.md`、
-  `docs/superpowers/`、`docs/data-ops-playbook.md`、`docs/teajoin-guide.md`、README、pyproject）；
-  研究内容（`factor/`、`docs/factors/`、`tools/`、`docs/strategies/`）进 **`research` 分支**
-  （研究树在仓库根的兄弟目录 `../research/`）。
+- **单仓单树**：本目录 = 平台树（`platform/`）；研究内容在兄弟目录 `../research/`，
+  工作区文档/证据在 `../docs/`。**旧的双分支纪律（main=平台 / research=研究）已退役**——
+  现在按**目录**分权，一次改动涉及多棵树时按目录分别提交；目录边界与提交前缀见
+  [../CLAUDE.md](../CLAUDE.md) 与 [../AGENTS.md](../AGENTS.md)。
 - 任何代码改动遵循 TDD（先失败测试再加实现），提交前全量 `pytest -q` 通过；
-  文档与实现同步（详见 `CLAUDE.md`）。
+  文档与实现同步（`docs/interface.md` / `docs/catalog.md`）。

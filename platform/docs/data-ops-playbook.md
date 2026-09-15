@@ -26,7 +26,13 @@ factorlab serve [--port 8000] [--host 127.0.0.1]        # Web 可视化（浏览
 
 - **请求量**：~46,000（行情 7 表 × 6,450 交易日 + 指数）；串行 ~15 小时，**5 路并发 ~3 小时**。
 - **token**：teajoin API Key 有到期日（本次 2026-08-22 到期）——重建前先查 `https://teajoin.com/redeem` 确认有效期。
-- **断点续传**：manifest 每批落盘，中断后 `--resume` 从 failed/未完成日期继续——**任意时刻可中断恢复**。
+- **断点续传**：manifest 每批落盘（**R21：原子写** `atomicio`，截断 JSON 自动隔离为
+  `*.corrupt-*` 后重建，不炸加载）；中断后 `--resume` 从 failed/未完成日期继续——
+  **任意时刻可中断恢复**。**R21 重复防护**：续跑启动时用 staging `DISTINCT trade_date`
+  对账补记 completed（日期在表 ⇔ 已完整落库），崩溃窗口内的重拉不会产生
+  `(trade_date, ts_code)` 重复行；`build_final_db` 前强制 `integrity_check()`，
+  `daily.duplicate_rows` 非零即拒绝建库（R01-DATA-I5/I6）。`--no-resume` 会先
+  `DROP TABLE` 再全量重拉。
 
 ### 2.2 并发与限流（关键经验）
 
@@ -68,7 +74,7 @@ factorlab data update
 3. 自动 verify：完整性自检（6 规则）+ 稀疏摘要
 4. 输出报告：各表新增行数、失败日期（含错误原因）、integrity 规则通过情况
 
-**失败处理**：单日失败记录 manifest（failed + failed_errors 诊断），下次 update 自动重试；报告醒目提示。
+**失败处理**：单日失败记录 manifest（failed + failed_errors 诊断），下次 update 自动重试；报告醒目提示。**R21：`data update`/`refresh` 链路同样携带失败原因**（`refresh` 逐表 errors 写入 manifest `failed_errors` 与 `report["tables"][table]["failed_errors"]`，`str(exc)[:120]`；终端摘要仍只打印日期列表——原因见 manifest/report，R01-DATA-I8）。
 
 ## 4. 验证与健康检查
 

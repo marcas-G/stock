@@ -1,7 +1,7 @@
 # FactorLab M5 Web 可视化设计文档
 
 日期：2026-08-16
-状态：待评审
+状态：已实现（M5 Web 已交付；原"待评审"为文档漂移，R21 补正。现状见 `platform/docs/interface.md`）
 依赖主设计：`docs/superpowers/specs/2026-08-15-factor-dsl-platform-design.md`（§10）
 前置：M1-M4b（引擎/评估/分层回测全链路）
 

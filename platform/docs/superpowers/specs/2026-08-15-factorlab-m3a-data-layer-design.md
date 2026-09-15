@@ -1,7 +1,8 @@
 # FactorLab M3a 数据层（本地核心）设计文档
 
 日期：2026-08-15
-状态：待评审
+状态：已实现（M3a 数据层已交付；原"待评审"为文档漂移，R21 补正。数据面现状见
+      `platform/docs/interface.md` §4 与 `docs/data-map.md`）
 依赖主设计：`docs/superpowers/specs/2026-08-15-factor-dsl-platform-design.md`（下文简称"主 spec"）
 
 ## 1. 背景与范围

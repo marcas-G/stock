@@ -17,6 +17,16 @@
 >    （`adapters/rust_ic.py`），内核侧不回改。
 > 6. 平台侧回归锚点 `platform/tests/test_quant_core_shim.py`（10 项，含与 `weekly_ic` 逐期对拍）
 >    已同批取回；该文件另加"本文档存在性"断言，防指针再悬空。
+> 7. **R21 统计口径勘误（R01-EVAL-I7/I8，正文不改）**：
+>    a) **§3.1 自相矛盾修正**：`t_stat`（与 pearson 的 t）与 `sign_consistent` 的统计分母
+>    是**可计算 IC 周数**（非 NaN/非退化周），与同节"IC 统计基础：仅使用可计算周"一致；
+>    `n_weeks` 字段语义不变（含退化周）。原文"t_stat 的分母 n = n_weeks（含退化周）"作废。
+>    实测：退化周面板 t 由 182.24 修正为 141.16（n_ok=3）。
+>    b) **§3.1 十分位分配**：由 `ordinal_rank` 改为 **average-rank 对称分位**
+>    `floor((2r−1)·10/(2n))`（clip [0,9]）——并列信号同档、分层与行序无关
+>    （ordinal 版实测 spread −0.08 vs 对称版 0.0）。无并列时与旧式等价（§4.3 向量 1 逐字段不变）。
+>    c) shim 实现已按下述修正（`platform/kernels/quant_core/quant_core/__init__.py`），
+>    并由 `test_quant_core_shim.py` 对抗用例锁定。
 
 日期：2026-08-26 · 状态：已实现（shim）· 关联：m4a 引擎评估设计、`tests/test_quant_core_shim.py`
 

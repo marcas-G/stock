@@ -1,9 +1,16 @@
 # FactorLab M4b 单因子评估深化设计文档
 
 日期：2026-08-16
-状态：待评审
+状态：已实现（M4b 单因子评估深化已交付；原"待评审"为文档漂移，R21 补正。
+      勘误：本文中的 `cost` 形参已删除，现行口径为 `cost_rate`，见下方勘误头）
 依赖主设计：`docs/superpowers/specs/2026-08-15-factor-dsl-platform-design.md`
 前置：M4a（引擎接入与评估——run 命令/quant_core 桥接/复权消费）
+
+> **勘误（R21，2026-09-15）**：本文 §1 与 §6 对 `layered_backtest(..., cost=...)` 的表述
+> 已过期——`cost` 形参自 R8 删除（原为静默 no-op：签名收下、计算不用），R9 起真建模为
+> `cost_rate: float = 0.0`（`net = gross − cost_rate × turnover`，见
+> `platform/docs/interface.md` §`layered_backtest` 与 `docs/pending-items.md` #15）。
+> **正文保留原设计原貌，不改写**；引用签名时以 `cost_rate` 为准。
 
 ## 1. 背景与目标
 
