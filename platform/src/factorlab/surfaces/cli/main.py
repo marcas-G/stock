@@ -235,7 +235,12 @@ def list_factors() -> None:
         console.print("暂无因子结果（先运行 factorlab run）")
         return
     rows = []
-    for summary_path in sorted(results_dir.glob("*/summary.json")):
+    # R12：布局经 results 单点（不再 glob 布局字面量）
+    from factorlab.adapters import results_fs
+    for _name in results_fs.list_result_dirs(results_dir):
+        summary_path = results_fs.summary_path(results_dir, _name)
+        if not summary_path.is_file():
+            continue
         try:
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
@@ -279,7 +284,8 @@ def list_factors() -> None:
 @app.command("show")
 def show_factor(name: str) -> None:
     """查看单因子完整摘要（spec 原文/评估/分层回测）。"""
-    summary_path = settings.results_dir / name / "summary.json"
+    from factorlab.adapters import results_fs
+    summary_path = results_fs.summary_path(settings.results_dir, name)
     if not summary_path.exists():
         console.print(f"错误: 因子 {name} 不存在（{settings.results_dir / name}）")
         raise typer.Exit(code=1)

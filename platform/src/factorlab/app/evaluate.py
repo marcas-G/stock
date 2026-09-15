@@ -74,10 +74,9 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
 def publish_run(result: FactorResult, outcome: EvaluationOutcome,
                 ctx: RunContext) -> dict:
     """发布单点：summary 追加 evaluation → weekly.parquet + summary.json 落盘。"""
+    from factorlab.adapters import results_fs
     result.summary["evaluation"] = outcome.evaluation
-    out_dir: Path = Path(ctx.output_dir)
-    outcome.weekly.write_parquet(out_dir / "weekly.parquet")
-    (out_dir / "summary.json").write_text(
-        json.dumps(result.summary, ensure_ascii=False, indent=2, default=str),
-        encoding="utf-8")
+    # R12：走 results 单点（布局 + **原子**写）——原先直写，崩在中途会留半截 summary.json
+    results_fs.write_run_outputs(Path(ctx.output_dir), weekly=outcome.weekly,
+                                 summary=result.summary)
     return result.summary

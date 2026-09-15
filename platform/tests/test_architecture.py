@@ -196,3 +196,36 @@ def test_importing_config_has_no_filesystem_side_effect():
         assert "CONFIG_IMPORT_OK" in out.stdout
         leftovers = [p.name for p in Path(home).iterdir()]
         assert not leftovers, f"导入 config 产生了文件系统副作用: {leftovers}"
+
+
+# ================================================================
+# results/parquet I/O 单点门（R12）：app/ 与 surfaces/ 只能经 adapters
+# ================================================================
+RESULTS_LAYOUT_LITERALS = ("panel.parquet", "weekly.parquet", "labels.parquet",
+                           "signal.parquet", "summary.json")
+_PARQUET_ATTRS = ("read_parquet", "scan_parquet", "write_parquet", "read_csv")
+
+
+def test_results_io_only_in_adapters():
+    """静态门：`app/` 与 `surfaces/` 不得自己读写 results 产物或拼布局文件名。
+
+    为什么：`adapters.results_fs` / `adapters.panel_store` 是 **results 布局的单点**
+    （文件名、缺失/损坏语义、原子写都在那里）。R12 之前有三处绕过：
+    `app/analysis/correlation.py` 直 `scan_parquet(panel.parquet)`、
+    `surfaces/web/app.py` 直 `read_parquet(weekly.parquet)`、
+    `app/evaluate.publish_run` 直写（且**非原子**）。
+    """
+    import ast as _ast
+    offenders: list[str] = []
+    for sub in ("app", "surfaces"):
+        for py in sorted((REPO / "src" / "factorlab" / sub).rglob("*.py")):
+            tree = _ast.parse(py.read_text(encoding="utf-8"))
+            rel = py.relative_to(REPO)
+            for n in _ast.walk(tree):
+                if isinstance(n, _ast.Attribute) and n.attr in _PARQUET_ATTRS:
+                    offenders.append(f"{rel}:{n.lineno} .{n.attr}")
+                elif isinstance(n, _ast.Constant) and isinstance(n.value, str) \
+                        and n.value in RESULTS_LAYOUT_LITERALS:
+                    offenders.append(f"{rel}:{n.lineno} 布局字面量 {n.value!r}")
+    assert not offenders, (
+        f"app/surfaces 绕过 results 单点 {len(offenders)} 处: {offenders[:8]}")

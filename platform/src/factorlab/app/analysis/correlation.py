@@ -40,8 +40,10 @@ def _join_panels(names: list[str], results_dir: pathlib.Path,
     """
     if sample_weeks:
         # 抽样周：先轻量读第一因子 date 列 → 抽周 → 各因子 lazy 过滤读
-        probe = pl.scan_parquet(pathlib.Path(results_dir) / names[0] / "panel.parquet")
-        dates = _sample_dates(probe.select("date").collect(), sample_weeks, seed)
+        from factorlab.adapters.panel_store import ParquetPanelStore
+        dates = _sample_dates(
+            ParquetPanelStore().load_dates(pathlib.Path(results_dir), names[0]),
+            sample_weeks, seed)
         long = pl.concat(
             [_load_signal(results_dir, name, dates=dates)
              .rename({name: "value"}).with_columns(pl.lit(name).alias("factor"))

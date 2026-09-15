@@ -27,6 +27,16 @@ class ParquetPanelStore:
             raise panel_missing(results_dir, name)
         return pl.read_parquet(p)
 
+    def load_dates(self, results_dir: pathlib.Path, name: str) -> pl.DataFrame:
+        """只读 `date` 列（correlation 抽样周用——**不得为此整张 panel 载入**）。
+
+        缺失语义与 `load_panel` 一致（`ports.panel_store.panel_missing`）。
+        """
+        p = self._path(results_dir, name)
+        if not p.exists():
+            raise panel_missing(results_dir, name)
+        return pl.scan_parquet(p).select("date").collect()
+
     def list_factors(self, results_dir: pathlib.Path) -> list[str]:
         return sorted(p.parent.name for p in
                       pathlib.Path(results_dir).glob("*/panel.parquet"))

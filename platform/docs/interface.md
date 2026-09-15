@@ -166,6 +166,21 @@ factorlab run factor/crash_bottom_leader_timed.yaml --chunk-days 500   # 2015-20
 - 块大小 + warmup 应控制在约 850 交易日以内（单块内存 ≈ 已验证可跑的
   3.5 年量级）。
 
+### `factorlab.adapters.results_fs` / `factorlab.adapters.panel_store`：results 布局单点（R12）
+
+`results/` 的**文件名、路径拼装、读取语义、原子写**只有这两个模块知道；`app/` 与 `surfaces/`
+不得自己读写产物或出现布局字面量（门：`tests/test_architecture.py::test_results_io_only_in_adapters`）。
+
+- `results_fs.panel_path / weekly_path / summary_path(results_dir, name) -> Path`：布局单点；
+- `results_fs.read_summary(path) -> dict`：缺失 → `FileNotFoundError`；非法 JSON/非 dict → `ValueError`；
+- `results_fs.read_weekly(results_dir, name) -> pl.DataFrame`：缺失 → `FileNotFoundError`；
+- `results_fs.write_run_outputs(out_dir, *, weekly, summary)`：**发布单点**——`weekly.parquet` +
+  `summary.json` 同目录 tmp + `fsync` + `os.replace` 原子落盘，失败不留目标、不留 tmp
+  （此前 `app.evaluate.publish_run` 直写，崩在中途会留半截 `summary.json`）；
+- `results_fs.list_result_dirs(results_dir) -> list[str]`：因子目录枚举；
+- `panel_store.ParquetPanelStore.load_dates(results_dir, name) -> pl.DataFrame`：**只读 `date` 列**
+  （相关性分析的抽样周用；缺失语义同 `load_panel`，报错文案单点在 `ports.panel_store.panel_missing`）。
+
 ### `factorlab list` / `factorlab show <name>`
 
 `run` 后的运维闭环（同 `results_dir` 锚定）：

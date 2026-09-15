@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
+from factorlab.adapters import results_fs
 from factorlab.core.eval.ic_series import weekly_ic
 from factorlab.surfaces.web import charts
 
@@ -31,9 +32,8 @@ def _safe_name(name: str) -> str:
 def _load_summary(results_dir: Path, name: str) -> dict:
     """读取因子 summary.json；缺失/损坏 → 404（单点 = adapters.results_fs；WS4f）。"""
     name = _safe_name(name)
-    from factorlab.adapters.results_fs import read_summary
     try:
-        return read_summary(results_dir / name / "summary.json")
+        return results_fs.read_summary(results_fs.summary_path(results_dir, name))
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"因子 {name} 不存在") from exc
     except ValueError as exc:
@@ -139,15 +139,13 @@ def create_app(results_dir: Path) -> FastAPI:
             "layered_backtest": _group(ev, "layered_backtest"),
         }}
         charts_data = {}
-        weekly_path = results_dir / name / "weekly.parquet"
         has_weekly = False
-        if weekly_path.exists():
-            try:
-                panel = pl.read_parquet(weekly_path)
-                charts_data["ic"] = charts.ic_curve_figure(weekly_ic(panel))
-                has_weekly = True
-            except (OSError, ValueError, pl.exceptions.PolarsError):
-                pass  # 损坏/缺列的 weekly.parquet → IC 曲线区域降级（其余图表照常）
+        try:  # R12：weekly 读经 results 单点（缺失/损坏 → 同一降级路径）
+            panel = results_fs.read_weekly(results_dir, name)
+            charts_data["ic"] = charts.ic_curve_figure(weekly_ic(panel))
+            has_weekly = True
+        except (OSError, ValueError, pl.exceptions.PolarsError):
+            pass  # 损坏/缺列的 weekly.parquet → IC 曲线区域降级（其余图表照常）
         groups = summary["evaluation"]["decile_returns"]["groups"]
         if groups:
             charts_data["decile"] = charts.decile_bar_figure(groups)
