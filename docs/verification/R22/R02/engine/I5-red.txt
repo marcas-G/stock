@@ -1,0 +1,30 @@
+# I5 RED —— HEAD 版本 + 新测试
+# cmd: cd platform && .venv/bin/python -m pytest -q tests/test_minute_engine.py -k 'index_range or session_type_contract'
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+____________________ test_minute_grid_index_range_enforced _____________________
+
+    def test_minute_grid_index_range_enforced():
+        """R02-I5：index 1..240（240 行唯一）此前被接受，契约是 0..239 → fail fast
+        （im_*/day_* 的 order_by/首末行语义都锚定 0/239）。"""
+>       with pytest.raises(ValueError, match="网格|minute_index"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_minute_engine.py:303: Failed
+----------------------------- Captured stderr call -----------------------------
+2026-09-15 23:58:07.645 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 23:58:07.673 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+_______________ test_minute_grid_session_type_contract_enforced ________________
+
+    def test_minute_grid_session_type_contract_enforced():
+        """R02-I5：session_type 必须 ∈ {0,1,2}（此前全 7 被静默接受）。"""
+>       with pytest.raises(ValueError, match="session_type"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_minute_engine.py:313: Failed
+=========================== short test summary info ============================
+FAILED tests/test_minute_engine.py::test_minute_grid_index_range_enforced - F...
+FAILED tests/test_minute_engine.py::test_minute_grid_session_type_contract_enforced
+2 failed, 12 deselected in 1.83s

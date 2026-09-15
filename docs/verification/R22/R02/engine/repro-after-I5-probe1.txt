@@ -1,0 +1,15 @@
+# cmd: cd platform && .venv/bin/python /tmp/opencode/reviewer-r02-newturf/probe1_minute_gate.py  # 尾部网格段
+# before: [indexes 1..240] accepted; [session_type=7] accepted（report I5）
+
+--- expected values ---
+day_last(close) day1= 239.0 day2= 1239.0
+shift(-1) at minutes 239/238 -> null/239; shift(1) -> close[238]=238
+im_delay k=1: [238.0, 1238.0]
+im_delay k=-1: ValueError: im_delay 不允许 k<1（1:18，k=-1——lookback 只能取过去；日内位移 k>=1）
+im_delay k=-4: ValueError: im_delay 不允许 k<1（1:18，k=-4——lookback 只能取过去；日内位移 k>=1）
+
+--- grid contract checks ---
+[indexes 1..240] ValueError: bars_1m 网格不完整/跨日泄漏疑似：2 个 (code, date) 组非「240 行 × minute_index 0..239 唯一」标准网格（样本 [{'date': datetime.date(2026, 8, 20), 'code': '000001', 'n':
+[session_type=7] ValueError: bars_1m.session_type 必须 ∈ {0,1,2}（480 行违规——data contract 违约（三态：0 开/1 连/2 收）；样本 [{'date': datetime.date(2026, 8, 20), 'code': '000001', 'minu
+[minute_index float] ValueError: bars_1m 网格不完整/跨日泄漏疑似：minute_index 必须整数 dtype（实际 Float64）
+[dup index (n=240,u=239)] ValueError: bars_1m 网格不完整/跨日泄漏疑似：1 个 (code, date) 组非「240 行 × minute_index 0..239 唯一」标准网格（样本 [{'date': datetime.date(2026, 8, 20), 'code': '000001', 'n':

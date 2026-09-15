@@ -284,6 +284,42 @@ def test_minute_grid_duplicate_minute_index_raises(ch_db, tmp_path):
         run_factor_minute(spec, _ctx(tmp_path / "o"))
 
 
+# ---------------- R02-I5 网格契约：index 范围 0..239 / session_type 0/1/2 -------
+
+def _pure_grid(*, mi_offset: int = 0, session: int = 1):
+    """纯入口网格帧：240 行、minute_index 唯一但可整体偏移；session 固定值。"""
+    d = dt.date(2026, 8, 20)
+    return pl.DataFrame({
+        "trade_date": [d] * 240, "code": ["000001"] * 240,
+        "minute_index": [i + mi_offset for i in range(240)],
+        "session_type": [session] * 240,
+        "close": [float(i) for i in range(240)],
+    })
+
+
+def test_minute_grid_index_range_enforced():
+    """R02-I5：index 1..240（240 行唯一）此前被接受，契约是 0..239 → fail fast
+    （im_*/day_* 的 order_by/首末行语义都锚定 0/239）。"""
+    with pytest.raises(ValueError, match="网格|minute_index"):
+        compute_minute_factor_panel(_pure_grid(mi_offset=1),
+                                    "signal = day_last(close)")
+    # 合法 0..239 仍放行且 day_last = 239 行值
+    out = compute_minute_factor_panel(_pure_grid(), "signal = day_last(close)")
+    assert out["signal"].to_list() == [239.0]
+
+
+def test_minute_grid_session_type_contract_enforced():
+    """R02-I5：session_type 必须 ∈ {0,1,2}（此前全 7 被静默接受）。"""
+    with pytest.raises(ValueError, match="session_type"):
+        compute_minute_factor_panel(_pure_grid(session=7),
+                                    "signal = day_last(close)")
+    bad = _pure_grid().with_columns(
+        pl.when(pl.col("minute_index") == 0).then(None).otherwise(
+            pl.col("session_type")).alias("session_type"))
+    with pytest.raises(ValueError, match="session_type"):
+        compute_minute_factor_panel(bad, "signal = day_last(close)")
+
+
 # ---------------- B1.2 / 接口 guard / 池 v1 排除 / 未知列助手 ----------------
 
 def test_minute_adjustment_must_be_raw_before_db(tmp_path):

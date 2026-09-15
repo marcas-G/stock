@@ -11,7 +11,8 @@
   shift 语义要求与日频链同骨架），折日键过滤后与信号严格对齐。
 - `compute_minute_factor_panel(bars, formula, *, outputs=None, daily=None)`：
   B4.7 纯入口（引擎/批算工具/测试共用同一路径）——240 网格断言（缺行/重复
-  minute_index/跨日泄漏疑似 fail fast）→ 日级注入列 join → 未知列报错助手 →
+  minute_index/范围非 0..239/跨日泄漏疑似 fail fast；session_type 存在则须
+  ∈ {0,1,2}）→ 日级注入列 join → 未知列报错助手 →
   compute_formula(scope="bars_1m") → 折日 (date, code) 组内唯一断言 + dedup。
 - 注入列（B6，固定公开名）：eod_close/prev_close/day_amt/day_vol = 当日 daily
   行原值（无换算——amount 元/volume 股，见 data/intraday.py 单位契约）；
@@ -61,8 +62,9 @@ def compute_minute_factor_panel(
 
     bars：分钟面（date/trade_date + code + minute_index + bars 列均可——date 列
     名规范化后使用）。daily：注入列快照（_build_daily_injections 输出）——
-    提供时逐键 join；bars 有行而日线缺 → fail fast。错误表：网格 240×唯一断言
-    （缺行/重复/日期 dtype/跨日泄漏疑似）、未知列报错助手（点名可用列）。
+    提供时逐键 join；bars 有行而日线缺 → fail fast。错误表：网格 240×唯一且
+    minute_index 范围 0..239 断言（缺行/重复/范围漂移/日期 dtype/跨日泄漏疑似）、
+    session_type ∈ {0,1,2}（存在时）、未知列报错助手（点名可用列）。
     """
     if bars.height == 0:
         raise ValueError("bars_1m 输入为空（无分钟行）——空窗请引擎先行报无数据")
@@ -79,6 +81,14 @@ def compute_minute_factor_panel(
     if not bars.schema["minute_index"].is_integer():
         raise ValueError(f"bars_1m 网格不完整/跨日泄漏疑似：minute_index 必须整数"
                          f" dtype（实际 {bars.schema['minute_index']}）")
+    if "session_type" in bars.columns:
+        bad_sess = bars.filter(pl.col("session_type").is_null()
+                               | ~pl.col("session_type").is_in([0, 1, 2]))
+        if bad_sess.height:
+            raise ValueError(
+                f"bars_1m.session_type 必须 ∈ {{0,1,2}}（{bad_sess.height} 行违规"
+                f"——data contract 违约（三态：0 开/1 连/2 收）；样本 "
+                f"{bad_sess.select(['date', 'code', 'minute_index', 'session_type']).head(3).to_dicts()}）")
     if daily is not None:
         if not {"date", "code"} <= set(daily.columns):
             raise ValueError(f"daily 注入快照缺 date/code 列（实际 {list(daily.columns)}）")
@@ -97,15 +107,19 @@ def compute_minute_factor_panel(
             f"——bars 分钟面列 + 日级注入列见 docs/interface.md 分钟面）")
     g = bars.group_by(["date", "code"]).agg(
         pl.len().alias("n"),
-        pl.col("minute_index").n_unique().alias("u"))
+        pl.col("minute_index").n_unique().alias("u"),
+        pl.col("minute_index").min().alias("lo"),
+        pl.col("minute_index").max().alias("hi"))
     bad = g.filter((pl.col("n") != _GRID_ROWS_PER_DAY)
-                   | (pl.col("u") != _GRID_ROWS_PER_DAY))
+                   | (pl.col("u") != _GRID_ROWS_PER_DAY)
+                   | (pl.col("lo") != 0)
+                   | (pl.col("hi") != _GRID_ROWS_PER_DAY - 1))
     if bad.height:
         raise ValueError(
             f"bars_1m 网格不完整/跨日泄漏疑似：{bad.height} 个 (code, date) 组非"
-            f"「240 行 × minute_index 唯一」标准网格（样本 "
+            f"「240 行 × minute_index 0..239 唯一」标准网格（样本 "
             f"{bad.sort(['date', 'code']).head(3).to_dicts()}——缺口/重复/"
-            f"跨日泄漏；规格 B4.1）")
+            f"范围漂移/跨日泄漏；规格 B4.1）")
     out = compute_formula(bars, formula, outputs=outputs, scope="bars_1m")
     value_cols = [c for c in out.columns if c not in ("date", "code")]
     if not value_cols:
