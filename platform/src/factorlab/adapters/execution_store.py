@@ -27,6 +27,7 @@ import datetime
 import hashlib
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 import polars as pl
@@ -39,8 +40,13 @@ from factorlab.core.domain.execution import (FillBatch, OpenFillAssessment,
                                         OrderBatch, PortfolioState,
                                         PortfolioStatePhase)
 from factorlab.core.domain.timing import ExecutionTiming
+from factorlab.core.execution.minute_window import WindowBacktestResult
+from factorlab.core.execution.spec import ExecutionSpec
 
 SCHEMA_VERSION = "1"
+# R22 NEXT_WINDOW 扩展格式：v1 布局 + window_fills.parquet + manifest.execution_spec
+# （版本号递增沿用同一常量机制；v1 旧产物 load 不受影响——双版本接受）
+SCHEMA_VERSION_WINDOW = "2"
 RUNTIME_VERSION = "factorlab-m8-06c"
 ARTIFACT_TYPE = "backtest_result"
 
@@ -107,6 +113,58 @@ _EMPTY_STATE = (pl.Series([], dtype=pl.String),
                 pl.Series([], dtype=pl.Int64),
                 pl.Series([], dtype=pl.Int64))
 
+# R22：NEXT_WINDOW 逐 event 分钟成交明细（plan Task 4 detail 列 + event_index）
+WINDOW_FILLS_REL = "window_fills.parquet"
+_WINDOW_FILLS_COLS: dict[str, pl.DataType] = {
+    "event_index": pl.Int64, "code": pl.String, "side": pl.String,
+    "minute_index": pl.Int64, "quantity": pl.Int64, "price": pl.Float64,
+    "fell_back": pl.Boolean}
+_SCHEMAS_WINDOW: dict[str, dict[str, pl.DataType]] = {
+    **_SCHEMAS, WINDOW_FILLS_REL: _WINDOW_FILLS_COLS}
+
+
+@dataclass(frozen=True)
+class WindowArtifactManifest:
+    """NEXT_WINDOW 持久化 manifest（schema_version="2" 描述对象）。
+
+    与 ArtifactManifest（domain，schema_version 固定 "1"）同字段 + 额外
+    `execution_spec`（serialized ExecutionSpec——execution_timing=NEXT_WINDOW +
+    minute_window + 成本/初始现金，round-trip 重建 run 配置）。
+    """
+
+    schema_version: str
+    artifact_type: str
+    created_at: str
+    runtime_version: str
+    artifact_count: int
+    execution_date_start: object
+    execution_date_end: object
+    columns: dict
+    execution_spec: dict
+
+    def __post_init__(self) -> None:
+        if self.schema_version != SCHEMA_VERSION_WINDOW:
+            raise ValueError(
+                f"WindowArtifactManifest.schema_version 必须为 "
+                f"{SCHEMA_VERSION_WINDOW!r}（收到 {self.schema_version!r}）")
+        if self.artifact_type != ARTIFACT_TYPE:
+            raise ValueError(f"artifact_type 必须为 {ARTIFACT_TYPE}")
+        if not isinstance(self.columns, dict):
+            raise ValueError("columns 必须为 dict[file, list[str]]")
+        if not isinstance(self.artifact_count, int) or self.artifact_count < 0:
+            raise ValueError("artifact_count 必须为非负 int")
+        if not isinstance(self.execution_spec, dict):
+            raise ValueError("execution_spec 必须为 dict（序列化原始字段）")
+        for name, v in (("execution_date_start", self.execution_date_start),
+                        ("execution_date_end", self.execution_date_end)):
+            if v is None:
+                if self.artifact_count != 0:
+                    raise ValueError(
+                        f"{name} 为 None 但 artifact_count={self.artifact_count}")
+            elif not isinstance(v, datetime.date) \
+                    or isinstance(v, datetime.datetime):
+                raise ValueError(f"{name} 必须为 datetime.date")
+
 
 def _cast(frame: pl.DataFrame, cols: dict) -> pl.DataFrame:
     return frame.with_columns([pl.col(c).cast(d) for c, d in cols.items()])
@@ -168,10 +226,13 @@ def save_backtest_result(
     output_dir: Path,
     *,
     created_at: str | None = None,
-) -> ArtifactManifest:
+) -> ArtifactManifest | WindowArtifactManifest:
     """把 BacktestResult 序列化到 output_dir（parquet + manifest）。
 
     目录由调用方显式提供；save 创建固定子结构并覆写文件。
+    NEXT_OPEN → schema v1 布局（既有逐字节行为不变）；NEXT_WINDOW
+    （WindowBacktestResult）→ v2：v1 布局 + window_fills.parquet +
+    manifest.execution_spec（fail closed：spec 非 NEXT_WINDOW 拒绝写）。
     """
     if not isinstance(result, BacktestResult):
         raise TypeError(
@@ -182,6 +243,21 @@ def save_backtest_result(
     created = created_at if created_at is not None else \
         datetime.datetime.now(datetime.timezone.utc).isoformat()
     timing = _result_execution_timing(result)
+    is_window = isinstance(result, WindowBacktestResult)
+    if is_window:
+        spec = result.execution_spec
+        if not isinstance(spec, ExecutionSpec) \
+                or spec.execution_timing is not ExecutionTiming.NEXT_WINDOW \
+                or spec.minute_window is None:
+            raise ValueError(
+                "WindowBacktestResult.execution_spec 必须为 NEXT_WINDOW + "
+                "minute_window 的 ExecutionSpec——manifest.execution_spec "
+                "序列化无依据（fail closed）")
+        schemas = _SCHEMAS_WINDOW
+        version = SCHEMA_VERSION_WINDOW
+    else:
+        schemas = _SCHEMAS
+        version = SCHEMA_VERSION
     out = Path(output_dir)
     (out / "artifacts").mkdir(parents=True, exist_ok=True)
     (out / "state").mkdir(parents=True, exist_ok=True)
@@ -252,8 +328,30 @@ def save_backtest_result(
     ns = result.nav_series.frame
     _write("nav/nav_series.parquet", list(ns.iter_rows()),
            _SCHEMAS["nav/nav_series.parquet"])
+    if is_window:
+        if len(result.window_fills) != len(result.artifacts):
+            raise ValueError(
+                f"window_fills({len(result.window_fills)}) 必须与 artifacts"
+                f"({len(result.artifacts)}) 一一对应")
+        wf_rows = []
+        for i, detail in enumerate(result.window_fills):
+            for row in detail.select(list(_WINDOW_FILLS_COLS)[1:]).iter_rows():
+                wf_rows.append((i,) + tuple(row))
+        _write(WINDOW_FILLS_REL, wf_rows, _WINDOW_FILLS_COLS)
 
-    manifest = ArtifactManifest(
+    if is_window:
+        manifest = WindowArtifactManifest(
+            schema_version=version, artifact_type=ARTIFACT_TYPE,
+            created_at=created, runtime_version=RUNTIME_VERSION,
+            artifact_count=len(result.artifacts),
+            execution_date_start=(result.artifacts[0].execution_date
+                                  if result.artifacts else None),
+            execution_date_end=(result.artifacts[-1].execution_date
+                                if result.artifacts else None),
+            columns={rel: list(cols) for rel, cols in schemas.items()},
+            execution_spec=result.execution_spec.model_dump(mode="json"))
+    else:
+        manifest = ArtifactManifest(
         schema_version=SCHEMA_VERSION, artifact_type=ARTIFACT_TYPE,
         created_at=created, runtime_version=RUNTIME_VERSION,
         artifact_count=len(result.artifacts),
@@ -261,11 +359,11 @@ def save_backtest_result(
                               if result.artifacts else None),
         execution_date_end=(result.artifacts[-1].execution_date
                             if result.artifacts else None),
-        columns={rel: list(cols) for rel, cols in _SCHEMAS.items()})
+        columns={rel: list(cols) for rel, cols in schemas.items()})
     # R01-M8-I1：对磁盘实际字节计算内容 hash（load 端逐文件复核）
-    sha256 = {rel: _sha256_file(out / rel) for rel in _SCHEMAS}
+    sha256 = {rel: _sha256_file(out / rel) for rel in schemas}
     doc = {
-        "schema_version": manifest.schema_version,
+        "schema_version": version,
         "artifact_type": manifest.artifact_type,
         "created_at": manifest.created_at,
         "runtime_version": manifest.runtime_version,
@@ -278,6 +376,8 @@ def save_backtest_result(
         "columns": manifest.columns,
         "sha256": sha256,
     }
+    if is_window:
+        doc["execution_spec"] = manifest.execution_spec
     atomic_write_text(out / MANIFEST_FILE,
                       json.dumps(doc, indent=1, ensure_ascii=False))
     if stale is not None:
@@ -306,33 +406,33 @@ def _require_nonempty_str(value, field: str) -> str:
     return value
 
 
-def _check_manifest_columns(doc: dict) -> None:
+def _check_manifest_columns(doc: dict, schemas: dict) -> None:
     """R01-M8-I6：manifest.columns 必须与固定布局/实现列契约完全一致。"""
     cols = doc.get("columns")
     if not isinstance(cols, dict):
         raise ValueError(
             f"manifest.columns 必须为 dict（收到 {type(cols).__name__}）")
-    missing = sorted(set(_SCHEMAS) - set(cols))
-    extra = sorted(set(cols) - set(_SCHEMAS))
+    missing = sorted(set(schemas) - set(cols))
+    extra = sorted(set(cols) - set(schemas))
     if missing or extra:
         raise ValueError(
             f"manifest.columns 键与固定布局不一致（缺 {missing}，多 {extra}）")
-    for rel, expected in _SCHEMAS.items():
+    for rel, expected in schemas.items():
         if cols[rel] != list(expected):
             raise ValueError(
                 f"manifest.columns[{rel!r}] 与实现列契约不一致："
                 f"manifest={cols[rel]}，expected={list(expected)}")
 
 
-def _check_manifest_sha256(doc: dict) -> None:
+def _check_manifest_sha256(doc: dict, schemas: dict) -> None:
     """R01-M8-I1：manifest.sha256 必须覆盖每个固定文件且为 64 hex。"""
     hashes = doc.get("sha256")
     if not isinstance(hashes, dict):
         raise ValueError(
             f"manifest.sha256 必须为 dict（收到 {type(hashes).__name__}）——"
             f"缺内容 hash 不可信")
-    missing = sorted(set(_SCHEMAS) - set(hashes))
-    extra = sorted(set(hashes) - set(_SCHEMAS))
+    missing = sorted(set(schemas) - set(hashes))
+    extra = sorted(set(hashes) - set(schemas))
     if missing or extra:
         raise ValueError(
             f"manifest.sha256 键与固定布局不一致（缺 {missing}，多 {extra}）")
@@ -404,7 +504,7 @@ def _check_date_range(doc: dict, n: int, exec_dates: list) -> None:
             f"[{exec_dates[0]}, {exec_dates[-1]}] 不一致（tamper/hybrid）")
 
 
-def _check_event_coverage(frames: dict, n: int) -> None:
+def _check_event_coverage(frames: dict, n: int, schemas: dict) -> None:
     """R01-M8-I1：per-event 行必须精确覆盖 0..n-1，且单行/双行文件行数正确。
 
     禁止 row(0) 静默忽略重复/域外行（混合 artifact 的常见形态）。
@@ -413,7 +513,7 @@ def _check_event_coverage(frames: dict, n: int) -> None:
     def _values(rel: str) -> list:
         return frames[rel]["event_index"].to_list()
 
-    for rel in _SCHEMAS:
+    for rel in schemas:
         if rel in ("state/final_state.parquet", "nav/nav_series.parquet"):
             continue
         vals = _values(rel)
@@ -494,6 +594,25 @@ def _check_final_state(final: PortfolioState, artifacts: list,
     return False
 
 
+def _load_window_execution_spec(doc: dict) -> ExecutionSpec:
+    """R22：schema v2 必须携带可重建的 NEXT_WINDOW ExecutionSpec（fail closed）。"""
+    raw = doc.get("execution_spec")
+    if not isinstance(raw, dict):
+        raise ValueError(
+            "manifest.execution_spec 缺失/非 dict——NEXT_WINDOW 产物必须携带 "
+            "run spec（fail closed，不静默降级）")
+    try:
+        spec = ExecutionSpec.model_validate(raw)
+    except ValueError as exc:
+        raise ValueError(f"manifest.execution_spec 非法: {exc}") from exc
+    if spec.execution_timing is not ExecutionTiming.NEXT_WINDOW \
+            or spec.minute_window is None:
+        raise ValueError(
+            "manifest.execution_spec 必须为 execution_timing=NEXT_WINDOW + "
+            "minute_window（解析结果不含窗口——拒绝错标）")
+    return spec
+
+
 def load_backtest_result(artifact_dir: Path) -> BacktestResult:
     """从 artifact_dir 重建 BacktestResult（fail fast——无 silent migration）。
 
@@ -518,20 +637,25 @@ def load_backtest_result(artifact_dir: Path) -> BacktestResult:
         raise ValueError(f"manifest JSON 解析失败: {exc}") from exc
     if not isinstance(doc, dict):
         raise ValueError(f"manifest 根结构必须为 dict（收到 {type(doc).__name__}）")
-    if doc.get("schema_version") != SCHEMA_VERSION:
+    raw_version = doc.get("schema_version")
+    if raw_version == SCHEMA_VERSION:
+        schemas, is_window = _SCHEMAS, False
+    elif raw_version == SCHEMA_VERSION_WINDOW:
+        schemas, is_window = _SCHEMAS_WINDOW, True
+    else:
         raise ValueError(
-            f"不支持 schema_version {doc.get('schema_version')!r}"
-            f"（当前仅 {SCHEMA_VERSION}——无 silent migration）")
+            f"不支持 schema_version {raw_version!r}（当前仅 {SCHEMA_VERSION}/"
+            f"{SCHEMA_VERSION_WINDOW}——无 silent migration）")
     if doc.get("artifact_type") != ARTIFACT_TYPE:
         raise ValueError(f"artifact_type 不匹配: {doc.get('artifact_type')!r}")
     _require_nonempty_str(doc.get("created_at"), "created_at")
     _require_nonempty_str(doc.get("runtime_version"), "runtime_version")
     n = _strict_nonneg_int(doc.get("artifact_count"), "artifact_count")
-    _check_manifest_columns(doc)
-    _check_manifest_sha256(doc)
+    _check_manifest_columns(doc, schemas)
+    _check_manifest_sha256(doc, schemas)
 
     frames = {}
-    for rel, cols in _SCHEMAS.items():
+    for rel, cols in schemas.items():
         p = d / rel
         if not p.exists():
             raise ValueError(f"artifact 文件缺失: {rel}")
@@ -556,7 +680,7 @@ def load_backtest_result(artifact_dir: Path) -> BacktestResult:
         raise ValueError(
             f"manifest artifact_count={n} 与 execution_artifact rows={ea.height} 不一致")
     timing = _load_execution_timing(doc, n)
-    _check_event_coverage(frames, n)
+    _check_event_coverage(frames, n, schemas)
     exec_dates = ea["execution_date"].to_list()
     _check_date_range(doc, n, exec_dates)
 
@@ -636,5 +760,14 @@ def load_backtest_result(artifact_dir: Path) -> BacktestResult:
                            phase=PortfolioStatePhase(hdr[1]), cash=hdr[2],
                            positions=pos)
     trailing = _check_final_state(final, artifacts, nav_frame)
-    return BacktestResult(artifacts=tuple(artifacts), nav_series=nav_series,
-                          final_state=final, trailing_unresolved=trailing)
+    if not is_window:
+        return BacktestResult(artifacts=tuple(artifacts), nav_series=nav_series,
+                              final_state=final, trailing_unresolved=trailing)
+    spec = _load_window_execution_spec(doc)
+    wf = frames[WINDOW_FILLS_REL]
+    detail_by_event = [wf.filter(pl.col("event_index") == i)
+                       .drop("event_index") for i in range(n)]
+    return WindowBacktestResult(
+        artifacts=tuple(artifacts), nav_series=nav_series, final_state=final,
+        trailing_unresolved=trailing, window_fills=tuple(detail_by_event),
+        execution_spec=spec)
