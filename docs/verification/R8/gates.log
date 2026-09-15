@@ -1,0 +1,41 @@
+== stock gates ==
+[G-COPY] 三方内容不互串 · 契约文档单副本
+    ✓ platform/ 顶层无 factor|tools 目录
+    ✓ research/ 顶层无平台 src|tests
+    ✓ docs/interface.md 单副本
+    ✓ docs/catalog.md 单副本
+    ✓ docs/data-ops-playbook.md 单副本
+    ✓ docs/teajoin-guide.md 单副本
+[G-BOUNDARY] platform/ 不得 import research/
+    ✓ 无 platform→research 依赖
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+    ✓ 活文件零残留（豁免：3 份历史文档 + data-map 归档行）
+[G-PATHS] pyproject / pytest 路径自洽
+    ✓ platform pythonpath=src
+    ✓ platform/src/factorlab 存在
+    ✓ research 有 testpaths
+    ✓ 根无 pyproject.toml
+[G-IMPORTS] 全仓 factorlab.* 导入可解析（含负向自检）
+    ✓ 自检通过（能抓到迁移遗漏）
+    ✓ G-IMPORTS 通过（扫描 297 个文件）
+[G-INDEX] 因子索引与生成器一致
+    ✓ 索引一致 ✓
+[G-VENV] 平台 editable 落位断言
+    ✓ factorlab → platform/src ✓
+
+[G-CONTRACT/研究侧分区字面量] ENFORCED：`year=` 只许经 core.factio.partitions
+  ✓ 0 处（AST：非 docstring 字符串常量）
+[G-MARK] ENFORCED：标记/断点名只经 lib.writekit 单点 API
+  ✓ 0 处（注释/print 文案不算；writekit 自身豁免）
+[G-CONTRACT/平台表名字面量] REPORT：68 处（未竟 → docs/pending-items.md #12①）
+      platform/src/factorlab/adapters/catalog.py:169: 'adj_factor'
+      platform/src/factorlab/adapters/catalog.py:213: 'daily_basic'
+      platform/src/factorlab/adapters/intraday.py:51: 'bars_1m'
+      platform/src/factorlab/adapters/intraday.py:52: 'tick_trades'
+      platform/src/factorlab/adapters/intraday.py:53: 'tick_orders'
+[G-READ/研究侧直读 parquet] REPORT：7 处（未竟 → docs/pending-items.md #13，需判事实表 vs manifest）
+数据接口门：ENFORCED 全绿
+  ✓ 负向自检：违规文件抓到 2/3 处（分区字面量/标记直构），docstring、writekit API、print 文案均不误伤
+
+结构门：全绿
+数据接口门：ENFORCED 判定（AST）+ REPORT 未竟计数（见 scripts/check_dataiface.py）

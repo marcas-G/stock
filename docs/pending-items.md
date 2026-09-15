@@ -78,7 +78,8 @@
        **副本**（实测逐字节相同）——改名必须与技能更新同批，否则技能立刻断。属用户侧动作。
     ③ **tools 入口统一为 `run.py` 子命令形态**（C2）：涉及 6 个工具的 CLI 重构，需各自的
        冒烟测试先行；本轮只补齐了 README 与统一命名规范文档。
-13. **G-READ 转强制**（AST 级判据）：当前为报告模式——剩余 7 处直读经逐处核对均为
+13. **G-READ 转强制**（AST 级判据）：R8c 已给出 `scripts/check_dataiface.py`（AST + `--selftest`），
+    其中"研究侧分区字面量"与"标记路径构造"两条**已转 ENFORCED**；G-READ 仍是报告档——剩余 7 处直读经逐处核对均为
     合法（manifest/自有产物/元数据/流式灌库/daily 小切片）；grep 无法区分「事实表读」
     与「manifest 读」，需改成 AST 分析（读的目标是否指向 tick_fact/lob_fact/bars_1m 根）。
 
@@ -86,3 +87,18 @@
     `app/evaluate.publish_run`（现直写 weekly.parquet + summary.json）→ tmp+fsync+os.replace。
     与 `adapters/batch_flock.py`（P-5 编排真实现，兑现 `ports/batch.py` 声明）同批做——
     两者都动平台写路径，需要回测/评估的位级对照。
+
+15. **调仓成本建模**（R8 登记，原 `cost` 形参已删）
+    现状：`core/eval/layered.py::layered_backtest` 的 `cost: float = 0.0` 自 M4b 起就是
+    **静默 no-op**（签名收下、计算不用）——调用方传 `cost=0.002` 会拿到"零成本"结论而无任何提示，
+    比"没有该参数"更危险，故 R8 删除并同步 `platform/docs/interface.md` §layered_backtest。
+    启动条件：需要成本口径（单边费率 / 换手×费率 / 冲击成本）的研究决策 + 与 `turnover`
+    指标的口径对齐；实现后须同时改 interface.md 签名与分层回测的净值语义测试。
+
+16. **平台 `MonthWriter` 与研究 `lib.writekit` 落盘实现合并**（R8 登记）
+    现状：研究侧写盘已收敛到 `research/tools/lib/writekit.py`（`_SUCCESS` / state JSON /
+    flock / 原子写）；平台上仍有 `adapters/parquet_artifacts.MonthWriter`，其三项独有能力
+    来自真实事故、**不可丢**：① 物理块完整性校验（`st_blocks*512 >= st_size*0.95`，
+    抓稀疏/截断文件）；② 追加写的大小单调性检查；③ 3.5e8 行/月级别的流式 row-group 累积
+    （不整体载入内存）。合并须把这三项并入 writekit 并保留回归测试，且批算热路径要重跑
+    字节级对照，故不并入 R8 的"最小改动"批次。

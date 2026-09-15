@@ -4,8 +4,10 @@
 # 用法：bash scripts/gates.sh [--all|--structure|--dataiface]
 # 设计：分两档——
 #   [强制] 结构门：现在就必须绿，红了即失败退出；
-#   [报告] 数据接口门：R4 收口前为"报告模式"（打印违规清单、不影响退出码），
-#          R4 完成后把 REPORT_ONLY 里的三项移出即转为强制（脚本尾部有说明）。
+#   [判定] 数据接口门：R8c 起由 `scripts/check_dataiface.py` 做 **AST 判据**
+#          （grep 会把注释/文案/关键字实参算进去，计数不说明问题）：
+#          ENFORCED 两项（研究侧分区字面量、标记路径构造）红了即失败；
+#          REPORT 两项（平台表名、研究侧直读）打印未竟计数并指向 pending-items。
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd); cd "$ROOT"
 MODE=${1:---all}
@@ -71,30 +73,16 @@ structure() {
 
 # ── 数据接口门（R4 前为报告模式）────────────────────────────────
 dataiface() {
-  echo "[G-CONTRACT] 契约单点（factio 之外的表名/分区字面量）"
-  n=$(grep -rn --include=*.py -E "'(stock_bars_1m|bars_1m|tick_orders|tick_trades|tick_snapshots|stock_basic|daily_basic|adj_factor|trade_cal|stk_limit)'" "$PLATFORM/src" 2>/dev/null | grep -v "core/factio/" | wc -l)
-  info "平台 src 表名字面量（factio 外）: $n 处 —— R4 收敛目标 0"
-  n=$(grep -rn --include=*.py -E "year=|\"month\"|/month=" "$RESEARCH/tools" 2>/dev/null | grep -vE "/tests/|/notes/|/diag/" | wc -l)
-  info "研究侧分区拼接字面量: $n 处 —— R4 收敛到 core.factio.partitions"
-  for f in research/docs/factors platform/docs/interface.md; do :; done
-  n=$(grep -c "" "$PLATFORM/src/factorlab/core/factio/schema.py" 2>/dev/null || echo 0)
-  info "列契约单点 core/factio/schema.py: $n 行（应保持唯一来源）"
-
-  echo "[G-MARK] 完成标记形态（只允许 _SUCCESS + state JSON）"
-  for pat in "_SUCCESS" "\.done" "_conversion\.json"; do
-    n=$(grep -rn --include=*.py "$pat" "$RESEARCH/tools" 2>/dev/null | wc -l)
-    info "形态 '$pat': $n 处"
-  done
-  info "—— R4 目标：ch_ingest 的 state.json/ 目录与 _conversion.json 并入统一 state"
-
-  echo "[G-READ] 研究侧直读 tick/lob/bars parquet（应经平台单点）"
-  # 2026-09-15 R6 复核：剩余直读**逐处人工核对**后均为合法——
-  # manifest（conversion_manifest/cancels_manifest）、自有产物（1m merged/panel）、
-  # 元数据（reconcile 的 num_rows）、流式灌库（ingest 的 iter_batches）以及 daily_fact 的小切片。
-  # 转强制需 **AST 级判据**（区分「事实表读」与「manifest/自有产物读」，grep 做不到）——登记 pending #13。
-  n=$(grep -rn --include=*.py -E "read_parquet\(|scan_parquet\(" "$RESEARCH/tools" 2>/dev/null | grep -vE "/tests/|/notes/|/diag/|fixtures" | wc -l)
-  info "研究侧直读处数: $n —— R4 目标：tick/lob/bars 一律经 adapters.tick_read / adapters.lob_read"
-  grep -rln --include=*.py -E "read_parquet\(|scan_parquet\(" "$RESEARCH/tools" 2>/dev/null | grep -vE "/tests/|/notes/|/diag/|fixtures" | sed 's/^/      /'
+  # R8c：从"报告模式 grep 计数"升级为 AST 判定——
+  #   ENFORCED：研究侧分区字面量（`year=` 只许 partitions 产出）、标记路径构造（只许 writekit）；
+  #   REPORT  ：平台表名字面量（未竟 #12①:460 处 SQL）、研究侧直读（未竟 #13）。
+  # 由 Python 侧统一输出（含负向自检：--selftest 保证门不是死的）。
+  PY=${PLATFORM}/.venv/bin/python
+  [ -x "$PY" ] || PY=python3
+  if ! "$PY" scripts/check_dataiface.py; then
+    FAIL=1
+  fi
+  "$PY" scripts/check_dataiface.py --selftest || FAIL=1
 }
 
 echo "== stock gates =="
@@ -105,5 +93,5 @@ case "$MODE" in
 esac
 echo
 if [ "$FAIL" = "0" ]; then echo "结构门：全绿"; else echo "结构门：有失败（见上）"; fi
-echo "数据接口门：报告模式（R4 收口后转强制——届时把 dataiface 里的 info 改为 ok/bad 判定）"
+echo "数据接口门：ENFORCED 判定（AST）+ REPORT 未竟计数（见 scripts/check_dataiface.py）"
 exit $FAIL
