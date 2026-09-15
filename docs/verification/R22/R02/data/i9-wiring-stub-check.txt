@@ -1,0 +1,38 @@
+R02-I9 DATA 部分：接线生效 + 存根检查（测试能识别存根）
+=========================================================================
+接线 commit：fc2858c（C1 gate + pit_qfq 全局 asof base 真接线）；R22 后续
+da8bba0（staleness 窗口无关）/ d973e0e（adv20 左窗按行情行数）。
+
+一、接线后 run_factor 级测试 GREEN：
+命令：
+  cd /data/students/gaolei/stock/platform
+  .venv/bin/python -m pytest -q \
+    tests/test_pit_staleness.py::test_run_factor_wires_stale_gate_long_window \
+    tests/test_run_factor.py::test_run_factor_pit_qfq_full_equals_chunked
+输出：
+....                                                                     [100%]
+4 passed in 5.21s
+
+二、把接线替换为 no-op（内存 monkeypatch，不改文件）→ 同一测试必败：
+  插件 /tmp/opencode/r22_i9_stub_plugin.py：
+    R.assert_no_stale_listed_db = lambda *a, **k: None
+    R.assert_no_stale_seed = lambda *a, **k: None
+    R.load_pit_qfq_base_adj = lambda rd, end: None
+命令：
+  cd /data/students/gaolei/stock/platform
+  PYTHONPATH=/tmp/opencode .venv/bin/python -m pytest -q -p r22_i9_stub_plugin \
+    tests/test_pit_staleness.py::test_run_factor_wires_stale_gate_long_window \
+    tests/test_run_factor.py::test_run_factor_pit_qfq_full_equals_chunked
+输出：
+FAILED tests/test_pit_staleness.py::test_run_factor_wires_stale_gate_long_window[duckdb]
+FAILED tests/test_pit_staleness.py::test_run_factor_wires_stale_gate_long_window[ch]
+FAILED tests/test_run_factor.py::test_run_factor_pit_qfq_full_equals_chunked[duckdb]
+FAILED tests/test_run_factor.py::test_run_factor_pit_qfq_full_equals_chunked[ch]
+4 failed in 3.92s
+
+三、行为级复现（probe_i9_wiring_stub.py，命令见文件头）：
+  [C1 stub] RUN OK non_null=240 signal_values=[14.399999618530273]（存根下死价格复活 → 新增 run_factor 级 gate 测试必败）
+  [pit_qfq stub] FULL vs CHUNK-2 max_diff=3.666666666666667 first_signal=10.0（存根下首块退回帧内 latest=1.0 → 新增 FULL/CHUNK 测试必败）
+
+判读：两条新增接线测试在真实接线（fc2858c）下通过；把 gate/base 换成 no-op 存根后
+必然失败——测试锁定的是真实接线行为，不是内存补丁/硬编码返回值。
