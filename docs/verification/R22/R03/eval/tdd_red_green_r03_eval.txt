@@ -1,0 +1,97 @@
+# R03 评估链路 findings — TDD 红→绿记录 + 全量套件（2026-09-16）
+
+命令均在仓库根执行（平台 venv）:
+```
+platform/.venv/bin/python -m pytest <files> -q
+```
+
+## R03-I2（commit 136c30d）
+
+RED（实现前，4 failed）:
+```
+$ platform/.venv/bin/python -m pytest platform/tests/test_eval_rust_ic.py platform/tests/test_eval_alignment.py -q
+FAILED test_evaluate_factor_weekly_null_rows_filtered
+       assert result["coverage"]["total_rows"] == 120 -> 118（过滤后计数）
+FAILED test_evaluate_factor_weekly_coverage_matches_signal_null_ratio
+       pct_valid == 1.0（不是 1-null_ratio）
+FAILED test_coverage_report_counts_nan_invalid
+       assert 2 == 1（NaN 被计入 valid）
+FAILED test_coverage_report_target_col_requires_target_valid
+       TypeError: coverage_report() got an unexpected keyword argument 'target_col'
+4 failed, 17 passed
+```
+GREEN（实现后，含 kernel shim 契约回归）:
+```
+$ platform/.venv/bin/python -m pytest platform/tests/test_eval_rust_ic.py \
+    platform/tests/test_quant_core_shim.py platform/tests/test_eval_alignment.py -q
+37 passed in 1.10s
+```
+
+## R03-I3（commit 0455502）
+
+RED（实现前，1 collection error + 3 failed）:
+```
+$ platform/.venv/bin/python -m pytest platform/tests/test_layered.py \
+    platform/tests/test_evaluate_notes.py platform/tests/test_cli_list_show.py -q
+ERROR test_layered.py - ImportError: cannot import name 'degenerate_decile_groups'
+FAILED test_evaluate_run_marks_degenerate_groups_and_note（notes=[]、无 degenerate_groups 键）
+FAILED test_evaluate_run_multi_output_note_names_output
+FAILED test_show_warns_degenerate_decile_groups（stdout 无"警告"）
+3 failed, 12 passed
+```
+GREEN:
+```
+$ platform/.venv/bin/python -m pytest platform/tests/test_layered.py \
+    platform/tests/test_evaluate_notes.py platform/tests/test_cli_list_show.py -q
+41 passed in 2.31s
+```
+
+## R03-M1（commit ba59430）
+
+RED（实现前，8 failed；含 2 个正向控制通过）:
+```
+$ platform/.venv/bin/python -m pytest platform/tests/test_ast_gate.py \
+    platform/tests/test_compute.py platform/tests/test_cli_lint_v2.py \
+    platform/tests/test_platform_ops.py -q
+FAILED test_rejects_platform_macro_import_from_polars_ta
+FAILED test_rejects_platform_macro_import_from_platform_ops
+FAILED test_rejects_platform_macro_import_alias
+FAILED test_rejects_import_of_every_platform_macro_name
+FAILED test_compute_rejects_platform_macro_import_with_guidance
+FAILED test_compute_rejects_aliased_platform_macro_import
+FAILED test_lint_rejects_platform_macro_import_with_guidance
+FAILED test_platform_macro_names_single_point（ImportError: PLATFORM_MACRO_NAMES）
+8 failed, 43 passed
+```
+GREEN:
+```
+$ platform/.venv/bin/python -m pytest platform/tests/test_ast_gate.py \
+    platform/tests/test_compute.py platform/tests/test_cli_lint_v2.py \
+    platform/tests/test_platform_ops.py -q
+51 passed in 2.92s
+```
+
+## 全量平台套件（工作区含并发挖矿/他 finding 改动）
+
+```
+$ platform/.venv/bin/python -m pytest platform -q     # 仓库根调用（CWD 陷阱）
+2 failed, 2967 passed, 13 skipped in 900.50s
+```
+两个失败均为 CWD 假红（`test_canonical_artifact_handoff` 动态加载相对路径
+`tests/test_run_factor.py`，仓库根调用时解析到 `stock/tests/`，不存在）——按
+Makefile 口径从 platform/ 调用即过：
+```
+$ cd platform && .venv/bin/python -m pytest tests/test_canonical_artifact_handoff.py -q
+12 passed
+```
+
+## make gates
+
+唯一红项 = G-INDEX（docs/index/factors.md 与生成器不一致）——挖矿循环在途负责，
+本任务不重生成索引；其余结构门/数据接口门全绿（含 G-IMPORTS 388 文件）。
+
+## 库内 159 spec 静态 lint（in-process，等价 `factorlab lint` 静态链）
+
+```
+lint 159 specs in 0.9s, failures=0
+```
