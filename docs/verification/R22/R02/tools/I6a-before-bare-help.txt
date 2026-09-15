@@ -1,0 +1,31 @@
+# HEAD=e60d2b2（修复前存档副本：git archive HEAD research/tools/universe_stages）
+
+$ env -u PYTHONPATH /data/students/gaolei/anaconda3/envs/emb/bin/python /tmp/opencode/r02-before/research/tools/universe_stages/scripts/run_layer1.py --help
+Traceback (most recent call last):
+  File "/tmp/opencode/r02-before/research/tools/universe_stages/scripts/run_layer1.py", line 26, in <module>
+    import universe_paths  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/opencode/r02-before/research/tools/universe_stages/universe_paths.py", line 19, in <module>
+    from factorlab.core.factio import paths as fpaths
+ModuleNotFoundError: No module named 'factorlab'
+exit=1
+
+$ env -u PYTHONPATH /data/students/gaolei/anaconda3/envs/emb/bin/python /tmp/opencode/r02-before/research/tools/universe_stages/scripts/run_layer2_sas.py --help
+Traceback (most recent call last):
+  File "/tmp/opencode/r02-before/research/tools/universe_stages/scripts/run_layer2_sas.py", line 20, in <module>
+    import universe_paths  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/opencode/r02-before/research/tools/universe_stages/universe_paths.py", line 19, in <module>
+    from factorlab.core.factio import paths as fpaths
+ModuleNotFoundError: No module named 'factorlab'
+exit=1
+
+$ env -u PYTHONPATH /data/students/gaolei/anaconda3/envs/emb/bin/python /tmp/opencode/r02-before/research/tools/universe_stages/scripts/run_layer3_tick.py --help
+Traceback (most recent call last):
+  File "/tmp/opencode/r02-before/research/tools/universe_stages/scripts/run_layer3_tick.py", line 28, in <module>
+    import universe_paths  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/opencode/r02-before/research/tools/universe_stages/universe_paths.py", line 19, in <module>
+    from factorlab.core.factio import paths as fpaths
+ModuleNotFoundError: No module named 'factorlab'
+exit=1

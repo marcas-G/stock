@@ -1,0 +1,74 @@
+# R02-I1 生产侧（tools）：industry 恒 NULL 如实标注证据
+
+$ rg -n "industry" platform/docs/catalog.md   # 平台 catalog 仍 advertise（生成源在 platform 侧，研究侧无权改）
+33:| `industry` | 属性 | attributes | 行业——当前分类值（申万行业最新归属，属性面按股票回填；非历史时点 PIT 值——回看样本分组按最新分类，近似见已知近似表） | —（分类文本） | 属性时点（最新快照，非逐日变更） |
+514:- **属性面 industry**（approx_industry_current_value）：industry 是当前分类值而非 PIT 历史值：属性面按股票最新申万行业归属回填，历史时点分组可能与当时实际行业不同
+
+$ find data/fact data/raw research -maxdepth 3 \( -iname "*industry*" -o -iname "*行业*" \) 2>/dev/null
+(空 = 无离线行业源可补，不伪造)
+
+$ git diff -- research/tools/ch_ingest/ingest_daily.py research/tools/ch_ingest/ddl.sql research/tools/ch_ingest/README.md
+diff --git a/research/tools/ch_ingest/README.md b/research/tools/ch_ingest/README.md
+index 623ab1a..ddb59c7 100644
+--- a/research/tools/ch_ingest/README.md
++++ b/research/tools/ch_ingest/README.md
+@@ -52,8 +52,11 @@ python reconcile.py
+ 
+ - **幂等**：任务 = (表, 年月分区)。重跑先 `ALTER TABLE ... DROP PARTITION 'YYYYMM'`
+   再插 → 整月原子替换，无半量残片。
+-- **断点**：`state.json/` 目录下 `<table>_<yyyymm>.done` 标记；已完成任务自动跳过。
+-  失败任务无标记，重跑即可。
++- **断点**：单文件 `state.json`（键 `<table>_<yyyymm>`）。`mark_done` 只由主进程在
++  `state.json.lock` 上阻塞 flock 后「新鲜读盘 + 合并 + 原子写」，worker 不碰断点
++  （R21 TOOLS-I2：旧 8 worker 各自 read-modify-write 丢标记；`ch_write.run_pool`
++  也只由主进程 on_result 记账）。旧 `state.json/` 目录 + `.done` 文件形态自动迁移
++  留档（`state.json.legacy-*`），读取兼容 30 天。失败任务无键，重跑即可。
+ - **流式**：pyarrow `iter_batches(5M)` → `insert_arrow`（按列名匹配，零转换）；
+   tick 单月最大 3.5 亿行，不可整月物化。
+ - **类型**：bars `minute_index` int16→UInt16 cast；tick trades `bs` 源即 UInt8；
+@@ -74,7 +77,15 @@ python reconcile.py
+ - `adj_factor` <=0（vendor 后复权价异常）归 NULL——qfq 基准 `argMax` 跳过 NULL（R21 I1）
+ - `daily_basic` 后 5 列（circ_mv/pe_ttm/pb/dv_ratio/volume_ratio）为占位空列（无数据源；
+   平台读路径 `_PLATFORM_COLS` 仍映射它们，DDL 保留；**不要在文档/目录里宣传可用**）
+-- `stock_basic.list_date` 为 daily_fact 最早交易日代理；`industry` 恒 NULL
++- `stock_basic.list_date` 为 daily_fact 最早交易日代理
++- `stock_basic.industry` **恒 NULL**（R02-I1 生产侧如实标注）：daily_fact 无行业列，
++  离线基本面源（TDX 财务 parquet，当前本身缺源）也不含行业分类——**无源可补，不伪造**。
++  影响：读路径 `fillna(industry_mean)` 与 `gp_rank/gp_mean(industry,…)` 的
++  `.over([...,"industry"])` 会塌成全市场单组（静默产出全市场值）；`neutralize(by=industry)`
++  loud fail；`WHERE industry='半导体'` 一类筛选恒空。
++  结论：**不要 advertise**——`platform/docs/catalog.md` 的 `industry` 行（申万最新归属）
++  与生产数据面不符，其生成源在 platform 侧（本工具无权改，coordinator 侧登记）；
++  在补源落地前，研究侧一律按「industry 不可用」对待。
+ - `stock_basic.delist_date`（R21 DATA-C1 生产侧）：退市目录 sidecar 权威
+   （`data/fact/daily_fact/delisted_codes.parquet`，in-file code 优先、文件名兜底、空文件也算）
+   + 断流兜底（不在 sidecar 且 >250 交易日无数据）→ `最后交易日 + 1 天`；
+diff --git a/research/tools/ch_ingest/ddl.sql b/research/tools/ch_ingest/ddl.sql
+index ea03cdd..1823a15 100644
+--- a/research/tools/ch_ingest/ddl.sql
++++ b/research/tools/ch_ingest/ddl.sql
+@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS factorlab.stock_basic (
+     ts_code   String,                  -- symbol + 交易所后缀
+     list_date Date,                    -- 代理 = 该代码在 daily_fact 的最早 trade_date（非真实上市日）
+     market    String,                  -- 板块名规范值：主板/创业板/科创板/北交所（平台 execution rules 显式消费，非 code 推断替代）
+-    industry  Nullable(String),        -- 恒 NULL：无行业数据源（fillna(industry_mean)/neutralize(industry) 降级）
++    industry  Nullable(String),        -- 恒 NULL：无行业数据源（fillna(industry_mean)/gp_rank/gp_mean(industry,…) 塌成全市场单组；neutralize(by=industry) loud fail；不要 advertise——见 README）
+     delist_date Nullable(Date)         -- R21 DATA-C1：退市日（sidecar last_trade+1 / 断流>250 兜底）；平台 is_listed = t < delist_date
+ ) ENGINE = MergeTree
+   ORDER BY (symbol, ts_code);
+diff --git a/research/tools/ch_ingest/ingest_daily.py b/research/tools/ch_ingest/ingest_daily.py
+index 22d3fbd..dbf9672 100644
+--- a/research/tools/ch_ingest/ingest_daily.py
++++ b/research/tools/ch_ingest/ingest_daily.py
+@@ -202,6 +202,11 @@ def main():
+         .with_columns(
+             pl.col("code").str.slice(0, 6).alias("symbol"),
+             market,
++            # R02-I1 生产侧如实标注：daily_fact 与离线基本面源（TDX 财务）均无行业列
++            # → industry 恒 NULL（无源可补，不伪造）。影响：读路径 fillna(industry_mean)
++            # 与 gp_rank/gp_mean(industry,…) 的 .over([...,"industry"]) 塌成全市场单组；
++            # neutralize(by=industry) loud fail；catalog.md 的 industry 条目不要 advertise
++            # （生成源在 platform 侧，修复前见本目录 README「数据口径」）。
+             pl.lit(None, dtype=pl.String).alias("industry"),
+         )
+         .join(delist, on="code", how="left")

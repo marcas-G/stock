@@ -1,0 +1,225 @@
+FFFFFFFFF                                                                [100%]
+=================================== FAILURES ===================================
+_____________ test_cli_help_bare_without_pythonpath[run_layer1.py] _____________
+
+script = 'run_layer1.py'
+
+    @pytest.mark.parametrize("script", _ALL)
+    def test_cli_help_bare_without_pythonpath(script):
+        """修复前：emb 下 ModuleNotFoundError（exit 1）；修复后：usage + exit 0。"""
+        r = _run(script, ["--help"], _bare_env())
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_layer1.py", line 26, in <module>
+E             import universe_paths  # noqa: E402
+E             ^^^^^^^^^^^^^^^^^^^^^
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/universe_paths.py", line 19, in <module>
+E             from factorlab.core.factio import paths as fpaths
+E         ModuleNotFoundError: No module named 'factorlab'
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/anaconda3/envs/emb/bin/python', '/data/students/gaolei/stock/research/to...<module>\n    from factorlab.core.factio import paths as fpaths\nModuleNotFoundError: No module named \'factorlab\'\n').returncode
+
+research/tools/universe_stages/tests/test_cli_bootstrap.py:67: AssertionError
+___________ test_cli_help_bare_without_pythonpath[run_layer2_sas.py] ___________
+
+script = 'run_layer2_sas.py'
+
+    @pytest.mark.parametrize("script", _ALL)
+    def test_cli_help_bare_without_pythonpath(script):
+        """修复前：emb 下 ModuleNotFoundError（exit 1）；修复后：usage + exit 0。"""
+        r = _run(script, ["--help"], _bare_env())
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_layer2_sas.py", line 20, in <module>
+E             import universe_paths  # noqa: E402
+E             ^^^^^^^^^^^^^^^^^^^^^
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/universe_paths.py", line 19, in <module>
+E             from factorlab.core.factio import paths as fpaths
+E         ModuleNotFoundError: No module named 'factorlab'
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/anaconda3/envs/emb/bin/python', '/data/students/gaolei/stock/research/to...<module>\n    from factorlab.core.factio import paths as fpaths\nModuleNotFoundError: No module named \'factorlab\'\n').returncode
+
+research/tools/universe_stages/tests/test_cli_bootstrap.py:67: AssertionError
+__________ test_cli_help_bare_without_pythonpath[run_layer3_tick.py] ___________
+
+script = 'run_layer3_tick.py'
+
+    @pytest.mark.parametrize("script", _ALL)
+    def test_cli_help_bare_without_pythonpath(script):
+        """修复前：emb 下 ModuleNotFoundError（exit 1）；修复后：usage + exit 0。"""
+        r = _run(script, ["--help"], _bare_env())
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_layer3_tick.py", line 28, in <module>
+E             import universe_paths  # noqa: E402
+E             ^^^^^^^^^^^^^^^^^^^^^
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/universe_paths.py", line 19, in <module>
+E             from factorlab.core.factio import paths as fpaths
+E         ModuleNotFoundError: No module named 'factorlab'
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/anaconda3/envs/emb/bin/python', '/data/students/gaolei/stock/research/to...<module>\n    from factorlab.core.factio import paths as fpaths\nModuleNotFoundError: No module named \'factorlab\'\n').returncode
+
+research/tools/universe_stages/tests/test_cli_bootstrap.py:67: AssertionError
+__ test_cli_help_uses_explicit_bootstrap_not_ambient_factorlab[run_layer1.py] __
+
+script = 'run_layer1.py'
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1284/test_cli_help_uses_explicit_bo0')
+
+    @pytest.mark.parametrize("script", _ALL)
+    def test_cli_help_uses_explicit_bootstrap_not_ambient_factorlab(script, tmp_path):
+        """污染解释器也必须是真核：命中的是 ensure_platform 注入，不是 PYTHONPATH。"""
+        r = _run(script, ["--help"], _sabotage_factorlab(tmp_path))
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_layer1.py", line 26, in <module>
+E             import universe_paths  # noqa: E402
+E             ^^^^^^^^^^^^^^^^^^^^^
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/universe_paths.py", line 19, in <module>
+E             from factorlab.core.factio import paths as fpaths
+E           File "/tmp/pytest-of-gaolei/pytest-1284/test_cli_help_uses_explicit_bo0/factorlab/__init__.py", line 1, in <module>
+E             raise RuntimeError('ambient factorlab used (ensure_platform missing)')
+E         RuntimeError: ambient factorlab used (ensure_platform missing)
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/anaconda3/envs/emb/bin/python', '/data/students/gaolei/stock/research/to...ambient factorlab used (ensure_platform missing)\')\nRuntimeError: ambient factorlab used (ensure_platform missing)\n').returncode
+
+research/tools/universe_stages/tests/test_cli_bootstrap.py:76: AssertionError
+_ test_cli_help_uses_explicit_bootstrap_not_ambient_factorlab[run_layer2_sas.py] _
+
+script = 'run_layer2_sas.py'
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1284/test_cli_help_uses_explicit_bo1')
+
+    @pytest.mark.parametrize("script", _ALL)
+    def test_cli_help_uses_explicit_bootstrap_not_ambient_factorlab(script, tmp_path):
+        """污染解释器也必须是真核：命中的是 ensure_platform 注入，不是 PYTHONPATH。"""
+        r = _run(script, ["--help"], _sabotage_factorlab(tmp_path))
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_layer2_sas.py", line 20, in <module>
+E             import universe_paths  # noqa: E402
+E             ^^^^^^^^^^^^^^^^^^^^^
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/universe_paths.py", line 19, in <module>
+E             from factorlab.core.factio import paths as fpaths
+E           File "/tmp/pytest-of-gaolei/pytest-1284/test_cli_help_uses_explicit_bo1/factorlab/__init__.py", line 1, in <module>
+E             raise RuntimeError('ambient factorlab used (ensure_platform missing)')
+E         RuntimeError: ambient factorlab used (ensure_platform missing)
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/anaconda3/envs/emb/bin/python', '/data/students/gaolei/stock/research/to...ambient factorlab used (ensure_platform missing)\')\nRuntimeError: ambient factorlab used (ensure_platform missing)\n').returncode
+
+research/tools/universe_stages/tests/test_cli_bootstrap.py:76: AssertionError
+_ test_cli_help_uses_explicit_bootstrap_not_ambient_factorlab[run_layer3_tick.py] _
+
+script = 'run_layer3_tick.py'
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1284/test_cli_help_uses_explicit_bo2')
+
+    @pytest.mark.parametrize("script", _ALL)
+    def test_cli_help_uses_explicit_bootstrap_not_ambient_factorlab(script, tmp_path):
+        """污染解释器也必须是真核：命中的是 ensure_platform 注入，不是 PYTHONPATH。"""
+        r = _run(script, ["--help"], _sabotage_factorlab(tmp_path))
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_layer3_tick.py", line 28, in <module>
+E             import universe_paths  # noqa: E402
+E             ^^^^^^^^^^^^^^^^^^^^^
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/universe_paths.py", line 19, in <module>
+E             from factorlab.core.factio import paths as fpaths
+E           File "/tmp/pytest-of-gaolei/pytest-1284/test_cli_help_uses_explicit_bo2/factorlab/__init__.py", line 1, in <module>
+E             raise RuntimeError('ambient factorlab used (ensure_platform missing)')
+E         RuntimeError: ambient factorlab used (ensure_platform missing)
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/anaconda3/envs/emb/bin/python', '/data/students/gaolei/stock/research/to...ambient factorlab used (ensure_platform missing)\')\nRuntimeError: ambient factorlab used (ensure_platform missing)\n').returncode
+
+research/tools/universe_stages/tests/test_cli_bootstrap.py:76: AssertionError
+_ test_cli_preflight_executes_bare_when_source_missing[run_layer1.py-2026-07-31-daily_fact.parquet] _
+
+script = 'run_layer1.py', scan_date = '2026-07-31'
+needle = 'daily_fact.parquet'
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1284/test_cli_preflight_executes_ba0')
+
+    @pytest.mark.parametrize("script,scan_date,needle", _MISSING_SOURCE)
+    def test_cli_preflight_executes_bare_when_source_missing(script, scan_date, needle, tmp_path):
+        """自举后 preflight 真跑：缺源 → 点名文件 + 获取路径；不是 import 崩溃。"""
+        root = tmp_path / "stockroot"
+        root.mkdir()
+        r = _run(script, ["--scan-date", scan_date], _bare_env(root))
+        out = r.stdout + r.stderr
+        assert r.returncode != 0, out
+>       assert needle in out, out[-2000:]
+E       AssertionError: Traceback (most recent call last):
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_layer1.py", line 26, in <module>
+E             import universe_paths  # noqa: E402
+E             ^^^^^^^^^^^^^^^^^^^^^
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/universe_paths.py", line 19, in <module>
+E             from factorlab.core.factio import paths as fpaths
+E         ModuleNotFoundError: No module named 'factorlab'
+E         
+E       assert 'daily_fact.parquet' in 'Traceback (most recent call last):\n  File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_la... <module>\n    from factorlab.core.factio import paths as fpaths\nModuleNotFoundError: No module named \'factorlab\'\n'
+
+research/tools/universe_stages/tests/test_cli_bootstrap.py:89: AssertionError
+_ test_cli_preflight_executes_bare_when_source_missing[run_layer2_sas.py-2026-07-31-v4_top300.parquet] _
+
+script = 'run_layer2_sas.py', scan_date = '2026-07-31'
+needle = 'v4_top300.parquet'
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1284/test_cli_preflight_executes_ba1')
+
+    @pytest.mark.parametrize("script,scan_date,needle", _MISSING_SOURCE)
+    def test_cli_preflight_executes_bare_when_source_missing(script, scan_date, needle, tmp_path):
+        """自举后 preflight 真跑：缺源 → 点名文件 + 获取路径；不是 import 崩溃。"""
+        root = tmp_path / "stockroot"
+        root.mkdir()
+        r = _run(script, ["--scan-date", scan_date], _bare_env(root))
+        out = r.stdout + r.stderr
+        assert r.returncode != 0, out
+>       assert needle in out, out[-2000:]
+E       AssertionError: Traceback (most recent call last):
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_layer2_sas.py", line 20, in <module>
+E             import universe_paths  # noqa: E402
+E             ^^^^^^^^^^^^^^^^^^^^^
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/universe_paths.py", line 19, in <module>
+E             from factorlab.core.factio import paths as fpaths
+E         ModuleNotFoundError: No module named 'factorlab'
+E         
+E       assert 'v4_top300.parquet' in 'Traceback (most recent call last):\n  File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_la... <module>\n    from factorlab.core.factio import paths as fpaths\nModuleNotFoundError: No module named \'factorlab\'\n'
+
+research/tools/universe_stages/tests/test_cli_bootstrap.py:89: AssertionError
+_ test_cli_preflight_executes_bare_when_source_missing[run_layer3_tick.py-2026-08-17-20260817.7z] _
+
+script = 'run_layer3_tick.py', scan_date = '2026-08-17', needle = '20260817.7z'
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1284/test_cli_preflight_executes_ba2')
+
+    @pytest.mark.parametrize("script,scan_date,needle", _MISSING_SOURCE)
+    def test_cli_preflight_executes_bare_when_source_missing(script, scan_date, needle, tmp_path):
+        """自举后 preflight 真跑：缺源 → 点名文件 + 获取路径；不是 import 崩溃。"""
+        root = tmp_path / "stockroot"
+        root.mkdir()
+        r = _run(script, ["--scan-date", scan_date], _bare_env(root))
+        out = r.stdout + r.stderr
+        assert r.returncode != 0, out
+>       assert needle in out, out[-2000:]
+E       AssertionError: Traceback (most recent call last):
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_layer3_tick.py", line 28, in <module>
+E             import universe_paths  # noqa: E402
+E             ^^^^^^^^^^^^^^^^^^^^^
+E           File "/data/students/gaolei/stock/research/tools/universe_stages/universe_paths.py", line 19, in <module>
+E             from factorlab.core.factio import paths as fpaths
+E         ModuleNotFoundError: No module named 'factorlab'
+E         
+E       assert '20260817.7z' in 'Traceback (most recent call last):\n  File "/data/students/gaolei/stock/research/tools/universe_stages/scripts/run_la... <module>\n    from factorlab.core.factio import paths as fpaths\nModuleNotFoundError: No module named \'factorlab\'\n'
+
+research/tools/universe_stages/tests/test_cli_bootstrap.py:89: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/universe_stages/tests/test_cli_bootstrap.py::test_cli_help_bare_without_pythonpath[run_layer1.py]
+FAILED research/tools/universe_stages/tests/test_cli_bootstrap.py::test_cli_help_bare_without_pythonpath[run_layer2_sas.py]
+FAILED research/tools/universe_stages/tests/test_cli_bootstrap.py::test_cli_help_bare_without_pythonpath[run_layer3_tick.py]
+FAILED research/tools/universe_stages/tests/test_cli_bootstrap.py::test_cli_help_uses_explicit_bootstrap_not_ambient_factorlab[run_layer1.py]
+FAILED research/tools/universe_stages/tests/test_cli_bootstrap.py::test_cli_help_uses_explicit_bootstrap_not_ambient_factorlab[run_layer2_sas.py]
+FAILED research/tools/universe_stages/tests/test_cli_bootstrap.py::test_cli_help_uses_explicit_bootstrap_not_ambient_factorlab[run_layer3_tick.py]
+FAILED research/tools/universe_stages/tests/test_cli_bootstrap.py::test_cli_preflight_executes_bare_when_source_missing[run_layer1.py-2026-07-31-daily_fact.parquet]
+FAILED research/tools/universe_stages/tests/test_cli_bootstrap.py::test_cli_preflight_executes_bare_when_source_missing[run_layer2_sas.py-2026-07-31-v4_top300.parquet]
+FAILED research/tools/universe_stages/tests/test_cli_bootstrap.py::test_cli_preflight_executes_bare_when_source_missing[run_layer3_tick.py-2026-08-17-20260817.7z]
+9 failed in 5.37s
