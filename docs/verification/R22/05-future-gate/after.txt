@@ -1,0 +1,5 @@
+$ cd platform && .venv/bin/python -m pytest tests/test_future_gate_v2.py tests/test_partitions.py tests/test_m6_semantic_guards.py -q
+........................................................................ [ 47%]
+........................................................................ [ 95%]
+.......                                                                  [100%]
+151 passed in 39.48s
