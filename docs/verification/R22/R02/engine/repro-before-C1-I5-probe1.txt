@@ -1,0 +1,32 @@
+# cmd: cd platform && .venv/bin/python /tmp/opencode/reviewer-r02-newturf/probe1_minute_gate.py  # 输出截取网格段
+
+2026-09-15 23:48:03.728 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 23:48:03.755 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-15 23:48:03.807 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 23:48:03.835 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+[A literal -1] ValueError: im_delay 不允许负位移（1:18，k=-1——lookback 只能取过去；日内位移 k>=1）
+[B subscript -1] FactorDSLError: 1:18: close[-1] 不允许负位移（lookback 只能取过去）
+[C pow -4] PASSED gate -> signal=[None, None]
+[D -abs(1)] PASSED gate -> signal=[None, None]
+[E -abs(-1)] PASSED gate -> signal=[None, None]
+[F ifexp] PASSED gate -> signal=[None, None]
+[G bool mult] PASSED gate -> signal=[None, None]
+[H window pow] OverflowError: can't convert negative int to unsigned
+[I window -abs(0)] PASSED gate -> signal=[0.0, 0.0]
+
+--- direct codegen view for C/D (what shift is produced) ---
+signal = day_last(im_delay(close, -2 ** 2)) -> [None, None]
+signal = day_last(im_delay(close, -abs(1))) -> [None, None]
+
+--- expected values ---
+day_last(close) day1= 239.0 day2= 1239.0
+shift(-1) at minutes 239/238 -> null/239; shift(1) -> close[238]=238
+im_delay k=1: [1238.0, 238.0]
+im_delay k=-1: ValueError: im_delay 不允许负位移（1:18，k=-1——lookback 只能取过去；日内位移 k>=1）
+im_delay k=-4: ValueError: im_delay 不允许负位移（1:18，k=-4——lookback 只能取过去；日内位移 k>=1）
+
+--- grid contract checks ---
+[indexes 1..240] accepted; rows=2
+[session_type=7] accepted; rows=2
+[minute_index float] ValueError: bars_1m 网格不完整/跨日泄漏疑似：minute_index 必须整数 dtype（实际 Float64）
+[dup index (n=240,u=239)] ValueError: bars_1m 网格不完整/跨日泄漏疑似：1 个 (code, date) 组非「240 行 × minute_index 唯一」标准网格（样本 [{'date': datetime.date(2026, 8, 20), 'code': '000001', 'n': 240, '

@@ -1,0 +1,5 @@
+# cmd: cd platform && .venv/bin/python /tmp/opencode/reviewer-r02-newturf/probe11_minute_pow_bypass.py
+
+signal = day_sum(im_delay(close, 2 ** 2 - 5)) -> ValueError im_delay 不允许 k<1（1:17，k=-1——lookback 只能取过去；日内位移 k>=1）
+signal = day_sum(im_mean(close, 2 ** 0 - 1)) -> ValueError im_mean 窗口参数必须 >= 1 分钟（1:17，收到 0）
+expected k=-1 -> sum(close[1..239]) = [28680, 267680] (day_sum(im_delay(-1)) also = [28680, 267680] — future minutes used); window=0 -> [0.0, 0.0] (silent, no error)

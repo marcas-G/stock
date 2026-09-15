@@ -1,0 +1,9 @@
+# cmd: cd platform && .venv/bin/python /tmp/opencode/reviewer-r02-newturf/probe11_minute_pow_bypass.py
+
+2026-09-15 23:47:58.844 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 23:47:58.873 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-15 23:47:58.935 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 23:47:58.966 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+signal = day_sum(im_delay(close, 2 ** 2 - 5)) -> [28680.0, 267680.0]
+signal = day_sum(im_mean(close, 2 ** 0 - 1)) -> [0.0, 0.0]
+expected k=-1 -> sum(close[1..239]) = [28680, 267680] (day_sum(im_delay(-1)) also = [28680, 267680] — future minutes used); window=0 -> [0.0, 0.0] (silent, no error)

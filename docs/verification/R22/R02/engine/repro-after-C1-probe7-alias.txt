@@ -1,0 +1,9 @@
+# cmd: cd platform && .venv/bin/python /tmp/opencode/reviewer-r02-newturf/probe7_minute_alias.py
+
+[ts alias (B3.2 forbids)] ValueError: bars_1m 公式不允许跨层算子 ts_mean（ts_/ta_/cs_/gp_ 是日频通道——日内窗口请用 im_*、折日请用 day_*，见 docs/interface.md分钟面）
+[cs alias (B3.2 forbids)] ValueError: bars_1m 公式不允许跨层算子 cs_stable_rank（ts_/ta_/cs_/gp_ 是日频通道——日内窗口请用 im_*、折日请用 day_*，见 docs/interface.md分钟面）
+[im alias neg k] ValueError: im_delay 不允许 k<1（2:17，k=-1——lookback 只能取过去；日内位移 k>=1）
+[im alias window 0] ValueError: im_mean 窗口参数必须 >= 1 分钟（2:17，收到 0）
+[ts direct (should reject)] ValueError: bars_1m 公式不允许跨层算子 ts_mean（ts_/ta_/cs_/gp_ 是日频通道——日内窗口请用 im_*、折日请用 day_*，见 docs/interface.md分钟面）
+
+expected day1 sum(close[1..239]) = 28680.0 | day_sum plain = 28680.0

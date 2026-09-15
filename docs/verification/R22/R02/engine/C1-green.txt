@@ -1,0 +1,4 @@
+# C1 GREEN —— 修复后版本 + 新测试
+# cmd: cd platform && .venv/bin/python -m pytest -q tests/test_minute_gate.py tests/test_minute_ops.py
+...........................                                              [100%]
+27 passed in 2.46s

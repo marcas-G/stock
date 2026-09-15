@@ -1,0 +1,202 @@
+# C1 RED —— HEAD 版本（无运行时校验/无 alias/Pow 折叠）+ 新测试
+# cmd: cd platform && .venv/bin/python -m pytest -q tests/test_minute_gate.py tests/test_minute_ops.py
+.......FF..FFF...........FF                                              [100%]
+=================================== FAILURES ===================================
+_________________ test_daily_scope_rejects_aliased_minute_ops __________________
+
+    def test_daily_scope_rejects_aliased_minute_ops():
+        """R02-C1：日频 scope 经 import alias 调 im_* 同样拒（否则 codegen 里 import
+        语句照常执行，分钟算子静默进日频公式）。"""
+        daily = pl.DataFrame({"date": [_D, _D], "code": ["A", "B"], "close": [1.0, 2.0]})
+        with pytest.raises(ValueError, match="bars_1m|分钟"):
+>           compute_formula(
+                daily,
+                "from factorlab.core.ops.minute_ops import im_mean as imn\n"
+                "signal = imn(close, 5)")
+
+tests/test_minute_gate.py:117: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/factorlab/core/engine/compute.py:240: in compute_formula
+    ).collect()
+      ^^^^^^^^^
+.venv/lib/python3.13/site-packages/polars/_utils/deprecation.py:97: in wrapper
+    return function(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/polars/lazyframe/opt_flags.py:361: in wrapper
+    return function(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/polars/lazyframe/frame.py:2591: in collect
+    return engine_.collect(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = _AutoEngine(), lf = <LazyFrame at 0x7F027DAA71D0>
+optimizations = <polars.lazyframe.opt_flags.QueryOptFlags object at 0x7f027d91fc70>
+background = False, post_opt_callback = None
+
+    def collect(
+        self,
+        lf: LazyFrame,
+        *,
+        optimizations: QueryOptFlags,
+        background: bool = False,
+        post_opt_callback: PostOptCallback | None = None,
+    ) -> DataFrame | InProcessQuery:
+        callback = self._post_opt_callback(
+            background=background, eager=optimizations._pyoptflags.eager
+        )
+        optimizations = self._with_monitoring(optimizations)
+    
+        ldf = lf._ldf.with_optimizations(optimizations._pyoptflags)
+        if background:
+            issue_unstable_warning("background mode is considered unstable.")
+            return InProcessQuery(ldf.collect_concurrently())
+    
+        if post_opt_callback is not None:
+            callback = post_opt_callback
+>       return wrap_df(ldf.collect(self.name, callback))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       polars.exceptions.ColumnNotFoundError: unable to find column "minute_index"; valid columns: ["date", "code", "close"]
+E       
+E       Resolved plan until failure:
+E       
+E       	---> FAILED HERE RESOLVING 'select' <---
+E       DF ["date", "code", "close"]; PROJECT */3 COLUMNS
+E       
+E       This error occurred with the following context stack:
+E       	[1] 'with_columns'
+E       	[2] 'select'
+
+.venv/lib/python3.13/site-packages/polars/lazyframe/engine.py:435: ColumnNotFoundError
+----------------------------- Captured stderr call -----------------------------
+2026-09-15 23:54:35.897 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 23:54:35.923 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+______________ test_minute_scope_rejects_aliased_future_shift_e2e ______________
+
+    def test_minute_scope_rejects_aliased_future_shift_e2e():
+        """R02-C1 e2e：computed 面板入口上 alias 形态的负位移/零窗口必须拒，
+        不得执行出未来分钟折日值（probe7/11 实测此前 ACCEPTED）。"""
+        for bad in (
+            "from factorlab.core.ops.minute_ops import im_delay as imd\n"
+            "signal = day_sum(imd(close, -1))",
+            "from factorlab.core.ops.minute_ops import im_mean as imn\n"
+            "signal = day_sum(imn(close, 0))",
+            "signal = day_sum(im_delay(close, 2 ** 2 - 5))",
+            "signal = day_sum(im_mean(close, 2 ** 0 - 1))",
+        ):
+>           with pytest.raises(ValueError, match="im_delay|窗口|分钟"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests/test_minute_gate.py:134: Failed
+----------------------------- Captured stderr call -----------------------------
+2026-09-15 23:54:36.119 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-15 23:54:36.146 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+____________________ test_gate_direct_pow_ifexp_call_folds _____________________
+
+    def test_gate_direct_pow_ifexp_call_folds():
+        """R02-C1（实测绕过：`2**2-5` 过门且 == im_delay(-1)；`2**0-1` 窗口 0 静默
+        输出 0.0）：Pow/IfExp/abs/int 常量折叠必须进静态门——否则 codegen 静默生成
+        未来行/空窗口。"""
+        for bad in ("signal = day_last(im_delay(close, 2 ** 2 - 5))",   # Pow → -1
+                    "signal = day_last(im_delay(close, 2 ** 0 - 1))",   # Pow → 0
+                    "signal = day_last(im_delay(close, 0 ** 2))",       # Pow → 0
+                    "signal = day_last(im_delay(close, -abs(1)))",      # Call+USub → -1
+                    "signal = day_last(im_delay(close, -abs(-1)))",     # Call+USub → -1
+                    "signal = day_last(im_delay(close, int(-1)))",      # Call → -1
+                    "signal = day_last(im_delay(close, -1 if True else 1))",
+                    "signal = day_last(im_delay(close, -1 if 1 > 0 else 1))"):
+>           with pytest.raises(ValueError, match="im_delay"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests/test_minute_gate.py:186: Failed
+______________________ test_gate_resolves_import_aliases _______________________
+
+    def test_gate_resolves_import_aliases():
+        """R02-C1：`from ...minute_ops import im_delay as imd` 不得绕过 B3.4 门；
+        ts_/cs_ 等跨层别名同样按原名判（B3.2）。"""
+        validate_minute_scope  # noqa: B018 —— 显式声明本测试直调门
+        for bad in (
+            "from factorlab.core.ops.minute_ops import im_delay as imd\n"
+            "signal = day_sum(imd(close, -1))",
+            "from factorlab.core.ops.minute_ops import im_delay as imd\n"
+            "signal = day_sum(imd(close, 2 ** 2 - 5))",
+            "from factorlab.core.ops.minute_ops import im_mean as imn\n"
+            "signal = day_sum(imn(close, 0))",
+            "from polars_ta.prefix.wq import ts_mean as tm\n"
+            "signal = day_last(tm(close, 5))",
+        ):
+>           with pytest.raises(ValueError, match="im_delay|窗口|ts_|分钟"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests/test_minute_gate.py:214: Failed
+______________ test_gate_alias_does_not_treat_import_name_as_call ______________
+
+    def test_gate_alias_does_not_treat_import_name_as_call():
+        """import 语句本身不得被误判为调用（`import x as im_delay` 不是 im_* 调用）。"""
+>       validate_minute_scope(
+            "from factorlab.core.ops.minute_ops import day_sum as _ds\n"
+            "signal = _ds(close)", ["signal"])
+
+tests/test_minute_gate.py:224: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+formula = 'from factorlab.core.ops.minute_ops import day_sum as _ds\nsignal = _ds(close)'
+outputs = ['signal']
+
+    def validate_minute_scope(formula: str, outputs: list[str]) -> None:
+        """bars_1m scope 静态门（宏/def 展开完成后文本上执行）。ValueError 带指引。"""
+        tree = ast.parse(formula)
+        _reject_cross_layer(tree)
+        _check_im_params(tree)
+        assigns = _top_assigns(tree)
+        for out in outputs:
+            rhs = assigns.get(out)
+            if rhs is None:
+                continue                        # outputs 声明缺失由 compute_formula 报
+            if not _fold_const(rhs, assigns, {}):
+>               raise ValueError(
+                    f"输出 {out!r} 不是折日常数表达式（bars_1m 折日语义：信号必须"
+                    f"逐 (code, date) 常数——用 day_*(...) 折日、日级注入列/常量/"
+                    f"参数组合；im_* 或裸分钟列直出会被拒）。例如："
+                    f"vwap30 = im_sum(close*volume, 30)/im_sum(volume, 30); "
+                    f"signal = day_last(vwap30)/eod_close - 1")
+E               ValueError: 输出 'signal' 不是折日常数表达式（bars_1m 折日语义：信号必须逐 (code, date) 常数——用 day_*(...) 折日、日级注入列/常量/参数组合；im_* 或裸分钟列直出会被拒）。例如：vwap30 = im_sum(close*volume, 30)/im_sum(volume, 30); signal = day_last(vwap30)/eod_close - 1
+
+src/factorlab/core/engine/minute_gate.py:194: ValueError
+____________ test_im_delay_runtime_rejects_non_positive_or_non_int _____________
+
+    def test_im_delay_runtime_rejects_non_positive_or_non_int():
+        """`im_delay` 运行时硬校验（静态门可被别名/动态形态绕过，这是最后防线）：
+        k 必须为 int 且 >= 1；bool 拒（True 是 int 子类）、float 拒。"""
+        x = pl.col("close")
+        for bad in (-1, 0, True, 1.0, -0.5, "1"):
+>           with pytest.raises(ValueError, match="im_delay"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests/test_minute_ops.py:235: Failed
+_______________ test_im_window_runtime_rejects_lt_one_or_non_int _______________
+
+    def test_im_window_runtime_rejects_lt_one_or_non_int():
+        """im_* 窗口族运行时硬校验：window 必须为 int 且 >= 1（窗口 0 此前静默输出
+        0.0）；bool/float 拒。全部窗口算子逐一验证。"""
+        x = pl.col("close")
+        for op in (minute_ops.im_mean, minute_ops.im_sum, minute_ops.im_std,
+                   minute_ops.im_max, minute_ops.im_min, minute_ops.im_median):
+            for bad in (0, -5, True, 1.5):
+>               with pytest.raises(ValueError, match=op.__name__):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               Failed: DID NOT RAISE ValueError
+
+tests/test_minute_ops.py:254: Failed
+=========================== short test summary info ============================
+FAILED tests/test_minute_gate.py::test_daily_scope_rejects_aliased_minute_ops
+FAILED tests/test_minute_gate.py::test_minute_scope_rejects_aliased_future_shift_e2e
+FAILED tests/test_minute_gate.py::test_gate_direct_pow_ifexp_call_folds - Fai...
+FAILED tests/test_minute_gate.py::test_gate_resolves_import_aliases - Failed:...
+FAILED tests/test_minute_gate.py::test_gate_alias_does_not_treat_import_name_as_call
+FAILED tests/test_minute_ops.py::test_im_delay_runtime_rejects_non_positive_or_non_int
+FAILED tests/test_minute_ops.py::test_im_window_runtime_rejects_lt_one_or_non_int
+7 failed, 20 passed in 5.16s
