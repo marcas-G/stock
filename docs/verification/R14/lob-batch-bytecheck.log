@@ -1,0 +1,16 @@
+基线已补自举
+== 切换前（HEAD：自建循环）==
+20260803: OK codes=300 rows=52414821 eng=848.1s fail=0 [1185s]
+
+202608: 未完成 — done 1/15, errors 0, hard_days 0, 月门 ok=True (重跑续做; SUCCESS 只在全净完成后落)
+summary -> /tmp/r14_base_root/data/fact/lob_fact/_batch/runs/20260915_113025_28265
+== 切换后（BatchFlock 单点）==
+20260803: OK codes=300 rows=52414821 eng=804.7s fail=0 [1124s]
+
+202608: 未完成 — done 1/15, errors 0, hard_days 0, 月门 ok=True (重跑续做; SUCCESS 只在全净完成后落)
+summary -> /tmp/r14_new_root/data/fact/lob_fact/_batch/runs/20260915_115011_19830
+== 对照 ==
+PASS：3 个 parquet sha256 全等（含行序）
+== 审计/状态文件存在性（元数据，不必逐字节）==
+  r14_base_root: state.json=1  SUCCESS=0  审计行=83
+  r14_new_root: state.json=1  SUCCESS=0  审计行=78

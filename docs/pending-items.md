@@ -86,30 +86,7 @@
     合法（manifest/自有产物/元数据/流式灌库/daily 小切片）；grep 无法区分「事实表读」
     与「manifest 读」，需改成 AST 分析（读的目标是否指向 tick_fact/lob_fact/bars_1m 根）。
 
-14. **平台侧原子写补齐**（R4b 剩余）【R13：**原子写部分全部完成**——协议收成单点 `adapters/atomicio`（原先四份实现，`execution_store.save_backtest_result` 的 10 个 parquet + manifest 是最后一处非原子写），并修掉 R12 引入的产物权限回归（mkstemp 0600 → 按 umask）。至此本条**只剩 `run_lob_batch` 切 P-5**（需内存低水位派单闸门 + 周期性审计回调两个专有缝）】【R12 进展：**`app.evaluate.publish_run` 已转原子**——
-    改经 `adapters.results_fs.write_run_outputs`（tmp + fsync + os.replace），顺带把
-    `app/analysis/correlation` 的直读 panel、`surfaces/web` 的直读 weekly 与 `surfaces/cli` 的
-    `results_dir.glob("*/summary.json")` 一并收口到 `results_fs`/`panel_store` 单点，并新增
-    架构门 `test_results_io_only_in_adapters`（app/surfaces 不得读写产物或拼布局字面量）。
-    **遗留**：`adapters/execution_store.save_*` 的原子写；`run_lob_batch` 切 P-5（内存闸门 +
-    审计回调两个专有缝）】【R10 进展：**两份编排样板已切到 `BatchFlock`**——
-    `converters/convert_tick_to_parquet` 与 `lob_fact/extract_sz_cancels` 自建的
-    "spawn 进程池 + 在飞窗口 + 停滞重启重试 + 逐结果处理" 整段删除，改用
-    `BatchFlock(..., mp_context='spawn', max_inflight=…, stall_policy='requeue', on_result=…)`；
-    契约为此扩了 5 个可选缝（`max_inflight`/`mp_context`/`initializer`/`stall_policy`/`on_result`），
-    真数据切换前后**内容逐值等价**（20 code 的 tick 三表 672k/1.04M/91k 行 + manifest；
-    30 code 的 cancels 341,940 行 + manifest；行序随完成顺序，既有性质）。
-    **遗留**：`run_lob_batch` 仍保留自有循环——它额外需要**内存低水位派单闸门**（16GB 无页面
-    文件的硬约束）与**周期性审计回调**（runbook 取证），属该工具专有面，未纳入契约。
-    **R9 进展：**`adapters/batch_flock.py` 已实现并测试**（8 passed：
-    契约一致 + 锁占用零执行 + 断点保留既有 key + 看门狗按时收敛 + 有失败不落 `_SUCCESS`），
-    `ports/batch.py` 的"No Orphan"缺口闭合；**遗留**：三份编排样板（converters / extract_sz_cancels /
-    run_lob_batch）切到该实现——它们要么 worker 回传大表（要先改成 worker 自行落盘），要么自带
-    月门/manifest/审计 jsonl，需逐工具真实批算 + 字节级重跑对照，属专项轮次】：`adapters/execution_store.save_*` 与
-    `app/evaluate.publish_run`（现直写 weekly.parquet + summary.json）→ tmp+fsync+os.replace。
-    与 `adapters/batch_flock.py`（P-5 编排真实现，兑现 `ports/batch.py` 声明）同批做——
-    两者都动平台写路径，需要回测/评估的位级对照。
-
+14. ✅ **2026-09-15 完成**：① 原子写补齐并收成单点 `adapters/atomicio`（含 `execution_store` 的 10 个 parquet + manifest，原先直写非原子），并修掉中间的产物权限回归；② `ports/batch.py` 的 P-5 声明兑现（`adapters/batch_flock.py`，含 R14 三条专有缝）；③ **三份编排样板全部切换**（convert_tick / extract_sz_cancels / run_lob_batch），各自的自建进程池循环删除，真实数据切换前后内容逐值等价。
 15. ✅ **2026-09-15 完成（函数级）**：`layered_backtest(..., cost_rate=0.0)` 真建模（原 `cost` 是
     静默 no-op）——`net = gross − cost_rate × turnover`，换手 = `1 − |S_t∩S_{t−1}|/|S_t|`
     （等权、首期 0、档空期 0），返回值披露 `cost_rate`/`turnover`（可审计）；默认 0.0 与历史
