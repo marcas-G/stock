@@ -2,6 +2,11 @@
 
 全部处理器作用于 signal 列、按 date 截面计算（fillna forward 按 code 分组、date 排序）。
 industry_mean / neutralize(industry|size) 需要 ProcessCtx(db=读句柄 ReadPort)。
+
+无效观测统一门（R02-I2）：所有处理器入口把**非有限值（NaN/±Inf）→ null**——
+Inf 与 NaN 同等视为无效观测：不参与分位数/均值/排名/demean 统计、不留在输出。
+此前 standardize 的 std=Inf 会毒化整日截面为 NaN（接 winsorize 后整帧全 null），
+winsorize/clip/fillna/neutralize 则直接放行 Inf。
 """
 from __future__ import annotations
 
@@ -18,6 +23,12 @@ SIGNAL = "signal"
 
 def _x(df: pl.DataFrame) -> pl.Expr:
     return pl.col(SIGNAL)
+
+
+def _finite(x: pl.Expr) -> pl.Expr:
+    """非有限值（NaN/±Inf）→ null；null 保持 null（is_finite 对 null 返回 null，
+    落入 otherwise 分支）。统一无效观测语义——输出永不出现 Inf/NaN。"""
+    return pl.when(x.is_finite()).then(x).otherwise(None)
 
 
 def _ctx_rd(ctx) -> ReadPort:
@@ -101,13 +112,13 @@ def _fetch_mv_slice(rd: ReadPort, d_min: str, d_max: str, codes: list[str],
 def winsorize(df: pl.DataFrame, ctx, quantile: float = 0.99) -> pl.DataFrame:
     """截面分位数去极值：quantile=0.99 → 上下各 (1-q)/2 分位数 clip。
 
-    NaN 视为**无效观测**（2026-09-14 修复）：分位数在有限值上计算，NaN 行输出 null
-    ——否则 NaN 参与分位数会把 clip 边界拉坏（polars 中 NaN 排序在最大侧）。
+    非有限值（NaN/±Inf）视为**无效观测**（R02-I2 统一门）：分位数在有限值上计算，
+    无效行输出 null——否则 NaN 参与分位数会把 clip 边界拉坏（polars 中 NaN 排序在最大侧）。
     """
     if not 0.5 <= quantile < 1.0:
         raise ValueError(f"winsorize quantile 必须在 [0.5, 1.0): {quantile}")
     q_lo, q_hi = (1 - quantile) / 2, (1 + quantile) / 2
-    x = _x(df).fill_nan(None)
+    x = _finite(_x(df))
     return df.with_columns(x.clip(x.quantile(q_lo).over("date"), x.quantile(q_hi).over("date")).alias(SIGNAL))
 
 
@@ -115,12 +126,12 @@ def winsorize(df: pl.DataFrame, ctx, quantile: float = 0.99) -> pl.DataFrame:
 def standardize(df: pl.DataFrame, ctx) -> pl.DataFrame:
     """截面 z-score；零方差截面输出 null。
 
-    NaN 视为**无效观测**（2026-09-14 修复，实跑 CLI 抓到的严重缺陷）：polars 中
-    `NaN > 0` 为 True，若截面含任一 NaN，std=NaN 会被判为"有效"→ 整截面变 NaN
-    （真实数据里退市股 close 缺失即触发，全表 IC 归零）。修复后 NaN 行输出 null
-    （评估层过滤 null ✓），有效值照常标准化。
+    非有限值（NaN/±Inf）视为**无效观测**：polars 中 `NaN > 0` 为 True，若截面含
+    NaN 或 Inf，std 会被判为"有效"→ 整截面变 NaN（真实数据里退市股 close 缺失
+    即触发，全表 IC 归零；Inf 同毒化）。无效行输出 null（评估层过滤 null ✓），
+    有效值照常标准化。
     """
-    x = _x(df).fill_nan(None)
+    x = _finite(_x(df))
     std = x.std().over("date")
     return df.with_columns(pl.when(std > 0).then((x - x.mean().over("date")) / std).otherwise(None).alias(SIGNAL))
 
@@ -130,15 +141,15 @@ register_processor(name="zscore")(standardize)
 
 @register_processor
 def csranknorm(df: pl.DataFrame, ctx) -> pl.DataFrame:
-    """截面排名归一化到 (0, 1)；NaN 视为无效观测（不参与排名，输出 null）。"""
-    x = _x(df).fill_nan(None)
+    """截面排名归一化到 (0, 1)；非有限值视为无效观测（不参与排名，输出 null）。"""
+    x = _finite(_x(df))
     return df.with_columns((x.rank().over("date") / (x.count().over("date") + 1)).alias(SIGNAL))
 
 
 @register_processor
 def robustzscore(df: pl.DataFrame, ctx) -> pl.DataFrame:
-    """中位数/MAD 稳健标准化；MAD=0 的截面输出 null；NaN 视为无效观测（同上修复）。"""
-    x = _x(df).fill_nan(None)
+    """中位数/MAD 稳健标准化；MAD=0 的截面输出 null；非有限值视为无效观测。"""
+    x = _finite(_x(df))
     med = x.median().over("date")
     mad = (x - med).abs().median().over("date")
     scaled = (x - med) / (1.4826 * mad)
@@ -146,15 +157,15 @@ def robustzscore(df: pl.DataFrame, ctx) -> pl.DataFrame:
 
 @register_processor
 def clip(df: pl.DataFrame, ctx, lower: float, upper: float) -> pl.DataFrame:
-    """常数截断。"""
-    return df.with_columns(_x(df).clip(lower, upper).alias(SIGNAL))
+    """常数截断；非有限值视为无效观测（输出 null，不静默 clip 成边界）。"""
+    return df.with_columns(_finite(_x(df)).clip(lower, upper).alias(SIGNAL))
 
 
 @register_processor
 def fillna(df: pl.DataFrame, ctx, method: str = "value", value: float = 0.0) -> pl.DataFrame:
     """缺失处理：value（常数）、forward（组内前向，按 code+date 排序）或
-    industry_mean（静态行业组内均值，组键 date+industry）。"""
-    x = _x(df)
+    industry_mean（静态行业组内均值，组键 date+industry）。非有限值先归为缺失。"""
+    x = _finite(_x(df))
     if method == "value":
         expr = x.fill_null(value)
     elif method == "forward":
@@ -175,8 +186,9 @@ def fillna(df: pl.DataFrame, ctx, method: str = "value", value: float = 0.0) -> 
 @register_processor
 def neutralize(df: pl.DataFrame, ctx, by: str = "market") -> pl.DataFrame:
     """截面中心化：market 全截面 demean；industry 按静态行业组内 demean；
-    size 按 daily_basic.total_mv 分组 demean。industry/size 需要 ProcessCtx(db)。"""
-    x = _x(df)
+    size 按 daily_basic.total_mv 分组 demean。industry/size 需要 ProcessCtx(db)。
+    非有限值视为无效观测（不参与 demeaning，输出 null）。"""
+    x = _finite(_x(df))
     if by == "market":
         return df.with_columns((x - x.mean().over("date")).alias(SIGNAL))
     if ctx is None or ctx.db is None:

@@ -1,0 +1,15 @@
+# cmd: cd platform && .venv/bin/python /tmp/opencode/reviewer-r02-newturf/probe3_process_inf.py
+
+['standardize()']                                       nan=0 inf=0 null=10 head=[None, None, -1.4288690166235207]
+['winsorize(quantile=0.99)']                            nan=0 inf=0 null=10 head=[None, None, 2.0]
+['robustzscore()']                                      nan=0 inf=0 null=10 head=[None, None, -1.1803588290840417]
+['csranknorm()']                                        nan=0 inf=0 null=10 head=[None, None, 0.1111111111111111]
+['clip(-3, 3)']                                         nan=0 inf=0 null=10 head=[None, None, 2.0]
+['fillna(method=value, value=0)']                       nan=0 inf=0 null=0 head=[0.0, 0.0, 2.0]
+['standardize()', 'winsorize(quantile=0.99)']           nan=0 inf=0 null=10 head=[None, None, -1.4288690166235207]
+
+-- standardize detail (per date) --
+[{'date': datetime.date(2026, 8, 3), 'code': '000000', 'signal': None}, {'date': datetime.date(2026, 8, 3), 'code': '000001', 'signal': None}, {'date': datetime.date(2026, 8, 3), 'code': '000002', 'signal': -1.4288690166235207}, {'date': datetime.date(2026, 8, 3), 'code': '000003', 'signal': -1.0206207261596576}, {'date': datetime.date(2026, 8, 3), 'code': '000004', 'signal': -0.6123724356957946}, {'date': datetime.date(2026, 8, 3), 'code': '000005', 'signal': -0.20412414523193154}, {'date': datetime.date(2026, 8, 3), 'code': '000006', 'signal': 0.20412414523193154}, {'date': datetime.date(2026, 8, 3), 'code': '000007', 'signal': 0.6123724356957946}, {'date': datetime.date(2026, 8, 3), 'code': '000008', 'signal': 1.0206207261596576}, {'date': datetime.date(2026, 8, 3), 'code': '000009', 'signal': 1.4288690166235207}]
+
+-- eval bridge with inf --
+ic: {'mean': 0.021804819198352227, 'std': 0.08814180311806942, 't_stat': 0.6059631080845915} n_weeks: 6

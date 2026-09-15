@@ -1,0 +1,4 @@
+# I2 GREEN —— 修复后版本 + 全量 test_process.py
+# cmd: cd platform && .venv/bin/python -m pytest -q tests/test_process.py
+..................................................                       [100%]
+50 passed in 2.16s

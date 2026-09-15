@@ -368,3 +368,100 @@ def test_csranknorm_nan_safe():
     vals = out["signal"].to_list()
     assert vals[3] is None
     assert out["signal"].is_nan().sum() == 0
+
+
+# ================================================================
+# R02-I2 非有限值（±Inf）统一门：所有处理器把 NaN/±Inf 当无效观测 → null
+# （此前 winsorize/clip/fillna/neutralize 保留 Inf；standardize 的 std=Inf 毒化
+# 整日截面为 NaN，接 winsorize 后整帧全 null——probe3 实测）
+# ================================================================
+
+def _inf_section() -> pl.DataFrame:
+    """一个截面：3 只有效值 + 1 只 Inf + 1 只 NaN（模拟脏因子输出）。"""
+    return pl.DataFrame({
+        "date": ["2024-01-02"] * 5,
+        "code": ["A", "B", "C", "D", "E"],
+        "signal": [1.0, 2.0, 3.0, float("inf"), float("nan")],
+    })
+
+
+def test_standardize_inf_treated_as_invalid():
+    """R02-I2：Inf 不参与统计也不留在输出——有限三只照常标准化（均值 2、std 1）。"""
+    out = run_process_chain(_inf_section(), ["standardize()"], ctx=None).sort("code")
+    assert out["signal"].to_list()[:3] == [pytest.approx(-1.0), pytest.approx(0.0),
+                                           pytest.approx(1.0)]
+    assert out.sort("code")["signal"].to_list()[3:] == [None, None]
+    assert out["signal"].is_infinite().sum() == 0
+    assert out["signal"].is_nan().sum() == 0
+
+
+def test_winsorize_inf_treated_as_invalid():
+    out = run_process_chain(_inf_section(), ["winsorize(quantile=0.5)"],
+                            ctx=None).sort("code")
+    vals = out["signal"].to_list()
+    assert vals[3] is None and vals[4] is None
+    assert out["signal"].is_infinite().sum() == 0
+    assert vals[2] == pytest.approx(3.0)      # 有限值未被 Inf 影响
+
+
+def test_robustzscore_inf_treated_as_invalid():
+    out = run_process_chain(_inf_section(), ["robustzscore()"], ctx=None).sort("code")
+    assert out["signal"].to_list()[3:] == [None, None]
+    assert out["signal"].is_infinite().sum() == 0
+    assert out.sort("code")["signal"].to_list()[1] == pytest.approx(0.0)  # 中位数 B 归零
+
+
+def test_csranknorm_inf_treated_as_invalid():
+    out = run_process_chain(_inf_section(), ["csranknorm()"], ctx=None).sort("code")
+    vals = out["signal"].to_list()
+    assert vals[3] is None and vals[4] is None
+    # 有限三只 rank/(n_finite+1) = 1/4, 2/4, 3/4（Inf/NaN 不占排名）
+    assert vals[:3] == [pytest.approx(0.25), pytest.approx(0.5), pytest.approx(0.75)]
+
+
+def test_clip_inf_treated_as_invalid_not_silently_clipped():
+    """Inf 是无效观测 → null；不得静默 clip 成上界（那会伪造一个极端观测）。"""
+    out = run_process_chain(_inf_section(), ["clip(-3, 3)"], ctx=None).sort("code")
+    assert out["signal"].to_list()[3] is None
+    assert out["signal"].is_infinite().sum() == 0
+    assert out["signal"].to_list()[2] == pytest.approx(3.0)
+
+
+def test_fillna_inf_treated_as_missing_and_filled():
+    out = run_process_chain(_inf_section(), ["fillna(method=value, value=0.0)"],
+                            ctx=None).sort("code")
+    assert out["signal"].to_list()[3:] == [0.0, 0.0]
+    assert out["signal"].is_infinite().sum() == 0
+
+
+def test_neutralize_market_inf_treated_as_invalid():
+    """Inf 不得毒化截面均值：有限值 demean 正确，Inf/NaN 行 null。"""
+    out = run_process_chain(_inf_section(), ["neutralize(by=market)"],
+                            ctx=None).sort("code")
+    vals = out["signal"].to_list()
+    assert vals[:3] == [pytest.approx(-1.0), pytest.approx(0.0), pytest.approx(1.0)]
+    assert vals[3] is None and vals[4] is None
+    assert out["signal"].is_infinite().sum() == 0
+
+
+def test_standardize_then_winsorize_chain_not_all_null():
+    """probe3 实测回归：standardize() → winsorize() 此前整帧 50 行全 null；
+    Inf 隔离后有限值存活且标准化值不被 winsorize 破坏。"""
+    out = run_process_chain(_inf_section(),
+                            ["standardize()", "winsorize(quantile=0.99)"],
+                            ctx=None)
+    assert out["signal"].null_count() == 2
+    assert out["signal"].drop_nulls().sort().to_list() == [
+        pytest.approx(-1.0), pytest.approx(0.0), pytest.approx(1.0)]
+    assert out["signal"].is_infinite().sum() == 0
+
+
+def test_negative_inf_treated_as_invalid_in_standardize():
+    df = pl.DataFrame({
+        "date": ["2024-01-02"] * 4, "code": ["A", "B", "C", "D"],
+        "signal": [float("-inf"), 1.0, 2.0, 3.0],
+    })
+    out = run_process_chain(df, ["standardize()"], ctx=None).sort("code")
+    vals = out["signal"].to_list()
+    assert vals[0] is None
+    assert vals[1:] == [pytest.approx(-1.0), pytest.approx(0.0), pytest.approx(1.0)]

@@ -1,0 +1,120 @@
+# I2 RED —— HEAD 版本（无有限值门）+ 新测试
+# cmd: cd platform && .venv/bin/python -m pytest -q tests/test_process.py -k 'inf_treated or chain_not_all_null or negative_inf'
+FFFFFFFFF                                                                [100%]
+=================================== FAILURES ===================================
+___________________ test_standardize_inf_treated_as_invalid ____________________
+
+    def test_standardize_inf_treated_as_invalid():
+        """R02-I2：Inf 不参与统计也不留在输出——有限三只照常标准化（均值 2、std 1）。"""
+        out = run_process_chain(_inf_section(), ["standardize()"], ctx=None).sort("code")
+>       assert out["signal"].to_list()[:3] == [pytest.approx(-1.0), pytest.approx(0.0),
+                                               pytest.approx(1.0)]
+E       assert [nan, nan, nan] == [-1.0 ± 1.0e-...1.0 ± 1.0e-06]
+E         
+E         At index 0 diff: nan != -1.0 ± 1.0e-06
+E         Use -v to get more diff
+
+tests/test_process.py:391: AssertionError
+____________________ test_winsorize_inf_treated_as_invalid _____________________
+
+    def test_winsorize_inf_treated_as_invalid():
+        out = run_process_chain(_inf_section(), ["winsorize(quantile=0.5)"],
+                                ctx=None).sort("code")
+        vals = out["signal"].to_list()
+>       assert vals[3] is None and vals[4] is None
+E       assert (3.0 is None)
+
+tests/test_process.py:402: AssertionError
+___________________ test_robustzscore_inf_treated_as_invalid ___________________
+
+    def test_robustzscore_inf_treated_as_invalid():
+        out = run_process_chain(_inf_section(), ["robustzscore()"], ctx=None).sort("code")
+>       assert out["signal"].to_list()[3:] == [None, None]
+E       assert [inf, None] == [None, None]
+E         
+E         At index 0 diff: inf != None
+E         Use -v to get more diff
+
+tests/test_process.py:409: AssertionError
+____________________ test_csranknorm_inf_treated_as_invalid ____________________
+
+    def test_csranknorm_inf_treated_as_invalid():
+        out = run_process_chain(_inf_section(), ["csranknorm()"], ctx=None).sort("code")
+        vals = out["signal"].to_list()
+>       assert vals[3] is None and vals[4] is None
+E       assert (0.8 is None)
+
+tests/test_process.py:417: AssertionError
+____________ test_clip_inf_treated_as_invalid_not_silently_clipped _____________
+
+    def test_clip_inf_treated_as_invalid_not_silently_clipped():
+        """Inf 是无效观测 → null；不得静默 clip 成上界（那会伪造一个极端观测）。"""
+        out = run_process_chain(_inf_section(), ["clip(-3, 3)"], ctx=None).sort("code")
+>       assert out["signal"].to_list()[3] is None
+E       assert 3.0 is None
+
+tests/test_process.py:425: AssertionError
+________________ test_fillna_inf_treated_as_missing_and_filled _________________
+
+    def test_fillna_inf_treated_as_missing_and_filled():
+        out = run_process_chain(_inf_section(), ["fillna(method=value, value=0.0)"],
+                                ctx=None).sort("code")
+>       assert out["signal"].to_list()[3:] == [0.0, 0.0]
+E       assert [inf, nan] == [0.0, 0.0]
+E         
+E         At index 0 diff: inf != 0.0
+E         Use -v to get more diff
+
+tests/test_process.py:433: AssertionError
+________________ test_neutralize_market_inf_treated_as_invalid _________________
+
+    def test_neutralize_market_inf_treated_as_invalid():
+        """Inf 不得毒化截面均值：有限值 demean 正确，Inf/NaN 行 null。"""
+        out = run_process_chain(_inf_section(), ["neutralize(by=market)"],
+                                ctx=None).sort("code")
+        vals = out["signal"].to_list()
+>       assert vals[:3] == [pytest.approx(-1.0), pytest.approx(0.0), pytest.approx(1.0)]
+E       assert [nan, nan, nan] == [-1.0 ± 1.0e-...1.0 ± 1.0e-06]
+E         
+E         At index 0 diff: nan != -1.0 ± 1.0e-06
+E         Use -v to get more diff
+
+tests/test_process.py:442: AssertionError
+______________ test_standardize_then_winsorize_chain_not_all_null ______________
+
+    def test_standardize_then_winsorize_chain_not_all_null():
+        """probe3 实测回归：standardize() → winsorize() 此前整帧 50 行全 null；
+        Inf 隔离后有限值存活且标准化值不被 winsorize 破坏。"""
+        out = run_process_chain(_inf_section(),
+                                ["standardize()", "winsorize(quantile=0.99)"],
+                                ctx=None)
+>       assert out["signal"].null_count() == 2
+E       AssertionError: assert 5 == 2
+E        +  where 5 = null_count()
+E        +    where null_count = shape: (5,)\nSeries: 'signal' [f64]\n[\n	null\n	null\n	null\n	null\n	null\n].null_count
+
+tests/test_process.py:453: AssertionError
+_____________ test_negative_inf_treated_as_invalid_in_standardize ______________
+
+    def test_negative_inf_treated_as_invalid_in_standardize():
+        df = pl.DataFrame({
+            "date": ["2024-01-02"] * 4, "code": ["A", "B", "C", "D"],
+            "signal": [float("-inf"), 1.0, 2.0, 3.0],
+        })
+        out = run_process_chain(df, ["standardize()"], ctx=None).sort("code")
+        vals = out["signal"].to_list()
+>       assert vals[0] is None
+E       assert nan is None
+
+tests/test_process.py:466: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_process.py::test_standardize_inf_treated_as_invalid - asser...
+FAILED tests/test_process.py::test_winsorize_inf_treated_as_invalid - assert ...
+FAILED tests/test_process.py::test_robustzscore_inf_treated_as_invalid - asse...
+FAILED tests/test_process.py::test_csranknorm_inf_treated_as_invalid - assert...
+FAILED tests/test_process.py::test_clip_inf_treated_as_invalid_not_silently_clipped
+FAILED tests/test_process.py::test_fillna_inf_treated_as_missing_and_filled
+FAILED tests/test_process.py::test_neutralize_market_inf_treated_as_invalid
+FAILED tests/test_process.py::test_standardize_then_winsorize_chain_not_all_null
+FAILED tests/test_process.py::test_negative_inf_treated_as_invalid_in_standardize
+9 failed, 41 deselected in 0.82s
