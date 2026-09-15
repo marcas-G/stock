@@ -41,6 +41,8 @@ G-TOPO 允许同工具内引用），三个入口只 import。
 | 研究侧全量（emb） | **233 passed / 3 skipped**（+2 共享层测试） | `research-emb.log` |
 | T1 集合 | **42 passed** | `research-t1.log` |
 | 门（结构 + 拓扑 + 数据接口 + 自检） | **全绿** | `gates.log` |
+| 平台全量（单独跑） | **2559 passed / 13 skipped / 0 failed** | `platform-pytest.log` |
+| 注：一次**并行跑**（emb 套件 + 扫描同时进行）报过 2 个失败，单跑与复跑均未复现；已单独重跑取准数（本行） | — | — |
 | 三个入口"同一实现"身份断言 | `http`/`get_stoken`/`get_download_urls`/`download_file`/`UA`/`HOST_PC`/`PWD_ID`/`STOKEN_TTL` 在两个入口上是**同一个对象**；`quark_share.UA` 同源 | `tests/test_quark_download.py` |
 
 ## 收尾：全树重复实现/同值常量扫描（自动，非人工点数）
