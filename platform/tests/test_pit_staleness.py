@@ -15,11 +15,13 @@ import datetime
 import polars as pl
 import pytest
 
+from factorlab.app.context import RunContext
+from factorlab.app.run import run_factor
 from factorlab.adapters.read.staleness import (STALE_LISTED_MAX_TRADING_DAYS,
                                                assert_no_stale_listed,
                                                stale_listed_codes)
 from factorlab.adapters.read.universe import align_to_listing, resolve_universe_frame
-from factorlab.core.spec import FactorSpec
+from factorlab.core.spec import FactorSpec, load_spec
 
 
 def _weekdays(n: int, start="2024-01-02") -> list[datetime.date]:
@@ -177,3 +179,158 @@ def test_prod_like_delist_column_ingested_gate_stops(env):
     panel, uf = _pit_panel(env, dates)
     assert uf.filter(pl.col("date") == dates[-1])["is_listed"][0] is False
     assert_no_stale_listed(panel, uf)
+
+
+# ================================================================
+# R02-C2：staleness 判定窗口无关（全历史 last close + 交易日历）
+#
+# 复审探针：同一退市 fixture（600005 只在全历前 5 个交易日有成交）——
+# 300 日窗口 gate 触发；240 日窗口（<250）旧 gate 不触发，fill-seed 取
+# 窗口前最后价格（14.0）forward-fill 到窗口末 → 死价格入截面；30 日分块同。
+# 判定必须以全历史 last non-null close 为基准（与窗口跨度无关）。
+# ================================================================
+
+_R02_LONG_DATES = _weekdays(300, start="2023-01-02")
+
+
+def _lc_frame(code: str, last_close: datetime.date) -> pl.DataFrame:
+    return pl.DataFrame({"code": [code], "last_close": [last_close]},
+                        schema={"code": pl.String, "last_close": pl.Date})
+
+
+def _cal(dates) -> pl.Series:
+    return pl.Series("date", dates, dtype=pl.Date)
+
+
+def test_window_independent_gate_fires_when_last_close_before_short_window():
+    """240 交易日窗口内无 close，全历史最后 close 距窗口末 295 交易日 → 触发。
+
+    旧窗口语义只看窗口内 stale days（240 ≤ 250）→ 不触发（R02-C2 的洞）。
+    """
+    window = _R02_LONG_DATES[60:]
+    panel = _panel(window, traded_days=0)
+    uf = _uf(window)
+    assert stale_listed_codes(panel, uf) == []          # 旧语义：短窗漏判
+    stale = stale_listed_codes(panel, uf,
+                               last_close=_lc_frame("600005", _R02_LONG_DATES[4]),
+                               calendar=_cal(_R02_LONG_DATES))
+    assert stale == [("600005", _R02_LONG_DATES[4])]
+
+
+def test_window_independent_gate_respects_threshold():
+    """全历史 gap = 200 交易日 ≤ 250 → 不触发（阈值语义不变，不误伤）。"""
+    window = _R02_LONG_DATES[5:205]
+    panel = _panel(window, traded_days=0)
+    uf = _uf(window)
+    assert stale_listed_codes(panel, uf,
+                              last_close=_lc_frame("600005", _R02_LONG_DATES[4]),
+                              calendar=_cal(_R02_LONG_DATES)) == []
+
+
+def test_window_independent_gate_no_close_falls_back_to_window():
+    """无任何 close 的 code 保持旧窗口语义（短窗不触发——上市未久不可分辨）。"""
+    window = _R02_LONG_DATES[60:]
+    panel = _panel(window, traded_days=0)
+    uf = _uf(window)
+    empty = pl.DataFrame(schema={"code": pl.String, "last_close": pl.Date})
+    assert stale_listed_codes(panel, uf, last_close=empty,
+                              calendar=_cal(_R02_LONG_DATES)) == []
+
+
+def test_window_independent_gate_requires_calendar_pair():
+    """last_close 与 calendar 必须成对提供（单边静默退化 = 洞复现）。"""
+    window = _R02_LONG_DATES[60:]
+    panel = _panel(window, traded_days=0)
+    uf = _uf(window)
+    with pytest.raises(ValueError, match="calendar"):
+        stale_listed_codes(panel, uf,
+                           last_close=_lc_frame("600005", _R02_LONG_DATES[4]))
+    with pytest.raises(ValueError, match="last_close"):
+        stale_listed_codes(panel, uf, calendar=_cal(_R02_LONG_DATES))
+
+
+# ---------------------------------------------------------------- run_factor 级复现（双腿）
+
+_STALE_CODE = ("600005", "600005.SH")
+
+
+def _stale_tables(dates, traded_days: int = 5) -> dict:
+    """全历 dates、600005 只在前 traded_days 个交易日有行情（其余 = 上市 skeleton null）。"""
+    daily_rows, adj_rows = [], []
+    for i, d in enumerate(dates[:traded_days]):
+        c = 14.0 + 0.1 * i
+        daily_rows.append(("600005.SH", d.strftime("%Y%m%d"), c - 0.3, c + 0.2,
+                           c - 0.4, c, c - 0.1, 0.0, 0.0, 1000.0, 1e6))
+        adj_rows.append(("600005.SH", d.strftime("%Y%m%d"), 1.0))
+    return {
+        "stock_basic": ([("symbol", "str"), ("ts_code", "str"), ("exchange", "str"),
+                         ("list_date", "date"), ("industry", "str?")],
+                        [("600005", "600005.SH", "SSE", "19990803", "钢铁")]),
+        "daily": ([("ts_code", "str"), ("trade_date", "date"), ("open", "f64"),
+                   ("high", "f64"), ("low", "f64"), ("close", "f64"),
+                   ("pre_close", "f64"), ("change", "f64"), ("pct_chg", "f64"),
+                   ("vol", "f64"), ("amount", "f64")], daily_rows),
+        "adj_factor": ([("ts_code", "str"), ("trade_date", "date"),
+                        ("adj_factor", "f64")], adj_rows),
+        "stock_st": ([("ts_code", "str"), ("trade_date", "date")], []),
+        "trade_cal": ([("cal_date", "date"), ("is_open", "i64")],
+                      [(d.strftime("%Y%m%d"), 1) for d in dates]),
+    }
+
+
+def _stale_spec(tmp_path, start: str, end: str, name: str = "deadprice"):
+    path = tmp_path / f"{name}.yaml"
+    path.write_text(f"""
+name: {name}
+category: custom
+direction: 1
+universe:
+  codes: ["600005.SH"]
+date:
+  start: "{start}"
+  end: "{end}"
+process: []
+formula: |
+  signal = close
+""", encoding="utf-8")
+    return load_spec(path)
+
+
+def _stale_ctx(env, out_dir, **kw):
+    if env.backend == "duckdb":
+        kw["db_path"] = env.path
+    return RunContext(data_backend=env.backend, output_dir=out_dir, **kw)
+
+
+def test_run_factor_short_window_dead_price_rejected(env, tmp_path):
+    """R02-C2 复现：240 交易日窗口 + 窗口前死价格 → gate fired，零 artifact。
+
+    探针实测（修复前）：RUN OK、signal=14.0 填到窗口末 2024-02-23。
+    """
+    env.seed(_stale_tables(_R02_LONG_DATES))
+    spec = _stale_spec(tmp_path, _R02_LONG_DATES[60].isoformat(),
+                       _R02_LONG_DATES[-1].isoformat())
+    out = tmp_path / "out_short"
+    with pytest.raises(ValueError, match="600005"):
+        run_factor(spec, _stale_ctx(env, out))
+    assert not (out / "summary.json").exists()
+
+
+def test_run_factor_chunked_dead_price_rejected(env, tmp_path):
+    """R02-C2 复现：30 日分块同一 fixture → 长跑不再复活死价格（fail loudly）。"""
+    env.seed(_stale_tables(_R02_LONG_DATES))
+    spec = _stale_spec(tmp_path, _R02_LONG_DATES[60].isoformat(),
+                       _R02_LONG_DATES[-1].isoformat(), name="deadprice_chunk")
+    out = tmp_path / "out_chunk"
+    with pytest.raises(ValueError, match="600005"):
+        run_factor(spec, _stale_ctx(env, out, chunk_days=30))
+    assert not (out / "summary.json").exists()
+
+
+def test_run_factor_pre_window_close_under_threshold_ok(env, tmp_path):
+    """负向控制：断流距窗口末 200 交易日（≤ 250）→ 不误伤，正常产出。"""
+    env.seed(_stale_tables(_R02_LONG_DATES))
+    spec = _stale_spec(tmp_path, _R02_LONG_DATES[5].isoformat(),
+                       _R02_LONG_DATES[204].isoformat(), name="under_threshold")
+    result = run_factor(spec, _stale_ctx(env, tmp_path / "out_ok"))
+    assert result.panel.height > 0

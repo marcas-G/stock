@@ -413,5 +413,82 @@ def load_daily_fill_state(
     return df
 
 
+def _last_close_duckdb(rd: ReadPort, codes: list[str], before: str | None,
+                       after: str | None) -> pl.DataFrame:
+    """duckdb 版全历史 last non-null close 日期（trade_date VARCHAR 'YYYYMMDD'）。"""
+    where = ["substr(d.ts_code, 1, 6) IN (SELECT unnest(?))", "d.close IS NOT NULL"]
+    params: list[object] = [[c.split(".")[0] for c in codes]]
+    if after is not None:
+        where.append("d.trade_date >= ?")
+        params.append(after.replace("-", ""))
+    if before is not None:
+        where.append("d.trade_date < ?")
+        params.append(before.replace("-", ""))
+    sql = ("SELECT substr(d.ts_code, 1, 6) AS code, max(d.trade_date) AS last_close "
+           "FROM daily d "
+           "JOIN adj_factor a ON d.trade_date = a.trade_date AND d.ts_code = a.ts_code "
+           f"WHERE {' AND '.join(where)} GROUP BY 1 ORDER BY 1")
+    df = rd.query_df(sql, params)
+    if df.height == 0:
+        return pl.DataFrame(schema={"code": pl.String, "last_close": pl.Date})
+    return df.with_columns(
+        pl.col("last_close").cast(pl.String).str.strptime(pl.Date, "%Y%m%d"))
+
+
+def _last_close_ch(rd: ReadPort, codes: list[str], before: str | None,
+                   after: str | None) -> pl.DataFrame:
+    """ch 版全历史 last non-null close 日期（trade_date Date）。"""
+    from factorlab.adapters.ch_read import daily_codes_clause
+
+    code_clause, params = daily_codes_clause(codes)
+    where = [code_clause, "d.close IS NOT NULL"]
+    if after is not None:
+        where.append("d.trade_date >= toDate(%(after)s)")
+        params["after"] = after.replace("-", "")
+    if before is not None:
+        where.append("d.trade_date < toDate(%(before)s)")
+        params["before"] = before.replace("-", "")
+    db = settings.ch_database
+    sql = (f"SELECT d.ts_code AS ts_code, max(d.trade_date) AS last_close "
+           f"FROM {db}.daily d "
+           f"JOIN {db}.adj_factor a ON d.trade_date = a.trade_date "
+           f"AND d.ts_code = a.ts_code "
+           f"WHERE {' AND '.join(where)} GROUP BY d.ts_code ORDER BY d.ts_code")
+    df = rd.query_df(sql, params)
+    if df.height == 0:
+        return pl.DataFrame(schema={"code": pl.String, "last_close": pl.Date})
+    return df.with_columns(
+        pl.col("ts_code").str.split(".").list.first().alias("code")
+    ).drop("ts_code")
+
+
+_LAST_CLOSE_IMPL = {"duckdb": _last_close_duckdb, "ch": _last_close_ch}
+
+
+def load_last_close_dates(
+    rd: ReadPort,
+    codes: list[str],
+    *,
+    before: str | None = None,
+    after: str | None = None,
+) -> pl.DataFrame:
+    """R02-C2：每 code 最后一个「可被引擎看到」的 close 日期（窗口无关 staleness 用）。
+
+    - 来源与 load_daily/load_daily_fill_state 同源：daily ⨝ adj_factor（inner），
+      close 非空——adj_factor 缺失的行引擎读不到，不应参与 staleness 判定
+    - before 排他上界（trade_date < before）、after 含入下界（trade_date >= after），
+      ISO/'YYYYMMDD' 均可
+    - 返回 [code, last_close]（pl.Date）；无历史/范围内无 close 的 code **缺席**
+      （调用方区分「缺席」与「无 close」时用 bounds 语义判断）
+    """
+    if not codes:
+        raise ValueError("codes 为空")
+    df = _LAST_CLOSE_IMPL[rd.backend](rd, codes, before, after)
+    if df.height:
+        df = df.with_columns(pl.col("code").cast(pl.String),
+                             pl.col("last_close").cast(pl.Date))
+    return df
+
+
 _LOAD_DAILY_IMPL = {"duckdb": _load_daily_duckdb, "ch": _load_daily_ch}
 _FILL_STATE_IMPL = {"duckdb": _fill_duckdb, "ch": _fill_ch}

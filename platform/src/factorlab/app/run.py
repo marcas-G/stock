@@ -30,7 +30,8 @@ from factorlab.adapters.intraday import load_bars_1m_codes
 from factorlab.core.spec import FactorSpec
 from factorlab.adapters.read.adjust import (load_pit_qfq_base_adj, load_qfq_base_adj,
                                             view_prices)
-from factorlab.adapters.read.staleness import assert_no_stale_listed
+from factorlab.adapters.read.staleness import (assert_no_stale_listed_db,
+                                               assert_no_stale_seed)
 from factorlab.adapters.read.attributes import attributes_visible, load_code_attributes
 from factorlab.app.bootstrap import open_read
 from factorlab.ports.read import ReadPort
@@ -104,6 +105,9 @@ def _inject_fill_state_seed(
     )["code"].unique().to_list())
     if not need:
         return panel, False
+    # R02-C2 独立防线：seed 候选 code 的全历史行情断流超阈值 → 拒绝 seed
+    # （即使调用方漏接 DB gate，也不允许把窗口前死价格 forward-fill 进截面）
+    assert_no_stale_seed(rd, need, ref=panel["date"].max())
     from factorlab.adapters.read.source import load_daily_fill_state
     fs = load_daily_fill_state(
         rd, need, before=ws.isoformat(),
@@ -175,7 +179,9 @@ def _compute_signal(
     panel = align_to_listing(raw, uf)   # is_listed skeleton（停牌日保留 null 行）
     if panel.height == 0:
         raise ValueError("日期段无数据，可运行 data refresh（M3b）")
-    assert_no_stale_listed(panel, uf)   # R01-DATA-C1：listed 但长期断流 fail loudly
+    # R01-DATA-C1 / R02-C2：listed 但长期断流 fail loudly（窗口无关——全历史
+    # last close 有界回看，短窗/分块不再绕过 fill-seed 复活死价格）
+    assert_no_stale_listed_db(rd, panel, uf)
     adjustment = getattr(spec, "adjustment", None) or ctx.adjustment
     # ---- M6-07C2F：boundary fill state（跨 chunk 左边界 seed）----
     # 长期停牌跨块时 load_start 落在停牌中 → 块内无前值 → fill 无法初始化 →
