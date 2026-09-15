@@ -164,6 +164,13 @@ def _listed_at(uf: pl.DataFrame, ref: datetime.date) -> list[str]:
     )
 
 
+def listed_codes_at(uf: pl.DataFrame, ref: datetime.date) -> set[str]:
+    """参考日仍 listed 的 code 集合（seed 防线断言过滤用：退市 code 的窗口前
+    真实价不是"死价格"——退市后无 skeleton 行，不会进入 ref 截面；但 seed 仍
+    照常注入以保持与单块/窗口语义逐值一致）。"""
+    return set(_listed_at(uf, ref))
+
+
 def suspect_stale_codes(panel: pl.DataFrame, uf: pl.DataFrame) -> list[str]:
     """窗口内**无任何非空 close** 的 listed code（R02-C2 有界回看候选）。
 

@@ -1,0 +1,16 @@
+# command: cd platform && .venv/bin/python -m pytest -q tests/test_pit_staleness.py tests/test_m6_semantic_guards.py
+# date: 2026-09-16T01:34:28+08:00
+# context: R02-C2 回归修复 — fill-seed 防线只对 ref 仍 listed 的 code 断言；退市 code 的 seed 照常注入（零迁移）
+
+== 红（guard 过滤移除，等效旧行为）==
+FAILED tests/test_pit_staleness.py::test_run_factor_seed_ignores_delisted_code_but_check_still_fires[duckdb]
+
+== 绿（guard 过滤在位）==
+25 passed (test_pit_staleness.py)
+
+== 零迁移回归（R22 6 代表 spec，CH）==
+cd platform && .venv/bin/python -m pytest -q tests/test_regression_152.py -> 2 passed (336.9s)
+wcorr ic.mean = -0.06746037692967563 == baseline delta 0.0
+
+== 全量平台 ==
+2930 passed, 13 skipped (1276s)

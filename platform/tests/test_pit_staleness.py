@@ -346,3 +346,80 @@ def test_run_factor_wires_stale_gate_long_window(env, tmp_path):
     with pytest.raises(ValueError, match="delist_date"):
         run_factor(spec, _stale_ctx(env, out))
     assert not (out / "summary.json").exists()
+
+
+def _stale_tables_with_delist(dates, delist_day: int = 60) -> dict:
+    """600005 交易到 delist_day（含）后退市（delist_date 已灌）；000001 全程健康。
+
+    day 0 的 600005 adj_factor 缺失 → 该 code 在窗口起点进 fill-seed 候选
+    （close 非空也可为候选：任何 fillable 列 null 即入 need）。
+    """
+    daily_rows, adj_rows = [], []
+    for i, d in enumerate(dates[:delist_day]):
+        c = 14.0 + 0.01 * i
+        daily_rows.append(("600005.SH", d.strftime("%Y%m%d"), c - 0.3, c + 0.2,
+                           c - 0.4, c, c - 0.1, 0.0, 0.0, 1000.0, 1e6))
+        if i:
+            adj_rows.append(("600005.SH", d.strftime("%Y%m%d"), 1.0))
+    for d in dates:
+        daily_rows.append(("000001.SZ", d.strftime("%Y%m%d"), 9.7, 10.2, 9.6,
+                           10.0, 9.9, 0.1, 1.0, 2000.0, 2e6))
+        adj_rows.append(("000001.SZ", d.strftime("%Y%m%d"), 1.0))
+    return {
+        "stock_basic": ([("symbol", "str"), ("ts_code", "str"), ("exchange", "str"),
+                         ("list_date", "date"), ("industry", "str?"),
+                         ("delist_date", "str?")],
+                        [("600005", "600005.SH", "SSE", "19990803", "钢铁",
+                          dates[delist_day].strftime("%Y%m%d")),
+                         ("000001", "000001.SZ", "SZSE", "19910403", "银行", None)]),
+        "daily": ([("ts_code", "str"), ("trade_date", "date"), ("open", "f64"),
+                   ("high", "f64"), ("low", "f64"), ("close", "f64"),
+                   ("pre_close", "f64"), ("change", "f64"), ("pct_chg", "f64"),
+                   ("vol", "f64"), ("amount", "f64")], daily_rows),
+        "adj_factor": ([("ts_code", "str"), ("trade_date", "date"),
+                        ("adj_factor", "f64")], adj_rows),
+        "stock_st": ([("ts_code", "str"), ("trade_date", "date")], []),
+        "trade_cal": ([("cal_date", "date"), ("is_open", "i64")],
+                      [(d.strftime("%Y%m%d"), 1) for d in dates]),
+    }
+
+
+def test_run_factor_seed_ignores_delisted_code_but_check_still_fires(env, tmp_path):
+    """回归修复：fill-seed 防线只对参考日仍 listed 的 code 生效。
+
+    反例来源（R22 全量回归实测）：reversal_20d 长窗（2015-2026）下 119 个已退市
+    code 在窗口起点有真实价、只是某些列 null → 进 seed 候选；旧实现按
+    ref=面板末日 算 gap → 误判"死价格"整 run 失败。退市 code 不会进入 ref 截面，
+    其窗口前真实价不是死价格。
+
+    同时断言底层检查仍会命中退市 code（证明这是"过滤"而非删除防线：
+    把 `listed_codes_at` 换成恒全集 → run 再度失败）。
+    """
+    # 400 交易日：退市 gap = 400-60 = 340 > 250（300 日时 gap=240 不触发，测不出回归）
+    seed_dates = _weekdays(400, start="2023-01-02")
+    env.seed(_stale_tables_with_delist(seed_dates))
+    path = tmp_path / "delisted_seed.yaml"
+    path.write_text(f"""
+name: delisted_seed
+category: custom
+direction: 1
+universe:
+  codes: ["600005.SH", "000001.SZ"]
+date:
+  start: "{seed_dates[0].isoformat()}"
+  end: "{seed_dates[-1].isoformat()}"
+process: []
+formula: |
+  signal = close
+""", encoding="utf-8")
+    spec = load_spec(path)
+    # 底层防线对退市 code 仍可命中（独立检查有价值）
+    from factorlab.adapters.read.staleness import stale_seed_codes
+    hits = stale_seed_codes(env.rd, ["600005.SH"], ref=seed_dates[-1])
+    assert hits and hits[0][0] == "600005.SH"
+    # run 级：面板延伸到窗口末（000001 健康）；退市 code 的 seed 合法 → 不拦
+    out = tmp_path / "out_delisted_seed"
+    result = run_factor(spec, _stale_ctx(env, out))
+    assert result.panel.height > 0
+    assert result.panel.filter(pl.col("code") == "000001.SZ").height > 0
+    assert (result.panel["date"].max() == seed_dates[-1])

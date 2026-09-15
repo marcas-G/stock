@@ -288,7 +288,8 @@ def test_tamper_parquet_rows(env, tmp_path):
     _run(env, tmp_path, _spec(tmp_path))
     sig = pl.read_parquet(tmp_path / "out" / SIGNAL_FILE)
     sig.head(sig.height - 1).write_parquet(tmp_path / "out" / SIGNAL_FILE)  # 少一行，manifest 不改
-    with pytest.raises(ValueError, match="signal manifest rows"):
+    # R02-I8：内容 sha256 交叉校验先于 manifest rows 计数（更强，仍拒载）
+    with pytest.raises(ValueError, match="signal 内容 sha256 与 manifest 不一致"):
         load_signal_artifact(tmp_path / "out")
 
 
@@ -297,7 +298,8 @@ def test_tamper_parquet_extra_column(env, tmp_path):
     _run(env, tmp_path, _spec(tmp_path))
     sig = pl.read_parquet(tmp_path / "out" / SIGNAL_FILE)
     sig.with_columns(pl.lit(1.0).alias("extra")).write_parquet(tmp_path / "out" / SIGNAL_FILE)
-    with pytest.raises(ValueError, match="signal manifest columns"):
+    # R02-I8：列变化同样先被内容 hash 拒绝
+    with pytest.raises(ValueError, match="signal 内容 sha256 与 manifest 不一致"):
         load_signal_artifact(tmp_path / "out")
 
 

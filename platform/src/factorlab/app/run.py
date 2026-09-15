@@ -31,7 +31,8 @@ from factorlab.core.spec import FactorSpec
 from factorlab.adapters.read.adjust import (load_pit_qfq_base_adj, load_qfq_base_adj,
                                             view_prices)
 from factorlab.adapters.read.staleness import (assert_no_stale_listed_db,
-                                               assert_no_stale_seed)
+                                               assert_no_stale_seed,
+                                               listed_codes_at)
 from factorlab.adapters.read.attributes import attributes_visible, load_code_attributes
 from factorlab.app.bootstrap import open_read
 from factorlab.ports.read import ReadPort
@@ -80,6 +81,7 @@ def _inject_fill_state_seed(
     cal: pl.Series,
     rd: ReadPort,
     ctx: RunContext,
+    uf: pl.DataFrame,
 ) -> tuple[pl.DataFrame, bool]:
     """跨 chunk 左边界 fill seed（M6-07C2F，原 _compute_signal 内联块抽取；
     label pool 模式复用——池 TS 条件与 signal runtime 必须同左界同 seed，
@@ -106,8 +108,14 @@ def _inject_fill_state_seed(
     if not need:
         return panel, False
     # R02-C2 独立防线：seed 候选 code 的全历史行情断流超阈值 → 拒绝 seed
-    # （即使调用方漏接 DB gate，也不允许把窗口前死价格 forward-fill 进截面）
-    assert_no_stale_seed(rd, need, ref=panel["date"].max())
+    # （即使调用方漏接 DB gate，也不允许把窗口前死价格 forward-fill 进截面）。
+    # R02 回归修复：**只对参考日仍 listed 的 code 断言**——退市 code 在窗口前的
+    # 真实价不是"死价格"（退市后无 skeleton 行，不会进入 ref 截面），其 seed
+    # 照常注入以保持与整段跑逐值一致（零迁移承诺；reversal_20d 长窗回归实测：
+    # 若把退市 code 从 need 中剔除，wcorr IC 漂移 3.7e-7）。
+    guard = [c for c in need if c in listed_codes_at(uf, panel["date"].max())]
+    if guard:
+        assert_no_stale_seed(rd, guard, ref=panel["date"].max())
     from factorlab.adapters.read.source import load_daily_fill_state
     fs = load_daily_fill_state(
         rd, need, before=ws.isoformat(),
@@ -188,7 +196,7 @@ def _compute_signal(
     # extra null。从 DB 取 window_start 前每 code 每字段 latest non-null 注入
     # synthetic seed 行（fill 初始化专用）——**fill 后立即删除**，seed 绝不进
     # formula/CS mask/artifact（§16 顺序锁定：fill → trim seed → formula）。
-    panel, _seeded = _inject_fill_state_seed(panel, cal, rd, ctx)
+    panel, _seeded = _inject_fill_state_seed(panel, cal, rd, ctx, uf)
     qfq_base_col = None
     if adjustment == "qfq" and base_adj is not None:
         # M6-07C2E：固定 sample base 列（**不覆盖 raw adj_factor**——字段保持
@@ -307,7 +315,7 @@ def _compute_labels(
         raise ValueError("日期段无数据，可运行 data refresh（M3b）")
     if pool is not None:
         # 池 TS warmup 与 signal runtime 同左界 → 同 seed（fill 后立即 trim）
-        panel, _seeded = _inject_fill_state_seed(panel, cal, rd, ctx)
+        panel, _seeded = _inject_fill_state_seed(panel, cal, rd, ctx, uf)
     panel = compute_forward_returns(panel)   # fill 之前（现有顺序——停牌 endpoint null 合法）
     panel = fill_suspension_values(panel)
     if pool is not None and _seeded:
