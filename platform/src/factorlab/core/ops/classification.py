@@ -10,6 +10,16 @@
 - ``"arg:N"``      第 N 个位置参数（常量 int）
 - ``"${param}"``   spec.params 参数（调用方求值）
 - ``"unbounded"``  全历史累计（与分块互斥）
+
+`returns` 语义（OpMeta.returns，R05-I1）：
+- ``"scalar"``  单列数值（可进 process 链）；
+- ``"struct"``  单列 Struct dtype（如 BBANDS→upperband/middleband/lowerband）；
+- ``"multi"``   多列返回（如 ts_regression_* 四列）。
+
+生成表由 gen_op_catalog.py 用 3 行合成 frame 探测（lazy schema 解析，不执行
+数据面）；探测失败保持 ``"scalar"`` 并在生成表 ``PROBE_FALLBACKS`` 记录。
+非标量返回**不得直接作因子输出或进 process 链**（静态门拒绝，字段访问机制
+见 Plan 2/catalog）。
 """
 from __future__ import annotations
 
@@ -19,6 +29,8 @@ from typing import Literal
 
 Partition = Literal["el", "ts", "cs", "gp", "im", "day"]
 WindowSpec = int | str | None
+ReturnsShape = Literal["scalar", "struct", "multi"]
+_RETURN_SHAPES = ("scalar", "struct", "multi")
 
 
 @dataclass(frozen=True)
@@ -29,10 +41,15 @@ class OpMeta:
     mask_args: tuple[int, ...] = ()
     source: str = "builtin"
     canonical: str = ""                # 生成代码里的规范名（空=同名）
+    returns: ReturnsShape = "scalar"   # scalar | struct | multi（R05-I1）
 
     def __post_init__(self):
         if not self.canonical:
             object.__setattr__(self, "canonical", self.name)
+        if self.returns not in _RETURN_SHAPES:
+            raise ValueError(
+                f"OpMeta.returns 非法: {self.returns!r}"
+                f"（允许 {_RETURN_SHAPES}）")
 
 
 class Catalog:

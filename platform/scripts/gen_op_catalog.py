@@ -12,7 +12,10 @@
 - ``gp_`` 前缀 → partition=gp，mask_args=(1,)；
 - 全大写（TA 风格）且有 int 窗口参数 → ts；否则 el；
 - 其余 → el；
-- 调用冒烟（生成参数模板调用一次）失败 → 不注册（usable=False）。
+- 调用冒烟（生成参数模板调用一次）失败 → 不注册（usable=False）；
+- 返回形态探测（R05-I1）：3 行合成 frame 上做 lazy schema 解析——单列 Struct
+  dtype → returns="struct"、多列展开 → "multi"、其余 "scalar"；探测异常/超时
+  → 保持 "scalar" 并登记 ``PROBE_FALLBACKS``（绝不因探测失败误标非标量）。
 
 与计划字面规则的偏差（理由见 docs/verification/R22/02-ta-catalog/README.md）：
 1. 计划用"第 2 个**必需**位置参数为 int"判定窗口——polars_ta 0.5.17 的窗口参数几乎
@@ -28,6 +31,7 @@
 from __future__ import annotations
 
 import inspect
+import signal
 import sys
 from pathlib import Path
 
@@ -151,8 +155,8 @@ def _window_arg(fn) -> str | None:
     return None
 
 
-def _smoke_ok(fn) -> bool:
-    """按签名生成参数模板调用一次；返回 Expr/Series 才可用（Spike 1 方法）。
+def _smoke_expr(fn):
+    """按签名生成参数模板调用一次；返回 Expr/Series，不可用 → None（Spike 1 方法）。
 
     带默认值的正式窗口名 float 参数（BBANDS.timeperiod=5.0）显式传 int——vendor
     默认的 float 值本身会 TypeError（实测 BBANDS(close) 崩、BBANDS(close, 5) 正常）。
@@ -160,7 +164,7 @@ def _smoke_ok(fn) -> bool:
     pos = _positional(fn)
     req = _required(fn)
     if pos is None or req is None:
-        return False
+        return None
     args = []
     for i, p in req:
         n = p.name.lower()
@@ -178,29 +182,98 @@ def _smoke_ok(fn) -> bool:
         else:
             break
     try:
-        return isinstance(fn(*args), (pl.Expr, pl.Series))
+        result = fn(*args)
     except Exception:
-        return False
-
-
-def classify(name: str, fn) -> dict | None:
-    if not _smoke_ok(fn):
         return None
+    return result if isinstance(result, (pl.Expr, pl.Series)) else None
+
+
+def _smoke_ok(fn) -> bool:
+    return _smoke_expr(fn) is not None
+
+
+# ---- 返回形态探测（R05-I1）----
+# 探测用 3 行合成 frame（与冒烟调用同列名；纯内存无 IO）。lazy schema 解析
+# 只做计划/schema 推导，不执行数据面。
+_PROBE_FRAME = pl.DataFrame({
+    "close": [1.0, 2.0, 3.0], "open": [1.0, 1.5, 2.0], "high": [2.0, 3.0, 4.0],
+    "low": [0.5, 1.0, 1.5], "volume": [10.0, 20.0, 30.0], "amount": [10.0, 30.0, 60.0],
+})
+_PROBE_TIMEOUT_S = 30.0        # 留足冷启动余量（插件首次 schema 解析可能编译/预热）
+# 探测失败 → 保持 scalar 的条目（值 = 异常类名 / "timeout"；生成产物导出）
+PROBE_FALLBACKS: dict[str, str] = {}
+
+
+class _ProbeTimeout(Exception):
+    pass
+
+
+def _probe_timeout_handler(signum, frame):  # noqa: ARG001
+    raise _ProbeTimeout()
+
+
+def _probe_returns(expr, timeout: float = _PROBE_TIMEOUT_S) -> tuple[str, str | None]:
+    """返回形态探测：("scalar"|"struct"|"multi", 失败原因|None)。
+
+    单列 Struct dtype → "struct"；多列展开 → "multi"；其余 → "scalar"。
+    解析异常 → ("scalar", 异常类名)；超时（polars_ols 等插件 schema 解析卡死）
+    → ("scalar", "timeout")。异常路径不抛，交由调用方登记 PROBE_FALLBACKS。
+    """
+    if isinstance(expr, pl.Series):
+        return "scalar", None
+    try:
+        if expr.meta.has_multiple_outputs():
+            return "multi", None
+    except Exception:  # noqa: BLE001 —— 元数据不可用不阻断探测主路径
+        pass
+    old = None
+    if timeout and hasattr(signal, "SIGALRM"):
+        try:
+            old = signal.signal(signal.SIGALRM, _probe_timeout_handler)
+            signal.setitimer(signal.ITIMER_REAL, timeout)
+        except ValueError:                        # 非主线程：跳过超时护栏
+            old = None
+    try:
+        schema = _PROBE_FRAME.lazy().select(expr).collect_schema()
+    except _ProbeTimeout:
+        return "scalar", "timeout"
+    except Exception as exc:  # noqa: BLE001 —— 探测失败保持 scalar（调用方登记原因）
+        return "scalar", type(exc).__name__
+    finally:
+        if old is not None:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, old)
+    if len(schema) > 1:
+        return "multi", None
+    dtype = next(iter(schema.values()))
+    return ("struct" if isinstance(dtype, pl.Struct) else "scalar"), None
+
+
+def classify(name: str, fn, expr=None) -> dict | None:
+    if expr is None:
+        expr = _smoke_expr(fn)
+    if expr is None:
+        return None
+    returns, note = _probe_returns(expr)
+    if note is not None:
+        PROBE_FALLBACKS[name] = note
     if name in MANUAL_OVERRIDES:
-        o = dict(MANUAL_OVERRIDES[name])
-        o.pop("reason", None)
-        return o
-    if name.startswith("ts_cum_"):
-        return {"partition": "ts", "window": "unbounded", "mask_args": ()}
-    if name.startswith("ts_"):
-        return {"partition": "ts", "window": _window_arg(fn), "mask_args": ()}
-    if name.startswith("cs_"):
-        return {"partition": "cs", "window": None, "mask_args": (0,)}
-    if name.startswith("gp_"):
-        return {"partition": "gp", "window": None, "mask_args": (1,)}
-    if name.isupper() and _window_arg(fn):
-        return {"partition": "ts", "window": _window_arg(fn), "mask_args": ()}
-    return {"partition": "el", "window": None, "mask_args": ()}
+        meta = dict(MANUAL_OVERRIDES[name])
+        meta.pop("reason", None)
+    elif name.startswith("ts_cum_"):
+        meta = {"partition": "ts", "window": "unbounded", "mask_args": ()}
+    elif name.startswith("ts_"):
+        meta = {"partition": "ts", "window": _window_arg(fn), "mask_args": ()}
+    elif name.startswith("cs_"):
+        meta = {"partition": "cs", "window": None, "mask_args": (0,)}
+    elif name.startswith("gp_"):
+        meta = {"partition": "gp", "window": None, "mask_args": (1,)}
+    elif name.isupper() and _window_arg(fn):
+        meta = {"partition": "ts", "window": _window_arg(fn), "mask_args": ()}
+    else:
+        meta = {"partition": "el", "window": None, "mask_args": ()}
+    meta["returns"] = returns
+    return meta
 
 
 HEADER = '''# 由 platform/scripts/gen_op_catalog.py 生成；勿手改（--check 校验）。
@@ -209,11 +282,20 @@ from factorlab.core.ops.classification import Catalog, OpMeta
 ROWS = [
 '''
 
-FOOTER = ''']
+FALLBACK_HEADER = ''']
+
+
+# 返回形态探测失败 → 保持 scalar 的条目（值 = 异常类名 / "timeout"）
+PROBE_FALLBACKS = {
+'''
+
+FOOTER = '''}
+
 
 def build_ta_catalog(catalog: Catalog) -> None:
-    for name, part, win, mask, src, canon in ROWS:
-        catalog.add(OpMeta(name, part, win, tuple(mask), src, canon), replace=True)
+    for name, part, win, mask, src, canon, returns in ROWS:
+        catalog.add(OpMeta(name, part, win, tuple(mask), src, canon, returns),
+                    replace=True)
 '''
 
 
@@ -237,9 +319,11 @@ def collect_rows() -> list[dict]:
 def render(rows: list[dict]) -> str:
     body = "".join(
         f"    ({r['name']!r}, {r['partition']!r}, {r['window']!r}, {r['mask_args']!r}, "
-        f"{r['source']!r}, {r['name']!r}),\n"
+        f"{r['source']!r}, {r['name']!r}, {r['returns']!r}),\n"
         for r in sorted(rows, key=lambda r: r["name"]))
-    return HEADER + body + FOOTER
+    fallbacks = "".join(f"    {k!r}: {v!r},\n"
+                        for k, v in sorted(PROBE_FALLBACKS.items()))
+    return HEADER + body + FALLBACK_HEADER + fallbacks + FOOTER
 
 
 # ============================ polars Expr 方法/访问器分类 ============================
@@ -409,9 +493,13 @@ def main(argv: list[str]) -> int:
     ok = _check_or_write(OUT_POLARS, render_polars(el, ts_windows, guidance), check) and ok
     if not check:
         parts: dict[str, int] = {}
+        shapes: dict[str, int] = {}
         for r in rows:
             parts[r["partition"]] = parts.get(r["partition"], 0) + 1
-        print(f"polars_ta: {len(rows)} 条（{parts}）")
+            shapes[r["returns"]] = shapes.get(r["returns"], 0) + 1
+        print(f"polars_ta: {len(rows)} 条（{parts}；returns={shapes}）")
+        if PROBE_FALLBACKS:
+            print(f"返回形态探测失败（保持 scalar）: {PROBE_FALLBACKS}")
         print(f"polars 方法: el={len(el)} ts={len(ts_windows)} denied={len(guidance)}")
     return 0 if ok else 1
 

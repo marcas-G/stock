@@ -1,6 +1,7 @@
 """Task 7：注册闸门拆除 + 分区绑定规范化（核心交付）。
 
 - 库函数直写可算（`ts_arg_max`/`BBANDS` 此前写出来即报"未知算子"）；
+- 非标量返回（BBANDS→Struct）静态拒绝并给清晰指引（R05-I1）；
 - 未知算子报错并给 op_meta 指引；
 - `normalize_calls` 分类表解析（canonical 名 + import 行）；
 - 新增 CS 算子按分类表 mask_args 做 universe 掩码（不靠静态表）；
@@ -31,10 +32,12 @@ def test_open_ts_op_computes():
     assert out["signal"].n_unique() > 1                 # 真实计算（非单一常量）
 
 
-def test_open_uppercase_op_computes():
-    out = compute_formula(_panel(), "signal = BBANDS(volume, 2)", outputs=["signal"])
-    upper = out["signal"].struct.field("upperband")
-    assert upper.null_count() < upper.len()
+def test_struct_return_op_rejected_with_guidance():
+    """BBANDS→Struct：不得静默落地/进 process（R05-I1）——文案点名算子与字段机制。"""
+    with pytest.raises(FactorDSLError) as exc:
+        compute_formula(_panel(), "signal = BBANDS(volume, 2)", outputs=["signal"])
+    msg = str(exc.value)
+    assert "BBANDS" in msg and "Struct" in msg and "process" in msg
 
 
 def test_unknown_op_guides_op_meta():

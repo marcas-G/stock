@@ -263,6 +263,10 @@ def _compute_signal(
     sig = panel.select(["date", "code", member_col, "close"]).join(
         result, on=["date", "code"], how="left")
     sig = sig.filter(pl.col(member_col)).drop(member_col)
+    # R05-I1：Struct/多列结果不得进 process 链（运行期兜底；静态门管已知算子）
+    if spec.process:
+        from factorlab.core.engine.compute import assert_process_inputs_numeric
+        assert_process_inputs_numeric(sig, outputs)
     if outputs == ["signal"]:
         # legacy 单输出：chain 直接消费 signal 列——字节级路径不变
         sig = run_process_chain(sig, spec.process, ctx=rd)

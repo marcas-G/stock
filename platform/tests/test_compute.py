@@ -237,3 +237,43 @@ def test_gp_key_with_values_ok():
     # 组内排名：银行组 a=1,b=2；白酒组 c=1,d=2（每日各两组独立）
     day0 = out.filter(pl.col("date") == "2024-01-01").sort("code")["signal"].to_list()
     assert day0 == [1.0, 2.0, 1.0, 2.0]
+
+
+# ---------- R05-I1：非标量（Struct/多列）返回算子静态拒绝 ----------
+
+
+def test_compute_rejects_struct_return_op_with_guidance():
+    """BBANDS→Struct 不得过 compute（旧行为：带 process 链时在 Struct 上 clip 天书）。"""
+    with pytest.raises(FactorDSLError) as exc:
+        compute_formula(_guard_panel(), "signal = BBANDS(close, 20)", outputs=["signal"])
+    msg = str(exc.value)
+    assert "BBANDS" in msg
+    assert "Struct" in msg
+    assert "process" in msg
+    assert "Plan 2" in msg
+
+
+def test_compute_rejects_multi_return_op_with_guidance():
+    with pytest.raises(FactorDSLError) as exc:
+        compute_formula(_guard_panel(),
+                        "signal = ts_regression_slope(close, close, 20)",
+                        outputs=["signal"])
+    msg = str(exc.value)
+    assert "ts_regression_slope" in msg and "multi" in msg
+
+
+def test_compute_scalar_library_op_still_computes():
+    """正控：标量库函数放行（守门不得误伤开放面）。"""
+    out = compute_formula(_guard_panel(), "signal = ts_arg_max(close, 2)",
+                          outputs=["signal"])
+    assert out["signal"].null_count() < out.height
+
+
+def test_process_numeric_guard_rejects_struct_column():
+    """process 链前置运行期 dtype 门（插件等未静态标注的 Struct 输出兜底）。"""
+    from factorlab.core.engine.compute import assert_process_inputs_numeric
+    df = pl.DataFrame({"signal": [{"a": 1.0}], "close": [1.0]})
+    with pytest.raises(FactorDSLError, match="process"):
+        assert_process_inputs_numeric(df, ["signal"])
+    ok = pl.DataFrame({"signal": [1.0]})
+    assert_process_inputs_numeric(ok, ["signal"])

@@ -171,3 +171,75 @@ def test_denied_method_guidance_text():
     msg = method_denied_guidance("rank")
     assert msg is not None and "by=" in msg
     assert method_denied_guidance("rolling_mean") is None
+
+
+# ==================== R05-I1a: 返回形态（returns）标注 ====================
+
+import importlib.util  # noqa: E402
+
+import polars as pl  # noqa: E402
+
+
+def test_opmeta_returns_default_scalar():
+    assert OpMeta("ts_mean", "ts", "arg:1", (), "builtin", "ts_mean").returns == "scalar"
+
+
+def test_opmeta_returns_accepts_struct_and_multi():
+    assert OpMeta("b", "ts", "arg:1", (), "polars_ta", "b", "struct").returns == "struct"
+    assert OpMeta("m", "ts", "arg:1", (), "polars_ta", "m", "multi").returns == "multi"
+
+
+def test_opmeta_returns_rejects_unknown_shape():
+    with pytest.raises(ValueError, match="returns"):
+        OpMeta("x", "el", None, (), "builtin", "x", "matrix")
+
+
+def test_ta_catalog_return_shapes_annotated():
+    """已知 struct/multi 返回的库函数必须在生成表标注（R05-I1）。"""
+    from factorlab.core.ops._generated_ta_ops import build_ta_catalog
+    c = Catalog()
+    build_ta_catalog(c)
+    # Struct 返回（polars 单列 Struct dtype；字段名见 catalog）
+    for name in ("BBANDS", "ts_AROON", "ts_KDJ", "ts_MACD", "ts_STOCHF",
+                 "ts_WINNER_COST", "ts_sum_split_by", "ts_up_stat"):
+        assert c.get(name).returns == "struct", name
+    # 多列返回
+    for name in ("ts_regression_intercept", "ts_regression_slope"):
+        assert c.get(name).returns == "multi", name
+    # 普通标量算子不得误标
+    assert c.get("ts_mean").returns == "scalar"
+    assert c.get("ts_corr").returns == "scalar"
+    assert c.get("cs_rank").returns == "scalar"
+
+
+def test_ta_catalog_records_probe_fallbacks():
+    """探测失败（异常/超时）→ 保持 scalar 并记录，不得静默。"""
+    from factorlab.core.ops._generated_ta_ops import PROBE_FALLBACKS, build_ta_catalog
+    c = Catalog()
+    build_ta_catalog(c)
+    assert c.get("FROMOPEN_1").returns == "scalar"
+    assert "FROMOPEN_1" in PROBE_FALLBACKS
+    assert PROBE_FALLBACKS["FROMOPEN_1"]
+
+
+def _load_gen_module():
+    path = ROOT / "scripts/gen_op_catalog.py"
+    spec = importlib.util.spec_from_file_location("gen_op_catalog_r05_test", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_generator_probe_detects_scalar_struct_and_multi():
+    from polars_ta.prefix.ta import BBANDS
+    mod = _load_gen_module()
+    assert mod._probe_returns(pl.col("close")) == ("scalar", None)
+    assert mod._probe_returns(BBANDS(pl.col("close"), 5)) == ("struct", None)
+    assert mod._probe_returns(pl.all()) == ("multi", None)
+
+
+def test_generator_probe_failure_falls_back_to_scalar_with_reason():
+    mod = _load_gen_module()
+    shape, reason = mod._probe_returns(pl.col("no_such_probe_column"))
+    assert shape == "scalar"
+    assert reason == "ColumnNotFoundError"

@@ -169,6 +169,83 @@ def normalize_calls(source: str, catalog,
     return out, "\n".join(sorted(imports))
 
 
+# ---- R05-I1：非标量返回（Struct/multi）算子的静态拒绝与 process 前 dtype 门 ----
+
+_NON_SCALAR_DESC = {"struct": "Struct 单列结构体", "multi": "多列（multi）"}
+
+
+def non_scalar_return_ops(source: str, catalog) -> list[tuple[str, str]]:
+    """公式调用的已知非标量返回算子 [(规范名, returns)]（分类表驱动；别名解析）。
+
+    returns 来自分类表（gen_op_catalog.py 探测）：struct=Struct dtype、
+    multi=多列返回。未知名/公式 def 名跳过（归未知算子门管）。
+    """
+    tree = ast.parse(source)
+    defined = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                aliases[alias.asname or alias.name] = alias.name
+    out: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Name):
+            name = aliases.get(node.func.id, node.func.id)
+            if name in defined:
+                continue
+        elif isinstance(node.func, ast.Attribute):
+            name = f".{node.func.attr}"
+        else:
+            continue
+        meta = catalog.get(name)
+        if meta is not None and meta.returns != "scalar":
+            out[name] = meta.returns
+    return sorted(out.items())
+
+
+def reject_non_scalar_returns(source: str, catalog=None) -> None:
+    """非标量返回算子静态拒绝（R05-I1；process 链之前 fail fast）。
+
+    旧行为：`BBANDS(close,20)` 过 lint → 落地为 Struct 列；无 process 时 artifact
+    边界报错尚清晰，带 process（winsorize 等）则在 Struct 上报 clip/quantile
+    天书。本门把错误提前到公式静态期并点名算子与机制指引。字段访问机制
+    （Plan 2）落地前，任何已知非标量返回调用都不可作因子输出或进 process。
+    """
+    if catalog is None:
+        from factorlab.core.ops.classification import default_catalog
+        catalog = default_catalog()
+    bad = non_scalar_return_ops(source, catalog)
+    if not bad:
+        return
+    detail = "、".join(f"{name}（{_NON_SCALAR_DESC.get(shape, shape)}）"
+                       for name, shape in bad)
+    raise FactorDSLError(
+        f"算子 {detail} 返回非标量结果，不能直接作为因子输出或进入 process 链"
+        f"（winsorize/clip/quantile 等 processor 只接受标量数值列，否则在"
+        f" Struct/多列上报晦涩错误）。请改用标量算子；多列/Struct 字段访问"
+        f"机制见 Plan 2/catalog（`factorlab op list --catalog`；"
+        f"platform/docs/catalog.md）")
+
+
+def assert_process_inputs_numeric(frame: pl.DataFrame, outputs: list[str]) -> None:
+    """process 链前置运行期 dtype 门（R05-I1 兜底：插件/未标注算子的非标量输出）。
+
+    静态门（reject_non_scalar_returns）覆盖分类表已知条目；本门按**实际结果
+    dtype** 拒绝非 numeric 输出列，保证 process 链永远收不到 Struct/多列。
+    """
+    bad = [(o, frame.schema[o]) for o in outputs
+           if o in frame.schema and not frame.schema[o].is_numeric()]
+    if bad:
+        detail = "、".join(f"{o!r} dtype={dt}" for o, dt in bad)
+        raise FactorDSLError(
+            f"process 链输入非标量：{detail}。多列/Struct 返回（如 BBANDS→Struct）"
+            f"不能直接进 process（winsorize/clip/quantile 只接受标量数值列）；"
+            f"字段访问机制见 Plan 2/catalog（`factorlab op list --catalog`；"
+            f"platform/docs/catalog.md）")
+
+
 def _declared_output_names(formula: str) -> set[str]:
     """公式文本顶层赋值目标（M2：outputs 声明须由公式实际产生——codegen 前 fail fast）。
 
@@ -238,6 +315,9 @@ def compute_formula(
     # R22 核心交付：分类表解析替代注册白名单（未知 → op_meta 指引）；
     # canonical 改名与 import 注入预留通道（canonical != 原名时生效）。
     formula, _normalized_imports = normalize_calls(formula, catalog)
+    # R05-I1：非标量返回（BBANDS→Struct 等）fail fast——必须是 process 链之前
+    # （否则 winsorize 等在 Struct 上报 clip/quantile 天书）
+    reject_non_scalar_returns(formula, catalog)
     if universe_mask is not None:
         # M6-03：CS/GP 算子的数据参数包 if_else(mask, arg, None)——TS 仍见完整
         # listed history，CS 只见当日 active universe。mask 列必须已存在于 df。
@@ -768,6 +848,7 @@ def prepare_static(spec: FactorSpec) -> tuple[str, str | None]:
     formula = rewrite_stable_rank(formula)
     formula = rewrite_polars_ta_aliases(formula)
     formula, _ = normalize_calls(formula, catalog)
+    reject_non_scalar_returns(formula, catalog)   # R05-I1：Struct/多列 → lint 拒绝
     check_causality(formula, catalog)
     outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
     _require_declared_outputs(formula, outputs)
@@ -775,6 +856,7 @@ def prepare_static(spec: FactorSpec) -> tuple[str, str | None]:
         pool = rewrite_stable_rank(pool)
         pool = rewrite_polars_ta_aliases(pool)
         pool, _ = normalize_calls(pool, catalog)
+        reject_non_scalar_returns(pool, catalog)
         check_causality(pool, catalog)
         _require_declared_outputs(pool, ["signal"])
     return formula, pool

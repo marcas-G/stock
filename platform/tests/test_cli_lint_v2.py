@@ -47,10 +47,13 @@ def test_lint_accepts_open_library_op(tmp_path):
     assert "OK" in r.output
 
 
-def test_lint_accepts_uppercase_library_op(tmp_path):
+def test_lint_rejects_struct_return_op(tmp_path):
+    # R05-I1：BBANDS 返回 Struct——直接作输出/进 process 均不支持，lint 即静态拒绝
     p = _spec(tmp_path, "signal = BBANDS(volume, 20)")
     r = runner.invoke(app, ["lint", str(p)])
-    assert r.exit_code == 0, r.output
+    assert r.exit_code != 0, r.output
+    assert "BBANDS" in r.output and "Struct" in r.output
+    assert "process" in r.output
 
 
 def test_lint_rejects_unknown_operator_with_op_meta(tmp_path):
