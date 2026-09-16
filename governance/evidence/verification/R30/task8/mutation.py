@@ -64,7 +64,14 @@ MUTS = {
         "", [T_PARSE]),
     "parse: find_latest_xlsx 取最小（最早）": (
         PARSE, "    return cands[-1]", "    return cands[0]", [T_PARSE]),
-    # —— 灌入（幂等/读校验/DDL 同步/批量）——
+    "parse: 丢弃计数不告警（静默）": (
+        PARSE, "    if dropped:", "    if False:", [T_PARSE]),
+    # —— 灌入（幂等/读校验/DDL 同步/批量/空快照护栏）——
+    "ingest: main 空快照护栏移除（0 行也 TRUNCATE）": (
+        INGEST,
+        '    if df.height == 0:\n'
+        '        raise ValueError("fundamentals: 空快照拒绝灌入（拒绝清空 CH 表）")\n',
+        "", [T_INGEST]),
     "ingest: write 丢 TRUNCATE（重跑翻倍）": (
         INGEST, '    client.command(f"TRUNCATE TABLE {db}.{TABLE}")\n', "",
         [T_INGEST]),

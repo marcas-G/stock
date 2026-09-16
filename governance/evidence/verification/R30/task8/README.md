@@ -9,8 +9,8 @@
   - `platform/tools/ch_ingest/ddl.sql`（`fundamentals` 块，含限制声明注释）
   - `governance/ops/check_dataiface.py`（G-READ 登记 fact 输入读 1 处——同 ingest_daily.DAILY_SRC 理由）
 - 测试：
-  - `platform/tools/pan_update/tests/test_fundamentals_parse.py`（20）
-  - `platform/tools/ch_ingest/tests/test_ingest_fundamentals.py`（7，离线 fake CH）
+  - `platform/tools/pan_update/tests/test_fundamentals_parse.py`（21）
+  - `platform/tools/ch_ingest/tests/test_ingest_fundamentals.py`（9，离线 fake CH）
 - 样本：`platform/tools/pan_update/tests/fixtures/fin_sample.xlsx`（实测
   `2026-09-04更新简化个股基本面数据.xlsx` 表头逐字 + 前 200 数据行；openpyxl 生成）
 
@@ -36,6 +36,7 @@ PIT 历史待多期快照逐周累积，或人工 `*_financial.parquet`（超分
 | `08-tools-suite.txt` | `platform/.venv/bin/python -m pytest platform/tools -q` | **467 passed**（T7 基线 440 + 27） |
 | `09-platform-suite.txt` | `cd platform && .venv/bin/python -m pytest -q` | **3257 passed / 13 skipped**（与 T7 基线一致） |
 | `10-gates.txt` | `make gates` | G-READ/G-TOPO/G-MARK/G-CONTRACT 全绿；**残留 1 项 G-INDEX 因子索引失败属挖矿在途**（见下） |
+| `07-fix-round1.txt` | 修复轮 1：红→绿（2 测试文件）+ 突变复跑 + tools 全量 + 门复跑 | 红 3 failed（空快照护栏/client 注入缺失、丢弃不告警）→ 绿 **30 passed**；突变 **18/18**；tools **470 passed**；G-TOPO/G-READ 全绿 |
 
 ## 行为要点（测试锁死）
 
@@ -49,6 +50,9 @@ PIT 历史待多期快照逐周累积，或人工 `*_financial.parquet`（超分
 - **灌入**：`load_fact` 严格校验列序/类型（漂移 loud fail）；`CREATE TABLE IF NOT EXISTS`
   （与 ddl.sql 块同列同型同序，测试锁）+ `TRUNCATE` + 批量 INSERT，重跑不翻倍；
   主键 `ORDER BY (updated_date, ts_code)`；本任务**不真灌 CH**（T10）。
+- **空快照护栏（修复轮 1）**：`main()` 读入 0 行 fact → `ValueError`，CREATE/TRUNCATE/INSERT
+  调用数为 0（拒绝静默清空 CH 表）；`main(fact=..., client=...)` 支持注入 fake CH 离线验证。
+- **丢弃不静默（修复轮 1）**：`parse_xlsx` 丢弃 `updated_date` 缺失行时发 warning（带行数）。
 
 ## 残留项（非 T8）
 
