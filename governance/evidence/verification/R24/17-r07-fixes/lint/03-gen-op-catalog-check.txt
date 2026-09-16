@@ -1,0 +1,5 @@
+$ python scripts/gen_op_catalog.py && python scripts/gen_op_catalog.py --check
+polars_ta: 381 条（{'el': 135, 'cs': 30, 'ts': 216}；returns={'scalar': 370, 'struct': 8, 'multi': 3}）
+返回形态探测失败（保持 scalar）: {'FROMOPEN_1': 'InvalidOperationError'}
+polars 方法: el=88 ts=39 denied=96
+CHECK exit=0

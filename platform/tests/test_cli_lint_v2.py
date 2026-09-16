@@ -102,3 +102,18 @@ formula: |
     p.write_text(text, encoding="utf-8")
     r = runner.invoke(app, ["lint", str(p)])
     assert r.exit_code == 0, r.output
+
+
+def test_lint_rejects_excess_arity(tmp_path):
+    # R07-LINT-I7：ts_cum_count 只接受 1 个位置参数——lint 期即报错（不再留到运行 TypeError）
+    p = _spec(tmp_path, "signal = ts_cum_count(close, 5)")
+    r = runner.invoke(app, ["lint", str(p)])
+    assert r.exit_code != 0, r.output
+    assert "ts_cum_count" in r.output
+    assert "2" in r.output
+
+
+def test_lint_accepts_valid_arity(tmp_path):
+    p = _spec(tmp_path, "signal = ts_cum_count(close)")
+    r = runner.invoke(app, ["lint", str(p)])
+    assert r.exit_code == 0, r.output

@@ -1,0 +1,95 @@
+.........................FFFFF...................FF..........F.          [100%]
+=================================== FAILURES ===================================
+______________________ test_opmeta_arity_defaults_unknown ______________________
+
+    def test_opmeta_arity_defaults_unknown():
+        meta = OpMeta("ts_mean", "ts", "arg:1", (), "builtin", "ts_mean")
+>       assert meta.min_args is None
+               ^^^^^^^^^^^^^
+E       AttributeError: 'OpMeta' object has no attribute 'min_args'. Did you mean: 'mask_args'?
+
+tests/test_op_classification.py:253: AttributeError
+___________________ test_opmeta_arity_rejects_invalid_range ____________________
+
+    def test_opmeta_arity_rejects_invalid_range():
+        with pytest.raises(ValueError, match="min_args|max_args"):
+>           OpMeta("x", "ts", "arg:1", (), "builtin", "x", "scalar", 3, 1)
+E           TypeError: OpMeta.__init__() takes from 3 to 8 positional arguments but 10 were given
+
+tests/test_op_classification.py:259: TypeError
+_____________________ test_generator_arity_from_signature ______________________
+
+    def test_generator_arity_from_signature():
+        from polars_ta.prefix.wq import ts_cum_count, ts_mean
+    
+        mod = _load_gen_module()
+>       assert mod._arity(ts_cum_count) == (1, 1)
+               ^^^^^^^^^^
+E       AttributeError: module 'gen_op_catalog_r05_test' has no attribute '_arity'
+
+tests/test_op_classification.py:268: AttributeError
+___________________ test_generator_arity_variadic_has_no_max ___________________
+
+    def test_generator_arity_variadic_has_no_max():
+        from polars_ta.prefix.wq import any_horizontal
+    
+        mod = _load_gen_module()
+>       assert mod._arity(any_horizontal) == (0, None)
+               ^^^^^^^^^^
+E       AttributeError: module 'gen_op_catalog_r05_test' has no attribute '_arity'
+
+tests/test_op_classification.py:276: AttributeError
+_______________________ test_ta_catalog_arity_annotated ________________________
+
+    def test_ta_catalog_arity_annotated():
+        """生成表为 polars_ta 函数记录位置参数 arity（R07-LINT-I7）。"""
+        from factorlab.core.ops._generated_ta_ops import build_ta_catalog
+        c = Catalog()
+        build_ta_catalog(c)
+>       assert (c.get("ts_cum_count").min_args, c.get("ts_cum_count").max_args) == (1, 1)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'OpMeta' object has no attribute 'min_args'. Did you mean: 'mask_args'?
+
+tests/test_op_classification.py:284: AttributeError
+__________________ test_arity_rejects_excess_positional_args ___________________
+
+    def test_arity_rejects_excess_positional_args():
+        # ts_cum_count(x)：只接受 1 个位置参数——多传在静态期报错（含函数名/期望/实际）
+>       with pytest.raises(SemanticError) as ei:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE SemanticError
+
+tests/test_semantics.py:141: Failed
+___________________ test_arity_rejects_missing_required_args ___________________
+
+    def test_arity_rejects_missing_required_args():
+>       with pytest.raises(SemanticError, match="ts_mean"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE SemanticError
+
+tests/test_semantics.py:150: Failed
+________________________ test_lint_rejects_excess_arity ________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1710/test_lint_rejects_excess_arity0')
+
+    def test_lint_rejects_excess_arity(tmp_path):
+        # R07-LINT-I7：ts_cum_count 只接受 1 个位置参数——lint 期即报错（不再留到运行 TypeError）
+        p = _spec(tmp_path, "signal = ts_cum_count(close, 5)")
+        r = runner.invoke(app, ["lint", str(p)])
+>       assert r.exit_code != 0, r.output
+E       AssertionError: OK lint_v2_demo
+E         
+E       assert 0 != 0
+E        +  where 0 = <Result okay>.exit_code
+
+tests/test_cli_lint_v2.py:111: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_op_classification.py::test_opmeta_arity_defaults_unknown - ...
+FAILED tests/test_op_classification.py::test_opmeta_arity_rejects_invalid_range
+FAILED tests/test_op_classification.py::test_generator_arity_from_signature
+FAILED tests/test_op_classification.py::test_generator_arity_variadic_has_no_max
+FAILED tests/test_op_classification.py::test_ta_catalog_arity_annotated - Att...
+FAILED tests/test_semantics.py::test_arity_rejects_excess_positional_args - F...
+FAILED tests/test_semantics.py::test_arity_rejects_missing_required_args - Fa...
+FAILED tests/test_cli_lint_v2.py::test_lint_rejects_excess_arity - AssertionE...
+8 failed, 55 passed in 3.63s

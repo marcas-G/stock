@@ -1,0 +1,4 @@
+$ make lint-factors（仓库根）
+platform/.venv/bin/factorlab lint --all
+factor lint: 173 通过 / 0 失败
+exit=0

@@ -131,3 +131,34 @@ def test_float_window_lookback_ignored_and_negative_forward():
     # 旧 _ts_window_days 只认 int 窗口（2.5 → 0）；负 float 仍进未来门
     assert info("signal = ts_mean(close, 2.5)").lookback == 0
     assert info("signal = ts_delay(close, -1.0)").forward == 1
+
+
+# ==================== R07-LINT-I7: 库函数 arity 静态校验 ====================
+
+
+def test_arity_rejects_excess_positional_args():
+    # ts_cum_count(x)：只接受 1 个位置参数——多传在静态期报错（含函数名/期望/实际）
+    with pytest.raises(SemanticError) as ei:
+        infer("signal = ts_cum_count(close, 5)", CAT)
+    msg = str(ei.value)
+    assert "ts_cum_count" in msg
+    assert "1" in msg and "2" in msg
+    assert ei.value.line == 1
+
+
+def test_arity_rejects_missing_required_args():
+    with pytest.raises(SemanticError, match="ts_mean"):
+        infer("signal = ts_mean()", CAT)
+
+
+def test_arity_accepts_signature_range():
+    assert info("signal = ts_cum_count(close)").level == "ts"
+    assert info("signal = ts_mean(close, 20)").lookback == 20
+    assert info("signal = ts_corr(close, volume, 10)").lookback == 10
+    # keyword 形式窗口（总参数计数覆盖）不误杀
+    assert info("signal = ts_delay(close, d=-1)").forward == 1
+
+
+def test_arity_unknown_metadata_passes():
+    # 平台注册面无 arity 元数据 → 保持放行（不误杀已知算子面）
+    assert info("signal = cs_rank(close)").level == "cs"

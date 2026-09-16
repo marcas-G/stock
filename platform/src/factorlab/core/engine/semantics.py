@@ -208,6 +208,7 @@ class _Inferrer:
                 return self._combine(children)
             meta = self.catalog.get(name)
             if meta is not None:
+                self._check_arity(meta, node)
                 return self._apply_meta(meta, node, children)
             if name in _ELEMENTWISE:
                 return self._combine(children)
@@ -223,6 +224,7 @@ class _Inferrer:
             attr = node.func.attr
             meta = self.catalog.get(f".{attr}")
             if meta is not None:
+                self._check_arity(meta, node)
                 return self._apply_meta(meta, node, children)
             if not self.strict_unknown:
                 return self._combine(children)
@@ -237,6 +239,27 @@ class _Inferrer:
                 node.lineno, node.col_offset)
 
         return self._combine(children)
+
+    def _check_arity(self, meta: OpMeta, node: ast.Call) -> None:
+        """静态 arity 门（R07-LINT-I7）：已知位置参数上下限的算子直接校验。
+
+        - 上限只看位置参数：`f(a, b=c)` 语法下位置参数超出签名上限必然 TypeError；
+        - 下限看位置 + keyword 总数（keyword 可填空缺，避免误杀 `ts_delay(x, d=5)`）；
+        - `**kwargs` 展开静态不可知 → 放行；`min_args/max_args` 为 None（未探测/可变）
+          → 放行（不误杀插件/注册面/平台算子）。
+        """
+        if any(kw.arg is None for kw in node.keywords):
+            return
+        n_pos = len(node.args)
+        n_total = n_pos + len(node.keywords)
+        if meta.min_args is not None and n_total < meta.min_args:
+            raise SemanticError(
+                f"算子 {meta.name} 参数过少：需要至少 {meta.min_args} 个参数，"
+                f"收到 {n_total} 个", node.lineno, node.col_offset)
+        if meta.max_args is not None and n_pos > meta.max_args:
+            raise SemanticError(
+                f"算子 {meta.name} 参数过多：最多接受 {meta.max_args} 个位置参数，"
+                f"收到 {n_pos} 个", node.lineno, node.col_offset)
 
     def _apply_meta(self, meta: OpMeta, node: ast.Call,
                     children: list[NodeInfo]) -> NodeInfo:

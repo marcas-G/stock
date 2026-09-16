@@ -16,6 +16,10 @@
 - ``"struct"``  单列 Struct dtype（如 BBANDS→upperband/middleband/lowerband）；
 - ``"multi"``   多列返回（如 ts_regression_* 四列）。
 
+`min_args` / `max_args` 语义（OpMeta，R07-LINT-I7；默认 None=未知 → 静态放行）：
+- ``min_args``  必需位置参数数；``max_args`` 位置参数上限（``*args`` → None）；
+- keyword-only 参数不计入（语法上不可按位置传，保守方向 = 不误杀）。
+
 生成表由 gen_op_catalog.py 用 3 行合成 frame 探测（lazy schema 解析，不执行
 数据面）；探测失败保持 ``"scalar"`` 并在生成表 ``PROBE_FALLBACKS`` 记录。
 非标量返回**不得直接作因子输出或进 process 链**（静态门拒绝，字段访问机制
@@ -42,6 +46,8 @@ class OpMeta:
     source: str = "builtin"
     canonical: str = ""                # 生成代码里的规范名（空=同名）
     returns: ReturnsShape = "scalar"   # scalar | struct | multi（R05-I1）
+    min_args: int | None = None        # 必需位置参数数；None=未知（静态放行）（R07-LINT-I7）
+    max_args: int | None = None        # 位置参数上限；None=未知/可变参数（静态放行）
 
     def __post_init__(self):
         if not self.canonical:
@@ -50,6 +56,17 @@ class OpMeta:
             raise ValueError(
                 f"OpMeta.returns 非法: {self.returns!r}"
                 f"（允许 {_RETURN_SHAPES}）")
+        for field in ("min_args", "max_args"):
+            value = getattr(self, field)
+            if value is not None and (isinstance(value, bool)
+                                      or not isinstance(value, int) or value < 0):
+                raise ValueError(
+                    f"OpMeta.{field} 必须为 None 或 >=0 的 int（收到 {value!r}）")
+        if self.min_args is not None and self.max_args is not None \
+                and self.min_args > self.max_args:
+            raise ValueError(
+                f"OpMeta.min_args({self.min_args}) 不得大于 "
+                f"max_args({self.max_args})")
 
 
 class Catalog:

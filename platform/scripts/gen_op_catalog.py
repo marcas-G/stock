@@ -26,6 +26,8 @@
 3. 同名函数跨模块去重：优先序同 expr_codegen 的 star import 先后（wq > ta > tdx）。
 4. MANUAL_OVERRIDES：source 核验过的全历史累计/递归（unbounded）、固定窗口与
    CS 多数据参数掩码（cs_resid 等），逐条注明理由。
+5. arity（R07-LINT-I7）：位置参数必需数/上限写入生成表（`*args` → 上限 None=
+   可变）；keyword-only 参数不计入、签名不可得 → 不设限——lint 静态门放行不误杀。
 """
 
 from __future__ import annotations
@@ -155,6 +157,30 @@ def _window_arg(fn) -> str | None:
     return None
 
 
+def _arity(fn) -> tuple[int | None, int | None]:
+    """位置参数 arity：(必需位置参数数, 位置参数上限|null=可变或不详)。
+
+    - 位置参数（POSITIONAL_ONLY/POSITIONAL_OR_KEYWORD）计上限；带默认值不计必填；
+    - ``*args`` → 上限 None（可变参数无上限）；
+    - keyword-only 参数不计入（语法上不可按位置传；保守方向 = 不误杀）；
+    - 签名不可得 → (None, None)（调用侧保持放行）。
+    """
+    sig = _signature(fn)
+    if sig is None:
+        return None, None
+    required = 0
+    maximum = 0
+    variadic = False
+    for p in sig.parameters.values():
+        if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD):
+            maximum += 1
+            if p.default is inspect.Parameter.empty:
+                required += 1
+        elif p.kind is p.VAR_POSITIONAL:
+            variadic = True
+    return required, (None if variadic else maximum)
+
+
 def _smoke_expr(fn):
     """按签名生成参数模板调用一次；返回 Expr/Series，不可用 → None（Spike 1 方法）。
 
@@ -272,6 +298,9 @@ def classify(name: str, fn, expr=None) -> dict | None:
         meta = {"partition": "ts", "window": _window_arg(fn), "mask_args": ()}
     else:
         meta = {"partition": "el", "window": None, "mask_args": ()}
+    min_args, max_args = _arity(fn)
+    meta["min_args"] = min_args
+    meta["max_args"] = max_args
     meta["returns"] = returns
     return meta
 
@@ -293,8 +322,9 @@ FOOTER = '''}
 
 
 def build_ta_catalog(catalog: Catalog) -> None:
-    for name, part, win, mask, src, canon, returns in ROWS:
-        catalog.add(OpMeta(name, part, win, tuple(mask), src, canon, returns),
+    for name, part, win, mask, min_args, max_args, src, canon, returns in ROWS:
+        catalog.add(OpMeta(name, part, win, tuple(mask), src, canon, returns,
+                           min_args, max_args),
                     replace=True)
 '''
 
@@ -319,6 +349,7 @@ def collect_rows() -> list[dict]:
 def render(rows: list[dict]) -> str:
     body = "".join(
         f"    ({r['name']!r}, {r['partition']!r}, {r['window']!r}, {r['mask_args']!r}, "
+        f"{r['min_args']!r}, {r['max_args']!r}, "
         f"{r['source']!r}, {r['name']!r}, {r['returns']!r}),\n"
         for r in sorted(rows, key=lambda r: r["name"]))
     fallbacks = "".join(f"    {k!r}: {v!r},\n"

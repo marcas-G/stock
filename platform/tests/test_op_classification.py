@@ -243,3 +243,49 @@ def test_generator_probe_failure_falls_back_to_scalar_with_reason():
     shape, reason = mod._probe_returns(pl.col("no_such_probe_column"))
     assert shape == "scalar"
     assert reason == "ColumnNotFoundError"
+
+
+# ==================== R07-LINT-I7: 库函数 arity 元数据 ====================
+
+
+def test_opmeta_arity_defaults_unknown():
+    meta = OpMeta("ts_mean", "ts", "arg:1", (), "builtin", "ts_mean")
+    assert meta.min_args is None
+    assert meta.max_args is None
+
+
+def test_opmeta_arity_rejects_invalid_range():
+    with pytest.raises(ValueError, match="min_args|max_args"):
+        OpMeta("x", "ts", "arg:1", (), "builtin", "x", "scalar", 3, 1)
+    with pytest.raises(ValueError, match="min_args|max_args"):
+        OpMeta("y", "ts", "arg:1", (), "builtin", "y", "scalar", -1, None)
+
+
+def test_generator_arity_from_signature():
+    from polars_ta.prefix.wq import ts_cum_count, ts_mean
+
+    mod = _load_gen_module()
+    assert mod._arity(ts_cum_count) == (1, 1)
+    assert mod._arity(ts_mean) == (1, 3)
+
+
+def test_generator_arity_variadic_has_no_max():
+    from polars_ta.prefix.wq import any_horizontal
+
+    mod = _load_gen_module()
+    assert mod._arity(any_horizontal) == (0, None)
+
+
+def test_ta_catalog_arity_annotated():
+    """生成表为 polars_ta 函数记录位置参数 arity（R07-LINT-I7）。"""
+    from factorlab.core.ops._generated_ta_ops import build_ta_catalog
+    c = Catalog()
+    build_ta_catalog(c)
+    assert (c.get("ts_cum_count").min_args, c.get("ts_cum_count").max_args) == (1, 1)
+    assert (c.get("ts_mean").min_args, c.get("ts_mean").max_args) == (1, 3)
+    assert (c.get("ts_corr").min_args, c.get("ts_corr").max_args) == (2, 5)
+    # 可变参数签名 → max_args=None（无上限计数）
+    assert c.get("add").min_args == 2
+    assert c.get("add").max_args is None
+    # struct 返回函数同样记录 arity（拒绝归 returns 门；arity 不应误杀合法调用）
+    assert c.get("BBANDS").max_args == 5

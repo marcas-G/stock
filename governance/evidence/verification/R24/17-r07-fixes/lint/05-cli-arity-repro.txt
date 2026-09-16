@@ -1,0 +1,12 @@
+# R07-LINT-I7 手工复核：lint 与运行签名一致性（真 CLI）
+
+$ factorlab lint /tmp/opencode/r07-arity/bad.yaml（ts_cum_count 只收 1 个位置参数）
+1:9: 算子 ts_cum_count 参数过多：最多接受 1 个位置参数，收到 2 个
+exit=1
+
+$ 对照：同调用在运行期（ts_cum_count(close,5)）Python TypeError
+TypeError: ts_cum_count() takes 1 positional argument but 2 were given
+
+$ factorlab lint /tmp/opencode/r07-arity/ok.yaml（合法 arity：ts_cum_count(close) + ts_mean(close,20)）
+OK arity_demo_ok
+exit=0
