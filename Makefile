@@ -9,7 +9,7 @@ help:
 	@echo "make test-platform   平台全量测试（约 7 分钟；基线 2570 passed / 13 skipped（R18 后））"
 	@echo "make test-research   研究侧 T2（emb）+ T1（平台 venv）"
 	@echo "make gates           全套常驻门（结构/契约/标记/旧路径/索引/文档路径）"
-	@echo "make lint-factors    全库因子 spec lint（152/152）"
+	@echo "make lint-factors    全库因子 spec lint（单进程批跑；任一失败非零退出）"
 	@echo "make index           重生成 docs/index/factors.md"
 	@echo "make reconcile       CH 灌入对账（唯一对账入口；依赖 ClickHouse 在线）"
 
@@ -28,9 +28,7 @@ gates:
 	bash scripts/gates.sh
 
 lint-factors:
-	@ok=0; bad=0; for f in research/factor/*/*.yaml; do \
-	  if platform/.venv/bin/factorlab lint "$$f" >/dev/null 2>&1; then ok=$$((ok+1)); else bad=$$((bad+1)); echo "  lint 失败: $$f"; fi; done; \
-	  echo "  factor lint: $$ok 通过 / $$bad 失败"
+	platform/.venv/bin/factorlab lint --all
 
 index:
 	python3 research/tools/factor_lib/build_index.py

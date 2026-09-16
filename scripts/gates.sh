@@ -65,6 +65,15 @@ structure() {
   echo "[G-INDEX] 因子索引与生成器一致"
   if out=$("$PLATFORM/.venv/bin/python" research/tools/factor_lib/build_index.py --check 2>&1); then ok "$out"; else bad "索引不一致：$out"; fi
 
+  echo "[G-ANNOTATE] 因子档案 snapshot 标注齐备（R21 约定）"
+  # 脚本原位在 R21/EVID（证据即工具）；只做只读 --check，不写档案。
+  if out=$(python3 docs/verification/R21/EVID/annotate_factor_archives.py --check 2>&1); then ok "$out"; else bad "$out"; fi
+
+  echo "[G-LINT] 全库因子 spec lint（单进程批跑；挖矿在途 spec 一并计入）"
+  # 失败行含具体 spec 路径——在途红与代码级红按文件区分，不误报为门故障。
+  if out=$("$PLATFORM/.venv/bin/factorlab" lint --all 2>&1); then ok "$(echo "$out" | tail -1)"; else
+    bad "lint 有失败（在途/存量按下列文件区分）"; echo "$out" | sed 's/^/      /'; fi
+
   echo "[G-VENV] 平台 editable 落位断言"
   resolved=$("$PLATFORM/.venv/bin/python" -c "import factorlab;print(factorlab.__file__)" 2>/dev/null || echo "")
   case "$resolved" in
