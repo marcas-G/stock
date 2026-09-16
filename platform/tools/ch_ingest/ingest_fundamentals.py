@@ -84,13 +84,16 @@ def write(client, db: str, df: pl.DataFrame, *, batch_size: int = BATCH) -> int:
     return total
 
 
-def main(fact: Path | None = None) -> int:
+def main(fact: Path | None = None, *, client=None) -> int:
     path = Path(fact) if fact is not None else DEFAULT_FACT
     df = load_fact(path)
+    if df.height == 0:
+        raise ValueError("fundamentals: 空快照拒绝灌入（拒绝清空 CH 表）")
     days = df["updated_date"].n_unique() if df.height else 0
     print(f"  fundamentals 源：{df.height:,} rows / {days} updated_date / fact={path}",
           flush=True)
-    rows = write(connect(), load_config()["ch"]["database"], df)
+    rows = write(client if client is not None else connect(),
+                 load_config()["ch"]["database"], df)
     print(f"  {TABLE}: 灌入 {rows:,} rows", flush=True)
     return rows
 

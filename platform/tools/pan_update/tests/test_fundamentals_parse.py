@@ -6,6 +6,7 @@
       表头逐字 + 前 200 数据行；openpyxl 生成，保持源单元格类型）。
 """
 import datetime
+import logging
 from pathlib import Path
 
 import openpyxl
@@ -162,6 +163,23 @@ def test_blank_row_skipped(tmp_path):
     p = tmp_path / "x.xlsx"
     _write_xlsx(p, SYN_HDR, [_row(), [None] * len(SYN_HDR)])
     assert fp.parse_xlsx(p).height == 1
+
+
+def test_parse_xlsx_logs_dropped_rows(tmp_path, caplog):
+    """修复轮 1：丢弃 updated_date 缺失行不得静默——warning 带丢弃数；无丢弃不告警。"""
+    p = tmp_path / "x.xlsx"
+    _write_xlsx(p, SYN_HDR, [
+        _row(code="000001", 更新日期="20260815", 市场="sz"),
+        _row(code="301686", 更新日期=None),
+    ])
+    with caplog.at_level(logging.WARNING, logger="pan_update.parse_fundamentals_xlsx"):
+        assert fp.parse_xlsx(p).height == 1
+    assert any("丢弃" in r.getMessage() and "1" in r.getMessage()
+               for r in caplog.records)
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="pan_update.parse_fundamentals_xlsx"):
+        fp.parse_xlsx(FIXTURE)
+    assert not caplog.records
 
 
 def test_header_only_keeps_schema(tmp_path):

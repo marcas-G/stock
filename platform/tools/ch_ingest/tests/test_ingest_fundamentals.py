@@ -138,6 +138,31 @@ def test_write_batches_rows(tmp_path):
 
 
 # ---------------------------------------------------------------
+# 空快照护栏（修复轮 1）：0 行 fact 不得 TRUNCATE/INSERT（拒绝清空 CH 表）
+# ---------------------------------------------------------------
+
+def test_main_rejects_empty_fact_without_touching_ch(tmp_path):
+    p = tmp_path / "fundamentals_snapshot.parquet"
+    _df(0).write_parquet(p)
+    fake = _FakeCH()
+    with pytest.raises(ValueError, match="空快照拒绝灌入"):
+        IF.main(fact=p, client=fake)
+    assert fake.commands == []          # 未 CREATE / 未 TRUNCATE
+    assert fake.insert_calls == []      # 未 INSERT
+
+
+def test_main_writes_nonempty_fact_via_client(tmp_path):
+    p = tmp_path / "fundamentals_snapshot.parquet"
+    _df(3).write_parquet(p)
+    fake = _FakeCH()
+    rows = IF.main(fact=p, client=fake)
+    assert rows == 3
+    assert len(fake.rows["factorlab.fundamentals"]) == 3
+    assert [r["ts_code"] for r in fake.rows["factorlab.fundamentals"]] == \
+        ["000000.SZ", "000001.SZ", "000002.SZ"]
+
+
+# ---------------------------------------------------------------
 # DDL 同步（裁决 R3：ddl.sql 与脚本内 CREATE IF NOT EXISTS 同列同型）
 # ---------------------------------------------------------------
 

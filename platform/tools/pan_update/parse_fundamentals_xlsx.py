@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import logging
 import os
 import sys
 from pathlib import Path
@@ -46,6 +47,8 @@ DEFAULT_FACT = config.repo_root() / "data" / "fact" / "fundamentals" / \
     "fundamentals_snapshot.parquet"
 
 _BLANK = {"", "None", "-", "—"}
+
+_log = logging.getLogger(__name__)
 
 
 def _blank(v) -> bool:
@@ -131,8 +134,14 @@ def parse_rows(path: Path) -> tuple[list[dict], int]:
 
 
 def parse_xlsx(path: Path) -> pl.DataFrame:
-    """xlsx → 快照帧（30 列，schema=`lib.fundamentals.OUT_SCHEMA`；空表保留 schema）。"""
-    rows, _ = parse_rows(path)
+    """xlsx → 快照帧（30 列，schema=`lib.fundamentals.OUT_SCHEMA`；空表保留 schema）。
+
+    `updated_date` 缺失行被丢弃时发 warning（带行数），不静默。
+    """
+    rows, dropped = parse_rows(path)
+    if dropped:
+        _log.warning("%s：丢弃 updated_date 缺失行 %d（非快照行）",
+                     Path(path).name, dropped)
     return pl.DataFrame(rows, schema=FU.OUT_SCHEMA)
 
 
