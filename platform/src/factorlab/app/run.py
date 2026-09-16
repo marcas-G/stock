@@ -9,6 +9,7 @@ core 只保留纯计算（compute_formula / 分区/前向收益/分钟折日纯�
 from __future__ import annotations
 
 import datetime
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,7 @@ from factorlab.adapters.parquet_artifacts import (write_factor_artifacts,
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.app.context import RunContext
+from factorlab.config import settings
 from factorlab.core.engine.compute import (_WARMUP_SAFETY_PAD, _build_legacy_panel, _canonicalize_artifact_codes, _chunk_keep, _formula_columns, _pool_cond_frame, _ts_window_days, compute_formula, FactorResult, fill_suspension_values, label_lookahead_end, prepare_formula_pipeline, reject_cumulative_chunking)
 from factorlab.core.engine.forward import (DEFAULT_FORWARD_HORIZONS,
                                            compute_forward_returns)
@@ -621,6 +623,63 @@ def _build_daily_injections(rd, codes: list[str], date_start: str, date_end: str
               "adv20_amt", "adv20_vol"])
 
 
+_MINUTE_UNCOVERED_MODES = ("fail", "drop")
+
+
+class MinuteUncoveredWarning(UserWarning):
+    """R03-I6：FACTORLAB_MINUTE_UNCOVERED=drop 显式剔除「日线在而分钟整日缺」
+    (code, date) 时的响亮告警（分钟源幸存者偏差——剔除已进 summary 审计）。"""
+
+
+def minute_uncovered_mode(settings=settings) -> str:
+    """R03-I6 分钟覆盖口径开关：FACTORLAB_MINUTE_UNCOVERED=fail|drop（默认 fail）。
+
+    fail = 整日缺 → ValueError fail fast（默认，逐值不变）；drop = 该 (code, date)
+    从分钟宇宙显式剔除 + MinuteUncoveredWarning + summary.minute_uncovered 审计。
+    未知值 → ValueError（不静默取默认）——run 入口在打开 DB 前校验。
+    """
+    mode = str(getattr(settings, "minute_uncovered", "fail")).strip().lower()
+    if mode not in _MINUTE_UNCOVERED_MODES:
+        raise ValueError(
+            f"FACTORLAB_MINUTE_UNCOVERED 必须是 fail|drop（收到 {mode!r}）——"
+            f"fail=整日缺 fail fast（默认），drop=显式剔除并审计")
+    return mode
+
+
+def _minute_uncovered_summary(mode: str, uncovered: pl.DataFrame | None) -> dict:
+    """R03-I6 审计字段：mode 恒写；drop 有缺口时附剔除事实（统计 + 前 5 样本）。
+    无缺口 → 计数 0/None/[]（fail/drop 口径事实都不静默丢失）。"""
+    if uncovered is None or uncovered.height == 0:
+        return {"mode": mode, "dropped_code_days": 0, "dropped_codes": 0,
+                "dropped_dates": 0, "date_min": None, "date_max": None,
+                "sample": []}
+    sample = (uncovered.sort(["date", "code"]).head(5)
+              .select(["date", "code"])
+              .with_columns(pl.col("date").cast(pl.String)).to_dicts())
+    return {
+        "mode": mode,
+        "dropped_code_days": uncovered.height,
+        "dropped_codes": uncovered["code"].n_unique(),
+        "dropped_dates": uncovered["date"].n_unique(),
+        "date_min": str(uncovered["date"].min()),
+        "date_max": str(uncovered["date"].max()),
+        "sample": sample,
+    }
+
+
+def _warn_minute_uncovered(uncovered: pl.DataFrame) -> None:
+    """drop 剔除的响亮告警（数量/口径/审计指路——不得静默）。"""
+    warnings.warn(
+        f"分钟覆盖缺口（R03-I6）：{uncovered.height} 个 (code, date) 日线在而 "
+        f"bars_1m 整日缺（{uncovered['code'].n_unique()} 只 code × "
+        f"{uncovered['date'].n_unique()} 个交易日；"
+        f"{str(uncovered['date'].min())}..{str(uncovered['date'].max())}），"
+        f"FACTORLAB_MINUTE_UNCOVERED=drop 已显式从分钟宇宙剔除该日——"
+        f"分钟源存在幸存者偏差，结果口径不可与完整覆盖混比；"
+        f"审计见 summary.minute_uncovered / docs/interface.md 分钟覆盖口径。",
+        MinuteUncoveredWarning, stacklevel=2)
+
+
 def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
     """bars_1m 分钟链装配（假库/真 CH 同一路径）。门链全部在打开 DB 前完成：
     interface/raw 强制/池公式 v1 排除/process v1 排除/duckdb 腿拒绝/闭区间要求；
@@ -651,11 +710,13 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
     if ctx.data_backend == "duckdb":
         raise ValueError("bars_1m 分钟面仅 ClickHouse 后端提供（duckdb 平台文件"
                          "无 intraday 表）")
+    uncovered_mode = minute_uncovered_mode()   # R03-I6：未知开关值 DB 前 fail
     if not spec.date.start or not spec.date.end:
         raise ValueError("bars_1m v1 引擎要求 spec.date.start/end 显式闭区间"
                          "（分钟批读防全表扫描；规格修订 R5）")
     formula, _pool = prepare_formula_pipeline(spec)   # 展开链（DB 前；池已门拒）
     outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
+    minute_uncovered = _minute_uncovered_summary(uncovered_mode, None)
     signal_artifact: SignalArtifact | None = None
     signal_frames: dict[str, pl.DataFrame] | None = None
     try:
@@ -691,6 +752,7 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
                       in chunk_calendar(cal, ctx.chunk_days, 0)]
         bar_cols = _bars_needed_cols(formula)
         parts = []
+        uncovered_parts: list[pl.DataFrame] = []   # R03-I6 drop 剔除累计
         for cs, ce in chunks:
             inj = _build_daily_injections(rd, codes, warm_start.isoformat(),
                                           ce.isoformat(), float32=ctx.float32)
@@ -710,10 +772,17 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
                 bars.select(["date", "code"]).unique(),
                 on=["date", "code"], how="anti")
             if missing_day.height:
-                raise ValueError(
-                    f"bars_1m 整日缺失：{missing_day.height} 个 (code, date) 日线"
-                    f"在而分钟无行（数据不一致，fail fast）——样本 "
-                    f"{missing_day.head(3).to_dicts()}")
+                if uncovered_mode == "drop":
+                    # R03-I6：显式剔除该 (code, date)（该日不参与分钟宇宙），
+                    # 汇总到整段后响亮告警 + summary 审计——不静默
+                    uncovered_parts.append(missing_day)
+                    expected = expected.join(missing_day, on=["date", "code"],
+                                             how="anti")
+                else:
+                    raise ValueError(
+                        f"bars_1m 整日缺失：{missing_day.height} 个 (code, date) 日线"
+                        f"在而分钟无行（数据不一致，fail fast）——样本 "
+                        f"{missing_day.head(3).to_dicts()}")
             bars = bars.join(expected, on=["date", "code"], how="inner")
             parts.append(compute_minute_factor_panel(bars, formula,
                                                      outputs=outputs, daily=inj))
@@ -732,6 +801,13 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
         signal_df = _canonicalize_artifact_codes(signal_df, canonical_map)
         labels_full = _canonicalize_artifact_codes(labels_full, canonical_map)
         codes = canonical_map["code"].to_list()
+        # R03-I6：drop 剔除集 canonical 化后统一告警 + 审计（无缺口时保持 0 值）
+        uncovered = (pl.concat(uncovered_parts).select(["date", "code"]).unique()
+                     if uncovered_parts else None)
+        if uncovered is not None:
+            uncovered = _canonicalize_artifact_codes(uncovered, canonical_map)
+            _warn_minute_uncovered(uncovered)
+        minute_uncovered = _minute_uncovered_summary(uncovered_mode, uncovered)
         labels_df = signal_df.select(["date", "code"]).join(labels_full,
                                                             on=["date", "code"],
                                                             how="left")
@@ -758,6 +834,7 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
             "category": spec.category,
             "direction": spec.direction,
             "st_degrade": st_degrade,   # R03-I1：ST 显式降级事实（审计）
+            "minute_uncovered": minute_uncovered,   # R03-I6：分钟覆盖口径审计
             "universe_count": len(codes),
             "candidate_count": len(codes),
             "codes": codes,
@@ -787,6 +864,7 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
         "category": spec.category,
         "direction": spec.direction,
         "st_degrade": st_degrade,   # R03-I1：ST 显式降级事实（审计）
+        "minute_uncovered": minute_uncovered,   # R03-I6：分钟覆盖口径审计
         "universe_count": len(codes),
         "candidate_count": len(codes),
         "codes": codes,

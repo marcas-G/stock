@@ -25,7 +25,10 @@
 - R4：spec.process v1 NotImplemented（折日面板 processor 接线留后续）。
 - R5：spec.date 要求显式闭区间（分钟批读防全表扫描）。
 - 停牌语义：daily/bars/adj 全缺的整日 → 分钟链无该 (code, date) 行；日线在而
-  分钟整日缺 → fail fast（数据不一致）；网格 240 行内缺行/重复 → fail fast。
+  分钟整日缺 → 默认 fail fast（数据不一致）；网格 240 行内缺行/重复 → fail
+  fast。R03-I6：分钟源幸存者偏差的显式口径在装配层（app/run.py）——
+  FACTORLAB_MINUTE_UNCOVERED=drop 时该 (code, date) 从分钟宇宙剔除 + 告警 +
+  summary.minute_uncovered 审计（默认 fail 逐值不变；本模块纯计算不读 settings）。
 """
 from __future__ import annotations
 

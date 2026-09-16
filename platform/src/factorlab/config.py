@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # "fail"（默认）= ValueError fail fast（ST unknown 绝不当 non-ST）；
     # "allow" = 显式降级为无 ST 口径并响亮告警（is_st=null、in_universe 不做 ST 过滤）
     st_degrade: str = "fail"  # "fail" | "allow"（FACTORLAB_ST_DEGRADE）
+    # 分钟覆盖口径（R03-I6）：daily 有行而 bars_1m 整日缺（分钟源幸存者偏差）时——
+    # "fail"（默认）= ValueError fail fast（数据不一致，逐值不变）；
+    # "drop" = 该 (code, date) 从分钟宇宙显式剔除 + 响亮告警 + run summary
+    # minute_uncovered 审计（不静默；结果口径不可与完整覆盖混比）
+    minute_uncovered: str = "fail"  # "fail" | "drop"（FACTORLAB_MINUTE_UNCOVERED）
 
 
 settings = Settings()

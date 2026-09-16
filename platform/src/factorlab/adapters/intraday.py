@@ -139,18 +139,10 @@ def _load_duckdb(rd: ReadPort, *args, **kwargs) -> pl.DataFrame:
 _IMPL = {"duckdb": _load_duckdb, "ch": _load_ch}
 
 
-def _codes_ch(rd: ReadPort, codes: list[str], date_start: str | None,
-              date_end: str | None,
-              cols: list[str] | None) -> pl.DataFrame:
-    """ch 编译函数（批读）：6 位 code 子集一次 symbol→ts_code 映射（未知 → 整批
-    ValueError 防静默丢 code），带后缀子集原样 → 单条 SQL（code IN + trade_date
-    闭区间）→ 与单 code 同款 decode。排序 (code, datetime)。
-    """
+def _resolve_ts_codes(rd: ReadPort, codes: list[str]) -> list[str]:
+    """6 位 code → ts_code（stock_basic.symbol 唯一解析）；带后缀原样；
+    未知 6 位 → ValueError（防静默丢 code）。批读/覆盖聚合共用。"""
     db = settings.ch_database
-    out_cols = cols if cols is not None else _DEFAULT_COLS["bars_1m"]
-    unknown = [c for c in out_cols if c not in _TABLE_COLS["bars_1m"]]
-    if unknown:
-        raise ValueError(f"未知列: {unknown}（bars_1m 可用列: {_TABLE_COLS['bars_1m']}）")
     ts_codes = [c for c in codes if "." in c]
     six = [c for c in codes if "." not in c]
     if six:
@@ -164,6 +156,22 @@ def _codes_ch(rd: ReadPort, codes: list[str], date_start: str | None,
         if unresolved:
             raise ValueError(f"未知 code {unresolved}: stock_basic 无该 symbol")
         ts_codes += [resolved[c] for c in six]
+    return ts_codes
+
+
+def _codes_ch(rd: ReadPort, codes: list[str], date_start: str | None,
+              date_end: str | None,
+              cols: list[str] | None) -> pl.DataFrame:
+    """ch 编译函数（批读）：6 位 code 子集一次 symbol→ts_code 映射（未知 → 整批
+    ValueError 防静默丢 code），带后缀子集原样 → 单条 SQL（code IN + trade_date
+    闭区间）→ 与单 code 同款 decode。排序 (code, datetime)。
+    """
+    db = settings.ch_database
+    out_cols = cols if cols is not None else _DEFAULT_COLS["bars_1m"]
+    unknown = [c for c in out_cols if c not in _TABLE_COLS["bars_1m"]]
+    if unknown:
+        raise ValueError(f"未知列: {unknown}（bars_1m 可用列: {_TABLE_COLS['bars_1m']}）")
+    ts_codes = _resolve_ts_codes(rd, codes)
     ph2 = ", ".join(f"%(t{i})s" for i in range(len(ts_codes)))
     params = {f"t{i}": c for i, c in enumerate(ts_codes)}
     params["start"], params["end"] = date_start, date_end
@@ -176,7 +184,31 @@ def _codes_ch(rd: ReadPort, codes: list[str], date_start: str | None,
     return _decode(df)
 
 
+def _coverage_ch(rd: ReadPort, date_start: str, date_end: str,
+                 codes: list[str] | None) -> pl.DataFrame:
+    """ch 编译函数（覆盖聚合，R03-I6）：(code, trade_date) 分组计数再按 code
+    聚合——单条 SQL、无行级物化；codes 给定时同批读的 symbol→ts_code 契约。"""
+    db = settings.ch_database
+    params = {"start": date_start, "end": date_end}
+    where = ("trade_date >= toDate(%(start)s) "
+             "AND trade_date <= toDate(%(end)s)")
+    if codes is not None:
+        ts_codes = _resolve_ts_codes(rd, codes)
+        ph = ", ".join(f"%(t{i})s" for i in range(len(ts_codes)))
+        params.update({f"t{i}": c for i, c in enumerate(ts_codes)})
+        where += f" AND code IN ({ph})"
+    df = rd.query_df(
+        f"SELECT code, count() AS covered_days, min(trade_date) AS first_date, "
+        f"max(trade_date) AS last_date, min(n) AS min_rows_per_day, "
+        f"max(n) AS max_rows_per_day FROM ("
+        f"SELECT code, trade_date, count() AS n FROM {db}.bars_1m "
+        f"WHERE {where} GROUP BY code, trade_date) "
+        f"GROUP BY code ORDER BY code", params)
+    return _decode(df)
+
+
 _CODES_IMPL = {"duckdb": _load_duckdb, "ch": _codes_ch}
+_COVERAGE_IMPL = {"duckdb": _load_duckdb, "ch": _coverage_ch}
 
 
 def _load(rd: ReadPort, table: str, code: str, *, day: str | None = None,
@@ -226,6 +258,29 @@ def load_bars_1m_codes(rd: ReadPort, codes: list[str], *,
     if date_start is None or date_end is None:
         raise ValueError("必须指定 date_start 与 date_end（闭区间；防全表扫描）")
     return _CODES_IMPL[rd.backend](rd, codes, date_start, date_end, cols)
+
+
+def load_bars_1m_coverage(rd: ReadPort, *, date_start: str | None = None,
+                          date_end: str | None = None,
+                          codes: list[str] | None = None) -> pl.DataFrame:
+    """分钟覆盖只读聚合（R03-I6 静态池生成/审计辅助；不参与 run 链）。
+
+    返回每 code 一行：`code`(6 位归一)/`covered_days`(有 bars 行的交易日数)/
+    `first_date`/`last_date`/`min_rows_per_day`/`max_rows_per_day`，按 code 排序。
+    与 trade_cal 交易日数对比即得「窗口全覆盖」code 集；行数极值偏离 240 提示
+    网格异常（240 断言仍由 run 链负责）。`codes` None=全市场；给定时混合 6 位/
+    ts_code 均可（未知 6 位 → ValueError，不静默丢）；`date_start`/`date_end`
+    必填闭区间（防全表扫描）。仅 ch——duckdb 显式 ValueError。
+
+    口径注意：按**全窗覆盖**选样生成静态池本身含前视（用未来存活信息选宇宙），
+    只应作为研究便利并知情披露；run 级 drop 开关（FACTORLAB_MINUTE_UNCOVERED）
+    才是 PIT 安全的口径，详见 docs/interface.md 分钟覆盖口径节。
+    """
+    if date_start is None or date_end is None:
+        raise ValueError("必须指定 date_start 与 date_end（闭区间；防全表扫描）")
+    if codes is not None and not codes:
+        raise ValueError("codes 不能为空 list（None = 全部 code）")
+    return _COVERAGE_IMPL[rd.backend](rd, date_start, date_end, codes)
 
 
 def load_tick_trades(rd: ReadPort, code: str, *, day: str | None = None,

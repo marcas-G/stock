@@ -702,15 +702,39 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
   每块：日级注入列预取（adv20 左窗 = spec.start 前 20 交易日，修订 R2：在
   **有行情日行序列**上滚动，停牌日自动隔开）→ load_bars_1m_codes 批读（列
   投影按公式引用 ∩ bars 面裁剪——内存纪律）→ 块内成员日 = 池成员 ∧ 日线在
-  （停牌日天然剔除）→ 整日缺失（日线在而 bars 无行）fail fast →
-  compute_minute_factor_panel → 累积折日面板；空窗 → ValueError（修订 R3，
+  （停牌日天然剔除）→ 整日缺失（日线在而 bars 无行）默认 fail fast（R03-I6：
+  `FACTORLAB_MINUTE_UNCOVERED=drop` 显式剔除该 (code, date) + 审计——见下条）
+  → compute_minute_factor_panel → 累积折日面板；空窗 → ValueError（修订 R3，
   镜像日频 M3b 文案）。label 单趟整段全窗（_compute_labels 复用，与日频链同
   骨架/同窗口），canonicalize 后按折日信号键集过滤对齐——label 键 == 信号键
   （停牌日两侧都无行）。→ write_factor_artifacts /
   write_multi_output_factor_artifacts 落盘（零放宽）。SignalMeta(frequency=
   "1d", EOD timing, adjustment="raw")。summary 增注
   `runtime_semantics="minute_intraday_fold_v1"`、`interface="bars_1m"`、
-  `grid_rows_per_day=240`（其余字段与日频同构）。
+  `grid_rows_per_day=240`、`minute_uncovered`（R03-I6 审计，见下条）（其余
+  字段与日频同构）。
+- **分钟覆盖口径与幸存者偏差（R03-I6，2026-09-16）**：`bars_1m` 分钟源存在
+  **幸存者偏差**——部分 code（多为后来退市）`daily` 有行而分钟**整日缺**
+  （实测：2024-01-02 在册 5327 只中 84 只无任何 1m 行；2024H1 共 8439 个
+  (code, date) 缺日集中于这 84 只；当日出现的 (code, date) 恒为标准 240 网格）。
+  默认 `FACTORLAB_MINUTE_UNCOVERED=fail`：整日缺 → ValueError fail fast
+  （数据不一致，行为逐值不变）。显式 `FACTORLAB_MINUTE_UNCOVERED=drop`
+  （`settings.minute_uncovered`）时：该 (code, date) 从分钟宇宙**显式剔除**
+  （等价于该日不参与——不伪造行、不静默），并发 `MinuteUncoveredWarning`
+  （数量/日期跨度/审计指路），run summary 恒写审计字段
+  `minute_uncovered: {mode, dropped_code_days, dropped_codes, dropped_dates,
+  date_min, date_max, sample}`（fail/drop 都写；无缺口时计数 0/None/[]；落盘
+  summary.json）。**部分覆盖**（当天有部分分钟行，如 239 行）**不是**覆盖缺口
+  而是数据损坏：240 网格断言在两种模式下都 fail fast（`day_last` 等折日算子
+  锚定 minute_index 239，不得静默丢弃；陈旧尾部 bar 的公式侧守卫见 R03-I7）。
+  **语义纪律**：覆盖判定只依据请求窗口内数据（批读 date_end 恒 ≤
+  spec.date.end，无未来信息）；`drop` 不消除幸存者偏差本身（缺分钟的历史
+  code 仍不在样本内），只把缺口显式化、可审计——结果口径不可与完整覆盖混比。
+  **研究口径建议**：全市场分钟回测需 coverage-aware 宇宙；平台提供只读聚合
+  `load_bars_1m_coverage`（见 §4 适配器节）供生成**静态覆盖池**（用户侧
+  `ref`/`codes` 选择，平台不隐式使用；静态池按全窗覆盖选样本身带前视偏差，
+  只应作为研究便利并知情披露）。缺分钟段整体无 bars 时两种模式都 ValueError
+  （data refresh）。
 - `compute_minute_factor_panel(bars, formula, *, outputs=None, daily=None)
   -> pl.DataFrame` B4.7 **面板级纯计算入口**（loader 无关；引擎测试与批算工具
   共用同一代码路径）：date 列规范化（trade_date→date）→ 结构列/date dtype/
@@ -1274,6 +1298,15 @@ snapshots 共 ~14B 行）；duckdb 平台文件无 intraday 表 → duckdb 后�
   单位语义），差异：codes 混合 6 位或 ts_code 均可（任一 6 位无 stock_basic
   映射 fail fast）；**date_start 与 date_end 都必填闭区间**（无单边开窗——批读
   防全表扫描）；输出 code 一律 6 位。
+- `load_bars_1m_coverage(rd, *, date_start, date_end, codes=None) -> pl.DataFrame`
+  **分钟覆盖只读聚合**（R03-I6 静态池生成/审计辅助；不参与 run 链）：每 code
+  一行 `code`(6 位)/`covered_days`(有 bars 的交易日数)/`first_date`/`last_date`/
+  `min_rows_per_day`/`max_rows_per_day`，按 code 排序；与 trade_cal 交易日数
+  对比即得「窗口全覆盖」集；codes None=全市场（6 位/ts_code 混合，未知 6 位
+  fail fast）；闭区间必填；仅 ch（duckdb 显式 ValueError）。**口径警示**：按
+  全窗覆盖选样生成静态池本身含前视（用未来存活信息选宇宙），只应作为研究
+  便利并知情披露；PIT 安全的 run 级口径是 `FACTORLAB_MINUTE_UNCOVERED=drop`
+  （见 §4 分钟覆盖口径节）。
 - `load_tick_trades(rd, code, ...)` 逐笔成交（tick_trades）：time_ms（当日毫秒
   数，00:00 起）、trade_no UInt64、bs UInt8、price_x10000 Int32（元 = ÷10000）、
   volume UInt32、ask_seq/bid_seq UInt64。排序 (time_ms, trade_no)。

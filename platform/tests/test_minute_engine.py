@@ -11,6 +11,7 @@ chunk==整段严格相等、注入列手工断言（eod/prev/day_amt/adv20 左�
 接口 guard、池公式 v1 排除、duckdb 腿拒绝、未知列报错助手。
 """
 import datetime as dt
+import json
 
 import polars as pl
 import pytest
@@ -52,35 +53,52 @@ def _amount(ci: int, i: int) -> float:
     return 1e6 * (1 + ci) + 1000.0 * i
 
 
+def _grid_rows(sym: str, ts: str, ci: int, d: dt.date, i: int, *,
+               drop_one: tuple | None = None, dup_index: bool = False):
+    """单 (code, 交易日) 240 网格行；close[239] == 当日 daily close；drop_one 删
+    mi=7（239 网格）/dup_index 时 mi=8 改 7（重复）。"""
+    close = _close(ci, i)
+    mi_list = list(range(240))
+    if drop_one == (sym, d) and not dup_index:
+        mi_list = mi_list[:7] + mi_list[8:]     # 缺 mi=7 → 239 行
+    elif dup_index and drop_one == (sym, d):
+        mi_list[8] = 7                          # 组内两行同 minute_index
+    base_t = dt.datetime(d.year, d.month, d.day, 9, 25)
+    rows = []
+    for mi in mi_list:
+        px = close + (mi - 239) * 0.001
+        rows.append((d.strftime("%Y%m%d"), ts, mi, 0 if mi == 0
+                     else (2 if mi >= 238 else 1),
+                     px, px, px, px, 1000.0 * (1 + mi % 5),
+                     10.0 + mi % 5, base_t + dt.timedelta(minutes=1) * mi))
+    return rows
+
+
 def _bars_rows(*, suspend=None, drop_one: tuple | None = None,
                dup_index: bool = False, dates: list | None = None,
-               sample: list | None = None):
+               sample: list | None = None, bars_uncovered=None,
+               extra_bars: list | None = None):
     """样本窗分钟网格：每 (code, 交易日) 恰 240 行；close[239] == 当日 daily close；
     suspend = (symbol, date) 或 {(symbol, date)} 整日停牌（调用方已同步删
-    daily/adj）；drop_one = (symbol, date) 去掉 mi=7 一行（239 网格）；dup_index
+    daily/adj）；bars_uncovered = 只删 bars 整日行（daily 保留——R03-I6 覆盖
+    缺口）；extra_bars = 额外 (symbol, date) 网格（可越出样本窗——未来行断言用）；
+    drop_one = (symbol, date) 去掉 mi=7 一行（239 网格）；dup_index
     时该日 mi=8 改 7（重复）。dates/sample 缺省为模块级 46 日总历/样本窗。"""
     dates = dates if dates is not None else _DATES
     sample = sample if sample is not None else _SAMPLE
-    sus = _suspend_set(suspend)
+    sus = _suspend_set(suspend) | _suspend_set(bars_uncovered)
     rows = []
     for sym, ts, _b in _CODES:
         ci = [c[0] for c in _CODES].index(sym)
         for d in sample:
             if (sym, d) in sus:
                 continue
-            close = _close(ci, dates.index(d))
-            mi_list = list(range(240))
-            if drop_one == (sym, d) and not dup_index:
-                mi_list = mi_list[:7] + mi_list[8:]     # 缺 mi=7 → 239 行
-            elif dup_index and drop_one == (sym, d):
-                mi_list[8] = 7                          # 组内两行同 minute_index
-            base_t = dt.datetime(d.year, d.month, d.day, 9, 25)
-            for mi in mi_list:
-                px = close + (mi - 239) * 0.001
-                rows.append((d.strftime("%Y%m%d"), ts, mi, 0 if mi == 0
-                             else (2 if mi >= 238 else 1),
-                             px, px, px, px, 1000.0 * (1 + mi % 5),
-                             10.0 + mi % 5, base_t + dt.timedelta(minutes=1) * mi))
+            rows.extend(_grid_rows(sym, ts, ci, d, dates.index(d),
+                                   drop_one=drop_one, dup_index=dup_index))
+    for sym, d in (extra_bars or []):
+        ts = next(t for s, t, _b in _CODES if s == sym)
+        ci = [c[0] for c in _CODES].index(sym)
+        rows.extend(_grid_rows(sym, ts, ci, d, dates.index(d)))
     return rows
 
 
@@ -95,9 +113,11 @@ def _suspend_set(suspend) -> frozenset:
 
 def _seed(ch_db, *, suspend=None, drop_one: tuple | None = None,
           dup_index: bool = False, dates: list | None = None,
-          sample: list | None = None):
+          sample: list | None = None, bars_uncovered=None,
+          extra_bars: list | None = None):
     """daily/adj_factor/stock_basic/trade_cal/bars_1m 全套一致种子（date 值
-    'YYYYMMDD' 字符串——dualbridge 'date' kind 契约）。suspend 支持单日或多日。"""
+    'YYYYMMDD' 字符串——dualbridge 'date' kind 契约）。suspend 支持单日或多日；
+    bars_uncovered 只删 bars（daily 保留——覆盖缺口）；extra_bars 额外分钟行。"""
     dates = dates if dates is not None else _DATES
     sus = _suspend_set(suspend)
     client, db = ch_db
@@ -134,7 +154,9 @@ def _seed(ch_db, *, suspend=None, drop_one: tuple | None = None,
                      ("close", "f32"), ("amount", "f64"), ("volume", "f64"),
                      ("datetime", "datetime")],
                     _bars_rows(suspend=suspend, drop_one=drop_one,
-                               dup_index=dup_index, dates=dates, sample=sample)),
+                               dup_index=dup_index, dates=dates, sample=sample,
+                               bars_uncovered=bars_uncovered,
+                               extra_bars=extra_bars)),
     }
     dualbridge.seed_ch(client, db, tables)
 
@@ -203,6 +225,10 @@ def test_minute_parity_daily_raw_signal_and_labels(ch_db, tmp_path):
     assert mr.summary["grid_rows_per_day"] == 240
     assert mr.summary["signal_rows"] == 12
     assert mr.summary["panel_rows"] == mr.panel.height
+    # R03-I6：默认 fail 口径也写审计字段（无缺口 → mode=fail / 0）
+    assert mr.summary["minute_uncovered"] == {
+        "mode": "fail", "dropped_code_days": 0, "dropped_codes": 0,
+        "dropped_dates": 0, "date_min": None, "date_max": None, "sample": []}
     # 落盘同目录同契约（canonical code 边界）
     for f in ("signal.parquet", "labels.parquet", "panel.parquet", "summary.json"):
         assert (tmp_path / "out_m" / f).is_file()
@@ -483,3 +509,134 @@ def test_compute_minute_factor_panel_pure_chunk_contract(ch_db, tmp_path):
     pure = _canonicalize_artifact_codes(pure, cm)
     assert pure.equals(full.panel.select(["date", "code", "signal"]))
     rd.close()
+
+
+# ---------------- R03-I6：分钟覆盖口径（fail 默认 | drop 显式） ----------------
+
+def test_minute_uncovered_default_fail_fast(ch_db, tmp_path):
+    """R03-I6：默认（minute_uncovered="fail"）「日线在而分钟整日缺」仍 fail fast
+    ——开关存在不改变默认行为（缺口是数据不一致，不静默当停牌）。"""
+    _seed(ch_db, bars_uncovered=("000001", _SAMPLE[2]))
+    spec = _spec(tmp_path, "uf", "signal = day_last(close)")
+    with pytest.raises(ValueError, match="整日缺失"):
+        run_factor_minute(spec, _ctx(tmp_path / "o"))
+
+
+def test_minute_uncovered_drop_mode_drops_code_day_with_audit(
+        ch_db, tmp_path, monkeypatch):
+    """R03-I6：drop 开关下整日缺 (code, date) 从分钟宇宙剔除（该日不参与）+
+    响亮告警 + summary.minute_uncovered 审计；其余 code/日逐值正常，label 键
+    与信号键严格对齐，审计字段同步落盘 summary.json。"""
+    from factorlab.app.run import MinuteUncoveredWarning
+    d_bad = _SAMPLE[2]
+    _seed(ch_db, bars_uncovered=("000001", d_bad))
+    monkeypatch.setattr(settings, "minute_uncovered", "drop")
+    spec = _spec(tmp_path, "ud", "signal = day_last(close)")
+    with pytest.warns(MinuteUncoveredWarning, match="覆盖缺口"):
+        res = run_factor_minute(spec, _ctx(tmp_path / "o"))
+    sig = res.signal_artifact.frame
+    assert sig.height == 11                      # 2 code × 6 日 − 1 剔除
+    assert not sig.filter((pl.col("date") == d_bad)
+                          & (pl.col("code") == "000001.SZ")).height
+    assert sig.filter(pl.col("code") == "000001.SZ").height == 5
+    # 其余 code 逐值正确（day_last(close) == 当日 raw close）
+    rest = sig.filter(pl.col("code") == "600519.SH").sort("date")
+    want = [_close(1, _DATES.index(d)) for d in _SAMPLE]
+    assert rest["signal"].to_list() == pytest.approx(want, rel=1e-5)
+    # label 键 == 信号键（剔除后仍严格对齐）
+    lab = res.label_artifact.frame
+    assert lab.height == 11
+    assert sorted(map(tuple, lab.select(["date", "code"]).iter_rows())) == \
+        sorted(map(tuple, sig.select(["date", "code"]).iter_rows()))
+    # 审计字段（内存 summary + 落盘 summary.json 一致）
+    mu = res.summary["minute_uncovered"]
+    assert mu["mode"] == "drop"
+    assert mu["dropped_code_days"] == 1
+    assert mu["dropped_codes"] == 1
+    assert mu["dropped_dates"] == 1
+    assert mu["date_min"] == mu["date_max"] == d_bad.isoformat()
+    assert mu["sample"] == [{"date": d_bad.isoformat(), "code": "000001.SZ"}]
+    on_disk = json.loads((tmp_path / "o" / "summary.json").read_text())
+    assert on_disk["minute_uncovered"] == mu
+
+
+def test_minute_uncovered_drop_clean_run_zero_audit_no_warning(
+        ch_db, tmp_path, monkeypatch, recwarn):
+    """R03-I6：drop 开关但无缺口 → 正常产出、无告警、审计仍记 mode=drop/0
+    （口径事实可审计，不因缺口为 0 而丢失 mode）。"""
+    _seed(ch_db)
+    monkeypatch.setattr(settings, "minute_uncovered", "drop")
+    spec = _spec(tmp_path, "uz", "signal = day_last(close)")
+    res = run_factor_minute(spec, _ctx(tmp_path / "o"))
+    assert res.summary["minute_uncovered"] == {
+        "mode": "drop", "dropped_code_days": 0, "dropped_codes": 0,
+        "dropped_dates": 0, "date_min": None, "date_max": None, "sample": []}
+    assert not [w for w in recwarn
+                if w.category.__name__ == "MinuteUncoveredWarning"]
+
+
+def test_minute_uncovered_drop_partial_intraday_still_fails(
+        ch_db, tmp_path, monkeypatch):
+    """R03-I6 口径边界：drop 只剔「整日缺」；当天部分分钟行（239 网格）是数据
+    损坏而非覆盖缺口 → 240 网格断言两种模式都 fail fast（day_last 等锚定 239
+    行，不得静默丢弃）。"""
+    _seed(ch_db, drop_one=("000001", _SAMPLE[1]))
+    monkeypatch.setattr(settings, "minute_uncovered", "drop")
+    spec = _spec(tmp_path, "up", "signal = day_last(close)")
+    with pytest.raises(ValueError, match="网格不完整"):
+        run_factor_minute(spec, _ctx(tmp_path / "o"))
+
+
+def test_minute_uncovered_invalid_mode_rejected(ch_db, tmp_path, monkeypatch):
+    """R03-I6：开关只接受 fail|drop——未知值在打开/查询 DB 前 ValueError
+    （不静默取默认）。"""
+    monkeypatch.setattr(settings, "minute_uncovered", "ignore")
+    spec = _spec(tmp_path, "ux", "signal = day_last(close)")
+    with pytest.raises(ValueError, match="FACTORLAB_MINUTE_UNCOVERED"):
+        run_factor_minute(spec, _ctx(tmp_path / "o"))
+
+
+def test_minute_uncovered_drop_reads_no_future_dates(ch_db, tmp_path, monkeypatch):
+    """R03-I6 语义纪律：覆盖判定只依据请求窗口内数据——批读调用 date_end 恒
+    <= spec.date.end；窗口外「未来」分钟行不参与 drop 判定（无未来泄漏）。"""
+    _seed(ch_db, bars_uncovered=("000001", _SAMPLE[2]),
+          extra_bars=[("000001", _DATES[35])])
+    monkeypatch.setattr(settings, "minute_uncovered", "drop")
+    spec = _spec(tmp_path, "uleak", "signal = day_last(close)")
+    calls = []
+    import factorlab.app.run as run_mod
+    real = run_mod.load_bars_1m_codes
+
+    def _spy(rd, codes, *, date_start=None, date_end=None, cols=None):
+        calls.append((date_start, date_end))
+        return real(rd, codes, date_start=date_start, date_end=date_end,
+                    cols=cols)
+
+    monkeypatch.setattr(run_mod, "load_bars_1m_codes", _spy)
+    from factorlab.app.run import MinuteUncoveredWarning
+    with pytest.warns(MinuteUncoveredWarning):
+        res = run_factor_minute(spec, _ctx(tmp_path / "o"))
+    assert calls and all(de <= spec.date.end for _ds, de in calls), \
+        f"批读越出 spec 窗口: {calls}"
+    assert res.summary["minute_uncovered"]["dropped_code_days"] == 1
+
+
+def test_minute_uncovered_drop_chunked_equals_whole(ch_db, tmp_path, monkeypatch):
+    """R03-I6：drop 分块 == 整段（剔除集跨块累计一致、审计计数一致、产出逐值
+    相等）。"""
+    from factorlab.app.run import MinuteUncoveredWarning
+    unc = {("000001", _SAMPLE[1]), ("000001", _SAMPLE[3]),
+           ("600519", _SAMPLE[2])}
+    _seed(ch_db, bars_uncovered=unc)
+    monkeypatch.setattr(settings, "minute_uncovered", "drop")
+    spec = _spec(tmp_path, "uch", "signal = day_last(close)")
+    with pytest.warns(MinuteUncoveredWarning):
+        whole = run_factor_minute(spec, _ctx(tmp_path / "w"))
+    with pytest.warns(MinuteUncoveredWarning):
+        chunked = run_factor_minute(spec, _ctx(tmp_path / "c", chunk_days=2))
+    assert whole.signal_artifact.frame.equals(chunked.signal_artifact.frame)
+    assert whole.label_artifact.frame.equals(chunked.label_artifact.frame)
+    assert whole.panel.equals(chunked.panel)
+    assert whole.summary["minute_uncovered"] == chunked.summary["minute_uncovered"]
+    assert whole.summary["minute_uncovered"]["dropped_code_days"] == 3
+    assert whole.summary["minute_uncovered"]["dropped_codes"] == 2
