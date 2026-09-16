@@ -5,7 +5,12 @@
 
 ## 数据链路
 
-1. **factorlab.duckdb 重建**（平台主库）
+1. ✅ **2026-09-17 关闭（Plan P T11）**：旧外部源（teajoin）生产路径已删除——
+   `factorlab data rebuild|update|refresh|verify` CLI 与 `adapters/{fetcher,mirror_db,
+   rebuild,refresh}` 退役；duckdb 后端仅保留测试/历史只读。生产读取走
+   `FACTORLAB_DATA_BACKEND=ch`（CH 已是事实源，duckdb 是否仍必要的决策点随源退役闭合）。
+   原登记保留如下——
+   **factorlab.duckdb 重建**（平台主库）
    现状：磁盘不存在该库；平台 `data rebuild` 数据源是 teajoin API。
    未决因：teajoin token 2026-08-22 已过期，重建前需先 redeem。
    启动条件：token 恢复 → `factorlab data rebuild`；或改用 `FACTORLAB_DATA_BACKEND=ch`
@@ -21,10 +26,14 @@
      未决因：解包需额外空间 + 大量 IO（**启动前先 `df` 复核余量**——2026-09-15 实测 338G 可用）；sharding 内是单日全码。
    启动条件：磁盘腾出空间后单独执行；解包后更新 data-map A11 行。
 
-4. **ashare fundamentals 缺源**
+4. **ashare fundamentals 缺源（PIT 历史）**
    现状：config.yaml `fundamentals_pti` 指向 `data/fact/fundamentals/fundamentals_pti.parquet`（不存在）。
-   未决因：源数据（jqdata 口径基本面）未在工作区留存。
-   启动条件：确认上游或删除该引用（03_import_fundamentals.py 的 --out 同步）。
+   未决因：源数据（jqdata 口径 PIT 基本面）未在工作区留存。
+   **2026-09-17（T8/T11）更新**：网盘财报链已建**当期快照**（`fundamentals_snapshot.parquet`
+   + CH `fundamentals`，周更）——非 PIT 历史序列；`universe_stages` 的 PIT 输入仍缺。
+   启动条件：多期快照逐周累积到可回溯，或人工 `*_financial.parquet`（manual_required）
+   取得历史；届时再定 `fundamentals_pti` 生成链或删除该引用（03_import_fundamentals.py
+   的 --out 同步）。
 
 ## 仓库与工程
 
@@ -57,7 +66,12 @@
    先行 / tick 算子族进 v1），被本次清理任务取代。
    启动条件：清理收口后重新提案。
 
-9. **A9 golden 股票池链路待考**（data-map 审计新发现）
+9. ✅ **2026-09-17 裁决（Plan P T11）**：`data/ref/universes/v4_top300.parquet`
+   **冻结、不维护**——网盘分享全树（限已遍历的顶层类别目录）无等价物；重生成需
+   jqdata 环境（外部，工作区无生成链的运行条件）。文件保留（sha256
+   `ed515841…`，见 `R30/task11/step3-local-files-manifest.txt`），data-map A9 行已标注。
+   原登记保留如下——
+   **A9 golden 股票池链路待考**（data-map 审计新发现）
    现状：`data/ref/universes/v4_top300.parquet` 被 ashare 4 个脚本读作 golden，但**生成链路
    未在工作区留存**（jqdata 口径）。
    未决因：No Orphan 纪律要求每个资产能回答"我为什么存在/谁生产我"。
@@ -246,24 +260,27 @@
 25. **`index_daily` 空表 + `ingest_index_sina.py` 死引用**（2026-09-16 登记；**R29 同日裁决**）
     现状：CH `factorlab.index_daily` 全表 0 行 → 9 个 crash_bottom 族 spec 的 `idx_ret`
     恒 NULL（族不可复跑）。**裁决（R29，2026-09-16）：当前无可用补数路径**——候选源
-    teajoin `index_daily` 接口（token 缺失且 2026-08-22 已过期）；现 `factorlab data
-    refresh` 的指数增量只写 duckdb 平台库、不接 CH；CH 侧无 index_daily 灌入工具。
+    teajoin `index_daily` 接口（token 缺失且 2026-08-22 已过期，源已退役）；原 `factorlab data
+    refresh` 的指数增量只写 duckdb 平台库、不接 CH（该 CLI 已随 T11 删除）；CH 侧无
+    index_daily 灌入工具。
     死引用已清：DDL/README/interface 三处同口径（`ingest_index_sina.py` 全仓确无此文件，
     不再 advertise）。
     未决因：补数源与灌入工具均未落地；读路径 LEFT JOIN 依赖表存在，不能简单删表。
-    启动条件：teajoin token 恢复或新增 index→CH 灌入工具 → 补 `000852.SH` 全历史 →
-    重跑 crash_bottom 族。证据：`governance/evidence/verification/R29/data-t4/`。
+    启动条件：外部指数日线补数（**T11 更新**：原候选 teajoin 已退役；网盘指数目录
+    `截止_*_指数…_日线.zip`（100MB）超分享直链上限不可自动核对，需浏览器下载人工核对）
+    或新增 index→CH 灌入工具 → 补 `000852.SH` 全历史 → 重跑 crash_bottom 族。
+    证据：`governance/evidence/verification/R29/data-t4/`；T11 指数目录清单见
+    `governance/evidence/verification/R30/task11/step3-pan-index-listdir.txt`。
 
 26. **`stock_st` 缺表（exclude_st 全场降级）**（2026-09-16 登记；**R29 同日裁决**）
     现状：CH 无 `stock_st` 表；94% spec 带 `exclude_st: true` → 全市场挖矿/复跑必须
     `FACTORLAB_ST_DEGRADE=allow`（warning + `is_st=null` + summary `st_degrade: true`，
     即无 ST 口径）；真实 ST 过滤不可用，降级结果与 ST 过滤结果不可混比。
     **源核实（R29）**：本地无任何 `stock_st` 历史数据（CH 无表、`data/raw` 与 `_archive`
-    无快照、平台 duckdb 库不存在）；唯一候选源 = teajoin `stock_st` 接口（在套餐 137
-    接口目录内，见 `knowledge/contracts/teajoin-guide.md` §5），但 token 缺失且
-    2026-08-22 已过期。**裁决**：保留 `FACTORLAB_ST_DEGRADE` 显式降级为现行口径，
-    不伪造 ST 数据（interface.md §4.2 ST coverage 段已记同款裁决）。
-    启动条件：teajoin token 恢复（可直接拉 `stock_st` 历史快照）或外部 ST 源到位 →
+    无快照、平台 duckdb 库不存在）；原唯一候选源 = teajoin `stock_st` 接口（**T11 起已退役**）。
+    **裁决**：保留 `FACTORLAB_ST_DEGRADE` 显式降级为现行口径，不伪造 ST 数据
+    （interface.md §4.2 ST coverage 段已记同款裁决）。
+    启动条件：外部 ST 历史源到位（**T11 更新**：teajoin token 通道已关闭）→
     建表灌入（沿 interface.md §4.2 coverage 契约）→ 关开关按标准 ST 过滤复跑；
     此前涉及 ST 的验收口径按「无 ST」记录。证据：`governance/evidence/verification/R29/data-t4/`。
 
@@ -306,7 +323,10 @@
     + `governance/evidence/verification/R29/contracts/06-counts-measured.txt`（非空计数复测）。
     残余：`pe_ttm/pb/dv_ratio/volume_ratio` 4 列仍为占位空列（无数据源，不 advertise）。
 
-30. **Plan P T10 真实验收残余（2026-09-17 登记）**
+30. **Plan P T10 真实验收残余（2026-09-17 登记；T11 后 Plan P 全任务收口）**
+    ✅ **Plan P（2026-09-16-pan-data-update-plan）Task 1-11 完成**：T11 清理旧外部源
+    （代码/本地文件/文档/技能），证据 `governance/evidence/verification/R30/task11/`；
+    残余项即下列 ①-④（触发条件均已登记）。
     证据：`governance/evidence/verification/R30/task10/`（真网盘 + CH 端到端）。
     ① **daily 2026-08-22..08-31 缺口**：上游新全量 `19910101至20260831A股日k线.zip`
     （3.79GB）超分享直链上限 → manual_required（未落盘）；本地旧全量（至 07-31）+旧增量
@@ -315,9 +335,19 @@
     ② **分钟全量补齐**：本轮裁决只取 2026/09 试点 12 日；剩余 4023 个缺失日 zip
     （~40GB）留定时首跑；首跑含 2017-2019 全量月 convert，时长视网速/CPU（unit
     `TimeoutStartSec=12h`，flock 防重叠）。启动条件：已装 timer（每日 08:10，Linger=yes）。
-    ③ **reconcile 未覆盖 `moneyflow`/`fundamentals`**（T7/T8 转 T11）：本轮以源帧 vs CH
-    行数/样本人工核对（1,113,668 / 5,556；002281 9/16 对账精确）。启动条件：T11 契约同步。
+    ③ **reconcile 未覆盖 `moneyflow`/`fundamentals`**（T7/T8 转 T11）：
+    **T11 已同步契约**（interface.md §8 列清单/读面说明；moneyflow 纳入
+    `ENGINE_SURFACE_TABLES` 读面纪律）。**自动化对账仍缺**：本轮以源帧 vs CH
+    行数/样本核对（1,113,668 / 5,556；002281 9/16 对账精确）。启动条件：扩展
+    `ch_ingest/reconcile.py` 表清单并配源帧行数谓词。
     ④ **平台内存护栏公式 arena 项校准**：`_AS_ARENA_PER_CPU=64MB` 低估 40 核 glibc
     多线程 arena 预留（T10 实测 ingest_daily VmPeak 26.0GB vs 公式 headroom ~14.5GB）；
     pan_update 已以 stage env `MALLOC_ARENA_MAX=2` 规避（16.4GB），平台常量未动。
     启动条件：平台 owner 复核 `factorlab.app.memory.apply_address_space_limit` 校准。
+
+31. **CH 列存 ZSTD 重写（存储回收 ≈72GiB）**（2026-09-17 T11 自 R04 效率审查登记）
+    现状：CH 全表默认 LZ4（磁盘余量紧）；R04 审查实测换 ZSTD 同数据省 33~45%
+    （≈72GiB，最大单项回收）。未决因：需夜间分批重写 ≈190G（限线程）与冻结窗口，
+    属结构性排期项。启动条件：磁盘余量告警或专项维护窗口；实施前先小表演练 +
+    `make reconcile` 全绿对照。依据：`governance/evidence/reviews/r04-efficiency-2026-09-16/
+    report.md` §4 P5。

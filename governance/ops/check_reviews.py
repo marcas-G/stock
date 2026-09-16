@@ -102,6 +102,12 @@ WHITELIST = [
      "解释器环境路径（非仓内证据；平台 venv 随机器重建）"),
     (re.compile(r"^/tmp/"),
      "评审时临时 probe（/tmp 非持久化）"),
+    # Plan P T11（2026-09-17）：旧外部源（teajoin）生产路径退役删除——历史评审行
+    # 引用不追改（append-only），实现/测试见 git 历史（HEAD 4589722 之前）。
+    (re.compile(r"adapters/(?:rebuild|refresh|fetcher|mirror_db)\.py"),
+     "Plan P T11 退役：旧 teajoin 源生产模块已删除（git 历史可查）"),
+    (re.compile(r"tests/test_(?:rebuild|refresh|fetcher|e2e_data|platform_db|sparsity|stock_basic_migration|verify)\.py"),
+     "Plan P T11 退役：随旧源删除的测试（git 历史可查）"),
 ]
 # R06-LEDGER-I2：历史「修复说明」中引用不精确 token 的精确豁免（R06-M1 类）。
 # 键 = (finding ID, 裸 token)；仅在登记行豁免，同 token 出现在别处仍 RED；
