@@ -14,7 +14,8 @@
 
 ## Global Constraints（红线与纪律）
 
-- **不动**：`platform/src`、`platform/tests`、`platform/kernels/quant_core`、`research/factor`、`research/tools/**`（R19/R20 红线）、`data/`（零写）、历史冻结文档正文（spec/plan/verification/reviews 已写内容）。
+- **不动**：`platform/src`、`platform/tests`、`platform/kernels/quant_core`、`research/factor`、`data/`（零写）、历史冻结文档正文（spec/plan/verification/reviews 已写内容）。
+  - ⚠️ **红线修订（2026-09-16）**：原"`research/tools/**` 不动"作废——8 项数据生产线工具 + `lib` 迁 `platform/tools/`、T1/T2 合并为单解释器，见同目录 `tools-migration-plan.md` 与 `tools-reorg-decisions.md`。本计划涉及这些文件的路径引用（如 `build_index.py`、`datapaths.py`）时，以迁移后路径为准；两计划**不同窗口执行**，避免同文件冲突（冲突点：`Makefile`、`factor_lib` 路径引用）。
 - **单批 `git mv`**：保留文件历史；禁止 rm+add。搬迁前 `git status --porcelain` 必须为空（freeze 窗口）。
 - **门先于搬迁**：每步先改门/测试中的路径判据或加映射豁免，再移动文件；每步结束跑指定验证。
 - **备份**：Task 0 打 tag（`pre-r04-restructure`）+ 两枚 bundle 到 `_archive/backups/`（沿用 R0 先例）。

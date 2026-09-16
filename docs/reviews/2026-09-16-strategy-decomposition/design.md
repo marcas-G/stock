@@ -13,6 +13,7 @@
 | D1 | **regime 门控放"信号门控"层**（保持现状语义）：截面在全池计算，门控只决定"是否持有"；排名可比性最好 |
 | D2 | 拆法采用**六层漏斗**（骨架 → 池 → regime 门控 → 打分 → 组合 → 执行/风控） |
 | D3 | 先写本文档，再讨论/实施缺口 |
+| D4 | **策略要配置化/建档**（像因子那样）：策略 spec + 策略档案 + 注册/版本（用户 2026-09-16 确认"要的"）；格式草案见 §6 |
 
 ## 1. 六层漏斗（顺序即漏斗）
 
@@ -74,5 +75,42 @@ L5 执行与风控（怎么交易）      M8（执行）+ 策略规则（路径�
 ## 5. 待定问题
 
 1. G1 的 regime 多输出是否本期实施（依赖多输出 spec 支持：平台已支持 `outputs`，但研究库 152 个 spec 均未用）；
-2. 是否把"策略"配置化（StrategySpec YAML 落研究树 + 策略档案模板）——现在策略只有一份研究 md，无注册/版本（对齐因子档案体系是更大的话题）；
+2. ~~是否把"策略"配置化/建档~~ → **已定（D4，要）**，格式草案见 §6；
 3. L5 的路径依赖规则长期是否平台化（M8 扩展 vs 维持研究脚本）。
+
+## 6. 策略配置化与建档（D4 草案）
+
+**目标**：策略像因子一样"一处定义、机器可跑、人可阅读、可版本化"。
+
+```
+research/strategy/<name>.yaml        # 策略 spec（机器执行）——六层映射：
+  name: low_lottery_top30_weekly
+  signal: max_effect_20d_high        # L3：引用已入库因子（策略不重定义公式）
+  direction: -1                      #    消费方向（与因子 direction 对齐校验）
+  regime: {mode: signal_gate}        # L2：门控语义（本期锁定 signal_gate；G1 后加 output: regime）
+  portfolio:                         # L4：M7
+    top_k: 30
+    weighting: equal_weight
+    gross_exposure: 1.0
+    rebalance_frequency: weekly
+  execution:                         # L5：M8
+    timing: NEXT_OPEN
+    cost_model: {commission_rate: 0.00025, minimum_commission: 5.0,
+                 stamp_tax_sell_rate: 0.0005, transfer_fee_rate: 0.00001, slippage_bps: 5.0}
+    rules: {stop_loss: null, take_profit: null, max_hold: null}   # 路径依赖规则（现阶段仅研究脚本）
+  date: {start: ..., end: ...}       # 回测评估窗口（独立于因子样本）
+  universe_override: null            # L1：可选覆盖（默认随因子）
+
+research/docs/strategies/<name>.md   # 策略档案（与人读档案模板同构：
+                                     #   假设 / 规格全文 / 回测结果 / 迭代历史 / 风险）
+docs/index/strategies.md             # 策略索引（由 spec+档案生成，--check 门锁）
+```
+
+**现状缺口（平台侧）**：`StrategySpec` 目前只能由 Python 构造，**没有 YAML 加载器**；
+策略档案也没有模板/索引。需要：
+1. 平台：`load_strategy_spec(path) -> StrategySpec`（含 direction 与因子 artifact 的对齐校验、
+   `universe_override` 语义、execution.rules 的"研究侧执行"边界声明）；
+2. 研究侧：`research/strategy/` 目录 + 策略档案模板（可从现有
+   `crash_bottom_leader_strategy.md` 提炼）+ `docs/index/strategies.md` 索引与 `--check` 门；
+3. 首例：把 `crash_bottom_leader` 转为策略 spec（需数据前置：index_daily/stock_st/duckdb），
+   或先用可跑的因子（如 `max_effect_20d_high`）落一个示例。

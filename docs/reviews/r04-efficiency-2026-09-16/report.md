@@ -140,6 +140,12 @@ stock/                    # 根 = 治理薄层（白名单定稿）
 
 **目录重整的可执行计划**：`docs/reviews/r04-efficiency-2026-09-16/structure-plan.md`（12 个 Task：P0 冻结/基线/引用清单 → P1 搬迁七步（契约/设计/档案/治理/证据/脚本/技能）→ P2 产物与 agent 文档 → P3 过渡区 → 全量验收；含精确 `git mv` 命令、门/测试/脚本同步清单、风险表与验收标准）。
 
+**工具归属决策（2026-09-16，修订结构计划红线）**：见同目录 `tools-reorg-decisions.md` ——
+8 项数据生产线工具（converters/quark_download/ch_ingest/ashare_ingest/universe_stages/1m_features/lob_fact/lib）
+迁 `platform/tools/`；`strategies`、`factor_lib` 留 research；T1/T2 合并试点通过
+（全量 research/tools 在平台 venv 下 **372 passed / 49.1s**，emb 不再是工具必需）。
+**可执行迁移计划**：同目录 `tools-migration-plan.md`（TM1 单解释器化 → TM2 搬迁 → TM3 _env 退役 → TM4 验收）。
+
 ## §6 建议执行顺序（综合）
 
 1. **本周（快速收益，≤2 人日）**：§1 P1-P5（分钟 OOM + universe 复用 + schema 缓存 + 解码）→ §2 P1/P2（lint 批跑 + 门补 lint/annotate）→ §3 快速清理（僵尸 1.25G + 死符号 + NameError + 数字/断链对齐）→ §2 P3（台账门）；
