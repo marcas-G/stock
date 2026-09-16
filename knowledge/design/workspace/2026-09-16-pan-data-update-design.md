@@ -81,7 +81,10 @@ cli.py      pan_update sync|build|publish|verify|all [--categories ...] [--dry-r
 - 日K：全量识别从“含 `07月31日` 字样”改为 **`19910101至` 前缀**（后者为网盘命名）；本地仅保留最新全量 + 其结束日之后的增量（`--prune` 删除旧快照与过期增量，默认保留）。
 - 分钟：按 `(年,月,日)` 差集，只下缺的；重复下载用 size 校验跳过。
 - 资金流：月 zip 补齐历史，当月日 zip 增量；同月 zip 与日 zip 重叠时以日 zip 为准（日期去重）。
-- 财报：仅最新 `*_financial.parquet`（按文件名日期取最大）；旧版本地保留 1 份回退。
+- 财报：**自动源 = 周更小 xlsx**（`*更新简化个股基本面数据.xlsx`，2.2MB，分享直链限内）；
+  `*_financial.parquet`（按文件名日期取最大）与财务大 zip 超直链上限 → `manual_required`
+  可选人工（见 §2.1）；旧版本地保留 1 份回退。CH 目标表名为 **`fundamentals`**（当期
+  快照，非 PIT 历史；实现名，非设计初稿的 `fundamentals_pti`）。
 - 全树遍历每次跑（搜索接口 405 不可用，以树清单为准）；对超大目录（level2）本轮**不遍历**（类别映射只列需要的四个目录，避免全树成本与限流）。
 
 ## 5. 自动化与运维
@@ -144,6 +147,6 @@ cli.py      pan_update sync|build|publish|verify|all [--categories ...] [--dry-r
 
 1. `platform/tools/pan_update/`（含 tests、README）
 2. `make data-update` + 定时器安装脚本/文档
-3. 新 CH 表：`moneyflow`、`fundamentals_pti`（DDL + 灌入 + 读路径）
+3. 新 CH 表：`moneyflow`、`fundamentals`（实现名；DDL + 灌入 + 读路径；后者为当期快照非 PIT）
 4. 清理提交（代码/文档/本地文件清单证据）
 5. 证据 `governance/evidence/verification/R30/`；台账/pending 更新
