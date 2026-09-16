@@ -56,3 +56,14 @@
 - 新 `data/fact/daily_fact/daily_fact.parquet` sha256 `79f68fee4f73c877…`，18,124,805 行 / 5,861 codes（旧 18,162,795，备份 `*.bak-R21`）
 - CH：daily/adj_factor/daily_basic/adj_detail 同步；stk_limit 17,854,764 行；stock_basic 5,861 行（含 delist_date）
 - 关键复验：600519 单位、300842 除权参考价、600811 逐值、600005 退市 is_listed=False、adj_factor NULL 语义、stk_limit 事件日 band
+
+## 2026-09-16 后现状注记（R07/R29；历史正文不改写）
+
+- `daily_basic.circ_mv`：**已派生可用**（R07-DATA-I4：`float_shares × close / 1e4`，万元口径；
+  2026-09-16 CH 实测 16,873,795/18,124,805 行非空）——上方「数据重灌影响」为 R21 当时事实
+  （当时未派生）。
+- `index_daily`：CH 全表 **0 行** → `idx_ret` 恒 NULL（补数源待裁决，见 pending-items #25）。
+- `stock_st`：CH **无此表** → `exclude_st` 全市场降级 `FACTORLAB_ST_DEGRADE=allow`（无 ST 口径；
+  见 pending-items #26）。
+- G-CONTRACT REPORT 计数：本文件「验收基线」记 68 处（R21 当时口径），2026-09-16 门实测 **70 处**
+  （证据 `R29/contracts/06-counts-measured.txt`）。

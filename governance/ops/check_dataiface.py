@@ -222,7 +222,8 @@ def check_mark_construction() -> list[str]:
 
 
 def report_platform_tables() -> list[str]:
-    """REPORT：平台 src 里 core/factio 之外的表名字面量（未竟项 #12①：460 处 SQL）。"""
+    """REPORT：平台 src 里 core/factio 之外的表名字面量（未竟项 #12①：70 处，
+    2026-09-16 门实测；历史文本“~460 处”为 grep 口径，与门不可比）。"""
     hits = []
     for p in _py_files(PLATFORM_SRC):
         rel = _rel(p)

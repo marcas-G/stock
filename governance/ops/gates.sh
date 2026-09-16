@@ -196,7 +196,7 @@ topo() {
 dataiface() {
   # R8c：从"报告模式 grep 计数"升级为 AST 判定——
   #   ENFORCED：工具树分区字面量（`year=` 只许 partitions 产出）、标记路径构造（只许 writekit）；
-  #   REPORT  ：平台表名字面量（未竟 #12①:460 处 SQL）、工具树直读（未竟 #13）。
+  #   REPORT  ：平台表名字面量（未竟 #12①:70 处，2026-09-16 实测）、工具树直读（未竟 #13）。
   # 由 Python 侧统一输出（含负向自检：--selftest 保证门不是死的）。
   # R06-M5：平台 venv 缺失时响亮失败（同上，不回落系统 python3）。
   PY=${PLATFORM}/.venv/bin/python
