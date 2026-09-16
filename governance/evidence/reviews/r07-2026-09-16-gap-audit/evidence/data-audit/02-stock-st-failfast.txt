@@ -1,0 +1,28 @@
+# R07-A2: stock_st 表缺失 + exclude_st 默认 fail-fast 实测
+## date: 2026-09-16T18:30:25+08:00
+
+## $$ CH: 表存在性
+   ┌─name────────┬─total_rows─┐
+1. │ daily       │   18124805 │ -- 18.12 million
+2. │ stock_basic │       5861 │
+   └─────────────┴────────────┘
+
+## $$ CH: SHOW TABLES factorlab
+adj_detail
+adj_event
+adj_factor
+bars_1m
+daily
+daily_basic
+index_daily
+stk_limit
+stock_basic
+tick_orders
+tick_snapshots
+tick_trades
+trade_cal
+
+## $$ run: exclude_st=true 默认 (FACTORLAB_ST_DEGRADE unset) backend=ch
+错误: exclude_st 需要 stock_st 表（平台库由 data rebuild 
+生成）——不能默认所有股票非 ST
+## run exit=1

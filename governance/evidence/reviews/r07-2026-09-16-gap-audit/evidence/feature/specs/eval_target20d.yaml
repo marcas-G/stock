@@ -1,0 +1,13 @@
+name: r07_probe_target20d
+category: custom
+direction: 1
+target: forward_return_20d
+universe:
+  rules: {exclude_st: true, exchanges: ["SSE", "SZSE"]}
+date:
+  start: "2023-01-01"
+  end: "2026-07-31"
+process:
+  - standardize()
+formula: |
+  signal = -ts_std_dev(returns(close), 20)

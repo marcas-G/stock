@@ -1,0 +1,3 @@
+1:9: 未知算子 rank；自定义逻辑请写在公式内 
+def（本因子专用，零注册），或注册插件算子（factorlab op add）；spec.op_meta 
+尚未实现（Plan 2，写了会被拒绝）

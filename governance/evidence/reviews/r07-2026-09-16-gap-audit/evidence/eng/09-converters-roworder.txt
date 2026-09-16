@@ -1,0 +1,110 @@
+# item9: pending #17 converters month-part row order
+# date: 2026-09-16T18:32:41+08:00 HEAD: 639bf3f
+## on_result consumes in completion order (comment says so)
+    # （wait 900s 无完成 → 杀 worker → 未完成 zip 重新入队 → 重建 executor）
+    # 正是 `BatchFlock(stall_policy='requeue', stall_strikes=3)` 的语义。
+    # 逐条对齐：spawn（fork 会复制主进程缓冲；2026-08-25 OOM 122GB 教训）✓、
+    # in-flight=max(workers*3,12) 限流（74k future 全量提交 → OOM 教训）✓、
+    # 停滞 900s 重启+重试 ✓、失败记账不中断 ✓、结果按完成顺序回调 ✓。
+    def on_result(task, payload):
+        """主进程侧消费（缓冲 + 记账）；worker 只回传表与回执行。"""
+        nonlocal n_done, last_milestone
+        d, z = task.payload
+        n_done += 1
+        if payload is None:
+            errors.append((d, os.path.basename(z)[:-4], 'date_shifted', ''))
+        elif isinstance(payload, tuple) and payload[0] == 'error':
+            errors.append((d, os.path.basename(z)[:-4], 'parse_error', payload[1]))
+        else:
+            tt, ot, snt, mrow = payload
+            ym = d[:6]
+            for name, tab in [('trades', tt), ('orders', ot), ('snapshots', snt)]:
+                sink.add((name, ym), tab)   # R11：骨架负责缓冲/阈值/事故修法
+            man_rows.append(mrow)
+        if n_done % 5000 == 0:
+            print(f'  {n_done}/{len(tasks)} zips done, elapsed '
+                  f'{time.time()-t0:.0f}s', flush=True)
+        else:
+            last_print = (n_done // 5000) * 5000
+            if last_print != last_milestone:
+                print(f'  {n_done}/{len(tasks)} zips done (milestone {last_print} '
+                      f'skipped), elapsed {time.time()-t0:.0f}s', flush=True)
+                last_milestone = last_print
+
+    tasks = [Task(key=f'{d}|{os.path.basename(z)}', payload=(d, z)) for d, z in pending]
+
+## MonthPartitionSink: append-only, NO sort
+class MonthPartitionSink:
+    """`key → 一个月的 parquet 分片`，按单元数阈值 flush 成 row group。
+
+    - `base_dir`：分片根（`{base}/{表名}/year=/month=/part-000.parquet`，规则在 writekit.MonthWriter）
+    - `schema_of(name)`：表名 → pyarrow schema（沿用工具自己的冻结 schema 单点）
+    - `flush_units`：每累积多少个单元写一个 row group（= 历史 `FLUSH_ZIPS`）
+    - `kind_of(key)`：key → (表名, 'YYYYMM')；key 由调用方定义（可带表名，也可只是月份）
+    """
+
+    def __init__(self, base_dir, *, schema_of: Callable[[str], pa.Schema],
+                 flush_units: int, kind_of: Callable[[object], tuple[str, str]]):
+        if flush_units < 1:
+            raise ValueError(f"flush_units 必须 >= 1（收到 {flush_units}）")
+        self.base_dir = str(base_dir)
+        self._schema_of = schema_of
+        self._flush_units = int(flush_units)
+        self._kind_of = kind_of
+        self.writers: dict[object, W.MonthWriter] = {}
+        self.buffers: dict[object, list] = {}
+        self.n_buf: dict[object, int] = {}
+        self._closed = False
+
+    def add(self, key, table) -> None:
+        """缓冲一个单元；该 key 累积到 `flush_units` 就写一个 row group。"""
+        if self._closed:
+            raise RuntimeError("sink 已收尾（close_all 之后不得再 add）")
+        self.buffers.setdefault(key, []).append(table)
+        self.n_buf[key] = self.n_buf.get(key, 0) + 1
+        if self.n_buf[key] >= self._flush_units:
+            self._flush(key)
+
+    def _writer(self, key) -> W.MonthWriter:
+        # 事故 1 的修法：显式 if（绝不用 setdefault —— 那会每次新建 writer 并截断活跃 tmp）
+        if key not in self.writers:
+            name, ym = self._kind_of(key)
+            self.writers[key] = W.MonthWriter(self.base_dir, name, ym[:4], ym[4:],
+                                              schema=self._schema_of(name))
+        return self.writers[key]
+
+    def _flush(self, key) -> None:
+        tabs = self.buffers.get(key)
+        if not tabs:
+            return
+        self._writer(key).append(pa.concat_tables(self.buffers.pop(key)))
+        self.n_buf[key] = 0            # 事故 2 的修法：flush 即归零
+
+    def close_all(self, *, mark_success: bool = True) -> dict[object, tuple[str, int]]:
+        """flush 尾部缓冲 → 逐 writer `close()` 原子提交 → 落 `_SUCCESS`。
+
+        返回 `{key: (最终路径, 行数)}`。重复调用显式报错（静默重复提交会掩盖状态机错误）。
+        """
+        if self._closed:
+            raise RuntimeError("close_all 只能调用一次（重复提交等于把状态机错误藏起来）")
+        self._closed = True
+        for key in list(self.buffers):
+            self._flush(key)
+        out: dict[object, tuple[str, int]] = {}
+        for key, w in sorted(self.writers.items(), key=lambda kv: str(kv[0])):
+            path, rows = w.close()
+            out[key] = (path, rows)
+            if mark_success:
+                W.mark_success(os.path.dirname(path))
+        return out
+
+## registered gap text (unchanged)
+17. **converters 月产物行序不定**（R9 登记，实测）
+    现状：`convert_tick` 的月 part 由多进程 worker **按完成顺序** append row group 累积，
+    行序随调度变化——实测同码同输入两次运行 sha256 不同（全列排序后逐值相等、manifest 内容相同）。
+    影响：任何"字节级重跑比对/增量重建"式校验对 tick 月产物不成立（内容稳定，字节不稳）。
+    未决因：修法与 1m_features 不同——那里整月只在内存里 5.7 万行可直接 sort；这里单月可达
+    3.5e8 行、MonthWriter 存在的意义就是**流式不驻留**，排序需外部归并（按 code 分区多次扫描）。
+    启动条件：确实需要字节可复现时，评估"按 code 分组落 part-001..N 再归并"或"落盘后外部排序"，
+    代价与收益须一起评估。
+

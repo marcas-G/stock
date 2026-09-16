@@ -1,0 +1,108 @@
+# R07-A7: pending #4 / #9 现状核实
+## date: 2026-09-16T18:35:15+08:00
+
+=== #4 fundamentals 缺源 ===
+## $ ls data/fact/fundamentals/
+ls: 无法访问'data/fact/fundamentals/': 没有那个文件或目录
+## datapaths.fundamentals():
+def index_daily(name: str = "000905.SH") -> Path:
+    """A10 指数基准（本工具生产）。"""
+    return fpaths.REF_ROOT / f"{name}.parquet"
+
+
+def fundamentals() -> Path:
+    """基本面 PIT 产物（`import_fundamentals` 生产；源缺失，见 pending #4）。"""
+    return fpaths.FACT_ROOT / "fundamentals" / "fundamentals_pti.parquet"
+
+## check_inputs.py 检查项:
+    for key, path, required in [
+            ('daily_fact', datapaths.daily_fact(), DAILY_REQUIRED),
+            ('benchmark_daily_pre', datapaths.index_daily(), INDEX_DAILY_REQUIRED),
+            ('fundamentals_pti', datapaths.fundamentals(), FUNDAMENTALS_REQUIRED)]:
+        ok = path.exists()
+        missing: list[str] = []
+        if ok:
+            df = pd.read_parquet(path).head(20)
+            missing = sorted(required - set(df.columns))
+            ok = not missing
+        checks.append((key, str(path), ok, missing))
+## import_fundamentals --fin-parquet 帮助:
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument('--daily', default=None,
+                   help='daily_fact（默认 A5 权威位：factio.paths.daily_fact_path()）')
+    p.add_argument('--fin-parquet', default=None,
+                   help='Windows 导出的 {date}_financial.parquet（TDX 财务）')
+    p.add_argument('--out', default=None,
+                   help='输出 parquet（默认 <STOCK_ROOT>/data/fact/fundamentals/fundamentals_pti.parquet）')
+    a = p.parse_args()
+    daily_path = Path(a.daily) if a.daily else datapaths.daily_fact()
+    out_path = Path(a.out) if a.out else datapaths.fundamentals()
+
+    daily = pd.read_parquet(daily_path)
+    daily['trade_date'] = pd.to_datetime(daily['trade_date']).dt.normalize()
+    daily['code'] = daily['code'].astype(str)
+
+    if a.fin_parquet is None:
+        raise SystemExit(
+            '未提供 --fin-parquet（Windows TDX 财务导出 {date}_financial.parquet）。\n'
+            '先在 Windows 运行 20260515/财务数据和个股财务_parquet.py 并拷贝产物到本机。')
+
+    fin = pd.read_parquet(a.fin_parquet)
+    col = {k: _pick(fin, v) for k, v in CANDIDATES.items()}
+    missing = {k for k, v in col.items() if v is None}
+    if missing:
+## $ check_inputs.py 实跑:
+INPUT CHECK
+('daily_fact', '/data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet', True, [])
+('benchmark_daily_pre', '/data/students/gaolei/stock/data/ref/000905.SH.parquet', True, [])
+('fundamentals_pti', '/data/students/gaolei/stock/data/fact/fundamentals/fundamentals_pti.parquet', False, [])
+IMPORTANT: daily_fact must represent a complete market trading calendar window; suspended rows may be absent because windowing is market-date based.
+IMPORTANT: adj_factor is the causal cumulative adjustment factor; pre/hf prices are derived at read time by the pool-stage reader (universe_stages.data.daily).
+## exit=0
+
+=== #9 golden v4_top300 ===
+## $ ls -la data/ref/universes/
+总用量 6692
+drwxrwxr-x 2 gaolei gaolei    4096 8月  22 22:34 .
+drwxrwxr-x 3 gaolei gaolei    4096 9月  12 02:53 ..
+-rw-rw-r-- 1 gaolei gaolei 6841880 8月  22 22:41 v4_top300.parquet
+## universe_paths.golden_universe docstring:
+def golden_universe() -> Path:
+    """A9 golden 股池（jqdata 口径的上游参考；生成链路未留存，见 pending #9）。"""
+    return fpaths.universes_root() / "v4_top300.parquet"
+
+## references 目录:
+总用量 80
+drwxrwxr-x  2 gaolei gaolei  4096 9月  15 16:00 .
+drwxrwxr-x 12 gaolei gaolei  4096 9月  16 15:31 ..
+-rw-rw-r--  1 gaolei gaolei 69965 9月  15 16:00 v4_jqdata_final_original.py
+## MIGRATION_GAP 公式回收声明（前 20 行）:
+# V4 local migration status — formulas CLOSED, end-to-end still blocked on missing sources
+
+## Formulas: recovered and ported
+
+The original frozen jqdata V4 source has now been recovered and archived at:
+
+`references/v4_jqdata_final_original.py`
+
+The previously missing formulas are now ported directly into `layer1/v4.py`:
+
+- drawdown
+- stress
+- down_decay
+- low_break_eff
+- turnover_health
+- rs_change
+- efficiency
+- clv20
+
+The local implementation also reproduces two easy-to-miss source semantics:
+## README 声称（仍写未留存）:
+```
+
+依赖真实数据源的集成路径当前不跑：fundamentals 源缺失（pending #4）、`20260817` tick
+归档未解包（pending #3）、golden 股池生成链未留存（pending #9）。各脚本入口先跑
+`universe_paths.preflight_layer{1,2,3}()`：缺源时 `MissingInput` 会点名**具体路径 + 获取路径**
+（不再裸 `FileNotFoundError`）。逐层可执行状态见 `MIGRATION_GAP.md` 的 Executable status 表。

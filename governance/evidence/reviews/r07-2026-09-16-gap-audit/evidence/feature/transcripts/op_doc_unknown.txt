@@ -1,0 +1,2 @@
+未知算子: not_an_op（注册面与分类表均无——`factorlab op list --catalog` 
+查看全集；自定义算子见 `factorlab op add`）

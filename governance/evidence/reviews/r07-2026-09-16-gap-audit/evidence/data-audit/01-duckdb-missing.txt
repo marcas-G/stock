@@ -1,0 +1,145 @@
+# R07-A1: factorlab.duckdb 缺失 + 默认后端实测
+## date: 2026-09-16T18:29:31+08:00
+## 环境: FACTORLAB_DATA_BACKEND=<unset>
+## 文件检查:
+ls: 无法访问'data/factorlab.duckdb': 没有那个文件或目录
+0
+
+## $ factorlab list (默认后端, 无 env)
+## exit=0
+momentum_20d_turnrank_top2 | custom | dir=-1 | ic=-0.0448036665365866 | 
+spread=-0.018601671351772167 | 2026-09-16T18:28:04
+momentum_20d_turnrank_top5 | custom | dir=-1 | ic=-0.04469795366325425 | 
+spread=-0.006520765195332461 | 2026-09-16T18:26:05
+momentum_20d_turnrank_top10 | custom | dir=-1 | ic=-0.04706583628385682 | 
+spread=-0.0036572164157844186 | 2026-09-16T18:24:21
+reversal_20d_wcorr | custom | dir=-1 | ic=-0.06746037692967563 | 
+spread=-0.004151493838018969 | 2026-09-16T18:21:25
+momentum_20d_turnrank_extreme | custom | dir=-1 | ic=-0.04553402623055494 | 
+spread=-0.0033293873548994736 | 2026-09-16T18:21:00
+turnover_accel | custom | dir=-1 | ic=-0.0367343842352204 | 
+spread=-0.004716661301910752 | 2026-09-16T18:20:24
+low_vol_20d | custom | dir=1 | ic=0.07007485259689888 | 
+spread=-0.002142922250706159 | 2026-09-16T18:19:47
+reversal_20d_corr_intraday_turn_vol | custom | dir=-1 | ic=-0.07033664940225755 
+| spread=-0.004595582797345975 | 2026-09-16T18:19:32
+vol_run_energy_symrun | custom | dir=-1 | ic=-0.025586657865997547 | 
+spread=-0.0029599917943449712 | 2026-09-16T18:19:09
+momentum_20d | custom | dir=1 | ic=-0.0414988679293545 | 
+spread=0.00427822425825166 | 2026-09-16T18:18:21
+reversal_20d | custom | dir=-1 | ic=-0.0414988679293545 | 
+spread=-0.0042782242582516585 | 2026-09-16T18:17:47
+max_effect_20d_extsum | custom | dir=-1 | ic=-0.053108686900199494 | spread=nan 
+| 2026-09-16T18:14:15
+max_effect_20d_extcnt | custom | dir=-1 | ic=-0.05315129882823937 | spread=nan |
+2026-09-16T17:27:28
+reversal_20d_intraday_turn_high | custom | dir=-1 | ic=-0.0780889181540185 | 
+spread=-0.004337874678473379 | 2026-09-16T17:00:08
+reversal_20d_intraday_turn | custom | dir=-1 | ic=-0.05927674683967321 | 
+spread=-0.0058265488822856456 | 2026-09-16T16:57:47
+turnover_accel_inflow | custom | dir=-1 | ic=-0.04216840922336708 | 
+spread=-0.05695653457387436 | 2026-09-16T16:14:40
+reversal_20d_netflow_vol | custom | dir=-1 | ic=-0.03274023087866303 | 
+spread=-0.0018866901290485742 | 2026-09-16T15:22:33
+reversal_20d_netflow | custom | dir=-1 | ic=-0.04162240500489049 | 
+spread=-0.00258141862155078 | 2026-09-16T15:12:26
+low_vol_20d_park_gk | custom | dir=1 | ic=0.07344087077640117 | 
+spread=-0.003295080637006652 | 2026-09-16T14:55:56
+low_vol_20d_park | custom | dir=1 | ic=0.07378992155499096 | 
+spread=-0.0036069296871417368 | 2026-09-16T14:53:21
+max_effect_20d_high_intraday | custom | dir=-1 | ic=-0.07195615703409768 | 
+spread=-0.0028723256306583374 | 2026-09-16T14:39:12
+r12_smoke | custom | dir=1 | ic=-0.20000000000000004 | spread=nan | 
+2026-09-16T14:20:22
+max_effect_20d_high__root-dup-20260916 | custom | dir=-1 | 
+ic=-0.06990199193229453 | spread=-0.0013626720151910978 | 2026-09-16T14:19:28
+reversal_20d_cumret | custom | dir=-1 | ic=-0.05041201882265858 | 
+spread=-0.004719357244128081 | 2026-09-16T13:59:35
+reversal_20d_cumret_freq | custom | dir=-1 | ic=-0.016215360516276537 | 
+spread=-0.0012836407514454351 | 2026-09-16T13:58:15
+reversal_20d_overnight | custom | dir=-1 | ic=0.024183917950719374 | 
+spread=0.0022827363367004068 | 2026-09-16T13:40:52
+reversal_20d_intraday | custom | dir=-1 | ic=-0.057653467344454465 | 
+spread=-0.0051533042928726975 | 2026-09-16T13:39:07
+turnover_level_ma20 | custom | dir=-1 | ic=-0.06005846691567068 | 
+spread=-0.003573253694921297 | 2026-09-16T13:20:49
+turnover_level | custom | dir=-1 | ic=-0.07203988373148727 | 
+spread=-0.00564113892121452 | 2026-09-16T13:19:08
+reversal_10d_cumret_log | custom | dir=-1 | ic=-0.03707198858113483 | 
+spread=-0.0027717279546973965 | 2026-09-16T12:41:04
+reversal_10d_cumret | custom | dir=-1 | ic=-0.03914845607134321 | 
+spread=-0.0026995027736162235 | 2026-09-16T12:38:06
+amihud_illiq_turn_20d | custom | dir=1 | ic=0.02644237173454093 | 
+spread=-0.002136840369845434 | 2026-09-16T12:32:29
+small_cap | custom | dir=1 | ic=nan | spread=nan | 2026-09-16T12:31:47
+value_bp__root-dup-20260916 | custom | dir=1 | ic=nan | spread=nan | 
+2026-09-16T12:30:21
+rsi_reversal_14_ret | custom | dir=-1 | ic=-0.03892221040563666 | 
+spread=-0.0025273314759663964 | 2026-09-16T12:12:47
+rsi_reversal_14 | custom | dir=-1 | ic=-0.037645701943325 | 
+spread=-0.0025362789790371603 | 2026-09-16T12:11:58
+verify_guard_2024h1 | custom | dir=1 | ic=0.07558398337274398 | 
+spread=-0.006758725230809985 | 2026-09-16T10:44:41
+cap_real4 | custom | dir=1 | ic=0.023458145177107193 | 
+spread=-0.004067902409972401 | 2026-09-16T08:58:47
+cap_real2 | custom | dir=1 | ic=nan | spread=nan | 2026-09-16T08:57:41
+max_effect_20d | custom | dir=-1 | ic=-0.06728721469354088 | 
+spread=-0.0011620851797207415 | 2026-09-16T08:55:33
+intraday_high_time | custom | dir=-1 | ic=-0.018879508695210115 | 
+spread=-0.0027323423155765796 | 2026-09-16T07:56:47
+minute_smoke_tail_share | custom | dir=-1 | ic=-1.0 | spread=nan | 
+2026-09-16T01:48:39
+minute_smoke_high_time | custom | dir=-1 | ic=-0.3333333333333333 | spread=nan |
+2026-09-16T01:48:32
+vol_run_energy_symrun_r30_streak | custom | dir=-1 | ic=-0.016275330109216782 | 
+spread=-0.002005591597021526 | 2026-09-16T01:42:39
+vol_run_energy_symrun_r30_flip | custom | dir=-1 | ic=-0.019283021270770206 | 
+spread=-0.0021369358154832412 | 2026-09-16T01:41:27
+vol_run_energy_symrun_r30 | custom | dir=-1 | ic=-0.026768454605055815 | 
+spread=-0.0033085310619812586 | 2026-09-16T01:40:20
+max_effect_20d_zmax | custom | dir=-1 | ic=-0.030089073136314454 | 
+spread=-0.0020270777095098723 | 2026-09-16T01:25:48
+max_effect_20d_high | custom | dir=-1 | ic=-0.06990199193229453 | 
+spread=-0.0013626720151910974 | 2026-09-16T01:24:56
+mine_smoke_01 | custom | dir=1 | ic=-0.18390183231691978 | 
+spread=0.004040383448503425 | 2026-09-16T01:19:02
+crash_bottom_leader_adv20 | custom | dir=1 | ic=nan | spread=nan | 
+2026-09-15T22:27:15
+value_bp | custom | dir=1 | ic=nan | spread=nan | 2026-09-15T22:19:53
+提示: spread=(group0−group9)×dir（group0=signal 
+最低档；负值=表现与声明方向一致；判有效性看 ic）
+## list exit=0
+
+## $ factorlab show <第一个因子> (默认后端)
+## chosen factor: momentum_20d_turnrank_top2
+=== momentum_20d_turnrank_top2 ===
+spec: adjustment: qfq
+category: custom
+combine: null
+cost_rate: 0.0
+date:
+  end: '2026-07-31'
+  start: '2023-01-01'
+description: ''
+direction: -1
+factors: null
+formula: 'from polars_ta.prefix.wq import ts_mean, ts_delay, cs_rank, sign
+
+  _mom = ts_mean(close, 20) / ts_delay(close, 20) - 1
+
+  _w = (sign(cs_rank(turnover) - 0.98) + 1) / 2
+
+  signal = _mom * _w
+
+  '
+interface: daily
+name: momentum_20d_turnrank_top2
+op_meta: null
+operators: {}
+outputs: null
+params: {}
+process:
+- winsorize(quantile=0.99)
+- standardize()
+target: forward_return_5d
+## show exit=1

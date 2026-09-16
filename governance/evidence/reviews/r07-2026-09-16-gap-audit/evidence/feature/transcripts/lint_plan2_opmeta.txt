@@ -1,0 +1,5 @@
+1 validation error for FactorSpec
+  Value error, op_meta 暂未支持（Plan 2）——未知算子请改用公式内 
+def（本因子专用）或注册插件算子（factorlab op add）；写了 op_meta 
+也不会被采纳，故在此明确拒绝而非静默忽略 
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error

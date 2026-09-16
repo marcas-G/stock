@@ -1,0 +1,5 @@
+Usage: factorlab lint [OPTIONS] [spec_paths]...
+Try 'factorlab lint --help' for help.
+╭─ Error ──────────────────────────────────────────────────────────────────────╮
+│ No such option: --strategy                                                   │
+╰──────────────────────────────────────────────────────────────────────────────╯

@@ -1,0 +1,47 @@
+# R07-A5b: FACTORLAB_MINUTE_UNCOVERED=drop 实测 + summary 审计
+## date: 2026-09-16T18:32:03+08:00
+
+## $ FACTORLAB_DATA_BACKEND=ch FACTORLAB_MINUTE_UNCOVERED=drop FACTORLAB_MAX_MEMORY=8GB factorlab run --no-backtest
+2026-09-16 18:32:17.414 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 18:32:17.447 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+/data/students/gaolei/stock/platform/src/factorlab/app/run.py:910: MinuteUncoveredWarning: 分钟覆盖缺口（R03-I6）：168 个 (code, date) 日线在而 bars_1m 整日缺（84 只 code × 2 个交易日；2024-01-02..2024-01-03），FACTORLAB_MINUTE_UNCOVERED=drop 已显式从分钟宇宙剔除该日——分钟源存在幸存者偏差，结果口径不可与完整覆盖混比；审计见 summary.minute_uncovered / knowledge/contracts/interface.md 分钟覆盖口径。
+  _warn_minute_uncovered(uncovered)
+r07_minute_cov_probe: n_weeks=0 ic_mean=nan spread=nan
+
+real	0m16.269s
+user	0m58.169s
+sys	0m15.562s
+## run exit=0
+
+## summary.minute_uncovered:
+{
+ "mode": "drop",
+ "dropped_code_days": 168,
+ "dropped_codes": 84,
+ "dropped_dates": 2,
+ "date_min": "2024-01-02",
+ "date_max": "2024-01-03",
+ "sample": [
+  {
+   "date": "2024-01-02",
+   "code": "000005.SZ"
+  },
+  {
+   "date": "2024-01-02",
+   "code": "000040.SZ"
+  },
+  {
+   "date": "2024-01-02",
+   "code": "000413.SZ"
+  },
+  {
+   "date": "2024-01-02",
+   "code": "000416.SZ"
+  },
+  {
+   "date": "2024-01-02",
+   "code": "000584.SZ"
+  }
+ ]
+}
+universe_count: 5530 panel_rows: 10011 signal_rows: 10011

@@ -1,0 +1,19 @@
+/closed_gates = 11
+/error_handbook = 21
+/known_approximations = 3
+/open_surface/columns = 24
+/open_surface/def_composition/example = # 元素级组合 + 缺省参数（def 内不得出现窗口/截面算子）
+def scale_shift(x, n=2):
+  
+/open_surface/def_composition/rules = 6
+/open_surface/naming/disciplines = 3
+/open_surface/naming/future_names = 2
+/open_surface/naming/future_prefixes = 2
+/open_surface/naming/internal_names = 1
+/open_surface/naming/internal_prefix = __factorlab_
+/open_surface/operators/elementwise_methods = 7
+/open_surface/operators/partition_prefixes = 4
+/open_surface/operators/platform_owned = 6
+/open_surface/operators/registry_inventory = 55
+/scope = FactorLab 引擎读面活文档（日频数据面：行情 daily / 估值 daily_basic / 特殊 speci
+/source_ref = knowledge/design/platform/specs/2026-09-06-factorlab-dsl-sha

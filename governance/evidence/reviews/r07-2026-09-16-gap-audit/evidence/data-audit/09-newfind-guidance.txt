@@ -1,0 +1,29 @@
+# R07-A9: 新发现候选——报错/指引缺口取证
+## date: 2026-09-16T18:35:23+08:00
+
+=== N1: 默认 duckdb 缺失报错不提 CH 替代 ===
+## 实测报错（见 01b）: 错误: 数据库不存在: data/factorlab.duckdb（可运行 data refresh 或检查路径）
+463:        raise FileNotFoundError(f"数据库不存在: {ctx.db_path}（可运行 data refresh 或检查路径）") from exc
+814:            f"数据库不存在: {ctx.db_path}（可运行 data refresh 或检查路径）") from exc
+## 对照：AGENTS/data-map 都记录了 CH 替代路径
+30:4. **跑**：`FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/factorlab run <spec>`；看 IC/分层/换手。
+67:| 分钟面 × 本地 parquet 对拍 | `FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python platform/tools/1m_features/run_1m_feature.py check-day 2024-01-15` |
+80:- 平台 duckdb 库不存在 → 用 `FACTORLAB_DATA_BACKEND=ch`。`exclude_st` 在 CH 无 `stock_st`
+32:| B2 | 平台库 `factorlab.duckdb` | `platform/data/`（相对平台树根） | **当前不存在** | `factorlab data rebuild`（数据源=teajoin API） | platform duckdb 后端 | 重建需先 redeem teajoin token（2026-08-22 已过期）；或改用 `FACTORLAB_DATA_BACKEND=ch`。见 pending-items |
+
+=== N2: stock_st 缺失报错不提 FACTORLAB_ST_DEGRADE=allow ===
+## 实测报错（见 02）: 错误: exclude_st 需要 stock_st 表（平台库由 data rebuild 生成）——不能默认所有股票非 ST
+303:            raise ValueError("exclude_st 需要 stock_st 表（平台库由 data rebuild 生成）")
+642:            raise ValueError("exclude_st 需要 stock_st 表（平台库由 data rebuild 生成）——不能默认所有股票非 ST")
+566:    """R03-I1：exclude_st=true 但库中无 stock_st 表、FACTORLAB_ST_DEGRADE=allow
+609:    R03-I1 例外：显式开关 FACTORLAB_ST_DEGRADE=allow 时缺表降级为无 ST 口径——
+637:                "stock_st 表，FACTORLAB_ST_DEGRADE=allow 已显式降级（is_st=null、"
+
+=== N3: ddl.sql 引用的 ingest_index_sina.py 不存在 ===
+platform/tools/ch_ingest/ddl.sql:70:-- 空表：load_daily 的 idx_ret LEFT JOIN 不炸、恒 NULL。可选：sina 拉 000852.SH 填充（ingest_index_sina.py）
+0
+
+=== N4: import_index.py docstring 输出名与实际默认不一致 ===
+#!/usr/bin/env python3
+"""中证500 (000905.SH) 指数日线 → benchmark_daily_pre.parquet
+

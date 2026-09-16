@@ -1,0 +1,30 @@
+# item7: pending #12② quark tool rename status
+# date: 2026-09-16T18:32:39+08:00 HEAD: 639bf3f
+## repo files (current names)
+-rw-rw-r-- 1 gaolei gaolei  6647 9月  15 12:29 platform/tools/quark_download/quark_client.py
+-rw-rw-r-- 1 gaolei gaolei  6280 9月  15 20:28 platform/tools/quark_download/quark_download_server.py
+-rw-rw-r-- 1 gaolei gaolei  9047 9月  16 15:27 platform/tools/quark_download/quark_download_v2.py
+-rw-rw-r-- 1 gaolei gaolei 16475 9月  15 12:26 platform/tools/quark_download/quark_share.py
+
+## user-level skill scripts (copies)
+总用量 32
+-rw-rw-r-- 1 gaolei gaolei  7145 8月  23 23:49 build_manifest_tree.py
+-rw-rw-r-- 1 gaolei gaolei  9520 8月  23 23:49 quark_download_server.py
+-rw-rw-r-- 1 gaolei gaolei 11558 8月  23 23:49 quark_download_v2.py
+
+## full sha256 compare
+quark_download_v2.py         repo:acccd0fe9d50fa216da1809e
+  skill:0cbf63bb82feeecaf857dfd3
+
+quark_download_server.py     repo:cfac38f4e32ee49c8e527f6c
+  skill:9edd716561793d12393a05a0
+
+quark_share.py               repo:e53acc37a17e6820a92a7fba
+  skill:ABSENT
+quark_client.py              repo:dd2e550623213e8d5fd693be
+  skill:ABSENT
+
+## skill SKILL.md still references old names
+49:2. **下载**:`python3 quark_download_v2.py <start_day_idx> <end_day_idx>`
+59:- `quark_download_v2.py` — 并行下载主脚本(推荐)
+60:- `quark_download_server.py` — 单线程版(老方案,含 guest 降级重试,小规模可用)

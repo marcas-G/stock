@@ -1,0 +1,14 @@
+# R07-A4: CA Gate 最小真实复现（CH 600519.SH，事件 2026-06-26）
+## date: 2026-09-16T18:31:22+08:00
+## 事件源: CH adj_event 600519.SH@2026-06-26（前查证输出见 03/04 前置查询）
+
+=== attempt 1: 单段连续 run（2026-06-24..06-29，持仓跨事件 06-26）===
+EXC: ExecutionDataQualityError
+CA Gate：持仓 ['600519.SH'] 在窗口 (2026-06-25, 2026-06-30] 内出现除权事件 ['600519.SH@2026-06-26']——跨 share-unit basis 的连续 NAV/return 无定义（M8-06A §5.5）；请以 decision_range 分段 run（CA handling 里程碑前禁止跨 CA 连续估值）
+
+=== attempt 2: decision_range 分段（第一段仅 D1）===
+segment1 execs: ['2026-06-25'] | nav tail: [1000000.0] | final_pos: 1
+
+=== attempt 3: decision_range 分段（第二段仅 D2，平仓重启）===
+segment2 execs: ['2026-06-30'] | nav tail: [1000000.0] | final_pos: 1
+## exit=0

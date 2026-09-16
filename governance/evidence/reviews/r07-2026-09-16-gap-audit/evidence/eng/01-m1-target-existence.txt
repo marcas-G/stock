@@ -1,0 +1,71 @@
+# item1b: existence check of targets referenced as platform/results/<x> vs runs/platform/<x>
+max_effect_20d_zmax                        RUNS_EXISTS
+max_effect_20d_extcnt                      RUNS_EXISTS
+intraday_high_time                         RUNS_EXISTS
+vol_run_energy_symrun_r30_streak           RUNS_EXISTS
+vol_run_energy_symrun_r30_flip             RUNS_EXISTS
+intraday_tail_amt_share                    runs MISSING
+
+# root results/ refs count + sample target existence
+155
+(unique targets above)
+RUNS_EXISTS  amihud_illiq_turn_20d
+RUNS_EXISTS  crash_bottom_leader_adv20
+RUNS_EXISTS  low_vol_20d
+RUNS_EXISTS  max_effect_20d
+RUNS_EXISTS  momentum_20d
+RUNS_EXISTS  momentum_20d_turnrank_extreme
+RUNS_EXISTS  reversal_10d_cumret
+RUNS_EXISTS  reversal_10d_cumret_log
+RUNS_EXISTS  reversal_20d
+RUNS_EXISTS  reversal_20d_corr_intraday_turn_vol
+RUNS_EXISTS  reversal_20d_cumret
+RUNS_EXISTS  reversal_20d_cumret_freq
+RUNS_EXISTS  reversal_20d_intraday
+RUNS_EXISTS  reversal_20d_intraday_turn
+RUNS_EXISTS  reversal_20d_netflow
+RUNS_EXISTS  reversal_20d_overnight
+RUNS_EXISTS  reversal_20d_wcorr
+RUNS_EXISTS  rsi_reversal_14
+RUNS_EXISTS  rsi_reversal_14_ret
+RUNS_EXISTS  small_cap
+RUNS_EXISTS  turnover_accel
+RUNS_EXISTS  turnover_level
+RUNS_EXISTS  turnover_level_ma20
+RUNS_EXISTS  value_bp
+RUNS_EXISTS  vol_run_energy_symrun
+RUNS_EXISTS  vol_run_energy_symrun_r30
+runs-missing amihud_illiq_20d
+runs-missing closing_strength_20d
+runs-missing crash_bottom_leader
+runs-missing crash_bottom_leader_adv_mv
+runs-missing crash_bottom_leader_dd
+runs-missing crash_bottom_leader_mom10
+runs-missing crash_bottom_leader_timed
+runs-missing crash_bottom_leader_timed_stable
+runs-missing dividend_yield
+runs-missing low_downside_vol_20d
+runs-missing max_effect_5d
+runs-missing momentum_20d_cumret_turn
+runs-missing momentum_20d_decile
+runs-missing momentum_20d_decile5
+runs-missing momentum_20d_downtrend
+runs-missing momentum_20d_m120
+runs-missing momentum_20d_m60
+runs-missing momentum_20d_net60
+runs-missing momentum_20d_open
+runs-missing momentum_20d_turnrank
+runs-missing momentum_20d_turnrank_avg20
+runs-missing momentum_20d_turnrank_lowturn
+runs-missing momentum_20d_turnrank_quad
+runs-missing momentum_20d_turnrank_vol
+runs-missing momentum_20d_vol_extreme
+runs-missing momentum_20d_volrank
+runs-missing momentum_20d_vwap
+runs-missing momentum_20d_vwap_turn
+runs-missing quality_defensive
+runs-missing reversal_10d_intraday
+runs-missing reversal_10d_intraday_extreme
+runs-missing reversal_20d_civ_extreme
+runs-missing reversal_20d_closepos
+runs-missing reversal_20d_corr10_intraday

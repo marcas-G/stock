@@ -1,0 +1,23 @@
+# R07-A8b: data-map B1/A5 行数核对（文档漂移量化）
+## date: 2026-09-16T18:34:29+08:00
+## $ CH system.tables total_rows
+    ┌─name───────────┬─total_rows─┐
+ 1. │ tick_orders    │ 5810986406 │ -- 5.81 billion
+ 2. │ tick_trades    │ 3797289378 │ -- 3.80 billion
+ 3. │ bars_1m        │ 1853379840 │ -- 1.85 billion
+ 4. │ tick_snapshots │  344059684 │ -- 344.06 million
+ 5. │ adj_detail     │   18124805 │ -- 18.12 million
+ 6. │ adj_factor     │   18124805 │ -- 18.12 million
+ 7. │ daily          │   18124805 │ -- 18.12 million
+ 8. │ daily_basic    │   18124805 │ -- 18.12 million
+ 9. │ stk_limit      │   17854764 │ -- 17.85 million
+10. │ adj_event      │      57173 │
+11. │ trade_cal      │       8772 │
+12. │ stock_basic    │       5861 │
+13. │ index_daily    │          0 │
+    └────────────────┴────────────┘
+
+## 文档声明值
+data-map A5 daily_fact: 18,162,795 行（实际 18,124,805，差 37,990）
+data-map B1: 'tick_orders 5,810,986,406 行等 8 表'（实际 13 表）
+skill factorlab-ch-pipeline: daily 18,162,795 / stk_limit 17,889,079（实际 18,124,805 / 17,854,764）

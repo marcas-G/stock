@@ -1,0 +1,41 @@
+# R07-A11: 源清单附加核对（pending #2 / #6）+ 证据目录 gitignore 冲突
+## date: 2026-09-16T18:36:24+08:00
+
+=== pending #2: tick 面板批量产出 ===
+## panel_1s parquet:
+/data/students/gaolei/stock/data/fact/lob_fact/panel_1s/year=2025/month=08/20250812.parquet
+/data/students/gaolei/stock/data/fact/lob_fact/panel_1s/year=2026/month=08/20260803.parquet
+## panel_1m parquet:
+/data/students/gaolei/stock/data/fact/lob_fact/panel_1m/year=2025/month=08/20250812.parquet
+/data/students/gaolei/stock/data/fact/lob_fact/panel_1m/year=2026/month=08/20260803.parquet
+## panel_runs:
+20260910_115924_panel.json
+## 批量脚本存在:
+-rw-rw-r-- 1 gaolei gaolei 46341 9月  15 20:34 /data/students/gaolei/stock/platform/tools/lob_fact/pipeline/run_lob_batch.py
+
+=== pending #6: 归档到期（2026-10-12 / 2026-10-16）===
+## _archive 批次:
+2026-09-12-S1
+2026-09-12-S3
+2026-09-16-ashare-alpha3
+backups
+README.md
+## 体积:
+3.9G	_archive/2026-09-12-S1
+912M	_archive/2026-09-12-S3
+13M	_archive/2026-09-16-ashare-alpha3
+## policy TTL:
+6:（同盘 rename 秒级、可逆），保留 **30 天**（TTL 政策**单点在本文件**；其余文档只引用，不复述天数）；只有**可证明垃圾**（可再生成的缓存、明确的
+11:| 批次 | 目录 | 到期日 | manifest |
+28:1. **逐行核对 manifest**：对每条归档物回答："这 30 天里有人需要它吗？有没有新证据表明
+
+=== 基础设施：evidence/data 被 .gitignore 的 data/ 规则命中 ===
+.gitignore:17:data/	governance/evidence/reviews/r07-2026-09-16-gap-audit/evidence/data/01-duckdb-missing.txt
+.gitignore:17:data/	governance/evidence/reviews/r07-2026-09-16-gap-audit/evidence/data/AUDIT-TABLE.md
+
+# 平台/研究运行时数据与产物（防御性显式声明）
+data/
+# R24：运行产物单点 → 仓库根 runs/（runs/platform/<name>/）。
+## 对照：feature/eng 子目录不被忽略
+feature exit=1
+eng exit=1

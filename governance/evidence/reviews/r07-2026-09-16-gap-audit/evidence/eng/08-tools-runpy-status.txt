@@ -1,0 +1,55 @@
+# item8: pending #12③ tools run.py subcommand unification
+# date: 2026-09-16T18:32:39+08:00 HEAD: 639bf3f
+## any run.py under tools?
+0
+
+## current entry points with __main__ per tool
+== 1m_features
+run_1m_feature.py
+== ashare_ingest
+check_inputs.py
+import_daily.py
+import_fundamentals.py
+import_index.py
+validate_minutes.py
+validate_tick.py
+== ch_ingest
+adj_backfill.py
+derive_stk_limit.py
+ingest_bars.py
+ingest_daily.py
+ingest_tick.py
+reconcile.py
+== converters
+convert_minutes_to_parquet.py
+convert_tick_to_parquet.py
+== lib
+== lob_fact
+core/factor_panel.py
+diag/audit_w5.py
+diag/calibrate_w1.py
+diag/cross_check_w3.py
+diag/measure_w2.py
+diag/measure_w3.py
+diag/probe_mat_followup.py
+diag/probe_open.py
+diag/verify_cancels_sample.py
+notes/w4diag/parity_probe.py
+pipeline/extract_sz_cancels.py
+pipeline/run_lob_batch.py
+store/compact_lob.py
+== quark_download
+quark_download_server.py
+quark_download_v2.py
+quark_share.py
+== universe_stages
+scripts/run_layer1.py
+scripts/run_layer2_sas.py
+scripts/run_layer3_tick.py
+scripts/tail_capture_audit.py
+scripts/validate_layer1_parity.py
+
+## any tool already using argparse subparsers?
+platform/tools/1m_features/run_1m_feature.py
+
+## R4 C2 tool list (source of "6 个工具")

@@ -1,0 +1,13 @@
+# R07-A12: 源 parquet float_shares 覆盖率（R07-D1 证据）
+## date: 2026-09-16T18:36:52+08:00
+## $ platform/.venv/bin/python -c polars scan daily_fact ...
+shape: (1, 4)
+┌─────────────┬──────────┬─────────────┬──────────┐
+│ fs_non_null ┆ fs_pos   ┆ ts_non_null ┆ rows     │
+│ ---         ┆ ---      ┆ ---         ┆ ---      │
+│ u32         ┆ u32      ┆ u32         ┆ u32      │
+╞═════════════╪══════════╪═════════════╪══════════╡
+│ 16873795    ┆ 16873731 ┆ 16873795    ┆ 18124805 │
+└─────────────┴──────────┴─────────────┴──────────┘
+CH daily_basic.circ_mv non_null = 0 / 18124805（见 08-new-gap-hunt.txt）
+结论: 源列 float_shares 覆盖率与 total_shares 相同 -> circ_mv 可由 close×float_shares 派生（万元），但 ingest_daily.py:172-175 未派生

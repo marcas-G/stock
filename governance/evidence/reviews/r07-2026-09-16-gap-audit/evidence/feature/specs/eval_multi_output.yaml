@@ -1,0 +1,14 @@
+name: r07_probe_multi_out
+category: custom
+direction: 1
+outputs: [momentum, gap]
+universe:
+  rules: {exclude_st: true, exchanges: ["SSE", "SZSE"]}
+date:
+  start: "2023-01-01"
+  end: "2026-07-31"
+process:
+  - standardize()
+formula: |
+  momentum = ts_mean(close / ts_delay(close, 1) - 1, 10)
+  gap = close - open

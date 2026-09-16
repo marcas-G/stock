@@ -1,0 +1,26 @@
+# item11: compact_lob.py direct-run probe (read-only, --help)
+# date: 2026-09-16T18:31:25+08:00 HEAD: 639bf3f
+## A. platform venv, as-written direct run
+$ platform/.venv/bin/python platform/tools/lob_fact/store/compact_lob.py --help
+---
+Traceback (most recent call last):
+  File "/data/students/gaolei/stock/platform/tools/lob_fact/store/compact_lob.py", line 37, in <module>
+    from core import config as C
+ModuleNotFoundError: No module named 'core'
+exit=1
+
+## B. from lob_fact dir with cwd=store-less (python -m style bypass)
+$ cd platform/tools/lob_fact && ../../.venv/bin/python -m store.compact_lob --help
+---
+/bin/bash: ../../../.venv/bin/python: 没有那个文件或目录
+exit=127
+
+## C. module-mode contrast (works; proves only direct-run is broken)
+$ cd platform/tools/lob_fact && ../../.venv/bin/python -m store.compact_lob --help
+usage: compact_lob.py [-h] [--root ROOT] --months MONTHS [--tables TABLES]
+                      [--rgr RGR] [--level LEVEL] [--lock LOCK] [--out OUT]
+                      [--dry-run]
+
+options:
+  -h, --help       show this help message and exit
+exit=0

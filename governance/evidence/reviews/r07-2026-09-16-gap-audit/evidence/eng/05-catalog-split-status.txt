@@ -1,0 +1,22 @@
+# item5: pending #11④ catalog split status
+# date: 2026-09-16T18:32:39+08:00 HEAD: 639bf3f
+$ wc -l platform/src/factorlab/adapters/catalog.py
+853 platform/src/factorlab/adapters/catalog.py
+
+$ ls platform/src/factorlab/core/ | grep -i catalog
+core/catalog_model: ABSENT
+$ ls platform/src/factorlab/adapters/ | grep -i catalog
+catalog.py
+
+## catalog.py structure (classes/defs)
+219:def _column_rows() -> list[dict[str, str]]:
+269:def _live_inventory() -> list[dict[str, str]]:
+290:def scale_shift(x, n=2):
+300:def _naming() -> dict:
+320:def _gates() -> list[dict]:
+650:def build_catalog() -> dict:
+694:def _iter_text(cat: dict):
+708:def validate_catalog(cat: dict) -> None:
+751:def catalog_json(cat: dict | None = None) -> str:
+758:def render_catalog_markdown(cat: dict | None = None) -> str:
+841:def _ap_gate(ap, row: dict, intro: bool) -> None:

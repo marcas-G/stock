@@ -1,0 +1,12 @@
+name: r07_probe_by
+category: custom
+direction: 1
+universe:
+  rules: {exclude_st: true, exchanges: ["SSE", "SZSE"]}
+date:
+  start: "2023-01-01"
+  end: "2026-07-31"
+process:
+  - standardize()
+formula: |
+  signal = rank(close, by=date)

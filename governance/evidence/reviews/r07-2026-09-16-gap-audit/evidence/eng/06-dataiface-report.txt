@@ -1,0 +1,20 @@
+# item6: check_dataiface.py REPORT counts
+# date: 2026-09-16T18:31:14+08:00 HEAD: 639bf3f
+$ platform/.venv/bin/python governance/ops/check_dataiface.py
+---
+[G-CONTRACT/工具树分区字面量] ENFORCED：`year=` 只许经 core.factio.partitions
+  ✓ 0 处（AST：非 docstring 字符串常量）
+[G-MARK] ENFORCED：标记/断点名只经 lib.writekit 单点 API
+  ✓ 0 处（注释/print 文案不算；writekit 自身豁免）
+[G-CONTRACT/平台表名字面量] REPORT：70 处（未竟 → governance/workspace/pending-items.md #12①）
+      platform/src/factorlab/adapters/catalog.py:169: 'adj_factor'
+      platform/src/factorlab/adapters/catalog.py:213: 'daily_basic'
+      platform/src/factorlab/adapters/intraday.py:57: 'bars_1m'
+      platform/src/factorlab/adapters/intraday.py:58: 'tick_trades'
+      platform/src/factorlab/adapters/intraday.py:59: 'tick_orders'
+[G-MARK/接线] ENFORCED：用 `W.` 的模块必须导入 lib.writekit
+  ✓ 0 处（漏 import 会在 main() 运行时才炸，门提前拦住）
+[G-READ] ENFORCED：工具树直读 parquet 只允许登记点，且不指向事实库分区
+  ✓ 0 处违规（登记 25 个理由明确的直读点；新增未登记即失败）
+数据接口门：ENFORCED 全绿
+exit=0

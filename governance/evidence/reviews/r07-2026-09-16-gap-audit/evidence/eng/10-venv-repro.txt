@@ -1,0 +1,46 @@
+# item10: pending #18 venv reproducibility
+# date: 2026-09-16T18:32:41+08:00 HEAD: 639bf3f
+## pyproject declared dependencies
+len(dependencies) = 19
+ - polars>=1.38
+ - numpy>=1.26
+ - duckdb>=1.5
+ - pyarrow>=20
+ - clickhouse-connect>=1.7
+ - pyyaml>=6
+ - pydantic>=2.12
+ - pydantic-settings>=2.14
+ - expr-codegen>=0.16.6
+ - polars-ta>=0.5.17
+ - typer>=0.27
+ - rich>=14
+ - fastapi>=0.136
+ - uvicorn>=0.45
+ - jinja2>=3.1
+ - plotly>=6.7
+ - requests>=2.32
+ - psutil>=7.2
+ - quant-core>=0.1.0
+optional talib = ['TA-Lib>=0.7.1']
+optional dev   = ['pytest>=8', 'pytest-cov>=6']
+
+## venv actual packages (dist-info dirs; pip module absent in uv venv)
+72
+
+## lock/requirements search
+$ ls platform/uv.lock platform/requirements*.txt uv.lock requirements*.txt
+NONE FOUND
+$ uv available:
+/home/gaolei/.local/bin/uv
+
+## registered gap text
+18. **venv 无法从依赖声明复现**（R18 登记，实测）
+    现状：`platform/pyproject.toml` 只声明 20 个依赖，而 `platform/.venv` 里实际有 **72 个包**
+    （未声明者含 pandas / openpyxl / plotly / black / numba / sympy / httpx…，见
+    `governance/evidence/verification/R18/04-venv-freeze.txt`）；全仓**无** `uv.lock` / `requirements*.txt`。
+    影响：venv 一旦丢失或重建，**得到的是另一个环境**（版本漂移会威胁 lob_fact 的字节级重跑
+    与 `pins.sha256` 金样）。故 `governance/ops/reinstall_editable.sh` **只做 editable 重装**，
+    不冒充重建入口。
+    启动条件：需要环境可复现时，先补 `uv lock`（或冻结快照转 requirements）+ 在验证机上
+    按声明重建一次并跑三门（平台全量 / 研究 T1+T2 / lob_fact 金样），代价须一并评估。
+

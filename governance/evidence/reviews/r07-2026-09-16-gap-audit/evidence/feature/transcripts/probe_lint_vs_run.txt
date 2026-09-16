@@ -1,0 +1,24 @@
+2026-09-16 18:32:40.335 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 18:32:40.363 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-16 18:32:40.375 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 18:32:40.402 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-16 18:32:40.433 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 18:32:40.461 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-16 18:32:42.920 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 18:32:42.948 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-16 18:32:42.971 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 18:32:43.008 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+--- r03i5_arity: signal = ts_cum_count(close, 5)
+FAIL FactorDSLError: 因子公式在 codegen 执行期失败（常见根因：代数化简把表达式折叠为常量，如 `x - x + 1.0`；也可能是引用了运行期不存在的名字）。原始错误: TypeError: ts_cum_count() takes 1 positional argument but 2 were given
+--- r03i5_ok: signal = ts_cum_count(close)
+OK rows=16 non-null=16
+--- ts_partial_corr: signal = ts_partial_corr(close, volume, open, 2)
+FAIL FactorDSLError: 因子公式在 codegen 执行期失败（常见根因：代数化简把表达式折叠为常量，如 `x - x + 1.0`；也可能是引用了运行期不存在的名字）。原始错误: ImportError: scipy 0.16+ is required for linear algebra
+
+This error occurred in the following expression:
+	as_struct(col("close").alias("f0"), col("volume").alias("f1"), col("open").alias("f2")).python_udf()
+while evaluat
+--- streak_barslastcount: signal = ts_BARSLASTCOUNT(close > ts_mean(close, 2))
+OK rows=16 non-null=12
+--- cum_sum_reset: signal = ts_cum_sum_reset(ts_delta(close, 1))
+OK rows=16 non-null=16

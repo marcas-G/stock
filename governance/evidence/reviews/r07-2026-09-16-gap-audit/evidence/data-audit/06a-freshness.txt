@@ -1,0 +1,14 @@
+# R07-A6 (修正): CH 各表最新/最早日期 + 行数
+## date: 2026-09-16T18:32:31+08:00
+daily: rows=18124805 min=1990-12-19 max=2026-08-21
+daily_basic: rows=18124805 min=1990-12-19 max=2026-08-21
+adj_event: rows=57173 min=1991-02-26 max=2026-08-21
+stk_limit: rows=17854764 min=1996-12-16 max=2026-08-21
+adj_detail: rows=18124805 min=1990-12-19 max=2026-08-21
+trade_cal: rows=8772 min=1990-12-19 max=2026-08-21
+stock_basic: rows=5861 min=1990-12-19 max=2026-07-30
+
+## bars_1m / tick 最新分区
+Received exception from server (version 26.3.22):
+Code: 47. DB::Exception: Received from localhost:19000. DB::Exception: Unknown expression or function identifier `bar_time` in scope SELECT 'bars_1m' AS t, max(bar_time) AS mx, count() AS n FROM factorlab.bars_1m. Maybe you meant: ['datetime']. (UNKNOWN_IDENTIFIER)
+(query: SELECT 'bars_1m' t, max(bar_time) mx, count() n FROM factorlab.bars_1m)

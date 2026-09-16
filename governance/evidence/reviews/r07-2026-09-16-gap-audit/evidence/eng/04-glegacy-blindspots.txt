@@ -1,0 +1,26 @@
+# item4b: G-LEGACY blind spots measured on the REAL repo
+# date: 2026-09-16T18:32:32+08:00 HEAD: 639bf3f
+
+## A. gate-visible (tracked, not exempt) platform/results hits → currently 1 (extcnt, gate RED)
+knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md:85:> 数据快照自 `platform/results/max_effect_20d_extcnt/summary.json`（2026-09-16 运行；无 exclude_st 版）。
+
+## B. invisible-to-gate untracked files with platform/results refs (rg finds, git grep does not)
+knowledge/dossiers/factors/intraday/intraday_high_time.md              INVISIBLE(untracked)
+knowledge/dossiers/factors/intraday/intraday_tail_amt_share.md         INVISIBLE(untracked)
+knowledge/dossiers/factors/README.md                                   VISIBLE
+knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md         VISIBLE
+knowledge/dossiers/factors/volatility/max_effect_20d_zmax.md           INVISIBLE(untracked)
+knowledge/dossiers/factors/vol_run_energy/symrun_r30_flip.md           INVISIBLE(untracked)
+knowledge/dossiers/factors/vol_run_energy/symrun_r30_streak.md         INVISIBLE(untracked)
+
+## C. root results/ refs (NOT in any G-LEGACY pattern) — 164 lines / 158 files
+164
+158
+-- 26/155 unique targets exist under runs/platform; 129 missing (historical, never archived)
+
+## D. research/tools/lib/ has no live ref except pending-items quote (would need exemption if pattern added)
+governance/evidence/reviews/r04-efficiency-2026-09-16/tools-migration-plan.md:48:platform/tools/lib/                                                                                       ← research/tools/lib
+governance/evidence/reviews/r06-2026-09-16-post-migration-review/evidence/paths/grep_research_tools_.txt:12:governance/workspace/pending-items.md:136:    现状：研究侧写盘已收敛到 `research/tools/lib/writekit.py`（`_SUCCESS` / state JSON /
+governance/evidence/verification/R21/STRAT/I4_before_t2.txt:16:research/tools/lib/tickkit.py:17: in <module>
+governance/evidence/verification/R21/STRAT/T1_with_lib_converters.txt:1:$ platform/.venv/bin/python -m pytest -q research/tools/strategies/tests research/tools/lob_fact/tests research/tools/quark_download/tests research/tools/lib/tests research/tools/converters/tests   # 最终扩展
+governance/evidence/verification/R21/STRAT/T2_converters_lib.txt:1:$ /data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest -q research/tools/converters/tests research/tools/lib/tests

@@ -1,0 +1,41 @@
+# item1: R06-M1 residual — tracked status + root cause (template)
+# date: 2026-09-16T18:32:28+08:00 HEAD: 639bf3f
+
+## tracked status of the 6 surviving platform/results files
+knowledge/dossiers/factors/volatility/max_effect_20d_zmax.md     UNTRACKED
+knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md   TRACKED
+knowledge/dossiers/factors/intraday/intraday_high_time.md        UNTRACKED
+knowledge/dossiers/factors/vol_run_energy/symrun_r30_streak.md   UNTRACKED
+knowledge/dossiers/factors/vol_run_energy/symrun_r30_flip.md     UNTRACKED
+knowledge/dossiers/factors/intraday/intraday_tail_amt_share.md   UNTRACKED
+
+## ROOT CAUSE: template still emits root results/ coordinate
+$ sed -n 73,79p knowledge/dossiers/factors/_template.md
+## 4. 验证结果
+
+> 数据快照自 `results/<name>/summary.json`（运行 `factorlab run` 后更新）。
+> 本表为某次快照；重跑后如需更新，用新的 summary.json 数值替换并刷新
+> `updated_ts` 与下方判定。**若该快照的产物未随仓存档、当前环境不可复跑，
+> front matter 必须保留 `snapshot: 历史快照（...）` 标注**（口径见同目录 `README.md`）。
+
+
+## 5 dossiers WITH NEW (2026-09-16) root results/ refs (post-migration writes)
+knowledge/dossiers/factors/liquidity/level_ma20.md:76:> 数据快照自 `results/turnover_level_ma20/summary.json`（2026-09-16，
+knowledge/dossiers/factors/reversal_10d/cumret_log.md:77:> 数据快照自 `results/reversal_10d_cumret_log/summary.json`（2026-09-16，
+knowledge/dossiers/factors/reversal_rsi/reversal_14_ret.md:79:> 数据快照自 `results/rsi_reversal_14_ret/summary.json`（2026-09-16，
+knowledge/dossiers/factors/reversal_20d/cumret_freq.md:78:> 数据快照自 `results/reversal_20d_cumret_freq/summary.json`（2026-09-16，
+knowledge/dossiers/factors/reversal_20d/overnight.md:77:> 数据快照自 `results/reversal_20d_overnight/summary.json`（2026-09-16，
+
+## git show d9c3634 (_template.md part) — snapshot line untouched
+ 
+-对照 `knowledge/dossiers/factor-mining-playbook.md` 的评估阈值：
++对照 `knowledge/handbooks/factor-mining-playbook.md` 的评估阈值：
+ 
+ - <结论：如 "IC t=3.47 显著（\|t\|>2），IR 0.26，全期有效；近 26 周衰减（t≈0）→ 观察中">
+ - <下一个动作：如 "参数扫描 / 换样本期复验 / 弃用">
+@@ -129,4 +129,4 @@ adjustment: <qfq 等>
+ - <其他备注：与相关因子的相关性、组合使用注意、已知 bug/限制>
+ 
+ ---
+-*档案规范见本模板；因子挖掘方法论见 `knowledge/dossiers/factor-mining-playbook.md`。*
++*档案规范见本模板；因子挖掘方法论见 `knowledge/handbooks/factor-mining-playbook.md`。*

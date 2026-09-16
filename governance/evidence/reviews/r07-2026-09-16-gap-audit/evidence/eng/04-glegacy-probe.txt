@@ -1,0 +1,25 @@
+# item4: G-LEGACY probe (repo copy isolated in /tmp/opencode/glegacy-probe)
+# date: 2026-09-16T18:32:30+08:00
+## probe repo commits
+ba4b580 probe-isolated
+2027fe8 probe-exempt
+e82de69 probe-tracked
+-- files --
+knowledge/dossiers/factors/README.md
+platform/tools/lib/probe_isolated.md
+research/tools/factor_lib/build_index.py
+
+## run of the EXACT gates.sh G-LEGACY pattern set (tracked files)
+platform/tools/lib/probe_isolated.md:3:# isolate: research/docs/x only
+platform/tools/lib/probe_isolated.md:4:# isolate: docs/reviews/y only
+platform/tools/lib/probe_isolated.md:5:# isolate: docs/index/z only
+platform/tools/lib/probe_isolated.md:6:# isolate: platform/results/w only
+platform/tools/lib/probe_isolated.md:7:# isolate: emb/bin/python only
+research/tools/factor_lib/build_index.py:158:# PROBE refs: research/docs/x docs/reviews/y docs/index/z platform/results/w research/tools/lib/q emb/bin/python results/foo/summary.json
+
+## INTERPRETATION
+- CAUGHT: isolated lines research/docs/, docs/reviews, docs/index, platform/results, emb/bin/python (probe_isolated.md:3-7)
+- CAUGHT: any tracked file (build_index.py:158)
+- MISSED: isolated research/tools/lib/ (line 1) and bare results/foo (line 2) — not in pattern set
+- MISSED: untracked file build_strategy_index.py (git grep only scans tracked)
+- MISSED: exempted file knowledge/dossiers/factors/README.md (file-level exemption)

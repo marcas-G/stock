@@ -1,0 +1,21 @@
+# R07-A2c: degrade run 的 summary 审计字段
+## summary: runs/platform/r07_st_probe/summary.json
+top-level keys: ['adjustment', 'artifact_format_version', 'artifacts', 'candidate_count', 'category', 'codes', 'date_end', 'date_start', 'direction', 'evaluation', 'float32', 'label_rows', 'name', 'panel_rows', 'process', 'runtime_semantics', 'signal_null_ratio', 'signal_rows', 'spec_yaml', 'st_degrade', 'universe_count']
+st_degrade: True
+minute_uncovered: <absent>
+st_degrade_reason: <absent>
+has is_st in cols? False
+
+## grep st_degrade in summary
+"st_degrade": true
+
+## run artifact files:
+总用量 2588
+drwxrwxr-x  2 gaolei gaolei    4096 9月  16 18:30 .
+drwxrwxr-x 56 gaolei gaolei    4096 9月  16 18:30 ..
+-rw-rw-r--  1 gaolei gaolei       0 9月  16 18:30 .factorlab-run.lock
+-rw-rw-r--  1 gaolei gaolei  220749 9月  16 18:30 labels.parquet
+-rw-rw-r--  1 gaolei gaolei 1379544 9月  16 18:30 panel.parquet
+-rw-rw-r--  1 gaolei gaolei  637394 9月  16 18:30 signal.parquet
+-rw-rw-r--  1 gaolei gaolei   98096 9月  16 18:30 summary.json
+-rw-rw-r--  1 gaolei gaolei  301411 9月  16 18:30 weekly.parquet

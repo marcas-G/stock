@@ -1,0 +1,22 @@
+# R07-A7#10: ddl.sql vs CH 实际 schema 逐列核对（pending #10；修正版解析器）
+## date: 2026-09-16T18:33:39+08:00
+## 方法: 解析 ddl.sql 13 张 CREATE TABLE 列定义（含同行多列） vs system.columns（只读）
+
+tables: ddl=13 live=13
+only-in-ddl: [] only-in-ch: []
+
+[adj_detail] OK (9 cols)
+[adj_event] OK (2 cols)
+[adj_factor] OK (3 cols)
+[bars_1m] OK (11 cols)
+[daily] OK (11 cols)
+[daily_basic] OK (9 cols)
+[index_daily] OK (3 cols)
+[stk_limit] OK (4 cols)
+[stock_basic] OK (6 cols)
+[tick_orders] OK (9 cols)
+[tick_snapshots] OK (65 cols)
+[tick_trades] OK (9 cols)
+[trade_cal] OK (2 cols)
+
+VERDICT: NO DRIFT: ddl.sql 与 CH 实际 schema 逐列一致

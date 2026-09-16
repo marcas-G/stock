@@ -1,0 +1,3 @@
+ts_cum_count (ts, source=polars_ta, returns=scalar)
+window=unbounded  mask_args=()
+未注册（无 docstring）——分类表条目可直接在公式调用；算子档案/字段访问归 Plan 2

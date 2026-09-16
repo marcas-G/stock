@@ -1,0 +1,27 @@
+# R07-A10: 受影响 spec 全清单（circ_mv / idx_ret）与分段连续性测试
+## date: 2026-09-16T18:35:28+08:00
+## $ specs 用 circ_mv（全 10 个）
+research/factor/crash_bottom_leader/adv_mv.yaml
+research/factor/crash_bottom_leader/crash_bottom_leader.yaml
+research/factor/crash_bottom_leader/dd.yaml
+research/factor/crash_bottom_leader/mom10.yaml
+research/factor/crash_bottom_leader/timed_m6.yaml
+research/factor/crash_bottom_leader/timed_stable.yaml
+research/factor/crash_bottom_leader/timed.yaml
+research/factor/reversal_20d/smallcap.yaml
+research/factor/size/extreme.yaml
+research/factor/size/small_cap.yaml
+
+## $ specs 用 idx_ret（全 9 个）
+research/factor/crash_bottom_leader/adv20.yaml
+research/factor/crash_bottom_leader/adv_mv.yaml
+research/factor/crash_bottom_leader/dd.yaml
+research/factor/crash_bottom_leader/mom10.yaml
+research/factor/crash_bottom_leader/timed_m6.yaml
+research/factor/crash_bottom_leader/timed_stable.yaml
+research/factor/crash_bottom_leader/timed.yaml
+
+## $ 分段连续性测试存在性
+225:def test_b14_segment_restart_drops_positions_and_cash_continuity(tmp_path):
+
+## $ run_backtest 是否接收 initial state（应无）

@@ -1,0 +1,15 @@
+# R07-A8c: index_daily/circ_mv 空数据对因子链的真实影响（对照实验）
+## date: 2026-09-16T18:34:50+08:00
+## 实验组: signal = idx_ret + log(circ_mv)（两者均来自空数据面）
+2026-09-16 18:34:52.604 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 18:34:52.631 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+r07_idx_circmv_probe: n_weeks=0 ic_mean=nan spread=nan
+## exit=0
+signal_null_ratio: 1.0 n_weeks: 0
+
+## 对照组: signal = log(total_mv)（派生列有值 16.87M 行）
+signal）全期无有效收益——信号重并列/离散时分位跳档，spread/单调性不可用；建议降低
+分组数或改用其他评估口径
+r07_totalmv_probe: n_weeks=2 ic_mean=-1.0 spread=nan
+## exit=0
+signal_null_ratio: 0.0 n_weeks: 2

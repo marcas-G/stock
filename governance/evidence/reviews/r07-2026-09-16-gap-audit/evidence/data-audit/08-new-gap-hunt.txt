@@ -1,0 +1,33 @@
+# R07-A8: 扩展排查——空列/指数消费面
+## date: 2026-09-16T18:34:01+08:00
+## $ CH: daily_basic 空列 null 率
+   ┌─circ_mv_nn─┬─pe_nn─┬─pb_nn─┬─dv_nn─┬─vr_nn─┬───tmv_nn─┬────tr_nn─┬──count()─┐
+1. │          0 │     0 │     0 │     0 │     0 │ 16873795 │ 16873731 │ 18124805 │ -- 18.12 million
+   └────────────┴───────┴───────┴───────┴───────┴──────────┴──────────┴──────────┘
+
+## $ CH: stock_basic 空列 null 率
+   ┌─industry_nn─┬─delist_nn─┬─count()─┐
+1. │           0 │       329 │    5861 │
+   └─────────────┴───────────┴─────────┘
+
+## $ CH: index_daily 全表
+   ┌─count()─┐
+1. │       0 │
+   └─────────┘
+
+## 仓内消费面（grep 统计）
+specs 用 circ_mv: 10
+specs 用 total_mv: 0
+specs 用 industry: 0
+specs 用 000852/idx: 9
+py 引用 index_daily/000852（非 test/evidence）: 12
+research/tools/strategies/strategy_wait_crash.py
+research/tools/strategies/strategy_crash_bottom.py
+platform/src/factorlab/adapters/rebuild.py
+platform/src/factorlab/adapters/read/verify.py
+platform/src/factorlab/adapters/read/source.py
+platform/src/factorlab/adapters/catalog.py
+platform/src/factorlab/adapters/refresh.py
+platform/tools/ashare_ingest/check_inputs.py
+platform/tools/ashare_ingest/import_index.py
+platform/tools/ashare_ingest/datapaths.py

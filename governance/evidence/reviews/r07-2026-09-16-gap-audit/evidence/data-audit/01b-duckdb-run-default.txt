@@ -1,0 +1,11 @@
+# R07-A1 补充: 默认后端(duckdb) 下真正触库的命令实测
+## date: 2026-09-16T18:29:59+08:00
+## cwd: /data/students/gaolei/stock
+## FACTORLAB_DATA_BACKEND=<unset: unset>
+## 库路径解析: settings.platform_db=data/factorlab.duckdb (相对 CWD)
+ls: 无法访问'data/factorlab.duckdb': 没有那个文件或目录
+ls: 无法访问'platform/data/factorlab.duckdb': 没有那个文件或目录
+
+## $ FACTORLAB_MAX_MEMORY=8GB factorlab run /tmp/opencode/r07/probe_duckdb.yaml --no-backtest
+错误: 数据库不存在: data/factorlab.duckdb（可运行 data refresh 或检查路径）
+## run exit=1

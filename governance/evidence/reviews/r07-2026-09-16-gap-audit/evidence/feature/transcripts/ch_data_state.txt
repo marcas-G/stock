@@ -1,0 +1,5 @@
+stock_st = ERROR: Received ClickHouse exception, code: 60, server response: Code: 60. DB::Exception: Unknown table expression identifier '
+index_daily_rows = 0
+index_daily_000852 = 0
+
+

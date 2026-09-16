@@ -1,0 +1,18 @@
+# R07-A5: FACTORLAB_MINUTE_UNCOVERED 默认 fail 实测（rules 池）
+## date: 2026-09-16T18:31:47+08:00
+## spec: rules.exchanges SSE/SZSE, 2024-01-02..2024-01-03, interface=bars_1m
+
+## $ FACTORLAB_DATA_BACKEND=ch FACTORLAB_MAX_MEMORY=8GB factorlab run probe_minute_cov --no-backtest
+错误: bars_1m 整日缺失：168 个 (code, date) 日线在而分钟无行（数据不一致，fail 
+fast）——样本 [{'date': datetime.date(2024, 1, 2), 'code': '000005', 
+'in_universe': True, 'is_listed': True, 'list_days': 12067, 'is_st': None, 
+'exchange': 'SZSE'}, {'date': datetime.date(2024, 1, 2), 'code': '000040', 
+'in_universe': True, 'is_listed': True, 'list_days': 10739, 'is_st': None, 
+'exchange': 'SZSE'}, {'date': datetime.date(2024, 1, 2), 'code': '000413', 
+'in_universe': True, 'is_listed': True, 'list_days': 9960, 'is_st': None, 
+'exchange': 'SZSE'}]
+
+real	0m12.590s
+user	0m19.919s
+sys	0m4.971s
+## run exit=1

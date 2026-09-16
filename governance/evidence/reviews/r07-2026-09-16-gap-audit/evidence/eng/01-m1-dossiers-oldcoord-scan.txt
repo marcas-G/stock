@@ -1,0 +1,21 @@
+# R07-ENG item1: R06-M1 dossier old-coordinate scan
+# date: 2026-09-16T18:29:50+08:00  repo: /data/students/gaolei/stock HEAD: 639bf3f
+
+## A. rg -n platform/results|research/docs|docs/reviews|docs/index/|platform/docs|emb/bin/python|projects/ashare_alpha3 knowledge/dossiers/
+$ rg -n -e ... knowledge/dossiers/
+knowledge/dossiers/factors/vol_run_energy/symrun_r30_flip.md:97:> 数据快照自 `platform/results/vol_run_energy_symrun_r30_flip/summary.json`（2026-09-16；无 exclude_st 版）。
+knowledge/dossiers/factors/vol_run_energy/symrun_r30_streak.md:110:> 数据快照自 `platform/results/vol_run_energy_symrun_r30_streak/summary.json`（2026-09-16；无 exclude_st 版）。
+knowledge/dossiers/factors/intraday/intraday_tail_amt_share.md:87:> 快照自 `platform/results/intraday_tail_amt_share/summary.json`（2026-09-16；results/ 未随仓存档）。
+knowledge/dossiers/factors/README.md:7:> **R24 路径映射（2026-09-16）**：本目录 `research/docs/factors/` → `knowledge/dossiers/factors/`；
+knowledge/dossiers/factors/README.md:8:> 索引 `docs/index/factors.md` → `knowledge/index/factors.md`；playbook `research/docs/factor-mining-playbook.md`
+knowledge/dossiers/factors/README.md:16:`platform/results/<name>/summary.json`，该产物从未随仓存档，且当前环境不可复跑。**
+knowledge/dossiers/factors/README.md:23:| `platform/results/` 为空（`results/` 被 gitignore，历史运行产物已清） | `find platform/results -mindepth 1` → 0 项 |
+knowledge/dossiers/factors/intraday/intraday_high_time.md:88:> 数据快照自 `platform/results/intraday_high_time/summary.json`（2026-09-16）。
+knowledge/dossiers/factors/volatility/max_effect_20d_zmax.md:86:> 数据快照自 `platform/results/max_effect_20d_zmax/summary.json`（2026-09-16 运行；无 exclude_st 版）。
+knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md:85:> 数据快照自 `platform/results/max_effect_20d_extcnt/summary.json`（2026-09-16 运行；无 exclude_st 版）。
+
+## B. rg -n backticked root results/
+164
+(total lines above)
+158
+(files above)

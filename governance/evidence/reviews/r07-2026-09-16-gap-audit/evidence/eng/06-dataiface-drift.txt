@@ -1,0 +1,29 @@
+# item6b: dataiface REPORT count drift 68 (R21) -> 70 (now) + stale comments
+## R21 archived evidence header
+$ platform/.venv/bin/python scripts/check_dataiface.py
+[G-CONTRACT/研究侧分区字面量] ENFORCED：`year=` 只许经 core.factio.partitions
+  ✓ 0 处（AST：非 docstring 字符串常量）
+[G-MARK] ENFORCED：标记/断点名只经 lib.writekit 单点 API
+  ✓ 0 处（注释/print 文案不算；writekit 自身豁免）
+[G-CONTRACT/平台表名字面量] REPORT：68 处（未竟 → docs/pending-items.md #12①）
+      platform/src/factorlab/adapters/catalog.py:169: 'adj_factor'
+      platform/src/factorlab/adapters/catalog.py:213: 'daily_basic'
+      platform/src/factorlab/adapters/intraday.py:51: 'bars_1m'
+      platform/src/factorlab/adapters/intraday.py:52: 'tick_trades'
+
+## current count (function call, full list)
+70
+## R21 evidence archived only first 5 rows (cannot attribute +2 precisely)
+5
+
+## stale "460 处" comments still present
+governance/workspace/pending-items.md:98:       输出见 `governance/evidence/verification/R21/EVID/I7-dataiface-count.txt`。R0 文本的"~460 处"系
+governance/ops/gates.sh:164:  #   REPORT  ：平台表名字面量（未竟 #12①:460 处 SQL）、工具树直读（未竟 #13）。
+governance/ops/check_dataiface.py:225:    """REPORT：平台 src 里 core/factio 之外的表名字面量（未竟项 #12①：460 处 SQL）。"""
+
+## pending-items registered number
+    ① **表名常量单点**（`core/factio/tables.py`）：平台 `read/*` 的 duckdb|ch 编译对里
+       **68 处表名字面量**（R21 门实测）。**口径** = `governance/ops/check_dataiface.py::report_platform_tables()`
+       的 AST 字符串常量出现**处数**，范围 `platform/src` 且排除 `core/factio/`，docstring 不计；
+       输出见 `governance/evidence/verification/R21/EVID/I7-dataiface-count.txt`。R0 文本的"~460 处"系
+       grep 口径（注释/测试/SQL 文档串都算入），**与门不可比，引用以门实测为准**。
