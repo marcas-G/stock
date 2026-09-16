@@ -17,7 +17,7 @@
   dtype → returns="struct"、多列展开 → "multi"、其余 "scalar"；探测异常/超时
   → 保持 "scalar" 并登记 ``PROBE_FALLBACKS``（绝不因探测失败误标非标量）。
 
-与计划字面规则的偏差（理由见 docs/verification/R22/02-ta-catalog/README.md）：
+与计划字面规则的偏差（理由见 governance/evidence/verification/R22/02-ta-catalog/README.md）：
 1. 计划用"第 2 个**必需**位置参数为 int"判定窗口——polars_ta 0.5.17 的窗口参数几乎
    都带默认值（`ts_mean(x, d: int = 5)`），该规则会把全部 ts 窗口判成 None（G3 窗口
    推断失效）。改为扫描**位置参数**（含带默认值者）中第一个 int 参数。

@@ -4,7 +4,7 @@
 # （支持 FACTORLAB_STOCK_ROOT 换根）。本文件只放：产物目录 + 三层的研究参数。
 #
 # `layer1/2/3` 的数值是**冻结阈值**（V4 移植 parity 的组成部分）：改动等于改研究口径，
-# 必须同步 docs/verification 证据与 parity 结论。
+# 必须同步 governance/evidence/verification 证据与 parity 结论。
 outputs:
   universes: null     # 第一层产物（默认 <工具>/outputs/universes，不入 git）
   research: null      # 二/三层特征产物（默认 <工具>/outputs/research）

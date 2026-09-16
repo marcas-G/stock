@@ -36,7 +36,7 @@
   两对账），CH 派生表脚本归位 `ch_ingest/adj_backfill.py`；空壳 `.venv`/缓存/孤儿产物已清，
   `06` 的 merge dtype bug 已修（真跑产出 74,466 code-days 对账）。**股票池段已在 R20 收编为
   `platform/tools/universe_stages/`**（layer1-3 + 10/11/20/30/40 + references/tests），
-  证据见 `docs/verification/R20/`。旧 `projects/ashare_alpha3` 仅作本地历史参考。
+  证据见 `governance/evidence/verification/R20/`。旧 `projects/ashare_alpha3` 仅作本地历史参考。
 
 6. **30 天归档到期清理**（2026-10-12）
    程序见 `governance/workspace/archive-policy.md`；三个真实决策点（tick_dev 去留 / minutes-raw 深度血缘 /
@@ -44,7 +44,7 @@
    - **口径注**："备份克隆目录清空"指 `_archive/2026-09-12-S3`（975M 的归档克隆，含 4 个
      主仓原本没有的提交，已抢救为分支 `archive/local-backup-20260903`）。与 2026-09-15
      R17 删除的**工作区本地克隆** `projects/quant-platform-{main,research}` 是两件事——
-     那两个不在归档批次里，删除记录见 `docs/verification/R17/`。
+     那两个不在归档批次里，删除记录见 `governance/evidence/verification/R17/`。
 
 7. **用户执行项（远端）** ✅ 2026-09-14 完成
    - ✅ 5 个陈旧远端分支已删（删前归档为本地 tag `archive/*`，SHA 5/5 对账）；
@@ -70,12 +70,12 @@
 11. **深度重构 WS6 剩余项**（2026-09-12 登记；**2026-09-15 R21 核对：①②③ 已完成，④ 未做**）
     - ✅ ① P-5 批算编排单点（R14 完成）：`adapters/batch_flock.py` 真实落地（flock + ProcessPool +
       看门狗 + `_SUCCESS`），三份编排样板（convert_tick / extract_sz_cancels / run_lob_batch）
-      全部切换、各自自建进程池循环删除，切换前后逐值/字节等价——见 `docs/verification/R14/`；
+      全部切换、各自自建进程池循环删除，切换前后逐值/字节等价——见 `governance/evidence/verification/R14/`；
       `research/CLAUDE.md` 已同步为"批算编排只用单点"。
     - ✅ ② `platform/tools/ch_ingest` 拆分 + 路径单点（R15 完成）：`ingest_common.py`（五职责 202 行）拆为
       `ch_source` / `ch_state` / `ch_write` + 只转发门面；源/路径取 `core.factio.paths`
       （实测 `ch_source.py:41`、`ingest_daily.py:35`、`reconcile.py:32`）——见
-      `docs/verification/R15/status.md`。
+      `governance/evidence/verification/R15/status.md`。
     - ✅ ③ 生产读点收敛到 `adapters.tick_read`（R4a/R21 复核）：`run_lob_batch._read_date`
       （`platform/tools/lob_fact/pipeline/run_lob_batch.py:526`）与 `factor_panel._read_tick`
       （`platform/tools/lob_fact/core/factor_panel.py:701`）均经 `lib.tickdata` 薄封装到平台单点。
@@ -95,7 +95,7 @@
     ① **表名常量单点**（`core/factio/tables.py`）：平台 `read/*` 的 duckdb|ch 编译对里
        **68 处表名字面量**（R21 门实测）。**口径** = `scripts/check_dataiface.py::report_platform_tables()`
        的 AST 字符串常量出现**处数**，范围 `platform/src` 且排除 `core/factio/`，docstring 不计；
-       输出见 `docs/verification/R21/EVID/I7-dataiface-count.txt`。R0 文本的"~460 处"系
+       输出见 `governance/evidence/verification/R21/EVID/I7-dataiface-count.txt`。R0 文本的"~460 处"系
        grep 口径（注释/测试/SQL 文档串都算入），**与门不可比，引用以门实测为准**。
        收敛需逐条改 SQL 字符串，风险 > 收益 →
        需与"位级门 + 全库 reconcile"配套的专项轮次。
@@ -152,7 +152,7 @@
 18. **venv 无法从依赖声明复现**（R18 登记，实测）
     现状：`platform/pyproject.toml` 只声明 20 个依赖，而 `platform/.venv` 里实际有 **72 个包**
     （未声明者含 pandas / openpyxl / plotly / black / numba / sympy / httpx…，见
-    `docs/verification/R18/04-venv-freeze.txt`）；全仓**无** `uv.lock` / `requirements*.txt`。
+    `governance/evidence/verification/R18/04-venv-freeze.txt`）；全仓**无** `uv.lock` / `requirements*.txt`。
     影响：venv 一旦丢失或重建，**得到的是另一个环境**（版本漂移会威胁 lob_fact 的字节级重跑
     与 `pins.sha256` 金样）。故 `scripts/reinstall_editable.sh` **只做 editable 重装**，
     不冒充重建入口。

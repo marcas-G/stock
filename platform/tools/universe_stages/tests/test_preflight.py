@@ -1,6 +1,6 @@
 """R01-TOOLS-I9：universe_stages 前置源 preflight + layer1 端到端可跑性。
 
-断言来源 = `docs/reviews/findings.md` R01-TOOLS-I9：
+断言来源 = `governance/evidence/reviews/findings.md` R01-TOOLS-I9：
 1. 缺 fundamentals 等前置源 → 显式报错（点名文件 + 路径 + 获取路径），不是裸 FileNotFoundError；
 2. 前置齐备 → preflight 通过，layer1 CLI 真跑出产物（合成小样本；关键筛选真发生）；
 3. layer3 tick 未解包（pending #3）→ preflight 直指解包路径。

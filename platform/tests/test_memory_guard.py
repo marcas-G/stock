@@ -1,7 +1,7 @@
 """R05-C1 内存护栏（P0 事故）单测：规格解析 / 采样 / 触发条件 / 协作检查 /
 daemon 线程看门狗 / RLIMIT_AS 硬上限 / settings 工厂 / 分钟长窗估算门。
 
-断言来源：`docs/reviews/r05-usage-2026-09-16/report.md`「事故记录」平台修复
+断言来源：`governance/evidence/reviews/r05-usage-2026-09-16/report.md`「事故记录」平台修复
 建议 1/2/4——`FACTORLAB_MAX_MEMORY`（进程 RSS 上限）、可选
 `FACTORLAB_MIN_AVAILABLE_MEMORY`（系统可用内存下限）、~5s 采样 daemon 线程 +
 chunk 边界协作检查、RLIMIT_AS 硬护栏、超限干净中止（无半成品）——以及

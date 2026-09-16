@@ -46,7 +46,7 @@ status: draft
 | 最大回撤 | … |
 | 费用 | … |
 
-- 原始输出：`docs/verification/R28/strategy-first-example/…`
+- 原始输出：`governance/evidence/verification/R28/strategy-first-example/…`
 - 对照：与 `strategy-backtest-manual.md` 手工 demo 同窗口参数逐项对照（防口径漂移）。
 
 ## 5. 迭代历史

@@ -185,7 +185,7 @@ factorlab run factor/crash_bottom_leader_timed.yaml --chunk-days 500   # 2015-20
 
 背景：3 年全市场分钟链运行（`--chunk-days 20`）叠加 LLM 服务（21GB
 llama-server）与多 agent 会话触发主机内存耗尽、SSH 卡死、ClickHouse 一度无
-响应（进程 D 状态零输出；事故记录 `docs/reviews/r05-usage-2026-09-16/report.md`）。
+响应（进程 D 状态零输出；事故记录 `governance/evidence/reviews/r05-usage-2026-09-16/report.md`）。
 `factorlab run`（日频 `run_factor` 与分钟链 `run_factor_minute` 两条路径）内置
 进程内存护栏：
 
@@ -205,7 +205,7 @@ llama-server）与多 agent 会话触发主机内存耗尽、SSH 卡死、ClickH
   `max(3×RSS 上限, 当前 VA + RSS 上限 + 12GB + 64MB×核数)`。为什么远高于 RSS
   阈值：polars/glibc arena 的**虚拟地址空间**预留远大于 RSS（本机实测小 run
   VmSize 13.6GB vs VmRSS 0.4GB），贴阈值设会让正常 run 误报 MemoryError
-  （校准见 `docs/verification/R23/safety/`）。非 POSIX（Windows）/设置失败 →
+  （校准见 `governance/evidence/verification/R23/safety/`）。非 POSIX（Windows）/设置失败 →
   warning 降级，软看门狗仍生效；Python API 直调 `run_factor` 只启软看门狗
   （不替宿主进程设进程级 rlimit）。
 - **推荐值**（16GB 机 + LLM 并发）：`FACTORLAB_MAX_MEMORY=8GB`、
@@ -232,7 +232,7 @@ FACTORLAB_MAX_MEMORY=8GB FACTORLAB_MIN_AVAILABLE_MEMORY=2GB \
 - `atomic_write_bytes / atomic_write_text / atomic_write_parquet`：常用形态；
 - 语义：同目录 `.<name>.<rand>.tmp` + 文件 `fsync` + `os.replace` + **目录 fsync** + 失败清理
   （目标不出现、不留 tmp）+ **权限按 umask 设定**（`mkstemp` 的 0600 会把产物锁成同户可读——
-  2026-09-15 实测回归，见 `docs/verification/R13/`）。
+  2026-09-15 实测回归，见 `governance/evidence/verification/R13/`）。
 
 采用方：`parquet_artifacts` / `strategy_artifacts` / `results_fs.write_run_outputs` /
 `batch_flock`（state 与 `_SUCCESS`）/ `execution_store.save_backtest_result`。
@@ -1409,7 +1409,7 @@ snapshots 共 ~14B 行）；duckdb 平台文件无 intraday 表 → duckdb 后�
 arrow 读回带服务器 tz → `convert_time_zone("UTC")` 后剥）；bars_1m 的
 `datetime` = **bar 起点**（left edge，连续竞价 bar 覆盖 [datetime, +1min)；
 R03-M5 tick 对拍修正——15:00 竞价 bar 与 time_ms=15:00:00 成交 delta=0，
-探针 docs/verification/R22/R03/misc/probe_m5_bar_time_labeling.{py,txt}）。
+探针 governance/evidence/verification/R22/R03/misc/probe_m5_bar_time_labeling.{py,txt}）。
 空结果（当日无数据）返回同投影空 frame 不抛。生产真数据 e2e 见
 tests/test_intraday_prod_e2e.py。
 
@@ -1437,7 +1437,7 @@ P-5 批算编排真实现（`factorlab.ports.batch.BatchOrchestrator`；`Task(ke
 
 已采用（**三份编排样板全部切换**）：`converters/convert_tick_to_parquet`、
 `lob_fact/extract_sz_cancels`（R10）、`lob_fact/pipeline/run_lob_batch`（R14）——切换前后
-真实数据**内容逐值等价**（详见 `docs/verification/R10/`、`R14/`）。
+真实数据**内容逐值等价**（详见 `governance/evidence/verification/R10/`、`R14/`）。
 
 ## 4.1 Domain contracts（M6-01）
 

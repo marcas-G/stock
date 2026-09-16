@@ -1,6 +1,6 @@
 """环境路径锚点测试 —— workspace 归并（2026-09-12）后 config 四根必须指向真实磁盘目录。
 
-断言源 = docs/verification/S3 归并方案：
+断言源 = governance/evidence/verification/S3 归并方案：
   QUARK_ROOT → data/raw/quark_downloaded/、TICK_FACT_ROOT → data/fact/tick_fact/、
   LOB_FACT_ROOT → data/fact/lob_fact/、CALIB_OUT → data/calib/lob_fact_calib/。
 数据不在本机（换机/归档）时 skip，不做假实现。

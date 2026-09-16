@@ -8,12 +8,12 @@
 > 该库与产物已不在树内。2026-09-15 实测 CH 数据面：`index_daily` **0 行**、
 > `stock_st` **表缺失**、`daily_basic.circ_mv` 全 null → `idx_ret`/掩码全 null →
 > 重跑因子 signal 全 null（`n_weeks=0`）。真跑尝试与原始证据：
-> `docs/verification/R21/STRAT/i6_data_availability.txt`、`i6_factor_run.log`、
+> `governance/evidence/verification/R21/STRAT/i6_data_availability.txt`、`i6_factor_run.log`、
 > `i6_run_note.md`；全 null 的无效 panel 已删除（避免误当重跑结果）。
 >
 > **恢复条件（缺一不可）**：① `index_daily` 灌入 000852.SH 全历史（起点早于
 > 2015-01-01，留 20 日 warmup）；② `stock_st` 表可用（否则须显式接受移除
-> `exclude_st` 的全市场口径，如 `docs/verification/R21/STRAT/timed_no_exclude_st.yaml`）；
+> `exclude_st` 的全市场口径，如 `governance/evidence/verification/R21/STRAT/timed_no_exclude_st.yaml`）；
 > ③ 执行侧 duckdb 平台库（`daily.pct_chg` + `index_daily`）或等价读路径。
 >
 > **重跑命令链**：

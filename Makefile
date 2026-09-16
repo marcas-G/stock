@@ -5,7 +5,7 @@ PLATFORM_PY := platform/.venv/bin/python
 .PHONY: help test-platform test-research test-all gates lint-factors index reconcile clean
 
 help:
-	@echo "make test-platform   平台全量测试（约 13 分钟；基线见 docs/verification/R27/）"
+	@echo "make test-platform   平台全量测试（约 13 分钟；基线见 governance/evidence/verification/R27/）"
 	@echo "make test-research   工具/研究测试（单解释器：平台 venv 3.13）"
 	@echo "make gates           全套常驻门（结构/契约/标记/旧路径/索引/文档路径）"
 	@echo "make lint-factors    全库因子 spec lint（单进程批跑；任一失败非零退出）"

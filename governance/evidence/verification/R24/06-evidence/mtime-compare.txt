@@ -1,0 +1,2 @@
+before=782 after=782 only_before=0 only_after=0 changed=0
+结论：无并发写入（全部文件 size+mtime 逐一相等）

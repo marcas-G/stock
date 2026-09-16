@@ -45,7 +45,7 @@ structure() {
   # 判据：所剩行里，**同一行同时出现 R17**的算删除记录（提旧名却不提 R17 的仍报红——
   # 活指针不会写 R17；写了就是自证造假，评审可抓）。2026-09-15 R17 起生效。
   n=$(git grep -nI -e "quant-platform-main" -e "quant-platform-research" -e "projects/quant-platform" -- . \
-        ':!governance/evidence/verification' ':!docs/verification' ':!knowledge/design/platform' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' ':!knowledge/design/research' 2>/dev/null \
+        ':!governance/evidence/verification' ':!knowledge/design/platform' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' ':!knowledge/design/research' 2>/dev/null \
       | grep -vE '^scripts/gates.sh:' \
       | grep -vE '^governance/workspace/(workspace-p0p8|traceability-matrix|remote-cleanup-checklist)\.md:' \
       | grep -v 'local-backup-20260903（975M' \
@@ -71,7 +71,7 @@ structure() {
 
   echo "[G-ANNOTATE] 因子档案 snapshot 标注齐备（R21 约定）"
   # 脚本原位在 R21/EVID（证据即工具）；只做只读 --check，不写档案。
-  if out=$(python3 docs/verification/R21/EVID/annotate_factor_archives.py --check 2>&1); then ok "$out"; else bad "$out"; fi
+  if out=$(python3 governance/evidence/verification/R21/EVID/annotate_factor_archives.py --check 2>&1); then ok "$out"; else bad "$out"; fi
 
   echo "[G-LINT] 全库因子 spec lint（单进程批跑；挖矿在途 spec 一并计入）"
   # 失败行含具体 spec 路径——在途红与代码级红按文件区分，不误报为门故障。

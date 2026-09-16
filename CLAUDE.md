@@ -17,10 +17,10 @@
 
 ### 数据纪律（最高优先级）
 
-- **`data/` 零改动**：任何命令都不得写入（只读消费）。`data/` 与 `_archive/` 的 mtime/容量基线在 `docs/verification/`。
+- **`data/` 零改动**：任何命令都不得写入（只读消费）。`data/` 与 `_archive/` 的 mtime/容量基线在 `governance/evidence/verification/`。
 - 数据位置与血缘以 `governance/workspace/data-map.md` 为唯一权威；目录/命名约定以 `governance/workspace/directory-conventions.md` 为唯一权威；
   两者冲突时**以磁盘为准并修订文档**。
-- 数据接口（读/写/契约）见 `docs/verification/R4/`（收口记录）与 `knowledge/contracts/interface.md` §4。
+- 数据接口（读/写/契约）见 `governance/evidence/verification/R4/`（收口记录）与 `knowledge/contracts/interface.md` §4。
 
 ### 文档和测试必须做好、写全面（最高优先级）
 

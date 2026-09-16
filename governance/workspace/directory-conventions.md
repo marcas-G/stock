@@ -6,9 +6,9 @@
 > **2026-09-15 单仓单树重构后修订**：工作区根 = **一个 git 仓库**（`stock/`，远端 `marcas-G/stock`），
 > 内含 `platform/`（平台树）、`research/`（研究树）、`docs/`（文档树）；`data/`、`_archive/`、
 > `projects/` 为本地目录（gitignore）。旧的两 worktree 布局**已退役**
-> （历史与过程见 `docs/verification/R1..R2/` 与 `docs/verification/archive/`）；
+> （历史与过程见 `governance/evidence/verification/R1..R2/` 与 `governance/evidence/verification/archive/`）；
 > 合并前的两个遗留克隆 `quant-platform-main` / `quant-platform-research` **已于 2026-09-15 删除**（R17，
-> 证据 `docs/verification/R17/`）——`projects/` 实况自此与 §3 表逐条一致。
+> 证据 `governance/evidence/verification/R17/`）——`projects/` 实况自此与 §3 表逐条一致。
 
 ## 1. 根目录收敛承诺（REQ-WS-001）
 
@@ -56,7 +56,7 @@
 | `projects/ashare_alpha3` | 本地项目（无 git）**过渡项** | 自包含；`config.yaml` 消费 `data/`。**R19/R20 已完成收编**（数据侧 → `platform/tools/ashare_ingest/`、股票池段 → `platform/tools/universe_stages/`）；R24 Task 11 归档至 `_archive/<日期>-ashare-alpha3/` |
 
 - 旧 worktree 迁移程序（`git worktree move` + 手工 gitdir 编辑 + 四查）**已随两 worktree 布局退役**；
-  历史过程见 `docs/verification/archive/`。
+  历史过程见 `governance/evidence/verification/archive/`。
 - `quant_core_shim` 原为本地包，2026-09-15（R18）**已收编**为 `platform/kernels/quant_core/`
   （仅装 `platform/.venv`；emb 的安装因 research 侧零消费者而删除）。
 - `projects/` 里仅剩 `ashare_alpha3` 一个本地项目；

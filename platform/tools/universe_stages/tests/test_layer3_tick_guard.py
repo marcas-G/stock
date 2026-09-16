@@ -1,6 +1,6 @@
 """R01-TOOLS-I8：layer3 tick 的窗口纪律（非当日事件 / 异常路径）。
 
-断言来源 = `docs/reviews/findings.md` R01-TOOLS-I8 的修复要求，不是现有实现：
+断言来源 = `governance/evidence/reviews/findings.md` R01-TOOLS-I8 的修复要求，不是现有实现：
 1. 事件日期 ≠ 请求日 → 跳过 + 记录原因，不编造 pre/post 窗口；
 2. 特征计算抛异常 → 结果显式标记 `feature_error`（不得 `except Exception: r={}` 静默吞）；
 3. tick 源目录日 ≠ 请求日 → 拒绝重标时间戳（否则等于把别日 tick 伪装成本日窗口）。

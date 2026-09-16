@@ -3,7 +3,7 @@
 日期：2026-09-16 ｜ 实施：Plan S Task 6 ｜ 代码：`research/tools/strategies/l5_rules.py`
 
 > 注：Plan S Task 6 Step 5 原要求更新 `knowledge/design/workspace/2026-09-16-strategy-decomposition/design.md`
-> §4-G3（R24 前旧址 `docs/reviews/2026-09-16-strategy-decomposition/`）；按本轮任务约束 **设计评审目录只读**，边界登记改落本文件（作为代码
+> §4-G3（R24 前旧址 `governance/evidence/reviews/2026-09-16-strategy-decomposition/`）；按本轮任务约束 **设计评审目录只读**，边界登记改落本文件（作为代码
 > docstring 的长期伴随文档），触发条件与 plan Task 7 表一致。
 
 ## 1. V1 实现：`max_hold`（调仓日粒度近似）
@@ -42,4 +42,4 @@
   NotImplementedError）；
 - 端到端：`test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes`
   （真 CH + 真信号：连续持有 3 期的 code 在 age=10 时被换出且剩余再归一）；
-- 证据：`docs/verification/R28/strategy-first-example/task6-*.txt`。
+- 证据：`governance/evidence/verification/R28/strategy-first-example/task6-*.txt`。

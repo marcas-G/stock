@@ -32,7 +32,7 @@ TOOL_ROOTS = [REPO / "platform" / "tools", REPO / "research" / "tools"]
 SKIP_PARTS = ("/tests/", "/notes/", "/diag/", "__pycache__", "/.venv/")
 # ^ R19：补 `/.venv/`（与 check_imports.py 对齐）。原先不含 → 一旦某工具 `pip install -e .`
 #   就地建 venv，pip/setuptools 自带的 `_vendor/typing_extensions.py`、`setuptools/msvc.py`
-#   会触发 G-CONTRACT 4 处 + G-MARK 1 处**强制判红**（实测见 docs/verification/R19/ 与 pending #19）。
+#   会触发 G-CONTRACT 4 处 + G-MARK 1 处**强制判红**（实测见 governance/evidence/verification/R19/ 与 pending #19）。
 
 # 事实库年分区前缀：**只有** factio.partitions 能产出它（研究侧产品目录用 month=YYYY-MM，
 # 无 year=），故以它作判据；docstring 里的 `year=YYYY` 布局说明不算。

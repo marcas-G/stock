@@ -1,6 +1,6 @@
 """R04-P0 回归：`verify_cancels_sample.py --full` 调用 `count_tick_month` 未 import（NameError）。
 
-断言源 = `docs/reviews/r04-efficiency-2026-09-16/report.md` §3 P0-1：
+断言源 = `governance/evidence/reviews/r04-efficiency-2026-09-16/report.md` §3 P0-1：
 - `--full` 整月 manifest↔表对账必须能走通（修复前必 NameError）；
 - 对账调用 `count_tick_month('cancels', year, month, root=TICK_FACT_ROOT)`（行为断言：
   真实调用单点 `factorlab.adapters.tick_read`，stub 只为隔离数据）；

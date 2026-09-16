@@ -13,9 +13,9 @@ front matter + 六节模板，规范见 `_template.md`）。机器索引在 `kno
 
 **全部 152 份档案 §4「验证结果」里的数字（IC / t / IR / 分层 / 换手）来自当时本地跑出的
 `platform/results/<name>/summary.json`，该产物从未随仓存档，且当前环境不可复跑。**
-R01-EVID-C1（台账 `docs/reviews/findings.md`）的修复选择**如实标注为历史快照**，不伪造产物。
+R01-EVID-C1（台账 `governance/evidence/reviews/findings.md`）的修复选择**如实标注为历史快照**，不伪造产物。
 
-不可复跑的事实（复现命令与原始输出：`docs/verification/R21/EVID/C1-not-reproducible.txt`）：
+不可复跑的事实（复现命令与原始输出：`governance/evidence/verification/R21/EVID/C1-not-reproducible.txt`）：
 
 | 事实 | 实测 |
 |---|---|
@@ -34,7 +34,7 @@ R01-EVID-C1（台账 `docs/reviews/findings.md`）的修复选择**如实标注�
 2. **或**给 CH 灌入 `stock_st`（`platform/tools/ch_ingest/`），以
    `FACTORLAB_DATA_BACKEND=ch` 复跑同一条链；
 3. 只做**小样本冒烟**（`universe.codes` / `--universe`）可在 CH 上跑通
-   （例：`docs/verification/R12/r12_smoke.yaml`），但**不构成**对全市场档案数字的复现。
+   （例：`governance/evidence/verification/R12/r12_smoke.yaml`），但**不构成**对全市场档案数字的复现。
 
 ## 标注约定
 
@@ -43,4 +43,4 @@ R01-EVID-C1（台账 `docs/reviews/findings.md`）的修复选择**如实标注�
 - `snapshot` 只存在于档案 front matter，不在 YAML spec 里、也不参与
   `knowledge/index/factors.md` 生成（索引只读 `research/factor/**/*.yaml`），因此不影响索引
   byte-equality 门；批量标注脚本存于
-  `docs/verification/R21/EVID/annotate_factor_archives.py`（幂等，`--check` 可验）。
+  `governance/evidence/verification/R21/EVID/annotate_factor_archives.py`（幂等，`--check` 可验）。

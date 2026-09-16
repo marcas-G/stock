@@ -10,8 +10,8 @@
 
 | 批次 | 目录 | 到期日 | manifest |
 |---|---|---|---|
-| S1 | `_archive/2026-09-12-S1/` | 2026-10-12 | `docs/verification/S1/manifest.md` |
-| S3 | `_archive/2026-09-12-S3/` | 2026-10-12 | `docs/verification/S3/status.md` §5 |
+| S1 | `_archive/2026-09-12-S1/` | 2026-10-12 | `governance/evidence/verification/S1/manifest.md` |
+| S3 | `_archive/2026-09-12-S3/` | 2026-10-12 | `governance/evidence/verification/S3/status.md` §5 |
 
 ## manifest 格式（每行一条）
 

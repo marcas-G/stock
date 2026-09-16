@@ -9,7 +9,7 @@
 |---|---|---|
 | `ops/` | 门与运维脚本：`gates.sh`（唯一门入口，`make gates`）、`check_imports.py`、`check_tool_layering.py`、`check_dataiface.py`、`reinstall_editable.sh` | `scripts/` |
 | `workspace/` | 工作区约定与台账：`directory-conventions.md`（结构唯一权威）、`data-map.md`（数据唯一权威）、`pending-items.md`、`archive-policy.md`、`traceability-matrix.md` 等 | 根 `docs/` |
-| `evidence/` | 可复现证据：`verification/<轮次>/`（命令 + 原始输出 + 门结果）、`reviews/`（评审台账：报告 / findings / 设计评审） | `docs/verification/`、`docs/reviews/` |
+| `evidence/` | 可复现证据：`verification/<轮次>/`（命令 + 原始输出 + 门结果）、`reviews/`（评审台账：报告 / findings / 设计评审） | `governance/evidence/verification/`、`governance/evidence/reviews/` |
 
 ## 纪律
 

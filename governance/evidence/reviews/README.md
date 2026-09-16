@@ -17,6 +17,7 @@ docs/reviews/
 > R24（2026-09-16）：原 `2026-09-15-open-operators/`、`2026-09-15-minute-execution/`、
 > `2026-09-16-strategy-decomposition/` 三个**设计/实施方案**目录已迁
 > `knowledge/design/workspace/`（非评审轮次，不占台账结构）。
+> **本台账目录** `docs/reviews/` → `governance/evidence/reviews/`（同一搬迁）；历史报告/证据正文不改，按此映射解析。
 
 ## 方案批次与执行序（2026-09-16 整理）
 

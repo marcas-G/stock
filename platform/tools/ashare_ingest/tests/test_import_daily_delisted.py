@@ -1,6 +1,6 @@
 """R21 TOOLS-C2 + delist sidecar：退市文件 in-file `code` 才是真代码。
 
-依据（docs/reviews/r01-2026-09-15-strict-review/report.md TOOLS-C2）：
+依据（governance/evidence/reviews/r01-2026-09-15-strict-review/report.md TOOLS-C2）：
 `000018/000023/000024/000033/000038` 5 个退市文件内 code 列实为 `sh.600811`，
 旧实现用文件名 code6 贴标签 → 5 只假历史 + 600811 数据错位。断言全部来自
 findings 的修复口径（in-file code 为真实代码；shard/merge 按真实代码；同 code

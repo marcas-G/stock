@@ -47,7 +47,7 @@ CA Gate（R03-I8 / M8-06A §5.5）在持仓跨除权事件时 fail-closed。本�
 | 2025-01-01 ~ 2025-03-31（多月） | **拦截** | `600116.SH@2025-01-08` 在 (2025-01-06, 2025-01-13] 除权 |
 
 - 与 `strategy-backtest-manual.md` 的实测结论一致：多月/长窗几乎必撞某只除权，逐月筛选后
-  2025-03 干净可跑；原始输出 `docs/verification/R28/strategy-first-example/task5-ca-window-probe.txt`。
+  2025-03 干净可跑；原始输出 `governance/evidence/verification/R28/strategy-first-example/task5-ca-window-probe.txt`。
 - 筛选过程口径：本策略链按 `doc.date` 先过滤 signal 再构造组合（partial ISO 周按 M7
   contract 计入，故 3/31 单日形成第 5 个 decision；demo 口径见 §4 对照）。
 

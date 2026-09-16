@@ -137,26 +137,26 @@ docs 重叠）与 `ashare_alpha3` 内部仍有架构不确定性 → 登记为�
 
 即分阶段执行计划 S1-S5（每阶段：串行执行 → 验证门 → 证据存档 → 提交）：
 
-- **S1** 垃圾直删 + 第一波归档 → 证据 `docs/verification/S1/`
-- **S2** 数据归并 data/ → 证据 `docs/verification/S2/`
-- **S3** 项目归并 projects/ + worktree 迁移 + 路径全量重指 → 证据 `docs/verification/S3/`
-- **S4** 根 workspace 仓库 + 文档体系 → 证据 `docs/verification/S4/`
-- **S5** 仓库内文档修复 + 收口验证 → 证据 `docs/verification/S5/`
+- **S1** 垃圾直删 + 第一波归档 → 证据 `governance/evidence/verification/S1/`
+- **S2** 数据归并 data/ → 证据 `governance/evidence/verification/S2/`
+- **S3** 项目归并 projects/ + worktree 迁移 + 路径全量重指 → 证据 `governance/evidence/verification/S3/`
+- **S4** 根 workspace 仓库 + 文档体系 → 证据 `governance/evidence/verification/S4/`
+- **S5** 仓库内文档修复 + 收口验证 → 证据 `governance/evidence/verification/S5/`
 
 ## P7 — Verification（证据索引）
 
 | 需求 | 证据 | 位置 |
 |---|---|---|
-| REQ-WS-002/003/009 | S1 门输出 + manifest + df 前后 | `docs/verification/S1/` |
-| REQ-WS-004（输血） | 血缘对照（minutes 80=80 bars_1m）+ schema 抽样 | `docs/verification/S2/` |
-| REQ-WS-005 | grep 门 = 0（活跃死链） | `docs/verification/S3/05-verify.log` |
-| REQ-WS-006 | 冒烟（四根+读路径+zip）+ 183 tests | `docs/verification/S3/06-smoke-and-shim.log` |
-| REQ-WS-007 | cat-file e66b349 + 4 提交 log | `docs/verification/S3/07-backup-rescue.log` |
-| REQ-WS-001/008 | 收口核验（S4/S5） | `docs/verification/final/` |
+| REQ-WS-002/003/009 | S1 门输出 + manifest + df 前后 | `governance/evidence/verification/S1/` |
+| REQ-WS-004（输血） | 血缘对照（minutes 80=80 bars_1m）+ schema 抽样 | `governance/evidence/verification/S2/` |
+| REQ-WS-005 | grep 门 = 0（活跃死链） | `governance/evidence/verification/S3/05-verify.log` |
+| REQ-WS-006 | 冒烟（四根+读路径+zip）+ 183 tests | `governance/evidence/verification/S3/06-smoke-and-shim.log` |
+| REQ-WS-007 | cat-file e66b349 + 4 提交 log | `governance/evidence/verification/S3/07-backup-rescue.log` |
+| REQ-WS-001/008 | 收口核验（S4/S5） | `governance/evidence/verification/final/` |
 
 ## P8 — Validation（使命判定）
 
-对照 P0-Q4 逐项（核验详情与证据：`docs/verification/final/02-p8.md`）：
+对照 P0-Q4 逐项（核验详情与证据：`governance/evidence/verification/final/02-p8.md`）：
 
 - [x] 根 ≤7 项可读（7 项，`final/01-gates.log` §1）
 - [x] data-map 覆盖全部数据单元（A/B/C/D 四节无孤儿；A9 生产者待考已登记 pending #9）

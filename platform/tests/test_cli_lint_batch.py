@@ -1,6 +1,6 @@
 """R04-P1：`factorlab lint` 多路径 / `--all` 单进程批跑（Q5 验收）。
 
-断言源 = `docs/reviews/r04-efficiency-2026-09-16/report.md` §2 P1：
+断言源 = `governance/evidence/reviews/r04-efficiency-2026-09-16/report.md` §2 P1：
 - 多路径一次 CLI 调用校验全部 spec（单进程），失败聚合、任一失败 exit 1 + 汇总；
 - `--all` 扫描 `research/factor/**/*.yaml`（跳过 `_` 前缀；不硬编码在途文件清单）；
 - 单路径行为/退出码语义不变（`OK <name>` / exit 1，无批跑汇总行）；

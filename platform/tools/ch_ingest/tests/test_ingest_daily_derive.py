@@ -1,6 +1,6 @@
 """R21 TOOLS-C1 + DATA-C2 + I1 + delist_date：ingest_daily 派生纯函数测试。
 
-断言来源 = docs/reviews/r01-2026-09-15-strict-review/report.md / findings.md：
+断言来源 = governance/evidence/reviews/r01-2026-09-15-strict-review/report.md / findings.md：
 - C1 单位：total_mv = close×total_shares（万元）；turnover = vol/(float_shares×1e4)×100
 - DATA-C2 除权参考价：pre_close = round((prev - div_cash/10 + rights_price×rights_num/10)
   / (1 + div_bonus/10 + div_transfer/10), 2)，无事件日 = prev；300842.SZ 2024-04-10

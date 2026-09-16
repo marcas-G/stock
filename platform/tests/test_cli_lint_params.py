@@ -96,7 +96,7 @@ operators:
 # ---------- R01-ENG C1/C2/I5：lint 必须跑引擎同序语义门 ----------
 
 _EVIDENCE = (Path(__file__).resolve().parents[2]
-             / "docs/reviews/r01-2026-09-15-strict-review/evidence/engine-dsl")
+             / "governance/evidence/reviews/r01-2026-09-15-strict-review/evidence/engine-dsl")
 
 
 def _formula_spec(tmp_path, formula: str, universe: str = 'codes: ["000001.SZ"]'):

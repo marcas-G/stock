@@ -21,7 +21,7 @@
 | REQ-WS-007 | git 实体唯一 + 4 提交保全 | LF-07 | `projects/quant-platform-main` | S3 抢救 | Test | `S3/07-backup-rescue.log`（cat-file=e66b349） | ● |
 | REQ-WS-008 | 根仓库只跟踪文档白名单 | LF-08 | `/.gitignore` | S4 | Inspection | `S4/01-gates.log`（白名单外=0）、`final/01-gates.log` §2 | ● |
 | REQ-WS-009 | 回收 ≥33G | LF-05 | `data/` | S1 | Test | `S1/03-delete-verify.log`（+35.26G） | ● |
-| REQ-WS-010 | 每阶段证据目录 | LF-09 | `docs/verification/` | S1-S5 | Inspection | 各 `verification/S*/` 非空 | ● |
+| REQ-WS-010 | 每阶段证据目录 | LF-09 | `governance/evidence/verification/` | S1-S5 | Inspection | 各 `verification/S*/` 非空 | ● |
 | DER-001 | worktree 迁移程序（无 repair） | LF-07 | research/.git 指针 | S3 | Test | `S3/01-pointer-snapshot.log`、`S3/02-worktree-move.log` | ● |
 | DER-002 | minutes×bars_1m 血缘对照 | LF-01 | `data/raw/minutes`↔`data/fact/bars_1m` | S2 | Analysis | `S2/der2_*_months.txt`（80=80 一致） | ● |
 | DER-003 | panel_* 随 lob_fact 不拆 | LF-05 | `data/fact/lob_fact/panel_*` | S2 | Inspection | `S2/01-move.log`（整体 rename） | ● |
@@ -41,14 +41,14 @@ spec = `projects/quant-platform-main/docs/superpowers/specs/2026-09-12-mining-sy
 
 | 需求（spec §3） | 证据 | 状态 |
 |---|---|---|
-| REQ-Q-008 单副本（research 无平台 src/tests） | `docs/verification/WS1/` | ● |
-| REQ-Q-001 纯核（无 I/O 依赖可导入） | `tests/test_architecture.py` 双门 + `docs/verification/WS3/` | ● |
+| REQ-Q-008 单副本（research 无平台 src/tests） | `governance/evidence/verification/WS1/` | ● |
+| REQ-Q-001 纯核（无 I/O 依赖可导入） | `tests/test_architecture.py` 双门 + `governance/evidence/verification/WS3/` | ● |
 | REQ-Q-004 依赖方向（core ✗→ 外层） | 同上（静态门） | ● |
-| REQ-Q-010 旧路径零残留（代码） | 各批 grep/collect 门 + `docs/verification/WS4/` | ● |
-| REQ-Q-010 旧路径零残留（文档） | `tests/test_doc_paths_exist.py`（interface.md 全路径可解析）+ `docs/verification/WS7/` | ● |
+| REQ-Q-010 旧路径零残留（代码） | 各批 grep/collect 门 + `governance/evidence/verification/WS4/` | ● |
+| REQ-Q-010 旧路径零残留（文档） | `tests/test_doc_paths_exist.py`（interface.md 全路径可解析）+ `governance/evidence/verification/WS7/` | ● |
 | REQ-Q-002 端口 ≥2 实现 | `tests/test_ports_contract.py`（P-1/P-6 真实现 + 全部内存桩；P-2..P-5 真实现随 WS4/WS6 接线） | ◐ |
 | REQ-Q-007 位级/catalog 一致 | 各批全量位级测试绿 + catalog diff==0 | ● |
-| DER-005 列契约单点（factio.schema） | `core/factio/schema.py` + `docs/verification/WS6/` | ● |
+| DER-005 列契约单点（factio.schema） | `core/factio/schema.py` + `governance/evidence/verification/WS6/` | ● |
 | DER-008 路径单点（factio.paths） | 平台 `core/factio/paths.py` + 研究 `tools/lob_fact/core/config.py` 派生 | ● |
 | DER-010 研究侧注入单点（_env.py + 落位断言） | `tools/_env.py` + 架构门 | ● |
 | REQ-F-009 纯核入口（GP 消费面） | `factorlab.core.engine.*`（无文件系统/数据库） | ● |

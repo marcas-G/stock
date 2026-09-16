@@ -2,7 +2,7 @@
 
 背景：2023–2025 全市场分钟链运行期间主机内存耗尽、SSH 卡死、ClickHouse 一度
 无响应，进程 D 状态零输出——平台 run 链此前无进程级内存上限/看门狗（事故记录
-见 `docs/reviews/r05-usage-2026-09-16/report.md`）。本模块提供：
+见 `governance/evidence/reviews/r05-usage-2026-09-16/report.md`）。本模块提供：
 
 - `MemoryWatchdog`：psutil ~5s 采样（daemon 线程）+ 主线程协作检查
   （`run_factor` / `run_factor_minute` 在 chunk 边界与落盘前调用 `check()`）——
@@ -161,7 +161,7 @@ class MemoryWatchdog:
             "建议：减小 --chunk-days（分钟链默认 20 交易日/块，见 "
             "knowledge/contracts/interface.md §1）、调大/设置 FACTORLAB_MAX_MEMORY、"
             "避免与 LLM 服务/多 agent 并发重任务"
-            "（事故记录 docs/reviews/r05-usage-2026-09-16）。")
+            "（事故记录 governance/evidence/reviews/r05-usage-2026-09-16）。")
 
     @property
     def violation(self) -> MemoryLimitExceeded | None:
@@ -227,7 +227,7 @@ def memory_watchdog_from_settings(settings_obj=None) -> MemoryWatchdog | None:
 # 为什么硬限远高于 RSS 阈值：polars/glibc/allocator 的**虚拟地址空间**预留远
 # 大于 RSS（本机实测：小 run VmSize 峰值 13.6GB vs VmRSS 0.4GB——glibc arena
 # 每线程约 64MB、arrow/expr_codegen 另有预留）。RLIMIT_AS 贴 RSS 阈值设会
-# 让正常 run 误报 MemoryError（见 docs/verification/R23/safety 测量）。软看门狗
+# 让正常 run 误报 MemoryError（见 governance/evidence/verification/R23/safety 测量）。软看门狗
 # 才是 RSS 主护栏；AS 硬限是采样线程被饿死/D 状态时的兜底。
 _AS_HEADROOM_BASE = 12 * 1024 ** 3   # 实测 VA 预留 ~13.6GB + 余量（经验校准）
 _AS_ARENA_PER_CPU = 64 * 1024 ** 2   # glibc arena 每线程预留上限量级

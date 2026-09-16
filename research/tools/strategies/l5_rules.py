@@ -15,7 +15,7 @@
   触发条件（Plan S Task 7）：V1 近似的偏差在复盘中证实有实质影响后另立里程碑
   （需要连续/日内触发语义 + 成交明细级回放）。
 
-注：本模块属研究侧 V1；`knowledge/design/workspace/**`（原 `docs/reviews/**`）只读，边界登记以本 docstring +
+注：本模块属研究侧 V1；`knowledge/design/workspace/**`（原 `governance/evidence/reviews/**`）只读，边界登记以本 docstring +
 策略索引/档案为准。
 """
 

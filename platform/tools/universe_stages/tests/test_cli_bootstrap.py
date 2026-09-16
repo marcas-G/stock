@@ -1,6 +1,6 @@
 """R02-I6a：universe_stages 三 CLI 的平台自举（T2 裸跑不崩 import，preflight 可执行）。
 
-依据（docs/reviews/findings.md R02-I6a，R01-TOOLS-I9 partial）：
+依据（governance/evidence/reviews/findings.md R02-I6a，R01-TOOLS-I9 partial）：
 `universe_paths.py` 模块级 `import factorlab`，而三 CLI 没有 `_env.ensure_platform()`
 ——T2（emb，无 factorlab 安装）裸跑 `--help` 就在 import 处 ModuleNotFoundError，
 preflight 根本没机会执行；旧测试用 PYTHONPATH 注入掩盖。

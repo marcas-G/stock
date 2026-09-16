@@ -2,7 +2,7 @@
 
 - `test_specs_lint_all`：研究树 152 个 spec 结构锁定（全量 lint 由 make lint-factors 承担）；
 - `test_sample_value_regression`：6 个代表 spec（改动前基线见
-  `docs/verification/R22/00-baseline/`）经真实 CLI + ch 后端重跑，逐值对比
+  `governance/evidence/verification/R22/00-baseline/`）经真实 CLI + ch 后端重跑，逐值对比
   `evaluation.ic.{mean,t_stat,ir}`（|Δ| ≤ 1e-9）与 `n_weeks`。
 
 数据面等价代表说明（详见 00-baseline/README.md）：CH 无 stock_st/index_daily，
@@ -24,7 +24,7 @@ pytestmark = pytest.mark.integration
 
 REPO = Path(__file__).resolve().parents[2]
 PLATFORM = REPO / "platform"
-BASELINE = REPO / "docs/verification/R22/00-baseline"
+BASELINE = REPO / "governance/evidence/verification/R22/00-baseline"
 BASELINE_SPECS = BASELINE / "specs"
 FACTORLAB = PLATFORM / ".venv/bin/factorlab"
 

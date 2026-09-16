@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS factorlab.stock_basic (
 ) ENGINE = MergeTree
   ORDER BY (symbol, ts_code);
 -- R21 存量库迁移（CREATE IF NOT EXISTS 不改已有列类型/不补列；已执行，见
--- docs/verification/R21/TOOLS-A/after/ddl_alter.txt）：
+-- governance/evidence/verification/R21/TOOLS-A/after/ddl_alter.txt）：
 --   ALTER TABLE factorlab.daily      MODIFY COLUMN amount     Nullable(Float64);
 --   ALTER TABLE factorlab.adj_factor MODIFY COLUMN adj_factor Nullable(Float64);
 --   ALTER TABLE factorlab.stock_basic ADD COLUMN IF NOT EXISTS delist_date Nullable(Date) AFTER industry;

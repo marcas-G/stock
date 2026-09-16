@@ -20,7 +20,7 @@
   **起点**（left edge，**非** minute-end）——连续竞价 bar 覆盖
   [datetime, datetime+1min)；锚点：15:00 收盘竞价 bar 与 time_ms=15:00:00 的
   tick 成交逐值相等（delta=0），09:31/09:32/11:29 对齐起点窗而非终点窗。
-  证据：docs/verification/R22/R03/misc/probe_m5_bar_time_labeling.{py,txt}。
+  证据：governance/evidence/verification/R22/R03/misc/probe_m5_bar_time_labeling.{py,txt}。
 - 空结果（当日无数据/未知后缀 code）返回同投影空 frame，不抛。
 
 bars_1m 事实契约（2026-09-08 实测补正，勿凭旧描述）：

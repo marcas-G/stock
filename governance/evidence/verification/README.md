@@ -1,4 +1,7 @@
-# 验证证据区（docs/verification）
+# 验证证据区（governance/evidence/verification；R24 前 `docs/verification`）
+
+> **R24 路径映射（2026-09-16）**：本目录 `docs/verification/` → `governance/evidence/verification/`；
+> 评审台账 `docs/reviews/` → `governance/evidence/reviews/`。历史引用按本 README「旧路径映射」表解析。
 
 **政策**：**当前战役**的证据放顶层 `R*/`；战役完结后整目录 `git mv` 进
 `archive/<YYYY-MM>-<战役名>/`（字节不变、历史保留）。每份证据含：命令、原始输出、门结果、
@@ -37,15 +40,15 @@
 | 目录 | 战役 | 当时的入口文档 |
 |---|---|---|
 | `archive/2026-09-workspace-cleanup/` | 工作区清理（S1–S5 + final） | `docs/workspace-p0p8.md`（已冻结） |
-| `archive/2026-09-mining-refactor/` | 策略挖掘系统深度重构（WS0–WS7 + POST-WS8） | `platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md` |
+| `archive/2026-09-mining-refactor/` | 策略挖掘系统深度重构（WS0–WS7 + POST-WS8） | `knowledge/design/platform/specs/2026-09-12-mining-system-refactor-design.md` |
 
 **旧路径映射**（历史文档里的指针按此解析——冻结文档不改写）：
 
 | 历史引用 | 现在位置 |
 |---|---|
-| `docs/verification/S1…S5/`、`final/` | `docs/verification/archive/2026-09-workspace-cleanup/…` |
-| `docs/verification/WS0…WS7/`、`POST-WS8/` | `docs/verification/archive/2026-09-mining-refactor/…` |
-| `projects/quant-platform-main/docs/…` | `platform/docs/…` |
+| `docs/verification/S1…S5/`、`final/` | `governance/evidence/verification/archive/2026-09-workspace-cleanup/…` |
+| `docs/verification/WS0…WS7/`、`POST-WS8/` | `governance/evidence/verification/archive/2026-09-mining-refactor/…` |
+| `projects/quant-platform-main/docs/…` | `knowledge/…`（R24 后；此前为 `platform/docs/…`） |
 | `projects/quant-platform-research/tools/…` | `research/tools/…`（R27 前的中间位置；见下一行） |
 | `research/tools/<工具>/…`（converters/quark_download/ch_ingest/ashare_ingest/universe_stages/1m_features/lob_fact/lib） | `platform/tools/<工具>/…`（R27 工具归位；`strategies/`、`factor_lib/` 仍留 `research/tools/`） |
 

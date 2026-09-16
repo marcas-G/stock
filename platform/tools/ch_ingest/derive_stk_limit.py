@@ -43,7 +43,7 @@ intDiv(cents×(100±b×100)+50, 100)，再 ÷100 得元。避免 Float64 ×1.1 �
 已知近似（v1 接受，文档记录）：
   - ~~除权日 pre_close 未做除权调整~~（R21 TOOLS-I4 已修：DATA-C2 修复后
     daily.pre_close = 除权参考价，2025 除权日带宽偏离率归零，见 reconcile
-    与 docs/verification/R21/TOOLS-A/after/probe2）。
+    与 governance/evidence/verification/R21/TOOLS-A/after/probe2）。
   - 长期停牌复牌日 / 退市整理期首日无涨跌幅（复牌日历史规则）→ 带宽按
     stale pre_close 近似给出，close 越带宽；无名称/停牌原因源可辨（daily 无
     停牌列，缺行=停牌推断在 daily_fact 层成立但原因未知）。实查归因：2026 年
