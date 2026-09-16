@@ -1,9 +1,10 @@
 """M8-06B：backtest runtime——编排已关闭 execution primitives → BacktestResult。
 
 run_backtest 只做 orchestration（M8-06A §3 契约）：
-    每 decision：schedule → snapshot → orders → assessment → fills → POST
-    → accounting → NAV entry（open-based marks）→ advance → 下一 PRE
-    （execution 间隔 > 1 个交易日时纯 re-date——无 fills/CA 期间状态只变日期）
+    每 decision：schedule → snapshot → **CA 调整（R07-DATA-I8）** → orders →
+    assessment → fills → POST → accounting → NAV entry（open-based marks）
+    → advance → 下一 PRE（execution 间隔 > 1 个交易日时，除 CA 事件外纯
+    re-date——无 fills 期间 cash/quantity/sellable 不变）
 
 约束：
 - 不接收 StrategySpec/SignalArtifact；不引入 strategy logic
@@ -16,9 +17,12 @@ run_backtest 只做 orchestration（M8-06A §3 契约）：
   - 目标 code 当日无 open 行 → 隔夜停牌 → 该 order 编排层跳过（不进
     pipeline，fillability 的 missing-evidence fail 属数据未知语义，二者不同层）
   - 整轮无"缺 open → fail run"路径（数据层 coverage gate 仍拦全市场无行）
-  - 除权事件由 CA Gate 拦截（WS5：窗口 (prev_exec, exec] 内 held(PRE) 命中
-    adj_event 行 → ExecutionDataQualityError + decision_range 分段指引；
-    armed = 多事件 + 持仓非空，armed 且事件表缺失 → fail-closed）
+  - 除权事件由 CA Gate 在开盘前**应用/拦截**（R07-DATA-I8，见
+    _apply_ca_adjustments）：窗口 (prev_exec, exec] 内 held(PRE) 命中
+    adj_event 行 → 读 adj_detail 明细 → 分红现金入账 / 送转股数缩放
+    （floor）→ 调整后 PRE 状态进入 orders/NAV（连续 NAV）；配股 V1 不参与
+    （warning）；明细缺失/缩股/停牌命中 → fail-closed（armed = 多事件 +
+    持仓非空，armed 且事件表缺失 → fail-closed）
 - 全链 fail fast（ExecutionDataQualityError/ValueError 直接传播）——例外：
   m8-06a §6.3 最后一个 execution 后无下一开放日 = 合法终止（保留中间
   artifacts/nav，BacktestResult.trailing_unresolved=True；R01-M8-I5）
@@ -40,7 +44,8 @@ from enum import Enum
 import polars as pl
 
 from factorlab.ports.read import ReadPort
-from factorlab.adapters.read.market_open import load_adj_event_window
+from factorlab.adapters.read.market_open import (load_adj_detail_window,
+                                             load_adj_event_window)
 from factorlab.adapters.read.minute_window import load_execution_window
 from factorlab.core.domain.accounting import PortfolioMarkSnapshot
 from factorlab.core.domain.backtest import (BacktestResult, ExecutionArtifact,
@@ -52,6 +57,7 @@ from factorlab.core.domain.execution import (ExecutionDataQualityError,
 from factorlab.core.domain.portfolio import TargetPortfolio
 from factorlab.core.domain.timing import ExecutionTiming
 from factorlab.core.execution.accounting import summarize_execution_accounting
+from factorlab.core.execution.corporate_actions import apply_corporate_actions
 from factorlab.app.backtest.calendar import resolve_execution_schedule
 from factorlab.core.execution.fillability import assess_open_fillability
 from factorlab.app.backtest.fills import (realize_open_fills,
@@ -188,19 +194,28 @@ def _marks_from_snapshot(snapshot, codes: list[str], date, *,
     return PortfolioMarkSnapshot(as_of_date=date, frame=frame)
 
 
-def _assert_ca_gate(rd: ReadPort, *, decision_date, prev_exec_date, exec_date,
-                    held_codes: list[str]) -> None:
-    """WS5 CA Gate（M8-06A §5.5 落地；closeout 决策 2，事件源 = adj_event）。
+def _apply_ca_adjustments(rd: ReadPort, *, decision_date, prev_exec_date,
+                          exec_date, state: PortfolioState,
+                          halted_codes: list[str]) -> PortfolioState:
+    """R07-DATA-I8 CA Gate v2（M8-06A §5.5 落地升级；事件源 = adj_event +
+    adj_detail）：窗口内 held(PRE) 除权事件 → **execution date 开盘前调整**
+    （分红现金入账 / 送转股数缩放 / 配股不参与）或 fail-closed 拒绝。
 
     懒性触发在调用处（多事件 + 持仓非空）。语义：
-    - **fail-closed**：armed 且 adj_event 表缺失 → 明确报错（数据任务未完成
-      不静默降级——无事件表即无法证明窗口无 CA 事件）
+    - **fail-closed**（保持 WS5 不加宽）：
+      - armed 且 adj_event 表缺失 → 明确报错（数据任务未完成不静默降级）
+      - 命中事件但 adj_detail 表缺失 / (code, date) 无明细行 → 明确报错
+        （事件只有日期，调整量在明细；缺明细不得静默按无事件放行）
+      - 命中停牌持仓（exec_date 无 daily open，冻结 mark 为除权前 basis）→
+        拒绝（调整后无法估值=不发明价格；WS4 × CA 交叉）
+      - 负分红/缩股/负配股/明细全 0 → primitive fail-closed
     - 窗口 = (prev_exec_date, exec_date] **左开右闭**：除权事件当日零点生效、
       隔夜持仓断链 → 右端闭（B4/B7）；买入日 = 事件日的新买 code 以当日
       post-CA 价成交、无隔夜断链 → 左端开（B6 豁免——持有跨窗口才检测）
-    - 命中 → ExecutionDataQualityError（附 code/事件 trade_date/decision_range
-      分段指引；不携带任何 adj_factor 列值——事件表可只有日期列）
+    - 已支持事件 → apply_corporate_actions（资格日 = PRE 持仓 = 窗口内
+      每日收市持仓；多事件按 (code, date) 复合）
     """
+    held_codes = state.positions["code"].to_list()
     if "adj_event" not in rd.tables():
         raise ExecutionDataQualityError(
             f"CA Gate fail-closed：缺 adj_event 表（decision {decision_date} "
@@ -211,14 +226,42 @@ def _assert_ca_gate(rd: ReadPort, *, decision_date, prev_exec_date, exec_date,
     events = load_adj_event_window(
         rd, start_date=prev_exec_date + timedelta(days=1),
         end_date=exec_date, codes=held_codes)
-    if events.height:
-        hits = [f"{r[0]}@{r[1]}" for r in events.iter_rows()]
+    if not events.height:
+        return state
+    hits = [f"{r[0]}@{r[1]}" for r in events.iter_rows()]
+    event_codes = sorted({r[0] for r in events.iter_rows()})
+    halted_hits = [c for c in event_codes if c in set(halted_codes)]
+    if halted_hits:
         raise ExecutionDataQualityError(
-            f"CA Gate：持仓 {sorted(held_codes)} 在窗口 "
-            f"({prev_exec_date}, {exec_date}] 内出现除权事件 "
-            f"{hits}——跨 share-unit basis 的连续 NAV/return 无定义"
-            f"（M8-06A §5.5）；请以 decision_range 分段 run（CA handling "
-            f"里程碑前禁止跨 CA 连续估值）")
+            f"CA Gate fail-closed：除权事件 {hits} 命中停牌持仓 "
+            f"{halted_hits}（{exec_date} 无 daily open = 停牌冻结）——冻结 "
+            f"mark 为除权前 basis，股数/现金调整后无法估值（不发明价格）；"
+            f"请以 decision_range 绕开或等待复牌（WS4 × CA 交叉）")
+    if "adj_detail" not in rd.tables():
+        raise ExecutionDataQualityError(
+            f"CA Gate fail-closed：adj_event 命中 {hits}，但缺 adj_detail "
+            f"明细表——事件只有日期，分红/送转/配股调整量在 adj_detail；"
+            f"无法执行除权调整即不产出连续 NAV（真实数据任务："
+            f"platform/tools/ch_ingest/adj_backfill.py；合成 run：seed "
+            f"明细表或清空 adj_event）。窗口 "
+            f"({prev_exec_date}, {exec_date}]")
+    details = load_adj_detail_window(
+        rd, start_date=prev_exec_date + timedelta(days=1),
+        end_date=exec_date, codes=held_codes)
+    detail_keys = {(r[0], r[1]) for r in details.iter_rows()}
+    missing = [f"{r[0]}@{r[1]}" for r in events.iter_rows()
+               if (r[0], r[1]) not in detail_keys]
+    if missing:
+        raise ExecutionDataQualityError(
+            f"CA Gate fail-closed：事件明细缺失（adj_detail 无对应行）"
+            f"{missing}——fail-closed 不静默按无事件放行")
+    # 只消费**事件命中**的明细行：adj_detail 是全量行级表（18M 行，非事件行
+    # 明细 NULL）——非事件行不得进入 primitive（全 0 = 不一致 fail-closed
+    # 是给"adj_event 命中但明细无效"的，不是给未命中行）。loader 已按
+    # held_codes 过滤；join 后排序保证确定性。
+    scoped = (events.join(details, on=["code", "trade_date"], how="inner")
+              .sort(["code", "trade_date"]))
+    return apply_corporate_actions(state, scoped)
 
 
 def run_backtest(
@@ -317,13 +360,6 @@ def run_backtest(
                                    phase=PortfolioStatePhase.PRE_EXECUTION,
                                    cash=state.cash, positions=state.positions)
 
-        # ---- WS5 CA Gate（懒性：第二 event 起且持仓非空；窗口左开右闭）----
-        if artifacts and state.positions.height:
-            _assert_ca_gate(rd, decision_date=decision_d,
-                            prev_exec_date=artifacts[-1].execution_date,
-                            exec_date=exec_date,
-                            held_codes=state.positions["code"].to_list())
-
         # ---- 市场证据（planning codes = current ∪ target(d)）----
         t_rows = scoped_target.frame.filter(
             pl.col("decision_date") == decision_d)
@@ -332,6 +368,20 @@ def run_backtest(
         snapshot = load_market_open_snapshot(rd, execution_date=exec_date,
                                              codes=codes)
         rules = resolve_security_quantity_rules(rd, codes)
+        halted = sorted(
+            c for c, has_daily in
+            snapshot.frame.select(["code", "has_daily"]).iter_rows()
+            if not has_daily)
+
+        # ---- R07-DATA-I8 CA Gate v2（懒性：第二 event 起且持仓非空）----
+        # 窗口 (prev_exec, exec] 内 held(PRE) 事件 → 开盘前调整（分红/送转/
+        # 配股不参与）或 fail-closed（缺明细/停牌/缩股）。调整后 state 才进入
+        # orders/NAV——停牌状态先算好供 CA 判定（冻结 mark 不可作调整后 basis）。
+        if artifacts and state.positions.height:
+            state = _apply_ca_adjustments(
+                rd, decision_date=decision_d,
+                prev_exec_date=artifacts[-1].execution_date, exec_date=exec_date,
+                state=state, halted_codes=halted)
 
         # ---- WS4 停牌 mask（缺行 = 停牌：持仓冻结 / 目标跳过）----
         # orders/fillability 对缺 evidence 是 fail-fast 原语（不动它们）——
@@ -341,10 +391,6 @@ def run_backtest(
         # 现金自然持有，不归一化 A5/A6 语义）；目标行全停牌 → 0 rows =
         # all-cash（与显式空目标同构，可见持仓照常清仓意图不变）。估值在
         # 真实 state 上进行，冻结码 mark 沿用 mark_map（_marks_from_snapshot）。
-        halted = sorted(
-            c for c, has_daily in
-            snapshot.frame.select(["code", "has_daily"]).iter_rows()
-            if not has_daily)
         if not halted:
             plan = (scoped_target, state, snapshot, rules)  # 无停牌：原对象（A7）
         else:

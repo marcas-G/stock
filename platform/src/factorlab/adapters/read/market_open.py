@@ -27,6 +27,7 @@ daily/stk_limit/trade_cal。
 from __future__ import annotations
 
 import datetime
+import math
 
 import polars as pl
 
@@ -507,4 +508,117 @@ def load_adj_event_window(
     # 得到 typed empty（与缺表分支同款契约——R01-M8-I3）
     out = out.with_columns(pl.col("code").cast(pl.String),
                            pl.col("trade_date").cast(pl.Date))
+    return out
+
+
+# --------------------------------------------------------------------------
+# R07-DATA-I8：CA 除权**明细**窗口（adj_detail 表——股数/现金调整量事件源）
+# --------------------------------------------------------------------------
+
+_ADJ_DETAIL_TABLE = "adj_detail"
+_ADJ_DETAIL_VALUE_COLUMNS = ["div_cash", "div_bonus", "div_transfer",
+                             "rights_num", "rights_price"]
+_ADJ_DETAIL_COLUMNS = ["code", "trade_date", *_ADJ_DETAIL_VALUE_COLUMNS]
+
+
+def _adj_detail_rows_duckdb(rd: ReadPort, s: str, e: str,
+                            codes: list[str]) -> list[tuple]:
+    """adj_detail 行 duckdb 版：trade_date VARCHAR 'YYYYMMDD'（同 daily 惯例），
+    闭区间文本比较即可（等长零填充字典序 == 日期序）。"""
+    return rd.query_rows(
+        "SELECT ts_code, trade_date, div_cash, div_bonus, div_transfer, "
+        "rights_num, rights_price FROM adj_detail "
+        "WHERE trade_date BETWEEN ? AND ? "
+        "AND ts_code IN (SELECT unnest(?)) "
+        "ORDER BY ts_code, trade_date",
+        [s, e, codes])
+
+
+def _adj_detail_rows_ch(rd: ReadPort, s: str, e: str,
+                        codes: list[str]) -> list[tuple]:
+    """adj_detail 行 ch 版：Date 主键 toDate 过滤 + canonical ts_code IN。
+
+    列契约 = adj_backfill 派生（platform/tools/ch_ingest/adj_backfill.py）：
+    div_cash 元/10股、div_bonus/div_transfer/rights_num 股/10股、
+    rights_price 元/股；非事件值为 NULL（NaN 在灌入时已转 NULL）。
+    """
+    from factorlab.adapters.ch_read import in_clause
+
+    ph, params = in_clause(codes)
+    db = settings.ch_database
+    return rd.query_rows(
+        f"SELECT ts_code, trade_date, div_cash, div_bonus, div_transfer, "
+        f"rights_num, rights_price FROM {db}.adj_detail "
+        f"WHERE trade_date BETWEEN toDate(%(s)s) AND toDate(%(e)s) "
+        f"AND ts_code IN ({ph}) ORDER BY ts_code, trade_date",
+        {"s": s, "e": e, **params})
+
+
+_ADJ_DETAIL_ROWS_IMPL = {"duckdb": _adj_detail_rows_duckdb,
+                         "ch": _adj_detail_rows_ch}
+
+
+def _typed_empty_detail() -> pl.DataFrame:
+    return pl.DataFrame({c: pl.Series([], dtype=d) for c, d in
+                         zip(_ADJ_DETAIL_COLUMNS,
+                             [pl.String, pl.Date] + [pl.Float64] * 5)})
+
+
+def load_adj_detail_window(
+    rd: ReadPort,
+    *,
+    start_date: datetime.date,
+    end_date: datetime.date,
+    codes: list[str],
+) -> pl.DataFrame:
+    """只读加载 [start_date, end_date] 闭区间 × canonical codes 的除权**明细**
+    行（R07-DATA-I8；adj_event 只带日期，调整量在本表）。
+
+    - rd 为读句柄（duckdb|ch）；表契约
+      `adj_detail(ts_code, trade_date, div_cash, div_bonus, div_transfer,
+      rights_num, rights_price)`（CH 由 ch_ingest/adj_backfill.py 从 daily_fact
+      7 列派生；单位：元/10股、股/10股、元/股；非事件列 NULL）
+    - **表缺失 → typed empty**（fail-closed 表格检查在 backtest CA Gate 层
+      兜底——本 loader 只读数据、不发明策略）
+    - 表在 → 列契约强制（缺任一明细列 fail fast，不静默降级为空明细）；
+      code canonical + unique；输出 code String / trade_date Date / 5 个
+      Float64 明细列（NULL 保留——策略层决定 null=0）；按 (code, trade_date)
+      稳定排序；(code, trade_date) 重复 → ValueError（不取 first/last）
+    - NaN 归一为 NULL（与 CH Nullable 列头契约一致；duckdb 侧 DOUBLE 可存
+      NaN——归一避免双腿语义漂移）
+    """
+    if not isinstance(rd, ReadPort):
+        raise TypeError(f"rd 必须为读句柄（收到 {type(rd).__name__}）")
+    for name, d in (("start_date", start_date), ("end_date", end_date)):
+        if not isinstance(d, datetime.date) or isinstance(d, datetime.datetime):
+            raise ValueError(f"{name} 必须为 datetime.date（收到 {d!r}）")
+    if end_date < start_date:
+        raise ValueError(
+            f"end_date {end_date} < start_date {start_date}——空窗口拒绝")
+    _check_codes(codes)
+    if _ADJ_DETAIL_TABLE not in rd.tables():
+        return _typed_empty_detail()
+    _require_columns(rd, _ADJ_DETAIL_TABLE,
+                     ["ts_code", "trade_date", *_ADJ_DETAIL_VALUE_COLUMNS])
+    s = start_date.strftime("%Y%m%d")
+    e = end_date.strftime("%Y%m%d")
+    rows = _ADJ_DETAIL_ROWS_IMPL[rd.backend](rd, s, e, codes)
+
+    def _value(v):
+        if v is None:
+            return None
+        f = float(v)
+        return None if math.isnan(f) else f
+
+    details = [(r[0], _normalize_event_date(r[1]),
+                _value(r[2]), _value(r[3]), _value(r[4]),
+                _value(r[5]), _value(r[6])) for r in rows]
+    if len(details) != len({(d[0], d[1]) for d in details}):
+        raise ValueError(
+            f"adj_detail 在窗口 [{start_date}, {end_date}] 存在 "
+            f"(ts_code, trade_date) 重复——不取 first/last")
+    out = pl.DataFrame(details, schema=_ADJ_DETAIL_COLUMNS, orient="row")
+    out = out.with_columns(
+        pl.col("code").cast(pl.String), pl.col("trade_date").cast(pl.Date),
+        *[pl.col(c).cast(pl.Float64) for c in _ADJ_DETAIL_VALUE_COLUMNS])
     return out
