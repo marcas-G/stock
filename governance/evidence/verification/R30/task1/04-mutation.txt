@@ -1,0 +1,99 @@
+$ python3 /tmp/opencode/pan_task1_mutation.py  # 三种存根突变 → 测试必须失败，随后恢复复跑
+
+
+### 突变：diff_files 存根（硬编码空 Diff）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+________________________ test_diff_new_changed_skipped _________________________
+
+    def test_diff_new_changed_skipped():
+        st = {"version": 1, "files": {"daily/x.zip": {"size": 10}}, "stages": {}, "runs": []}
+        entries = [
+            {"name": "x.zip", "size": 10, "rel_path": "daily/x.zip"},   # skipped
+            {"name": "x.zip", "size": 11, "rel_path": "daily/x.zip"},   # changed
+            {"name": "y.zip", "size": 5, "rel_path": "daily/y.zip"},    # new
+        ]
+        d = state.diff_files(st, "daily", entries)
+>       assert [e["rel_path"] for e in d.to_fetch] == ["daily/y.zip", "daily/x.zip"]
+E       AssertionError: assert [] == ['daily/y.zip', 'daily/x.zip']
+E         
+E         Right contains 2 more items, first extra item: 'daily/y.zip'
+E         Use -v to get more diff
+
+tools/pan_update/tests/test_state.py:27: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_state.py::test_diff_new_changed_skipped - ...
+1 failed, 2 passed in 0.07s
+
+### 突变：load_state 去掉损坏隔离
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+F..                                                                      [100%]
+=================================== FAILURES ===================================
+_____________________ test_load_state_corrupt_quarantined ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1769/test_load_state_corrupt_quaran0')
+
+    def test_load_state_corrupt_quarantined(tmp_path):
+        p = tmp_path / "pan_state.json"
+        p.write_text("{not json", encoding="utf-8")
+        s = state.load_state(p)
+        assert s["version"] == 1 and s["files"] == {}
+>       assert list(tmp_path.glob("pan_state.json.corrupt-*"))
+E       AssertionError: assert []
+E        +  where [] = list(<map object at 0x7f92531f7b50>)
+E        +    where <map object at 0x7f92531f7b50> = glob('pan_state.json.corrupt-*')
+E        +      where glob = PosixPath('/tmp/pytest-of-gaolei/pytest-1769/test_load_state_corrupt_quaran0').glob
+
+tools/pan_update/tests/test_state.py:10: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_state.py::test_load_state_corrupt_quarantined
+1 failed, 2 passed in 0.04s
+
+### 突变：save_state_atomic 去掉 os.replace（tmp 不落位）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+.F.                                                                      [100%]
+=================================== FAILURES ===================================
+_______________________ test_save_state_atomic_roundtrip _______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1770/test_save_state_atomic_roundtr0')
+
+    def test_save_state_atomic_roundtrip(tmp_path):
+        p = tmp_path / "pan_state.json"
+        st = {"version": 1, "files": {"a": {"size": 1}}, "stages": {}, "runs": []}
+        state.save_state_atomic(p, st)
+>       assert json.loads(p.read_text())["files"]["a"]["size"] == 1
+                          ^^^^^^^^^^^^^
+
+tools/pan_update/tests/test_state.py:16: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/tmp/pytest-of-gaolei/pytest-1770/test_save_state_atomic_roundtr0/pan_state.json')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-gaolei/pytest-1770/test_save_state_atomic_roundtr0/pan_state.json'
+
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_state.py::test_save_state_atomic_roundtrip
+1 failed, 2 passed in 0.07s
+
+恢复原文后复跑： 3 passed in 0.03s [exit=0]
+EXIT=0

@@ -1,0 +1,5 @@
+$ python3 governance/ops/check_tool_layering.py
+
+[G-TOPO] 工具拓扑：依赖方向 / 横向耦合
+  ✓ 0 处（core 不做反向依赖、生产不带诊断、工具不互相 import、lib 是叶子）
+EXIT=0

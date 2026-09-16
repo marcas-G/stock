@@ -1,0 +1,7 @@
+$ cd /data/students/gaolei/stock/platform && .venv/bin/python -m pytest tools/pan_update/tests/test_state.py -q && .venv/bin/python -m pytest tools/pan_update/tests -q
+
+...                                                                      [100%]
+3 passed in 0.33s
+...                                                                      [100%]
+3 passed in 0.04s
+EXIT=0
