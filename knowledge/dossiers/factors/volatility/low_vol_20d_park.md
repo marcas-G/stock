@@ -126,6 +126,7 @@ formula: |
 
 | 日期 | 变体/版本 | 改动 | IC mean | t | 结论 |
 |------|-----------|------|---------|---|------|
+| 2026-09-16 | 衍生：`low_vol_20d_park_gk` | 挖矿轮8：Parkinson→Garman-Klass（OHLC 全信息），见 [`low_vol_20d_park_gk.md`](low_vol_20d_park_gk.md) | 0.0734 | 4.46 | **观察中（中性）**（±1%，效率优势未转化为信号） |
 | 2026-09-16 | `low_vol_20d_park`（初始） | 挖矿轮3：close-to-close→Parkinson 极差波动率 | 0.0738 | 4.43 | **候选（升级）** |
 
 ## 6. 风险与备注
