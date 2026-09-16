@@ -1,0 +1,24 @@
+# R04-Q7 G-REVIEWS 门证据 —— 命令与结果（cwd=/data/students/gaolei/stock，2026-09-16）
+# 工具：platform/.venv/bin/python（仅用 stdlib）
+#
+# 1) 负向 fixture（预期红：重复 ID/非法状态/死引用/空修复说明/统计不符）
+platform/.venv/bin/python governance/ops/check_reviews.py \
+  --ledger governance/evidence/verification/R24/13-reviews-gate/bad-ledger.md
+#    → exit 1；输出 bad-ledger-run.txt（5 类各命中）
+#
+# 2) 正向 fixture（预期绿；含 I1a/I1b 子行折叠）
+platform/.venv/bin/python governance/ops/check_reviews.py \
+  --ledger governance/evidence/verification/R24/13-reviews-gate/good-ledger.md
+#    → exit 0；输出 good-ledger-run.txt
+#
+# 3) 门内负向自检（7 类场景：五类坏 + 好台账零误报 + 后缀折叠）
+platform/.venv/bin/python governance/ops/check_reviews.py --selftest
+#    → exit 0；输出 selftest.txt
+#
+# 4) 真实台账（预期绿）
+platform/.venv/bin/python governance/ops/check_reviews.py
+#    → exit 0；输出 real-ledger-run.txt
+#
+# 5) 接入 make gates 后的整门输出
+make gates
+#    → 输出 gates-full.txt（G-REVIEWS 节 + 现场其它门；G-INDEX 红为挖矿在途，见节内归因）

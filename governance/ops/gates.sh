@@ -73,6 +73,18 @@ structure() {
   # 脚本原位在 R21/EVID（证据即工具）；只做只读 --check，不写档案。
   if out=$(python3 governance/evidence/verification/R21/EVID/annotate_factor_archives.py --check 2>&1); then ok "$out"; else bad "$out"; fi
 
+  echo "[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）"
+  if out=$("$PLATFORM/.venv/bin/python" governance/ops/check_reviews.py 2>&1); then
+    ok "$(echo "$out" | sed -n '2p' | sed 's/^ *✓ *//')"
+    info "$(echo "$out" | sed -n '3p' | sed 's/^ *· *//')"
+    info "$(echo "$out" | sed -n '4p' | sed 's/^ *· *//')"
+  else
+    bad "台账门失败"; echo "$out" | sed 's/^/      /'
+  fi
+  if out=$("$PLATFORM/.venv/bin/python" governance/ops/check_reviews.py --selftest 2>&1); then
+    ok "负向自检通过（重复 ID/非法状态/死路径/空修复说明/统计不符）"
+  else bad "自检失败——门失效"; echo "$out" | sed 's/^/      /'; fi
+
   echo "[G-LINT] 全库因子 spec lint（单进程批跑；挖矿在途 spec 一并计入）"
   # 失败行含具体 spec 路径——在途红与代码级红按文件区分，不误报为门故障。
   if out=$("$PLATFORM/.venv/bin/factorlab" lint --all 2>&1); then ok "$(echo "$out" | tail -1)"; else
