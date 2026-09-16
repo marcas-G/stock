@@ -58,3 +58,12 @@ def test_doc_paths_checker_can_fail():
     assert _resolves("factorlab.core.spec.load_spec") is True
     assert _resolves("factorlab.core.nosuch_module_xyz") is False
     assert _resolves("factorlab.core.spec.nosuch_attr_xyz") is False
+
+
+def test_interface_next_window_contract_not_drifted():
+    """防漂移（R07-CONTRACT-I5）：NEXT_WINDOW/分钟窗口契约必须留在 interface.md；
+    旧的全局面口径 "NEXT_OPEN only" 不得回潮（分层限定语句写"仅接受 NEXT_OPEN"）。"""
+    text = DOC.read_text(encoding="utf-8")
+    assert "NEXT_WINDOW" in text, "interface.md 缺 NEXT_WINDOW（R22 分钟窗口契约）"
+    assert "NEXT_OPEN only" not in text, (
+        "interface.md 出现旧口径 'NEXT_OPEN only'——契约回退（R07-CONTRACT-I5）")

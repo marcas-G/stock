@@ -2289,7 +2289,7 @@ M8-06）：
   decision ∈ target.decision_dates 且 schedule 中恰 1 行；
   schedule.execution_date == snapshot.execution_date == state.as_of_date；
   state.phase 必须 PRE_EXECUTION
-- **规划路径 schedule timing 仍 NEXT_OPEN only**：v1 只接受 schedule/target
+- **规划路径 schedule timing 仍仅接受 NEXT_OPEN**：v1 只接受 schedule/target
   authority = `ExecutionTiming.NEXT_OPEN`（市场数据对象是
   MarketOpenSnapshot）；NEXT_CLOSE → `NotImplementedError`（禁止拿
   daily.open 冒充 next_close 成交/规划价）。**R22 分钟窗口不改变本层**：
@@ -2806,7 +2806,7 @@ cash_after = POST state.cash
 buy/sell gross 与四项费用直接聚合 FillBatch 列；total_fees 按固定顺序
   = commission + stamp_tax + transfer_fee（禁止按 rates 反算——不接收
   ExecutionCostSpec）
-PRE/POST phase 必须；三日期对齐；FillBatch timing = NEXT_OPEN only（v1 唯一
+PRE/POST phase 必须；三日期对齐；FillBatch timing = 仅 NEXT_OPEN（v1 唯一
 可入账 execution event 标记——NEXT_WINDOW 的窗口成交同样经 NEXT_OPEN-stamped
 FillBatch 聚合入账，见「R22 分钟窗口执行」）；不含 position valuation
 ```
