@@ -1,0 +1,9 @@
+# Plan P 最终验收（R30）
+# date: 2026-09-17T05:13:27+08:00
+
+平台全量: 3089 passed / 11 skipped / 0 failed (752.99s, cd platform && .venv/bin/python -m pytest -q)
+tools: platform/tools 530 passed
+gates: 仅 G-INDEX 红（挖矿在途 untracked spec），其余全绿
+reconcile: 14 表一致 rc=0（含 moneyflow 1,113,668 / fundamentals 5,556）
+timer: pan-data-update.timer enabled, next 2026-09-17 08:11
+final fix wave: a5ff7a3(platform)/eb4a013(knowledge)/633a112(governance)；re-review PASS
