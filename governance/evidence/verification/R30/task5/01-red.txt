@@ -1,0 +1,39 @@
+$ platform/.venv/bin/python -m pytest platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py -q
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+______________________ test_full_snapshot_prefix_detected ______________________
+
+    def test_full_snapshot_prefix_detected():
+        class P:
+            def __init__(self, n): self.name = n
+        fulls = [P("19910101至20260831A股日k线.zip"), P("19910101至上月底07月31日A股日k线.zip")]
+        incr = [P("2026-09-01至2026-09-16A股日k线.zip")]
+>       assert all(idl._is_full_snapshot(p) for p in fulls)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py:30: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+.0 = <list_iterator object at 0x7fee697b30d0>
+
+>   assert all(idl._is_full_snapshot(p) for p in fulls)
+               ^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'import_daily' has no attribute '_is_full_snapshot'
+
+platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py:30: AttributeError
+__________________________ test_newest_full_selected ___________________________
+
+    def test_newest_full_selected():
+        class P:
+            def __init__(self, n): self.name = n
+        ps = [P("19910101至20260731A股日k线.zip"), P("19910101至20260831A股日k线.zip")]
+>       assert idl._newest_full(ps).name == "19910101至20260831A股日k线.zip"
+               ^^^^^^^^^^^^^^^^
+E       AttributeError: module 'import_daily' has no attribute '_newest_full'
+
+platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py:37: AttributeError
+=========================== short test summary info ============================
+FAILED platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py::test_full_snapshot_prefix_detected
+FAILED platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py::test_newest_full_selected
+2 failed in 0.53s
+exit=1

@@ -1,0 +1,3 @@
+$ platform/.venv/bin/python -m pytest platform/tools/ashare_ingest/tests -q
+..............................                                           [100%]
+30 passed in 2.88s

@@ -1,0 +1,25 @@
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests/test_daily_wiring.py -q
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+___________________ test_daily_chain_has_four_steps_in_order ___________________
+
+    def test_daily_chain_has_four_steps_in_order():
+>       chain = stages.STAGE_CHAINS["daily"]
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'daily'
+
+platform/tools/pan_update/tests/test_daily_wiring.py:20: KeyError
+____________ test_daily_chain_uses_venv_python_and_existing_scripts ____________
+
+    def test_daily_chain_uses_venv_python_and_existing_scripts():
+        venv_py = config.repo_root() / "platform" / ".venv" / "bin" / "python"
+>       for cmd in stages.STAGE_CHAINS["daily"]:
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'daily'
+
+platform/tools/pan_update/tests/test_daily_wiring.py:28: KeyError
+=========================== short test summary info ============================
+FAILED platform/tools/pan_update/tests/test_daily_wiring.py::test_daily_chain_has_four_steps_in_order
+FAILED platform/tools/pan_update/tests/test_daily_wiring.py::test_daily_chain_uses_venv_python_and_existing_scripts
+2 failed in 0.03s
+exit=1

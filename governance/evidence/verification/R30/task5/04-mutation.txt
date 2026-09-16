@@ -1,0 +1,16 @@
+$ python3 governance/evidence/verification/R30/task5/mutation.py
+CAUGHT  rc=1  import_daily: _is_full_snapshot 恒 False（全量识别存根）
+CAUGHT  rc=1  import_daily: _is_full_snapshot 恒 True（增量误判全量）
+CAUGHT  rc=1  import_daily: 丢旧标记兼容（只剩 19910101至 前缀）
+CAUGHT  rc=1  import_daily: _newest_full 取原序首个（不解析日期）
+CAUGHT  rc=1  import_daily: _build_tasks 用 full_zips[0]（不选最新全量）
+CAUGHT  rc=1  import_daily: 忽略增量 zip（不补新日期）
+CAUGHT  rc=1  stages: daily 空链
+CAUGHT  rc=1  stages: daily 缺一步（adj_backfill 丢）
+CAUGHT  rc=1  stages: daily 步序颠倒（derive/ingest 互换）
+CAUGHT  rc=1  stages: daily 首步不用平台 venv（python3 PATH 依赖）
+
+10/10 突变被测试抓住；工作区已恢复逐字节一致
+恢复后 platform/tools/ashare_ingest/tests: rc=0
+恢复后 platform/tools/pan_update/tests: rc=0
+exit=0
