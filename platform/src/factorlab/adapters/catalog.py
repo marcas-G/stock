@@ -275,6 +275,20 @@ def _live_inventory() -> list[dict[str, str]]:
             for op in _registry.list_ops()]
 
 
+def _classification_face() -> dict[str, str]:
+    """分类表全集指针（R07-CONTRACT 残余）：注册面 ≠ 分类面——`op list --catalog`
+    列生成分类表全量（含未注册库函数）；计数实时取 effective_catalog（与 CLI 同源）。"""
+    from factorlab.core.ops.registration import effective_catalog
+
+    n = len(effective_catalog().all())
+    return {
+        "entry": "factorlab op list --catalog",
+        "count": f"{n} 条（含未注册库函数）",
+        "generator": "platform/scripts/gen_op_catalog.py"
+                     "（--check 校验生成产物与当前依赖一致）",
+    }
+
+
 # ---------------------------------------------------------------------------
 # 开放面：def 组合规范 / 命名类约定
 # ---------------------------------------------------------------------------
@@ -654,6 +668,7 @@ def build_catalog() -> dict:
         "operators": {
             "platform_owned": [dict(row) for row in _PLATFORM_OWNED],
             "registry_inventory": _live_inventory(),
+            "classification_face": _classification_face(),
             "elementwise_methods": sorted(ALLOWED_EXPR_METHODS),
             "partition_prefixes": [
                 "ts_——时序分区（按 (code, 交易日) 排序的滚动/累计窗口；窗口算子只在公式顶层）",
@@ -790,6 +805,11 @@ def render_catalog_markdown(cat: dict | None = None) -> str:
     ap("\n#### 注册清单（`registry.list_ops()` 实时快照——别名无独立行）\n")
     for row in ops["registry_inventory"]:
         ap(f"- `{row['name']}`（{row['kind']} v{row['version']}）")
+    face = ops["classification_face"]
+    ap("\n#### 分类表全集（含未注册库函数——注册面之外的开放算子底座）\n")
+    ap(f"- 入口：`{face['entry']}`——{face['count']}；分类面 = 生成分类表 + "
+       "注册面全集（注册清单见上一小节）")
+    ap(f"- 生成器：{face['generator']}")
     ap("\n#### 元素级方法链白名单（与解析器单源一致——仅限这组可写 `.abs()` 形态）\n")
     ap("、".join(f"`{m}`" for m in ops["elementwise_methods"]))
     ap("\n#### 分区前缀族\n")

@@ -165,8 +165,8 @@ def test_columns_no_whitelist_statement():
 
 def test_operators_schema_and_platform_owned_complete():
     ops = build_catalog()["open_surface"]["operators"]
-    assert set(ops) == {"platform_owned", "registry_inventory", "elementwise_methods",
-                        "partition_prefixes"}
+    assert set(ops) == {"platform_owned", "registry_inventory", "classification_face",
+                        "elementwise_methods", "partition_prefixes"}
     for row in ops["platform_owned"]:
         assert set(row) == {"name", "kind", "semantic", "constraints"}
         assert row["name"] and row["semantic"].strip() and row["constraints"].strip()
@@ -182,6 +182,23 @@ def test_operators_schema_and_platform_owned_complete():
     # 注册清单与 list_ops() 同源）；别名可写、canonical 在册
     from factorlab.core.ops import registry as _reg
     assert _reg.has_op("cs_rank") and _reg.get_op("cs_rank").name == "cs_stable_rank"
+
+
+def test_operators_point_to_classification_catalog_face():
+    """分类表全集入口（R07-CONTRACT 残余）：目录必须指向 `factorlab op list --catalog`
+    分类面（含未注册库函数）与其生成器——注册清单之外的开放算子底座。"""
+    from factorlab.core.ops.registration import effective_catalog
+
+    ops = build_catalog()["open_surface"]["operators"]
+    face = ops["classification_face"]
+    assert face["entry"] == "factorlab op list --catalog"
+    n = len(effective_catalog().all())
+    assert f"{n} 条" in face["count"], face["count"]
+    assert "gen_op_catalog.py" in face["generator"]
+    md = render_catalog_markdown()
+    assert "分类表全集" in md
+    assert "`factorlab op list --catalog`" in md
+    assert "gen_op_catalog.py" in md
 
 
 def test_registry_inventory_matches_runtime_registry():

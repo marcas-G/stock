@@ -113,6 +113,11 @@
 - `ts_zscore`（ts v0.1.0）
 - `vwap`（ts v0.1.0）
 
+#### 分类表全集（含未注册库函数——注册面之外的开放算子底座）
+
+- 入口：`factorlab op list --catalog`——528 条（含未注册库函数）；分类面 = 生成分类表 + 注册面全集（注册清单见上一小节）
+- 生成器：platform/scripts/gen_op_catalog.py（--check 校验生成产物与当前依赖一致）
+
 #### 元素级方法链白名单（与解析器单源一致——仅限这组可写 `.abs()` 形态）
 
 `abs`、`exp`、`floor`、`log`、`log1p`、`sign`、`sqrt`
