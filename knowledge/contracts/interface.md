@@ -388,7 +388,10 @@ formula: |
   （close×float_shares，万元；16.87M 行非空，覆盖同 total_mv）；
   **`pe_ttm/pb/dv_ratio/volume_ratio` 4 列仍为占位空列（100% NULL，无数据源）**，
   引用可加载但信号恒缺失；`idx_ret`（index_daily）为空的 `000852.SH` 可选灌入位，
-  生产库当前恒 NULL。
+  生产库当前恒 NULL——**R29 裁决（2026-09-16）**：CH 侧当前无可用补数路径（原注释所指
+  `ingest_index_sina.py` 全仓不存在，死引用已删；候选源 teajoin `index_daily` 接口 token
+  2026-08-22 已过期，且现 `data refresh` 指数增量只写 duckdb 平台库、不接 CH），
+  触发条件 = token 恢复或新增 index→CH 灌入工具后补 000852.SH 全历史，不伪造数据。
 - `params`：可选顶层参数映射 `dict[str, number|str|bool]`（缺省空）。formula（含
   operators 宏体、def 体）内 `${name}` 文本引用在编译期替换为字面量；引用未声明
   的参数名报错。`factorlab run --set k=v` 覆盖（合并进 spec.params）并生成变体
@@ -1494,7 +1497,7 @@ PIT 语义：
 - **listing**：`is_listed = list_date <= t AND (delist_date IS NULL OR t < delist_date)`（`t < delist_date` 平台语义）
 - **list_days**：`date − list_date`（**自然日**年龄，非交易日数）；**pre-list（date < list_date）→ list_days = null**
 - **ST coverage**：以 `min/max(stock_st.trade_date)` 为 coverage（v1 contract，内部 gap 的精确 provenance 留给 Data Coverage Registry）——coverage 内：当日快照出现 → true、缺席 → false；**coverage 外：is_st = null（unknown ≠ false）**；`exclude_st=true` 且请求日期落在 coverage 外 → **ValueError（fail fast，错误含 requested date 与 coverage 区间）**；缺 stock_st 表：exclude_st=true → ValueError、false → is_st=null
-- **ST 显式降级（R03-I1，仅"缺表"一种 unknown）**：`exclude_st=true` 且库中**无** `stock_st` 表时，默认仍 **ValueError（fail fast，不把 unknown 当非 ST）**；只有显式设置 `FACTORLAB_ST_DEGRADE=allow`（`settings.st_degrade`，默认 `"fail"`）才降级为**无 ST 口径**——`warnings.warn` 响亮告警（文案含"ST 未知按非 ST 处理，结果为无 ST 口径"）、`is_st=null`（unknown ≠ false 语义保留）、`in_universe` 不做 ST 过滤；`run_factor`/`run_factor_minute`/`resolve_universe_frame` 调用方可用 `st_degrade_active(spec, rd, override=...)` 查询本 run 是否降级，run 摘要恒写 `st_degrade: true/false`（审计，不静默）。空 `stock_st` 表、请求日期在 coverage 外（后两种 unknown）**不受开关影响，仍 fail fast**。**挖矿口径**：CH 当前无 `stock_st`，全市场挖矿/复跑须显式 `FACTORLAB_ST_DEGRADE=allow` 接受无 ST 口径（挖矿 spec 保持库规范 `exclude_st: true`，不写"无 ST 影子 spec"）；有真实 `stock_st` 后应关开关按标准 ST 过滤复跑——降级结果与 ST 过滤结果口径不同，不得混比。
+- **ST 显式降级（R03-I1，仅"缺表"一种 unknown）**：`exclude_st=true` 且库中**无** `stock_st` 表时，默认仍 **ValueError（fail fast，不把 unknown 当非 ST）**；只有显式设置 `FACTORLAB_ST_DEGRADE=allow`（`settings.st_degrade`，默认 `"fail"`）才降级为**无 ST 口径**——`warnings.warn` 响亮告警（文案含"ST 未知按非 ST 处理，结果为无 ST 口径"）、`is_st=null`（unknown ≠ false 语义保留）、`in_universe` 不做 ST 过滤；`run_factor`/`run_factor_minute`/`resolve_universe_frame` 调用方可用 `st_degrade_active(spec, rd, override=...)` 查询本 run 是否降级，run 摘要恒写 `st_degrade: true/false`（审计，不静默）。空 `stock_st` 表、请求日期在 coverage 外（后两种 unknown）**不受开关影响，仍 fail fast**。**挖矿口径**：CH 当前无 `stock_st`，全市场挖矿/复跑须显式 `FACTORLAB_ST_DEGRADE=allow` 接受无 ST 口径（挖矿 spec 保持库规范 `exclude_st: true`，不写"无 ST 影子 spec"）；有真实 `stock_st` 后应关开关按标准 ST 过滤复跑——降级结果与 ST 过滤结果口径不同，不得混比。**R29 当前裁决（2026-09-16）**：本机无 `stock_st` 历史源（CH 无表、`data/raw` 无快照、teajoin token 缺失/过期）——保留本开关为现行口径，不伪造 ST 数据；触发条件 = teajoin token 恢复（`stock_st` 在套餐接口目录内，见 `teajoin-guide.md` §5）或外部 ST 历史源到位 → 建表灌入（沿本节 coverage 契约）→ 关开关按标准 ST 过滤复跑，届时解除降级口径。
 - **exchange**：ts_code 后缀（.SH→SSE / .SZ→SZSE / .BJ→BSE）；默认池 SSE+SZSE，不意外纳入 BSE
 - 显式 codes 同样尊重上市/退市 PIT 状态（不自动增加 exclude_st/min_list_days 规则）
 - 输入校验：dates 仅接受 datetime.date / ISO `YYYY-MM-DD`（非法格式、重复日期 fail fast）；candidate_codes 重复 fail fast；输出前主动验证 (date, code) 唯一
