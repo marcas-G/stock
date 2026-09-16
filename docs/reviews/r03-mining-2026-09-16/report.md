@@ -93,3 +93,63 @@
 
 **归档**：`research/docs/factors/vol_run_energy/symrun_r30_{flip,streak}.md`（负结果入库）；
 索引重生成（157 因子）；种子档案 §5 已记一行。
+
+---
+
+## 轮 3 追加（分钟面首轮，2026-09-16）
+
+**背景**：用户指示"挖分钟级别的"；分钟链 v1（`interface: bars_1m` + raw + 显式闭区间 + 无 process/池公式 + CH only）。
+
+**结果（全市场 2024H1，27 周）**：
+
+| 因子 | 假设 | raw IC | t | IR | 判定 |
+|---|---|---|---|---|---|
+| `intraday_tail_amt_share`（尾盘 30 分钟成交额占比） | -1（拉尾盘→次日弱） | **+0.0756** | **2.02** | **0.389** | **假设被证伪 → 方向修正为 +1，候选**（decile 单调、近 26 周 t=2.02 未衰减） |
+| `intraday_high_time`（当日最高价出现时间） | -1（晚高点→次日弱） | -0.0189 | -0.39 | -0.07 | 无效（不显著） |
+
+- 运行成本：全市场 117 交易日两因子共 ~6 分钟（高时间 3.5min / 尾盘 2.3min）；
+- 质量门：新家族 `intraday`（`_families.yaml` 登记）；索引 159 因子；`annotate --check` 159/159 ✓；
+- 两因子均经独立代码审核（high_time 的零成交守卫、覆盖池修复均经定向复查逐值验证）。
+
+**轮 3 新发现**：
+
+**R03-I6 分钟源幸存者偏差阻断全市场分钟因子【实测】**
+- `rules.exchanges` 池在 CH 上 fail-fast（"日线在而分钟整日缺"：每月 63~83 只退市股；
+  2024-01-02 在册 5327 只中 84 只无任何 1m 行 + 36 只部分覆盖）；
+- 规避：静态分钟覆盖池 `ref: bars1m_2024h1`（脚本 `research/tools/factor_lib/gen_minute_pool.py`，
+  池 `research/factor/intraday/_pools/bars1m_2024h1.yaml`，5207 只；含 238 只 BJ）；
+- 建议：平台提供 coverage-aware 分钟宇宙或明确的分钟研究口径文档。
+
+**R03-I7 陈旧尾部 bar 守卫【实测】**
+- 分钟 bar 238/239 常为 `amount=0` 的陈旧 OHLC；无守卫时"触高时间"类因子 1%~3.3% 截面被
+  系统性后移（002721.SZ 2024-02-08：239/239 → 229/239）；
+- funnel 文档示例的 `AND` 写法不可用（`&` 被 AST 门拒）→ 需嵌套 `if_else`+`None`；
+- 建议：修文档 + 考虑平台提供 `has_trade` 便捷列/算子。
+
+**R03-M3 `spread` 字段符号随 direction 翻转【实测】**
+- 同一因子（raw IC +0.0756 不变）direction -1→+1 时，`spread` 从 +0.00676 变 -0.00676，
+  易误读；建议统一为"好侧−差侧"或在文档明确约定。
+
+---
+
+## 台账核对（2026-09-16 会话结束前自查）
+
+本轮会话（轮 1-3 + 策略尝试）发现的问题**已全部登记**，合计 R03-I1~I8 / M1~M5：
+
+| ID | 一句话 | 状态 |
+|---|---|---|
+| I1 | exclude_st 阻断 CH 全库运行 | fixed-claimed（79d256a，ST 降级开关） |
+| I2 | coverage 恒 1.0 与 null 率矛盾 | fixed-claimed（136c30d） |
+| I3 | 离散信号分层静默 NaN | fixed-claimed（0455502） |
+| I4 | codegen 折叠导致 lint 通过但运行崩 | fixed-claimed（28a8f42） |
+| I5 | 真游程不可表达（ts_cum_count 未注册） | fixed-claimed（df6851f/c7b3d66，开放算子起步） |
+| I6 | 分钟源幸存者偏差阻断全市场分钟 | open（覆盖池规避已落地：脚本+池入仓） |
+| I7 | 陈旧尾部 bar 守卫 + 文档 AND 写法不可用 | open |
+| I8 | CA Gate 拦停策略回测（多年连续不可行） | open |
+| M1 | 宏误 import 报裸堆栈 | fixed-claimed（ba59430） |
+| M2 | factor-mine skill 文档漂移 | fixed-claimed（55e754c/dde8aae） |
+| M3 | spread 符号随 direction 翻转 | open |
+| M4 | portfolio.py map_elements 警告刷屏 | open |
+| M5 | intraday.py docstring minute-end 漂移 | open |
+
+另：分钟因子的"全天一价日 高点时间退化 ≈1.0"属设计取舍，已写入因子档案 §6（非平台缺陷，不单列台账）。

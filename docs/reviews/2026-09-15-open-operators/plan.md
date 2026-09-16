@@ -10,6 +10,11 @@
 
 **Spec:** `docs/reviews/2026-09-15-open-operators/design.md`（§4 开放面 / §5 算子生命周期 / §7 保证体系 / §9 G1-G4 / §13 Spike 结果）
 
+> **勘误（2026-09-16，实测）**：本计划中的 `ts_quantile` 示例**不存在于 polars_ta 0.5.17**（团队 R22 实施时已记录
+> 偏差并替换为 `ts_arg_max`/`ts_corr`/`ts_weighted_mean`/`BBANDS`，见 `docs/verification/R22/open-operators-summary.md`
+> 与 `R22/02-ta-catalog/README.md:29-32`）。下文出现 `ts_quantile` 的测试名/断言均为原始计划文本，实施以 R22 替换为准。
+> 另：`BBANDS` 返回 Struct 三条带（非标量信号），用法与限制见 R05-I1。
+
 ## Global Constraints（来自 spec 与仓库纪律）
 
 - **core 纯净**：`factorlab.core.*` 禁止文件 IO / 三方数据库 import（`tests/test_architecture.py` 双门）；生成的分类表必须是**纯 Python 数据模块**，不得在 core 内读 JSON。

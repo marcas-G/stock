@@ -357,3 +357,15 @@ ts_mean(close, 20)      → agg(mean, by=股票, order=日期, window=20)
 1. **算子准入 conformance 用小样本密集截断**（逐日截断、小样本，样本小所以便宜）——验证新算子的声明窗口/因果性；
 2. 因子级抽样重放仅作冒烟（抓系统性泄漏）；
 3. 主保证仍是**静态推断**；黑盒算子的局部泄漏残余风险写入活文档。
+
+---
+
+## 勘误（2026-09-16，实测）
+
+- **`ts_quantile` 不存在于 polars_ta 0.5.17**（三库 vars 实测；R05 复核 `ImportError: cannot import name 'ts_quantile'`）。
+  §1.1 的实测举例"`ts_quantile`、`BBANDS` 均报未知"中，`ts_quantile` 应更正为**真实存在但当时未接出**的库函数
+  （团队 R22 实施时已记录偏差：`docs/verification/R22/open-operators-summary.md` §偏差 1、
+  `R22/02-ta-catalog/README.md:29-32`，替换用例 `ts_arg_max`/`ts_corr`/`ts_weighted_mean`/`BBANDS`）。
+- `BBANDS` 返回 **Struct（upperband/middleband/lowerband）**，非标量信号：无 process 时 artifact 边界报错清晰，
+  带 process 时错误晦涩（见 R05-I1）——catalog/conformance 应标注返回形态。
+- 计划文档（plan.md）已同步勘误头；相关测试名/断言以实施方的 R22 替换为准。
