@@ -142,8 +142,25 @@ def lint(
 
 
 @op_app.command("list")
-def op_list() -> None:
+def op_list(
+    catalog: bool = typer.Option(
+        False, "--catalog",
+        help="列分类表全集（含未注册库函数）：name/partition/window/source/returns"),
+) -> None:
     plugins.discover_plugins(settings.plugin_dir)
+    if catalog:
+        # R05-M1：注册面（~55）≠ 分类面（生成表全量，含未注册库函数）——R05 实测
+        # 用户/AI 无法从 CLI 发现"现在能写什么"。这里给最小可用检索入口（完整
+        # 同源 = 算子档案/catalog.md 合并归 Plan 2）。默认行为（无 --catalog）不变。
+        from factorlab.core.ops.registration import effective_catalog
+        metas = sorted(effective_catalog().all(), key=lambda m: m.name)
+        typer.echo(f"# 分类表全集: {len(metas)} 条（含未注册库函数；"
+                   f"注册面见不带 --catalog 的 op list）")
+        for meta in metas:
+            window = "-" if meta.window is None else meta.window
+            typer.echo(f"{meta.name}  partition={meta.partition}  window={window}"
+                       f"  source={meta.source}  returns={meta.returns}")
+        return
     rows = [
         {
             "name": op.name,
@@ -158,7 +175,25 @@ def op_list() -> None:
 @op_app.command("doc")
 def op_doc(name: str) -> None:
     plugins.discover_plugins(settings.plugin_dir)
-    op = registry.get_op(name)
+    try:
+        op = registry.get_op(name)
+    except KeyError:
+        # R05-M1：未注册但在分类表（开放算子底座生成面）→ 回退打印分类元数据
+        # （含返回形态——Struct/multi 不得直接作输出/进 process，见 lint 静态门）。
+        from factorlab.core.ops.registration import effective_catalog
+        meta = effective_catalog().get(name)
+        if meta is None:
+            console.print(
+                f"未知算子: {name}（注册面与分类表均无——"
+                f"`factorlab op list --catalog` 查看全集；自定义算子见 `factorlab op add`）")
+            raise typer.Exit(code=1)
+        window = "-" if meta.window is None else meta.window
+        console.print(f"{meta.name} ({meta.partition}, source={meta.source}, "
+                      f"returns={meta.returns})")
+        console.print(f"window={window}  mask_args={meta.mask_args}")
+        console.print("未注册（无 docstring）——分类表条目可直接在公式调用；"
+                      "算子档案/字段访问归 Plan 2")
+        return
     console.print(f"{op.name} ({op.kind}, {op.version})")
     console.print(op.doc or "no doc")
 

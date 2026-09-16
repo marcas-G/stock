@@ -83,8 +83,8 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 | `factorlab corr <name1> <name2> ...` | 因子两两相关性（≥2 个）：周度横截面秩相关均值 + 全局 Pearson；任一因子无 results 报错（数据源 `results/<name>/panel.parquet` 的 signal，按 date+code inner join；join 后超 2000 万行每周降采样 5000 只） |
 | `factorlab svd [name1 ...] [--weeks 15]` | 因子库 SVD 分解：奇异值谱 + 主成分载荷（因子结构/有效维度分析）；缺省 names = 全部有 panel 因子（排除验证目录）；抽样 weeks 个交易周（concat+pivot 单次操作，规避多 join 段错误） |
 | `factorlab resic <name1> <name2> ... [--target 名] [--min-stocks 30]` | 横截面联合诊断：组内互评（默认，≥2 因子）或 `--target` 显式候选（可不在 names 中，基准应排除 target）。输出整组联合回归 R²（fwd ~ 整组逐周 OLS 均值）与每因子正交化残差 IC（resIC = 候选对基准逐周 OLS 残差 vs fwd 的周频 rankIC 均值/t 值 + 被基准解释 R²）。数据源 = results 多 run 单输出 panel 按周频对齐汇聚；每周样本 < max(min_stocks, 基准数+2) 剔除；错误路径 Exit 1（含"无结果"/"公共周"/多输出 panel 文案）。近共线因子建议先跑 corr/svd |
-| `factorlab op list` | 列出已注册算子 |
-| `factorlab op doc <name>` | 查看算子名称、类别、版本与 docstring |
+| `factorlab op list [--catalog]` | 列出已注册算子；`--catalog` 列**分类表全集**（含未注册库函数：name/partition/window/source/returns） |
+| `factorlab op doc <name>` | 查看算子名称、类别、版本与 docstring；未注册但在分类表 → 回退打印分类元数据（partition/window/source/returns） |
 | `factorlab op add <plugin.py> [--force]` | 校验并注册用户插件；同名冲突（含内建算子名）在插件 import/副作用执行前拒绝，需 `--force` |
 | `factorlab op remove <name>` | 禁用用户插件，保留已计算历史结果 |
 | `factorlab serve [--port 8000] [--host 127.0.0.1]` | 启动只读 Web 可视化（浏览器查看已保存因子列表与图表，扫描 `results_dir`） |
@@ -351,6 +351,12 @@ formula: |
   formula: |
     signal = ts_rank(volume, ${win}) * ${gain}
   ```
+- **未知字段严格拒绝（R05-I2）**：spec 全模型（`FactorSpec` 及其嵌套
+  `universe/date/operators/factors/combine`）`extra="forbid"`——字段名写错或照抄
+  不存在字段在加载期（`lint`/`run` 同源）明确报错并点名字段，不再静默忽略。
+  `op_meta` 为 Plan 2 预留（黑盒/外部函数分区声明）：当前**非空即报**
+  "op_meta 暂未支持（Plan 2）"；未知算子请改用公式内 `def`（本因子专用）或
+  注册插件算子（`factorlab op add`，见 §1 op 命令）。
 - `formula` 或 `factors`：二选一。
 - 使用 `factors` 时必须提供 `combine`。
 - `combine.method`：`ic_weight | equal_weight | weight_sum`；`weight_sum` 时
@@ -457,6 +463,19 @@ combine:
 平台薄封装/宏算子（`returns/vwap/adv20/gp_rank/gp_mean`）在公式中**裸用**——平台
 编译期自动展开/注册，import 同名符号被 ast gate 拒绝（R03-M1）；注册到注册表的
 算子可通过 `factorlab op list` 查看。
+
+- **返回形态标注（R05-I1）**：分类表元数据 `OpMeta.returns ∈ scalar|struct|multi`
+  （polars_ta 生成表由 3 行合成 frame 冒烟探测：Struct dtype → `struct`、多列 →
+  `multi`；探测失败保持 `scalar` 并记录在生成表 `PROBE_FALLBACKS`）。`struct`
+  返回（如 `BBANDS`→upperband/middleband/lowerband、`ts_MACD`、`ts_KDJ`）与
+  `multi` 返回（如 `ts_regression_slope/intercept`）**不得直接作因子输出或进
+  process 链**——`lint` 与引擎静态拒绝并给出指引（此前 BBANDS 过 lint、带
+  process 时在 Struct 列上以 clip/quantile 深层报错）；字段访问（`.upperband`）
+  随算子档案归 Plan 2，当前用标量算子组合表达。
+- **分类面最小发现入口（R05-M1）**：`factorlab op list` 只反映**注册面**；
+  `factorlab op list --catalog` 列分类表全集（name/partition/window/source/
+  returns，含未注册库函数），`factorlab op doc <name>` 对未注册但分类表存在的
+  算子回退打印元数据。完整同源（算子档案/`docs/catalog.md` 合并检索）归 Plan 2。
 
 ### 池公式（`universe.formula`，M4/G2 公式化股票池）
 
