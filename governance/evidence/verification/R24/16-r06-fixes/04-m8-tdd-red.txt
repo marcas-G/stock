@@ -1,0 +1,16 @@
+== R06-M8 RED：新测试在修复前应失败 ==
+_____________ test_run_context_default_output_dir_follows_settings _____________
+
+    def test_run_context_default_output_dir_follows_settings():
+        # R06-M8：默认 output_dir 必须跟随 settings.results_dir（运行产物单点）——
+        # 不得为相对 cwd 的 Path("results")（直接调用者会落 ./results，绕过单点）。
+        ctx = RunContext()
+>       assert ctx.output_dir == settings.results_dir
+E       AssertionError: assert PosixPath('results') == PosixPath('/data/students/gaolei/stock/runs/platform')
+E        +  where PosixPath('results') = RunContext(db_path=PosixPath('data/factorlab.duckdb'), data_backend=None, output_dir=PosixPath('results'), universe_override=None, float32=True, adjustment='qfq', chunk_days=None, warmup_days=None, max_memory=None).output_dir
+E        +  and   PosixPath('/data/students/gaolei/stock/runs/platform') = Settings(data_backend='duckdb', platform_db=PosixPath('data/factorlab.duckdb'), ch_host='127.0.0.1', ch_port=8123, ch_..._dir=PosixPath('/home/gaolei/.factorlab/universes'), default_universe=None, st_degrade='fail', minute_uncovered='fail').results_dir
+
+tests/test_run_factor.py:340: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_run_factor.py::test_run_context_default_output_dir_follows_settings
+1 failed in 1.73s

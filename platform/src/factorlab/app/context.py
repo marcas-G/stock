@@ -24,7 +24,7 @@ class RunContext:
 
     db_path: Path = settings.platform_db  # duckdb 后端读 + 写路径（data rebuild/refresh）
     data_backend: str | None = None  # 读路径后端 "duckdb"|"ch"（None → settings.data_backend）
-    output_dir: Path = Path("results")
+    output_dir: Path = settings.results_dir  # R06-M8：跟随运行产物单点（settings.results_dir）
     universe_override: str | None = None
     float32: bool = settings.use_float32
     adjustment: str = "qfq"

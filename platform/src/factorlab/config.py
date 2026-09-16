@@ -3,8 +3,8 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 运行产物单点（R24）：仓库根 `runs/platform/<name>/`。从包位置派生（非硬编码绝对
-# 前缀，可随仓库搬迁）；修复历史 cwd 分裂（从仓库根跑落 `./results`、从 platform/
-# 跑落 `platform/results`）。`FACTORLAB_RESULTS_DIR` 覆盖语义不变（相对 cwd 解释）。
+# 前缀，可随仓库搬迁）；修复历史 cwd 分裂（R24 前产物落点随调用目录漂移，仓库根/平台
+# 目录各写一处）。`FACTORLAB_RESULTS_DIR` 覆盖语义不变（相对 cwd 解释）。
 _REPO_ROOT = Path(__file__).resolve().parents[3]  # platform/src/factorlab/config.py → stock/
 
 

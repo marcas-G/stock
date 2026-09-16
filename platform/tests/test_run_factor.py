@@ -333,6 +333,14 @@ def test_run_factor_default_db_is_platform():
     assert ctx.adjustment == "qfq"
 
 
+def test_run_context_default_output_dir_follows_settings():
+    # R06-M8：默认 output_dir 必须跟随 settings.results_dir（运行产物单点）——
+    # 不得为相对 cwd 的 Path("results")（直接调用者会落 ./results，绕过单点）。
+    ctx = RunContext()
+    assert ctx.output_dir == settings.results_dir
+    assert ctx.output_dir != Path("results")
+
+
 def test_run_factor_future_calendar_days_not_padded(env, tmp_path):
     # trade_cal 含未来公告日（20261231）——run_factor 不应补全未来 null 行
     _seed(env)
