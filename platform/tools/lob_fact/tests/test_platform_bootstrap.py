@@ -8,7 +8,7 @@ sys.path 泄漏才假绿（测试顺序依赖）。
 
 本测试用**污染解释器**（PYTHONPATH 前置一个 import 即抛错的假 factorlab 包）在
 子进程里证明三件事（修复前 1/2/3 全红，且失败原因 = 模块级 import 走了环境）：
-1. `from lib import tickkit` 自举注入 main worktree 共享核（不依赖环境泄漏）；
+1. `from lib import tickkit` 自举注入仓库根共享核（不依赖环境泄漏）；
 2. 该解释器下 pytest **只 collection extract_sz_cancels 测试模块**不报错；
 3. 单跑其中一个真实用例通过（可跑，不只是可 collection）。
 

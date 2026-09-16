@@ -7,7 +7,7 @@
 保证 `import factorlab` 解析；本模块只保留**落位断言**（防装成别的副本／误挂
 PYTHONPATH），不再承担"跨解释器注入"职责——`emb`（3.11）已退役为工具解释器。
 
-运行产物如需可追溯性，用 `platform_head()` 记录 main worktree HEAD（REQ-Q-011）。
+运行产物如需可追溯性，用 `platform_head()` 记录仓库根 HEAD（REQ-Q-011）。
 """
 from __future__ import annotations
 
@@ -21,13 +21,12 @@ MAIN_SRC = MAIN / "src"
 
 
 def ensure_platform() -> Path:
-    """确保 `import factorlab` 解析到 main worktree 的共享核；返回解析路径。
+    """确保 `import factorlab` 解析到仓库根的共享核；返回解析路径。
 
-    幂等：路径已在 sys.path 时不重复插入。落位不符（例如解析到 research 分支的
-    旧副本）→ RuntimeError（fail fast，不静默用错内核）。
+    幂等：路径已在 sys.path 时不重复插入。落位不符（例如解析到别的副本）→ RuntimeError（fail fast，不静默用错内核）。
     """
     if not MAIN_SRC.is_dir():
-        raise RuntimeError(f"共享核目录不存在: {MAIN_SRC}（main worktree 缺失？）")
+        raise RuntimeError(f"共享核目录不存在: {MAIN_SRC}（仓库结构异常？）")
     # 强制提权到队首：仅"存在性"检查不够——editable 的 .pth 可能已把它放在
     # sys.path 尾部，而旧副本（如 pytest pythonpath=["src"]）可能排在更前。
     token = str(MAIN_SRC)
@@ -40,12 +39,12 @@ def ensure_platform() -> Path:
     if MAIN_SRC != resolved.parent and MAIN_SRC not in resolved.parents:
         raise RuntimeError(
             f"factorlab 解析到 {resolved}，不在 {MAIN_SRC} 之下——"
-            "研究侧必须使用 main worktree 的共享核（禁止平台副本）")
+            "工具必须使用仓库根的共享核（禁止平台副本）")
     return resolved
 
 
 def platform_head() -> str:
-    """main worktree 的 HEAD sha（写入运行产物，供结论可追溯）。"""
+    """仓库根的 HEAD sha（写入运行产物，供结论可追溯）。"""
     out = subprocess.run(
         ["git", "-C", str(MAIN), "rev-parse", "HEAD"],
         capture_output=True, text=True, check=True)

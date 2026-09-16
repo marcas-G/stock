@@ -47,8 +47,8 @@
 
 | 载体 | 角色 | 内容 |
 |---|---|---|
-| `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`kernels/quant_core/`（评估内核 shim = 内核发行物唯一声明点，R18 起）、`tools/`（数据生产线工具集：lob_fact / converters / 1m_features / ch_ingest / quark_download / ashare_ingest / universe_stages + `lib/` + `_env.py`；R27 归位）、`tests/`、`scripts/`（gen_op_catalog 等；契约/设计 R24 起在 `knowledge/`） |
-| `research/`（仓库内） | **研究树**（唯一副本） | `tools/`（剩余研究工具：`strategies/`、`factor_lib/`；数据生产线工具集 R27 归位 `platform/tools/`）、`factor/<族>/`（152 spec）、`docs/`（factors/strategies/playbook） |
+| `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`kernels/quant_core/`（评估内核 shim = 内核发行物唯一声明点，R18 起）、`tools/`（数据生产线工具集：lob_fact / converters / 1m_features / ch_ingest / quark_download / ashare_ingest / universe_stages + `lib/` + `_env.py`；R27 归位）、`tests/`、`scripts/`（gen_op_catalog）、`docs/`（R24 起仅 3 行指针壳）；契约/设计在 `knowledge/` |
+| `research/`（仓库内） | **研究树**（唯一副本） | `tools/`（剩余研究工具：`strategies/`、`factor_lib/`；数据生产线工具集 R27 归位 `platform/tools/`）、`factor/<族>/`（152 spec+）、`docs/`（R24 起仅 3 行指针壳；档案/索引在 `knowledge/`） |
 | `knowledge/`（仓库内） | **文档与知识树**（R24 起） | `contracts/`（平台契约 4 篇）、`design/{platform,research,workspace}/`、`dossiers/`（factor/strategy 档案 + playbook + manual）、`handbooks/`、`index/`（生成物） |
 | `governance/`（仓库内） | **治理与证据树**（R24 起） | `ops/`（gates.sh 与 check_* 脚本）、`workspace/`（本文件、data-map、pending-items…）、`evidence/{verification,reviews}/` |
 | `runs/` | 本地运行产物（gitignore） | `runs/platform/<名>/`（`factorlab run` 产物；`FACTORLAB_RESULTS_DIR` 指向此） |

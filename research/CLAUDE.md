@@ -1,54 +1,10 @@
-# 研究树项目指南（单仓单树，2026-09-15 起）
+# 研究树指南（stock/research/）—— 薄层指针
 
-本目录 = `stock/research/`。旧的双分支纪律（main=平台 / research=研究、独立 worktree）已退役——
-现在按**目录**分权：本目录只收研究内容；平台代码在 `../platform/`；工作区文档在 `../docs/`。
-（工作区级总纲见仓库根 `CLAUDE.md`，此处只写研究树特有约定。）
+本目录 = 单仓单树的**研究树**。工作区总纲与工作流见根 `../CLAUDE.md` 与 `../AGENTS.md`；挖因子循环技能 `.claude/skills/factor-mine/`。
 
-## 硬性要求
-
-### 目录与共享核
-
-- **本目录只收研究内容**：`factor/`、`tools/`、`docs/`（factors/strategies/playbook/研究独有 spec）。
-  提交前缀用研究语义：`feat(factor)` / `feat(tools)` / `docs(factors)` / `refactor(tools)`。
-- **平台代码只有一份**：`../platform/src`。研究工具不得复制平台代码；引用平台一律经
-  `tools/_env.py::ensure_platform()`（落位断言；解析到别处即 RuntimeError）。
-  **单解释器**（平台 venv 3.13）：`emb` 已退役，editable 安装保证解析，
-  落位断言只作防错内核（防安装成别的副本／误挂 PYTHONPATH）。
-- **工具拓扑有门**（R11）：`python scripts/check_tool_layering.py`（G-TOPO）——core 不做反向
-  依赖、生产不带 diag/notes、**工具之间不得互相 import**（共享代码落 `platform/tools/lib/`：`tickdata` 读封装 /
-  `tickkit` 转换小件 / `monthflow` 月分片写入骨架 / `writekit` 锁·标记·断点·原子写）、`lib/` 是叶子。
-  **命名坑（R19/R20 实测）**：工具内的 `config.py` 会与 `lob_fact/core/config.py` 撞名，
-  两个工具都叫 `datapaths.py` 也会撞名，被 G-TOPO 判成『跨工具 import』——工具自己取模块名要
-  全局唯一（ashare_ingest 用 `datapaths.py`，universe_stages 用 `universe_paths.py`）。
-  新增跨工具依赖会被门拦下，别绕过。
-- **批算编排只用单点**（R10 收敛）：`converters/convert_tick_to_parquet` 与
-  `lob_fact/extract_sz_cancels` 的进程池/在飞窗口/停滞重试/结果回调一律走平台
-  `factorlab.adapters.batch_flock.BatchFlock`（`mp_context='spawn'` 是硬要求——fork 会复制
-  父进程缓冲）；`run_lob_batch` 因内存闸门与审计回调保留自有循环（见 `governance/workspace/pending-items.md#14`）。
-- **数据接口只用单点**（R4 收敛）：读 tick/lob/bars 经 `adapters.tick_read` / `adapters.lob_read` /
-  `adapters.bars_read`（工具侧薄封装 `platform/tools/lib/tickdata.py`）；写/标记/锁/断点经
-  `platform/tools/lib/writekit.py`（`_SUCCESS` + state JSON 两种形态，禁止新形态）。
-  分区路径一律取 `core.factio.partitions`，**不得自拼 `year=/month=`**（G-CONTRACT 门）。
-
-### 文档和测试
-
-- TDD：先写失败测试再实现；覆盖正常/边界/错误路径；断言真实行为，不用 mock 糊弄。
-- 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**。
-- 提交前跑：`make test-research`（= `platform/tools` **337** + `research/tools` **35**，均平台 venv；
-  **实测基线 372 passed**，2026-09-16 R27）。
-- 因子新增/改名/归档：**必须**同步档案（`knowledge/dossiers/factors/<族>/<短名>.md`）并重生成索引
-  `../knowledge/index/factors.md`（`build_index.py --check` 是常驻门）。
-- 数据位置与血缘以 `../governance/workspace/data-map.md` 为唯一权威；目录约定以 `../governance/workspace/directory-conventions.md` 为准。
-
-## 环境事实
-
-- **单解释器**：全部工具/研究测试统一用 `../platform/.venv/bin/python`（3.13，uv；
-  factorlab 经 editable 安装落位 `../platform/src`，`_env` 断言 + G-VENV 门守卫）。
-  `emb`（3.11）已退役为工具解释器（2026-09-16 R27；外部 env 保留，不再是工具依赖）。
-- CH：`127.0.0.1:8123`（HTTP；19000 是 tcp client 端口）。库 `factorlab`；对账用
-  `platform/.venv/bin/python platform/tools/ch_ingest/reconcile.py`（`make reconcile`）。
-- 数据根：`../data/{raw,fact,calib,ref}`（单点在平台 `core.factio.paths`）；**`data/` 零改动**（只读消费）。
-- 16GB 内存无页面文件（目标机）：批算单进程 + 流式 + 及时释放；`lob_fact` 校准常量与
-  `fixtures/pins.sha256` 金样**不可改**（改动即让 191 测试与历史结论失效，需走再校准流程）。
-- 判读口径：因子"同公式多假设"（direction/params/process 差异）是**研究变体**，不是重复条目——
-  索引的「变体组」章节成组展示（R5 实测 152 个里 0 个真重复）；归档与否属研究者判断。
+- 只收研究内容：`factor/`、`tools/`（strategies/factor_lib）、`strategy/`；档案/索引/playbook 在 `../knowledge/dossiers/`、`../knowledge/index/`（R24 起单点）。
+- 提交前缀：`feat(factor)` / `feat(tools)` / `docs(factors)` / `refactor(tools)`。
+- 平台代码只有一份 `../platform/src`；工具经 `tools/_env.py` 落位断言；工具拓扑门 `python governance/ops/check_tool_layering.py`（G-TOPO，含命名唯一性）。
+- 单点：批算编排 `factorlab.adapters.batch_flock.BatchFlock`；数据接口 `platform/tools/lib/{tickdata,writekit}`；分区路径 `core.factio.partitions`（不得自拼 `year=/month=`）。
+- 测试：`make test-research`（`platform/tools` + `research/tools`，均平台 venv）；因子新增/改名后重生成 `../knowledge/index/factors.md`（byte-equality 门）。
+- 环境事实：单解释器 `../platform/.venv/bin/python`（emb 已退役）；CH `127.0.0.1:8123` 库 `factorlab`；`data/` 零改动；`lob_fact` 校准常量与 `pins.sha256` 金样不可改。
