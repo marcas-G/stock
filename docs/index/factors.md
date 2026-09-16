@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **152 个因子** · **14 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **159 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -9,6 +9,7 @@
 |---|---|---|
 | crash_bottom_leader | 8 | `research/factor/crash_bottom_leader/` |
 | dividend | 1 | `research/factor/dividend/` |
+| intraday | 2 | `research/factor/intraday/` |
 | liquidity | 6 | `research/factor/liquidity/` |
 | misc | 1 | `research/factor/misc/` |
 | momentum_20d | 19 | `research/factor/momentum_20d/` |
@@ -19,8 +20,8 @@
 | reversal_rsi | 2 | `research/factor/reversal_rsi/` |
 | size | 2 | `research/factor/size/` |
 | value | 4 | `research/factor/value/` |
-| vol_run_energy | 15 | `research/factor/vol_run_energy/` |
-| volatility | 4 | `research/factor/volatility/` |
+| vol_run_energy | 17 | `research/factor/vol_run_energy/` |
+| volatility | 7 | `research/factor/volatility/` |
 
 ## 族：crash_bottom_leader
 
@@ -40,6 +41,13 @@
 | 因子名 | 方向 | 目标 | 说明 | 档案 | 规格 |
 |---|---|---|---|---|---|
 | `dividend_yield` | 1 | fwd5d |  | [yield.md](../../research/docs/factors/dividend/yield.md) | [yaml](../../research/factor/dividend/yield.yaml) |
+
+## 族：intraday
+
+| 因子名 | 方向 | 目标 | 说明 | 档案 | 规格 |
+|---|---|---|---|---|---|
+| `intraday_high_time` | -1 | fwd5d |  | [intraday_high_time.md](../../research/docs/factors/intraday/intraday_high_time.md) | [yaml](../../research/factor/intraday/intraday_high_time.yaml) |
+| `intraday_tail_amt_share` | 1 | fwd5d |  | [intraday_tail_amt_share.md](../../research/docs/factors/intraday/intraday_tail_amt_share.md) | [yaml](../../research/factor/intraday/intraday_tail_amt_share.yaml) |
 
 ## 族：liquidity
 
@@ -231,6 +239,8 @@
 | `vol_run_energy_symrun_extreme` | -1 | fwd5d |  | [symrun_extreme.md](../../research/docs/factors/vol_run_energy/symrun_extreme.md) | [yaml](../../research/factor/vol_run_energy/symrun_extreme.yaml) |
 | `vol_run_energy_symrun_lin` | -1 | fwd5d |  | [symrun_lin.md](../../research/docs/factors/vol_run_energy/symrun_lin.md) | [yaml](../../research/factor/vol_run_energy/symrun_lin.yaml) |
 | `vol_run_energy_symrun_r30` | -1 | fwd5d |  | [symrun_r30.md](../../research/docs/factors/vol_run_energy/symrun_r30.md) | [yaml](../../research/factor/vol_run_energy/symrun_r30.yaml) |
+| `vol_run_energy_symrun_r30_flip` | -1 | fwd5d |  | [symrun_r30_flip.md](../../research/docs/factors/vol_run_energy/symrun_r30_flip.md) | [yaml](../../research/factor/vol_run_energy/symrun_r30_flip.yaml) |
+| `vol_run_energy_symrun_r30_streak` | -1 | fwd5d |  | [symrun_r30_streak.md](../../research/docs/factors/vol_run_energy/symrun_r30_streak.md) | [yaml](../../research/factor/vol_run_energy/symrun_r30_streak.yaml) |
 | `vol_run_energy_symrun_r60` | -1 | fwd5d |  | [symrun_r60.md](../../research/docs/factors/vol_run_energy/symrun_r60.md) | [yaml](../../research/factor/vol_run_energy/symrun_r60.yaml) |
 | `vol_run_energy_symrun_turn` | -1 | fwd5d |  | [symrun_turn.md](../../research/docs/factors/vol_run_energy/symrun_turn.md) | [yaml](../../research/factor/vol_run_energy/symrun_turn.yaml) |
 | `vol_run_energy_symrun_w100` | -1 | fwd5d |  | [symrun_w100.md](../../research/docs/factors/vol_run_energy/symrun_w100.md) | [yaml](../../research/factor/vol_run_energy/symrun_w100.yaml) |
@@ -242,6 +252,9 @@
 | `low_downside_vol_20d` | 1 | fwd5d |  | [vol_20d.md](../../research/docs/factors/volatility/vol_20d.md) | [yaml](../../research/factor/volatility/vol_20d.yaml) |
 | `low_vol_20d` | 1 | fwd5d |  | [low_vol_20d.md](../../research/docs/factors/volatility/low_vol_20d.md) | [yaml](../../research/factor/volatility/low_vol_20d.yaml) |
 | `max_effect_20d` | -1 | fwd5d |  | [max_effect_20d.md](../../research/docs/factors/volatility/max_effect_20d.md) | [yaml](../../research/factor/volatility/max_effect_20d.yaml) |
+| `max_effect_20d_extcnt` | -1 | fwd5d |  | [max_effect_20d_extcnt.md](../../research/docs/factors/volatility/max_effect_20d_extcnt.md) | [yaml](../../research/factor/volatility/max_effect_20d_extcnt.yaml) |
+| `max_effect_20d_high` | -1 | fwd5d |  | [max_effect_20d_high.md](../../research/docs/factors/volatility/max_effect_20d_high.md) | [yaml](../../research/factor/volatility/max_effect_20d_high.yaml) |
+| `max_effect_20d_zmax` | -1 | fwd5d |  | [max_effect_20d_zmax.md](../../research/docs/factors/volatility/max_effect_20d_zmax.md) | [yaml](../../research/factor/volatility/max_effect_20d_zmax.yaml) |
 | `max_effect_5d` | -1 | fwd5d |  | [5d.md](../../research/docs/factors/volatility/5d.md) | [yaml](../../research/factor/volatility/5d.yaml) |
 
 ## 变体组（同公式多假设）
