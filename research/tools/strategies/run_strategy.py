@@ -61,6 +61,22 @@ def _print_doc(doc) -> None:
     print(f"  date         = {doc.date.start} ~ {doc.date.end}")
 
 
+def _make_target_transform(doc, rd):
+    """有 L5 规则时构造 M7→M8 之间的目标组合变换（V1：仅 max_hold 研究侧近似）。
+
+    交易日历取 `doc.date` 窗口内的真实交易日（trade_cal）；规则全 null → None
+    （零行为变化，不引入空变换）。
+    """
+    rules = doc.rules
+    if rules.stop_loss is None and rules.take_profit is None and rules.max_hold is None:
+        return None
+    from factorlab.adapters.read.calendar import trading_calendar
+    from l5_rules import apply_l5_rules
+    cal = trading_calendar(rd, doc.date.start.isoformat(),
+                           doc.date.end.isoformat()).to_list()
+    return lambda target: apply_l5_rules(target, rules, cal)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     from factorlab.core.strategy import load_strategy_doc
@@ -79,8 +95,9 @@ def main(argv: list[str] | None = None) -> int:
     from factorlab.app.strategy import run_strategy
     try:
         rd = open_read()
+        transform = _make_target_transform(doc, rd)
         res = run_strategy(doc, rd, results_dir=args.results_dir,
-                           out_dir=args.out_dir)
+                           out_dir=args.out_dir, target_transform=transform)
     except (ValueError, NotImplementedError, FileNotFoundError, RuntimeError) as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1
