@@ -11,7 +11,7 @@ from factorlab.ports.read import ReadPort
 _COL_MAP = {"volume": "vol"}
 # R01-DATA-I7：duckdb 平台库单位 → canonical 引擎单位（股/元）。
 # 契约（platform/docs/catalog.md volume/amount 行）：引擎列 volume=股、amount=元。
-# - ch 灌入（research/tools/ch_ingest）已按 股/元 落库 → 读面不转换；
+# - ch 灌入（platform/tools/ch_ingest）已按 股/元 落库 → 读面不转换；
 # - duckdb 平台库由 data rebuild 直接落 teajoin（tushare 约定）原始值：
 #     vol = 手（1 手 = 100 股）→ ×100
 #     amount = 千元 → ×1000

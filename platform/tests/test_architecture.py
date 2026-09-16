@@ -37,9 +37,9 @@ def _tracked() -> list[str]:
 # ================================================================
 
 def test_platform_tree_has_no_research_content():
-    """platform/ 顶层只放平台内容（因子库/工具属 research/）。"""
+    """platform/ 顶层只放平台内容（因子库属 research/；tools/ 为数据生产线，R27 起归位）。"""
     offenders = [p for p in _tracked()
-                 if p.startswith("platform/") and p.split("/")[1] in ("factor", "tools")]
+                 if p.startswith("platform/") and p.split("/")[1] == "factor"]
     assert not offenders, f"platform/ 顶层出现研究目录：{offenders[:5]}"
 
 
@@ -64,28 +64,32 @@ def test_contract_docs_have_single_copy():
 # G-INJECT / G-RESOLVE：研究侧平台路径注入单点（DER-010）
 # ================================================================
 
-def test_research_tools_declare_env_single_point():
-    """研究侧 tools/ 内不得出现指向平台目录的手写 sys.path 注入（应走 _env.py）。"""
+def test_tools_declare_env_single_point():
+    """工具树（platform/tools + research/tools）内不得出现指向平台目录的手写 sys.path
+    注入（应走 _env.py；R27 归位后扫描面扩为双树）。"""
     hits = []
-    for py in (RESEARCH / "tools").rglob("*.py"):
-        if py.name == "_env.py" or "notes" in py.parts:
-            continue  # _env.py 是单点本身；notes/ 为历史诊断豁免
-        text = py.read_text(encoding="utf-8", errors="ignore")
-        for i, line in enumerate(text.splitlines(), 1):
-            if "sys.path.insert" in line and "platform" in line:
-                hits.append(f"{py.relative_to(ROOT)}:{i}")
-    assert not hits, f"研究侧直写平台路径的 sys.path 注入（应走 _env.py）: {hits}"
+    for base in (PLATFORM / "tools", RESEARCH / "tools"):
+        if not base.is_dir():
+            continue
+        for py in base.rglob("*.py"):
+            if py.name == "_env.py" or "notes" in py.parts:
+                continue  # _env.py 是单点本身；notes/ 为历史诊断豁免
+            text = py.read_text(encoding="utf-8", errors="ignore")
+            for i, line in enumerate(text.splitlines(), 1):
+                if "sys.path.insert" in line and "platform" in line:
+                    hits.append(f"{py.relative_to(ROOT)}:{i}")
+    assert not hits, f"工具内直写平台路径的 sys.path 注入（应走 _env.py）: {hits}"
 
 
 def test_env_resolves_platform_src():
-    """`research/tools/_env.py` 的落位断言：解析必须落在 platform/src（不 skip）。"""
-    env_py = RESEARCH / "tools" / "_env.py"
+    """`platform/tools/_env.py` 的落位断言：解析必须落在 platform/src（不 skip）。"""
+    env_py = PLATFORM / "tools" / "_env.py"
     assert env_py.is_file(), f"缺少注入单点: {env_py}"
     py = REPO / ".venv" / "bin" / "python"
     assert py.is_file(), f"平台 venv 不存在: {py}"
     code = ("import sys; sys.path.insert(0, 'tools'); "
             "from _env import ensure_platform; print(ensure_platform())")
-    out = subprocess.run([str(py), "-c", code], cwd=str(RESEARCH),
+    out = subprocess.run([str(py), "-c", code], cwd=str(PLATFORM),
                          capture_output=True, text=True)
     assert out.returncode == 0, f"落位断言失败:\n{out.stderr}"
     assert str(REPO / "src") in out.stdout, out.stdout
@@ -97,7 +101,9 @@ def test_env_resolves_platform_src():
 
 def test_platform_does_not_import_research():
     hits = []
-    for base in (PLATFORM / "src", PLATFORM / "tests"):
+    for base in (PLATFORM / "src", PLATFORM / "tests", PLATFORM / "tools"):
+        if not base.is_dir():
+            continue
         for py in base.rglob("*.py"):
             for i, line in enumerate(py.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
                 stripped = line.strip()

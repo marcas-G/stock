@@ -8,6 +8,9 @@
 > **R04 勘误（2026-09-16）**：本文路径为 2026-09-12 快照；lob_fact 的 `config.py` 现落位
 > `research/tools/lob_fact/core/config.py`；P8 判定归档于
 > `docs/verification/archive/2026-09-workspace-cleanup/final/03-p8.md`。正文不改。
+>
+> **R27 勘误（2026-09-16）**：工具归位后 `config.py` 落位 `platform/tools/lob_fact/core/config.py`
+> （旧勘误行中的 `research/tools/…` 以本行为准）。正文不改。
 
 ## 0. SoI 与设计输入
 

@@ -31,8 +31,8 @@ INSERT（分块 40 万行，pyarrow iter_batches 单批驻留，内存 < ~200MB�
   - 已知角落：920029.BJ 2025-03-28 五行全 0 的填充行（来源 xlsx 事件版式）——
     按 ≠0 事件语义不进 adj_event，两库一致保留，非缺陷
 
-用法（T1 = platform venv；任选 cwd）：
-  platform/.venv/bin/python research/tools/ch_ingest/adj_backfill.py [--src …] [--batch 400000]
+用法（单解释器 = platform venv；任选 cwd）：
+  platform/.venv/bin/python platform/tools/ch_ingest/adj_backfill.py [--src …] [--batch 400000]
 """
 from __future__ import annotations
 

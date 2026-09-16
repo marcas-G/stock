@@ -6,6 +6,10 @@
 
 > **R04 勘误（2026-09-16）**：本文路径为 2026-09-09 快照；`extract_sz_cancels.py`
 > 现落位 `research/tools/lob_fact/pipeline/extract_sz_cancels.py`。正文不改。
+>
+> **R27 勘误（2026-09-16）**：工具归位后 `extract_sz_cancels.py` 落位
+> `platform/tools/lob_fact/pipeline/extract_sz_cancels.py`（旧勘误行中的 `research/tools/…`
+> 以本行为准）。正文不改。
 
 ## 1. 目标与范围
 

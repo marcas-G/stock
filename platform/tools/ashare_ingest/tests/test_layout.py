@@ -67,7 +67,7 @@ def test_a5_schema_covers_downstream_consumers():
     """A5 契约：生产者列集必须覆盖下游消费者**直取**的列——契约单点断言。
 
     消费者两侧：
-    - 灌库侧 `research/tools/ch_ingest/ingest_daily.py`：`df.select([...])` 直取的源列
+    - 灌库侧 `platform/tools/ch_ingest/ingest_daily.py`：`df.select([...])` 直取的源列
       （下面 CH_INGEST_CONSUMED，逐列对照该文件 62/72/79 行附近的 select）；
     - 平台读侧 `factorlab.adapters.read.source._PLATFORM_COLS` 的语义列：其中
       pre_close/change/pct_chg 由灌库侧**派生**（不在源列里），其余必须来自源。

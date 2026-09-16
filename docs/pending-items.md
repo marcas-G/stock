@@ -14,7 +14,7 @@
 2. **panel 批量产出**（tick 因子面板）
    现状：`data/fact/lob_fact/panel_1s|panel_1m` 各仅 4 个校准日 parquet；`panel_runs/` 有 1 个 run json。
    未决因：W6 校准完成后未排批量；16GB 内存约束下需按日流式。
-   启动条件：`tools/lob_fact/run_lob_batch.py` 式批算 + factor_panel 全史产出排期。
+   启动条件：`platform/tools/lob_fact/pipeline/run_lob_batch.py` 式批算 + factor_panel 全史产出排期。
 
 3. **20260817.7z 解包**（5.3G）
    现状：`data/raw/20260817.7z` 未解包；ashare `ticks_root` 指向 `data/raw/20260817`（不存在）。
@@ -32,10 +32,10 @@
    - 平台与研究树（单仓单树后为 `platform/` 与 `research/`）：results/ 口径与 .gitignore 矛盾（S5 已按
      "本地化不入库"口径修订文档）、duckdb 数据链、两分支 docs 重叠。
    - `ashare_alpha3`：layer1-3 管线内部结构、.venv 与项目耦合、validation 输出散落。
-   **进度 2026-09-15（R19/R20）**：数据侧已收编为 `research/tools/ashare_ingest/`（A5/A10/基本面生产 +
+   **进度 2026-09-15（R19/R20）**：数据侧已收编为 `platform/tools/ashare_ingest/`（A5/A10/基本面生产 +
   两对账），CH 派生表脚本归位 `ch_ingest/adj_backfill.py`；空壳 `.venv`/缓存/孤儿产物已清，
   `06` 的 merge dtype bug 已修（真跑产出 74,466 code-days 对账）。**股票池段已在 R20 收编为
-  `research/tools/universe_stages/`**（layer1-3 + 10/11/20/30/40 + references/tests），
+  `platform/tools/universe_stages/`**（layer1-3 + 10/11/20/30/40 + references/tests），
   证据见 `docs/verification/R20/`。旧 `projects/ashare_alpha3` 仅作本地历史参考。
 
 6. **30 天归档到期清理**（2026-10-12）
@@ -72,13 +72,13 @@
       看门狗 + `_SUCCESS`），三份编排样板（convert_tick / extract_sz_cancels / run_lob_batch）
       全部切换、各自自建进程池循环删除，切换前后逐值/字节等价——见 `docs/verification/R14/`；
       `research/CLAUDE.md` 已同步为"批算编排只用单点"。
-    - ✅ ② `tools/ch_ingest` 拆分 + 路径单点（R15 完成）：`ingest_common.py`（五职责 202 行）拆为
+    - ✅ ② `platform/tools/ch_ingest` 拆分 + 路径单点（R15 完成）：`ingest_common.py`（五职责 202 行）拆为
       `ch_source` / `ch_state` / `ch_write` + 只转发门面；源/路径取 `core.factio.paths`
       （实测 `ch_source.py:41`、`ingest_daily.py:35`、`reconcile.py:32`）——见
       `docs/verification/R15/status.md`。
     - ✅ ③ 生产读点收敛到 `adapters.tick_read`（R4a/R21 复核）：`run_lob_batch._read_date`
-      （`research/tools/lob_fact/pipeline/run_lob_batch.py:526`）与 `factor_panel._read_tick`
-      （`research/tools/lob_fact/core/factor_panel.py:701`）均经 `lib.tickdata` 薄封装到平台单点。
+      （`platform/tools/lob_fact/pipeline/run_lob_batch.py:526`）与 `factor_panel._read_tick`
+      （`platform/tools/lob_fact/core/factor_panel.py:701`）均经 `lib.tickdata` 薄封装到平台单点。
     - ❌ ④ catalog 拆分（`core/catalog_model` + `adapters/catalog_docs`）：**未做**——R21 实测
       仍为单模块 `platform/src/factorlab/adapters/catalog.py`；保留为未竟项。
     **原表述保留如下**（R21 只加核对结论，不改写历史）：
@@ -127,7 +127,7 @@
     启动条件：需要成本口径（单边费率 / 换手×费率 / 冲击成本）的研究决策 + 与 `turnover`
     指标的口径对齐；实现后须同时改 interface.md 签名与分层回测的净值语义测试。
 
-16. ✅ **2026-09-15 完成**（R9）：`MonthWriter` 移入 `research/tools/lib/writekit.py`（研究侧唯一
+16. ✅ **2026-09-15 完成**（R9）：`MonthWriter` 移入 `platform/tools/lib/writekit.py`（工具侧唯一
     写模块），三项能力逐字保留（唯一 tmp+fsync+原子提交 / 追加前 size 单调性 / 提交前
     `st_blocks` 完整性，新增 `blocks_complete()` 判据函数与 3 条事故模式测试）；顺带**修掉诊断
     路径自身的崩溃**（`sorted(os.listdir('/proc'), key=int)` 遇到 `/proc/fb` 先炸，会掩盖原始错误）。
@@ -165,7 +165,7 @@
     （`check_imports.py` 的含）。实测：把任一含 `.venv` 的目录纳入扫描面，`pip`/`setuptools`
     自带的 `_vendor/typing_extensions.py`、`setuptools/msvc.py` 会分别触发
     **G-CONTRACT 4 处 + G-MARK 1 处 ENFORCED 判红**。
-    今天不红只因为扫描面 `research/tools/**` 下恰好没有 `.venv`——一旦某工具
+    今天不红只因为扫描面 `platform/tools/**` + `research/tools/**` 下恰好没有 `.venv`——一旦某工具
     `pip install -e .` 就地建 venv，强制门会莫名变红。
     启动条件：~~R20~~ → R19 已随 ashare 收编同批修（已跑 `--selftest` 绿）。
 

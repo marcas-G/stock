@@ -8,7 +8,7 @@
 本脚本只认**代码里的字符串常量**（AST 排除 docstring）与被调用方（排除 `print`）。
 
 判据分两档：
-- **ENFORCED**：已达到 0，门失败即红（研究侧分区字面量、标记路径构造、**研究侧直读**）；
+- **ENFORCED**：已达到 0，门失败即红（工具树分区字面量、标记路径构造、**工具树直读**）；
 - **REPORT**：未竟项，只打印计数并指向登记条目（平台表名字面量 → `docs/pending-items.md#12①`）。
   报告档**不判红**，但也**不谎报绿**：未竟就是未竟。
 
@@ -25,7 +25,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 PLATFORM_SRC = REPO / "platform" / "src"
-RESEARCH_TOOLS = REPO / "research" / "tools"
+# R27：工具归位后双树扫描——platform/tools（数据生产线）+ research/tools（剩余研究工具）。
+TOOL_ROOTS = [REPO / "platform" / "tools", REPO / "research" / "tools"]
 
 # 研究侧合同门排除的诊断/历史目录（与 R4 起沿用的豁免面一致）
 SKIP_PARTS = ("/tests/", "/notes/", "/diag/", "__pycache__", "/.venv/")
@@ -56,57 +57,57 @@ WRITEKIT_MODULE = "lib/writekit.py"
 # 边界（明确的）：`pq.ParquetFile` 的 metadata/流式用法**不在**本表（自有产物校验、
 # 灌入源流式读、源行数统计共 10 处，逐处复核见 R9 证据），但仍受下面的硬规则约束。
 G_READ_ALLOWED = {
-    ("research/tools/lob_fact/pipeline/run_lob_batch.py", "_init_worker", "path"):
+    ("platform/tools/lob_fact/pipeline/run_lob_batch.py", "_init_worker", "path"):
         "cancels_manifest —— 自产回执清单，非事实表",
-    ("research/tools/lob_fact/pipeline/run_lob_batch.py", "_month_codes", "mf"):
+    ("platform/tools/lob_fact/pipeline/run_lob_batch.py", "_month_codes", "mf"):
         "conversion_manifest —— tick 转换回执清单",
-    ("research/tools/ch_ingest/ingest_daily.py", "main", "DAILY_SRC"):
+    ("platform/tools/ch_ingest/ingest_daily.py", "main", "DAILY_SRC"):
         "daily_fact 是灌入的**输入源**（生产者视角），路径已取 factio.paths 单点",
-    ("research/tools/ch_ingest/reconcile.py", "_reconcile", "DAILY_SRC"):
+    ("platform/tools/ch_ingest/reconcile.py", "_reconcile", "DAILY_SRC"):
         "同上：对账取源行数",
-    ("research/tools/ch_ingest/reconcile.py", "_source_event_count", "DAILY_SRC"):
+    ("platform/tools/ch_ingest/reconcile.py", "_source_event_count", "DAILY_SRC"):
         "R21 I7：派生表 adj_event 对账的源事件谓词复算（只扫事件 4 列）",
-    ("research/tools/ch_ingest/reconcile.py", "_source_date_range", "DAILY_SRC"):
+    ("platform/tools/ch_ingest/reconcile.py", "_source_date_range", "DAILY_SRC"):
         "R21 I7：daily/adj_detail 日期范围对账（只扫 trade_date 一列）",
-    ("research/tools/ch_ingest/ingest_daily.py", "load_delisted_sidecar", "p"):
+    ("platform/tools/ch_ingest/ingest_daily.py", "load_delisted_sidecar", "p"):
         "R21 delist_date：A5 伴生 sidecar（自产元数据，非事实表分区）",
-    ("research/tools/1m_features/panel_io.py", "_load_daily_slice", "daily_path"):
+    ("platform/tools/1m_features/panel_io.py", "_load_daily_slice", "daily_path"):
         "日线注入列小切片（INJ_COLS 5 列），非逐笔事实表；R15 拆分后从 run_1m_feature.py 迁来",
-    ("research/tools/1m_features/run_1m_feature.py", "cmd_merge", "p"):
+    ("platform/tools/1m_features/run_1m_feature.py", "cmd_merge", "p"):
         "自有产物合并（output/month=YYYY-MM/part.parquet）",
     # ── R19 收编的 ashare_ingest（数据侧）：6 处，逐条理由 ────────────────────────
-    ("research/tools/ashare_ingest/check_inputs.py", "main", "path"):
+    ("platform/tools/ashare_ingest/check_inputs.py", "main", "path"):
         "入口自检：三资产只取 head(20) 校验列契约，不是数据路径消费",
-    ("research/tools/ashare_ingest/import_daily.py", "_merge_code", "p"):
+    ("platform/tools/ashare_ingest/import_daily.py", "_merge_code", "p"):
         "自有分片合并（<工具>/_staging/daily_tmp 内自产中间文件；R21 从 main 抽函数）",
-    ("research/tools/ashare_ingest/import_fundamentals.py", "main", "daily_path"):
+    ("platform/tools/ashare_ingest/import_fundamentals.py", "main", "daily_path"):
         "daily_fact 是基本面生产者的**输入源**（生产者视角），路径已取 factio.paths 单点",
-    ("research/tools/ashare_ingest/import_fundamentals.py", "main", "a.fin_parquet"):
+    ("platform/tools/ashare_ingest/import_fundamentals.py", "main", "a.fin_parquet"):
         "外部 Windows TDX 财务导出（非工作区资产；源缺失见 pending #4）",
-    ("research/tools/ashare_ingest/validate_tick.py", "main", "TICK_MANIFEST"):
+    ("platform/tools/ashare_ingest/validate_tick.py", "main", "TICK_MANIFEST"):
         "conversion_manifest —— tick 转换回执清单，非事实表（与 lob_fact 两处同款）",
-    ("research/tools/ashare_ingest/validate_tick.py", "main", "datapaths.daily_fact()"):
+    ("platform/tools/ashare_ingest/validate_tick.py", "main", "datapaths.daily_fact()"):
         "对账取源（tick 回执 vs 日线），与 ch_ingest/reconcile.py 的 DAILY_SRC 同款理由",
     # ── R20 收编的 universe_stages（股票池段）：8 处，逐条理由 ──────────────────────
-    ("research/tools/universe_stages/readers/daily.py", "load_daily", "path or default_fact_path()"):
+    ("platform/tools/universe_stages/readers/daily.py", "load_daily", "path or default_fact_path()"):
         "股票池读取层消费 A5 日线事实；路径经 universe_paths→core.factio.paths 单点",
-    ("research/tools/universe_stages/readers/daily.py", "close_window", "self.path"):
+    ("platform/tools/universe_stages/readers/daily.py", "close_window", "self.path"):
         "指数基准读取层（A10）消费 data/ref/000905.SH.parquet，非逐笔/分钟事实库",
-    ("research/tools/universe_stages/readers/fundamentals.py", "snapshot", "self.path"):
+    ("platform/tools/universe_stages/readers/fundamentals.py", "snapshot", "self.path"):
         "基本面 PIT 读取层（当前源缺失见 pending #4）；路径经 universe_paths 单点",
-    ("research/tools/universe_stages/scripts/run_layer1.py", "main", "universe_paths.golden_universe()"):
+    ("platform/tools/universe_stages/scripts/run_layer1.py", "main", "universe_paths.golden_universe()"):
         "golden 股池是上游只读参考（A9，生成链未留存 pending #9），不是工作区事实库分区",
-    ("research/tools/universe_stages/scripts/run_layer2_sas.py", "main", "universe_paths.golden_universe()"):
+    ("platform/tools/universe_stages/scripts/run_layer2_sas.py", "main", "universe_paths.golden_universe()"):
         "golden 股池是上游只读参考（A9），作为分层排序输入",
-    ("research/tools/universe_stages/scripts/tail_capture_audit.py", "main", "a.ranked or universe_paths.golden_universe()"):
+    ("platform/tools/universe_stages/scripts/tail_capture_audit.py", "main", "a.ranked or universe_paths.golden_universe()"):
         "排序输入可以是自有产物，或退化为 golden 参考；golden 是只读参考非事实库分区",
-    ("research/tools/universe_stages/scripts/validate_layer1_parity.py", "main", "universe_paths.out_dir(cfg, 'universes') / 'v4_top300_local.parquet'"):
+    ("platform/tools/universe_stages/scripts/validate_layer1_parity.py", "main", "universe_paths.out_dir(cfg, 'universes') / 'v4_top300_local.parquet'"):
         "第一层本地产物 v4_top300_local，属工具自身 output，不是事实库分区",
-    ("research/tools/universe_stages/scripts/validate_layer1_parity.py", "main", "universe_paths.golden_universe()"):
+    ("platform/tools/universe_stages/scripts/validate_layer1_parity.py", "main", "universe_paths.golden_universe()"):
         "golden 股池是上游只读参考（A9），用于 local vs golden 对照",
-    ("research/tools/universe_stages/scripts/run_layer3_tick.py", "main", "feats_path"):
+    ("platform/tools/universe_stages/scripts/run_layer3_tick.py", "main", "feats_path"):
         "layer2 自有产物 sas_features_*.parquet，属本工具 output，不是事实库分区",
-    ("research/tools/universe_stages/scripts/run_layer3_tick.py", "main", "events_path"):
+    ("platform/tools/universe_stages/scripts/run_layer3_tick.py", "main", "events_path"):
         "layer2 自有产物 sas_events_*.parquet，属本工具 output，不是事实库分区",
 }
 _READ_CALLS = {"read_parquet", "scan_parquet", "ParquetFile"}
@@ -131,6 +132,13 @@ def _py_files(root: Path):
         if any(part in s for part in SKIP_PARTS):
             continue
         yield p
+
+
+def _tool_files():
+    """两棵工具树下的全部待检 .py（R27；缺树时跳过——迁移窗口容错）。"""
+    for root in TOOL_ROOTS:
+        if root.is_dir():
+            yield from _py_files(root)
 
 
 def _docstring_nodes(tree: ast.AST) -> set[int]:
@@ -171,10 +179,10 @@ def _code_strings(path: Path) -> list[tuple[str, int]]:
     return out
 
 
-def check_contract_research() -> list[str]:
-    """ENFORCED：研究侧不得自拼事实库分区（`year=` 前缀只许 factio.partitions 产出）。"""
+def check_contract_tools() -> list[str]:
+    """ENFORCED：工具树不得自拼事实库分区（`year=` 前缀只许 factio.partitions 产出）。"""
     bad = []
-    for p in _py_files(RESEARCH_TOOLS):
+    for p in _tool_files():
         for s, line in _code_strings(p):
             if FACT_PARTITION_MARK in s:
                 bad.append(f"{_rel(p)}:{line}: 字符串常量含 '{FACT_PARTITION_MARK}' ({s!r})")
@@ -187,7 +195,7 @@ def check_mark_construction() -> list[str]:
     判据：标记名字出现在**非 print**的调用实参里、且被调方不是 writekit API → 违规。
     """
     bad = []
-    for p in _py_files(RESEARCH_TOOLS):
+    for p in _tool_files():
         rel = _rel(p)
         if rel.endswith(WRITEKIT_MODULE):
             continue
@@ -234,7 +242,7 @@ def check_writekit_alias() -> list[str]:
     （真实数据跑批才暴露；R9 由端到端测试 + 本规则一起兜住）。
     """
     bad = []
-    for p in _py_files(RESEARCH_TOOLS):
+    for p in _tool_files():
         tree = ast.parse(p.read_text(encoding="utf-8"), filename=str(p))
         aliases = set()
         for n in ast.walk(tree):
@@ -256,7 +264,7 @@ def check_writekit_alias() -> list[str]:
 
 
 def check_g_read() -> list[str]:
-    """ENFORCED（R9）：研究侧直读 parquet 只允许登记过的点，且**永不**指向事实库分区。
+    """ENFORCED（R9）：工具树直读 parquet 只允许登记过的点，且**永不**指向事实库分区。
 
     为什么需要 AST：grep 数不出"读的是谁"——`pl.read_parquet(path)` 里 `path` 是 manifest
     还是 tick 事实表，只有把目标表达式解出来才能判。判据两条：
@@ -265,7 +273,7 @@ def check_g_read() -> list[str]:
     """
     bad: list[str] = []
     seen: set[tuple[str, str, str]] = set()
-    for p in _py_files(RESEARCH_TOOLS):
+    for p in _tool_files():
         rel = _rel(p)
         tree = ast.parse(p.read_text(encoding="utf-8"), filename=str(p))
         fn_of: dict[int, str] = {}
@@ -301,7 +309,7 @@ def check_g_read() -> list[str]:
 def selftest() -> int:
     """负向自检：门必须能抓到真违规，且不误伤合法写法（否则门是死的）。"""
     import tempfile
-    global RESEARCH_TOOLS, G_READ_ALLOWED
+    global TOOL_ROOTS, G_READ_ALLOWED
     with tempfile.TemporaryDirectory() as td:
         fake = Path(td)
         (fake / "violate.py").write_text(
@@ -335,8 +343,8 @@ def selftest() -> int:
             'def unregistered(p):\n'
             '    return pl.read_parquet(p)\n',
             encoding="utf-8")
-        saved, saved_allow = RESEARCH_TOOLS, G_READ_ALLOWED
-        RESEARCH_TOOLS = fake
+        saved, saved_allow = TOOL_ROOTS, G_READ_ALLOWED
+        TOOL_ROOTS = [fake]
         clean_rel = _rel(fake / "clean.py")
         # 只登记 clean.py 的 manifest 读；另加一条**失效**登记，验证白名单不腐
         G_READ_ALLOWED = {
@@ -344,11 +352,11 @@ def selftest() -> int:
             (clean_rel, "gone", "nope"): "自检：调用点已不存在",
         }
         try:
-            c1, c2 = check_contract_research(), check_mark_construction()
+            c1, c2 = check_contract_tools(), check_mark_construction()
             c3 = check_g_read()
             c4 = check_writekit_alias()
         finally:
-            RESEARCH_TOOLS, G_READ_ALLOWED = saved, saved_allow
+            TOOL_ROOTS, G_READ_ALLOWED = saved, saved_allow
     # 违规文件必须被抓到（几处不限），合法文件一处都不许误报
     read_bad = [x for x in c3 if "violate_read.py" in x]
     stale = [x for x in c3 if "白名单失效" in x]
@@ -378,8 +386,8 @@ def main() -> int:
 
     fail = 0
 
-    print("[G-CONTRACT/研究侧分区字面量] ENFORCED：`year=` 只许经 core.factio.partitions")
-    bad = check_contract_research()
+    print("[G-CONTRACT/工具树分区字面量] ENFORCED：`year=` 只许经 core.factio.partitions")
+    bad = check_contract_tools()
     if bad:
         fail = 1
         for b in bad:
@@ -410,7 +418,7 @@ def main() -> int:
     else:
         print("  ✓ 0 处（漏 import 会在 main() 运行时才炸，门提前拦住）")
 
-    print("[G-READ] ENFORCED：研究侧直读 parquet 只允许登记点，且不指向事实库分区")
+    print("[G-READ] ENFORCED：工具树直读 parquet 只允许登记点，且不指向事实库分区")
     bad = check_g_read()
     if bad:
         fail = 1

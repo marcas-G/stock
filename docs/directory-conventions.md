@@ -43,10 +43,10 @@
 
 | 载体 | 角色 | 内容 |
 |---|---|---|
-| `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`kernels/quant_core/`（评估内核 shim = 内核发行物唯一声明点，R18 起）、`tests/`、`docs/`（契约 4 篇 + superpowers）、`scripts/` |
-| `research/`（仓库内） | **研究树**（唯一副本） | `tools/`（8 工具：lob_fact / converters / 1m_features / ch_ingest / quark_download / strategies / **ashare_ingest**（R19 收编） / **universe_stages**（R20 收编）+ `lib/` + `factor_lib/`）、`factor/<族>/`（152 spec）、`docs/`（factors/strategies/playbook） |
+| `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`kernels/quant_core/`（评估内核 shim = 内核发行物唯一声明点，R18 起）、`tools/`（数据生产线工具集：lob_fact / converters / 1m_features / ch_ingest / quark_download / ashare_ingest / universe_stages + `lib/` + `_env.py`；R27 归位）、`tests/`、`docs/`（契约 4 篇 + superpowers）、`scripts/` |
+| `research/`（仓库内） | **研究树**（唯一副本） | `tools/`（剩余研究工具：`strategies/`、`factor_lib/`；数据生产线工具集 R27 归位 `platform/tools/`）、`factor/<族>/`（152 spec）、`docs/`（factors/strategies/playbook） |
 | `docs/`（仓库内） | **文档树** | 工作区约定（本文件、data-map、pending-items…）、`handbook/`、`index/`、`verification/` |
-| `projects/ashare_alpha3` | 本地项目（无 git） | 自包含；`config.yaml` 消费 `data/`。**R19/R20 已完成收编**（数据侧 → `research/tools/ashare_ingest/`、股票池段 → `research/tools/universe_stages/`）；仅作本地历史参考 |
+| `projects/ashare_alpha3` | 本地项目（无 git） | 自包含；`config.yaml` 消费 `data/`。**R19/R20 已完成收编**（数据侧 → `platform/tools/ashare_ingest/`、股票池段 → `platform/tools/universe_stages/`）；仅作本地历史参考 |
 
 - 旧 worktree 迁移程序（`git worktree move` + 手工 gitdir 编辑 + 四查）**已随两 worktree 布局退役**；
   历史过程见 `docs/verification/archive/`。

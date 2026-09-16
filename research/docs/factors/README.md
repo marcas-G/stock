@@ -26,7 +26,7 @@ R01-EVID-C1（台账 `docs/reviews/findings.md`）的修复选择**如实标注�
 1. **重建平台库**（与档案原始跑法同源）：`platform/.venv/bin/factorlab data rebuild`
    （teajoin 代理源，需可用 API key）；随后逐 spec `factorlab run`，用新的
    `results/<name>/summary.json` 更新档案 §4、`updated_ts`，并删除 `snapshot` 字段；
-2. **或**给 CH 灌入 `stock_st`（`research/tools/ch_ingest/`），以
+2. **或**给 CH 灌入 `stock_st`（`platform/tools/ch_ingest/`），以
    `FACTORLAB_DATA_BACKEND=ch` 复跑同一条链；
 3. 只做**小样本冒烟**（`universe.codes` / `--universe`）可在 CH 上跑通
    （例：`docs/verification/R12/r12_smoke.yaml`），但**不构成**对全市场档案数字的复现。

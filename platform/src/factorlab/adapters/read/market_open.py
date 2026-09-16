@@ -75,7 +75,7 @@ def stk_limit_coverage_violation(
         f"stk_limit 当日覆盖率异常：{len(covered)}/{len(effective)} = {ratio:.1%}"
         f"（阈值 {min_coverage:.0%}）——缺失 {len(effective) - len(covered)} 只"
         f"应有涨跌停的证券（样本 {missing}）。疑似生产漏派生"
-        f"（research/tools/ch_ingest/derive_stk_limit），非合法豁免"
+        f"（platform/tools/ch_ingest/derive_stk_limit），非合法豁免"
         f"（上市首日 pre_close NULL / 注册制新股前 5 交易日不派生行）；"
         f"fail loudly 不静默 fail-open。")
 

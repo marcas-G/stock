@@ -38,7 +38,7 @@ bash ../scripts/reinstall_editable.sh
 - **duckdb**（默认）：平台库 `data/factorlab.duckdb`（相对 CWD；`FACTORLAB_PLATFORM_DB`
   可覆盖），由 `factorlab data rebuild/update/refresh` 维护（数据源 = teajoin Tushare 代理）。
 - **ch**：`FACTORLAB_DATA_BACKEND=ch`（`FACTORLAB_CH_HOST/PORT/DATABASE`），ClickHouse
-  事实库由 `research/tools/ch_ingest/` 灌入。
+  事实库由 `platform/tools/ch_ingest/` 灌入。
 
 ## 仓库纪律（摘要，2026-09-15 单仓单树）
 
@@ -46,5 +46,7 @@ bash ../scripts/reinstall_editable.sh
   工作区文档/证据在 `../docs/`。**旧的双分支纪律（main=平台 / research=研究）已退役**——
   现在按**目录**分权，一次改动涉及多棵树时按目录分别提交；目录边界与提交前缀见
   [../CLAUDE.md](../CLAUDE.md) 与 [../AGENTS.md](../AGENTS.md)。
+- **`tools/` 是数据生产线工具集**（R27 从 `research/tools/` 归位；转换/灌库/LOB/下载/池分层等），
+  测试用平台 venv：`.venv/bin/python -m pytest tools -q`（或根目录 `make test-research`）。
 - 任何代码改动遵循 TDD（先失败测试再加实现），提交前全量 `pytest -q` 通过；
   文档与实现同步（`docs/interface.md` / `docs/catalog.md`）。

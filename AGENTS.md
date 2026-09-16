@@ -35,10 +35,9 @@
 | 目的 | 命令 |
 |---|---|
 | 平台测试 | `cd platform && .venv/bin/python -m pytest -q` |
-| 研究测试（T2） | `emb/bin/python -m pytest research/tools -q` |
-| 研究测试（T1） | `platform/.venv/bin/python -m pytest research/tools/strategies/tests -q` |
-| 分钟面 × 本地 parquet 对拍 | `FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python research/tools/1m_features/run_1m_feature.py check-day 2024-01-15` |
-| CH 灌入对账 | `platform/.venv/bin/python research/tools/ch_ingest/reconcile.py` |
+| 工具/研究测试（单解释器） | `make test-research`（= `platform/tools` + `research/tools`，均平台 venv） |
+| 分钟面 × 本地 parquet 对拍 | `FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python platform/tools/1m_features/run_1m_feature.py check-day 2024-01-15` |
+| CH 灌入对账 | `platform/.venv/bin/python platform/tools/ch_ingest/reconcile.py`（`make reconcile`） |
 | 常驻门 | `make gates` |
 
 ## 已知的"别踩"
@@ -48,4 +47,4 @@
   （warning + `is_st=null` + summary `st_degrade: true`，结果为**无 ST 口径**，不可与 ST 过滤
   run 混比；真实口径需补 `stock_st` 灌入——见 interface.md §4.2）。
 - 写算子必须带分区前缀（`ts_`/`cs_`），裸名注册会被拒（静默退化为元素级 = 跨资产泄漏）。
-- `research/tools/lob_fact/core/config.py` 的校准常量与 `fixtures/pins.sha256` 是冻结金样。
+- `platform/tools/lob_fact/core/config.py` 的校准常量与 `fixtures/pins.sha256` 是冻结金样。

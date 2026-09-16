@@ -42,7 +42,7 @@ python ingest_tick.py --trades      # 只灌 trades
 
 # 5) 派生表（daily 灌完才可跑）
 python derive_stk_limit.py          # stk_limit（规则见脚本 docstring）
-python research/tools/ch_ingest/adj_backfill.py   # adj_detail + adj_event（T1）
+python platform/tools/ch_ingest/adj_backfill.py   # adj_detail + adj_event（平台 venv）
 
 # 6) 对账（退出码 0=全一致）
 python reconcile.py

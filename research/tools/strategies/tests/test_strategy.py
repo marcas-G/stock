@@ -1,8 +1,8 @@
-"""tools/strategies/strategy_crash_bottom.py 策略回测核心逻辑测试：top-K 选股、换手、成本、净值。
+"""strategies/strategy_crash_bottom.py 策略回测核心逻辑测试：top-K 选股、换手、成本、净值。
 
-T1 类（需完整 factorlab + duckdb）：用平台 venv 运行——
+单解释器（R27；需完整 factorlab + duckdb）：用平台 venv 运行——
   platform/.venv/bin/python -m pytest research/tools/strategies/tests -q
-emb（3.11）下自动 skip（importorskip），不是假通过。
+缺 factorlab 时 importorskip skip，不是假通过。
 """
 import datetime
 import os
@@ -10,14 +10,11 @@ import sys
 
 import pytest
 
-_TOOLS = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # tools/
+_TOOLS = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # research/tools
 sys.path.insert(0, _TOOLS)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # strategies/
 
-from _env import ensure_platform  # noqa: E402
-
-ensure_platform()
-pytest.importorskip("factorlab.adapters.read.source", reason="T1 测试需平台 venv（factorlab + duckdb）")
+pytest.importorskip("factorlab.adapters.read.source", reason="需平台 venv（factorlab + duckdb）")
 
 import polars as pl  # noqa: E402
 from strategy_crash_bottom import strategy_backtest  # noqa: E402

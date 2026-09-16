@@ -9,7 +9,7 @@
 
 - **`platform/`** 只收平台改动：`platform/src/factorlab/`、`platform/tests/`、`platform/docs/`（契约 4 篇 + superpowers）、`platform/scripts/`。
   提交前缀用平台语义：`feat(engine)` / `fix(adapters)` / `docs(interface)` / `refactor(core)`。
-- **`research/`** 只收研究内容：`research/factor/`、`research/tools/`、`research/docs/`（factors/strategies/playbook）。
+- **`research/`** 只收研究内容：`research/factor/`、`research/tools/`（剩余：`strategies/`、`factor_lib/`）、`research/docs/`（factors/strategies/playbook）。
   提交前缀用研究语义：`feat(factor)` / `feat(tools)` / `docs(factors)`。
 - **`docs/`**（根）只收工作区级文档与验证证据。
 - 一次改动同时涉及多棵树 → **分目录分别提交**（一个提交只描述一棵树的改动）。
@@ -63,10 +63,9 @@ surfaces(cli,web) → app(装配) → ports(6 契约) → core(纯核)
 
 - 平台 venv：`platform/.venv`（Python 3.13，uv）。移动目录后重装：
   `cd platform && uv pip install --python .venv/bin/python -e . --no-deps --no-build-isolation`。
-- 研究侧解释器：**T2**（`lob_fact/`、`converters/`，只需 `core.factio`）= `emb`（3.11）；
-  **T1**（`strategies/`、`1m_features/`、`ch_ingest/`——ch_ingest 模块级 import `clickhouse_connect`）= `platform/.venv`。
-  平台代码经 `research/tools/_env.py` 注入 `platform/src`（唯一注入点，含落位断言）；
-  **emb 装不了 factorlab（requires-python>=3.13）**。
+- **单解释器**：全部工具/研究测试用 `platform/.venv`（Python 3.13，uv）；平台代码经 `_env.py`
+  落位断言（解析到别处即 RuntimeError；防装成别的副本/误挂 PYTHONPATH）。
+  `emb`（3.11）已退役为工具解释器（2026-09-16 R27；外部 env 保留，非工具依赖）。
 - CH：`127.0.0.1:8123` db=factorlab。目标机 16GB 无页面文件 → 批算单进程 + 流式 + 及时释放。
 - 评估内核 `quant_core`（shim）自 R18 起在 **`platform/kernels/quant_core/`**（内核发行物唯一声明点，
   仅装入 `platform/.venv`；emb 不装）。重装 + 落位断言：`bash scripts/reinstall_editable.sh`。

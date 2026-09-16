@@ -16,7 +16,7 @@ from pathlib import Path
 
 import polars as pl
 
-LOB = Path(__file__).resolve().parents[1]          # research/tools/lob_fact
+LOB = Path(__file__).resolve().parents[1]          # platform/tools/lob_fact
 SCRIPT = LOB / "diag" / "verify_cancels_sample.py"
 
 

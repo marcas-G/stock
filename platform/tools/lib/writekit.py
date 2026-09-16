@@ -158,7 +158,7 @@ def acquire_lock(path: str | Path) -> FileLock:
 class MonthWriter:
     """每月每表一个 parquet 文件，累积到一定行数 flush 一个 row group（流式，不整月驻留）。
 
-    R9：本类原在 `research/tools/converters/convert_tick_to_parquet.py`，是研究侧**第二套**
+    R9：本类原在 `converters/convert_tick_to_parquet.py`，是工具侧**第二套**
     落盘实现（writekit 已有 `atomic_write_df`）。移入此处后研究侧只有一个写模块，三项能力
     **一项不少**——它们都来自真实事故：
     ① 唯一 tmp 路径 + fsync + `os.replace` 原子提交（多实例 O_TRUNC 互踩，4 进程毁数据事故）；

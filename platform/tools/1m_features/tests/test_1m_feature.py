@@ -1,8 +1,7 @@
 """1m_features 冒烟测试（R8c 补齐：此前 0 测试）。
 
-T1 类（`run_1m_feature` 导入 `factorlab.core.engine.minute` → 需要 expr_codegen）：
-用平台 venv 运行 `platform/.venv/bin/python -m pytest research/tools/1m_features/tests -q`；
-emb（3.11）下自动 skip（不假通过）。
+单解释器（`run_1m_feature` 导入 `factorlab.core.engine.minute` → 需要 expr_codegen）：
+用平台 venv 运行 `platform/.venv/bin/python -m pytest platform/tools/1m_features/tests -q`。
 
 断言源 = 模块头注释与 R8c 收敛后的单点契约：bars 分区路径取 `core.factio.partitions`、
 月份枚举只认 `year=`/`month=` 目录且以 part 文件存在为准、日线注入列与引擎同语义

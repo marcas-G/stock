@@ -9,7 +9,7 @@
 3. `lob_fact/pipeline/extract_sz_cancels.py` → `converters/convert_tick_to_parquet.py`
    （**工具互相 import**：两个独立流水线为了复用几个常量绑死在一起）。
 
-判据（研究侧 `research/tools/`，tests/notes 豁免"不得被依赖"以外的规则）：
+判据（工具树 `platform/tools/` + `research/tools/`，tests/notes 豁免"不得被依赖"以外的规则）：
 - **R1 依赖单向**：`lob_fact/core/**` 不得 import `lob_fact/{pipeline,diag,store,notes}`；
   `lob_fact/store/**` 不得 import `lob_fact/{pipeline,diag,notes}`；
   `lob_fact/pipeline/**` 不得 import `lob_fact/{diag,notes}`；
@@ -18,7 +18,7 @@
   `factorlab.*` 与标准库/三方库；跨到别的工具目录即违规（共享代码必须落 `lib/`）；
 - **R4 lib 是叶子**：`tools/lib/**` 不得 import 任何工具模块（它是共享库，只依赖平台与三方）。
 
-解析方式：把 `research/tools` 下所有模块名建索引（模块名 → 所在工具目录），import 时按
+解析方式：把两棵工具树下的模块名合并建索引（模块名 → 所在工具目录），import 时按
 "自身目录 → lib/ → 其它工具目录"判定。外部/平台模块（pandas、factorlab、`_env`…）解析不到 → 放行。
 
 用法：python scripts/check_tool_layering.py [--selftest]
@@ -31,7 +31,9 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-TOOLS = REPO / "research" / "tools"
+# R27：数据生产线工具归位 platform/tools 后，门扫两棵树——
+# platform/tools（数据生产线）+ research/tools（剩余：strategies/factor_lib）。
+TOOL_ROOTS = [REPO / "platform" / "tools", REPO / "research" / "tools"]
 SHARED_DIRS = {"lib"}                      # 跨工具共享只许经这里（外加 _env 与平台）
 
 # 依赖单向规则：from-前缀 → 禁止 import 的 from-前缀集合
@@ -49,26 +51,23 @@ def _rel(p: Path) -> str:
         return str(p)
 
 
-def _tool_of(p: Path) -> str:
-    """文件所属"工具目录名"（tools/ 下第一层）。"""
-    rel = p.relative_to(TOOLS)
-    return rel.parts[0] if len(rel.parts) > 1 else ""
-
-
-def _is_exempt(p: Path) -> bool:
-    return "/tests/" in str(p) or "/notes/" in str(p)
-
-
 def _module_index() -> dict[str, set[str]]:
-    """模块名 → 拥有它的**子目录**集合（`lob_fact/core`、`lib`、`converters`…）。"""
+    """模块名 → 拥有它的**子目录**集合（`lob_fact/core`、`lib`、`converters`…）。
+
+    两棵树合并建索引（各自树内相对子目录登记）；同名模块跨树会合并——
+    与单树时代"所有工具同锚"的判定行为一致。
+    """
     idx: dict[str, set[str]] = {}
-    for f in TOOLS.rglob("*.py"):
-        rel = f.relative_to(TOOLS)
-        if "__pycache__" in str(f) or len(rel.parts) < 2:
+    for tools in TOOL_ROOTS:
+        if not tools.is_dir():
             continue
-        subdir = "/".join(rel.parts[:-1])
-        name = f.stem if f.stem != "__init__" else rel.parts[-2]
-        idx.setdefault(name, set()).add(subdir)
+        for f in tools.rglob("*.py"):
+            rel = f.relative_to(tools)
+            if "__pycache__" in str(f) or len(rel.parts) < 2:
+                continue
+            subdir = "/".join(rel.parts[:-1])
+            name = f.stem if f.stem != "__init__" else rel.parts[-2]
+            idx.setdefault(name, set()).add(subdir)
     return idx
 
 
@@ -87,52 +86,55 @@ def check() -> list[str]:
     """判据：import 的目标子目录 vs 自身子目录（见模块 docstring 的 R1–R4）。"""
     idx = _module_index()
     bad: list[str] = []
-    for f in sorted(TOOLS.rglob("*.py")):
-        rel = f.relative_to(TOOLS)
-        if "__pycache__" in str(f) or len(rel.parts) < 2:
+    for tools in TOOL_ROOTS:
+        if not tools.is_dir():
             continue
-        me = "/".join(rel.parts[:-1])          # 例如 lob_fact/core
-        my_tool = rel.parts[0]
-        in_diag_or_notes = my_tool in ("diag", "notes") or "/diag" in f"/{me}" \
-            or "/notes" in f"/{me}"
-        for mod in sorted(_imports(f)):
-            if mod in {"", "_env", "factorlab"} or mod.startswith("factorlab."):
+        for f in sorted(tools.rglob("*.py")):
+            rel = f.relative_to(tools)
+            if "__pycache__" in str(f) or len(rel.parts) < 2:
                 continue
-            for tgt in sorted(idx.get(mod, set())):
-                if tgt == me:
-                    continue                    # 同目录
-                if me.startswith(tgt + "/") or tgt.startswith(me + "/"):
-                    continue                    # 同一工具内的祖先/子目录（含 tests 引自身包）
-                tgt_tool = tgt.split("/")[0]
-                # R2：非 diag/notes 的模块不得 import diag/notes（tests 豁免）
-                if any(seg in ("diag", "notes") for seg in tgt.split("/")) \
-                        and not in_diag_or_notes and "/tests" not in f"/{me}":
-                    bad.append(f"research/tools/{rel}: import {mod!r} → {tgt}"
-                               f"（生产模块不得依赖 diag/notes）")
+            me = "/".join(rel.parts[:-1])          # 例如 lob_fact/core
+            my_tool = rel.parts[0]
+            in_diag_or_notes = my_tool in ("diag", "notes") or "/diag" in f"/{me}" \
+                or "/notes" in f"/{me}"
+            for mod in sorted(_imports(f)):
+                if mod in {"", "_env", "factorlab"} or mod.startswith("factorlab."):
                     continue
-                # R3：跨工具 import（首段不同，且都不是 lib）
-                if tgt_tool != my_tool and tgt_tool != "lib" and my_tool != "lib":
-                    if not (in_diag_or_notes or "/tests" in f"/{me}"):
-                        bad.append(f"research/tools/{rel}: import {mod!r} → {tgt}"
-                                   f"（跨工具 import；共享代码请落 lib/）")
-                    continue
-                # R4：lib 是共享叶子
-                if my_tool == "lib":
-                    bad.append(f"research/tools/{rel}: import {mod!r} → {tgt}"
-                               f"（lib 是共享叶子，不得依赖工具）")
-                    continue
-                # R1：同工具内的反向依赖（core/store/pipeline）
-                for prefix, forbidden in LAYER_RULES.items():
-                    if me.startswith(prefix) and tgt in forbidden:
-                        bad.append(f"research/tools/{rel}: import {mod!r} → {tgt}"
-                                   f"（{prefix} 不得依赖 {tgt}：反向依赖/生产带诊断）")
+                for tgt in sorted(idx.get(mod, set())):
+                    if tgt == me:
+                        continue                    # 同目录
+                    if me.startswith(tgt + "/") or tgt.startswith(me + "/"):
+                        continue                    # 同一工具内的祖先/子目录（含 tests 引自身包）
+                    tgt_tool = tgt.split("/")[0]
+                    # R2：非 diag/notes 的模块不得 import diag/notes（tests 豁免）
+                    if any(seg in ("diag", "notes") for seg in tgt.split("/")) \
+                            and not in_diag_or_notes and "/tests" not in f"/{me}":
+                        bad.append(f"{_rel(f)}: import {mod!r} → {tgt}"
+                                   f"（生产模块不得依赖 diag/notes）")
+                        continue
+                    # R3：跨工具 import（首段不同，且都不是 lib）
+                    if tgt_tool != my_tool and tgt_tool != "lib" and my_tool != "lib":
+                        if not (in_diag_or_notes or "/tests" in f"/{me}"):
+                            bad.append(f"{_rel(f)}: import {mod!r} → {tgt}"
+                                       f"（跨工具 import；共享代码请落 lib/）")
+                        continue
+                    # R4：lib 是共享叶子
+                    if my_tool == "lib":
+                        bad.append(f"{_rel(f)}: import {mod!r} → {tgt}"
+                                   f"（lib 是共享叶子，不得依赖工具）")
+                        continue
+                    # R1：同工具内的反向依赖（core/store/pipeline）
+                    for prefix, forbidden in LAYER_RULES.items():
+                        if me.startswith(prefix) and tgt in forbidden:
+                            bad.append(f"{_rel(f)}: import {mod!r} → {tgt}"
+                                       f"（{prefix} 不得依赖 {tgt}：反向依赖/生产带诊断）")
     return bad
 
 
 def selftest() -> int:
     """负向自检：造四类违规 + 一条合法路径，逐条必须命中/不误伤。"""
     import tempfile
-    global TOOLS
+    global TOOL_ROOTS
     with tempfile.TemporaryDirectory() as td:
         fake = Path(td)
         f = fake
@@ -163,12 +165,12 @@ def selftest() -> int:
             "from lib import shared\n", encoding="utf-8")
         (f / "lib" / "tests" / "test_ok.py").write_text(
             "from lib import shared\n", encoding="utf-8")
-        saved = TOOLS
-        TOOLS = fake
+        saved = TOOL_ROOTS
+        TOOL_ROOTS = [fake]
         try:
             got = check()
         finally:
-            TOOLS = saved
+            TOOL_ROOTS = saved
     blobs = "\n".join(got)
     checks = {
         "R1 反向依赖": "bad_r1.py" in blobs,

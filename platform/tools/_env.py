@@ -1,13 +1,11 @@
-"""研究侧唯一的平台路径单点 + 落位断言（DER-010）。
+"""工具树的平台路径单点 + 落位断言（DER-010；R27 单解释器化）。
 
-共享核物理唯一：`platform/src`（单仓单树）。研究侧禁止副本——
+共享核物理唯一：`platform/src`（单仓单树）。工具集禁止副本——
 本模块把该路径注入 sys.path（幂等）并**运行时断言** `factorlab.__file__` 落在其下。
 
-两类工具：
-- T1（需完整 factorlab：`1m_features/`、`strategies/`）→ 用平台 venv 运行
-  （`platform/.venv/bin/python`，editable 安装已生效）；
-- T2（只需 `core.factio`，纯 polars/pyarrow：`lob_fact/`、`converters/`、`ch_ingest/`）
-  → 可用 emb（3.11），经本模块注入后 import。
+**单解释器**（R27 起）：全部工具/测试统一用平台 venv（3.13）运行，editable 安装
+保证 `import factorlab` 解析；本模块只保留**落位断言**（防装成别的副本／误挂
+PYTHONPATH），不再承担"跨解释器注入"职责——`emb`（3.11）已退役为工具解释器。
 
 运行产物如需可追溯性，用 `platform_head()` 记录 main worktree HEAD（REQ-Q-011）。
 """
@@ -17,8 +15,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-# tools/_env.py → parents: [tools, research, stock]（单仓单树后布局）
-MAIN = Path(__file__).resolve().parents[2] / "platform"
+# tools/_env.py → parents: [tools, platform]（R27 工具归位 platform/tools 后）
+MAIN = Path(__file__).resolve().parents[1]
 MAIN_SRC = MAIN / "src"
 
 

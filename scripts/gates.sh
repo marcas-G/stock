@@ -18,14 +18,15 @@ info() { echo "    · $1"; }
 
 PLATFORM=platform
 RESEARCH=research
-FROZEN=':!platform/docs/superpowers :!docs/verification :!research/tools/lob_fact/notes :!docs/specs'
+FROZEN=':!platform/docs/superpowers :!docs/verification :!platform/tools/lob_fact/notes :!research/tools/lob_fact/notes :!docs/specs'
 
 # ── 结构门（强制）───────────────────────────────────────────────
 structure() {
   echo "[G-COPY] 三方内容不互串 · 契约文档单副本"
-  # 平台树不得出现研究目录；研究树不得出现平台目录
-  n=$(git ls-files | grep -cE "^$PLATFORM/(factor|tools)/" || true)          # 仅顶层目录，避免 core/factor 误判
-  [ "$n" = "0" ] && ok "platform/ 顶层无 factor|tools 目录" || bad "platform/ 含研究内容 $n 项"
+  # 平台树不得出现研究目录（factor/）；tools/ 自 R27 起为数据生产线工具集（用户拍板归位 platform/）
+  n=$(git ls-files | grep -cE "^$PLATFORM/factor/" || true)                  # 仅顶层目录，避免 core/factor 误判
+  [ "$n" = "0" ] && ok "platform/ 顶层无 factor 目录（tools/ 为数据生产线）" || bad "platform/ 含研究内容 $n 项"
+  [ -d "$PLATFORM/tools" ] && ok "platform/tools 存在（数据生产线工具集）" || bad "platform/tools 缺失"
   n=$(git ls-files | grep -cE "^$RESEARCH/(src|tests)/" || true)             # 仅顶层，research 内嵌 tests/ 属正常
   [ "$n" = "0" ] && ok "research/ 顶层无平台 src|tests" || bad "research/ 含平台内容 $n 项"
   # 契约 4 篇各只一份
@@ -35,8 +36,8 @@ structure() {
   done
 
   echo "[G-BOUNDARY] platform/ 不得 import research/"
-  n=$(grep -rn "research\.\|from research\|import research" "$PLATFORM/src" "$PLATFORM/tests" --include=*.py 2>/dev/null | grep -v "['\"]" | wc -l)   # 排除字符串字面量（门自匹配）
-  [ "$n" = "0" ] && ok "无 platform→research 依赖" || { bad "发现 $n 处 platform→research 引用"; grep -rn "research\." "$PLATFORM/src" --include=*.py | grep -v "['\"]" | head -3 | sed 's/^/      /'; }
+  n=$(grep -rn "research\.\|from research\|import research" "$PLATFORM/src" "$PLATFORM/tests" "$PLATFORM/tools" --include=*.py --exclude-dir=notes 2>/dev/null | grep -v "['\"]" | wc -l)   # 排除字符串字面量（门自匹配）；notes/ 为历史诊断豁免
+  [ "$n" = "0" ] && ok "无 platform→research 依赖" || { bad "发现 $n 处 platform→research 引用"; grep -rn "research\." "$PLATFORM/src" "$PLATFORM/tools" --include=*.py --exclude-dir=notes | grep -v "['\"]" | head -3 | sed 's/^/      /'; }
 
   echo "[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）"
   # 豁免：验证证据 / 平台与研究 spec 与笔记 / 门自身 / **三份带冻结横幅的历史文档** /
@@ -44,7 +45,7 @@ structure() {
   # 判据：所剩行里，**同一行同时出现 R17**的算删除记录（提旧名却不提 R17 的仍报红——
   # 活指针不会写 R17；写了就是自证造假，评审可抓）。2026-09-15 R17 起生效。
   n=$(git grep -nI -e "quant-platform-main" -e "quant-platform-research" -e "projects/quant-platform" -- . \
-        ':!docs/verification' ':!platform/docs/superpowers' ':!research/tools/lob_fact/notes' ':!research/docs/superpowers' 2>/dev/null \
+        ':!docs/verification' ':!platform/docs/superpowers' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' ':!research/docs/superpowers' 2>/dev/null \
       | grep -vE '^scripts/gates.sh:' \
       | grep -vE '^docs/(workspace-p0p8|traceability-matrix|remote-cleanup-checklist)\.md:' \
       | grep -v 'local-backup-20260903（975M' \
@@ -103,8 +104,8 @@ topo() {
 
 dataiface() {
   # R8c：从"报告模式 grep 计数"升级为 AST 判定——
-  #   ENFORCED：研究侧分区字面量（`year=` 只许 partitions 产出）、标记路径构造（只许 writekit）；
-  #   REPORT  ：平台表名字面量（未竟 #12①:460 处 SQL）、研究侧直读（未竟 #13）。
+  #   ENFORCED：工具树分区字面量（`year=` 只许 partitions 产出）、标记路径构造（只许 writekit）；
+  #   REPORT  ：平台表名字面量（未竟 #12①:460 处 SQL）、工具树直读（未竟 #13）。
   # 由 Python 侧统一输出（含负向自检：--selftest 保证门不是死的）。
   PY=${PLATFORM}/.venv/bin/python
   [ -x "$PY" ] || PY=python3

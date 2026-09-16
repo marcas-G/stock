@@ -7,7 +7,7 @@
 - 第三层 `tick`：只对第二层候选读取逐笔成交，输出事件前后微观结构特征。
 
 本工具是 `projects/ashare_alpha3` 股票池段在 R20 的收编落位。数据侧收编见
-`research/tools/ashare_ingest/`；原始 V4 迁移缺口记录见 `MIGRATION_GAP.md`。
+`platform/tools/ashare_ingest/`；原始 V4 迁移缺口记录见 `MIGRATION_GAP.md`。
 
 ## 路径纪律
 
@@ -41,16 +41,10 @@ python scripts/run_layer3_tick.py --scan-date 2026-07-01 --top-k 50
 
 ## 测试
 
-T1（平台 venv）：
+单解释器（平台 venv 3.13）：
 
 ```bash
-platform/.venv/bin/python -m pytest research/tools/universe_stages/tests -q
-```
-
-T2（emb）：
-
-```bash
-/data/students/gaolei/anaconda3/envs/emb/bin/python -m pytest research/tools/universe_stages/tests -q
+platform/.venv/bin/python -m pytest platform/tools/universe_stages/tests -q
 ```
 
 依赖真实数据源的集成路径当前不跑：fundamentals 源缺失（pending #4）、`20260817` tick

@@ -24,14 +24,9 @@ from pathlib import Path
 
 import polars as pl
 
-# 共享核单点注入 + 落位断言（DER-010；T1：platform venv 运行）
-import os as _os
-import sys as _sys
-
-_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # tools/
-from _env import ensure_platform  # noqa: E402
-
-ensure_platform()
+# 单解释器（R27）：策略脚本用平台 venv 运行——factorlab 经 editable 安装落位
+# platform/src（G-VENV 门守卫）；`_env` 注入随工具集归位 platform/tools 后，
+# strategies（留 research）不再依赖它。
 
 from factorlab.adapters.read.source import load_daily  # noqa: E402
 

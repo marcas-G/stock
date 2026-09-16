@@ -331,8 +331,13 @@ factorlab serve                              # Web 可视化（IC 曲线/净值�
 实现新因子 → subagent 审核代码 → 跑结果 → 按本文档阈值判定 → 按档案模板入库
 （含负结果），连续 N 轮。流程与规则见 `.claude/skills/factor-mine/SKILL.md`。
 
-## 8. 数据刷新提醒
+## 8. 数据刷新（已迁移：CH 灌入管线）
 
-- 数据停在 2026-08-14：`factorlab data update`（增量到最新交易日）
-- token 8/22 到期：到期前 `data refresh` 或续费（teajoin redeem）
-- 定期 verify：`factorlab data verify`（完整性自检）
+> ⚠️ 本节原有 `factorlab data update/refresh/verify` 命令已随数据面迁移废弃（2026-09-16 注）。
+> 现行数据刷新 = **ClickHouse 灌入管线**：
+>
+> - 权威：`platform/docs/data-ops-playbook.md` + `platform/tools/ch_ingest/README.md`（刷新链
+>   `01_import_daily → ingest_daily → 12_ch_adj_backfill → derive_stk_limit`）；技能 `factorlab-ch-pipeline`；
+> - 对账：`platform/.venv/bin/python platform/tools/ch_ingest/reconcile.py`（只读）；
+> - 平台 duckdb 库不存在：一切计算读 CH（`FACTORLAB_DATA_BACKEND=ch`）；
+> - 用户单页入口：`research/docs/factor-authoring-manual.md`。

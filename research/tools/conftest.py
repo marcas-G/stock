@@ -1,12 +1,12 @@
-"""研究侧测试的**路径单点**：把 `tools/` 与 `tools/lob_fact/` 放上 sys.path。
+"""研究树剩余工具（`strategies/`、`factor_lib/`）测试的**路径单点**。
 
-历史：每个测试文件顶部各写一遍 `sys.path.insert`（lob_fact 内 14 个文件都有）。
-新增测试**依赖本 conftest**即可，不要再自己插路径；老文件保留原写法（清理列入后续轮次）。
+R27 工具归位后，数据生产线工具集迁去 `platform/tools/`（其同名 conftest 在平台侧），
+本文件只把 `research/tools/` 放上 sys.path。历史：每个测试文件顶部各写一遍
+`sys.path.insert`；新增测试**依赖本 conftest**即可，不要再自己插路径。
 """
 import sys
 from pathlib import Path
 
 _TOOLS = Path(__file__).resolve().parent
-for _p in (str(_TOOLS), str(_TOOLS / "lob_fact")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+if str(_TOOLS) not in sys.path:
+    sys.path.insert(0, str(_TOOLS))
