@@ -1,0 +1,381 @@
+$ python3 governance/evidence/verification/R30/task2/mutation.py
+
+
+### 突变：iter_category 存根（硬编码空列表）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+F.F.......                                                               [100%]
+=================================== FAILURES ===================================
+__________________ test_iter_category_recurses_and_skips_dirs __________________
+
+    def test_iter_category_recurses_and_skips_dirs():
+        entries = share.iter_category(fake_listdir, "d_daily")
+>       assert {e.rel_path for e in entries} == {"x.zip", "退市股/000018_神州长城.xlsx"}
+E       AssertionError: assert set() == {'x.zip', '退市...18_神州长城.xlsx'}
+E         
+E         Extra items in the right set:
+E         '退市股/000018_神州长城.xlsx'
+E         'x.zip'
+E         Use -v to get more diff
+
+tools/pan_update/tests/test_share.py:37: AssertionError
+__________ test_iter_category_keeps_metadata_and_excludes_dir_entries __________
+
+    def test_iter_category_keeps_metadata_and_excludes_dir_entries():
+        entries = share.iter_category(fake_listdir, "root")
+>       assert {e.rel_path for e in entries} == {
+            "日K线数据---复权因子-经典技术指标--bs点缠论划线/x.zip",
+            "日K线数据---复权因子-经典技术指标--bs点缠论划线/退市股/000018_神州长城.xlsx",
+            "A股分钟线/2026/09/20260916.zip",
+        }
+E       AssertionError: assert set() == {'A股分钟线/2026/...18_神州长城.xlsx'}
+E         
+E         Extra items in the right set:
+E         'A股分钟线/2026/09/20260916.zip'
+E         '日K线数据---复权因子-经典技术指标--bs点缠论划线/x.zip'
+E         '日K线数据---复权因子-经典技术指标--bs点缠论划线/退市股/000018_神州长城.xlsx'
+E         Use -v to get more diff
+
+tools/pan_update/tests/test_share.py:49: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_share.py::test_iter_category_recurses_and_skips_dirs
+FAILED tools/pan_update/tests/test_share.py::test_iter_category_keeps_metadata_and_excludes_dir_entries
+2 failed, 8 passed in 0.26s
+
+### 突变：_walk 不递归目录（目录项直接丢弃）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+F.F...F...                                                               [100%]
+=================================== FAILURES ===================================
+__________________ test_iter_category_recurses_and_skips_dirs __________________
+
+    def test_iter_category_recurses_and_skips_dirs():
+        entries = share.iter_category(fake_listdir, "d_daily")
+>       assert {e.rel_path for e in entries} == {"x.zip", "退市股/000018_神州长城.xlsx"}
+E       AssertionError: assert {'x.zip'} == {'x.zip', '退市...18_神州长城.xlsx'}
+E         
+E         Extra items in the right set:
+E         '退市股/000018_神州长城.xlsx'
+E         Use -v to get more diff
+
+tools/pan_update/tests/test_share.py:37: AssertionError
+__________ test_iter_category_keeps_metadata_and_excludes_dir_entries __________
+
+    def test_iter_category_keeps_metadata_and_excludes_dir_entries():
+        entries = share.iter_category(fake_listdir, "root")
+>       assert {e.rel_path for e in entries} == {
+            "日K线数据---复权因子-经典技术指标--bs点缠论划线/x.zip",
+            "日K线数据---复权因子-经典技术指标--bs点缠论划线/退市股/000018_神州长城.xlsx",
+            "A股分钟线/2026/09/20260916.zip",
+        }
+E       AssertionError: assert set() == {'A股分钟线/2026/...18_神州长城.xlsx'}
+E         
+E         Extra items in the right set:
+E         '日K线数据---复权因子-经典技术指标--bs点缠论划线/退市股/000018_神州长城.xlsx'
+E         'A股分钟线/2026/09/20260916.zip'
+E         '日K线数据---复权因子-经典技术指标--bs点缠论划线/x.zip'
+E         Use -v to get more diff
+
+tools/pan_update/tests/test_share.py:49: AssertionError
+_______________ test_walk_dir_uses_default_transport_and_prefix ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f449f541eb0>
+
+    def test_walk_dir_uses_default_transport_and_prefix(monkeypatch):
+        tree = {
+            "d_min": [("2026", "d_y")],
+            "d_y": [("09", "d_m")],
+            "d_m": [("20260916.zip", ("f3", 15))],
+        }
+        seen = []
+    
+        def fake_http(url, body=None, retry=3, timeout=60):
+            fid = url.split("pdir_fid=")[1].split("&")[0]
+            seen.append(fid)
+            lst = []
+            for name, fid2 in tree[fid]:
+                if isinstance(fid2, tuple):
+                    lst.append(_item(name, fid2[0], fid2[1]))
+                else:
+                    lst.append(_item(name, fid2, is_dir=True))
+            return 200, {"status": 200, "data": {"list": lst}}
+    
+        monkeypatch.setattr(share.quark_client, "http", fake_http)
+        monkeypatch.setattr(share.quark_client, "get_stoken", lambda *a, **k: "ST")
+    
+        entries = share.walk_dir("d_min", prefix="minutes")
+    
+>       assert [e.rel_path for e in entries] == ["minutes/2026/09/20260916.zip"]
+E       AssertionError: assert [] == ['minutes/202...20260916.zip']
+E         
+E         Right contains one more item: 'minutes/2026/09/20260916.zip'
+E         Use -v to get more diff
+
+tools/pan_update/tests/test_share.py:145: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_share.py::test_iter_category_recurses_and_skips_dirs
+FAILED tools/pan_update/tests/test_share.py::test_iter_category_keeps_metadata_and_excludes_dir_entries
+FAILED tools/pan_update/tests/test_share.py::test_walk_dir_uses_default_transport_and_prefix
+3 failed, 7 passed in 0.18s
+
+### 突变：find_dir 忽略目录名（返回首个目录）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+.F.F......                                                               [100%]
+=================================== FAILURES ===================================
+_________________________ test_find_dir_missing_fails __________________________
+
+    def test_find_dir_missing_fails():
+        import pytest
+>       with pytest.raises(KeyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE KeyError
+
+tools/pan_update/tests/test_share.py:41: Failed
+_______________ test_find_dir_returns_fid_and_rejects_file_names _______________
+
+    def test_find_dir_returns_fid_and_rejects_file_names():
+>       assert share.find_dir(fake_listdir, "root", "A股分钟线") == "d_min"
+E       AssertionError: assert 'd_daily' == 'd_min'
+E         
+E         - d_min
+E         + d_daily
+
+tools/pan_update/tests/test_share.py:64: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_share.py::test_find_dir_missing_fails - Fa...
+FAILED tools/pan_update/tests/test_share.py::test_find_dir_returns_fid_and_rejects_file_names
+2 failed, 8 passed in 0.18s
+
+### 突变：find_dir 不校验 is_dir（文件当目录）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+...F......                                                               [100%]
+=================================== FAILURES ===================================
+_______________ test_find_dir_returns_fid_and_rejects_file_names _______________
+
+    def test_find_dir_returns_fid_and_rejects_file_names():
+        assert share.find_dir(fake_listdir, "root", "A股分钟线") == "d_min"
+        assert share.find_dir(fake_listdir, "d_daily", "退市股") == "d_tdx"
+>       with pytest.raises(KeyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE KeyError
+
+tools/pan_update/tests/test_share.py:66: Failed
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_share.py::test_find_dir_returns_fid_and_rejects_file_names
+1 failed, 9 passed in 0.17s
+
+### 突变：_default_listdir 忽略 metadata._total（短页即停 → 静默截断）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+.......F..                                                               [100%]
+=================================== FAILURES ===================================
+_________ test_default_listdir_total_drives_pagination_on_short_pages __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6628a8f570>
+
+    def test_default_listdir_total_drives_pagination_on_short_pages(monkeypatch):
+        """I1：服务端每页只返 10 条（短页）但 metadata._total=250 → 必须翻满 250 条。"""
+        calls = []
+    
+        def fake_http(url, body=None, retry=3, timeout=60):
+            page = int(url.split("_page=")[1].split("&")[0])
+            calls.append(page)
+            start = (page - 1) * 10
+            lst = [_item(f"f{start + i}.zip", f"id{start + i}", start + i)
+                   for i in range(10)]
+            return 200, {"status": 200, "metadata": {"_total": 250}, "data": {"list": lst}}
+    
+        monkeypatch.setattr(share.quark_client, "http", fake_http)
+        monkeypatch.setattr(share.quark_client, "get_stoken", lambda *a, **k: "ST")
+    
+        entries = share._default_listdir("fidX")
+    
+>       assert len(entries) == 250  # 旧实现短页终止只返 10
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 10 == 250
+E        +  where 10 = len([Entry(name='f0.zip', size=0, fid='id0', fid_token='tk', rel_path='f0.zip', is_dir=False), Entry(name='f1.zip', size=1...'f4.zip', is_dir=False), Entry(name='f5.zip', size=5, fid='id5', fid_token='tk', rel_path='f5.zip', is_dir=False), ...])
+
+tools/pan_update/tests/test_share.py:168: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_share.py::test_default_listdir_total_drives_pagination_on_short_pages
+1 failed, 9 passed in 0.17s
+
+### 突变：_default_listdir 去掉分页（只取第一页）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+....F..F..                                                               [100%]
+=================================== FAILURES ===================================
+________________ test_default_listdir_paginates_and_maps_fields ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8a4c1acd60>
+
+    def test_default_listdir_paginates_and_maps_fields(monkeypatch):
+        page1 = [_item(f"f{i}.zip", f"id{i}", 10 + i, token=f"tk{i}") for i in range(100)]
+        page2 = [
+            _item("last.zip", "id-last", 99, token="tk-last"),
+            {"file_name": "nosize.zip", "fid": "id-ns", "dir": False},  # size/token 缺省容忍
+            _item("退市股", "dir-1", 0, is_dir=True, token=""),
+        ]
+        urls = []
+    
+        def fake_http(url, body=None, retry=3, timeout=60):
+            urls.append(url)
+            page = int(url.split("_page=")[1].split("&")[0])
+            return 200, {"status": 200, "data": {"list": page1 if page == 1 else page2}}
+    
+        monkeypatch.setattr(share.quark_client, "http", fake_http)
+        monkeypatch.setattr(share.quark_client, "get_stoken", lambda *a, **k: "ST")
+    
+        entries = share._default_listdir("fidX")
+    
+>       assert len(entries) == 103 and len(urls) == 2  # 满页继续、短页收尾
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert (100 == 103)
+E        +  where 100 = len([Entry(name='f0.zip', size=10, fid='id0', fid_token='tk0', rel_path='f0.zip', is_dir=False), Entry(name='f1.zip', size...4.zip', is_dir=False), Entry(name='f5.zip', size=15, fid='id5', fid_token='tk5', rel_path='f5.zip', is_dir=False), ...])
+
+tools/pan_update/tests/test_share.py:94: AssertionError
+_________ test_default_listdir_total_drives_pagination_on_short_pages __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8a4c1a3ce0>
+
+    def test_default_listdir_total_drives_pagination_on_short_pages(monkeypatch):
+        """I1：服务端每页只返 10 条（短页）但 metadata._total=250 → 必须翻满 250 条。"""
+        calls = []
+    
+        def fake_http(url, body=None, retry=3, timeout=60):
+            page = int(url.split("_page=")[1].split("&")[0])
+            calls.append(page)
+            start = (page - 1) * 10
+            lst = [_item(f"f{start + i}.zip", f"id{start + i}", start + i)
+                   for i in range(10)]
+            return 200, {"status": 200, "metadata": {"_total": 250}, "data": {"list": lst}}
+    
+        monkeypatch.setattr(share.quark_client, "http", fake_http)
+        monkeypatch.setattr(share.quark_client, "get_stoken", lambda *a, **k: "ST")
+    
+        entries = share._default_listdir("fidX")
+    
+>       assert len(entries) == 250  # 旧实现短页终止只返 10
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 10 == 250
+E        +  where 10 = len([Entry(name='f0.zip', size=0, fid='id0', fid_token='tk', rel_path='f0.zip', is_dir=False), Entry(name='f1.zip', size=1...'f4.zip', is_dir=False), Entry(name='f5.zip', size=5, fid='id5', fid_token='tk', rel_path='f5.zip', is_dir=False), ...])
+
+tools/pan_update/tests/test_share.py:168: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_share.py::test_default_listdir_paginates_and_maps_fields
+FAILED tools/pan_update/tests/test_share.py::test_default_listdir_total_drives_pagination_on_short_pages
+2 failed, 8 passed in 0.19s
+
+### 突变：去掉脚本直启导入兜底（裸跑 ModuleNotFoundError）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+.........F                                                               [100%]
+=================================== FAILURES ===================================
+________________ test_script_direct_run_bootstraps_import_path _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1794/test_script_direct_run_bootstr0')
+
+    def test_script_direct_run_bootstraps_import_path(tmp_path):
+        """I2：直跑 share.py（sys.path[0]=pan_update/、无 conftest）必须自举成功。
+    
+        修复前：`from quark_download import quark_client` ModuleNotFoundError（exit 1）；
+        修复后：兜底插入 platform/tools 再导入（lob_fact 先例）。"""
+        env = dict(os.environ)
+        env.pop("PYTHONPATH", None)
+        proc = subprocess.run(
+            [sys.executable, str(Path(share.__file__).resolve())],
+            env=env, capture_output=True, text=True, timeout=120, cwd=str(tmp_path),
+        )
+>       assert proc.returncode == 0, proc.stdout + proc.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/data/students/gaolei/stock/platform/tools/pan_update/share.py", line 18, in <module>
+E             from quark_download import quark_client
+E         ModuleNotFoundError: No module named 'quark_download'
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '/data/students/gaolei/stock/platform/..., in <module>\n    from quark_download import quark_client\nModuleNotFoundError: No module named \'quark_download\'\n').returncode
+
+tools/pan_update/tests/test_share.py:202: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_share.py::test_script_direct_run_bootstraps_import_path
+1 failed, 9 passed in 0.15s
+
+### 突变：_default_listdir 不调 get_stoken（空 stoken）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+....F.....                                                               [100%]
+=================================== FAILURES ===================================
+________________ test_default_listdir_paginates_and_maps_fields ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb459e04d60>
+
+    def test_default_listdir_paginates_and_maps_fields(monkeypatch):
+        page1 = [_item(f"f{i}.zip", f"id{i}", 10 + i, token=f"tk{i}") for i in range(100)]
+        page2 = [
+            _item("last.zip", "id-last", 99, token="tk-last"),
+            {"file_name": "nosize.zip", "fid": "id-ns", "dir": False},  # size/token 缺省容忍
+            _item("退市股", "dir-1", 0, is_dir=True, token=""),
+        ]
+        urls = []
+    
+        def fake_http(url, body=None, retry=3, timeout=60):
+            urls.append(url)
+            page = int(url.split("_page=")[1].split("&")[0])
+            return 200, {"status": 200, "data": {"list": page1 if page == 1 else page2}}
+    
+        monkeypatch.setattr(share.quark_client, "http", fake_http)
+        monkeypatch.setattr(share.quark_client, "get_stoken", lambda *a, **k: "ST")
+    
+        entries = share._default_listdir("fidX")
+    
+        assert len(entries) == 103 and len(urls) == 2  # 满页继续、短页收尾
+        assert "share/sharepage/detail" in urls[0]
+        assert f"pwd_id={config.PWD_ID}" in urls[0]  # 与 config 单点同值（漂移即红）
+>       assert "stoken=ST" in urls[0]
+E       AssertionError: assert 'stoken=ST' in 'https://drive-pc.quark.cn/1/clouddrive/share/sharepage/detail?ver=2&pwd_id=1ae1c55c0a03&stoken=&pdir_fid=fidX&force=0&_page=1&_size=100&_fetch_total=1&_sort='
+
+tools/pan_update/tests/test_share.py:97: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_share.py::test_default_listdir_paginates_and_maps_fields
+1 failed, 9 passed in 0.20s
+
+### 突变：walk_dir 忽略 prefix
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+......F...                                                               [100%]
+=================================== FAILURES ===================================
+_______________ test_walk_dir_uses_default_transport_and_prefix ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fc746937770>
+
+    def test_walk_dir_uses_default_transport_and_prefix(monkeypatch):
+        tree = {
+            "d_min": [("2026", "d_y")],
+            "d_y": [("09", "d_m")],
+            "d_m": [("20260916.zip", ("f3", 15))],
+        }
+        seen = []
+    
+        def fake_http(url, body=None, retry=3, timeout=60):
+            fid = url.split("pdir_fid=")[1].split("&")[0]
+            seen.append(fid)
+            lst = []
+            for name, fid2 in tree[fid]:
+                if isinstance(fid2, tuple):
+                    lst.append(_item(name, fid2[0], fid2[1]))
+                else:
+                    lst.append(_item(name, fid2, is_dir=True))
+            return 200, {"status": 200, "data": {"list": lst}}
+    
+        monkeypatch.setattr(share.quark_client, "http", fake_http)
+        monkeypatch.setattr(share.quark_client, "get_stoken", lambda *a, **k: "ST")
+    
+        entries = share.walk_dir("d_min", prefix="minutes")
+    
+>       assert [e.rel_path for e in entries] == ["minutes/2026/09/20260916.zip"]
+E       AssertionError: assert ['2026/09/20260916.zip'] == ['minutes/202...20260916.zip']
+E         
+E         At index 0 diff: '2026/09/20260916.zip' != 'minutes/2026/09/20260916.zip'
+E         Use -v to get more diff
+
+tools/pan_update/tests/test_share.py:145: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_share.py::test_walk_dir_uses_default_transport_and_prefix
+1 failed, 9 passed in 0.22s
+
+恢复原文后复跑： 17 passed in 0.17s [exit=0]
+
+[exit=0]

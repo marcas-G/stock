@@ -33,9 +33,23 @@ MUTS = {
         "e.is_dir and e.name == name",
         "e.name == name",
     ),
-    "_default_listdir 去掉分页（只取第一页）": ORIG.replace(
+    "_default_listdir 忽略 metadata._total（短页即停 → 静默截断）": ORIG.replace(
+        "        if isinstance(total, int):\n            if len(out) >= total:\n"
+        "                return out\n        elif len(lst) < _PAGE_SIZE:\n            return out",
         "        if len(lst) < _PAGE_SIZE:\n            return out",
+    ),
+    "_default_listdir 去掉分页（只取第一页）": ORIG.replace(
+        "        if isinstance(total, int):\n            if len(out) >= total:\n"
+        "                return out\n        elif len(lst) < _PAGE_SIZE:\n            return out",
         "        return out",
+    ),
+    "去掉脚本直启导入兜底（裸跑 ModuleNotFoundError）": ORIG.replace(
+        "try:\n"
+        "    from quark_download import quark_client\n"
+        "except ModuleNotFoundError:  # 脚本直启（无 conftest 铺路）→ 补 platform/tools 再导入\n"
+        "    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))\n"
+        "    from quark_download import quark_client",
+        "from quark_download import quark_client",
     ),
     "_default_listdir 不调 get_stoken（空 stoken）": ORIG.replace(
         'urllib.parse.quote(quark_client.get_stoken(), safe="")',

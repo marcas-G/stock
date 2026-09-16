@@ -13,7 +13,18 @@
 | `04-mutation.txt` | 7 种存根突变逐一被测试抓住；恢复原文后复跑 14 passed | `python3 governance/evidence/verification/R30/task2/mutation.py` |
 | `05-tools-suite.txt` | 回归：`platform/tools` 全量 355 passed（58.69s） | `platform/.venv/bin/python -m pytest platform/tools -q` |
 
-脚本：`mutation.py`（复现 04；7 类突变：iter_category 空存根 / `_walk` 不递归 / find_dir 忽略名 / find_dir 不校验 is_dir / 去分页 / 空 stoken / walk_dir 丢 prefix；跑完 try/finally 还原并断言逐字节一致）。
+脚本：`mutation.py`（复现 04；含修复轮后共 9 类突变；跑完 try/finally 还原并断言逐字节一致）。
+
+## 修复轮 1（独立评审 I1/I2；代码提交 `413930d fix(tools): Plan P T2 分页按 _total 终止 + 脚本直启导入兜底`）
+
+- **I1 分页静默截断**：`_default_listdir` 解析 `metadata._total`（int）→ 已收 ≥ total 才终止（短页也继续翻）；无 total/非 int → 保持短页终止 + `_MAX_PAGES` 兜底。
+- **I2 脚本直启导入**：`from quark_download import quark_client` 包 try/except `ModuleNotFoundError` → 兜底插入 `platform/tools` 再导入。
+
+| 文件 | 内容 | 命令（按原样执行） |
+|---|---|---|
+| `05-fix-round1-redgreen.txt` | 红：新增 3 测试中 I1(`_total=250` 短页翻满)/I2(裸跑直启) 2 failed（exit 1）；绿：10 passed；裸场景两命令 exit 0；pan_update 17 passed | `platform/.venv/bin/python -m pytest platform/tools/pan_update/tests/test_share.py -q` 等（文件内逐条） |
+| `06-fix-round1-mutation.txt` | 9 种存根突变全被抓（新增"忽略 metadata._total"/"去直启兜底"）；恢复后 17 passed | `python3 governance/evidence/verification/R30/task2/mutation.py` |
+| `07-fix-round1-regression.txt` | 回归：`platform/tools` 全量 358 passed（55.54s）；G-TOPO 0 处 | `platform/.venv/bin/python -m pytest platform/tools -q`；`platform/.venv/bin/python governance/ops/check_tool_layering.py` |
 
 ## 裁决（brief 内部冲突；按 spec + TDD“测试逐字为准”处理）
 
