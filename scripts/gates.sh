@@ -66,6 +66,9 @@ structure() {
   echo "[G-INDEX] 因子索引与生成器一致"
   if out=$("$PLATFORM/.venv/bin/python" research/tools/factor_lib/build_index.py --check 2>&1); then ok "$out"; else bad "索引不一致：$out"; fi
 
+  echo "[G-INDEX] 策略索引与生成器一致 · spec↔档案成对"
+  if out=$("$PLATFORM/.venv/bin/python" research/tools/factor_lib/build_strategy_index.py --check 2>&1); then ok "$out"; else bad "策略索引不一致：$out"; fi
+
   echo "[G-ANNOTATE] 因子档案 snapshot 标注齐备（R21 约定）"
   # 脚本原位在 R21/EVID（证据即工具）；只做只读 --check，不写档案。
   if out=$(python3 docs/verification/R21/EVID/annotate_factor_archives.py --check 2>&1); then ok "$out"; else bad "$out"; fi

@@ -9,7 +9,7 @@ help:
 	@echo "make test-research   工具/研究测试（单解释器：平台 venv 3.13）"
 	@echo "make gates           全套常驻门（结构/契约/标记/旧路径/索引/文档路径）"
 	@echo "make lint-factors    全库因子 spec lint（单进程批跑；任一失败非零退出）"
-	@echo "make index           重生成 docs/index/factors.md"
+	@echo "make index           重生成 docs/index/factors.md + docs/index/strategies.md"
 	@echo "make reconcile       CH 灌入对账（唯一对账入口；依赖 ClickHouse 在线）"
 
 test-platform:
@@ -29,6 +29,7 @@ lint-factors:
 
 index:
 	python3 research/tools/factor_lib/build_index.py
+	python3 research/tools/factor_lib/build_strategy_index.py
 
 # CH 灌入对账（R4d：唯一对账入口）。需 ClickHouse 在线 + 平台 venv（clickhouse_connect）。
 reconcile:
