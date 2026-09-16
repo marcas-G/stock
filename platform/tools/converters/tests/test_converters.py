@@ -66,6 +66,33 @@ def test_suffix_format_member_regex_matches_only_suffixed_names():
     assert not CM.SUFFIX_MEMBER_RE.match('20240102/sh/600000.csv')
 
 
+def test_open_reader_sniffs_7z_content_under_zip_name(tmp_path, monkeypatch):
+    """T10 实测：上游把 7z 内容命名为 .zip（2026-09-02..16 实测）——不信任扩展名。
+
+    真造一个 7z 归档 + `.zip` 名字；open_reader 必须按魔数选 SevenZipReader
+    并能读出成员（仅改扩展名选择的存根实现必败：zipfile 打开必 BadZipFile）。
+    """
+    day = "20260902"
+    src = tmp_path / "minutes"
+    (src / "2026" / "09").mkdir(parents=True)
+    stage = tmp_path / "stage"
+    member = stage / day / "sz" / "000001.csv"
+    member.parent.mkdir(parents=True)
+    member.write_text("time,open,high,low,close,amount,volume\n", encoding="utf-8")
+    archive = src / "2026" / "09" / f"{day}.zip"     # 7z 内容 + .zip 后缀
+    subprocess.run(["7z", "a", "-t7z", str(archive), day], cwd=stage,
+                   check=True, capture_output=True)
+    assert archive.read_bytes()[:6] == b"7z\xbc\xaf\x27\x1c"
+    monkeypatch.setattr(CM, "SRC_DIR", str(src))
+    reader, path = CM.open_reader(day)
+    try:
+        assert type(reader) is CM.SevenZipReader, "7z 魔数 + .zip 名 → 7z reader"
+        assert any(m.endswith("000001.csv") for m in reader.namelist())
+    finally:
+        reader.close()
+    assert path == str(archive)
+
+
 # ── tick 面：时间解析薄封装仍然等价于平台单点 ──
 def test_tick_parse_ms_is_thin_wrapper_over_factio():
     from factorlab.core.factio.timeparse import hms_to_ms_of_day, parse_ms_numpy

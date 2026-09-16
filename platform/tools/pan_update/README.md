@@ -106,6 +106,9 @@ bash governance/ops/install_pan_timer.sh uninstall
   `FACTORLAB_MIN_AVAILABLE_MEMORY`、`PYARROW_JEMALLOC` 显式传入 runner；`run_cmd` 以
   `{**os.environ, **env}` 合并——非白名单项不经白名单但经父环境继承（白名单用于保证
   值被显式快照，不构成隔离）。
+- **stage 子进程默认 `MALLOC_ARENA_MAX=2`**（显式设置优先；T10 实测 R30）：40 核 glibc
+  多线程 arena VA 预留 ~18GB，`ingest_daily` VmPeak 26.0GB > `3×8GB` RLIMIT_AS → Arrow
+  malloc 失败；压 arena 后 16.4GB（RSS 不变 ~7.5GB）。
 
 ## 限制声明
 
@@ -113,8 +116,11 @@ bash governance/ops/install_pan_timer.sh uninstall
   行级更新日（实测 38 个日期 + 16 行缺失被丢弃）；不可回溯「某历史日当时已知财务值」。
   PIT 历史待多期快照逐周累积或人工 `*_financial.parquet`（manual_required）。
 - **`--prune` 只删不在分享清单内的本地残留**；日K 旧全量快照的轮换保留（设计 §4）不在本轮。
-- 本工具**不真跑网盘/CH 的单测**：全部离线（fake listdir/transport/runner）；真实端到端验收留 T10。
-- 分钟链 `convert_minutes_to_parquet --mode production` 依赖 `_SUCCESS`/regime 配置，命名漂移由 T10 真树复核。
+- 本工具**不真跑网盘/CH 的单测**：全部离线（fake listdir/transport/runner）；真实端到端
+  验收见 `governance/evidence/verification/R30/task10/`（2026-09-17，真网盘 + CH）。
+- 分钟链上游命名不稳定（T10 实测：2026-09 有 11 天为 **7z 内容 + `.zip` 命名**；
+  资金流 20260911 成员名全大写）——转换器已按魔数选 reader、moneyflow 选择器已大小写
+  不敏感；其余未复核面（tick 等）遇同类漂移按 loud fail 处理。
 
 ## 测试
 

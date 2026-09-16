@@ -109,6 +109,18 @@ def test_zip_without_zj_raises(tmp_path):
         IM.load_frames(tmp_path)
 
 
+def test_load_frames_accepts_uppercase_zj_member(tmp_path):
+    """T10 实测：上游 20260911.zip 成员名全大写（ZJ.XLS）——选择器须大小写不敏感。"""
+    _write_zip(tmp_path / "2026" / "09" / "20260911.zip", {
+        "20260911/ZJ.XLS": _zj_text(),
+        "20260911/GNHQ.XLS": b"not a zj file",
+    })
+    df = IM.load_frames(tmp_path)
+    assert df.height == 49
+    assert set(df["trade_date"].to_list()) == {
+        __import__("datetime").date(2026, 9, 11)}
+
+
 # ---------------------------------------------------------------
 # 幂等写入：CREATE IF NOT EXISTS + TRUNCATE + INSERT（裁决 R3）
 # ---------------------------------------------------------------

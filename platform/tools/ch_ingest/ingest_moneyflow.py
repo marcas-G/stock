@@ -36,7 +36,8 @@ TABLE = "moneyflow"
 BATCH = 500_000
 DEFAULT_ROOT = paths.RAW_ROOT / "fund_flow"
 
-_ZJ_RE = re.compile(r"(\d{8})/zj\.xls$")
+# T10 实测：上游成员名大小写不稳定（20260911.zip 全大写 ZJ.XLS）→ 选择器不敏感
+_ZJ_RE = re.compile(r"(\d{8})/zj\.xls$", re.IGNORECASE)
 _DAY_ZIP_RE = re.compile(r"\d{8}\.zip$")
 DDL_COLUMNS = ("ts_code", "trade_date", *moneyflow.NUM_COLUMNS)
 

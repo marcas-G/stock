@@ -91,7 +91,12 @@ def apply_memory_guard(env) -> int | None:
 
 
 def _stage_env() -> dict[str, str]:
-    return {k: os.environ[k] for k in ENV_KEYS if os.environ.get(k)}
+    env = {k: os.environ[k] for k in ENV_KEYS if os.environ.get(k)}
+    # T10 实测（R30/T10 根因）：40 核下多线程 glibc malloc 预留 ~18GB VA，
+    # 24GiB RLIMIT_AS（=3×FACTORLAB_MAX_MEMORY）内 ingest_daily 的 Arrow IPC
+    # malloc 失败（VmPeak 26.0GB → arena 上限 2 时 16.4GB）。显式设置优先。
+    env["MALLOC_ARENA_MAX"] = os.environ.get("MALLOC_ARENA_MAX") or "2"
+    return env
 
 
 def _wire_cookie_env() -> None:

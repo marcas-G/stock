@@ -174,12 +174,25 @@ class SevenZipReader:
         self.close()
 
 
+_SEVENZ_MAGIC = b'7z\xbc\xaf\x27\x1c'
+
+
+def _is_sevenz(path):
+    """按魔数判定 7z（T10 实测：上游 2026-09-02..16 为 7z 内容 + .zip 命名）。"""
+    with open(path, 'rb') as f:
+        return f.read(len(_SEVENZ_MAGIC)) == _SEVENZ_MAGIC
+
+
 def open_reader(day8):
-    """按 archive 类型打开: zip → 内存流; 7z → 临时解压; 返回 (reader, archive_path)"""
+    """按 archive 内容打开（魔数优先于扩展名）: zip → 内存流; 7z → 临时解压。
+
+    返回 (reader, archive_path)。
+    """
     base = f'{SRC_DIR}/{day8[:4]}/{day8[4:6]}/{day8}'
-    for ext, cls in (('.zip', ZipReader), ('.7z', SevenZipReader)):
+    for ext in ('.zip', '.7z'):
         p = f'{base}{ext}'
         if os.path.exists(p):
+            cls = SevenZipReader if _is_sevenz(p) else ZipReader
             return cls(p), p
     raise FileNotFoundError(base)
 

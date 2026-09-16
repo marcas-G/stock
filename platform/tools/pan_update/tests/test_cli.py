@@ -114,7 +114,7 @@ def cookie_ok(monkeypatch):
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
     for k in ("FACTORLAB_MAX_MEMORY", "FACTORLAB_MIN_AVAILABLE_MEMORY",
-              "FACTORLAB_DATA_BACKEND"):
+              "FACTORLAB_DATA_BACKEND", "MALLOC_ARENA_MAX"):
         monkeypatch.delenv(k, raising=False)
 
 
@@ -473,6 +473,27 @@ def test_env_passthrough_to_stage_runner(tmp_path, monkeypatch, cookie_ok):
     assert runner.envs, "runner 应被调用"
     assert runner.envs[0].get("FACTORLAB_DATA_BACKEND") == "ch"
     assert runner.envs[0].get("FACTORLAB_MAX_MEMORY") == "1GB"
+
+
+def test_stage_env_caps_malloc_arenas_by_default(tmp_path, monkeypatch, cookie_ok):
+    """T10 实测（R30）：40 核 glibc arena VA 预留 ~18GB → ingest_daily VmPeak 26.0GB
+    > RLIMIT_AS 24GiB（3×8GB）→ ArrowMemoryError。stage env 默认压 arena 数（=2）。"""
+    monkeypatch.setattr(resource, "setrlimit", lambda *a: None)
+    monkeypatch.delenv("MALLOC_ARENA_MAX", raising=False)
+    runner = FakeRunner()
+    rc = _run(["build", "--categories", "daily"], tmp_path, runner=runner)
+    assert rc == 0
+    assert runner.envs[0].get("MALLOC_ARENA_MAX") == "2", (
+        "未显式设置时必须给 stage 子进程压 glibc arena 数（VA 护栏）")
+
+
+def test_stage_env_respects_explicit_malloc_arena_max(tmp_path, monkeypatch, cookie_ok):
+    monkeypatch.setattr(resource, "setrlimit", lambda *a: None)
+    monkeypatch.setenv("MALLOC_ARENA_MAX", "8")
+    runner = FakeRunner()
+    rc = _run(["build", "--categories", "daily"], tmp_path, runner=runner)
+    assert rc == 0
+    assert runner.envs[0].get("MALLOC_ARENA_MAX") == "8", "显式设置优先（不覆盖）"
 
 
 # ---------------------------------------------------------------
