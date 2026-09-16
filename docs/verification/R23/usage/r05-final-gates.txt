@@ -16,3 +16,9 @@ ebf646c docs(verification): R23/usage — R05 I1/I2/M1 修复证据（Struct 清
 1c54ea4 feat(platform): R05-M1 — op list --catalog 分类表全集 + op doc 分类表回退
 928b3ee fix(platform): R05-I2 — spec 未知字段严格拒绝（extra=forbid）+ 未知算子指引去 op_meta
 fa8aa1e feat(platform): R05-I1 — 分类表返回形态标注 + Struct/多列算子静态拒绝（BBANDS 清晰报错）
+
+# 追加（2026-09-16T10:17:01+08:00，HEAD 985b50e）：R05-I2 口径微调后复跑
+$ cd platform && .venv/bin/python -m pytest -q <9 文件>
+161 passed in 9.68s
+$ make lint-factors
+factor lint: 159 通过 / 0 失败
