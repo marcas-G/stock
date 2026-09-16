@@ -33,9 +33,17 @@
 
 | # | 单元 | 位置/连接 | 规模 | 生产者 | 消费者 | 说明 |
 |---|---|---|---|---|---|---|
-| B1 | ClickHouse `factorlab` | `127.0.0.1:8123`（HTTP；19000 是 tcp client 端口），db=factorlab | **13 表**（2026-09-16 实测：tick_orders 5,810,986,406 / tick_trades 3,797,289,378 / tick_snapshots 344,059,684 / bars_1m 1,853,379,840 / daily=adj_detail=adj_factor=daily_basic 18,124,805 / stk_limit 17,854,764 / adj_event 57,173 / stock_basic 5,861 / trade_cal 8,772；**index_daily 0 行**，见 pending-items #25） | `platform/tools/ch_ingest/`（ingest_daily/bars/tick + derive_stk_limit） | platform ch 后端、研究只读查询 | 对账：`make reconcile`（全一致才 exit 0；**单解释器** `platform/.venv/bin/python`，R27 起 emb 退役）；进度：`ch_ingest/state.json`（**单 JSON**，R4b 由目录形态迁移而来；运行时，不入 git） |
+| B1 | ClickHouse `factorlab` | `127.0.0.1:8123`（HTTP；19000 是 tcp client 端口），db=factorlab | **15 表**（2026-09-17 T11 实测：tick_orders 5,810,986,406 / tick_trades 3,797,289,378 / tick_snapshots 344,059,684 / bars_1m 1,869,389,040 / daily=adj_detail=adj_factor=daily_basic 18,191,285 / stk_limit 17,921,186 / trade_cal 8,784 / stock_basic 5,879 / adj_event 57,352 / moneyflow 1,113,668 / fundamentals 5,556；**index_daily 0 行**，见 pending-items #25） | `platform/tools/ch_ingest/`（ingest_daily/bars/tick + derive_stk_limit；T7/T8 新增 moneyflow/fundamentals） | platform ch 后端、研究只读查询 | 对账：`make reconcile`（全一致才 exit 0；**单解释器** `platform/.venv/bin/python`，R27 起 emb 退役）；进度：`ch_ingest/state.json`（**单 JSON**，R4b 由目录形态迁移而来；运行时，不入 git）；moneyflow/fundamentals 自动对账未纳入（pending #30③，源帧 vs CH 人工核对） |
 | B2 | 平台库 `factorlab.duckdb` | `platform/data/`（相对平台树根） | **当前不存在** | 旧外部源全量写入路径**已退役**（2026-09-17 T11 删 `adapters/rebuild|refresh|mirror_db`） | platform duckdb 后端（测试/历史只读库） | 生产读取走 `FACTORLAB_DATA_BACKEND=ch`；duckdb 仅双腿测试与历史只读库 |
 | B3 | teajoin Tushare 代理 | `https://teajoin.com` | **已退役**（2026-09-17 T11：`data rebuild/update/refresh/verify` CLI 与 fetcher 删除；token 2026-08-22 过期不再续期） | 外部 API（历史） | —（无生产消费者） | 存档说明见 `knowledge/contracts/teajoin-guide.md` |
+
+> **T7/T8 新表（Plan P，2026-09-17）**：
+> - `moneyflow`（日线资金）：**1,113,668 行**；生产者 = 网盘日线资金 zip →
+>   `pan_update/parse_fund_flow.py`（`lib/moneyflow` 单点）→ `ch_ingest/ingest_moneyflow.py`；
+>   消费者 = 平台读路径 `load_daily`（18 列 LEFT JOIN，缺行 null）。
+> - `fundamentals`（财报当期快照，**非 PIT 序列**）：**5,556 行**；生产者 = 周更 xlsx →
+>   `parse_fundamentals_xlsx.py` → fact → `ingest_fundamentals.py`；暂无读面消费方
+>   （PIT 历史待多期快照/人工 parquet，见 pending #4/#30）。
 
 > **R29 数据缺口裁决（2026-09-16）**：CH 无 `stock_st` 表（ST 口径按
 > `FACTORLAB_ST_DEGRADE` 显式降级，不伪造；pending #26）；`index_daily` 0 行且无可用

@@ -1,0 +1,59 @@
+....F                                                                    [100%]
+=================================== FAILURES ===================================
+________________ test_cli_messages_point_to_current_data_chain _________________
+
+    def test_cli_messages_point_to_current_data_chain():
+        """运行时文案/平台 README 不得再指引已退役 CLI（data rebuild|refresh|verify|update）。
+    
+        现行数据链指引 = `make data-update`（网盘）或 data-map/pending 登记。
+        """
+        targets = sorted(SRC.rglob("*.py")) + [REPO / "README.md"]
+        offenders: list[str] = []
+        for f in targets:
+            for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+                low = line.lower()
+                for tok in _STALE_CLI_TOKENS:
+                    if tok in low:
+                        offenders.append(f"{f.relative_to(REPO)}:{i} {tok!r}")
+>       assert not offenders, f"已退役 CLI 文案残留: {offenders[:10]}"
+E       AssertionError: 已退役 CLI 文案残留: ["src/factorlab/adapters/read/market_open.py:246 'data rebuild'", "src/factorlab/adapters/read/universe.py:303 'data rebuild'", "src/factorlab/adapters/read/universe.py:628 'data rebuild'", "src/factorlab/adapters/read/universe.py:642 'data rebuild'", "README.md:33 'data rebuild'", "README.md:39 'data rebuild'"]
+E       assert not ["src/factorlab/adapters/read/market_open.py:246 'data rebuild'", "src/factorlab/adapters/read/universe.py:303 'data r.../factorlab/adapters/read/universe.py:642 'data rebuild'", "README.md:33 'data rebuild'", "README.md:39 'data rebuild'"]
+
+tests/test_dataiface_clean.py:101: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_dataiface_clean.py::test_cli_messages_point_to_current_data_chain
+1 failed, 4 passed in 2.19s
+
+=== I2 红态（实施前，offenders 逐条） ===
+src/factorlab/adapters/read/market_open.py:246 'data rebuild'
+src/factorlab/adapters/read/universe.py:303 'data rebuild'
+src/factorlab/adapters/read/universe.py:628 'data rebuild'
+src/factorlab/adapters/read/universe.py:642 'data rebuild'
+README.md:33 'data rebuild'
+README.md:39 'data rebuild'
+
+=== I3 CH 实测（15 表逐表 count） ===
+tables=15
+adj_detail	18191285
+adj_event	57352
+adj_factor	18191285
+bars_1m	1869389040
+daily	18191285
+daily_basic	18191285
+fundamentals	5556
+index_daily	0
+moneyflow	1113668
+stk_limit	17921186
+stock_basic	5879
+tick_orders	5810986406
+tick_snapshots	344059684
+tick_trades	3797289378
+trade_cal	8784
+
+=== I2 绿态（修后守卫测试） ===
+.....                                                                    [100%]
+5 passed in 2.05s
+
+=== 定向回归（读面消息相关测试） ===
+....................                                                     [100%]
+380 passed in 51.50s
