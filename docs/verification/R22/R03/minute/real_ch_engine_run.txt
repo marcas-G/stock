@@ -1,0 +1,30 @@
+=== R03-I7 真 CH 引擎链（CLI run，has_trade 守卫因子，1 日 1 code）
+$ FACTORLAB_DATA_BACKEND=ch factorlab run /tmp/opencode/i7/i7_run_spec.yaml --output-dir /tmp/opencode/i7/out_i7 --no-backtest
+2026-09-16 08:36:03.981 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 08:36:04.012 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+r03i7_real_probe: n_weeks=0 ic_mean=nan spread=nan
+--- signal 产物:
+shape: (1, 3)
+┌────────────┬───────────┬──────────┐
+│ date       ┆ code      ┆ signal   │
+│ ---        ┆ ---       ┆ ---      │
+│ date       ┆ str       ┆ f64      │
+╞════════════╪═══════════╪══════════╡
+│ 2024-02-08 ┆ 002721.SZ ┆ 0.958159 │
+└────────────┴───────────┴──────────┘
+columns: ['date', 'code', 'signal']
+summary runtime_semantics: minute_intraday_fold_v1
+
+--- 无守卫对照（同源真 CH，raw 索引/239）：
+$ FACTORLAB_DATA_BACKEND=ch factorlab run i7_run_spec_raw.yaml
+2026-09-16 08:36:11.400 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+r03i7_real_probe_raw: n_weeks=0 ic_mean=nan spread=nan
+shape: (1, 3)
+┌────────────┬───────────┬────────┐
+│ date       ┆ code      ┆ signal │
+│ ---        ┆ ---       ┆ ---    │
+│ date       ┆ str       ┆ f64    │
+╞════════════╪═══════════╪════════╡
+│ 2024-02-08 ┆ 002721.SZ ┆ 1.0    │
+└────────────┴───────────┴────────┘
+期望 1.0 = 239/239（无守卫后移）; 守卫 0.958159 = 229/239

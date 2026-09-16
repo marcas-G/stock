@@ -381,7 +381,8 @@ combine:
 - `def` 自定义函数
 - `class`
 - 白名单 `import`
-- 表达式、算术、比较、布尔、`a if cond else b`
+- 表达式、算术、比较、`a if cond else b`
+  （布尔与/用嵌套 `if_else` 表达；`and`/`or`/`not` 与 `&` 不可用——R03-I7）
 - 下标 `x[0]`
 - `#` 注释
 
@@ -463,8 +464,11 @@ combine:
 
 ```yaml
 universe:
-  formula: "close > ts_mean(close, 20) & volume > 1000000"
+  formula: "if_else(close > ts_mean(close, 20), volume > 1000000, False)"
 ```
+
+多条件一律嵌套 `if_else`（`and`/`or`/`not` 在 AST 门拒绝——codegen 无法对列
+表达式求值；`&` 因优先级陷阱（`a > 0 & b > 0` 解析为链式比较）不开放）。
 
 语义：股票池 = **上市骨架 ∩ 池公式条件**——成员资格逐 (code, 交易日) 由数据
 决定（动态池）；`universe.formula` 分支无 codes 名单，候选骨架 = 全市场
@@ -476,8 +480,9 @@ fast，动态门在求值后即时报错）：
 - params `${}` 替换 / 用户宏展开 / AST 门 / 保留名双门 / future 显式引用拒绝
   ——全同主公式（保留名**绑定**门跑在归一前：赋值名会被归一掉，但
   `in_universe` 等内部名仍不可作绑定入口）。
-- 布尔可判定（静态）：表达式须含比较/布尔运算（`close > 15`、`ts_mean 窗口`
-  可参与比较）；纯数值表达式（`close + 1`）在 DB 打开前拒绝。
+- 布尔可判定（静态）：表达式须含比较（`close > 15`、`ts_mean 窗口` 可参与
+  比较）；纯数值表达式（`close + 1`）在 DB 打开前拒绝。多条件用嵌套 `if_else`
+  （如 `if_else(close > 20, volume > 100, False)`）。
 - dtype 门（动态）：求值结果列必须 `Bool`——含比较但数值结果的表达式
   （`if_else(close > 15, close, 0.0)`）求值后拒绝。
 - 未知列走 M1 报错助手（可用列清单 + 最相似候选），与主公式同一供给体系。
@@ -739,8 +744,9 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
   -> pl.DataFrame` B4.7 **面板级纯计算入口**（loader 无关；引擎测试与批算工具
   共用同一代码路径）：date 列规范化（trade_date→date）→ 结构列/date dtype/
   minute_index dtype 校验 → session_type 存在时须 ∈ {0,1,2}（R02-I5）→ daily
-  注入快照存在时逐键 left join（bars 有行而日线缺 → fail fast）→ 未知列报错
-  助手（点名实际可用列）→ **240 网格断言**（(date, code) 组行数恒 240、
+  注入快照存在时逐键 left join（bars 有行而日线缺 → fail fast）→ 公式引用
+  `has_trade` 时按 `amount > 0` 派生（R03-I7；bars 缺 amount → 专门报错）→
+  未知列报错助手（点名实际可用列）→ **240 网格断言**（(date, code) 组行数恒 240、
   minute_index 组内唯一且范围 0..239；违者 ValueError 文案含"bars_1m 网格
   不完整/跨日泄漏疑似"）→ compute_formula(scope="bars_1m")
   → 折日输出组内 (date, code) 唯一性断言（双保险，修订 R6）→ keep-first
@@ -748,7 +754,12 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 - **注入列（B6，固定公开名，_formula_columns 按名探测供给）**：`prev_close`
   （T-1 raw 日收盘）/`eod_close`（T 日 raw 日收盘）/`day_amt`/`day_vol`
   （T 日全天，元/股）/`adv20_amt`/`adv20_vol`（T 及此前 20 个**有行情**交易日
-  均值）。不注入 close/open/high/low/amount/volume（bars 同名列已占）；
+  均值）。另有派生便利列 `has_trade`（R03-I7）：该分钟有真实成交 = `amount > 0`
+  ——分钟 238/239 常为零成交陈旧 bar（amount=volume=0、OHLC 冻结），量价特征
+  须 `if_else(has_trade, x, None)` 守卫（或嵌套
+  `if_else(volume > 0, if_else(amount > 0, x, None), None)`）。`has_trade` 是
+  逐分钟序列、按公式引用派生（无引用零行为变化）、只进公式作用域——不进折日
+  输出/用户列。不注入 close/open/high/low/amount/volume（bars 同名列已占）；
   adj_factor 只进 label 链。
 - **窗口/门语义**：im_*/day_* 走 expr_codegen CL 通道自包含分区表达式
   `.over(["code","date"], order_by="minute_index")`（窗口严格日内）；

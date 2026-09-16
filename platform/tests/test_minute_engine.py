@@ -54,9 +54,11 @@ def _amount(ci: int, i: int) -> float:
 
 
 def _grid_rows(sym: str, ts: str, ci: int, d: dt.date, i: int, *,
-               drop_one: tuple | None = None, dup_index: bool = False):
+               drop_one: tuple | None = None, dup_index: bool = False,
+               stale_from: int | None = None):
     """单 (code, 交易日) 240 网格行；close[239] == 当日 daily close；drop_one 删
-    mi=7（239 网格）/dup_index 时 mi=8 改 7（重复）。"""
+    mi=7（239 网格）/dup_index 时 mi=8 改 7（重复）。stale_from：mi >= stale_from
+    为零成交陈旧行（amount=volume=0、OHLC 冻结在 stale_from-1 价——R03-I7）。"""
     close = _close(ci, i)
     mi_list = list(range(240))
     if drop_one == (sym, d) and not dup_index:
@@ -67,26 +69,32 @@ def _grid_rows(sym: str, ts: str, ci: int, d: dt.date, i: int, *,
     rows = []
     for mi in mi_list:
         px = close + (mi - 239) * 0.001
+        amount, volume = 1000.0 * (1 + mi % 5), 10.0 + mi % 5
+        if stale_from is not None and mi >= stale_from:
+            px = close + (stale_from - 1 - 239) * 0.001   # 陈旧 OHLC 冻结
+            amount, volume = 0.0, 0.0
         rows.append((d.strftime("%Y%m%d"), ts, mi, 0 if mi == 0
                      else (2 if mi >= 238 else 1),
-                     px, px, px, px, 1000.0 * (1 + mi % 5),
-                     10.0 + mi % 5, base_t + dt.timedelta(minutes=1) * mi))
+                     px, px, px, px, amount, volume,
+                     base_t + dt.timedelta(minutes=1) * mi))
     return rows
 
 
 def _bars_rows(*, suspend=None, drop_one: tuple | None = None,
                dup_index: bool = False, dates: list | None = None,
                sample: list | None = None, bars_uncovered=None,
-               extra_bars: list | None = None):
+               extra_bars: list | None = None, stale_tail: list | None = None):
     """样本窗分钟网格：每 (code, 交易日) 恰 240 行；close[239] == 当日 daily close；
     suspend = (symbol, date) 或 {(symbol, date)} 整日停牌（调用方已同步删
     daily/adj）；bars_uncovered = 只删 bars 整日行（daily 保留——R03-I6 覆盖
     缺口）；extra_bars = 额外 (symbol, date) 网格（可越出样本窗——未来行断言用）；
     drop_one = (symbol, date) 去掉 mi=7 一行（239 网格）；dup_index
-    时该日 mi=8 改 7（重复）。dates/sample 缺省为模块级 46 日总历/样本窗。"""
+    时该日 mi=8 改 7（重复）；stale_tail = [(symbol, date, from_mi)] 陈旧尾部
+    零成交行（R03-I7）。dates/sample 缺省为模块级 46 日总历/样本窗。"""
     dates = dates if dates is not None else _DATES
     sample = sample if sample is not None else _SAMPLE
     sus = _suspend_set(suspend) | _suspend_set(bars_uncovered)
+    stale = {(s, d): f for s, d, f in (stale_tail or [])}
     rows = []
     for sym, ts, _b in _CODES:
         ci = [c[0] for c in _CODES].index(sym)
@@ -94,7 +102,8 @@ def _bars_rows(*, suspend=None, drop_one: tuple | None = None,
             if (sym, d) in sus:
                 continue
             rows.extend(_grid_rows(sym, ts, ci, d, dates.index(d),
-                                   drop_one=drop_one, dup_index=dup_index))
+                                   drop_one=drop_one, dup_index=dup_index,
+                                   stale_from=stale.get((sym, d))))
     for sym, d in (extra_bars or []):
         ts = next(t for s, t, _b in _CODES if s == sym)
         ci = [c[0] for c in _CODES].index(sym)
@@ -114,10 +123,11 @@ def _suspend_set(suspend) -> frozenset:
 def _seed(ch_db, *, suspend=None, drop_one: tuple | None = None,
           dup_index: bool = False, dates: list | None = None,
           sample: list | None = None, bars_uncovered=None,
-          extra_bars: list | None = None):
+          extra_bars: list | None = None, stale_tail: list | None = None):
     """daily/adj_factor/stock_basic/trade_cal/bars_1m 全套一致种子（date 值
     'YYYYMMDD' 字符串——dualbridge 'date' kind 契约）。suspend 支持单日或多日；
-    bars_uncovered 只删 bars（daily 保留——覆盖缺口）；extra_bars 额外分钟行。"""
+    bars_uncovered 只删 bars（daily 保留——覆盖缺口）；extra_bars 额外分钟行；
+    stale_tail = [(symbol, date, from_mi)] 陈旧尾部零成交行（R03-I7）。"""
     dates = dates if dates is not None else _DATES
     sus = _suspend_set(suspend)
     client, db = ch_db
@@ -156,7 +166,8 @@ def _seed(ch_db, *, suspend=None, drop_one: tuple | None = None,
                     _bars_rows(suspend=suspend, drop_one=drop_one,
                                dup_index=dup_index, dates=dates, sample=sample,
                                bars_uncovered=bars_uncovered,
-                               extra_bars=extra_bars)),
+                               extra_bars=extra_bars,
+                               stale_tail=stale_tail)),
     }
     dualbridge.seed_ch(client, db, tables)
 
@@ -640,3 +651,84 @@ def test_minute_uncovered_drop_chunked_equals_whole(ch_db, tmp_path, monkeypatch
     assert whole.summary["minute_uncovered"] == chunked.summary["minute_uncovered"]
     assert whole.summary["minute_uncovered"]["dropped_code_days"] == 3
     assert whole.summary["minute_uncovered"]["dropped_codes"] == 2
+
+
+# ---------------- R03-I7：has_trade 陈旧尾部 bar 守卫（分钟便利列） ----------------
+
+def _stale_grid(*, stale_from: int = 238, code: str = "000001"):
+    """R03-I7 合成面板：240 网格；mi >= stale_from 为零成交陈旧行
+    （amount=volume=0、OHLC 冻结在 stale_from-1 价）——high 随 mi 单调升，
+    陈旧段与真实日内高点并列，触高时间类因子无守卫会被后移到 239。"""
+    d = dt.date(2026, 8, 20)
+    px = [10.0 + 0.01 * min(i, stale_from - 1) for i in range(240)]
+    traded = [i < stale_from for i in range(240)]
+    return pl.DataFrame({
+        "trade_date": [d] * 240, "code": [code] * 240,
+        "minute_index": list(range(240)), "session_type": [1] * 240,
+        "open": px, "high": px, "low": px, "close": px,
+        "amount": [1.0 if t else 0.0 for t in traded],
+        "volume": [1.0 if t else 0.0 for t in traded],
+    })
+
+
+_HIGH_TIME = ("_h = if_else(has_trade, high, None)\n"
+              "_at = if_else(_h >= day_max(_h), minute_index, 0)\n"
+              "signal = day_max(_at)")
+
+
+def test_minute_has_trade_guard_excludes_stale_tail_bars():
+    """R03-I7：has_trade = 该分钟 amount > 0（逐分钟序列）。陈旧尾部 230..239
+    无守卫时触高时间 = 239（后移）；`if_else(has_trade, high, None)` 守卫后
+    陈旧行不参与 → 229（finding 的 239/239 → 229/239）。输出列不含 has_trade
+    （注入列不进折日用户列）。"""
+    bars = _stale_grid(stale_from=230)
+    guarded = compute_minute_factor_panel(bars, _HIGH_TIME)
+    assert guarded.columns == ["date", "code", "signal"]
+    assert guarded["signal"].to_list() == [229.0]
+    # 无守卫对照：陈旧 239 行并列日高 → 后移到 239
+    raw = compute_minute_factor_panel(
+        bars, "signal = day_max(if_else(high >= day_max(high), minute_index, 0))")
+    assert raw["signal"].to_list() == [239.0]
+    # 等价嵌套 if_else 写法（量 + 额双条件，文档可用写法）逐值一致
+    nested = ("_h = if_else(volume > 0, if_else(amount > 0, high, None), None)\n"
+              "_at = if_else(_h >= day_max(_h), minute_index, 0)\n"
+              "signal = day_max(_at)")
+    assert compute_minute_factor_panel(bars, nested).equals(guarded)
+
+
+def test_minute_has_trade_derivation_requires_amount_column():
+    """R03-I7：公式引用 has_trade 而面板缺 amount → 专门报错（不是未知列
+    助手）；不引用 has_trade 的无守卫公式在缺 amount 面板上照常可算
+    （按引用派生——不改变无引用因子路径）。"""
+    bars = _stale_grid(stale_from=230)
+    with pytest.raises(ValueError, match="has_trade 派生需"):
+        compute_minute_factor_panel(bars.drop("amount"), _HIGH_TIME)
+    out = compute_minute_factor_panel(bars.drop("amount"),
+                                      "signal = day_last(high)")
+    assert out.columns == ["date", "code", "signal"]
+
+
+def test_minute_has_trade_engine_guard_reads_amount_and_no_output_leak(
+        ch_db, tmp_path):
+    """R03-I7 引擎链：has_trade 公式驱动 `_bars_needed_cols` 增读 amount（否则
+    装配报缺列）；陈旧尾日守卫 == 真实最后成交分钟，无守卫对照暴露后移；
+    折日产物/panel 无 has_trade 列（用户列契约不被注入列污染）。"""
+    d_stale = _SAMPLE[1]
+    _seed(ch_db, stale_tail=[("000001", d_stale, 230)])
+    guarded = _spec(tmp_path, "ht_guard", _HIGH_TIME)
+    raw = _spec(tmp_path, "ht_raw",
+                "signal = day_max(if_else(high >= day_max(high), minute_index, 0))")
+    g = run_factor_minute(guarded, _ctx(tmp_path / "g"))
+    u = run_factor_minute(raw, _ctx(tmp_path / "u"))
+    gs, us = g.signal_artifact.frame, u.signal_artifact.frame
+    stale_key = (pl.col("date") == d_stale) & (pl.col("code") == "000001.SZ")
+    # 陈旧日：守卫 229（真实最后成交分钟），无守卫 239（后移）
+    assert gs.filter(stale_key)["signal"].to_list() == [229.0]
+    assert us.filter(stale_key)["signal"].to_list() == [239.0]
+    # 非陈旧键两口径同值（239）——守卫不误伤正常日
+    assert gs.filter(~stale_key)["signal"].to_list() == \
+        us.filter(~stale_key)["signal"].to_list() == [239.0] * 11
+    # 注入列不进任何用户列（panel/信号帧列契约）
+    assert "has_trade" not in g.panel.columns
+    assert "has_trade" not in gs.columns
+    assert gs.columns == ["date", "code", "signal"]

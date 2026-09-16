@@ -22,7 +22,6 @@ ALLOWED_NODES = {
     ast.Constant,
     ast.BinOp,
     ast.UnaryOp,
-    ast.BoolOp,
     ast.Compare,
     ast.Call,
     ast.Attribute,
@@ -41,9 +40,6 @@ ALLOWED_NODES = {
     ast.Pow,
     ast.USub,
     ast.UAdd,
-    ast.Not,
-    ast.And,
-    ast.Or,
     ast.Eq,
     ast.NotEq,
     ast.Lt,
@@ -102,6 +98,22 @@ def validate_formula(source: str) -> None:
         raise FactorDSLError(f"语法错误: {exc.msg}", exc.lineno, exc.offset) from exc
 
     for node in ast.walk(tree):
+        # R03-I7：and/or/not 对列表达式无法求值（expr_codegen 经 sympy 执行期
+        # TypeError: cannot determine truth value of Relational）——此前 BoolOp/
+        # ast.Not 在 ALLOWED_NODES，lint 通过但运行崩；现前置拒绝并给可用写法。
+        boolean_connector = isinstance(node, ast.BoolOp) or (
+            isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not))
+        if boolean_connector:
+            raise FactorDSLError(
+                "不支持布尔连接 and/or/not（动态列表达式无法真值判断，codegen "
+                "执行期必崩）；布尔与/用嵌套 if_else 表达——"
+                "if_else(条件1, if_else(条件2, x, None), None)；分钟零成交/"
+                "陈旧尾部 bar 守卫可用注入列 has_trade："
+                "if_else(has_trade, x, None)（见 docs/interface.md 分钟面）",
+                getattr(node, "lineno", None),
+                getattr(node, "col_offset", None),
+            )
+
         if type(node) not in ALLOWED_NODES:
             raise FactorDSLError(
                 f"不支持的语法节点: {type(node).__name__}",

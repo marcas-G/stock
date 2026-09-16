@@ -1,0 +1,207 @@
+=== TDD RED（HEAD 47fe5be 源码 + R03-I7 新测试；隔离 worktree 复现）
+$ pytest -q tests/test_minute_engine.py tests/test_ast_gate.py -k 'has_trade or boolean_connector'
+FFFF.                                                                    [100%]
+=================================== FAILURES ===================================
+_____________ test_minute_has_trade_guard_excludes_stale_tail_bars _____________
+
+    def test_minute_has_trade_guard_excludes_stale_tail_bars():
+        """R03-I7：has_trade = 该分钟 amount > 0（逐分钟序列）。陈旧尾部 230..239
+        无守卫时触高时间 = 239（后移）；`if_else(has_trade, high, None)` 守卫后
+        陈旧行不参与 → 229（finding 的 239/239 → 229/239）。输出列不含 has_trade
+        （注入列不进折日用户列）。"""
+        bars = _stale_grid(stale_from=230)
+>       guarded = compute_minute_factor_panel(bars, _HIGH_TIME)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_minute_engine.py:685: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+bars = shape: (240, 10)
+┌────────────┬────────┬──────────────┬──────────────┬───┬───────┬───────┬────────┬────────┐
+│ date   ...┆ 12.29 ┆ 0.0    ┆ 0.0    │
+└────────────┴────────┴──────────────┴──────────────┴───┴───────┴───────┴────────┴────────┘
+formula = '_h = if_else(has_trade, high, None)\n_at = if_else(_h >= day_max(_h), minute_index, 0)\nsignal = day_max(_at)'
+outputs = None, daily = None
+
+    def compute_minute_factor_panel(
+        bars: pl.DataFrame,
+        formula: str,
+        *,
+        outputs: list[str] | None = None,
+        daily: pl.DataFrame | None = None,
+    ) -> pl.DataFrame:
+        """B4.7 纯入口：分钟网格 → 折日面板（[date, code, *outputs]，逐 (code, date)
+        常数、每键恰一行）。引擎与批算工具共用——工具结果 == 平台机制结果。
+    
+        bars：分钟面（date/trade_date + code + minute_index + bars 列均可——date 列
+        名规范化后使用）。daily：注入列快照（_build_daily_injections 输出）——
+        提供时逐键 join；bars 有行而日线缺 → fail fast。错误表：网格 240×唯一且
+        minute_index 范围 0..239 断言（缺行/重复/范围漂移/日期 dtype/跨日泄漏疑似）、
+        session_type ∈ {0,1,2}（存在时）、未知列报错助手（点名可用列）。
+        """
+        if bars.height == 0:
+            raise ValueError("bars_1m 输入为空（无分钟行）——空窗请引擎先行报无数据")
+        if "trade_date" in bars.columns and "date" not in bars.columns:
+            bars = bars.rename({"trade_date": "date"})
+        missing = [c for c in ("date", "code", "minute_index")
+                   if c not in bars.columns]
+        if missing:
+            raise ValueError(f"bars_1m 面板缺列: {missing}（需 date/code/minute_index"
+                             f"——读面见 docs/interface.md 分钟面）")
+        if bars.schema["date"] != pl.Date:
+            raise ValueError(f"bars_1m 网格不完整/跨日泄漏疑似：date 必须 pl.Date"
+                             f"（实际 {bars.schema['date']}——读面解码或跨日泄漏）")
+        if not bars.schema["minute_index"].is_integer():
+            raise ValueError(f"bars_1m 网格不完整/跨日泄漏疑似：minute_index 必须整数"
+                             f" dtype（实际 {bars.schema['minute_index']}）")
+        if "session_type" in bars.columns:
+            bad_sess = bars.filter(pl.col("session_type").is_null()
+                                   | ~pl.col("session_type").is_in([0, 1, 2]))
+            if bad_sess.height:
+                raise ValueError(
+                    f"bars_1m.session_type 必须 ∈ {{0,1,2}}（{bad_sess.height} 行违规"
+                    f"——data contract 违约（三态：0 开/1 连/2 收）；样本 "
+                    f"{bad_sess.select(['date', 'code', 'minute_index', 'session_type']).head(3).to_dicts()}）")
+        if daily is not None:
+            if not {"date", "code"} <= set(daily.columns):
+                raise ValueError(f"daily 注入快照缺 date/code 列（实际 {list(daily.columns)}）")
+            orphan = bars.join(daily.select(["date", "code"]).unique(),
+                               on=["date", "code"], how="anti").height
+            if orphan:
+                raise ValueError(
+                    f"bars_1m 有 {orphan} 个 (code, date) 无当日日线行（daily 面缺失"
+                    f"——缺口全在整日层契约被破坏，fail fast）")
+            bars = bars.join(daily, on=["date", "code"], how="left")
+        unknown = [c for c in _formula_columns(formula) if c not in bars.columns]
+        if unknown:
+>           raise ValueError(
+                f"公式引用未知列: {unknown}（bars_1m 可用列: "
+                f"{[c for c in bars.columns if not c.startswith('__')]}"
+                f"——bars 分钟面列 + 日级注入列见 docs/interface.md 分钟面）")
+E           ValueError: 公式引用未知列: ['has_trade']（bars_1m 可用列: ['date', 'code', 'minute_index', 'session_type', 'open', 'high', 'low', 'close', 'amount', 'volume']——bars 分钟面列 + 日级注入列见 docs/interface.md 分钟面）
+
+src/factorlab/core/engine/minute.py:107: ValueError
+___________ test_minute_has_trade_derivation_requires_amount_column ____________
+
+    def test_minute_has_trade_derivation_requires_amount_column():
+        """R03-I7：公式引用 has_trade 而面板缺 amount → 专门报错（不是未知列
+        助手）；不引用 has_trade 的无守卫公式在缺 amount 面板上照常可算
+        （按引用派生——不改变无引用因子路径）。"""
+        bars = _stale_grid(stale_from=230)
+>       with pytest.raises(ValueError, match="has_trade 派生需"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'has_trade 派生需'
+E         Actual message: "公式引用未知列: ['has_trade']（bars_1m 可用列: ['date', 'code', 'minute_index', 'session_type', 'open', 'high', 'low', 'close', 'volume']——bars 分钟面列 + 日级注入列见 docs/interface.md 分钟面）"
+
+tests/test_minute_engine.py:704: AssertionError
+______ test_minute_has_trade_engine_guard_reads_amount_and_no_output_leak ______
+
+ch_db = (<clickhouse_connect.driver.httpclient.HttpClient object at 0x7f55883716a0>, 'factorlab_test_51ed4d53')
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1471/test_minute_has_trade_engine_g0')
+
+    def test_minute_has_trade_engine_guard_reads_amount_and_no_output_leak(
+            ch_db, tmp_path):
+        """R03-I7 引擎链：has_trade 公式驱动 `_bars_needed_cols` 增读 amount（否则
+        装配报缺列）；陈旧尾日守卫 == 真实最后成交分钟，无守卫对照暴露后移；
+        折日产物/panel 无 has_trade 列（用户列契约不被注入列污染）。"""
+        d_stale = _SAMPLE[1]
+        _seed(ch_db, stale_tail=[("000001", d_stale, 230)])
+        guarded = _spec(tmp_path, "ht_guard", _HIGH_TIME)
+        raw = _spec(tmp_path, "ht_raw",
+                    "signal = day_max(if_else(high >= day_max(high), minute_index, 0))")
+>       g = run_factor_minute(guarded, _ctx(tmp_path / "g"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_minute_engine.py:721: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/factorlab/app/run.py:787: in run_factor_minute
+    parts.append(compute_minute_factor_panel(bars, formula,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+bars = shape: (2_880, 15)
+┌────────────┬────────┬──────────────┬───────────┬───┬─────────┬─────────┬───────────┬───────────┐
+...155e6  ┆ 12550.0   │
+└────────────┴────────┴──────────────┴───────────┴───┴─────────┴─────────┴───────────┴───────────┘
+formula = '_h = if_else(has_trade, high, None)\n_at = if_else(_h >= day_max(_h), minute_index, 0)\nsignal = day_max(_at)'
+outputs = ['signal']
+daily = shape: (52, 8)
+┌────────────┬────────┬───────────┬────────────┬─────────┬─────────┬───────────┬───────────┐
+│ date    ... ┆ 2.0155e6  ┆ 12550.0   │
+└────────────┴────────┴───────────┴────────────┴─────────┴─────────┴───────────┴───────────┘
+
+    def compute_minute_factor_panel(
+        bars: pl.DataFrame,
+        formula: str,
+        *,
+        outputs: list[str] | None = None,
+        daily: pl.DataFrame | None = None,
+    ) -> pl.DataFrame:
+        """B4.7 纯入口：分钟网格 → 折日面板（[date, code, *outputs]，逐 (code, date)
+        常数、每键恰一行）。引擎与批算工具共用——工具结果 == 平台机制结果。
+    
+        bars：分钟面（date/trade_date + code + minute_index + bars 列均可——date 列
+        名规范化后使用）。daily：注入列快照（_build_daily_injections 输出）——
+        提供时逐键 join；bars 有行而日线缺 → fail fast。错误表：网格 240×唯一且
+        minute_index 范围 0..239 断言（缺行/重复/范围漂移/日期 dtype/跨日泄漏疑似）、
+        session_type ∈ {0,1,2}（存在时）、未知列报错助手（点名可用列）。
+        """
+        if bars.height == 0:
+            raise ValueError("bars_1m 输入为空（无分钟行）——空窗请引擎先行报无数据")
+        if "trade_date" in bars.columns and "date" not in bars.columns:
+            bars = bars.rename({"trade_date": "date"})
+        missing = [c for c in ("date", "code", "minute_index")
+                   if c not in bars.columns]
+        if missing:
+            raise ValueError(f"bars_1m 面板缺列: {missing}（需 date/code/minute_index"
+                             f"——读面见 docs/interface.md 分钟面）")
+        if bars.schema["date"] != pl.Date:
+            raise ValueError(f"bars_1m 网格不完整/跨日泄漏疑似：date 必须 pl.Date"
+                             f"（实际 {bars.schema['date']}——读面解码或跨日泄漏）")
+        if not bars.schema["minute_index"].is_integer():
+            raise ValueError(f"bars_1m 网格不完整/跨日泄漏疑似：minute_index 必须整数"
+                             f" dtype（实际 {bars.schema['minute_index']}）")
+        if "session_type" in bars.columns:
+            bad_sess = bars.filter(pl.col("session_type").is_null()
+                                   | ~pl.col("session_type").is_in([0, 1, 2]))
+            if bad_sess.height:
+                raise ValueError(
+                    f"bars_1m.session_type 必须 ∈ {{0,1,2}}（{bad_sess.height} 行违规"
+                    f"——data contract 违约（三态：0 开/1 连/2 收）；样本 "
+                    f"{bad_sess.select(['date', 'code', 'minute_index', 'session_type']).head(3).to_dicts()}）")
+        if daily is not None:
+            if not {"date", "code"} <= set(daily.columns):
+                raise ValueError(f"daily 注入快照缺 date/code 列（实际 {list(daily.columns)}）")
+            orphan = bars.join(daily.select(["date", "code"]).unique(),
+                               on=["date", "code"], how="anti").height
+            if orphan:
+                raise ValueError(
+                    f"bars_1m 有 {orphan} 个 (code, date) 无当日日线行（daily 面缺失"
+                    f"——缺口全在整日层契约被破坏，fail fast）")
+            bars = bars.join(daily, on=["date", "code"], how="left")
+        unknown = [c for c in _formula_columns(formula) if c not in bars.columns]
+        if unknown:
+>           raise ValueError(
+                f"公式引用未知列: {unknown}（bars_1m 可用列: "
+                f"{[c for c in bars.columns if not c.startswith('__')]}"
+                f"——bars 分钟面列 + 日级注入列见 docs/interface.md 分钟面）")
+E           ValueError: 公式引用未知列: ['has_trade']（bars_1m 可用列: ['date', 'code', 'minute_index', 'high', 'in_universe', 'is_listed', 'list_days', 'is_st', 'exchange', 'eod_close', 'prev_close', 'day_amt', 'day_vol', 'adv20_amt', 'adv20_vol']——bars 分钟面列 + 日级注入列见 docs/interface.md 分钟面）
+
+src/factorlab/core/engine/minute.py:107: ValueError
+____________ test_rejects_boolean_connectors_with_if_else_guidance _____________
+
+    def test_rejects_boolean_connectors_with_if_else_guidance():
+        for expr in ("(close > 0) and (volume > 0)",
+                     "(close > 0) or (volume > 0)",
+                     "not (close > 0)"):
+>           with pytest.raises(FactorDSLError, match="if_else"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE FactorDSLError
+
+tests/test_ast_gate.py:101: Failed
+=========================== short test summary info ============================
+FAILED tests/test_minute_engine.py::test_minute_has_trade_guard_excludes_stale_tail_bars
+FAILED tests/test_minute_engine.py::test_minute_has_trade_derivation_requires_amount_column
+FAILED tests/test_minute_engine.py::test_minute_has_trade_engine_guard_reads_amount_and_no_output_leak
+FAILED tests/test_ast_gate.py::test_rejects_boolean_connectors_with_if_else_guidance
+4 failed, 1 passed, 36 deselected in 2.88s

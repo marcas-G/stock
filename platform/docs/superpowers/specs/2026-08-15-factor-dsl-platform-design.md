@@ -289,7 +289,7 @@ formula: |
 
   _ret = returns(close)
   _vol = ts_std(_ret, 20)
-  _cond = (_vol < ts_median(_vol, 60)) & (close > delay(close, 5))
+  _cond = if_else(_vol < ts_median(_vol, 60), close > delay(close, 5), False)
   signal = rank(momentum(close, 5) - zscore(_vol)) - 0.5
 ```
 

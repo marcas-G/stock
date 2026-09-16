@@ -1,0 +1,5 @@
+=== TDD GREEN（HEAD 47fe5be + R03-I7 实现；隔离 worktree = 本提交内容）
+$ pytest -q tests/test_minute_engine.py tests/test_minute_gate.py tests/test_ast_gate.py tests/test_compute.py tests/test_pool_formula.py tests/test_catalog.py
+........................................................................ [ 50%]
+.......................................................................  [100%]
+143 passed in 34.17s

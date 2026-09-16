@@ -17,6 +17,11 @@
 - 注入列（B6，固定公开名）：eod_close/prev_close/day_amt/day_vol = 当日 daily
   行原值（无换算——amount 元/volume 股，见 data/intraday.py 单位契约）；
   adv20_amt/adv20_vol = 该 code 有行情日序列 20 日均（停牌日跳过——修订 R2）。
+- R03-I7 派生便利列：`has_trade` = 该分钟有真实成交（`amount > 0`；陈旧零成交
+  尾部 bar——238/239 常为 amount=volume=0 的冻结 OHLC——做量价特征须
+  `if_else(has_trade, x, None)` 守卫）。逐分钟序列；按公式引用派生（不注入时
+  零行为变化）；仅进公式作用域，永不进折日输出/用户列（compute_formula 输出
+  只 select [date, code, *outputs]）。
 - 折日输出恒 [date, code, *outputs]（pl.Date/pl.String）；canonical code 在
   artifact boundary（与日频链同一 canonicalize）。
 
@@ -45,10 +50,13 @@ _GRID_ROWS_PER_DAY = 240  # bars_1m 固定网格（minute_index 0..239 唯一）
 
 def _bars_needed_cols(formula: str) -> list[str]:
     """引擎按公式实际引用（∩ bars 读面列）裁剪批读投影——整市场长窗内存纪律；
-    minute_index 无条件包含（网格断言与 im_*/day_* codegen 都依赖）。"""
-    return ["trade_date", "code", "minute_index"] + sorted(
-        (set(_formula_columns(formula)) & set(BARS_1M_COLS))
-        - {"trade_date", "code", "minute_index"})
+    minute_index 无条件包含（网格断言与 im_*/day_* codegen 都依赖）。
+    R03-I7：引用 has_trade 时增读 amount（派生输入 amount > 0——不派生不进投影）。"""
+    refs = set(_formula_columns(formula))
+    extra = (refs & set(BARS_1M_COLS)) - {"trade_date", "code", "minute_index"}
+    if "has_trade" in refs:
+        extra = extra | {"amount"}
+    return ["trade_date", "code", "minute_index"] + sorted(extra)
 
 
 
@@ -65,9 +73,11 @@ def compute_minute_factor_panel(
 
     bars：分钟面（date/trade_date + code + minute_index + bars 列均可——date 列
     名规范化后使用）。daily：注入列快照（_build_daily_injections 输出）——
-    提供时逐键 join；bars 有行而日线缺 → fail fast。错误表：网格 240×唯一且
-    minute_index 范围 0..239 断言（缺行/重复/范围漂移/日期 dtype/跨日泄漏疑似）、
-    session_type ∈ {0,1,2}（存在时）、未知列报错助手（点名可用列）。
+    提供时逐键 join；bars 有行而日线缺 → fail fast。公式引用 `has_trade`
+    （R03-I7）时按 `amount > 0` 派生（bars 须含 amount；不进输出列）。错误表：
+    网格 240×唯一且 minute_index 范围 0..239 断言（缺行/重复/范围漂移/日期
+    dtype/跨日泄漏疑似）、session_type ∈ {0,1,2}（存在时）、未知列报错助手
+    （点名可用列）。
     """
     if bars.height == 0:
         raise ValueError("bars_1m 输入为空（无分钟行）——空窗请引擎先行报无数据")
@@ -102,7 +112,17 @@ def compute_minute_factor_panel(
                 f"bars_1m 有 {orphan} 个 (code, date) 无当日日线行（daily 面缺失"
                 f"——缺口全在整日层契约被破坏，fail fast）")
         bars = bars.join(daily, on=["date", "code"], how="left")
-    unknown = [c for c in _formula_columns(formula) if c not in bars.columns]
+    refs = _formula_columns(formula)
+    if "has_trade" in refs:
+        # R03-I7：陈旧零成交尾部 bar（amount=volume=0、OHLC 冻结）守卫便利列。
+        # 仅按引用派生（无引用路径零变化）；不进输出列（compute_formula 收口）。
+        if "amount" not in bars.columns:
+            raise ValueError(
+                "公式引用 has_trade（该分钟有真实成交 = amount > 0 派生列），但"
+                " bars_1m 面板缺 amount 列——has_trade 派生需分钟成交额；读面见 "
+                "docs/interface.md 分钟面")
+        bars = bars.with_columns((pl.col("amount") > 0).alias("has_trade"))
+    unknown = [c for c in refs if c not in bars.columns]
     if unknown:
         raise ValueError(
             f"公式引用未知列: {unknown}（bars_1m 可用列: "

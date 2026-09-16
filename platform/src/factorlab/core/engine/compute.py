@@ -651,19 +651,18 @@ def _normalize_pool_formula(text: str) -> str:
 
 def _require_boolean_pool(text: str) -> None:
     """池公式布尔可判定门（静态，run_factor 打开 DB 前）：归一文本的表达式中
-    无任何比较/布尔运算 → fail fast（不落库求值）。动态 dtype 门（结果列 Bool）
-    在求值后兜底——含比较但返回数值的表达式（如 if_else 数值分支）静态放行、
-    dtype 门拦截。
-    """
+    无任何比较 → fail fast（不落库求值）。动态 dtype 门（结果列 Bool）在求值
+    后兜底——含比较但返回数值的表达式（如 if_else 数值分支）静态放行、dtype
+    门拦截。R03-I7：and/or 在 AST 门已拒（codegen 无法求值），此处只认比较；
+    多条件用嵌套 if_else 表达。"""
     tree = ast.parse(text)
     stmt = tree.body[0]                       # _normalize_pool_formula 已归一
     assert isinstance(stmt, ast.Assign)
-    decidable = any(
-        isinstance(n, (ast.Compare, ast.BoolOp)) for n in ast.walk(stmt.value))
+    decidable = any(isinstance(n, ast.Compare) for n in ast.walk(stmt.value))
     if not decidable:
         raise ValueError(
-            "池公式必须布尔可判定（表达式含比较 `>`/`<`/`==`/`!=` 或布尔运算，"
-            "逐 (code, 交易日) 得真/假）——纯数值/窗口表达式不是成员条件；"
+            "池公式必须布尔可判定（表达式含比较 `>`/`<`/`==`/`!=`；多条件用嵌套"
+            " if_else）——纯数值/窗口表达式不是成员条件；"
             "v1 文法指引见 docs/interface.md §公式化股票池")
 
 

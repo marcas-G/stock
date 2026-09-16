@@ -50,8 +50,10 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
 墙钟 ms；价格 **raw 不复权**；amount 单位 **元**、volume 单位 **股**；缺口全在
 整日层（停牌日无行、2025-12-01..03 全市场隔离、次新 date-shift 隔离窗、D_true_gap
 2 日——缺行 = 当日无该股行情，与日频"缺行=停牌"同构）；~3.6% 分钟零成交 flat 行
-（volume=0 AND amount=0，OHLC 为陈旧值——做量价特征须公式层守卫
-`if_else(volume > 0 AND amount > 0, ...)`，平台不自动过滤）。
+（volume=0 AND amount=0，OHLC 为陈旧值——做量价特征须公式层守卫；平台提供
+便捷列 `has_trade`（= `amount > 0`，R03-I7）：`if_else(has_trade, x, None)`，
+等价嵌套写法 `if_else(volume > 0, if_else(amount > 0, x, None), None)`——
+`&`/`and` 布尔连接被 AST 门禁（见 interface.md 分钟面），平台不自动过滤）。
 
 ## 目标（本里程碑）
 
@@ -69,7 +71,8 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
 - 日内输出产物（每分钟一行信号）：折日是唯一输出形态。
 - 1m 信号进回测（M8 只吃日池 artifact）；resIC/corr/cross_section 对分钟产物专项
   验证（理论可用，不在验收矩阵）。
-- 平台自动过滤零成交 flat bar（公式层守卫；文档给写法）。
+- 平台自动过滤零成交 flat bar（公式层守卫；文档给写法；R03-I7 提供 `has_trade`
+  便利列但仍不自动过滤——守卫是公式作者显式选择）。
 - 研究侧窄池档案的新机制（沿用 universe yaml/ref + 现有池机制）。
 
 ## 行为要求（逐条可断言；测试矩阵见文末）
@@ -152,6 +155,10 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
   作用于注入列（B3.2 已禁）。
 - B6.4 注入列数值沿 (code, trade_date) 对齐；adv20 需 chunk_start 前 20 交易日
   左窗数据（引擎预取）。
+- B6.5（R03-I7）派生便利列 `has_trade`：该分钟有真实成交 = `amount > 0`（分钟
+  零成交/陈旧尾部 bar 守卫——238/239 常为 amount=volume=0 的冻结 OHLC）。逐分钟
+  序列（非日级注入）；按公式引用派生（无引用零行为变化）；只进公式作用域，不进
+  折日输出用户列（compute_formula 输出 select [date, code, *outputs] 兜底）。
 
 ### B7 CLI
 - B7.1 `factorlab run <spec>` 对 interface=bars_1m 分派 run_factor_minute（一处
@@ -250,7 +257,13 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
   `adapters/intraday.py` docstring 与 interface.md 同步补正；探针与输出存
   docs/verification/R22/R03/misc/probe_m5_bar_time_labeling.{py,txt}。
   网格/索引语义（0=09:25、239=15:00）不变。
-- 其余规格行（B1.1/B2/B3/B4.1/B4.2/B4.5/B4.6/B4.7/B5/B6.2-B6.4/B7）与实现
+- R10（R03-I7，2026-09-16）：新增 B6.5 派生便利列 `has_trade`（= 分钟
+  `amount > 0`；陈旧零成交尾部 bar 守卫）；文档零成交守卫示例改为可用写法
+  （原文 `AND` 是 Python 语法错误；`&` 被 AST 门拒——实测 `a > 0 & b > 0`
+  解析为链式比较静默错值，`and`/`or`/`not` 在 expr_codegen 执行期 TypeError，
+  故门维持拒绝布尔连接）；池公式多条件同步改为嵌套 `if_else` 写法
+  （`_require_boolean_pool` 只认比较）。
+- 其余规格行（B1.1/B2/B3/B4.1/B4.2/B4.5/B4.6/B4.7/B5/B6.2-B6.5/B7）与实现
   逐条一致；差异仅措辞级（如引擎门文案比错误表更具体，测试按文案子串匹配）。
 
 ## 验证记录
@@ -300,3 +313,8 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
   AnnAssign/缺失 outputs），红→绿过程发现 Compare 左操作数漏检 → 修复 + R8 记
   录。全量 2423 passed 13 skipped。
 
+- R03-I7（2026-09-16）：B6.5 派生列 `has_trade`（amount > 0）落地 + 布尔连接门
+  （and/or/not 前置拒绝、`&` 维持拒绝）；守卫/无守卫合成面板与引擎链测试
+  tests/test_minute_engine.py::test_minute_has_trade_* 三例全绿；真实 CH 探针
+  002721.SZ 2024-02-08（无守卫 239/239 → 守卫 229/239）与红绿记录见
+  docs/verification/R22/R03/minute/。make lint-factors 159/159。

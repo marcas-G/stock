@@ -449,10 +449,10 @@ _normalize_pool_formula('def f():\n    pass\nx = 1')
 - 对照测试：`tests/test_pool_formula.py::test_pool_reject_multi_statement`
 
 ### gate_pool_boolean_required（池公式非布尔（语法判定））
-- 规则：池公式必须布尔可判定——表达式须含比较（>/</==/!=）或布尔运算，逐 (code, 交易日) 得真/假
+- 规则：池公式必须布尔可判定——表达式须含比较（>/</==/!=）；多条件用嵌套 if_else（and/or/& 不可用），逐 (code, 交易日) 得真/假
 - 触发：池公式写纯数值/窗口表达式（signal = 1 + 2）作成员条件
-- 报错文案样板：`池公式必须布尔可判定（表达式含比较 `>`/`<`/`==`/`!=` 或布尔运算，`
-- 修法：成员条件补比较/布尔运算（如 close > 20 或 (volume > 100) & (close > 20)）
+- 报错文案样板：`池公式必须布尔可判定（表达式含比较 `>`/`<`/`==`/`!=`；多条件用嵌套`
+- 修法：成员条件补比较；多条件用嵌套 if_else（如 if_else(close > 20, volume > 100, False)）
 - 触发探针：```python
 from factorlab.core.engine.compute import _require_boolean_pool
 _require_boolean_pool('signal = 1 + 2')
@@ -463,7 +463,7 @@ _require_boolean_pool('signal = 1 + 2')
 - 规则：池公式求值结果列 dtype 必须 Bool——if_else 等数值分支表达式不是成员条件
 - 触发：池公式通过语法门但求值 dtype 为 Int/Float（如 (close > 15) * 1）
 - 报错文案样板：`分支表达式不可作 v1 池公式`
-- 修法：成员条件去掉算术尾巴——写成比较/布尔式（(close > 15) & (volume > 100)）
+- 修法：成员条件去掉算术尾巴——写成比较式（如 if_else(close > 15, volume > 100, False)）
 - 触发探针：```python
 from factorlab.core.engine.compute import _pool_cond_frame
 import polars as pl

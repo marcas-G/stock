@@ -1,0 +1,28 @@
+2026-09-16 08:26:16.282 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 08:26:16.318 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-16 08:26:16.531 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 08:26:16.563 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+bars rows: 240
+tail minute_index>=230:
+shape: (10, 5)
+┌──────────────┬────────┬────────┬──────┬───────┐
+│ minute_index ┆ amount ┆ volume ┆ high ┆ close │
+│ ---          ┆ ---    ┆ ---    ┆ ---  ┆ ---   │
+│ u16          ┆ f64    ┆ f64    ┆ f32  ┆ f32   │
+╞══════════════╪════════╪════════╪══════╪═══════╡
+│ 230          ┆ 0.0    ┆ 0.0    ┆ 2.53 ┆ 2.53  │
+│ 231          ┆ 0.0    ┆ 0.0    ┆ 2.53 ┆ 2.53  │
+│ 232          ┆ 0.0    ┆ 0.0    ┆ 2.53 ┆ 2.53  │
+│ 233          ┆ 0.0    ┆ 0.0    ┆ 2.53 ┆ 2.53  │
+│ 234          ┆ 0.0    ┆ 0.0    ┆ 2.53 ┆ 2.53  │
+│ 235          ┆ 0.0    ┆ 0.0    ┆ 2.53 ┆ 2.53  │
+│ 236          ┆ 0.0    ┆ 0.0    ┆ 2.53 ┆ 2.53  │
+│ 237          ┆ 0.0    ┆ 0.0    ┆ 2.53 ┆ 2.53  │
+│ 238          ┆ 0.0    ┆ 0.0    ┆ 2.53 ┆ 2.53  │
+│ 239          ┆ 0.0    ┆ 0.0    ┆ 2.53 ┆ 2.53  │
+└──────────────┴────────┴────────┴──────┴───────┘
+zero-trade rows (amount==0): 140
+amount>0 vs volume>0 disagreement rows: 0
+unguarded high_time: [239] (/239)
+guarded   high_time: [229] (/239)
+OK: 239/239 -> 229/239（has_trade = amount > 0 守卫生效；输出无 has_trade 列）

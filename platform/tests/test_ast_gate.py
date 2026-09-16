@@ -88,3 +88,21 @@ def test_allows_bare_platform_macro_and_regular_polars_ta_import():
     validate_formula(
         "from polars_ta.prefix.wq import ts_mean\n"
         "signal = returns(close) + ts_mean(close, 20)\n")
+
+
+# ── R03-I7：布尔连接 and/or/not 在 expr_codegen 无法对列表达式求值（实测
+# TypeError: cannot determine truth value of Relational）——AST 门此前放行 →
+# lint 通过但运行崩；现前置拒绝并给出可用写法（嵌套 if_else / has_trade） ──
+
+def test_rejects_boolean_connectors_with_if_else_guidance():
+    for expr in ("(close > 0) and (volume > 0)",
+                 "(close > 0) or (volume > 0)",
+                 "not (close > 0)"):
+        with pytest.raises(FactorDSLError, match="if_else"):
+            validate_formula(f"signal = {expr}\n")
+
+
+def test_boolean_connector_rejection_does_not_block_comparisons():
+    # 正向控制：比较/算术/if_else/一元负 不受影响（门收紧不得误杀）
+    validate_formula("signal = if_else(close > 0, close, -close)\n")
+    validate_formula("signal = -ts_mean(close, 20) + 1\n")

@@ -535,10 +535,10 @@ def _gates() -> list[dict]:
             "id": "gate_pool_boolean_required",
             "category": "spec",
             "name": "池公式非布尔（语法判定）",
-            "rule": "池公式必须布尔可判定——表达式须含比较（>/</==/!=）或布尔运算，逐 (code, 交易日) 得真/假",
+            "rule": "池公式必须布尔可判定——表达式须含比较（>/</==/!=）；多条件用嵌套 if_else（and/or/& 不可用），逐 (code, 交易日) 得真/假",
             "trigger": "池公式写纯数值/窗口表达式（signal = 1 + 2）作成员条件",
-            "sample": "池公式必须布尔可判定（表达式含比较 `>`/`<`/`==`/`!=` 或布尔运算，",
-            "fix": "成员条件补比较/布尔运算（如 close > 20 或 (volume > 100) & (close > 20)）",
+            "sample": "池公式必须布尔可判定（表达式含比较 `>`/`<`/`==`/`!=`；多条件用嵌套",
+            "fix": "成员条件补比较；多条件用嵌套 if_else（如 if_else(close > 20, volume > 100, False)）",
             "tests": [
                 "tests/test_pool_formula.py::test_pool_reject_non_boolean_expression",
             ],
@@ -551,7 +551,7 @@ def _gates() -> list[dict]:
             "rule": "池公式求值结果列 dtype 必须 Bool——if_else 等数值分支表达式不是成员条件",
             "trigger": "池公式通过语法门但求值 dtype 为 Int/Float（如 (close > 15) * 1）",
             "sample": "分支表达式不可作 v1 池公式",
-            "fix": "成员条件去掉算术尾巴——写成比较/布尔式（(close > 15) & (volume > 100)）",
+            "fix": "成员条件去掉算术尾巴——写成比较式（如 if_else(close > 15, volume > 100, False)）",
             "tests": [
                 "tests/test_pool_formula.py::test_pool_reject_dtype_not_bool",
             ],
