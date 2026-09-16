@@ -6,7 +6,8 @@ front matter + 六节模板，规范见 `_template.md`）。机器索引在 `kno
 
 > **R24 路径映射（2026-09-16）**：本目录 `research/docs/factors/` → `knowledge/dossiers/factors/`；
 > 索引 `docs/index/factors.md` → `knowledge/index/factors.md`；playbook `research/docs/factor-mining-playbook.md`
-> → `knowledge/dossiers/factor-mining-playbook.md`。各档案正文尾部模板行残留的
+> → `knowledge/dossiers/factor-mining-playbook.md`（R06-M10 单点归位：`knowledge/handbooks/factor-mining-playbook.md`）。
+> 各档案正文尾部模板行残留的
 > `docs/factor-mining-playbook.md` 为**历史档案正文**（不改写），按本映射理解。
 
 ## ⚠️ 验证数字是历史快照（R21 标注，2026-09-15）
@@ -30,7 +31,7 @@ R01-EVID-C1（台账 `governance/evidence/reviews/findings.md`）的修复选择
 
 1. **重建平台库**（与档案原始跑法同源）：`platform/.venv/bin/factorlab data rebuild`
    （teajoin 代理源，需可用 API key）；随后逐 spec `factorlab run`，用新的
-   `results/<name>/summary.json` 更新档案 §4、`updated_ts`，并删除 `snapshot` 字段；
+   `runs/platform/<name>/summary.json` 更新档案 §4、`updated_ts`，并删除 `snapshot` 字段；
 2. **或**给 CH 灌入 `stock_st`（`platform/tools/ch_ingest/`），以
    `FACTORLAB_DATA_BACKEND=ch` 复跑同一条链；
 3. 只做**小样本冒烟**（`universe.codes` / `--universe`）可在 CH 上跑通

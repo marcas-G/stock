@@ -23,7 +23,7 @@ stock/                     ← 仓库根（治理薄层，白名单定稿 14 项
 
 | 我想… | 去哪 |
 |---|---|
-| 写一个因子并跑出结果 | [knowledge/dossiers/factor-authoring-manual.md](knowledge/dossiers/factor-authoring-manual.md)（单页闭环：写→自检→跑→读数→入库） |
+| 写一个因子并跑出结果 | [knowledge/handbooks/factor-authoring-manual.md](knowledge/handbooks/factor-authoring-manual.md)（单页闭环：写→自检→跑→读数→入库） |
 | 看数据放在哪、谁生产它 | [governance/workspace/data-map.md](governance/workspace/data-map.md)（数据资产唯一权威） |
 | 看目录/命名约定 | [governance/workspace/directory-conventions.md](governance/workspace/directory-conventions.md)（结构唯一权威） |
 | 改平台代码（引擎/DSL/评估） | `platform/src/factorlab/` + [knowledge/contracts/interface.md](knowledge/contracts/interface.md) |
@@ -36,7 +36,7 @@ stock/                     ← 仓库根（治理薄层，白名单定稿 14 项
 
 ## 跑因子（最短路径）
 
-> 完整闭环（含入库/提交/常见坑）：[knowledge/dossiers/factor-authoring-manual.md](knowledge/dossiers/factor-authoring-manual.md)
+> 完整闭环（含入库/提交/常见坑）：[knowledge/handbooks/factor-authoring-manual.md](knowledge/handbooks/factor-authoring-manual.md)
 
 ```bash
 cd platform                                   # 平台 venv 在这里

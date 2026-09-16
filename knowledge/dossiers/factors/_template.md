@@ -109,7 +109,7 @@ adjustment: <qfq 等>
 
 ### 判定
 
-对照 `knowledge/dossiers/factor-mining-playbook.md` 的评估阈值：
+对照 `knowledge/handbooks/factor-mining-playbook.md` 的评估阈值：
 
 - <结论：如 "IC t=3.47 显著（\|t\|>2），IR 0.26，全期有效；近 26 周衰减（t≈0）→ 观察中">
 - <下一个动作：如 "参数扫描 / 换样本期复验 / 弃用">
@@ -129,4 +129,4 @@ adjustment: <qfq 等>
 - <其他备注：与相关因子的相关性、组合使用注意、已知 bug/限制>
 
 ---
-*档案规范见本模板；因子挖掘方法论见 `knowledge/dossiers/factor-mining-playbook.md`。*
+*档案规范见本模板；因子挖掘方法论见 `knowledge/handbooks/factor-mining-playbook.md`。*

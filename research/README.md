@@ -10,7 +10,7 @@
 | `factor/<族>/<短名>.yaml` | **167 个因子 spec**（15 族，2026-09-16 现测快照；数量随挖矿增长；族规则 `factor/_families.yaml`；索引 `../knowledge/index/factors.md`，`build_index.py --check` 门校准）|
 | `../knowledge/dossiers/factors/<族>/<短名>.md` | 因子档案（与 yaml **同族同短名**镜像；`xname` == spec.name）。R24 起档案单点迁 `knowledge/dossiers/`。**R21 起验证数字标 `snapshot: 历史快照`**（产物未入库、当前不可复跑，口径见 `../knowledge/dossiers/factors/README.md`）|
 | `../knowledge/dossiers/strategies/` | 策略档案（含结论：崩底反弹已实现、死等股灾已证伪）|
-| `../knowledge/dossiers/factor-mining-playbook.md` | 挖因子 playbook |
+| `../knowledge/handbooks/factor-mining-playbook.md` | 挖因子 playbook |
 | `../knowledge/design/research/` | **研究独有**的 spec/plan（平台 spec 在 `../knowledge/design/platform/`，单副本）|
 | `../platform/tools/lib/` | 数据生产线共享库（R27 归位）：`tickdata`（读单点薄封装）· `writekit`（标记·锁·state·原子写·流式月写入器）· `tickkit`（转换小件）· `monthflow`（月分片写入骨架）|
 | `../platform/tools/lob_fact/` | tick 订单簿重建工具链（引擎/锚定/因子面板/批算/QA/校准；192 tests + 金样 pins）|

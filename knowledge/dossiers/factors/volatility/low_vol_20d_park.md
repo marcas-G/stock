@@ -81,7 +81,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/low_vol_20d_park/summary.json`（2026-09-16，
+> 数据快照自 `runs/platform/low_vol_20d_park/summary.json`（2026-09-16，
 > `st_degrade: true`）。种子 `low_vol_20d` 同日重跑对比。
 
 | 项 | 值 |

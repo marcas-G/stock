@@ -13,7 +13,7 @@
 | 工作区级设计（分钟执行、算子开放、策略分解等） | `design/workspace/` |
 | 因子档案（与 `research/factor/<族>/<stem>.yaml` 一一对应） | `dossiers/factors/<族>/<stem>.md` |
 | 策略档案（与 `research/strategy/<stem>.yaml` 一一对应） | `dossiers/strategies/<stem>.md` |
-| 挖因子方法论 / 单页上手手册 | `dossiers/factor-mining-playbook.md`、`dossiers/factor-authoring-manual.md` |
+| 挖因子方法论 / 单页上手手册 | `handbooks/factor-mining-playbook.md`、`handbooks/factor-authoring-manual.md` |
 | 长文手册（NASA SE × V-Model） | `handbooks/` |
 | 因子/策略机器索引（自动生成，勿手改） | `index/factors.md`、`index/strategies.md` |
 

@@ -1,0 +1,14 @@
+== 迁移后残留引用（排除冻结区）==
+governance/workspace/migration-r04.md:71:**Task 4 附注**：`research/docs/factor-authoring-manual.md`（untracked，挖矿/文档在途）经用户预期允许的目录搬迁行为物理移到 `knowledge/dossiers/factor-authoring-manual.md`，**保持 untracked，未随本批提交**；`knowledge/dossiers/factors/intraday/` 等挖矿 untracked 文件同样保持 untracked。`governance/evidence/verification/R21/EVID/annotate_factor_archives.py` 的 DOCS 硬编码路径 `research/docs/factors` → `knowledge/dossiers/factors`（修复前门退化为"0 份 ✓"永真，已恢复真实计数：5 份缺 snapshot，归因挖矿在途）。
+knowledge/dossiers/factors/README.md:9:> → `knowledge/dossiers/factor-mining-playbook.md`（R06-M10 单点归位：`knowledge/handbooks/factor-mining-playbook.md`）。
+knowledge/handbooks/factor-authoring-manual.md:7:> - 模板与阈值：`knowledge/dossiers/factor-mining-playbook.md`（§2 模板 / §4 评估 / §7 入库）
+
+== playbook 对新位置的引用 ==
+knowledge/handbooks/factor-mining-playbook.md:343:> - 用户单页入口：`knowledge/handbooks/factor-authoring-manual.md`。
+knowledge/README.md:16:| 挖因子方法论 / 单页上手手册 | `handbooks/factor-mining-playbook.md`、`handbooks/factor-authoring-manual.md` |
+README.md:26:| 写一个因子并跑出结果 | [knowledge/handbooks/factor-authoring-manual.md](knowledge/handbooks/factor-authoring-manual.md)（单页闭环：写→自检→跑→读数→入库） |
+README.md:39:> 完整闭环（含入库/提交/常见坑）：[knowledge/handbooks/factor-authoring-manual.md](knowledge/handbooks/factor-authoring-manual.md)
+research/README.md:13:| `../knowledge/handbooks/factor-mining-playbook.md` | 挖因子 playbook |
+research/docs/README.md:3:因子/策略档案 → `knowledge/dossiers/`；索引 → `knowledge/index/`；研究指南 → `research/CLAUDE.md`；挖因子方法论 → `knowledge/handbooks/factor-mining-playbook.md`。
+knowledge/dossiers/factors/_template.md:112:对照 `knowledge/handbooks/factor-mining-playbook.md` 的评估阈值：
+knowledge/dossiers/factors/_template.md:132:*档案规范见本模板；因子挖掘方法论见 `knowledge/handbooks/factor-mining-playbook.md`。*

@@ -1,0 +1,32 @@
+== M10 before ==
+-rw-rw-r-- 1 gaolei gaolei  5543 9月  16 17:12 knowledge/dossiers/factor-authoring-manual.md
+-rw-rw-r-- 1 gaolei gaolei 15033 9月  16 14:08 knowledge/dossiers/factor-mining-playbook.md
+
+knowledge/handbooks/:
+总用量 56
+drwxrwxr-x 2 gaolei gaolei  4096 9月  16 14:08 .
+drwxrwxr-x 7 gaolei gaolei  4096 9月  16 14:02 ..
+-rw-rw-r-- 1 gaolei gaolei 45503 9月  12 01:35 递归式需求驱动系统工程开发手册：NASA Systems Engineering × V-Model.md
+
+== moves ==
+git mv playbook: OK
+mv manual (untracked): OK
+git add manual: OK
+
+== after ==
+总用量 80
+drwxrwxr-x 2 gaolei gaolei  4096 9月  16 17:32 .
+drwxrwxr-x 7 gaolei gaolei  4096 9月  16 14:02 ..
+-rw-rw-r-- 1 gaolei gaolei  5543 9月  16 17:12 factor-authoring-manual.md
+-rw-rw-r-- 1 gaolei gaolei 15033 9月  16 14:08 factor-mining-playbook.md
+-rw-rw-r-- 1 gaolei gaolei 45503 9月  12 01:35 递归式需求驱动系统工程开发手册：NASA Systems Engineering × V-Model.md
+ M knowledge/design/workspace/2026-09-16-strategy-decomposition/README.md
+ M knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md
+ M knowledge/dossiers/factors/volatility/low_vol_20d_park.md
+ M knowledge/dossiers/factors/volatility/max_effect_20d_high.md
+A  knowledge/handbooks/factor-authoring-manual.md
+R  knowledge/dossiers/factor-mining-playbook.md -> knowledge/handbooks/factor-mining-playbook.md
+?? knowledge/dossiers/factors/intraday/
+?? knowledge/dossiers/factors/vol_run_energy/symrun_r30_flip.md
+?? knowledge/dossiers/factors/vol_run_energy/symrun_r30_streak.md
+?? knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md

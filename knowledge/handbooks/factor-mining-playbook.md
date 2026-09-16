@@ -340,4 +340,4 @@ factorlab serve                              # Web 可视化（IC 曲线/净值�
 >   `01_import_daily → ingest_daily → 12_ch_adj_backfill → derive_stk_limit`）；技能 `factorlab-ch-pipeline`；
 > - 对账：`platform/.venv/bin/python platform/tools/ch_ingest/reconcile.py`（只读）；
 > - 平台 duckdb 库不存在：一切计算读 CH（`FACTORLAB_DATA_BACKEND=ch`）；
-> - 用户单页入口：`knowledge/dossiers/factor-authoring-manual.md`。
+> - 用户单页入口：`knowledge/handbooks/factor-authoring-manual.md`。
