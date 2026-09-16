@@ -23,8 +23,11 @@ pytest.importorskip("factorlab.app.strategy", reason="需 Plan S Task 2（run_st
 
 import run_strategy as cli  # noqa: E402  （研究侧薄入口模块）
 
-_REPO = Path(__file__).resolve().parents[4]
-_PLATFORM_RESULTS = _REPO / "platform" / "results"
+from factorlab.config import settings  # noqa: E402  （R06-TEST-I5：结果根跟随平台设置）
+
+# R24 单点化后因子结果根 = settings.results_dir（= <repo>/runs/platform）；
+# 旧硬编码 <repo>/platform/results 已迁走导致集成用例恒 skip（无回归保护）。
+_RESULTS_DIR = settings.results_dir
 
 _SPEC = """\
 name: low_lottery_top30_weekly
@@ -199,7 +202,7 @@ def test_real_run_clean_window_2025_03(monkeypatch, tmp_path, capsys):
 
     前置缺失（信号产物/CH）→ skip（不假通过）；运行失败必须非零并报原错误。
     """
-    signal_dir = _PLATFORM_RESULTS / "max_effect_20d_high"
+    signal_dir = _RESULTS_DIR / "max_effect_20d_high"
     if not (signal_dir / "signal.parquet").is_file():
         pytest.skip(f"真实信号产物不存在: {signal_dir}（先跑 factorlab run）")
     from factorlab.config import settings
@@ -212,7 +215,7 @@ def test_real_run_clean_window_2025_03(monkeypatch, tmp_path, capsys):
 
     out_dir = tmp_path / "out"
     rc = cli.main([str(_spec_file(tmp_path)),
-                   "--results-dir", str(_PLATFORM_RESULTS),
+                   "--results-dir", str(_RESULTS_DIR),
                    "--out-dir", str(out_dir)])
     out = capsys.readouterr()
     assert rc == 0, f"真跑失败:\n{out.err}"
@@ -230,7 +233,7 @@ def test_real_run_max_hold_excludes_stale_and_renormalizes(monkeypatch, tmp_path
     （两帧不等且超限 code 缺席），不是静默忽略。
     """
     import polars as pl
-    signal_dir = _PLATFORM_RESULTS / "max_effect_20d_high"
+    signal_dir = _RESULTS_DIR / "max_effect_20d_high"
     if not (signal_dir / "signal.parquet").is_file():
         pytest.skip(f"真实信号产物不存在: {signal_dir}（先跑 factorlab run）")
     from factorlab.config import settings
@@ -244,12 +247,12 @@ def test_real_run_max_hold_excludes_stale_and_renormalizes(monkeypatch, tmp_path
 
     out_a = tmp_path / "a"
     assert cli.main([str(_spec_file(tmp_path, _SPEC)),
-                     "--results-dir", str(_PLATFORM_RESULTS),
+                     "--results-dir", str(_RESULTS_DIR),
                      "--out-dir", str(out_a)]) == 0
     text_b = _SPEC.replace("max_hold: null", "max_hold: 5")
     out_b = tmp_path / "b"
     assert cli.main([str(_spec_file(tmp_path, text_b)),
-                     "--results-dir", str(_PLATFORM_RESULTS),
+                     "--results-dir", str(_RESULTS_DIR),
                      "--out-dir", str(out_b)]) == 0
 
     ta = load_strategy_artifacts(out_a).target
@@ -273,7 +276,7 @@ def test_real_run_max_hold_excludes_stale_and_renormalizes(monkeypatch, tmp_path
 def test_results_dir_default_follows_platform_settings():
     """R24 迁移回归：入口缺省 results 根必须跟随平台 settings.results_dir。
 
-    旧实现硬编码 `<repo>/platform/results`（R24 前落点）——迁移到 runs/platform 后
+    旧实现硬编码 R24 迁移前旧落点（`<repo>` 内 results 目录）——迁移到 runs/platform 后
     策略入口读不到因子结果（R05 式使用验证实测：summary.json 不存在于旧路径）。
     """
     args = cli.build_parser().parse_args(["spec.yaml"])
