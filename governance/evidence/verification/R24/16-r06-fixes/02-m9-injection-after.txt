@@ -1,0 +1,21 @@
+== 修后 gates --structure（注入仍在，应 RED 抓到）==
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+    ✓ 活文件零残留（豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）
+    ✗ 已迁路径活引用仍有 4 处
+      governance/ops/GLEGACY_PROBE.md:2:见 docs/reviews/README.md 与 platform/results/x 以及 research/docs/factors/
+      governance/ops/reinstall_editable.sh:39:echo "  /data/students/gaolei/anaconda3/envs/emb/bin/python -m pip install -e platform/kernels/quant_core --no-deps）"
+      platform/tools/lob_fact/w5_closure.sh:7:PY=/data/students/gaolei/anaconda3/envs/emb/bin/python
+      research/tools/strategies/tests/test_run_strategy_cli.py:276:    旧实现硬编码 `<repo>/platform/results`（R24 前落点）——迁移到 runs/platform 后
+[G-PATHS] pyproject / pytest 路径自洽
+
+== 清理注入 ==
+ M governance/ops/check_imports.py
+ M governance/ops/gates.sh
+== 清理后 G-LEGACY 段 ==
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+    ✓ 活文件零残留（豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）
+    ✗ 已迁路径活引用仍有 3 处
+      governance/ops/reinstall_editable.sh:39:echo "  /data/students/gaolei/anaconda3/envs/emb/bin/python -m pip install -e platform/kernels/quant_core --no-deps）"
+      platform/tools/lob_fact/w5_closure.sh:7:PY=/data/students/gaolei/anaconda3/envs/emb/bin/python
+      research/tools/strategies/tests/test_run_strategy_cli.py:276:    旧实现硬编码 `<repo>/platform/results`（R24 前落点）——迁移到 runs/platform 后
+[G-PATHS] pyproject / pytest 路径自洽

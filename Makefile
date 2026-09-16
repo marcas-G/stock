@@ -29,8 +29,8 @@ lint-factors:
 	platform/.venv/bin/factorlab lint --all
 
 index:
-	python3 research/tools/factor_lib/build_index.py
-	python3 research/tools/factor_lib/build_strategy_index.py
+	$(PLATFORM_PY) research/tools/factor_lib/build_index.py
+	$(PLATFORM_PY) research/tools/factor_lib/build_strategy_index.py
 
 # CH 灌入对账（R4d：唯一对账入口）。需 ClickHouse 在线 + 平台 venv（clickhouse_connect）。
 reconcile:

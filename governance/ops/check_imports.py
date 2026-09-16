@@ -3,7 +3,7 @@
 
 为什么需要（2026-09-15 实测教训）：R2 把 `RunContext` 从 `core/engine/compute` 迁到
 `app/context` 时，迁移脚本只覆盖了 `platform/src+tests`，**漏了研究侧**
-（`research/tools/1m_features/run_1m_feature.py:279`）——所有单元测试仍全绿，
+（`platform/tools/1m_features/run_1m_feature.py` 的 run_minute 路径，R27 后坐标）——所有单元测试仍全绿，
 只有 `check-day` 这条真实链路崩了（ImportError）。G-LEGACY 只查旧**路径字符串**，
 查不到"导入了已迁走的 API"。
 

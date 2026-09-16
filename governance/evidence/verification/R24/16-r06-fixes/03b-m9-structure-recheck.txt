@@ -1,0 +1,9 @@
+== M9 gate 适配在途文件后再验（2026-09-16 17:37:04）==
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+    ✓ 活文件零残留（豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）
+    ✓ 已迁路径活引用零残留（R06-M9：docs/*、platform/results、工具旧路径、emb）
+[G-PATHS] pyproject / pytest 路径自洽
+
+== 当前 results/ 状态 ==
+ls: 无法访问'results': 没有那个文件或目录
+results/ 已移除

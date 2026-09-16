@@ -1,0 +1,8 @@
+== 注入文件（git add 后）==
+# G-LEGACY probe
+见 docs/reviews/README.md 与 platform/results/x 以及 research/docs/factors/
+
+== 修前 gates --structure（R06-M9 RED：应漏报）==
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+    ✓ 活文件零残留（豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）
+[G-PATHS] pyproject / pytest 路径自洽

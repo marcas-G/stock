@@ -18,7 +18,8 @@ info() { echo "    · $1"; }
 
 PLATFORM=platform
 RESEARCH=research
-FROZEN=':!knowledge/design/platform :!governance/evidence/verification :!platform/tools/lob_fact/notes :!research/tools/lob_fact/notes'
+# 注：历史 `FROZEN` 变量（豁免 pathspec 草稿）自 R24 起零引用、路径已过时——
+# R06-M6 删除；实际豁免以各判据行内 pathspec 为准（G-LEGACY 两段）。
 
 # ── 结构门（强制）───────────────────────────────────────────────
 structure() {
@@ -53,6 +54,44 @@ structure() {
   if [ "$n" = "0" ]; then ok "活文件零残留（豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）";
   else bad "活文件仍有 $n 处旧路径"; git grep -nI -e "quant-platform-main" -e "quant-platform-research" -- . 2>/dev/null | grep -vE 'verification/|superpowers/|notes/|gates.sh|workspace-p0p8|traceability-matrix|remote-cleanup-checklist|R17' | head -5 | sed 's/^/      /'; fi
 
+  # R06-M9：已迁路径的**活引用**判据（旧仓库名之外）。覆盖：research/docs/<内容>、
+  # docs/{reviews,index}、platform/results、R27 已迁工具旧路径、emb 解释器路径。
+  # 扫面排除：证据（含历史 reviews）、设计文档（冻结历史）；两处 R24 指针壳
+  # （platform|research/docs，仅存 README 指针）；lob_fact notes（既有豁免）。
+  # 行/文件豁免（均为映射/台账/门自身/反向断言/在途，非活指针）：
+  #   gates.sh（本判据字面量）、check_reviews.py（旧→新映射 + 台账路径豁免表）、
+  #   migration-r04.md（迁移台账）、三份 README 的旧→新映射注；
+  #   strategies 两文件（R06-TEST-I5/TOOLS-I6 在途）：历史注记 + 「旧路径不得出现」回归断言。
+  n=$(git grep -nI \
+        -e "research/docs/" -e "docs/reviews" -e "docs/index" -e "platform/results" \
+        -e "anaconda3/envs/emb" -e "emb/bin/python" \
+        -e "research/tools/quark/" -e "research/tools/converters/" -e "research/tools/lob_fact/" \
+        -e "research/tools/ch_ingest/" -e "research/tools/ashare_ingest/" \
+        -e "research/tools/universe_stages/" -e "research/tools/1m_features/" \
+        -e "research/tools/extract_sz_cancels/" -e "research/tools/_env" -- . \
+        ':!governance/evidence' ':!knowledge/design' ':!platform/docs' ':!research/docs' \
+        ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' 2>/dev/null \
+      | grep -vE '^governance/ops/(gates\.sh|check_reviews\.py):' \
+      | grep -vE '^governance/workspace/migration-r04\.md:' \
+      | grep -vE '^(knowledge/README\.md|knowledge/dossiers/factors/README\.md|runs/README\.md):' \
+      | grep -vE '^research/tools/strategies/(run_strategy\.py|tests/test_run_strategy_cli\.py):' \
+      | wc -l)
+  if [ "$n" = "0" ]; then ok "已迁路径活引用零残留（R06-M9：docs/*、platform/results、工具旧路径、emb）";
+  else bad "已迁路径活引用仍有 $n 处"; git grep -nI \
+        -e "research/docs/" -e "docs/reviews" -e "docs/index" -e "platform/results" \
+        -e "anaconda3/envs/emb" -e "emb/bin/python" \
+        -e "research/tools/quark/" -e "research/tools/converters/" -e "research/tools/lob_fact/" \
+        -e "research/tools/ch_ingest/" -e "research/tools/ashare_ingest/" \
+        -e "research/tools/universe_stages/" -e "research/tools/1m_features/" \
+        -e "research/tools/extract_sz_cancels/" -e "research/tools/_env" -- . \
+        ':!governance/evidence' ':!knowledge/design' ':!platform/docs' ':!research/docs' \
+        ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' 2>/dev/null \
+      | grep -vE '^governance/ops/(gates\.sh|check_reviews\.py):' \
+      | grep -vE '^governance/workspace/migration-r04\.md:' \
+      | grep -vE '^(knowledge/README\.md|knowledge/dossiers/factors/README\.md|runs/README\.md):' \
+      | grep -vE '^research/tools/strategies/(run_strategy\.py|tests/test_run_strategy_cli\.py):' \
+      | head -5 | sed 's/^/      /'; fi
+
   echo "[G-PATHS] pyproject / pytest 路径自洽"
   grep -q 'pythonpath = \["src"\]' "$PLATFORM/pyproject.toml" && ok "platform pythonpath=src" || bad "platform pythonpath 异常"
   [ -d "$PLATFORM/src/factorlab" ] && ok "platform/src/factorlab 存在" || bad "platform/src/factorlab 缺失"
@@ -71,7 +110,8 @@ structure() {
 
   echo "[G-ANNOTATE] 因子档案 snapshot 标注齐备（R21 约定）"
   # 脚本原位在 R21/EVID（证据即工具）；只做只读 --check，不写档案。
-  if out=$(python3 governance/evidence/verification/R21/EVID/annotate_factor_archives.py --check 2>&1); then ok "$out"; else bad "$out"; fi
+  # R06-M5：改平台 venv 解释器（原系统 python3=anaconda 3.10，与单解释器声明不符）。
+  if out=$("$PLATFORM/.venv/bin/python" governance/evidence/verification/R21/EVID/annotate_factor_archives.py --check 2>&1); then ok "$out"; else bad "$out"; fi
 
   echo "[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）"
   if out=$("$PLATFORM/.venv/bin/python" governance/ops/check_reviews.py 2>&1); then
@@ -111,8 +151,9 @@ structure() {
 # ── 数据接口门（R4 前为报告模式）────────────────────────────────
 topo() {
   # R11：工具拓扑（依赖方向 / 横向耦合）。判据与自检见 governance/ops/check_tool_layering.py。
+  # R06-M5：平台 venv 缺失时**响亮失败**（不再 fallback 系统 python3=anaconda）。
   PY=${PLATFORM}/.venv/bin/python
-  [ -x "$PY" ] || PY=python3
+  if [ ! -x "$PY" ]; then bad "平台 venv 缺失：$PY（单解释器纪律：不回落系统 python3）"; return; fi
   "$PY" governance/ops/check_tool_layering.py || FAIL=1
   "$PY" governance/ops/check_tool_layering.py --selftest || FAIL=1
 }
@@ -122,8 +163,9 @@ dataiface() {
   #   ENFORCED：工具树分区字面量（`year=` 只许 partitions 产出）、标记路径构造（只许 writekit）；
   #   REPORT  ：平台表名字面量（未竟 #12①:460 处 SQL）、工具树直读（未竟 #13）。
   # 由 Python 侧统一输出（含负向自检：--selftest 保证门不是死的）。
+  # R06-M5：平台 venv 缺失时响亮失败（同上，不回落系统 python3）。
   PY=${PLATFORM}/.venv/bin/python
-  [ -x "$PY" ] || PY=python3
+  if [ ! -x "$PY" ]; then bad "平台 venv 缺失：$PY（单解释器纪律：不回落系统 python3）"; return; fi
   if ! "$PY" governance/ops/check_dataiface.py; then
     FAIL=1
   fi
