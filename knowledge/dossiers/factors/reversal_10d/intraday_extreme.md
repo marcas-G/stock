@@ -104,6 +104,7 @@ formula: |
 
 | 日期 | 变体/版本 | 改动 | IC mean | t | 结论 |
 |------|-----------|------|---------|---|------|
+| 2026-09-16 | 衍生：`reversal_10d_intraday_extreme_high` | 挖矿轮15：close→high（lottery 叠加掩码），见 [`intraday_extreme_high.md`](intraday_extreme_high.md) | 0.0796 | 8.22 | **候选（升级）**：t/IC +50%、近端方向纠正（种子近端方向已反） |
 | 2026-08-18 | `reversal_10d_intraday_extreme`（初始） | 批次 4 轮 4：I3 极端换手聚焦 | 0.0537 | 8.20 | **强候选**：spread 全库纪录 |
 
 ## 6. 风险与备注

@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **175 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **176 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -14,7 +14,7 @@
 | misc | 1 | `research/factor/misc/` |
 | momentum_20d | 22 | `research/factor/momentum_20d/` |
 | quality | 1 | `research/factor/quality/` |
-| reversal_10d | 4 | `research/factor/reversal_10d/` |
+| reversal_10d | 5 | `research/factor/reversal_10d/` |
 | reversal_20d | 85 | `research/factor/reversal_20d/` |
 | reversal_5d | 4 | `research/factor/reversal_5d/` |
 | reversal_rsi | 3 | `research/factor/reversal_rsi/` |
@@ -109,6 +109,7 @@
 | `reversal_10d_cumret_log` | -1 | fwd5d |  | [cumret_log.md](../../knowledge/dossiers/factors/reversal_10d/cumret_log.md) | [yaml](../../research/factor/reversal_10d/cumret_log.yaml) |
 | `reversal_10d_intraday` | -1 | fwd5d |  | [intraday.md](../../knowledge/dossiers/factors/reversal_10d/intraday.md) | [yaml](../../research/factor/reversal_10d/intraday.yaml) |
 | `reversal_10d_intraday_extreme` | -1 | fwd5d |  | [intraday_extreme.md](../../knowledge/dossiers/factors/reversal_10d/intraday_extreme.md) | [yaml](../../research/factor/reversal_10d/intraday_extreme.yaml) |
+| `reversal_10d_intraday_extreme_high` | -1 | fwd5d |  | [intraday_extreme_high.md](../../knowledge/dossiers/factors/reversal_10d/intraday_extreme_high.md) | [yaml](../../research/factor/reversal_10d/intraday_extreme_high.yaml) |
 
 ## 族：reversal_20d
 
