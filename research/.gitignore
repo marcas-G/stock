@@ -19,8 +19,6 @@ htmlcov/
 
 # 平台运行时数据
 data/
-# 源码包例外：M3a 数据层模块
-!src/factorlab/data/
 results/
 
 # 敏感配置（tushare/teajoin token 等）
