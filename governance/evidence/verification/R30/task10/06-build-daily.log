@@ -1,0 +1,21 @@
+错误：阶段 ingest_daily 失败（rc=1）：/data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/ingest_daily.py
+  File "/data/students/gaolei/stock/platform/tools/ch_ingest/ingest_daily.py", line 264, in <module>
+    main(set(args.only) if args.only else None)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/tools/ch_ingest/ingest_daily.py", line 194, in main
+    _insert_table(client, "daily", daily)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/tools/ch_ingest/ingest_daily.py", line 151, in _insert_table
+    client.insert_arrow(table, batch, database=load_config()["ch"]["database"])
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/client.py", line 1187, in insert_arrow
+    column_names, insert_block = arrow_buffer(arrow_table, compression)
+                                 ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/query.py", line 490, in arrow_buffer
+    writer.write(table)
+    ~~~~~~~~~~~~^^^^^^^
+  File "pyarrow/ipc.pxi", line 489, in pyarrow.lib._CRecordBatchWriter.write
+  File "pyarrow/ipc.pxi", line 529, in pyarrow.lib._CRecordBatchWriter.write_table
+    check_status(self.writer.get().WriteTable(table.table[0],
+  File "pyarrow/error.pxi", line 92, in pyarrow.lib.check_status
+pyarrow.lib.ArrowMemoryError: malloc of size 3638528 failed

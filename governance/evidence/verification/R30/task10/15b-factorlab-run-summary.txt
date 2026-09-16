@@ -1,0 +1,19 @@
+==  runs/platform/r30_accept_min/summary.json
+  date_start: 2026-07-01
+  date_end: 2026-09-16
+  panel_rows: 260214
+  st_degrade: False
+  top-level keys: ['name', 'category', 'direction', 'st_degrade', 'universe_count', 'candidate_count', 'codes', 'date_start', 'date_end', 'panel_rows', 'signal_rows', 'label_rows', 'signal_null_ratio', 'runtime_semantics', 'process', 'adjustment', 'float32', 'spec_yaml', 'artifact_format_version', 'artifacts', 'evaluation']
+<stdin>:15: DeprecationWarning: Casting from String to Date is deprecated and will be removed in Polars 2.0.
+Use `str.to_date()` instead.
+evaluation keys: ['factor', 'target', 'direction', 'n_weeks', 'n_stocks_avg', 'ic', 'pearson_ic', 'decile_returns', 'turnover', 'coverage', 'factor_name']
+  factor: _factor
+  target: forward_return_5d
+  direction: 1
+  n_weeks: 9
+  n_stocks_avg: 5190.777777777777
+  factor_name: r30_accept_min
+weekly dates tail: [datetime.date(2026, 9, 4), datetime.date(2026, 9, 11), datetime.date(2026, 9, 16)]
+weekly rows: 57255
+signal cols: ['date', 'code', 'signal'] date max: 2026-09-16
+signal rows on 2026-09-16: 5212

@@ -1,0 +1,23 @@
+=== systemctl --user status ===
+● pan-data-update.timer - Daily FactorLab pan data update (08:10)
+   Loaded: loaded (/home/gaolei/.config/systemd/user/pan-data-update.timer; enabled; vendor preset: enabled)
+   Active: active (waiting) since Thu 2026-09-17 03:34:17 CST; 4s ago
+  Trigger: Thu 2026-09-17 08:11:27 CST; 4h 37min left
+
+9月 17 03:34:17 user systemd[19654]: Started Daily FactorLab pan data update (08:10).
+
+=== is-enabled ===
+enabled
+
+=== linger ===
+Linger=yes
+
+=== status 子命令 ===
+repo: /data/students/gaolei/stock
+timer 文件：存在（/home/gaolei/.config/systemd/user/pan-data-update.timer）
+NEXT                         LEFT          LAST PASSED UNIT                  ACTIVATES
+Thu 2026-09-17 08:11:27 CST  4h 37min left n/a  n/a    pan-data-update.timer pan-data-update.service
+
+1 timers listed.
+Pass --all to see loaded but inactive timers, too.
+enabled

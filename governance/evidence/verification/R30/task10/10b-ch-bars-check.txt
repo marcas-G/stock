@@ -1,0 +1,5 @@
+ts: 2026-09-17T03:32:09
+bars_1m max/count: [(datetime.date(2026, 9, 16), 1869389040)]
+bars_1m 202609 by day: [(datetime.date(2026, 9, 1), 1332720), (datetime.date(2026, 9, 2), 1332960), (datetime.date(2026, 9, 3), 1333200), (datetime.date(2026, 9, 4), 1333440), (datetime.date(2026, 9, 7), 1333920), (datetime.date(2026, 9, 8), 1333920), (datetime.date(2026, 9, 9), 1334400), (datetime.date(2026, 9, 10), 1334640), (datetime.date(2026, 9, 11), 1334880), (datetime.date(2026, 9, 14), 1334880), (datetime.date(2026, 9, 15), 1334880), (datetime.date(2026, 9, 16), 1335360)]
+sample 002281 9/16 first/last: [(datetime.datetime(2026, 9, 16, 17, 25, tzinfo=zoneinfo.ZoneInfo(key='Asia/Shanghai')), 0, 169.0, 169.5800018310547, 122567936.0, 725200.0), (datetime.datetime(2026, 9, 16, 17, 31, tzinfo=zoneinfo.ZoneInfo(key='Asia/Shanghai')), 1, 169.6999969482422, 170.2899932861328, 69474784.0, 408700.0)]
+...last: [(datetime.datetime(2026, 9, 16, 23, 0, tzinfo=zoneinfo.ZoneInfo(key='Asia/Shanghai')), 239, 185.2100067138672, 185.2100067138672, 25614544.0, 138300.0)]

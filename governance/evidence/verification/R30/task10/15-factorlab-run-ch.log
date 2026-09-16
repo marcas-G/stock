@@ -1,0 +1,4 @@
+2026-09-17 03:34:50.306 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-17 03:34:50.332 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+r30_accept_min: n_weeks=9 ic_mean=0.15720497056300461 
+spread=-0.03239892335746786

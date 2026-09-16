@@ -1,0 +1,5 @@
+ts: 2026-09-17T03:23:39
+moneyflow count/min/max: [(1113668, datetime.date(2025, 11, 20), datetime.date(2026, 9, 16), 5596)]
+by month: [(202608, 116658), (202609, 66830)]
+hand-check 002281 2026-09-16: [('002281.SZ', datetime.date(2026, 9, 16), 2030000000.0, 39220000.0, 3070000000.0)]
+expected from raw: main=2030000000.0 auction=39220000.0 super_in=3070000000.0

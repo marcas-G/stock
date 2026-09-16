@@ -1,0 +1,27 @@
+ts: 2026-09-17T03:24:14
+fundamentals count: [(5556,)]
+by updated_date: [(datetime.date(2026, 7, 16), 1), (datetime.date(2026, 7, 18), 2), (datetime.date(2026, 7, 23), 4), (datetime.date(2026, 7, 25), 6), (datetime.date(2026, 7, 28), 3), (datetime.date(2026, 7, 29), 3), (datetime.date(2026, 7, 30), 4), (datetime.date(2026, 7, 31), 26), (datetime.date(2026, 8, 1), 8), (datetime.date(2026, 8, 3), 3), (datetime.date(2026, 8, 4), 9), (datetime.date(2026, 8, 5), 9), (datetime.date(2026, 8, 6), 5), (datetime.date(2026, 8, 7), 15), (datetime.date(2026, 8, 8), 29), (datetime.date(2026, 8, 10), 5), (datetime.date(2026, 8, 11), 38), (datetime.date(2026, 8, 12), 29), (datetime.date(2026, 8, 13), 18), (datetime.date(2026, 8, 14), 43), (datetime.date(2026, 8, 15), 108), (datetime.date(2026, 8, 17), 14), (datetime.date(2026, 8, 18), 118), (datetime.date(2026, 8, 19), 66), (datetime.date(2026, 8, 20), 168), (datetime.date(2026, 8, 21), 267), (datetime.date(2026, 8, 22), 326), (datetime.date(2026, 8, 23), 2), (datetime.date(2026, 8, 24), 114), (datetime.date(2026, 8, 25), 620), (datetime.date(2026, 8, 26), 659), (datetime.date(2026, 8, 27), 746), (datetime.date(2026, 8, 28), 700), (datetime.date(2026, 8, 29), 732), (datetime.date(2026, 8, 31), 200), (datetime.date(2026, 9, 1), 92), (datetime.date(2026, 9, 2), 128), (datetime.date(2026, 9, 3), 236)]
+Traceback (most recent call last):
+  File "<stdin>", line 6, in <module>
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/client.py", line 462, in query
+    return self._query_with_context(query_context)
+           ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/_backendclient.py", line 49, in _query_with_context
+    execution = self._backend.execute_query(context, runtime, self._prep_query(context))
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/_backend/http_sync.py", line 157, in execute_query
+    response = self.request(
+        plan.body if plan.body is not None else b"",
+    ...<5 lines>...
+        server_wait=not context.streaming,
+    )
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/_backend/http_sync.py", line 382, in request
+    self.error_handler(response)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/_backend/http_sync.py", line 126, in error_handler
+    raise build_http_error(
+    ...<6 lines>...
+    ) from None
+clickhouse_connect.driver.exceptions.DatabaseError: Received ClickHouse exception, code: 47, server response: Code: 47. DB::Exception: Unknown expression identifier `pe_ttm` in scope SELECT ts_code, updated_date, report_period, market, industry, pe_ttm FROM fundamentals WHERE ts_code = '002281.SZ' LIMIT 3. (UNKNOWN_IDENTIFIER) (for url http://127.0.0.1:8123)
+ts: 2026-09-17T03:24:16
+columns: ['ts_code', 'updated_date', 'report_period', 'list_date', 'market', 'industry', 'sw_industry', 'sw_sub', 'total_shares', 'float_a_shares', 'eps', 'total_assets', 'current_assets', 'fixed_assets', 'intangible_assets', 'shareholders', 'current_liab', 'long_liab', 'capital_reserve', 'net_assets', 'revenue', 'operating_cost', 'op_profit', 'invest_income', 'op_cashflow', 'total_cashflow', 'inventory', 'total_profit', 'net_profit', 'undist_profit']
+sample 002281: [('002281.SZ', datetime.date(2026, 8, 20), '6', 'sz', '通信设备', '通信设备')]

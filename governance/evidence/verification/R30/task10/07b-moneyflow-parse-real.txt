@@ -1,0 +1,4 @@
+rows: 1113668 dates: 202 codes: 5596
+min/max date: 2025-11-20 2026-09-16
+002281 9/16 main_net_inflow: [2030000000.0]
+zips: 41

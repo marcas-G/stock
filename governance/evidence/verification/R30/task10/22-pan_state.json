@@ -1,0 +1,3044 @@
+{
+ "version": 1,
+ "files": {
+  "daily/退市股/920680_广道数字.xlsx": {
+   "name": "920680_广道数字.xlsx",
+   "size": 4954,
+   "fid": "e2399e10b09f472ca31e6c377ead9509",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900956_东贝B股.xlsx": {
+   "name": "900956_东贝B股.xlsx",
+   "size": 5364,
+   "fid": "8e17094448e2401ab4ce4bc482330391",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900957_凌云B股.xlsx": {
+   "name": "900957_凌云B股.xlsx",
+   "size": 5364,
+   "fid": "82feaf2ad36e4b44814df2e8a50046fc",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900955_海创B股.xlsx": {
+   "name": "900955_海创B股.xlsx",
+   "size": 5364,
+   "fid": "e8f4e82d88cd4e769c712b7bd3e2020c",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/920305_云创数据.xlsx": {
+   "name": "920305_云创数据.xlsx",
+   "size": 4954,
+   "fid": "f6062268ed2145b48e48d76ca9cef2d2",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900951_大化B股.xlsx": {
+   "name": "900951_大化B股.xlsx",
+   "size": 5364,
+   "fid": "899410a4d17446d59f27ab3b82bd37ca",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900952_锦港B股.xlsx": {
+   "name": "900952_锦港B股.xlsx",
+   "size": 5364,
+   "fid": "bbadbaf71efa4503b56052d4ffbe7313",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900953_凯马B.xlsx": {
+   "name": "900953_凯马B.xlsx",
+   "size": 5364,
+   "fid": "35c9c91d8c794883a8fcc6ffa336ff5c",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900949_东电B股.xlsx": {
+   "name": "900949_东电B股.xlsx",
+   "size": 5364,
+   "fid": "e16e941afabd4ae781f7619e2aecffa5",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900933_华新B股.xlsx": {
+   "name": "900933_华新B股.xlsx",
+   "size": 5364,
+   "fid": "87d0a3fc96fe43cc8fb4fa61e658aeb1",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900935_阳晨B股.xlsx": {
+   "name": "900935_阳晨B股.xlsx",
+   "size": 5364,
+   "fid": "7f873b93fc604830a86060102c0b7508",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900931_PT水仙B.xlsx": {
+   "name": "900931_PT水仙B.xlsx",
+   "size": 5364,
+   "fid": "0c3cf66b16e94198b1c964a2381d1d82",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900950_新城B股.xlsx": {
+   "name": "900950_新城B股.xlsx",
+   "size": 5364,
+   "fid": "050dc13cffb5453c9fe0f8c61de0c26b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900930_ST沪普B.xlsx": {
+   "name": "900930_ST沪普B.xlsx",
+   "size": 5364,
+   "fid": "8907cda1fed5462d93518342ad1b49ad",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900919_绿庭B股.xlsx": {
+   "name": "900919_绿庭B股.xlsx",
+   "size": 5364,
+   "fid": "1408114ef6cf4a8f862516255c3e2b39",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/688555_泽达易盛.xlsx": {
+   "name": "688555_泽达易盛.xlsx",
+   "size": 45621,
+   "fid": "cb838b3d1bdc4dd2becf4a1531b7ed5f",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/900907_鹏起B股.xlsx": {
+   "name": "900907_鹏起B股.xlsx",
+   "size": 5364,
+   "fid": "63eba95a04f448a1aef6fcdd5d80c233",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/688287_观典防务.xlsx": {
+   "name": "688287_观典防务.xlsx",
+   "size": 55285,
+   "fid": "16fe78a76a6642cebd7efc94e818135b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/603388_元成股份.xlsx": {
+   "name": "603388_元成股份.xlsx",
+   "size": 111045,
+   "fid": "8719b1fd74e84fd98f48d1d40d77ecc4",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/603996_中新科技.xlsx": {
+   "name": "603996_中新科技.xlsx",
+   "size": 85074,
+   "fid": "dde3af84bc644d6a897308ccad15583a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/605081_太和水.xlsx": {
+   "name": "605081_太和水.xlsx",
+   "size": 73922,
+   "fid": "0955d71093a8416a93c37198e2b51e38",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/688086_紫晶存储.xlsx": {
+   "name": "688086_紫晶存储.xlsx",
+   "size": 50701,
+   "fid": "fd3668f4d2c24c299da11bd054d6e10d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/603603_博天环境.xlsx": {
+   "name": "603603_博天环境.xlsx",
+   "size": 93011,
+   "fid": "8be97199409f4af3b176d4ecf8c08b1f",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/603963_大理药业.xlsx": {
+   "name": "603963_大理药业.xlsx",
+   "size": 97705,
+   "fid": "ad4473bb07584287bb3b485dfd05216b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/603555_贵人鸟.xlsx": {
+   "name": "603555_贵人鸟.xlsx",
+   "size": 128922,
+   "fid": "8366f7f91dfe4b9fb5176dc256073a97",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/603133_碳元科技.xlsx": {
+   "name": "603133_碳元科技.xlsx",
+   "size": 97054,
+   "fid": "9e33fd177b7846c6a421d1279a8a0f96",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/603056_德邦股份.xlsx": {
+   "name": "603056_德邦股份.xlsx",
+   "size": 105358,
+   "fid": "8d73233111074969b1ce5b520d23c51a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/603157_拉夏贝尔.xlsx": {
+   "name": "603157_拉夏贝尔.xlsx",
+   "size": 62034,
+   "fid": "d5bded35dd244d52a2850905e47a5463",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/601989_中国重工.xlsx": {
+   "name": "601989_中国重工.xlsx",
+   "size": 186212,
+   "fid": "8e748c023b044e44a8bafb0194a943db",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/603003_龙宇股份.xlsx": {
+   "name": "603003_龙宇股份.xlsx",
+   "size": 159642,
+   "fid": "b3b8b7b380db45b8966eac790d8049d7",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/601558_华锐风电.xlsx": {
+   "name": "601558_华锐风电.xlsx",
+   "size": 116539,
+   "fid": "999f4e66b47547568b371908ffa662b5",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600978_宜华生活.xlsx": {
+   "name": "600978_宜华生活.xlsx",
+   "size": 198216,
+   "fid": "db2a61b0bd14432584fc02ce0741f930",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/601299_中国北车.xlsx": {
+   "name": "601299_中国北车.xlsx",
+   "size": 68610,
+   "fid": "21f180db66b84c999c890b5754f91c29",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/601268_二重重装.xlsx": {
+   "name": "601268_二重重装.xlsx",
+   "size": 65026,
+   "fid": "0aa39bc2911947f7a777c538b1b328bf",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/601258_庞大集团.xlsx": {
+   "name": "601258_庞大集团.xlsx",
+   "size": 144874,
+   "fid": "f302c24d4e1349979aee4348a7336965",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600899_信联股份.xlsx": {
+   "name": "600899_信联股份.xlsx",
+   "size": 115679,
+   "fid": "24bd240ecb554353bc61bcb1e1529712",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600991_广汽长丰.xlsx": {
+   "name": "600991_广汽长丰.xlsx",
+   "size": 97240,
+   "fid": "6e171801846b43f8b8ad2b499ee2fa78",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/601028_玉龙股份.xlsx": {
+   "name": "601028_玉龙股份.xlsx",
+   "size": 168341,
+   "fid": "175ed319fc3e4ef6a436cef597f313e4",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600891_秋林集团.xlsx": {
+   "name": "600891_秋林集团.xlsx",
+   "size": 285942,
+   "fid": "b51444c906ac48e3958677932ec0fd5f",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600896_览海医疗.xlsx": {
+   "name": "600896_览海医疗.xlsx",
+   "size": 304334,
+   "fid": "d6cfcd8ed83e4708bdb786c741a70974",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600898_国美通讯.xlsx": {
+   "name": "600898_国美通讯.xlsx",
+   "size": 320969,
+   "fid": "b504857249764b5591d89c2adc97446a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600878_北大科技.xlsx": {
+   "name": "600878_北大科技.xlsx",
+   "size": 109407,
+   "fid": "acc6da61b94f4829895a12e71b1f7668",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600856_中天能源.xlsx": {
+   "name": "600856_中天能源.xlsx",
+   "size": 323966,
+   "fid": "868e405342104ba8b412089bfe296edb",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600890_中房股份.xlsx": {
+   "name": "600890_中房股份.xlsx",
+   "size": 297339,
+   "fid": "519f85ade99f428885851b9f601b3c39",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600870_厦华电子.xlsx": {
+   "name": "600870_厦华电子.xlsx",
+   "size": 307913,
+   "fid": "4ae7ce89fc5d4a5baec0f6a6f2537632",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600840_新湖创业.xlsx": {
+   "name": "600840_新湖创业.xlsx",
+   "size": 184495,
+   "fid": "ed80ee938c1048b3b229f0dfc521ff0f",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600842_中西药业.xlsx": {
+   "name": "600842_中西药业.xlsx",
+   "size": 188926,
+   "fid": "d9fa17411c4d43e1b2dddbef4857fb2e",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600852_中川国际.xlsx": {
+   "name": "600852_中川国际.xlsx",
+   "size": 139113,
+   "fid": "1f53ee10f3e24a4a9a25835edaced58a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600823_世茂股份.xlsx": {
+   "name": "600823_世茂股份.xlsx",
+   "size": 356236,
+   "fid": "6f922fe26b2348d7b93b30f413387d0d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600837_海通证券.xlsx": {
+   "name": "600837_海通证券.xlsx",
+   "size": 363584,
+   "fid": "907e59dd011f4c81a1f8308a02e6ea7d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600836_上海易连.xlsx": {
+   "name": "600836_上海易连.xlsx",
+   "size": 360243,
+   "fid": "4b61ed7a71b44e3f93b8d7bc49557ec9",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600832_东方明珠.xlsx": {
+   "name": "600832_东方明珠.xlsx",
+   "size": 257008,
+   "fid": "e1d214f228664e9ab61cffb8f1a7dbac",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600811_东方集团.xlsx": {
+   "name": "600811_东方集团.xlsx",
+   "size": 364799,
+   "fid": "9f34abd02c4f4041a7b43c63bd76957d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600799_科利华.xlsx": {
+   "name": "600799_科利华.xlsx",
+   "size": 107923,
+   "fid": "2fb28c785d8f48ce8c074d11e8bb3ee0",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600813_鞍山一工.xlsx": {
+   "name": "600813_鞍山一工.xlsx",
+   "size": 104496,
+   "fid": "f3c6478e6c59428bb89ce0829ea9da01",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600788_达尔曼.xlsx": {
+   "name": "600788_达尔曼.xlsx",
+   "size": 103532,
+   "fid": "1d59017ca029486a932c7d68cb8d0652",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600804_鹏博士.xlsx": {
+   "name": "600804_鹏博士.xlsx",
+   "size": 375665,
+   "fid": "4fc43d07d6284a85992c4d6986c18a1b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600806_昆明机床.xlsx": {
+   "name": "600806_昆明机床.xlsx",
+   "size": 285236,
+   "fid": "f771a3f8f11148d196d70eac063c174f",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600786_东方锅炉.xlsx": {
+   "name": "600786_东方锅炉.xlsx",
+   "size": 139836,
+   "fid": "33cf70cd15e143cba77100acbd933cb2",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600781_辅仁药业.xlsx": {
+   "name": "600781_辅仁药业.xlsx",
+   "size": 311910,
+   "fid": "171e021fb8bc4372b2974d7df27747ee",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600766_园城黄金.xlsx": {
+   "name": "600766_园城黄金.xlsx",
+   "size": 322122,
+   "fid": "66fe7502a1c541749c9db1e75313b581",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600767_运盛医疗.xlsx": {
+   "name": "600767_运盛医疗.xlsx",
+   "size": 307684,
+   "fid": "8afb3683c54a47c39d77320a8f268e1d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600772_石油龙昌.xlsx": {
+   "name": "600772_石油龙昌.xlsx",
+   "size": 122730,
+   "fid": "9fa1800dbb98451c932e2c434bc8df3b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600709_生态农业.xlsx": {
+   "name": "600709_生态农业.xlsx",
+   "size": 86819,
+   "fid": "81d5eaabf9d246f9bdd796a7a60b581a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600762_金荔科技.xlsx": {
+   "name": "600762_金荔科技.xlsx",
+   "size": 130824,
+   "fid": "56dfca8135044e02803725b2a80a0801",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600752_哈慈股份.xlsx": {
+   "name": "600752_哈慈股份.xlsx",
+   "size": 111542,
+   "fid": "6d242d23436c468f8f41032410005501",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600747_大连控股.xlsx": {
+   "name": "600747_大连控股.xlsx",
+   "size": 270757,
+   "fid": "cc57a86430ae455e9d88955cb038aa2c",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600723_首商股份.xlsx": {
+   "name": "600723_首商股份.xlsx",
+   "size": 295841,
+   "fid": "8c19271fd84f45e581bb8610c403084d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600701_工大高新.xlsx": {
+   "name": "600701_工大高新.xlsx",
+   "size": 285762,
+   "fid": "1273785ced904017a39ed5f87be1e79c",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600705_中航产融.xlsx": {
+   "name": "600705_中航产融.xlsx",
+   "size": 319185,
+   "fid": "606a8971fcb4495db1c8817bdfcf9162",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600680_上海普天.xlsx": {
+   "name": "600680_上海普天.xlsx",
+   "size": 303614,
+   "fid": "58cab62079df432fbcb13048c5e65abb",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600687_刚泰控股.xlsx": {
+   "name": "600687_刚泰控股.xlsx",
+   "size": 316396,
+   "fid": "f6e9fa8126994795b35399e6b0fd503e",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600696_岩石股份.xlsx": {
+   "name": "600696_岩石股份.xlsx",
+   "size": 381035,
+   "fid": "34ab1d0c449d4579bcc7d2bd63918bf9",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600700_数码测绘.xlsx": {
+   "name": "600700_数码测绘.xlsx",
+   "size": 116936,
+   "fid": "2998941bb90a404584b2b7ec118e8367",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600695_绿庭投资.xlsx": {
+   "name": "600695_绿庭投资.xlsx",
+   "size": 330226,
+   "fid": "d50bce535ce44a30b70fc98c0c4fcd13",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600672_英豪科教.xlsx": {
+   "name": "600672_英豪科教.xlsx",
+   "size": 144089,
+   "fid": "a8615a41b5ba4d6eb88156a675216f5b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600677_航天通信.xlsx": {
+   "name": "600677_航天通信.xlsx",
+   "size": 326782,
+   "fid": "d40571b1bc4741b5bea0273a8ee9fbba",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600670_东北华联.xlsx": {
+   "name": "600670_东北华联.xlsx",
+   "size": 135428,
+   "fid": "2b4e8c2d82fd4c25bb2b115e96f291b6",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600659_闽越花雕.xlsx": {
+   "name": "600659_闽越花雕.xlsx",
+   "size": 155919,
+   "fid": "0ead2b4b5d64406eaa041e279fe987ae",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600636_国新文化.xlsx": {
+   "name": "600636_国新文化.xlsx",
+   "size": 391158,
+   "fid": "66f63bca24114039bdd33f0fb25310c8",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600669_鞍山合成.xlsx": {
+   "name": "600669_鞍山合成.xlsx",
+   "size": 134773,
+   "fid": "ec08caef09684a9399e659d78bf26086",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600646_国嘉实业.xlsx": {
+   "name": "600646_国嘉实业.xlsx",
+   "size": 129369,
+   "fid": "a6db8516a791443db43ffa8e96939f3d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600647_同达创业.xlsx": {
+   "name": "600647_同达创业.xlsx",
+   "size": 367759,
+   "fid": "bde6668474e54767a9c9c6c9722f7214",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600656_博元投资.xlsx": {
+   "name": "600656_博元投资.xlsx",
+   "size": 288753,
+   "fid": "b3066485b39c44b7b663ee3fcd328cc5",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600652_游久游戏.xlsx": {
+   "name": "600652_游久游戏.xlsx",
+   "size": 368071,
+   "fid": "f612d186919747f9a380be19fd00a198",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600634_富控互动.xlsx": {
+   "name": "600634_富控互动.xlsx",
+   "size": 319834,
+   "fid": "7534ecd473f740c4b6a9eb052740b859",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600632_华联商厦.xlsx": {
+   "name": "600632_华联商厦.xlsx",
+   "size": 142087,
+   "fid": "4a5c1f0c087544a389eaa295d1455730",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600631_百联股份.xlsx": {
+   "name": "600631_百联股份.xlsx",
+   "size": 222089,
+   "fid": "0f4a047a4933493b9890bbf1252d7cff",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600627_上电股份.xlsx": {
+   "name": "600627_上电股份.xlsx",
+   "size": 195109,
+   "fid": "99a9c5a5e0dc4103ad49fe167f18920d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600625_水仙电器.xlsx": {
+   "name": "600625_水仙电器.xlsx",
+   "size": 99684,
+   "fid": "3363b87b661f4d8da42d7f6bd9e56dfd",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600599_熊猫金控.xlsx": {
+   "name": "600599_熊猫金控.xlsx",
+   "size": 296678,
+   "fid": "eacb1e32f25f4bc69ed21414c5852a25",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600607_上实医药.xlsx": {
+   "name": "600607_上实医药.xlsx",
+   "size": 216985,
+   "fid": "74ceb66952704c38ba5a9fb74fe9febe",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600608_上海科技.xlsx": {
+   "name": "600608_上海科技.xlsx",
+   "size": 394626,
+   "fid": "4c37a698cdd64f7f9474b1e724c0b961",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600591_上海航空.xlsx": {
+   "name": "600591_上海航空.xlsx",
+   "size": 92588,
+   "fid": "dbe47c9f47dc44feb961d579cfd2c61d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600614_鹏起科技.xlsx": {
+   "name": "600614_鹏起科技.xlsx",
+   "size": 331923,
+   "fid": "ff1f01c65864487685e8d8c8173a8214",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600555_海航创新.xlsx": {
+   "name": "600555_海航创新.xlsx",
+   "size": 249602,
+   "fid": "68babc43f92e47f5bb3ad7e62a161226",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600565_迪马股份.xlsx": {
+   "name": "600565_迪马股份.xlsx",
+   "size": 257714,
+   "fid": "530d027e570a42eab3dab4101b0a6e4e",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600532_未来股份.xlsx": {
+   "name": "600532_未来股份.xlsx",
+   "size": 245351,
+   "fid": "cacaa60d4a654f4bbf3178036d1373c9",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600485_信威集团.xlsx": {
+   "name": "600485_信威集团.xlsx",
+   "size": 206965,
+   "fid": "7e17a6b774f94ec0a47b0dde181d56da",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600553_太行水泥.xlsx": {
+   "name": "600553_太行水泥.xlsx",
+   "size": 105173,
+   "fid": "b25267c549394090a8bb469eecb458ab",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600393_粤泰股份.xlsx": {
+   "name": "600393_粤泰股份.xlsx",
+   "size": 260785,
+   "fid": "517873ee0bdd4652954cf3778d20e6af",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600466_蓝光发展.xlsx": {
+   "name": "600466_蓝光发展.xlsx",
+   "size": 261266,
+   "fid": "14ecfe0df2474df28dbf42091a8e643a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600472_包头铝业.xlsx": {
+   "name": "600472_包头铝业.xlsx",
+   "size": 38938,
+   "fid": "5ac62ac6642f45dbbcc5b72b5b0a8a69",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600432_吉恩镍业.xlsx": {
+   "name": "600432_吉恩镍业.xlsx",
+   "size": 184992,
+   "fid": "1ba4234eac0c4db4994dd0e22b06e431",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600421_华嵘控股.xlsx": {
+   "name": "600421_华嵘控股.xlsx",
+   "size": 258045,
+   "fid": "728fee5cee4345a385067b6b51be8ea4",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600401_海润光伏.xlsx": {
+   "name": "600401_海润光伏.xlsx",
+   "size": 171886,
+   "fid": "a461b553457749c0b5dcd2b73607483e",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600462_九有股份.xlsx": {
+   "name": "600462_九有股份.xlsx",
+   "size": 244783,
+   "fid": "584377b3e0724ae7bcd790feeaf64fdb",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600387_海越能源.xlsx": {
+   "name": "600387_海越能源.xlsx",
+   "size": 256568,
+   "fid": "1fd763f77b8f4cfa9cab93d747384b90",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600385_山东金泰.xlsx": {
+   "name": "600385_山东金泰.xlsx",
+   "size": 240412,
+   "fid": "1b5e983866324913bfbda10ff4ef2040",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600357_承德钒钛.xlsx": {
+   "name": "600357_承德钒钛.xlsx",
+   "size": 92930,
+   "fid": "0d9ae366eb6b460396ac418dba74dbc8",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600321_正源股份.xlsx": {
+   "name": "600321_正源股份.xlsx",
+   "size": 266426,
+   "fid": "c0c0993e6cc9417b93fc7c4c889749b1",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600355_精伦电子.xlsx": {
+   "name": "600355_精伦电子.xlsx",
+   "size": 279138,
+   "fid": "c44806c46d8148d9a81460c2dd22aaa6",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600317_营口港.xlsx": {
+   "name": "600317_营口港.xlsx",
+   "size": 222529,
+   "fid": "2f603669d3794bbdbb94394862ea1a30",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600290_华仪电气.xlsx": {
+   "name": "600290_华仪电气.xlsx",
+   "size": 276255,
+   "fid": "2cb413fba9ea4d81ac83b4c634301acf",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600311_荣华实业.xlsx": {
+   "name": "600311_荣华实业.xlsx",
+   "size": 256359,
+   "fid": "78e57ada253348bf9783e295f6d07f5b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600306_商业城.xlsx": {
+   "name": "600306_商业城.xlsx",
+   "size": 275183,
+   "fid": "3210f6691af9487fa3893c5770a1946c",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600297_广汇汽车.xlsx": {
+   "name": "600297_广汇汽车.xlsx",
+   "size": 276621,
+   "fid": "7044aec66fce47aca0c27503ff5831df",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600296_兰州铝业.xlsx": {
+   "name": "600296_兰州铝业.xlsx",
+   "size": 83942,
+   "fid": "7dc8323a82234b8ab17a052777e54ed4",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600286_国光瓷业.xlsx": {
+   "name": "600286_国光瓷业.xlsx",
+   "size": 89992,
+   "fid": "167046a29d77467c85954d99246c6989",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600291_西水股份.xlsx": {
+   "name": "600291_西水股份.xlsx",
+   "size": 263951,
+   "fid": "1d67c1b8957c49d3885f88d8558d5d13",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600275_武昌鱼.xlsx": {
+   "name": "600275_武昌鱼.xlsx",
+   "size": 252810,
+   "fid": "a05716a110e34d3891f7656dafa7f4fc",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600277_亿利洁能.xlsx": {
+   "name": "600277_亿利洁能.xlsx",
+   "size": 280638,
+   "fid": "9550a46e50f741a89ab489f54428b6d3",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600253_天方药业.xlsx": {
+   "name": "600253_天方药业.xlsx",
+   "size": 150505,
+   "fid": "722455930e3f400e82ff03bf3e637516",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600270_外运发展.xlsx": {
+   "name": "600270_外运发展.xlsx",
+   "size": 220372,
+   "fid": "0462ccf9ce7346e1bed153bf4fc1d24c",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600260_凯乐科技.xlsx": {
+   "name": "600260_凯乐科技.xlsx",
+   "size": 275248,
+   "fid": "7da04884574a44a99791ed3e1b042242",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600263_路桥建设.xlsx": {
+   "name": "600263_路桥建设.xlsx",
+   "size": 140476,
+   "fid": "0767e9f4a4274ec682e6b3fde75bed1a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600247_成城股份.xlsx": {
+   "name": "600247_成城股份.xlsx",
+   "size": 239431,
+   "fid": "44389acdd5d44213828baf0bbd1520db",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600242_中昌数据.xlsx": {
+   "name": "600242_中昌数据.xlsx",
+   "size": 254742,
+   "fid": "39891cfdb1cd43e5adf1007da705b9e2",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600225_卓朗科技.xlsx": {
+   "name": "600225_卓朗科技.xlsx",
+   "size": 282875,
+   "fid": "9b34f7bb4b634f5abd83c16431226a1a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600240_华业资本.xlsx": {
+   "name": "600240_华业资本.xlsx",
+   "size": 232581,
+   "fid": "f92d3c747bce4c1380df65264343c438",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600220_江苏阳光.xlsx": {
+   "name": "600220_江苏阳光.xlsx",
+   "size": 286771,
+   "fid": "9f95c6443750434a80fa8cf7a1b0c907",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600213_亚星客车.xlsx": {
+   "name": "600213_亚星客车.xlsx",
+   "size": 291961,
+   "fid": "58d2e06987a54b68b5027b3dec0fed31",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600209_罗顿发展.xlsx": {
+   "name": "600209_罗顿发展.xlsx",
+   "size": 269053,
+   "fid": "41d6fcee8ad7409890cb1c29c1406a9c",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600200_江苏吴中.xlsx": {
+   "name": "600200_江苏吴中.xlsx",
+   "size": 318356,
+   "fid": "91582b905459455cbb1ddac69f511a87",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600190_锦州港.xlsx": {
+   "name": "600190_锦州港.xlsx",
+   "size": 298583,
+   "fid": "efc93152ab084e93b9d6492ecb0a0e98",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600146_商赢环球.xlsx": {
+   "name": "600146_商赢环球.xlsx",
+   "size": 267573,
+   "fid": "fb49615fd8684268a97d9c6625b4b335",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600193_创兴资源.xlsx": {
+   "name": "600193_创兴资源.xlsx",
+   "size": 315931,
+   "fid": "27657cf659f74eaf929ea6f1af7e94dc",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600205_山东铝业.xlsx": {
+   "name": "600205_山东铝业.xlsx",
+   "size": 97641,
+   "fid": "4a6addb8ae0a4b7d8fbd20342e515fa3",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600181_云大科技.xlsx": {
+   "name": "600181_云大科技.xlsx",
+   "size": 104470,
+   "fid": "1b17a1a9d2dd4cf09982c06afd5a4fb1",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600175_美都能源.xlsx": {
+   "name": "600175_美都能源.xlsx",
+   "size": 252236,
+   "fid": "5df1eccab67a4466919c132d34ed5921",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600112_天成控股.xlsx": {
+   "name": "600112_天成控股.xlsx",
+   "size": 312179,
+   "fid": "9ad557877e624c22a83f69988075f0fa",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600145_国创能源.xlsx": {
+   "name": "600145_国创能源.xlsx",
+   "size": 243961,
+   "fid": "3161071b419948a1b53131f4eadcbb28",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600139_西部资源.xlsx": {
+   "name": "600139_西部资源.xlsx",
+   "size": 296151,
+   "fid": "eb7900621de44d9bb0e213046c0ae045",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600122_宏图高科.xlsx": {
+   "name": "600122_宏图高科.xlsx",
+   "size": 294785,
+   "fid": "e103cb2cd04c488c9c41823eb62166bb",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600092_精密股份.xlsx": {
+   "name": "600092_精密股份.xlsx",
+   "size": 113634,
+   "fid": "6e404896d9c244f598d0e79be9cbd701",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600102_莱钢股份.xlsx": {
+   "name": "600102_莱钢股份.xlsx",
+   "size": 172559,
+   "fid": "55a6e1c16c1b49fcbe33a637a99a2ac3",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600093_易见股份.xlsx": {
+   "name": "600093_易见股份.xlsx",
+   "size": 294820,
+   "fid": "c38a95464c50453f8f9f79bcdc13600a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600091_明天科技.xlsx": {
+   "name": "600091_明天科技.xlsx",
+   "size": 287867,
+   "fid": "da0ca184bec74de5be906ac660791cb6",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600086_东方金钰.xlsx": {
+   "name": "600086_东方金钰.xlsx",
+   "size": 282187,
+   "fid": "b5946a8aea554dc185a65efbab72e06f",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600090_同济堂.xlsx": {
+   "name": "600090_同济堂.xlsx",
+   "size": 289520,
+   "fid": "4a5485a994c14e8a8edaebea959b8945",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600087_长航油运.xlsx": {
+   "name": "600087_长航油运.xlsx",
+   "size": 199938,
+   "fid": "d9d8b15e12b14498b8dece560b5eb7b8",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600077_宋都股份.xlsx": {
+   "name": "600077_宋都股份.xlsx",
+   "size": 305795,
+   "fid": "997f843ad1aa4f909e0a3ce83a5a515c",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600083_博信股份.xlsx": {
+   "name": "600083_博信股份.xlsx",
+   "size": 315793,
+   "fid": "f4baf816b09843f58c1d0191d8217a3a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600069_银鸽投资.xlsx": {
+   "name": "600069_银鸽投资.xlsx",
+   "size": 272761,
+   "fid": "5505b46d388743889be57ac7cdd885f0",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600070_浙江富润.xlsx": {
+   "name": "600070_浙江富润.xlsx",
+   "size": 326990,
+   "fid": "b15a3b74ec514c54894393c0d699e49a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600074_保千里.xlsx": {
+   "name": "600074_保千里.xlsx",
+   "size": 258797,
+   "fid": "6d5a3aea3aaa468bb3d03982d4b52dbf",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600068_葛洲坝.xlsx": {
+   "name": "600068_葛洲坝.xlsx",
+   "size": 286449,
+   "fid": "1bc83cb6c86448b497fa9ef7b1b5050f",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600065_大庆联谊.xlsx": {
+   "name": "600065_大庆联谊.xlsx",
+   "size": 124081,
+   "fid": "3ccd705ffd0c40e39201ce3ad1ced2bc",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600002_齐鲁石化.xlsx": {
+   "name": "600002_齐鲁石化.xlsx",
+   "size": 97737,
+   "fid": "4a1ff02e89494482b6a5e268394864f6",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600005_武钢股份.xlsx": {
+   "name": "600005_武钢股份.xlsx",
+   "size": 206077,
+   "fid": "973d19d904e0408c89d308687b4ed967",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600003_东北高速.xlsx": {
+   "name": "600003_东北高速.xlsx",
+   "size": 120717,
+   "fid": "e5c610862a6d47e882673ee88271d7e3",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/600001_邯郸钢铁.xlsx": {
+   "name": "600001_邯郸钢铁.xlsx",
+   "size": 141356,
+   "fid": "90a4b43438364368bedf29a6ee2863d2",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300799_左江科技.xlsx": {
+   "name": "300799_左江科技.xlsx",
+   "size": 71942,
+   "fid": "c19fa38b005447be956238e61ef6641a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300742_越博动力.xlsx": {
+   "name": "300742_越博动力.xlsx",
+   "size": 87959,
+   "fid": "0feecf9cd56e4c3a99a6cbf0fb944fe5",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300431_暴风集团.xlsx": {
+   "name": "300431_暴风集团.xlsx",
+   "size": 76191,
+   "fid": "a7d58b3117dd4674b548cda3e0f726e5",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300526_中潜股份.xlsx": {
+   "name": "300526_中潜股份.xlsx",
+   "size": 96112,
+   "fid": "03c4f7735b18410d979793fa6289d4ba",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300630_普利制药.xlsx": {
+   "name": "300630_普利制药.xlsx",
+   "size": 115966,
+   "fid": "17ea09ed0c164909a9d094fdd47745cf",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300391_长药控股.xlsx": {
+   "name": "300391_长药控股.xlsx",
+   "size": 150167,
+   "fid": "3411e299caa24148ae2ea74f9c4a6033",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300495_美尚生态.xlsx": {
+   "name": "300495_美尚生态.xlsx",
+   "size": 110592,
+   "fid": "d0ff7afcea824b36b3ab0079ef7fc69b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300362_天翔环境.xlsx": {
+   "name": "300362_天翔环境.xlsx",
+   "size": 91958,
+   "fid": "fe26ab9c14a34d6e85c502d7b1f3eac0",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300392_腾信股份.xlsx": {
+   "name": "300392_腾信股份.xlsx",
+   "size": 112958,
+   "fid": "8ea7e18608654182ae0b38019c089d01",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300379_东方通.xlsx": {
+   "name": "300379_东方通.xlsx",
+   "size": 163422,
+   "fid": "0e6bfff56b58433d99c536f85092f209",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300372_欣泰电气.xlsx": {
+   "name": "300372_欣泰电气.xlsx",
+   "size": 46332,
+   "fid": "dfb7ae6647f8486b8ea9b92399fe3f41",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300367_东方网力.xlsx": {
+   "name": "300367_东方网力.xlsx",
+   "size": 111557,
+   "fid": "2f8edd0609fb4312b65bcadd544c5923",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300356_光一科技.xlsx": {
+   "name": "300356_光一科技.xlsx",
+   "size": 137836,
+   "fid": "440239e6d07142e28011b900b9ab5d8b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300344_立方数科.xlsx": {
+   "name": "300344_立方数科.xlsx",
+   "size": 168168,
+   "fid": "0ac1a6bec70c4a25afa4c26d6ad5623e",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300325_德威新材.xlsx": {
+   "name": "300325_德威新材.xlsx",
+   "size": 127023,
+   "fid": "a0918a5604b2462f8186aba5c43d89c3",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300336_新文化.xlsx": {
+   "name": "300336_新文化.xlsx",
+   "size": 141927,
+   "fid": "a61691f310fa47d58a576490200a7fca",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300309_吉艾科技.xlsx": {
+   "name": "300309_吉艾科技.xlsx",
+   "size": 140959,
+   "fid": "0e7ada233586464aabaa8531fb9a29b2",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300312_邦讯技术.xlsx": {
+   "name": "300312_邦讯技术.xlsx",
+   "size": 131112,
+   "fid": "1fd38b66960240df8862adbe8da8e18c",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300297_蓝盾股份.xlsx": {
+   "name": "300297_蓝盾股份.xlsx",
+   "size": 144289,
+   "fid": "22b37c9e62b949c59e0a4c491dbd3604",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300330_华虹计通.xlsx": {
+   "name": "300330_华虹计通.xlsx",
+   "size": 136415,
+   "fid": "682d9d8a2a124f61ad1bc4db620c4b1f",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300273_和佳医疗.xlsx": {
+   "name": "300273_和佳医疗.xlsx",
+   "size": 149902,
+   "fid": "614ee5284d68452e8b10343f73823904",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300280_紫天科技.xlsx": {
+   "name": "300280_紫天科技.xlsx",
+   "size": 173016,
+   "fid": "b142a1edf34c43f3856b62dc6d2d8894",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300282_三盛教育.xlsx": {
+   "name": "300282_三盛教育.xlsx",
+   "size": 157368,
+   "fid": "9577352ada0b4aac88dac205d48894b2",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300156_神雾环保.xlsx": {
+   "name": "300156_神雾环保.xlsx",
+   "size": 125951,
+   "fid": "36d4cb233ce14d7992b798900a573a04",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300262_巴安水务.xlsx": {
+   "name": "300262_巴安水务.xlsx",
+   "size": 160241,
+   "fid": "58ba91e2febb4e96a550825d9f1137ae",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300202_聚龙股份.xlsx": {
+   "name": "300202_聚龙股份.xlsx",
+   "size": 148441,
+   "fid": "319c2b5906e64851a8028be4754ea707",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300216_千山药机.xlsx": {
+   "name": "300216_千山药机.xlsx",
+   "size": 119037,
+   "fid": "4bf8180dd1864fbfbbb9deeb0043dec8",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300208_青岛中程.xlsx": {
+   "name": "300208_青岛中程.xlsx",
+   "size": 177092,
+   "fid": "def2824764e141fdaa51c2833a098d47",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300178_腾邦国际.xlsx": {
+   "name": "300178_腾邦国际.xlsx",
+   "size": 147519,
+   "fid": "10d0e6ac676c460d8f4c9ffbc5d30f79",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300186_大华农.xlsx": {
+   "name": "300186_大华农.xlsx",
+   "size": 61419,
+   "fid": "a4a7432b59d348d8b6b8d8b46ff5a7f5",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300114_中航电测.xlsx": {
+   "name": "300114_中航电测.xlsx",
+   "size": 187496,
+   "fid": "29b4180710a74ddbb563d8a5e69e6a8d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300116_保力新.xlsx": {
+   "name": "300116_保力新.xlsx",
+   "size": 168008,
+   "fid": "0d0fd956f5344be8a8ea44133f17c404",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300117_嘉寓股份.xlsx": {
+   "name": "300117_嘉寓股份.xlsx",
+   "size": 177937,
+   "fid": "d6a01a5054574ed2857cf7f40ac2b713",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300108_吉药控股.xlsx": {
+   "name": "300108_吉药控股.xlsx",
+   "size": 178096,
+   "fid": "27f454bdd4a448758613af24a2e1e659",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300104_乐视网.xlsx": {
+   "name": "300104_乐视网.xlsx",
+   "size": 123983,
+   "fid": "342174d5f68f426383656a9ab9123b06",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300028_金亚科技.xlsx": {
+   "name": "300028_金亚科技.xlsx",
+   "size": 125960,
+   "fid": "0a0b1633af58474b99d4b324d2cb7845",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300090_盛运环保.xlsx": {
+   "name": "300090_盛运环保.xlsx",
+   "size": 129458,
+   "fid": "318ce47d273f459ab1e6af0151e97c50",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300029_天龙光电.xlsx": {
+   "name": "300029_天龙光电.xlsx",
+   "size": 201254,
+   "fid": "f5498c57f6114b7fb8d9a54b64fb5cf9",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300089_文化长城.xlsx": {
+   "name": "300089_文化长城.xlsx",
+   "size": 157608,
+   "fid": "c17a43f6cdb84f02a79b89e9474a303f",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200771_杭汽轮B.xlsx": {
+   "name": "200771_杭汽轮B.xlsx",
+   "size": 5363,
+   "fid": "9ecb32242c504daab7804c5e7e4d08d7",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300064_豫金刚石.xlsx": {
+   "name": "300064_豫金刚石.xlsx",
+   "size": 153309,
+   "fid": "e66ee53c69c449429cd19c1403e9cb27",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300038_数知科技.xlsx": {
+   "name": "300038_数知科技.xlsx",
+   "size": 155610,
+   "fid": "89428f9e5d7441f2985dcde979ddda78",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/300023_宝德股份.xlsx": {
+   "name": "300023_宝德股份.xlsx",
+   "size": 160483,
+   "fid": "f7bbb3e9af8a4d7a92688b6b7555b202",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200770_武锅B.xlsx": {
+   "name": "200770_武锅B.xlsx",
+   "size": 5363,
+   "fid": "f9d20c238998461b9d218bdbb053f2fd",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200986_粤华包B.xlsx": {
+   "name": "200986_粤华包B.xlsx",
+   "size": 5363,
+   "fid": "544ab5b8ab4149f7a0cfe1aade45f6a4",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200613_大东海B.xlsx": {
+   "name": "200613_大东海B.xlsx",
+   "size": 5363,
+   "fid": "2a250d6f8cb64c5a916da321c0f58453",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200160_东沣B.xlsx": {
+   "name": "200160_东沣B.xlsx",
+   "size": 5364,
+   "fid": "667a1c7e8b8d40daa86981f709969aeb",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200168_ST舜喆B.xlsx": {
+   "name": "200168_ST舜喆B.xlsx",
+   "size": 5364,
+   "fid": "b9a34385b87c4d818996af7953d90a6a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200418_小天鹅B.xlsx": {
+   "name": "200418_小天鹅B.xlsx",
+   "size": 5364,
+   "fid": "5b11f9288e924591981ad1dbdb546660",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200513_丽珠B.xlsx": {
+   "name": "200513_丽珠B.xlsx",
+   "size": 5364,
+   "fid": "c9d991e4fc23482ebb5d0694cedeb82e",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200413_ST东旭B.xlsx": {
+   "name": "200413_ST东旭B.xlsx",
+   "size": 5364,
+   "fid": "49b29fa677634a83892f3193dc874a7d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200057_ST大洋B.xlsx": {
+   "name": "200057_ST大洋B.xlsx",
+   "size": 5364,
+   "fid": "1cf88af7b23149f88d65590bd82be9cc",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200152_山航B.xlsx": {
+   "name": "200152_山航B.xlsx",
+   "size": 5364,
+   "fid": "01272cba818040e3beb22f66984d4734",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200054_建车B.xlsx": {
+   "name": "200054_建车B.xlsx",
+   "size": 5364,
+   "fid": "3d9ca85b6af34ca3b49b065a6267f6c9",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200024_招商局B.xlsx": {
+   "name": "200024_招商局B.xlsx",
+   "size": 5364,
+   "fid": "7299a7b5aa8744968cef683daea24fc8",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200039_中集B.xlsx": {
+   "name": "200039_中集B.xlsx",
+   "size": 5364,
+   "fid": "38576c62201945939a77353ced80a23b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200053_深基地B.xlsx": {
+   "name": "200053_深基地B.xlsx",
+   "size": 5364,
+   "fid": "a2e617db523547659d48555d4da4fca6",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200041_ST本实B.xlsx": {
+   "name": "200041_ST本实B.xlsx",
+   "size": 5364,
+   "fid": "b922ce0eb0484215a7d1a861ac74cca8",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200015_PT中浩B.xlsx": {
+   "name": "200015_PT中浩B.xlsx",
+   "size": 5364,
+   "fid": "b7ea02f0aa21488abc2a1fd66617be3a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200018_神州B.xlsx": {
+   "name": "200018_神州B.xlsx",
+   "size": 5364,
+   "fid": "26429f04e88249dead9b615f843841b6",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200013_ST石化B.xlsx": {
+   "name": "200013_ST石化B.xlsx",
+   "size": 5364,
+   "fid": "d4b7d950064f4daf83be0be981aa0cc5",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200003_PT金田B.xlsx": {
+   "name": "200003_PT金田B.xlsx",
+   "size": 5364,
+   "fid": "c3575afc747045c0a99cc24b5681e0c2",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/200002_万科B.xlsx": {
+   "name": "200002_万科B.xlsx",
+   "size": 5364,
+   "fid": "c64f0a0fc15a46d29f6c25393a4b5886",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002898_赛隆药业.xlsx": {
+   "name": "002898_赛隆药业.xlsx",
+   "size": 111554,
+   "fid": "5a8ca0d9ae2f4f8b9f09397f934741a8",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002808_恒久科技.xlsx": {
+   "name": "002808_恒久科技.xlsx",
+   "size": 126015,
+   "fid": "f2fa14ed22e84331871bf4e9d1a13c69",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002776_柏堡龙.xlsx": {
+   "name": "002776_柏堡龙.xlsx",
+   "size": 113670,
+   "fid": "8fb00e3bfd474792a8649bc9431e06ee",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002770_科迪乳业.xlsx": {
+   "name": "002770_科迪乳业.xlsx",
+   "size": 87297,
+   "fid": "f9619003d5b84574a060b970cdd07132",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002740_爱迪尔.xlsx": {
+   "name": "002740_爱迪尔.xlsx",
+   "size": 113509,
+   "fid": "5fcd903c61c5481f8bd0ca30677bef8f",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002781_奇信股份.xlsx": {
+   "name": "002781_奇信股份.xlsx",
+   "size": 98393,
+   "fid": "b800e0b9c04b43429a7130a46ad12fae",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002711_欧浦智网.xlsx": {
+   "name": "002711_欧浦智网.xlsx",
+   "size": 95005,
+   "fid": "0c35e929107a4739b0e29db31b32c158",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002751_易尚展示.xlsx": {
+   "name": "002751_易尚展示.xlsx",
+   "size": 112771,
+   "fid": "de0099a666114690b710eeac7a540f0c",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002750_龙津药业.xlsx": {
+   "name": "002750_龙津药业.xlsx",
+   "size": 131882,
+   "fid": "0011ebafcc314fe0a0f3518003b7df4c",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002699_美盛文化.xlsx": {
+   "name": "002699_美盛文化.xlsx",
+   "size": 147857,
+   "fid": "efc0c1cb1c334f8a8557aad548a3e5bb",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002684_猛狮科技.xlsx": {
+   "name": "002684_猛狮科技.xlsx",
+   "size": 126349,
+   "fid": "2aa577f36d324d5cb957d923e16f6c06",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002680_长生生物.xlsx": {
+   "name": "002680_长生生物.xlsx",
+   "size": 96788,
+   "fid": "2fa4154212f749a19f7746137bfb5c24",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002619_艾格拉斯.xlsx": {
+   "name": "002619_艾格拉斯.xlsx",
+   "size": 129129,
+   "fid": "bd3d2cbab3f24833853a46c68f454309",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002621_美吉姆.xlsx": {
+   "name": "002621_美吉姆.xlsx",
+   "size": 158346,
+   "fid": "e968fb60368642cb8301b834bdcef5ab",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002665_首航高科.xlsx": {
+   "name": "002665_首航高科.xlsx",
+   "size": 152521,
+   "fid": "e0add86c5a4d489fba974f0d1c409a75",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002618_丹邦科技.xlsx": {
+   "name": "002618_丹邦科技.xlsx",
+   "size": 142327,
+   "fid": "c8aa8002d2ee4f729589618648bb2738",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002505_鹏都农牧.xlsx": {
+   "name": "002505_鹏都农牧.xlsx",
+   "size": 165131,
+   "fid": "079d4fce9de4402cabbff0c231fbdce6",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002610_爱康科技.xlsx": {
+   "name": "002610_爱康科技.xlsx",
+   "size": 157259,
+   "fid": "0c948ff5beab44c3860cabb211be25ca",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002504_弘高创意.xlsx": {
+   "name": "002504_弘高创意.xlsx",
+   "size": 153429,
+   "fid": "b09b460e708d42109554cdb8dac3d571",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002604_龙力生物.xlsx": {
+   "name": "002604_龙力生物.xlsx",
+   "size": 108543,
+   "fid": "e7e65193e2e549f0938618f58d9a9244",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002509_天广中茂.xlsx": {
+   "name": "002509_天广中茂.xlsx",
+   "size": 118223,
+   "fid": "a46f40cf227c4db5a1270f7afe704db2",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002503_搜于特.xlsx": {
+   "name": "002503_搜于特.xlsx",
+   "size": 159769,
+   "fid": "f9ef3052b31c4bc3950f781af2b06cdc",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002502_鼎龙文化.xlsx": {
+   "name": "002502_鼎龙文化.xlsx",
+   "size": 167378,
+   "fid": "315848cda16b40028c7677561620be7e",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002435_长江健康.xlsx": {
+   "name": "002435_长江健康.xlsx",
+   "size": 171163,
+   "fid": "0550c2711ffa4f8c85c1f39b06b135b6",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002499_科林环保.xlsx": {
+   "name": "002499_科林环保.xlsx",
+   "size": 156483,
+   "fid": "8f03026158c14ce2960e728588bb79f9",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002464_众应互联.xlsx": {
+   "name": "002464_众应互联.xlsx",
+   "size": 145330,
+   "fid": "6ad61343ec99483e8781705b41fe55bb",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002473_圣莱达.xlsx": {
+   "name": "002473_圣莱达.xlsx",
+   "size": 141713,
+   "fid": "cd26b2b665254fe48f82f9776e16f031",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002477_雏鹰农牧.xlsx": {
+   "name": "002477_雏鹰农牧.xlsx",
+   "size": 116382,
+   "fid": "bd26fa496f964524844c656b5c22dca9",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002450_康得新.xlsx": {
+   "name": "002450_康得新.xlsx",
+   "size": 132256,
+   "fid": "216398244c5c4518baf1721b2c5d4bf0",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002447_晨鑫科技.xlsx": {
+   "name": "002447_晨鑫科技.xlsx",
+   "size": 149981,
+   "fid": "273dfc776f434816b98e6a400fccf2f8",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002417_深南股份.xlsx": {
+   "name": "002417_深南股份.xlsx",
+   "size": 160929,
+   "fid": "dc593e97115d4715b494e3f325747064",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002433_太安堂.xlsx": {
+   "name": "002433_太安堂.xlsx",
+   "size": 174753,
+   "fid": "be2b7f91db024851b61b8d5534d987a7",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002359_北讯集团.xlsx": {
+   "name": "002359_北讯集团.xlsx",
+   "size": 139469,
+   "fid": "eea42ed4b9b64dd68e3b340f8d69c8d3",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002411_延安必康.xlsx": {
+   "name": "002411_延安必康.xlsx",
+   "size": 164275,
+   "fid": "1e46aa105f7946329a88e6605e5b3474",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002308_威创股份.xlsx": {
+   "name": "002308_威创股份.xlsx",
+   "size": 183149,
+   "fid": "f62aa1389f43454b839b9815d0f3d7a7",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002341_新纶新材.xlsx": {
+   "name": "002341_新纶新材.xlsx",
+   "size": 182293,
+   "fid": "e204889c3a404c1e9a569bb0004bf336",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002325_洪涛股份.xlsx": {
+   "name": "002325_洪涛股份.xlsx",
+   "size": 179553,
+   "fid": "f26a5d304163430ea545f0f24fb8f069",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002336_人人乐.xlsx": {
+   "name": "002336_人人乐.xlsx",
+   "size": 189139,
+   "fid": "2fda4aee71fc4860ac6d0f78e79ceb06",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002231_奥维通信.xlsx": {
+   "name": "002231_奥维通信.xlsx",
+   "size": 215825,
+   "fid": "87874045030c44aba1ab050e43bccf60",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002288_超华科技.xlsx": {
+   "name": "002288_超华科技.xlsx",
+   "size": 182671,
+   "fid": "e70ae2b5c40245a383233a465a0f88e8",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002280_联络互动.xlsx": {
+   "name": "002280_联络互动.xlsx",
+   "size": 187125,
+   "fid": "c7e2640f2d68471c967c9678dc5240c9",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002260_德奥通航.xlsx": {
+   "name": "002260_德奥通航.xlsx",
+   "size": 158046,
+   "fid": "d2ab16589d764d68a17fb6a36232fa6a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002220_天宝食品.xlsx": {
+   "name": "002220_天宝食品.xlsx",
+   "size": 155853,
+   "fid": "20c442d8957840b8b7fb948601c8bdef",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002147_新光圆成.xlsx": {
+   "name": "002147_新光圆成.xlsx",
+   "size": 179313,
+   "fid": "cbddc4a3b12f4be9b9bd4572962359fe",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002113_天润数娱.xlsx": {
+   "name": "002113_天润数娱.xlsx",
+   "size": 193820,
+   "fid": "44b3f9265c91444d9b0f410a6560612b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002118_紫鑫药业.xlsx": {
+   "name": "002118_紫鑫药业.xlsx",
+   "size": 203847,
+   "fid": "53a1347671b44a6c88ffe61312da27dd",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002143_印纪传媒.xlsx": {
+   "name": "002143_印纪传媒.xlsx",
+   "size": 152237,
+   "fid": "6aff88d3c0ca405989534e95375d1dd2",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002089_新海宜.xlsx": {
+   "name": "002089_新海宜.xlsx",
+   "size": 208557,
+   "fid": "ff1518fcb7da476a82dd45f9362c0fe3",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002087_新野纺织.xlsx": {
+   "name": "002087_新野纺织.xlsx",
+   "size": 206603,
+   "fid": "55fccceca04148bfaf09b39380c65586",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000996_中国中期.xlsx": {
+   "name": "000996_中国中期.xlsx",
+   "size": 283970,
+   "fid": "65ad420df361451b8f85466a3cdbccaf",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002018_华信国际.xlsx": {
+   "name": "002018_华信国际.xlsx",
+   "size": 184812,
+   "fid": "97e0fba09a464bceab75f2cfaed31b81",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002070_众和股份.xlsx": {
+   "name": "002070_众和股份.xlsx",
+   "size": 148522,
+   "fid": "8cdb56d228d34a4eb370cd90bcf90329",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002071_长城影视.xlsx": {
+   "name": "002071_长城影视.xlsx",
+   "size": 176449,
+   "fid": "b513181eedde43c8ae284bb8c90c0deb",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000979_中弘股份.xlsx": {
+   "name": "000979_中弘股份.xlsx",
+   "size": 215801,
+   "fid": "5861117125ed4ceeb3c6b169b8951eb3",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000982_中银绒业.xlsx": {
+   "name": "000982_中银绒业.xlsx",
+   "size": 271745,
+   "fid": "ff75aecf4d74457690714ffcbcf9e18d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002002_鸿达兴业.xlsx": {
+   "name": "002002_鸿达兴业.xlsx",
+   "size": 231087,
+   "fid": "ed8974971fde48ddbbea9f20bb28141e",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/002013_中航机电.xlsx": {
+   "name": "002013_中航机电.xlsx",
+   "size": 231401,
+   "fid": "b5279dd143774fdda9dd2b4306ee1df5",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000961_中南建设.xlsx": {
+   "name": "000961_中南建设.xlsx",
+   "size": 286206,
+   "fid": "e4490d5bf99d46bf806a46ef6875173d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000971_高升控股.xlsx": {
+   "name": "000971_高升控股.xlsx",
+   "size": 279089,
+   "fid": "0708d6d12f514d64a855507ac54de1ae",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000976_华铁股份.xlsx": {
+   "name": "000976_华铁股份.xlsx",
+   "size": 277862,
+   "fid": "f0eb6990cc4e44d3b124f69861f6ba12",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000939_凯迪生态.xlsx": {
+   "name": "000939_凯迪生态.xlsx",
+   "size": 246687,
+   "fid": "df880ec2b8c34b47a5d1e8171d474a82",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000956_中原油气.xlsx": {
+   "name": "000956_中原油气.xlsx",
+   "size": 82116,
+   "fid": "9cd06ab041cb4a2ab78808cf74848f97",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000861_海印股份.xlsx": {
+   "name": "000861_海印股份.xlsx",
+   "size": 302149,
+   "fid": "edbf2aa94b084ec9a1edc20842a7f42d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000832_龙涤股份.xlsx": {
+   "name": "000832_龙涤股份.xlsx",
+   "size": 92522,
+   "fid": "dd59519b82b8409eb1bbb56505768e7c",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000918_嘉凯城.xlsx": {
+   "name": "000918_嘉凯城.xlsx",
+   "size": 273658,
+   "fid": "fed8a9e4fb4b4fbb9ebf119602405da7",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000916_华北高速.xlsx": {
+   "name": "000916_华北高速.xlsx",
+   "size": 206912,
+   "fid": "cf2e4ecb3e574412856bec89494ebe3e",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000866_扬子石化.xlsx": {
+   "name": "000866_扬子石化.xlsx",
+   "size": 97958,
+   "fid": "6379832fafe64ee79254a06139b91832",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000836_富通信息.xlsx": {
+   "name": "000836_富通信息.xlsx",
+   "size": 316188,
+   "fid": "ba9521c64baf4639a6c20e5358debeca",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000851_高鸿股份.xlsx": {
+   "name": "000851_高鸿股份.xlsx",
+   "size": 320594,
+   "fid": "e0082673e1884bc7ac823378e0b954d8",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000835_长城动漫.xlsx": {
+   "name": "000835_长城动漫.xlsx",
+   "size": 271322,
+   "fid": "03731cf4868b49ba8f1eabbc652116d8",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000827_长兴实业.xlsx": {
+   "name": "000827_长兴实业.xlsx",
+   "size": 87676,
+   "fid": "6ec00647bcb443359e2199fdb56487c2",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000806_银河生物.xlsx": {
+   "name": "000806_银河生物.xlsx",
+   "size": 292821,
+   "fid": "fcd6cb56753a43df9b9eae01422c8215",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000787_创智科技.xlsx": {
+   "name": "000787_创智科技.xlsx",
+   "size": 168294,
+   "fid": "0b0ac8a4f942463c9354a25a5f6ff1cf",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000780_平庄能源.xlsx": {
+   "name": "000780_平庄能源.xlsx",
+   "size": 287449,
+   "fid": "0555262f07824feb9ffed8137f972bb4",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000817_辽河油田.xlsx": {
+   "name": "000817_辽河油田.xlsx",
+   "size": 93762,
+   "fid": "edff3d2ff91b4cb0bdbef2bbdc0a5994",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000805_炎黄物流.xlsx": {
+   "name": "000805_炎黄物流.xlsx",
+   "size": 153202,
+   "fid": "536cf489f13847e3a8351c1b22219e33",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000765_华信股份.xlsx": {
+   "name": "000765_华信股份.xlsx",
+   "size": 93595,
+   "fid": "1e400edb0cb24e93b01fa76673c79631",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000732_泰禾集团.xlsx": {
+   "name": "000732_泰禾集团.xlsx",
+   "size": 295602,
+   "fid": "ccf4ea7cc78545038aa3838cb5cfe9ff",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000763_锦州石化.xlsx": {
+   "name": "000763_锦州石化.xlsx",
+   "size": 99847,
+   "fid": "bdbbe745c40a47a2aa2e38c4682a4bf0",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000748_长城信息.xlsx": {
+   "name": "000748_长城信息.xlsx",
+   "size": 236001,
+   "fid": "a8dde84da2944becbceda62fb48f0779",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000699_佳纸股份.xlsx": {
+   "name": "000699_佳纸股份.xlsx",
+   "size": 119108,
+   "fid": "1fe95f1cb1454c2e94fad11e3775ba6d",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000730_环保股份.xlsx": {
+   "name": "000730_环保股份.xlsx",
+   "size": 95107,
+   "fid": "28eb7c5153ec444ba4d0e358323b526a",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000760_斯太尔.xlsx": {
+   "name": "000760_斯太尔.xlsx",
+   "size": 277227,
+   "fid": "f8f79f980f324daba56c660a49eb871b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000689_宏业集团.xlsx": {
+   "name": "000689_宏业集团.xlsx",
+   "size": 71845,
+   "fid": "71261108035540b2adb975c60521ca58",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000693_华泽钴镍.xlsx": {
+   "name": "000693_华泽钴镍.xlsx",
+   "size": 231440,
+   "fid": "f8ecc9f3e0a34bee81bd5a474609447b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000769_菲菲农业.xlsx": {
+   "name": "000769_菲菲农业.xlsx",
+   "size": 102940,
+   "fid": "144083aafc65481a8ec8f0ea317fa163",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000673_当代东方.xlsx": {
+   "name": "000673_当代东方.xlsx",
+   "size": 293562,
+   "fid": "bd19025914f84930ae5d4e393bcf41ef",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000687_华讯方舟.xlsx": {
+   "name": "000687_华讯方舟.xlsx",
+   "size": 295303,
+   "fid": "de73b781fef64a5aa403e00c97cc2b48",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000671_阳光城.xlsx": {
+   "name": "000671_阳光城.xlsx",
+   "size": 312956,
+   "fid": "7bba6e7b8d7b4f82a94eadd125b1c74e",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000675_银山化工.xlsx": {
+   "name": "000675_银山化工.xlsx",
+   "size": 72276,
+   "fid": "e9edeb5248ef4819bd2fa3e462052d8b",
+   "synced_at": "2026-09-17T02:17:32",
+   "adopted": true
+  },
+  "daily/退市股/000667_美好置业.xlsx": {
+   "name": "000667_美好置业.xlsx",
+   "size": 306370,
+   "fid": "b69f1958fbff41e28459372b7ac6ce6e",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000658_海洋集团.xlsx": {
+   "name": "000658_海洋集团.xlsx",
+   "size": 72874,
+   "fid": "d1433c258da54ea7993943d9a5f18286",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000666_经纬纺机.xlsx": {
+   "name": "000666_经纬纺机.xlsx",
+   "size": 314908,
+   "fid": "09cbfffc3e6f4e3dada311673551aa3a",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000662_天夏智慧.xlsx": {
+   "name": "000662_天夏智慧.xlsx",
+   "size": 284376,
+   "fid": "10b64aec61f44851afa4eb050679a84c",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000660_南华西.xlsx": {
+   "name": "000660_南华西.xlsx",
+   "size": 97733,
+   "fid": "3862ba8995764e10a12c45c7f3a7a70b",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000606_顺利办.xlsx": {
+   "name": "000606_顺利办.xlsx",
+   "size": 312353,
+   "fid": "5dc9d408037945d3b2073281a56f2aa9",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000588_粤金曼A.xlsx": {
+   "name": "000588_粤金曼A.xlsx",
+   "size": 69243,
+   "fid": "9a2a165209864a0fbd8fade4c13d285f",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000602_金马集团.xlsx": {
+   "name": "000602_金马集团.xlsx",
+   "size": 205994,
+   "fid": "20e5eae13fe145aead2f210faa183f34",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000627_天茂集团.xlsx": {
+   "name": "000627_天茂集团.xlsx",
+   "size": 335331,
+   "fid": "3a5c44d6a2c84944ab809f8e7539241f",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000621_比特科技.xlsx": {
+   "name": "000621_比特科技.xlsx",
+   "size": 98738,
+   "fid": "9bdd04ae9b574f399e2f7cc4f2f5eafe",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000587_金洲慈航.xlsx": {
+   "name": "000587_金洲慈航.xlsx",
+   "size": 306918,
+   "fid": "7198994852a64d0f9dea88ceaa7a6da3",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000418_小天鹅A.xlsx": {
+   "name": "000418_小天鹅A.xlsx",
+   "size": 271157,
+   "fid": "e585a566e41a4e0e9246e1d4651771ed",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000502_绿景控股.xlsx": {
+   "name": "000502_绿景控股.xlsx",
+   "size": 345280,
+   "fid": "52b026338caf4c6ca1160e7efcf3d93a",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000508_琼民源A.xlsx": {
+   "name": "000508_琼民源A.xlsx",
+   "size": 70204,
+   "fid": "bc6e2b50a2644ed6828196977d777578",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000578_盐湖集团.xlsx": {
+   "name": "000578_盐湖集团.xlsx",
+   "size": 189464,
+   "fid": "b2360e465b35457e9480337bd77707ff",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000583_托普软件.xlsx": {
+   "name": "000583_托普软件.xlsx",
+   "size": 142592,
+   "fid": "3ee56e17ae6f4b9aabab1d1af62aa0ca",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000412_北方五环.xlsx": {
+   "name": "000412_北方五环.xlsx",
+   "size": 89999,
+   "fid": "d0c5fabcc54c496cb8fb97399c9372e3",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000416_民生控股.xlsx": {
+   "name": "000416_民生控股.xlsx",
+   "size": 328816,
+   "fid": "d9c5ed9a377640e59865d5519c082401",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000405_有色鑫光.xlsx": {
+   "name": "000405_有色鑫光.xlsx",
+   "size": 94015,
+   "fid": "f1d8c1704e4541b1ba08ea006b93b3fb",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000013_深石化A.xlsx": {
+   "name": "000013_深石化A.xlsx",
+   "size": 148273,
+   "fid": "5c745dbb0d8a4cee8e25d68961e45cfd",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000038_深大通.xlsx": {
+   "name": "000038_深大通.xlsx",
+   "size": 398701,
+   "fid": "88fdecc0cc35416896ca7ea31f8ce449",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000653_九州股份.xlsx": {
+   "name": "000653_九州股份.xlsx",
+   "size": 72717,
+   "fid": "8f47c1fd57eb4c7d8c0da44ce122a7b6",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000616_海航投资.xlsx": {
+   "name": "000616_海航投资.xlsx",
+   "size": 309479,
+   "fid": "6dbf1e7350584a689d852259e633664b",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000638_万方发展.xlsx": {
+   "name": "000638_万方发展.xlsx",
+   "size": 321978,
+   "fid": "f504b48649724948ae4390a0e347cbe7",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000618_吉林化工.xlsx": {
+   "name": "000618_吉林化工.xlsx",
+   "size": 111723,
+   "fid": "caa06fe0ad55484598c4cadaf1661a2d",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000622_恒立实业.xlsx": {
+   "name": "000622_恒立实业.xlsx",
+   "size": 304988,
+   "fid": "54df55ea9f464dd49333e5cd039c54a5",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000613_大东海A.xlsx": {
+   "name": "000613_大东海A.xlsx",
+   "size": 286750,
+   "fid": "5df39120fe794eecb307c926698cc3ff",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000594_国恒铁路.xlsx": {
+   "name": "000594_国恒铁路.xlsx",
+   "size": 224154,
+   "fid": "6f6431fe117742d8a6c024545471522b",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000611_天首发展.xlsx": {
+   "name": "000611_天首发展.xlsx",
+   "size": 293296,
+   "fid": "cb08767903a14f949937e5d879e7d370",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000584_哈工智能.xlsx": {
+   "name": "000584_哈工智能.xlsx",
+   "size": 342541,
+   "fid": "fd6215750845474cab2123eb304158fb",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000569_长城股份.xlsx": {
+   "name": "000569_长城股份.xlsx",
+   "size": 175344,
+   "fid": "34f16d59bbdc4a3d9bff58793695625a",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000562_宏源证券.xlsx": {
+   "name": "000562_宏源证券.xlsx",
+   "size": 253670,
+   "fid": "ec5e1e13ba93410c8923b6a058da692c",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000585_东北电气.xlsx": {
+   "name": "000585_东北电气.xlsx",
+   "size": 297414,
+   "fid": "27e421bb1b7144fdb2dbd61209263611",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000556_南洋航运.xlsx": {
+   "name": "000556_南洋航运.xlsx",
+   "size": 95694,
+   "fid": "0b29bb4fa99b4333a74fbe1a7a97b3ba",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000549_湘火炬A.xlsx": {
+   "name": "000549_湘火炬A.xlsx",
+   "size": 162171,
+   "fid": "18a3e501e85548c7abf9e91ca6f3ac04",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000542_TCL通讯.xlsx": {
+   "name": "000542_TCL通讯.xlsx",
+   "size": 126042,
+   "fid": "059d276007b044a29274c466c2ccf5c2",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000527_美的电器.xlsx": {
+   "name": "000527_美的电器.xlsx",
+   "size": 238065,
+   "fid": "b56bef40f6ad43ed95991fc0d8f3c6a9",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000540_中天金融.xlsx": {
+   "name": "000540_中天金融.xlsx",
+   "size": 340406,
+   "fid": "d8c2e9d54b70422ca04a6dd8219928c4",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000535_猴王A.xlsx": {
+   "name": "000535_猴王A.xlsx",
+   "size": 140981,
+   "fid": "3b7fadffcfb34d89b84a6e2f67e17520",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000413_东旭光电.xlsx": {
+   "name": "000413_东旭光电.xlsx",
+   "size": 324854,
+   "fid": "ac1f134785ea4c9590f784def0aed46d",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000522_白云山A.xlsx": {
+   "name": "000522_白云山A.xlsx",
+   "size": 231315,
+   "fid": "a954eb354de745f28cb3652ec7b4be73",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000511_烯碳新材.xlsx": {
+   "name": "000511_烯碳新材.xlsx",
+   "size": 288027,
+   "fid": "5781bab498af4eea8f47d5ff4e5de804",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000515_攀渝钛业.xlsx": {
+   "name": "000515_攀渝钛业.xlsx",
+   "size": 180669,
+   "fid": "5d2eb3323f574b97a9bf7a3061eab453",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000406_石油大明.xlsx": {
+   "name": "000406_石油大明.xlsx",
+   "size": 121165,
+   "fid": "ce0dbbc7981c4f08ad96fa80a325fa29",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000047_深中侨A.xlsx": {
+   "name": "000047_深中侨A.xlsx",
+   "size": 4954,
+   "fid": "ae5acbd3d01c4e6da140046ad3ef0b15",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000150_宜华健康.xlsx": {
+   "name": "000150_宜华健康.xlsx",
+   "size": 267866,
+   "fid": "2e81ff52d1a8491ba4f6eaf01aa86c36",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000005_世纪星源.xlsx": {
+   "name": "000005_世纪星源.xlsx",
+   "size": 368878,
+   "fid": "306fcdba57b5430599484545b590332f",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000018_神州长城.xlsx": {
+   "name": "000018_神州长城.xlsx",
+   "size": 398701,
+   "fid": "38c540d5611c431f9d3f3bd5922a889c",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000040_东旭蓝天.xlsx": {
+   "name": "000040_东旭蓝天.xlsx",
+   "size": 354481,
+   "fid": "916bb077fce44da0a547402710c00a90",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000023_深天地A.xlsx": {
+   "name": "000023_深天地A.xlsx",
+   "size": 398701,
+   "fid": "363ff30023c64a9b8295b03e89b8f69c",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000024_招商地产.xlsx": {
+   "name": "000024_招商地产.xlsx",
+   "size": 398702,
+   "fid": "6910c5bf94284d1a847ecdfd75dcfb03",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000033_新都酒店.xlsx": {
+   "name": "000033_新都酒店.xlsx",
+   "size": 398701,
+   "fid": "9a4ed4b08d1b4aaa9ee12e241fee1366",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000046_泛海控股.xlsx": {
+   "name": "000046_泛海控股.xlsx",
+   "size": 345658,
+   "fid": "a49e55f2e2b64771b3ed956bff1e4cb2",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000004_国华网安.xlsx": {
+   "name": "000004_国华网安.xlsx",
+   "size": 419021,
+   "fid": "039a3fd154b241c1bf06c0f207b4e8d1",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000015_深中浩A.xlsx": {
+   "name": "000015_深中浩A.xlsx",
+   "size": 109054,
+   "fid": "66c9761b20ce4619b23c5af2bacc9526",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/退市股/000003_深金田A.xlsx": {
+   "name": "000003_深金田A.xlsx",
+   "size": 129255,
+   "fid": "557ed04085884fe788c0241d2f695a68",
+   "synced_at": "2026-09-17T02:17:33",
+   "adopted": true
+  },
+  "daily/2026-09-01至2026-09-16A股日k线.zip": {
+   "name": "2026-09-01至2026-09-16A股日k线.zip",
+   "size": 45735561,
+   "fid": "06bedc492d084d16a3b8d04af585a0dd",
+   "synced_at": "2026-09-17T02:22:23"
+  },
+  "daily/2026-09-01至2026-09-15A股日k线.zip": {
+   "name": "2026-09-01至2026-09-15A股日k线.zip",
+   "size": 44495305,
+   "fid": "2c24852db90a4afe9f00d76b1affc9dc",
+   "synced_at": "2026-09-17T02:22:23"
+  },
+  "daily/数据使用说明.txt": {
+   "name": "数据使用说明.txt",
+   "size": 1633,
+   "fid": "ab85ebc388174567a65d100103fef95a",
+   "synced_at": "2026-09-17T02:22:23"
+  },
+  "fund_flow/2026/09/20260916.zip": {
+   "name": "20260916.zip",
+   "size": 1558959,
+   "fid": "e8160216791e48598ab261c8496bfd0b",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/09/20260915.zip": {
+   "name": "20260915.zip",
+   "size": 1575516,
+   "fid": "9f3f5a2181a84a33ad8ae211605c5b2f",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/09/20260914.zip": {
+   "name": "20260914.zip",
+   "size": 1570957,
+   "fid": "ca0b7b35ca184de98f3d157340e92d89",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/09/20260911.zip": {
+   "name": "20260911.zip",
+   "size": 1579932,
+   "fid": "9150a260c64d455ba2d6158e9104fd88",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/09/20260910.zip": {
+   "name": "20260910.zip",
+   "size": 1575356,
+   "fid": "161f178c8fc341b2a0206cdb6ce49dae",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/09/20260909.zip": {
+   "name": "20260909.zip",
+   "size": 1568582,
+   "fid": "89c280179fea484e9dbbbe180c4d976f",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/09/20260908.zip": {
+   "name": "20260908.zip",
+   "size": 1564729,
+   "fid": "af459d8f09e54aa0bac15ac28945a5c6",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/09/20260907.zip": {
+   "name": "20260907.zip",
+   "size": 1571827,
+   "fid": "a93a2dc12bcf4e22aae5095407fa74c7",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/09/20260904.zip": {
+   "name": "20260904.zip",
+   "size": 1566249,
+   "fid": "2f4facd97043481e99edbf2a78feb20a",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/09/20260903.zip": {
+   "name": "20260903.zip",
+   "size": 1562045,
+   "fid": "e5e27cbc813b42febbd7896792757bcc",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/09/20260902.zip": {
+   "name": "20260902.zip",
+   "size": 1563693,
+   "fid": "2e908407c219460d85e37f800cb46cc3",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/09/20260901.zip": {
+   "name": "20260901.zip",
+   "size": 1569454,
+   "fid": "35277828d139470f92ce4e928e077c9e",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260831.zip": {
+   "name": "20260831.zip",
+   "size": 1572230,
+   "fid": "a0c44a6f6b7f4c968c7d5de42d33809d",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260828.zip": {
+   "name": "20260828.zip",
+   "size": 1565452,
+   "fid": "5833f26ac8ca47ba8a6f473aaa0a31fe",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260827.zip": {
+   "name": "20260827.zip",
+   "size": 1564609,
+   "fid": "85e5373bb39b4b0995f410c1cf5909fd",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260826.zip": {
+   "name": "20260826.zip",
+   "size": 1554662,
+   "fid": "b96288dd69d64b99999925e75cc7b710",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260825.zip": {
+   "name": "20260825.zip",
+   "size": 1567380,
+   "fid": "7beefd7a60c04fab91218b5bbffecb13",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260824.zip": {
+   "name": "20260824.zip",
+   "size": 1565246,
+   "fid": "273b4ffdd19c450a961292d2c7c798b4",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260821.zip": {
+   "name": "20260821.zip",
+   "size": 1553364,
+   "fid": "1192d8b4079b4cfe9073ccd4565cb9ac",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260820.zip": {
+   "name": "20260820.zip",
+   "size": 1565910,
+   "fid": "94801a5f74764e63b7a838bb6766156c",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260819.zip": {
+   "name": "20260819.zip",
+   "size": 1571999,
+   "fid": "064df3eb2afb40b7a7009e354d4b408c",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260818.zip": {
+   "name": "20260818.zip",
+   "size": 1565646,
+   "fid": "64ee0d5eee264cd9814868a09279117b",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260817.zip": {
+   "name": "20260817.zip",
+   "size": 1561762,
+   "fid": "a26c5738842e4cccb77eb7b4fecce41e",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260814.zip": {
+   "name": "20260814.zip",
+   "size": 1559785,
+   "fid": "27dc830f5e104132aef6c7ed6a35c2c5",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260813.zip": {
+   "name": "20260813.zip",
+   "size": 1562507,
+   "fid": "a55f8bd035964533966eaafa53f3e7f2",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260812.zip": {
+   "name": "20260812.zip",
+   "size": 1557097,
+   "fid": "0423e5de2554424bae27ad391cb5cfb6",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260811.zip": {
+   "name": "20260811.zip",
+   "size": 1560236,
+   "fid": "d73221e7841240eeb855091bfb773a84",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260810.zip": {
+   "name": "20260810.zip",
+   "size": 1559475,
+   "fid": "6bc7e214e76f41fb98b0b4742926c167",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260807.zip": {
+   "name": "20260807.zip",
+   "size": 1561722,
+   "fid": "30bc560336c549909f50c970c8bf65bb",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260806.zip": {
+   "name": "20260806.zip",
+   "size": 1562906,
+   "fid": "6a942bf5cd4e47bb8729e2019727c01f",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260805.zip": {
+   "name": "20260805.zip",
+   "size": 1556295,
+   "fid": "7c511f525bb1469ab610a56e23472fdb",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260804.zip": {
+   "name": "20260804.zip",
+   "size": 1555529,
+   "fid": "aea6a9011c8443c6828ac43d9d6fb6cb",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/08/20260803.zip": {
+   "name": "20260803.zip",
+   "size": 1556522,
+   "fid": "10713b19ce214fb6984fe27e090e7058",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/07.zip": {
+   "name": "07.zip",
+   "size": 35198675,
+   "fid": "603d654c5e7c48f7a6261eb09ce972ef",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/06.zip": {
+   "name": "06.zip",
+   "size": 32669148,
+   "fid": "03708b3a0d12493890063255089cdb68",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/01.zip": {
+   "name": "01.zip",
+   "size": 26385572,
+   "fid": "68d8b987a234485cadc2558b77ac2f12",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/02.zip": {
+   "name": "02.zip",
+   "size": 17398789,
+   "fid": "63f6221d44354cc49fc0816a14c9044e",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/03.zip": {
+   "name": "03.zip",
+   "size": 28050138,
+   "fid": "41a79ba3af384cb99df1dbca761a59e1",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/05.zip": {
+   "name": "05.zip",
+   "size": 23420757,
+   "fid": "c8fc04d28e3141be8d7edb8c08860763",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2026/04.zip": {
+   "name": "04.zip",
+   "size": 23045099,
+   "fid": "cb749be02d344da5882ee6fc0100b1f2",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/2025/2025.zip": {
+   "name": "2025.zip",
+   "size": 41818099,
+   "fid": "e2403ea879ce4ba2a832b98cbd9be8af",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/通知-共享以后改-夸克直链链接-请保存.txt": {
+   "name": "通知-共享以后改-夸克直链链接-请保存.txt",
+   "size": 217,
+   "fid": "dd8e9f5cff2748faa4885ac7d389b40f",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/day_read.py": {
+   "name": "day_read.py",
+   "size": 8428,
+   "fid": "10d305fd446c41e180a54963d27e6feb",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "fund_flow/资金使用说明.7z": {
+   "name": "资金使用说明.7z",
+   "size": 38540009,
+   "fid": "a8efa45759a3448cbf8caefc8f9ff88f",
+   "synced_at": "2026-09-17T02:24:43"
+  },
+  "financials/2026-09-04更新简化个股基本面数据.xlsx": {
+   "name": "2026-09-04更新简化个股基本面数据.xlsx",
+   "size": 2167474,
+   "fid": "c93f6a0afa5b456e800e41048b99c265",
+   "synced_at": "2026-09-17T02:24:49"
+  },
+  "minutes/2026/09/20260916.zip": {
+   "name": "20260916.zip",
+   "size": 15561062,
+   "fid": "7830426e918145fca383545d455c4050",
+   "synced_at": "2026-09-17T02:32:40"
+  },
+  "minutes/2026/09/20260915.zip": {
+   "name": "20260915.zip",
+   "size": 15206039,
+   "fid": "99ed26d351824beb9db6f459c0a34819",
+   "synced_at": "2026-09-17T02:32:40"
+  },
+  "minutes/2026/09/20260914.zip": {
+   "name": "20260914.zip",
+   "size": 15319860,
+   "fid": "215a938a28c142918c3db1216d6c8842",
+   "synced_at": "2026-09-17T02:32:40"
+  },
+  "minutes/2026/09/20260911.zip": {
+   "name": "20260911.zip",
+   "size": 15930858,
+   "fid": "72a1d9d2e2ed441f831602b8858322a7",
+   "synced_at": "2026-09-17T02:32:40"
+  },
+  "minutes/2026/09/20260910.zip": {
+   "name": "20260910.zip",
+   "size": 15152879,
+   "fid": "a15197adf5604703b971c605d0961133",
+   "synced_at": "2026-09-17T02:32:40"
+  },
+  "minutes/2026/09/20260909.zip": {
+   "name": "20260909.zip",
+   "size": 15378081,
+   "fid": "28e1f728245d4ae8a55fb2da9ab01be4",
+   "synced_at": "2026-09-17T02:32:40"
+  },
+  "minutes/2026/09/20260908.zip": {
+   "name": "20260908.zip",
+   "size": 15656326,
+   "fid": "b05c6a35162445f987613e96f6f07524",
+   "synced_at": "2026-09-17T02:32:40"
+  },
+  "minutes/2026/09/20260907.zip": {
+   "name": "20260907.zip",
+   "size": 15362030,
+   "fid": "521ab66aa8c643798c5007bfc017d901",
+   "synced_at": "2026-09-17T02:32:40"
+  },
+  "minutes/2026/09/20260904.zip": {
+   "name": "20260904.zip",
+   "size": 15850144,
+   "fid": "452964ea19e64335a43c1a222954c845",
+   "synced_at": "2026-09-17T02:32:40"
+  },
+  "minutes/2026/09/20260903.zip": {
+   "name": "20260903.zip",
+   "size": 15658075,
+   "fid": "e386c9c0635645d5bbab38e517923be9",
+   "synced_at": "2026-09-17T02:32:40"
+  },
+  "minutes/2026/09/20260902.zip": {
+   "name": "20260902.zip",
+   "size": 15646436,
+   "fid": "60f0531f40ba4cc1bb050b99007b74c3",
+   "synced_at": "2026-09-17T02:32:40"
+  },
+  "minutes/2026/09/20260901.zip": {
+   "name": "20260901.zip",
+   "size": 20692645,
+   "fid": "4509f571f98d40d1b3280dfd13e9ebfe",
+   "synced_at": "2026-09-17T02:32:40"
+  }
+ },
+ "stages": {
+  "daily": {
+   "build": "2026-09-17T03:20:12"
+  },
+  "fund_flow": {
+   "build": "2026-09-17T03:23:30"
+  },
+  "financials": {
+   "build": "2026-09-17T03:23:45"
+  },
+  "minutes": {
+   "build": "2026-09-17T03:31:35"
+  }
+ },
+ "runs": [
+  {
+   "started_at": "2026-09-17T02:17:30",
+   "cmd": "sync --categories daily,fund_flow,financials",
+   "status": "ok",
+   "error": null
+  },
+  {
+   "started_at": "2026-09-17T02:33:04",
+   "cmd": "build --categories daily",
+   "status": "failed",
+   "error": "ingest_daily: rc=1"
+  },
+  {
+   "started_at": "2026-09-17T03:00:56",
+   "cmd": "build --categories daily",
+   "status": "ok",
+   "error": null
+  },
+  {
+   "started_at": "2026-09-17T03:21:21",
+   "cmd": "build --categories fund_flow",
+   "status": "failed",
+   "error": "ingest_moneyflow: rc=1"
+  },
+  {
+   "started_at": "2026-09-17T03:23:06",
+   "cmd": "build --categories fund_flow",
+   "status": "ok",
+   "error": null
+  },
+  {
+   "started_at": "2026-09-17T03:23:42",
+   "cmd": "build --categories financials",
+   "status": "ok",
+   "error": null
+  },
+  {
+   "started_at": "2026-09-17T03:24:19",
+   "cmd": "build --categories minutes",
+   "status": "failed",
+   "error": "convert_minutes_to_parquet: rc=1"
+  },
+  {
+   "started_at": "2026-09-17T03:26:29",
+   "cmd": "build --categories minutes",
+   "status": "ok",
+   "error": null
+  },
+  {
+   "started_at": "2026-09-17T03:32:19",
+   "cmd": "verify",
+   "status": "ok",
+   "error": null
+  },
+  {
+   "started_at": "2026-09-17T03:33:41",
+   "cmd": "all --categories daily,fund_flow,financials",
+   "status": "ok",
+   "error": null
+  },
+  {
+   "started_at": "2026-09-17T03:34:13",
+   "cmd": "publish --categories minutes",
+   "status": "ok",
+   "error": null
+  }
+ ]
+}

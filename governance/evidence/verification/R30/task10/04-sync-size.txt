@@ -1,0 +1,57 @@
+=== pre-sync sizes 2026-09-17T02:17:29+08:00 ===
+4.2G	data/raw/daily
+du: 无法访问'data/raw/fund_flow': 没有那个文件或目录
+du: 无法访问'data/raw/financial': 没有那个文件或目录
+374
+=== post-sync sizes 2026-09-17T02:27:49+08:00 ===
+4.3G	data/raw/daily
+304M	data/raw/fund_flow
+2.1M	data/raw/financial
+
+file counts: daily=377 fund_flow=44 financial=1
+
+=== fund_flow tree ===
+data/raw/fund_flow/2025/2025.zip
+data/raw/fund_flow/2026/01.zip
+data/raw/fund_flow/2026/02.zip
+data/raw/fund_flow/2026/03.zip
+data/raw/fund_flow/2026/04.zip
+data/raw/fund_flow/2026/05.zip
+data/raw/fund_flow/2026/06.zip
+data/raw/fund_flow/2026/07.zip
+data/raw/fund_flow/2026/08/20260803.zip
+data/raw/fund_flow/2026/08/20260804.zip
+data/raw/fund_flow/2026/08/20260805.zip
+data/raw/fund_flow/2026/08/20260806.zip
+data/raw/fund_flow/2026/08/20260807.zip
+data/raw/fund_flow/2026/08/20260810.zip
+data/raw/fund_flow/2026/08/20260811.zip
+data/raw/fund_flow/2026/08/20260812.zip
+data/raw/fund_flow/2026/08/20260813.zip
+data/raw/fund_flow/2026/08/20260814.zip
+data/raw/fund_flow/2026/08/20260817.zip
+data/raw/fund_flow/2026/08/20260818.zip
+data/raw/fund_flow/2026/08/20260819.zip
+data/raw/fund_flow/2026/08/20260820.zip
+data/raw/fund_flow/2026/08/20260821.zip
+data/raw/fund_flow/2026/08/20260824.zip
+data/raw/fund_flow/2026/08/20260825.zip
+data/raw/fund_flow/2026/08/20260826.zip
+data/raw/fund_flow/2026/08/20260827.zip
+data/raw/fund_flow/2026/08/20260828.zip
+data/raw/fund_flow/2026/08/20260831.zip
+data/raw/fund_flow/2026/09/20260901.zip
+data/raw/fund_flow/2026/09/20260902.zip
+data/raw/fund_flow/2026/09/20260903.zip
+data/raw/fund_flow/2026/09/20260904.zip
+data/raw/fund_flow/2026/09/20260907.zip
+data/raw/fund_flow/2026/09/20260908.zip
+data/raw/fund_flow/2026/09/20260909.zip
+data/raw/fund_flow/2026/09/20260910.zip
+data/raw/fund_flow/2026/09/20260911.zip
+data/raw/fund_flow/2026/09/20260914.zip
+data/raw/fund_flow/2026/09/20260915.zip
+data/raw/fund_flow/2026/09/20260916.zip
+data/raw/fund_flow/day_read.py
+data/raw/fund_flow/通知-共享以后改-夸克直链链接-请保存.txt
+data/raw/fund_flow/资金使用说明.7z

@@ -1,0 +1,7 @@
+[ok] 已安装并启动 pan-data-update.timer（每日 08:10）
+NEXT                         LEFT          LAST PASSED UNIT                  ACTIVATES
+Thu 2026-09-17 08:11:27 CST  4h 37min left n/a  n/a    pan-data-update.timer pan-data-update.service
+
+1 timers listed.
+Pass --all to see loaded but inactive timers, too.
+验证：systemctl --user status pan-data-update.timer；journalctl --user -u pan-data-update.service

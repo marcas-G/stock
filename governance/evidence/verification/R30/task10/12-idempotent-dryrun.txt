@@ -1,0 +1,13 @@
+  [stoken refreshed 03:33:29]
+[daily] to_fetch=1 downloaded=0 adopted=0 unchanged=374 manual=0 failed=0
+  fetch  19910101至20260831A股日k线.zip
+[fund_flow] to_fetch=0 downloaded=0 adopted=0 unchanged=44 manual=0 failed=0
+[financials] to_fetch=3 downloaded=0 adopted=0 unchanged=1 manual=0 failed=0
+  fetch  个股财务数据_2026-09-04_更新.zip
+  fetch  财务季报年报_2026-09-04_更新.zip
+  fetch  2026-09-04_financial.parquet
+[daily] 将执行 build 链 4 步（--dry-run 不执行）
+[fund_flow] 将执行 build 链 1 步（--dry-run 不执行）
+[financials] 将执行 build 链 2 步（--dry-run 不执行）
+$ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py
+总结：downloaded=0 adopted=0 manual=0 failed=0

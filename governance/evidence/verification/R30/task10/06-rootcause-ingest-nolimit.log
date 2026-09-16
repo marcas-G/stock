@@ -1,0 +1,15 @@
+读取 daily_fact.parquet ...
+  18,191,285 rows / 5,879 codes / 8,784 trade dates
+  delist sidecar: 331 codes
+  delist_date: 329 codes（其中 sidecar 命中另计）
+TRUNCATE + 灌 daily
+  daily: 18,191,285 rows
+TRUNCATE + 灌 adj_factor
+  adj_factor: 18,191,285 rows
+TRUNCATE + 灌 daily_basic
+  daily_basic: 18,191,285 rows
+TRUNCATE + 灌 trade_cal
+  trade_cal: 8,784 rows
+TRUNCATE + 灌 stock_basic
+  stock_basic: 5,879 rows
+daily 层灌入完成

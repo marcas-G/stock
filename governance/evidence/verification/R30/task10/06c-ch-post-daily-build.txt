@@ -1,0 +1,10 @@
+ts: 2026-09-17T03:21:17
+daily max: [(datetime.date(2026, 9, 16),)]
+daily_basic max: [(datetime.date(2026, 9, 16),)]
+adj_factor max: [(datetime.date(2026, 9, 16),)]
+stk_limit max: [(datetime.date(2026, 9, 16),)]
+trade_cal max: [(datetime.date(2026, 9, 16),)]
+daily 8/22..9/16 by day: [(datetime.date(2026, 9, 1), 5543), (datetime.date(2026, 9, 2), 5543), (datetime.date(2026, 9, 3), 5544), (datetime.date(2026, 9, 4), 5542), (datetime.date(2026, 9, 7), 5541), (datetime.date(2026, 9, 8), 5541), (datetime.date(2026, 9, 9), 5540), (datetime.date(2026, 9, 10), 5538), (datetime.date(2026, 9, 11), 5538), (datetime.date(2026, 9, 14), 5538), (datetime.date(2026, 9, 15), 5536), (datetime.date(2026, 9, 16), 5536)]
+daily count 9/15: [(5536,)]
+daily count 9/16: [(5536,)]
+sample 9/16: 002281 [('002281.SZ', datetime.date(2026, 9, 16), 169.0, 185.21, 168.0, 185.21, 41224992.0, 7404579840.0)]

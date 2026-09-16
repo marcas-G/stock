@@ -1,0 +1,32 @@
+ts: 2026-09-17T03:36:25
+== daily rows on new trade day 2026-09-16 ==
+[('002281.SZ', datetime.date(2026, 9, 16), 169.0, 185.21, 168.0, 185.21, 41224992.0, 7404579840.0)]
+daily count 2026-09-16: [(5536,)]
+== moneyflow rows on 2026-09-16 ==
+[('002281.SZ', datetime.date(2026, 9, 16), 2030000000.0)]
+moneyflow count 2026-09-16: [(5573,)]
+== bars_1m rows on 2026-09-16 ==
+bars_1m count 2026-09-16: [(1335360,)]
+== cross-source: raw daily zip increment name / fat parquet last trade_date ==
+Traceback (most recent call last):
+  File "<stdin>", line 14, in <module>
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/_utils/deprecation.py", line 97, in wrapper
+    return function(*args, **kwargs)
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/lazyframe/opt_flags.py", line 361, in wrapper
+    return function(*args, **kwargs)
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/lazyframe/frame.py", line 2591, in collect
+    return engine_.collect(
+           ~~~~~~~~~~~~~~~^
+        self,
+        ^^^^^
+    ...<2 lines>...
+        post_opt_callback=post_opt_callback,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/lazyframe/engine.py", line 435, in collect
+    return wrap_df(ldf.collect(self.name, callback))
+                   ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: No such file or directory (os error 2): data/fact/daily/daily_fact.parquet
+daily_fact path: /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet size: 456598692
+daily_fact max trade_date: 2026-09-16

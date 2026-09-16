@@ -1,0 +1,18 @@
+memory guard: 25769803776 bytes (RLIMIT_AS)
+  [stoken refreshed 02:28:57]
+minutes pilot prefix='2026/09/' entries=12 total=191.4 MB
+  links 12/12 (got 12)
+[freshness] 有新增 → 清 minutes 阶段标记
+[minutes] to_fetch=12 downloaded=12 adopted=0 unchanged=0 manual=0 failed=0
+  got    2026/09/20260916.zip
+  got    2026/09/20260915.zip
+  got    2026/09/20260914.zip
+  got    2026/09/20260911.zip
+  got    2026/09/20260910.zip
+  got    2026/09/20260909.zip
+  got    2026/09/20260908.zip
+  got    2026/09/20260907.zip
+  got    2026/09/20260904.zip
+  got    2026/09/20260903.zip
+  got    2026/09/20260902.zip
+  got    2026/09/20260901.zip

@@ -1,0 +1,9 @@
+ts: 2026-09-17T02:33:00
+daily max: [(datetime.date(2026, 8, 21),)]
+daily_basic max: [(datetime.date(2026, 8, 21),)]
+adj_factor max: [(datetime.date(2026, 8, 21),)]
+stk_limit max: [(datetime.date(2026, 8, 21),)]
+trade_cal max: [(datetime.date(2026, 8, 21),)]
+bars_1m max: [(datetime.date(2026, 8, 21),)]
+daily count 2026-08-22..2026-09-16: [(0,)]
+daily recent days: [(datetime.date(2026, 8, 17), 5527), (datetime.date(2026, 8, 18), 5527), (datetime.date(2026, 8, 19), 5526), (datetime.date(2026, 8, 20), 5525), (datetime.date(2026, 8, 21), 5526)]

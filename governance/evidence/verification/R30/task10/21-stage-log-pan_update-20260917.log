@@ -1,0 +1,280 @@
+[verify] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py
+[daily] [freshness] 有新增/变更 3 项 / 人工就位 371 项 → 清阶段标记
+[fund_flow] [freshness] 有新增/变更 44 项 / 人工就位 0 项 → 清阶段标记
+[financials] [freshness] 有新增/变更 1 项 / 人工就位 0 项 → 清阶段标记
+[daily] [daily] 阶段 build 开始（4 步）
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ashare_ingest/import_daily.py
+[daily] tasks: 16964 (full/incr/delisted: 5546/11082/336)
+[daily]   清理旧分片 11411 个
+[daily]   parsed 500/16964
+[daily]   parsed 1000/16964
+[daily]   parsed 1500/16964
+[daily]   parsed 2000/16964
+[daily]   parsed 2500/16964
+[daily]   parsed 3000/16964
+[daily]   parsed 3500/16964
+[daily]   parsed 4000/16964
+[daily]   parsed 4500/16964
+[daily]   parsed 5000/16964
+[daily]   parsed 5500/16964
+[daily]   parsed 6000/16964
+[daily]   parsed 6500/16964
+[daily]   parsed 7000/16964
+[daily]   parsed 7500/16964
+[daily]   parsed 8000/16964
+[daily]   parsed 8500/16964
+[daily]   parsed 9000/16964
+[daily]   parsed 9500/16964
+[daily]   parsed 10000/16964
+[daily]   parsed 10500/16964
+[daily]   parsed 11000/16964
+[daily]   parsed 11500/16964
+[daily]   parsed 12000/16964
+[daily]   parsed 12500/16964
+[daily]   parsed 13000/16964
+[daily]   parsed 13500/16964
+[daily]   parsed 14000/16964
+[daily]   parsed 14500/16964
+[daily]   parsed 15000/16964
+[daily]   parsed 15500/16964
+[daily]   parsed 16000/16964
+[daily]   parsed 16500/16964
+[daily] parsed 16964/16964 files, errors: 0
+[daily]   merged 1000/5879 codes
+[daily]   merged 2000/5879 codes
+[daily]   merged 3000/5879 codes
+[daily]   merged 4000/5879 codes
+[daily]   merged 5000/5879 codes
+[daily] unique rows: 18191285, codes: 5879
+[daily] OHLC invalid rows: 0
+[daily] wrote /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet (456.6 MB)
+[daily] date range: 1990-12-19 .. 2026-09-16
+[daily] sidecar: /data/students/gaolei/stock/data/fact/daily_fact/delisted_codes.parquet (331 退市代码，329 个有交易日)
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/ingest_daily.py
+[daily] 读取 daily_fact.parquet ...
+[daily]   18,191,285 rows / 5,879 codes / 8,784 trade dates
+[daily]   delist sidecar: 331 codes
+[daily]   delist_date: 329 codes（其中 sidecar 命中另计）
+[daily] TRUNCATE + 灌 daily
+[daily] Traceback (most recent call last):
+[daily]   File "/data/students/gaolei/stock/platform/tools/ch_ingest/ingest_daily.py", line 264, in <module>
+[daily]     main(set(args.only) if args.only else None)
+[daily]     ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[daily]   File "/data/students/gaolei/stock/platform/tools/ch_ingest/ingest_daily.py", line 194, in main
+[daily]     _insert_table(client, "daily", daily)
+[daily]     ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+[daily]   File "/data/students/gaolei/stock/platform/tools/ch_ingest/ingest_daily.py", line 151, in _insert_table
+[daily]     client.insert_arrow(table, batch, database=load_config()["ch"]["database"])
+[daily]     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[daily]   File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/client.py", line 1187, in insert_arrow
+[daily]     column_names, insert_block = arrow_buffer(arrow_table, compression)
+[daily]                                  ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+[daily]   File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/query.py", line 490, in arrow_buffer
+[daily]     writer.write(table)
+[daily]     ~~~~~~~~~~~~^^^^^^^
+[daily]   File "pyarrow/ipc.pxi", line 489, in pyarrow.lib._CRecordBatchWriter.write
+[daily]   File "pyarrow/ipc.pxi", line 529, in pyarrow.lib._CRecordBatchWriter.write_table
+[daily]     check_status(self.writer.get().WriteTable(table.table[0],
+[daily]   File "pyarrow/error.pxi", line 92, in pyarrow.lib.check_status
+[daily] pyarrow.lib.ArrowMemoryError: malloc of size 3638528 failed
+[daily] [daily] 阶段 build 开始（4 步）
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ashare_ingest/import_daily.py
+[daily] tasks: 16964 (full/incr/delisted: 5546/11082/336)
+[daily]   清理旧分片 16959 个
+[daily]   parsed 500/16964
+[daily]   parsed 1000/16964
+[daily]   parsed 1500/16964
+[daily]   parsed 2000/16964
+[daily]   parsed 2500/16964
+[daily]   parsed 3000/16964
+[daily]   parsed 3500/16964
+[daily]   parsed 4000/16964
+[daily]   parsed 4500/16964
+[daily]   parsed 5000/16964
+[daily]   parsed 5500/16964
+[daily]   parsed 6000/16964
+[daily]   parsed 6500/16964
+[daily]   parsed 7000/16964
+[daily]   parsed 7500/16964
+[daily]   parsed 8000/16964
+[daily]   parsed 8500/16964
+[daily]   parsed 9000/16964
+[daily]   parsed 9500/16964
+[daily]   parsed 10000/16964
+[daily]   parsed 10500/16964
+[daily]   parsed 11000/16964
+[daily]   parsed 11500/16964
+[daily]   parsed 12000/16964
+[daily]   parsed 12500/16964
+[daily]   parsed 13000/16964
+[daily]   parsed 13500/16964
+[daily]   parsed 14000/16964
+[daily]   parsed 14500/16964
+[daily]   parsed 15000/16964
+[daily]   parsed 15500/16964
+[daily]   parsed 16000/16964
+[daily]   parsed 16500/16964
+[daily] parsed 16964/16964 files, errors: 0
+[daily]   merged 1000/5879 codes
+[daily]   merged 2000/5879 codes
+[daily]   merged 3000/5879 codes
+[daily]   merged 4000/5879 codes
+[daily]   merged 5000/5879 codes
+[daily] unique rows: 18191285, codes: 5879
+[daily] OHLC invalid rows: 0
+[daily] wrote /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet (456.6 MB)
+[daily] date range: 1990-12-19 .. 2026-09-16
+[daily] sidecar: /data/students/gaolei/stock/data/fact/daily_fact/delisted_codes.parquet (331 退市代码，329 个有交易日)
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/ingest_daily.py
+[daily] 读取 daily_fact.parquet ...
+[daily]   18,191,285 rows / 5,879 codes / 8,784 trade dates
+[daily]   delist sidecar: 331 codes
+[daily]   delist_date: 329 codes（其中 sidecar 命中另计）
+[daily] TRUNCATE + 灌 daily
+[daily]   daily: 18,191,285 rows
+[daily] TRUNCATE + 灌 adj_factor
+[daily]   adj_factor: 18,191,285 rows
+[daily] TRUNCATE + 灌 daily_basic
+[daily]   daily_basic: 18,191,285 rows
+[daily] TRUNCATE + 灌 trade_cal
+[daily]   trade_cal: 8,784 rows
+[daily] TRUNCATE + 灌 stock_basic
+[daily]   stock_basic: 5,879 rows
+[daily] daily 层灌入完成
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/derive_stk_limit.py
+[daily] 派生灌入 stk_limit（pre_close 非空行）...
+[daily] stk_limit rows: 17,921,186
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/adj_backfill.py
+[daily] [adj_detail] table ready (0s)
+[daily] [adj_event] table ready (0s)
+[daily]   batch 20/46 | detail 8,000,000 | event 23,401 | 27s since last
+[daily]   batch 40/46 | detail 16,000,000 | event 48,742 | 26s since last
+[daily]   batch 46/46 | detail 18,191,285 | event 57,352 | 9s since last
+[daily] [adj_detail] rows in CH: 18,191,285
+[daily] [adj_event] rows in CH: 57,352
+[daily] [adj_event] uniq (ts_code, trade_date): 57,352
+[daily] DONE in 62s (parquet rows: 18,191,285)
+[daily] [daily] 阶段 build 完成（1155.7s）
+[fund_flow] [fund_flow] 阶段 build 开始（1 步）
+[fund_flow] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/ingest_moneyflow.py
+[fund_flow] Traceback (most recent call last):
+[fund_flow]   File "/data/students/gaolei/stock/platform/tools/ch_ingest/ingest_moneyflow.py", line 114, in <module>
+[fund_flow]     main(ap.parse_args().root)
+[fund_flow]     ~~~~^^^^^^^^^^^^^^^^^^^^^^
+[fund_flow]   File "/data/students/gaolei/stock/platform/tools/ch_ingest/ingest_moneyflow.py", line 99, in main
+[fund_flow]     df = load_frames(root)
+[fund_flow]   File "/data/students/gaolei/stock/platform/tools/ch_ingest/ingest_moneyflow.py", line 75, in load_frames
+[fund_flow]     frames = [_parse_zip(p) for p in discover_zips(Path(root))]
+[fund_flow]               ~~~~~~~~~~^^^
+[fund_flow]   File "/data/students/gaolei/stock/platform/tools/ch_ingest/ingest_moneyflow.py", line 69, in _parse_zip
+[fund_flow]     raise ValueError(f"zip 内无 zj.xls：{path}")
+[fund_flow] ValueError: zip 内无 zj.xls：/data/students/gaolei/stock/data/raw/fund_flow/2026/09/20260911.zip
+[fund_flow] [fund_flow] 阶段 build 开始（1 步）
+[fund_flow] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/ingest_moneyflow.py
+[fund_flow]   moneyflow 源：1,113,668 rows / 202 days / root=/data/students/gaolei/stock/data/raw/fund_flow
+[fund_flow]   moneyflow: 灌入 1,113,668 rows
+[fund_flow] [fund_flow] 阶段 build 完成（23.7s）
+[financials] [financials] 阶段 build 开始（2 步）
+[financials] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/pan_update/parse_fundamentals_xlsx.py
+[financials]   财报快照：2026-09-04更新简化个股基本面数据.xlsx → 5,556 rows（丢弃 updated_date 缺失 16 行）
+[financials]   fact: /data/students/gaolei/stock/data/fact/fundamentals/fundamentals_snapshot.parquet
+[financials] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/ingest_fundamentals.py
+[financials]   fundamentals 源：5,556 rows / 38 updated_date / fact=/data/students/gaolei/stock/data/fact/fundamentals/fundamentals_snapshot.parquet
+[financials]   fundamentals: 灌入 5,556 rows
+[financials] [financials] 阶段 build 完成（3.3s）
+[minutes] [minutes] 阶段 build 开始（2 步）
+[minutes] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py --mode production
+[minutes] production: 81 months, workers=16
+[minutes]   202609: 转换中
+[minutes]   20260901.zip: codes=5553 rows=1332720 idx=356 b=79
+[minutes] multiprocessing.pool.RemoteTraceback: 
+[minutes] """
+[minutes] Traceback (most recent call last):
+[minutes]   File "/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/pool.py", line 125, in worker
+[minutes]     result = (True, func(*args, **kwds))
+[minutes]                     ~~~~^^^^^^^^^^^^^^^
+[minutes]   File "/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/pool.py", line 48, in mapstar
+[minutes]     return list(map(*args))
+[minutes]   File "/data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py", line 483, in convert_month_worker
+[minutes]     return _convert_month(ym, year, month, data_dir, state_dir)
+[minutes]   File "/data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py", line 512, in _convert_month
+[minutes]     stats, table = convert_day(day8, unit_tbl, ntr_tbl, errors,
+[minutes]                    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[minutes]                                prod_gate=True, ohlc_schema=SCHEMA_PROD)
+[minutes]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[minutes]   File "/data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py", line 351, in convert_day
+[minutes]     reader, zp = open_reader(day8)
+[minutes]                  ~~~~~~~~~~~^^^^^^
+[minutes]   File "/data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py", line 183, in open_reader
+[minutes]     return cls(p), p
+[minutes]            ~~~^^^
+[minutes]   File "/data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py", line 126, in __init__
+[minutes]     self.zf = zipfile.ZipFile(path)
+[minutes]               ~~~~~~~~~~~~~~~^^^^^^
+[minutes]   File "/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/zipfile/__init__.py", line 1401, in __init__
+[minutes]     self._RealGetContents()
+[minutes]     ~~~~~~~~~~~~~~~~~~~~~^^
+[minutes]   File "/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/zipfile/__init__.py", line 1468, in _RealGetContents
+[minutes]     raise BadZipFile("File is not a zip file")
+[minutes] zipfile.BadZipFile: File is not a zip file
+[minutes] """
+[minutes] 
+[minutes] The above exception was the direct cause of the following exception:
+[minutes] 
+[minutes] Traceback (most recent call last):
+[minutes]   File "/data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py", line 632, in <module>
+[minutes]     main()
+[minutes]     ~~~~^^
+[minutes]   File "/data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py", line 628, in main
+[minutes]     run_production(args.workers, months)
+[minutes]     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+[minutes]   File "/data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py", line 591, in run_production
+[minutes]     results = p.map(convert_month_worker, months)
+[minutes]   File "/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/pool.py", line 367, in map
+[minutes]     return self._map_async(func, iterable, mapstar, chunksize).get()
+[minutes]            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+[minutes]   File "/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/pool.py", line 774, in get
+[minutes]     raise self._value
+[minutes] zipfile.BadZipFile: File is not a zip file
+[minutes] [minutes] 阶段 build 开始（2 步）
+[minutes] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py --mode production
+[minutes] production: 81 months, workers=16
+[minutes]   202609: 转换中
+[minutes]   20260901.zip: codes=5553 rows=1332720 idx=356 b=79
+[minutes]   20260902.zip: codes=5554 rows=1332960 idx=356 b=79
+[minutes]   20260903.zip: codes=5555 rows=1333200 idx=356 b=79
+[minutes]   20260904.zip: codes=5556 rows=1333440 idx=356 b=79
+[minutes]   20260907.zip: codes=5558 rows=1333920 idx=356 b=79
+[minutes]   20260908.zip: codes=5558 rows=1333920 idx=356 b=79
+[minutes]   20260909.zip: codes=5560 rows=1334400 idx=356 b=79
+[minutes]   20260910.zip: codes=5561 rows=1334640 idx=356 b=79
+[minutes]   20260911.zip: codes=5562 rows=1334880 idx=356 b=79
+[minutes]   20260914.zip: codes=5562 rows=1334880 idx=356 b=79
+[minutes]   20260915.zip: codes=5562 rows=1334880 idx=356 b=79
+[minutes]   20260916.zip: codes=5564 rows=1335360 idx=356 b=79
+[minutes] {
+[minutes]   "months": 81,
+[minutes]   "skipped": 80,
+[minutes]   "days": 1621,
+[minutes]   "codes": 7789121,
+[minutes]   "rows": 1869389040,
+[minutes]   "errors": 46239,
+[minutes]   "suffix_isolated": 0,
+[minutes]   "elapsed_min": 4.9
+[minutes] }
+[minutes] WARNING: 46239 conversion errors across 0 suffix-isolated stock-days (see per-month _conversion_errors.csv)
+[minutes] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/ingest_bars.py
+[minutes] bars_1m: 任务 81（已完成 80，待跑 1）
+[minutes]   bars_1m/202609: 16,009,200 rows
+[minutes] bars_1m: 全部完成
+[minutes] [minutes] 阶段 build 完成（306.2s）
+[verify] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py
+[verify] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py
+[daily] [daily] 阶段 build 已标记，跳过
+[fund_flow] [fund_flow] 阶段 build 已标记，跳过
+[financials] [financials] 阶段 build 已标记，跳过
+[daily] [daily] 阶段 build 已标记，跳过
+[fund_flow] [fund_flow] 阶段 build 已标记，跳过
+[financials] [financials] 阶段 build 已标记，跳过
+[verify] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py
+[minutes] [minutes] 阶段 build 已标记，跳过
