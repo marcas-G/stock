@@ -42,7 +42,8 @@ def _print_doc(doc) -> None:
     s, e, r = doc.strategy, doc.execution, doc.rules
     cm = e.cost_model
     universe = ("随因子（universe_override=null）" if doc.universe_override is None
-                else f"override={doc.universe_override}")
+                else f"override={doc.universe_override}"
+                     f"（运行链按 canonical ts_code 过滤信号帧；空交集 fail fast）")
     mw = ("无" if e.minute_window is None
           else f"[{e.minute_window.start},{e.minute_window.end}]"
                f" {e.minute_window.price_basis}")
