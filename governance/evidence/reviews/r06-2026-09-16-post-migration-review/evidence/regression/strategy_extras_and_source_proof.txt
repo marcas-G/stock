@@ -1,0 +1,19 @@
+# R06 item4 extras: skip reasons + exact e580987 BEFORE path reproduction 2026-09-16T16:48:42+08:00
+
+== pytest test_run_strategy_cli.py -rs (skip reasons) ==
+.......ss.                                                               [100%]
+=========================== short test summary info ============================
+SKIPPED [1] research/tools/strategies/tests/test_run_strategy_cli.py:204: 真实信号产物不存在: /data/students/gaolei/stock/platform/results/max_effect_20d_high（先跑 factorlab run）
+SKIPPED [1] research/tools/strategies/tests/test_run_strategy_cli.py:235: 真实信号产物不存在: /data/students/gaolei/stock/platform/results/max_effect_20d_high（先跑 factorlab run）
+8 passed, 2 skipped in 0.50s
+
+== reproduce e580987 BEFORE: --results-dir = <repo>/platform/results (old hardcode, missing) ==
+错误：summary.json 不存在: /data/students/gaolei/stock/platform/results/max_effect_20d_high
+before_path_exit=1
+
+== list timestamp matches runs/platform mtime (not legacy results/) ==
+max_effect_20d_high_intraday | custom | dir=-1 | ic=-0.07195615703409768 | 
+spread=-0.0028723256306583374 | 2026-09-16T14:39:12
+--
+2026-09-16 01:24:56.564506964 +0800 runs/platform/max_effect_20d_high/summary.json
+2026-09-16 14:19:28.253281764 +0800 results/max_effect_20d_high/summary.json

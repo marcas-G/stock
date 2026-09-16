@@ -1,0 +1,13 @@
+## R28 落盘产物 vs 独立复跑逐帧对照
+  SAME nav/nav_series.parquet (5 vs 5 rows)
+  SAME target_portfolio.parquet (150 vs 150 rows)
+  SAME rebalance_schedule.parquet (5 vs 5 rows)
+  SAME artifacts/accounting.parquet (5 vs 5)
+  SAME artifacts/state.parquet (10 vs 10)
+  SAME artifacts/execution_artifact.parquet (5 vs 5)
+  SAME artifacts/orders.parquet (177 vs 177)
+  SAME artifacts/fills.parquet (176 vs 176)
+  SAME artifacts/assessment.parquet (177 vs 177)
+  SAME artifacts/positions.parquet (270 vs 270)
+  SAME artifacts/valuation.parquet (150 vs 150)
+ALL_FRAMES_EQUAL: True

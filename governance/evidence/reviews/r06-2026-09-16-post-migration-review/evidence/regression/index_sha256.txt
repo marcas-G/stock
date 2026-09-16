@@ -1,0 +1,4 @@
+1c8b13f164d9a48a0fa97d49efbfb379cef9d6b99795e38909f41e82093b1349  knowledge/index/factors.md
+7457b13d988d6a19ed41305a87b110c6a1e016e2eec578058da5534d0e4ad050  knowledge/index/strategies.md
+2026-09-16 16:39:05.089213915 +0800 36498 knowledge/index/factors.md
+2026-09-16 16:39:02.265092570 +0800 912 knowledge/index/strategies.md

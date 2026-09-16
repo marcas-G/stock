@@ -1,0 +1,53 @@
+# R24 映射总表独立复核（migration-r04.md §3）
+
+## 新路径存在性（spot-check）
+  OK  knowledge/contracts/ (#4 spot)
+  OK  knowledge/design/platform/ (#2 spot)
+  OK  knowledge/design/research/ (#0 spot)
+  OK  knowledge/dossiers/ (#2 spot)
+  OK  knowledge/design/workspace/ (#3 spot)
+  OK  governance/workspace/ (#7 spot)
+  OK  knowledge/handbooks/ (#0 spot)
+  OK  knowledge/index/ (#2 spot)
+  OK  governance/evidence/verification/ (#4 spot)
+  OK  governance/evidence/reviews/ (#3 spot)
+  OK  governance/ops/ (#2 spot)
+  OK  runs/platform/ (#1 spot)
+  OK  _archive/2026-09-16-ashare-alpha3/ (#0 spot)
+
+## 旧路径应已消失（留壳/冻结除外）
+  GONE   platform/docs/interface.md
+  GONE   platform/docs/catalog.md
+  GONE   platform/docs/data-ops-playbook.md
+  GONE   platform/docs/teajoin-guide.md
+  GONE   platform/docs/superpowers
+  GONE   research/docs/superpowers
+  GONE   research/docs/factors
+  GONE   research/docs/strategies
+  GONE   research/docs/factor-mining-playbook.md
+  GONE   docs/reviews
+  GONE   docs/verification
+  GONE   docs/index
+  GONE   docs/data-map.md
+  GONE   docs/pending-items.md
+  GONE   docs/directory-conventions.md
+  GONE   scripts
+  GONE   platform/results
+  GONE   projects/ashare_alpha3
+
+## 提交 SHA 存在性
+  OK  e3d2887 (行 1)
+  OK  305b757 (行 2)
+  OK  305b757 (行 3)
+  OK  6aaefad (行 4)
+  OK  305b757 (行 5)
+  OK  f238ea5 (行 6)
+  OK  6aaefad (行 7)
+  OK  6aaefad (行 8)
+  OK  583217f (行 9)
+  OK  583217f (行 10)
+  OK  227acd9 (行 11)
+  OK  024e45f (行 12)
+  OK  ca8c6a5 (行 14)
+
+硬失败数：0

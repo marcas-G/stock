@@ -1,0 +1,10 @@
+# R06: make index write-mode sandbox demo (repo untouched) 2026-09-16T16:48:07+08:00
+NOTE: 'make index' writes knowledge/index/{factors,strategies}.md; read-only review => same generator executed against a symlink sandbox.
+
+== sandbox: python3 build_index.py (write mode) ==
+已生成 knowledge/index/factors.md（331 行）
+exit=0
+4:> 共 **168 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+
+repo factors.md sha before=1c8b13f164d9a48a0fa97d49efbfb379cef9d6b99795e38909f41e82093b1349 after=1c8b13f164d9a48a0fa97d49efbfb379cef9d6b99795e38909f41e82093b1349 (must be equal)
+REPO-UNTOUCHED OK

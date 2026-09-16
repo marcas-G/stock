@@ -1,0 +1,17 @@
+knowledge/design/workspace/2026-09-15-minute-execution/README.md:4:**给谁**：开发团队按此落实；后续复查走 `docs/reviews/README.md` 的评审流程。
+knowledge/design/workspace/2026-09-15-minute-execution/README.md:6:**关系**：与 `docs/reviews/2026-09-15-open-operators/`（开放算子）相互独立，可并行。
+knowledge/design/workspace/2026-09-15-minute-execution/plan.md:11:**Spec:** `docs/reviews/2026-09-15-minute-execution/design.md`（配置面 / 语义 / 接口 / 验收）
+knowledge/design/workspace/2026-09-16-strategy-decomposition/README.md:5:**给谁**：开发团队按 `plan.md` 实施（7 个任务，TDD，逐任务可独立验收）；复查走 `docs/reviews/README.md` 流程。
+knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md:8:**Spec:** `docs/reviews/2026-09-16-strategy-decomposition/design.md`（六层规范 §1-§2、缺口 G1-G5、
+knowledge/design/workspace/2026-09-15-minute-execution/design.md:5:关系：M8 执行层扩展；与 `docs/reviews/2026-09-15-open-operators/`（开放算子）相互独立
+knowledge/design/workspace/2026-09-15-open-operators/design.md:4:状态：设计已评审（2026-09-15）；**实施由开发团队执行**，实施计划见 `docs/reviews/2026-09-15-open-operators/plan.md`（Plan 1：开放算子底座；Plan 2/3 随后另立）
+knowledge/design/workspace/2026-09-15-open-operators/design.md:5:前置：R01 严格 review（`docs/reviews/r01-2026-09-15-strict-review/`）、`2026-09-06-factorlab-dsl-shape-design.md`、`2026-09-12-mining-system-refactor-design.md`
+knowledge/design/workspace/2026-09-15-open-operators/plan.md:11:**Spec:** `docs/reviews/2026-09-15-open-operators/design.md`（§4 开放面 / §5 算子生命周期 / §7 保证体系 / §9 G1-G4 / §13 Spike 结果）
+knowledge/design/workspace/2026-09-15-open-operators/README.md:4:**给谁**：开发团队按此实施；后续复查走 `docs/reviews/README.md` 的评审流程。
+governance/workspace/migration-r04.md:52:| 5 | `docs/reviews/2026-09-15-{open-operators,minute-execution}/`、`2026-09-16-strategy-decomposition/`（计划补遗） | `knowledge/design/workspace/` | 3 | ✅ `305b757` |
+governance/workspace/migration-r04.md:57:| 10 | `docs/reviews/`（余下） | `governance/evidence/reviews/` | 6 | ✅ `583217f` |
+governance/ops/check_reviews.py:59:    # R24 目录重整：docs/reviews → governance/evidence/reviews；docs/verification 同理
+governance/ops/check_reviews.py:60:    ("docs/reviews/", "governance/evidence/reviews/"),
+governance/evidence/reviews/README.md:9:docs/reviews/
+governance/evidence/reviews/README.md:20:> **本台账目录** `docs/reviews/` → `governance/evidence/reviews/`（同一搬迁）；历史报告/证据正文不改，按此映射解析。
+governance/evidence/reviews/findings.md:25:| R01-ENG-C1 | C | 未来函数旁路#1：`signal = close[-1]` 过 lint，E2E 实测 signal(t)=close(t+1)（pool 公式同样）【实测】 | `core/factor/ast_gate.py:30`；`core/engine/partitions.py:142-153` | fixed-claimed | ea2ebfe；复现：platform/.venv/bin/factorlab lint docs/reviews/r01-2026-09-15-strict-review/evidence/engine-dsl/future_subscript.yaml（修复后 exit≠0）；E2E：.venv/bin/python evidence/engine-dsl/probe_run_factor.py（signal(t)=close(t+1) → REJECT）；测试 tests/test_partitions.py::test_rejects_negative_subscript、test_run_factor.py::test_run_factor_rejects_negative_subscript；证据 docs/verification/R21/ENG/C1-probe-before/after.txt、C1-pool-probe-after.txt（池公式同封） | |

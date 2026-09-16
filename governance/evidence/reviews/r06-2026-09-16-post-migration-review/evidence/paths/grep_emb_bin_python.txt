@@ -1,0 +1,6 @@
+governance/ops/reinstall_editable.sh:39:echo "  /data/students/gaolei/anaconda3/envs/emb/bin/python -m pip install -e platform/kernels/quant_core --no-deps）"
+governance/evidence/reviews/findings.md:110:| R01-EVID-I1 | I | research README 基线过期：237/51（R19）vs 实测 245/59；"T1 35"算术不符 | `research/README.md:24,40,43` | fixed-claimed | 0d21e7e；实测：emb/bin/python -m pytest research/tools -q → 268 passed/10 skipped；platform/.venv/bin/python -m pytest research/tools/{strategies,ch_ingest,factor_lib,1m_features,ashare_ingest,universe_stages}/tests -q → 116 passed；research/README.md 按 Makefile 名单更新；证据 R21/EVID/I1-I2-research-T2.txt、I1-research-T1.txt、I1-I2-per-dir-counts.txt | |
+platform/tools/lob_fact/notes/w5_full_history_memo.md:274:PY=/data/students/gaolei/anaconda3/envs/emb/bin/python
+platform/tools/lob_fact/notes/w5_full_history_memo.md:322:PY=/data/students/gaolei/anaconda3/envs/emb/bin/python
+platform/tools/lob_fact/notes/w2_engine_measure.md:74:cd tools/lob_fact && nice -n 19 /data/students/gaolei/anaconda3/envs/emb/bin/python measure_w2.py
+platform/tools/lob_fact/w5_closure.sh:7:PY=/data/students/gaolei/anaconda3/envs/emb/bin/python

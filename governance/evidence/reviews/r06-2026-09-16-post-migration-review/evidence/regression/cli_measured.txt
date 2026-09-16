@@ -1,0 +1,134 @@
+# R06 item3 CLI 实测 2026-09-16T16:46:41+08:00
+
+== $ .venv/bin/factorlab list ==
+turnover_accel_inflow | custom | dir=-1 | ic=-0.04216840922336708 | 
+spread=-0.05695653457387436 | 2026-09-16T16:14:40
+turnover_accel | custom | dir=-1 | ic=-0.0367343842352204 | 
+spread=-0.00471666130191075 | 2026-09-16T16:12:06
+reversal_20d_wcorr | custom | dir=-1 | ic=-0.06746037692967563 | 
+spread=-0.004151493838018967 | 2026-09-16T15:49:06
+low_vol_20d | custom | dir=1 | ic=0.07007485259689888 | 
+spread=-0.0021429222507061583 | 2026-09-16T15:47:29
+vol_run_energy_symrun | custom | dir=-1 | ic=-0.025586657865997547 | 
+spread=-0.0029599917943449695 | 2026-09-16T15:46:52
+momentum_20d | custom | dir=1 | ic=-0.0414988679293545 | 
+spread=0.00427822425825166 | 2026-09-16T15:46:07
+reversal_20d | custom | dir=-1 | ic=-0.0414988679293545 | 
+spread=-0.004278224258251658 | 2026-09-16T15:45:30
+reversal_20d_netflow_vol | custom | dir=-1 | ic=-0.03274023087866303 | 
+spread=-0.0018866901290485742 | 2026-09-16T15:22:33
+reversal_20d_netflow | custom | dir=-1 | ic=-0.04162240500489049 | 
+spread=-0.00258141862155078 | 2026-09-16T15:12:26
+low_vol_20d_park_gk | custom | dir=1 | ic=0.07344087077640117 | 
+spread=-0.003295080637006652 | 2026-09-16T14:55:56
+low_vol_20d_park | custom | dir=1 | ic=0.07378992155499096 | 
+spread=-0.0036069296871417368 | 2026-09-16T14:53:21
+max_effect_20d_high_intraday | custom | dir=-1 | ic=-0.07195615703409768 | 
+spread=-0.0028723256306583374 | 2026-09-16T14:39:12
+r12_smoke | custom | dir=1 | ic=-0.20000000000000004 | spread=nan | 
+2026-09-16T14:20:22
+verify_guard_2024h1 | custom | dir=1 | ic=0.07558398337274398 | 
+spread=-0.006758725230809985 | 2026-09-16T10:44:41
+cap_real4 | custom | dir=1 | ic=0.023458145177107193 | 
+spread=-0.004067902409972401 | 2026-09-16T08:58:47
+cap_real2 | custom | dir=1 | ic=nan | spread=nan | 2026-09-16T08:57:41
+max_effect_20d | custom | dir=-1 | ic=-0.06728721469354088 | 
+spread=-0.0011620851797207415 | 2026-09-16T08:55:33
+intraday_high_time | custom | dir=-1 | ic=-0.018879508695210115 | 
+spread=-0.0027323423155765796 | 2026-09-16T07:56:47
+minute_smoke_tail_share | custom | dir=-1 | ic=-1.0 | spread=nan | 
+2026-09-16T01:48:39
+minute_smoke_high_time | custom | dir=-1 | ic=-0.3333333333333333 | spread=nan |
+2026-09-16T01:48:32
+vol_run_energy_symrun_r30_streak | custom | dir=-1 | ic=-0.016275330109216782 | 
+spread=-0.002005591597021526 | 2026-09-16T01:42:39
+vol_run_energy_symrun_r30_flip | custom | dir=-1 | ic=-0.019283021270770206 | 
+spread=-0.0021369358154832412 | 2026-09-16T01:41:27
+vol_run_energy_symrun_r30 | custom | dir=-1 | ic=-0.026768454605055815 | 
+spread=-0.0033085310619812586 | 2026-09-16T01:40:20
+max_effect_20d_extcnt | custom | dir=-1 | ic=-0.05315129882823937 | spread=nan |
+2026-09-16T01:26:42
+max_effect_20d_zmax | custom | dir=-1 | ic=-0.030089073136314454 | 
+spread=-0.0020270777095098723 | 2026-09-16T01:25:48
+max_effect_20d_high | custom | dir=-1 | ic=-0.06990199193229453 | 
+spread=-0.0013626720151910974 | 2026-09-16T01:24:56
+mine_smoke_01 | custom | dir=1 | ic=-0.18390183231691978 | 
+spread=0.004040383448503425 | 2026-09-16T01:19:02
+crash_bottom_leader_adv20 | custom | dir=1 | ic=nan | spread=nan | 
+2026-09-15T22:27:15
+value_bp | custom | dir=1 | ic=nan | spread=nan | 2026-09-15T22:19:53
+提示: spread=(group0−group9)×dir（group0=signal 
+最低档；负值=表现与声明方向一致；判有效性看 ic）
+list_exit=0
+
+== $ .venv/bin/factorlab show max_effect_20d_high ==
+=== max_effect_20d_high ===
+spec: adjustment: qfq
+category: custom
+combine: null
+cost_rate: 0.0
+date:
+  end: '2026-07-31'
+  start: '2023-01-01'
+description: ''
+direction: -1
+factors: null
+formula: 'from polars_ta.prefix.wq import ts_max, ts_delay
+
+  signal = ts_max(high / ts_delay(close, 1) - 1, 20)
+
+  '
+interface: daily
+name: max_effect_20d_high
+operators: {}
+outputs: null
+params: {}
+process:
+- winsorize(quantile=0.99)
+- standardize()
+target: forward_return_5d
+universe:
+  codes: null
+  formula: null
+  ref: null
+  rules:
+    exchanges:
+    - SSE
+    - SZSE
+
+universe: 5530 只 | 2023-01-03 ~ 2026-07-31 | rows=4419466 | null_ratio=0.0335
+IC: {'mean': -0.06990199193229453, 'std': 0.18656307562893418, 't_stat': 
+-4.998893219518214, 'ir': -0.37468288779354464, 'n_weeks': 178, 
+'recent_26w_mean': -0.07528175101763804, 'recent_26w_t': -1.7190067330436434, 
+'sign_consistent': 0.3595505617977528}
+十分位 spread: {'ret': -0.0013626720151910974}
+换手: {'monthly': 0.7759366422944691, 'quarterly': 0.8215418325113102} | 覆盖: 
+{'pct_valid': 1.0, 'total_rows': 896750, 'valid_rows': 896750}
+评估: ic={'mean': -0.06990199193229453, 'std': 0.18656307562893418, 't_stat': 
+-4.998893219518214, 'ir': -0.37468288779354464, 'n_weeks': 178, 
+'recent_26w_mean': -0.07528175101763804, 'recent_26w_t': -1.7190067330436434, 
+'sign_consistent': 0.3595505617977528}
+分层回测: {'D1': {'annual_return': 0.128815, 'annual_vol': 0.152318, 'sharpe': 
+0.845698, 'max_drawdown': -0.158496, 'win_rate': 0.550562}, 'D2': 
+{'annual_return': 0.11388, 'annual_vol': 0.196396, 'sharpe': 0.579849, 
+'max_drawdown': -0.217232, 'win_rate': 0.52809}, 'D3': {'annual_return': 
+0.151102, 'annual_vol': 0.21877, 'sharpe': 0.690687, 'max_drawdown': -0.227753, 
+'win_rate': 0.52809}, 'D4': {'annual_return': 0.173665, 'annual_vol': 0.231405, 
+'sharpe': 0.75048, 'max_drawdown': -0.240818, 'win_rate': 0.533708}, 'D5': 
+{'annual_return': 0.153357, 'annual_vol': 0.244747, 'sharpe': 0.626596, 
+'max_drawdown': -0.261525, 'win_rate': 0.52809}, 'D6': {'annual_return': 
+0.155787, 'annual_vol': 0.251762, 'sharpe': 0.618786, 'max_drawdown': -0.264617,
+'win_rate': 0.539326}, 'D7': {'annual_return': 0.139591, 'annual_vol': 0.266198,
+'sharpe': 0.524389, 'max_drawdown': -0.306884, 'win_rate': 0.52809}, 'D8': 
+{'annual_return': 0.060816, 'annual_vol': 0.278467, 'sharpe': 0.218396, 
+'max_drawdown': -0.3202, 'win_rate': 0.52809}, 'D9': {'annual_return': 0.054384,
+'annual_vol': 0.299362, 'sharpe': 0.181667, 'max_drawdown': -0.365505, 
+'win_rate': 0.505618}, 'D10': {'annual_return': 0.058581, 'annual_vol': 
+0.359556, 'sharpe': 0.162925, 'max_drawdown': -0.470342, 'win_rate': 0.533708}, 
+'long_short': {'annual_return': 0.070234, 'annual_vol': 0.286239, 'sharpe': 
+0.24537, 'max_drawdown': -1.345194, 'win_rate': 0.483146}}
+show_exit=0
+
+== $ .venv/bin/factorlab lint ../research/factor/volatility/max_effect_20d_high.yaml ==
+OK max_effect_20d_high
+lint_exit=0

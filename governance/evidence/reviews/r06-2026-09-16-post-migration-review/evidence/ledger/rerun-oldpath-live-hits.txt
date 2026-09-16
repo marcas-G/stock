@@ -1,0 +1,95 @@
+# R06 旧路径 grep：活文件命中（排除治理证据/冻结设计/_archive 后）
+== platform/docs/superpowers
+  governance/ops/check_reviews.py
+  governance/workspace/migration-r04.md
+  knowledge/README.md
+== research/docs/superpowers
+  governance/workspace/migration-r04.md
+  knowledge/README.md
+== research/docs/factors
+  governance/ops/check_reviews.py
+  governance/workspace/migration-r04.md
+  knowledge/dossiers/factors/README.md
+== docs/verification
+  governance/ops/check_reviews.py
+  governance/workspace/migration-r04.md
+== docs/reviews
+  governance/ops/check_reviews.py
+  governance/workspace/migration-r04.md
+== docs/index
+  governance/workspace/migration-r04.md
+  knowledge/dossiers/factors/README.md
+== docs/pending-items
+  governance/ops/check_reviews.py
+== scripts/
+  CLAUDE.md
+  governance/README.md
+  governance/ops/check_dataiface.py
+  governance/ops/check_reviews.py
+  governance/workspace/directory-conventions.md
+  governance/workspace/migration-r04.md
+  governance/workspace/pending-items.md
+  platform/CLAUDE.md
+  platform/scripts/gen_op_catalog.py
+  platform/src/factorlab/core/ops/_generated_polars_methods.py
+  platform/src/factorlab/core/ops/_generated_ta_ops.py
+  platform/src/factorlab/core/ops/classification.py
+  platform/tests/test_op_classification.py
+  platform/tools/ch_ingest/ddl.sql
+  platform/tools/converters/convert_minutes_to_parquet.py
+  platform/tools/universe_stages/MIGRATION_GAP.md
+  platform/tools/universe_stages/README.md
+  platform/tools/universe_stages/layer2/sas.py
+  platform/tools/universe_stages/scripts/run_layer1.py
+## live hits 明细（scripts/ 与映射表类）
+== CLAUDE.md
+CLAUDE.md:11:- **`platform/`** 只收平台改动：`platform/src/factorlab/`、`platform/tests/`、`platform/scripts/`（契约 4 篇 R24 起在 `knowledge/contracts/`，设计/计划在 `knowledge/design/platform/`）。
+== governance/README.md
+governance/README.md:10:| `ops/` | 门与运维脚本：`gates.sh`（唯一门入口，`make gates`）、`check_imports.py`、`check_tool_layering.py`、`check_dataiface.py`、`reinstall_editable.sh` | `scripts/` |
+== governance/ops/check_dataiface.py
+governance/ops/check_dataiface.py:98:    ("platform/tools/universe_stages/scripts/run_layer1.py", "main", "universe_paths.golden_universe()"):
+governance/ops/check_dataiface.py:100:    ("platform/tools/universe_stages/scripts/run_layer2_sas.py", "main", "universe_paths.golden_universe()"):
+governance/ops/check_dataiface.py:102:    ("platform/tools/universe_stages/scripts/tail_capture_audit.py", "main", "a.ranked or universe_paths.golden_universe()"):
+governance/ops/check_dataiface.py:104:    ("platform/tools/universe_stages/scripts/validate_layer1_parity.py", "main", "universe_paths.out_dir(cfg, 'universes') / 'v4_top300_local.parquet'"):
+governance/ops/check_dataiface.py:106:    ("platform/tools/universe_stages/scripts/validate_layer1_parity.py", "main", "universe_paths.golden_universe()"):
+governance/ops/check_dataiface.py:108:    ("platform/tools/universe_stages/scripts/run_layer3_tick.py", "main", "feats_path"):
+== governance/workspace/directory-conventions.md
+governance/workspace/directory-conventions.md:27:- R24 已完成：`scripts/` → `governance/ops/`；根 `docs/` → `knowledge/` + `governance/`（2026-09-16，`docs/` 已从根消失）。
+governance/workspace/directory-conventions.md:50:| `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`kernels/quant_core/`（评估内核 shim = 内核发行物唯一声明点，R18 起）、`tools/`（数据生产线工具集：lob_fact / converters / 1m_features / ch_ingest / quark_download / ashare_ingest / universe_stages + `lib/` + `_env.py`；R27 归位）、`tests/`、`scripts/`（gen_op_catalog）、`docs/`（R24 起仅 3 行指针壳）；契约/设计在 `knowledge/` |
+== governance/workspace/pending-items.md
+governance/workspace/pending-items.md:104:       **阻塞点**：用户级技能 `~/.claude/skills/quark-share-download/scripts/` 里有这三个文件的
+== platform/CLAUDE.md
+platform/CLAUDE.md:5:- 只收平台改动：`src/factorlab/`、`tests/`、`scripts/`（gen_op_catalog）；提交前缀 `feat(engine)` / `fix(adapters)` / `refactor(core)` / `docs(interface)`。
+== platform/scripts/gen_op_catalog.py
+platform/scripts/gen_op_catalog.py:5:    .venv/bin/python scripts/gen_op_catalog.py          # 重新生成产物
+platform/scripts/gen_op_catalog.py:6:    .venv/bin/python scripts/gen_op_catalog.py --check  # 校验产物与生成一致（exit 1 不一致）
+platform/scripts/gen_op_catalog.py:279:HEADER = '''# 由 platform/scripts/gen_op_catalog.py 生成；勿手改（--check 校验）。
+platform/scripts/gen_op_catalog.py:455:        "# 由 platform/scripts/gen_op_catalog.py 生成；勿手改（--check 校验）。\n"
+== platform/src/factorlab/core/ops/classification.py
+platform/src/factorlab/core/ops/classification.py:5:由 platform/scripts/gen_op_catalog.py 生成、`--check` 校验一致性。
+== platform/tests/test_op_classification.py
+platform/tests/test_op_classification.py:89:    r = subprocess.run([sys.executable, str(ROOT / "scripts/gen_op_catalog.py"), "--check"],
+platform/tests/test_op_classification.py:226:    path = ROOT / "scripts/gen_op_catalog.py"
+== platform/tools/ch_ingest/ddl.sql
+platform/tools/ch_ingest/ddl.sql:84:-- adj_detail / adj_event: 由 ch_ingest/adj_backfill.py 管理（R19 收编自 ashare_alpha3/scripts/12_ch_adj_backfill.py）
+== platform/tools/converters/convert_minutes_to_parquet.py
+platform/tools/converters/convert_minutes_to_parquet.py:195:    (row0=真实 T 日收盘), 由 scripts/detect_date_shift.py 全库扫描生成。
+== platform/tools/universe_stages/MIGRATION_GAP.md
+platform/tools/universe_stages/MIGRATION_GAP.md:32:| layer1 single snapshot | `scripts/run_layer1.py --scan-date` | **not runnable end-to-end** | fundamentals PIT source missing (pending #4) |
+platform/tools/universe_stages/MIGRATION_GAP.md:33:| layer1 historical batch | `scripts/run_layer1.py --from-golden` | **not runnable end-to-end** | same + golden generation chain not retained (pending #9) |
+platform/tools/universe_stages/MIGRATION_GAP.md:34:| layer2 SAS | `scripts/run_layer2_sas.py` | sources present (not exercised end-to-end this round) | — |
+platform/tools/universe_stages/MIGRATION_GAP.md:35:| layer3 tick | `scripts/run_layer3_tick.py` | **not runnable end-to-end** | `data/raw/20260817.7z` not unpacked (pending #3); layer2 outputs absent |
+== platform/tools/universe_stages/README.md
+platform/tools/universe_stages/README.md:24:python scripts/run_layer1.py --scan-date 2026-07-01
+platform/tools/universe_stages/README.md:27:python scripts/run_layer1.py --from-golden --start 2020-01-01 --end 2026-07-31
+platform/tools/universe_stages/README.md:30:python scripts/validate_layer1_parity.py --scan-date 2026-07-01
+platform/tools/universe_stages/README.md:33:python scripts/tail_capture_audit.py
+platform/tools/universe_stages/README.md:36:python scripts/run_layer2_sas.py --scan-date 2026-07-01
+platform/tools/universe_stages/README.md:39:python scripts/run_layer3_tick.py --scan-date 2026-07-01 --top-k 50
+== platform/tools/universe_stages/layer2/sas.py
+platform/tools/universe_stages/layer2/sas.py:6:    """bar 级 Sell Shock 标注（z-score 定义，与 scripts/ 下已验证的 SAS 语义一致（R20：sas_v0/v1.py 已不存在，语义由 tests/test_sas_zscore.py 固化））：
+== platform/tools/universe_stages/scripts/run_layer1.py
+platform/tools/universe_stages/scripts/run_layer1.py:8:  python scripts/run_layer1.py --scan-date 2026-07-01
+platform/tools/universe_stages/scripts/run_layer1.py:9:  python scripts/run_layer1.py --from-golden --start 2020-01-01 --end 2026-07-31
+== knowledge/README.md
+== knowledge/dossiers/factors/README.md

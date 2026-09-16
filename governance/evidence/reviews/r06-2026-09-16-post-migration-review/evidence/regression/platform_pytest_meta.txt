@@ -1,0 +1,10 @@
+# R06 item1 meta: platform full pytest
+review_date: 2026-09-16T16:53:35+08:00
+git_HEAD: 9fd442ffe78fdddaad8404a122b141bea53edda7  (docs(workspace): 迁移记录避免旧路径字面量（G-LEGACY 活文件零残留回归）)
+command: cd platform && FACTORLAB_MAX_MEMORY=8GB .venv/bin/python -m pytest -q
+detach: setsid nohup (exit code not captured; status per pytest summary)
+started: 2026-09-16T16:39:37+08:00 (approx)
+summary: 3150 passed, 13 skipped, 55 warnings in 809.91s (0:13:29)
+FAILED/ERROR lines: 0
+baseline R24/00-baseline: 3150 passed, 13 skipped, 33 warnings in 818.98s
+warning delta note (33 -> 55, +22, fully explained by env): baseline ran with FACTORLAB_MAX_MEMORY unset; this run set 8GB -> RLIMIT_AS degradation RuntimeWarning (memory.py:274) in tests/test_cli_run.py: 20 + tests/test_plugin_partition_prefix.py: 1 + tests/test_plugin_run_path.py: 1 = 22. Diff of both "warnings summary" blocks shows no other changes (only pid differs).

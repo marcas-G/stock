@@ -1,0 +1,68 @@
+$ cd /data/students/gaolei/stock && FACTORLAB_MAX_MEMORY=8GB make gates
+$ date: 2026年 09月 16日 星期三 16:37:54 CST
+bash governance/ops/gates.sh
+== stock gates ==
+[G-COPY] 三方内容不互串 · 契约文档单副本
+    ✓ platform/ 顶层无 factor 目录（tools/ 为数据生产线）
+    ✓ platform/tools 存在（数据生产线工具集）
+    ✓ research/ 顶层无平台 src|tests
+    ✓ knowledge/contracts/interface.md 单副本
+    ✓ knowledge/contracts/catalog.md 单副本
+    ✓ knowledge/contracts/data-ops-playbook.md 单副本
+    ✓ knowledge/contracts/teajoin-guide.md 单副本
+[G-BOUNDARY] platform/ 不得 import research/
+    ✓ 无 platform→research 依赖
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+    ✓ 活文件零残留（豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）
+[G-PATHS] pyproject / pytest 路径自洽
+    ✓ platform pythonpath=src
+    ✓ platform/src/factorlab 存在
+    ✓ research 有 testpaths
+    ✓ 根无 pyproject.toml
+[G-IMPORTS] 全仓 factorlab.* 导入可解析（含负向自检）
+    ✓ 自检通过（能抓到迁移遗漏）
+    ✓ G-IMPORTS 通过（扫描 409 个文件）
+[G-INDEX] 因子索引与生成器一致
+    ✗ 索引不一致：索引与生成器输出不一致（doc 陈旧或手改）——重跑 build_index.py
+[G-INDEX] 策略索引与生成器一致 · spec↔档案成对
+    ✓ 策略索引一致 ✓
+[G-ANNOTATE] 因子档案 snapshot 标注齐备（R21 约定）
+    ✗ 缺 snapshot 标注：1 份
+  - knowledge/dossiers/factors/reversal_20d/netflow_vol.md
+[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）
+    ✓ 93 行 finding（fixed-claimed 93）：ID 唯一、状态合法、引用路径可解析、统计自洽；实计 R01 13C/50I、R02 2C/9I、R03 0C/8I、R05 1C/3I
+    · 统计声明 5 条：核对通过 4、豁免 1（R01 首行统计为 2026-09-15 评审初始口径（EVID C1/C2、STRAT-C3 等后续登记未计入）；append-only 不改统计行；R04-Q7 实计 13C+50I）
+    · 路径豁免：polars_ta（vendor）/ platform/results（已迁 runs/platform）/ projects/ashare_alpha3（已归档 _archive/）
+    ✓ 负向自检通过（重复 ID/非法状态/死路径/空修复说明/统计不符）
+[G-LINT] 全库因子 spec lint（单进程批跑；挖矿在途 spec 一并计入）
+    ✓ factor lint: 168 通过 / 0 失败
+[G-VENV] 平台 editable 落位断言
+    ✓ factorlab → platform/src ✓
+    ✓ quant_core → platform/kernels ✓
+
+[G-TOPO] 工具拓扑：依赖方向 / 横向耦合
+  ✓ 0 处（core 不做反向依赖、生产不带诊断、工具不互相 import、lib 是叶子）
+  ✓ 负向自检：四类违规各命中 1 处、合法路径零误报
+
+[G-CONTRACT/工具树分区字面量] ENFORCED：`year=` 只许经 core.factio.partitions
+  ✓ 0 处（AST：非 docstring 字符串常量）
+[G-MARK] ENFORCED：标记/断点名只经 lib.writekit 单点 API
+  ✓ 0 处（注释/print 文案不算；writekit 自身豁免）
+[G-CONTRACT/平台表名字面量] REPORT：70 处（未竟 → governance/workspace/pending-items.md #12①）
+      platform/src/factorlab/adapters/catalog.py:169: 'adj_factor'
+      platform/src/factorlab/adapters/catalog.py:213: 'daily_basic'
+      platform/src/factorlab/adapters/intraday.py:57: 'bars_1m'
+      platform/src/factorlab/adapters/intraday.py:58: 'tick_trades'
+      platform/src/factorlab/adapters/intraday.py:59: 'tick_orders'
+[G-MARK/接线] ENFORCED：用 `W.` 的模块必须导入 lib.writekit
+  ✓ 0 处（漏 import 会在 main() 运行时才炸，门提前拦住）
+[G-READ] ENFORCED：工具树直读 parquet 只允许登记点，且不指向事实库分区
+  ✓ 0 处违规（登记 25 个理由明确的直读点；新增未登记即失败）
+数据接口门：ENFORCED 全绿
+  ✓ 负向自检：分区字面量 3 / 标记直构 3 / 直读 3 / 漏 import 1 处违规被抓到；docstring、writekit API、print 文案、登记过的 manifest 读均不误伤
+
+结构门：有失败（见上）
+数据接口门：ENFORCED 判定（AST）+ REPORT 未竟计数（见 governance/ops/check_dataiface.py）
+Makefile:26: recipe for target 'gates' failed
+make: *** [gates] Error 1
+EXIT=2

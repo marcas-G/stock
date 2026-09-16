@@ -1,0 +1,7 @@
+.claude/skills/factor-mine/SKILL.md:29:FLAB=/data/students/gaolei/stock/platform/.venv/bin/factorlab
+.claude/skills/factor-mine/SKILL.md:74:  `platform/.venv/bin/python -c "from factorlab.adapters import ch_read; print([r[0] for r in ch_read.query_rows(\"SELECT name FROM system.columns WHERE database='factorlab' AND table='daily'\")])"`）、
+.claude/skills/factor-mine/SKILL.md:89:- 变异点清单写入一个临时记录（`results/_mine_round_<n>.md`），
+.claude/skills/factor-mine/SKILL.md:116:- 成功：记录 `results/<name>/summary.json` 关键指标（`st_degrade: true` = 本次为无 ST 口径）。
+.claude/skills/factor-mine/SKILL.md:122:   验证数据快照自 `results/<name>/summary.json`（注明快照日期）；
+.claude/skills/factor-mine/SKILL.md:126:5. `git add research/factor/<族>/<stem>.yaml knowledge/dossiers/factors/<族>/<stem>.md`（并重生成索引：`python3 research/tools/factor_lib/build_index.py`）
+.claude/skills/factor-mine/SKILL.md:139:| 资源 | 每轮 ~1 次全市场 run（30-60s）+ 1 个 subagent 审核；results/ 每轮数十 MB；16GB 内存护栏（SQL-first）不变 |

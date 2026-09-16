@@ -1,0 +1,4 @@
+$ time platform/.venv/bin/factorlab lint --all
+$ date: 2026年 09月 16日 星期三 16:39:05 CST
+factor lint: 168 通过 / 0 失败
+EXIT=0

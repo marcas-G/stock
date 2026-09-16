@@ -1,0 +1,41 @@
+CLAUDE.md:76:- `projects/` 已随 R24 Task 11 归档移除：`_archive/2026-09-16-ashare-alpha3/`（R19/R20 已收编；2026-10-16 到期）。**新东西一律进三棵树。**
+platform/tools/universe_stages/README.md:9:本工具是 `projects/ashare_alpha3` 股票池段在 R20 的收编落位。数据侧收编见
+.gitignore:2:# 根白名单：只放行三棵树与根级文件；本地大目录（data/ 392G、_archive/、projects/）永不被跟踪。
+README.md:66:- `projects/` 是历史遗留：合并前的两个旧克隆已于 2026-09-15 删除（R17）；`quant_core_shim` 已收编为 **`platform/kernels/quant_core/`**（R18）；`ashare_alpha3` 已收编完成（数据侧 R19 → `platform/tools/ashare_ingest/`，股票池段 R20 → `platform/tools/universe_stages/`），原 `projects/` 目录已于 R24 Task 11 归档至 `_archive/2026-09-16-ashare-alpha3/`（到期 2026-10-16）。**新东西一律进三棵树。**
+governance/ops/reinstall_editable.sh:28:assert "/projects/" not in quant_core.__file__, quant_core.__file__   # 旧 editable 残留即失败
+governance/ops/gates.sh:47:  n=$(git grep -nI -e "quant-platform-main" -e "quant-platform-research" -e "projects/quant-platform" -- . \
+governance/ops/gates.sh:100:  # quant_core：正向（落 platform/kernels/quant_core）+ **反向**（不得再指回 projects/*
+governance/ops/gates.sh:101:  # —— R18 前它以 editable 写死 projects/quant_core_shim，残留 finder 会让正向也"看似"成立）。
+governance/ops/gates.sh:108:  case "$qc" in *"/projects/"*) bad "quant_core 仍解析到 projects/ 下（旧 editable finder 残留）" ;; esac
+governance/workspace/workspace-p0p8.md:50:- In Scope：目录归并（data/ + projects/）、归档式清理、路径重指、worktree 迁移与指针保全、
+governance/workspace/workspace-p0p8.md:76:| REQ-WS-001 | 根收敛至 7 项（README/.gitignore/.git/docs/data/projects/_archive） | Inspection | ls -a 逐项一致 | ○ S4 后核 |
+governance/workspace/workspace-p0p8.md:125:| `projects/quant-platform-main`（main worktree） | 平台代码与平台文档的权威 | src/factorlab、tests、docs/interface、catalog、superpowers、README、pyproject | 研究内容（factor/、results/、tools/） |
+governance/workspace/workspace-p0p8.md:126:| `projects/quant-platform-research`（research worktree） | 研究工具与因子档案的权威 | tools/（lob_fact、1m_features、ch_ingest、converters、quark_download）、factor/、docs/factors/、docs/strategies/ | 平台 src（共享对象库但分支内容隔离） |
+governance/workspace/workspace-p0p8.md:127:| `projects/quant_core_shim` | 评估内核契约锚点（quant-core 唯一安装源） | pyproject、quant_core/__init__.py | Rust 内核本体（未来同包名替换） |
+governance/workspace/workspace-p0p8.md:128:| `projects/ashare_alpha3` | A 股 alpha 验证项目 | 项目代码、config、universes/research/validation 子目录 | 被它消费的事实库 |
+governance/workspace/workspace-p0p8.md:142:- **S3** 项目归并 projects/ + worktree 迁移 + 路径全量重指 → 证据 `governance/evidence/verification/S3/`
+governance/workspace/directory-conventions.md:8:> `projects/` 为本地目录（gitignore）。旧的两 worktree 布局**已退役**
+governance/workspace/directory-conventions.md:11:> 证据 `governance/evidence/verification/R17/`）。（R24 起 `projects/` 已归档移除，§3 表无其行。）
+governance/workspace/directory-conventions.md:15:根目录**白名单定稿 14 项**（R24 终态，2026-09-16；Task 11 前为 15 项含过渡 `projects/`）：
+governance/workspace/directory-conventions.md:18:（`projects/` 已于 R24 Task 11 归档并从根移除 → `_archive/2026-09-16-ashare-alpha3/`。）
+governance/workspace/directory-conventions.md:60:- `projects/` R24 起**已不存在**：`ashare_alpha3` 归档至 `_archive/2026-09-16-ashare-alpha3/`（2026-10-16 到期，见 manifest）。
+governance/workspace/directory-conventions.md:61:- **`projects/` 历史**（2026-09-15 R17 起至 R24 归档前，上表曾有 `ashare_alpha3` 一行）：合并前的两个遗留克隆
+governance/workspace/remote-cleanup-checklist.md:63:注意（仍然成立）：**data/、projects/、_archive/ 不在远端**——数据不入库，`projects/`
+governance/evidence/reviews/findings.md:186:- 待拍板：D1 证据位置 / D2 两树 docs 处置 / D3 契约归属 / D4 方案 B 立项 / D5 `projects/ashare_alpha3` 归档或删
+governance/workspace/data-map.md:35:## C. 代码与项目（单仓三树 + projects/ 本地目录）
+governance/workspace/data-map.md:41:| C3 | `platform/kernels/quant_core`（R18 起；原 `projects/quant_core_shim`） | 仓库内（内核发行物唯一声明点） | quant-core 0.1.0 shim（仅装 `platform/.venv`；Rust 版到位时同目录换 build backend） |
+governance/workspace/data-map.md:42:| C4 | `_archive/2026-09-16-ashare-alpha3/`（原 `projects/ashare_alpha3`；**R19/R20 收编完成**） | 本地归档（无 git；2026-10-16 到期） | 数据侧已完成 → `platform/tools/ashare_ingest/`；股票池段已完成 → `platform/tools/universe_stages/`（R20）；R24 Task 11 归档 |
+governance/workspace/migration-r04.md:61:| 14 | `projects/ashare_alpha3` | `_archive/2026-09-16-ashare-alpha3/` | 11 | ✅ `ca8c6a5` |
+governance/workspace/migration-r04.md:89:| 11 | 见下 | `projects/ashare_alpha3` → `_archive/2026-09-16-ashare-alpha3/`（manifest + 到期 2026-10-16）；根白名单收敛 14 项；相关文档同步 | `governance/evidence/verification/R24/11-archive/` |
+governance/workspace/migration-r04.md:99:  的旧 `projects/*` 克隆硬编码路径残留（8 文件）→ `410e8e4`。
+governance/workspace/archive-policy.md:30:2. 需要保留的 → 移回 `data/`/`projects/` 或转为正式资产（更新 data-map）。
+governance/ops/check_reviews.py:106:    (re.compile(r"^projects/ashare_alpha3\b"),
+governance/ops/check_reviews.py:115:    "ports/", ".claude/", "_archive/", "projects/", "data/", "evidence/",
+governance/ops/check_reviews.py:439:          "projects/ashare_alpha3（已归档 _archive/）")
+governance/workspace/traceability-matrix.md:20:| REQ-WS-006 | 三链新路径可跑 | LF-06/09 | projects/* | S3 冒烟、S5 全量 | Demonstration | `S3/06-smoke-and-shim.log`、`S5/05-pytest-after.log`（2423 passed）、`S5/06-ch-reconcile.log`（全库一致） | ● |
+governance/workspace/traceability-matrix.md:21:| REQ-WS-007 | git 实体唯一 + 4 提交保全 | LF-07 | `projects/quant-platform-main` | S3 抢救 | Test | `S3/07-backup-rescue.log`（cat-file=e66b349） | ● |
+governance/workspace/traceability-matrix.md:35:| `projects/quant-platform-main`（+research）仓库内部 | src 分层、results/ 口径、duckdb 数据链重建、两分支 docs 重叠仍有架构不确定性 | `pending-items.md` #5 |
+governance/workspace/traceability-matrix.md:36:| `projects/ashare_alpha3` 内部 | layer1-3 管线、fundamentals 缺源、golden 链路待考 | `pending-items.md` #5/#9 |
+governance/workspace/traceability-matrix.md:40:spec = `projects/quant-platform-main/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md`。
+governance/workspace/pending-items.md:39:  证据见 `governance/evidence/verification/R20/`。旧 `projects/ashare_alpha3` 已于 R24 Task 11 归档至 `_archive/2026-09-16-ashare-alpha3/`（manifest：`governance/evidence/verification/R24/11-archive/manifest.md`；2026-10-16 到期）。
+governance/workspace/pending-items.md:46:     R17 删除的**工作区本地克隆** `projects/quant-platform-{main,research}` 是两件事——

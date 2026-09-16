@@ -2,15 +2,16 @@
 
 **这是什么**：FactorLab 策略体系的三件事——**六层漏斗规范（L0-L5）**、**策略 YAML 配置化（D4）**、
 **L5 执行/风控规则边界**。目标：策略像因子一样"一处定义（YAML）、机器可跑、人可阅读、可版本化"。
-**给谁**：开发团队按 `plan.md` 实施（7 个任务，TDD，逐任务可独立验收）；复查走 `docs/reviews/README.md` 流程。
-**状态**：设计已评审（D1/D2/D4 用户 2026-09-16 拍板）；实施计划待执行（Plan S，**开发团队开发**；
-用户可见接口契约（YAML 示例 / 平台 API / 研究 CLI）见 `plan.md` §接口契约）。
+**给谁**：开发团队按 `plan.md` 实施（7 个任务，TDD，逐任务可独立验收）；复查走 `governance/evidence/reviews/README.md` 流程。
+**状态**：**已实施并验收**（Plan S 实现 `7e03acb`/`126def4`；验收 `governance/evidence/verification/R28/`——
+首例 `low_lottery_top30_weekly` 5 决策 / NAV +2.2257% / 176 笔 / 11 帧与落盘逐帧一致；R06 复查复核通过）。
+用户可见接口契约（YAML 示例 / 平台 API / 研究 CLI）见 `plan.md` §接口契约。
 **关系**：
-- 与 `2026-09-15-open-operators/`、`2026-09-15-minute-execution/` 独立；NEXT_WINDOW 分钟执行由本计划
+- 与 `../2026-09-15-open-operators/`、`../2026-09-15-minute-execution/` 独立；NEXT_WINDOW 分钟执行由本计划
   Task 1/2 直通（`ExecutionSpec.minute_window`）；
 - `research/tools/strategies` **留 research**（工具迁移决策）；`factor_lib` 扩策略索引（同留 research）；
-- 若 `r04-efficiency-2026-09-16/structure-plan.md`（R24 目录重整）先落地，本计划 Task 4/5 的
-  档案/索引路径按 `knowledge/` 新坐标同步。
+- R24 目录重整已落地：本计划档案/索引落在 `knowledge/` 新坐标（`knowledge/dossiers/strategies/`、
+  `knowledge/index/strategies.md`）。
 
 ## 文件
 

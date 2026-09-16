@@ -6,7 +6,7 @@
 ## 结构
 
 ```
-docs/reviews/
+governance/evidence/reviews/
 ├── README.md                本文件（约定）
 ├── findings.md              台账 = 唯一状态源（reviewer 与开发团队都写这里）
 └── rXX-YYYY-MM-DD-<标题>/    每轮评审
@@ -23,17 +23,18 @@ docs/reviews/
 
 | 序 | 方案 | 状态 | 执行入口 |
 |---|---|---|---|
-| 1 | **工具迁移**（8 工具+lib → `platform/tools/`；T1/T2 合并单解释器） | 待执行（TM1 可立即） | `r04-efficiency-2026-09-16/tools-migration-plan.md` |
-| 2 | **策略配置化 Plan S**（六层 + YAML + L5） | 待执行 | `knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md` |
-| 3 | **目录重整 R24**（契约/档案/治理/证据单点化） | 待执行 | `r04-efficiency-2026-09-16/structure-plan.md` |
+| 1 | **工具迁移**（8 工具+lib → `platform/tools/`；T1/T2 合并单解释器） | ✅ 已实施（R24 批次） | `r04-efficiency-2026-09-16/tools-migration-plan.md` |
+| 2 | **策略配置化 Plan S**（六层 + YAML + L5） | ✅ 已实施并验收（R27 实现 / R28 验收；R06 复核） | `knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md` |
+| 3 | **目录重整 R24**（契约/档案/治理/证据单点化） | ✅ 已实施（验收 `governance/evidence/verification/R24/`） | `r04-efficiency-2026-09-16/structure-plan.md` |
 | — | open-operators Plan 1（开放算子底座） | ✅ 已实施（R22） | `knowledge/design/workspace/2026-09-15-open-operators/`；Plan 2/3 计划未写 |
 | — | minute-execution（分钟级执行） | ✅ 已实施（R22） | `knowledge/design/workspace/2026-09-15-minute-execution/` |
 | — | R04 快速项 P1-P5 | ✅ 已实施（R23） | `r04-efficiency-2026-09-16/report.md` |
 
-**执行注意**：
-- 序 1 与序 3 **不同窗口**执行（冲突点：`Makefile`、`factor_lib` 路径引用）；
-- 序 2 的 Task 4/5（档案/索引坐标）在序 3 之后执行则直接用 `knowledge/` 新坐标，反之先落现路径再随 R24 迁移；
-- 序 1 的 TM1（Makefile 单解释器）完成后，本 README「复查命令」的 `make test-research` 即为单腿。
+**执行注意（2026-09-16 R06 更新）**：
+- 序 1/2/3 **均已落地**（R24 批次 + R27/R28），原"不同窗口"约束解除；
+- R06 复查结论：迁移面无 C、R24/R27/R28 声明全部实证通过；**门红（G-INDEX/G-ANNOTATE）与台账/门问题**
+  见 `r06-2026-09-16-post-migration-review/report.md` §2/§6；
+- `make test-research` 已为**单解释器单腿**（平台 venv 3.13）。
 
 ## 流程
 
@@ -67,7 +68,7 @@ docs/reviews/
 ```bash
 make gates                                                    # 常驻门
 cd platform && .venv/bin/python -m pytest -q                  # 平台全量（~7.5min）
-make test-research                                            # T2 (emb) + T1 (平台 venv)
+make test-research                                            # 工具/研究测试（单解释器：平台 venv 3.13）
 ```
 
 ## 给开发团队的提示

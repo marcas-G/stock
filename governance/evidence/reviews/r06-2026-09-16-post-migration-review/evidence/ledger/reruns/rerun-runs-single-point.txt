@@ -1,0 +1,22 @@
+# R24 声明：runs 单点——从任意 cwd 读写同一 runs/platform
+$ cd /tmp && /data/students/gaolei/stock/platform/.venv/bin/factorlab show r12_smoke
+=== r12_smoke ===
+spec: adjustment: qfq
+category: custom
+combine: null
+cost_rate: 0.0
+date:
+  end: '2026-06-30'
+  start: '2026-06-01'
+description: ''
+direction: 1
+factors: null
+formula: 'signal = close
+exit=0
+
+$ ls /data/students/gaolei/stock/runs/platform/r12_smoke
+labels.parquet
+panel.parquet
+signal.parquet
+summary.json
+weekly.parquet

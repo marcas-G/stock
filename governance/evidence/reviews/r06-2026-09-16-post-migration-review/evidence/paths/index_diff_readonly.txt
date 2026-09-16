@@ -1,0 +1,18 @@
+current lines: 330 generated lines: 331
+diff lines: 16
+--- knowledge/index/factors.md (on disk)
++++ generated
+@@ -3,3 +3,3 @@
+ > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
+-> 共 **167 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
++> 共 **168 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+ 
+@@ -12,3 +12,3 @@
+ | intraday | 2 | `research/factor/intraday/` |
+-| liquidity | 7 | `research/factor/liquidity/` |
++| liquidity | 8 | `research/factor/liquidity/` |
+ | misc | 1 | `research/factor/misc/` |
+@@ -58,2 +58,3 @@
+ | `turnover_accel` | -1 | fwd5d |  | [accel.md](../../knowledge/dossiers/factors/liquidity/accel.md) | [yaml](../../research/factor/liquidity/accel.yaml) |
++| `turnover_accel_inflow` | -1 | fwd5d |  | [accel_inflow.md](../../knowledge/dossiers/factors/liquidity/accel_inflow.md) | [yaml](../../research/factor/liquidity/accel_inflow.yaml) |
+ | `turnover_level` | -1 | fwd5d |  | [level.md](../../knowledge/dossiers/factors/liquidity/level.md) | [yaml](../../research/factor/liquidity/level.yaml) |

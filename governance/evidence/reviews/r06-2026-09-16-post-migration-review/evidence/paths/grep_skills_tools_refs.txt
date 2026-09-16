@@ -1,0 +1,14 @@
+.claude/skills/factorlab-backtest/SKILL.md:17:- `/data/students/gaolei/stock/knowledge/contracts/interface.md`
+.claude/skills/factorlab-backtest/SKILL.md:24:- `/data/students/gaolei/stock/knowledge/design/platform/specs/`
+.claude/skills/factorlab-data/SKILL.md:18:- `/data/students/gaolei/stock/knowledge/contracts/interface.md`
+.claude/skills/factorlab-evaluate/SKILL.md:16:- `/data/students/gaolei/stock/knowledge/contracts/interface.md`
+.claude/skills/factorlab-evaluate/SKILL.md:22:- `/data/students/gaolei/stock/knowledge/design/platform/specs/`
+.claude/skills/factorlab-dsl/SKILL.md:16:- `/data/students/gaolei/stock/knowledge/contracts/interface.md`
+.claude/skills/factorlab-dsl/SKILL.md:21:- `/data/students/gaolei/stock/knowledge/contracts/catalog.md` — DSL 列/算子**活文档**（`factorlab catalog docs` 可再生成）
+.claude/skills/factorlab-dsl/SKILL.md:22:- `/data/students/gaolei/stock/knowledge/design/platform/specs/`
+.claude/skills/factorlab-ch-pipeline/SKILL.md:3:description: 研究侧 ClickHouse 灌入管线（platform/tools/ch_ingest）——daily 5 表灌入、bars_1m/tick 月分区灌入、stk_limit 派生、adj_detail/adj_event 派生、reconcile 对账、刷新链（import_daily→ingest_daily→adj_backfill→derive_stk_limit）。用户要刷新 CH 数据、加表/改派生规则、对账失败排查、问 CH 表语义/涨跌停制度边界时调用。权威: stock/platform/tools/ch_ingest/README.md + ddl.sql + 脚本 docstring。
+.claude/skills/factorlab-ch-pipeline/SKILL.md:6:# 研究侧 CH 灌入管线（platform/tools/ch_ingest；R27 起归位平台树）
+.claude/skills/factorlab-ch-pipeline/SKILL.md:18:- `/data/students/gaolei/stock/platform/tools/ch_ingest/README.md` — 表清单/用法/设计/数据口径
+.claude/skills/factorlab-ch-pipeline/SKILL.md:19:- `platform/tools/ch_ingest/ddl.sql` — 建库建表（幂等）；各脚本 docstring 含制度规则
+.claude/skills/factorlab-ch-pipeline/SKILL.md:23:- 源侧导入：`platform/tools/ashare_ingest/import_daily.py`（xlsx 日K → daily_fact.parquet）
+.claude/skills/factorlab-ch-pipeline/SKILL.md:73:3. 工具改动归位 `platform/tools/`（R27；`ashare_alpha3` 仅历史参考）；研究侧改动不进平台内核

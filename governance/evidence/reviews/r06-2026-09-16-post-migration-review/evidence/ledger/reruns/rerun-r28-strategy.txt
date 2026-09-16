@@ -1,0 +1,12 @@
+$ FACTORLAB_DATA_BACKEND=ch FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python research/tools/strategies/run_strategy.py research/strategy/low_lottery_top30_weekly.yaml --out-dir /tmp/r06-strategy-rerun/low_lottery_top30_weekly
+策略 low_lottery_top30_weekly 完成：
+  out_dir   = /tmp/r06-strategy-rerun/low_lottery_top30_weekly
+  signal    = max_effect_20d_high
+  decisions = 5
+  NAV       = 9992407.37 → 10214807.42（+2.23%）
+  fills     = 176 笔（5 个执行事件）
+
+real	0m3.872s
+user	0m9.431s
+sys	0m3.403s
+exit=0

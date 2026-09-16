@@ -1,0 +1,13 @@
+# G-REVIEWS 对抗实验（victim line 25 = | R01-ENG-C1 | C | 未来函数旁路#1：`signal = cl...）
+case                         门    首条 BAD
+m1-status-illegal            RED  [BAD] line 25 [R01-ENG-C1] 非法状态 'done'（词表：deferred/fixed-claimed/open/reopened/verified/wontfix）
+m2-fixdesc-empty             RED  [BAD] line 25 [R01-ENG-C1] fixed-claimed 但「修复说明」为空（须含 commit+命令+输出）
+m3-column-short              RED  [BAD] line 25 [R01-ENG-C1] fixed-claimed 但「修复说明」为空（须含 commit+命令+输出）
+m4-dup-id                    RED  [BAD] line 206 [R01-ENG-C1] ID 重复（首次出现 line 25）
+m5-fixdesc-no-evidence       GREEN 
+m6-deadpath-backticked       RED  [BAD] line 25 [R01-ENG-C1] [修复说明（团队填：commit+命令+输出）] 路径不存在: docs/verification/R21/ENG/definitely_miss
+m7-deadpath-plain            GREEN 
+m8-status-empty              RED  [BAD] line 25 [R01-ENG-C1] 非法状态 ''（词表：deferred/fixed-claimed/open/reopened/verified/wontfix）
+m9-stats-mismatch            RED  [BAD] line 4 统计口径 R01: 声明 12C/37I ≠ 实计 13C/50I
+
+未抓到（GREEN）场景数：2/9

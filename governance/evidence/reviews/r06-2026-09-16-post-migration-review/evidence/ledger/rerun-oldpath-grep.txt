@@ -1,0 +1,108 @@
+# R06 独立复跑：R24 零残留断言（Step 0.4 同模式；git grep，HEAD+工作区）
+# 复现：for p in ...; do git grep -n "$p"; done   （原命令有 ':!docs/verification' ':!docs/reviews'，此处全量后分类）
+== platform/docs/superpowers
+231
+    137 governance/evidence/verification/R24/12-acceptance/old-path-final.txt
+     33 governance/evidence/verification/R24/00-baseline/old-path-inventory.txt
+     32 governance/evidence/verification/R24/03-design/mtime-before.txt
+      7 governance/evidence/verification/R23/flow/doc-links-before.txt
+      7 governance/evidence/verification/R23/flow/doc-links-after.txt
+      2 governance/evidence/reviews/r04-efficiency-2026-09-16/structure-plan.md
+      2 governance/evidence/reviews/r04-efficiency-2026-09-16/report.md
+      1 knowledge/README.md
+== research/docs/superpowers
+59
+     39 governance/evidence/verification/R24/12-acceptance/old-path-final.txt
+      4 governance/evidence/verification/R24/03-design/mtime-before.txt
+      4 governance/evidence/verification/R24/00-baseline/old-path-inventory.txt
+      2 governance/evidence/verification/R22/R03/tools/M2-doc-sync.txt
+      2 governance/evidence/verification/R21/EVID/I4-spec-status.txt
+      2 governance/evidence/reviews/r04-efficiency-2026-09-16/structure-plan.md
+      2 governance/evidence/reviews/r04-efficiency-2026-09-16/report.md
+      1 knowledge/README.md
+== research/docs/factors
+1642
+    911 governance/evidence/verification/R24/12-acceptance/old-path-final.txt
+    189 governance/evidence/verification/R24/00-baseline/old-path-inventory.txt
+    165 governance/evidence/verification/R24/04-dossiers/mtime-before.txt
+    152 governance/evidence/verification/R5/rename-map.tsv
+    152 governance/evidence/verification/R21/EVID/C1-annotation.txt
+     14 governance/evidence/verification/R22/R03/tools/M2-doc-sync.txt
+      8 governance/evidence/verification/R27/git-status-before.txt
+      8 governance/evidence/verification/R24/00-baseline/status-before.txt
+== docs/verification
+2118
+   1087 governance/evidence/verification/R24/12-acceptance/old-path-final.txt
+    728 governance/evidence/verification/R24/06-evidence/mtime-before.txt
+     81 governance/evidence/verification/R24/00-baseline/old-path-inventory.txt
+     11 governance/evidence/verification/R22/R02/evidence/i9-doc-diff.txt
+     11 governance/evidence/reviews/findings.md
+     10 knowledge/design/platform/specs/2026-09-12-mining-system-refactor-design.md
+      8 governance/evidence/reviews/r04-efficiency-2026-09-16/structure-plan.md
+      6 knowledge/design/workspace/2026-09-15-open-operators/plan.md
+== docs/reviews
+339
+    179 governance/evidence/verification/R24/12-acceptance/old-path-final.txt
+     54 governance/evidence/verification/R24/06-evidence/mtime-before.txt
+     22 governance/evidence/verification/R24/00-baseline/old-path-inventory.txt
+     12 governance/evidence/verification/R24/03-design/mtime-before.txt
+      7 governance/evidence/reviews/r04-efficiency-2026-09-16/structure-plan.md
+      4 governance/evidence/verification/R27/git-status-before.txt
+      4 governance/evidence/verification/R22/R02/evidence/i9-doc-diff.txt
+      4 governance/evidence/reviews/r04-efficiency-2026-09-16/report.md
+== docs/index
+614
+    396 governance/evidence/verification/R24/12-acceptance/old-path-final.txt
+    184 governance/evidence/verification/R24/00-baseline/old-path-inventory.txt
+      3 knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md
+      3 governance/evidence/verification/R28/strategy-first-example/SUMMARY.md
+      3 governance/evidence/verification/R27/README.md
+      3 governance/evidence/reviews/r04-efficiency-2026-09-16/structure-plan.md
+      2 knowledge/design/workspace/2026-09-16-strategy-decomposition/design.md
+      2 governance/evidence/verification/R7/p8.md
+== docs/data-map
+77
+     48 governance/evidence/verification/R24/12-acceptance/old-path-final.txt
+     19 governance/evidence/verification/R24/00-baseline/old-path-inventory.txt
+      2 governance/evidence/reviews/r04-efficiency-2026-09-16/structure-plan.md
+      1 knowledge/design/platform/specs/2026-08-15-factorlab-m3a-data-layer-design.md
+      1 governance/evidence/verification/R8/status.md
+      1 governance/evidence/verification/R7/p8.md
+      1 governance/evidence/verification/R6/documentation.md
+      1 governance/evidence/verification/R21/EVID/I1-I2-I5-I6-doc-diff.txt
+== docs/directory-conventions
+77
+     51 governance/evidence/verification/R24/12-acceptance/old-path-final.txt
+     16 governance/evidence/verification/R24/00-baseline/old-path-inventory.txt
+      4 governance/evidence/reviews/r04-efficiency-2026-09-16/structure-plan.md
+      3 governance/evidence/verification/R17/status.md
+      1 governance/evidence/verification/R6/documentation.md
+      1 governance/evidence/verification/R21/EVID/I1-I2-I5-I6-doc-diff.txt
+      1 governance/evidence/verification/R18/status.md
+== docs/pending-items
+206
+    115 governance/evidence/verification/R24/12-acceptance/old-path-final.txt
+     36 governance/evidence/verification/R24/00-baseline/old-path-inventory.txt
+      2 governance/evidence/verification/R8/gates.log
+      2 governance/evidence/verification/R20/04-gates.txt
+      2 governance/evidence/reviews/r04-efficiency-2026-09-16/structure-plan.md
+      1 knowledge/design/platform/specs/2026-09-12-mining-system-refactor-design.md
+      1 knowledge/design/platform/specs/2026-08-16-factorlab-m4b-single-factor-eval-design.md
+      1 governance/ops/check_reviews.py
+== docs/archive-policy
+25
+     16 governance/evidence/verification/R24/12-acceptance/old-path-final.txt
+      6 governance/evidence/verification/R24/00-baseline/old-path-inventory.txt
+      1 governance/evidence/verification/archive/2026-09-workspace-cleanup/S4/01-gates.log
+      1 governance/evidence/verification/archive/2026-09-workspace-cleanup/final/02-p8.md
+      1 governance/evidence/reviews/r04-efficiency-2026-09-16/structure-plan.md
+== scripts/
+790
+    408 governance/evidence/verification/R24/12-acceptance/old-path-final.txt
+     78 governance/evidence/verification/R24/00-baseline/old-path-inventory.txt
+     20 governance/evidence/verification/R20/02-migration-diff.txt
+     16 governance/evidence/verification/archive/2026-09-workspace-cleanup/S3/04-repoint-notes-ashare.log
+     13 governance/evidence/reviews/r04-efficiency-2026-09-16/structure-plan.md
+     12 governance/evidence/verification/R22/R02/tools/I6a-red-t2.txt
+     12 governance/evidence/verification/R19/00-move-manifest-before.sha256
+     11 knowledge/design/workspace/2026-09-15-open-operators/plan.md

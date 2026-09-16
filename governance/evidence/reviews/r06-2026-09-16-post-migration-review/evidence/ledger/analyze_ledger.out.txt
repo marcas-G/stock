@@ -1,0 +1,93 @@
+# R06 台账完整性分析（governance/evidence/reviews/findings.md，205 行文本）
+索引路径数（文件+目录）：27245
+
+## A. 数据行汇总
+finding 行：93
+  轮次              open fixed-claimed      verified      reopened       wontfix      deferred           <空>          <非法>          <缺列>
+  R01                0            63             0             0             0             0             0             0             0
+  R02                0            12             0             0             0             0             0             0             0
+  R03                0            13             0             0             0             0             0             0             0
+  R05                0             5             0             0             0             0             0             0             0
+
+## B. 状态为空或非法的行
+  （无）
+
+## C. 列数不足（cells < header）
+  （无：全部 finding 行 cells 数 = 表头列数）
+- 复查列为空/缺失的行：92
+
+## D. fixed-claimed「修复说明」证据路径（不限反引号；含 shorthand 展开）
+fixed-claimed 行数：93
+路径 token：269（反引号内 0 / 反引号外 269）；未解析：11（分布在 11 行）
+  —— 未解析 token 逐条（人工复核用）——
+  line 54 [R01-M8-I5] [plain] 'R21/M8/I4-I5-before/after.txt'
+  line 56 [R01-M8-I7] [plain] 'R21/M8/I7-before/after.txt'
+  line 79 [R01-TOOLS-C2] [plain] 'daily_fact.parquet'
+  line 110 [R01-EVID-I1] [plain] 'research/tools/{strategies'
+  line 114 [R01-EVID-I5] [plain] 'research/tools/quark_cookies.txt'
+  line 115 [R01-EVID-I6] [plain] '../CLAUDE.md/AGENTS.md'
+  line 143 [R02-C1] [plain] 'repro-*-C1-probe11/7*.txt'
+  line 145 [R02-I1] [plain] 'R22/R03/tools/I1-doc-annotations.txt'
+  line 151 [R02-I6b] [plain] '3a368a6/0534e9a/R22/R02/tools/I6b-empty-sheet-fix.txt'
+  line 166 [R03-I3] [plain] 'app/evaluate'
+  line 170 [R03-M2] [plain] '.md'
+
+## E. 抽查 10 条 fixed-claimed（等距取样）
+  line 25 [R01-ENG-C1]: 7/7 可解析
+      OK  platform/.venv/bin/factorlab  ->  <whitelist>
+      OK  docs/reviews/r01-2026-09-15-strict-review/evidence/engine-dsl/future_subscript.yaml  ->  governance/evidence/reviews/r01-2026-09-15-strict-review/evidence/engine-dsl/future_subscript.yaml
+      OK  evidence/engine-dsl/probe_run_factor.py  ->  governance/evidence/reviews/r01-2026-09-15-strict-review/evidence/engine-dsl/probe_run_factor.py
+      OK  tests/test_partitions.py  ->  platform/tests/test_partitions.py
+      OK  test_run_factor.py  ->  platform/tests/test_run_factor.py
+      OK  docs/verification/R21/ENG/C1-probe-before/after.txt  ->  governance/evidence/verification/R21/ENG/C1-probe-before.txt
+      OK  C1-pool-probe-after.txt  ->  governance/evidence/verification/R21/ENG/C1-pool-probe-after.txt
+  line 39 [R01-DATA-I3]: 4/4 可解析
+      OK  tests/test_adjust.py  ->  _archive/2026-09-12-S3/quant-platform-main.local-backup-20260903/tests/test_adjust.py
+      OK  /tmp/opencode/reviewer-data/probe_pit_chunk.py  ->  <whitelist>
+      OK  R21/DATA/I3.md  ->  governance/evidence/verification/R21/DATA/I3.md
+      OK  probe_pit_chunk_before/after.txt  ->  governance/evidence/verification/R21/DATA/probe_pit_chunk_before.txt
+  line 53 [R01-M8-I4]: 3/3 可解析
+      OK  tests/test_backtest_runtime.py  ->  platform/tests/test_backtest_runtime.py
+      OK  R21/M8/I4-I5-before-test-red.txt  ->  governance/evidence/verification/R21/M8/I4-I5-before-test-red.txt
+      OK  I4-I5-after-test-green.txt  ->  governance/evidence/verification/R21/M8/I4-I5-after-test-green.txt
+  line 67 [R01-EVAL-I4]: 0/0 可解析
+  line 81 [R01-TOOLS-I2]: 2/2 可解析
+      OK  tests/test_ch_state_concurrency.py  ->  platform/tools/ch_ingest/tests/test_ch_state_concurrency.py
+      OK  R21/TOOLS-A/RED-GREEN.md  ->  governance/evidence/verification/R21/TOOLS-A/RED-GREEN.md
+  line 95 [R01-STRAT-C1]: 3/3 可解析
+      OK  research/tools/strategies/tests/test_strategy.py  ->  research/tools/strategies/tests/test_strategy.py
+      OK  R21/STRAT/probe_before.txt  ->  governance/evidence/verification/R21/STRAT/probe_before.txt
+      OK  C1_C2_I5_probe_after.txt  ->  governance/evidence/verification/R21/STRAT/C1_C2_I5_probe_after.txt
+  line 109 [R01-EVID-C2]: 5/5 可解析
+      OK  R12/r12_smoke.yaml  ->  governance/evidence/verification/R12/r12_smoke.yaml
+      OK  docs/verification/R12/r21-recheck-run.txt  ->  governance/evidence/verification/R12/r21-recheck-run.txt
+      OK  r21-recheck-layout.txt  ->  governance/evidence/verification/R12/r21-recheck-layout.txt
+      OK  R13/r21-recheck-web.txt  ->  governance/evidence/verification/R13/r21-recheck-web.txt
+      OK  status.md  ->  governance/evidence/verification/R13/status.md
+  line 143 [R02-C1]: 3/4 可解析
+      OK  test_minute_gate.py  ->  platform/tests/test_minute_gate.py
+      OK  test_minute_ops.py  ->  platform/tests/test_minute_ops.py
+      OK  docs/verification/R22/R02/engine/C1-*.txt  ->  governance/evidence/verification/R22/R02/engine/C1-green.txt
+      MISS 'repro-*-C1-probe11/7*.txt'
+  line 152 [R02-I7]: 1/1 可解析
+      OK  tests/test_ops.py  ->  _archive/2026-09-12-S3/quant-platform-main.local-backup-20260903/tests/test_ops.py
+  line 170 [R03-M2]: 1/2 可解析
+      OK  R22/R03/tools/M2-doc-sync.txt  ->  governance/evidence/verification/R22/R03/tools/M2-doc-sync.txt
+      MISS '.md'
+
+## F. R05 行与 R21 复查例外表
+  line 201 R05-I1: 状态='fixed-claimed'; 复查列长度=0
+  line 202 R05-I2: 状态='fixed-claimed'; 复查列长度=0
+  line 203 R05-M1: 状态='fixed-claimed'; 复查列长度=0
+  line 204 R05-C1: 状态='fixed-claimed'; 复查列长度=334
+  line 205 R05-I4: 状态='fixed-claimed'; 复查列长度=0
+  R21 复查例外表（findings.md line 129-137 原文）：
+    129: | 关联 R01 ID | 判定 | 原因 | 联动 R02 ID |
+    130: |---|---|---|---|
+    131: | R01-DATA-C1 | reopened | staleness 判定窗口依赖：短窗/分块下 fill-seed 复活死价格 | R02-C2 |
+    132: | R01-TOOLS-I9 | partial | universe_stages CLI T2 裸跑 import 崩溃（preflight 未执行） | R02-I6a |
+    133: | R01-TOOLS-I3 | partial | import_daily 解析错误不改退出码 | R02-I6b |
+    134: | R01-ENG-I3 | partial | 插件别名/动态导入副作用先于拒绝、registry 无回滚 | R02-I7 |
+    135: | R01-TOOLS-I5 | partial | fail-open 后平台侧无 stk_limit 覆盖率门 | — |
+    136: | R01-EVAL-I7/I8 | partial | quant-core 契约 :90/:93 未同步 | R02-I9 |
+    137: | R01-EVID-C2 / R01-STRAT-I6 | 已按标注闭环 | 原始输出永缺/不可复现（如实标注） | — |

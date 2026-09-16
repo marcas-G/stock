@@ -1,0 +1,32 @@
+# R06 item3: results-root resolution proof 2026-09-16T16:48:33+08:00
+
+== settings.results_dir ==
+/data/students/gaolei/stock/runs/platform
+
+== new factor present only in runs/platform? ==
+ls: 无法访问'results/turnover_accel_inflow': 没有那个文件或目录
+runs/platform/turnover_accel_inflow
+
+== legacy results/ still holds stale copies (ignored by CLI) ==
+results/max_effect_20d_high
+
+== summary.json mtime: runs vs legacy ==
+2026-09-16 01:24:56.564506964 +0800 runs/platform/max_effect_20d_high/summary.json
+2026-09-16 14:19:28.253281764 +0800 results/max_effect_20d_high/summary.json
+
+== factorlab list timestamp for max_effect_20d_high (from cli_measured.txt) ==
+max_effect_20d_high | custom | dir=-1 | ic=-0.06990199193229453 | spread=-0.0013626720151910974 | 2026-09-16T01:24:56
+=> list timestamp 01:24:56 == runs/platform mtime, NOT legacy results/ mtime 14:19:28 -> CLI reads runs/platform
+
+== results_fs resolver ==
+results_fs.py
+匹配到二进制文件 platform/src/factorlab/surfaces/web/__pycache__/app.cpython-313.pyc
+platform/src/factorlab/surfaces/web/app.py:26:    路径可逃逸 results_dir）一律 404——与"因子不存在"同语义，不泄露路径信息。
+platform/src/factorlab/surfaces/web/app.py:33:def _load_summary(results_dir: Path, name: str) -> dict:
+platform/src/factorlab/surfaces/web/app.py:37:        return results_fs.read_summary(results_fs.summary_path(results_dir, name))
+platform/src/factorlab/surfaces/web/app.py:91:def create_app(results_dir: Path) -> FastAPI:
+platform/src/factorlab/surfaces/web/app.py:92:    """构建只读 Web 可视化应用（因子列表 + 详情）。results_dir 显式传入（可测性）。"""
+platform/src/factorlab/surfaces/web/app.py:107:        if results_dir.exists():
+platform/src/factorlab/surfaces/web/app.py:108:            for summary_path in sorted(results_dir.glob("*/summary.json")):
+platform/src/factorlab/surfaces/web/app.py:130:        summary = _safe_summary(_load_summary(results_dir, name))
+platform/src/factorlab/surfaces/web/app.py:147:            panel = results_fs.read_weekly(results_dir, name)

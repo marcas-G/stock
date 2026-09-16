@@ -1,0 +1,4 @@
+governance/ops/check_reviews.py:62:    ("docs/pending-items.md", "governance/workspace/pending-items.md"),
+knowledge/design/platform/specs/2026-08-16-factorlab-m4b-single-factor-eval-design.md:12:> `platform/docs/interface.md` §`layered_backtest` 与 `docs/pending-items.md` #15）。
+governance/evidence/reviews/findings.md:116:| R01-EVID-I7 | I | pending #11 三项已完成未标记；#12① "460 处"与门实测 68 不符（口径未注明） | `docs/pending-items.md:70-78,82` | fixed-claimed | e3d2454；pending #11 三项标 ✅（附证据指向）、❌④（catalog 拆分未做）；#12① 改门实测 68 处并注明口径（AST 字符串常量处数、排除 core/factio/）；证据 R21/EVID/I7-pending-verify.txt、I7-dataiface-count.txt | |
+knowledge/design/platform/specs/2026-09-12-mining-system-refactor-design.md:4:> （NASA SE × V-Model）》P0-P4 递归分解；本文即 workspace `docs/pending-items.md` #5

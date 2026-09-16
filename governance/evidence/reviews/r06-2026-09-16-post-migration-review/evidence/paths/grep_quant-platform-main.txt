@@ -1,0 +1,12 @@
+governance/workspace/remote-cleanup-checklist.md:45:`quant-platform-main.local-backup-20260903` 的 4 个提交，与主仓库**无共同祖先**
+governance/ops/gates.sh:47:  n=$(git grep -nI -e "quant-platform-main" -e "quant-platform-research" -e "projects/quant-platform" -- . \
+governance/ops/gates.sh:54:  else bad "活文件仍有 $n 处旧路径"; git grep -nI -e "quant-platform-main" -e "quant-platform-research" -- . 2>/dev/null | grep -vE 'verification/|superpowers/|notes/|gates.sh|workspace-p0p8|traceability-matrix|remote-cleanup-checklist|R17' | head -5 | sed 's/^/      /'; fi
+governance/workspace/directory-conventions.md:10:> 合并前的两个遗留克隆 `quant-platform-main` / `quant-platform-research` **已于 2026-09-15 删除**（R17，
+governance/workspace/directory-conventions.md:62:  `quant-platform-main`（30M）与 `quant-platform-research`（5.7M，前者为其 linked worktree）**已删除**（R17）。
+governance/workspace/traceability-matrix.md:21:| REQ-WS-007 | git 实体唯一 + 4 提交保全 | LF-07 | `projects/quant-platform-main` | S3 抢救 | Test | `S3/07-backup-rescue.log`（cat-file=e66b349） | ● |
+governance/workspace/traceability-matrix.md:35:| `projects/quant-platform-main`（+research）仓库内部 | src 分层、results/ 口径、duckdb 数据链重建、两分支 docs 重叠仍有架构不确定性 | `pending-items.md` #5 |
+governance/workspace/traceability-matrix.md:40:spec = `projects/quant-platform-main/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md`。
+governance/workspace/workspace-p0p8.md:30:- 孤立克隆 `quant-platform-main.local-backup-20260903` 含 4 个主仓库没有的提交
+governance/workspace/workspace-p0p8.md:125:| `projects/quant-platform-main`（main worktree） | 平台代码与平台文档的权威 | src/factorlab、tests、docs/interface、catalog、superpowers、README、pyproject | 研究内容（factor/、results/、tools/） |
+knowledge/design/platform/specs/2026-09-12-mining-system-refactor-design.md:17:**System-of-Interest**：策略挖掘系统 = `quant-platform-main`（平台）+ `quant-platform-research`
+knowledge/design/platform/specs/2026-09-12-mining-system-refactor-design.md:165:`../quant-platform-main/src` 并**运行时断言** `factorlab.__file__` 落位；`platform_head()` 记录

@@ -1,0 +1,13 @@
+# R06 item5: 1m_features check-day — SKIPPED (authorized by task: '若 check-day 需要全量分钟数据则跳过并注明') 2026-09-16T16:53:37+08:00
+
+reason: cmd_check_day loads the whole month of market-wide bars BEFORE filtering the single day:
+  run_1m_feature.py:177  bars = _load_month_bars(args.bars_root, *month)
+  run_1m_feature.py:178  bars = bars.filter(pl.col("date") == day)
+  panel_io.py:28-34      _load_month_bars -> adapters.bars_read.read_bars_month(projected cols)
+=> full-month all-codes minute load (~20 td x ~5k codes x 240 min) under concurrent platform pytest + parallel agent;
+   task constraint: CH 只读小样本、限流 / no full-market long runs => skipped.
+
+contexts verified instead:
+  - platform/.venv/bin/python -m pytest platform/tools/1m_features/tests -q  ->  5 passed in 7.31s (exit 0)
+    (tool's own tests still collected/run by platform/tools suite: 337 passed overall)
+  - launcher import/topology: gates G-TOPO/G-IMPORTS green (governance/evidence/reviews/r06-2026-09-16-post-migration-review/evidence/regression/gates_full.txt)

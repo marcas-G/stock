@@ -1,0 +1,1 @@
+stock/.claude/skills/factor-mine/SKILL.md:126:5. `git add research/factor/<族>/<stem>.yaml knowledge/dossiers/factors/<族>/<stem>.md`（并重生成索引：`python3 research/tools/factor_lib/build_index.py`）

@@ -1,0 +1,23 @@
+runs/README.md:3:> R24（2026-09-16）产物单点化：`platform/results/` → `runs/platform/`；`settings.results_dir`
+knowledge/dossiers/factor-authoring-manual.md:63:- 产物：`platform/results/<名>/`（本地，**不入库**）；核心 `summary.json`；
+governance/workspace/migration-r04.md:59:| 12 | `platform/results/` | `runs/platform/` | 8 | ✅ `024e45f` |
+governance/workspace/migration-r04.md:86:| 8 | `024e45f` | `platform/results/` → `runs/platform/`（2.6G mv）；`results_dir` 默认改包内派生绝对路径（与 cwd 无关）；短窗冒烟落 `runs/platform/r12_smoke` 且 `show` 可读；补 test_architecture 契约单点判据（Task 2 遗漏）；根 `results/`（挖矿在途）未清，见 C3 | `governance/evidence/verification/R24/08-runs/` |
+governance/workspace/migration-r04.md:97:  硬编码 `<repo>/platform/results`（R24 后应为 `runs/platform`）→ `cc829ad`（缺省改跟随
+knowledge/dossiers/factors/README.md:15:`platform/results/<name>/summary.json`，该产物从未随仓存档，且当前环境不可复跑。**
+knowledge/dossiers/factors/README.md:22:| `platform/results/` 为空（`results/` 被 gitignore，历史运行产物已清） | `find platform/results -mindepth 1` → 0 项 |
+governance/ops/check_reviews.py:104:    (re.compile(r"^platform/results\b"),
+governance/ops/check_reviews.py:438:    print("  · 路径豁免：polars_ta（vendor）/ platform/results（已迁 runs/platform）/ "
+knowledge/dossiers/factors/intraday/intraday_tail_amt_share.md:87:> 快照自 `platform/results/intraday_tail_amt_share/summary.json`（2026-09-16；results/ 未随仓存档）。
+knowledge/dossiers/factors/vol_run_energy/symrun_r30_streak.md:110:> 数据快照自 `platform/results/vol_run_energy_symrun_r30_streak/summary.json`（2026-09-16；无 exclude_st 版）。
+knowledge/dossiers/factors/vol_run_energy/symrun_r30_flip.md:97:> 数据快照自 `platform/results/vol_run_energy_symrun_r30_flip/summary.json`（2026-09-16；无 exclude_st 版）。
+knowledge/dossiers/factors/intraday/intraday_high_time.md:88:> 数据快照自 `platform/results/intraday_high_time/summary.json`（2026-09-16）。
+governance/evidence/reviews/findings.md:100:| R01-STRAT-I6 | I | 策略宣称结果无 in-tree 产物、不可复现（`platform/results/` 空） | `research/docs/strategies/crash_bottom_leader_strategy.md` | fixed-claimed | 0bb1b2f；策略文档改标历史快照 + 不可复现原因（index_daily 0 行 / stock_st 缺失 / circ_mv 全 null）+ 恢复条件 + 重跑命令链（research/docs/strategies/crash_bottom_leader_strategy.md）；证据 R21/STRAT/i6_data_availability.txt、i6_factor_run.log、i6_run_note.md；真产物待数据恢复后重跑 | |
+governance/evidence/reviews/findings.md:108:| R01-EVID-C1 | C | 152 份因子档案的验证数字无 in-tree 产物且当前不可复跑（results/ 空、duckdb 无、CH 无 stock_st），未标"历史快照"【实测】 | `research/docs/factors/**`；`platform/results/` | fixed-claimed | 0d21e7e；152 份档案 front matter 加 snapshot 标注 + research/docs/factors/README.md（不可复跑原因/恢复条件）；标注脚本 docs/verification/R21/EVID/annotate_factor_archives.py --check 齐备；python3 research/tools/factor_lib/build_index.py --check 索引一致；证据 R21/EVID/C1-not-reproducible.txt、C1-annotation.txt、C1-index-gate.txt | |
+knowledge/dossiers/factors/volatility/max_effect_20d_high.md:83:> 数据快照自 `platform/results/max_effect_20d_high/summary.json`（2026-09-16 运行；无 exclude_st 版）。
+knowledge/dossiers/factors/volatility/max_effect_20d_zmax.md:86:> 数据快照自 `platform/results/max_effect_20d_zmax/summary.json`（2026-09-16 运行；无 exclude_st 版）。
+knowledge/design/workspace/2026-09-15-open-operators/plan.md:788:        got = json.loads((repo / f"platform/results/{name}/summary.json").read_text())
+knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md:85:> 数据快照自 `platform/results/max_effect_20d_extcnt/summary.json`（2026-09-16 运行；无 exclude_st 版）。
+platform/src/factorlab/config.py:7:# 跑落 `platform/results`）。`FACTORLAB_RESULTS_DIR` 覆盖语义不变（相对 cwd 解释）。
+research/tools/strategies/run_strategy.py:24:# FACTORLAB_RESULTS_DIR 可覆盖，相对 cwd 解释）。此前硬编码 platform/results
+research/tools/strategies/tests/test_run_strategy_cli.py:276:    旧实现硬编码 `<repo>/platform/results`（R24 前落点）——迁移到 runs/platform 后
+research/tools/strategies/tests/test_run_strategy_cli.py:284:    assert "platform/results" not in settings.results_dir.as_posix()

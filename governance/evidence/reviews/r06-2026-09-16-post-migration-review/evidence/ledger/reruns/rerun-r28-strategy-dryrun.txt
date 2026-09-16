@@ -1,0 +1,11 @@
+$ FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python research/tools/strategies/run_strategy.py research/strategy/low_lottery_top30_weekly.yaml --dry-run
+策略：low_lottery_top30_weekly
+  L1 universe  = 随因子（universe_override=null）
+  L2 regime    = signal_gate
+  L3 signal    = max_effect_20d_high（direction=-1）
+  L4 portfolio = top_k=30 weighting=equal_weight gross_exposure=1.0 rebalance=weekly
+  L5 execution = timing=NEXT_OPEN initial_cash=10000000.0 minute_window=无
+  L5 cost      = commission_rate=0.00025 minimum_commission=5.0 stamp_tax_sell_rate=0.0005 transfer_fee_rate=1e-05 slippage_bps=5.0
+  L5 rules     = stop_loss=None take_profit=None max_hold=None
+  date         = 2025-03-01 ~ 2025-03-31
+exit=0

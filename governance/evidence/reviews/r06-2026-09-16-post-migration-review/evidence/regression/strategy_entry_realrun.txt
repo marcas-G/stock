@@ -1,0 +1,19 @@
+# R06 item4 scenario (a): real run, default results_dir (settings) 2026-09-16T16:47:13+08:00
+$ FACTORLAB_DATA_BACKEND=ch FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python research/tools/strategies/run_strategy.py research/strategy/low_lottery_top30_weekly.yaml --out-dir /tmp/opencode/r06_strategy_default_out
+策略 low_lottery_top30_weekly 完成：
+  out_dir   = /tmp/opencode/r06_strategy_default_out
+  signal    = max_effect_20d_high
+  decisions = 5
+  NAV       = 9992407.37 → 10214807.42（+2.23%）
+  fills     = 176 笔（5 个执行事件）
+realrun_exit=0
+总用量 44
+drwxrwxr-x  5 gaolei gaolei  4096 9月  16 16:47 .
+drwxrwxr-x 74 gaolei gaolei 12288 9月  16 16:47 ..
+drwxrwxr-x  2 gaolei gaolei  4096 9月  16 16:47 artifacts
+-rw-rw-r--  1 gaolei gaolei  2879 9月  16 16:47 manifest.json
+drwxrwxr-x  2 gaolei gaolei  4096 9月  16 16:47 nav
+-rw-rw-r--  1 gaolei gaolei   531 9月  16 16:47 rebalance_schedule.parquet
+drwxrwxr-x  2 gaolei gaolei  4096 9月  16 16:47 state
+-rw-rw-r--  1 gaolei gaolei  1854 9月  16 16:47 strategy_manifest.json
+-rw-rw-r--  1 gaolei gaolei  1610 9月  16 16:47 target_portfolio.parquet

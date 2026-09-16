@@ -1,0 +1,21 @@
+# R06 item6: index/annotate/reviews gates 2026-09-16T16:47:45+08:00
+
+== $ python3 research/tools/factor_lib/build_index.py --check ==
+索引与生成器输出不一致（doc 陈旧或手改）——重跑 build_index.py
+exit=1
+
+== $ python3 research/tools/factor_lib/build_strategy_index.py --check ==
+策略索引一致 ✓
+exit=0
+
+== $ python3 governance/evidence/verification/R21/EVID/annotate_factor_archives.py --check ==
+缺 snapshot 标注：1 份
+  - knowledge/dossiers/factors/reversal_20d/netflow_vol.md
+exit=1
+
+== $ python3 governance/ops/check_reviews.py ==
+[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）
+  ✓ 93 行 finding（fixed-claimed 93）：ID 唯一、状态合法、引用路径可解析、统计自洽；实计 R01 13C/50I、R02 2C/9I、R03 0C/8I、R05 1C/3I
+  · 统计声明 5 条：核对通过 4、豁免 1（R01 首行统计为 2026-09-15 评审初始口径（EVID C1/C2、STRAT-C3 等后续登记未计入）；append-only 不改统计行；R04-Q7 实计 13C+50I）
+  · 路径豁免：polars_ta（vendor）/ platform/results（已迁 runs/platform）/ projects/ashare_alpha3（已归档 _archive/）
+exit=0

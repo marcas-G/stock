@@ -1,0 +1,25 @@
+governance/ops/check_reviews.py:71:    ("research/docs/factors/", "knowledge/dossiers/factors/"),
+governance/ops/check_reviews.py:72:    ("research/docs/strategies/", "knowledge/dossiers/strategies/"),
+governance/ops/check_reviews.py:73:    ("research/docs/", "knowledge/dossiers/"),
+governance/workspace/migration-r04.md:10:**实际无法满足**：本迁移窗口内挖矿循环仍在写 `research/factor/**`、`research/docs/factors/**`、
+governance/workspace/migration-r04.md:16:3. Task 4（research/docs）与 Task 6（governance/evidence/reviews）动手前后做 mtime 快照比对；
+governance/workspace/migration-r04.md:50:| 3 | `research/docs/superpowers/{plans,specs}` | `knowledge/design/research/` | 3 | ✅ `305b757` |
+governance/workspace/migration-r04.md:51:| 4 | `research/docs/{factors,strategies,factor-mining-playbook.md}` | `knowledge/dossiers/` | 4 | ✅ `6aaefad` |
+governance/workspace/migration-r04.md:60:| 13 | 两树 `AGENTS.md` 并入根；`CLAUDE.md` 薄化；`platform/docs`、`research/docs` 留壳 | — | 10 | ✅ `898a4a1` |
+governance/workspace/migration-r04.md:69:| C2 | 0 | `research/docs/factors/**` 等 18 项 | 冻结窗口内挖矿/评审持续写入（基线 `make test-research` 2 red、G-ANNOTATE 4 red） | 归因记录，未改挖矿文件 |
+governance/workspace/migration-r04.md:71:**Task 4 附注**：`research/docs/factor-authoring-manual.md`（untracked，挖矿/文档在途）经用户预期允许的目录搬迁行为物理移到 `knowledge/dossiers/factor-authoring-manual.md`，**保持 untracked，未随本批提交**；`knowledge/dossiers/factors/intraday/` 等挖矿 untracked 文件同样保持 untracked。`governance/evidence/verification/R21/EVID/annotate_factor_archives.py` 的 DOCS 硬编码路径 `research/docs/factors` → `knowledge/dossiers/factors`（修复前门退化为"0 份 ✓"永真，已恢复真实计数：5 份缺 snapshot，归因挖矿在途）。
+knowledge/design/workspace/2026-09-16-strategy-decomposition/design.md:105:research/docs/strategies/<name>.md   # 策略档案（与人读档案模板同构：
+knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md:46:| 新建 | `research/docs/strategies/_template.md` | 策略档案模板（从 `crash_bottom_leader_strategy.md` 提炼） |
+knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md:175:  - 由 `research/strategy/*.yaml` + `research/docs/strategies/*.md` 生成 `docs/index/strategies.md`；
+knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md:186:- [ ] `research/docs/strategies/low_lottery_top30_weekly.md`（模板：假设/规格全文/窗口筛选过程
+knowledge/dossiers/factor-authoring-manual.md:7:> - 模板与阈值：`research/docs/factor-mining-playbook.md`（§2 模板 / §4 评估 / §7 入库）
+knowledge/dossiers/factor-authoring-manual.md:73:- 档案：`research/docs/factors/<族>/<stem>.md`（模板 `research/docs/factors/_template.md`）；
+governance/evidence/reviews/findings.md:100:| R01-STRAT-I6 | I | 策略宣称结果无 in-tree 产物、不可复现（`platform/results/` 空） | `research/docs/strategies/crash_bottom_leader_strategy.md` | fixed-claimed | 0bb1b2f；策略文档改标历史快照 + 不可复现原因（index_daily 0 行 / stock_st 缺失 / circ_mv 全 null）+ 恢复条件 + 重跑命令链（research/docs/strategies/crash_bottom_leader_strategy.md）；证据 R21/STRAT/i6_data_availability.txt、i6_factor_run.log、i6_run_note.md；真产物待数据恢复后重跑 | |
+governance/evidence/reviews/findings.md:108:| R01-EVID-C1 | C | 152 份因子档案的验证数字无 in-tree 产物且当前不可复跑（results/ 空、duckdb 无、CH 无 stock_st），未标"历史快照"【实测】 | `research/docs/factors/**`；`platform/results/` | fixed-claimed | 0d21e7e；152 份档案 front matter 加 snapshot 标注 + research/docs/factors/README.md（不可复跑原因/恢复条件）；标注脚本 docs/verification/R21/EVID/annotate_factor_archives.py --check 齐备；python3 research/tools/factor_lib/build_index.py --check 索引一致；证据 R21/EVID/C1-not-reproducible.txt、C1-annotation.txt、C1-index-gate.txt | |
+governance/evidence/reviews/findings.md:168:| R03-I5 | I | 真游程/逐行计数不可干净表达：vendor 已有 `ts_cum_count`（`polars_ta/wq/time_series.py:335`）未注册；缺 `ts_streak`；今回以抗折叠累计技巧绕过（不可分块）——开放算子 Plan 1 实证案例 | `core/ops/`（注册面）；`research/docs/factors/vol_run_energy/symrun_r30_streak.md` | fixed-claimed | 开放算子 Plan 1 已闭环注册侧：df6851f（polars_ta 签名感知分类表，ts_cum_count=ts/unbounded）+ c7b3d66（拆白名单闸门，库函数直写）；实测 compute_formula('ts_cum_count(close > 2)') 正常产出、cumulative_ops_used 命中且 --chunk-days fail fast；证据 R22/R03/guards/r02i1-r03i4-i5.txt；残余：vendor 无 ts_streak（真游程算子未实现）——已列为 Plan 2 算子档案候选，不影响 ts_cum_count 直用 | |
+knowledge/README.md:4:> `research/docs/`）收敛到这里。迁移台账：`../governance/workspace/migration-r04.md`。
+knowledge/README.md:12:| 研究设计/计划（原 `research/docs/superpowers/`） | `design/research/{specs,plans}/` |
+knowledge/dossiers/factors/README.md:7:> **R24 路径映射（2026-09-16）**：本目录 `research/docs/factors/` → `knowledge/dossiers/factors/`；
+knowledge/dossiers/factors/README.md:8:> 索引 `docs/index/factors.md` → `knowledge/index/factors.md`；playbook `research/docs/factor-mining-playbook.md`
+README.md:74:| `platform/`、`research/` | 代码树（README/CLAUDE 各自环境事实）；R24 后 `platform/docs`、`research/docs` 仅留指针壳（D2） |
+research/docs/README.md:1:# research/docs（R24 起为指针壳，内容已单点化）

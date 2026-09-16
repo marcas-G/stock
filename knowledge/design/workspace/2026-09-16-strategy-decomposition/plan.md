@@ -1,5 +1,9 @@
 # 策略配置化实施计划（Plan S）——六层漏斗 + YAML + L5
 
+> **实施状态（2026-09-16 收口）**：**已完成**——实现 `7e03acb`/`126def4`（契约+YAML 加载器 / 运行器 /
+> 研究入口 / 档案+策略索引门 / 首例 / L5 `max_hold`）；验收 `governance/evidence/verification/R28/`（R06 复查复核通过）。
+> 本文件保留为原始计划文本（Step 勾选未回填）；后续维护以现行代码与文档为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 策略像因子一样"一处定义（YAML）、机器可跑、人可阅读、可版本化"：L0-L5 六层漏斗中，

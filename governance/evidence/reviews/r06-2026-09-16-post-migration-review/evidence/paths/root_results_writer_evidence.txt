@@ -1,0 +1,42 @@
+=== files/dirs under root results/ newer than 024e45f (14:21:51) ===
+results
+results/_mine_round_10.md
+results/_mine_round_8.md
+results/_mine_round_9.md
+
+=== settings.results_dir resolution (venv) ===
+/data/students/gaolei/stock/runs/platform
+
+=== CLI run output_dir wiring ===
+    if overrides:
+        spec.params = {**spec.params, **overrides}
+        variant = spec.name + "_" + "_".join(f"{k}{v}" for k, v in overrides.items())
+    ctx = RunContext(
+        db_path=settings.platform_db,
+        output_dir=output_dir or (settings.results_dir / variant),
+        universe_override=universe or settings.default_universe,
+        float32=float32,
+
+=== du -sh results/ ===
+2.6G	results/
+=== non-underscore dirs count ===
+16
+=== mtimes of root results factor dirs (newest first) ===
+drwxrwxr-x 2 gaolei gaolei 4096 2026-09-16 14:19:28 results/max_effect_20d_high/
+drwxrwxr-x 2 gaolei gaolei 4096 2026-09-16 13:59:35 results/reversal_20d_cumret/
+drwxrwxr-x 2 gaolei gaolei 4096 2026-09-16 13:58:15 results/reversal_20d_cumret_freq/
+drwxrwxr-x 2 gaolei gaolei 4096 2026-09-16 13:40:52 results/reversal_20d_overnight/
+drwxrwxr-x 2 gaolei gaolei 4096 2026-09-16 13:39:07 results/reversal_20d_intraday/
+drwxrwxr-x 2 gaolei gaolei 4096 2026-09-16 13:20:49 results/turnover_level_ma20/
+=== no new run outputs after config fix (files newer than 024e45f 14:21:51) ===
+results/_mine_round_10.md
+results/_mine_round_8.md
+results/_mine_round_9.md
+=== runs/platform summary mtimes for round 9/10 factors ===
+2026-09-16 16:12:06.783679285 +0800 runs/platform/turnover_accel/summary.json
+2026-09-16 16:14:40.682291932 +0800 runs/platform/turnover_accel_inflow/summary.json
+=== skill instructions pointing to results/ ===
+89:- 变异点清单写入一个临时记录（`results/_mine_round_<n>.md`），
+116:- 成功：记录 `results/<name>/summary.json` 关键指标（`st_degrade: true` = 本次为无 ST 口径）。
+122:   验证数据快照自 `results/<name>/summary.json`（注明快照日期）；
+139:| 资源 | 每轮 ~1 次全市场 run（30-60s）+ 1 个 subagent 审核；results/ 每轮数十 MB；16GB 内存护栏（SQL-first）不变 |

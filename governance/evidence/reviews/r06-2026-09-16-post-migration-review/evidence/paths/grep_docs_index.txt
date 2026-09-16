@@ -1,0 +1,10 @@
+knowledge/design/workspace/2026-09-16-strategy-decomposition/README.md:38:- 建档：`docs/index/strategies.md` 字节级 `--check`，spec↔档案双向齐全；
+knowledge/design/workspace/2026-09-16-strategy-decomposition/design.md:107:docs/index/strategies.md             # 策略索引（由 spec+档案生成，--check 门锁）
+knowledge/design/workspace/2026-09-16-strategy-decomposition/design.md:116:   `crash_bottom_leader_strategy.md` 提炼）+ `docs/index/strategies.md` 索引与 `--check` 门；
+knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md:47:| 新建 | `research/tools/factor_lib/build_strategy_index.py` | `docs/index/strategies.md` 生成 + `--check`（与因子索引同模式） |
+knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md:49:| 新建 | `docs/index/strategies.md` | 生成产物（机器生成，不进人读改） |
+knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md:175:  - 由 `research/strategy/*.yaml` + `research/docs/strategies/*.md` 生成 `docs/index/strategies.md`；
+knowledge/dossiers/factors/README.md:8:> 索引 `docs/index/factors.md` → `knowledge/index/factors.md`；playbook `research/docs/factor-mining-playbook.md`
+governance/workspace/migration-r04.md:55:| 8 | `docs/index/{factors,strategies}.md`（strategies 为计划补遗） | `knowledge/index/` | 4 | ✅ `6aaefad` |
+knowledge/dossiers/factor-authoring-manual.md:76:- 索引：`python3 research/tools/factor_lib/build_index.py`（`--check` 用于门）；产物 `docs/index/factors.md`；
+knowledge/dossiers/factor-authoring-manual.md:82:- **一次提交只动一棵树**：spec+档案在 `research/`；索引 `docs/index/factors.md` 在 `docs/`，分开提交；
