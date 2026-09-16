@@ -45,53 +45,88 @@ structure() {
   # data-map 的归档行（记录当时真实的备份克隆名）/ **同行为删除记录的"活"文档行**。
   # 判据：所剩行里，**同一行同时出现 R17**的算删除记录（提旧名却不提 R17 的仍报红——
   # 活指针不会写 R17；写了就是自证造假，评审可抓）。2026-09-15 R17 起生效。
-  n=$(git grep -nI -e "quant-platform-main" -e "quant-platform-research" -e "projects/quant-platform" -- . \
-        ':!governance/evidence' ':!knowledge/design/platform' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' ':!knowledge/design/research' 2>/dev/null \
-      | grep -vE '^governance/ops/gates.sh:' \
+  #
+  # R07-GATE-I3（2026-09-16）判据加固（findings.md；证据 R24/17-r07-fixes）：
+  #   ① 扫描面 = tracked + **untracked**（untracked 同为"真实存活"引用，此前漏网）。
+  #      本机 git 2.17 无 `git grep --untracked`，以 `git ls-files -o --exclude-standard`
+  #      + grep 等价实现；
+  #   ② 裸 `results/`（无 `platform/` 前缀）纳入判据：PCRE 负向后顾排除 `platform/results`
+  #      （另有字面量判据）、`runs/results`、`test_results` 等词形；要求后随具体名字
+  #      （`<name>` 占位、`results/ 口径` 一类纯文本不算）；
+  #   ③ 补 R24/R27 已迁路径：`research/tools/lib/`、`docs/factors/`、`docs/strategies/`；
+  #   ④ README 整文件豁免 → 行级（映射/历史行精确放行，其余行纳入判据）；strategies 两
+  #      文件随 R06-TEST-I5/TOOLS-I6 闭环改行级；platform 测试一处 `results/parquet` 文本行放行。
+  legacy_scan() {  # $1=names 旧仓库名 | paths 已迁路径；输出 file:line:content（tracked+untracked）
+    local pats scope pcre=""
+    case "$1" in
+      names)
+        pats=(-e "quant-platform-main" -e "quant-platform-research" -e "projects/quant-platform")
+        scope=(. ':!governance/evidence' ':!knowledge/design/platform' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' ':!knowledge/design/research') ;;
+      paths)
+        pats=(-e "research/docs/" -e "docs/reviews" -e "docs/index" -e "docs/factors" -e "docs/strategies" \
+              -e "platform/results" -e "anaconda3/envs/emb" -e "emb/bin/python" \
+              -e "research/tools/quark/" -e "research/tools/converters/" -e "research/tools/lob_fact/" \
+              -e "research/tools/ch_ingest/" -e "research/tools/ashare_ingest/" \
+              -e "research/tools/universe_stages/" -e "research/tools/1m_features/" \
+              -e "research/tools/extract_sz_cancels/" -e "research/tools/_env" -e "research/tools/lib/")
+        # 裸 results/：单条 PCRE（GNU grep 3.1 的 -P 只收单模式，不能与多 -e 混用；
+        # git grep 不受此限，统一拆成两路）；后随具体名字，负向后顾排除 platform/results、
+        # runs/results、test_results。
+        pcre='(?<![\w/])results/[A-Za-z0-9_]'
+        scope=(. ':!governance/evidence' ':!knowledge/design' ':!platform/docs' ':!research/docs' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes') ;;
+    esac
+    { if [ -n "$pcre" ]; then git grep -nIP "${pats[@]}" -e "$pcre" -- "${scope[@]}" 2>/dev/null
+      else git grep -nIP "${pats[@]}" -- "${scope[@]}" 2>/dev/null; fi
+      git ls-files -oz --exclude-standard -- "${scope[@]}" 2>/dev/null \
+        | xargs -0 -r grep -HnI "${pats[@]}" 2>/dev/null
+      if [ -n "$pcre" ]; then
+        git ls-files -oz --exclude-standard -- "${scope[@]}" 2>/dev/null \
+          | xargs -0 -r grep -HnIP -e "$pcre" 2>/dev/null
+      fi
+    } | LC_ALL=C sort -u
+  }
+
+  names_hits=$(legacy_scan names \
+      | grep -vE '^governance/ops/gates\.sh:' \
       | grep -vE '^governance/workspace/(workspace-p0p8|traceability-matrix|remote-cleanup-checklist)\.md:' \
       | grep -v 'local-backup-20260903（975M' \
-      | grep -vE 'R17' | wc -l)
-  if [ "$n" = "0" ]; then ok "活文件零残留（豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）";
-  else bad "活文件仍有 $n 处旧路径"; git grep -nI -e "quant-platform-main" -e "quant-platform-research" -- . 2>/dev/null | grep -vE 'verification/|superpowers/|notes/|gates.sh|workspace-p0p8|traceability-matrix|remote-cleanup-checklist|R17' | head -5 | sed 's/^/      /'; fi
+      | grep -vE 'R17' || true)
+  n=$(printf '%s\n' "$names_hits" | grep -c . || true)
+  if [ "$n" = "0" ]; then ok "活文件零残留（tracked+untracked；豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）";
+  else bad "活文件仍有 $n 处旧路径"; printf '%s\n' "$names_hits" | head -5 | sed 's/^/      /'; fi
 
   # R06-M9：已迁路径的**活引用**判据（旧仓库名之外）。覆盖：research/docs/<内容>、
-  # docs/{reviews,index}、platform/results、R27 已迁工具旧路径、emb 解释器路径。
+  # docs/{reviews,index}、platform/results、R27 已迁工具旧路径、emb 解释器路径；
+  # R07-GATE-I3 起加：docs/{factors,strategies}、research/tools/lib/、裸 results/。
   # 扫面排除：证据（含历史 reviews）、设计文档（冻结历史）；两处 R24 指针壳
   # （platform|research/docs，仅存 README 指针）；lob_fact notes（既有豁免）。
-  # 行/文件豁免（均为映射/台账/门自身/反向断言/在途，非活指针）：
+  # 行/文件豁免（均为映射/台账/门自身/反向断言/历史引文，非活指针）：
   #   gates.sh（本判据字面量）、check_reviews.py（旧→新映射 + 台账路径豁免表）、
-  #   migration-r04.md（迁移台账）、三份 README 的旧→新映射注；
-  #   strategies 两文件（R06-TEST-I5/TOOLS-I6 在途）：历史注记 + 「旧路径不得出现」回归断言。
-  n=$(git grep -nI \
-        -e "research/docs/" -e "docs/reviews" -e "docs/index" -e "platform/results" \
-        -e "anaconda3/envs/emb" -e "emb/bin/python" \
-        -e "research/tools/quark/" -e "research/tools/converters/" -e "research/tools/lob_fact/" \
-        -e "research/tools/ch_ingest/" -e "research/tools/ashare_ingest/" \
-        -e "research/tools/universe_stages/" -e "research/tools/1m_features/" \
-        -e "research/tools/extract_sz_cancels/" -e "research/tools/_env" -- . \
-        ':!governance/evidence' ':!knowledge/design' ':!platform/docs' ':!research/docs' \
-        ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' 2>/dev/null \
+  #   migration-r04.md（迁移台账）；
+  #   README 映射/历史行（knowledge/README、dossiers/factors/README、runs/README）——行级；
+  #   strategies 两文件历史注记 + 「旧路径不得出现」回归断言——行级；
+  #   pending-items #16「原表述保留如下」历史引文、workspace-p0p8 R24 前 worktree 盘点的行级；
+  #   platform 测试注释 `results/parquet I/O`（纯文本非路径）行级。
+  path_hits=$(legacy_scan paths \
       | grep -vE '^governance/ops/(gates\.sh|check_reviews\.py):' \
       | grep -vE '^governance/workspace/migration-r04\.md:' \
-      | grep -vE '^(knowledge/README\.md|knowledge/dossiers/factors/README\.md|runs/README\.md):' \
-      | grep -vE '^research/tools/strategies/(run_strategy\.py|tests/test_run_strategy_cli\.py):' \
-      | wc -l)
-  if [ "$n" = "0" ]; then ok "已迁路径活引用零残留（R06-M9：docs/*、platform/results、工具旧路径、emb）";
-  else bad "已迁路径活引用仍有 $n 处"; git grep -nI \
-        -e "research/docs/" -e "docs/reviews" -e "docs/index" -e "platform/results" \
-        -e "anaconda3/envs/emb" -e "emb/bin/python" \
-        -e "research/tools/quark/" -e "research/tools/converters/" -e "research/tools/lob_fact/" \
-        -e "research/tools/ch_ingest/" -e "research/tools/ashare_ingest/" \
-        -e "research/tools/universe_stages/" -e "research/tools/1m_features/" \
-        -e "research/tools/extract_sz_cancels/" -e "research/tools/_env" -- . \
-        ':!governance/evidence' ':!knowledge/design' ':!platform/docs' ':!research/docs' \
-        ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' 2>/dev/null \
-      | grep -vE '^governance/ops/(gates\.sh|check_reviews\.py):' \
-      | grep -vE '^governance/workspace/migration-r04\.md:' \
-      | grep -vE '^(knowledge/README\.md|knowledge/dossiers/factors/README\.md|runs/README\.md):' \
-      | grep -vE '^research/tools/strategies/(run_strategy\.py|tests/test_run_strategy_cli\.py):' \
-      | head -5 | sed 's/^/      /'; fi
-
+      | grep -vE '^knowledge/README\.md:[0-9]+:> `research/docs/`' \
+      | grep -vE '^knowledge/README\.md:[0-9]+:\| 研究设计/计划（原 `research/docs/' \
+      | grep -vE '^knowledge/dossiers/factors/README\.md:[0-9]+:> \*\*R24 路径映射' \
+      | grep -vE '^knowledge/dossiers/factors/README\.md:[0-9]+:> 索引 `docs/index' \
+      | grep -vE '^knowledge/dossiers/factors/README\.md:[0-9]+:`platform/results/<name>/summary\.json`' \
+      | grep -vE '^knowledge/dossiers/factors/README\.md:[0-9]+:\| `platform/results/`' \
+      | grep -vE '^runs/README\.md:[0-9]+:> R24' \
+      | grep -vE '^research/tools/strategies/run_strategy\.py:[0-9]+:.*此前硬编码' \
+      | grep -vE '^research/tools/strategies/tests/test_run_strategy_cli\.py:[0-9]+:.*旧硬编码' \
+      | grep -vE '^research/tools/strategies/tests/test_run_strategy_cli\.py:[0-9]+:.*assert "platform/results" not in' \
+      | grep -vE '^governance/workspace/pending-items\.md:[0-9]+:.*研究侧写盘已收敛到 `research/tools/lib/writekit\.py`' \
+      | grep -vE '^governance/workspace/workspace-p0p8\.md:[0-9]+:.*（research worktree）' \
+      | grep -vE '^platform/tests/test_architecture\.py:[0-9]+:.*results/parquet I/O 单点门' \
+      || true)
+  n=$(printf '%s\n' "$path_hits" | grep -c . || true)
+  if [ "$n" = "0" ]; then ok "已迁路径活引用零残留（R06-M9+R07：docs/*、runs 旧路径、工具旧路径、emb、裸 results/；tracked+untracked）";
+  else bad "已迁路径活引用仍有 $n 处"; printf '%s\n' "$path_hits" | head -5 | sed 's/^/      /'; fi
   echo "[G-PATHS] pyproject / pytest 路径自洽"
   grep -q 'pythonpath = \["src"\]' "$PLATFORM/pyproject.toml" && ok "platform pythonpath=src" || bad "platform pythonpath 异常"
   [ -d "$PLATFORM/src/factorlab" ] && ok "platform/src/factorlab 存在" || bad "platform/src/factorlab 缺失"
