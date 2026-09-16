@@ -67,7 +67,11 @@ CREATE TABLE IF NOT EXISTS factorlab.index_daily (
     pct_chg Float64
 ) ENGINE = MergeTree
   ORDER BY (ts_code, trade_date);
--- 空表：load_daily 的 idx_ret LEFT JOIN 不炸、恒 NULL。可选：sina 拉 000852.SH 填充（ingest_index_sina.py）
+-- 空表：load_daily 的 idx_ret LEFT JOIN 不炸、恒 NULL。**R29 裁决（2026-09-16）：当前
+--   无可用补数路径**——候选源 teajoin index_daily 接口（token 2026-08-22 过期）且本管线
+--   无 index_daily 灌入脚本（data refresh 指数增量只写 duckdb 平台库）；触发条件=token 恢复
+--   或新增 index→CH 灌入工具后补 000852.SH 全历史。旧注释所指 ingest_index_sina.py
+--   全仓不存在（R07-D3 死引用，已删，勿再 advertise）
 
 -- ========== 派生表（daily 层之后；各由专用脚本幂等自管，此处仅为 DDL 门面） ==========
 -- stk_limit: 由 derive_stk_limit.py 管理（TRUNCATE + INSERT…SELECT 全量派生；

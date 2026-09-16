@@ -94,8 +94,11 @@ python reconcile.py
 - `stock_basic.market` = 板块名规范值（主板/创业板/科创板/北交所，段规则同
   derive_stk_limit.py）；平台 execution rules loader 显式消费（2026-09-08
   ch_prod 真实段实测补列）
-- `index_daily` 空表（可选灌 000852.SH；平台 `idx_ret` LEFT JOIN 依赖表存在，
-  移除会破坏读路径——advertise 应停止，见 R21 I6 建议）
+- `index_daily` 空表（**R29 裁决：当前无可用补数路径**——候选源 teajoin `index_daily`
+  接口（token 2026-08-22 过期）且本管线无 index_daily 灌入工具（platform `data refresh`
+  的指数增量只写 duckdb 平台库，不接 CH）；旧注释所指 `ingest_index_sina.py` 全仓不存在
+  （R07-D3 死引用，已删）；平台 `idx_ret` LEFT JOIN 依赖表存在，移除会破坏读路径——
+  **不要 advertise**。触发条件：token 恢复或新增 index→CH 灌入工具后补 000852.SH 全历史）
 - `stk_limit` 仅覆盖有涨跌停的日子：<1996-12-16 无行、上市首日（pre_close NULL）无行、
   注册制新股前 5 交易日无行（缺行 = 平台 has_limit=False = 无限制，合法；
   R21 I5 已与平台 fillability 统一——缺行按 raw open FILLABLE，不再 fail-closed）
