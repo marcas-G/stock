@@ -1,0 +1,44 @@
+....................F............                                        [100%]
+=================================== FAILURES ===================================
+__________________________ test_max_hold_accepted_v1 ___________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1610/test_max_hold_accepted_v10')
+
+    def test_max_hold_accepted_v1(tmp_path):
+        """Task 6：max_hold 放开（研究侧 V1 近似；加载器只做类型/值域校验）。"""
+        text = _FULL_YAML.replace(
+            "rules: {stop_loss: null, take_profit: null, max_hold: null}",
+            "rules: {stop_loss: null, take_profit: null, max_hold: 60}")
+>       doc = _load(tmp_path, text)
+              ^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_strategy_doc.py:238: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_strategy_doc.py:49: in _load
+    return load_strategy_doc(_write(tmp_path, text))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/factorlab/core/strategy/spec_io.py:142: in load_strategy_doc
+    return strategy_doc_from_mapping(raw, path=p)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/factorlab/core/strategy/spec_io.py:115: in strategy_doc_from_mapping
+    return StrategyDoc(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = StrategyDoc(strategy=StrategySpec(name='low_lottery_top30_weekly', signal_name='max_effect_20d_high', direction=-1, se...e_override=None, regime=RegimeSpec(mode='signal_gate'), rules=RulesSpec(stop_loss=None, take_profit=None, max_hold=60))
+
+    @model_validator(mode="after")
+    def _v1_rules_boundary(self):
+        present = [name for name in _V1_UNSUPPORTED_RULES
+                   if getattr(self.rules, name) is not None]
+        if present:
+>           raise NotImplementedError(
+                f"V1 不支持策略路径依赖规则 {present}——M8 执行层无止损/止盈/持有上限"
+                f"语义，不允许静默忽略。max_hold 的 V1 近似在研究侧"
+                f"（research/tools/strategies/l5_rules.py，Task 6）；"
+                f"stop_loss/take_profit 平台化见 Plan S Task 7 触发条件")
+E           NotImplementedError: V1 不支持策略路径依赖规则 ['max_hold']——M8 执行层无止损/止盈/持有上限语义，不允许静默忽略。max_hold 的 V1 近似在研究侧（research/tools/strategies/l5_rules.py，Task 6）；stop_loss/take_profit 平台化见 Plan S Task 7 触发条件
+
+src/factorlab/core/strategy/doc.py:134: NotImplementedError
+=========================== short test summary info ============================
+FAILED tests/test_strategy_doc.py::test_max_hold_accepted_v1 - NotImplemented...
+1 failed, 32 passed in 0.77s

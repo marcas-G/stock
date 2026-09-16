@@ -1,0 +1,17 @@
+
+==================================== ERRORS ====================================
+___________ ERROR collecting tools/strategies/tests/test_l5_rules.py ___________
+ImportError while importing test module '/data/students/gaolei/stock/research/tools/strategies/tests/test_l5_rules.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+research/tools/strategies/tests/test_l5_rules.py:33: in <module>
+    import l5_rules as L5  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^
+E   ModuleNotFoundError: No module named 'l5_rules'
+=========================== short test summary info ============================
+ERROR research/tools/strategies/tests/test_l5_rules.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.38s
