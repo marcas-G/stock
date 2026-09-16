@@ -484,7 +484,7 @@ def test_parse_zj_row_values():
 - Modify: `Makefile`（`data-update` 目标）
 - Test: `platform/tools/pan_update/tests/test_cli.py`
 
-**Interfaces:**
+**Interfaces:**（T3 裁决追加：T9 必须传 `state_path=data/raw/pan_state.json` 并验证落盘；`workers` 并行已接线，T9 透传）
 - Produces：`pan_update sync|build|publish|verify|all [--categories a,b] [--dry-run] [--prune]`；
   `make data-update`；`install_pan_timer.sh install|uninstall|status`
 - cookie 检查：启动时 `quark_client.cookies()` 失败 → 明确报错（提示更新 `quark_cookies.txt`）exit 2
