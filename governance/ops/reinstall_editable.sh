@@ -35,5 +35,5 @@ if [ $# -ge 1 ]; then
   echo "  ✓ venv 包快照 → $1（重建不可复现的证据：快照里可见未声明包）"
 fi
 
-echo "完成。注：emb（T2）**不装** quant_core（research 侧零消费者；需要时："
-echo "  /data/students/gaolei/anaconda3/envs/emb/bin/python -m pip install -e platform/kernels/quant_core --no-deps）"
+echo "完成。注：R27 单解释器化后唯一解释器为平台 venv——factorlab / quant_core 均由本脚本 [1/3][2/3]"
+echo "以 editable 装入 platform/.venv；emb（T2）环境已退役，不再作为安装目标。"

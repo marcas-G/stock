@@ -4,7 +4,8 @@
 # 日志：/tmp/w5_closure.log；产物：/tmp/w5_compact.json、/tmp/w5_audit.json
 set -u
 cd "$(dirname "$0")" || exit 1   # R6：原为旧 worktree 绝对路径
-PY=/data/students/gaolei/anaconda3/envs/emb/bin/python
+# R06-M7：改平台 venv 解释器（R27 单解释器化；原钉死 emb anaconda python）。
+PY="$(cd ../.. && pwd)/.venv/bin/python"
 LOG=/tmp/w5_closure.log
 exec >>"$LOG" 2>&1
 echo "=== closure start $(date '+%F %T')"

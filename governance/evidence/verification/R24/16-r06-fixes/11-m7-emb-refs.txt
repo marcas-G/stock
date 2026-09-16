@@ -1,0 +1,23 @@
+== R06-M7：emb 解释器引用清理复查（修复前命中见 02-m9-injection-after.txt）==
+（零残留）
+
+== 语法检查 ==
+w5_closure.sh syntax OK
+reinstall_editable.sh syntax OK
+
+== w5_closure.sh PY 解析（求值，不执行脚本主体）==
+PY=/data/students/gaolei/stock/platform/.venv/bin/python
+resolved: /data/students/gaolei/stock/platform/.venv/bin/python
+
+== reinstall 尾注（改后）==
+echo "完成。注：R27 单解释器化后唯一解释器为平台 venv——factorlab / quant_core 均由本脚本 [1/3][2/3]"
+echo "以 editable 装入 platform/.venv；emb（T2）环境已退役，不再作为安装目标。"
+
+== diff（M7 相关行）==
+-echo "完成。注：emb（T2）**不装** quant_core（research 侧零消费者；需要时："
+-echo "  /data/students/gaolei/anaconda3/envs/emb/bin/python -m pip install -e platform/kernels/quant_core --no-deps）"
++echo "完成。注：R27 单解释器化后唯一解释器为平台 venv——factorlab / quant_core 均由本脚本 [1/3][2/3]"
++echo "以 editable 装入 platform/.venv；emb（T2）环境已退役，不再作为安装目标。"
+-PY=/data/students/gaolei/anaconda3/envs/emb/bin/python
++# R06-M7：改平台 venv 解释器（R27 单解释器化；原钉死 emb anaconda python）。
++PY="$(cd ../.. && pwd)/.venv/bin/python"
