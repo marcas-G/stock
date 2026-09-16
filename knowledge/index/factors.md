@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **168 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **169 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -15,7 +15,7 @@
 | momentum_20d | 19 | `research/factor/momentum_20d/` |
 | quality | 1 | `research/factor/quality/` |
 | reversal_10d | 4 | `research/factor/reversal_10d/` |
-| reversal_20d | 84 | `research/factor/reversal_20d/` |
+| reversal_20d | 85 | `research/factor/reversal_20d/` |
 | reversal_5d | 4 | `research/factor/reversal_5d/` |
 | reversal_rsi | 3 | `research/factor/reversal_rsi/` |
 | size | 2 | `research/factor/size/` |
@@ -160,6 +160,7 @@
 | `reversal_20d_intraday_flowextreme` | -1 | fwd5d |  | [intraday_flowextreme.md](../../knowledge/dossiers/factors/reversal_20d/intraday_flowextreme.md) | [yaml](../../research/factor/reversal_20d/intraday_flowextreme.yaml) |
 | `reversal_20d_intraday_skew` | -1 | fwd5d |  | [intraday_skew.md](../../knowledge/dossiers/factors/reversal_20d/intraday_skew.md) | [yaml](../../research/factor/reversal_20d/intraday_skew.yaml) |
 | `reversal_20d_intraday_turn` | -1 | fwd5d |  | [intraday_turn.md](../../knowledge/dossiers/factors/reversal_20d/intraday_turn.md) | [yaml](../../research/factor/reversal_20d/intraday_turn.yaml) |
+| `reversal_20d_intraday_turn_high` | -1 | fwd5d |  | [intraday_turn_high.md](../../knowledge/dossiers/factors/reversal_20d/intraday_turn_high.md) | [yaml](../../research/factor/reversal_20d/intraday_turn_high.yaml) |
 | `reversal_20d_intraday_tv` | -1 | fwd5d |  | [intraday_tv.md](../../knowledge/dossiers/factors/reversal_20d/intraday_tv.md) | [yaml](../../research/factor/reversal_20d/intraday_tv.yaml) |
 | `reversal_20d_intraday_vol` | -1 | fwd5d |  | [intraday_vol.md](../../knowledge/dossiers/factors/reversal_20d/intraday_vol.md) | [yaml](../../research/factor/reversal_20d/intraday_vol.yaml) |
 | `reversal_20d_kurt` | -1 | fwd5d |  | [kurt.md](../../knowledge/dossiers/factors/reversal_20d/kurt.md) | [yaml](../../research/factor/reversal_20d/kurt.yaml) |
