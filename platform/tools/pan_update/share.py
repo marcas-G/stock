@@ -9,11 +9,17 @@
 """
 from __future__ import annotations
 
+import sys
 import urllib.parse
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Callable
 
-from quark_download import quark_client
+try:
+    from quark_download import quark_client
+except ModuleNotFoundError:  # 脚本直启（无 conftest 铺路）→ 补 platform/tools 再导入
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from quark_download import quark_client
 
 _PAGE_SIZE = 100
 _MAX_PAGES = 1000
@@ -66,6 +72,8 @@ def find_dir(listdir: Callable[[str], "list[Entry]"], root_fid: str, name: str) 
 def _default_listdir(fid: str) -> "list[Entry]":
     """生产 listdir：quark ``share/sharepage/detail`` 分页（``_size=100``）。
 
+    终止：``metadata._total`` 为 int 时以总数为准（已收 ≥ total；短页也继续翻，
+    防服务端小页静默截断，``_MAX_PAGES`` 兜底）；无 total/非 int → 短页终止。
     失败（cookie 失效/401/非法 token/业务 status≠200）→ RuntimeError 显式上抛（设计 §8）。
     """
     stoken = urllib.parse.quote(quark_client.get_stoken(), safe="")
@@ -81,6 +89,7 @@ def _default_listdir(fid: str) -> "list[Entry]":
                 f"share detail 失败：HTTP {s} status={(r or {}).get('status')} "
                 f"message={(r or {}).get('message')} pdir_fid={fid} page={page}")
         lst = (r.get("data") or {}).get("list") or []
+        total = (r.get("metadata") or {}).get("_total")
         for it in lst:
             name = it["file_name"]
             out.append(Entry(
@@ -91,6 +100,9 @@ def _default_listdir(fid: str) -> "list[Entry]":
                 rel_path=name,
                 is_dir=bool(it.get("dir")),
             ))
-        if len(lst) < _PAGE_SIZE:
+        if isinstance(total, int):
+            if len(out) >= total:
+                return out
+        elif len(lst) < _PAGE_SIZE:
             return out
     raise RuntimeError(f"share detail 分页超过 {_MAX_PAGES} 页：pdir_fid={fid}")

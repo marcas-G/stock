@@ -2,6 +2,11 @@
 
 需求源：.superpowers/sdd/2026-09-16-pan-data-update-plan/task-2-brief.md
 """
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
 from pan_update import config, share
@@ -139,3 +144,60 @@ def test_walk_dir_uses_default_transport_and_prefix(monkeypatch):
 
     assert [e.rel_path for e in entries] == ["minutes/2026/09/20260916.zip"]
     assert seen == ["d_min", "d_y", "d_m"]  # 真递归、真调传输（存根必败）
+
+
+# —— 修复轮 1：I1 分页按 metadata._total 终止；I2 脚本直启导入兜底 ——
+
+def test_default_listdir_total_drives_pagination_on_short_pages(monkeypatch):
+    """I1：服务端每页只返 10 条（短页）但 metadata._total=250 → 必须翻满 250 条。"""
+    calls = []
+
+    def fake_http(url, body=None, retry=3, timeout=60):
+        page = int(url.split("_page=")[1].split("&")[0])
+        calls.append(page)
+        start = (page - 1) * 10
+        lst = [_item(f"f{start + i}.zip", f"id{start + i}", start + i)
+               for i in range(10)]
+        return 200, {"status": 200, "metadata": {"_total": 250}, "data": {"list": lst}}
+
+    monkeypatch.setattr(share.quark_client, "http", fake_http)
+    monkeypatch.setattr(share.quark_client, "get_stoken", lambda *a, **k: "ST")
+
+    entries = share._default_listdir("fidX")
+
+    assert len(entries) == 250  # 旧实现短页终止只返 10
+    assert calls == list(range(1, 26))
+    assert entries[-1].fid == "id249"
+
+
+def test_default_listdir_ignores_non_int_total(monkeypatch):
+    """I1 边界：_total 非 int（字符串）→ 保持短页终止语义。"""
+    calls = []
+
+    def fake_http(url, body=None, retry=3, timeout=60):
+        calls.append(url)
+        lst = [_item(f"f{i}.zip", f"id{i}", i) for i in range(10)]
+        return 200, {"status": 200, "metadata": {"_total": "250"},
+                     "data": {"list": lst}}
+
+    monkeypatch.setattr(share.quark_client, "http", fake_http)
+    monkeypatch.setattr(share.quark_client, "get_stoken", lambda *a, **k: "ST")
+
+    entries = share._default_listdir("fidX")
+
+    assert len(entries) == 10 and len(calls) == 1
+
+
+def test_script_direct_run_bootstraps_import_path(tmp_path):
+    """I2：直跑 share.py（sys.path[0]=pan_update/、无 conftest）必须自举成功。
+
+    修复前：`from quark_download import quark_client` ModuleNotFoundError（exit 1）；
+    修复后：兜底插入 platform/tools 再导入（lob_fact 先例）。"""
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    proc = subprocess.run(
+        [sys.executable, str(Path(share.__file__).resolve())],
+        env=env, capture_output=True, text=True, timeout=120, cwd=str(tmp_path),
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "ModuleNotFoundError" not in (proc.stdout + proc.stderr)
