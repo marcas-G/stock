@@ -187,3 +187,22 @@ def test_canon_batch_ignores_undefined_null_slots_but_keeps_mask():
     d = pa.table({'i': pa.array([1, 0, 3] * 66 + [7, 7], pa.int64()),
                   's': pa.array(['a', 'ZZZ', 'c'] * 66 + ['d', 'd'], pa.large_string())})
     assert CL._canon_batch(d) != CL._canon_batch(a)       # null 槽转非 null → 判据变
+
+
+# ---------- 3. 直跑自举 (R29; R14 同类漏网) ----------
+
+def test_script_direct_run_help_smoke():
+    """直跑 `python store/compact_lob.py --help` 必须自举成功: exit 0 且打 usage。
+
+    背景: 该文件头部的 sys.path 自举原写在 docstring 内 (示例文本, 不执行) →
+    直跑在 `from core import config` 处 ModuleNotFoundError (R27 #21)。
+    存根必败: 删掉自举/改坏路径 → rc≠0 且 stderr 含 ModuleNotFoundError。"""
+    import subprocess
+    tool = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        'store', 'compact_lob.py')
+    r = subprocess.run([sys.executable, tool, '--help'],
+                       capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0, \
+        f"rc={r.returncode}\nSTDOUT:\n{r.stdout}\nSTDERR:\n{r.stderr}"
+    assert '--months' in r.stdout and '--root' in r.stdout
+    assert 'ModuleNotFoundError' not in r.stderr

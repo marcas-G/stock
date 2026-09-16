@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 """lob_fact 体积重打包 (W5 体积杠杆落地) —— 只读源 + 内容校验 + 原子替换
 
-
-import os as _os
-import sys as _sys
-_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))  # lob_fact/
 背景: W4 记录的 202608 体积比 1.461× 经复算为 **1.538×** (>1.5 预算; W4 memo 把
 MiB 值当 MB 记 + 比值算错)。修正路径 = 纯编码杠杆 (行组几何 / zstd 级), **不改任何
 语义**: 本工具按目标几何流式重写逐 date parquet, 重写前后**内容摘要** (行数 + 批级
@@ -28,13 +24,20 @@ import glob
 import hashlib
 import json
 import os
+import sys
 import time
 
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
-from core import config as C
+# ---- R29：真正的路径自举（可执行文件自己负责路径；R14 同类，本文件此前漏网——
+# 旧自举写在 docstring 内不执行）----
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))          # lob_fact/
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))                                                        # tools/
+
+from core import config as C  # noqa: E402
 from lib import writekit as W  # noqa: E402  （R8c：锁/标记单点）
 from pathlib import Path  # noqa: E402
 from factorlab.core.factio import partitions  # noqa: E402  （R8c：分区规则单点）
