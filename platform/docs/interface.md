@@ -209,7 +209,8 @@ factorlab run factor/crash_bottom_leader_timed.yaml --chunk-days 500   # 2015-20
 
 - `factorlab list`：扫描 `results_dir/*/summary.json`（损坏/不可读的跳过），按运行
   时间倒序展示 `name | category | dir | ic_mean | spread | run_at`；无结果时提示
-  「暂无因子结果（先运行 factorlab run）」。
+  「暂无因子结果（先运行 factorlab run）」。表尾附 spread 符号约定提示
+  （R03-M3：direction 相对量，负值=与声明方向一致；详见评估段）。
 - `factorlab show <name>`：读 `results_dir/<name>/summary.json`，展示 spec 原文、
   `evaluation.ic` 与 `layered_backtest.summary`（各档 + long-short 摘要指标）；
   因子不存在或读取失败以非 0 退出并打印原因。
@@ -962,6 +963,17 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
   而非 polars dtype 错误。
 - `direction` 原样透传为 int（`0` 实测按 `-1` 处理，属 quant_core 内部语义，桥接层
   不校验）。
+- **spread 符号约定（R03-M3；不改 kernel 数值语义）**：
+  `decile_returns.spread.ret = (group0.mean_ret − group9.mean_ret) × direction`
+  （group0 = signal 最低档、group9 = 最高档；quant_core 契约 2026-08-26 §3.1）。
+  `direction` **只翻转 spread 符号，不影响 `ic` 统计**。因低档在前，**方向自洽
+  的因子 spread 恒为负**：direction=+1（越大越优）+ 正相关（raw IC>0）→
+  spread = 低档−高档 < 0；direction=−1（越小越优）+ 负相关（IC<0）→
+  spread = 高档−低档 < 0。实测（R03-M3）：同一因子 raw IC +0.0756 不变，
+  direction −1→+1 时 spread +0.00676→−0.00676。**读法**：spread 是 direction
+  相对量——`spread<0` = 实际表现与声明方向一致，`spread>0` = 相反；
+  判有效性/方向以 raw `ic` 与 `layered_backtest.long_short`（D1=方向感知的
+  好档，正=好）为准，勿与 spread 符号混读。`factorlab list` 表尾有同款提示。
 
 ### `factorlab.core.eval.layered.layered_backtest(panel, direction, n_groups=10, forward_col="forward_return_5d", cost_rate=0.0) -> dict`
 
@@ -1279,8 +1291,12 @@ snapshots 共 ~14B 行）；duckdb 平台文件无 intraday 表 → duckdb 后�
 或 `date_start/date_end` 闭区间（单边可开）；**完全不限制 → ValueError
 （防全表扫描）**。`cols` 输出列白名单（顺序即输出顺序），未知列 ValueError。
 `datetime` 统一 **naive Asia/Shanghai 墙钟 ms**（stored epoch = 源 wall；
-arrow 读回带服务器 tz → `convert_time_zone("UTC")` 后剥）。空结果（当日无数据）
-返回同投影空 frame 不抛。生产真数据 e2e 见 tests/test_intraday_prod_e2e.py。
+arrow 读回带服务器 tz → `convert_time_zone("UTC")` 后剥）；bars_1m 的
+`datetime` = **bar 起点**（left edge，连续竞价 bar 覆盖 [datetime, +1min)；
+R03-M5 tick 对拍修正——15:00 竞价 bar 与 time_ms=15:00:00 成交 delta=0，
+探针 docs/verification/R22/R03/misc/probe_m5_bar_time_labeling.{py,txt}）。
+空结果（当日无数据）返回同投影空 frame 不抛。生产真数据 e2e 见
+tests/test_intraday_prod_e2e.py。
 
 ### `factorlab.adapters.batch_flock.BatchFlock().run(tasks, worker, *, workers=1, stall_s=None, lock_path=None, state_path=None, success_marker=None) -> BatchReport`（R9）
 
@@ -2737,6 +2753,35 @@ CA Gate 需除权事件数据（real 数据任务未完成 / 合成请 seed 空�
 配股 ≠ 0 派生；买入日 = 事件日豁免）→ `ExecutionDataQualityError`（附
 code/事件 trade_date/decision_range 分段指引——跨 share-unit basis 的连续
 NAV/return 无定义，CA handling 里程碑前禁止跨 CA 连续估值）。
+
+**CA Gate 分段工作流（R03-I8，2026-09-16）**：实测 30 只持仓的月频策略窗口
+几乎必撞某只除权（3 窗口 2 撞）——CA handling 里程碑前，**多年连续策略回测
+不可行是设计行为**（fail-closed，不是缺陷）。平台**刻意不提供自动分段 helper、
+不自动重基 NAV**：`run_backtest` 不接收 initial state（M8-06A §3.1），每段
+独立 run 从 `initial_cash` + 空仓位开始——段间**持仓/资金连续性丢失**
+（`tests/test_backtest_ca_gate.py::test_b14_segment_restart_drops_positions_and_cash_continuity`
+锁）；自动拼接会诱导把段间窗口误读为连续收益。显式工作流（M8 无 CLI，API）：
+
+```python
+rd = open_read(...)                       # duckdb|ch
+seg1 = run_backtest(target, spec, rd, decision_range=(d1_lo, d1_hi))
+seg2 = run_backtest(target, spec, rd, decision_range=(d2_lo, d2_hi))
+# 段内：fills/positions/NAV 全部真实有效（可做诊断与段内指标）
+# 段间（非 all-cash 边界）：显式重基 NAV2 *= NAV1_end / NAV2_start；边界
+# return 无定义 → 丢弃，不得当连续收益使用
+```
+
+- **可直接精确拼接的唯一情形**：分段边界两侧均无持仓跨窗——分段前用
+  `seg.final_state.positions.height == 0`（all-cash 边界）验证，之后按
+  `NAV_k × (NAV_{k−1}_end / initial_cash)` 链式缩放即精确。
+- **不可用作连续绩效**：重基后的段序列不得当单跑净值算 Sharpe/回撤/换手——
+  被丢弃的边界段恰好含除权价格落差（未入账分红使 raw 价格下跳），保留其余
+  收益会产生方向性偏置，且段边界重复计换手/费用。
+- **何时必须等 CA 里程碑**：任何持仓跨除权的多年连续策略绩效评估。CA 处理
+  （除权日股数 × 因子 + 分红现金入账）落地后本工作流退役。
+- **分段不放松 Gate**：全窗 run 照旧 fail-closed（
+  `test_b13_segmented_runs_pass_but_full_run_fails_closed` 锁）——分段是
+  caller 显式行为，无自动分段/静默降级路径。
 
 ### M8-06C Artifact Persistence Layer（`save_backtest_result` / `load_backtest_result`）
 

@@ -1,0 +1,37 @@
+R03-I8 —— CA Gate 分段工作流：取舍结论（helper vs 文档）= **文档**（不提供自动分段 helper）
+日期 2026-09-16；平台起点 commit bd86c46（R03-M4 之后）
+
+一、技术核实（为什么自动分段 helper + NAV 拼接会诱导错误结论）
+1. run_backtest 不接收 initial state（M8-06A §3.1 约束；实现 backtest.py 初始
+   state = initial_cash + 空仓位，无参数可注入）。任何分段 = 独立 run，段间
+   持仓/资金连续性丢失。事实锁：
+   test_b14_segment_restart_drops_positions_and_cash_continuity
+   （段 1 末持仓 A=1；段 2 pre_state.positions.height==0 且 cash==1_000_000）。
+2. A 股实测事件密度（R03 报告「策略尝试」）：30 只持仓月度窗口 3 窗口 2 撞
+   （600116.SH@2025-01-08、600177.SH@2025-09-12）→ 按事件自动切分的段平均仅
+   1~2 个 decision：多数段只有 1 个 NAV 点（零 return），或系统性丢首段收益。
+3. 拼接偏置：段间丢的正是除权价格落差（raw 价在除权日下跳、分红未入账）；
+   分红季（A 股集中 5-7 月）被系统性剔除 → 对含分红标的组合产生方向性向上
+   偏置；且段边界重复计换手/费用。把该序列当连续净值算 Sharpe/回撤 = 错误结论。
+4. 结论：自动分段 helper + NAV 拼接违反「不发明会计语义」且会误导 → 选文档路径
+   （任务指令允许的二选一），并把「不放松 fail-closed」固化为测试。
+
+二、交付
+- 文档：platform/docs/interface.md §6 `run_backtest` 条目后新增「CA Gate 分段
+  工作流（R03-I8）」——显式 decision_range API 示例 + 段内/段间口径（显式重基、
+  丢弃边界 return）+ 唯一可精确拼接情形（all-cash 边界）+ 何时必须等 CA 里程碑
+  + 不提供 helper 的理由。
+- 设计记录：daily-closeout design §8.4 追加 R03-I8 注记（指向 interface.md）。
+- 测试锁（platform/tests/test_backtest_ca_gate.py）：
+  · test_b13_segmented_runs_pass_but_full_run_fails_closed —— 全窗仍 fail-closed；
+    显式 CA-clean 分段各自通过（任何自动分段/静默降级会让本测试失败）。
+  · test_b14_segment_restart_drops_positions_and_cash_continuity —— 段间无状态
+    继承事实（供文档口径与未来 CA 里程碑对照）。
+- 突变自检：注释 _assert_ca_gate 调用 → B13 DID NOT RAISE（r03_i8_mutation_check.txt
+  = Gate 被放宽时测试必败的证明）。
+
+三、运行结果（green）
+$ .venv/bin/python -m pytest tests/test_backtest_ca_gate.py -k "b13 or b14" -v
+tests/test_backtest_ca_gate.py::test_b13_segmented_runs_pass_but_full_run_fails_closed PASSED
+tests/test_backtest_ca_gate.py::test_b14_segment_restart_drops_positions_and_cash_continuity PASSED
+2 passed, 20 deselected

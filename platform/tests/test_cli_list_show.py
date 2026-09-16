@@ -38,6 +38,19 @@ def test_list_empty_results(monkeypatch, tmp_path):
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 0
     assert "暂无" in result.stdout
+    assert "spread=" not in result.stdout      # 空列表不打印 spread 提示（R03-M3）
+
+
+def test_list_spread_sign_hint(monkeypatch, tmp_path):
+    """R03-M3：list 表尾打印 spread 符号约定（direction 相对量，防误读）。"""
+    monkeypatch.setenv("COLUMNS", "200")  # 防 rich 折行拆断断言文本
+    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+    _write_summary(tmp_path, "alpha_1")
+    result = runner.invoke(app, ["list"])
+    assert result.exit_code == 0
+    assert "提示" in result.stdout
+    assert "spread=(group0−group9)×dir" in result.stdout
+    assert "负值=表现与声明方向一致" in result.stdout
 
 
 def test_show_factor_summary(monkeypatch, tmp_path):

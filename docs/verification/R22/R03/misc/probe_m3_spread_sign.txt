@@ -1,0 +1,7 @@
+# 正相关面板（raw IC>0）
+  direction=+1 ic=+1.0000 spread=-9.0000 (g0=0.00 g9=9.00)
+  direction=-1 ic=+1.0000 spread=+9.0000 (g0=0.00 g9=9.00)
+# 负相关面板（signal=pos、fwd=neg，raw IC<0）
+  direction=+1 ic=-1.0000 spread=+9.0000 (g0=0.00 g9=-9.00)
+  direction=-1 ic=-1.0000 spread=-9.0000 (g0=0.00 g9=-9.00)
+VERDICT: spread=(g0−g9)×direction；raw IC 不受 direction 影响；方向自洽 ⇒ spread<0（读法已写入 platform/docs/interface.md 评估段）

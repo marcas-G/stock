@@ -45,7 +45,8 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
 固定网格**：minute_index 0 基 0..239（0=09:25 开盘集合竞价三合一 bar，1..118=
 09:31..11:28，119=11:29，120..238=13:00..14:58，239=15:00 收盘竞价；无
 09:30/11:30/13:01 槽）；session_type **三态** 0=开盘集合(仅 index0)/1=连续竞价
-(237 行)/2=尾盘集合(index 238,239)；datetime = minute-end naive Asia/Shanghai
+(237 行)/2=尾盘集合(index 238,239)；datetime = **bar 起点**（left edge，
+[R03-M5 修正] 原写 "minute-end"）naive Asia/Shanghai
 墙钟 ms；价格 **raw 不复权**；amount 单位 **元**、volume 单位 **股**；缺口全在
 整日层（停牌日无行、2025-12-01..03 全市场隔离、次新 date-shift 隔离窗、D_true_gap
 2 日——缺行 = 当日无该股行情，与日频"缺行=停牌"同构）；~3.6% 分钟零成交 flat 行
@@ -242,6 +243,13 @@ CH `factorlab.bars_1m` 18.5 亿行 2020-01-02..2026-08-21；每 code-day **恰 2
   误判为折日常数放行——此前仅靠运行时 (date, code) 组内 n_unique==1 断言（R6
   双保险）兜底；现静态门直接拒（两侧都须折日常数），错误表"折日"文案路径提前
   命中。日频路径不受影响（日频不用此 fold）。
+- R9（datetime 标注，R03-M5，2026-09-16）：§背景"bars_1m 数据契约"原文
+  "datetime = minute-end"经 tick 对拍实测修正为 **bar 起点（left edge）**：
+  15:00 收盘竞价 bar 与 time_ms=15:00:00 tick 成交逐值相等（delta=0），
+  09:31/09:32/11:29 均对齐起点窗（[t, t+1)）而非终点窗。平台读面
+  `adapters/intraday.py` docstring 与 interface.md 同步补正；探针与输出存
+  docs/verification/R22/R03/misc/probe_m5_bar_time_labeling.{py,txt}。
+  网格/索引语义（0=09:25、239=15:00）不变。
 - 其余规格行（B1.1/B2/B3/B4.1/B4.2/B4.5/B4.6/B4.7/B5/B6.2-B6.4/B7）与实现
   逐条一致；差异仅措辞级（如引擎门文案比错误表更具体，测试按文案子串匹配）。
 

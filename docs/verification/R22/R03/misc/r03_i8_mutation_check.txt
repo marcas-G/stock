@@ -1,0 +1,8 @@
+### R03-I8 突变自检：注释掉 _assert_ca_gate 调用（模拟 Gate 被放宽）
+$ .venv/bin/python -m pytest -q tests/test_backtest_ca_gate.py -k 'b13'
+E       Failed: DID NOT RAISE ExecutionDataQualityError
+
+tests/test_backtest_ca_gate.py:59: Failed
+=========================== short test summary info ============================
+FAILED tests/test_backtest_ca_gate.py::test_b13_segmented_runs_pass_but_full_run_fails_closed
+1 failed, 21 deselected in 1.72s

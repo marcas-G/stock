@@ -294,6 +294,9 @@ def list_factors() -> None:
     for row in sorted(rows, key=lambda r: r["_sort"], reverse=True):
         console.print(f"{row['name']} | {row['category']} | dir={row['direction']} "
                       f"| ic={row['ic_mean']} | spread={row['spread']} | {row['run_at']}")
+    # R03-M3：spread 是 direction 相对量（符号易与 raw IC 混读）——表尾注释标签
+    console.print("提示: spread=(group0−group9)×dir（group0=signal 最低档；"
+                  "负值=表现与声明方向一致；判有效性看 ic）")
 
 
 @app.command("show")

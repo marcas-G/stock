@@ -201,6 +201,45 @@ def test_b12_frozen_window_event_gate_first(tmp_path):
 
 
 # ================================================================
+# B13/B14 分段工作流（R03-I8）：decision_range 显式分段不放松 Gate；
+# 段间持仓/资金连续性事实锁（interface.md §6 分段工作流文档的断言源）
+# ================================================================
+
+def test_b13_segmented_runs_pass_but_full_run_fails_closed(tmp_path):
+    """B13（R03-I8）：事件横跨全窗——全窗 run 照旧 fail-closed（分段是 caller
+    显式行为，不是 Gate 放宽：任何"自动分段/静默降级"都会让第 1 段断言失败）；
+    显式 decision_range 拆出的 CA-clean 单决策段各自通过。"""
+    db = _adj_db(tmp_path, adj=[(D5, _A)])
+    t = _target(dates=(D1, D5), weights=[(D1, {_A: 1.0}), (D5, {_A: 1.0})])
+    msg = str(_err(db, t, match="CA Gate"))      # D5 事件在 (exec D2, exec D8] 窗口
+    assert _A in msg and "2024-01-05" in msg
+    rd = open_read(db_path=db)
+    seg1 = run_backtest(t, _spec(), rd, decision_range=(D1, D1))
+    seg2 = run_backtest(t, _spec(), rd, decision_range=(D5, D5))
+    assert [a.execution_date for a in seg1.artifacts] == [D2]
+    assert [a.execution_date for a in seg2.artifacts] == [D8]
+    assert seg1.final_state.positions.height == 1
+    assert seg2.artifacts[0].fills.frame.height == 1
+
+
+def test_b14_segment_restart_drops_positions_and_cash_continuity(tmp_path):
+    """B14（R03-I8 技术核实）：分段 run 是**独立 run**——每段从 initial_cash +
+    空仓位开始（M8-06A §3.1：run_backtest 不接收 initial state）。段 1 期末
+    持仓 A 不带入段 2；段间持仓/资金连续性丢失 → 段间 NAV 拼接必须显式重基、
+    边界 return 无定义（interface.md §6 分段工作流）。若未来支持跨段状态注入
+    （CA 里程碑），本断言与文档需同步修订。"""
+    db = _adj_db(tmp_path, adj=[(D5, _A)])
+    t = _target(dates=(D1, D5), weights=[(D1, {_A: 1.0}), (D5, {_A: 1.0})])
+    rd = open_read(db_path=db)
+    seg1 = run_backtest(t, _spec(), rd, decision_range=(D1, D1))
+    assert seg1.final_state.positions.height == 1        # 段 1 末持仓 A=1
+    seg2 = run_backtest(t, _spec(), rd, decision_range=(D5, D5))
+    first = seg2.artifacts[0]
+    assert first.pre_state.positions.height == 0         # 段 2 空仓开局
+    assert first.pre_state.cash == 1_000_000.0          # 满现金 = initial_cash
+
+
+# ================================================================
 # B11 双腿一致（env duckdb/ch；事件表双腿 seed）
 # ================================================================
 

@@ -16,12 +16,18 @@
 - 解码：`datetime` 统一 naive Asia/Shanghai 墙钟 ms（arrow 读回带服务器 tz 时
   剥掉）；tick 价格为 `price_x10000`（Int32，÷10000 为元）；`volume` 原生
   类型保留（bars f64 / tick u32）。
+- 时间标注（2026-09-16 tick 对拍实测修正，R03-M5）：bars_1m `datetime` = bar
+  **起点**（left edge，**非** minute-end）——连续竞价 bar 覆盖
+  [datetime, datetime+1min)；锚点：15:00 收盘竞价 bar 与 time_ms=15:00:00 的
+  tick 成交逐值相等（delta=0），09:31/09:32/11:29 对齐起点窗而非终点窗。
+  证据：docs/verification/R22/R03/misc/probe_m5_bar_time_labeling.{py,txt}。
 - 空结果（当日无数据/未知后缀 code）返回同投影空 frame，不抛。
 
 bars_1m 事实契约（2026-09-08 实测补正，勿凭旧描述）：
 - 每 (code, 交易日) 恰 **240 行固定网格**，`minute_index` 0 基 0..239（0 =
   09:25 开盘集合竞价三合一 bar；239 = 15:00 收盘集合竞价 bar；无 09:30/
-  11:30/13:01 槽）。**`session_type` 三态**：0 = 开盘集合（仅 index 0）、
+  11:30/13:01 槽）；`datetime` = 各 bar 的**起点**墙钟（见上"时间标注"）。
+  **`session_type` 三态**：0 = 开盘集合（仅 index 0）、
   1 = 连续竞价（237 行）、2 = 尾盘集合（index 238-239）。
 - 价格 **raw 不复权**（除权断裂处由 CA Gate/复权层处理，读侧不解释）；与日频
   daily **同单位**（2026-08-19..21 × 000001.SZ/600519.SH 实测：daily.vol 及
@@ -189,11 +195,12 @@ def load_bars_1m(rd: ReadPort, code: str, *, day: str | None = None,
     """1 分钟线（bars_1m）：datetime/trade_date/code/minute_index/session_type/
     OHLC/amount/volume；OHLC 为 Float32、volume Float64 原样。
 
-    `datetime` 为 naive ms 墙钟（Asia/Shanghai）；`minute_index` 0 基当日分钟序
-    （每 (code, 交易日) 恰 240 行固定网格，0=09:25 开盘集合竞价、239=15:00 收盘
-    集合竞价）；`session_type` 三态 0/1/2（开盘集合/连续竞价/尾盘集合，仅分钟
-    契约可见——全部事实见模块 docstring）。价格 raw 不复权；amount=元、
-    volume=股。
+    `datetime` 为 naive ms 墙钟（Asia/Shanghai），**= 该 bar 起点**（left edge，
+    连续竞价 bar 覆盖 [datetime, datetime+1min)；非 minute-end）；`minute_index`
+    0 基当日分钟序（每 (code, 交易日) 恰 240 行固定网格，0=09:25 开盘集合竞价、
+    239=15:00 收盘集合竞价）；`session_type` 三态 0/1/2（开盘集合/连续竞价/
+    尾盘集合，仅分钟契约可见——全部事实见模块 docstring）。价格 raw 不复权；
+    amount=元、volume=股。
     """
     return _load(rd, "bars_1m", code, day=day, date_start=date_start,
                  date_end=date_end, cols=cols)
