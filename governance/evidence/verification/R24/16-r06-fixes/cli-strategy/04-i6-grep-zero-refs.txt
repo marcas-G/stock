@@ -1,0 +1,3 @@
+$ grep -rn "_REPO_ROOT" research/tools/strategies/ --include="*.py"
+（零命中）
+py_compile OK

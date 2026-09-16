@@ -1,0 +1,5 @@
+ss                                                                       [100%]
+=========================== short test summary info ============================
+SKIPPED [1] research/tools/strategies/tests/test_run_strategy_cli.py:204: 真实信号产物不存在: /data/students/gaolei/stock/platform/results/max_effect_20d_high（先跑 factorlab run）
+SKIPPED [1] research/tools/strategies/tests/test_run_strategy_cli.py:235: 真实信号产物不存在: /data/students/gaolei/stock/platform/results/max_effect_20d_high（先跑 factorlab run）
+2 skipped, 8 deselected in 0.35s
