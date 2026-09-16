@@ -1,0 +1,62 @@
+== SKILL-I2 记录迁移：results/_mine_round_*.md → runs/platform/_mine_rounds/ ==
+
+--- before（sha256 + size + mtime）---
+fa88f40b9014c5ffb954da6391d1950ec2a073b9183a6760519e35899adbf832  results/_mine_round_10.md
+a2de3a95fa395c11a684cbe3186b4b7633243e3cadedad86a7c3173b113b214f  results/_mine_round_11.md
+9511d50540fd604178f9a0466e008789595d4afdb1f3e7458a85bcea4e16cbe4  results/_mine_round_12.md
+53ec455f4b3fb4ef5ccf827317f4bef74e593a1e2eccc43cc6621aad4f649c75  results/_mine_round_1.md
+819d81c3baddcef974a3ce79e9e68ab37960f025814ce5c330e55e8fb7bb10ff  results/_mine_round_2.md
+0af90bc43c45bc4b0cbca52419edb398be54d50c73dce1cd4eac5d7476dad36b  results/_mine_round_3.md
+9eb8c49d2e37fcd6deaa88bfc3ffe365199db59598fb94938d008132e68a6fa0  results/_mine_round_4.md
+fb6c43d0fd9bdad21eef0f7f2a09ef172e674283f41ee8e2e57cfbb667684fd1  results/_mine_round_5.md
+5fd19d3a79f926f86bcfef16193fffd5dce911d7eb4add3f32ec71d6a8ad2eae  results/_mine_round_6.md
+92a7ed676c0f06ffc96e84bbc6e3aa119a238afc5611cc4d43264d5eb50cfee0  results/_mine_round_7.md
+80bcc67c91a42333936493787fbd598aa4ca06fe0e2b97bafef43c9a514c0ebd  results/_mine_round_8.md
+9edc1b3d0b75dec06cd584493b26aa7015cbbdc1a5b50f7a9fb1cb6a2ddf3188  results/_mine_round_9.md
+
+--- mv ---
+renamed 'results/_mine_round_10.md' -> 'runs/platform/_mine_rounds/_mine_round_10.md'
+renamed 'results/_mine_round_11.md' -> 'runs/platform/_mine_rounds/_mine_round_11.md'
+renamed 'results/_mine_round_12.md' -> 'runs/platform/_mine_rounds/_mine_round_12.md'
+renamed 'results/_mine_round_1.md' -> 'runs/platform/_mine_rounds/_mine_round_1.md'
+renamed 'results/_mine_round_2.md' -> 'runs/platform/_mine_rounds/_mine_round_2.md'
+renamed 'results/_mine_round_3.md' -> 'runs/platform/_mine_rounds/_mine_round_3.md'
+renamed 'results/_mine_round_4.md' -> 'runs/platform/_mine_rounds/_mine_round_4.md'
+renamed 'results/_mine_round_5.md' -> 'runs/platform/_mine_rounds/_mine_round_5.md'
+renamed 'results/_mine_round_6.md' -> 'runs/platform/_mine_rounds/_mine_round_6.md'
+renamed 'results/_mine_round_7.md' -> 'runs/platform/_mine_rounds/_mine_round_7.md'
+renamed 'results/_mine_round_8.md' -> 'runs/platform/_mine_rounds/_mine_round_8.md'
+renamed 'results/_mine_round_9.md' -> 'runs/platform/_mine_rounds/_mine_round_9.md'
+
+--- after ---
+总用量 56
+drwxrwxr-x  2 gaolei gaolei 4096 9月  16 17:34 .
+drwxrwxr-x 36 gaolei gaolei 4096 9月  16 17:34 ..
+-rw-rw-r--  1 gaolei gaolei 2151 9月  16 16:12 _mine_round_10.md
+-rw-rw-r--  1 gaolei gaolei 2108 9月  16 16:57 _mine_round_11.md
+-rw-rw-r--  1 gaolei gaolei 2147 9月  16 17:27 _mine_round_12.md
+-rw-rw-r--  1 gaolei gaolei 2078 9月  16 12:10 _mine_round_1.md
+-rw-rw-r--  1 gaolei gaolei 1827 9月  16 12:40 _mine_round_2.md
+-rw-rw-r--  1 gaolei gaolei 1837 9月  16 12:53 _mine_round_3.md
+-rw-rw-r--  1 gaolei gaolei 1563 9月  16 13:19 _mine_round_4.md
+-rw-rw-r--  1 gaolei gaolei 2098 9月  16 13:39 _mine_round_5.md
+-rw-rw-r--  1 gaolei gaolei 1750 9月  16 13:56 _mine_round_6.md
+-rw-rw-r--  1 gaolei gaolei 1645 9月  16 14:21 _mine_round_7.md
+-rw-rw-r--  1 gaolei gaolei 1707 9月  16 14:53 _mine_round_8.md
+-rw-rw-r--  1 gaolei gaolei 2126 9月  16 15:12 _mine_round_9.md
+
+--- 校验（应相同）---
+fa88f40b9014c5ffb954da6391d1950ec2a073b9183a6760519e35899adbf832  runs/platform/_mine_rounds/_mine_round_10.md
+a2de3a95fa395c11a684cbe3186b4b7633243e3cadedad86a7c3173b113b214f  runs/platform/_mine_rounds/_mine_round_11.md
+9511d50540fd604178f9a0466e008789595d4afdb1f3e7458a85bcea4e16cbe4  runs/platform/_mine_rounds/_mine_round_12.md
+53ec455f4b3fb4ef5ccf827317f4bef74e593a1e2eccc43cc6621aad4f649c75  runs/platform/_mine_rounds/_mine_round_1.md
+819d81c3baddcef974a3ce79e9e68ab37960f025814ce5c330e55e8fb7bb10ff  runs/platform/_mine_rounds/_mine_round_2.md
+0af90bc43c45bc4b0cbca52419edb398be54d50c73dce1cd4eac5d7476dad36b  runs/platform/_mine_rounds/_mine_round_3.md
+9eb8c49d2e37fcd6deaa88bfc3ffe365199db59598fb94938d008132e68a6fa0  runs/platform/_mine_rounds/_mine_round_4.md
+fb6c43d0fd9bdad21eef0f7f2a09ef172e674283f41ee8e2e57cfbb667684fd1  runs/platform/_mine_rounds/_mine_round_5.md
+5fd19d3a79f926f86bcfef16193fffd5dce911d7eb4add3f32ec71d6a8ad2eae  runs/platform/_mine_rounds/_mine_round_6.md
+92a7ed676c0f06ffc96e84bbc6e3aa119a238afc5611cc4d43264d5eb50cfee0  runs/platform/_mine_rounds/_mine_round_7.md
+80bcc67c91a42333936493787fbd598aa4ca06fe0e2b97bafef43c9a514c0ebd  runs/platform/_mine_rounds/_mine_round_8.md
+9edc1b3d0b75dec06cd584493b26aa7015cbbdc1a5b50f7a9fb1cb6a2ddf3188  runs/platform/_mine_rounds/_mine_round_9.md
+
+HASH-MATCH: OK

@@ -69,7 +69,7 @@ assumption-review.md §0。
 ### 3. 假设审核（每条判定：成立 / 可疑 / 证伪 / 可精确化）
 
 - **语义矛盾**：假设间互斥？与平台语义冲突？（TS/CS 分区、防未来、方向语义——
-  见 `knowledge/contracts/interface.md` §DSL 语义与防未来、`knowledge/dossiers/factor-mining-playbook.md` §3.3）
+  见 `knowledge/contracts/interface.md` §DSL 语义与防未来、`knowledge/handbooks/factor-mining-playbook.md` §3.3）
 - **数据可实现**：字段存在性（`knowledge/contracts/interface.md` §数据字段；可查 CH 临时库/生产库
   `platform/.venv/bin/python -c "from factorlab.adapters import ch_read; print([r[0] for r in ch_read.query_rows(\"SELECT name FROM system.columns WHERE database='factorlab' AND table='daily'\")])"`）、
   窗口长度 vs 历史（数据自 2000-01-04）、缺失率预估（种子档案 signal_null_ratio 参照）。
@@ -86,7 +86,8 @@ assumption-review.md §0。
 - 记录：保留哪些假设、精确化/变异哪些（变异成什么、为什么）、
   变异后假设集合的语义一致性（重新过 §3 矛盾检查）。
 - 新因子名 `<seed>_<variant>`（小写蛇形，如 `reversal_20d_lowturn`）。
-- 变异点清单写入一个临时记录（`results/_mine_round_<n>.md`），
+- 变异点清单写入一个临时记录（`runs/platform/_mine_rounds/_mine_round_<n>.md`，
+  运行产物单点；目录不存在则先建），
   供实现与代码审核使用——它是对照物，之后不入库。
 
 ### 5. 实现
@@ -113,17 +114,17 @@ FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
 ```
 
 - 失败：读报错修复重跑（DSL 错误、内存限制、空面板等）。
-- 成功：记录 `results/<name>/summary.json` 关键指标（`st_degrade: true` = 本次为无 ST 口径）。
+- 成功：记录 `runs/platform/<name>/summary.json` 关键指标（`st_degrade: true` = 本次为无 ST 口径）。
 
 ### 8. 入库
 
-1. 对照 `knowledge/dossiers/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
+1. 对照 `knowledge/handbooks/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
 2. 复制 `knowledge/dossiers/factors/_template.md` → `knowledge/dossiers/factors/<族>/<stem>.md`，逐节填写：
-   验证数据快照自 `results/<name>/summary.json`（注明快照日期）；
+   验证数据快照自 `runs/platform/<name>/summary.json`（注明快照日期）；
    状态按判定（候选/观察中/无效）；§2 逻辑写变异后的假设表达。
 3. 种子档案 `knowledge/dossiers/factors/<族>/<stem>.md` §5 迭代历史加一行（日期/新因子/变异点/结果/结论）。
 4. 互链：新档案 §6 备注链接 `[<seed>.md](<seed>.md)`；种子档案对应行注明新档案。
-5. `git add research/factor/<族>/<stem>.yaml knowledge/dossiers/factors/<族>/<stem>.md`（并重生成索引：`python3 research/tools/factor_lib/build_index.py`）
+5. `git add research/factor/<族>/<stem>.yaml knowledge/dossiers/factors/<族>/<stem>.md`（并重生成索引：`/data/students/gaolei/stock/platform/.venv/bin/python research/tools/factor_lib/build_index.py`）
    → `git commit -m "feat(factor): <name> — <变异点一句话>"`。
 
 ## 全局规则
@@ -136,7 +137,7 @@ FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
 | 负结果入库 | 不显著也建档案（判定"无效/证伪"），种子档案同样记录 |
 | 审核分工 | 假设审核主 agent 做；代码审核独立 subagent（code-review.md） |
 | 轮间状态 | 种子互异列表、轮数计数仅当批内有效；批次结束归档 |
-| 资源 | 每轮 ~1 次全市场 run（30-60s）+ 1 个 subagent 审核；results/ 每轮数十 MB；16GB 内存护栏（SQL-first）不变 |
+| 资源 | 每轮 ~1 次全市场 run（30-60s）+ 1 个 subagent 审核；`runs/platform/<name>/` 每轮数十 MB；16GB 内存护栏（SQL-first）不变 |
 
 ## 明确不做
 
@@ -150,4 +151,4 @@ FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
 - `assumption-review.md` — §2/§3 假设分析与审核工作模板（本 skill 目录内）
 - `code-review.md` — §6 subagent 代码审核提示词（本 skill 目录内）
 - `knowledge/dossiers/factors/_template.md` — 入库档案模板
-- `knowledge/dossiers/factor-mining-playbook.md` — 评估阈值与方法论
+- `knowledge/handbooks/factor-mining-playbook.md` — 评估阈值与方法论
