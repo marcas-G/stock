@@ -36,9 +36,9 @@
 - 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**。
 - 提交前跑：`make test-research`（= `platform/tools` **337** + `research/tools` **35**，均平台 venv；
   **实测基线 372 passed**，2026-09-16 R27）。
-- 因子新增/改名/归档：**必须**同步档案（`docs/factors/<族>/<短名>.md`）并重生成索引
-  `../docs/index/factors.md`（`build_index.py --check` 是常驻门）。
-- 数据位置与血缘以 `../docs/data-map.md` 为唯一权威；目录约定以 `../docs/directory-conventions.md` 为准。
+- 因子新增/改名/归档：**必须**同步档案（`knowledge/dossiers/factors/<族>/<短名>.md`）并重生成索引
+  `../knowledge/index/factors.md`（`build_index.py --check` 是常驻门）。
+- 数据位置与血缘以 `../governance/workspace/data-map.md` 为唯一权威；目录约定以 `../governance/workspace/directory-conventions.md` 为准。
 
 ## 环境事实
 

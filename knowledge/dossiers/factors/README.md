@@ -1,8 +1,13 @@
-# 因子档案目录（research/docs/factors）
+# 因子档案目录（knowledge/dossiers/factors）
 
 与 `research/factor/<族>/<短名>.yaml` **同族同短名镜像**的因子档案（每因子一份 `.md`：
-front matter + 六节模板，规范见 `_template.md`）。机器索引在 `docs/index/factors.md`
+front matter + 六节模板，规范见 `_template.md`）。机器索引在 `knowledge/index/factors.md`
 （`research/tools/factor_lib/build_index.py` 生成，`--check` 常驻门）。
+
+> **R24 路径映射（2026-09-16）**：本目录 `research/docs/factors/` → `knowledge/dossiers/factors/`；
+> 索引 `docs/index/factors.md` → `knowledge/index/factors.md`；playbook `research/docs/factor-mining-playbook.md`
+> → `knowledge/dossiers/factor-mining-playbook.md`。各档案正文尾部模板行残留的
+> `docs/factor-mining-playbook.md` 为**历史档案正文**（不改写），按本映射理解。
 
 ## ⚠️ 验证数字是历史快照（R21 标注，2026-09-15）
 
@@ -36,6 +41,6 @@ R01-EVID-C1（台账 `docs/reviews/findings.md`）的修复选择**如实标注�
 - 每份档案 front matter 的 `snapshot:` 字段 = 该档案的验证数字为历史快照；
 - 数字重新在可复现环境跑出并留证（命令 + 输出存档）后，**删除该字段**并刷新 `updated_ts`；
 - `snapshot` 只存在于档案 front matter，不在 YAML spec 里、也不参与
-  `docs/index/factors.md` 生成（索引只读 `research/factor/**/*.yaml`），因此不影响索引
+  `knowledge/index/factors.md` 生成（索引只读 `research/factor/**/*.yaml`），因此不影响索引
   byte-equality 门；批量标注脚本存于
   `docs/verification/R21/EVID/annotate_factor_archives.py`（幂等，`--check` 可验）。

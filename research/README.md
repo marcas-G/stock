@@ -1,16 +1,16 @@
 # research —— 研究树（单仓单树）
 
 本目录 = 单仓单树里的**研究树**（`stock/research/`）。旧的两分支/worktree 布局已退役
-（2026-09-15 单仓单树重构，见 `docs/verification/R*/`）。平台代码在兄弟目录 `../platform/`。
+（2026-09-15 单仓单树重构，见 `../governance/evidence/verification/R*/`）。平台代码在兄弟目录 `../platform/`。
 
 ## 目录
 
 | 路径 | 内容 |
 |---|---|
-| `factor/<族>/<短名>.yaml` | **152 个因子 spec**（14 族；族规则 `factor/_families.yaml`；索引 `../docs/index/factors.md`）|
-| `docs/factors/<族>/<短名>.md` | 因子档案（与 yaml **同族同短名**镜像；`xname` == spec.name）。**R21 起验证数字标 `snapshot: 历史快照`**（产物未入库、当前不可复跑，口径见 `docs/factors/README.md`）|
-| `docs/strategies/` | 策略档案（含结论：崩底反弹已实现、死等股灾已证伪）|
-| `docs/factor-mining-playbook.md` | 挖因子 playbook |
+| `factor/<族>/<短名>.yaml` | **152 个因子 spec**（14 族；族规则 `factor/_families.yaml`；索引 `../knowledge/index/factors.md`）|
+| `../knowledge/dossiers/factors/<族>/<短名>.md` | 因子档案（与 yaml **同族同短名**镜像；`xname` == spec.name）。R24 起档案单点迁 `knowledge/dossiers/`。**R21 起验证数字标 `snapshot: 历史快照`**（产物未入库、当前不可复跑，口径见 `../knowledge/dossiers/factors/README.md`）|
+| `../knowledge/dossiers/strategies/` | 策略档案（含结论：崩底反弹已实现、死等股灾已证伪）|
+| `../knowledge/dossiers/factor-mining-playbook.md` | 挖因子 playbook |
 | `knowledge/design/platform/` | **研究独有**的 spec/plan（平台 spec 在 `../knowledge/design/platform/`，单副本）|
 | `../platform/tools/lib/` | 数据生产线共享库（R27 归位）：`tickdata`（读单点薄封装）· `writekit`（标记·锁·state·原子写·流式月写入器）· `tickkit`（转换小件）· `monthflow`（月分片写入骨架）|
 | `../platform/tools/lob_fact/` | tick 订单簿重建工具链（引擎/锚定/因子面板/批算/QA/校准；192 tests + 金样 pins）|
@@ -51,5 +51,5 @@ FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python platform/tools/1m_features/r
 - 接口/DSL/CLI：`../knowledge/contracts/interface.md`
 - 列/算子活目录：`../knowledge/contracts/catalog.md`
 - 数据运维：`../knowledge/contracts/data-ops-playbook.md`
-- 工作区数据地图与约定：`../docs/data-map.md`、`../docs/directory-conventions.md`
-- 因子索引：`../docs/index/factors.md`（自动生成，`build_index.py --check` 门）
+- 工作区数据地图与约定：`../governance/workspace/data-map.md`、`../governance/workspace/directory-conventions.md`
+- 因子索引：`../knowledge/index/factors.md`（自动生成，`build_index.py --check` 门）

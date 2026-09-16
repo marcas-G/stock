@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""因子索引生成器（R5）：`research/factor/**` → `docs/index/factors.md`。
+"""因子索引生成器（R5）：`research/factor/**` → `knowledge/index/factors.md`。
 
 产物纪律（沿用 `knowledge/contracts/catalog.md` 的范式）：**生成物与生成器输出逐字节一致**，
 不一致即门红（`--check` 模式；测试 `tests/test_index.py` 常驻）。
@@ -21,8 +21,8 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]        # stock/
 FACTOR = ROOT / "research" / "factor"
-DOCS = ROOT / "research" / "docs" / "factors"
-OUT = ROOT / "docs" / "index" / "factors.md"
+DOCS = ROOT / "knowledge" / "dossiers" / "factors"
+OUT = ROOT / "knowledge" / "index" / "factors.md"
 
 
 def _norm_formula(text: str) -> str:

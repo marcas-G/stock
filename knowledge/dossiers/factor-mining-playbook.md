@@ -316,8 +316,8 @@ factorlab serve                              # Web 可视化（IC 曲线/净值�
 （如 `momentum_20d_win100`），results 独立目录与默认变体并存——同因子多参数
 对比用 `--set` 即可，无需复制/修改 spec（§2.6）。
 
-**因子档案（md）**：每个因子在 `research/docs/factors/<族>/<stem>.md` 维护一份研究档案
-（模板：`research/docs/factors/_template.md`），与 `research/factor/<族>/<stem>.yaml` 同族同短名并行存放：
+**因子档案（md）**：每个因子在 `knowledge/dossiers/factors/<族>/<stem>.md` 维护一份研究档案
+（模板：`knowledge/dossiers/factors/_template.md`），与 `research/factor/<族>/<stem>.yaml` 同族同短名并行存放：
 
 - `yaml` = 机器可执行定义；`md` = 人读研究记录（逻辑动机、参数表、验证结果
   快照、迭代历史、风险备注）。
@@ -340,4 +340,4 @@ factorlab serve                              # Web 可视化（IC 曲线/净值�
 >   `01_import_daily → ingest_daily → 12_ch_adj_backfill → derive_stk_limit`）；技能 `factorlab-ch-pipeline`；
 > - 对账：`platform/.venv/bin/python platform/tools/ch_ingest/reconcile.py`（只读）；
 > - 平台 duckdb 库不存在：一切计算读 CH（`FACTORLAB_DATA_BACKEND=ch`）；
-> - 用户单页入口：`research/docs/factor-authoring-manual.md`。
+> - 用户单页入口：`knowledge/dossiers/factor-authoring-manual.md`。

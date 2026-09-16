@@ -1,7 +1,7 @@
 """Plan S Task 4：策略索引生成与 --check 门（spec ↔ 档案成对 · 字节级一致）。
 
-设计规格：plan.md Task 4——`research/strategy/*.yaml` + `research/docs/strategies/*.md`
-→ `docs/index/strategies.md`；spec 缺档案 / 档案缺 spec → 门红并列出名字；
+设计规格：plan.md Task 4——`research/strategy/*.yaml` + `knowledge/dossiers/strategies/*.md`
+→ `knowledge/index/strategies.md`；spec 缺档案 / 档案缺 spec → 门红并列出名字；
 档案 front matter 必须含 spec 路径与回测窗口字段；`--check` 手改即红。
 
 front matter 约定（`_` 前缀 = 元数据豁免，如 `_template.md`）：
@@ -75,7 +75,7 @@ def test_render_registered_strategy_row(tmp_path):
     text = BI.render(strategy_dir=s, docs_dir=d)
     for token in ("`test_strat`", "`max_effect_20d_high`", "-1", "weekly",
                   "2025-03-01 ~ 2025-03-31",
-                  "../../research/docs/strategies/test_strat.md",
+                  "../../knowledge/dossiers/strategies/test_strat.md",
                   "../../research/strategy/test_strat.yaml"):
         assert token in text, f"索引缺少 {token!r}:\n{text}"
 

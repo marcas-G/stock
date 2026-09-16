@@ -7,7 +7,7 @@ status: draft
 
 # <策略名> 策略档案
 
-> 模板使用：复制为 `research/docs/strategies/<策略名>.md`（与 spec 同名）。
+> 模板使用：复制为 `knowledge/dossiers/strategies/<策略名>.md`（与 spec 同名）。
 > front matter 的 `spec`/`window` 是索引门（G-INDEX）必填字段；`_` 前缀文件
 > （如本模板）不参与配对。
 

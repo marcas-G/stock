@@ -3,7 +3,7 @@
 
 背景：152 份档案 §4 的验证数字来自本地 `platform/results/<name>/summary.json`，该产物
 从未随仓存档；当前环境（results/ 空、无平台 duckdb、CH 缺 stock_st）不可复跑。修复
-选择**如实标注**而非伪造产物——见 `research/docs/factors/README.md` 与
+选择**如实标注**而非伪造产物——见 `knowledge/dossiers/factors/README.md` 与
 `docs/verification/R21/EVID/C1-not-reproducible.txt`。
 
 约定：只在 front matter 闭合 `---` 前插入一行 `snapshot:`，不动正文；幂等（已有即跳过）。
@@ -18,7 +18,7 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]          # stock/
-DOCS = ROOT / "research" / "docs" / "factors"
+DOCS = ROOT / "knowledge" / "dossiers" / "factors"
 MARK = "snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）"
 
 

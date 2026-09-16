@@ -14,7 +14,7 @@ status: verified
 - **市场行为假设**：A 股散户对"彩票型"标的（日内曾大幅摸高、高波动）有过度需求，
   推高当期价格、压低未来收益。因子 `max_effect_20d_high` 用 20 日内单日最大盘中摸高
   幅度（`ts_max(high/prev_close-1, 20)`）度量彩票体验峰值；因子档案 direction=-1
-  （IC 0.0699, t=5.00, IR=0.375，见 `research/docs/factors/volatility/max_effect_20d_high.md`）。
+  （IC 0.0699, t=5.00, IR=0.375，见 `knowledge/dossiers/factors/volatility/max_effect_20d_high.md`）。
 - **策略预期**：做多**低分位**（低彩票暴露）Top-30 等权，周频轮动吃截面修正。
   direction=-1 与因子档案方向一致。
 - **可交易性分工（G5）**：池 = 研究口径（因子 spec `exchanges: [SSE, SZSE]`，无 ST 过滤

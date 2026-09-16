@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-"""策略索引生成器（Plan S Task 4）：`research/strategy/**` + `research/docs/strategies/**`
-→ `docs/index/strategies.md`。
+"""策略索引生成器（Plan S Task 4）：`research/strategy/**` + `knowledge/dossiers/strategies/**`
+→ `knowledge/index/strategies.md`。
 
 产物纪律（与因子索引同款）：生成物与生成器输出**逐字节一致**，
 不一致即门红（`--check`；测试 `tests/test_strategy_index.py` 常驻）。
 
 成对门（不是静默跳过）：
-- 每个 `research/strategy/<stem>.yaml` 必须有 `research/docs/strategies/<stem>.md` 档案；
+- 每个 `research/strategy/<stem>.yaml` 必须有 `knowledge/dossiers/strategies/<stem>.md` 档案；
 - 每个带 front matter 的档案必须声明 `spec`（= `research/strategy/<stem>.yaml`）
   与 `window`（回测窗口），且 spec 存在；
 - 缺任一 → 非零退出并列出名字。
@@ -32,8 +32,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]        # stock/
 STRATEGY = ROOT / "research" / "strategy"
-DOCS = ROOT / "research" / "docs" / "strategies"
-OUT = ROOT / "docs" / "index" / "strategies.md"
+DOCS = ROOT / "knowledge" / "dossiers" / "strategies"
+OUT = ROOT / "knowledge" / "index" / "strategies.md"
 
 _REQUIRED_FRONT = ("spec", "window")
 
@@ -111,7 +111,7 @@ def load_dossiers(docs_dir: Path = DOCS):
             continue
         if fm is None:
             legacy.append({"stem": f.stem,
-                           "md": f"research/docs/strategies/{f.name}"})
+                           "md": f"knowledge/dossiers/strategies/{f.name}"})
             continue
         missing = [k for k in _REQUIRED_FRONT if not fm.get(k)]
         if missing:
@@ -129,7 +129,7 @@ def load_dossiers(docs_dir: Path = DOCS):
             continue
         registered.append({
             "stem": f.stem,
-            "md": f"research/docs/strategies/{f.name}",
+            "md": f"knowledge/dossiers/strategies/{f.name}",
             "spec": declared,
             "window": fm["window"],
             "status": fm.get("status", "—"),
@@ -146,7 +146,7 @@ def _pair(specs: list[dict], registered: list[dict], legacy: list[dict]) -> list
             hint = ("（同名档案无 front matter——历史档案不参与配对）"
                     if s["stem"] in legacy_stems else "")
             errors.append(f"{s['stem']}: spec 缺档案 "
-                          f"research/docs/strategies/{s['stem']}.md{hint}")
+                          f"knowledge/dossiers/strategies/{s['stem']}.md{hint}")
     spec_stems = {s["stem"] for s in specs}
     for d in registered:
         if d["stem"] not in spec_stems:

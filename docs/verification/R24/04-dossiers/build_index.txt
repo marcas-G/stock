@@ -1,0 +1,2 @@
+已生成 knowledge/index/factors.md（327 行）
+索引一致 ✓

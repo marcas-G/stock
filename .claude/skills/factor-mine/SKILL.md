@@ -15,7 +15,7 @@ description: 挖因子循环。随机选一个已入库因子为种子，分析�
 
 ## 前置检查
 
-1. 因子库非空：`ls research/docs/factors/*/*.md`（家族子目录；模板在 `research/docs/factors/_template.md`），空则报错并停止。
+1. 因子库非空：`ls knowledge/dossiers/factors/*/*.md`（家族子目录；模板在 `knowledge/dossiers/factors/_template.md`），空则报错并停止。
 2. 平台数据可用：`FACTORLAB_DATA_BACKEND=ch $FLAB list` 不报错。平台 duckdb 库（`data/factorlab.duckdb`）不存在，**当前唯一可用读后端是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）；CH 无 `stock_st` 表时 `exclude_st` 默认 fail fast，显式降级开关与挖矿口径见 `knowledge/contracts/interface.md` §4.2（`FACTORLAB_ST_DEGRADE=allow`）。
 3. 每轮开工前向用户播报：`第 k/N 轮：种子=<seed>`，然后继续（不等待）。
 
@@ -39,7 +39,7 @@ FLAB=/data/students/gaolei/stock/platform/.venv/bin/factorlab
 python - <<'EOF'
 import random, pathlib
 files = [f"{p.parent.name}/{p.stem}"
-         for p in pathlib.Path('research/docs/factors').glob('*/*.md')
+         for p in pathlib.Path('knowledge/dossiers/factors').glob('*/*.md')
          if p.name != '_template.md' and f"{p.parent.name}/{p.stem}" not in USED]
 print(random.choice(files))
 EOF
@@ -47,9 +47,9 @@ EOF
 
 - 同一批连续轮次内种子互不重复（`USED` 为已用种子列表，逐轮累加；
   执行时把占位符替换成 Python 集合字面量，如 `USED = {'momentum_20d/reversal_20d'}`；
-  种子 = `族/stem`——glob 已适配 `research/docs/factors/<族>/` 子目录布局）；
+  种子 = `族/stem`——glob 已适配 `knowledge/dossiers/factors/<族>/` 子目录布局）；
   所有种子都轮过一遍后循环回来（忽略 USED）。
-- 读 `research/docs/factors/<族>/<stem>.md` 全文 + `research/factor/<族>/<stem>.yaml`（族见 `research/factor/_families.yaml`、索引见 `docs/index/factors.md`）。
+- 读 `knowledge/dossiers/factors/<族>/<stem>.md` 全文 + `research/factor/<族>/<stem>.yaml`（族见 `research/factor/_families.yaml`、索引见 `knowledge/index/factors.md`）。
 
 ### 2. 假设分析（用 assumption-review.md 模板）
 
@@ -69,7 +69,7 @@ assumption-review.md §0。
 ### 3. 假设审核（每条判定：成立 / 可疑 / 证伪 / 可精确化）
 
 - **语义矛盾**：假设间互斥？与平台语义冲突？（TS/CS 分区、防未来、方向语义——
-  见 `knowledge/contracts/interface.md` §DSL 语义与防未来、`research/docs/factor-mining-playbook.md` §3.3）
+  见 `knowledge/contracts/interface.md` §DSL 语义与防未来、`knowledge/dossiers/factor-mining-playbook.md` §3.3）
 - **数据可实现**：字段存在性（`knowledge/contracts/interface.md` §数据字段；可查 CH 临时库/生产库
   `platform/.venv/bin/python -c "from factorlab.adapters import ch_read; print([r[0] for r in ch_read.query_rows(\"SELECT name FROM system.columns WHERE database='factorlab' AND table='daily'\")])"`）、
   窗口长度 vs 历史（数据自 2000-01-04）、缺失率预估（种子档案 signal_null_ratio 参照）。
@@ -117,13 +117,13 @@ FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
 
 ### 8. 入库
 
-1. 对照 `research/docs/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
-2. 复制 `research/docs/factors/_template.md` → `research/docs/factors/<族>/<stem>.md`，逐节填写：
+1. 对照 `knowledge/dossiers/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
+2. 复制 `knowledge/dossiers/factors/_template.md` → `knowledge/dossiers/factors/<族>/<stem>.md`，逐节填写：
    验证数据快照自 `results/<name>/summary.json`（注明快照日期）；
    状态按判定（候选/观察中/无效）；§2 逻辑写变异后的假设表达。
-3. 种子档案 `research/docs/factors/<族>/<stem>.md` §5 迭代历史加一行（日期/新因子/变异点/结果/结论）。
+3. 种子档案 `knowledge/dossiers/factors/<族>/<stem>.md` §5 迭代历史加一行（日期/新因子/变异点/结果/结论）。
 4. 互链：新档案 §6 备注链接 `[<seed>.md](<seed>.md)`；种子档案对应行注明新档案。
-5. `git add research/factor/<族>/<stem>.yaml research/docs/factors/<族>/<stem>.md`（并重生成索引：`python3 research/tools/factor_lib/build_index.py`）
+5. `git add research/factor/<族>/<stem>.yaml knowledge/dossiers/factors/<族>/<stem>.md`（并重生成索引：`python3 research/tools/factor_lib/build_index.py`）
    → `git commit -m "feat(factor): <name> — <变异点一句话>"`。
 
 ## 全局规则
@@ -149,5 +149,5 @@ FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
 
 - `assumption-review.md` — §2/§3 假设分析与审核工作模板（本 skill 目录内）
 - `code-review.md` — §6 subagent 代码审核提示词（本 skill 目录内）
-- `research/docs/factors/_template.md` — 入库档案模板
-- `research/docs/factor-mining-playbook.md` — 评估阈值与方法论
+- `knowledge/dossiers/factors/_template.md` — 入库档案模板
+- `knowledge/dossiers/factor-mining-playbook.md` — 评估阈值与方法论

@@ -7,9 +7,9 @@
 
 ### 目录分权（取代旧分支纪律，最高优先级）
 
-- **`platform/`** 只收平台改动：`platform/src/factorlab/`、`platform/tests/`、`platform/docs/`（契约 4 篇 + superpowers）、`platform/scripts/`。
+- **`platform/`** 只收平台改动：`platform/src/factorlab/`、`platform/tests/`、`platform/scripts/`（契约 4 篇 R24 起在 `knowledge/contracts/`，设计/计划在 `knowledge/design/platform/`）。
   提交前缀用平台语义：`feat(engine)` / `fix(adapters)` / `docs(interface)` / `refactor(core)`。
-- **`research/`** 只收研究内容：`research/factor/`、`research/tools/`（剩余：`strategies/`、`factor_lib/`）、`research/docs/`（factors/strategies/playbook）。
+- **`research/`** 只收研究内容：`research/factor/`、`research/tools/`（剩余：`strategies/`、`factor_lib/`）、`research/strategy/`（档案 R24 起在 `knowledge/dossiers/`）。
   提交前缀用研究语义：`feat(factor)` / `feat(tools)` / `docs(factors)`。
 - **`docs/`**（根）只收工作区级文档与验证证据。
 - 一次改动同时涉及多棵树 → **分目录分别提交**（一个提交只描述一棵树的改动）。
@@ -39,7 +39,7 @@
 
 **文档**：
 - 平台 API/CLI/DSL 变更 → `knowledge/contracts/interface.md`；设计与里程碑 → `knowledge/design/platform/{plans,specs}`。
-- 因子新增/改名 → `research/docs/factors/<族>/<名>.md` 同名档案 + 重生成 `docs/index/factors.md`（有 byte-equality 门）。
+- 因子新增/改名 → `knowledge/dossiers/factors/<族>/<名>.md` 同名档案 + 重生成 `knowledge/index/factors.md`（有 byte-equality 门）。
 - 文档与实现冲突时改文档；实现中发现的设计缺口写进对应 spec 或 `docs/pending-items.md`。
 
 ## 架构分层（平台包）

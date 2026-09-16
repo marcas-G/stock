@@ -21,7 +21,7 @@ DOCS = BI.DOCS
 
 
 def test_index_matches_generator(tmp_path):
-    """门：docs/index/factors.md 必须与生成器输出逐字节一致（防手改/陈旧）。"""
+    """门：knowledge/index/factors.md 必须与生成器输出逐字节一致（防手改/陈旧）。"""
     assert BI.OUT.is_file(), "索引不存在——先跑 build_index.py"
     assert BI.OUT.read_text(encoding="utf-8") == BI.render()
 
