@@ -20,7 +20,10 @@ import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]         # stock/
-_DEFAULT_RESULTS = _REPO_ROOT / "platform" / "results"    # factorlab run 默认落点
+# 因子结果根：**缺省跟随平台 settings.results_dir**（R24 后 = <repo>/runs/platform；
+# FACTORLAB_RESULTS_DIR 可覆盖，相对 cwd 解释）。此前硬编码 platform/results
+# （R24 迁移前旧落点）导致策略入口读不到迁移后的因子结果（R05 式使用验证实测）。
+_DEFAULT_RESULTS_DOC = "<settings.results_dir>（R24 后 = <repo>/runs/platform）"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -29,8 +32,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("spec", help="策略 YAML 路径（六层声明，见 plan.md §接口契约）")
     parser.add_argument("--dry-run", action="store_true",
                         help="只打印六层解析结果，不打开读句柄")
-    parser.add_argument("--results-dir", type=Path, default=_DEFAULT_RESULTS,
-                        help=f"因子结果根目录（缺省 {_DEFAULT_RESULTS}）")
+    parser.add_argument("--results-dir", type=Path, default=None,
+                        help=f"因子结果根目录（缺省 {_DEFAULT_RESULTS_DOC}）")
     parser.add_argument("--out-dir", type=Path, default=None,
                         help="策略产物目录覆盖（缺省 <results-dir>/strategies/<name>）")
     return parser

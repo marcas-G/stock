@@ -268,3 +268,17 @@ def test_real_run_max_hold_excludes_stale_and_renormalizes(monkeypatch, tmp_path
     assert not (stale & codes(tb, d21)), "连续持有 age=10 > 5 必须换出"
     assert tb.frame.filter(
         pl.col("decision_date") == d21)["target_weight"].sum() == pytest.approx(1.0)
+
+
+def test_results_dir_default_follows_platform_settings():
+    """R24 迁移回归：入口缺省 results 根必须跟随平台 settings.results_dir。
+
+    旧实现硬编码 `<repo>/platform/results`（R24 前落点）——迁移到 runs/platform 后
+    策略入口读不到因子结果（R05 式使用验证实测：summary.json 不存在于旧路径）。
+    """
+    args = cli.build_parser().parse_args(["spec.yaml"])
+    assert args.results_dir is None, "缺省应交给平台 settings 解析，不再硬编码"
+    from factorlab.config import settings
+    assert settings.results_dir.name == "platform"
+    assert settings.results_dir.parent.name == "runs"
+    assert "platform/results" not in settings.results_dir.as_posix()
