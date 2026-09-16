@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **176 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **177 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -15,7 +15,7 @@
 | momentum_20d | 22 | `research/factor/momentum_20d/` |
 | quality | 1 | `research/factor/quality/` |
 | reversal_10d | 5 | `research/factor/reversal_10d/` |
-| reversal_20d | 85 | `research/factor/reversal_20d/` |
+| reversal_20d | 86 | `research/factor/reversal_20d/` |
 | reversal_5d | 4 | `research/factor/reversal_5d/` |
 | reversal_rsi | 3 | `research/factor/reversal_rsi/` |
 | size | 2 | `research/factor/size/` |
@@ -187,6 +187,7 @@
 | `reversal_20d_skew` | -1 | fwd5d |  | [skew.md](../../knowledge/dossiers/factors/reversal_20d/skew.md) | [yaml](../../research/factor/reversal_20d/skew.yaml) |
 | `reversal_20d_skew10` | -1 | fwd5d |  | [skew10.md](../../knowledge/dossiers/factors/reversal_20d/skew10.md) | [yaml](../../research/factor/reversal_20d/skew10.yaml) |
 | `reversal_20d_skew_extreme` | -1 | fwd5d |  | [skew_extreme.md](../../knowledge/dossiers/factors/reversal_20d/skew_extreme.md) | [yaml](../../research/factor/reversal_20d/skew_extreme.yaml) |
+| `reversal_20d_skew_extreme_w10` | -1 | fwd5d |  | [skew_extreme_w10.md](../../knowledge/dossiers/factors/reversal_20d/skew_extreme_w10.md) | [yaml](../../research/factor/reversal_20d/skew_extreme_w10.yaml) |
 | `reversal_20d_smallcap` | -1 | fwd5d |  | [smallcap.md](../../knowledge/dossiers/factors/reversal_20d/smallcap.md) | [yaml](../../research/factor/reversal_20d/smallcap.yaml) |
 | `reversal_20d_turn_skew` | -1 | fwd5d |  | [turn_skew.md](../../knowledge/dossiers/factors/reversal_20d/turn_skew.md) | [yaml](../../research/factor/reversal_20d/turn_skew.yaml) |
 | `reversal_20d_turn_skew_corr` | -1 | fwd5d |  | [turn_skew_corr.md](../../knowledge/dossiers/factors/reversal_20d/turn_skew_corr.md) | [yaml](../../research/factor/reversal_20d/turn_skew_corr.yaml) |
