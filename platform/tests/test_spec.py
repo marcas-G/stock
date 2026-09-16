@@ -153,3 +153,29 @@ def test_spec_cost_rate_rejects_out_of_range(tmp_path, bad):
     with pytest.raises(Exception) as exc:
         load_spec(make_spec(tmp_path, cost_rate=bad))
     assert "cost_rate" in str(exc.value)
+
+
+# ── R05-I2：spec 顶层未知字段严格拒绝 + op_meta 明确未实现 ─────────────
+
+
+def test_rejects_unknown_top_level_field(tmp_path):
+    """`bogus_field: 123` 不得静默忽略（extra=forbid，报错点名字段）。"""
+    with pytest.raises(ValueError, match="bogus_field"):
+        load_spec(make_spec(tmp_path, bogus_field=123))
+
+
+def test_rejects_unknown_nested_universe_field(tmp_path):
+    with pytest.raises(ValueError, match="bogus_nested"):
+        load_spec(make_spec(tmp_path, universe={"codes": ["000001.SZ"],
+                                                "bogus_nested": 1}))
+
+
+def test_rejects_nonempty_op_meta_with_plan2_message(tmp_path):
+    """op_meta 机制未实现（Plan 2）——非空时明确报错，不静默吞。"""
+    with pytest.raises(ValueError, match="op_meta 暂未支持"):
+        load_spec(make_spec(tmp_path, op_meta={"my_op": {"partition": "ts"}}))
+
+
+def test_accepts_absent_op_meta(tmp_path):
+    assert load_spec(make_spec(tmp_path)).op_meta is None
+    assert load_spec(make_spec(tmp_path, op_meta=None)).op_meta is None

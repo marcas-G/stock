@@ -89,5 +89,5 @@ def test_unknown_op_lenient_in_legacy_entry():
 
 def test_unknown_op_strict_entry_rejects():
     from factorlab.core.engine.semantics import SemanticError
-    with pytest.raises(SemanticError, match="op_meta"):
+    with pytest.raises(SemanticError, match="op add"):
         check_causality("signal = my_plugin(close)", CAT)

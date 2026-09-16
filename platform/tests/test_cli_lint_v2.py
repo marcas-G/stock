@@ -56,11 +56,13 @@ def test_lint_rejects_struct_return_op(tmp_path):
     assert "process" in r.output
 
 
-def test_lint_rejects_unknown_operator_with_op_meta(tmp_path):
+def test_lint_rejects_unknown_operator_with_guidance(tmp_path):
+    # R05-I2：指引为公式内 def / op add 插件，并注明 op_meta 机制尚未实现
     p = _spec(tmp_path, "signal = totally_new(volume)")
     r = runner.invoke(app, ["lint", str(p)])
     assert r.exit_code != 0
-    assert "未知算子" in r.output and "op_meta" in r.output
+    assert "未知算子" in r.output and "op add" in r.output
+    assert "op_meta" in r.output and "尚未实现" in r.output
 
 
 def test_lint_rejects_platform_macro_import_with_guidance(tmp_path):

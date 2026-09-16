@@ -1,8 +1,8 @@
 """Task 7：注册闸门拆除 + 分区绑定规范化（核心交付）。
 
-- 库函数直写可算（`ts_arg_max`/`BBANDS` 此前写出来即报"未知算子"）；
+- 库函数直写可算（`ts_arg_max` 此前写出来即报"未知算子"）；
 - 非标量返回（BBANDS→Struct）静态拒绝并给清晰指引（R05-I1）；
-- 未知算子报错并给 op_meta 指引；
+- 未知算子报错并给指引（def / op add 插件；op_meta 未实现）；
 - `normalize_calls` 分类表解析（canonical 名 + import 行）；
 - 新增 CS 算子按分类表 mask_args 做 universe 掩码（不靠静态表）；
 - 注册面（插件）并入有效分类表（effective_catalog）。
@@ -40,8 +40,9 @@ def test_struct_return_op_rejected_with_guidance():
     assert "BBANDS" in msg and "Struct" in msg and "process" in msg
 
 
-def test_unknown_op_guides_op_meta():
-    with pytest.raises(FactorDSLError, match="op_meta"):
+def test_unknown_op_guides_def_or_plugin():
+    # R05-I2：指引去掉未实现的 op_meta——指向公式内 def / op add 插件
+    with pytest.raises(FactorDSLError, match="op add"):
         compute_formula(_panel(), "signal = totally_new(volume)", outputs=["signal"])
 
 
@@ -52,7 +53,7 @@ def test_normalize_calls_returns_source_and_imports():
 
 
 def test_normalize_calls_rejects_unknown():
-    with pytest.raises(FactorDSLError, match="op_meta"):
+    with pytest.raises(FactorDSLError, match="op add"):
         normalize_calls("signal = totally_new(volume)", default_catalog())
 
 

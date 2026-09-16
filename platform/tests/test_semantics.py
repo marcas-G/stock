@@ -63,8 +63,10 @@ def test_unbounded():
 
 
 def test_unknown_operator_message():
-    with pytest.raises(SemanticError, match="op_meta"):
+    # R05-I2：指引不得承诺未实现的 op_meta 机制——指向 def / op add 插件
+    with pytest.raises(SemanticError, match="op add") as exc:
         infer("signal = my_magic(close)", CAT)
+    assert "op_meta" in str(exc.value) and "尚未实现" in str(exc.value)
 
 
 def test_denied_method_guidance():
@@ -75,7 +77,7 @@ def test_denied_method_guidance():
 
 
 def test_unknown_method_message():
-    with pytest.raises(SemanticError, match="op_meta"):
+    with pytest.raises(SemanticError, match="op add"):
         infer("signal = close.not_a_method()", CAT)
 
 

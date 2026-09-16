@@ -214,8 +214,9 @@ class _Inferrer:
             if not self.strict_unknown:
                 return self._combine(children)   # 旧入口：未知算子不因语义门报错
             raise SemanticError(
-                f"未知算子 {name}；若为自定义/外部函数请补 op_meta"
-                f"（例：op_meta:\n  {name}: {{partition: ts, window: ${{win}}}}）",
+                f"未知算子 {name}；自定义逻辑请写在公式内 def（本因子专用，"
+                f"零注册），或注册插件算子（factorlab op add）；spec.op_meta "
+                f"尚未实现（Plan 2，写了会被拒绝）",
                 node.lineno, node.col_offset)
 
         if isinstance(node.func, ast.Attribute):
@@ -231,7 +232,8 @@ class _Inferrer:
                 raise SemanticError(
                     f"方法 .{attr}() 不开放：{guidance}", node.lineno, node.col_offset)
             raise SemanticError(
-                f"未知方法 .{attr}()；请改用函数形式（{attr}(...)）或补 op_meta",
+                f"未知方法 .{attr}()；请改用函数形式（{attr}(...)）、公式内 def "
+                f"或 factorlab op add 插件；方法档案/op_meta 尚未实现（Plan 2）",
                 node.lineno, node.col_offset)
 
         return self._combine(children)

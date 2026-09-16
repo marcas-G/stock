@@ -5,9 +5,20 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from factorlab.core.engine.reserved import is_future_column, is_internal_name
+
+
+class _StrictModel(BaseModel):
+    """spec 严格解析（R05-I2）：未知字段 = 加载期明确报错，绝不静默忽略。
+
+    R05 实测 `bogus_field: 123` 过 lint（无任何提示）——用户写错的字段名/照抄
+    未实现机制的指引都无声失败。所有 spec 模型（含嵌套）统一 strict；冒烟库
+    不变量：全库 spec lint 必须仍通过（无 spec 依赖静默容忍）。
+    """
+
+    model_config = ConfigDict(extra="forbid")
 
 
 NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]{0,63}$"
@@ -15,7 +26,7 @@ PROCESS_PATTERN = r"^[a-z_][a-z0-9_]*(\(.*\))?$"
 DATE_PATTERN = r"^\d{4}-\d{2}-\d{2}$"
 
 
-class UniverseSpec(BaseModel):
+class UniverseSpec(_StrictModel):
     ref: str | None = None          # 命名引用或文件路径（查 universes_dir）
     codes: list[str] | None = None
     rules: dict[str, Any] | None = None
@@ -44,7 +55,7 @@ class UniverseSpec(BaseModel):
         return self
 
 
-class DateRange(BaseModel):
+class DateRange(_StrictModel):
     start: str | None = None
     end: str | None = None
 
@@ -57,12 +68,12 @@ class DateRange(BaseModel):
         return self
 
 
-class OperatorMacro(BaseModel):
+class OperatorMacro(_StrictModel):
     params: list[str] = Field(default_factory=list)
     formula: str
 
 
-class SubFactorSpec(BaseModel):
+class SubFactorSpec(_StrictModel):
     name: str = Field(pattern=NAME_PATTERN)
     formula: str
     process: list[str] = Field(default_factory=list)
@@ -75,7 +86,7 @@ class SubFactorSpec(BaseModel):
         return self
 
 
-class CombineSpec(BaseModel):
+class CombineSpec(_StrictModel):
     method: Literal["ic_weight", "equal_weight", "weight_sum"]
     weights: list[float] | None = None
 
@@ -86,7 +97,7 @@ class CombineSpec(BaseModel):
         return self
 
 
-class FactorSpec(BaseModel):
+class FactorSpec(_StrictModel):
     name: str = Field(pattern=NAME_PATTERN)
     category: Literal["ohlcv_core", "ohlcv_retail", "valuation", "custom"]
     direction: Literal[1, -1]
@@ -97,6 +108,10 @@ class FactorSpec(BaseModel):
     process: list[str] = Field(default_factory=list)
     operators: dict[str, OperatorMacro] = Field(default_factory=dict)
     params: dict[str, Any] = Field(default_factory=dict)  # 顶层参数（formula 内 ${name} 引用）
+    # R05-I2：op_meta（Plan 2 预留：黑盒/外部函数分区声明）当前未实现——非空
+    # 显式拒绝。此前 pydantic 静默吞掉该字段，而引擎报错文案又引导用户来补
+    # （指引无效且无声：写对了机制也不存在）。
+    op_meta: dict[str, Any] | None = None
     formula: str | None = None
     factors: list[SubFactorSpec] | None = None
     combine: CombineSpec | None = None
@@ -116,6 +131,15 @@ class FactorSpec(BaseModel):
     outputs: list[str] | None = None
     _OUTPUT_COLLISION_NAMES = frozenset(
         {"date", "code", "close", "panel", "labels", "summary"})
+
+    @model_validator(mode="after")
+    def _reject_op_meta(self) -> "FactorSpec":
+        if self.op_meta is not None:
+            raise ValueError(
+                "op_meta 暂未支持（Plan 2）——未知算子请改用公式内 def（本因子"
+                "专用）或注册插件算子（factorlab op add）；写了 op_meta 也不会"
+                "被采纳，故在此明确拒绝而非静默忽略")
+        return self
 
     @model_validator(mode="after")
     def _validate_outputs(self) -> "FactorSpec":
