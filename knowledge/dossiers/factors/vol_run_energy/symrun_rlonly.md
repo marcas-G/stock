@@ -9,6 +9,7 @@ params:
 status: 无效——_rl 单独完全无信号（t=0.018 ≈ 0）
 created_ts: 2026-09-16
 updated_ts: 2026-09-16
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # vol_run_energy_symrun_rlonly 因子档案

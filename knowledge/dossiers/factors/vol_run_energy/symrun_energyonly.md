@@ -9,6 +9,7 @@ params:
 status: 候选（升级）——_energy 单独优于完整乘法；_rl 是纯噪声
 created_ts: 2026-09-16
 updated_ts: 2026-09-16
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # vol_run_energy_symrun_energyonly 因子档案
