@@ -1,0 +1,14 @@
+# R24 post-migration 使用验证（R05 式）— 全 CLI 面实测
+# date: 2026-09-16T16:23:41+08:00
+
+1) factorlab list -> 读 runs/platform（挖矿最新因子在列）: OK
+2) factorlab show max_effect_20d_high -> OK
+3) factorlab serve: GET / = 200, GET /factor/max_effect_20d_high = 200
+4) factorlab run（/tmp 临时 1 股 spec，默认根）-> runs/platform/r05_smoke_tmp/{signal,labels,panel,weekly,summary} 落位 OK（验证后已清理）
+5) factorlab op list --catalog -> 528 条；op doc BBANDS -> returns=struct + Plan 2 指引
+6) run_strategy.py --dry-run -> 六层解析 OK；真跑 -> NAV +2.23%、5 决策、176 笔（与 Plan S 证据一致）
+7) factorlab lint --all -> 168 通过 / 0 失败，3.43s
+8) 发现并修复：策略入口 results 根硬编码 platform/results（R24 迁移后失效）——cc829ad；回归测试 +1
+9) 同批清扫：platform/tools/lob_fact/notes 8 文件 projects/quant-platform-research 硬编码路径 —— 410e8e4
+
+未发现问题：list/show/serve/run/lint/catalog/op 面全部可用。

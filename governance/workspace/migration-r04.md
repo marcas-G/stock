@@ -88,3 +88,13 @@
 | 10 | `898a4a1` | 两树 AGENTS 并入根；CLAUDE 薄化；docs 指针壳；白名单 15→14 待 Task 11 | `governance/evidence/verification/R24/10-agent-docs/` |
 | 11 | 见下 | `projects/ashare_alpha3` → `_archive/2026-09-16-ashare-alpha3/`（manifest + 到期 2026-10-16）；根白名单收敛 14 项；相关文档同步 | `governance/evidence/verification/R24/11-archive/` |
 | 12 | 见下 | 全量验收：平台 3150/13、make test-research 337+58/2skip、门=仅挖矿 G-ANNOTATE 红、data/ 零写、旧路径仅冻结/映射；补修 4 处迁移遗漏 | `governance/evidence/verification/R24/12-acceptance/` |
+
+## 附录：post-migration 使用验证（R05 式，2026-09-16）
+
+- 全 CLI 面实测（list/show/serve/run/lint --all/op catalog/run_strategy）：
+  证据 `governance/evidence/verification/R24/15-post-migration-usage/`。
+- 发现并修复 1 处迁移遗留：`research/tools/strategies/run_strategy.py` 缺省 results 根
+  硬编码 `<repo>/platform/results`（R24 后应为 `runs/platform`）→ `cc829ad`（缺省改跟随
+  `settings.results_dir` + 回归测试）；顺带清扫 `platform/tools/lob_fact/notes` 8 文件
+  的 `projects/quant-platform-research` 残留硬编码 → `410e8e4`。
+- 全 CLI 面验证后未再发现迁移类问题；`factorlab lint --all` 168/0、3.4s。
