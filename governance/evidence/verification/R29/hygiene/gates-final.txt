@@ -1,3 +1,4 @@
+== final rerun 2026-09-16T21:48:26+08:00 EXIT=1（唯一失败：第 24 行 G-INDEX 因子索引；挖矿在途归因见 test-research-attribution-head.txt） ==
 == stock gates ==
 [G-COPY] 三方内容不互串 · 契约文档单副本
     ✓ platform/ 顶层无 factor 目录（tools/ 为数据生产线）
