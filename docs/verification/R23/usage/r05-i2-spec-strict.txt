@@ -1,0 +1,24 @@
+# R05-I2 证据：spec 顶层未知字段拒绝 + op_meta 明确未实现 + 未知算子指引去 op_meta
+# date: 2026-09-16T10:13:09+08:00  host: user
+
+$ platform/.venv/bin/factorlab lint /tmp/opencode/r05/cap_bogus.yaml   # bogus_field: 123
+1 validation error for FactorSpec
+bogus_field
+  Extra inputs are not permitted 
+    For further information visit 
+https://errors.pydantic.dev/2.13/v/extra_forbidden
+exit=1
+
+$ platform/.venv/bin/factorlab lint /tmp/opencode/r05/cap_opmeta.yaml  # op_meta 非空
+1 validation error for FactorSpec
+  Value error, op_meta 暂未支持（Plan 2）——未知算子请改用公式内 
+def（本因子专用）或注册插件算子（factorlab op add）；写了 op_meta 
+也不会被采纳，故在此明确拒绝而非静默忽略 
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+exit=1
+
+$ platform/.venv/bin/factorlab lint /tmp/opencode/r05/cap_unknown.yaml  # 未知算子指引
+1:9: 未知算子 totally_new；自定义逻辑请写在公式内 
+def（本因子专用，零注册），或注册插件算子（factorlab op add）；spec.op_meta 
+尚未实现（Plan 2，写了会被拒绝）
+exit=1

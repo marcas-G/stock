@@ -1,0 +1,41 @@
+# R05-M1 证据：op list --catalog 分类表全集 + op doc 回退（命令 + 原始输出）
+# date: 2026-09-16T10:13:20+08:00  host: user
+
+$ platform/.venv/bin/factorlab op list --catalog 2>&1 | wc -l   # 含表头 1 行 + 每算子 1 行
+529
+
+$ platform/.venv/bin/factorlab op list --catalog | head -4
+# 分类表全集: 528 条（含未注册库函数；注册面见不带 --catalog 的 op list）
+.abs  partition=el  window=-  source=polars_method  returns=scalar
+.add  partition=el  window=-  source=polars_method  returns=scalar
+.alias  partition=el  window=-  source=polars_method  returns=scalar
+
+$ platform/.venv/bin/factorlab op list --catalog | grep -E "^BBANDS|^ts_MACD|^ts_regression_slope|^\.rolling_mean"
+.rolling_mean  partition=ts  window=arg:0  source=polars_method  returns=scalar
+.rolling_mean_by  partition=ts  window=arg:1  source=polars_method  returns=scalar
+BBANDS  partition=ts  window=arg:1  source=polars_ta  returns=struct
+ts_MACD  partition=ts  window=arg:1  source=polars_ta  returns=struct
+ts_regression_slope  partition=ts  window=arg:2  source=polars_ta  returns=multi
+
+$ platform/.venv/bin/factorlab op list | wc -c   # 默认行为不变：注册面视图（~57 条）
+3308
+
+$ platform/.venv/bin/factorlab op doc ts_mean   # 已注册算子：原路径（docstring）
+ts_mean (ts, 0.1.0)
+简单移动平均
+
+$ platform/.venv/bin/factorlab op doc BBANDS    # 未注册但分类表有 → 回退
+BBANDS (ts, source=polars_ta, returns=struct)
+window=arg:1  mask_args=()
+未注册（无 docstring）——分类表条目可直接在公式调用；算子档案/字段访问归 Plan 2
+exit=0
+
+$ platform/.venv/bin/factorlab op doc totally_missing_op
+未知算子: totally_missing_op（注册面与分类表均无——`factorlab op list --catalog` 
+查看全集；自定义算子见 `factorlab op add`）
+exit=1
+
+# interface.md 入口标注
+86:| `factorlab op list [--catalog]` | 列出已注册算子；`--catalog` 列**分类表全集**（含未注册库函数：name/partition/window/source/returns） |
+87:| `factorlab op doc <name>` | 查看算子名称、类别、版本与 docstring；未注册但在分类表 → 回退打印分类元数据（partition/window/source/returns） |
+477:  returns，含未注册库函数），`factorlab op doc <name>` 对未注册但分类表存在的

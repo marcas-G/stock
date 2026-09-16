@@ -1,0 +1,26 @@
+# R05-I1 证据：BBANDS→Struct 清晰拒绝（lint 静态门 + compute 运行期）
+# date: 2026-09-16T10:12:58+08:00  host: user
+
+$ platform/.venv/bin/factorlab lint /tmp/opencode/r05/cap_bb.yaml   # 带 process(winsorize)
+算子 BBANDS（Struct 单列结构体） 返回非标量结果，不能直接作为因子输出或进入 
+process 链（winsorize/clip/quantile 等 processor 只接受标量数值列，否则在 
+Struct/多列上报晦涩错误）。请改用标量算子；多列/Struct 字段访问机制见 Plan 
+2/catalog（`factorlab op list --catalog`；platform/docs/catalog.md）
+exit=1
+
+$ platform/.venv/bin/python - <<PY  # compute_formula 直调（无 process 路径同样清晰）
+FactorDSLError -> 算子 BBANDS（Struct 单列结构体） 返回非标量结果，不能直接作为因子输出或进入 process 链（winsorize/clip/quantile 等 processor 只接受标量数值列，否则在 Struct/多列上报晦涩错误）。请改用标量算子；多列/Struct 字段访问机制见 Plan 2/catalog（`factorlab op list --catalog`；platform/docs/catalog.md）
+FactorDSLError -> process 链输入非标量：'signal' dtype=Struct({'a': Float64})。多列/Struct 返回（如 BBANDS→Struct）不能直接进 process（winsorize/clip/quantile 只接受标量数值列）；字段访问机制见 Plan 2/catalog（`factorlab op list --catalog`；platform/docs/catalog.md）
+exit=0
+
+$ platform/.venv/bin/factorlab op doc BBANDS   # 分类表元数据：returns=struct
+BBANDS (ts, source=polars_ta, returns=struct)
+window=arg:1  mask_args=()
+未注册（无 docstring）——分类表条目可直接在公式调用；算子档案/字段访问归 Plan 2
+exit=0
+
+# 生成表标注（returns + 探测失败登记）
+11:    ('BBANDS', 'ts', 'arg:1', (), 'polars_ta', 'BBANDS', 'struct'),
+204:    ('ts_MACD', 'ts', 'arg:1', (), 'polars_ta', 'ts_MACD', 'struct'),
+313:    ('ts_regression_slope', 'ts', 'arg:2', (), 'polars_ta', 'ts_regression_slope', 'multi'),
+390:PROBE_FALLBACKS = {
