@@ -29,7 +29,9 @@ def test_index_matches_generator(tmp_path):
 def test_every_yaml_has_mirror_doc_and_name_matches():
     """yaml ↔ md 一一镜像；档案 front-matter 的 xname 必须等于 spec.name。"""
     specs = BI.load_specs()
-    assert len(specs) == 152, f"因子数变了（{len(specs)}）——确认是有意增删"
+    # 原集 ≥152（只增不删——挖矿循环持续新增因子并逐轮归档；低于 152 说明有删除，
+    # 必须显式确认。R04 后 `_` 前缀目录/文件为元数据，不计入）
+    assert len(specs) >= 152, f"因子数少于原集 152（{len(specs)}）——有删除？"
     for s in specs:
         md = ROOT / s["md"]
         assert md.is_file(), f"缺档案 {s['md']}"
@@ -41,7 +43,9 @@ def test_every_yaml_has_mirror_doc_and_name_matches():
 def test_family_rules():
     """每个 yaml 落在 _families.yaml 声明的族目录里，且名字以该族前缀开头（misc 除外）。"""
     fams = dict(plan_rename.load_families())
-    assert set(fams) == {d.name for d in FACTOR.iterdir() if d.is_dir()}, "族目录与族表不一致"
+    # `_` 前缀目录是元数据（`_pools/` 等），不是族——与 load_specs 跳过口径一致
+    assert set(fams) == {d.name for d in FACTOR.iterdir()
+                         if d.is_dir() and not d.name.startswith("_")}, "族目录与族表不一致"
     for s in BI.load_specs():
         prefixes = fams.get(s["family"])
         assert prefixes is not None, f"未声明的族目录: {s['family']}"

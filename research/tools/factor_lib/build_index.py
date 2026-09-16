@@ -29,10 +29,21 @@ def _norm_formula(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
 
+def _is_meta_path(path) -> bool:
+    """下划线前缀文件/目录 = 元数据（非因子 spec）：`_pools/`（R03 分钟覆盖池）等。
+
+    与 `factorlab lint --all` / R04 批量 lint 的 `_` 跳过口径一致——池 YAML 含
+    `name` 字段但不是因子，不得进索引/族校验。
+    """
+    return any(part.startswith("_") for part in path.parts)
+
+
 def load_specs() -> list[dict]:
     out = []
     for f in sorted(FACTOR.rglob("*.yaml")):
-        if f.name.startswith("_"):
+        # `_` 前缀 = 元数据/数据（非因子 spec）：文件与任意路径分量同规
+        # （如 `intraday/_pools/bars1m_2024h1.yaml` 是分钟覆盖池，不是因子）
+        if any(part.startswith("_") for part in f.relative_to(FACTOR).parts):
             continue
         spec = yaml.safe_load(f.read_text(encoding="utf-8"))
         out.append({
