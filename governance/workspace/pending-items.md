@@ -252,7 +252,7 @@
     不再 advertise）。
     未决因：补数源与灌入工具均未落地；读路径 LEFT JOIN 依赖表存在，不能简单删表。
     启动条件：teajoin token 恢复或新增 index→CH 灌入工具 → 补 `000852.SH` 全历史 →
-    重跑 crash_bottom 族。证据：`governance/evidence/verification/R29/data/`。
+    重跑 crash_bottom 族。证据：`governance/evidence/verification/R29/data-t4/`。
 
 26. **`stock_st` 缺表（exclude_st 全场降级）**（2026-09-16 登记；**R29 同日裁决**）
     现状：CH 无 `stock_st` 表；94% spec 带 `exclude_st: true` → 全市场挖矿/复跑必须
@@ -265,7 +265,7 @@
     不伪造 ST 数据（interface.md §4.2 ST coverage 段已记同款裁决）。
     启动条件：teajoin token 恢复（可直接拉 `stock_st` 历史快照）或外部 ST 源到位 →
     建表灌入（沿 interface.md §4.2 coverage 契约）→ 关开关按标准 ST 过滤复跑；
-    此前涉及 ST 的验收口径按「无 ST」记录。证据：`governance/evidence/verification/R29/data/`。
+    此前涉及 ST 的验收口径按「无 ST」记录。证据：`governance/evidence/verification/R29/data-t4/`。
 
 27. **R07-MIG-I2：档案旧坐标清理残余**（2026-09-16 登记；主体同日完成 ✅；编号 #27——
     并行 agent 先占 #23-26，原登记号 #23 让位）
@@ -302,6 +302,6 @@
     R29 抽样 3 spec 复跑 `signal_null_ratio` 1.0 → ≤0.01、n_weeks 0 → 182、IC 可算。
     commit `18e8531`；契约 `knowledge/contracts/interface.md`（`73f30f6` 同步）；
     证据 `governance/evidence/verification/R24/17-r07-fixes/data-i4/`
-    + `governance/evidence/verification/R29/data/`（派生/复跑）
+    + `governance/evidence/verification/R29/data-t4/`（派生/复跑）
     + `governance/evidence/verification/R29/contracts/06-counts-measured.txt`（非空计数复测）。
     残余：`pe_ttm/pb/dv_ratio/volume_ratio` 4 列仍为占位空列（无数据源，不 advertise）。

@@ -35,7 +35,7 @@
 > **R29 数据缺口裁决（2026-09-16）**：CH 无 `stock_st` 表（ST 口径按
 > `FACTORLAB_ST_DEGRADE` 显式降级，不伪造；pending #26）；`index_daily` 0 行且无可用
 > 补数脚本（pending #25）。两表恢复条件与证据见 pending-items 与
-> `governance/evidence/verification/R29/data/`。
+> `governance/evidence/verification/R29/data-t4/`。
 
 ## C. 代码与项目（单仓三树 + projects/ 本地目录）
 

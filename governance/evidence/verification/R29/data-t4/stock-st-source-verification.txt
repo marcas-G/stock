@@ -1,0 +1,20 @@
+== R29 Task4: stock_st 源可得性核实（CH / 本地 raw / token） ==
+date: 2026-09-16T21:35:45+08:00
+
+[1] teajoin token（.env 与进程环境）
+ls: 无法访问'.env': 没有那个文件或目录
+env FACTORLAB_TEAJOIN_TOKEN: 不存在
+  文档状态: knowledge/contracts/teajoin-guide.md 头注 —— API Key 2026-08-22 到期（2026-08-23 记录）
+
+[2] ClickHouse factorlab 库表清单（只读）
+tables: ['adj_detail', 'adj_event', 'adj_factor', 'bars_1m', 'daily', 'daily_basic', 'index_daily', 'stk_limit', 'stock_basic', 'tick_orders', 'tick_snapshots', 'tick_trades', 'trade_cal']
+stock_st in tables: False
+index_daily.rows = 0
+stock_st.rows = ERR: Received ClickHouse exception, code: 60, server response: Code: 60. DB::Exception: Unknown table expression identifier '
+
+[3] 本地 raw/归档 搜索 stock_st 数据文件（parquet/csv/zip/db）
+  (以上为空 = 无文件)
+  (data/ 下 duckdb 文件: 无则空)
+
+[4] teajoin 接口可达性（无 token，仅 DNS/TLS 层探测，不发业务请求）
+https://teajoin.com HTTP=405 time=0.638547s

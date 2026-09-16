@@ -1,0 +1,31 @@
+/data/students/gaolei/stock/platform/src/factorlab/app/run.py:395: STDegradedWarning: ST 未知按非 ST 处理，结果为无 ST 口径：exclude_st=true 但库中无 stock_st 表，FACTORLAB_ST_DEGRADE=allow 已显式降级（is_st=null、in_universe 不做 ST 过滤）。需真实 ST 过滤请灌入 stock_st 并保持开关默认 fail fast。
+  uf = resolve_universe_frame(spec, rd, dates=signal_cal.to_list(),
+2026-09-16 21:36:20.524 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 21:36:20.560 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+提示: 十分位组 [3, 4, 7, 8, 9]（0=最小 
+signal）全期无有效收益——信号重并列/离散时分位跳档，spread/单调性不可用；建议降低
+分组数或改用其他评估口径
+small_cap_extreme: n_weeks=182 ic_mean=-0.02269286020637261 spread=nan
+	Command being timed: ".venv/bin/factorlab run ../research/factor/size/extreme.yaml --output-dir /tmp/opencode/r29-circmv-sampling/out/extreme"
+	User time (seconds): 165.96
+	System time (seconds): 40.84
+	Percent of CPU this job got: 393%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:52.53
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 4005304
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 6880384
+	Voluntary context switches: 182020
+	Involuntary context switches: 642944
+	Swaps: 0
+	File system inputs: 8
+	File system outputs: 253440
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

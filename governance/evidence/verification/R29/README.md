@@ -12,7 +12,10 @@ date: 2026-09-16 | 执行分支: workspace（HEAD 起步 881a077，并发 agent 
 | pending 登记 + 评审 M 口径 | `d121651` |
 | 本证据 | 本提交 |
 
-## data/（Task 4 残余）
+## data-t4/（Task 4 残余）
+
+> 目录名说明：`data/` 被根 `.gitignore` 的 `data/` 规则整体忽略（R24 同类先例），
+> 故改名 `data-t4/`（内容不动）；R29 README 与之引用同步。
 - `stock-st-source-verification.txt`：stock_st 源核实（CH 无表 / data+_archive 无快照 / token 缺失且 2026-08-22 过期）
   → 裁决：保留 FACTORLAB_ST_DEGRADE 显式降级 + 触发条件（登记 interface §4.2 / pending #26 / data-map）
 - `index-daily-dead-ref-fix.txt`：ingest_index_sina.py 死引用修复（DDL/README/interface 三处同口径；CH index_daily 0 行实测）
