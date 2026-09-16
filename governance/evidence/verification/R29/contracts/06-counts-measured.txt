@@ -1,0 +1,41 @@
+== R29/contracts 计数实测（2026-09-16）==
+host: user
+HEAD: 881a07796dd125c3b25a9d5477eb4ea202f11363
+
+--- G-CONTRACT REPORT（check_dataiface.py）---
+[G-CONTRACT/平台表名字面量] REPORT：70 处（未竟 → governance/workspace/pending-items.md #12①）
+      platform/src/factorlab/adapters/catalog.py:169: 'adj_factor'
+
+--- CH factorlab 表数/行数（system.tables）---
+13
+adj_detail	18124805
+adj_event	57173
+adj_factor	18124805
+bars_1m	1853379840
+daily	18124805
+daily_basic	18124805
+index_daily	0
+stk_limit	17854764
+stock_basic	5861
+tick_orders	5810986406
+tick_snapshots	344059684
+tick_trades	3797289378
+trade_cal	8772
+
+--- daily_fact parquet ---
+-rw-rw-r-- 1 gaolei gaolei 454844999 9月  15 21:21 data/fact/daily_fact/daily_fact.parquet
+rows: 18124805 codes: 5861
+
+--- 依赖声明 vs venv 实装 ---
+pyproject direct deps: 19
+optional talib: 1
+optional dev: 2
+venv installed pkgs: 72
+
+--- research/factor 规模 ---
+on-disk yaml: 196
+tracked yaml: 171
+families declared: 15
+
+--- 分类面 ---
+# 分类表全集: 528 条（含未注册库函数；注册面见不带 --catalog 的 op list）

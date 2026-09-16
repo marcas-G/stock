@@ -1,0 +1,37 @@
+--- /tmp/opencode/ch-skill-before.md	2026-09-16 21:35:44.189997741 +0800
++++ /data/students/gaolei/.claude/skills/factorlab-ch-pipeline/SKILL.md	2026-09-16 21:35:49.774237682 +0800
+@@ -33,9 +33,12 @@
+ ```
+ 
+ ## 关键事实（全部实测，勿凭旧经验）
+-- 库 `factorlab`@127.0.0.1:19000（`/data/students/gaolei/clickhouse/`）；行量级：
+-  daily 18,162,795 / stk_limit 17,889,079 / adj_detail 18,162,795 / adj_event 57,173
+-  / bars_1m 1,854,876,240 / tick 3 表 98.6 亿
++- 库 `factorlab`@127.0.0.1:19000（`/data/students/gaolei/clickhouse/`）；行量级
++  （2026-09-16 实测，13 表）：daily 18,124,805 / adj_detail 18,124,805 /
++  adj_factor 18,124,805 / daily_basic 18,124,805 / stk_limit 17,854,764 /
++  adj_event 57,173 / bars_1m 1,853,379,840 / tick 3 表 99.5 亿
++  （orders 58.1 + trades 38.0 + snapshots 3.4 亿）/ stock_basic 5,861 /
++  trade_cal 8,772；index_daily 0 行（补数待裁决）
+ - **vol 单位 = 股**（tushare 是手 = ×100）；amount = 元；total_mv = 万元
+ - **adj_event 事件行 = 红利∨送∨转∨配 ≠ 0**（57,173 行）；adj_detail 全量行级；
+   事件列平时 0/事件日非零。**CA Gate 事件源 = adj_event 表**；daily.adj_factor /
+@@ -46,7 +49,7 @@
+ - **内存守约（用户铁约束：勿打满 CPU/内存）**：--workers 4、分片流式
+   （iter_batches 5M）、文件落盘不物化；跑重任务前先 free 检查
+ 
+-## stk_limit 派生（derive_stk_limit.py v4，17,889,079 行全验证）
++## stk_limit 派生（derive_stk_limit.py v4；2026-09-16 实测 17,854,764 行）
+ - 来源 = daily(pre_close 非空 ∧ ≥1996-12-16) − 注册制豁免 5,332 行（NOT IN 集合
+   对账 A∖B=5,332 / B∖A=0 精确闭环；**别用 IS NULL 反接**——裸客户端 LEFT JOIN
+   失配是空串不是 NULL）
+@@ -70,7 +73,8 @@
+ 1. 本目录脚本路径全绝对自锚定（任意位置可跑）；跑 CH 命令带 --port 19000
+ 2. 改动派生规则：先改 docstring 记录版本（v1-v4 先例），重灌后 reconcile 对账 +
+    抽值验证（边界日/触板分布/豁免 code）
+-3. 工具改动归位 `platform/tools/`（R27；`ashare_alpha3` 仅历史参考）；研究侧改动不进平台内核
++3. 工具改动归位 `platform/tools/`（R27；`ashare_alpha3` 已归档
++   `_archive/2026-09-16-ashare-alpha3/`，2026-10-16 到期，仅历史参考）；研究侧改动不进平台内核
+ 4. 对账非 0：先看 reconcile 输出差异表，再查源 parquet vs CH，别直接重灌
+ 
+ ## 验证清单

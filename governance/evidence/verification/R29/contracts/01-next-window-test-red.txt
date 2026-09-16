@@ -1,0 +1,27 @@
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+_______________ test_interface_next_window_contract_not_drifted ________________
+
+    def test_interface_next_window_contract_not_drifted():
+        """防漂移（R07-CONTRACT-I5）：NEXT_WINDOW/分钟窗口契约必须留在 interface.md；
+        旧的全局面口径 "NEXT_OPEN only" 不得回潮（分层限定语句写"仅接受 NEXT_OPEN"）。"""
+        text = DOC.read_text(encoding="utf-8")
+        assert "NEXT_WINDOW" in text, "interface.md 缺 NEXT_WINDOW（R22 分钟窗口契约）"
+>       assert "NEXT_OPEN only" not in text, (
+            "interface.md 出现旧口径 'NEXT_OPEN only'——契约回退（R07-CONTRACT-I5）")
+E       AssertionError: interface.md 出现旧口径 'NEXT_OPEN only'——契约回退（R07-CONTRACT-I5）
+E       assert 'NEXT_OPEN only' not in '# FactorLab...y_check`）。\n'
+E         
+E         'NEXT_OPEN only' is contained here:
+E            timing 仍 NEXT_OPEN only**：v1 只接受 schedule/target
+E         ?           ++++++++++++++
+E             authority = `ExecutionTiming.NEXT_OPEN`（市场数据对象是
+E             MarketOpenSnapshot）；NEXT_CLOSE → `NotImplementedError`（禁止拿
+E             daily.open 冒充 next_close 成交/规划价）。**R22 分钟窗口不改变本层**：...
+E         
+E         ...Full output truncated (853 lines hidden), use '-vv' to show
+
+tests/test_doc_paths_exist.py:68: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_doc_paths_exist.py::test_interface_next_window_contract_not_drifted
+1 failed, 2 passed in 2.68s

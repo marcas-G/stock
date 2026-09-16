@@ -1,0 +1,232 @@
+diff --git a/governance/evidence/verification/R21/README.md b/governance/evidence/verification/R21/README.md
+index a936229..9e33c2a 100644
+--- a/governance/evidence/verification/R21/README.md
++++ b/governance/evidence/verification/R21/README.md
+@@ -56,3 +56,14 @@
+ - 新 `data/fact/daily_fact/daily_fact.parquet` sha256 `79f68fee4f73c877…`，18,124,805 行 / 5,861 codes（旧 18,162,795，备份 `*.bak-R21`）
+ - CH：daily/adj_factor/daily_basic/adj_detail 同步；stk_limit 17,854,764 行；stock_basic 5,861 行（含 delist_date）
+ - 关键复验：600519 单位、300842 除权参考价、600811 逐值、600005 退市 is_listed=False、adj_factor NULL 语义、stk_limit 事件日 band
++
++## 2026-09-16 后现状注记（R07/R29；历史正文不改写）
++
++- `daily_basic.circ_mv`：**已派生可用**（R07-DATA-I4：`float_shares × close / 1e4`，万元口径；
++  2026-09-16 CH 实测 16,873,795/18,124,805 行非空）——上方「数据重灌影响」为 R21 当时事实
++  （当时未派生）。
++- `index_daily`：CH 全表 **0 行** → `idx_ret` 恒 NULL（补数源待裁决，见 pending-items #25）。
++- `stock_st`：CH **无此表** → `exclude_st` 全市场降级 `FACTORLAB_ST_DEGRADE=allow`（无 ST 口径；
++  见 pending-items #26）。
++- G-CONTRACT REPORT 计数：本文件「验收基线」记 68 处（R21 当时口径），2026-09-16 门实测 **70 处**
++  （证据 `R29/contracts/06-counts-measured.txt`）。
+diff --git a/governance/ops/check_dataiface.py b/governance/ops/check_dataiface.py
+index 2831cc0..a6302bd 100644
+--- a/governance/ops/check_dataiface.py
++++ b/governance/ops/check_dataiface.py
+@@ -222,7 +222,8 @@ def check_mark_construction() -> list[str]:
+ 
+ 
+ def report_platform_tables() -> list[str]:
+-    """REPORT：平台 src 里 core/factio 之外的表名字面量（未竟项 #12①：460 处 SQL）。"""
++    """REPORT：平台 src 里 core/factio 之外的表名字面量（未竟项 #12①：70 处，
++    2026-09-16 门实测；历史文本“~460 处”为 grep 口径，与门不可比）。"""
+     hits = []
+     for p in _py_files(PLATFORM_SRC):
+         rel = _rel(p)
+diff --git a/governance/ops/gates.sh b/governance/ops/gates.sh
+index c4511c9..52761fc 100644
+--- a/governance/ops/gates.sh
++++ b/governance/ops/gates.sh
+@@ -196,7 +196,7 @@ topo() {
+ dataiface() {
+   # R8c：从"报告模式 grep 计数"升级为 AST 判定——
+   #   ENFORCED：工具树分区字面量（`year=` 只许 partitions 产出）、标记路径构造（只许 writekit）；
+-  #   REPORT  ：平台表名字面量（未竟 #12①:460 处 SQL）、工具树直读（未竟 #13）。
++  #   REPORT  ：平台表名字面量（未竟 #12①:70 处，2026-09-16 实测）、工具树直读（未竟 #13）。
+   # 由 Python 侧统一输出（含负向自检：--selftest 保证门不是死的）。
+   # R06-M5：平台 venv 缺失时响亮失败（同上，不回落系统 python3）。
+   PY=${PLATFORM}/.venv/bin/python
+diff --git a/governance/workspace/data-map.md b/governance/workspace/data-map.md
+index efa5cd8..e0cac1b 100644
+--- a/governance/workspace/data-map.md
++++ b/governance/workspace/data-map.md
+@@ -15,11 +15,11 @@
+ | A2 | 分钟原始 zip | `data/raw/minutes/` | 20G（1609 zip，2020-01..2026-08） | 上游分钟数据源（zip 形态） | 外部数据源 | A3 转换器 | 增量（新月份到货补 zip） |
+ | A3 | 分钟事实库 | `data/fact/bars_1m/` | 19G（80 个月 Hive parquet + `_state/` + `_dataset_metadata.json`） | `platform/tools/converters/convert_minutes_to_parquet.py` | A2 | CH bars_1m（B1）、platform 1m 漏斗、ashare_ingest/validate_minutes 对账、universe_stages 分层特征 | 逐月转换 + `_state` 断点续跑；**重跑前先读 `_dataset_metadata.json`** |
+ | A4 | 逐笔事实库 | `data/fact/tick_fact/` | 82G（orders/trades/snapshots/cancels + `_manifest/`） | `platform/tools/converters/convert_tick_to_parquet.py`（cancels 由 `platform/tools/lob_fact/pipeline/extract_sz_cancels.py`） | A1 | CH tick_* 3 表（B1）、lob_fact 重建（A6）、ashare_ingest/validate_tick 对账 | 逐日转换 + manifest 记账；cancels 单表可独立补抽 |
+-| A5 | 日线事实 | `data/fact/daily_fact/daily_fact.parquet` | 435M（18,162,795 行） | `platform/tools/ashare_ingest/import_daily.py`（通达信日K导出 → parquet；R19 收编） | A8 | CH daily 层 5 表（B1；`ch_ingest/ingest_daily.py`）、`ch_ingest/adj_backfill.py`（除权 7 列 → adj_detail/adj_event）、universe_stages 各层、1m_features 日级注入 | 全量重算（zip → parquet），行数对账见 ch_ingest/reconcile |
++| A5 | 日线事实 | `data/fact/daily_fact/daily_fact.parquet` | 435M（18,124,805 行 / 5,861 码；2026-09-16 实测） | `platform/tools/ashare_ingest/import_daily.py`（通达信日K导出 → parquet；R19 收编） | A8 | CH daily 层 5 表（B1；`ch_ingest/ingest_daily.py`）、`ch_ingest/adj_backfill.py`（除权 7 列 → adj_detail/adj_event）、universe_stages 各层、1m_features 日级注入 | 全量重算（zip → parquet），行数对账见 ch_ingest/reconcile |
+ | A6 | 订单簿重建（L3） | `data/fact/lob_fact/` | 113G（lob_events 99G / lob_sweep_meta 12G / lob_checkpoints 3G + `_batch/` + panel_1s + panel_1m + `panel_runs/`） | `platform/tools/lob_fact/pipeline/run_lob_batch.py`（W2 引擎 + W4/W5 批算） | A1 + A4（δ-lag 锚定） | factor_panel.py 面板、audit_w5、未来 tick 因子 | **单写者 flock 纪律**（`_batch/.lock`）：批算与 compact 互斥；状态 `_batch/state.json`（13 月 250/250 完成） |
+ | A7 | 校准/验证制品 | `data/calib/lob_fact_calib/`（w1/w3 校准 JSON）、`data/calib/validation/`（date_shift_exceptions.csv + step0a/step0b） | 3.7M | `platform/tools/lob_fact/diag/{calibrate_w1,measure_w3}.py`；验证战役脚本（已归档，可再生成） | A1/A4 | lob_fact 引擎对拍（CALIB_OUT）、converter 生产路径（DATE_SHIFT_EXC_PATH） | 只增不改（冻结制品）；**validation/date_shift_exceptions.csv 被生产路径读取，禁止删除** |
+ | A8 | 日线原始 | `data/raw/daily/`（daily_pre.parquet + 2 个通达信日K zip + 退市股/） | 4.2G | 通达信日K导出（上游） | 外部数据源 | A5（`ashare_ingest/import_daily.py` 直接 glob 本目录；**只读**） | 增量导出（新 zip 到货） |
+-| A9 | 股票池（golden） | `data/ref/universes/v4_top300.parquet` | 6.6M | **上游 golden 参考**（jqdata 口径，生成链路未在工作区留存——见 pending-items #9） | A5（市值/行情口径） | `universe_stages/scripts` 10/11/20/30（读作 golden_v4_top300）；layer1 产出的是 `v4_top300_local.parquet`（outputs，非本文件） | 只读参考；更新需外部源头（登记待考） |
++| A9 | 股票池（golden） | `data/ref/universes/v4_top300.parquet` | 6.6M | **上游 golden 参考**（jqdata 口径；源脚本已归档 `_archive/2026-09-16-ashare-alpha3/references/v4_jqdata_final_original.py`，2026-10-16 到期——见 pending-items #9） | A5（市值/行情口径） | `universe_stages/scripts` 10/11/20/30（读作 golden_v4_top300）；layer1 产出的是 `v4_top300_local.parquet`（outputs，非本文件） | 只读参考；重生成需 jqdata 环境（外部）+ 归档脚本复跑（登记待考） |
+ | A10 | 指数基准 | `data/ref/000905.SH.parquet`（中证 500） | 24K | `platform/tools/ashare_ingest/import_index.py`（R19 收编） | 外部 | universe_stages benchmark | 重跑脚本（网络依赖；R19 修掉『默认 end 是未来日期』的必崩 bug） |
+ | A11 | 未解包归档 | `data/raw/20260817.7z` | 5.3G | quark 网盘（单日全码包） | 外部 | universe_stages `ticks_root`（**需先解包**，见 pending-items #3） | 解包后排期（**先 `df` 复核余量**——2026-09-15 实测 338G 可用；见 pending-items #3） |
+ | A12 | 预留面板区 | `data/panel/` | 空 | —（公约预留给未来跨源大面板） | — | — | 新面板落位时更新本表 |
+@@ -28,16 +28,21 @@
+ 
+ | # | 单元 | 位置/连接 | 规模 | 生产者 | 消费者 | 说明 |
+ |---|---|---|---|---|---|---|
+-| B1 | ClickHouse `factorlab` | `127.0.0.1:8123`（HTTP；19000 是 tcp client 端口），db=factorlab | tick_orders 5,810,986,406 行等 8 表 | `platform/tools/ch_ingest/`（ingest_daily/bars/tick + derive_stk_limit） | platform ch 后端、研究只读查询 | 对账：`make reconcile`（全一致才 exit 0；**单解释器** `platform/.venv/bin/python`，R27 起 emb 退役）；进度：`ch_ingest/state.json`（**单 JSON**，R4b 由目录形态迁移而来；运行时，不入 git） |
++| B1 | ClickHouse `factorlab` | `127.0.0.1:8123`（HTTP；19000 是 tcp client 端口），db=factorlab | **13 表**（2026-09-16 实测：tick_orders 5,810,986,406 / tick_trades 3,797,289,378 / tick_snapshots 344,059,684 / bars_1m 1,853,379,840 / daily=adj_detail=adj_factor=daily_basic 18,124,805 / stk_limit 17,854,764 / adj_event 57,173 / stock_basic 5,861 / trade_cal 8,772；**index_daily 0 行**，见 pending-items #25） | `platform/tools/ch_ingest/`（ingest_daily/bars/tick + derive_stk_limit） | platform ch 后端、研究只读查询 | 对账：`make reconcile`（全一致才 exit 0；**单解释器** `platform/.venv/bin/python`，R27 起 emb 退役）；进度：`ch_ingest/state.json`（**单 JSON**，R4b 由目录形态迁移而来；运行时，不入 git） |
+ | B2 | 平台库 `factorlab.duckdb` | `platform/data/`（相对平台树根） | **当前不存在** | `factorlab data rebuild`（数据源=teajoin API） | platform duckdb 后端 | 重建需先 redeem teajoin token（2026-08-22 已过期）；或改用 `FACTORLAB_DATA_BACKEND=ch`。见 pending-items |
+ | B3 | teajoin Tushare 代理 | `https://teajoin.com`（FACTORLAB_TEAJOIN_TOKEN） | — | 外部 API | platform data rebuild/fetcher | token 过期，重建前先 redeem |
+ 
++> **R29 数据缺口裁决（2026-09-16）**：CH 无 `stock_st` 表（ST 口径按
++> `FACTORLAB_ST_DEGRADE` 显式降级，不伪造；pending #26）；`index_daily` 0 行且无可用
++> 补数脚本（pending #25）。两表恢复条件与证据见 pending-items 与
++> `governance/evidence/verification/R29/data/`。
++
+ ## C. 代码与项目（单仓三树 + projects/ 本地目录）
+ 
+ | # | 项目 | 分支/角色 | 权威内容 |
+ |---|---|---|---|
+ | C1 | `platform/`（仓库内） | 平台树 | src/factorlab、tests、（契约 4 篇 → `knowledge/contracts/`、设计 → `knowledge/design/platform/`，R24） |
+-| C2 | `research/`（仓库内） | 研究树 | factor/（152 yaml，14 族）、tools/（剩余研究工具：strategies/factor_lib）——档案/索引/playbook R24 迁 `knowledge/dossiers/`；数据生产线工具集 R27 归位 `platform/tools/` |
++| C2 | `research/`（仓库内） | 研究树 | factor/（170 tracked / 196 on-disk yaml（在途挖矿），15 族；2026-09-16 实测）、tools/（剩余研究工具：strategies/factor_lib）——档案/索引/playbook R24 迁 `knowledge/dossiers/`；数据生产线工具集 R27 归位 `platform/tools/` |
+ | C3 | `platform/kernels/quant_core`（R18 起；原 `projects/quant_core_shim`） | 仓库内（内核发行物唯一声明点） | quant-core 0.1.0 shim（仅装 `platform/.venv`；Rust 版到位时同目录换 build backend） |
+ | C4 | `_archive/2026-09-16-ashare-alpha3/`（原 `projects/ashare_alpha3`；**R19/R20 收编完成**） | 本地归档（无 git；2026-10-16 到期） | 数据侧已完成 → `platform/tools/ashare_ingest/`；股票池段已完成 → `platform/tools/universe_stages/`（R20）；R24 Task 11 归档 |
+ 
+diff --git a/governance/workspace/pending-items.md b/governance/workspace/pending-items.md
+index 07649c8..d1f19b3 100644
+--- a/governance/workspace/pending-items.md
++++ b/governance/workspace/pending-items.md
+@@ -62,6 +62,11 @@
+    未在工作区留存**（jqdata 口径）。
+    未决因：No Orphan 纪律要求每个资产能回答"我为什么存在/谁生产我"。
+    启动条件：溯源外部来源并补生产者说明，或标注"外部一次性交付、不可再生成"。
++   **2026-09-16 校正（R29）**："生成链路未在工作区留存"已失真——源脚本
++   `_archive/2026-09-16-ashare-alpha3/references/v4_jqdata_final_original.py`（jqdata 口径；
++   `_archive/2026-09-12-S1/root_files/v4_top300.csv` 亦存）随 R24 Task 11 归档。
++   归档 2026-10-16 到期前裁决：随归档删除则真正"外部一次性交付、不可再生成"（需显式标注），
++   或另行留存脚本；data-map A9 行已同步。
+ 
+ 10. **CH 灌入状态与 schema 漂移检查**（低优先）
+     现状：`ch_ingest/state.json/` 记录已完成月份；ddl.sql 与 CH 实际 schema 未做逐列核对。
+@@ -81,6 +86,8 @@
+       （`platform/tools/lob_fact/core/factor_panel.py:701`）均经 `lib.tickdata` 薄封装到平台单点。
+     - ❌ ④ catalog 拆分（`core/catalog_model` + `adapters/catalog_docs`）：**未做**——R21 实测
+       仍为单模块 `platform/src/factorlab/adapters/catalog.py`；保留为未竟项。
++      **2026-09-16 现状（R29）**：仍单模块（853 行）；本轮仅加"分类表全集入口"
++      （`op list --catalog`，528 条）指针，未拆分。
+     **原表述保留如下**（R21 只加核对结论，不改写历史）：
+     > ① P-5 批算编排单点：端口已在 `ports/batch.py` 定义 + `InlineOrchestrator` 契约测试绿；
+     > 真实实现 `adapters/batch_flock.py`（flock+ProcessPool+看门狗+_SUCCESS）与三份样板
+@@ -93,9 +100,10 @@
+ 
+ 12. **数据接口收口剩余专项**（2026-09-15 R4 登记；R21 校正 ① 计数口径）
+     ① **表名常量单点**（`core/factio/tables.py`）：平台 `read/*` 的 duckdb|ch 编译对里
+-       **68 处表名字面量**（R21 门实测）。**口径** = `governance/ops/check_dataiface.py::report_platform_tables()`
++       **70 处表名字面量**（2026-09-16 门实测；R21 当时 68 处）。**口径** = `governance/ops/check_dataiface.py::report_platform_tables()`
+        的 AST 字符串常量出现**处数**，范围 `platform/src` 且排除 `core/factio/`，docstring 不计；
+-       输出见 `governance/evidence/verification/R21/EVID/I7-dataiface-count.txt`。R0 文本的"~460 处"系
++       输出见 `governance/evidence/verification/R21/EVID/I7-dataiface-count.txt`（R21）；
++       2026-09-16 复测见 `governance/evidence/verification/R29/contracts/06-counts-measured.txt`。R0 文本的"~460 处"系
+        grep 口径（注释/测试/SQL 文档串都算入），**与门不可比，引用以门实测为准**。
+        收敛需逐条改 SQL 字符串，风险 > 收益 →
+        需与"位级门 + 全库 reconcile"配套的专项轮次。
+@@ -150,7 +158,8 @@
+     代价与收益须一起评估。
+ 
+ 18. **venv 无法从依赖声明复现**（R18 登记，实测）
+-    现状：`platform/pyproject.toml` 只声明 20 个依赖，而 `platform/.venv` 里实际有 **72 个包**
++    现状：`platform/pyproject.toml` 只声明 **19 个直接依赖**（2026-09-16 复测；R18 登记时记 20；
++    另有可选组 talib 1 / dev 2），而 `platform/.venv` 里实际有 **72 个包**
+     （未声明者含 pandas / openpyxl / plotly / black / numba / sympy / httpx…，见
+     `governance/evidence/verification/R18/04-venv-freeze.txt`）；全仓**无** `uv.lock` / `requirements*.txt`。
+     影响：venv 一旦丢失或重建，**得到的是另一个环境**（版本漂移会威胁 lob_fact 的字节级重跑
+@@ -207,6 +216,8 @@
+     启动条件：设计已存（`knowledge/design/workspace/2026-09-15-open-operators/`；
+     明细 R07 `feature/01-open-operators-plan23.md` A1-A11/B1-B2）——下一轮功能排期
+     直接写 Plan 2/3 实施计划。
++    **触发状态（2026-09-16 R29 复核）**：已燃——现状三类入口可复现（`op_meta` 非空、
++    `rank(close, by=date)`、方法窗体），无阻塞依赖；只差排期。
+ 
+ 24. **分钟执行 V2（量能触发 / 分钟 NAV / 临停规则库）**（2026-09-16 登记）
+     现状：V1（NEXT_WINDOW 分钟窗口成交 + WINDOW_END_BASED 日级 marks）已落地（R22，
+@@ -217,22 +228,29 @@
+     §6.3-6.5），非缺陷。
+     启动条件：量价异动执行算法 / 日内风险视图 / 临停仿真精度的研究需求各自触发。
+ 
+-25. **`index_daily` 空表 + `ingest_index_sina.py` 死引用**（2026-09-16 登记）
++25. **`index_daily` 空表 + `ingest_index_sina.py` 死引用**（2026-09-16 登记；**R29 同日裁决**）
+     现状：CH `factorlab.index_daily` 全表 0 行 → 9 个 crash_bottom 族 spec 的 `idx_ret`
+-    恒 NULL（族不可复跑）；`platform/tools/ch_ingest/ddl.sql:70` 注释指向的补数脚本
+-    `ingest_index_sina.py` 全仓无此文件（死引用，`git grep` 仅注释自身命中）。
+-    未决因：补数源未裁决（sina 拉 000852.SH vs teajoin token 恢复后 `data update`
+-    指数增量）；读路径 LEFT JOIN 依赖表存在，不能简单删表。
+-    启动条件：先裁决补数源 → 灌目标指数全历史 → 重跑 crash_bottom 族；同时删/改
+-    `ddl.sql` 死引用并停止在文档 advertise。
+-
+-26. **`stock_st` 缺表（exclude_st 全场降级）**（2026-09-16 登记）
++    恒 NULL（族不可复跑）。**裁决（R29，2026-09-16）：当前无可用补数路径**——候选源
++    teajoin `index_daily` 接口（token 缺失且 2026-08-22 已过期）；现 `factorlab data
++    refresh` 的指数增量只写 duckdb 平台库、不接 CH；CH 侧无 index_daily 灌入工具。
++    死引用已清：DDL/README/interface 三处同口径（`ingest_index_sina.py` 全仓确无此文件，
++    不再 advertise）。
++    未决因：补数源与灌入工具均未落地；读路径 LEFT JOIN 依赖表存在，不能简单删表。
++    启动条件：teajoin token 恢复或新增 index→CH 灌入工具 → 补 `000852.SH` 全历史 →
++    重跑 crash_bottom 族。证据：`governance/evidence/verification/R29/data/`。
++
++26. **`stock_st` 缺表（exclude_st 全场降级）**（2026-09-16 登记；**R29 同日裁决**）
+     现状：CH 无 `stock_st` 表；94% spec 带 `exclude_st: true` → 全市场挖矿/复跑必须
+     `FACTORLAB_ST_DEGRADE=allow`（warning + `is_st=null` + summary `st_degrade: true`，
+     即无 ST 口径）；真实 ST 过滤不可用，降级结果与 ST 过滤结果不可混比。
+-    未决因：无 ST 历史快照源（需外部数据）。
+-    启动条件：确定 ST 源 → 建表灌入（沿 interface.md §4.2 coverage 契约）→ 关开关按
+-    标准 ST 过滤复跑；此前涉及 ST 的验收口径按「无 ST」记录。
++    **源核实（R29）**：本地无任何 `stock_st` 历史数据（CH 无表、`data/raw` 与 `_archive`
++    无快照、平台 duckdb 库不存在）；唯一候选源 = teajoin `stock_st` 接口（在套餐 137
++    接口目录内，见 `knowledge/contracts/teajoin-guide.md` §5），但 token 缺失且
++    2026-08-22 已过期。**裁决**：保留 `FACTORLAB_ST_DEGRADE` 显式降级为现行口径，
++    不伪造 ST 数据（interface.md §4.2 ST coverage 段已记同款裁决）。
++    启动条件：teajoin token 恢复（可直接拉 `stock_st` 历史快照）或外部 ST 源到位 →
++    建表灌入（沿 interface.md §4.2 coverage 契约）→ 关开关按标准 ST 过滤复跑；
++    此前涉及 ST 的验收口径按「无 ST」记录。证据：`governance/evidence/verification/R29/data/`。
+ 
+ 27. **R07-MIG-I2：档案旧坐标清理残余**（2026-09-16 登记；主体同日完成 ✅；编号 #27——
+     并行 agent 先占 #23-26，原登记号 #23 让位）
+@@ -252,3 +270,28 @@
+     （现行单点 `knowledge/handbooks/factor-mining-playbook.md`，R06-M10 已归位）。
+     在途：挖矿 untracked 档案的旧落点引用由挖矿循环提交前按 skill 修
+     （`factor-mine` §8 门纪律）；G-LEGACY 已纳入 untracked 扫描，漏网即红。
++
++28. ✅ **2026-09-16 落地（R07-DATA-I8）**：CA Gate 连续回测工作流——支持事件（现金分红/
++    送转/配股不参与）在 execution date 开盘前调整 PRE 持仓，跨除权**单 run 连续多年**可跑、
++    NAV 连续（Sharpe/回撤直接可算，分段重基退役；分段历史口径见 interface §CA Gate）。
++    证据：`platform/tests/test_backtest_ca_multi_year.py`（≥3 年/52 决策/4 事件手算对拍 +
++    存根必败）、契约 `knowledge/contracts/interface.md` §CA Gate（R07-DATA-I8 v2）、
++    `governance/evidence/verification/R24/17-r07-fixes/ca/`。
++    **残余 fail-closed（保持不加宽）**：armed 缺 `adj_event` 表 / 命中事件缺 `adj_detail`
++    或明细行缺失/全 0-NULL / 负值事件列 / 事件命中停牌持仓 / 明细非有限值 / 事件 code 不在
++    PRE 持仓——均 `ExecutionDataQualityError` 拒绝（不得静默放行）。
++
++29. ✅ **2026-09-16 完成（R07-DATA-I4）**：`daily_basic.circ_mv` 已派生灌入
++    （`float_shares × close / 1e4`，万元口径，与 total_mv 同式；`ingest_daily.py`）——
++    2026-09-16 CH 实测 16,873,795 / 18,124,805 行非空，原"全空 → 10 spec×4 族静默 null"消除；
++    契约见 `knowledge/contracts/interface.md`（commit `73f30f6`）；证据
++    `governance/evidence/verification/R29/contracts/06-counts-measured.txt`。
++    残余：`pe_ttm/pb/dv_ratio/volume_ratio` 4 列仍占位空列（无数据源，见 interface §4 注）。
++
++28. ✅ **2026-09-16 完成：`daily_basic.circ_mv` 派生重灌（R07-DATA-I4）**
++    `ingest_daily.py` 派生 `circ_mv = close×float_shares`（万元）；CH 单表重灌
++    18,124,805 行，非空 0 → 16,873,795，`reconcile daily` exit 0；R29 抽样 3 spec
++    复跑 `signal_null_ratio` 1.0 → ≤0.01、n_weeks 0 → 182、IC 可算。
++    commit `18e8531`；证据 `governance/evidence/verification/R24/17-r07-fixes/data-i4/`
++    + `governance/evidence/verification/R29/data/`。
++    残余：`pe_ttm/pb/dv_ratio/volume_ratio` 4 列仍为占位空列（无数据源，不 advertise）。
+diff --git a/knowledge/contracts/catalog.md b/knowledge/contracts/catalog.md
+index 37a8f88..19daeab 100644
+--- a/knowledge/contracts/catalog.md
++++ b/knowledge/contracts/catalog.md
+@@ -113,6 +113,11 @@
+ - `ts_zscore`（ts v0.1.0）
+ - `vwap`（ts v0.1.0）
+ 
++#### 分类表全集（含未注册库函数——注册面之外的开放算子底座）
++
++- 入口：`factorlab op list --catalog`——528 条（含未注册库函数）；分类面 = 生成分类表 + 注册面全集（注册清单见上一小节）
++- 生成器：platform/scripts/gen_op_catalog.py（--check 校验生成产物与当前依赖一致）
++
+ #### 元素级方法链白名单（与解析器单源一致——仅限这组可写 `.abs()` 形态）
+ 
+ `abs`、`exp`、`floor`、`log`、`log1p`、`sign`、`sqrt`

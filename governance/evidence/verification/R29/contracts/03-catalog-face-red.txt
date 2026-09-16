@@ -1,0 +1,18 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_operators_point_to_classification_catalog_face ______________
+
+    def test_operators_point_to_classification_catalog_face():
+        """分类表全集入口（R07-CONTRACT 残余）：目录必须指向 `factorlab op list --catalog`
+        分类面（含未注册库函数）与其生成器——注册清单之外的开放算子底座。"""
+        from factorlab.core.ops.registration import effective_catalog
+    
+        ops = build_catalog()["open_surface"]["operators"]
+>       face = ops["classification_face"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'classification_face'
+
+tests/test_catalog.py:193: KeyError
+=========================== short test summary info ============================
+FAILED tests/test_catalog.py::test_operators_point_to_classification_catalog_face
+1 failed in 3.10s

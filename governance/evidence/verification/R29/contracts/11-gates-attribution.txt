@@ -1,0 +1,22 @@
+== G-INDEX 红归因（2026-09-16，R29/contracts 契约对齐轮）==
+
+失败项（gates.sh 唯一红）：[G-INDEX] 因子索引与生成器一致 ✗
+  索引不一致：索引与生成器输出不一致（doc 陈旧或手改）——重跑 build_index.py
+
+归因：**并发挖矿在途**，非本任务（契约指针/计数对齐/backlog）引入。
+  - 基线证据：本任务开工时 git status 已含 untracked 新 spec
+    （research/factor/intraday/、vol_run_energy/symrun_r30_{flip,streak}.yaml、
+    volatility/max_effect_20d_{zmax,high,extcnt}.yaml）与在改 research/factor/_families.yaml；
+    当时 knowledge/index/factors.md 未被改动（clean）。索引生成器扫文件系统 →
+    与已提交索引逐字节比较即红。即：**本任务开工前 G-INDEX 已红**。
+  - 本任务未触碰 research/factor/**、knowledge/index/**、knowledge/dossiers/**（挖矿在途纪律）。
+  - 复验过程中 build_index.py 曾被误跑一次（脚本忽略 --help 直接重生成），
+    已 `git checkout -- knowledge/index/factors.md` 还原（git status 证实 clean）。
+
+其余门全绿（见 10-gates.txt）：
+  G-COPY / G-BOUNDARY / G-LEGACY（tracked+untracked 活文件零残留）/ G-PATHS /
+  G-IMPORTS（413 文件）/ G-ANNOTATE（175 档案）/ G-REVIEWS（109 行 finding）/
+  G-LINT（196/0）/ G-VENV / G-TOPO / G-CONTRACT / G-MARK / G-READ 及其负向自检。
+
+处置：索引重生成属挖矿提交动作（`build_index.py` 随挖矿批次统一跑）；
+本任务不动挖矿在途文件，门红如实归因即可。
