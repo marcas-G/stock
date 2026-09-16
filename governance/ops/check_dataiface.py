@@ -13,7 +13,7 @@
   报告档**不判红**，但也**不谎报绿**：未竟就是未竟。
 
 用法：
-    python scripts/check_dataiface.py [--selftest]
+    python governance/ops/check_dataiface.py [--selftest]
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ import re
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 PLATFORM_SRC = REPO / "platform" / "src"
 # R27：工具归位后双树扫描——platform/tools（数据生产线）+ research/tools（剩余研究工具）。
 TOOL_ROOTS = [REPO / "platform" / "tools", REPO / "research" / "tools"]
@@ -298,7 +298,7 @@ def check_g_read() -> list[str]:
                 continue          # 边界见 G_READ_ALLOWED 注释
             elif key not in G_READ_ALLOWED:
                 bad.append(f"{rel}:{node.lineno}: 未登记的直读 {fname}({src}) —— "
-                           f"应走平台单点；确有理由则登记进 scripts/check_dataiface.py")
+                           f"应走平台单点；确有理由则登记进 governance/ops/check_dataiface.py")
             else:
                 seen.add(key)
     for key in sorted(set(G_READ_ALLOWED) - seen):

@@ -21,7 +21,7 @@
 解析方式：把两棵工具树下的模块名合并建索引（模块名 → 所在工具目录），import 时按
 "自身目录 → lib/ → 其它工具目录"判定。外部/平台模块（pandas、factorlab、`_env`…）解析不到 → 放行。
 
-用法：python scripts/check_tool_layering.py [--selftest]
+用法：python governance/ops/check_tool_layering.py [--selftest]
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ import ast
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 # R27：数据生产线工具归位 platform/tools 后，门扫两棵树——
 # platform/tools（数据生产线）+ research/tools（剩余：strategies/factor_lib）。
 TOOL_ROOTS = [REPO / "platform" / "tools", REPO / "research" / "tools"]

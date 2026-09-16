@@ -31,9 +31,9 @@
   R23/R27 两次实测一致）；工具/研究 `make test-research`（= `platform/tools` **337** + `research/tools` **35**；
   **单解释器**（平台 venv 3.13），R27 实测，清单与迁移前 372 逐一相同）。
   （旧 T1/T2 两腿口径（emb + 平台 venv）已退役；`emb` 不再是工具依赖。）
-- 工具拓扑门：`python scripts/check_tool_layering.py`（core 不反依赖 / 生产不带诊断 /
+- 工具拓扑门：`python governance/ops/check_tool_layering.py`（core 不反依赖 / 生产不带诊断 /
   工具不互相 import / lib 是叶子）+ `--selftest`。
-- 数据接口门（AST）：`python scripts/check_dataiface.py`（ENFORCED：研究侧分区字面量 / 标记路径构造；
+- 数据接口门（AST）：`python governance/ops/check_dataiface.py`（ENFORCED：研究侧分区字面量 / 标记路径构造；
   REPORT：平台表名 / 研究侧直读）+ `--selftest`。
 - 涉及数据窗口/分组/对齐语义的改动必须有能捕获跨资产泄漏、未来函数、错位的回归测试。
 
@@ -68,6 +68,6 @@ surfaces(cli,web) → app(装配) → ports(6 契约) → core(纯核)
   `emb`（3.11）已退役为工具解释器（2026-09-16 R27；外部 env 保留，非工具依赖）。
 - CH：`127.0.0.1:8123` db=factorlab。目标机 16GB 无页面文件 → 批算单进程 + 流式 + 及时释放。
 - 评估内核 `quant_core`（shim）自 R18 起在 **`platform/kernels/quant_core/`**（内核发行物唯一声明点，
-  仅装入 `platform/.venv`；emb 不装）。重装 + 落位断言：`bash scripts/reinstall_editable.sh`。
+  仅装入 `platform/.venv`；emb 不装）。重装 + 落位断言：`bash governance/ops/reinstall_editable.sh`。
 - `projects/ashare_alpha3` 已在 R19/R20 完成收编，仅作本地历史参考；**不要再往里放新东西**。
 - lob_fact 校准常量（W1 冻结值 + `pins.sha256` 金样）**不可改**：改动即让 191 测试与历史结论失效。

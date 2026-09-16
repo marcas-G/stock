@@ -6,9 +6,9 @@
 # polars/duckdb 版本漂移（威胁 lob_fact 的字节级重跑）。那笔欠账登记在 governance/workspace/pending-items.md。
 # 本脚本只做一件事：目录移动/搬迁之后，把两个 editable 指回新路径，并**断言落位**。
 #
-# 用法：bash scripts/reinstall_editable.sh [freeze-输出路径]
+# 用法：bash governance/ops/reinstall_editable.sh [freeze-输出路径]
 set -euo pipefail
-ROOT=$(cd "$(dirname "$0")/.." && pwd); cd "$ROOT"
+ROOT=$(cd "$(dirname "$0")/../.." && pwd); cd "$ROOT"
 
 UV=${UV:-$(command -v uv || echo /home/gaolei/.local/bin/uv)}
 PY=platform/.venv/bin/python

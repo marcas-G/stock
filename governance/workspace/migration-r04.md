@@ -53,9 +53,9 @@
 | 6 | `docs/{data-map,directory-conventions,pending-items,archive-policy,traceability-matrix,remote-cleanup-checklist,workspace-p0p8}.md` | `governance/workspace/` | 5 | ✅ `f238ea5` |
 | 7 | `docs/递归式需求驱动系统工程开发手册：NASA Systems Engineering × V-Model.md` | `knowledge/handbooks/` | 4 | ✅ `6aaefad` |
 | 8 | `docs/index/{factors,strategies}.md`（strategies 为计划补遗） | `knowledge/index/` | 4 | ✅ `6aaefad` |
-| 9 | `docs/verification/` | `governance/evidence/verification/` | 6 | ✅ `TBD-T6` |
-| 10 | `docs/reviews/`（余下） | `governance/evidence/reviews/` | 6 | ✅ `TBD-T6` |
-| 11 | `scripts/*` | `governance/ops/` | 7 | ☐ |
+| 9 | `docs/verification/` | `governance/evidence/verification/` | 6 | ✅ `583217f` |
+| 10 | `docs/reviews/`（余下） | `governance/evidence/reviews/` | 6 | ✅ `583217f` |
+| 11 | `scripts/*` | `governance/ops/` | 7 | ✅ `TBD-T7` |
 | 12 | `platform/results/` | `runs/platform/` | 8 | ☐ |
 | 13 | 两树 `AGENTS.md` 并入根；`CLAUDE.md` 薄化；`platform/docs`、`research/docs` 留壳 | — | 10 | ☐ |
 | 14 | `projects/ashare_alpha3` | `_archive/<date>-ashare-alpha3/` | 11 | ☐ |
@@ -79,9 +79,9 @@
 | 3 | `305b757` | 设计/计划迁 `knowledge/design/{platform,research,workspace}`（100% rename）；minute-execution/strategy-decomposition 引用重指 | `governance/evidence/verification/R24/03-design/` |
 | 4 | `6aaefad` | 档案/索引/手册迁 `knowledge/dossiers|index|handbooks`；生成器输入输出切换；annotate 脚本路径修复；见冲突 C1 | `governance/evidence/verification/R24/04-dossiers/` |
 | 5 | `f238ea5` | 治理文档迁 `governance/workspace/`；31 处引用重指；leftover grep = 0 | `governance/evidence/verification/R24/05-workspace/` |
-| 6 | 见下 | 证据双轨迁 `governance/evidence/{verification,reviews}`（782 文件 100% rename；mtime 前后逐一相等，无并发写）；96 处活引用重指；两个 README 加旧→新映射；`make gates` 全绿 | `governance/evidence/verification/R24/06-evidence/` |
+| 6 | `583217f` | 证据双轨迁 `governance/evidence/{verification,reviews}`（782 文件 100% rename；mtime 前后逐一相等，无并发写）；96 处活引用重指；两个 README 加旧→新映射；`make gates` 全绿 | `governance/evidence/verification/R24/06-evidence/` |
 | 6 | | | |
-| 7 | | | |
+| 7 | 见下 | 门与检查脚本迁 `governance/ops/`；ROOT 推导 `../..`；`make gates`/reinstall_editable 新路径验证 | `governance/evidence/verification/R24/07-ops/` |
 | 8 | | | |
 | 9 | | | |
 | 10 | | | |

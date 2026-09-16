@@ -22,7 +22,7 @@ test-research:
 test-all: test-platform test-research
 
 gates:
-	bash scripts/gates.sh
+	bash governance/ops/gates.sh
 
 lint-factors:
 	platform/.venv/bin/factorlab lint --all

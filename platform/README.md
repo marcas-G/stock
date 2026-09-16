@@ -14,7 +14,7 @@ TS/CS/GP 分区 + 池公式 + 多输出）、分块计算、日频/分钟双链�
 # 环境：本工作树自带 uv 管理的 venv（Python 3.13）
 .venv/bin/python -m pip --version 2>/dev/null || export PATH=/home/gaolei/.local/bin:$PATH
 # 两个 editable（factorlab + 评估内核 shim）一条命令重装并断言落位：
-bash ../scripts/reinstall_editable.sh
+bash ../governance/ops/reinstall_editable.sh
 
 # 测试
 .venv/bin/python -m pytest tests/ -q

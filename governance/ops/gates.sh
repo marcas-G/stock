@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # stock 工作区常驻门（单仓单树）
 #
-# 用法：bash scripts/gates.sh [--all|--structure|--topo|--dataiface]
+# 用法：bash governance/ops/gates.sh [--all|--structure|--topo|--dataiface]
 # 设计：分两档——
 #   [强制] 结构门：现在就必须绿，红了即失败退出；
-#   [判定] 数据接口门：R8c 起由 `scripts/check_dataiface.py` 做 **AST 判据**
+#   [判定] 数据接口门：R8c 起由 `governance/ops/check_dataiface.py` 做 **AST 判据**
 #          （grep 会把注释/文案/关键字实参算进去，计数不说明问题）：
 #          ENFORCED 两项（研究侧分区字面量、标记路径构造）红了即失败；
 #          REPORT 两项（平台表名、研究侧直读）打印未竟计数并指向 pending-items。
 set -uo pipefail
-ROOT=$(cd "$(dirname "$0")/.." && pwd); cd "$ROOT"
+ROOT=$(cd "$(dirname "$0")/../.." && pwd); cd "$ROOT"
 MODE=${1:---all}
 FAIL=0
 ok()   { echo "    ✓ $1"; }
@@ -46,7 +46,7 @@ structure() {
   # 活指针不会写 R17；写了就是自证造假，评审可抓）。2026-09-15 R17 起生效。
   n=$(git grep -nI -e "quant-platform-main" -e "quant-platform-research" -e "projects/quant-platform" -- . \
         ':!governance/evidence/verification' ':!knowledge/design/platform' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' ':!knowledge/design/research' 2>/dev/null \
-      | grep -vE '^scripts/gates.sh:' \
+      | grep -vE '^governance/ops/gates.sh:' \
       | grep -vE '^governance/workspace/(workspace-p0p8|traceability-matrix|remote-cleanup-checklist)\.md:' \
       | grep -v 'local-backup-20260903（975M' \
       | grep -vE 'R17' | wc -l)
@@ -60,8 +60,8 @@ structure() {
   [ -f "$ROOT/pyproject.toml" ] && bad "根目录不应有 pyproject.toml（防 rootdir 抢占）" || ok "根无 pyproject.toml"
 
   echo "[G-IMPORTS] 全仓 factorlab.* 导入可解析（含负向自检）"
-  if "$PLATFORM/.venv/bin/python" scripts/check_imports.py --selftest >/dev/null 2>&1; then ok "自检通过（能抓到迁移遗漏）"; else bad "自检失败——门失效"; fi
-  if out=$("$PLATFORM/.venv/bin/python" scripts/check_imports.py 2>&1); then ok "$(echo "$out" | tail -1)"; else bad "导入解析失败"; echo "$out" | head -8 | sed 's/^/      /'; fi
+  if "$PLATFORM/.venv/bin/python" governance/ops/check_imports.py --selftest >/dev/null 2>&1; then ok "自检通过（能抓到迁移遗漏）"; else bad "自检失败——门失效"; fi
+  if out=$("$PLATFORM/.venv/bin/python" governance/ops/check_imports.py 2>&1); then ok "$(echo "$out" | tail -1)"; else bad "导入解析失败"; echo "$out" | head -8 | sed 's/^/      /'; fi
 
   echo "[G-INDEX] 因子索引与生成器一致"
   if out=$("$PLATFORM/.venv/bin/python" research/tools/factor_lib/build_index.py --check 2>&1); then ok "$out"; else bad "索引不一致：$out"; fi
@@ -98,11 +98,11 @@ structure() {
 
 # ── 数据接口门（R4 前为报告模式）────────────────────────────────
 topo() {
-  # R11：工具拓扑（依赖方向 / 横向耦合）。判据与自检见 scripts/check_tool_layering.py。
+  # R11：工具拓扑（依赖方向 / 横向耦合）。判据与自检见 governance/ops/check_tool_layering.py。
   PY=${PLATFORM}/.venv/bin/python
   [ -x "$PY" ] || PY=python3
-  "$PY" scripts/check_tool_layering.py || FAIL=1
-  "$PY" scripts/check_tool_layering.py --selftest || FAIL=1
+  "$PY" governance/ops/check_tool_layering.py || FAIL=1
+  "$PY" governance/ops/check_tool_layering.py --selftest || FAIL=1
 }
 
 dataiface() {
@@ -112,10 +112,10 @@ dataiface() {
   # 由 Python 侧统一输出（含负向自检：--selftest 保证门不是死的）。
   PY=${PLATFORM}/.venv/bin/python
   [ -x "$PY" ] || PY=python3
-  if ! "$PY" scripts/check_dataiface.py; then
+  if ! "$PY" governance/ops/check_dataiface.py; then
     FAIL=1
   fi
-  "$PY" scripts/check_dataiface.py --selftest || FAIL=1
+  "$PY" governance/ops/check_dataiface.py --selftest || FAIL=1
 }
 
 echo "== stock gates =="
@@ -127,5 +127,5 @@ case "$MODE" in
 esac
 echo
 if [ "$FAIL" = "0" ]; then echo "结构门：全绿"; else echo "结构门：有失败（见上）"; fi
-echo "数据接口门：ENFORCED 判定（AST）+ REPORT 未竟计数（见 scripts/check_dataiface.py）"
+echo "数据接口门：ENFORCED 判定（AST）+ REPORT 未竟计数（见 governance/ops/check_dataiface.py）"
 exit $FAIL

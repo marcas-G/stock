@@ -93,7 +93,7 @@
 
 12. **数据接口收口剩余专项**（2026-09-15 R4 登记；R21 校正 ① 计数口径）
     ① **表名常量单点**（`core/factio/tables.py`）：平台 `read/*` 的 duckdb|ch 编译对里
-       **68 处表名字面量**（R21 门实测）。**口径** = `scripts/check_dataiface.py::report_platform_tables()`
+       **68 处表名字面量**（R21 门实测）。**口径** = `governance/ops/check_dataiface.py::report_platform_tables()`
        的 AST 字符串常量出现**处数**，范围 `platform/src` 且排除 `core/factio/`，docstring 不计；
        输出见 `governance/evidence/verification/R21/EVID/I7-dataiface-count.txt`。R0 文本的"~460 处"系
        grep 口径（注释/测试/SQL 文档串都算入），**与门不可比，引用以门实测为准**。
@@ -105,10 +105,10 @@
        **副本**（实测逐字节相同）；**R16 后同步还需一并拷 `quark_client.py`**（传输层单点，见 `R16/`）——改名必须与技能更新同批，否则技能立刻断。属用户侧动作。
     ③ **tools 入口统一为 `run.py` 子命令形态**（C2）：涉及 6 个工具的 CLI 重构，需各自的
        冒烟测试先行；本轮只补齐了 README 与统一命名规范文档。
-13. ✅ **2026-09-15 完成**（`scripts/check_dataiface.py::check_g_read`）：AST 取直读目标表达式，
+13. ✅ **2026-09-15 完成**（`governance/ops/check_dataiface.py::check_g_read`）：AST 取直读目标表达式，
     硬规则（目标含 `tick_fact`/`lob_fact`/`bars_1m`/`year=`/`month=` 即违规，无豁免）+ 登记制
     （6 个理由明确的直读点；新增未登记即失败、登记点消失也失败）。原表述保留如下——
-    **G-READ 转强制**（AST 级判据）：R8c 已给出 `scripts/check_dataiface.py`（AST + `--selftest`），
+    **G-READ 转强制**（AST 级判据）：R8c 已给出 `governance/ops/check_dataiface.py`（AST + `--selftest`），
     其中"研究侧分区字面量"与"标记路径构造"两条**已转 ENFORCED**；G-READ 仍是报告档——剩余 7 处直读经逐处核对均为
     合法（manifest/自有产物/元数据/流式灌库/daily 小切片）；grep 无法区分「事实表读」
     与「manifest 读」，需改成 AST 分析（读的目标是否指向 tick_fact/lob_fact/bars_1m 根）。
@@ -154,7 +154,7 @@
     （未声明者含 pandas / openpyxl / plotly / black / numba / sympy / httpx…，见
     `governance/evidence/verification/R18/04-venv-freeze.txt`）；全仓**无** `uv.lock` / `requirements*.txt`。
     影响：venv 一旦丢失或重建，**得到的是另一个环境**（版本漂移会威胁 lob_fact 的字节级重跑
-    与 `pins.sha256` 金样）。故 `scripts/reinstall_editable.sh` **只做 editable 重装**，
+    与 `pins.sha256` 金样）。故 `governance/ops/reinstall_editable.sh` **只做 editable 重装**，
     不冒充重建入口。
     启动条件：需要环境可复现时，先补 `uv lock`（或冻结快照转 requirements）+ 在验证机上
     按声明重建一次并跑三门（平台全量 / 研究 T1+T2 / lob_fact 金样），代价须一并评估。

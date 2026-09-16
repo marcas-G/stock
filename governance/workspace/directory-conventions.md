@@ -24,8 +24,7 @@
   `governance/ops/`，运行产物进 gitignore 的 `runs/`）。
 - 根 `.gitignore` 是**白名单式**（`/*` 忽略 + 逐项放行 + 显式忽略 `data/`/`runs/`/`*.duckdb`）：
   `git ls-files` 只会包含三棵树与根级文档，任何新增根文件都不会被误提交。
-- 过渡登记（R24 期间）：`scripts/` 与根 `docs/` 为搬迁前旧位（→ `governance/ops/`、
-  `knowledge/`+`governance/`）；完成即从根消失。
+- R24 已完成：`scripts/` → `governance/ops/`；根 `docs/` → `knowledge/` + `governance/`（2026-09-16，`docs/` 已从根消失）。
 
 ## 2. data/ 五类判据（一刀切归类）
 
@@ -48,7 +47,7 @@
 
 | 载体 | 角色 | 内容 |
 |---|---|---|
-| `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`kernels/quant_core/`（评估内核 shim = 内核发行物唯一声明点，R18 起）、`tools/`（数据生产线工具集：lob_fact / converters / 1m_features / ch_ingest / quark_download / ashare_ingest / universe_stages + `lib/` + `_env.py`；R27 归位）、`tests/`、`docs/`（契约 4 篇 + superpowers）、`scripts/` |
+| `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`kernels/quant_core/`（评估内核 shim = 内核发行物唯一声明点，R18 起）、`tools/`（数据生产线工具集：lob_fact / converters / 1m_features / ch_ingest / quark_download / ashare_ingest / universe_stages + `lib/` + `_env.py`；R27 归位）、`tests/`、`scripts/`（gen_op_catalog 等；契约/设计 R24 起在 `knowledge/`） |
 | `research/`（仓库内） | **研究树**（唯一副本） | `tools/`（剩余研究工具：`strategies/`、`factor_lib/`；数据生产线工具集 R27 归位 `platform/tools/`）、`factor/<族>/`（152 spec）、`docs/`（factors/strategies/playbook） |
 | `knowledge/`（仓库内） | **文档与知识树**（R24 起） | `contracts/`（平台契约 4 篇）、`design/{platform,research,workspace}/`、`dossiers/`（factor/strategy 档案 + playbook + manual）、`handbooks/`、`index/`（生成物） |
 | `governance/`（仓库内） | **治理与证据树**（R24 起） | `ops/`（gates.sh 与 check_* 脚本）、`workspace/`（本文件、data-map、pending-items…）、`evidence/{verification,reviews}/` |

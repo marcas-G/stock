@@ -61,7 +61,7 @@ surfaces/ (cli/web)  →  app/ (bootstrap/run/evaluate)  →  ports/ (6 条契�
 ## 环境事实
 
 - Python 3.13（本目录自带 uv 管理 venv：`.venv/`；解释器 `.venv/bin/python`）。
-  目录移动后重装 editable + 落位断言：`bash ../scripts/reinstall_editable.sh`
+  目录移动后重装 editable + 落位断言：`bash ../governance/ops/reinstall_editable.sh`
   （等价于 `uv pip install --python .venv/bin/python -e . -e kernels/quant_core --no-deps --no-build-isolation`）。
   评估依赖 `quant_core`（R18 起在 **`platform/kernels/quant_core/`**——内核发行物唯一声明点；
   仅装入本 venv，**emb(T2) 不装**：research 侧零消费者）。
