@@ -62,8 +62,32 @@ import openpyxl
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-# 全量快照文件名标记（`_build_tasks` 用它把全量/增量 zip 分开）
+# 全量快照识别（`_build_tasks` 用它把全量/增量 zip 分开；Design §4 R30 T5）：
+# - 网盘命名：`19910101至YYYYMMDD...zip` → `FULL_SNAPSHOT_PREFIX` 前缀
+# - 旧本地快照：文件名含 `07月31日` 字样（历史命名，保留兼容）
+FULL_SNAPSHOT_PREFIX = '19910101至'
 FULL_SNAPSHOT_MARK = '07月31日'
+_FULL_END_DATE_RE = re.compile(r'至(\d{8})')
+
+
+def _snapshot_name(path) -> str:
+    """文件名：Path / 类 Path 对象（有 ``.name``）取 ``.name``，字符串原样。"""
+    return getattr(path, 'name', path)
+
+
+def _is_full_snapshot(path) -> bool:
+    """全量快照：网盘 `19910101至` 前缀，或旧标记 `07月31日`（兼容）。"""
+    name = _snapshot_name(path)
+    return FULL_SNAPSHOT_PREFIX in name or FULL_SNAPSHOT_MARK in name
+
+
+def _newest_full(paths):
+    """多份全量快照取 `至YYYYMMDD` 最大者；日期不可解析（旧命名）→ 原序首个。"""
+    def end_date(p) -> str:
+        m = _FULL_END_DATE_RE.search(_snapshot_name(p))
+        return m.group(1) if m else ''
+    return max(paths, key=end_date)
+
 
 COLS = ['date', 'open', 'high', 'low', 'close', 'amount', 'volume',
         'float_shares', 'total_shares', 'hf_close']
@@ -305,29 +329,31 @@ def _merge_code(files: list[Path]) -> pd.DataFrame:
 
 
 def _build_tasks(src_dir: Path):
-    full_zip = [p for p in src_dir.glob('*.zip') if FULL_SNAPSHOT_MARK in p.name]
-    incr_zip = [p for p in src_dir.glob('*.zip') if p not in full_zip]
-    if not full_zip:
+    zips = sorted(src_dir.glob('*.zip'))
+    full_zips = [p for p in zips if _is_full_snapshot(p)]
+    incr_zips = [p for p in zips if not _is_full_snapshot(p)]
+    if not full_zips:
         raise SystemExit('no full daily kline zip found')
+    full_zip = _newest_full(full_zips)
     tasks = []
-    zf = zipfile.ZipFile(full_zip[0])
+    zf = zipfile.ZipFile(full_zip)
     for n in zf.namelist():
         if not n.endswith('.xlsx'):
             continue
         code6 = n.split('/')[-1].split('.')[0]
         if not re.fullmatch(r'\d{6}', code6):
             continue
-        tasks.append((0, 'zip', str(full_zip[0]), n, code6))
+        tasks.append((0, 'zip', str(full_zip), n, code6))
     zf.close()
-    if incr_zip:
-        zi = zipfile.ZipFile(incr_zip[0])
+    if incr_zips:
+        zi = zipfile.ZipFile(incr_zips[0])
         for n in zi.namelist():
             if not n.endswith('.xlsx'):
                 continue
             code6 = n.split('/')[-1].split('.')[0]
             if not re.fullmatch(r'\d{6}', code6):
                 continue
-            tasks.append((1, 'zip', str(incr_zip[0]), n, code6))
+            tasks.append((1, 'zip', str(incr_zips[0]), n, code6))
         zi.close()
     for f in src_dir.glob('退市股/*.xlsx'):
         code6 = f.name[:6]
