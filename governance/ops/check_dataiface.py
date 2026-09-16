@@ -63,6 +63,8 @@ G_READ_ALLOWED = {
         "conversion_manifest —— tick 转换回执清单",
     ("platform/tools/ch_ingest/ingest_daily.py", "main", "DAILY_SRC"):
         "daily_fact 是灌入的**输入源**（生产者视角），路径已取 factio.paths 单点",
+    ("platform/tools/ch_ingest/ingest_fundamentals.py", "load_fact", "path"):
+        "fundamentals fact 是灌入的**输入源**（生产者视角，T8），路径已取 factio.paths 单点",
     ("platform/tools/ch_ingest/reconcile.py", "_reconcile", "DAILY_SRC"):
         "同上：对账取源行数",
     ("platform/tools/ch_ingest/reconcile.py", "_source_event_count", "DAILY_SRC"):

@@ -91,6 +91,48 @@ CREATE TABLE IF NOT EXISTS factorlab.moneyflow (
 ) ENGINE = MergeTree
   ORDER BY (ts_code, trade_date);
 
+-- ========== fundamentals（T8 Plan P：财报 xlsx 当期快照） ==========
+-- 来源：夸克网盘 `财报报表---有史以来--每周更新` 的 `*更新简化个股基本面数据.xlsx`
+-- → data/raw/financial/ → parse_fundamentals_xlsx.py → fact
+-- （data/fact/fundamentals/fundamentals_snapshot.parquet）→ 本表（ingest_fundamentals.py，
+-- CREATE IF NOT EXISTS 幂等 + TRUNCATE + INSERT 全量替换；R3 裁决：本 DDL 与脚本内建表同步维护）。
+-- 单位沿用源：股本列=万股、金额列=元；updated_date=源更新日（行键，非单一快照日）。
+-- **限制声明**：本表是**当期快照**（非历史 PIT 序列）——同一 ts_code 可有多行不同 updated_date；
+-- 不能据此回溯"某历史日已知财务值"。PIT 历史待多期快照累积或人工 *_financial.parquet。
+CREATE TABLE IF NOT EXISTS factorlab.fundamentals (
+    ts_code        String,               -- '000001.SZ'
+    updated_date   Date,                 -- 源更新日期（非空；行级唯一键之一）
+    report_period  Nullable(String),     -- 源报告期原样（'6'/'9'/…），不臆造日期
+    list_date      Nullable(Date),       -- 上市日期
+    market         Nullable(String),     -- 源市场：sz/sh/bj
+    industry       Nullable(String),     -- 行业
+    sw_industry    Nullable(String),     -- 申万行业
+    sw_sub         Nullable(String),     -- 申万细分
+    total_shares   Nullable(Float64),    -- 总股本（万股）
+    float_a_shares Nullable(Float64),    -- 流通A股（万股）
+    eps            Nullable(Float64),    -- 每股收益（元）
+    total_assets   Nullable(Float64),    -- 总资产（元）
+    current_assets Nullable(Float64),    -- 流动资产（元）
+    fixed_assets   Nullable(Float64),    -- 固定资产（元）
+    intangible_assets Nullable(Float64), -- 无形资产（元）
+    shareholders   Nullable(Float64),    -- 股东人数
+    current_liab   Nullable(Float64),    -- 流动负债（元）
+    long_liab      Nullable(Float64),    -- 长期负债（元）
+    capital_reserve Nullable(Float64),   -- 资本公积金（元）
+    net_assets     Nullable(Float64),    -- 净资产（元）
+    revenue        Nullable(Float64),    -- 营业收入（元）
+    operating_cost Nullable(Float64),    -- 营业成本（元）
+    op_profit      Nullable(Float64),    -- 营业利润（元）
+    invest_income  Nullable(Float64),    -- 投资收益（元）
+    op_cashflow    Nullable(Float64),    -- 经营现金流（元）
+    total_cashflow Nullable(Float64),    -- 总现金流（元）
+    inventory      Nullable(Float64),    -- 存货（元）
+    total_profit   Nullable(Float64),    -- 利润总额（元）
+    net_profit     Nullable(Float64),    -- 净利润（元）
+    undist_profit  Nullable(Float64)     -- 未分配利润（元）
+) ENGINE = MergeTree
+  ORDER BY (updated_date, ts_code);
+
 CREATE TABLE IF NOT EXISTS factorlab.index_daily (
     ts_code String,
     trade_date Date,
