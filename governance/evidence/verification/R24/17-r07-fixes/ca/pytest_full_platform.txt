@@ -49,7 +49,7 @@
     from starlette.testclient import TestClient as TestClient  # noqa
 
 tests/test_batch_flock.py: 26 warnings
-  /home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/popen_fork.py:67: DeprecationWarning: This process (pid=26867) is multi-threaded, use of fork() may lead to deadlocks in the child.
+  /home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/popen_fork.py:67: DeprecationWarning: This process (pid=7616) is multi-threaded, use of fork() may lead to deadlocks in the child.
     self.pid = os.fork()
 
 tests/test_cli.py::test_svd_command_outputs_spectrum
@@ -62,4 +62,4 @@ tests/test_web.py::test_factor_detail_has_correlation_block
     joined = long.pivot(index=["date", "code"], columns="factor",
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-3204 passed, 13 skipped, 33 warnings in 855.48s (0:14:15)
+3204 passed, 13 skipped, 33 warnings in 858.37s (0:14:18)
