@@ -91,6 +91,7 @@ formula: |
 
 | 日期 | 变体/版本 | 改动 | IC mean | t | 结论 |
 |------|-----------|------|---------|---|------|
+| 2026-09-16 | 衍生：`low_vol_20d_park` | 挖矿轮3：close-to-close→Parkinson 极差波动率，见 [`low_vol_20d_park.md`](low_vol_20d_park.md) | 0.0738 | 4.43 | **候选（升级）**：IC +5%、Pearson +53%、spread +68% |
 | 2026-08-18 | 衍生：`low_downside_vol_20d` | 批次4轮13：总波动→下行波动，见 [`low_downside_vol_20d.md`](low_downside_vol_20d.md) | 0.0511 | 3.20 | **无效**：总波动更优（近 26 周亮点） |
 | 2026-08-18 | `low_vol_20d`（初始） | 经典种子扩充 | 0.0696 | 4.40 | 候选（强：IC 0.0696, t=4.40） |
 

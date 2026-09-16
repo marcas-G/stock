@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **161 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **162 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -21,7 +21,7 @@
 | size | 2 | `research/factor/size/` |
 | value | 4 | `research/factor/value/` |
 | vol_run_energy | 17 | `research/factor/vol_run_energy/` |
-| volatility | 7 | `research/factor/volatility/` |
+| volatility | 8 | `research/factor/volatility/` |
 
 ## 族：crash_bottom_leader
 
@@ -253,6 +253,7 @@
 |---|---|---|---|---|---|
 | `low_downside_vol_20d` | 1 | fwd5d |  | [vol_20d.md](../../research/docs/factors/volatility/vol_20d.md) | [yaml](../../research/factor/volatility/vol_20d.yaml) |
 | `low_vol_20d` | 1 | fwd5d |  | [low_vol_20d.md](../../research/docs/factors/volatility/low_vol_20d.md) | [yaml](../../research/factor/volatility/low_vol_20d.yaml) |
+| `low_vol_20d_park` | 1 | fwd5d |  | [low_vol_20d_park.md](../../research/docs/factors/volatility/low_vol_20d_park.md) | [yaml](../../research/factor/volatility/low_vol_20d_park.yaml) |
 | `max_effect_20d` | -1 | fwd5d |  | [max_effect_20d.md](../../research/docs/factors/volatility/max_effect_20d.md) | [yaml](../../research/factor/volatility/max_effect_20d.yaml) |
 | `max_effect_20d_extcnt` | -1 | fwd5d |  | [max_effect_20d_extcnt.md](../../research/docs/factors/volatility/max_effect_20d_extcnt.md) | [yaml](../../research/factor/volatility/max_effect_20d_extcnt.yaml) |
 | `max_effect_20d_high` | -1 | fwd5d |  | [max_effect_20d_high.md](../../research/docs/factors/volatility/max_effect_20d_high.md) | [yaml](../../research/factor/volatility/max_effect_20d_high.yaml) |
