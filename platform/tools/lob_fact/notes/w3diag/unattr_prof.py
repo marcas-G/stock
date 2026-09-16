@@ -1,6 +1,6 @@
 """unattr/ghost vol by 30-min bucket — validates memo attribution labels"""
 import sys
-sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+sys.path.insert(0, '/data/students/gaolei/stock/platform/tools/lob_fact')
 import measure_w3 as M
 import anchoring as A
 import config as C

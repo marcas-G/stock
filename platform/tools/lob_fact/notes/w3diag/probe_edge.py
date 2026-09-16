@@ -1,7 +1,7 @@
 """Probe: 600036@20251215 issue windows — dump engine vs anchor ladders at best edge,
 trace source orders of engine-only best-edge levels."""
 import sys, json
-sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+sys.path.insert(0, '/data/students/gaolei/stock/platform/tools/lob_fact')
 import measure_w3 as M
 from qa import metrics as mt
 import anchoring as A

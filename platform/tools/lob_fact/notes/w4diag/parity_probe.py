@@ -14,7 +14,7 @@
 2026-09-10 校准抽样: 双所 × 平静/fast × 13 月跨度 × 科创板 688/301 × 市价单重日。
 """
 import sys, os, time, json, glob, zipfile, io
-sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+sys.path.insert(0, '/data/students/gaolei/stock/platform/tools/lob_fact')
 import config as C
 from qa import streams as S
 import pandas as pd, polars as pl

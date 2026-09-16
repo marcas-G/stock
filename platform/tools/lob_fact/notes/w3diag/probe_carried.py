@@ -3,7 +3,7 @@ For each registry leftover order: add_ms, px, side, qty, rem after auction fills
 Tag carried = order's px present in REAL first-anchor book (that side). Print add_ms
 distributions + thresholds. Runs 600036@20251215 (SH) and 000021@20260706 (SZ)."""
 import sys
-sys.path.insert(0, '/data/students/gaolei/stock/projects/quant-platform-research/tools/lob_fact')
+sys.path.insert(0, '/data/students/gaolei/stock/platform/tools/lob_fact')
 import measure_w3 as M
 from qa import metrics as mt
 import config as C
