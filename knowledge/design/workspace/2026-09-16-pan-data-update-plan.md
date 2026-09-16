@@ -48,6 +48,7 @@
   - `state.load_state(path) -> dict`（损坏 → 隔离 `*.corrupt-<ts>` 并回空骨架）
   - `state.save_state_atomic(path, state)`（tmp+fsync+os.replace）
   - `state.diff_files(state, category, entries) -> Diff(to_fetch, changed, skipped)`；entries: `list[dict(name,size,rel_path)]`
+  - **T1 执行裁决（2026-09-16）**：状态键用 `_state_key(category, rel_path)` 归一化（rel_path 已含类别前缀则原样，避免双前缀）；`to_fetch = 新文件 + 变更文件`（新在前）。下方实现节选里 `f"{category}/{rel_path}"` 的直接拼接以测试语义为准作废。
 
 - [ ] **Step 1: 失败测试**
 
@@ -185,7 +186,7 @@ def diff_files(state: dict, category: str, entries: list[dict]) -> Diff:
 - Produces:
   - `share.walk_dir(fid, prefix="") -> list[Entry]`（Entry: `name,size,fid,fid_token,rel_path,is_dir`）
   - `share.find_dir(root_fid, name) -> str`（fid；不存在 → KeyError）
-  - `share.iter_category(listdir, start_fid) -> list[Entry]`（递归遍历；跳过目录项；`listdir` 可注入）
+  - `share.iter_category(listdir, start_fid) -> list[dict]`（字典字段 name/size/rel_path/fid/fid_token；递归遍历；跳过目录项；`listdir` 可注入；**T1 裁决：返回 dict 供 T3 直接消费**）
 
 - [ ] **Step 1: 失败测试（fake transport）**
 
