@@ -77,6 +77,7 @@ def main():
         bad += 0 if ok else 1
     if args.full:
         # manifest vs 表逐月行数对账 (整月)
+        from factorlab.adapters.tick_read import count_tick_month
         m = pl.read_parquet(f'{C.TICK_FACT_ROOT}_manifest/cancels_manifest.parquet')
         m = m.with_columns(pl.col('trade_date').dt.strftime('%Y%m%d'))
         print('== 整月 manifest vs 表行数')
