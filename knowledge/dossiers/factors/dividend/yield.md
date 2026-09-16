@@ -60,7 +60,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/dividend_yield/summary.json`（2026-08-18）。
+> 数据快照自 `runs/platform/dividend_yield/summary.json`（2026-08-18）。
 
 | 项 | 值 |
 |----|----|

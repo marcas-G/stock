@@ -79,7 +79,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/momentum_20d/summary.json`（2026-08-17）。
+> 数据快照自 `runs/platform/momentum_20d/summary.json`（2026-08-17）。
 
 ### 样本
 

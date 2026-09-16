@@ -71,7 +71,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/momentum_20d_turnrank_avg20/summary.json`（2026-08-17）。
+> 数据快照自 `runs/platform/momentum_20d_turnrank_avg20/summary.json`（2026-08-17）。
 
 ### 样本
 

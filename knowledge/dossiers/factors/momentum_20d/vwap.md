@@ -80,7 +80,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/momentum_20d_vwap/summary.json`（2026-08-17）。
+> 数据快照自 `runs/platform/momentum_20d_vwap/summary.json`（2026-08-17）。
 
 ### 样本
 
@@ -140,7 +140,7 @@ formula: |
 - **amount 口径**：amount 为全天成交额，VWAP 含尾盘竞价成交（竞价量少权重小），
   污染已大幅摊薄但未完全消除。
 - 种子 [`momentum_20d.md`](momentum_20d.md) 为方向对照（已废弃）。变异记录
-  `results/_mine_round_2.md`。
+  `runs/platform/_mine_rounds/_mine_round_2.md`。
 
 ---
 *档案规范见 `_template.md`；因子挖掘方法论见 `docs/factor-mining-playbook.md`。*

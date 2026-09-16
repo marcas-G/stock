@@ -76,7 +76,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/rsi_reversal_14_ret/summary.json`（2026-09-16，
+> 数据快照自 `runs/platform/rsi_reversal_14_ret/summary.json`（2026-09-16，
 > `st_degrade: true` = 无 ST 口径）。种子 `rsi_reversal_14` 本环境重跑同日对比。
 
 | 项 | 值 |

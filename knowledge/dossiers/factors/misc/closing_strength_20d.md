@@ -68,7 +68,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/closing_strength_20d/summary.json`（2026-08-18）。
+> 数据快照自 `runs/platform/closing_strength_20d/summary.json`（2026-08-18）。
 
 | 项 | 值 |
 |----|----|

@@ -53,7 +53,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/crash_bottom_leader_adv20/summary.json`（2026-08-18）。
+> 数据快照自 `runs/platform/crash_bottom_leader_adv20/summary.json`（2026-08-18）。
 
 | 指标 | 本变体 | 种子（对照） |
 |------|--------|-------------|

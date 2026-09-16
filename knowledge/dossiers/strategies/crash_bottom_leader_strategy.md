@@ -4,7 +4,7 @@
 
 > **状态（2026-09-15，R01-STRAT-I6 修订）：历史快照，当前数据状态下不可复现。**
 > §2/§3 数字产出于 2026-08-18，依赖当时的 duckdb 平台库（`data/factorlab.duckdb`，
-> 含 `index_daily` 000852.SH 与 `stock_st`）与 `results/crash_bottom_leader_timed/panel.parquet`；
+> 含 `index_daily` 000852.SH 与 `stock_st`）与 `runs/platform/crash_bottom_leader_timed/panel.parquet`；
 > 该库与产物已不在树内。2026-09-15 实测 CH 数据面：`index_daily` **0 行**、
 > `stock_st` **表缺失**、`daily_basic.circ_mv` 全 null → `idx_ret`/掩码全 null →
 > 重跑因子 signal 全 null（`n_weeks=0`）。真跑尝试与原始证据：
@@ -20,9 +20,9 @@
 > ```
 > FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/factorlab run \
 >   research/factor/crash_bottom_leader/timed.yaml \
->   --output-dir results/crash_bottom_leader_timed --no-backtest --chunk-days 500
+>   --output-dir runs/platform/crash_bottom_leader_timed --no-backtest --chunk-days 500
 > platform/.venv/bin/python research/tools/strategies/strategy_crash_bottom.py \
->   --panel results/crash_bottom_leader_timed/panel.parquet \
+>   --panel runs/platform/crash_bottom_leader_timed/panel.parquet \
 >   --db <含 daily.pct_chg 与 index_daily 的 duckdb 平台库> \
 >   --k 30 --skip-first-week [--mc 1000]
 > ```
@@ -148,5 +148,5 @@ alpha 收益（当前 18% × 82% ≈ 11.5%）——突破需双引擎（常态�
   `--intensity`/`--stop-loss`/`--rebalance`/`--take-profit`/`--stock-stop-loss`/
   `--max-hold`/`--k-buy` 为已证伪实验保留）。
   **策略 v2.0 = `--skip-first-week --k 30`**。
-- 数据源：`results/crash_bottom_leader_timed/panel.parquet`（信号）+ 平台库
+- 数据源：`runs/platform/crash_bottom_leader_timed/panel.parquet`（信号）+ 平台库
   `daily.pct_chg`（跌停过滤）+ `index_daily`（mkt20）。

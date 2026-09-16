@@ -64,7 +64,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/reversal_20d_nowin/summary.json`（2026-08-17）。
+> 数据快照自 `runs/platform/reversal_20d_nowin/summary.json`（2026-08-17）。
 
 ### 样本
 

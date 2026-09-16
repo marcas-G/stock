@@ -96,7 +96,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/vol_run_energy_symrun/summary.json`（2026-08-17）。
+> 数据快照自 `runs/platform/vol_run_energy_symrun/summary.json`（2026-08-17）。
 
 ### 样本
 
@@ -157,7 +157,7 @@ formula: |
   同源（能量钟形部分共享），差异在游程定义；种子
   [`vol_run_energy.md`](vol_run_energy.md) 的原始游程（上涨频率）被本因子
   证伪/替代。
-- 变异记录 `results/_mine_round_7.md`。
+- 变异记录 `runs/platform/_mine_rounds/_mine_round_7.md`。
 
 ---
 *档案规范见 `_template.md`；因子挖掘方法论见 `docs/factor-mining-playbook.md`。*

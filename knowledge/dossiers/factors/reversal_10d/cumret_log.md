@@ -74,7 +74,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/reversal_10d_cumret_log/summary.json`（2026-09-16，
+> 数据快照自 `runs/platform/reversal_10d_cumret_log/summary.json`（2026-09-16，
 > `st_degrade: true`）。种子同日重跑对比。
 
 | 项 | 值 |

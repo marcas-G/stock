@@ -1,7 +1,7 @@
 # 因子档案模板
 
 > 本文件是因子档案的标准模板。**新建因子档案**：复制本文件为
-> `docs/factors/<族>/<name>.md`（族目录与 spec 同族），删除本说明块，按各章节填写。
+> `knowledge/dossiers/factors/<族>/<name>.md`（族目录与 spec 同族），删除本说明块，按各章节填写。
 > **可执行定义**：`factor/<族>/<name>.yaml`（机器执行）与本文档（人读档案）并行存放；
 > 两者必须一致，改 yaml 后同步本档案。
 
@@ -72,7 +72,7 @@ adjustment: <qfq 等>
 
 ## 4. 验证结果
 
-> 数据快照自 `results/<name>/summary.json`（运行 `factorlab run` 后更新）。
+> 数据快照自 `runs/platform/<name>/summary.json`（运行 `factorlab run` 后更新）。
 > 本表为某次快照；重跑后如需更新，用新的 summary.json 数值替换并刷新
 > `updated_ts` 与下方判定。**若该快照的产物未随仓存档、当前环境不可复跑，
 > front matter 必须保留 `snapshot: 历史快照（...）` 标注**（口径见同目录 `README.md`）。

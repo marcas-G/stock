@@ -94,7 +94,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/vol_run_energy_rl120_turn/summary.json`（2026-08-17）。
+> 数据快照自 `runs/platform/vol_run_energy_rl120_turn/summary.json`（2026-08-17）。
 
 ### 样本
 
@@ -155,7 +155,7 @@ formula: |
   （本样本 2022 起无影响）；历史回测到更早需核对。
 - **rl_win=120 单点测试**：仅验证了一个尺度；120 vs 250 的稳定性曲线未扫。
 - **相关性**：与 [`vol_run_energy.md`](vol_run_energy.md) 同源（游程×能量结构），
-  组合冗余；种子档案已记录本迭代。变异记录 `results/_mine_round_1.md`。
+  组合冗余；种子档案已记录本迭代。变异记录 `runs/platform/_mine_rounds/_mine_round_1.md`。
 
 ---
 *档案规范见 `_template.md`；因子挖掘方法论见 `docs/factor-mining-playbook.md`。*

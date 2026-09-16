@@ -197,3 +197,21 @@
     sha256）；备份 `_archive/backups/r06-mig-i3-root-results-differing-files-2026-09-16.tar.gz`。
     **保留裁决项**：`__root-dup-20260916` 两份以哪个为准（研究侧确认后合并/删除其一）。
     **残余风险**：活跃挖矿会话若仍按旧坐标写根 `results/`，按新坐标迁回（skill 已更新）。
+
+23. **R07-MIG-I2：档案旧坐标清理残余**（2026-09-16 登记；主体同日完成 ✅）
+    现状：档案模板根因已修——`_template.md` 结果根占位 `results/<name>/summary.json` →
+    `runs/platform/<name>/summary.json`，并修模板内 `docs/factors/` 旧路径；存量
+    **tracked 且工作区干净**档案 156 份 163 处 `results/…` 指针机械替换为 `runs/platform/…`
+    （连带 `--output-dir`/`--panel` 命令行形态与 strategies 工具旧默认值），修前 164 行/156 文件
+    （具体指针口径）→ 修后 0；reviewer 反引号口径 164 行/158 文件 → 修后仅 1 行历史事实。
+    证据：`governance/evidence/verification/R24/17-r07-fixes/`（脚本 + 前后计数 + diff）。
+    **保留项（非活指针；G-LEGACY 行级/整档豁免，见 `governance/ops/gates.sh`）**：
+    ① `knowledge/dossiers/factors/README.md:16,23` R21 快照历史事实（旧落点为当时真实事实）；
+    ② `knowledge/README.md:4,12`、`runs/README.md:3`、`knowledge/dossiers/factors/README.md:7,8`
+    R24 路径映射注（旧→新，天然引用旧路径）；
+    ③ `governance/workspace/pending-items.md:136`「原表述保留如下」历史引文（`research/tools/lib/`）；
+    ④ `governance/workspace/workspace-p0p8.md:126` R24 前 worktree 盘点行；
+    ⑤ 全部档案尾行 `docs/factor-mining-playbook.md`——README 明示「不改写」的历史档案正文
+    （现行单点 `knowledge/handbooks/factor-mining-playbook.md`，R06-M10 已归位）。
+    在途：挖矿 untracked 档案的 `platform/results` 引用由挖矿循环提交前按 skill 修
+    （`factor-mine` §8 门纪律）；G-LEGACY 已纳入 untracked 扫描，漏网即红。

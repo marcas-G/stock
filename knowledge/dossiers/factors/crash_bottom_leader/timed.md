@@ -74,7 +74,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/crash_bottom_leader_timed/summary.json`（2026-08-18，分块计算）。
+> 数据快照自 `runs/platform/crash_bottom_leader_timed/summary.json`（2026-08-18，分块计算）。
 
 | 项 | 值 |
 |----|----|

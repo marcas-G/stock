@@ -80,7 +80,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/momentum_20d_turnrank/summary.json`（2026-08-17）。
+> 数据快照自 `runs/platform/momentum_20d_turnrank/summary.json`（2026-08-17）。
 
 ### 样本
 
@@ -149,7 +149,7 @@ formula: |
 - **缺失率**：9.42% > 对照 7.23%（turnover 缺失贡献），影响边际。
 - **相关性**：与 [`reversal_20d.md`](reversal_20d.md) 高度相关（共享 20 日反转
   核心），组合使用时注意冗余；种子 [`momentum_20d.md`](momentum_20d.md) 为
-  方向对照（已废弃）。变异记录见 `results/_mine_round_1.md`。
+  方向对照（已废弃）。变异记录见 `runs/platform/_mine_rounds/_mine_round_1.md`。
 
 ---
 *档案规范见 `_template.md`；因子挖掘方法论见 `docs/factor-mining-playbook.md`。*

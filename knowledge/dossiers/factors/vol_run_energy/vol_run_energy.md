@@ -98,7 +98,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/vol_run_energy/summary.json`（默认参数，2026-08-17）。
+> 数据快照自 `runs/platform/vol_run_energy/summary.json`（默认参数，2026-08-17）。
 > 变体数据见 §5；重跑后按新 summary 更新。
 
 ### 样本
@@ -174,7 +174,7 @@ formula: |
 | 2026-08-17 | `vol_run_energy_win100_gain1.5` | `run --set win=100 gain=1.5`：缩短能量窗口 + 降振幅 | 0.0131 | 3.86 | **更优**：t 3.12→3.86、IR 0.34→0.37、spread 0.15%→0.26%/周、缺失率 68%→60% |
 | 2026-08-17 | `vol_run_energy`（初始） | 自由代码公式端到端验证 | 0.0128 | 3.12 | 显著；缺失率高（67.99%） |
 
-变体 `win100_gain1.5` 细节（快照自 `results/vol_run_energy_win100_gain1.5/summary.json`）：
+变体 `win100_gain1.5` 细节（快照自 `runs/platform/vol_run_energy_win100_gain1.5/summary.json`）：
 样本 2022-01-04 ~ 2026-07-31、108 有效周、4554 股均、缺失率 59.59%；
 spread 0.00255、D1 0.00686 / D10 0.00431。
 

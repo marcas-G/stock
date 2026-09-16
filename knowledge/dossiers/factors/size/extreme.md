@@ -69,7 +69,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/small_cap_extreme/summary.json`（2026-08-18）。
+> 数据快照自 `runs/platform/small_cap_extreme/summary.json`（2026-08-18）。
 
 | 项 | 值 |
 |----|----|

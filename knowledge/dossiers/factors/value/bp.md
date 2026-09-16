@@ -60,7 +60,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `results/value_bp/summary.json`（2026-08-18）。
+> 数据快照自 `runs/platform/value_bp/summary.json`（2026-08-18）。
 
 | 项 | 值 |
 |----|----|
