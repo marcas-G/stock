@@ -1,0 +1,100 @@
+# R07-MIG-I2 修复：模板根因 + 存量旧坐标机械清理
+# date: 2026-09-16T19:03:21+08:00
+
+## 1. 模板根因（_template.md）
+$ git diff -- knowledge/dossiers/factors/_template.md
+diff --git a/knowledge/dossiers/factors/_template.md b/knowledge/dossiers/factors/_template.md
+index 3eb7bdc..018c0dc 100644
+--- a/knowledge/dossiers/factors/_template.md
++++ b/knowledge/dossiers/factors/_template.md
+@@ -1,7 +1,7 @@
+ # 因子档案模板
+ 
+ > 本文件是因子档案的标准模板。**新建因子档案**：复制本文件为
+-> `docs/factors/<族>/<name>.md`（族目录与 spec 同族），删除本说明块，按各章节填写。
++> `knowledge/dossiers/factors/<族>/<name>.md`（族目录与 spec 同族），删除本说明块，按各章节填写。
+ > **可执行定义**：`factor/<族>/<name>.yaml`（机器执行）与本文档（人读档案）并行存放；
+ > 两者必须一致，改 yaml 后同步本档案。
+ 
+@@ -72,7 +72,7 @@ adjustment: <qfq 等>
+ 
+ ## 4. 验证结果
+ 
+-> 数据快照自 `results/<name>/summary.json`（运行 `factorlab run` 后更新）。
++> 数据快照自 `runs/platform/<name>/summary.json`（运行 `factorlab run` 后更新）。
+ > 本表为某次快照；重跑后如需更新，用新的 summary.json 数值替换并刷新
+ > `updated_ts` 与下方判定。**若该快照的产物未随仓存档、当前环境不可复跑，
+ > front matter 必须保留 `snapshot: 历史快照（...）` 标注**（口径见同目录 `README.md`）。
+
+## 2. 存量机械替换（脚本=本子目录 mig/bulk_replace_oldcoord.py）
+# apply 运行输出（原始）:
+  WRITE <156 个文件>  # 逐文件输出见终端历史
+  == 写入：文件 156、替换 163 处、跳过在途 0 ==
+# 复核（apply 后 dry-run，应为 0）:
+$ platform/.venv/bin/python .../bulk_replace_oldcoord.py
+== dry-run：文件 0、替换 0 处、跳过在途 0 ==
+
+## 3. 变更统计（git diff，仅 tracked）
+$ git diff --numstat -- knowledge/dossiers | wc -l
+157
+$ git diff --numstat -- knowledge/dossiers | awk '{a+=$1;d+=$2} END {print "add="a, "del="d}'
+add=166 del=166
+# 非预期行核查（diff 行应只含 results/runs/platform 指针替换；唯一命中=模板 docs/factors 旧行，属预期）:
+-> `docs/factors/<族>/<name>.md`（族目录与 spec 同族），删除本说明块，按各章节填写。
+（唯一命中=模板旧行，属预期；其余 diff 行均含 results/ 或 runs/platform/ 指针）
+
+## 4. 修复前/后旧坐标计数
+### A. 具体指针口径（variant A：`(?<![\w/])results/[A-Za-z0-9_]`，含反引号/命令行等全部形态）
+修前(HEAD 5919337) 行数: 164
+修前 文件数: 156
+修后（工作区）行数: 0
+（0=清零）
+
+### B. reviewer 口径（反引号 `results/）
+修前(HEAD) 行数: 164
+修前 文件数: 158
+修后 行数: 1
+(仅 README:23 历史事实行，行级豁免)
+
+### C. 非档案连带修复（strategy 工具旧坐标）
+diff --git a/research/tools/strategies/README.md b/research/tools/strategies/README.md
+index 94deb51..636329b 100644
+--- a/research/tools/strategies/README.md
++++ b/research/tools/strategies/README.md
+@@ -4,7 +4,7 @@
+ |---|---|---|
+ | `run_strategy.py` | **策略 YAML 薄入口（Plan S）**：`load_strategy_doc` → `run_strategy`（M7 组合 → M8 回测 → 落盘）；`--dry-run` 秒级自检 | `runs/platform/<因子名>/signal.parquet`（results_dir 默认） + CH 执行面 |
+ | `l5_rules.py` | **L5 规则层 V1**：`max_hold` 调仓日粒度近似（边界见 `knowledge/dossiers/strategies/_l5-rules.md`） | 目标组合历史 + 交易日历 |
+-| `strategy_crash_bottom.py` | 崩底反弹 + 领涨股轮动（蒙特卡洛） | `results/<因子名>/panel.parquet`（经平台 `adapters.panel_store` 单点读）+ 指数日线 |
++| `strategy_crash_bottom.py` | 崩底反弹 + 领涨股轮动（蒙特卡洛） | `runs/platform/<因子名>/panel.parquet`（经平台 `adapters.panel_store` 单点读）+ 指数日线 |
+ | `strategy_wait_crash.py` | 知乎"死等股灾"战法（原样实现，**结论：已证伪**） | 同上 |
+ 
+ **策略 spec/档案**：`research/strategy/*.yaml` + `knowledge/dossiers/strategies/*.md`（索引
+@@ -12,4 +12,4 @@
+ 
+ **解释器**：T1 = `platform/.venv/bin/python`（需完整 factorlab）。**测试**：
+ `tests/test_strategy.py`、`tests/test_run_strategy_cli.py`、`tests/test_l5_rules.py`。
+-**文档**：`docs/strategies/`（含策略口径与结论）。
++**文档**：`knowledge/dossiers/strategies/`（含策略口径与结论）。
+diff --git a/research/tools/strategies/strategy_crash_bottom.py b/research/tools/strategies/strategy_crash_bottom.py
+index 2b2c5b5..7d38887 100644
+--- a/research/tools/strategies/strategy_crash_bottom.py
++++ b/research/tools/strategies/strategy_crash_bottom.py
+@@ -477,7 +477,7 @@ def monte_carlo(
+ 
+ def main() -> None:
+     ap = argparse.ArgumentParser(description="crash_bottom_leader 策略回测")
+-    ap.add_argument("--panel", default="results/crash_bottom_leader_timed/panel.parquet")
++    ap.add_argument("--panel", default="runs/platform/crash_bottom_leader_timed/panel.parquet")
+     ap.add_argument("--db", default="data/factorlab.duckdb")
+     ap.add_argument("--k", type=int, default=K_DEFAULT)
+     ap.add_argument("--cost-bps", type=int, default=COST_BPS_DEFAULT)
+
+### D. 残余（保留项，非活指针；门行级豁免）
+  1. knowledge/dossiers/factors/README.md:16,23 — R21 快照历史事实（旧落点为当时事实，README 明示不改写）
+  2. knowledge/README.md:4,12 / runs/README.md:3 / knowledge/dossiers/factors/README.md:7,8 — R24 路径映射注（旧→新，天然引用旧路径）
+  3. governance/workspace/migration-r04.md — 迁移台账（整档豁免）
+  4. governance/workspace/pending-items.md:136 — 「原表述保留如下」历史引文（research/tools/lib/）
+  5. governance/workspace/workspace-p0p8.md:126 — R24 前 worktree 盘点历史行
+  6. 全档案尾行 docs/factor-mining-playbook.md — 历史档案正文（README 明示「不改写」；现行=knowledge/handbooks/）
+  7. 挖矿在途 untracked 档案的 platform/results 引用 — 不属本批（纪律：不碰 M/??）；门已纳入 untracked 扫描

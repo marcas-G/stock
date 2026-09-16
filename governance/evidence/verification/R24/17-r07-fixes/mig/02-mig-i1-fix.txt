@@ -1,0 +1,36 @@
+# R07-MIG-I1 修复
+# date: 2026-09-16T19:01:39+08:00
+
+## 1. extcnt.md 旧坐标修复（diff）
+diff --git a/knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md b/knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md
+index 31d3099..de4b90e 100644
+--- a/knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md
++++ b/knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md
+@@ -82,7 +82,7 @@ formula: |
+ 
+ ## 4. 验证结果
+ 
+-> 数据快照自 `platform/results/max_effect_20d_extcnt/summary.json`（2026-09-16 运行；无 exclude_st 版）。
++> 数据快照自 `runs/platform/max_effect_20d_extcnt/summary.json`（2026-09-16 运行；无 exclude_st 版）。
+ 
+ ### 样本
+ 
+
+## 2. 重生成因子索引
+$ platform/.venv/bin/python research/tools/factor_lib/build_index.py
+已生成 knowledge/index/factors.md（336 行）
+$ ... build_index.py --check
+索引一致 ✓
+
+## 3. 补 extsum snapshot（唯一缺标注，tracked）
+$ ... annotate_factor_archives.py --check  # 写前
+缺 snapshot 标注：1 份
+  - knowledge/dossiers/factors/volatility/extsum.md
+exit=1
+$ ... annotate_factor_archives.py  # 写入
+扫描 170 份；本次写入 1 份；仍缺标注 0 份
+exit=0
+
+## 4. 索引 diff 统计
+ knowledge/index/factors.md | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)

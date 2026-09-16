@@ -93,3 +93,32 @@ commits：`56f5f9e`（platform）、`9e1fdaf`（research）
   报错（不吞原错误）
 - `pending-items` 的 R07 §4.7 backlog（Plan 2/3、分钟 V2）已由并行 agent 登记
   （#23/#24）；策略 lint 本轮落地，无需再登记
+
+## R07-MIG-I1 / R07-MIG-I2 / R07-GATE-I3：迁移/门/坐标（`mig/`）
+
+- **R07-MIG-I1 门红复发**：`extcnt.md` 旧坐标（`platform/results` → `runs/platform`）、
+  重生成 `knowledge/index/factors.md`、extsum snapshot。commit `5919337`。
+  循环 2/3：挖矿新增 `turnrank_top10.md` 缺 snapshot → 补齐（commit `ad43a87`）。
+- **R07-MIG-I2 模板根因 + 存量清理**：`_template.md` 结果根 → `runs/platform/<name>/`、
+  `docs/factors/` → `knowledge/dossiers/factors/`；tracked 且干净档案 **156 份 163 处**
+  机械替换（脚本 `mig/bulk_replace_oldcoord.py`，跳过在途 0）；具体指针口径修前
+  164 行/156 文件 → 修后 0；reviewer 反引号口径 164 行/158 文件 → 修后 1 行（README
+  历史事实）。残余登记 `pending-items`（原 #23，因并行登记 #23-26 改 **#27**）并在门内
+  行级豁免。commits `79bbc79`（workspace）、`458030b`（research 连带：strategies 工具
+  `--panel` 缺省、README 数据源/文档指针）。
+- **R07-GATE-I3 判据加固**：tracked+untracked 统一扫描（本机 git 2.17 无
+  `git grep --untracked`，用 `git ls-files -o --exclude-standard` + grep 等价；GNU
+  grep 3.1 `-P` 单模式限制 → 裸 results/ 单条 PCRE 分路）；裸 `results/` PCRE 负向后顾
+  （排除 `platform/results`、`runs/results`、`test_results`；`<name>` 占位/纯文本不算）；
+  补 `research/tools/lib/`、`docs/{factors,strategies}/`；3 README + strategies 两文件
+  整文件豁免 → 行级。TDD：`mig/05`（RED：同一注入 0 捕获）→ `mig/06`（GREEN：
+  untracked/tracked A/B 均捕获；误报探针 `runs/results`/`test_results`/`results_dir`/
+  `<name>` 0 命中）→ `mig/07`（实现 diff + 清理探针后残余）。commit `83bf9a2`。
+  生效即时验证：本门当场上报修复者 skill 草稿里的 `platform/results` 活字面量 1 处（已改写）。
+- **最终门**（`mig/08-final-gates.txt`）：结构门唯一红 = G-LEGACY 挖矿 **untracked 在途
+  5 处**（`intraday/*`、`symrun_r30_*`、`max_effect_20d_zmax` 的旧落点；按纪律不碰/不
+  提交，untracked 扫描正是 R07-GATE-I3 要求的"真实存活"捕获）；其余全绿（G-IMPORTS/
+  G-INDEX/G-ANNOTATE/G-REVIEWS/G-LINT/G-TOPO/dataiface）；`check_reviews.py` exit 0。
+- **skill 纪律**：`.claude/skills/factor-mine/SKILL.md` §8 入库增"提交前跑
+  `gates.sh --structure`（含旧坐标/索引/snapshot），门未绿不得 commit"
+  （commit `ffa78ef`）。

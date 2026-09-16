@@ -1,0 +1,195 @@
+# 旧坐标盘点（修前）
+# date: 2026-09-16T19:01:23+08:00
+
+## A. 裸根 results/ 具体指针（PCRE variant C 判据，tracked）
+$ git grep -nIP -e '(?<![\w/])results/[A-Za-z0-9_]+(/|\.)' -- . ':!governance/evidence' ':!knowledge/design' ':!platform/docs' ':!research/docs' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes'
+knowledge/dossiers/factors/crash_bottom_leader/adv20.md:56:> 数据快照自 `results/crash_bottom_leader_adv20/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/crash_bottom_leader/adv_mv.md:55:> 数据快照自 `results/crash_bottom_leader_adv_mv/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/crash_bottom_leader/crash_bottom_leader.md:80:> 数据快照自 `results/crash_bottom_leader/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/crash_bottom_leader/dd.md:56:> 数据快照自 `results/crash_bottom_leader_dd/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/crash_bottom_leader/mom10.md:55:> 数据快照自 `results/crash_bottom_leader_mom10/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/crash_bottom_leader/timed.md:77:> 数据快照自 `results/crash_bottom_leader_timed/summary.json`（2026-08-18，分块计算）。
+knowledge/dossiers/factors/crash_bottom_leader/timed_stable.md:57:> 数据快照自 `results/crash_bottom_leader_timed_stable/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/dividend/yield.md:63:> 数据快照自 `results/dividend_yield/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/liquidity/20d.md:63:> 数据快照自 `results/amihud_illiq_20d/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/liquidity/accel.md:72:> 数据快照自 `results/turnover_accel/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/liquidity/directional.md:70:> 数据快照自 `results/volume_ratio_directional/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/liquidity/level.md:63:> 数据快照自 `results/turnover_level/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/liquidity/level_ma20.md:76:> 数据快照自 `results/turnover_level_ma20/summary.json`（2026-09-16，
+knowledge/dossiers/factors/liquidity/turn_20d.md:71:> 数据快照自 `results/amihud_illiq_turn_20d/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/liquidity/volume_ratio.md:63:> 数据快照自 `results/volume_ratio/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/misc/closing_strength_20d.md:71:> 数据快照自 `results/closing_strength_20d/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/momentum_20d/cumret_turn.md:71:> 数据快照自 `results/momentum_20d_cumret_turn/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/momentum_20d/decile.md:75:> 数据快照自 `results/momentum_20d_decile/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/momentum_20d/decile5.md:72:> 数据快照自 `results/momentum_20d_decile5/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/momentum_20d/downtrend.md:74:> 数据快照自 `results/momentum_20d_downtrend/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/momentum_20d/m120.md:71:> 数据快照自 `results/momentum_20d_m120/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/momentum_20d/m60.md:71:> 数据快照自 `results/momentum_20d_m60/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/momentum_20d/momentum_20d.md:82:> 数据快照自 `results/momentum_20d/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/momentum_20d/net60.md:76:> 数据快照自 `results/momentum_20d_net60/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/momentum_20d/open.md:72:> 数据快照自 `results/momentum_20d_open/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/momentum_20d/turnrank.md:83:> 数据快照自 `results/momentum_20d_turnrank/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/momentum_20d/turnrank.md:152:  方向对照（已废弃）。变异记录见 `results/_mine_round_1.md`。
+knowledge/dossiers/factors/momentum_20d/turnrank_avg20.md:74:> 数据快照自 `results/momentum_20d_turnrank_avg20/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/momentum_20d/turnrank_extreme.md:73:> 数据快照自 `results/momentum_20d_turnrank_extreme/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/momentum_20d/turnrank_lowturn.md:72:> 数据快照自 `results/momentum_20d_turnrank_lowturn/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/momentum_20d/turnrank_quad.md:73:> 数据快照自 `results/momentum_20d_turnrank_quad/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/momentum_20d/turnrank_vol.md:73:> 数据快照自 `results/momentum_20d_turnrank_vol/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/momentum_20d/vol_extreme.md:72:> 数据快照自 `results/momentum_20d_vol_extreme/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/momentum_20d/volrank.md:71:> 数据快照自 `results/momentum_20d_volrank/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/momentum_20d/vwap.md:83:> 数据快照自 `results/momentum_20d_vwap/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/momentum_20d/vwap.md:143:  `results/_mine_round_2.md`。
+knowledge/dossiers/factors/momentum_20d/vwap_turn.md:75:> 数据快照自 `results/momentum_20d_vwap_turn/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/quality/defensive.md:72:> 数据快照自 `results/quality_defensive/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_10d/cumret.md:71:> 数据快照自 `results/reversal_10d_cumret/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_10d/cumret_log.md:77:> 数据快照自 `results/reversal_10d_cumret_log/summary.json`（2026-09-16，
+knowledge/dossiers/factors/reversal_10d/intraday.md:71:> 数据快照自 `results/reversal_10d_intraday/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_10d/intraday_extreme.md:73:> 数据快照自 `results/reversal_10d_intraday_extreme/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/civ_extreme.md:72:> 数据快照自 `results/reversal_20d_civ_extreme/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/closepos.md:70:> 数据快照自 `results/reversal_20d_closepos/summary.json`（ε 修复版，2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr10_intraday.md:70:> 数据快照自 `results/reversal_20d_corr10_intraday/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_flow.md:70:> 数据快照自 `results/reversal_20d_corr_flow/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_flow30.md:70:> 数据快照自 `results/reversal_20d_corr_flow30/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_flow_intraday.md:70:> 数据快照自 `results/reversal_20d_corr_flow_intraday/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_intraday.md:72:> 数据快照自 `results/reversal_20d_corr_intraday/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_intraday_turn.md:76:> 数据快照自 `results/reversal_20d_corr_intraday_turn/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_intraday_turn_vol.md:70:> 数据快照自 `results/reversal_20d_corr_intraday_turn_vol/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_skew.md:70:> 数据快照自 `results/reversal_20d_corr_skew/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_turn.md:70:> 数据快照自 `results/reversal_20d_corr_turn/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_turn_flow.md:70:> 数据快照自 `results/reversal_20d_corr_turn_flow/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_turn_flow30.md:70:> 数据快照自 `results/reversal_20d_corr_turn_flow30/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_turn_intraday.md:70:> 数据快照自 `results/reversal_20d_corr_turn_intraday/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_turn_skew.md:73:> 数据快照自 `results/reversal_20d_corr_turn_skew/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_turn_vol.md:70:> 数据快照自 `results/reversal_20d_corr_turn_vol/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/corr_vol.md:70:> 数据快照自 `results/reversal_20d_corr_vol/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/cti_flow30.md:70:> 数据快照自 `results/reversal_20d_cti_flow30/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/cti_near5.md:70:> 数据快照自 `results/reversal_20d_cti_near5/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/cumret.md:76:> 数据快照自 `results/reversal_20d_cumret/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/cumret_freq.md:78:> 数据快照自 `results/reversal_20d_cumret_freq/summary.json`（2026-09-16，
+knowledge/dossiers/factors/reversal_20d/drawdown.md:69:> 数据快照自 `results/reversal_20d_drawdown/summary.json`（direction 修正版，2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/five_dim.md:71:> 数据快照自 `results/reversal_20d_five_dim/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/five_dim_all.md:70:> 数据快照自 `results/reversal_20d_five_dim_all/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/five_dim_ctfi.md:70:> 数据快照自 `results/reversal_20d_five_dim_ctfi/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/five_dim_tsv.md:71:> 数据快照自 `results/reversal_20d_five_dim_tsv/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/five_dim_tsv10.md:70:> 数据快照自 `results/reversal_20d_five_dim_tsv10/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/five_dim_tsvf.md:70:> 数据快照自 `results/reversal_20d_five_dim_tsvf/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/flow_skew.md:70:> 数据快照自 `results/reversal_20d_flow_skew/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/four_dim10.md:70:> 数据快照自 `results/reversal_20d_four_dim10/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/four_dim10v10.md:70:> 数据快照自 `results/reversal_20d_four_dim10v10/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/four_dim_ctfi.md:71:> 数据快照自 `results/reversal_20d_four_dim_ctfi/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/four_dim_ctfm.md:70:> 数据快照自 `results/reversal_20d_four_dim_ctfm/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/four_dim_ctfs.md:70:> 数据快照自 `results/reversal_20d_four_dim_ctfs/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/four_dim_ctfs30.md:70:> 数据快照自 `results/reversal_20d_four_dim_ctfs30/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/four_dim_flow.md:70:> 数据快照自 `results/reversal_20d_four_dim_flow/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/four_dim_tsc.md:70:> 数据快照自 `results/reversal_20d_four_dim_tsc/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/four_dim_tsfi.md:70:> 数据快照自 `results/reversal_20d_four_dim_tsfi/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/four_dim_tsv.md:70:> 数据快照自 `results/reversal_20d_four_dim_tsv/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/four_dim_tsv10.md:70:> 数据快照自 `results/reversal_20d_four_dim_tsv10/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/highmomentum.md:71:> 数据快照自 `results/reversal_20d_highmomentum/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/intraday.md:75:> 数据快照自 `results/reversal_20d_intraday/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/intraday_adv.md:70:> 数据快照自 `results/reversal_20d_intraday_adv/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/intraday_flow.md:70:> 数据快照自 `results/reversal_20d_intraday_flow/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/intraday_flow30.md:70:> 数据快照自 `results/reversal_20d_intraday_flow30/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/intraday_flowextreme.md:73:> 数据快照自 `results/reversal_20d_intraday_flowextreme/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/intraday_skew.md:70:> 数据快照自 `results/reversal_20d_intraday_skew/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/intraday_turn.md:74:> 数据快照自 `results/reversal_20d_intraday_turn/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/intraday_tv.md:71:> 数据快照自 `results/reversal_20d_intraday_tv/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/intraday_vol.md:71:> 数据快照自 `results/reversal_20d_intraday_vol/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/kurt.md:70:> 数据快照自 `results/reversal_20d_kurt/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/near5.md:74:> 数据快照自 `results/reversal_20d_near5/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/reversal_20d/netflow.md:70:> 数据快照自 `results/reversal_20d_netflow/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/netflow10.md:70:> 数据快照自 `results/reversal_20d_netflow10/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/netflow30.md:70:> 数据快照自 `results/reversal_20d_netflow30/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/netflow_pct.md:70:> 数据快照自 `results/reversal_20d_netflow_pct/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/nowin.md:67:> 数据快照自 `results/reversal_20d_nowin/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/reversal_20d/nowin_fill0.md:71:> 数据快照自 `results/reversal_20d_nowin_fill0/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/overnight.md:77:> 数据快照自 `results/reversal_20d_overnight/summary.json`（2026-09-16，
+knowledge/dossiers/factors/reversal_20d/pricevolcorr.md:74:> 数据快照自 `results/reversal_20d_pricevolcorr/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/pricevolcorr10.md:70:> 数据快照自 `results/reversal_20d_pricevolcorr10/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/pricevolcorr60.md:70:> 数据快照自 `results/reversal_20d_pricevolcorr60/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/pricevolcorr_lev.md:70:> 数据快照自 `results/reversal_20d_pricevolcorr_lev/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/pricevolcorr_turn.md:70:> 数据快照自 `results/reversal_20d_pricevolcorr_turn/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/ranknorm.md:71:> 数据快照自 `results/reversal_20d_ranknorm/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/reversal_20d.md:82:> 数据快照自 `results/reversal_20d/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/reversal_20d/six_dim.md:70:> 数据快照自 `results/reversal_20d_six_dim/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/skew.md:71:> 数据快照自 `results/reversal_20d_skew/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/skew10.md:70:> 数据快照自 `results/reversal_20d_skew10/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/skew_extreme.md:73:> 数据快照自 `results/reversal_20d_skew_extreme/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/smallcap.md:71:> 数据快照自 `results/reversal_20d_smallcap/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/turn_skew.md:70:> 数据快照自 `results/reversal_20d_turn_skew/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/turn_skew_corr.md:70:> 数据快照自 `results/reversal_20d_turn_skew_corr/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/turn_skew_flow30.md:70:> 数据快照自 `results/reversal_20d_turn_skew_flow30/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/turn_skew_vol.md:70:> 数据快照自 `results/reversal_20d_turn_skew_vol/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/vol_flow.md:70:> 数据快照自 `results/reversal_20d_vol_flow/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/volconf.md:75:> 数据快照自 `results/reversal_20d_volconf/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/reversal_20d/volconf_fwd.md:73:> 数据快照自 `results/reversal_20d_volconf_fwd/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/volturn.md:74:> 数据快照自 `results/reversal_20d_volturn/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/wcorr.md:71:> 数据快照自 `results/reversal_20d_wcorr/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/wcorr_cti.md:70:> 数据快照自 `results/reversal_20d_wcorr_cti/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/wcorr_tsv10.md:70:> 数据快照自 `results/reversal_20d_wcorr_tsv10/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_20d/wskew_tsv10.md:70:> 数据快照自 `results/reversal_20d_wskew_tsv10/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_5d/corr.md:71:> 数据快照自 `results/reversal_5d_corr/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_5d/intraday.md:70:> 数据快照自 `results/reversal_5d_intraday/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_5d/turn.md:71:> 数据快照自 `results/reversal_5d_turn/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_5d/volconf.md:71:> 数据快照自 `results/reversal_5d_volconf/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_rsi/oversold_14.md:72:> 数据快照自 `results/rsi_oversold_14/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_rsi/reversal_14.md:67:> 数据快照自 `results/rsi_reversal_14/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/reversal_rsi/reversal_14_ret.md:79:> 数据快照自 `results/rsi_reversal_14_ret/summary.json`（2026-09-16，
+knowledge/dossiers/factors/size/extreme.md:72:> 数据快照自 `results/small_cap_extreme/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/size/small_cap.md:63:> 数据快照自 `results/small_cap/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/value/bp.md:63:> 数据快照自 `results/value_bp/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/value/ep.md:63:> 数据快照自 `results/value_ep/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/value/retained.md:70:> 数据快照自 `results/value_retained/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/value/spread.md:70:> 数据快照自 `results/value_spread/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/cumret.md:79:> 数据快照自 `results/vol_run_energy_cumret/summary.json`（abs 修正版，2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/rl120_turn.md:97:> 数据快照自 `results/vol_run_energy_rl120_turn/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/vol_run_energy/rl120_turn.md:158:  组合冗余；种子档案已记录本迭代。变异记录 `results/_mine_round_1.md`。
+knowledge/dossiers/factors/vol_run_energy/rl120_turn_up.md:81:> 数据快照自 `results/vol_run_energy_rl120_turn_up/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/symrun.md:99:> 数据快照自 `results/vol_run_energy_symrun/summary.json`（2026-08-17）。
+knowledge/dossiers/factors/vol_run_energy/symrun.md:160:- 变异记录 `results/_mine_round_7.md`。
+knowledge/dossiers/factors/vol_run_energy/symrun_bell03.md:78:> 数据快照自 `results/vol_run_energy_symrun_bell03/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/symrun_bell1.md:79:> 数据快照自 `results/vol_run_energy_symrun_bell1/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/symrun_corr.md:79:> 数据快照自 `results/vol_run_energy_symrun_corr/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/symrun_down.md:79:> 数据快照自 `results/vol_run_energy_symrun_down/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/symrun_extreme.md:79:> 数据快照自 `results/vol_run_energy_symrun_extreme/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/symrun_lin.md:79:> 数据快照自 `results/vol_run_energy_symrun_lin/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/symrun_r30.md:78:> 数据快照自 `results/vol_run_energy_symrun_r30/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/symrun_r60.md:78:> 数据快照自 `results/vol_run_energy_symrun_r60/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/symrun_turn.md:78:> 数据快照自 `results/vol_run_energy_symrun_turn/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/symrun_w100.md:78:> 数据快照自 `results/vol_run_energy_symrun_w100/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/vol_run_energy/vol_run_energy.md:101:> 数据快照自 `results/vol_run_energy/summary.json`（默认参数，2026-08-17）。
+knowledge/dossiers/factors/vol_run_energy/vol_run_energy.md:177:变体 `win100_gain1.5` 细节（快照自 `results/vol_run_energy_win100_gain1.5/summary.json`）：
+knowledge/dossiers/factors/volatility/5d.md:71:> 数据快照自 `results/max_effect_5d/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/volatility/low_vol_20d.md:63:> 数据快照自 `results/low_vol_20d/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/volatility/max_effect_20d.md:63:> 数据快照自 `results/max_effect_20d/summary.json`（2026-08-18）。
+knowledge/dossiers/factors/volatility/vol_20d.md:73:> 数据快照自 `results/low_downside_vol_20d/summary.json`（2026-08-18）。
+knowledge/dossiers/strategies/crash_bottom_leader_strategy.md:7:> 含 `index_daily` 000852.SH 与 `stock_st`）与 `results/crash_bottom_leader_timed/panel.parquet`；
+knowledge/dossiers/strategies/crash_bottom_leader_strategy.md:25:>   --panel results/crash_bottom_leader_timed/panel.parquet \
+knowledge/dossiers/strategies/crash_bottom_leader_strategy.md:151:- 数据源：`results/crash_bottom_leader_timed/panel.parquet`（信号）+ 平台库
+research/tools/strategies/strategy_crash_bottom.py:480:    ap.add_argument("--panel", default="results/crash_bottom_leader_timed/panel.parquet")
+
+## B. 计数
+裸 results/ 行数: 164
+裸 results/ 文件数: 157
+dossiers 内（=档案存量）行数: 163
+dossiers 内文件数: 156
+backticked `results/ 行数(reviewer口径 164/158): 164
+backticked 文件数: 158
+
+## C. platform/results（tracked，非豁免）
+governance/ops/check_reviews.py:96:    (re.compile(r"^platform/results\b"),
+governance/ops/check_reviews.py:691:    print("  · 路径豁免：polars_ta（vendor）/ platform/results（已迁 runs/platform）/ "
+governance/ops/gates.sh:58:  # docs/{reviews,index}、platform/results、R27 已迁工具旧路径、emb 解释器路径。
+governance/ops/gates.sh:66:        -e "research/docs/" -e "docs/reviews" -e "docs/index" -e "platform/results" \
+governance/ops/gates.sh:79:  if [ "$n" = "0" ]; then ok "已迁路径活引用零残留（R06-M9：docs/*、platform/results、工具旧路径、emb）";
+governance/ops/gates.sh:81:        -e "research/docs/" -e "docs/reviews" -e "docs/index" -e "platform/results" \
+governance/workspace/migration-r04.md:59:| 12 | `platform/results/` | `runs/platform/` | 8 | ✅ `024e45f` |
+governance/workspace/migration-r04.md:86:| 8 | `024e45f` | `platform/results/` → `runs/platform/`（2.6G mv）；`results_dir` 默认改包内派生绝对路径（与 cwd 无关）；短窗冒烟落 `runs/platform/r12_smoke` 且 `show` 可读；补 test_architecture 契约单点判据（Task 2 遗漏）；根 `results/`（挖矿在途）未清，见 C3 | `governance/evidence/verification/R24/08-runs/` |
+governance/workspace/migration-r04.md:97:  硬编码 `<repo>/platform/results`（R24 后应为 `runs/platform`）→ `cc829ad`（缺省改跟随
+knowledge/dossiers/factors/README.md:16:`platform/results/<name>/summary.json`，该产物从未随仓存档，且当前环境不可复跑。**
+knowledge/dossiers/factors/README.md:23:| `platform/results/` 为空（`results/` 被 gitignore，历史运行产物已清） | `find platform/results -mindepth 1` → 0 项 |
+knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md:85:> 数据快照自 `platform/results/max_effect_20d_extcnt/summary.json`（2026-09-16 运行；无 exclude_st 版）。
+research/tools/strategies/run_strategy.py:23:# FACTORLAB_RESULTS_DIR 可覆盖，相对 cwd 解释）。此前硬编码 platform/results
+research/tools/strategies/tests/test_run_strategy_cli.py:29:# 旧硬编码 <repo>/platform/results 已迁走导致集成用例恒 skip（无回归保护）。
+research/tools/strategies/tests/test_run_strategy_cli.py:287:    assert "platform/results" not in settings.results_dir.as_posix()
+runs/README.md:3:> R24（2026-09-16）产物单点化：`platform/results/` → `runs/platform/`；`settings.results_dir`

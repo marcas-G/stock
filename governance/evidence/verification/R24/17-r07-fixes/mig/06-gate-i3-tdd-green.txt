@@ -1,0 +1,29 @@
+# R07-GATE-I3 TDD GREEN：修后门捕获 untracked/裸 results/ + tracked 同判 + 负向探针不误报
+# date: 2026-09-16T19:07:34+08:00
+
+## 1. 探针 A/B（证明 tracked 与 untracked 两路都在判据内）
+$ git add 探针（暂时入 index）
+$ gates --structure | grep probe  # tracked 路（git grep）
+      knowledge/dossiers/factors/_r07_probe_untracked.md:4:旧仓库名 quant-platform-main（untracked 形态）。
+      knowledge/dossiers/factors/_r07_probe_untracked.md:2:见 platform/results/probe/summary.json 与 `results/probe/summary.json`；
+      knowledge/dossiers/factors/_r07_probe_untracked.md:3:工具旧路径 research/tools/lib/probe.py；旧知识树 docs/factors/probe.md、docs/strategies/probe.md；
+$ git rm --cached 探针（恢复 untracked）
+$ gates --structure | grep probe  # untracked 路（ls-files+grep）
+      knowledge/dossiers/factors/_r07_probe_untracked.md:4:旧仓库名 quant-platform-main（untracked 形态）。
+      knowledge/dossiers/factors/_r07_probe_untracked.md:2:见 platform/results/probe/summary.json 与 `results/probe/summary.json`；
+      knowledge/dossiers/factors/_r07_probe_untracked.md:3:工具旧路径 research/tools/lib/probe.py；旧知识树 docs/factors/probe.md、docs/strategies/probe.md；
+
+## 2. 负向探针（不得误报）：falsepos 形态命中数期望 0
+falsepos 命中行数: 0
+
+## 3. 修后完整 G-LEGACY 段（探针仍在）
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+    ✗ 活文件仍有 1 处旧路径
+      knowledge/dossiers/factors/_r07_probe_untracked.md:4:旧仓库名 quant-platform-main（untracked 形态）。
+    ✗ 已迁路径活引用仍有 7 处
+      knowledge/dossiers/factors/_r07_probe_untracked.md:2:见 platform/results/probe/summary.json 与 `results/probe/summary.json`；
+      knowledge/dossiers/factors/_r07_probe_untracked.md:3:工具旧路径 research/tools/lib/probe.py；旧知识树 docs/factors/probe.md、docs/strategies/probe.md；
+      knowledge/dossiers/factors/intraday/intraday_high_time.md:88:> 数据快照自 `platform/results/intraday_high_time/summary.json`（2026-09-16）。
+      knowledge/dossiers/factors/intraday/intraday_tail_amt_share.md:87:> 快照自 `platform/results/intraday_tail_amt_share/summary.json`（2026-09-16；results/ 未随仓存档）。
+      knowledge/dossiers/factors/vol_run_energy/symrun_r30_flip.md:97:> 数据快照自 `platform/results/vol_run_energy_symrun_r30_flip/summary.json`（2026-09-16；无 exclude_st 版）。
+[G-PATHS] pyproject / pytest 路径自洽

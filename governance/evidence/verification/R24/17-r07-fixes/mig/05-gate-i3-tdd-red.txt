@@ -1,0 +1,25 @@
+# R07-GATE-I3 TDD RED：修前门对 untracked/裸 results/ 漏报
+# date: 2026-09-16T19:04:00+08:00
+
+## 注入的 untracked 探针（未 git add；git status 应为 ??）
+?? knowledge/dossiers/factors/_r07_probe_falsepos.md
+?? knowledge/dossiers/factors/_r07_probe_untracked.md
+
+# R07 G-LEGACY probe (untracked; 修后应被捕获)
+见 platform/results/probe/summary.json 与 `results/probe/summary.json`；
+工具旧路径 research/tools/lib/probe.py；旧知识树 docs/factors/probe.md、docs/strategies/probe.md；
+旧仓库名 quant-platform-main（untracked 形态）。
+-- 负向探针 --
+# R07 G-LEGACY 负向探针（这些形态不得误报）
+runs/results/x · test_results/x · results_dir/x · my_results/x · results/<name>/summary.json ·
+results/ 口径 · research/docs_old/x
+
+## 修前 gates --structure（当前 gates.sh）G-LEGACY 段
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+    ✓ 活文件零残留（豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）
+    ✗ 已迁路径活引用仍有 1 处
+      governance/workspace/pending-items.md:216:    在途：挖矿 untracked 档案的 `platform/results` 引用由挖矿循环提交前按 skill 修
+[G-PATHS] pyproject / pytest 路径自洽
+
+## 判据：探针命中数（应为 0=漏报，即 RED）
+probe 命中行数: 0
