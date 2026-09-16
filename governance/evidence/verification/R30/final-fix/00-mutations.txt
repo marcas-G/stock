@@ -1,0 +1,339 @@
+### M1 I1：删除 empty-frame 护栏（应 2 failed：write/main 均在 TRUNCATE 前拦住）
+........FF.                                                              [100%]
+=================================== FAILURES ===================================
+______________ test_write_refuses_empty_frame_without_touching_ch ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2349/test_write_refuses_empty_frame0')
+
+    def test_write_refuses_empty_frame_without_touching_ch(tmp_path):
+        """镜像 ingest_fundamentals 空快照护栏：空源不是"合法清表"，是 loud fail。"""
+        empty = IM.load_frames(tmp_path)          # 无 zip → 空帧（schema 完整）
+        assert empty.height == 0
+        fake = _FakeCH()
+>       with pytest.raises(ValueError, match="空源拒绝灌入"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+platform/tools/ch_ingest/tests/test_ingest_moneyflow.py:174: Failed
+_____________ test_main_empty_root_refuses_and_leaves_ch_untouched _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2349/test_main_empty_root_refuses_a0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2a6edba650>
+
+    def test_main_empty_root_refuses_and_leaves_ch_untouched(tmp_path, monkeypatch):
+        """首次/空 raw 跑 main：必须 ValueError（exit≠0）且 CH 零交互。"""
+        fake = _FakeCH()
+        monkeypatch.setattr(IM, "connect", lambda: fake)
+>       with pytest.raises(ValueError, match="空源拒绝灌入"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+platform/tools/ch_ingest/tests/test_ingest_moneyflow.py:184: Failed
+----------------------------- Captured stdout call -----------------------------
+  moneyflow 源：0 rows / 0 days / root=/tmp/pytest-of-gaolei/pytest-2349/test_main_empty_root_refuses_a0
+  moneyflow: 灌入 0 rows
+=========================== short test summary info ============================
+FAILED platform/tools/ch_ingest/tests/test_ingest_moneyflow.py::test_write_refuses_empty_frame_without_touching_ch
+FAILED platform/tools/ch_ingest/tests/test_ingest_moneyflow.py::test_main_empty_root_refuses_and_leaves_ch_untouched
+2 failed, 9 passed in 0.51s
+rc=1
+
+### M2 I2：repo_root() 忽略 FACTORLAB_STOCK_ROOT（应 1 failed：换根测试）
+....F                                                                    [100%]
+=================================== FAILURES ===================================
+__________________ test_data_roots_follow_stock_root_override __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2350/test_data_roots_follow_stock_r0')
+
+    def test_data_roots_follow_stock_root_override(tmp_path):
+        """换根子进程：`FACTORLAB_STOCK_ROOT` 设了 → config 与 factio 一起迁移（import 期求值）。"""
+        code = (
+            "import sys; sys.path.insert(0, %r);"
+            "from pan_update import config; from factorlab.core.factio import paths;"
+            "print(config.repo_root());"
+            "print(config.CATEGORIES['daily'].local_root);"
+            "print(config.RAW_ROOT); print(config.FACT_ROOT);"
+            "print(paths.RAW_ROOT); print(paths.FACT_ROOT);"
+            "print(paths.RAW_ROOT / 'daily')" % str(TOOLS)
+        )
+        env = dict(os.environ, FACTORLAB_STOCK_ROOT=str(tmp_path))
+        r = subprocess.run([sys.executable, "-c", code], env=env,
+                           capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr
+        repo, daily, raw, fact, p_raw, p_fact, p_daily = r.stdout.split()
+>       assert Path(repo) == tmp_path
+E       AssertionError: assert PosixPath('/data/students/gaolei/stock') == PosixPath('/tmp/pytest-of-gaolei/pytest-2350/test_data_roots_follow_stock_r0')
+E        +  where PosixPath('/data/students/gaolei/stock') = Path('/data/students/gaolei/stock')
+
+platform/tools/pan_update/tests/test_config.py:79: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tools/pan_update/tests/test_config.py::test_data_roots_follow_stock_root_override
+1 failed, 4 passed in 0.12s
+rc=1
+
+### M3 I2：DATA_ROOT 第二份字面拼接（绕过数据根单点；应 1 failed）
+....F                                                                    [100%]
+=================================== FAILURES ===================================
+__________________ test_data_roots_follow_stock_root_override __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2351/test_data_roots_follow_stock_r0')
+
+    def test_data_roots_follow_stock_root_override(tmp_path):
+        """换根子进程：`FACTORLAB_STOCK_ROOT` 设了 → config 与 factio 一起迁移（import 期求值）。"""
+        code = (
+            "import sys; sys.path.insert(0, %r);"
+            "from pan_update import config; from factorlab.core.factio import paths;"
+            "print(config.repo_root());"
+            "print(config.CATEGORIES['daily'].local_root);"
+            "print(config.RAW_ROOT); print(config.FACT_ROOT);"
+            "print(paths.RAW_ROOT); print(paths.FACT_ROOT);"
+            "print(paths.RAW_ROOT / 'daily')" % str(TOOLS)
+        )
+        env = dict(os.environ, FACTORLAB_STOCK_ROOT=str(tmp_path))
+        r = subprocess.run([sys.executable, "-c", code], env=env,
+                           capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr
+        repo, daily, raw, fact, p_raw, p_fact, p_daily = r.stdout.split()
+        assert Path(repo) == tmp_path
+>       assert Path(daily) == Path(p_daily) == tmp_path / "data" / "raw" / "daily"
+E       AssertionError: assert PosixPath('/data/students/gaolei/stock/data/raw/daily') == PosixPath('/tmp/pytest-of-gaolei/pytest-2351/test_data_roots_follow_stock_r0/data/raw/daily')
+E        +  where PosixPath('/data/students/gaolei/stock/data/raw/daily') = Path('/data/students/gaolei/stock/data/raw/daily')
+E        +  and   PosixPath('/tmp/pytest-of-gaolei/pytest-2351/test_data_roots_follow_stock_r0/data/raw/daily') = Path('/tmp/pytest-of-gaolei/pytest-2351/test_data_roots_follow_stock_r0/data/raw/daily')
+
+platform/tools/pan_update/tests/test_config.py:80: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tools/pan_update/tests/test_config.py::test_data_roots_follow_stock_root_override
+1 failed, 4 passed in 0.15s
+rc=1
+
+### M4 I3：两表检查存根恒 True（应 8 failed：normal 仍过、缺口/空表/关键字段全抓）
+.FFFF..FFFF                                                              [100%]
+=================================== FAILURES ===================================
+_____________________ test_moneyflow_interior_gap_detected _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_moneyflow_interior_gap_de0')
+
+    def test_moneyflow_interior_gap_detected(tmp_path):
+        """缺口：CH 少中间一天（min/max 相同）——行数/天数须独立判红。"""
+        _seed_moneyflow_root(tmp_path)
+        src = IM.load_frames(tmp_path)
+        ch = src.filter(pl.col("trade_date") != D2)
+        assert ch.height < src.height
+        fake = _FakeCH([_mf_agg(ch)])
+>       assert RC._check_moneyflow(fake, "factorlab_test", tmp_path) is False
+E       AssertionError: assert True is False
+E        +  where True = <function _check_moneyflow at 0x7f06dbf7dd00>(<test_reconcile._FakeCH object at 0x7f06dc14c7d0>, 'factorlab_test', PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_moneyflow_interior_gap_de0'))
+E        +    where <function _check_moneyflow at 0x7f06dbf7dd00> = RC._check_moneyflow
+
+platform/tools/ch_ingest/tests/test_reconcile.py:125: AssertionError
+----------------------------- Captured stdout call -----------------------------
+  moneyflow    CH=          98 源=         147  日期 2026-09-14..2026-09-16 / 2026-09-14..2026-09-16  天=2/3  main_net_inflow 空值=0/0  键异常=0  一致
+_______________________ test_moneyflow_empty_ch_detected _______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_moneyflow_empty_ch_detect0')
+
+    def test_moneyflow_empty_ch_detected(tmp_path):
+        """空表：CH 0 行 vs 源非空 → 不一致（首灌前/被清表）。"""
+        _seed_moneyflow_root(tmp_path)
+        fake = _FakeCH([(0, None, None, 0, 0, 0, 0)])
+>       assert RC._check_moneyflow(fake, "factorlab_test", tmp_path) is False
+E       AssertionError: assert True is False
+E        +  where True = <function _check_moneyflow at 0x7f06dbf7dd00>(<test_reconcile._FakeCH object at 0x7f06dc14c2d0>, 'factorlab_test', PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_moneyflow_empty_ch_detect0'))
+E        +    where <function _check_moneyflow at 0x7f06dbf7dd00> = RC._check_moneyflow
+
+platform/tools/ch_ingest/tests/test_reconcile.py:132: AssertionError
+----------------------------- Captured stdout call -----------------------------
+  moneyflow    CH=           0 源=         147  日期 None..None / 2026-09-14..2026-09-16  天=0/3  main_net_inflow 空值=0/0  键异常=0  一致
+___________________ test_moneyflow_key_field_drift_detected ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_moneyflow_key_field_drift0')
+
+    def test_moneyflow_key_field_drift_detected(tmp_path):
+        """关键字段：行数/日期不变，CH 多出 main_net_inflow 空值或 ts_code 异常 → 判红。"""
+        _seed_moneyflow_root(tmp_path)
+        src = IM.load_frames(tmp_path)
+        base = list(_mf_agg(src))
+        nulls = base.copy()
+        nulls[4] += 1                     # CH 侧空值比源多 1
+>       assert RC._check_moneyflow(_FakeCH([tuple(nulls)]), "factorlab_test", tmp_path) is False
+E       AssertionError: assert True is False
+E        +  where True = <function _check_moneyflow at 0x7f06dbf7dd00>(<test_reconcile._FakeCH object at 0x7f06dc242ea0>, 'factorlab_test', PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_moneyflow_key_field_drift0'))
+E        +    where <function _check_moneyflow at 0x7f06dbf7dd00> = RC._check_moneyflow
+E        +    and   <test_reconcile._FakeCH object at 0x7f06dc242ea0> = _FakeCH([(147, datetime.date(2026, 9, 14), datetime.date(2026, 9, 16), 3, 1, 0, ...)])
+
+platform/tools/ch_ingest/tests/test_reconcile.py:142: AssertionError
+----------------------------- Captured stdout call -----------------------------
+  moneyflow    CH=         147 源=         147  日期 2026-09-14..2026-09-16 / 2026-09-14..2026-09-16  天=3/3  main_net_inflow 空值=1/0  键异常=0  一致
+__________________ test_main_moneyflow_mismatch_exits_nonzero __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_main_moneyflow_mismatch_e0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f06dc243100>
+
+    def test_main_moneyflow_mismatch_exits_nonzero(tmp_path, monkeypatch):
+        _seed_moneyflow_root(tmp_path)
+        src = IM.load_frames(tmp_path)
+        ch = src.filter(pl.col("trade_date") != D2)
+        fake = _FakeCH([_mf_agg(ch)])
+        _wire_main(monkeypatch, fake, src=tmp_path, which="moneyflow")
+        with pytest.raises(SystemExit) as ex:
+            RC.main()
+>       assert ex.value.code == 1
+E       assert 0 == 1
+E        +  where 0 = SystemExit(0).code
+E        +    where SystemExit(0) = <ExceptionInfo SystemExit(0) tblen=2>.value
+
+platform/tools/ch_ingest/tests/test_reconcile.py:156: AssertionError
+----------------------------- Captured stdout call -----------------------------
+moneyflow:
+  moneyflow    CH=          98 源=         147  日期 2026-09-14..2026-09-16 / 2026-09-14..2026-09-16  天=2/3  main_net_inflow 空值=0/0  键异常=0  一致
+全库一致
+________________________ test_fundamentals_gap_detected ________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_fundamentals_gap_detected0')
+
+    def test_fundamentals_gap_detected(tmp_path):
+        """缺口：CH 少一个 updated_date 的一行（天数/行数判红；关键列空值须参与比较）。"""
+        fact = tmp_path / "fundamentals_snapshot.parquet"
+        df = _fund_df([("000001.SZ", D1, 100.0), ("000002.SZ", D2, None),
+                       ("000003.SZ", D1, 300.0)])
+        df.write_parquet(fact)
+        ch = df.filter(pl.col("ts_code") != "000002.SZ")
+        fake = _FakeCH([_fund_agg(ch)])
+>       assert RC._check_fundamentals(fake, "factorlab_test", fact) is False
+E       AssertionError: assert True is False
+E        +  where True = <function _check_fundamentals at 0x7f06dbf7dda0>(<test_reconcile._FakeCH object at 0x7f06dc02e580>, 'factorlab_test', PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_fundamentals_gap_detected0/fundamentals_snapshot.parquet'))
+E        +    where <function _check_fundamentals at 0x7f06dbf7dda0> = RC._check_fundamentals
+
+platform/tools/ch_ingest/tests/test_reconcile.py:191: AssertionError
+----------------------------- Captured stdout call -----------------------------
+  fundamentals CH=           2 源=           3  日期 2026-09-14..2026-09-14 / 2026-09-14..2026-09-15  天=1/2  total_shares 空值=0/1  键异常=0  一致
+_____________________ test_fundamentals_empty_ch_detected ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_fundamentals_empty_ch_det0')
+
+    def test_fundamentals_empty_ch_detected(tmp_path):
+        fact = tmp_path / "fundamentals_snapshot.parquet"
+        _fund_df([("000001.SZ", D1, 100.0)]).write_parquet(fact)
+        fake = _FakeCH([(0, None, None, 0, 0, 0, 0)])
+>       assert RC._check_fundamentals(fake, "factorlab_test", fact) is False
+E       AssertionError: assert True is False
+E        +  where True = <function _check_fundamentals at 0x7f06dbf7dda0>(<test_reconcile._FakeCH object at 0x7f06dc131e50>, 'factorlab_test', PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_fundamentals_empty_ch_det0/fundamentals_snapshot.parquet'))
+E        +    where <function _check_fundamentals at 0x7f06dbf7dda0> = RC._check_fundamentals
+
+platform/tools/ch_ingest/tests/test_reconcile.py:198: AssertionError
+----------------------------- Captured stdout call -----------------------------
+  fundamentals CH=           0 源=           1  日期 None..None / 2026-09-14..2026-09-14  天=0/1  total_shares 空值=0/0  键异常=0  一致
+__________________ test_fundamentals_key_field_drift_detected __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_fundamentals_key_field_dr0')
+
+    def test_fundamentals_key_field_drift_detected(tmp_path):
+        """关键字段：行数/日期不变，CH 多出 total_shares 空值或 ts_code 异常 → 判红。"""
+        fact = tmp_path / "fundamentals_snapshot.parquet"
+        df = _fund_df([("000001.SZ", D1, 100.0), ("000002.SZ", D2, None)])
+        df.write_parquet(fact)
+        base = list(_fund_agg(df))
+        nulls = base.copy()
+        nulls[4] += 1
+>       assert RC._check_fundamentals(_FakeCH([tuple(nulls)]), "factorlab_test", fact) is False
+E       AssertionError: assert True is False
+E        +  where True = <function _check_fundamentals at 0x7f06dbf7dda0>(<test_reconcile._FakeCH object at 0x7f06dc131a50>, 'factorlab_test', PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_fundamentals_key_field_dr0/fundamentals_snapshot.parquet'))
+E        +    where <function _check_fundamentals at 0x7f06dbf7dda0> = RC._check_fundamentals
+E        +    and   <test_reconcile._FakeCH object at 0x7f06dc131a50> = _FakeCH([(2, datetime.date(2026, 9, 14), datetime.date(2026, 9, 15), 2, 2, 0, ...)])
+
+platform/tools/ch_ingest/tests/test_reconcile.py:209: AssertionError
+----------------------------- Captured stdout call -----------------------------
+  fundamentals CH=           2 源=           2  日期 2026-09-14..2026-09-15 / 2026-09-14..2026-09-15  天=2/2  total_shares 空值=2/1  键异常=0  一致
+________________ test_main_fundamentals_mismatch_exits_nonzero _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2352/test_main_fundamentals_mismatc0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f06dbffc830>
+
+    def test_main_fundamentals_mismatch_exits_nonzero(tmp_path, monkeypatch):
+        fact = tmp_path / "fundamentals_snapshot.parquet"
+        _fund_df([("000001.SZ", D1, 100.0), ("000002.SZ", D2, 200.0)]).write_parquet(fact)
+        fake = _FakeCH([(0, None, None, 0, 0, 0, 0)])
+        _wire_main(monkeypatch, fake, src=fact, which="fundamentals")
+        with pytest.raises(SystemExit) as ex:
+            RC.main()
+>       assert ex.value.code == 1
+E       assert 0 == 1
+E        +  where 0 = SystemExit(0).code
+E        +    where SystemExit(0) = <ExceptionInfo SystemExit(0) tblen=2>.value
+
+platform/tools/ch_ingest/tests/test_reconcile.py:222: AssertionError
+----------------------------- Captured stdout call -----------------------------
+fundamentals:
+  fundamentals CH=           0 源=           2  日期 None..None / 2026-09-14..2026-09-15  天=0/2  total_shares 空值=0/0  键异常=0  一致
+全库一致
+=========================== short test summary info ============================
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_moneyflow_interior_gap_detected
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_moneyflow_empty_ch_detected
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_moneyflow_key_field_drift_detected
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_main_moneyflow_mismatch_exits_nonzero
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_fundamentals_gap_detected
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_fundamentals_empty_ch_detected
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_fundamentals_key_field_drift_detected
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_main_fundamentals_mismatch_exits_nonzero
+8 failed, 3 passed in 0.68s
+rc=1
+
+### M5 I3：去掉关键列空值/键异常比较（应 2 failed：key-field 漂移测试）
+...F.....F.                                                              [100%]
+=================================== FAILURES ===================================
+___________________ test_moneyflow_key_field_drift_detected ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2353/test_moneyflow_key_field_drift0')
+
+    def test_moneyflow_key_field_drift_detected(tmp_path):
+        """关键字段：行数/日期不变，CH 多出 main_net_inflow 空值或 ts_code 异常 → 判红。"""
+        _seed_moneyflow_root(tmp_path)
+        src = IM.load_frames(tmp_path)
+        base = list(_mf_agg(src))
+        nulls = base.copy()
+        nulls[4] += 1                     # CH 侧空值比源多 1
+>       assert RC._check_moneyflow(_FakeCH([tuple(nulls)]), "factorlab_test", tmp_path) is False
+E       AssertionError: assert True is False
+E        +  where True = <function _check_moneyflow at 0x7f98745e5c60>(<test_reconcile._FakeCH object at 0x7f98746b28b0>, 'factorlab_test', PosixPath('/tmp/pytest-of-gaolei/pytest-2353/test_moneyflow_key_field_drift0'))
+E        +    where <function _check_moneyflow at 0x7f98745e5c60> = RC._check_moneyflow
+E        +    and   <test_reconcile._FakeCH object at 0x7f98746b28b0> = _FakeCH([(147, datetime.date(2026, 9, 14), datetime.date(2026, 9, 16), 3, 1, 0, ...)])
+
+platform/tools/ch_ingest/tests/test_reconcile.py:142: AssertionError
+----------------------------- Captured stdout call -----------------------------
+  moneyflow    CH=         147 源=         147  日期 2026-09-14..2026-09-16 / 2026-09-14..2026-09-16  天=3/3  main_net_inflow 空值=1/0  键异常=0  一致
+__________________ test_fundamentals_key_field_drift_detected __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2353/test_fundamentals_key_field_dr0')
+
+    def test_fundamentals_key_field_drift_detected(tmp_path):
+        """关键字段：行数/日期不变，CH 多出 total_shares 空值或 ts_code 异常 → 判红。"""
+        fact = tmp_path / "fundamentals_snapshot.parquet"
+        df = _fund_df([("000001.SZ", D1, 100.0), ("000002.SZ", D2, None)])
+        df.write_parquet(fact)
+        base = list(_fund_agg(df))
+        nulls = base.copy()
+        nulls[4] += 1
+>       assert RC._check_fundamentals(_FakeCH([tuple(nulls)]), "factorlab_test", fact) is False
+E       AssertionError: assert True is False
+E        +  where True = <function _check_fundamentals at 0x7f98745e5d00>(<test_reconcile._FakeCH object at 0x7f9874379a50>, 'factorlab_test', PosixPath('/tmp/pytest-of-gaolei/pytest-2353/test_fundamentals_key_field_dr0/fundamentals_snapshot.parquet'))
+E        +    where <function _check_fundamentals at 0x7f98745e5d00> = RC._check_fundamentals
+E        +    and   <test_reconcile._FakeCH object at 0x7f9874379a50> = _FakeCH([(2, datetime.date(2026, 9, 14), datetime.date(2026, 9, 15), 2, 2, 0, ...)])
+
+platform/tools/ch_ingest/tests/test_reconcile.py:209: AssertionError
+----------------------------- Captured stdout call -----------------------------
+  fundamentals CH=           2 源=           2  日期 2026-09-14..2026-09-15 / 2026-09-14..2026-09-15  天=2/2  total_shares 空值=2/1  键异常=0  一致
+=========================== short test summary info ============================
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_moneyflow_key_field_drift_detected
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_fundamentals_key_field_drift_detected
+2 failed, 9 passed in 0.64s
+rc=1
+
+### M6 I1/I2/I3 还原后全绿（定向）
+...........................                                              [100%]
+27 passed in 0.78s
+rc=0
+
+### 源码还原校验（对备份逐字节 cmp，必须全 OK）
+OK  ingest_moneyflow.py
+OK  reconcile.py
+OK  config.py

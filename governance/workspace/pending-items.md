@@ -335,11 +335,13 @@
     ② **分钟全量补齐**：本轮裁决只取 2026/09 试点 12 日；剩余 4023 个缺失日 zip
     （~40GB）留定时首跑；首跑含 2017-2019 全量月 convert，时长视网速/CPU（unit
     `TimeoutStartSec=12h`，flock 防重叠）。启动条件：已装 timer（每日 08:10，Linger=yes）。
-    ③ **reconcile 未覆盖 `moneyflow`/`fundamentals`**（T7/T8 转 T11）：
-    **T11 已同步契约**（interface.md §8 列清单/读面说明；moneyflow 纳入
-    `ENGINE_SURFACE_TABLES` 读面纪律）。**自动化对账仍缺**：本轮以源帧 vs CH
-    行数/样本核对（1,113,668 / 5,556；002281 9/16 对账精确）。启动条件：扩展
-    `ch_ingest/reconcile.py` 表清单并配源帧行数谓词。
+    ③ **reconcile 覆盖 `moneyflow`/`fundamentals`**（T7/T8 转 T11；终评修复波完成）：
+    T11 已同步契约（interface.md §8 列清单/读面说明；moneyflow 纳入
+    `ENGINE_SURFACE_TABLES` 读面纪律）。**自动化对账已补（2026-09-17 终评修复波）**：
+    `reconcile.py` 两表行数/日期范围/天数/关键列空值数/键异常 vs 源帧（moneyflow 走
+    raw zip `load_frames`、fundamentals 走 fact `load_fact`，与灌入同语义），失败
+    exit≠0；`make reconcile` 实跑一致（1,113,668 / 5,556）。证据
+    `governance/evidence/verification/R30/final-fix/`（00-mutations/05-reconcile-all-real）。
     ④ **平台内存护栏公式 arena 项校准**：`_AS_ARENA_PER_CPU=64MB` 低估 40 核 glibc
     多线程 arena 预留（T10 实测 ingest_daily VmPeak 26.0GB vs 公式 headroom ~14.5GB）；
     pan_update 已以 stage env `MALLOC_ARENA_MAX=2` 规避（16.4GB），平台常量未动。

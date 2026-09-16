@@ -1,0 +1,11 @@
+$ reconcile.py moneyflow
+moneyflow:
+  moneyflow    CH=   1,113,668 源=   1,113,668  日期 2025-11-20..2026-09-16 / 2025-11-20..2026-09-16  天=202/202  main_net_inflow 空值=8794/8794  键异常=0  一致
+全库一致
+rc=0
+
+$ reconcile.py fundamentals
+fundamentals:
+  fundamentals CH=       5,556 源=       5,556  日期 2026-07-16..2026-09-03 / 2026-07-16..2026-09-03  天=38/38  total_shares 空值=0/0  键异常=0  一致
+全库一致
+rc=0
