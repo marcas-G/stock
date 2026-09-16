@@ -186,7 +186,7 @@ def diff_files(state: dict, category: str, entries: list[dict]) -> Diff:
 - Produces:
   - `share.walk_dir(fid, prefix="") -> list[Entry]`（Entry: `name,size,fid,fid_token,rel_path,is_dir`）
   - `share.find_dir(root_fid, name) -> str`（fid；不存在 → KeyError）
-  - `share.iter_category(listdir, start_fid) -> list[dict]`（字典字段 name/size/rel_path/fid/fid_token；递归遍历；跳过目录项；`listdir` 可注入；**T1 裁决：返回 dict 供 T3 直接消费**）
+  - `share.iter_category(listdir, start_fid) -> list[Entry]`（Entry dataclass；递归遍历；跳过目录项；`listdir` 可注入；**T1 裁决：T3 在消费边界 `dataclasses.asdict` 转换**）
 
 - [ ] **Step 1: 失败测试（fake transport）**
 
