@@ -12,15 +12,20 @@
 
 ## 1. 根目录收敛承诺（REQ-WS-001）
 
-根目录**白名单恒为 12 项**：`README.md`、`CLAUDE.md`、`AGENTS.md`、`Makefile`、`.gitignore`、
-`.git/`、`.claude/`、`platform/`、`research/`、`docs/`、`data/`、`projects/`、`_archive/`。
+根目录**白名单定稿 15 项**（R24 顶层目录重整 target state，2026-09-16）：
+`README.md`、`CLAUDE.md`、`AGENTS.md`、`Makefile`、`.gitignore`、`.git/`、`.claude/`、
+`platform/`、`research/`、`knowledge/`、`governance/`、`runs/`、`data/`、`_archive/`、
+`projects/`（过渡项——R24 Task 11 归档 `ashare_alpha3` 后移除，收敛为 14 项）。
 
-- 三棵树各有归属：平台代码 → `platform/`；研究内容 → `research/`；文档 → `docs/`（树内细分见各自 README）。
+- 三层归属（R24 起）：平台代码 → `platform/`；研究内容 → `research/`；
+  **文档与知识 → `knowledge/`**、**治理与证据 → `governance/`**（两者入口 README 见目录内）。
 - 新数据 → **必须**入 `data/` 对应类别（五类判据见 §2）；不确定归属的临时物 → `_archive/`（先归档再想）。
-- **禁止在根目录新建条目**；脚本、日志、图片、中间产物一律不进根（工作区级脚本进 `scripts/`，
-  运行产物进各自树下的 gitignore 目录）。
-- 根 `.gitignore` 是**白名单式**（`/*` 忽略 + 逐项放行 + 显式忽略 `data/`/`results/`/`*.duckdb`）：
+- **禁止在根目录新建条目**；脚本、日志、图片、中间产物一律不进根（工作区级门与脚本进
+  `governance/ops/`，运行产物进 gitignore 的 `runs/`）。
+- 根 `.gitignore` 是**白名单式**（`/*` 忽略 + 逐项放行 + 显式忽略 `data/`/`runs/`/`*.duckdb`）：
   `git ls-files` 只会包含三棵树与根级文档，任何新增根文件都不会被误提交。
+- 过渡登记（R24 期间）：`scripts/` 与根 `docs/` 为搬迁前旧位（→ `governance/ops/`、
+  `knowledge/`+`governance/`）；完成即从根消失。
 
 ## 2. data/ 五类判据（一刀切归类）
 
@@ -45,8 +50,10 @@
 |---|---|---|
 | `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`kernels/quant_core/`（评估内核 shim = 内核发行物唯一声明点，R18 起）、`tools/`（数据生产线工具集：lob_fact / converters / 1m_features / ch_ingest / quark_download / ashare_ingest / universe_stages + `lib/` + `_env.py`；R27 归位）、`tests/`、`docs/`（契约 4 篇 + superpowers）、`scripts/` |
 | `research/`（仓库内） | **研究树**（唯一副本） | `tools/`（剩余研究工具：`strategies/`、`factor_lib/`；数据生产线工具集 R27 归位 `platform/tools/`）、`factor/<族>/`（152 spec）、`docs/`（factors/strategies/playbook） |
-| `docs/`（仓库内） | **文档树** | 工作区约定（本文件、data-map、pending-items…）、`handbook/`、`index/`、`verification/` |
-| `projects/ashare_alpha3` | 本地项目（无 git） | 自包含；`config.yaml` 消费 `data/`。**R19/R20 已完成收编**（数据侧 → `platform/tools/ashare_ingest/`、股票池段 → `platform/tools/universe_stages/`）；仅作本地历史参考 |
+| `knowledge/`（仓库内） | **文档与知识树**（R24 起） | `contracts/`（平台契约 4 篇）、`design/{platform,research,workspace}/`、`dossiers/`（factor/strategy 档案 + playbook + manual）、`handbooks/`、`index/`（生成物） |
+| `governance/`（仓库内） | **治理与证据树**（R24 起） | `ops/`（gates.sh 与 check_* 脚本）、`workspace/`（本文件、data-map、pending-items…）、`evidence/{verification,reviews}/` |
+| `runs/` | 本地运行产物（gitignore） | `runs/platform/<名>/`（`factorlab run` 产物；`FACTORLAB_RESULTS_DIR` 指向此） |
+| `projects/ashare_alpha3` | 本地项目（无 git）**过渡项** | 自包含；`config.yaml` 消费 `data/`。**R19/R20 已完成收编**（数据侧 → `platform/tools/ashare_ingest/`、股票池段 → `platform/tools/universe_stages/`）；R24 Task 11 归档至 `_archive/<日期>-ashare-alpha3/` |
 
 - 旧 worktree 迁移程序（`git worktree move` + 手工 gitdir 编辑 + 四查）**已随两 worktree 布局退役**；
   历史过程见 `docs/verification/archive/`。
@@ -63,7 +70,7 @@
 ## 4. _archive/ 政策
 
 - 一切"疑似无用但不可证明是垃圾"的移除物先 mv 进 `_archive/<日期>-<阶段>/`（保留期与程序见 `archive-policy.md`——**TTL 政策单点**）。
-- 每批必须附 manifest（来源/原因/恢复命令/到期日），manifest 入 `docs/verification/<阶段>/`
+- 每批必须附 manifest（来源/原因/恢复命令/到期日），manifest 入 `governance/evidence/verification/<阶段>/`
   并提交根仓库；`_archive/README.md` 只放政策指针。
 - 到期清理程序见 `docs/archive-policy.md`。
 
@@ -81,7 +88,9 @@
 
 ## 6. 文档纪律
 
-- 新文档入 `docs/`（根仓库跟踪）；平台/研究文档按分支纪律入各自仓库 `docs/`。
-- **历史文档（已完成的战役备忘、spec/plan）保持原文不改**——它们记录当时事实；
-  新文档一律用新路径。
+- 新文档入 `knowledge/`（契约 → `contracts/`、设计/计划 → `design/<树>/`、档案 → `dossiers/`、
+  长文手册 → `handbooks/`）；**工作区治理与证据入 `governance/`**（约定 → `workspace/`、
+  证据 → `evidence/verification/<轮次>/`）。平台/研究树内 `docs/` R24 后仅留指针壳。
+- **历史文档（已完成的战役备忘、spec/plan/verification/reviews）保持原文不改**——它们记录当时事实；
+  路径变化只加旧→新映射表（`README` 内），新文档一律用新路径。
 - 数据地图 `data-map.md` 是数据归属的唯一权威：搬移/新增数据必须同步更新。

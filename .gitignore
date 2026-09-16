@@ -10,6 +10,8 @@
 !/scripts/
 !/platform/
 !/research/
+!/knowledge/
+!/governance/
 !/.claude/
 
 # 平台/研究运行时数据与产物（防御性显式声明）
