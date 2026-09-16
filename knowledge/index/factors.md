@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **166 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **167 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -15,7 +15,7 @@
 | momentum_20d | 19 | `research/factor/momentum_20d/` |
 | quality | 1 | `research/factor/quality/` |
 | reversal_10d | 4 | `research/factor/reversal_10d/` |
-| reversal_20d | 83 | `research/factor/reversal_20d/` |
+| reversal_20d | 84 | `research/factor/reversal_20d/` |
 | reversal_5d | 4 | `research/factor/reversal_5d/` |
 | reversal_rsi | 3 | `research/factor/reversal_rsi/` |
 | size | 2 | `research/factor/size/` |
@@ -167,6 +167,7 @@
 | `reversal_20d_netflow10` | -1 | fwd5d |  | [netflow10.md](../../knowledge/dossiers/factors/reversal_20d/netflow10.md) | [yaml](../../research/factor/reversal_20d/netflow10.yaml) |
 | `reversal_20d_netflow30` | -1 | fwd5d |  | [netflow30.md](../../knowledge/dossiers/factors/reversal_20d/netflow30.md) | [yaml](../../research/factor/reversal_20d/netflow30.yaml) |
 | `reversal_20d_netflow_pct` | -1 | fwd5d |  | [netflow_pct.md](../../knowledge/dossiers/factors/reversal_20d/netflow_pct.md) | [yaml](../../research/factor/reversal_20d/netflow_pct.yaml) |
+| `reversal_20d_netflow_vol` | -1 | fwd5d |  | [netflow_vol.md](../../knowledge/dossiers/factors/reversal_20d/netflow_vol.md) | [yaml](../../research/factor/reversal_20d/netflow_vol.yaml) |
 | `reversal_20d_nowin` | -1 | fwd5d |  | [nowin.md](../../knowledge/dossiers/factors/reversal_20d/nowin.md) | [yaml](../../research/factor/reversal_20d/nowin.yaml) |
 | `reversal_20d_nowin_fill0` | -1 | fwd5d |  | [nowin_fill0.md](../../knowledge/dossiers/factors/reversal_20d/nowin_fill0.md) | [yaml](../../research/factor/reversal_20d/nowin_fill0.yaml) |
 | `reversal_20d_overnight` | -1 | fwd5d |  | [overnight.md](../../knowledge/dossiers/factors/reversal_20d/overnight.md) | [yaml](../../research/factor/reversal_20d/overnight.yaml) |
