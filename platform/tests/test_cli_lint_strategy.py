@@ -109,3 +109,43 @@ def test_lint_batch_mixes_factor_and_strategy(tmp_path):
     r = runner.invoke(app, ["lint", str(good), str(bad)])
     assert r.exit_code != 0, r.output
     assert "1 通过 / 1 失败" in r.output
+
+
+# ---------- R07 Plan G Task 5：`--strategy` 显式旗标（R07-STRAT-I6 原报「exit 2」） ----------
+
+
+def test_lint_strategy_flag_accepts_strategy_doc(tmp_path):
+    p = tmp_path / "s.yaml"
+    p.write_text(_STRATEGY, encoding="utf-8")
+    r = runner.invoke(app, ["lint", "--strategy", str(p)])
+    assert r.exit_code == 0, r.output
+    assert "OK low_lottery_top30_weekly" in r.output
+
+
+def test_lint_strategy_flag_on_factor_spec_fails_readable(tmp_path):
+    """--strategy 强制策略解析：因子 spec → 明确报错（不再 exit 2 未知选项）。"""
+    p = tmp_path / "f.yaml"
+    p.write_text("""\
+name: t_factor
+category: custom
+direction: 1
+universe: {codes: ["000001.SZ"]}
+date: {start: "2024-01-01", end: "2024-02-01"}
+formula: |
+  signal = close
+""", encoding="utf-8")
+    r = runner.invoke(app, ["lint", "--strategy", str(p)])
+    assert r.exit_code == 1
+    assert "validation error" in r.output.lower() or "strategy" in r.output.lower()
+
+
+def test_lint_strategy_flag_requires_path(tmp_path):
+    r = runner.invoke(app, ["lint", "--strategy"])
+    assert r.exit_code == 2
+    assert "--strategy" in r.output
+
+
+def test_lint_strategy_flag_conflicts_with_all():
+    r = runner.invoke(app, ["lint", "--strategy", "--all"])
+    assert r.exit_code == 2
+    assert "互斥" in r.output

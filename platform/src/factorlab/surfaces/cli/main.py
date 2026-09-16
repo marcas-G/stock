@@ -44,12 +44,13 @@ def version() -> None:
     typer.echo(__version__)
 
 
-def _lint_one(spec_path: Path) -> str:
+def _lint_one(spec_path: Path, *, force_strategy: bool = False) -> str:
     """校验单个 spec；返回 name。
 
     分派（R07-STRAT-I6）：YAML 顶层含 `signal`/`portfolio` 形态 → 策略文档，
     走 `load_strategy_doc` 严格校验（未知键/类型/NEXT_WINDOW 无窗口/rules V1）；
-    其余仍走因子 spec 的完整静态管线（行为不变）。
+    其余仍走因子 spec 的完整静态管线（行为不变）。`force_strategy=True`
+    （CLI `--strategy`）对给定路径强制按策略文档校验（错误可读，exit 1）。
 
     因子校验范围：formula / factors[].formula / universe.formula（池公式）/
     operators 宏体。R22（Task 8）：改用 `prepare_static`——参数替换 → 宏展开 →
@@ -60,7 +61,7 @@ def _lint_one(spec_path: Path) -> str:
     """
     from factorlab.core.strategy.spec_io import looks_like_strategy_doc
 
-    if looks_like_strategy_doc(spec_path):
+    if force_strategy or looks_like_strategy_doc(spec_path):
         from factorlab.core.strategy import load_strategy_doc
         return load_strategy_doc(spec_path).strategy.name
 
@@ -113,6 +114,9 @@ def lint(
         None, help="一个或多个因子 spec 或策略文档 YAML 路径"),
     all_specs: bool = typer.Option(False, "--all",
                                    help="扫描 research/factor/**/*.yaml 全库单进程批跑"),
+    strategy: bool = typer.Option(
+        False, "--strategy",
+        help="强制按策略文档校验给定 YAML（策略文档也可被自动识别；与 --all 互斥）"),
 ) -> None:
     """校验 YAML Spec（因子 formula / 策略文档，与引擎同序静态管线，不打开 DB）。
 
@@ -123,6 +127,12 @@ def lint(
     `factor lint: N 通过 / M 失败`。
     """
     paths: list[Path] = list(spec_paths or [])
+    if strategy and all_specs:
+        console.print("--strategy 与 --all 互斥（--all 只扫因子 spec）")
+        raise typer.Exit(code=2)
+    if strategy and not paths:
+        console.print("--strategy 需要给出策略 YAML 路径")
+        raise typer.Exit(code=2)
     if all_specs:
         discovered = _factor_spec_paths()
         if not discovered:
@@ -135,7 +145,7 @@ def lint(
         raise typer.Exit(code=2)
     if len(paths) == 1 and not all_specs:
         try:
-            name = _lint_one(paths[0])
+            name = _lint_one(paths[0], force_strategy=strategy)
         except (ValueError, FactorDSLError, NotImplementedError) as exc:
             console.print(str(exc))
             raise typer.Exit(code=1) from exc
@@ -144,7 +154,7 @@ def lint(
     failures: list[tuple[Path, str]] = []
     for path in paths:
         try:
-            _lint_one(path)
+            _lint_one(path, force_strategy=strategy)
         except Exception as exc:  # noqa: BLE001 —— 批跑失败隔离：逐个上报，不中断
             failures.append((path, str(exc)))
     for path, msg in failures:

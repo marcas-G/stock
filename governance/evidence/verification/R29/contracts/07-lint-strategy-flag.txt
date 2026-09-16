@@ -1,0 +1,12 @@
+# R29 Plan G Task5：lint --strategy 显式旗标（R07-STRAT-I6 残余）
+# date: 2026-09-16T21:49:39+08:00
+
+$ factorlab lint --strategy research/strategy/low_lottery_top30_weekly.yaml
+OK low_lottery_top30_weekly
+
+$ factorlab lint --strategy <factor.yaml>  # 强制策略解析 → 可读报错 exit1
+策略 spec research/factor/liquidity/accel.yaml: 根 含未知键 ['category', 
+'formula', 'process', 'universe']（extra=forbid，允许 ['date', 'direction', 
+'execution', 'name', 'portfolio', 'regime', 'rules', 'signal', 
+
+$ pytest tests/test_cli_lint_strategy.py -> 11 passed
