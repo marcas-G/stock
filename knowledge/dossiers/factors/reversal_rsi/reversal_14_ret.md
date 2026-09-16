@@ -8,6 +8,7 @@ params: {}
 status: 观察中（vs 种子 +4%，尺度不变假设证伪）
 created_ts: 2026-09-16
 updated_ts: 2026-09-16
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # rsi_reversal_14_ret 因子档案

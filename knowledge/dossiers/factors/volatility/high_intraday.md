@@ -7,6 +7,7 @@ params: {}
 status: 候选（vs 种子 t +11%, Pearson +38%, spread +111%）
 created_ts: 2026-09-16
 updated_ts: 2026-09-16
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # max_effect_20d_high_intraday 因子档案

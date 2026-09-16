@@ -7,6 +7,7 @@ params: {}
 status: 无效（direction=-1 假设） / **强发现**（隔夜是动量，反号 t=+4.35）
 created_ts: 2026-09-16
 updated_ts: 2026-09-16
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # reversal_20d_overnight 因子档案

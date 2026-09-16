@@ -7,6 +7,7 @@ params: {}
 status: 无效（vs 种子 -17% IC，-50% Pearson；瞬时信息不能平滑）
 created_ts: 2026-09-16
 updated_ts: 2026-09-16
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # turnover_level_ma20 因子档案

@@ -7,6 +7,7 @@ params: {}
 status: 观察中（信号强度 +32% 但波动率 +37%；t/IR 略降、近期走弱）
 created_ts: 2026-09-16
 updated_ts: 2026-09-16
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # reversal_20d_intraday_turn_high 因子档案

@@ -7,6 +7,7 @@ params: {}
 status: 观察中（vs 种子 amount 版边际优势 -21% IC；两版本截面相关 0.919）
 created_ts: 2026-09-16
 updated_ts: 2026-09-16
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # reversal_20d_netflow_vol 因子档案

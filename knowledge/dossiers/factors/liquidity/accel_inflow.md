@@ -8,6 +8,7 @@ params: {}
 status: 候选（vs 种子 t +31%、IR +31%；spread/Pearson 因并列退化不作证据）
 created_ts: 2026-09-16
 updated_ts: 2026-09-16
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # turnover_accel_inflow 因子档案
