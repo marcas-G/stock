@@ -1,0 +1,116 @@
+
+### 突变：链不跑只标标记（阶段编排存根）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+FAILED tools/pan_update/tests/test_stages.py::test_phase_markers_scoped_per_phase
+FAILED tools/pan_update/tests/test_stages.py::test_runner_gets_log_callable_and_env
+5 failed, 10 passed in 0.36s
+
+### 突变：忽略阶段标记（每次都重跑）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+FAILED tools/pan_update/tests/test_stages.py::test_run_category_stage_records_and_resumes
+FAILED tools/pan_update/tests/test_stages.py::test_phase_markers_scoped_per_phase
+2 failed, 13 passed in 0.38s
+
+### 突变：先标后跑（失败也落标记）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_stages.py::test_failure_stops_chain_and_leaves_marker_unset
+1 failed, 14 passed in 0.27s
+
+### 突变：吞掉失败继续跑（不 fail 即停）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+FAILED tools/pan_update/tests/test_stages.py::test_stage_failure_raises_with_stage_name
+FAILED tools/pan_update/tests/test_stages.py::test_failure_stops_chain_and_leaves_marker_unset
+2 failed, 13 passed in 0.26s
+
+### 突变：unknown 类别静默空链（不报错）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_stages.py::test_unknown_category_fails_loud
+1 failed, 14 passed in 0.30s
+
+### 突变：single_instance 不 flock（永远可入）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+FAILED tools/pan_update/tests/test_stages.py::test_single_instance_blocks_second_holder_and_releases
+FAILED tools/pan_update/tests/test_stages.py::test_single_instance_cross_process
+2 failed, 13 passed in 0.27s
+
+### 突变：single_instance 恒拒绝（锁永远占用）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_stages.py::test_single_instance_blocks_second_holder_and_releases
+1 failed, 14 passed in 0.31s
+
+### 突变：single_instance 不建父目录
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_stages.py::test_single_instance_blocks_second_holder_and_releases
+1 failed, 14 passed in 0.29s
+
+### 突变：single_instance 占用报错不含锁路径
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_stages.py::test_single_instance_cross_process
+1 failed, 14 passed in 0.27s
+
+### 突变：single_instance 去 LOCK_NB（阻塞等待）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+FAILED tools/pan_update/tests/test_stages.py::test_single_instance_blocks_second_holder_and_releases
+FAILED tools/pan_update/tests/test_stages.py::test_single_instance_cross_process
+2 failed, 13 passed in 18.27s
+
+### 突变：run_cmd 忽略 rc（失败不抛）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+FAILED tools/pan_update/tests/test_stages.py::test_run_cmd_failure_raises_with_rc_and_bounded_tail
+FAILED tools/pan_update/tests/test_stages.py::test_run_cmd_failure_stage_name_from_script
+2 failed, 13 passed in 0.42s
+
+### 突变：run_cmd StageError 丢 rc（恒 0）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_stages.py::test_run_cmd_failure_raises_with_rc_and_bounded_tail
+1 failed, 14 passed in 0.34s
+
+### 突变：run_cmd tail 不截断（全量输出）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_stages.py::test_run_cmd_failure_raises_with_rc_and_bounded_tail
+1 failed, 14 passed in 0.37s
+
+### 突变：run_cmd 忽略 env 覆盖
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_stages.py::test_run_cmd_env_overrides_and_inherits
+1 failed, 14 passed in 0.27s
+
+### 突变：run_cmd 输出不喂 log
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_stages.py::test_run_cmd_env_overrides_and_inherits
+1 failed, 14 passed in 0.27s
+
+### 突变：run_cmd stage 名恒空
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+FAILED tools/pan_update/tests/test_stages.py::test_run_cmd_failure_stage_name_from_script
+FAILED tools/pan_update/tests/test_stages.py::test_run_cmd_missing_executable_is_stage_error
+2 failed, 13 passed in 0.33s
+
+### 突变：run_cmd Popen 错误不转 StageError
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_stages.py::test_run_cmd_missing_executable_is_stage_error
+1 failed, 14 passed in 0.51s
+
+### 突变：open_log 截断重写（非追加）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_stages.py::test_open_log_writes_daily_file_appends_with_category
+1 failed, 14 passed in 0.31s
+
+### 突变：open_log 行无类别前缀
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_stages.py::test_open_log_writes_daily_file_appends_with_category
+1 failed, 14 passed in 0.28s
+
+恢复原文后复跑： 55 passed in 2.48s [exit=0]
