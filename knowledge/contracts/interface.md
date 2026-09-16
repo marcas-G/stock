@@ -2134,6 +2134,17 @@ canonical codes 的除权事件行（表契约 `adj_event(ts_code, trade_date)`�
 缺列 → fail fast；codes canonical + unique（duplicate fail）；end < start →
 ValueError；输出 code String / trade_date Date、(code, trade_date) 稳定排序。
 
+**load_adj_detail_window(rd, *, start_date, end_date, codes)**（R07-DATA-I8
+新增；CA 调整量事件源）：只读加载同窗口 × codes 的除权**明细**行（表契约
+`adj_detail(ts_code, trade_date, div_cash, div_bonus, div_transfer,
+rights_num, rights_price)`，CH 由 `ch_ingest/adj_backfill.py` 从 daily_fact
+除权 7 列全量派生；单位：div_cash 元/10股、div_bonus/div_transfer/
+rights_num 股/10股、rights_price 元/股；非事件列 NULL）。同 adj_event 守卫
+（表缺失 → typed empty 7 列；缺任一明细列 fail fast；codes canonical +
+unique；end < start ValueError；(code, trade_date) **重复 fail**——重复明细
+静默去重会二次入账）。输出 code String / trade_date Date / 5 个 Float64 明细
+列（NULL 保留，NaN 归一为 NULL 与 CH Nullable 腿一致）、稳定排序。
+
 
 ### 架构边界
 
@@ -2861,8 +2872,8 @@ run_backtest(target, execution_spec, rd, *, marks=MarksPolicy.OPEN_BASED,
   防御性 ExecutionDataQualityError（不发明估值）
 - **每 event sanity**：slippage-free 时 POST NAV == PRE NAV - total_fees
   （zero-cost → value-neutrality，同 basis open marks）
-- **execution 间隔 > 1 交易日**：隔夜 advance 后纯 re-date（无 fills/CA
-  期间 cash/quantity/sellable 不变）
+- **execution 间隔 > 1 交易日**：隔夜 advance 后 re-date；期间无 fills，
+  除 CA 事件调整（下方 CA Gate）外 cash/quantity/sellable 不变
 - 全链 fail fast；memory-only runtime object（无 persistence/DB 写入）；
   ExecutionArtifact/NavSeries/BacktestResult 见 domain/backtest.py
   （artifact = primitive 输出快照，cash bridge invariant 校验；
@@ -2874,44 +2885,51 @@ run_backtest(target, execution_spec, rd, *, marks=MarksPolicy.OPEN_BASED,
   （`ExecutionDataQualityError`）。decision_range 之外的尾部未决不参与本次
   run 的编排（R01-M8-I4）
 
-**CA Gate（WS5；事件源 = `adj_event` 表）**：懒性触发——仅"多事件 + 持仓
-（held(PRE) 非空）"run 武装（单事件/空仓 no-op）。armed 且缺 `adj_event`
-表 → `ExecutionDataQualityError` **fail-closed**（文案含"缺 adj_event 表：
-CA Gate 需除权事件数据（real 数据任务未完成 / 合成请 seed 空表）"——空表 =
-通过）。每相邻执行日窗口 **(prev_exec, exec] 左开右闭** 内、held(PRE) 命中
-事件行（`adj_event(ts_code, trade_date)`，研究侧由 K 文件 红利∨送股∨转增∨
-配股 ≠ 0 派生；买入日 = 事件日豁免）→ `ExecutionDataQualityError`（附
-code/事件 trade_date/decision_range 分段指引——跨 share-unit basis 的连续
-NAV/return 无定义，CA handling 里程碑前禁止跨 CA 连续估值）。
+**CA Gate（WS5 → R07-DATA-I8 v2；事件源 = `adj_event` + `adj_detail`）**：
+懒性触发——仅"多事件 + 持仓（held(PRE) 非空）"run 武装（单事件/空仓 no-op）。
+每相邻执行日窗口 **(prev_exec, exec] 左开右闭**（右端闭 = 除权 exec 当日零点
+生效、隔夜持仓断链；左端开 = prev_exec 当日买入已以 post-CA 价建仓——买入日 =
+事件日豁免，B6）内、held(PRE) 命中事件行 → **execution date 开盘前调整**
+（调整后 PRE 状态才进入 orders/fills/NAV）：常见除权事件下**单 run 连续多年
+可跑**，NAV 连续（Sharpe/回撤可直接计算，无分段重基）。
 
-**CA Gate 分段工作流（R03-I8，2026-09-16）**：实测 30 只持仓的月频策略窗口
-几乎必撞某只除权（3 窗口 2 撞）——CA handling 里程碑前，**多年连续策略回测
-不可行是设计行为**（fail-closed，不是缺陷）。平台**刻意不提供自动分段 helper、
-不自动重基 NAV**：`run_backtest` 不接收 initial state（M8-06A §3.1），每段
-独立 run 从 `initial_cash` + 空仓位开始——段间**持仓/资金连续性丢失**
-（`tests/test_backtest_ca_gate.py::test_b14_segment_restart_drops_positions_and_cash_continuity`
-锁）；自动拼接会诱导把段间窗口误读为连续收益。显式工作流（M8 无 CLI，API）：
+调整口径（V1，设计决策见证据 `R24/17-r07-fixes/ca/README.md`）：
+- **资格股数 = PRE 持仓**（跨 exec 间隔无成交，PRE 持仓 == 除权前收市持仓 =
+  登记日持仓）；同事件先按该基数计现金、再缩放股数（不重复放大）。
+- **现金分红** div_cash（元/10股）：`cash += 资格股数 × div_cash/10`
+  （入账时点 = 下一次 execution date 开盘前，V1 近似）。
+- **送股/转增** div_bonus/div_transfer（股/10股）：`quantity` 与
+  `sellable_quantity` ×= 1+(b+t)/10，**不足 1 股向下取整（floor 舍去）**；
+  Decimal 精确缩放（float 朴素乘法在 100×1.01 等组合会少 1 股）；新股份
+  随除权日到账可卖。
+- **配股** rights_num ≠ 0（股/10股）：V1 **不参与**——shares/cash 不变 +
+  `CorporateActionWarning`（除权价格落差自然计入 NAV = 未参与的真实成本；
+  不按 rights_* 参与）。
+- **多事件**按 (code, trade_date) 复合（送转后再分红用调整后股数）。
+- NAV 连续性：调整后 marks 用当日 raw open（除权日价格已反映除权）× 新股数
+  + cash；每 event 仍过 POST NAV == PRE NAV - fees（同 basis）sanity。
+- 会计手算样例 / 4 年连续 NAV/Sharpe/回撤产物 / 存根必败：
+  `governance/evidence/verification/R24/17-r07-fixes/ca/`。
 
-```python
-rd = open_read(...)                       # duckdb|ch
-seg1 = run_backtest(target, spec, rd, decision_range=(d1_lo, d1_hi))
-seg2 = run_backtest(target, spec, rd, decision_range=(d2_lo, d2_hi))
-# 段内：fills/positions/NAV 全部真实有效（可做诊断与段内指标）
-# 段间（非 all-cash 边界）：显式重基 NAV2 *= NAV1_end / NAV2_start；边界
-# return 无定义 → 丢弃，不得当连续收益使用
-```
+**CA Gate fail-closed（保持不加宽）**——以下任一情形 → `ExecutionDataQualityError`：
+- armed 且缺 `adj_event` 表（文案含"缺 adj_event 表"；空表 = 干净 run 通过）
+- 命中事件但缺 `adj_detail` 表 / (code, date) 无对应明细行 / 明细全 0-NULL
+  （两源不一致）——不得静默按无事件放行
+- div_cash < 0 / div_bonus+div_transfer < 0（缩股）/ rights_num < 0
+- 事件命中**停牌持仓**（exec 当日无 daily open；冻结 mark 为除权前 basis，
+  调整后无法估值=不发明价格；WS4 × CA 交叉，B12）
+- 明细非有限值；事件 code 不在 PRE 持仓（结构错误 fail fast）
 
-- **可直接精确拼接的唯一情形**：分段边界两侧均无持仓跨窗——分段前用
-  `seg.final_state.positions.height == 0`（all-cash 边界）验证，之后按
-  `NAV_k × (NAV_{k−1}_end / initial_cash)` 链式缩放即精确。
-- **不可用作连续绩效**：重基后的段序列不得当单跑净值算 Sharpe/回撤/换手——
-  被丢弃的边界段恰好含除权价格落差（未入账分红使 raw 价格下跳），保留其余
-  收益会产生方向性偏置，且段边界重复计换手/费用。
-- **何时必须等 CA 里程碑**：任何持仓跨除权的多年连续策略绩效评估。CA 处理
-  （除权日股数 × 因子 + 分红现金入账）落地后本工作流退役。
-- **分段不放松 Gate**：全窗 run 照旧 fail-closed（
-  `test_b13_segmented_runs_pass_but_full_run_fails_closed` 锁）——分段是
-  caller 显式行为，无自动分段/静默降级路径。
+**CA Gate 分段工作流（R03-I8，2026-09-16；R07-DATA-I8 后退役）**：R03-I8
+口径属"CA handling 未落地"期——已支持事件（分红/送转/配股不参与）落地后，
+全窗 run 直接产出连续 NAV，**分段重基不再需要**（
+`test_b13_supported_event_full_run_passes_missing_detail_fails` 锁：有明细
+全窗通过；缺明细仍 fail-closed）。仍未闭合的角落（停牌 × CA 等，见上）
+按 fail-closed 拒绝（分段只搬走不适用的拦截，不修复会计正确性）。历史事实
+仍成立：分段 run 是独立 run，每段从 `initial_cash` + 空仓位开始，段间持仓/
+资金连续性丢失（`test_b14_segment_restart_drops_positions_and_cash_continuity`
+锁）；若 caller 仍用分段（诊断等），段间拼接必须显式重基、边界 return 无
+定义，不得当连续绩效。
 
 ### R22 Minute-Window Execution（`NEXT_WINDOW` + `minute_window`）
 

@@ -259,6 +259,17 @@ m8-06a §5.5/§9.2 关闭：事件源 = adj_event + CH 探针结论存档；CA h
 事实）。fail-closed 不加宽：全窗 run 照旧拦截（B13 测试锁），CA 处理里程碑
 前任何持仓跨除权的多年连续绩效评估均须等待。
 
+**R07-DATA-I8 追加（2026-09-16，CA handling 落地）**：§5.5 关闭注记记录的
+"CA handling 未来里程碑"（除权日股数 × 因子 + 分红现金入账）已落地——
+`adj_detail` 明细事件源（`load_adj_detail_window`）+ 开盘前
+`apply_corporate_actions`（core/execution/corporate_actions.py）：现金分红
+入账、送股/转增按 (b+t)/10 缩放（不足 1 股 floor 舍去、Decimal 精确）、
+配股 V1 不参与 + warning；残余 fail-closed 面（缺明细/停牌 × CA/缩股/负值）
+见 `interface.md` §6 CA Gate v2。原 R03-I8 分段工作流对已支持事件退役；
+`test_b13_supported_event_full_run_passes_missing_detail_fails`、
+`test_b14_segment_restart_drops_positions_and_cash_continuity` 与
+`tests/test_backtest_ca_multi_year.py`（4 年连续 + Sharpe/回撤）锁新语义。
+
 ## 9. WS6 真实信号链端到端（g1）+ 数据腿
 
 ### 9.1 合成双腿全链（tests/test_execution_signal_chain.py，env 双腿参数化）
