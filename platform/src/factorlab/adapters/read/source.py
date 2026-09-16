@@ -191,7 +191,7 @@ def _load_daily_duckdb(
     df = rd.query_df(sql, params)
     return df.with_columns(
         pl.col("trade_date").str.strptime(pl.Date, "%Y%m%d").alias("date"),
-        pl.col("ts_code").str.split(".").list.first().alias("code"),
+        pl.col("ts_code").str.slice(0, 6).alias("code"),
     ).drop(["trade_date", "ts_code"])
 
 
@@ -243,7 +243,7 @@ def _load_daily_ch(
     df = rd.query_df(sql, params)
     return df.with_columns(
         pl.col("trade_date").alias("date"),
-        pl.col("ts_code").str.split(".").list.first().alias("code"),
+        pl.col("ts_code").str.slice(0, 6).alias("code"),
     ).drop(["trade_date", "ts_code"])
 
 
@@ -373,7 +373,7 @@ def _fill_ch(
     sql += " ORDER BY d.ts_code"   # 行序契约（同上：显式定序，前缀序即 code 序）
     df = rd.query_df(sql, params)
     return df.with_columns(
-        pl.col("ts_code").str.split(".").list.first().alias("code")
+        pl.col("ts_code").str.slice(0, 6).alias("code")
     ).drop("ts_code")
 
 
@@ -458,7 +458,7 @@ def _last_close_ch(rd: ReadPort, codes: list[str], before: str | None,
     if df.height == 0:
         return pl.DataFrame(schema={"code": pl.String, "last_close": pl.Date})
     return df.with_columns(
-        pl.col("ts_code").str.split(".").list.first().alias("code")
+        pl.col("ts_code").str.slice(0, 6).alias("code")
     ).drop("ts_code")
 
 
@@ -539,7 +539,7 @@ def _tail_dates_ch(rd: ReadPort, codes: list[str], before: str,
     if df.height == 0:
         return pl.DataFrame(schema={"code": pl.String, "warm_start": pl.Date})
     return df.with_columns(
-        pl.col("ts_code").str.split(".").list.first().alias("code")
+        pl.col("ts_code").str.slice(0, 6).alias("code")
     ).drop("ts_code")
 
 

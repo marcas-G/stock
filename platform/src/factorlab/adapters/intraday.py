@@ -126,8 +126,10 @@ def _decode(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("datetime").dt.convert_time_zone("UTC")
             .dt.replace_time_zone(None))
     if "code" in df.columns:
+        # R04-P3：code 归一用 slice(0,6)（ts_code 契约 NNNNNN.XX）——微基准
+        # 20M 行 2.06s→0.39s（5.3×），契约内输入逐值等价（无后缀/null 原样）。
         df = df.with_columns(
-            pl.col("code").str.split(".").list.first().alias("code"))
+            pl.col("code").str.slice(0, 6).alias("code"))
     return df
 
 

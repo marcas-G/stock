@@ -276,6 +276,30 @@ def test_bars_1m_codes_cols_whitelist_and_unknown_col(ch_db):
                                     cols=["close", "bogus"])
 
 
+# ---------------- R04-P3：code 解码去 split（等价性契约锁） ----------------
+
+def test_decode_code_normalization_contract():
+    """R04-P3：`_decode` code 归一去 `str.split(".").list.first()` 改
+    `str.slice(0, 6)`（微基准 20M 行 2.06s→0.39s，5.3×）。
+
+    契约锁：
+    - 带后缀 ts_code（契约 NNNNNN.XX）→ 前 6 位 = base（与旧逐值等价）；
+    - 无后缀 6 位 code → 原样（旧同）；
+    - null/空串 → 原样（旧同，不发明值）；
+    - 异常 >6 字符 base（vendor alias 'T600018.SH'）→ 6 字符截断（旧保留全
+      base；但模块契约「输出 code 一律 6 位」+ daily duckdb 腿 substr(1,6)
+      同形——见 R04-P3 报告）。
+    """
+    df = pl.DataFrame({"code": pl.Series(
+        ["000001.SZ", "600519.SH", "000001", "T600018.SH", None, ""],
+        dtype=pl.String)})
+    out = intraday._decode(df)
+    assert out["code"].to_list() == ["000001", "600519", "000001",
+                                     "T60001", None, ""]
+    # datetime 列不在时自跳（tick 表无 datetime——decode 不依赖其存在）
+    assert out.columns == ["code"]
+
+
 # ---------------- duckdb 后端显式拒绝 ----------------
 
 def test_intraday_duckdb_backend_raises(tmp_path):
