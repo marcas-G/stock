@@ -5,6 +5,9 @@
 依赖主设计：`docs/superpowers/specs/2026-08-15-factor-dsl-platform-design.md`
 前置：M4a/M4b（单因子评估闭环）、corr/svd（多因子汇聚先例）
 
+> **R04 勘误（2026-09-16）**：本文路径为 2026-09-07 快照；`cross_section.py` 现落位
+> `app/analysis/`、CLI 现落位 `surfaces/cli/main.py`。正文不改，以本行为准。
+
 ## 1. 背景与目标
 
 A 层（因子快速评估层）目前只支持**单因子**评估（周频 IC/分层回测）。用户需要：

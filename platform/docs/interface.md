@@ -1538,7 +1538,8 @@ Label:                [ output chunk | right lookahead ]  ← 结束于 label_en
 
 ## 4.5 Versioned Result Artifacts（M6-05）
 
-结果目录正式契约（`src/factorlab/artifacts.py` 统一 I/O）：
+结果目录正式契约（`adapters/parquet_artifacts.py` + `adapters/strategy_artifacts.py`
++ `adapters/results_fs.py` 统一 I/O；原 `artifacts.py` 单模块已随 WS4 分层退役）：
 
 ```
 results/<factor>/

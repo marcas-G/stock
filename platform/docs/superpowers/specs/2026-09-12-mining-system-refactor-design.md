@@ -5,6 +5,10 @@
 > 「仓库内部重构」递归子树的 P0-P4 文档。
 > 执行计划与阶段门见 workspace `docs/verification/WS*/` 证据目录与同批 plan 文档。
 
+> **R04 勘误（2026-09-16）**：本文路径为 2026-09-12 快照；lob_fact 的 `config.py` 现落位
+> `research/tools/lob_fact/core/config.py`；P8 判定归档于
+> `docs/verification/archive/2026-09-workspace-cleanup/final/03-p8.md`。正文不改。
+
 ## 0. SoI 与设计输入
 
 **System-of-Interest**：策略挖掘系统 = `quant-platform-main`（平台）+ `quant-platform-research`
