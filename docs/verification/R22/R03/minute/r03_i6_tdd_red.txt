@@ -1,0 +1,174 @@
+# R03-I6 TDD RED：实现前失败证据（HEAD~1 实现 + 本提交测试；-o pythonpath 覆盖，工作树零改动）
+# 实现前基线：98feec6 的 src + 3c67c0d 的测试
+# 覆盖源：/tmp/opencode/r03i6_red_src（cp platform/src + 4 个实现文件回退到 HEAD~1）
+# 环境：Python 3.13.13；CH 合成库 fixture（ch_db）
+
+$ PYTHONPATH=/tmp/opencode/r03i6_red_src .venv/bin/python -m pytest -q -o pythonpath=/tmp/opencode/r03i6_red_src tests/test_minute_engine.py -k "uncovered or parity_daily_raw"
+F.FFFFFF                                                                 [100%]
+=================================== FAILURES ===================================
+________________ test_minute_parity_daily_raw_signal_and_labels ________________
+
+ch_db = (<clickhouse_connect.driver.httpclient.HttpClient object at 0x7fb1e8304980>, 'factorlab_test_282528d8')
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1464/test_minute_parity_daily_raw_s0')
+
+    def test_minute_parity_daily_raw_signal_and_labels(ch_db, tmp_path):
+        """B4.6/B4.5：折日信号（day_last(close)）== 日频 raw signal=close 逐值；
+        label == 日频同窗 label 键集逐值全等（含 tail null 形态）。"""
+        _seed(ch_db)
+        m1 = _spec(tmp_path, "m1", "signal = day_last(close)")
+        d1 = _spec(tmp_path, "d1", "signal = close", interface="daily")
+        mr = run_factor_minute(m1, _ctx(tmp_path / "out_m"))
+        dr = run_factor(d1, _ctx(tmp_path / "out_d"))
+        ms, ds = mr.signal_artifact.frame, dr.signal_artifact.frame
+        assert ms.height == ds.height == 12
+        assert ms.select(["date", "code"]).equals(ds.select(["date", "code"]))
+        got = ms.join(ds, on=["date", "code"], how="inner")
+        assert ((got["signal"] - got["signal_right"]).abs() < 1e-4).all()
+        ml, dl = mr.label_artifact.frame, dr.label_artifact.frame
+        assert ml.height == dl.height == 12
+        j = ml.join(dl, on=["date", "code"], how="inner")
+        assert (j["forward_return_5d"].is_null() ==
+                j["forward_return_5d_right"].is_null()).all()
+        assert (j["forward_return_20d"].is_null() ==
+                j["forward_return_20d_right"].is_null()).all()
+        v = j.filter(pl.col("forward_return_5d").is_not_null())
+        assert ((v["forward_return_5d"] - v["forward_return_5d_right"]).abs()
+                < 1e-4).all()
+        # 元数据与 summary：frequency/timing/adjustment 契约零放宽 + 分钟标注
+        assert mr.signal_artifact.meta.frequency == "1d"
+        assert mr.signal_artifact.meta.adjustment == "raw"
+        assert mr.summary["runtime_semantics"] == "minute_intraday_fold_v1"
+        assert mr.summary["interface"] == "bars_1m"
+        assert mr.summary["grid_rows_per_day"] == 240
+        assert mr.summary["signal_rows"] == 12
+        assert mr.summary["panel_rows"] == mr.panel.height
+        # R03-I6：默认 fail 口径也写审计字段（无缺口 → mode=fail / 0）
+>       assert mr.summary["minute_uncovered"] == {
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "mode": "fail", "dropped_code_days": 0, "dropped_codes": 0,
+            "dropped_dates": 0, "date_min": None, "date_max": None, "sample": []}
+E       KeyError: 'minute_uncovered'
+
+tests/test_minute_engine.py:240: KeyError
+----------------------------- Captured stderr call -----------------------------
+2026-09-16 08:26:57.915 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 08:26:57.948 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-16 08:26:58.281 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 08:26:58.314 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+__________ test_minute_uncovered_drop_mode_drops_code_day_with_audit ___________
+
+ch_db = (<clickhouse_connect.driver.httpclient.HttpClient object at 0x7fb1e8304980>, 'factorlab_test_4b701ae8')
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1464/test_minute_uncovered_drop_mod0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb0c63f7bf0>
+
+    def test_minute_uncovered_drop_mode_drops_code_day_with_audit(
+            ch_db, tmp_path, monkeypatch):
+        """R03-I6：drop 开关下整日缺 (code, date) 从分钟宇宙剔除（该日不参与）+
+        响亮告警 + summary.minute_uncovered 审计；其余 code/日逐值正常，label 键
+        与信号键严格对齐，审计字段同步落盘 summary.json。"""
+>       from factorlab.app.run import MinuteUncoveredWarning
+E       ImportError: cannot import name 'MinuteUncoveredWarning' from 'factorlab.app.run' (/tmp/opencode/r03i6_red_src/factorlab/app/run.py)
+
+tests/test_minute_engine.py:541: ImportError
+__________ test_minute_uncovered_drop_clean_run_zero_audit_no_warning __________
+
+ch_db = (<clickhouse_connect.driver.httpclient.HttpClient object at 0x7fb1e8304980>, 'factorlab_test_6216e7c0')
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1464/test_minute_uncovered_drop_cle0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb0c7f2f020>
+recwarn = WarningsRecorder(record=True)
+
+    def test_minute_uncovered_drop_clean_run_zero_audit_no_warning(
+            ch_db, tmp_path, monkeypatch, recwarn):
+        """R03-I6：drop 开关但无缺口 → 正常产出、无告警、审计仍记 mode=drop/0
+        （口径事实可审计，不因缺口为 0 而丢失 mode）。"""
+        _seed(ch_db)
+>       monkeypatch.setattr(settings, "minute_uncovered", "drop")
+E       AttributeError: Settings(data_backend='duckdb', platform_db=PosixPath('data/factorlab.duckdb'), ch_host='127.0.0.1', ch_port=8123, ch_user='default', ch_password='', ch_database='factorlab_test_6216e7c0', plugin_dir=PosixPath('/home/gaolei/.factorlab/plugins'), teajoin_base_url='https://teajoin.com', teajoin_token='', default_max_memory='4GB', default_chunk_size=1000, use_float32=True, data_dir=PosixPath('data'), results_dir=PosixPath('results'), universes_dir=PosixPath('/home/gaolei/.factorlab/universes'), default_universe=None, st_degrade='fail') has no attribute 'minute_uncovered'
+
+tests/test_minute_engine.py:579: AttributeError
+___________ test_minute_uncovered_drop_partial_intraday_still_fails ____________
+
+ch_db = (<clickhouse_connect.driver.httpclient.HttpClient object at 0x7fb1e8304980>, 'factorlab_test_c4508612')
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1464/test_minute_uncovered_drop_par0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb0c7f2f8a0>
+
+    def test_minute_uncovered_drop_partial_intraday_still_fails(
+            ch_db, tmp_path, monkeypatch):
+        """R03-I6 口径边界：drop 只剔「整日缺」；当天部分分钟行（239 网格）是数据
+        损坏而非覆盖缺口 → 240 网格断言两种模式都 fail fast（day_last 等锚定 239
+        行，不得静默丢弃）。"""
+        _seed(ch_db, drop_one=("000001", _SAMPLE[1]))
+>       monkeypatch.setattr(settings, "minute_uncovered", "drop")
+E       AttributeError: Settings(data_backend='duckdb', platform_db=PosixPath('data/factorlab.duckdb'), ch_host='127.0.0.1', ch_port=8123, ch_user='default', ch_password='', ch_database='factorlab_test_c4508612', plugin_dir=PosixPath('/home/gaolei/.factorlab/plugins'), teajoin_base_url='https://teajoin.com', teajoin_token='', default_max_memory='4GB', default_chunk_size=1000, use_float32=True, data_dir=PosixPath('data'), results_dir=PosixPath('results'), universes_dir=PosixPath('/home/gaolei/.factorlab/universes'), default_universe=None, st_degrade='fail') has no attribute 'minute_uncovered'
+
+tests/test_minute_engine.py:595: AttributeError
+_________________ test_minute_uncovered_invalid_mode_rejected __________________
+
+ch_db = (<clickhouse_connect.driver.httpclient.HttpClient object at 0x7fb1e8304980>, 'factorlab_test_04b0afe9')
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1464/test_minute_uncovered_invalid_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb0c7f9ae50>
+
+    def test_minute_uncovered_invalid_mode_rejected(ch_db, tmp_path, monkeypatch):
+        """R03-I6：开关只接受 fail|drop——未知值在打开/查询 DB 前 ValueError
+        （不静默取默认）。"""
+>       monkeypatch.setattr(settings, "minute_uncovered", "ignore")
+E       AttributeError: Settings(data_backend='duckdb', platform_db=PosixPath('data/factorlab.duckdb'), ch_host='127.0.0.1', ch_port=8123, ch_user='default', ch_password='', ch_database='factorlab_test_04b0afe9', plugin_dir=PosixPath('/home/gaolei/.factorlab/plugins'), teajoin_base_url='https://teajoin.com', teajoin_token='', default_max_memory='4GB', default_chunk_size=1000, use_float32=True, data_dir=PosixPath('data'), results_dir=PosixPath('results'), universes_dir=PosixPath('/home/gaolei/.factorlab/universes'), default_universe=None, st_degrade='fail') has no attribute 'minute_uncovered'
+
+tests/test_minute_engine.py:604: AttributeError
+_______________ test_minute_uncovered_drop_reads_no_future_dates _______________
+
+ch_db = (<clickhouse_connect.driver.httpclient.HttpClient object at 0x7fb1e8304980>, 'factorlab_test_92403df8')
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1464/test_minute_uncovered_drop_rea0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb0c7f9b250>
+
+    def test_minute_uncovered_drop_reads_no_future_dates(ch_db, tmp_path, monkeypatch):
+        """R03-I6 语义纪律：覆盖判定只依据请求窗口内数据——批读调用 date_end 恒
+        <= spec.date.end；窗口外「未来」分钟行不参与 drop 判定（无未来泄漏）。"""
+        _seed(ch_db, bars_uncovered=("000001", _SAMPLE[2]),
+              extra_bars=[("000001", _DATES[35])])
+>       monkeypatch.setattr(settings, "minute_uncovered", "drop")
+E       AttributeError: Settings(data_backend='duckdb', platform_db=PosixPath('data/factorlab.duckdb'), ch_host='127.0.0.1', ch_port=8123, ch_user='default', ch_password='', ch_database='factorlab_test_92403df8', plugin_dir=PosixPath('/home/gaolei/.factorlab/plugins'), teajoin_base_url='https://teajoin.com', teajoin_token='', default_max_memory='4GB', default_chunk_size=1000, use_float32=True, data_dir=PosixPath('data'), results_dir=PosixPath('results'), universes_dir=PosixPath('/home/gaolei/.factorlab/universes'), default_universe=None, st_degrade='fail') has no attribute 'minute_uncovered'
+
+tests/test_minute_engine.py:615: AttributeError
+_______________ test_minute_uncovered_drop_chunked_equals_whole ________________
+
+ch_db = (<clickhouse_connect.driver.httpclient.HttpClient object at 0x7fb1e8304980>, 'factorlab_test_80785376')
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1464/test_minute_uncovered_drop_chu0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb0c7fb68a0>
+
+    def test_minute_uncovered_drop_chunked_equals_whole(ch_db, tmp_path, monkeypatch):
+        """R03-I6：drop 分块 == 整段（剔除集跨块累计一致、审计计数一致、产出逐值
+        相等）。"""
+>       from factorlab.app.run import MinuteUncoveredWarning
+E       ImportError: cannot import name 'MinuteUncoveredWarning' from 'factorlab.app.run' (/tmp/opencode/r03i6_red_src/factorlab/app/run.py)
+
+tests/test_minute_engine.py:638: ImportError
+=========================== short test summary info ============================
+FAILED tests/test_minute_engine.py::test_minute_parity_daily_raw_signal_and_labels
+FAILED tests/test_minute_engine.py::test_minute_uncovered_drop_mode_drops_code_day_with_audit
+FAILED tests/test_minute_engine.py::test_minute_uncovered_drop_clean_run_zero_audit_no_warning
+FAILED tests/test_minute_engine.py::test_minute_uncovered_drop_partial_intraday_still_fails
+FAILED tests/test_minute_engine.py::test_minute_uncovered_invalid_mode_rejected
+FAILED tests/test_minute_engine.py::test_minute_uncovered_drop_reads_no_future_dates
+FAILED tests/test_minute_engine.py::test_minute_uncovered_drop_chunked_equals_whole
+7 failed, 1 passed, 18 deselected in 4.04s
+exit=1
+
+$ PYTHONPATH=/tmp/opencode/r03i6_red_src .venv/bin/python -m pytest -q -o pythonpath=/tmp/opencode/r03i6_red_src tests/test_minute_coverage.py
+
+==================================== ERRORS ====================================
+________________ ERROR collecting tests/test_minute_coverage.py ________________
+ImportError while importing test module '/data/students/gaolei/stock/platform/tests/test_minute_coverage.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_minute_coverage.py:16: in <module>
+    from factorlab.adapters.intraday import load_bars_1m_coverage
+E   ImportError: cannot import name 'load_bars_1m_coverage' from 'factorlab.adapters.intraday' (/tmp/opencode/r03i6_red_src/factorlab/adapters/intraday.py)
+=========================== short test summary info ============================
+ERROR tests/test_minute_coverage.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.18s
+exit=2

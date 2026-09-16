@@ -1,0 +1,29 @@
+# R03-I6 真 CH 对照：同一 spec（codes 含无分钟行的 002231.SZ）默认 fail vs drop 显式剔除
+# spec: /tmp/opencode/r03i6/r03_i6_demo.yaml（codes=[000001.SZ, 002231.SZ] 2024-01-02..05 day_last(close)）
+# 事实：002231.SZ 2024H1 全窗无 1m 行（probe_r03i6_coverage.txt），daily 在册
+
+$ cd platform
+$ FACTORLAB_DATA_BACKEND=ch .venv/bin/factorlab run /tmp/opencode/r03i6/r03_i6_demo.yaml --no-backtest --output-dir /tmp/opencode/r03i6/out_fail
+错误: bars_1m 整日缺失：4 个 (code, date) 日线在而分钟无行（数据不一致，fail 
+fast）——样本 [{'date': datetime.date(2024, 1, 5), 'code': '002231', 
+'in_universe': True, 'is_listed': True, 'list_days': 5716, 'is_st': None, 
+'exchange': 'SZSE'}, {'date': datetime.date(2024, 1, 3), 'code': '002231', 
+'in_universe': True, 'is_listed': True, 'list_days': 5714, 'is_st': None, 
+'exchange': 'SZSE'}, {'date': datetime.date(2024, 1, 4), 'code': '002231', 
+'in_universe': True, 'is_listed': True, 'list_days': 5715, 'is_st': None, 
+'exchange': 'SZSE'}]
+exit=1
+
+$ FACTORLAB_DATA_BACKEND=ch FACTORLAB_MINUTE_UNCOVERED=drop .venv/bin/factorlab run /tmp/opencode/r03i6/r03_i6_demo.yaml --no-backtest --output-dir /tmp/opencode/r03i6/out_drop
+2026-09-16 08:29:00.799 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 08:29:00.832 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+/data/students/gaolei/stock/platform/src/factorlab/app/run.py:809: MinuteUncoveredWarning: 分钟覆盖缺口（R03-I6）：4 个 (code, date) 日线在而 bars_1m 整日缺（1 只 code × 4 个交易日；2024-01-02..2024-01-05），FACTORLAB_MINUTE_UNCOVERED=drop 已显式从分钟宇宙剔除该日——分钟源存在幸存者偏差，结果口径不可与完整覆盖混比；审计见 summary.minute_uncovered / docs/interface.md 分钟覆盖口径。
+  _warn_minute_uncovered(uncovered)
+r03_i6_demo: n_weeks=0 ic_mean=nan spread=nan
+exit=0
+
+$ .venv/bin/python -c "import json, polars as pl; s = json.load(open('/tmp/opencode/r03i6/out_drop/summary.json')); print('minute_uncovered =', json.dumps(s['minute_uncovered'], ensure_ascii=False)); print('panel_rows =', s['panel_rows'], 'signal_rows =', s['signal_rows']); print('signal.parquet codes =', pl.read_parquet('/tmp/opencode/r03i6/out_drop/signal.parquet')['code'].unique().sort().to_list()); print('signal.parquet rows =', pl.read_parquet('/tmp/opencode/r03i6/out_drop/signal.parquet').height)"
+minute_uncovered = {"mode": "drop", "dropped_code_days": 4, "dropped_codes": 1, "dropped_dates": 4, "date_min": "2024-01-02", "date_max": "2024-01-05", "sample": [{"date": "2024-01-02", "code": "002231.SZ"}, {"date": "2024-01-03", "code": "002231.SZ"}, {"date": "2024-01-04", "code": "002231.SZ"}, {"date": "2024-01-05", "code": "002231.SZ"}]}
+panel_rows = 4 signal_rows = 4
+signal.parquet codes = ['000001.SZ']
+signal.parquet rows = 4
