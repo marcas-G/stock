@@ -176,6 +176,8 @@ def test_rejects_nonempty_op_meta_with_plan2_message(tmp_path):
         load_spec(make_spec(tmp_path, op_meta={"my_op": {"partition": "ts"}}))
 
 
-def test_accepts_absent_op_meta(tmp_path):
+def test_accepts_absent_or_empty_op_meta(tmp_path):
+    """仅非空 op_meta 拒绝（指令口径）；缺省/null/空映射 = 无操作。"""
     assert load_spec(make_spec(tmp_path)).op_meta is None
     assert load_spec(make_spec(tmp_path, op_meta=None)).op_meta is None
+    assert load_spec(make_spec(tmp_path, op_meta={})).op_meta == {}

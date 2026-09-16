@@ -134,7 +134,7 @@ class FactorSpec(_StrictModel):
 
     @model_validator(mode="after")
     def _reject_op_meta(self) -> "FactorSpec":
-        if self.op_meta is not None:
+        if self.op_meta:
             raise ValueError(
                 "op_meta 暂未支持（Plan 2）——未知算子请改用公式内 def（本因子"
                 "专用）或注册插件算子（factorlab op add）；写了 op_meta 也不会"
