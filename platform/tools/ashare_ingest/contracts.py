@@ -11,8 +11,3 @@ FUNDAMENTALS_REQUIRED = {
 }
 
 INDEX_DAILY_REQUIRED = {'trade_date', 'pre_close'}
-
-BARS_1M_REQUIRED = {
-    'datetime', 'trade_date', 'code', 'minute_index', 'session_type',
-    'open', 'high', 'low', 'close', 'amount', 'volume'
-}

@@ -37,12 +37,6 @@ def load_config(path: str | Path | None = None) -> dict:
     return _CFG
 
 
-def ensure_output_dirs(cfg: dict) -> None:
-    for p in (cfg.get("outputs") or {}).values():
-        if p:
-            Path(p).mkdir(parents=True, exist_ok=True)
-
-
 def out_dir(cfg: dict, key: str) -> Path:
     """产物目录（已确保存在）：`cfg['outputs'][key]` 覆盖，否则 `<工具>/outputs/<key>`。"""
     raw = (cfg.get("outputs") or {}).get(key)

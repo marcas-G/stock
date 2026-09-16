@@ -44,7 +44,12 @@ def ensure_platform() -> Path:
 
 
 def platform_head() -> str:
-    """仓库根的 HEAD sha（写入运行产物，供结论可追溯）。"""
+    """仓库根的 HEAD sha（写入运行产物，供结论可追溯）。
+
+    R04-Q6 确认意图为**文档性保留**（REQ-Q-011；`research/README.md` 指引长任务用本
+    函数记录共享核版本；设计 spec `2026-09-12-mining-system-refactor-design.md` 亦
+    引用）。当前 0 调用者——若后续决定不接线，应连同上述文档引用一并移除。
+    """
     out = subprocess.run(
         ["git", "-C", str(MAIN), "rev-parse", "HEAD"],
         capture_output=True, text=True, check=True)

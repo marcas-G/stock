@@ -218,8 +218,6 @@ def main():
                     else:
                         print(f"  FAILED {day} {e['file']}: {msg}", flush=True)
         el = time.time() - t0
-        done_files = sum(1 for d in day_list[:di + 1]
-                         for e in days[d])
         speed = (sum(e["size"] for d in day_list[:di + 1]
                      for e in days[d]) / 1e6) / (el / 60)
         print(f"day {di+1}/{len(day_list)} {day}: ok={ok_total} "

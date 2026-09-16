@@ -49,19 +49,6 @@ class MinuteStore:
     def _files_sql(self, start, end) -> str:
         return '[' + ','.join(f"'{f}'" for f in month_files(self.root, start, end)) + ']'
 
-    def query_1m(self, codes, start_date, end_date, continuous_only=False) -> pd.DataFrame:
-        session_filter = 'AND session_type = 1' if continuous_only else ''
-        sql = f"""
-        SELECT datetime, trade_date, code, minute_index, session_type,
-               open, high, low, close, amount, volume
-        FROM read_parquet({self._files_sql(start_date, end_date)}, hive_partitioning=true)
-        WHERE code IN {self._codes_sql(codes)}
-          AND trade_date BETWEEN DATE '{pd.Timestamp(start_date).date()}' AND DATE '{pd.Timestamp(end_date).date()}'
-          {session_filter}
-        ORDER BY code, datetime
-        """
-        return self.con.execute(sql).fetchdf()
-
     def query_5m(self, codes, start_date, end_date) -> pd.DataFrame:
         sql = f"""
         WITH x AS (

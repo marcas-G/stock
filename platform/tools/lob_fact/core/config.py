@@ -61,9 +61,6 @@ CALIB_DAYS = [
     ('600036', '20251215'), ('600036', '20260513'),
 ]
 
-SZ_POOL = ('000155', '000021', '000858', '300750')
-SH_POOL = ('600184', '600036', '601318', '600519')
-
 def code_zip(code: str, day: str) -> str:
     ex = 'SZ' if code.startswith(('0', '3')) else 'SH'
     return f'{QUARK_ROOT}{day}/{code}/{code}.{ex}.zip'

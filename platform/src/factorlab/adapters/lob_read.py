@@ -24,13 +24,6 @@ _TABLE_COLS = {
 }
 
 
-def lob_columns(table: str) -> list[str]:
-    """该表的声明列契约（供调用方校验/派生投影）。"""
-    if table not in _TABLE_COLS:
-        raise ValueError(f"未知 lob 表: {table!r}（可用: {sorted(_TABLE_COLS)}）")
-    return list(_TABLE_COLS[table])
-
-
 def lob_day_path(table: str, day: str, *, root: Path | None = None) -> Path:
     """该 (表, 日) 的文件路径（root 缺省 = factio.paths.lob_fact_root()）。"""
     if table not in _TABLE_COLS:

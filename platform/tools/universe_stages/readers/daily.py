@@ -97,15 +97,6 @@ class DailyStore:
             raise ValueError(f'no previous trade date before {sd.date()}')
         return dates[-1]
 
-    def first_trade_dates_by_month(self, start, end) -> list[pd.Timestamp]:
-        s, e = pd.Timestamp(start).normalize(), pd.Timestamp(end).normalize()
-        dates = [d for d in self.calendar(end=e) if d >= s]
-        if not dates:
-            return []
-        x = pd.DataFrame({'trade_date': dates})
-        x['ym'] = x['trade_date'].dt.to_period('M')
-        return x.groupby('ym')['trade_date'].min().tolist()
-
     def read(self, codes=None, start=None, end=None) -> pd.DataFrame:
         df = self._load()
         x = df

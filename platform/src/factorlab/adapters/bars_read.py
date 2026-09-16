@@ -12,14 +12,6 @@ from pathlib import Path
 import polars as pl
 
 from factorlab.core.factio import partitions, paths
-from factorlab.core.factio.schema import BARS_1M_COLS
-
-_TABLE_COLS = list(BARS_1M_COLS)
-
-
-def bars_columns() -> list[str]:
-    """bars_1m 声明列契约（core/factio/schema.BARS_1M_COLS）。"""
-    return list(_TABLE_COLS)
 
 
 def bars_month_files(root: Path | None = None, *, year: int, month: int) -> list[Path]:

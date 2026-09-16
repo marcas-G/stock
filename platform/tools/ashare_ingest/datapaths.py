@@ -52,15 +52,6 @@ def daily_fact() -> Path:
     return fpaths.daily_fact_path()
 
 
-def delisted_codes() -> Path:
-    """A5 伴生退市侧车（import_daily 生产；ch_ingest/ingest_daily 消费）。
-
-    列 code/last_trade_date；来源 = 退市股目录（in-file code 优先，文件名兜底，
-    空文件也算权威退市信号）。ch 侧写 stock_basic.delist_date = last + 1。
-    """
-    return daily_fact().parent / "delisted_codes.parquet"
-
-
 def raw_daily_dir() -> Path:
     """A8 日K 原始导出目录（`import_daily` 的源，只读）。"""
     return fpaths.RAW_ROOT / "daily"
