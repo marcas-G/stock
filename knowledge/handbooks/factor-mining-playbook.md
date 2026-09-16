@@ -1,7 +1,7 @@
 # FactorLab 因子挖掘手册（Factor Mining Playbook）
 
 日期：2026-08-16
-前置：数据就绪（`factorlab data update` 到最新交易日）——数据运维见 `knowledge/contracts/data-ops-playbook.md`
+前置：数据就绪（`make data-update` 到最新交易日）——数据运维见 `knowledge/contracts/data-ops-playbook.md` §0
 
 ## 1. 挖掘工作流总览（SOP）
 
@@ -235,7 +235,7 @@ formula: |
 | 前视偏差 | 因子用了未来数据（如未来 adj 基准） | 默认 qfq（最新因子）；严格研究用 pit_qfq |
 | 幸存者偏差 | 只看了现存活股票 | universe 用全历史（rules 不排除退市——平台已含） |
 | 复权口径错误 | 除权日因子假崩 | 默认 qfq；价差类自查 |
-| 稀疏字段 | 因子大部分 null | `factorlab data verify` 的稀疏报告；fillna |
+| 稀疏字段 | 因子大部分 null | `runs/platform/<name>/summary.json` 的 `signal_null_ratio` + CH 覆盖对账（`make reconcile`）；fillna |
 | 小样本 IC | t_stat 虚高/虚低 | ≥50 只 × 3 年；看 t_stat 不看 mean |
 | 除权周前向收益扭曲 | forward 在除权周异常 | 平台已用 total_return（含分红） |
 | 涨跌停日 | 一字板不可成交 | 回测/实盘需 Raw Execution 过滤（平台数据有 stk_limit 表） |
