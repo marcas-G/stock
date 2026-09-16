@@ -44,15 +44,11 @@ def version() -> None:
     typer.echo(__version__)
 
 
-@app.command()
-def lint(spec_path: Path) -> None:
-    """校验 YAML Spec 与 factor formula（与引擎同序：完整静态管线，不打开 DB）。
+def _lint_one(spec_path: Path) -> str:
+    """校验单个 spec（与引擎同序静态管线，不打开 DB）；返回 spec.name。
 
     校验范围：formula / factors[].formula / universe.formula（池公式）/ operators 宏体。
-    2026-09-14 修复：此前拿未替换文本（`${win}` 不是合法 Python）直接过 AST 门，
-    对文档化的 params 模板假报"语法错误"（全库 152 spec 中 15 个受影响）——
-    写因子的第一条命令就误报，等于门失效。
-    R22（Task 8）：lint 改用 `prepare_static`——参数替换 → 宏展开 → def 内联 →
+    R22（Task 8）：改用 `prepare_static`——参数替换 → 宏展开 → def 内联 →
     薄封装展开 → stable_rank/vendor alias 改写 → 分类表归一化（开放面全量放行，
     未知算子给 op_meta 指引）→ 未来门（全形态 行:列）→ 输出名检查。引擎侧
     compute_formula 执行同一序列（仅多一层 universe masking），lint 只是把失败
@@ -60,29 +56,89 @@ def lint(spec_path: Path) -> None:
     """
     from factorlab.core.engine.compute import prepare_static
 
-    try:
-        spec = load_spec(spec_path)
-        sources: list[str] = []
-        if spec.formula is not None:
-            sources.append(spec.formula)
-        else:
-            sources.extend(item.formula for item in spec.factors or [])
-        if spec.universe.formula is not None:
-            sources.append(spec.universe.formula)
-        sources.extend(op.formula for op in (spec.operators or {}).values())
-        for source in sources:
-            validate_formula(substitute_params(source, spec.params))
-        # 完整静态管线（引擎同序；逐 formula/逐 factor，池公式随 pipeline 展开）
-        variants = ([spec] if spec.formula is not None
-                    else [spec.model_copy(update={"formula": item.formula,
-                                                  "factors": None})
-                          for item in spec.factors or []])
-        for variant in variants:
-            prepare_static(variant)
-    except (ValueError, FactorDSLError) as exc:
-        console.print(str(exc))
-        raise typer.Exit(code=1) from exc
-    console.print(f"OK {spec.name}")
+    spec = load_spec(spec_path)
+    sources: list[str] = []
+    if spec.formula is not None:
+        sources.append(spec.formula)
+    else:
+        sources.extend(item.formula for item in spec.factors or [])
+    if spec.universe.formula is not None:
+        sources.append(spec.universe.formula)
+    sources.extend(op.formula for op in (spec.operators or {}).values())
+    for source in sources:
+        validate_formula(substitute_params(source, spec.params))
+    # 完整静态管线（引擎同序；逐 formula/逐 factor，池公式随 pipeline 展开）
+    variants = ([spec] if spec.formula is not None
+                else [spec.model_copy(update={"formula": item.formula,
+                                              "factors": None})
+                      for item in spec.factors or []])
+    for variant in variants:
+        prepare_static(variant)
+    return spec.name
+
+
+def _factor_spec_paths() -> list[Path]:
+    """`--all` 的 spec 集合：cwd 向上定位 `research/factor/`，rglob *.yaml 跳过 `_` 前缀。
+
+    路径单点：与 `research/tools/factor_lib/build_index.py` 同布局（元数据 `_*.yaml`
+    不是 spec）；glob 而非硬编码清单——挖矿在途新增因子自动纳入。
+    """
+    here = Path.cwd().resolve()
+    for base in (here, *here.parents):
+        factor_root = base / "research" / "factor"
+        if factor_root.is_dir():
+            out = []
+            for p in sorted(factor_root.rglob("*.yaml")):
+                rel = p.relative_to(factor_root)
+                if any(part.startswith("_") for part in rel.parts):
+                    continue  # `_families.yaml` / `_pools/` 等元数据，不是 spec
+                out.append(p)
+            return out
+    return []
+
+
+@app.command()
+def lint(
+    spec_paths: list[Path] = typer.Argument(None, help="一个或多个因子 spec YAML 路径"),
+    all_specs: bool = typer.Option(False, "--all",
+                                   help="扫描 research/factor/**/*.yaml 全库单进程批跑"),
+) -> None:
+    """校验 YAML Spec 与 factor formula（与引擎同序：完整静态管线，不打开 DB）。
+
+    单路径：输出 `OK <name>`；失败打印原因并 exit 1（行为与退出码保持兼容）。
+    多路径 / `--all`：单进程批跑（消灭 N 个进程 N 次 import 的启动开销），
+    逐个失败隔离上报，任一失败 exit 1，末行汇总 `factor lint: N 通过 / M 失败`。
+    """
+    paths: list[Path] = list(spec_paths or [])
+    if all_specs:
+        discovered = _factor_spec_paths()
+        if not discovered:
+            console.print("未找到 research/factor/**/*.yaml（从当前目录向上）"
+                          "——请在仓库根运行，或直接给出 spec 路径")
+            raise typer.Exit(code=1)
+        paths = sorted(set(paths) | set(discovered))
+    if not paths:
+        console.print("请给出至少一个 spec 路径，或用 --all 全库批跑")
+        raise typer.Exit(code=2)
+    if len(paths) == 1 and not all_specs:
+        try:
+            name = _lint_one(paths[0])
+        except (ValueError, FactorDSLError) as exc:
+            console.print(str(exc))
+            raise typer.Exit(code=1) from exc
+        console.print(f"OK {name}")
+        return
+    failures: list[tuple[Path, str]] = []
+    for path in paths:
+        try:
+            _lint_one(path)
+        except Exception as exc:  # noqa: BLE001 —— 批跑失败隔离：逐个上报，不中断
+            failures.append((path, str(exc)))
+    for path, msg in failures:
+        console.print(f"  lint 失败: {path}: {msg}")
+    console.print(f"factor lint: {len(paths) - len(failures)} 通过 / {len(failures)} 失败")
+    if failures:
+        raise typer.Exit(code=1)
 
 
 @op_app.command("list")
