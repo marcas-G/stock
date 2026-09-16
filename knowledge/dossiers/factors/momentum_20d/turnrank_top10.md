@@ -9,6 +9,7 @@ params: {}
 status: 观察中（需期外验证）——mean IC 未变（-0.0455→-0.0448），t 上升系 std 收缩机械膨胀
 created_ts: 2026-09-16
 updated_ts: 2026-09-16
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # momentum_20d_turnrank_top10 因子档案
