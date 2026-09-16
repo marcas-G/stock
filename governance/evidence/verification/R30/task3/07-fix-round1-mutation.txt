@@ -1,0 +1,128 @@
+
+### 突变：downloaded 恒空（不记账成功文件）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+FAILED tools/pan_update/tests/test_sync.py::test_size_limit_exception_marks_manual_and_retries_rest
+FAILED tools/pan_update/tests/test_sync.py::test_share_entries_converted_at_consumer_boundary
+FAILED tools/pan_update/tests/test_sync.py::test_nested_rel_path_creates_parent_dirs
+FAILED tools/pan_update/tests/test_sync.py::test_parallel_download_peak_over_one_and_reports_in_entry_order
+FAILED tools/pan_update/tests/test_sync.py::test_workers_one_stays_serial - A...
+8 failed, 15 passed in 2.34s
+
+### 突变：to_fetch 恒空（dry-run 清单缺失）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+tools/pan_update/tests/test_sync.py:86: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_sync.py::test_sync_dry_run_writes_nothing
+FAILED tools/pan_update/tests/test_sync.py::test_dry_run_does_not_touch_transport
+FAILED tools/pan_update/tests/test_sync.py::test_second_run_unchanged_is_noop
+3 failed, 20 passed in 2.28s
+
+### 突变：忽略 dry_run（真下载真落盘）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+
+tools/pan_update/tests/test_sync.py:75: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_sync.py::test_sync_dry_run_writes_nothing
+FAILED tools/pan_update/tests/test_sync.py::test_dry_run_does_not_touch_transport
+2 failed, 21 passed in 2.20s
+
+### 突变：忽略 _blocked_reason（size-limit 不分类 manual）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+
+tools/pan_update/tests/test_sync.py:86: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_sync.py::test_sync_downloads_small_and_marks_big_manual
+FAILED tools/pan_update/tests/test_sync.py::test_second_run_unchanged_is_noop
+2 failed, 21 passed in 2.36s
+
+### 突变：去掉 size 校验（半成品直接 rename）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+
+tools/pan_update/tests/test_sync.py:365: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_sync.py::test_size_mismatch_marks_failed_and_leaves_no_final_file
+FAILED tools/pan_update/tests/test_sync.py::test_download_false_with_full_size_marks_failed
+2 failed, 21 passed in 2.29s
+
+### 突变：不写 state（成功文件不记账）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+FAILED tools/pan_update/tests/test_sync.py::test_sync_downloads_small_and_marks_big_manual
+FAILED tools/pan_update/tests/test_sync.py::test_second_run_unchanged_is_noop
+FAILED tools/pan_update/tests/test_sync.py::test_state_path_records_partial_progress
+FAILED tools/pan_update/tests/test_sync.py::test_share_entries_converted_at_consumer_boundary
+FAILED tools/pan_update/tests/test_sync.py::test_parallel_download_peak_over_one_and_reports_in_entry_order
+5 failed, 18 passed in 2.22s
+
+### 突变：去掉 rel_path 越界护栏
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+E         Use -v to get more diff
+
+tools/pan_update/tests/test_sync.py:222: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_sync.py::test_rel_path_traversal_rejected
+1 failed, 22 passed in 2.30s
+
+### 突变：QuarkTransport 不做缺链单项探测
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+
+tools/pan_update/tests/test_sync.py:287: KeyError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_sync.py::test_quark_transport_probes_missing_and_classifies_size_limit
+FAILED tools/pan_update/tests/test_sync.py::test_quark_transport_probe_marks_dl_guest_and_http_error
+2 failed, 21 passed in 2.19s
+
+### 突变：QuarkTransport 探测不辨原因（全标 size limit）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+E       KeyError: '_fetch_error'
+
+tools/pan_update/tests/test_sync.py:288: KeyError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_sync.py::test_quark_transport_probe_marks_dl_guest_and_http_error
+1 failed, 22 passed in 2.27s
+
+### 突变：下载直写最终名（无 .part）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+E        +    where <built-in method endswith of str object at 0x7f37c3a903b0> = '/tmp/pytest-of-gaolei/pytest-1833/test_size_mismatch_marks_faile0/a.zip'.endswith
+
+tools/pan_update/tests/test_sync.py:102: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_sync.py::test_size_mismatch_marks_failed_and_leaves_no_final_file
+1 failed, 22 passed in 2.23s
+
+### 突变：去掉脚本直启导入兜底（裸跑 ModuleNotFoundError）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '/data/students/gaolei/stock/platform/..., line 24, in <module>\n    from pan_update import state as st\nModuleNotFoundError: No module named \'pan_update\'\n').returncode
+
+tools/pan_update/tests/test_sync.py:235: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_sync.py::test_script_direct_run_bootstraps_import_path
+1 failed, 22 passed in 2.13s
+
+### 突变：修复轮1 · I1 workers 失效（强制串行）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+E        +  where 1 = <test_sync._PeakT object at 0x7ff14d42e3c0>.peak
+
+tools/pan_update/tests/test_sync.py:337: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_sync.py::test_parallel_download_peak_over_one_and_reports_in_entry_order
+1 failed, 22 passed in 2.19s
+
+### 突变：修复轮1 · I2 403/412 不重取链
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+
+tools/pan_update/tests/test_sync.py:385: RuntimeError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_sync.py::test_quark_transport_refetches_link_once_on_412
+FAILED tools/pan_update/tests/test_sync.py::test_quark_transport_refetches_on_expired_link_message
+2 failed, 21 passed in 2.22s
+
+### 突变：修复轮1 · I2 非过期错误也重取链
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+E       Failed: DID NOT RAISE OSError
+
+tools/pan_update/tests/test_sync.py:433: Failed
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_sync.py::test_quark_transport_no_refetch_for_other_errors
+1 failed, 22 passed in 2.17s
+
+恢复原文后复跑： 40 passed in 2.43s [exit=0]

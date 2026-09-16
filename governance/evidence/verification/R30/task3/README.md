@@ -30,5 +30,28 @@
 
 ## 备注
 
-- `workers=8` 并发参数按裁决保留（计划 §3），T3 先串行接线；测试不看并发。
 - `state_path` 为 T3 新增可选参数（brief 签名无路径参数，落盘路径由调用方 T9 提供）。
+
+---
+
+# 修复轮 1（独立评审 Important I1/I2/I3，2026-09-16）
+
+| 证据 | 命令 | 结果 |
+|---|---|---|
+| `06-fix-round1-redgreen.txt` | A：新测试 vs HEAD `24744f0` 的 sync.py；B：修复后复跑 | A **3 failed, 3 passed**；B `test_sync.py` **23 passed**、pan_update **40 passed**、G-TOPO 0 |
+| `07-fix-round1-mutation.txt` | `python3 governance/evidence/verification/R30/task3/mutation.py` | **14/14 突变被抓**（新增 I1/I2 三突变）；恢复后 40 passed |
+| `08-fix-round1-regression.txt` | `platform/.venv/bin/python -m pytest platform/tools -q` | **381 passed**（上轮 375 + 6 新测试） |
+
+## Findings 处置
+
+| # | finding | 处置 | 测试 |
+|---|---|---|---|
+| I1 | `workers` 死参数（并行未接线） | `_run_downloads`：`workers<=1` 或单任务 → 串行；否则 `ThreadPoolExecutor(max_workers=workers)` + `map`（保序）。worker 只下载落盘，state 记账/report 归集由主线程按条目序统一做（线程安全策略=主线程合并，无共享写）；`_download_one` 增加 `os.replace`/清理的 OSError 收敛 | `test_parallel_download_peak_over_one_and_reports_in_entry_order`（峰值≥2 且完成序不影响报告序）、`test_workers_one_stays_serial`（峰值恒 1），5 次重复稳定 |
+| I2 | 403/412/链接过期不自愈 | `QuarkTransport.download`：过期类异常（`.code`/URLError 包裹 403·412，或文案含「过期/expired」）→ `_refreshed_url` 单项重取链一次后重试；仍失败 → `RuntimeError("重取链后仍失败：…（原错误：…）")`；非过期异常原样上抛不重取 | `test_quark_transport_refetches_link_once_on_412`（取链恰 2 次、换新链）、`…_on_expired_link_message`、`test_quark_transport_no_refetch_for_other_errors`（取链恰 1 次） |
+| I3 | `download() -> False` 无测试 | 补测试（实现已正确：False → `failed("download failed")`、不记账、清 `.part`） | `test_download_false_with_full_size_marks_failed` |
+
+## 修复轮备注
+
+- 并发实现选择：主线程合并结果（worker 返回 `(idx, detail)`），避免 `state`/`report` 跨线程写；`ex.map` 保提交序，报告条目序与串行一致。
+- 线程安全的 `QuarkTransport`：`_items_by_fid`/`_fid_by_url` 在 `list_urls` 后只读；下载线程只追加各自新链映射（distinct key）。
+- 「过期」判定从 `"链接过期"` 放宽为 `"过期"`（实测文案为「下载链接已过期」，中间有「已」）。

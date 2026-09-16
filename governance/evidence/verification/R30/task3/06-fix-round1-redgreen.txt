@@ -1,0 +1,106 @@
+### A. 红：新测试 vs 修复前实现（HEAD 24744f0 的 sync.py）
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests/test_sync.py -q -k 'parallel_download or workers_one or download_false or refetch'
+F..FF.                                                                   [100%]
+=================================== FAILURES ===================================
+_______ test_parallel_download_peak_over_one_and_reports_in_entry_order ________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1821/test_parallel_download_peak_ov0')
+
+    def test_parallel_download_peak_over_one_and_reports_in_entry_order(tmp_path):
+        """I1：默认 workers=8 → 真并发（峰值≥2）；归集仍按条目顺序（b 先完成不影响）。"""
+        t = _PeakT()
+        s = {"version": 1, "files": {}, "stages": {}, "runs": []}
+        rep = sync.sync_category(s, "daily",
+                                 entries=[_entry("a.zip", 10, "1"), _entry("b.zip", 20, "2")],
+                                 transport=t, dest_root=tmp_path, dry_run=False)
+>       assert t.peak >= 2
+E       assert 1 >= 2
+E        +  where 1 = <test_sync._PeakT object at 0x7fe6755b01a0>.peak
+
+platform/tools/pan_update/tests/test_sync.py:337: AssertionError
+_______________ test_quark_transport_refetches_link_once_on_412 ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe67547cc30>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1821/test_quark_transport_refetches0')
+
+    def test_quark_transport_refetches_link_once_on_412(monkeypatch, tmp_path):
+        """I2：首次下载 412 → 重取链一次并重试成功；取链恰 2 次、换新链。"""
+        state = _quark_transport_fakes(
+            monkeypatch, lambda url: urllib.error.HTTPError(url, 412, "Precondition Failed", None, None))
+        tr = sync.QuarkTransport()
+        items = [_entry("a.zip", 10, "1")]
+        urls = tr.list_urls(items)
+        assert len(state["fetches"]) == 1
+    
+>       ok = tr.download(urls["1"], tmp_path / "a.part", 10)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tools/pan_update/tests/test_sync.py:404: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tools/pan_update/sync.py:214: in download
+    ok, _actual = quark_client.download_file(url, out, size)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+url = 'http://d/1?v=1'
+out = PosixPath('/tmp/pytest-of-gaolei/pytest-1821/test_quark_transport_refetches0/a.part')
+expect_size = 10
+
+    def fake_download_file(url, out, expect_size):
+        state["downloads"].append(url)
+        if len(state["downloads"]) == 1:
+>           raise first_error(url)
+E           urllib.error.HTTPError: HTTP Error 412: Precondition Failed
+
+platform/tools/pan_update/tests/test_sync.py:385: HTTPError
+____________ test_quark_transport_refetches_on_expired_link_message ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe67547d220>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1821/test_quark_transport_refetches1')
+
+    def test_quark_transport_refetches_on_expired_link_message(monkeypatch, tmp_path):
+        """I2 备选口径：异常文本含「链接过期」也触发重取。"""
+        state = _quark_transport_fakes(monkeypatch, lambda url: RuntimeError("下载链接已过期"))
+        tr = sync.QuarkTransport()
+        items = [_entry("a.zip", 10, "1")]
+        urls = tr.list_urls(items)
+    
+>       ok = tr.download(urls["1"], tmp_path / "a.part", 10)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tools/pan_update/tests/test_sync.py:420: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tools/pan_update/sync.py:214: in download
+    ok, _actual = quark_client.download_file(url, out, size)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+url = 'http://d/1?v=1'
+out = PosixPath('/tmp/pytest-of-gaolei/pytest-1821/test_quark_transport_refetches1/a.part')
+expect_size = 10
+
+    def fake_download_file(url, out, expect_size):
+        state["downloads"].append(url)
+        if len(state["downloads"]) == 1:
+>           raise first_error(url)
+E           RuntimeError: 下载链接已过期
+
+platform/tools/pan_update/tests/test_sync.py:385: RuntimeError
+=========================== short test summary info ============================
+FAILED platform/tools/pan_update/tests/test_sync.py::test_parallel_download_peak_over_one_and_reports_in_entry_order
+FAILED platform/tools/pan_update/tests/test_sync.py::test_quark_transport_refetches_link_once_on_412
+FAILED platform/tools/pan_update/tests/test_sync.py::test_quark_transport_refetches_on_expired_link_message
+3 failed, 3 passed, 17 deselected in 1.49s
+
+### B. 绿：修复后同一组测试（全量 test_sync.py）
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests/test_sync.py -q
+.......................                                                  [100%]
+23 passed in 2.21s
+
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests -q
+........................................                                 [100%]
+40 passed in 2.26s
+
+$ platform/.venv/bin/python governance/ops/check_tool_layering.py
+[G-TOPO] 工具拓扑：依赖方向 / 横向耦合
+  ✓ 0 处（core 不做反向依赖、生产不带诊断、工具不互相 import、lib 是叶子）

@@ -73,6 +73,18 @@ MUTS = {
         "from pan_update import state as st\n"
         "from quark_download import quark_client",
     ),
+    "修复轮1 · I1 workers 失效（强制串行）": ORIG.replace(
+        "    if workers <= 1 or len(jobs) <= 1:",
+        "    if True:",
+    ),
+    "修复轮1 · I2 403/412 不重取链": ORIG.replace(
+        "        if item is None or not _is_link_expired(ex):\n            raise",
+        "        if True:\n            raise",
+    ),
+    "修复轮1 · I2 非过期错误也重取链": ORIG.replace(
+        "        if item is None or not _is_link_expired(ex):\n            raise",
+        "        if item is None:\n            raise",
+    ),
 }
 
 
