@@ -21,6 +21,8 @@ from factorlab.adapters.parquet_artifacts import (write_factor_artifacts,
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.app.context import RunContext
+from factorlab.app.memory import (MemoryWatchdog, guard_minute_chunk_days,
+                                  memory_watchdog_from_settings)
 from factorlab.config import settings
 from factorlab.core.engine.compute import (_WARMUP_SAFETY_PAD, _build_legacy_panel, _canonicalize_artifact_codes, _chunk_keep, _formula_columns, _pool_cond_frame, _ts_window_days, compute_formula, FactorResult, fill_suspension_values, label_lookahead_end, prepare_formula_pipeline, reject_cumulative_chunking)
 from factorlab.core.engine.forward import (DEFAULT_FORWARD_HORIZONS,
@@ -418,7 +420,24 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
 
     Signal 路径绝不计算 forward returns；Label 路径独立调用 compute_forward_returns。
     legacy panel = signal LEFT JOIN labels（CLI/eval 兼容视图）。
-    interface 门（2026-09-08）：bars_1m 分钟模板走 run_factor_minute（折日引擎）。"""
+    interface 门（2026-09-08）：bars_1m 分钟模板走 run_factor_minute（折日引擎）。
+
+    R05-C1（P0 内存事故）：显式 `FACTORLAB_MAX_MEMORY`/`FACTORLAB_MIN_AVAILABLE_MEMORY`
+    时启用进程内存看门狗（chunk 边界协作检查 → `MemoryLimitExceeded` 干净中止，
+    落盘前中止即无半成品）；未设 = 零行为变化（见 app/memory.py）。"""
+    wd = memory_watchdog_from_settings()
+    if wd is not None:
+        wd.start()
+    try:
+        return _run_factor(spec, ctx, wd)
+    finally:
+        if wd is not None:
+            wd.stop()
+
+
+def _run_factor(spec: FactorSpec, ctx: RunContext,
+                wd: MemoryWatchdog | None) -> FactorResult:
+    """run_factor 实现体（R05-C1 拆出：看门狗生命周期由公开入口管理）。"""
     _ensure_assembly()
     if getattr(spec, "interface", "daily") != "daily":
         raise ValueError(
@@ -482,6 +501,9 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
             chunks = chunk_calendar(cal, ctx.chunk_days, warmup)
         sig_parts, lab_parts = [], []
         for load_start, chunk_start, chunk_end in chunks:
+            # R05-C1：chunk 边界协作检查（看门狗线程记录/现场采样超限 → 干净中止）
+            if wd is not None:
+                wd.check()
             if ctx.chunk_days is None:
                 # 单块全历史：signal/label 同窗口，无 lookahead——
                 # label_end = sample end（截断后 cal 最后一天；spec.date.end 可能
@@ -566,6 +588,10 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
                                     outputs)
     finally:
         rd.close()
+
+    # R05-C1：落盘前最后一道协作检查（超限 → 中止；计算已中止则天然无产物）
+    if wd is not None:
+        wd.check()
 
     # M6-05：统一 artifact persistence——signal → labels → panel → summary（最后 = 完成标记）
     from factorlab.adapters.parquet_artifacts import write_factor_artifacts
@@ -727,7 +753,24 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
     （write_factor_artifacts/write_multi_output_factor_artifacts，契约零放宽）。
     分块（R04-P1）：ctx.chunk_days 显式优先；None → MINUTE_DEFAULT_CHUNK_DAYS
     （20 交易日/块）自动分块——非分块全市场分钟链峰值 RSS 实测 34.95GB，
-    20 日/块 6.95GB 且不变慢；分块 == 整段逐值一致（分钟窗不跨日）。"""
+    20 日/块 6.95GB 且不变慢；分块 == 整段逐值一致（分钟窗不跨日）。
+
+    R05-C1（P0 内存事故）：显式巨大 chunk/未分块长窗按静态估算告警/拒绝
+    （guard_minute_chunk_days）；显式 `FACTORLAB_MAX_MEMORY` 时另启进程内存
+    看门狗（chunk 边界协作检查 → 干净中止）。"""
+    wd = memory_watchdog_from_settings()
+    if wd is not None:
+        wd.start()
+    try:
+        return _run_factor_minute(spec, ctx, wd)
+    finally:
+        if wd is not None:
+            wd.stop()
+
+
+def _run_factor_minute(spec, ctx: RunContext,
+                       wd: MemoryWatchdog | None) -> FactorResult:
+    """run_factor_minute 实现体（R05-C1 拆出：看门狗生命周期由公开入口管理）。"""
     _ensure_assembly()
     if getattr(spec, "interface", "daily") != "bars_1m":
         raise ValueError("run_factor_minute 只接 interface: bars_1m 的 spec"
@@ -794,12 +837,19 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
         # 锁显式 chunk_days=2 路径）。
         chunk_days = (ctx.chunk_days if ctx.chunk_days is not None
                       else MINUTE_DEFAULT_CHUNK_DAYS)
+        # R05-C1 长窗防护：显式巨大 chunk 估算超阈值 → fail fast；偏高 → 告警
+        # （默认自动路径绝不拒绝——20 日/块是实测安全点，运行时看门狗兜底）
+        guard_minute_chunk_days(len(codes), cal.len(), chunk_days,
+                                explicit=ctx.chunk_days is not None)
         chunks = [(cs, ce) for _ls, cs, ce
                   in chunk_calendar(cal, chunk_days, 0)]
         bar_cols = _bars_needed_cols(formula)
         parts = []
         uncovered_parts: list[pl.DataFrame] = []   # R03-I6 drop 剔除累计
         for cs, ce in chunks:
+            # R05-C1：chunk 边界协作检查（看门狗线程记录/现场采样超限 → 干净中止）
+            if wd is not None:
+                wd.check()
             inj = _build_daily_injections(rd, codes, warm_start.isoformat(),
                                           ce.isoformat(), float32=ctx.float32)
             bars = load_bars_1m_codes(rd, codes, date_start=cs.isoformat(),
@@ -837,6 +887,9 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
         del parts
         if signal_df.height == 0:
             raise ValueError("分钟段无数据，可运行 data refresh（M3b）")
+        # R05-C1：label 全窗装载（大步骤）前协作检查
+        if wd is not None:
+            wd.check()
         # label：单趟整段全窗（与日频链同一 _compute_labels/同一 uf——行位 shift
         # 语义要求同骨架）；键集过滤对齐在 canonicalize 之后做
         labels_full = _compute_labels(rd, ctx, spec, codes, uf,
@@ -873,6 +926,10 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
                                     label_artifact, outputs)
     finally:
         rd.close()
+
+    # R05-C1：落盘前最后一道协作检查（超限 → 中止；计算已中止则天然无产物）
+    if wd is not None:
+        wd.check()
 
     if signal_artifact is not None:
         summary = {

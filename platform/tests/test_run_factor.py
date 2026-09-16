@@ -23,6 +23,8 @@ import pytest
 import dualbridge
 from factorlab.app.run import run_factor
 from factorlab.app.context import RunContext
+from factorlab.app.memory import MemoryLimitExceeded, MemoryWatchdog
+from factorlab.adapters.parquet_artifacts import load_signal_artifact
 from factorlab.adapters.read.universe import STDegradedWarning
 from factorlab.config import settings
 from factorlab.core.engine.compute import _formula_columns
@@ -1047,3 +1049,57 @@ def test_run_factor_st_degrade_noop_when_table_present(env, tmp_path, monkeypatc
     # 候选集不受 exclude_st 影响（动态 PIT 条件）；面板成员才是 ST 过滤的结果
     assert result.summary["codes"] == ["000001.SZ", "600519.SH"]
     assert set(result.panel["code"].unique().to_list()) == {"600519.SH"}
+
+
+# ---------- R05-C1：进程内存看门狗（chunk 边界协作检查 + 干净中止） ----------
+
+
+def _memory_watchdog_patch(monkeypatch, wd):
+    """把 run_factor 内的看门狗工厂替换为测试看门狗（注入可控读数）。
+
+    看门狗工厂在 app/run 装配点被调用（`memory_watchdog_from_settings`），
+    patch 该引用即接线真实协作检查路径。"""
+    monkeypatch.setattr("factorlab.app.run.memory_watchdog_from_settings",
+                        lambda *a, **k: wd)
+
+
+def test_run_factor_memory_abort_clean_no_artifacts(env, tmp_path, monkeypatch):
+    """R05-C1：第二个 chunk 边界协作检查发现 RSS 超限 → MemoryLimitExceeded
+    干净中止；落盘前中止 → 无 summary/signal/labels/panel 半成品，loader 拒绝。"""
+    _seed(env)
+    reads = {"n": 0}
+
+    def rss():
+        reads["n"] += 1
+        # 首查（第一块边界）未超限 → 第一块真实计算；次查超限 → 中止
+        return 10 * 1024 ** 2 if reads["n"] == 1 else 2 * 1024 ** 3
+
+    wd = MemoryWatchdog(max_rss=1 * 1024 ** 3, sample_interval=999,
+                        rss_reader=rss, available_reader=lambda: 100 * 1024 ** 3)
+    _memory_watchdog_patch(monkeypatch, wd)
+    out = tmp_path / "out"
+    with pytest.raises(MemoryLimitExceeded, match="FACTORLAB_MAX_MEMORY"):
+        run_factor(_spec(tmp_path), _ctx(env, out, chunk_days=2, warmup_days=1))
+    assert reads["n"] >= 2                 # 证明在 chunk 边界真实采样（非硬编码拒绝）
+    assert wd.violation is not None
+    assert wd.running is False             # finally 已停线程（干净中止）
+    assert not (out / "summary.json").exists()
+    assert not (out / "signal.parquet").exists()
+    assert not (out / "labels.parquet").exists()
+    with pytest.raises(ValueError, match="summary.json 不存在"):
+        load_signal_artifact(out)          # 无可加载产物（loader 拒绝）
+
+
+def test_run_factor_memory_limit_generous_completes(env, tmp_path, monkeypatch):
+    """R05-C1 负向控制：阈值充裕时看门狗真实采样但绝不影响 run（产物照常落盘）。"""
+    _seed(env)
+    wd = MemoryWatchdog(max_rss=100 * 1024 ** 3, sample_interval=0.01,
+                        rss_reader=lambda: 1 * 1024 ** 2,
+                        available_reader=lambda: 100 * 1024 ** 3)
+    _memory_watchdog_patch(monkeypatch, wd)
+    out = tmp_path / "out"
+    result = run_factor(_spec(tmp_path), _ctx(env, out, chunk_days=2, warmup_days=1))
+    assert (out / "summary.json").is_file()
+    assert load_signal_artifact(out).frame.height == result.signal_artifact.frame.height
+    assert wd.samples >= 1                 # 看门狗真的在跑（不是装饰）
+    assert wd.peak_rss == 1 * 1024 ** 2

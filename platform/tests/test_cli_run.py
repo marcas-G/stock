@@ -700,3 +700,57 @@ formula: |
     result = runner.invoke(app, ["run", str(spec_path)])
     assert result.exit_code != 0
     assert "cost_rate" in result.output
+
+
+# ---------- R05-C1：内存护栏（CLI 入口硬上限 + 超限干净 exit 1） ----------
+
+
+def _mem_spec(tmp_path):
+    spec_path = tmp_path / "mem.yaml"
+    spec_path.write_text("""
+name: memdemo
+category: custom
+direction: 1
+universe:
+  codes: ["000001.SZ", "600519.SH"]
+date:
+  start: "2024-01-02"
+  end: "2024-01-12"
+formula: |
+  signal = close / open - 1
+""", encoding="utf-8")
+    return spec_path
+
+
+def test_run_cli_applies_hard_address_space_limit_when_set(tmp_path, monkeypatch):
+    """R05-C1：显式 FACTORLAB_MAX_MEMORY 时 CLI 入口落 RLIMIT_AS 硬护栏
+    （参数 = 解析后的字节数）；充裕阈值下 run 不受影响照常产出。"""
+    build_db(tmp_path, n_days=9)
+    spec_path = _mem_spec(tmp_path)
+    monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+    monkeypatch.setattr("factorlab.config.settings.max_memory", "100GB")
+    calls = []
+    monkeypatch.setattr("factorlab.app.memory.apply_address_space_limit",
+                        lambda b, **kw: calls.append(b) or b)
+    out_dir = tmp_path / "results" / "memdemo"
+    result = runner.invoke(app, ["run", str(spec_path), "--output-dir", str(out_dir)])
+    assert result.exit_code == 0, result.output
+    assert calls == [100 * 1024 ** 3]      # 硬上限真被调用且数值正确（非恒过）
+    assert (out_dir / "summary.json").is_file()
+
+
+def test_run_cli_memory_abort_exit1_clean_no_summary(tmp_path, monkeypatch):
+    """R05-C1：人为极小 FACTORLAB_MAX_MEMORY → MemoryLimitExceeded 被 CLI 捕获
+    （ValueError 路径）→ exit 1 + 明确文案；不落任何可加载半成品。"""
+    build_db(tmp_path, n_days=9)
+    spec_path = _mem_spec(tmp_path)
+    monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+    monkeypatch.setattr("factorlab.config.settings.max_memory", "1KB")
+    monkeypatch.setattr("factorlab.app.memory.apply_address_space_limit",
+                        lambda b, **kw: None)   # 本测试只验软护栏（不真 setrlimit）
+    out_dir = tmp_path / "results" / "memdemo"
+    result = runner.invoke(app, ["run", str(spec_path), "--output-dir", str(out_dir)])
+    assert result.exit_code == 1
+    assert "FACTORLAB_MAX_MEMORY" in result.output
+    assert not (out_dir / "summary.json").exists()
+    assert not (out_dir / "signal.parquet").exists()

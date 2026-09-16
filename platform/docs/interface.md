@@ -100,7 +100,8 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 - `--universe U`：覆盖 spec 的 universe（6 位代码或 universe 引用名/文件路径）；
   缺省时回落 `settings.default_universe`（`FACTORLAB_DEFAULT_UNIVERSE`），
   未配置则用 spec 内联 universe。
-- `--max-memory M`：运行期 DuckDB `memory_limit`（默认 `4GB`）。
+- `--max-memory M`：运行期 DuckDB `memory_limit`（默认 `4GB`；**仅** DuckDB
+  连接——进程级护栏见下方「进程内存护栏」`FACTORLAB_MAX_MEMORY`）。
 - `--output-dir DIR`：落盘目录，默认 `settings.results_dir / <spec.name>`
   （`results/`，`FACTORLAB_RESULTS_DIR` 可覆盖——`list`/`show` 扫描同一目录）。
 - `--no-float32`：关闭 float32 内存护栏。
@@ -115,7 +116,8 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 - `--chunk-days N`：日期分块（交易日/块，`N >= 1`）。缺省：**分钟链
   （`interface: bars_1m`）按 20 交易日/块自动分块**（R04-P1——非分块全市场峰值
   RSS 实测 34.95GB / 16GB 机 OOM，20 日/块 6.95GB 且不变慢；需整段可显式传大于
-  窗口长度的 N）；日频缺省单块整段跑。长样本
+  窗口长度的 N——显式极大块按块峰值估算告警/拒绝，见「进程内存护栏」）；日频
+  缺省单块整段跑。长样本
   （2015+ 全市场）超过 16GB 内存护栏时使用，语义保证与整段跑逐 cell 一致
   （见下方"分块计算"）。**累计算子（`ts_cum_sum`/`ts_cum_max`/`ts_cum_min`/
   `ts_cum_prod` 及 `vwap` 宏展开产物）与分块不兼容**——分块下 fail fast
@@ -178,6 +180,49 @@ factorlab run factor/crash_bottom_leader_timed.yaml --chunk-days 500   # 2015-20
   略异（低频使用）；
 - 块大小 + warmup 应控制在约 850 交易日以内（单块内存 ≈ 已验证可跑的
   3.5 年量级）。
+
+### 进程内存护栏（R05-C1，2026-09-16 P0 事故后）
+
+背景：3 年全市场分钟链运行（`--chunk-days 20`）叠加 LLM 服务（21GB
+llama-server）与多 agent 会话触发主机内存耗尽、SSH 卡死、ClickHouse 一度无
+响应（进程 D 状态零输出；事故记录 `docs/reviews/r05-usage-2026-09-16/report.md`）。
+`factorlab run`（日频 `run_factor` 与分钟链 `run_factor_minute` 两条路径）内置
+进程内存护栏：
+
+- **开关**：`FACTORLAB_MAX_MEMORY`（进程 RSS 上限）与
+  `FACTORLAB_MIN_AVAILABLE_MEMORY`（系统可用内存下限）——支持
+  `"8GB"`/`"512MB"`/纯字节数（1024 进制）。**二者都未设 = 不启用（默认，零
+  行为变化，避免误杀 CI/小 run）；显式设置才拦**。注意与 `--max-memory`
+  （DuckDB 连接上限）是两个东西。
+- **软看门狗**：daemon 线程约 5s 采样进程 RSS 与系统可用内存；run 链在
+  **chunk 边界与落盘前**协作检查——超限抛 `MemoryLimitExceeded`
+  （`ValueError` 子类，CLI 干净 exit 1；文案含当前 RSS/可用内存、阈值、建议：
+  减小 `--chunk-days`、调整/设置 `FACTORLAB_MAX_MEMORY`、避免与 LLM/多 agent
+  并发重任务）。**干净中止**：落盘前中止 → 无任何产物；写盘中断 → R02-I8
+  summary tombstone 失效协议保证 loader 拒绝不完整目录（无半成品可加载）。
+- **硬上限兜底**：显式设置 `FACTORLAB_MAX_MEMORY` 时，CLI 入口（`factorlab
+  run`）在跑之前落 POSIX `resource.setrlimit(RLIMIT_AS)` 硬护栏，公式
+  `max(3×RSS 上限, 当前 VA + RSS 上限 + 12GB + 64MB×核数)`。为什么远高于 RSS
+  阈值：polars/glibc arena 的**虚拟地址空间**预留远大于 RSS（本机实测小 run
+  VmSize 13.6GB vs VmRSS 0.4GB），贴阈值设会让正常 run 误报 MemoryError
+  （校准见 `docs/verification/R23/safety/`）。非 POSIX（Windows）/设置失败 →
+  warning 降级，软看门狗仍生效；Python API 直调 `run_factor` 只启软看门狗
+  （不替宿主进程设进程级 rlimit）。
+- **推荐值**（16GB 机 + LLM 并发）：`FACTORLAB_MAX_MEMORY=8GB`、
+  `FACTORLAB_MIN_AVAILABLE_MEMORY=2GB`；重任务运行协议见根 `AGENTS.md`。
+- **分钟长窗防护**：分钟链默认 20 交易日/块自动分块（R04-P1，见上）；
+  **显式** `--chunk-days` 另按 `code 数 × min(chunk_days, 窗口交易日数) ×
+  64KB/(code·日)`（R04-P1 实测校准：5207 code × 117 日非分块峰值 34.95GB、
+  20 日/块 6.95GB）估算块峰值——> 32GB **拒绝**（ValueError，不启动批读）、
+  > 8GB **告警**（`MinuteChunkSizeWarning`）后照跑；默认自动路径只告警不拒绝
+  （残余风险由运行时看门狗接管）。用自适应估算而非固定天数阈值：小宇宙
+  （测试/单票）合法长窗不误拒。
+
+```bash
+# 重任务：显式护栏 + 分钟默认 20 日/块
+FACTORLAB_MAX_MEMORY=8GB FACTORLAB_MIN_AVAILABLE_MEMORY=2GB \
+  FACTORLAB_DATA_BACKEND=ch factorlab run factor/demo_1m.yaml
+```
 
 ### `factorlab.adapters.atomicio`：原子写单点（R13）
 
@@ -728,7 +773,8 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
   候选 codes/trading_calendar/universe_frame（整段一次）→ 按
   chunk_days 分块（显式 `ctx.chunk_days` 优先；缺省 20 交易日/块——R04-P1
   内存护栏，chunk_calendar warmup=0；分钟窗不跨日，TS 窗=日内窗，分块 == 整段
-  逐值一致）→
+  逐值一致；显式极大块经 `guard_minute_chunk_days` 估算告警/拒绝，见 §1
+  「进程内存护栏」）→
   每块：日级注入列预取（adv20 左窗 = spec.start 前 20 交易日，修订 R2：在
   **有行情日行序列**上滚动，停牌日自动隔开）→ load_bars_1m_codes 批读（列
   投影按公式引用 ∩ bars 面裁剪——内存纪律）→ 块内成员日 = 池成员 ∧ 日线在

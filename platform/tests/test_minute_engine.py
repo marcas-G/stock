@@ -17,6 +17,8 @@ import polars as pl
 import pytest
 
 import dualbridge
+from factorlab.app.memory import (MinuteChunkSizeWarning, MemoryLimitExceeded,
+                                  MemoryWatchdog)
 from factorlab.app.run import run_factor
 from factorlab.app.context import RunContext
 from factorlab.app.run import run_factor_minute
@@ -829,3 +831,75 @@ def test_minute_default_auto_chunk_has_trade_guard_equals_whole(ch_db, tmp_path,
     stale = auto.signal_artifact.frame.filter(
         (pl.col("date") == _WIDE_SAMPLE[22]) & (pl.col("code") == "000001.SZ"))
     assert stale["signal"].to_list() == [229.0]
+
+
+# ---------- R05-C1：分钟链内存看门狗 + 长窗未分块防护 ----------
+
+
+def test_minute_memory_abort_mid_run_no_artifacts(ch_db, tmp_path, monkeypatch):
+    """R05-C1：默认自动分块（25 日样本 → 2 块）第二块边界发现 RSS 超限 →
+    MemoryLimitExceeded 干净中止；无 summary 可加载（半成品不存在）。"""
+    _seed_wide(ch_db)
+    reads = {"n": 0}
+
+    def rss():
+        reads["n"] += 1
+        # 首查（第一块边界）未超限 → 第一块真实计算；次查超限 → 中止
+        return 512 * 1024 if reads["n"] == 1 else 2 * 1024 ** 2
+
+    wd = MemoryWatchdog(max_rss=1 * 1024 ** 2, sample_interval=999,
+                        rss_reader=rss, available_reader=lambda: 100 * 1024 ** 3)
+    monkeypatch.setattr("factorlab.app.run.memory_watchdog_from_settings",
+                        lambda *a, **k: wd)
+    spec = _spec(tmp_path, "mabort", "signal = day_last(close)",
+                 sample=_WIDE_SAMPLE)
+    out = tmp_path / "out"
+    with pytest.raises(MemoryLimitExceeded):
+        run_factor_minute(spec, _ctx(out))
+    assert reads["n"] >= 2                     # 第一块算完、第二块边界中止
+    assert wd.running is False
+    assert not (out / "summary.json").exists()
+    assert not (out / "signal.parquet").exists()
+
+
+def test_minute_explicit_huge_chunk_rejected(ch_db, tmp_path, monkeypatch):
+    """R05-C1 长窗防护：显式巨大 chunk 的估算峰值超拒绝阈值 → ValueError
+    fail fast（不启动分钟批读；不产任何产物），文案给推荐 --chunk-days。"""
+    import factorlab.app.memory as mem
+    _seed(ch_db)
+    monkeypatch.setattr(mem, "MINUTE_PEAK_WARN_BYTES", 1)
+    monkeypatch.setattr(mem, "MINUTE_PEAK_REJECT_BYTES", 1)
+    spec = _spec(tmp_path, "huge", "signal = day_last(close)")
+    out = tmp_path / "out"
+    with pytest.raises(ValueError, match="chunk-days"):
+        run_factor_minute(spec, _ctx(out, chunk_days=10_000))
+    assert not (out / "summary.json").exists()
+
+
+def test_minute_explicit_large_chunk_warns_but_runs(ch_db, tmp_path, monkeypatch):
+    """R05-C1 长窗防护：显式大 chunk 处于告警带（WARN < 估算 ≤ REJECT）时
+    响亮告警但照常跑（用户知情选择）。"""
+    import factorlab.app.memory as mem
+    _seed(ch_db)
+    monkeypatch.setattr(mem, "MINUTE_PEAK_WARN_BYTES", 1)
+    spec = _spec(tmp_path, "large", "signal = day_last(close)")
+    out = tmp_path / "out"
+    with pytest.warns(MinuteChunkSizeWarning, match="估算"):
+        result = run_factor_minute(spec, _ctx(out, chunk_days=10_000))
+    assert (out / "summary.json").is_file()
+    assert result.signal_artifact.frame.height > 0
+
+
+def test_minute_default_auto_chunk_never_rejected(ch_db, tmp_path, monkeypatch):
+    """R05-C1：默认自动分块不因估算拒绝（20 日/块是平台推荐安全点）；即使
+    阈值被压到极小也只告警不中止（负向控制）。"""
+    import factorlab.app.memory as mem
+    _seed(ch_db)
+    monkeypatch.setattr(mem, "MINUTE_PEAK_WARN_BYTES", 1)
+    monkeypatch.setattr(mem, "MINUTE_PEAK_REJECT_BYTES", 1)
+    spec = _spec(tmp_path, "autook", "signal = day_last(close)")
+    out = tmp_path / "out"
+    with pytest.warns(MinuteChunkSizeWarning):
+        result = run_factor_minute(spec, _ctx(out))
+    assert (out / "summary.json").is_file()
+    assert result.signal_artifact.frame.height > 0

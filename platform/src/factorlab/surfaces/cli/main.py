@@ -255,7 +255,7 @@ def run_factor_cli(
     groups: int = typer.Option(10, min=2),
     set_params: list[str] = typer.Option(None, "--set", help="覆盖 spec.params（k=v，可多次，生成 name_kv 变体）"),
     chunk_days: int | None = typer.Option(None, "--chunk-days", min=1,
-                                          help="日期分块（交易日/块；缺省：分钟链 20 交易日/块自动分块，日频单块整段跑）"),
+                                          help="日期分块（交易日/块；缺省：分钟链 20 交易日/块自动分块，日频单块整段跑；显式超大块按内存估算告警/拒绝，见 interface.md §1）"),
     warmup_days: int | None = typer.Option(None, "--warmup-days", min=0,
                                            help="TS 窗口预热天数（缺省=按公式自动提取窗口+20）"),
 ) -> None:
@@ -294,6 +294,10 @@ def run_factor_cli(
         warmup_days=warmup_days,
         max_memory=max_memory,
     )
+    # R05-C1：显式 FACTORLAB_MAX_MEMORY 时先落进程级 RLIMIT_AS 硬上限
+    # （软看门狗在 run_* 内自动启用；未设 = 不动进程资源）
+    from factorlab.app.memory import apply_hard_memory_limit_from_settings
+    apply_hard_memory_limit_from_settings()
     # W5 分派：分钟面 spec（interface: bars_1m）走分钟链 run_factor_minute（折日
     # 面板与日频同列契约，下方评估/分层回测零改动复用）；日频 spec 走原 run_factor。
     run_impl = run_factor_minute if spec.interface == "bars_1m" else run_factor
