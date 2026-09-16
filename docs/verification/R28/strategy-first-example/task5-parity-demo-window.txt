@@ -1,0 +1,6 @@
+策略 low_lottery_top30_weekly_parity 完成：
+  out_dir   = /tmp/opencode/r28_parity_out
+  signal    = max_effect_20d_high
+  decisions = 4
+  NAV       = 999250.45 → 1024179.70（+2.49%）
+  fills     = 116 笔（4 个执行事件）

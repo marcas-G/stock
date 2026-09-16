@@ -1,0 +1,6 @@
+策略 low_lottery_top30_weekly 完成：
+  out_dir   = /data/students/gaolei/stock/platform/results/strategies/low_lottery_top30_weekly
+  signal    = max_effect_20d_high
+  decisions = 5
+  NAV       = 9992407.37 → 10214807.42（+2.23%）
+  fills     = 176 笔（5 个执行事件）

@@ -1,0 +1,9 @@
+decisions          : 5 [datetime.date(2025, 3, 7), datetime.date(2025, 3, 14), datetime.date(2025, 3, 21), datetime.date(2025, 3, 28), datetime.date(2025, 3, 31)]
+execution dates    : ['2025-03-10', '2025-03-17', '2025-03-24', '2025-03-31', '2025-04-01']
+NAV                : 9992407.37 -> 10214807.42 (2.2257%)
+max drawdown       : -0.3140%
+fills (events)     : 176 (5)
+fees total         : 18290.52 元 (18.30 bps initial)
+trailing_unresolved: False
+target rows        : 150
+strategy manifest  : True | backtest manifest: True
