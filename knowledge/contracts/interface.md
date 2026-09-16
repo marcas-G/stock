@@ -384,8 +384,9 @@ formula: |
 - **daily_basic 扩展字段**：公式可引用 `turnover/total_mv/circ_mv/pe_ttm/pb/dv_ratio/
   volume_ratio`（daily_basic left join 自动加载，历史早期覆盖不足 → 缺失传播，
   以 `signal_null_ratio` 呈现）。经典价值/技术因子（`value_bp`、`turnover_level` 等）
-  依赖这些字段。**R21 数据缺口标注（R01-TOOLS-I6）**：ch 生产库
-  `circ_mv/pe_ttm/pb/dv_ratio/volume_ratio` 5 列为占位空列（100% NULL，无数据源），
+  依赖这些字段。**R07-DATA-I4 更新**：ch 生产库 `circ_mv` 已派生可用
+  （close×float_shares，万元；16.87M 行非空，覆盖同 total_mv）；
+  **`pe_ttm/pb/dv_ratio/volume_ratio` 4 列仍为占位空列（100% NULL，无数据源）**，
   引用可加载但信号恒缺失；`idx_ret`（index_daily）为空的 `000852.SH` 可选灌入位，
   生产库当前恒 NULL。
 - `params`：可选顶层参数映射 `dict[str, number|str|bool]`（缺省空）。formula（含
@@ -2094,9 +2095,10 @@ decision unique、execution > decision、decision 与 execution 序列**严格
 fail）；空 typed 合法。
 
 **resolve_execution_schedule(target, rd)**：timing 权威 =
-target.meta.source_timing.default_earliest_execution（NEXT_OPEN/NEXT_CLOSE
-日期解析相同——均为严格 > decision 的第一开放日；NEXT_CLOSE market
-snapshot/fill 未实现）；decision date 必须 open（fail，不自动取周一）；
+target.meta.source_timing.default_earliest_execution（NEXT_OPEN/NEXT_WINDOW/
+NEXT_CLOSE 日期解析相同——均为严格 > decision 的第一开放日；NEXT_WINDOW 的
+分钟窗口是 ExecutionSpec 层成交配置（见「R22 分钟窗口执行」），日程仍是下一
+开放日；NEXT_CLOSE market snapshot/fill 未实现）；decision date 必须 open（fail，不自动取周一）；
 无下一开放日 fail whole（不 drop trailing）；空 target → 空 schedule；
 all-cash decision 仍产生 execution event；一次 calendar 加载 + bisect。
 `rd` 读句柄（duckdb|ch，M6 双后端化后 db_path 参数已废）。
@@ -2212,7 +2214,9 @@ decision_date    datetime.date（未来对应 TargetPortfolio.decision_dates）
 execution_date   calendar resolver 解析出的真实交易日期（> decision_date——
                  默认 t close decision → after_close → next trading day open；
                  M8-01 不负责计算）
-execution_timing 复用 M6 ExecutionTiming（NEXT_OPEN/NEXT_CLOSE——不新建）
+execution_timing 复用 M6 ExecutionTiming（NEXT_OPEN/NEXT_WINDOW/NEXT_CLOSE
+                 枚举——不新建；M8-03 v1 规划路径只接受 NEXT_OPEN 日程
+                 timing，见 M8-03「规划路径 schedule timing」条目）
 orders           strict code(String)/side(String "buy"/"sell"——
                  OrderSide.value)/quantity(Int64>0)；code unique（净订单，
                  buy/sell 同 code 必须先 net）；稳定排序；空 typed batch 合法
@@ -2274,9 +2278,15 @@ M8-06）：
   decision ∈ target.decision_dates 且 schedule 中恰 1 行；
   schedule.execution_date == snapshot.execution_date == state.as_of_date；
   state.phase 必须 PRE_EXECUTION
-- **NEXT_OPEN only**：v1 只支持 `ExecutionTiming.NEXT_OPEN`（市场数据对象是
+- **规划路径 schedule timing 仍 NEXT_OPEN only**：v1 只接受 schedule/target
+  authority = `ExecutionTiming.NEXT_OPEN`（市场数据对象是
   MarketOpenSnapshot）；NEXT_CLOSE → `NotImplementedError`（禁止拿
-  daily.open 冒充 next_close 成交/规划价）
+  daily.open 冒充 next_close 成交/规划价）。**R22 分钟窗口不改变本层**：
+  NEXT_WINDOW run 的 execution date 仍是下一开放日，规划参考价改由
+  `run_backtest` 显式传 `planning_prices`（窗口首分钟 open；缺任一 planning
+  code → fail fast，不发明价格）——OrderBatch/FillBatch 的
+  execution_timing 仍为 NEXT_OPEN（窗口属于该 next-open execution event 内；
+  见「R22 分钟窗口执行」）
 - **planning universe = current ∪ target**（code ASC）；snapshot 与
   quantity_rules 必须**精确覆盖**（missing/extra 均 fail）；空 universe
   （空持仓 + 显式 all-cash）→ 空 OrderBatch（execution event 仍存在）
@@ -2397,8 +2407,9 @@ MarketOpenSnapshot.is_suspended_at_open（第 9 列，Boolean non-null）
 ```
 has_suspend_record     = date-level raw event presence（当天任何 suspend/resume
                          record → True）
-is_suspended_at_open   = 09:30 temporal suspension evidence（NEXT_OPEN
-                         reference；不是 can_trade / Fill——M8-04 才定义
+is_suspended_at_open   = 09:30 temporal suspension evidence（NEXT_OPEN 与
+                         R22 NEXT_WINDOW 共用的日级证据：窗口路径 suspend →
+                         跳过该 code；不是 can_trade / Fill——M8-04 才定义
                          tradability）
 ```
 
@@ -2784,7 +2795,9 @@ cash_after = POST state.cash
 buy/sell gross 与四项费用直接聚合 FillBatch 列；total_fees 按固定顺序
   = commission + stamp_tax + transfer_fee（禁止按 rates 反算——不接收
   ExecutionCostSpec）
-PRE/POST phase 必须；三日期对齐；NEXT_OPEN only；不含 position valuation
+PRE/POST phase 必须；三日期对齐；FillBatch timing = NEXT_OPEN only（v1 唯一
+可入账 execution event 标记——NEXT_WINDOW 的窗口成交同样经 NEXT_OPEN-stamped
+FillBatch 聚合入账，见「R22 分钟窗口执行」）；不含 position valuation
 ```
 
 **B. PortfolioMarkSnapshot**：显式 per-share valuation mark authority
@@ -2900,6 +2913,100 @@ seg2 = run_backtest(target, spec, rd, decision_range=(d2_lo, d2_hi))
   `test_b13_segmented_runs_pass_but_full_run_fails_closed` 锁）——分段是
   caller 显式行为，无自动分段/静默降级路径。
 
+### R22 Minute-Window Execution（`NEXT_WINDOW` + `minute_window`）
+
+日频 EOD 信号 + 次日**分钟窗口内成交**（R22，2026-09-15；设计
+`knowledge/design/workspace/2026-09-15-minute-execution/design.md`）。与
+NEXT_OPEN 的关系：**日历语义不变**（decision t → 第一开放日 t+1 执行），
+变化只在执行日**开盘后窗口内的成交仿真**与 marks 口径。
+
+```
+ExecutionSpec（L5）
+├── execution_timing: ExecutionTiming   # NEXT_OPEN（默认）| NEXT_WINDOW
+└── minute_window:   MinuteWindowSpec   # NEXT_WINDOW 必填；NEXT_OPEN 禁止携带
+```
+
+- **枚举**：`ExecutionTiming.NEXT_WINDOW = "next_window"`（`core/domain/timing.py`；
+  NEXT_OPEN 默认行为逐值不变——digest ZERO-DIFF 硬门）。`NEXT_CLOSE` 仍显式
+  拒绝（NotImplementedError；config/schedule/orders/fills/accounting/
+  execution_store 各处保持不动）。
+- **配置联动校验（fail fast）**：`execution_timing=NEXT_WINDOW` 必须提供
+  `minute_window`（缺 → ValueError，"禁止隐式默认窗口"）；`NEXT_OPEN`/
+  `NEXT_CLOSE` 携带 `minute_window` → ValueError（仅 NEXT_WINDOW 使用）。
+- **MinuteWindowSpec**（frozen + extra=forbid）：
+  - `start`/`end`：minute_index 闭区间 0..239（0=09:25 开盘集合竞价、
+    239=15:00 收盘集合竞价；240 网格契约见 `bars_1m` 条目）；`end >= start`；
+    非法类型/越界 → ValueError。
+  - `price_basis` ∈ {`vwap`(默认), `open`, `close`, `twap`, `mid`}——本模块是
+    口径唯一权威：`vwap` = 该分钟 amount/volume；`twap` = (O+H+L+C)/4；
+    `mid` = (H+L)/2；数据不足的分钟跳过（不发明价格）。
+  - `slices`：可选分批 `SliceSpec(start/end/weight)`；缺省 = 单切片
+    [start, end] 权重 1；提供时须非空、按 start 严格升序、互不重叠、落在
+    窗口内、权重和 = 1（容差 1e-9）、每片 weight > 0；每片目标量 =
+    floor(weight × 总量)，尾差归最后一片。
+  - `participation`：默认 0.10，0 < r <= 1；单分钟成交量上限 =
+    floor(r × minute.volume)；超出部分顺延下一分钟；窗口结束仍未成完按
+    `fallback`。
+  - `trigger`：可选 `TriggerSpec(mode="limit"|"vwap_offset", ref, offset_bps)`；
+    `None`（缺省）= 必成交（窗口内按参与率成交）。`limit`：基准 ref ∈
+    {`pre_close`, `window_open`, `window_vwap`}，买 limit = ref×(1+offset/1e4)、
+    卖 limit = ref×(1−offset/1e4)，**逐分钟重判**（买 `low<=limit` 命中、卖
+    `high>=limit` 命中），成交价 = 买 `min(limit, open)` / 卖 `max(limit, open)`
+    （限价或更好；价格回到 limit 才继续成交，绝不追价）。`vwap_offset`（及
+    `limit`+ref=`window_vwap`）：limit 随**截至上一分钟**的窗口累计 VWAP 滚动
+    （第一分钟无累计 → 不触发；全程不看未来）。缺基准价（ref=pre_close 无
+    pre_close、窗口内无任何 open）→ ValueError——不发明触发价。
+  - `fallback` ∈ {`none`(默认), `close`}：窗口结束仍有剩余 → `none` 如实
+    不成交（记入 unfilled 明细）；`close` 用**最后窗口有价分钟 close** 一次性
+    补足（不参与率约束、`fell_back=True`；该分钟一字封板则不补）。
+- **窗口成交语义**（`simulate_window` / `realize_window_fills`）：
+  - 一字板：某分钟 `open==high==low==limit_up` → BUY 跳过；`limit_down` →
+    SELL 跳过；部分封板（high≠low）不拦。日级 `stk_limit` 仍为前置闸门
+    （has_limit=True 时 up/down 必须合法；has_limit=False = 无限制，不拦）。
+  - 停牌：执行日 daily 缺行沿用 WS4（持仓冻结 / 目标行跳过）；分钟缺行 → 该
+    分钟跳过（盘中临停 V1 只表现为缺行——精确临停规则库属 V2）。
+  - T+1 / 资金：SELL 先于 BUY；买入现金不足按比例缩减分钟成交量（floor，
+    0 量分钟丢弃），严格 cash >= 0；成交/成本经 `compute_execution_cost`
+    （每 code 聚合一次，滑点叠加成交价；has_limit 时仍做 up/down 边界
+    Gate）。
+  - 规划参考价：窗口首分钟 open（非 `snapshot.open`；缺任一 planning code →
+    ExecutionDataQualityError fail fast，不发明价格）。
+- **marks（`MarksPolicy.WINDOW_END_BASED`）**：NEXT_WINDOW run **无论 marks
+  入参**均以执行日**窗口末分钟 close**估值；该 code 当日窗口无有效分钟
+  close（缺行 / close 全 null）→ 沿用 run 内上次 mark（停牌冻结语义同
+  OPEN_BASED）；`WINDOW_END_BASED` 与 NEXT_OPEN
+  组合 → ValueError（NEXT_OPEN 必须 OPEN_BASED）。每 event sanity 与
+  NEXT_OPEN 不同（mark 与成交价口径不同）：`POST NAV == PRE NAV +
+  Σfilled×(mark − execution_price) − total_fees`（买 +、卖 −；rel 1e-9）。
+- **执行日程/原语不动**：schedule/OrderBatch/FillBatch 的 `execution_timing`
+  仍为 NEXT_OPEN（窗口属于该 next-open execution event 内）；accounting
+  （M8-05B）继续只接受 NEXT_OPEN-stamped FillBatch——NEXT_WINDOW 不放松
+  原语级 NEXT_OPEN-only 约束。
+- **分钟数据仅 CH**：`load_execution_window`（唯一窗口读取入口）duckdb 后端
+  → NotImplementedError（duckdb 平台库无 bars_1m）；契约校验 fail fast：
+  (code, minute_index) 重复 / volume·amount null 或 <0 / session_type
+  ∉ {0,1,2} → ValueError；OHLC 允许 null（该分钟由窗口引擎跳过）。运行需
+  `FACTORLAB_DATA_BACKEND=ch`。
+- **内存护栏建议（R05-C1）**：窗口读取随 universe × 窗口宽度增长（全市场
+  多年回测按日分块自然增长）；重任务显式设 `FACTORLAB_MAX_MEMORY`（16GB 机
+  推荐 8GB），不与 LLM 服务/多 agent 会话并发（见 §1「进程内存护栏」）。
+- **返回与持久化**：`run_backtest(..., execution_spec.execution_timing=
+  NEXT_WINDOW)` 返回 `WindowBacktestResult`（BacktestResult 扩展：
+  `window_fills` 逐 event 分钟成交明细 + `execution_spec` 原样携带）；M8-06C
+  持久化 **schema v2** = v1 布局 + `window_fills.parquet` +
+  manifest.execution_spec（NEXT_OPEN v1 布局字节不变；spec 非 NEXT_WINDOW
+  拒绝写 v2；load 缺 execution_spec / 未知版本 → fail fast，无 silent
+  migration）。
+- **策略 YAML（Plan S）**：`execution.timing: NEXT_WINDOW` +
+  `minute_window: {...}` 原样映射 `ExecutionSpec`（`core/strategy/spec_io.py`
+  透传 + pydantic 校验；NEXT_WINDOW 缺 window 在加载期拒绝）。
+- **验收锚**：`tests/test_window_spec.py`、`test_minute_window.py`、
+  `test_read_minute_window.py`、`test_window_fills.py`、
+  `test_backtest_window_runtime.py`、`test_execution_store_window.py`、
+  `test_minute_execution_e2e.py`（CH 真段：20 只 × 2024-01，含真实一字
+  涨停日 BUY 不成交）；证据
+  `governance/evidence/verification/R22/minute-execution/`。
+
 ### M8-06C Artifact Persistence Layer（`save_backtest_result` / `load_backtest_result`）
 
 ```
@@ -2913,6 +3020,10 @@ load_backtest_result(artifact_dir) -> BacktestResult
   accounting / valuation / state / positions 各自独立 parquet——每 primitive
   输出单独保存，禁止合并后重算）+ state/final_state.parquet +
   nav/nav_series.parquet + manifest.json
+- **R22 schema v2（NEXT_WINDOW）**：v1 布局 + `window_fills.parquet`（逐 event
+  分钟成交明细）+ manifest.execution_spec（serialized ExecutionSpec）；NEXT_OPEN
+  产物仍为 v1 字节布局；v2 仅接受 execution_timing=NEXT_WINDOW + minute_window
+  （否则拒绝写）。详见「R22 分钟窗口执行」。
 - **round-trip stable**：artifacts / nav_series / final_state 保存→加载后
   逐字段一致（load 只反序列化 + domain validator 检查——不重算
   NAV/accounting/fills）
