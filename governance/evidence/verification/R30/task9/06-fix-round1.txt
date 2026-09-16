@@ -1,0 +1,133 @@
+== 修复轮 1 红：pan_update（adopted/CLI 接线）==
+        r = subprocess.run(["bash", str(p), "install"], env=env,
+                           capture_output=True, text=True)
+        assert r.returncode == 0, r.stdout + r.stderr
+        out = r.stdout + r.stderr
+        assert "crontab" in out
+        assert "10 8 * * *" in out
+>       assert log_dir.is_dir(), "crontab 回退前必须建日志目录（否则 cron 输出重定向失败）"
+E       AssertionError: crontab 回退前必须建日志目录（否则 cron 输出重定向失败）
+E       assert False
+E        +  where False = is_dir()
+E        +    where is_dir = PosixPath('/tmp/pytest-of-gaolei/pytest-2245/test_install_script_falls_back0/logs/platform').is_dir
+
+platform/tools/pan_update/tests/test_cli.py:673: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tools/pan_update/tests/test_sync.py::test_adopt_local_file_with_matching_size
+FAILED platform/tools/pan_update/tests/test_sync.py::test_adopt_size_mismatch_not_adopted_and_downloaded
+FAILED platform/tools/pan_update/tests/test_sync.py::test_adopt_skips_already_recorded_entries
+FAILED platform/tools/pan_update/tests/test_sync.py::test_adopt_dry_run_reports_without_state_write
+FAILED platform/tools/pan_update/tests/test_sync.py::test_adopt_traversal_path_skipped
+FAILED platform/tools/pan_update/tests/test_cli.py::test_cookie_missing_exits_2_with_hint
+FAILED platform/tools/pan_update/tests/test_cli.py::test_cli_wires_repo_root_cookie_when_env_unset
+FAILED platform/tools/pan_update/tests/test_cli.py::test_cli_uses_repo_fallback_without_wiring
+FAILED platform/tools/pan_update/tests/test_cli.py::test_adopted_local_file_clears_stage_marks
+FAILED platform/tools/pan_update/tests/test_cli.py::test_install_script_falls_back_to_crontab_without_user_systemd
+10 failed, 55 passed in 3.51s
+
+== 修复轮 1 红：quark_download 回退链 ==
+        tool.write_text("tool=1", encoding="utf-8")
+        repo = tmp_path / "repo.txt"
+        repo.write_text("repo=1", encoding="utf-8")
+        monkeypatch.setattr(QC, "COOKIE_PATH", str(tmp_path / "missing.txt"))
+        monkeypatch.setattr(QC, "_FALLBACK_COOKIE", str(tool))
+>       monkeypatch.setattr(QC, "_REPO_FALLBACK_COOKIE", str(repo))
+E       AttributeError: <module 'quark_client' from '/data/students/gaolei/stock/platform/tools/quark_download/quark_client.py'> has no attribute '_REPO_FALLBACK_COOKIE'
+
+platform/tools/quark_download/tests/test_quark_download.py:128: AttributeError
+=========================== short test summary info ============================
+FAILED platform/tools/quark_download/tests/test_quark_download.py::test_shared_client_cookie_semantics
+FAILED platform/tools/quark_download/tests/test_quark_download.py::test_repo_fallback_points_to_repo_root_cookie
+FAILED platform/tools/quark_download/tests/test_quark_download.py::test_cookies_falls_back_to_repo_root_cookie
+FAILED platform/tools/quark_download/tests/test_quark_download.py::test_cookies_fallback_order_tool_before_repo
+4 failed, 8 passed in 0.52s
+
+== 修复轮 1 绿：pan_update + quark_download ==
+...........                                                              [100%]
+155 passed in 5.19s
+
+== 修复轮 1 绿：tools 全量 ==
+...........                                                              [100%]
+515 passed in 49.86s
+
+== 修复轮 1 突变（35/35，含新增 8 项 P1/P2）==
+CAUGHT  rc=1  cli: 忽略 --workers（恒 1）
+CAUGHT  rc=1  cli: dry-run 仍真下载
+CAUGHT  rc=1  cli: 新文件不清阶段标记（闩锁失效）
+CAUGHT  rc=1  cli: 新文件清标记语句删除
+CAUGHT  rc=1  cli: 不传 state_path（断点记账丢失）
+CAUGHT  rc=1  cli: manual 也当失败（exit 1）
+CAUGHT  rc=1  cli: failed 被吞（恒 exit 0）
+CAUGHT  rc=1  cli: 未知类别不校验（放行进链）
+CAUGHT  rc=1  cli: 跳过类别目录 find_dir（不按 share_dir 匹配）
+CAUGHT  rc=1  cli: 缺省 listdir 换成空树存根
+CAUGHT  rc=1  cli: cookie 缺失以 exit 1（契约是 2）
+CAUGHT  rc=1  cli: 不查 cookie（静默下网盘）
+CAUGHT  rc=1  cli: 未设内存上限也落 RLIMIT_AS
+CAUGHT  rc=1  cli: env 白名单不透传（空 env）
+CAUGHT  rc=1  cli: publish 用另一 phase（重放链）
+CAUGHT  rc=1  cli: verify 退出码被吞（恒 0）
+CAUGHT  rc=1  cli: verify 带表名参数（非全量）
+CAUGHT  rc=1  cli: all 不跑 verify
+CAUGHT  rc=1  stages: fund_flow 链缺失
+CAUGHT  rc=1  stages: financials 链顺序颠倒（先灌后解析）
+CAUGHT  rc=1  parse: --raw-dir 被忽略（恒默认源）
+CAUGHT  rc=1  parse: --prev 被忽略（恒默认 .prev）
+CAUGHT  rc=1  parse: write_fact 不轮换旧 fact
+CAUGHT  rc=1  makefile: 去掉内存护栏
+CAUGHT  rc=1  makefile: data-update 只跑 sync
+CAUGHT  rc=1  timer: 定时从 08:10 改 09:10
+CAUGHT  rc=1  timer: crontab 行时间改 08:00
+CAUGHT  rc=1  cli: 仓根 cookie 接线移除
+CAUGHT  rc=1  cli: 显式 env 也被仓根覆盖
+CAUGHT  rc=1  cli: adopted 不清阶段标记
+CAUGHT  rc=1  sync: 本地就位登记移除（adopted 恒空）
+CAUGHT  rc=1  sync: 就位不校验 size（半成品误认）
+CAUGHT  rc=1  sync: adopted 不落盘标记
+CAUGHT  rc=1  quark: 仓根回退从链中移除
+CAUGHT  rc=1  timer: crontab 回退不建日志目录
+
+35/35 突变被测试抓住；工作区已恢复逐字节一致
+恢复后 T9 测试：rc=0
+
+== 修复轮 1 回归：platform 全量 ==
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3257 passed, 13 skipped, 33 warnings in 811.52s (0:13:31)
+
+== 修复轮 1 门（make gates；唯一 ✗ = G-INDEX 挖矿在途，与 T8/首轮同）==
+    ✓ platform/ 顶层无 factor 目录（tools/ 为数据生产线）
+    ✓ platform/tools 存在（数据生产线工具集）
+    ✓ research/ 顶层无平台 src|tests
+    ✓ knowledge/contracts/interface.md 单副本
+    ✓ knowledge/contracts/catalog.md 单副本
+    ✓ knowledge/contracts/data-ops-playbook.md 单副本
+    ✓ knowledge/contracts/teajoin-guide.md 单副本
+    ✓ 无 platform→research 依赖
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+    ✓ 活文件零残留（tracked+untracked；豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）
+    ✓ 已迁路径活引用零残留（R06-M9+R07：docs/*、runs 旧路径、工具旧路径、emb、裸 results/；tracked+untracked）
+    ✓ platform pythonpath=src
+    ✓ platform/src/factorlab 存在
+    ✓ research 有 testpaths
+    ✓ 根无 pyproject.toml
+[G-IMPORTS] 全仓 factorlab.* 导入可解析（含负向自检）
+    ✓ 自检通过（能抓到迁移遗漏）
+    ✓ G-IMPORTS 通过（扫描 441 个文件）
+    ✗ 索引不一致：索引与生成器输出不一致（doc 陈旧或手改）——重跑 build_index.py
+    ✓ 策略索引一致 ✓
+    ✓ snapshot 标注齐备：175 份 ✓
+    ✓ 111 行 finding（fixed-claimed 8）：ID 唯一、状态合法、引用路径可解析、统计自洽；闭环：复查列 101/111、fixed-claimed 未复查 8（R07 8）、报告/复查列-台账状态告警 10；实计 R01 13C/50I、R02 2C/9I、R03 0C/8I、R05 1C/3I、R06 0C/8I、R07 0C/8I、R08 0C/2I
+    ✓ 负向自检通过（重复 ID/非法状态/死路径/空修复说明/统计不符）
+    ✓ factor lint: 196 通过 / 0 失败
+    ✓ factorlab → platform/src ✓
+
+== 修复轮 1 冒烟：定时脚本 ==
+$ bash -n governance/ops/install_pan_timer.sh
+rc=0
+$ PAN_TIMER_LOG_DIR=<tmp> PATH=<stub systemctl 失败>:... install  → 回退并建日志目录
+[回退] systemd --user 不可用 → 用户 crontab（crontab -e 加入下面一行）：
+10 8 * * * cd /data/students/gaolei/stock && FACTORLAB_MAX_MEMORY=8GB make data-update >> /tmp/tmp.Igllnmc5Us/logs/platform/pan_update-cron.log 2>&1
+核对：crontab -l；日志：/tmp/tmp.Igllnmc5Us/logs/platform/pan_update-cron.log
+手工验证：cd /data/students/gaolei/stock && make data-update
+rc=0
+log dir created: /tmp/tmp.Igllnmc5Us/logs/platform

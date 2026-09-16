@@ -47,6 +47,29 @@ crontab 行时间错。
    日K 旧全量快照轮换（设计 §4）留待后续/T10，README 有限制声明。
 4. **verify 不做阶段标记**：reconcile 是全局（非按类别）对账，每次 all 重跑（只读，无副作用）。
 
+## 修复轮 1（2026-09-17；评审有条件通过 → T10 前必修 P1/P2，P3 文档）
+
+| 项 | 修法 | 测试 |
+|---|---|---|
+| P1 cookie 路径未接线 | `cli._wire_cookie_env()`：env 未设且仓根 `quark_cookies.txt` 在 → setdefault + 刷新 `quark_client.COOKIE_PATH`；`quark_client.cookies()` 回退链末追加仓根路径（前序顺序不变） | `test_cli_wires_repo_root_cookie_when_env_unset`、`test_cli_keeps_explicit_cookie_env`、`test_cli_uses_repo_fallback_without_wiring`；`test_cookies_falls_back_to_repo_root_cookie`、`test_cookies_fallback_order_tool_before_repo`、`test_repo_fallback_points_to_repo_root_cookie` |
+| P2a manual 件不登记/不触发 freshness | `sync._adopt_local` + `SyncReport.adopted`：清单存在+本地已有+size 匹配+state 未登记 → `adopted: true`；CLI 视同新数据清阶段标记；dry-run 报 adopted 且剔除 to_fetch、不写 state | `test_adopt_local_file_with_matching_size` 等 5 条 sync 测试；`test_adopted_local_file_clears_stage_marks`、`test_size_mismatch_blocks_adoption_and_freshness` |
+| P2b crontab 回退日志目录 | 脚本 fallback 先 `mkdir -p "$LOG_DIR"`（`PAN_TIMER_LOG_DIR` 可覆盖，缺省仓根派生） | `test_install_script_falls_back_to_crontab_without_user_systemd`（断言目录建立） |
+| P3 文档 | README：`all` 语义改「sync 项级失败继续、阶段失败即停、verify rc 并入」；env 白名单说明与 `{**os.environ, **env}` 合并一致；cookie 单点/查找链/就位登记改写 | 无（文档） |
+
+复现（`06-fix-round1.txt` 为红→绿全文）：
+
+| 段 | 命令 | 结果 |
+|---|---|---|
+| 红 | `pytest platform/tools/pan_update/tests/{test_sync,test_cli}.py -q` + `pytest platform/tools/quark_download/tests/test_quark_download.py -q`（实现前） | 10 failed（SyncReport.adopted 缺失 / `_REPO_FALLBACK_COOKIE` 缺失 / 接线缺失）+ 4 failed（回退链缺失）——均功能缺失 |
+| 绿 | 同红（实现后） | pan_update+quark **155 passed**；tools 全量 **515 passed**（首轮 502 + 13） |
+| 突变 | `mutation.py`（新增 8 项 P1/P2 突变） | **35/35 CAUGHT**；恢复逐字节一致 |
+| 回归 | `cd platform && .venv/bin/python -m pytest -q` | **3257 passed / 13 skipped**（基线一致） |
+| 门 | `make gates` | 仅 G-INDEX 挖矿在途 ✗（同首轮/T8）；G-TOPO/G-READ/G-IMPORTS/G-LEGACY 全绿 |
+| 冒烟 | `bash -n` + stub systemctl 走 crontab 回退（`PAN_TIMER_LOG_DIR`） | rc=0；crontab 行打印；日志目录已建 |
+
+附带修正（既有测试适配新契约，非削弱）：`test_shared_client_cookie_semantics` 补 `_REPO_FALLBACK_COOKIE` 隔离；
+`test_server_main_cookie_missing_*` 子进程内把三处 cookie 路径指到 tmp 缺失位（隔离宿主机仓根文件）。
+
 ## 限制/残留
 
 - 本任务不真跑网盘/CH（T10）：全部单测离线；真实 listdir/取链/灌入留 T10。

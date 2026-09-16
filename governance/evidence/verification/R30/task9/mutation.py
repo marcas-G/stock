@@ -15,10 +15,14 @@ PY = REPO / "platform" / ".venv" / "bin" / "python"
 CLI = REPO / "platform/tools/pan_update/cli.py"
 STAGES = REPO / "platform/tools/pan_update/stages.py"
 PARSE = REPO / "platform/tools/pan_update/parse_fundamentals_xlsx.py"
+SYNC = REPO / "platform/tools/pan_update/sync.py"
+QUARK = REPO / "platform/tools/quark_download/quark_client.py"
 MAKEFILE = REPO / "Makefile"
 INSTALL = REPO / "governance/ops/install_pan_timer.sh"
 
 T_CLI = "platform/tools/pan_update/tests/test_cli.py"
+T_SYNC = "platform/tools/pan_update/tests/test_sync.py"
+T_QUARK = "platform/tools/quark_download/tests/test_quark_download.py"
 
 # name -> (path, old, new, tests)
 MUTS = {
@@ -32,8 +36,8 @@ MUTS = {
         "dest_root=dest_root, dry_run=dry_run, workers=workers,",
         "dest_root=dest_root, dry_run=False, workers=workers,", [T_CLI]),
     "cli: 新文件不清阶段标记（闩锁失效）": (
-        CLI, "if rep.downloaded and not dry_run:",
-        "if rep.downloaded and False:", [T_CLI]),
+        CLI, "if (rep.downloaded or rep.adopted) and not dry_run:",
+        "if (rep.downloaded or rep.adopted) and False:", [T_CLI]),
     "cli: 新文件清标记语句删除": (
         CLI, '            state.setdefault("stages", {})[cat] = {}\n', "", [T_CLI]),
     "cli: 不传 state_path（断点记账丢失）": (
@@ -121,6 +125,31 @@ MUTS = {
         INSTALL, "OnCalendar=*-*-* 08:10:00", "OnCalendar=*-*-* 09:10:00", [T_CLI]),
     "timer: crontab 行时间改 08:00": (
         INSTALL, 'CRON_LINE="10 8 * * *', 'CRON_LINE="0 8 * * *', [T_CLI]),
+    # —— 修复轮 1（P1/P2）——
+    "cli: 仓根 cookie 接线移除": (
+        CLI, "    _wire_cookie_env()\n", "", [T_CLI]),
+    "cli: 显式 env 也被仓根覆盖": (
+        CLI,
+        '    if os.environ.get("QUARK_COOKIE_FILE") or not config.COOKIE_PATH.exists():',
+        "    if not config.COOKIE_PATH.exists():", [T_CLI]),
+    "cli: adopted 不清阶段标记": (
+        CLI, "if (rep.downloaded or rep.adopted) and not dry_run:",
+        "if rep.downloaded and not dry_run:", [T_CLI]),
+    "sync: 本地就位登记移除（adopted 恒空）": (
+        SYNC,
+        '        if not p.is_file() or p.stat().st_size != item["size"]:\n            continue\n',
+        "        continue\n", [T_SYNC, T_CLI]),
+    "sync: 就位不校验 size（半成品误认）": (
+        SYNC, '        if not p.is_file() or p.stat().st_size != item["size"]:',
+        "        if not p.is_file():", [T_SYNC, T_CLI]),
+    "sync: adopted 不落盘标记": (
+        SYNC, '            state["files"][key]["adopted"] = True\n', "",
+        [T_SYNC, T_CLI]),
+    "quark: 仓根回退从链中移除": (
+        QUARK, "    for p in (COOKIE_PATH, _FALLBACK_COOKIE, _REPO_FALLBACK_COOKIE):",
+        "    for p in (COOKIE_PATH, _FALLBACK_COOKIE):", [T_QUARK, T_CLI]),
+    "timer: crontab 回退不建日志目录": (
+        INSTALL, '  mkdir -p "$LOG_DIR"\n', "", [T_CLI]),
 }
 
 
@@ -131,7 +160,7 @@ def run_pytest(tests: list[str]) -> int:
 
 
 def main() -> int:
-    paths = {CLI, STAGES, PARSE, MAKEFILE, INSTALL}
+    paths = {CLI, STAGES, PARSE, SYNC, QUARK, MAKEFILE, INSTALL}
     originals = {p: p.read_text(encoding="utf-8") for p in paths}
     caught = 0
     try:
