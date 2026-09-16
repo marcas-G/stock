@@ -118,6 +118,19 @@ def _clean_env(monkeypatch):
         monkeypatch.delenv(k, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _cookie_env_guard():
+    """CLI 会用 os.environ 直接接线 QUARK_COOKIE_FILE（非 monkeypatch）→ 逐测试存取复原。"""
+    saved_env = os.environ.get("QUARK_COOKIE_FILE")
+    saved_path = cli.quark_client.COOKIE_PATH
+    yield
+    if saved_env is None:
+        os.environ.pop("QUARK_COOKIE_FILE", None)
+    else:
+        os.environ["QUARK_COOKIE_FILE"] = saved_env
+    cli.quark_client.COOKIE_PATH = saved_path
+
+
 def _run(argv, tmp_path, *, tree=None, transport=None, runner=None,
          verify_runner=None, categories=None, raw_root=None, events=None):
     events = events if events is not None else []
@@ -219,13 +232,59 @@ def test_unknown_category_exits_2(tmp_path, capsys, cookie_ok):
 
 
 def test_cookie_missing_exits_2_with_hint(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(cli.config, "COOKIE_PATH", tmp_path / "nope-root.txt")
     monkeypatch.setattr(cli.quark_client, "COOKIE_PATH", str(tmp_path / "nope.txt"))
     monkeypatch.setattr(cli.quark_client, "_FALLBACK_COOKIE", str(tmp_path / "nope2.txt"))
+    monkeypatch.setattr(cli.quark_client, "_REPO_FALLBACK_COOKIE",
+                        str(tmp_path / "nope3.txt"))
     rc = _run(["sync"], tmp_path)
     assert rc == 2
     err = capsys.readouterr().err
     assert "quark_cookies.txt" in err
-    assert str(config.COOKIE_PATH) in err
+    assert str(cli.config.COOKIE_PATH) in err
+
+
+def test_cli_wires_repo_root_cookie_when_env_unset(tmp_path, monkeypatch):
+    """P1：仓根文件在 + env 未设 + /tmp/tool 位缺失 → CLI 启动接线 QUARK_COOKIE_FILE。"""
+    cookie = tmp_path / "root" / "quark_cookies.txt"
+    cookie.parent.mkdir(parents=True)
+    cookie.write_text("root=1", encoding="utf-8")
+    monkeypatch.setattr(cli.config, "COOKIE_PATH", cookie)
+    monkeypatch.setattr(cli.quark_client, "COOKIE_PATH", str(tmp_path / "missing1.txt"))
+    monkeypatch.setattr(cli.quark_client, "_FALLBACK_COOKIE", str(tmp_path / "missing2.txt"))
+    monkeypatch.setattr(cli.quark_client, "_REPO_FALLBACK_COOKIE",
+                        str(tmp_path / "missing3.txt"))
+    assert "QUARK_COOKIE_FILE" not in os.environ
+    rc = _run(["sync", "--dry-run", "--categories", "daily"], tmp_path)
+    assert rc == 0, "接线后 cookie 检查必须通过"
+    assert os.environ["QUARK_COOKIE_FILE"] == str(cookie)
+    assert cli.quark_client.COOKIE_PATH == str(cookie)
+
+
+def test_cli_keeps_explicit_cookie_env(tmp_path, monkeypatch):
+    """P1 边界：已显式设 QUARK_COOKIE_FILE → 不得被仓根接线覆盖。"""
+    cookie = tmp_path / "root" / "quark_cookies.txt"
+    cookie.parent.mkdir(parents=True)
+    cookie.write_text("root=1", encoding="utf-8")
+    explicit = tmp_path / "explicit.txt"
+    explicit.write_text("explicit=1", encoding="utf-8")
+    monkeypatch.setattr(cli.config, "COOKIE_PATH", cookie)
+    monkeypatch.setattr(cli.quark_client, "COOKIE_PATH", str(explicit))
+    monkeypatch.setenv("QUARK_COOKIE_FILE", str(explicit))
+    assert _run(["sync", "--dry-run", "--categories", "daily"], tmp_path) == 0
+    assert os.environ["QUARK_COOKIE_FILE"] == str(explicit)
+    assert cli.quark_client.COOKIE_PATH == str(explicit), "显式 env 不得被仓根接线覆盖"
+
+
+def test_cli_uses_repo_fallback_without_wiring(tmp_path, monkeypatch):
+    """P1 备选口径：接线不生效（仓根路径被指走）时，cookies() 链的仓根回退仍兜底。"""
+    cookie = tmp_path / "repo.txt"
+    cookie.write_text("repo=1", encoding="utf-8")
+    monkeypatch.setattr(cli.config, "COOKIE_PATH", tmp_path / "absent-root.txt")
+    monkeypatch.setattr(cli.quark_client, "COOKIE_PATH", str(tmp_path / "missing1.txt"))
+    monkeypatch.setattr(cli.quark_client, "_FALLBACK_COOKIE", str(tmp_path / "missing2.txt"))
+    monkeypatch.setattr(cli.quark_client, "_REPO_FALLBACK_COOKIE", str(cookie))
+    assert _run(["sync", "--dry-run", "--categories", "daily"], tmp_path) == 0
 
 
 def test_empty_cookie_treated_as_missing(tmp_path, capsys, monkeypatch):
@@ -310,6 +369,55 @@ def test_no_new_files_keeps_marks_and_skips_commands(tmp_path, capsys, cookie_ok
     rc = _run(["build", "--categories", "daily"], tmp_path, runner=runner)
     assert rc == 0
     assert runner.calls == [], "阶段已标记 → 命令不得再调（幂等跳过）"
+
+
+def test_adopted_local_file_clears_stage_marks(tmp_path, capsys, cookie_ok):
+    """P2a：人工放入的 manual 大件（分享清单存在 + size 匹配）→ adopted 记账 +
+    视为新数据清阶段标记；不取链、不下载。"""
+    state_path = tmp_path / "pan_state.json"
+    from pan_update import state as st
+    st.save_state_atomic(state_path, {
+        "version": 1, "files": {}, "runs": [],
+        "stages": {"daily": {"build": "t0", "publish": "t0"}},
+    })
+    raw = tmp_path / "raw" / "daily"
+    raw.mkdir(parents=True)
+    (raw / "daily.bin").write_bytes(b"y" * 10)  # 与分享清单 size=10 匹配
+    tp = FakeTransport()
+    rc = cli.main(["sync", "--categories", "daily"], listdir=FakeListdir(_tree()),
+                  transport=tp, state_path=state_path,
+                  lock_path=tmp_path / "l.lock", log_dir=tmp_path / "logs",
+                  raw_root=tmp_path / "raw")
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "adopted=1" in out and "daily.bin" in out
+    data = json.loads(state_path.read_text(encoding="utf-8"))
+    entry = data["files"]["daily/daily.bin"]
+    assert entry["adopted"] is True and entry["synced_at"]
+    assert data["stages"]["daily"] == {}, "adopted 视为新数据 → 清阶段标记"
+    assert tp.url_calls == 0 and tp.dl == [], "已就位文件不得再取链/下载"
+
+
+def test_size_mismatch_blocks_adoption_and_freshness(tmp_path, capsys, cookie_ok):
+    """P2a 边界：本地 size 不符 → 不 adopted；照常走下载失败路径（不清阶段标记）。"""
+    state_path = tmp_path / "pan_state.json"
+    from pan_update import state as st
+    st.save_state_atomic(state_path, {
+        "version": 1, "files": {}, "runs": [],
+        "stages": {"daily": {"build": "t0"}},
+    })
+    raw = tmp_path / "raw" / "daily"
+    raw.mkdir(parents=True)
+    (raw / "daily.bin").write_bytes(b"y" * 3)  # 清单要 10
+    tp = FakeTransport(dl_fail=("daily.bin",))
+    rc = cli.main(["sync", "--categories", "daily"], listdir=FakeListdir(_tree()),
+                  transport=tp, state_path=state_path,
+                  lock_path=tmp_path / "l.lock", log_dir=tmp_path / "logs",
+                  raw_root=tmp_path / "raw")
+    assert rc == 1
+    data = json.loads(state_path.read_text(encoding="utf-8"))
+    assert "daily/daily.bin" not in data["files"]
+    assert data["stages"]["daily"]["build"] == "t0", "无 adopted/下载 → 不清标记"
 
 
 # ---------------------------------------------------------------
@@ -552,14 +660,18 @@ def test_install_script_falls_back_to_crontab_without_user_systemd(tmp_path):
     stub = bindir / "systemctl"
     stub.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
     stub.chmod(0o755)
+    log_dir = tmp_path / "logs" / "platform"
     env = dict(os.environ)
     env["PATH"] = f"{bindir}:{env['PATH']}"
+    env["PAN_TIMER_LOG_DIR"] = str(log_dir)
     r = subprocess.run(["bash", str(p), "install"], env=env,
                        capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     out = r.stdout + r.stderr
     assert "crontab" in out
     assert "10 8 * * *" in out
+    assert log_dir.is_dir(), "crontab 回退前必须建日志目录（否则 cron 输出重定向失败）"
+    assert str(log_dir) in out
 
 
 def test_install_script_readonly_status_runs(tmp_path):

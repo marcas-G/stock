@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -82,7 +83,7 @@ def test_server_no_longer_reads_cookie_at_import(tmp_path):
 
 
 def test_shared_client_cookie_semantics(tmp_path, monkeypatch):
-    """共享客户端 cookie 口径：显式路径优先；两处都缺 → FileNotFoundError（不静默空串）。"""
+    """共享客户端 cookie 口径：显式路径优先；三处都缺 → FileNotFoundError（不静默空串）。"""
     import quark_client as QC
     p = tmp_path / "cookie.txt"
     p.write_text("  k=v  \n", encoding="utf-8")
@@ -90,8 +91,42 @@ def test_shared_client_cookie_semantics(tmp_path, monkeypatch):
     assert QC.cookies() == "k=v"
     monkeypatch.setattr(QC, "COOKIE_PATH", str(tmp_path / "missing.txt"))
     monkeypatch.setattr(QC, "_FALLBACK_COOKIE", str(tmp_path / "also-missing.txt"))
-    with pytest.raises(FileNotFoundError):
+    monkeypatch.setattr(QC, "_REPO_FALLBACK_COOKIE", str(tmp_path / "still-missing.txt"))
+    with pytest.raises(FileNotFoundError) as ei:
         QC.cookies()
+    msg = str(ei.value)
+    assert "quark_cookies.txt" in msg
+
+
+def test_repo_fallback_points_to_repo_root_cookie():
+    """仓根回退路径 = platform/tools/quark_download 上三级（stock/quark_cookies.txt）。"""
+    import quark_client as QC
+    resolved = Path(os.path.realpath(QC._REPO_FALLBACK_COOKIE))
+    assert resolved == Path(_TOOL_DIR).parents[2] / "quark_cookies.txt"
+
+
+def test_cookies_falls_back_to_repo_root_cookie(tmp_path, monkeypatch):
+    """P1：/tmp（显式位）与 tool 目录回退都缺 → 仍能找到仓根 quark_cookies.txt。"""
+    import quark_client as QC
+    monkeypatch.setattr(QC, "COOKIE_PATH", str(tmp_path / "missing1.txt"))
+    monkeypatch.setattr(QC, "_FALLBACK_COOKIE", str(tmp_path / "missing2.txt"))
+    repo = tmp_path / "quark_cookies.txt"
+    repo.write_text("  repo=1  \n", encoding="utf-8")
+    monkeypatch.setattr(QC, "_REPO_FALLBACK_COOKIE", str(repo))
+    assert QC.cookies() == "repo=1"
+
+
+def test_cookies_fallback_order_tool_before_repo(tmp_path, monkeypatch):
+    """回退顺序保持不变：显式位 → tool 目录 → 仓根（tool 存在时不得跳到仓根）。"""
+    import quark_client as QC
+    tool = tmp_path / "tool.txt"
+    tool.write_text("tool=1", encoding="utf-8")
+    repo = tmp_path / "repo.txt"
+    repo.write_text("repo=1", encoding="utf-8")
+    monkeypatch.setattr(QC, "COOKIE_PATH", str(tmp_path / "missing.txt"))
+    monkeypatch.setattr(QC, "_FALLBACK_COOKIE", str(tool))
+    monkeypatch.setattr(QC, "_REPO_FALLBACK_COOKIE", str(repo))
+    assert QC.cookies() == "tool=1"
 
 
 # ── R01-STRAT-C3：server 入口死代码（`if not COOKIES` → NameError）──────────
@@ -142,10 +177,17 @@ def test_v2_partial_link_failure_keeps_successful_urls(tmp_path, monkeypatch):
 
 def test_server_main_cookie_missing_exits_with_message_not_nameerror(tmp_path):
     """入口必须可启动：cookie 缺失 → 显式提示 + exit 1（不是 NameError 崩溃）。
-    修复前 `main()` 引用未定义 `COOKIES` → NameError traceback，入口从未可用。"""
-    env = dict(os.environ, QUARK_COOKIE_FILE=str(tmp_path / "nope.txt"))
+    修复前 `main()` 引用未定义 `COOKIES` → NameError traceback，入口从未可用。
+
+    修复轮 1：cookies() 回退链含仓根 quark_cookies.txt（本机真实存在）——子进程内把
+    三处路径都指到 tmp 缺失位，隔离宿主机 cookie 状态。"""
+    missing = str(tmp_path / "nope.txt")
     code = (f"import sys; sys.path.insert(0, {_TOOL_DIR!r});"
+            " import quark_client as QC;"
+            f" QC.COOKIE_PATH = QC._FALLBACK_COOKIE = QC._REPO_FALLBACK_COOKIE = {missing!r};"
             " import download_share_dir as QS; QS.main()")
+    env = dict(os.environ)
+    env.pop("QUARK_COOKIE_FILE", None)
     r = subprocess.run([sys.executable, "-c", code], env=env,
                        capture_output=True, text=True)
     out = r.stdout + r.stderr

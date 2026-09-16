@@ -33,19 +33,25 @@ DEST = "quark_downloaded"        # 下载落点目录名（两入口同值）
 COOKIE_PATH = os.environ.get("QUARK_COOKIE_FILE", "/tmp/quark_cookies.txt")
 _FALLBACK_COOKIE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "..", "quark_cookies.txt")
+# 仓根回退（T9 修复轮 1）：设计/手册的 cookie 单点在 stock/quark_cookies.txt，
+# 放在链末（前序顺序不变）：/tmp（或显式 QUARK_COOKIE_FILE）→ tool 目录 → 仓根。
+_REPO_FALLBACK_COOKIE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     "..", "..", "..", "quark_cookies.txt")
 
 _lock = threading.Lock()
 _state: dict = {"stoken": None, "ts": 0.0}
 
 
 def cookies() -> str:
-    """读 cookie 串（首尾空白剥掉）；两处都缺 → FileNotFoundError（显式，不静默）。"""
-    for p in (COOKIE_PATH, _FALLBACK_COOKIE):
+    """读 cookie 串（首尾空白剥掉）；三处都缺 → FileNotFoundError（显式，不静默）。"""
+    for p in (COOKIE_PATH, _FALLBACK_COOKIE, _REPO_FALLBACK_COOKIE):
         if os.path.exists(p):
             with open(p, encoding="utf-8") as f:
                 return f.read().strip()
     raise FileNotFoundError(
-        f"quark cookie 文件不存在：{COOKIE_PATH}（或回退路径 {_FALLBACK_COOKIE}）")
+        f"quark cookie 文件不存在：{COOKIE_PATH}（或回退路径 {_FALLBACK_COOKIE} / "
+        f"{_REPO_FALLBACK_COOKIE}）。请更新仓根 quark_cookies.txt 或设置 "
+        f"QUARK_COOKIE_FILE")
 
 
 def http(url, body=None, retry=3, timeout=60):

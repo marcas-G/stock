@@ -434,3 +434,82 @@ def test_quark_transport_no_refetch_for_other_errors(monkeypatch, tmp_path):
         tr.download(urls["1"], tmp_path / "a.part", 10)
 
     assert len(state["fetches"]) == 1 and len(state["downloads"]) == 1
+
+
+# —— 修复轮 1（P2a）：manual 本地登记（adopted）——
+
+def _empty_state():
+    return {"version": 1, "files": {}, "stages": {}, "runs": []}
+
+
+def test_adopt_local_file_with_matching_size(tmp_path):
+    """分享清单存在 + 本地已有 + size 匹配 + state 未登记 → adopted（不取链/下载）。"""
+    t = T()
+    s = _empty_state()
+    dest = tmp_path / "raw"
+    dest.mkdir()
+    (dest / "a.zip").write_bytes(b"y" * 10)
+    rep = sync.sync_category(s, "daily", entries=[_entry("a.zip", 10, "1")],
+                             transport=t, dest_root=dest)
+    assert rep.adopted == ["a.zip"]
+    assert rep.downloaded == [] and t.dl == [], "adopted 不得再取链/下载"
+    e = s["files"]["daily/a.zip"]
+    assert e["adopted"] is True and e["synced_at"]
+
+
+def test_adopt_size_mismatch_not_adopted_and_downloaded(tmp_path):
+    """size 不符不登记：照常下载覆盖，state 不带 adopted 标记。"""
+    t = T()
+    s = _empty_state()
+    dest = tmp_path / "raw"
+    dest.mkdir()
+    (dest / "a.zip").write_bytes(b"y" * 3)
+    rep = sync.sync_category(s, "daily", entries=[_entry("a.zip", 10, "1")],
+                             transport=t, dest_root=dest)
+    assert rep.adopted == []
+    assert rep.downloaded == ["a.zip"]
+    assert (dest / "a.zip").read_bytes() == b"x" * 10
+    assert "adopted" not in s["files"]["daily/a.zip"]
+
+
+def test_adopt_skips_already_recorded_entries(tmp_path):
+    """state 已登记 → 不重复 adopted（仍走 unchanged 跳过）。"""
+    t = T()
+    s = _empty_state()
+    s["files"]["daily/a.zip"] = {"name": "a.zip", "size": 10, "fid": "1",
+                                  "synced_at": "2026-09-16T00:00:00"}
+    dest = tmp_path / "raw"
+    dest.mkdir()
+    (dest / "a.zip").write_bytes(b"y" * 10)
+    rep = sync.sync_category(s, "daily", entries=[_entry("a.zip", 10, "1")],
+                             transport=t, dest_root=dest)
+    assert rep.adopted == [] and rep.unchanged == ["a.zip"] and t.dl == []
+
+
+def test_adopt_dry_run_reports_without_state_write(tmp_path):
+    """dry-run：报 adopted 且从 to_fetch 剔除；不写 state（含 state_path 不落盘）。"""
+    t = T()
+    s = _empty_state()
+    dest = tmp_path / "raw"
+    dest.mkdir()
+    (dest / "a.zip").write_bytes(b"y" * 10)
+    state_path = tmp_path / "pan_state.json"
+    rep = sync.sync_category(s, "daily", entries=[_entry("a.zip", 10, "1")],
+                             transport=t, dest_root=dest, dry_run=True,
+                             state_path=state_path)
+    assert rep.adopted == ["a.zip"]
+    assert rep.to_fetch == [] and rep.downloaded == []
+    assert s["files"] == {} and not state_path.exists() and t.dl == []
+
+
+def test_adopt_traversal_path_skipped(tmp_path):
+    """越界 rel_path 不 adopt（与下载同口径：外部清单不可信）。"""
+    t = T()
+    s = _empty_state()
+    dest = tmp_path / "raw"
+    dest.mkdir()
+    (tmp_path / "evil").write_bytes(b"y" * 10)
+    entries = [{"name": "evil", "size": 10, "rel_path": "../evil",
+                "fid": "1", "fid_token": "t"}]
+    rep = sync.sync_category(s, "daily", entries=entries, transport=t, dest_root=dest)
+    assert rep.adopted == [] and s["files"] == {}

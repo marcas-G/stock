@@ -13,9 +13,14 @@ T9 裁决（brief 未逐字覆盖处，报告同录）：
   下次 build 重跑整链；无新增则阶段跳过（命令不再执行）。
 - **state_path 固定** `data/raw/pan_state.json`；每成功文件原子落盘（T3 断点续跑）。
 - **内存护栏**：`FACTORLAB_MAX_MEMORY` 显式设置 → 复用 `factorlab.app.memory`
-  的 RLIMIT_AS 公式落进程级硬限（子进程继承）；env 白名单透传子命令。
-- **cookie**：sync/all 启动即校验（`quark_client.cookies()`），缺失/空 → exit 2
-  且文案含 `quark_cookies.txt` 路径；build/publish/verify 离线可跑。
+  的 RLIMIT_AS 公式落进程级硬限（子进程继承）；env 白名单显式透传（`run_cmd` 以
+  `{**os.environ, **env}` 合并，非白名单项经父环境继承）。
+- **cookie**：单点 = 仓根 `quark_cookies.txt`。未显式设 `QUARK_COOKIE_FILE` 且仓根文件在
+  → 启动即接线 env 并刷新 `quark_client` 常量；sync/all 校验
+  （`quark_client.cookies()`），缺失/空 → exit 2 且文案含 `quark_cookies.txt` 路径；
+  build/publish/verify 离线可跑。
+- **manual 就位接续（修复轮 1）**：sync 前扫 dest_root——分享清单存在 + 本地已有 +
+  size 匹配 + state 未登记 → 记 `adopted`（不取链/不下载），视同新数据清阶段标记。
 - **manual_required 不为错**（exit 0）；failed 非空 → exit 1；未知类别 → exit 2。
 - **--prune**：删除本地 raw 中不在本次分享清单内的残留文件（默认保留）。
 """
@@ -89,6 +94,19 @@ def _stage_env() -> dict[str, str]:
     return {k: os.environ[k] for k in ENV_KEYS if os.environ.get(k)}
 
 
+def _wire_cookie_env() -> None:
+    """设计/手册单点：仓根 `quark_cookies.txt`。
+
+    未显式设 `QUARK_COOKIE_FILE` 且仓根文件存在 → 接线 env（子进程继承）并刷新
+    `quark_client` import 期快照的 `COOKIE_PATH`（模块已加载，仅 setdefault 环境变量
+    不会改变常量）。已显式设置 env 时不覆盖（显式优先）。
+    """
+    if os.environ.get("QUARK_COOKIE_FILE") or not config.COOKIE_PATH.exists():
+        return
+    os.environ.setdefault("QUARK_COOKIE_FILE", str(config.COOKIE_PATH))
+    quark_client.COOKIE_PATH = str(config.COOKIE_PATH)
+
+
 def _check_cookie() -> None:
     try:
         text = quark_client.cookies()
@@ -143,20 +161,22 @@ def _prune_extras(dest_root: Path, entries, *, dry_run: bool,
 def _print_report(cat: str, rep: sync.SyncReport, removed: list[str],
                   dry_run: bool) -> None:
     print(f"[{cat}] to_fetch={len(rep.to_fetch)} downloaded={len(rep.downloaded)} "
-          f"unchanged={len(rep.unchanged)} manual={len(rep.manual)} "
-          f"failed={len(rep.failed)}", flush=True)
+          f"adopted={len(rep.adopted)} unchanged={len(rep.unchanged)} "
+          f"manual={len(rep.manual)} failed={len(rep.failed)}", flush=True)
     if dry_run:
         for rel in rep.to_fetch:
             print(f"  fetch  {rel}", flush=True)
     else:
         for rel in rep.downloaded:
             print(f"  got    {rel}", flush=True)
+    for rel in rep.adopted:
+        print(f"  adopt  {rel}", flush=True)
     for rel in removed:
         suffix = "（--dry-run 不删）" if dry_run else "（已删除）"
         print(f"  prune  {rel}{suffix}", flush=True)
 
 
-def _print_summary(downloaded: int, manual: list, failed: list) -> None:
+def _print_summary(downloaded: int, adopted: int, manual: list, failed: list) -> None:
     if manual:
         print(f"manual_required（{len(manual)} 项；超分享直链上限或需人工放置，"
               f"放入对应 data/raw/<类别> 后重跑）：", flush=True)
@@ -167,15 +187,16 @@ def _print_summary(downloaded: int, manual: list, failed: list) -> None:
         print(f"failed（{len(failed)} 项）：", flush=True)
         for cat, item in failed:
             print(f"  [{cat}] {item['name']}：{item['reason']}", flush=True)
-    print(f"总结：downloaded={downloaded} manual={len(manual)} failed={len(failed)}",
-          flush=True)
+    print(f"总结：downloaded={downloaded} adopted={adopted} "
+          f"manual={len(manual)} failed={len(failed)}", flush=True)
 
 
 def _run_sync(cats: list[str], state: dict, deps, *, dry_run: bool, prune: bool,
-              workers: int) -> tuple[int, int, list, list]:
-    """逐类别差集同步；返回 (rc, downloaded 总数, manual, failed)。"""
+              workers: int) -> tuple[int, int, int, list, list]:
+    """逐类别差集同步；返回 (rc, downloaded 总数, adopted 总数, manual, failed)。"""
     rc = 0
     n_downloaded = 0
+    n_adopted = 0
     manual: list = []
     failed: list = []
     transport = deps["transport"]
@@ -191,10 +212,12 @@ def _run_sync(cats: list[str], state: dict, deps, *, dry_run: bool, prune: bool,
         removed: list[str] = []
         if prune:
             removed = _prune_extras(dest_root, entries, dry_run=dry_run, log=log)
-        if rep.downloaded and not dry_run:
+        if (rep.downloaded or rep.adopted) and not dry_run:
             state.setdefault("stages", {})[cat] = {}
-            log(f"[freshness] 有新增/变更 {len(rep.downloaded)} 项 → 清阶段标记")
+            log(f"[freshness] 有新增/变更 {len(rep.downloaded)} 项 / "
+                f"人工就位 {len(rep.adopted)} 项 → 清阶段标记")
         n_downloaded += len(rep.downloaded)
+        n_adopted += len(rep.adopted)
         manual.extend((cat, it, dest_root) for it in rep.manual)
         failed.extend((cat, it) for it in rep.failed)
         _print_report(cat, rep, removed, dry_run)
@@ -202,7 +225,7 @@ def _run_sync(cats: list[str], state: dict, deps, *, dry_run: bool, prune: bool,
             rc = 1
         if not dry_run:
             st.save_state_atomic(deps["state_path"], state)
-    return rc, n_downloaded, manual, failed
+    return rc, n_downloaded, n_adopted, manual, failed
 
 
 def _run_stages(cats: list[str], state: dict, deps, *, verb: str, dry_run: bool) -> None:
@@ -237,10 +260,10 @@ def _run_verify(deps, *, dry_run: bool) -> int:
 def _dispatch(args, cats, state, deps) -> int:
     verb = args.command
     if verb == "sync":
-        rc, n_dl, manual, failed = _run_sync(
+        rc, n_dl, n_ad, manual, failed = _run_sync(
             cats, state, deps, dry_run=args.dry_run, prune=args.prune,
             workers=args.workers)
-        _print_summary(n_dl, manual, failed)
+        _print_summary(n_dl, n_ad, manual, failed)
         return rc
     if verb in ("build", "publish"):
         _run_stages(cats, state, deps, verb=verb, dry_run=args.dry_run)
@@ -248,7 +271,7 @@ def _dispatch(args, cats, state, deps) -> int:
     if verb == "verify":
         return _run_verify(deps, dry_run=args.dry_run)
     # all
-    rc, n_dl, manual, failed = _run_sync(
+    rc, n_dl, n_ad, manual, failed = _run_sync(
         cats, state, deps, dry_run=args.dry_run, prune=args.prune,
         workers=args.workers)
     _run_stages(cats, state, deps, verb="build", dry_run=args.dry_run)
@@ -257,7 +280,7 @@ def _dispatch(args, cats, state, deps) -> int:
     else:
         _run_stages(cats, state, deps, verb="publish", dry_run=False)
         rc = max(rc, _run_verify(deps, dry_run=False))
-    _print_summary(n_dl, manual, failed)
+    _print_summary(n_dl, n_ad, manual, failed)
     return rc
 
 
@@ -288,6 +311,7 @@ def main(argv: list[str] | None = None, *, listdir: Callable | None = None,
     state_path、lock_path、log_dir、raw_root。
     """
     raw_argv = list(argv) if argv is not None else list(sys.argv[1:])
+    _wire_cookie_env()
     args = _parser().parse_args(raw_argv)
     try:
         cats = _select_categories(args.categories)

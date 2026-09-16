@@ -3,7 +3,9 @@
 设计：knowledge/design/workspace/2026-09-16-pan-data-update-design.md §2.1/§4/§7/§8
 - 差集（``state.diff_files``）后只下 to_fetch；同名 size 同 → unchanged 不下（幂等）。
 - 分享直链大小上限（HTTP 400 ``download file size limit``）→ manual_required：
-  写清单，不 fail 整链；人工放入后下次差集自动接续（§2.1）。
+  写清单，不 fail 整链；人工放入后下次差集自动接续（§2.1）——就位件按
+  「清单存在 + 本地已有 + size 匹配 + state 未登记」登记为 ``adopted``（不计下载，
+  CLI 视作新数据清阶段标记）。
 - 半成品防护（§8）：先写 ``<rel_path>.part``，size 校验通过才 ``os.replace``；
   state 只在成功文件上写入，给定 ``state_path`` 时逐成功文件原子落盘（断点续跑）。
 - dry_run 只返回清单（``to_fetch`` 恒有值），不取链、不落盘（§7）。
@@ -44,13 +46,18 @@ class SizeLimitExceeded(Exception):
 
 @dataclass
 class SyncReport:
-    """downloaded/unchanged/to_fetch 为 rel_path；manual/failed 为 {name, reason}。"""
+    """downloaded/unchanged/to_fetch/adopted 为 rel_path；manual/failed 为 {name, reason}。
+
+    adopted：人工就位的 manual 大件（分享清单存在 + 本地已有 + size 匹配 + state 未登记）
+    ——已视为"有新数据"，但未经下载（T9 修复轮 1）。
+    """
 
     downloaded: list[str] = field(default_factory=list)
     unchanged: list[str] = field(default_factory=list)
     manual: list[dict] = field(default_factory=list)
     failed: list[dict] = field(default_factory=list)
     to_fetch: list[str] = field(default_factory=list)
+    adopted: list[str] = field(default_factory=list)
 
 
 def _as_dict(entry) -> dict:
@@ -76,6 +83,34 @@ def _record(state: dict, category: str, item: dict) -> None:
         "fid": item.get("fid"),
         "synced_at": _now(),
     }
+
+
+def _adopt_local(state: dict, category: str, items: list[dict], dest_root: Path,
+                 state_path: Path | None, dry_run: bool) -> list[str]:
+    """人工就位件登记（设计 §2.1：manual_required 放入 raw 后下次差集自动接续）。
+
+    条件（全满足才 adopted）：分享清单存在、state 未登记、本地已存在且 size 匹配。
+    dry_run 只识别不改 state；非 dry_run 逐件 ``_record`` + ``adopted=True`` 原子落盘。
+    size 不符不登记（仍走下载；半成品同名件不会被误认）。
+    """
+    adopted: list[str] = []
+    for item in items:
+        key = st._state_key(category, item["rel_path"])
+        if key in state["files"]:
+            continue
+        try:
+            p = _dest_for(dest_root, item["rel_path"])
+        except ValueError:
+            continue
+        if not p.is_file() or p.stat().st_size != item["size"]:
+            continue
+        adopted.append(item["rel_path"])
+        if not dry_run:
+            _record(state, category, item)
+            state["files"][key]["adopted"] = True
+            if state_path is not None:
+                st.save_state_atomic(Path(state_path), state)
+    return adopted
 
 
 def _take_urls(transport, items: list[dict], blocked: dict[str, str]) -> dict:
@@ -160,13 +195,20 @@ def sync_category(state: dict, category: str, *, entries, transport, dest_root,
     - workers：下载并发上限（默认 8；1 → 串行）。worker 只做下载落盘，state 记账/
       报告归集由主线程按条目序统一处理（线程安全；完成序不影响报告顺序）。
     - state_path：给定则每个成功文件后 ``state.save_state_atomic``。
+    - adopted：人工就位件（清单存在 + 本地已有 + size 匹配 + state 未登记）登记为
+      adopted，不计 downloaded；dry-run 只识别不写 state 并从 to_fetch 剔除。
     """
     dest_root = Path(dest_root)
     items = [_as_dict(e) for e in entries]
+    adopted = _adopt_local(state, category, items, dest_root, state_path, dry_run)
     diff = st.diff_files(state, category, items)
+    if adopted and dry_run:
+        aset = set(adopted)
+        diff.to_fetch = [e for e in diff.to_fetch if e["rel_path"] not in aset]
     report = SyncReport(
         unchanged=[e["rel_path"] for e in diff.skipped],
         to_fetch=[e["rel_path"] for e in diff.to_fetch],
+        adopted=adopted,
     )
     if dry_run or not diff.to_fetch:
         return report
