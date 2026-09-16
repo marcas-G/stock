@@ -28,18 +28,18 @@ STAGES_DAILY_BLOCK = '''    "daily": [
 MUTS = {
     "import_daily: _is_full_snapshot 恒 False（全量识别存根）": (
         IMPORT_DAILY, ID_TESTS,
-        "    return FULL_SNAPSHOT_PREFIX in name or FULL_SNAPSHOT_MARK in name",
+        "    return name.startswith(FULL_SNAPSHOT_PREFIX) or FULL_SNAPSHOT_MARK in name",
         "    return False",
     ),
     "import_daily: _is_full_snapshot 恒 True（增量误判全量）": (
         IMPORT_DAILY, ID_TESTS,
-        "    return FULL_SNAPSHOT_PREFIX in name or FULL_SNAPSHOT_MARK in name",
+        "    return name.startswith(FULL_SNAPSHOT_PREFIX) or FULL_SNAPSHOT_MARK in name",
         "    return True",
     ),
     "import_daily: 丢旧标记兼容（只剩 19910101至 前缀）": (
         IMPORT_DAILY, ID_TESTS,
-        "    return FULL_SNAPSHOT_PREFIX in name or FULL_SNAPSHOT_MARK in name",
-        "    return FULL_SNAPSHOT_PREFIX in name",
+        "    return name.startswith(FULL_SNAPSHOT_PREFIX) or FULL_SNAPSHOT_MARK in name",
+        "    return name.startswith(FULL_SNAPSHOT_PREFIX)",
     ),
     "import_daily: _newest_full 取原序首个（不解析日期）": (
         IMPORT_DAILY, ID_TESTS,
@@ -53,8 +53,8 @@ MUTS = {
     ),
     "import_daily: 忽略增量 zip（不补新日期）": (
         IMPORT_DAILY, ID_TESTS,
-        "    if incr_zips:",
-        "    if False:",
+        "    for incr in _select_increments(incr_zips, _full_end_date(full_zip)):",
+        "    for incr in []:",
     ),
     "stages: daily 空链": (
         STAGES, ST_TESTS,
@@ -77,6 +77,32 @@ MUTS = {
         STAGES, ST_TESTS,
         '        [str(_VENV_PYTHON), str(_TOOLS / "ashare_ingest" / "import_daily.py")],',
         '        ["python3", str(_TOOLS / "ashare_ingest" / "import_daily.py")],',
+    ),
+    # —— 修复轮 1 新增（评审 I2 + Minor）——
+    "import_daily: 前缀判断回退 `in`（子串而非 startswith）": (
+        IMPORT_DAILY, ID_TESTS,
+        "    return name.startswith(FULL_SNAPSHOT_PREFIX) or FULL_SNAPSHOT_MARK in name",
+        "    return FULL_SNAPSHOT_PREFIX in name or FULL_SNAPSHOT_MARK in name",
+    ),
+    "import_daily: 增量不做包含去重（覆盖不全者不再丢弃）": (
+        IMPORT_DAILY, ID_TESTS,
+        "    for i, (p, (s, e)) in enumerate(candidates):\n"
+        "        contained = any(\n"
+        "            j != i and s2 <= s and e2 >= e and ((s2, e2) != (s, e) or j < i)\n"
+        "            for j, (_p2, (s2, e2)) in enumerate(candidates))\n"
+        "        if not contained:\n"
+        "            kept.append(p)",
+        "    kept.extend(p for p, _rng in candidates)",
+    ),
+    "import_daily: 增量不按 full_end 过滤（全量已覆盖段也解析）": (
+        IMPORT_DAILY, ID_TESTS,
+        "                  if rng is not None and (not full_end or rng[1] > full_end)]",
+        "                  if rng is not None]",
+    ),
+    "import_daily: _build_tasks 多增量只解析首个（静默漏数据）": (
+        IMPORT_DAILY, ID_TESTS,
+        "    for incr in _select_increments(incr_zips, _full_end_date(full_zip)):",
+        "    for incr in _select_increments(incr_zips, _full_end_date(full_zip))[:1]:",
     ),
 }
 

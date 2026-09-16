@@ -9,8 +9,11 @@ CAUGHT  rc=1  stages: daily 空链
 CAUGHT  rc=1  stages: daily 缺一步（adj_backfill 丢）
 CAUGHT  rc=1  stages: daily 步序颠倒（derive/ingest 互换）
 CAUGHT  rc=1  stages: daily 首步不用平台 venv（python3 PATH 依赖）
+CAUGHT  rc=1  import_daily: 前缀判断回退 `in`（子串而非 startswith）
+CAUGHT  rc=1  import_daily: 增量不做包含去重（覆盖不全者不再丢弃）
+CAUGHT  rc=1  import_daily: 增量不按 full_end 过滤（全量已覆盖段也解析）
+CAUGHT  rc=1  import_daily: _build_tasks 多增量只解析首个（静默漏数据）
 
-10/10 突变被测试抓住；工作区已恢复逐字节一致
+14/14 突变被测试抓住；工作区已恢复逐字节一致
 恢复后 platform/tools/ashare_ingest/tests: rc=0
 恢复后 platform/tools/pan_update/tests: rc=0
-exit=0

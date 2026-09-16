@@ -1,0 +1,84 @@
+# R30 Task6 修复轮 1（独立评审 PASS；Important I1）
+
+- 修订对象：`platform/tools/pan_update/stages.py` + 同目录测试
+- 评审口径：I1 = minutes 链 convert 步无参数 → 跑成默认 `--mode validation --day 20260817`
+  （写 calib 目录，生产 `bars_1m` 不生成）= 阶段链静默空转。
+- 修复：convert 命令补 `--mode production`（converter 默认 2020-2026 / 1-12 全月扫描，
+  已提交月由 `_committed_ok` 幂等跳过；不再落 validation 默认日期）。
+
+## RED（修复前，先写测试并确认失败）
+
+```
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests/test_minutes_wiring.py -q
+```
+
+```
+..F..                                                                    [100%]
+=================================== FAILURES ===================================
+__________________ test_minutes_convert_runs_production_mode ___________________
+
+    def test_minutes_convert_runs_production_mode():
+        """修复轮 1（评审 I1）：convert 缺省 validation 会写 calib 目录、生产空转。"""
+        convert = stages.STAGE_CHAINS["minutes"][0]
+>       assert "--mode" in convert, f"convert 必须显式 --mode production：{convert}"
+E       AssertionError: convert 必须显式 --mode production：['/data/students/gaolei/stock/platform/.venv/bin/python', '/data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py']
+E       assert '--mode' in ['/data/students/gaolei/stock/platform/.venv/bin/python', '/data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py']
+
+platform/tools/pan_update/tests/test_minutes_wiring.py:36: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tools/pan_update/tests/test_minutes_wiring.py::test_minutes_convert_runs_production_mode
+1 failed, 4 passed in 0.10s
+exit=1
+```
+
+## GREEN（修复后）
+
+```
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests -q
+..............................................................           [100%]
+62 passed in 2.51s
+
+$ platform/.venv/bin/python -m pytest platform/tools/ashare_ingest/tests -q
+....................................                                     [100%]
+36 passed in 2.94s
+```
+
+关键断言：`STAGE_CHAINS["minutes"][0]` 含 `--mode production`，且 `ingest_bars.py` 仍是其后一步。
+
+## MUTATION（9/9，含修复轮新增 2 条；脚本已扩展并逐字节恢复）
+
+```
+$ python3 governance/evidence/verification/R30/task6/mutation.py
+CAUGHT  rc=1  stages: minutes 空链
+CAUGHT  rc=1  stages: minutes 缺一步（ingest_bars 丢）
+CAUGHT  rc=1  stages: minutes 步序颠倒（先 ingest 后 convert）
+CAUGHT  rc=1  stages: minutes 首步不用平台 venv（python3 PATH 依赖）
+CAUGHT  rc=1  stages: minutes convert 指向错误工具目录
+CAUGHT  rc=1  share: _join 给 rel_path 加类别前缀（映射不直拼）
+CAUGHT  rc=1  sync: _dest_for 多加一层目录（不直拼 local_root）
+CAUGHT  rc=1  stages: minutes convert 去掉 --mode production（回退 validation 空转）
+CAUGHT  rc=1  stages: minutes convert --mode 写成 validation
+
+9/9 突变被测试抓住；工作区已恢复逐字节一致
+恢复后 platform/tools/pan_update/tests: rc=0
+```
+
+`04-mutation.txt` 已同步为本次 9 条重跑（原 7 条为初轮记录，README 有说明）。
+
+## G-TOPO
+
+```
+$ platform/.venv/bin/python governance/ops/check_tool_layering.py
+[G-TOPO] 工具拓扑：依赖方向 / 横向耦合
+  ✓ 0 处（core 不做反向依赖、生产不带诊断、工具不互相 import、lib 是叶子）
+```
+
+## 回归（platform/tools 全量）
+
+```
+$ platform/.venv/bin/python -m pytest platform/tools -q
+.........................................................                [100%]
+417 passed in 47.87s
+```
+
+（初轮 410 + 本次新增 7 = 417。）

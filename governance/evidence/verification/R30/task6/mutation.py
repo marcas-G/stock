@@ -19,7 +19,8 @@ SYNC = REPO / "platform/tools/pan_update/sync.py"
 TESTS = "platform/tools/pan_update/tests"
 
 STAGES_MINUTES_BLOCK = '''    "minutes": [
-        [str(_VENV_PYTHON), str(_TOOLS / "converters" / "convert_minutes_to_parquet.py")],
+        [str(_VENV_PYTHON), str(_TOOLS / "converters" / "convert_minutes_to_parquet.py"),
+         "--mode", "production"],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_bars.py")],
     ],'''
 
@@ -36,15 +37,19 @@ MUTS = {
     ),
     "stages: minutes 步序颠倒（先 ingest 后 convert）": (
         STAGES,
-        '        [str(_VENV_PYTHON), str(_TOOLS / "converters" / "convert_minutes_to_parquet.py")],\n'
+        '        [str(_VENV_PYTHON), str(_TOOLS / "converters" / "convert_minutes_to_parquet.py"),\n'
+        '         "--mode", "production"],\n'
         '        [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_bars.py")],',
         '        [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_bars.py")],\n'
-        '        [str(_VENV_PYTHON), str(_TOOLS / "converters" / "convert_minutes_to_parquet.py")],',
+        '        [str(_VENV_PYTHON), str(_TOOLS / "converters" / "convert_minutes_to_parquet.py"),\n'
+        '         "--mode", "production"],',
     ),
     "stages: minutes 首步不用平台 venv（python3 PATH 依赖）": (
         STAGES,
-        '        [str(_VENV_PYTHON), str(_TOOLS / "converters" / "convert_minutes_to_parquet.py")],',
-        '        ["python3", str(_TOOLS / "converters" / "convert_minutes_to_parquet.py")],',
+        '        [str(_VENV_PYTHON), str(_TOOLS / "converters" / "convert_minutes_to_parquet.py"),\n'
+        '         "--mode", "production"],',
+        '        ["python3", str(_TOOLS / "converters" / "convert_minutes_to_parquet.py"),\n'
+        '         "--mode", "production"],',
     ),
     "stages: minutes convert 指向错误工具目录": (
         STAGES,
@@ -60,6 +65,18 @@ MUTS = {
         SYNC,
         "    dest = (dest_root / rel_path).resolve()",
         '    dest = (dest_root / "minutes" / rel_path).resolve()',
+    ),
+    # —— 修复轮 1 新增（评审 I1：convert 静默跑 validation 空转）——
+    "stages: minutes convert 去掉 --mode production（回退 validation 空转）": (
+        STAGES,
+        '        [str(_VENV_PYTHON), str(_TOOLS / "converters" / "convert_minutes_to_parquet.py"),\n'
+        '         "--mode", "production"],',
+        '        [str(_VENV_PYTHON), str(_TOOLS / "converters" / "convert_minutes_to_parquet.py")],',
+    ),
+    "stages: minutes convert --mode 写成 validation": (
+        STAGES,
+        '         "--mode", "production"],',
+        '         "--mode", "validation"],',
     ),
 }
 

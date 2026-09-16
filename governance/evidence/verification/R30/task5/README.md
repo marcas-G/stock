@@ -13,7 +13,9 @@
 | `392f0c2` | `fix(tools): import_daily 全量快照识别支持网盘命名（19910101至前缀）` |
 | `bf95ed8` | `test(tools): import_daily 全量识别守卫（旧标记兼容/选最新/增量任务）` |
 | `f694c07` | `feat(tools): pan_update daily 阶段链` |
-| 本证据提交 | `docs(verification): R30 Task5 证据` |
+| `0d793da` | `docs(verification): R30 Task5 证据` |
+| `00ef05e` | `fix(tools): import_daily 多增量取覆盖最新 + minutes 链补 production 模式`（修复轮 1） |
+| 本证据提交 | `docs(verification): R30 Task5/6 修复轮1 证据` |
 
 ## 复现命令与结果
 
@@ -24,8 +26,9 @@
 | `02a-green-import-daily.txt` | `platform/.venv/bin/python -m pytest platform/tools/ashare_ingest/tests -q` | **30 passed**（原 25 + 本次 5） |
 | `02b-green-daily-chain.txt` | `platform/.venv/bin/python -m pytest platform/tools/pan_update/tests -q` | **57 passed**（T4 基线 55 + daily 接线 2） |
 | `03-gtopo.txt` | `platform/.venv/bin/python governance/ops/check_tool_layering.py` | **0 处**（工具拓扑：不跨工具 import） |
-| `04-mutation.txt` | `python3 governance/evidence/verification/R30/task5/mutation.py` | **10/10 突变被抓住**；恢复原文后两组测试 rc=0 |
+| `04-mutation.txt` | `python3 governance/evidence/verification/R30/task5/mutation.py` | **14/14 突变被抓住**（初轮 10 + 修复轮 4）；恢复原文后两组测试 rc=0 |
 | `05-tools-suite.txt` | `platform/.venv/bin/python -m pytest platform/tools -q` | **406 passed**（T4 基线 399 + 本次 7） |
+| `06-fix-round1.txt` | 修复轮 1（评审 I2 + Minor）：红→绿→突变→G-TOPO→全量回归 | 红 4 failed → 绿 36/62 → 14/14 → 417 passed |
 
 ## 行为要点（测试锁死）
 
@@ -65,3 +68,15 @@
    旧命名遗留场景由 `pan_update --prune` 或人工清理，未做月日回退解析。
 3. daily 链命令未带参数（依赖各脚本默认路径）；env（内存护栏）由 T9 调用方经
    `run_category_stage(env=...)` 透传。
+
+---
+
+## 修复轮 1（独立评审 PASS；Important I2 + Minor，提交 `00ef05e`）
+
+- I2（多增量只取排序首个 → 静默漏数据）：新增 `_select_increments`——区间解析归一 YYYYMMDD；
+  只保留 `end > 最新全量 end`；被另一条区间包含者丢弃（保留覆盖更全的）；互不重叠全部保留；
+  区间不可解析 / 旧命名全量无日期 → 保守保留。`_build_tasks` 遍历全部入选增量（不再取 `[0]`）。
+- Minor（`19910101至` 注释写“前缀”但实现用子串 `in`）：实现改 `startswith`，新增
+  `test_prefix_requires_start_of_name` 反例（子串形态不算全量）。
+- 红→绿→突变→回归：见 `06-fix-round1.txt`；`04-mutation.txt` 与 `mutation.py` 已同步为
+  14 条重跑（初轮 10 条为历史记录）；全量回归 **417 passed**。

@@ -6,7 +6,8 @@ CAUGHT  rc=1  stages: minutes 首步不用平台 venv（python3 PATH 依赖）
 CAUGHT  rc=1  stages: minutes convert 指向错误工具目录
 CAUGHT  rc=1  share: _join 给 rel_path 加类别前缀（映射不直拼）
 CAUGHT  rc=1  sync: _dest_for 多加一层目录（不直拼 local_root）
+CAUGHT  rc=1  stages: minutes convert 去掉 --mode production（回退 validation 空转）
+CAUGHT  rc=1  stages: minutes convert --mode 写成 validation
 
-7/7 突变被测试抓住；工作区已恢复逐字节一致
+9/9 突变被测试抓住；工作区已恢复逐字节一致
 恢复后 platform/tools/pan_update/tests: rc=0
-exit=0

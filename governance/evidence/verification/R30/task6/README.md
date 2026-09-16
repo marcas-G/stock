@@ -10,7 +10,9 @@
 | commit | 说明 |
 |---|---|
 | `735d1c5` | `feat(tools): pan_update minutes 阶段链` |
-| 本证据提交 | `docs(verification): R30 Task6 证据` |
+| `0afe60e` | `docs(verification): R30 Task6 证据` |
+| `00ef05e` | `fix(tools): import_daily 多增量取覆盖最新 + minutes 链补 production 模式`（修复轮 1，T5+T6 同提交） |
+| 本证据提交 | `docs(verification): R30 Task5/6 修复轮1 证据` |
 
 ## 复现命令与结果
 
@@ -19,8 +21,9 @@
 | `01-red.txt` | `platform/.venv/bin/python -m pytest platform/tools/pan_update/tests/test_minutes_wiring.py -q`（填链前） | **2 failed / 2 passed**：链断言 `KeyError: 'minutes'`（功能缺失，红）；rel_path 映射断言先绿（T2/T3 契约守卫） |
 | `02-green.txt` | `platform/.venv/bin/python -m pytest platform/tools/pan_update/tests -q` | **61 passed**（T5 基线 57 + minutes 接线 4） |
 | `03-gtopo.txt` | `platform/.venv/bin/python governance/ops/check_tool_layering.py` | **0 处**（工具拓扑：不跨工具 import） |
-| `04-mutation.txt` | `python3 governance/evidence/verification/R30/task6/mutation.py` | **7/7 突变被抓住**；恢复原文后 rc=0 |
+| `04-mutation.txt` | `python3 governance/evidence/verification/R30/task6/mutation.py` | **9/9 突变被抓住**（初轮 7 + 修复轮 2）；恢复原文后 rc=0 |
 | `05-tools-suite.txt` | `platform/.venv/bin/python -m pytest platform/tools -q` | **410 passed**（T5 基线 406 + minutes 4） |
+| `05-fix-round1.txt` | 修复轮 1（评审 I1）：红→绿→突变→G-TOPO→全量回归 | 红 1 failed → 绿 62/36 → 9/9 → 417 passed |
 
 ## 行为要点（测试锁死）
 
@@ -56,3 +59,15 @@
    分钟链中途失败重跑会整链重放（convert 幂等性由 T10 真跑验证）。
 3. 实时映射假设网盘 `A股分钟线/<年>/<月>` 结构与本地一致（设计 §2 实测）；若网盘出现
    额外层级（如 `<交易所>/<年>`），T10 遍历需复核。
+
+---
+
+## 修复轮 1（独立评审 PASS；Important I1，提交 `00ef05e`）
+
+- I1（minutes convert 静默空转）：convert 缺参时缺省 `--mode validation --day 20260817`（写
+  calib 目录、生产 `bars_1m` 不生成）。修复：命令补 `--mode production`（converter 按
+  `_committed_ok` 幂等跳过已提交月，默认 2020-2026/1-12 全月扫描）。
+- 测试：`test_minutes_convert_runs_production_mode`（先红：`--mode` 不在命令中；
+  修复后绿并断言 `ingest_bars` 仍在其后）。
+- 红→绿→突变→回归：见 `05-fix-round1.txt`；`04-mutation.txt` 与 `mutation.py` 已同步为
+  9 条重跑（初轮 7 条为历史记录）；全量回归 **417 passed**。

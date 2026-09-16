@@ -1,0 +1,147 @@
+# R30 Task5 修复轮 1（独立评审 PASS；Important I2 + Minor）
+
+- 修订对象：`platform/tools/ashare_ingest/import_daily.py` + 同目录测试
+- 评审口径：I2 = `_build_tasks` 多增量只取排序首个（最早）→ 静默漏数据；
+  Minor = `import_daily.py` `19910101至` 注释写“前缀”但实现用子串 `in`。
+- 修复：
+  1. 增量区间解析（`YYYY-MM-DD至YYYY-MM-DD`，归一 YYYYMMDD）：只保留 `end > 最新全量 end`；
+     被另一条区间包含（start >= s 且 end <= e）者丢弃（保留覆盖更全的）；同区间只留一个；
+     互不重叠的多份全部解析；区间不可解析 / 全量无日期（旧命名）保守保留。
+  2. `_is_full_snapshot` 实现改 `name.startswith(FULL_SNAPSHOT_PREFIX)`（与注释“前缀”对齐），
+     旧标记 `07月31日` 兼容不变。
+
+## RED（修复前，先写测试并确认失败）
+
+```
+$ platform/.venv/bin/python -m pytest platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py -q
+```
+
+```
+.....FFF..F                                                              [100%]
+=================================== FAILURES ===================================
+_________ test_increments_keep_only_end_after_full_and_drop_contained __________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1975/test_increments_keep_only_end_0')
+
+    def test_increments_keep_only_end_after_full_and_drop_contained(tmp_path):
+        """①全量 end=20260731 + 9/1-9/15 + 9/1-9/16 → 仅保留覆盖更全的 9/1-9/16。"""
+        _zip_with(tmp_path / "19910101至20260731A股日k线.zip")
+        _zip_with(tmp_path / "2026-09-01至2026-09-15A股日k线.zip")
+        _zip_with(tmp_path / "2026-09-01至2026-09-16A股日k线.zip")
+        tasks = idl._build_tasks(tmp_path)
+>       assert _incr_names(tasks) == ["2026-09-01至2026-09-16A股日k线.zip"]
+E       AssertionError: assert ['2026-09-01至...-15A股日k线.zip'] == ['2026-09-01至...-16A股日k线.zip']
+E         At index 0 diff: '2026-09-01至2026-09-15A股日k线.zip' != '2026-09-01至2026-09-16A股日k线.zip'
+E         Use -v to get more diff
+
+platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py:91: AssertionError
+___________________ test_increments_non_overlapping_all_kept ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1975/test_increments_non_overlappin0')
+
+    def test_increments_non_overlapping_all_kept(tmp_path):
+        """②互不重叠的两段增量都保留（不因只取首个而静默漏数据）。"""
+        _zip_with(tmp_path / "19910101至20260731A股日k线.zip")
+        _zip_with(tmp_path / "2026-09-01至2026-09-15A股日k线.zip")
+        _zip_with(tmp_path / "2026-09-16至2026-09-20A股日k线.zip")
+        tasks = idl._build_tasks(tmp_path)
+>       assert _incr_names(tasks) == ["2026-09-01至2026-09-15A股日k线.zip",
+                                      "2026-09-16至2026-09-20A股日k线.zip"]
+E       AssertionError: assert ['2026-09-01至...-15A股日k线.zip'] == ['2026-09-01至...-20A股日k线.zip']
+E         Right contains one more item: '2026-09-16至2026-09-20A股日k线.zip'
+E         Use -v to get more diff
+
+platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py:100: AssertionError
+__________________ test_increment_not_after_full_end_dropped ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1975/test_increment_not_after_full_0')
+
+    def test_increment_not_after_full_end_dropped(tmp_path):
+        """③增量整体不超出全量 end（end <= full_end）→ 丢弃，不重复解析。"""
+        _zip_with(tmp_path / "19910101至20260731A股日k线.zip")
+        _zip_with(tmp_path / "2026-07-01至2026-07-31A股日k线.zip")
+        tasks = idl._build_tasks(tmp_path)
+>       assert _incr_names(tasks) == []
+E       AssertionError: assert ['2026-07-01至...-31A股日k线.zip'] == []
+E         Left contains one more item: '2026-07-01至2026-07-31A股日k线.zip'
+E         Use -v to get more diff
+
+platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py:109: AssertionError
+______________________ test_prefix_requires_start_of_name ______________________
+
+    def test_prefix_requires_start_of_name():
+        """Minor：`19910101至` 是前缀（startswith）而非任意子串。"""
+        class P:
+            def __init__(self, n): self.name = n
+>       assert not idl._is_full_snapshot(P("A股日k线-19910101至20260731.zip"))
+E       AssertionError: assert not True
+
+platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py:132: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py::test_increments_keep_only_end_after_full_and_drop_contained
+FAILED platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py::test_increments_non_overlapping_all_kept
+FAILED platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py::test_increment_not_after_full_end_dropped
+FAILED platform/tools/ashare_ingest/tests/test_import_daily_full_prefix.py::test_prefix_requires_start_of_name
+4 failed, 7 passed in 0.65s
+exit=1
+```
+
+④无全量（仅增量）→ 维持既有 `SystemExit('no full daily kline zip found')`（测试先绿，锁行为）。
+
+## GREEN（修复后）
+
+```
+$ platform/.venv/bin/python -m pytest platform/tools/ashare_ingest/tests -q
+....................................                                     [100%]
+36 passed in 2.94s
+
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests -q
+..............................................................           [100%]
+62 passed in 2.51s
+```
+
+既有退市股 E2E（`test_import_daily_delisted.py`）全绿（含在 36 内）。
+
+## MUTATION（14/14，含修复轮新增 4 条；脚本已扩展并逐字节恢复）
+
+```
+$ python3 governance/evidence/verification/R30/task5/mutation.py
+CAUGHT  rc=1  import_daily: _is_full_snapshot 恒 False（全量识别存根）
+CAUGHT  rc=1  import_daily: _is_full_snapshot 恒 True（增量误判全量）
+CAUGHT  rc=1  import_daily: 丢旧标记兼容（只剩 19910101至 前缀）
+CAUGHT  rc=1  import_daily: _newest_full 取原序首个（不解析日期）
+CAUGHT  rc=1  import_daily: _build_tasks 用 full_zips[0]（不选最新全量）
+CAUGHT  rc=1  import_daily: 忽略增量 zip（不补新日期）
+CAUGHT  rc=1  stages: daily 空链
+CAUGHT  rc=1  stages: daily 缺一步（adj_backfill 丢）
+CAUGHT  rc=1  stages: daily 步序颠倒（derive/ingest 互换）
+CAUGHT  rc=1  stages: daily 首步不用平台 venv（python3 PATH 依赖）
+CAUGHT  rc=1  import_daily: 前缀判断回退 `in`（子串而非 startswith）
+CAUGHT  rc=1  import_daily: 增量不做包含去重（覆盖不全者不再丢弃）
+CAUGHT  rc=1  import_daily: 增量不按 full_end 过滤（全量已覆盖段也解析）
+CAUGHT  rc=1  import_daily: _build_tasks 多增量只解析首个（静默漏数据）
+
+14/14 突变被测试抓住；工作区已恢复逐字节一致
+恢复后 platform/tools/ashare_ingest/tests: rc=0
+恢复后 platform/tools/pan_update/tests: rc=0
+```
+
+`04-mutation.txt` 已同步为本次 14 条重跑（原 10 条为初轮记录，README 有说明）。
+
+## G-TOPO
+
+```
+$ platform/.venv/bin/python governance/ops/check_tool_layering.py
+[G-TOPO] 工具拓扑：依赖方向 / 横向耦合
+  ✓ 0 处（core 不做反向依赖、生产不带诊断、工具不互相 import、lib 是叶子）
+```
+
+## 回归（platform/tools 全量）
+
+```
+$ platform/.venv/bin/python -m pytest platform/tools -q
+.........................................................                [100%]
+417 passed in 47.87s
+```
+
+（初轮 410 + 本次新增 7 = 417。）
