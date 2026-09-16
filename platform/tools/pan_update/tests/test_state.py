@@ -16,6 +16,22 @@ def test_save_state_atomic_roundtrip(tmp_path):
     assert json.loads(p.read_text())["files"]["a"]["size"] == 1
     assert not list(tmp_path.glob("*.tmp"))
 
+def test_save_load_roundtrip(tmp_path):
+    p = tmp_path / "pan_state.json"
+    st = {
+        "version": 1,
+        "files": {"daily/x.zip": {"name": "x.zip", "size": 10, "synced_at": "2026-09-16T00:00:00"}},
+        "stages": {"daily": {"last_build": "2026-09-15"}},
+        "runs": [{"cmd": "sync", "status": "ok"}],
+    }
+    state.save_state_atomic(p, st)
+    back = state.load_state(p)
+    assert back["files"] == st["files"]
+    assert back["stages"] == st["stages"]
+    assert back["runs"] == st["runs"]
+    assert not list(tmp_path.glob("*.tmp"))
+    assert not list(tmp_path.glob("*.corrupt-*"))
+
 def test_diff_new_changed_skipped():
     st = {"version": 1, "files": {"daily/x.zip": {"size": 10}}, "stages": {}, "runs": []}
     entries = [
