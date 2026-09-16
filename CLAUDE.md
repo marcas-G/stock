@@ -38,7 +38,7 @@
 - 涉及数据窗口/分组/对齐语义的改动必须有能捕获跨资产泄漏、未来函数、错位的回归测试。
 
 **文档**：
-- 平台 API/CLI/DSL 变更 → `knowledge/contracts/interface.md`；设计与里程碑 → `platform/docs/superpowers/{plans,specs}`。
+- 平台 API/CLI/DSL 变更 → `knowledge/contracts/interface.md`；设计与里程碑 → `knowledge/design/platform/{plans,specs}`。
 - 因子新增/改名 → `research/docs/factors/<族>/<名>.md` 同名档案 + 重生成 `docs/index/factors.md`（有 byte-equality 门）。
 - 文档与实现冲突时改文档；实现中发现的设计缺口写进对应 spec 或 `docs/pending-items.md`。
 

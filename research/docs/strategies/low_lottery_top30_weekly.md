@@ -93,7 +93,7 @@ CA Gate（R03-I8 / M8-06A §5.5）在持仓跨除权事件时 fail-closed。本�
 - **partial 周**：窗口末 partial ISO 周会形成单日 decision（M7 deliberate contract），
   跨窗口拼接时注意边界重复计入。
 - **L5 规则**：`max_hold`/止损止盈 V1 未启用（平台侧 NotImplementedError 防静默忽略）；
-  触发条件登记见 Task 7（`docs/reviews/2026-09-16-strategy-decomposition/plan.md`）与
+  触发条件登记见 Task 7（`knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md`）与
   `research/tools/strategies/l5_rules.py` 文档。
 - **未决**：窗口内 3/31 决策只覆盖 4/1 一个执行间隔（周频语义在 partial 周的边界）；
   若需统一口径，用户可在 spec 里把 `date.end` 对齐到完整 ISO 周。

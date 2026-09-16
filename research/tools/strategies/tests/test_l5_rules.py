@@ -1,6 +1,6 @@
 """Plan S Task 6：L5 规则层 V1（研究侧近似）测试。
 
-规格：`docs/reviews/2026-09-16-strategy-decomposition/plan.md` Task 6——
+规格：`knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md` Task 6——
 - `max_hold`：目标组合历史中连续持有超 N 个交易日的 code 在调仓日被强制换出
   （调仓日粒度近似，非成交明细级）；
 - `max_hold=None`：输出与输入 target 逐值相同（零行为变化）；

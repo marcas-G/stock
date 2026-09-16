@@ -1,6 +1,6 @@
 """M5（G4）：数据入库校验——引擎读面表列命名纪律（设计 §5.3-2/§7-3 双重锁的数据侧）。
 
-设计断言源（docs/superpowers/specs/2026-09-06-factorlab-dsl-shape-design.md）：
+设计断言源（knowledge/design/platform/specs/2026-09-06-factorlab-dsl-shape-design.md）：
 - "凡是内容含未来信息的表列，命名必须落在这类前缀下——约定进活文档与数据入库校验"
 - 关闭面三类 = 语法/效率门、未来函数门、内部保留列（__factorlab_*、in_universe）
 - 读面列供给语义：daily/daily_basic/属性面列按 PIT 供给公式，引擎无字段白名单

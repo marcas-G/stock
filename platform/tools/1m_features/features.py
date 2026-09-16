@@ -1,6 +1,6 @@
 """1m 折日特征定义（研究侧批算与平台引擎对拍共用同一原文）。
 
-口径（与 platform docs/superpowers/specs/2026-09-08-factorlab-1m-funnel-design.md
+口径（与 platform knowledge/design/platform/specs/2026-09-08-factorlab-1m-funnel-design.md
 B2/B6 一致）：im_* 窗口 = 分钟槽位（bars_1m 每交易日 240 槽固定网格），严格限
 当日；(code, date) 组内折日为常数的输出形态（date × code 一行）。
 amount 元、volume 股、价格 raw 不复权。日级上下文只经注入列：

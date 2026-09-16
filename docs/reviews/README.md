@@ -9,23 +9,24 @@
 docs/reviews/
 ├── README.md                本文件（约定）
 ├── findings.md              台账 = 唯一状态源（reviewer 与开发团队都写这里）
-├── 2026-09-15-open-operators/  设计/实施方案（非评审轮次；开发团队实施入口）
-├── 2026-09-15-minute-execution/  分钟级执行设计/实施计划（开发团队实施入口）
-├── 2026-09-16-strategy-decomposition/  策略六层漏斗（L0-L5）+ YAML 配置化（设计已评审 + Plan S 实施计划）
 └── rXX-YYYY-MM-DD-<标题>/    每轮评审
     ├── report.md            该轮完整报告（reviewer 只追加；勘误加在文末）
     └── evidence/            可复跑 probe 脚本 + 原始输出（索引见目录内 README.md）
 ```
+
+> R24（2026-09-16）：原 `2026-09-15-open-operators/`、`2026-09-15-minute-execution/`、
+> `2026-09-16-strategy-decomposition/` 三个**设计/实施方案**目录已迁
+> `knowledge/design/workspace/`（非评审轮次，不占台账结构）。
 
 ## 方案批次与执行序（2026-09-16 整理）
 
 | 序 | 方案 | 状态 | 执行入口 |
 |---|---|---|---|
 | 1 | **工具迁移**（8 工具+lib → `platform/tools/`；T1/T2 合并单解释器） | 待执行（TM1 可立即） | `r04-efficiency-2026-09-16/tools-migration-plan.md` |
-| 2 | **策略配置化 Plan S**（六层 + YAML + L5） | 待执行 | `2026-09-16-strategy-decomposition/plan.md` |
+| 2 | **策略配置化 Plan S**（六层 + YAML + L5） | 待执行 | `knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md` |
 | 3 | **目录重整 R24**（契约/档案/治理/证据单点化） | 待执行 | `r04-efficiency-2026-09-16/structure-plan.md` |
-| — | open-operators Plan 1（开放算子底座） | ✅ 已实施（R22） | `2026-09-15-open-operators/`；Plan 2/3 计划未写 |
-| — | minute-execution（分钟级执行） | ✅ 已实施（R22） | `2026-09-15-minute-execution/` |
+| — | open-operators Plan 1（开放算子底座） | ✅ 已实施（R22） | `knowledge/design/workspace/2026-09-15-open-operators/`；Plan 2/3 计划未写 |
+| — | minute-execution（分钟级执行） | ✅ 已实施（R22） | `knowledge/design/workspace/2026-09-15-minute-execution/` |
 | — | R04 快速项 P1-P5 | ✅ 已实施（R23） | `r04-efficiency-2026-09-16/report.md` |
 
 **执行注意**：

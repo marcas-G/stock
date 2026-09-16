@@ -1,6 +1,6 @@
 """Plan S Task 1：StrategyDoc 契约 + YAML 加载器（六层策略文档）。
 
-设计规格：docs/reviews/2026-09-16-strategy-decomposition/plan.md §接口契约 1)。
+设计规格：knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md §接口契约 1)。
 断言逐字段（StrategySpec/ExecutionSpec 分契约组合，不合并 schema），并覆盖
 未知键 / 类型 / 边界 / NEXT_WINDOW 分钟执行 / V1 rules 边界 / 文件与语法错误。
 """

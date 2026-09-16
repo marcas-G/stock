@@ -1,7 +1,7 @@
 # FactorLab 列/算子目录（活文档 v1）
 
 - 范围：FactorLab 引擎读面活文档（日频数据面：行情 daily / 估值 daily_basic / 特殊 special / 属性 attributes 列 + 算子 + def 组合规范 + 命名类约定 + 关闭面三类墙 + 错误修复手册）。数据全开放——目录是活文档不是校验门：任何真实存在的读面列/字段/新算子都自由，无字段白名单（可用列随当前数据面实探），纪律只做名字类检查（未来前缀/内部保留名）
-- 规格源：docs/superpowers/specs/2026-09-06-factorlab-dsl-shape-design.md（§5.3 关闭面三类墙、§5.4 活文档、§6 G4/G5 差距行、§7 已知近似）
+- 规格源：knowledge/design/platform/specs/2026-09-06-factorlab-dsl-shape-design.md（§5.3 关闭面三类墙、§5.4 活文档、§6 G4/G5 差距行、§7 已知近似）
 本文档由 `factorlab catalog dump`（JSON）与 `factorlab catalog docs`（本正文）同源生成——目录正文、机器可读 JSON 与运行时 schema 元数据（source 常量、engine.reserved、ast_gate、registry）共享单一事实源，防漂移。
 
 ## 一、开放面
@@ -497,7 +497,7 @@ parse_chain_item('clip(a=1, 2)')
 ### gate_unknown_column_helper（未知列名（报错助手））
 - 规则：公式列名按当前数据面实探供给；未知列名报「未知列名」并给最接近候选 + 目录指针——无字段白名单，可用列随当前数据面变化
 - 触发：公式写错列名（typo/混淆原始名与引擎名/字段当前数据面没有）
-- 报错文案样板：`；列/算子目录见 docs/interface.md（无字段白名单——可用列随当前数据面变化）`
+- 报错文案样板：`；列/算子目录见 knowledge/contracts/interface.md（无字段白名单——可用列随当前数据面变化）`
 - 修法：按错误文案的候选提示改正；原始列名（vol/ts_code/trade_date）查映射提示行改用引擎列名
 - 对照测试：`tests/test_input_surface.py::test_typo_col_error_suggests_closest`, `tests/test_pool_formula.py::test_pool_reject_unknown_column_error_helper`, `tests/test_attributes_face.py::test_unknown_attribute_like_column_helpful_error`
 

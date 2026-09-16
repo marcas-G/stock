@@ -2,17 +2,17 @@
 
 本文件描述已交付的 CLI、Spec、因子脚本和 Python API（M1–M8，叠加
 duckdb|ch 读路径双后端与 bars_1m/tick 读接口，见 §4 读路径双后端小节）。
-实现与设计文档冲突时以 `docs/superpowers/specs/2026-08-15-factor-dsl-platform-design.md`
+实现与设计文档冲突时以 `knowledge/design/platform/specs/2026-08-15-factor-dsl-platform-design.md`
 为准；读路径双后端与 intraday 接口设计见
-`docs/superpowers/specs/2026-09-06-factorlab-dual-backend-read-path-design.md`
-（配套计划 `docs/superpowers/plans/2026-09-06-factorlab-dual-backend-read-path.md`）；
+`knowledge/design/platform/specs/2026-09-06-factorlab-dual-backend-read-path-design.md`
+（配套计划 `knowledge/design/platform/plans/2026-09-06-factorlab-dual-backend-read-path.md`）；
 日频收口（WS1-WS7：spec.target 接线 / corr 无有效周 / 多输出逐输出评估 / 停牌冻结 /
 CA Gate / 真实信号链 e2e）见
-`docs/superpowers/specs/2026-09-07-factorlab-daily-closeout-design.md`；
+`knowledge/design/platform/specs/2026-09-07-factorlab-daily-closeout-design.md`；
 bars_1m 漏斗机制（spec.interface=bars_1m / im_*、day_* 算子族 / 折日评估复用 /
 load_bars_1m_codes，2026-09-08 开工）见
-`docs/superpowers/specs/2026-09-08-factorlab-1m-funnel-design.md`（配套计划
-`docs/superpowers/plans/2026-09-08-factorlab-1m-funnel.md`）。
+`knowledge/design/platform/specs/2026-09-08-factorlab-1m-funnel-design.md`（配套计划
+`knowledge/design/platform/plans/2026-09-08-factorlab-1m-funnel.md`）。
 
 ## 0. M5 汇总：Web 可视化
 
@@ -89,7 +89,7 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 | `factorlab op remove <name>` | 禁用用户插件，保留已计算历史结果 |
 | `factorlab serve [--port 8000] [--host 127.0.0.1]` | 启动只读 Web 可视化（浏览器查看已保存因子列表与图表，扫描 `results_dir`） |
 | `factorlab catalog dump [--out FILE]` | 列/算子活文档的机器可读 JSON（schema 元数据同源生成，供写因子的 AI 开写前阅读；缺省打 stdout） |
-| `factorlab catalog docs [--out FILE]` | 目录正文 markdown（与 `docs/catalog.md` 同源生成，活文档防陈旧） |
+| `factorlab catalog docs [--out FILE]` | 目录正文 markdown（与 `catalog.md` 同源生成，活文档防陈旧） |
 
 ### `factorlab run <spec.yaml>`
 
@@ -302,7 +302,7 @@ schema 元数据同源生成的**活文档**（教学与帮助，非校验门—
   `naming` 命名类约定）/`closed_gates`（三类墙门表）/`error_handbook`（错误修复
   手册全量）/`known_approximations`（已知近似）。
 - `factorlab catalog docs [--out FILE]`：目录正文 markdown（同生成器，
-  `docs/catalog.md` 与之逐字节一致——防陈旧；文件缺失/不一致即测试失败）。
+  `catalog.md` 与之逐字节一致——防陈旧；文件缺失/不一致即测试失败）。
 - 同源防漂移：列清单 = `source._PLATFORM_COLS`/`_DAILY_BASIC_MAP`/`_SPECIAL_COLS`
   常量并集、命名 = `engine.reserved` 常量、方法链 = `ast_gate.ALLOWED_EXPR_METHODS`、
   注册清单 = `registry.list_ops()` 实时快照；错误手册每条文案样板逐字存在于源码
@@ -520,7 +520,7 @@ combine:
 - **分类面最小发现入口（R05-M1）**：`factorlab op list` 只反映**注册面**；
   `factorlab op list --catalog` 列分类表全集（name/partition/window/source/
   returns，含未注册库函数），`factorlab op doc <name>` 对未注册但分类表存在的
-  算子回退打印元数据。完整同源（算子档案/`docs/catalog.md` 合并检索）归 Plan 2。
+  算子回退打印元数据。完整同源（算子档案/`catalog.md` 合并检索）归 Plan 2。
 
 ### 池公式（`universe.formula`，M4/G2 公式化股票池）
 
@@ -874,7 +874,7 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 
 给定一组因子的逐周横截面 OLS 诊断（A 层单因子评估的多因子补充，纯 polars
 + numpy——无回归库依赖）。数学口径权威记载于
-`docs/superpowers/specs/2026-09-07-factorlab-resic-design.md`。
+`knowledge/design/platform/specs/2026-09-07-factorlab-resic-design.md`。
 
 - `cs_r2(weekly_wide, cols, fwd_col="forward_return_5d", min_stocks=30) -> dict`
   组联合回归 R²：逐周 fwd ~ cols（含截距，`np.linalg.lstsq`）的 R² 周均值。
@@ -2985,7 +2985,7 @@ token 来自 `FACTORLAB_TEAJOIN_TOKEN`；端点 `FACTORLAB_TEAJOIN_BASE_URL`
 
 `data update`：一键更新链路（手动触发）——行情 7 表增量 + 指数增量
 （`refresh_indexes`：index_daily 到最新交易日、index_weight 补新月份）+ 自动 verify
-+ 失败报告。操作经验与故障排查见 `docs/data-ops-playbook.md`。
++ 失败报告。操作经验与故障排查见 `data-ops-playbook.md`。
 
 | 命令 | 说明 |
 |------|------|

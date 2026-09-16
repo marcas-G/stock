@@ -45,7 +45,7 @@ structure() {
   # 判据：所剩行里，**同一行同时出现 R17**的算删除记录（提旧名却不提 R17 的仍报红——
   # 活指针不会写 R17；写了就是自证造假，评审可抓）。2026-09-15 R17 起生效。
   n=$(git grep -nI -e "quant-platform-main" -e "quant-platform-research" -e "projects/quant-platform" -- . \
-        ':!docs/verification' ':!platform/docs/superpowers' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' ':!research/docs/superpowers' 2>/dev/null \
+        ':!governance/evidence/verification' ':!docs/verification' ':!knowledge/design/platform' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' ':!knowledge/design/research' 2>/dev/null \
       | grep -vE '^scripts/gates.sh:' \
       | grep -vE '^docs/(workspace-p0p8|traceability-matrix|remote-cleanup-checklist)\.md:' \
       | grep -v 'local-backup-20260903（975M' \

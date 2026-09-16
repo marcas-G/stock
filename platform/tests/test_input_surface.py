@@ -1,6 +1,6 @@
 """M1（G3 骨架）：输入面（列供给 + 名字类墙）双腿参数化。
 
-覆盖三件事（设计：docs/superpowers/specs/2026-09-06-factorlab-dsl-shape-design.md，
+覆盖三件事（设计：knowledge/design/platform/specs/2026-09-06-factorlab-dsl-shape-design.md，
 M1 验收行——未知列/相似名/保留名前缀三路测试 + 无白名单证明）：
 
 1. 报错助手：未知列的报错从 polars 深层下探到引擎装配层，含**当前数据面可用列**

@@ -1,6 +1,6 @@
 """quant_core 评估内核的 Python shim（契约一致的参考实现）。
 
-契约文档：`platform/docs/superpowers/specs/2026-08-26-quant-core-contract.md`
+契约文档：`knowledge/design/platform/specs/2026-08-26-quant-core-contract.md`
 （R18 从 git 侧枝取回入树；带"勘误与位置变更"头块，正文不改）。
 本包位置：`platform/kernels/quant_core/`——**内核发行物的唯一声明点**；
 Rust 内核完成后在**同目录换 build backend**（同名包，`import quant_core` 无缝切换），

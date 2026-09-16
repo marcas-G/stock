@@ -50,7 +50,7 @@ def evaluate_factor_weekly(
     result["factor_name"] = factor_name
     # quant_core 结果回填 target 恒为 forward_return_5d（shim 固定值）——桥接层以
     # 调用方 target 权威覆盖（target 由平台传列值，非内核列名耦合；见
-    # docs/superpowers/specs/2026-09-07-factorlab-daily-closeout-design.md §4.3）
+    # knowledge/design/platform/specs/2026-09-07-factorlab-daily-closeout-design.md §4.3）
     result["target"] = target
     result["coverage"] = {
         "pct_valid": coverage["pct_valid"],

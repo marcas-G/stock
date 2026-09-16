@@ -6,7 +6,7 @@
 （`check-day`）在真实生产数据上逐值验证（max|Δ|=0.0）。
 
 特征定义见 [features.py](features.py)（vwap30_bias / open30_amt_share 两特征），
-口径与平台规格 `docs/superpowers/specs/2026-09-08-factorlab-1m-funnel-design.md`
+口径与平台规格 `knowledge/design/platform/specs/2026-09-08-factorlab-1m-funnel-design.md`
 B2/B6 一致：im_* 窗口 = 分钟槽位、严格日内；折日输出 (date, code) 常数一行；
 日级上下文仅经注入列（eod_close/prev_close/day_amt/day_vol/adv20_*），源 =
 日频事实库 daily_fact.parquet（与 CH 生产库 daily 同源同值）。

@@ -2,8 +2,8 @@
 
 日期：2026-09-16 ｜ 实施：Plan S Task 6 ｜ 代码：`research/tools/strategies/l5_rules.py`
 
-> 注：Plan S Task 6 Step 5 原要求更新 `docs/reviews/2026-09-16-strategy-decomposition/design.md`
-> §4-G3；按本轮任务约束 **`docs/reviews/**` 只读**，边界登记改落本文件（作为代码
+> 注：Plan S Task 6 Step 5 原要求更新 `knowledge/design/workspace/2026-09-16-strategy-decomposition/design.md`
+> §4-G3（R24 前旧址 `docs/reviews/2026-09-16-strategy-decomposition/`）；按本轮任务约束 **设计评审目录只读**，边界登记改落本文件（作为代码
 > docstring 的长期伴随文档），触发条件与 plan Task 7 表一致。
 
 ## 1. V1 实现：`max_hold`（调仓日粒度近似）

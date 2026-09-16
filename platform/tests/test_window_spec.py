@@ -1,6 +1,6 @@
 """R22 Task 1：分钟执行配置域——NEXT_WINDOW + 窗口/切片/触发 spec 校验。
 
-断言来源：docs/reviews/2026-09-15-minute-execution/design.md §2/§3 与 plan.md
+断言来源：knowledge/design/workspace/2026-09-15-minute-execution/design.md §2/§3 与 plan.md
 Task 1（非法窗口/切片权重和/参与率越界/NEXT_WINDOW 缺窗口全部 fail fast）。
 """
 

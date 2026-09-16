@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """L5 路径依赖规则层（V1：研究侧近似，Plan S Task 6）。
 
-设计边界（`docs/reviews/2026-09-16-strategy-decomposition/design.md` §4-G3）：
+设计边界（`knowledge/design/workspace/2026-09-16-strategy-decomposition/design.md` §4-G3）：
 
 - `max_hold`：**调仓日粒度近似**——某 code 自进入目标组合起，连续持有的交易日数
   （交易日历按 `(entry, decision]` 计数）严格超过上限 → 该调仓日强制换出。
@@ -15,7 +15,7 @@
   触发条件（Plan S Task 7）：V1 近似的偏差在复盘中证实有实质影响后另立里程碑
   （需要连续/日内触发语义 + 成交明细级回放）。
 
-注：本模块属研究侧 V1；`docs/reviews/**` 只读，边界登记以本 docstring +
+注：本模块属研究侧 V1；`knowledge/design/workspace/**`（原 `docs/reviews/**`）只读，边界登记以本 docstring +
 策略索引/档案为准。
 """
 

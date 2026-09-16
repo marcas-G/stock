@@ -9,7 +9,7 @@ panel.parquet），输出
   e = F − X·β，resIC_t = rankIC(e_t, r_t) 周均值/t 值——F 剔除与基准重叠
   信息后的净新增预测力。
 
-语义/口径权威记载：docs/superpowers/specs/2026-09-07-factorlab-resic-design.md。
+语义/口径权威记载：knowledge/design/platform/specs/2026-09-07-factorlab-resic-design.md。
 统计约定：样本 ≥ max(min_stocks, k+2) 的周才计入；残差恒 0（完全冗余）周
 resIC=NaN 剔除、r2_absorbed=1.0 计入、不抛错；std ddof=1；
 t = mean / (std/√n)。近共线因子建议先跑 factorlab corr/svd 排查冗余。

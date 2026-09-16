@@ -6,7 +6,7 @@ description: 挖因子循环。随机选一个已入库因子为种子，分析�
 # 挖因子（Factor Mining）
 
 以因子库中现有因子的**隐含假设**为挖点，循环产出更精确的因子表达。
-参照设计：`research/docs/superpowers/specs/2026-08-17-factorlab-factor-mine-skill-design.md`（2026-09-15 单仓单树前的路径以该文为准；现行路径以本 skill 为准）。
+参照设计：`knowledge/design/research/specs/2026-08-17-factorlab-factor-mine-skill-design.md`（2026-09-15 单仓单树前的路径以该文为准；现行路径以本 skill 为准）。
 
 ## 输入
 

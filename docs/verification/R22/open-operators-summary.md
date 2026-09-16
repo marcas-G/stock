@@ -1,6 +1,7 @@
 # R22 开放算子底座（Plan 1）实施证据总览
 
 **实施范围**：`docs/reviews/2026-09-15-open-operators/plan.md` Task 1–9（TDD 逐任务）。
+> R24 路径映射（2026-09-16）：`docs/reviews/2026-09-15-open-operators/` → `knowledge/design/workspace/2026-09-15-open-operators/`（本文正文为历史冻结，保留当时路径）。
 **证据根**：本目录。基线（改动前）在 `00-baseline/`；其余按任务 `0N-*/`。
 **全门结果**：见 `10-regression/gates.txt`（`make gates` exit 0）、
 `10-regression/full_pytest.txt`（**2871 passed / 13 skipped**，967s）、

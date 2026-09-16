@@ -1,6 +1,6 @@
 """横截面联合诊断（cs_r2 / orthogonalized_ic / joint_diagnostics）行为测试。
 
-断言全部来自 docs/superpowers/specs/2026-09-07-factorlab-resic-design.md §2/§3/§5：
+断言全部来自 knowledge/design/platform/specs/2026-09-07-factorlab-resic-design.md §2/§3/§5：
 数值与集合断言（禁止 shape-only）；把实现换成硬编码存根 → 数值断言必败。
 """
 import datetime

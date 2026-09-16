@@ -2,7 +2,7 @@
 
 shim 是独立包（`import quant_core`，不 import factorlab）——本文件
 是平台侧契约锚点：Rust 内核同包名替换后，这些断言即回归项。
-契约文档：platform/docs/superpowers/specs/2026-08-26-quant-core-contract.md
+契约文档：knowledge/design/platform/specs/2026-08-26-quant-core-contract.md
 （R18 从 git 侧枝 `a4efabd` 取回入树；本文件同批取回，import 路径按 R2 后的层名修正）。
 """
 import datetime
