@@ -1,0 +1,6 @@
+$ .venv/bin/python -m pytest tests/test_run_strategy.py::test_explicit_out_dir_override -q  # 旧实现（无 out_dir 参数，红）
+tests/test_run_strategy.py:299: TypeError
+=========================== short test summary info ============================
+FAILED tests/test_run_strategy.py::test_explicit_out_dir_override[duckdb] - T...
+FAILED tests/test_run_strategy.py::test_explicit_out_dir_override[ch] - TypeE...
+2 failed in 2.47s

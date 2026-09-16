@@ -1,0 +1,4 @@
+== 基线（Task 3 改动前工作区，含挖矿在途文件）==
+$ python3 research/tools/factor_lib/build_index.py --check
+索引与生成器输出不一致（doc 陈旧或手改）——重跑 build_index.py
+rc=1

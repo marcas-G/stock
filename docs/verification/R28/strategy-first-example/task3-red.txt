@@ -1,0 +1,17 @@
+
+==================================== ERRORS ====================================
+_______ ERROR collecting tools/strategies/tests/test_run_strategy_cli.py _______
+ImportError while importing test module '/data/students/gaolei/stock/research/tools/strategies/tests/test_run_strategy_cli.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+research/tools/strategies/tests/test_run_strategy_cli.py:23: in <module>
+    import run_strategy as cli  # noqa: E402  （研究侧薄入口模块）
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   ModuleNotFoundError: No module named 'run_strategy'
+=========================== short test summary info ============================
+ERROR research/tools/strategies/tests/test_run_strategy_cli.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.42s
