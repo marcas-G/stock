@@ -43,3 +43,22 @@ date: 2026-09-16 | 执行分支: workspace（HEAD 起步 881a077，并发 agent 
 2. index_daily / stock_st：触发条件见 pending #25/#26（token 恢复或补数工具/外部源）；
 3. uv：三门全量回归 + venv 内 4 个未声明包裁决（pending #18 残余）；
 4. 活跃挖矿会话若再写根 results/，按本轮同法迁回（pending #22 残余）。
+
+---
+
+## Task 8：全量验收（2026-09-16，coordinator 实跑）
+
+| 项 | 命令 | 结果 |
+|---|---|---|
+| 平台全量 | `cd platform && .venv/bin/python -m pytest -q` | **3210 passed / 13 skipped**，996s，exit 0 |
+| 工具 | `make test-research` | `platform/tools` 全绿；`research/tools` 2 failed = 挖矿在途（`test_index_matches_generator`、`test_every_yaml_has_mirror_doc`：新 spec 未归档/索引未重生），非本轮改动 |
+| 常驻门 | `bash governance/ops/gates.sh` | 仅 G-INDEX 红（同上挖矿在途）；G-LEGACY/G-ANNOTATE/G-REVIEWS/G-LINT/G-VIEWS 等全绿 |
+| 台账门 | `check_reviews.py` | 无 BAD；WARN 为 reviewer 回填与 R02 报告措辞差（评审侧） |
+| CH 对账 | `platform/tools/ch_ingest/reconcile.py` | **全库一致**（含 13 分区 tick_snapshots） |
+| 对抗注入 | `R24/17-r07-fixes/mig/05-06`（G-LEGACY 5 例：untracked/裸 results/lib/README/ tracked） | 修前 0 捕获 → 修后全捕获；误报探针 0 |
+| 契约 | `R29/contracts/01-05`（NEXT_WINDOW 防漂移断言 + catalog 分类面 528 + 计数对齐） | 全绿 |
+| 策略/lint 口子 | `R29/contracts/07-lint-strategy-flag.txt` | `lint --strategy`（含与 --all 互斥）11 tests 绿；arity 校验 `16fbc84` |
+
+**Plan G 覆盖**：Task1（MIG-I1/I2）✓、Task2（GATE-I3）✓、Task3（CONTRACT-I5+计数）✓、Task4（DATA-I4 完成；stock_st/index_daily 裁决登记）✓、Task5（STRAT-I6/LINT-I7 含 `--strategy`）✓、Task6（compact_lob/uv/quark/M 口径/根 results）✓（uv 三门全量回归与 venv 包裁决登记 pending #18）、Task7（backlog 登记/校正）✓。
+
+**残余（触发条件）**：① 挖矿在途 spec 归档 + 索引重生（其轮末自愈）；② `stock_st`/`index_daily` 待 token/补数源（pending #25/#26）；③ uv venv 重建全量回归（pending #18）；④ CA 连续回测残余 fail-closed 类型见 `17-r07-fixes/ca/`。
