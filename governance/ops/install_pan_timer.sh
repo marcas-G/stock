@@ -11,7 +11,7 @@ UNIT_NAME="pan-data-update"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 SERVICE="$UNIT_DIR/$UNIT_NAME.service"
 TIMER="$UNIT_DIR/$UNIT_NAME.timer"
-LOG_DIR="$ROOT/runs/platform/logs"
+LOG_DIR="${PAN_TIMER_LOG_DIR:-$ROOT/runs/platform/logs}"
 CRON_LINE="10 8 * * * cd $ROOT && FACTORLAB_MAX_MEMORY=8GB make data-update >> $LOG_DIR/pan_update-cron.log 2>&1"
 
 has_user_systemd() {
@@ -20,6 +20,8 @@ has_user_systemd() {
 }
 
 fallback() {
+  # cron 重定向在命令启动前发生：日志目录必须先在（否则 crontab 行必失败）。
+  mkdir -p "$LOG_DIR"
   cat <<EOF
 [回退] systemd --user 不可用 → 用户 crontab（crontab -e 加入下面一行）：
 $CRON_LINE
