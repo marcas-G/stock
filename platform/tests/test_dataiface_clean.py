@@ -32,6 +32,9 @@ _FORBIDDEN_NAMES = {
     "mirror_db", "rebuild_all", "build_final_db", "refresh_indexes",
 }
 _FORBIDDEN_TOKENS = ("teajoin", "mirror_db", "rebuild_all", "import_index")
+# 已退役 CLI 命令文案（运行时错误指引/入口 README 不得再指向它们；
+# 现行入口 = make data-update / data-map / pending）
+_STALE_CLI_TOKENS = ("data rebuild", "data refresh", "data verify", "data update")
 
 
 def test_cli_data_platform_commands_removed():
@@ -80,3 +83,19 @@ def test_no_forbidden_tokens_in_platform_src():
             if tok in text:
                 offenders.append(f"{py.relative_to(REPO)}: {tok}")
     assert not offenders, f"旧外部源字符串残留: {offenders[:10]}"
+
+
+def test_cli_messages_point_to_current_data_chain():
+    """运行时文案/平台 README 不得再指引已退役 CLI（data rebuild|refresh|verify|update）。
+
+    现行数据链指引 = `make data-update`（网盘）或 data-map/pending 登记。
+    """
+    targets = sorted(SRC.rglob("*.py")) + [REPO / "README.md"]
+    offenders: list[str] = []
+    for f in targets:
+        for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+            low = line.lower()
+            for tok in _STALE_CLI_TOKENS:
+                if tok in low:
+                    offenders.append(f"{f.relative_to(REPO)}:{i} {tok!r}")
+    assert not offenders, f"已退役 CLI 文案残留: {offenders[:10]}"

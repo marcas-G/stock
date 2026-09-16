@@ -300,7 +300,9 @@ def _codes_from_rules(
     if rules.get("exclude_st"):
         tables = rd.tables()
         if "stock_st" not in tables:
-            raise ValueError("exclude_st 需要 stock_st 表（平台库由 data rebuild 生成）")
+            raise ValueError(
+                "exclude_st 需要 stock_st 表（CH 当前无该表；口径与恢复见 "
+                "interface.md §4.2 与 pending-items #26）")
     return sorted(r[0] for r in _RULES_QUERY_IMPL[rd.backend](rd, rules, date_start))
 
 
@@ -625,7 +627,9 @@ def resolve_universe_frame(
 
     tables = rd.tables()
     if "stock_basic" not in tables:
-        raise ValueError("需要 stock_basic 表（平台库由 data rebuild 生成）")
+        raise ValueError(
+            "需要 stock_basic 表（数据链见 governance/workspace/data-map.md；"
+            "更新：make data-update）")
     has_st = "stock_st" in tables
     exclude_st = bool(rules.get("exclude_st"))
     if exclude_st and not has_st:
@@ -639,7 +643,9 @@ def resolve_universe_frame(
                 "开关默认 fail fast。",
                 STDegradedWarning, stacklevel=2)
         else:
-            raise ValueError("exclude_st 需要 stock_st 表（平台库由 data rebuild 生成）——不能默认所有股票非 ST")
+            raise ValueError(
+                "exclude_st 需要 stock_st 表（CH 当前无该表；口径与恢复见 "
+                "interface.md §4.2 与 pending-items #26）——不能默认所有股票非 ST")
     # ST coverage（v1 contract：min/max trade_date；内部 gap 的精确 provenance 留给 Data Coverage Registry）
     st_cov: tuple[str, str] | None = None
     if has_st:

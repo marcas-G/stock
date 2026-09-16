@@ -6,7 +6,8 @@
 - 读面列供给语义：daily/daily_basic/属性面列按 PIT 供给公式，引擎无字段白名单
 
 本文件锁：引擎读面表（daily/daily_basic/adj_factor/index_daily/stock_basic/
-trade_cal/stock_st/stk_limit/suspend_d——engine 读路径盘点）不允许出现
+trade_cal/stock_st/stk_limit/suspend_d/moneyflow（T7 起经 load_daily 供给）——engine
+读路径盘点，共 10 表）不允许出现
 （a）引擎内部保留名列（__factorlab_* 前缀 / in_universe 精确名）——
     注入/join 会与引擎内部列碰撞毒化面板；
 （b）未来前缀列（forward_*/future_* 前缀 / target/label 精确名）——

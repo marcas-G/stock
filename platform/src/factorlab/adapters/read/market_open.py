@@ -243,8 +243,9 @@ def _require_tables(rd: ReadPort) -> None:
     for t in ("daily", "stk_limit", "trade_cal"):
         if t not in tables:
             raise ValueError(
-                f"execution market loader 需要 {t} 表（平台库由 data rebuild "
-                f"生成）——缺失即 fail，不静默降级 execution safety")
+                f"execution market loader 需要 {t} 表（数据链见 "
+                f"governance/workspace/data-map.md；更新：make data-update）"
+                f"——缺失即 fail，不静默降级 execution safety")
 
 
 def _require_columns(rd: ReadPort, table: str, columns: list[str]) -> None:

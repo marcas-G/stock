@@ -30,15 +30,17 @@ bash ../governance/ops/reinstall_editable.sh
 | `factorlab corr` / `svd` / `resic` | 相关性 / SVD / 横截面联合诊断 |
 | `factorlab serve` | Web 可视化（FastAPI） |
 | `factorlab op list\|doc\|add\|remove` | 算子注册表管理 |
-| `factorlab data rebuild\|refresh\|update\|verify` | 平台库（DuckDB）数据链 |
 | `factorlab catalog dump\|docs` | 列/算子活目录（`../knowledge/contracts/catalog.md` 同源生成） |
 
 ## 数据后端
 
-- **duckdb**（默认）：平台库 `data/factorlab.duckdb`（相对 CWD；`FACTORLAB_PLATFORM_DB`
-  可覆盖），由 `factorlab data rebuild/update/refresh` 维护（数据源 = teajoin Tushare 代理）。
-- **ch**：`FACTORLAB_DATA_BACKEND=ch`（`FACTORLAB_CH_HOST/PORT/DATABASE`），ClickHouse
-  事实库由 `platform/tools/ch_ingest/` 灌入。
+- **ch（生产）**：`FACTORLAB_DATA_BACKEND=ch`（`FACTORLAB_CH_HOST/PORT/DATABASE`）。
+  事实库更新链 = 夸克网盘（唯一外部源）→ `make data-update`
+  （`platform/tools/pan_update/README.md`）→ 转换/灌入 `platform/tools/ch_ingest/`；
+  语义详见 `../knowledge/contracts/interface.md` §8 与 `data-ops-playbook.md` §0。
+- **duckdb（历史/测试）**：平台库 `data/factorlab.duckdb`（相对 CWD；
+  `FACTORLAB_PLATFORM_DB` 可覆盖）仅为历史/测试只读库——旧写路径（teajoin 源）
+  已退役（2026-09-17 Plan P T11），不再有维护命令。
 
 ## 仓库纪律（摘要，2026-09-15 单仓单树）
 
