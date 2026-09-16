@@ -1,0 +1,6 @@
+$ platform/.venv/bin/python governance/ops/check_reviews.py --ledger /tmp/r06-fixes-gate-ledger/m8-status-empty.md
+[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/证据 token/统计实计）
+  [BAD] line 25 [R01-ENG-C1] 非法状态 ''（词表：deferred/fixed-claimed/open/reopened/verified/wontfix）
+台账门：有失败（见上）
+
+exit=1

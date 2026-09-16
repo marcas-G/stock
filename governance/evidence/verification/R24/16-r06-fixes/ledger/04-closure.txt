@@ -1,0 +1,20 @@
+[G-REVIEWS] 台账闭环摘要（--closure）
+  · 行数 101：fixed-claimed 93、复查列已填 1、fixed-claimed 未复查 92
+    R01 63 行：R01-ENG-C1、R01-ENG-C2、R01-ENG-I1、R01-ENG-I2、R01-ENG-I3、R01-ENG-I4、R01-ENG-I5、R01-DATA-C1…(+55)
+    R02 12 行：R02-C1、R02-C2、R02-I1、R02-I2、R02-I3、R02-I4、R02-I5、R02-I6a…(+4)
+    R03 13 行：R03-I1、R03-I2、R03-I3、R03-I4、R03-I5、R03-M1、R03-M2、R03-I6…(+5)
+    R05 4 行：R05-I1、R05-I2、R05-M1、R05-I4
+  · 报告/复查列-台账状态告警 12 条：
+    [WARN] 行 204 [R05-C1] 复查列称 verified，状态列仍 'fixed-claimed'（reviewer 应回填 verified）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:33 报告称 [R01-DATA-C1] reopened，台账状态 'fixed-claimed'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:33 报告称 [R02-C2] reopened，台账状态 'fixed-claimed'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:34 报告称 [R01-TOOLS-I9] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:34 报告称 [R02-I6a] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:35 报告称 [R01-TOOLS-I3] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:35 报告称 [R02-I6b] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:36 报告称 [R01-ENG-I3] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:36 报告称 [R02-I7] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:37 报告称 [R01-TOOLS-I5] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:38 报告称 [R01-EVAL-I7] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r05-usage-2026-09-16/report.md:102 报告称 [R05-C1] verified，台账状态 'fixed-claimed'（reviewer 回填？）
+  · 说明：状态列回填属 reviewer 职责（README §流程 3），开发团队不代填；告警非致命。

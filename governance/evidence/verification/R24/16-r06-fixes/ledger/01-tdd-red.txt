@@ -1,0 +1,119 @@
+.F..F.......FFF.F.                                                       [100%]
+=================================== FAILURES ===================================
+__________________ test_m5_fixdesc_text_without_evidence_red ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1685/test_m5_fixdesc_text_without_e0')
+
+    def test_m5_fixdesc_text_without_evidence_red(tmp_path):
+        text = GOOD.replace(C2_FIX, "已修复，无证据。")
+        errors = run_check(make_repo(tmp_path), text)
+>       assert any("证据" in e and "R01-ENG-C2" in e for e in errors), errors
+E       AssertionError: []
+E       assert False
+E        +  where False = any(<generator object test_m5_fixdesc_text_without_evidence_red.<locals>.<genexpr> at 0x7fd21b66ef60>)
+
+governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py:82: AssertionError
+_________________________ test_m7_plain_dead_path_red __________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1685/test_m7_plain_dead_path_red0')
+
+    def test_m7_plain_dead_path_red(tmp_path):
+        text = GOOD.replace(C2_FIX, "fc2858c；证据 docs/verification/R21/ENG/definitely_missing.txt")
+        errors = run_check(make_repo(tmp_path), text)
+>       assert any("definitely_missing" in e for e in errors), errors
+E       AssertionError: []
+E       assert False
+E        +  where False = any(<generator object test_m7_plain_dead_path_red.<locals>.<genexpr> at 0x7fd21b66fac0>)
+
+governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py:100: AssertionError
+__________ test_historical_imprecision_exempt_only_on_registered_row ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1685/test_historical_imprecision_ex0')
+
+    def test_historical_imprecision_exempt_only_on_registered_row(tmp_path):
+        errors = run_check(make_repo(tmp_path), HISTORICAL)
+>       assert errors, "同一死 token 出现在未登记行必须 RED"
+E       AssertionError: 同一死 token 出现在未登记行必须 RED
+E       assert []
+
+governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py:164: AssertionError
+____________________ test_closure_counts_reviewer_coverage _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1685/test_closure_counts_reviewer_c0')
+
+    def test_closure_counts_reviewer_coverage(tmp_path):
+        text = GOOD.replace(
+            "| R01-ENG-C2 | C | 问题 | `core/present.py:2` | fixed-claimed |"
+            f" {C2_FIX} | |",
+            "| R01-ENG-C2 | C | 问题 | `core/present.py:2` | fixed-claimed |"
+            f" {C2_FIX} | verified（2026-09-16 对抗性复查） |")
+>       info = closure(make_repo(tmp_path), text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py:177: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+repo = PosixPath('/tmp/pytest-of-gaolei/pytest-1685/test_closure_counts_reviewer_c0')
+text = '# 台账\n- 轮次：**R01**\n- 统计：**2 Critical / 1 Important**（Minor 只存于 report）\n| ID | 级 | 问题 | 关键位置 | 状态 | 修复说明（团队填） | 复查 |...cation/R21/present.txt | verified（2026-09-16 对抗性复查） |\n| R01-ENG-I1 | I | 问题 | `docs/verification/R21/` | open | | |\n'
+
+    def closure(repo: Path, text: str = GOOD):
+        mod = load_mod()
+        led = repo / "findings.md"
+        led.write_text(text, encoding="utf-8")
+>       return mod.closure_info(led, repo)
+               ^^^^^^^^^^^^^^^^
+E       AttributeError: module 'check_reviews' has no attribute 'closure_info'
+
+governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py:70: AttributeError
+_____________ test_report_claim_mismatch_warns_and_match_is_quiet ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1685/test_report_claim_mismatch_war0')
+
+    def test_report_claim_mismatch_warns_and_match_is_quiet(tmp_path):
+        repo = make_repo(tmp_path)
+        rpt = repo / "governance/evidence/reviews/r02-2026-09-15-strict-review"
+        rpt.mkdir(parents=True)
+        (rpt / "report.md").write_text(
+            "# R02\n\n| R01 ID | 判定 | 原因 |\n|---|---|---|\n"
+            "| R01-ENG-C1 | **reopened** | staleness 窗口依赖 |\n", encoding="utf-8")
+>       info = closure(repo)
+               ^^^^^^^^^^^^^
+
+governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py:192: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+repo = PosixPath('/tmp/pytest-of-gaolei/pytest-1685/test_report_claim_mismatch_war0')
+text = '# 台账\n- 轮次：**R01**\n- 统计：**2 Critical / 1 Important**（Minor 只存于 report）\n| ID | 级 | 问题 | 关键位置 | 状态 | 修复说明（团队填） | 复查 |... governance/evidence/verification/R21/present.txt | |\n| R01-ENG-I1 | I | 问题 | `docs/verification/R21/` | open | | |\n'
+
+    def closure(repo: Path, text: str = GOOD):
+        mod = load_mod()
+        led = repo / "findings.md"
+        led.write_text(text, encoding="utf-8")
+>       return mod.closure_info(led, repo)
+               ^^^^^^^^^^^^^^^^
+E       AttributeError: module 'check_reviews' has no attribute 'closure_info'
+
+governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py:70: AttributeError
+_________________________ test_main_closure_flag_smoke _________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1685/test_main_closure_flag_smoke0')
+capsys = <_pytest.capture.CaptureFixture object at 0x7fd21b6f9fd0>
+
+    def test_main_closure_flag_smoke(tmp_path, capsys):
+        mod = load_mod()
+        repo = make_repo(tmp_path)
+        led = repo / "findings.md"
+        led.write_text(GOOD, encoding="utf-8")
+>       assert mod.main(["--ledger", str(led), "--closure"]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: main() takes 0 positional arguments but 1 was given
+
+governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py:215: TypeError
+=========================== short test summary info ============================
+FAILED governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py::test_m5_fixdesc_text_without_evidence_red
+FAILED governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py::test_m7_plain_dead_path_red
+FAILED governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py::test_historical_imprecision_exempt_only_on_registered_row
+FAILED governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py::test_closure_counts_reviewer_coverage
+FAILED governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py::test_report_claim_mismatch_warns_and_match_is_quiet
+FAILED governance/evidence/verification/R24/16-r06-fixes/ledger/test_check_reviews_r06.py::test_main_closure_flag_smoke
+6 failed, 12 passed in 0.63s

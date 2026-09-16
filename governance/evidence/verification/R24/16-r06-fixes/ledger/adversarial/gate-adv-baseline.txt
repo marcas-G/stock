@@ -1,0 +1,29 @@
+$ platform/.venv/bin/python governance/ops/check_reviews.py --ledger /tmp/r06-fixes-gate-ledger/baseline.md
+[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/证据 token/统计实计）
+  ✓ 101 行 finding（fixed-claimed 93）：ID 唯一、状态合法、引用路径可解析、统计自洽；闭环：复查列 1/101、fixed-claimed 未复查 92（R01 63、R02 12、R03 13、R05 4）、报告/复查列-台账状态告警 12；实计 R01 13C/50I、R02 2C/9I、R03 0C/8I、R05 1C/3I、R06 0C/8I
+  · 统计声明 5 条：核对通过 4、豁免 1（R01 首行统计为 2026-09-15 评审初始口径（EVID C1/C2、STRAT-C3 等后续登记未计入）；append-only 不改统计行；R04-Q7 实计 13C+50I）
+  · 路径豁免：polars_ta（vendor）/ platform/results（已迁 runs/platform）/ projects/ashare_alpha3（已归档 _archive/）/ .venv（环境）/ /tmp（临时 probe）；历史不精确引用豁免命中 10 处（R06-M1 类）
+      line 51 [R01-M8-I2] core/execution/fills.py ← R04-Q7 校正注记（历史讨论，非证据）：旧坐标经 R19/R20 迁至 platform/src/factorlab/app/backtest/fills.py
+      line 54 [R01-M8-I5] R21/M8/I4-I5-before/after.txt ← 归档实名为 I4-I5-before-test-red.txt / I4-I5-after-test-green.txt（R06-M1）
+      line 56 [R01-M8-I7] R21/M8/I7-before/after.txt ← 归档实名为 I7-before-test-red.txt / I7-after-test-green.txt（R06-M1）
+      line 110 [R01-EVID-I1] research/tools/{strategies ← shell 花括号展开（横跨 research/tools 与 platform/tools 多目录）被逗号拆分的片段；证据 R21/EVID/I1-*
+      line 114 [R01-EVID-I5] research/tools/quark_cookies.txt ← git check-ignore 演示路径——该文件按设计不存在（.gitignore 目标）；证据 R21/EVID/I5-gitignore.txt
+      line 115 [R01-EVID-I6] ../CLAUDE.md/AGENTS.md ← 两文件并列缺分隔符（../CLAUDE.md 与 AGENTS.md 均存在；R06-M1）
+      line 143 [R02-C1] repro-*-C1-probe11/7*.txt ← 简写 glob 误含目录分隔；实际 R22/R02/engine/repro-{before,after}-C1-probe11.txt（R06-M1）
+      line 145 [R02-I1] R22/R03/tools/I1-doc-annotations.txt ← 轮次目录错位；实际 governance/evidence/verification/R22/R02/tools/I1-doc-annotations.txt（R06-M1）
+      line 151 [R02-I6b] 3a368a6/0534e9a/R22/R02/tools/I6b-empty-sheet-fix.txt ← 提交 SHA 前缀与路径连写；实际 R22/R02/tools/I6b-empty-sheet-fix.txt
+      line 166 [R03-I3] app/evaluate ← 模块路径省略 .py；实际 platform/src/factorlab/app/evaluate.py
+  [WARN] 行 204 [R05-C1] 复查列称 verified，状态列仍 'fixed-claimed'（reviewer 应回填 verified）
+  [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:33 报告称 [R01-DATA-C1] reopened，台账状态 'fixed-claimed'（reviewer 回填？）
+  [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:33 报告称 [R02-C2] reopened，台账状态 'fixed-claimed'（reviewer 回填？）
+  [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:34 报告称 [R01-TOOLS-I9] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+  [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:34 报告称 [R02-I6a] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+  [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:35 报告称 [R01-TOOLS-I3] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+  [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:35 报告称 [R02-I6b] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+  [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:36 报告称 [R01-ENG-I3] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+  [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:36 报告称 [R02-I7] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+  [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:37 报告称 [R01-TOOLS-I5] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+  [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:38 报告称 [R01-EVAL-I7] partial，台账状态 'fixed-claimed'（reviewer 回填？）
+  [WARN] governance/evidence/reviews/r05-usage-2026-09-16/report.md:102 报告称 [R05-C1] verified，台账状态 'fixed-claimed'（reviewer 回填？）
+
+exit=0
