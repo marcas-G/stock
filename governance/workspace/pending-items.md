@@ -234,7 +234,8 @@
     启动条件：确定 ST 源 → 建表灌入（沿 interface.md §4.2 coverage 契约）→ 关开关按
     标准 ST 过滤复跑；此前涉及 ST 的验收口径按「无 ST」记录。
 
-23. **R07-MIG-I2：档案旧坐标清理残余**（2026-09-16 登记；主体同日完成 ✅）
+27. **R07-MIG-I2：档案旧坐标清理残余**（2026-09-16 登记；主体同日完成 ✅；编号 #27——
+    并行 agent 先占 #23-26，原登记号 #23 让位）
     现状：档案模板根因已修——`_template.md` 结果根占位 `results/<name>/summary.json` →
     `runs/platform/<name>/summary.json`，并修模板内旧知识树路径；存量
     **tracked 且工作区干净**档案 156 份 163 处 `results/…` 指针机械替换为 `runs/platform/…`

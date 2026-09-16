@@ -124,7 +124,12 @@ FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
    状态按判定（候选/观察中/无效）；§2 逻辑写变异后的假设表达。
 3. 种子档案 `knowledge/dossiers/factors/<族>/<stem>.md` §5 迭代历史加一行（日期/新因子/变异点/结果/结论）。
 4. 互链：新档案 §6 备注链接 `[<seed>.md](<seed>.md)`；种子档案对应行注明新档案。
-5. `git add research/factor/<族>/<stem>.yaml knowledge/dossiers/factors/<族>/<stem>.md`（并重生成索引：`/data/students/gaolei/stock/platform/.venv/bin/python research/tools/factor_lib/build_index.py`）
+5. **提交前跑门子集（R07-MIG-I1/I2 纪律）**：`bash governance/ops/gates.sh --structure`
+   （G-LEGACY 旧坐标 / G-INDEX 索引 / G-ANNOTATE snapshot；**untracked 档案也扫**）——
+   红了先修再提交：档案 §4 快照指针一律 `runs/platform/<name>/summary.json`（不要旧结果根
+   坐标 `results/…` 或迁移前平台落点）、跑 `build_index.py` 重生索引、缺 snapshot
+   用 R21 脚本补齐。**门未绿不得 commit**（R07 审计：门红复发根因即挖矿提交前没跑门）。
+6. `git add research/factor/<族>/<stem>.yaml knowledge/dossiers/factors/<族>/<stem>.md`（并重生成索引：`/data/students/gaolei/stock/platform/.venv/bin/python research/tools/factor_lib/build_index.py`）
    → `git commit -m "feat(factor): <name> — <变异点一句话>"`。
 
 ## 全局规则
