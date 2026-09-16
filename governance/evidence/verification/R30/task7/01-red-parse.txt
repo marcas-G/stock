@@ -1,0 +1,17 @@
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests/test_fund_flow_parse.py -q   # 实现前（红）
+
+==================================== ERRORS ====================================
+_______ ERROR collecting tools/pan_update/tests/test_fund_flow_parse.py ________
+ImportError while importing test module '/data/students/gaolei/stock/platform/tools/pan_update/tests/test_fund_flow_parse.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tools/pan_update/tests/test_fund_flow_parse.py:13: in <module>
+    from pan_update import parse_fund_flow as pf
+E   ImportError: cannot import name 'parse_fund_flow' from 'pan_update' (/data/students/gaolei/stock/platform/tools/pan_update/__init__.py)
+=========================== short test summary info ============================
+ERROR platform/tools/pan_update/tests/test_fund_flow_parse.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.23s

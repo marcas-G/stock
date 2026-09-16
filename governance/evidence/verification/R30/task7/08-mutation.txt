@@ -1,0 +1,24 @@
+$ python3 governance/evidence/verification/R30/task7/mutation.py
+CAUGHT  rc=1  moneyflow: 亿 单位降一档（e8→e7）
+CAUGHT  rc=1  moneyflow: em-dash 缺省标记未处理（只剩 -）
+CAUGHT  rc=1  moneyflow: parse_code 不补零（吞掉 zfill）
+CAUGHT  rc=1  moneyflow: 北交所 920 后缀分支禁用
+CAUGHT  rc=1  moneyflow: parse_zj 表头校验注释掉
+CAUGHT  rc=1  moneyflow: 数值列起点错位（5→4）
+CAUGHT  rc=1  moneyflow: parse_zj trade_date 硬编码
+CAUGHT  rc=1  moneyflow: 短行静默跳过（raise→continue）
+CAUGHT  rc=1  moneyflow: 未知代码前缀静默补 SZ（不报错）
+CAUGHT  rc=1  source: _MONEYFLOW_MAP 掉一列（small_net_pct）
+CAUGHT  rc=1  source: load_daily duckdb 去掉 moneyflow JOIN
+CAUGHT  rc=1  source: load_daily ch 去掉 moneyflow JOIN
+CAUGHT  rc=1  source: fill_state duckdb 去掉 moneyflow JOIN
+CAUGHT  rc=1  source: fill_state ch 去掉 moneyflow JOIN
+CAUGHT  rc=1  source: _classify_columns 不认 moneyflow 列
+CAUGHT  rc=1  ingest: 月/日 zip 去重取先（keep=last→first）
+CAUGHT  rc=1  ingest: 解码错编（gbk→utf-8）
+CAUGHT  rc=1  ingest: write 丢 TRUNCATE（重跑翻倍）
+CAUGHT  rc=1  ingest: create_sql 少一列（DDL 漂移）
+CAUGHT  rc=1  parse_fund_flow: 公共面不转发（parse_zj 存根）
+
+20/20 突变被测试抓住；工作区已恢复逐字节一致
+恢复后三组测试：rc=0
