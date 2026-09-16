@@ -1,0 +1,35 @@
+$ cd /data/students/gaolei/stock && python3 governance/evidence/verification/R30/task1/guard_checks.py roundtrip
+
+
+### 突变：save_state_atomic 丢弃 stages 字段  （platform/tools/pan_update/state.py）
+期望：测试失败；实测：FAIL（符合预期：断言被抓住）  [exit=1]
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________________ test_save_load_roundtrip ___________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1773/test_save_load_roundtrip0')
+
+    def test_save_load_roundtrip(tmp_path):
+        p = tmp_path / "pan_state.json"
+        st = {
+            "version": 1,
+            "files": {"daily/x.zip": {"name": "x.zip", "size": 10, "synced_at": "2026-09-16T00:00:00"}},
+            "stages": {"daily": {"last_build": "2026-09-15"}},
+            "runs": [{"cmd": "sync", "status": "ok"}],
+        }
+        state.save_state_atomic(p, st)
+        back = state.load_state(p)
+        assert back["files"] == st["files"]
+>       assert back["stages"] == st["stages"]
+               ^^^^^^^^^^^^^^
+E       KeyError: 'stages'
+
+tools/pan_update/tests/test_state.py:30: KeyError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_state.py::test_save_load_roundtrip - KeyEr...
+1 failed in 0.04s
+
+### 还原原文后复跑：save_state_atomic 丢弃 stages 字段
+期望：测试通过；实测：PASS  [exit=0]
+1 passed in 0.04s
+EXIT=0

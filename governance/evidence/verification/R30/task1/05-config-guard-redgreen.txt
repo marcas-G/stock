@@ -1,0 +1,28 @@
+$ cd /data/students/gaolei/stock && python3 governance/evidence/verification/R30/task1/guard_checks.py config
+
+
+### 突变：CATEGORIES['daily'].local_root 改成错值  （platform/tools/pan_update/config.py）
+期望：测试失败；实测：FAIL（符合预期：断言被抓住）  [exit=1]
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+_____________________ test_categories_match_brief_verbatim _____________________
+
+    def test_categories_match_brief_verbatim():
+        assert set(config.CATEGORIES) == set(BRIEF_CATEGORIES)
+        for key, (share_dir, local_root, kind) in BRIEF_CATEGORIES.items():
+            c = config.CATEGORIES[key]
+>           assert (c.key, c.share_dir, c.local_root, c.kind) == (key, share_dir, local_root, kind)
+E           AssertionError: assert ('daily', '日K...D__', 'files') == ('daily', '日K...ily', 'files')
+E             
+E             At index 2 diff: 'data/raw/daily__MUTATED__' != 'data/raw/daily'
+E             Use -v to get more diff
+
+tools/pan_update/tests/test_config.py:40: AssertionError
+=========================== short test summary info ============================
+FAILED tools/pan_update/tests/test_config.py::test_categories_match_brief_verbatim
+1 failed, 2 passed in 0.07s
+
+### 还原原文后复跑：CATEGORIES['daily'].local_root 改成错值
+期望：测试通过；实测：PASS  [exit=0]
+3 passed in 0.02s
+EXIT=0
