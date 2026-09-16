@@ -115,9 +115,13 @@ def _inject_fill_state_seed(
     # 真实价不是"死价格"（退市后无 skeleton 行，不会进入 ref 截面），其 seed
     # 照常注入以保持与整段跑逐值一致（零迁移承诺；reversal_20d 长窗回归实测：
     # 若把退市 code 从 need 中剔除，wcorr IC 漂移 3.7e-7）。
-    guard = [c for c in need if c in listed_codes_at(uf, panel["date"].max())]
+    # R04-P5：listed 集合循环外提——ref 日集合与逐 code 无关，need 多 code 时
+    # 一次 frame filter（此前 per-code 调 listed_codes_at，随缺值 code 数线性放大）。
+    ref = panel["date"].max()
+    listed = listed_codes_at(uf, ref)
+    guard = [c for c in need if c in listed]
     if guard:
-        assert_no_stale_seed(rd, guard, ref=panel["date"].max())
+        assert_no_stale_seed(rd, guard, ref=ref)
     from factorlab.adapters.read.source import load_daily_fill_state
     fs = load_daily_fill_state(
         rd, need, before=ws.isoformat(),

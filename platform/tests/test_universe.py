@@ -250,3 +250,38 @@ def test_resolve_codes_exchanges_by_suffix_excludes_aliases(env):
     env.seed(_ALIAS_TABLES)
     spec = spec_with(rules={"exchanges": ["SSE"]})
     assert resolve_codes(spec, env.rd) == ["600018"]
+
+
+# ================================================================
+# R04-P5：池 YAML 解析 memoize（path, mtime_ns）
+# ================================================================
+
+def test_load_universe_file_memoized_and_mtime_invalidated(tmp_path, monkeypatch):
+    """R04-P5：同一 (path, mtime_ns) 只解析一次——大池每次 run 此前被解析 3 次
+    （candidate/st_degrade/resolve_universe_frame 各一次，0.2~2.3s/次）；文件
+    修改（mtime 前进）自动失效取新内容；缺文件仍 fail fast。"""
+    import os
+
+    from factorlab.adapters.read import universe as uni
+
+    p = tmp_path / "pool.yaml"
+    p.write_text('codes: ["000001.SZ"]\n', encoding="utf-8")
+    real = uni.yaml.safe_load
+    calls = []
+
+    def spy(text):
+        calls.append(text)
+        return real(text)
+
+    monkeypatch.setattr(uni.yaml, "safe_load", spy)
+    assert uni.load_universe_file(p) == {"codes": ["000001.SZ"]}
+    assert uni.load_universe_file(p) == {"codes": ["000001.SZ"]}   # 命中缓存
+    assert len(calls) == 1
+    # 内容修改 + mtime 前进（同 ns 写入时显式 bump）→ 重新解析并取新内容
+    p.write_text('codes: ["600519.SH"]\n', encoding="utf-8")
+    st = p.stat()
+    os.utime(p, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000))
+    assert uni.load_universe_file(p) == {"codes": ["600519.SH"]}
+    assert len(calls) == 2
+    with pytest.raises(FileNotFoundError):
+        uni.load_universe_file(tmp_path / "nope.yaml")

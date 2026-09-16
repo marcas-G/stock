@@ -275,6 +275,33 @@ def test_per_code_isolation(env, tmp_path):
     assert b["signal"][0] == pytest.approx(10.0 + 98 * 0.1, rel=1e-5)  # 同价（fixture 同价）
 
 
+# ---------------- R04-P5：fill-seed listed 守卫集合循环外提 ----------------
+
+def test_fill_seed_listed_guard_computed_once(env, tmp_path, monkeypatch):
+    """R04-P5：`_inject_fill_state_seed` 的 listed 守卫集合循环外提——同一面板
+    多个缺值 code（长停牌跨 sample 首日）也只调用一次 listed_codes_at
+    （此前 per-code 调 frame filter，0.24s/88 次@短窗随缺值 code 数线性放大）。"""
+    _seed(env, second_code=True)
+    import factorlab.app.run as run_mod
+    real = run_mod.listed_codes_at
+    calls = []
+
+    def _spy(uf, ref):
+        calls.append(ref)
+        return real(uf, ref)
+
+    monkeypatch.setattr(run_mod, "listed_codes_at", _spy)
+    dates = _dates(260)
+    f = _run(env, tmp_path / "o", None, start=_iso(dates[149]),
+             codes='["000001.SZ", "000002.SZ"]')
+    # 行为不变：两 code 停牌中首日都 fill 到停牌前最后价格
+    first = f.filter(pl.col("date") == datetime.date.fromisoformat(_iso(dates[149])))
+    assert first.height == 2
+    assert first["signal"].to_list() == pytest.approx([10.0 + 98 * 0.1] * 2,
+                                                      rel=1e-5)
+    assert len(calls) == 1, f"listed_codes_at 调用 {len(calls)} 次（应 1，循环外提）"
+
+
 # ---------------- §29：no-history code ----------------
 
 def test_no_history_code_no_fake_state(env, tmp_path):

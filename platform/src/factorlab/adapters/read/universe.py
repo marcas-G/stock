@@ -246,12 +246,25 @@ def resolve_canonical_code_map(
     return out.select(["symbol", "code"])
 
 
+# R04-P5：池 YAML 解析 memoize——R04 实测 5207 行池每次 run 被解析 3 次
+# （resolve_candidate_codes / st_degrade_active / resolve_universe_frame 各一次，
+# 0.2~2.3s/次）。键 = (resolve 后路径, st_mtime_ns)：同文件同 mtime 命中；
+# 文件修改（mtime 变）自动失效。缓存值只读——调用方不得修改返回 dict
+# （现有调用方只读；_codes_from_rules 对 rules 做的是复制后改写）。
+_UNIVERSE_FILE_CACHE: dict[tuple[str, int], dict[str, Any]] = {}
+
+
 def load_universe_file(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"universe 文件不存在: {path}")
+    key = (str(path.resolve()), path.stat().st_mtime_ns)
+    cached = _UNIVERSE_FILE_CACHE.get(key)
+    if cached is not None:
+        return cached
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     if not isinstance(data, dict):
         raise ValueError(f"universe 文件必须是映射: {path}")
+    _UNIVERSE_FILE_CACHE[key] = data
     return data
 
 
