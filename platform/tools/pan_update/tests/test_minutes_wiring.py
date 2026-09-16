@@ -30,6 +30,15 @@ def test_minutes_chain_uses_venv_python_and_existing_scripts():
         assert Path(cmd[1]).is_file(), f"脚本不存在：{cmd[1]}"
 
 
+def test_minutes_convert_runs_production_mode():
+    """修复轮 1（评审 I1）：convert 缺省 validation 会写 calib 目录、生产空转。"""
+    convert = stages.STAGE_CHAINS["minutes"][0]
+    assert "--mode" in convert, f"convert 必须显式 --mode production：{convert}"
+    assert convert[convert.index("--mode") + 1] == "production"
+    assert Path(stages.STAGE_CHAINS["minutes"][1][1]).name == "ingest_bars.py", \
+        "ingest 仍在 convert 之后"
+
+
 # —— zip_days：分享树 rel_path 与本地布局一致（小树 fixture，离线）——
 
 MINUTES_TREE = {

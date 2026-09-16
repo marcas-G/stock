@@ -69,3 +69,64 @@ def test_build_tasks_includes_incremental_zip(tmp_path):
     tasks = idl._build_tasks(tmp_path)
     got = sorted({(t[0], Path(t[2]).name) for t in tasks})
     assert got == [(0, full), (1, incr)]
+
+
+# —— 修复轮 1（评审 Important I2 + Minor）：多增量覆盖筛选 + 前缀语义 ——
+
+def _zip_with(path, member="A股日k线/000001.xlsx", payload=b"stub"):
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr(member, payload)
+
+
+def _incr_names(tasks):
+    return sorted({Path(t[2]).name for t in tasks if t[0] == 1})
+
+
+def test_increments_keep_only_end_after_full_and_drop_contained(tmp_path):
+    """①全量 end=20260731 + 9/1-9/15 + 9/1-9/16 → 仅保留覆盖更全的 9/1-9/16。"""
+    _zip_with(tmp_path / "19910101至20260731A股日k线.zip")
+    _zip_with(tmp_path / "2026-09-01至2026-09-15A股日k线.zip")
+    _zip_with(tmp_path / "2026-09-01至2026-09-16A股日k线.zip")
+    tasks = idl._build_tasks(tmp_path)
+    assert _incr_names(tasks) == ["2026-09-01至2026-09-16A股日k线.zip"]
+
+
+def test_increments_non_overlapping_all_kept(tmp_path):
+    """②互不重叠的两段增量都保留（不因只取首个而静默漏数据）。"""
+    _zip_with(tmp_path / "19910101至20260731A股日k线.zip")
+    _zip_with(tmp_path / "2026-09-01至2026-09-15A股日k线.zip")
+    _zip_with(tmp_path / "2026-09-16至2026-09-20A股日k线.zip")
+    tasks = idl._build_tasks(tmp_path)
+    assert _incr_names(tasks) == ["2026-09-01至2026-09-15A股日k线.zip",
+                                  "2026-09-16至2026-09-20A股日k线.zip"]
+
+
+def test_increment_not_after_full_end_dropped(tmp_path):
+    """③增量整体不超出全量 end（end <= full_end）→ 丢弃，不重复解析。"""
+    _zip_with(tmp_path / "19910101至20260731A股日k线.zip")
+    _zip_with(tmp_path / "2026-07-01至2026-07-31A股日k线.zip")
+    tasks = idl._build_tasks(tmp_path)
+    assert _incr_names(tasks) == []
+    assert {t[0] for t in tasks} == {0}
+
+
+def test_no_full_zip_still_fails_loud(tmp_path):
+    """④无全量快照（仅增量）→ 维持既有 SystemExit（不静默只跑增量）。"""
+    _zip_with(tmp_path / "2026-09-01至2026-09-16A股日k线.zip")
+    with pytest.raises(SystemExit, match="no full daily kline zip"):
+        idl._build_tasks(tmp_path)
+
+
+def test_old_named_full_without_date_keeps_increments(tmp_path):
+    """旧命名全量无结束日可比 → 可解析增量保守保留（不静默丢）。"""
+    _zip_with(tmp_path / "本地快照07月31日A股日k线.zip")
+    _zip_with(tmp_path / "2026-09-01至2026-09-15A股日k线.zip")
+    tasks = idl._build_tasks(tmp_path)
+    assert _incr_names(tasks) == ["2026-09-01至2026-09-15A股日k线.zip"]
+
+
+def test_prefix_requires_start_of_name():
+    """Minor：`19910101至` 是前缀（startswith）而非任意子串。"""
+    class P:
+        def __init__(self, n): self.name = n
+    assert not idl._is_full_snapshot(P("A股日k线-19910101至20260731.zip"))

@@ -76,9 +76,9 @@ def _snapshot_name(path) -> str:
 
 
 def _is_full_snapshot(path) -> bool:
-    """全量快照：网盘 `19910101至` 前缀，或旧标记 `07月31日`（兼容）。"""
+    """全量快照：网盘 `19910101至` 前缀（startswith），或旧标记 `07月31日`（兼容）。"""
     name = _snapshot_name(path)
-    return FULL_SNAPSHOT_PREFIX in name or FULL_SNAPSHOT_MARK in name
+    return name.startswith(FULL_SNAPSHOT_PREFIX) or FULL_SNAPSHOT_MARK in name
 
 
 def _newest_full(paths):
@@ -87,6 +87,46 @@ def _newest_full(paths):
         m = _FULL_END_DATE_RE.search(_snapshot_name(p))
         return m.group(1) if m else ''
     return max(paths, key=end_date)
+
+
+def _full_end_date(path) -> str:
+    """全量快照名 `至YYYYMMDD` → 结束日；旧命名不可解析 → 空串。"""
+    m = _FULL_END_DATE_RE.search(_snapshot_name(path))
+    return m.group(1) if m else ''
+
+
+_INCR_RANGE_RE = re.compile(r'(\d{4}-\d{2}-\d{2})至(\d{4}-\d{2}-\d{2})')
+
+
+def _parse_incr_range(path) -> tuple[str, str] | None:
+    """增量名 `YYYY-MM-DD至YYYY-MM-DD` → (start, end)，归一 YYYYMMDD 便于比较。"""
+    m = _INCR_RANGE_RE.search(_snapshot_name(path))
+    if not m:
+        return None
+    return m.group(1).replace('-', ''), m.group(2).replace('-', '')
+
+
+def _select_increments(incr_zips, full_end: str):
+    """R30 T5 修复轮 1（评审 I2）：增量全选防漏，不再只取排序首个。
+
+    - 只保留 `end > full_end` 的增量（全量已覆盖段不重复解析；full_end 空 →
+      旧命名全量无日期可比，可解析增量全留）
+    - 区间被另一条增量包含（start >= s 且 end <= e）→ 丢弃，保留覆盖更全的一条；
+      同区间重复只留一个
+    - 无法解析区间的名字保守保留——不静默丢数据
+    返回按文件名排序（遍历确定）。
+    """
+    paired = [(p, _parse_incr_range(p)) for p in incr_zips]
+    kept = [p for p, rng in paired if rng is None]
+    candidates = [(p, rng) for p, rng in paired
+                  if rng is not None and (not full_end or rng[1] > full_end)]
+    for i, (p, (s, e)) in enumerate(candidates):
+        contained = any(
+            j != i and s2 <= s and e2 >= e and ((s2, e2) != (s, e) or j < i)
+            for j, (_p2, (s2, e2)) in enumerate(candidates))
+        if not contained:
+            kept.append(p)
+    return sorted(kept, key=_snapshot_name)
 
 
 COLS = ['date', 'open', 'high', 'low', 'close', 'amount', 'volume',
@@ -345,15 +385,15 @@ def _build_tasks(src_dir: Path):
             continue
         tasks.append((0, 'zip', str(full_zip), n, code6))
     zf.close()
-    if incr_zips:
-        zi = zipfile.ZipFile(incr_zips[0])
+    for incr in _select_increments(incr_zips, _full_end_date(full_zip)):
+        zi = zipfile.ZipFile(incr)
         for n in zi.namelist():
             if not n.endswith('.xlsx'):
                 continue
             code6 = n.split('/')[-1].split('.')[0]
             if not re.fullmatch(r'\d{6}', code6):
                 continue
-            tasks.append((1, 'zip', str(incr_zips[0]), n, code6))
+            tasks.append((1, 'zip', str(incr), n, code6))
         zi.close()
     for f in src_dir.glob('退市股/*.xlsx'):
         code6 = f.name[:6]
