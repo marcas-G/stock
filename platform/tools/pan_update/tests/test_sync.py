@@ -7,7 +7,12 @@ import json
 import os
 import subprocess
 import sys
+import threading
+import time
+import urllib.error
 from pathlib import Path
+
+import pytest
 
 from pan_update import share, sync
 
@@ -297,3 +302,135 @@ def test_quark_transport_download_delegates(monkeypatch, tmp_path):
     assert ok is True
     assert seen["args"] == ("http://d/x", str(out), 5)
     assert out.read_bytes() == b"x" * 5
+
+
+# —— 修复轮 1：I1 并行下载 / I2 403·412 重取链 / I3 download()→False ——
+
+class _PeakT(T):
+    """记录并发峰值的 fake transport：fid=1 故意慢于 fid=2（完成序与条目序相反）。"""
+
+    def __init__(self):
+        super().__init__()
+        self._lock = threading.Lock()
+        self.active = 0
+        self.peak = 0
+
+    def download(self, url, out, size):
+        with self._lock:
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+        time.sleep(0.2 if url.endswith("/1") else 0.01)
+        try:
+            return super().download(url, out, size)
+        finally:
+            with self._lock:
+                self.active -= 1
+
+
+def test_parallel_download_peak_over_one_and_reports_in_entry_order(tmp_path):
+    """I1：默认 workers=8 → 真并发（峰值≥2）；归集仍按条目顺序（b 先完成不影响）。"""
+    t = _PeakT()
+    s = {"version": 1, "files": {}, "stages": {}, "runs": []}
+    rep = sync.sync_category(s, "daily",
+                             entries=[_entry("a.zip", 10, "1"), _entry("b.zip", 20, "2")],
+                             transport=t, dest_root=tmp_path, dry_run=False)
+    assert t.peak >= 2
+    assert t.dl and t.dl[0][0].endswith("/2")  # b（快）确实先完成，报告仍按条目序
+    assert rep.downloaded == ["a.zip", "b.zip"]
+    assert s["files"]["daily/a.zip"]["size"] == 10
+
+
+def test_workers_one_stays_serial(tmp_path):
+    """I1 边界：workers=1 → 峰值恒 1（并发上限被尊重）。"""
+    t = _PeakT()
+    s = {"version": 1, "files": {}, "stages": {}, "runs": []}
+    rep = sync.sync_category(s, "daily",
+                             entries=[_entry("a.zip", 10, "1"), _entry("b.zip", 20, "2")],
+                             transport=t, dest_root=tmp_path, dry_run=False, workers=1)
+    assert t.peak == 1
+    assert rep.downloaded == ["a.zip", "b.zip"]
+
+
+def test_download_false_with_full_size_marks_failed(tmp_path):
+    """I3：transport 写满 size 但返回 False → failed("download failed")，不记账无 .part。"""
+    class FalseT(T):
+        def download(self, url, out, size):
+            self.dl.append((url, str(out)))
+            out.write_bytes(b"x" * size)
+            return False
+
+    s = {"version": 1, "files": {}, "stages": {}, "runs": []}
+    rep = sync.sync_category(s, "daily", entries=[_entry("a.zip", 10)],
+                             transport=FalseT(), dest_root=tmp_path, dry_run=False)
+    assert rep.downloaded == []
+    assert rep.failed == [{"name": "a.zip", "reason": "download failed"}]
+    assert s["files"] == {}
+    assert not (tmp_path / "a.zip").exists()
+    assert not list(tmp_path.rglob("*.part"))
+
+
+def _quark_transport_fakes(monkeypatch, first_error):
+    state = {"fetches": [], "downloads": []}
+
+    def fake_http(url, body=None, retry=3, timeout=60):
+        state["fetches"].append(list(body["fids"]))
+        fid = body["fids"][0]
+        return 200, {"status": 200,
+                     "data": [{"fid": fid,
+                               "download_url": f"http://d/{fid}?v={len(state['fetches'])}"}]}
+
+    def fake_download_file(url, out, expect_size):
+        state["downloads"].append(url)
+        if len(state["downloads"]) == 1:
+            raise first_error(url)
+        out.write_bytes(b"x" * expect_size)
+        return True, expect_size
+
+    monkeypatch.setattr(sync.quark_client, "http", fake_http)
+    monkeypatch.setattr(sync.quark_client, "get_stoken", lambda *a, **k: "ST")
+    monkeypatch.setattr(sync.quark_client, "download_file", fake_download_file)
+    return state
+
+
+def test_quark_transport_refetches_link_once_on_412(monkeypatch, tmp_path):
+    """I2：首次下载 412 → 重取链一次并重试成功；取链恰 2 次、换新链。"""
+    state = _quark_transport_fakes(
+        monkeypatch, lambda url: urllib.error.HTTPError(url, 412, "Precondition Failed", None, None))
+    tr = sync.QuarkTransport()
+    items = [_entry("a.zip", 10, "1")]
+    urls = tr.list_urls(items)
+    assert len(state["fetches"]) == 1
+
+    ok = tr.download(urls["1"], tmp_path / "a.part", 10)
+
+    assert ok is True
+    assert len(state["fetches"]) == 2  # 重新取链恰一次
+    assert len(state["downloads"]) == 2
+    assert state["downloads"][0] != state["downloads"][1]
+    assert (tmp_path / "a.part").read_bytes() == b"x" * 10
+
+
+def test_quark_transport_refetches_on_expired_link_message(monkeypatch, tmp_path):
+    """I2 备选口径：异常文本含「链接过期」也触发重取。"""
+    state = _quark_transport_fakes(monkeypatch, lambda url: RuntimeError("下载链接已过期"))
+    tr = sync.QuarkTransport()
+    items = [_entry("a.zip", 10, "1")]
+    urls = tr.list_urls(items)
+
+    ok = tr.download(urls["1"], tmp_path / "a.part", 10)
+
+    assert ok is True
+    assert len(state["fetches"]) == 2 and len(state["downloads"]) == 2
+
+
+def test_quark_transport_no_refetch_for_other_errors(monkeypatch, tmp_path):
+    """I2 边界：非 403/412/过期 → 不重取（取链恰 1 次），异常原样上抛。"""
+    state = _quark_transport_fakes(monkeypatch, lambda url: OSError("boom"))
+    tr = sync.QuarkTransport()
+    items = [_entry("a.zip", 10, "1")]
+    urls = tr.list_urls(items)
+
+    with pytest.raises(OSError, match="boom"):
+        tr.download(urls["1"], tmp_path / "a.part", 10)
+
+    assert len(state["fetches"]) == 1 and len(state["downloads"]) == 1

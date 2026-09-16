@@ -16,6 +16,7 @@ import datetime
 import os
 import sys
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -94,8 +95,18 @@ def _take_urls(transport, items: list[dict], blocked: dict[str, str]) -> dict:
     return urls
 
 
+def _cleanup(part: Path) -> None:
+    try:
+        part.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def _download_one(transport, url: str, item: dict, dest_root: Path) -> str | None:
-    """成功返回 None；失败返回 failed 原因（本函数不做 state/manual 记账）。"""
+    """成功返回 None；失败返回 failed 原因（本函数不做 state/manual 记账）。
+
+    线程安全：只触碰本项自己的 ``.part`` 与目标文件，可与其它项并发（I1）。
+    """
     try:
         dest = _dest_for(dest_root, item["rel_path"])
     except ValueError as ex:
@@ -105,16 +116,36 @@ def _download_one(transport, url: str, item: dict, dest_root: Path) -> str | Non
         dest.parent.mkdir(parents=True, exist_ok=True)
         ok = bool(transport.download(url, part, item["size"]))
     except Exception as ex:  # 单文件失败不 fail 整链（设计 §8）
-        part.unlink(missing_ok=True)
+        _cleanup(part)
         return f"download error: {ex}"
-    actual = part.stat().st_size if part.exists() else -1
-    if not ok or actual != item["size"]:
-        part.unlink(missing_ok=True)  # 半成品不留盘（设计 §8）
-        if not ok:
-            return "download failed"
-        return f"size mismatch: got {actual}, want {item['size']}"
-    os.replace(part, dest)
+    try:
+        actual = part.stat().st_size if part.exists() else -1
+        if not ok or actual != item["size"]:
+            _cleanup(part)  # 半成品不留盘（设计 §8）
+            if not ok:
+                return "download failed"
+            return f"size mismatch: got {actual}, want {item['size']}"
+        os.replace(part, dest)
+    except OSError as ex:
+        _cleanup(part)
+        return f"download error: {ex}"
     return None
+
+
+def _run_downloads(transport, dest_root: Path, jobs: list[tuple[int, dict, str]], workers: int):
+    """执行下载任务 → ``[(idx, detail-or-None)]`` 按提交顺序。
+
+    workers<=1 或单任务 → 串行；否则线程池（``map`` 保序）。worker 只做下载+落盘；
+    state 记账/report 归集由主线程统一处理（完成序不影响报告条目序）。
+    """
+    def run(job):
+        idx, item, url = job
+        return idx, _download_one(transport, url, item, dest_root)
+
+    if workers <= 1 or len(jobs) <= 1:
+        return [run(job) for job in jobs]
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        return list(ex.map(run, jobs))
 
 
 def sync_category(state: dict, category: str, *, entries, transport, dest_root,
@@ -126,7 +157,8 @@ def sync_category(state: dict, category: str, *, entries, transport, dest_root,
     - transport：``list_urls(items) -> {fid: url}``（超限项在 item 上标
       ``_blocked_reason``，或抛 ``SizeLimitExceeded``）；``download(url, out, size) -> bool``。
     - dry_run：只填 ``to_fetch``，不触网/不落盘；``to_fetch`` 恒有值。
-    - workers：并发上限（计划 §3 建议 8）；当前按文件串行接线，参数留给并发改造。
+    - workers：下载并发上限（默认 8；1 → 串行）。worker 只做下载落盘，state 记账/
+      报告归集由主线程按条目序统一处理（线程安全；完成序不影响报告顺序）。
     - state_path：给定则每个成功文件后 ``state.save_state_atomic``。
     """
     dest_root = Path(dest_root)
@@ -141,7 +173,8 @@ def sync_category(state: dict, category: str, *, entries, transport, dest_root,
 
     blocked: dict[str, str] = {}
     urls = _take_urls(transport, diff.to_fetch, blocked)
-    for item in diff.to_fetch:
+    jobs: list[tuple[int, dict, str]] = []
+    for idx, item in enumerate(diff.to_fetch):
         name = item["name"]
         if name in blocked:
             report.manual.append({"name": name, "reason": blocked[name]})
@@ -154,9 +187,12 @@ def sync_category(state: dict, category: str, *, entries, transport, dest_root,
         if not url:
             report.failed.append({"name": name, "reason": item.get("_fetch_error") or "no url"})
             continue
-        outcome = _download_one(transport, url, item, dest_root)
-        if outcome is not None:
-            report.failed.append({"name": name, "reason": outcome})
+        jobs.append((idx, item, url))
+
+    for idx, detail in _run_downloads(transport, dest_root, jobs, workers):
+        item = diff.to_fetch[idx]
+        if detail is not None:
+            report.failed.append({"name": item["name"], "reason": detail})
             continue
         report.downloaded.append(item["rel_path"])
         _record(state, category, item)
@@ -165,16 +201,30 @@ def sync_category(state: dict, category: str, *, entries, transport, dest_root,
     return report
 
 
+def _is_link_expired(ex: BaseException) -> bool:
+    """403/412（含 URLError 包裹）或「链接过期/expired」文案 → 可重取链的过期错误。"""
+    if getattr(ex, "code", None) in (403, 412):
+        return True
+    if getattr(getattr(ex, "reason", None), "code", None) in (403, 412):
+        return True
+    text = f"{ex}"
+    return "过期" in text or "expired" in text.lower()
+
+
 class QuarkTransport:
     """生产 transport：批量取链（``get_download_urls``，50/批）+ 缺链单项探测。
 
     批次内有大文件时整批 400（``download file size limit``）会拖掉同批小件链；
     对缺链项逐项重取：拿到链 → 补回（小件可下），400 size limit → ``_blocked_reason``，
     其它 → ``_fetch_error``（由 ``sync_category`` 归入 failed，原因透传）。
+    下载遇 403/412/链接过期（典型：链在批次期间过期）→ 对该项重新取链一次再重试；
+    仍失败才上抛（reason 含原始异常），不吞错。
     """
 
     def __init__(self, *, log: Callable[[str], None] | None = None):
         self.log = log
+        self._items_by_fid: dict[str, dict] = {}
+        self._fid_by_url: dict[str, str] = {}
 
     def list_urls(self, items: list[dict]) -> dict:
         stoken = quark_client.get_stoken()
@@ -183,6 +233,8 @@ class QuarkTransport:
         for item in items:
             if item["fid"] not in urls:
                 self._probe(stoken, item, urls)
+        self._items_by_fid.update({i["fid"]: i for i in items})
+        self._fid_by_url.update({u: f for f, u in urls.items()})
         return urls
 
     def _probe(self, stoken: str, item: dict, urls: dict) -> None:
@@ -211,5 +263,28 @@ class QuarkTransport:
             item["_fetch_error"] = f"HTTP {status} {msg}".strip()
 
     def download(self, url: str, out, size: int) -> bool:
-        ok, _actual = quark_client.download_file(url, out, size)
-        return bool(ok)
+        try:
+            ok, _actual = quark_client.download_file(url, out, size)
+            return bool(ok)
+        except Exception as ex:
+            new_url = self._refreshed_url(url, ex)
+            try:
+                ok, _actual = quark_client.download_file(new_url, out, size)
+                return bool(ok)
+            except Exception as retry_ex:
+                raise RuntimeError(
+                    f"重取链后仍失败：{retry_ex}（原错误：{ex}）") from retry_ex
+
+    def _refreshed_url(self, url: str, ex: BaseException) -> str:
+        """过期类错误 → 单项重新取链一次，返回新链；其余情况原样上抛。"""
+        fid = self._fid_by_url.get(url)
+        item = self._items_by_fid.get(fid) if fid else None
+        if item is None or not _is_link_expired(ex):
+            raise
+        fresh: dict[str, str] = {}
+        self._probe(quark_client.get_stoken(), item, fresh)
+        new_url = fresh.get(fid)
+        if not new_url:
+            raise
+        self._fid_by_url[new_url] = fid
+        return new_url
