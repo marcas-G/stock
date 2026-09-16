@@ -24,7 +24,7 @@ sys.path.insert(0, _TOOL_DIR)      # 供同进程 import quark_client / 两个�
 def _run_import(env_extra: dict) -> subprocess.CompletedProcess:
     env = dict(os.environ, **env_extra)
     code = (f"import sys; sys.path.insert(0, {_TOOL_DIR!r});"
-            " import quark_client as QC; import quark_download_v2 as q;"
+            " import quark_client as QC; import download_level2 as q;"
             " print(QC.COOKIE_PATH); print(q.PREFIXES)")
     return subprocess.run([sys.executable, "-c", code], env=env,
                           capture_output=True, text=True)
@@ -62,9 +62,9 @@ def test_entries_share_one_transport_implementation():
     """两个入口的 http/get_stoken/get_download_urls/download_file 必须是**同一个对象**
     （来自 quark_client）——否则说明又长出了第二份实现。"""
     import quark_client as QC
-    import quark_download_server as QS
-    import quark_download_v2 as Q2
-    import quark_share as QSH
+    import download_share_dir as QS
+    import download_level2 as Q2
+    import share_manifest as QSH
     for fn in ("http", "get_stoken", "get_download_urls", "download_file", "UA",
                "HOST_PC", "PWD_ID", "STOKEN_TTL", "DEST"):
         assert getattr(Q2, fn) is getattr(QC, fn), f"v2.{fn} 不是共享实现"
@@ -76,7 +76,7 @@ def test_server_no_longer_reads_cookie_at_import(tmp_path):
     """server 原先在 import 期读 cookie 文件（缺失时**静默空串**）——已收敛为懒读 + 显式报错。"""
     env = dict(os.environ, QUARK_COOKIE_FILE=str(tmp_path / "nope.txt"))
     code = (f"import sys; sys.path.insert(0, {_TOOL_DIR!r});"
-            " import quark_download_server as QS; print('IMPORT_OK')")
+            " import download_share_dir as QS; print('IMPORT_OK')")
     r = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True)
     assert r.returncode == 0 and "IMPORT_OK" in r.stdout, r.stderr
 
@@ -101,7 +101,7 @@ def test_v2_partial_link_failure_keeps_successful_urls(tmp_path, monkeypatch):
     文件也报 no link（实测：一天里部分缺链 → 全部漏下）。
     修复前 `for ... else: urls = {}` 清空全部 → f1 也报 no link（红）。"""
     import json
-    import quark_download_v2 as q2
+    import download_level2 as q2
     entries = [
         {"date": "20240101", "code": "000001.SZ", "fid": "f1",
          "file": "000001.SZ.zip", "size": 3, "pdir_fid": "g1"},
@@ -115,7 +115,7 @@ def test_v2_partial_link_failure_keeps_successful_urls(tmp_path, monkeypatch):
     monkeypatch.setattr(q2, "DEST", str(dest))
     monkeypatch.setattr(q2, "get_stoken", lambda *a, **k: "tok")
     monkeypatch.setattr(q2.time, "sleep", lambda s: None)
-    monkeypatch.setattr(sys, "argv", ["quark_download_v2.py"])
+    monkeypatch.setattr(sys, "argv", ["download_level2.py"])
     calls = {"n": 0}
 
     def fake_links(todo):
@@ -145,7 +145,7 @@ def test_server_main_cookie_missing_exits_with_message_not_nameerror(tmp_path):
     修复前 `main()` 引用未定义 `COOKIES` → NameError traceback，入口从未可用。"""
     env = dict(os.environ, QUARK_COOKIE_FILE=str(tmp_path / "nope.txt"))
     code = (f"import sys; sys.path.insert(0, {_TOOL_DIR!r});"
-            " import quark_download_server as QS; QS.main()")
+            " import download_share_dir as QS; QS.main()")
     r = subprocess.run([sys.executable, "-c", code], env=env,
                        capture_output=True, text=True)
     out = r.stdout + r.stderr
@@ -158,7 +158,7 @@ def test_server_main_proceeds_past_cookie_check_with_manifest(tmp_path, monkeypa
     """cookie 文件存在时必须越过入口检查继续（读 manifest/stoken）——证明 COOKIES
     解析用的是共享客户端口径（QUARK_COOKIE_FILE 跟随），不是硬编码/静默空串。"""
     import quark_client as QC
-    import quark_download_server as QS
+    import download_share_dir as QS
     cookie = tmp_path / "cookie.txt"
     cookie.write_text("  k=v  ", encoding="utf-8")
     monkeypatch.setattr(QC, "COOKIE_PATH", str(cookie))

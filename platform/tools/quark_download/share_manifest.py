@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Quark share: walk directory tree as guest -> local manifest -> filter -> download.
 Usage:
-  python3 quark_share.py walk <pwd_id> [out_json]
-  python3 quark_share.py filter <manifest.json> <regex> [out_json]
-  python3 quark_share.py download <filtered.json> <pwd_id> <cookies.txt> [dest_dir]
+  python3 share_manifest.py walk <pwd_id> [out_json]
+  python3 share_manifest.py filter <manifest.json> <regex> [out_json]
+  python3 share_manifest.py download <filtered.json> <pwd_id> <cookies.txt> [dest_dir]
 """
 import concurrent.futures
 import datetime

@@ -1,6 +1,6 @@
 """quark 网盘客户端（R16）：三个入口共用的传输 / 鉴权 / 下载层。
 
-**为什么**：同一套逻辑在 `quark_download_v2` 与 `quark_download_server` 里各写了一份，且已开始
+**为什么**：同一套逻辑在 `download_level2` 与 `download_share_dir` 里各写了一份，且已开始
 漂移——`http` 只差 cookie 来源与文档串、`get_stoken` 只差 `force`、`get_download_urls`/`download_file`
 只差诊断打印；cookie 读取有**两种**口径（v2 走 `QUARK_COOKIE_FILE` 且缺失即抛；server 在 import
 期读文件、缺失时**静默空串**）。这里是唯一实现，诊断输出用 `log` 回调表达（缺省静默）。

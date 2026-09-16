@@ -7,7 +7,7 @@
       stoken 每 25 分钟刷新一次(刷新只影响后续取 token,已取链接不受影响)。
       断点续传:已存在且 size 匹配的文件跳过;403/412 时刷新链接重试。
 
-用法:python3 quark_download_v2.py [start_idx] [end_idx]   # manifest 按天排序后取切片
+用法:python3 download_level2.py [start_idx] [end_idx]   # manifest 按天排序后取切片
 """
 import json
 import os
