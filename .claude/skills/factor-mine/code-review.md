@@ -7,7 +7,7 @@
 1. 变异点记录：种子因子 <seed>、变异假设清单（保留/精确化/变异）、新因子名 <name>。
 2. 新因子实现：`research/factor/<族>/<name>.yaml` 全文。
 3. 种子因子实现：`research/factor/<族>/<seed>.yaml` 全文（对照物）。
-4. 平台事实：数据字段（platform/docs/interface.md §数据字段）、DSL 语义与防未来（§DSL 语义）、
+4. 平台事实：数据字段（knowledge/contracts/interface.md §数据字段）、DSL 语义与防未来（§DSL 语义）、
    评估方向语义（direction）。
 
 ## 检查清单
@@ -21,7 +21,7 @@
 4. **分区正确**：TS/CS 算子前缀与语义匹配（wq.ts_* 时序、CS 横截面）。
 5. **方向语义**：direction 与变异后假设一致（信号高 ↔ 预期收益方向）。
 6. **平台规范**：name 合法（`^[A-Za-z_][A-Za-z0-9_]{0,63}$`）、字段必填齐全、
-   自由代码公式语法（def/params）符合 platform/docs/interface.md。
+   自由代码公式语法（def/params）符合 knowledge/contracts/interface.md。
 
 ## 输出格式
 

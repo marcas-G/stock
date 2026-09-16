@@ -20,7 +20,7 @@
 - **`data/` 零改动**：任何命令都不得写入（只读消费）。`data/` 与 `_archive/` 的 mtime/容量基线在 `docs/verification/`。
 - 数据位置与血缘以 `docs/data-map.md` 为唯一权威；目录/命名约定以 `docs/directory-conventions.md` 为唯一权威；
   两者冲突时**以磁盘为准并修订文档**。
-- 数据接口（读/写/契约）见 `docs/verification/R4/`（收口记录）与 `platform/docs/interface.md` §4。
+- 数据接口（读/写/契约）见 `docs/verification/R4/`（收口记录）与 `knowledge/contracts/interface.md` §4。
 
 ### 文档和测试必须做好、写全面（最高优先级）
 
@@ -38,7 +38,7 @@
 - 涉及数据窗口/分组/对齐语义的改动必须有能捕获跨资产泄漏、未来函数、错位的回归测试。
 
 **文档**：
-- 平台 API/CLI/DSL 变更 → `platform/docs/interface.md`；设计与里程碑 → `platform/docs/superpowers/{plans,specs}`。
+- 平台 API/CLI/DSL 变更 → `knowledge/contracts/interface.md`；设计与里程碑 → `platform/docs/superpowers/{plans,specs}`。
 - 因子新增/改名 → `research/docs/factors/<族>/<名>.md` 同名档案 + 重生成 `docs/index/factors.md`（有 byte-equality 门）。
 - 文档与实现冲突时改文档；实现中发现的设计缺口写进对应 spec 或 `docs/pending-items.md`。
 
@@ -57,7 +57,7 @@ surfaces(cli,web) → app(装配) → ports(6 契约) → core(纯核)
   `results_fs`、`plugins`、`process_ops`…）。
 - **`app/`**：装配（`bootstrap`、`run`、`evaluate`、`context`）——**唯一评估装配点**。
 - **`surfaces/`**：CLI 与 Web（只做参数解析与呈现）。
-- `platform/docs/interface.md` §4 是模块路径权威，有 `platform/tests/test_doc_paths_exist.py` 自动核。
+- `knowledge/contracts/interface.md` §4 是模块路径权威，有 `platform/tests/test_doc_paths_exist.py` 自动核。
 
 ## 环境事实
 

@@ -5,7 +5,7 @@
 ValueError（编译函数不实现，读函数公开 API 单写）。本文件全部用 ch_db 假库
 （列型按生产 DDL 建模，seed 走 dualbridge）。
 
-合约（docs/interface.md 同步）：
+合约（knowledge/contracts/interface.md 同步）：
 - load_<表>(rd, code, day=… / date_start=…&date_end=…)（区间闭区间，ISO 日期）
 - code 接受平台 6 位纯数字（经 stock_basic.symbol 解析）或带后缀 ts_code；
   输出 code 一律 6 位纯数字（与 daily 读路径一致）

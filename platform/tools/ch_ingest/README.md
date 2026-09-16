@@ -71,7 +71,7 @@ python reconcile.py
   `amount`/`adj_factor` 为 **NULL**（R21 I1；旧版非 Nullable 灌成 0）
 - `pre_close/change/pct_chg`（R21 DATA-C2）：无事件日 = 昨收；**除权除息日 = 除权参考价**
   `round((prev - div_cash/10 + rights_price×rights_num/10) / (1 + div_bonus/10 + div_transfer/10), 2)`
-  （half-up；单位：元或股/10股），与 platform/docs/catalog.md 承诺一致；组内首日 NULL
+  （half-up；单位：元或股/10股），与 knowledge/contracts/catalog.md 承诺一致；组内首日 NULL
 - `total_mv` = close×total_shares（源 total_shares 单位=万股 → 万元；R21 C1 修 1e4）；
   `turnover_rate` = vol/(float_shares×1e4)×100（%）
 - `adj_factor` <=0（vendor 后复权价异常）归 NULL——qfq 基准 `argMax` 跳过 NULL（R21 I1）
@@ -83,7 +83,7 @@ python reconcile.py
   影响：读路径 `fillna(industry_mean)` 与 `gp_rank/gp_mean(industry,…)` 的
   `.over([...,"industry"])` 会塌成全市场单组（静默产出全市场值）；`neutralize(by=industry)`
   loud fail；`WHERE industry='半导体'` 一类筛选恒空。
-  结论：**不要 advertise**——`platform/docs/catalog.md` 的 `industry` 行（申万最新归属）
+  结论：**不要 advertise**——`knowledge/contracts/catalog.md` 的 `industry` 行（申万最新归属）
   与生产数据面不符，其生成源在 platform 侧（本工具无权改，coordinator 侧登记）；
   在补源落地前，研究侧一律按「industry 不可用」对待。
 - `stock_basic.delist_date`（R21 DATA-C1 生产侧）：退市目录 sidecar 权威

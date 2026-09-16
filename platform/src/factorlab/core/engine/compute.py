@@ -226,7 +226,7 @@ def reject_non_scalar_returns(source: str, catalog=None) -> None:
         f"（winsorize/clip/quantile 等 processor 只接受标量数值列，否则在"
         f" Struct/多列上报晦涩错误）。请改用标量算子；多列/Struct 字段访问"
         f"机制见 Plan 2/catalog（`factorlab op list --catalog`；"
-        f"platform/docs/catalog.md）")
+        f"knowledge/contracts/catalog.md）")
 
 
 def assert_process_inputs_numeric(frame: pl.DataFrame, outputs: list[str]) -> None:
@@ -243,7 +243,7 @@ def assert_process_inputs_numeric(frame: pl.DataFrame, outputs: list[str]) -> No
             f"process 链输入非标量：{detail}。多列/Struct 返回（如 BBANDS→Struct）"
             f"不能直接进 process（winsorize/clip/quantile 只接受标量数值列）；"
             f"字段访问机制见 Plan 2/catalog（`factorlab op list --catalog`；"
-            f"platform/docs/catalog.md）")
+            f"knowledge/contracts/catalog.md）")
 
 
 def _declared_output_names(formula: str) -> set[str]:
@@ -293,7 +293,7 @@ def compute_formula(
     if scope == "bars_1m" and universe_mask is not None:
         raise ValueError(
             "minute scope（bars_1m）不接受 universe_mask（CS 截面掩码是日频机制"
-            "——分钟池成员在装配期按 (code, date) 过滤，见 docs/interface.md 分钟面）")
+            "——分钟池成员在装配期按 (code, date) 过滤，见 knowledge/contracts/interface.md 分钟面）")
     validate_formula(formula)
     # M1：内部保留名（__factorlab_* / in_universe）绑定与读取两门，无条件生效
     # （与 universe_mask 无关）——先绑定后读取，覆盖公式一切位置；必须在
@@ -422,7 +422,7 @@ def _formula_columns(formula: str) -> list[str]:
 
 # R01-ENG-I1：依赖"块内全历史"的累计算子族（vendor ts_cum_* 无窗口参数，
 # 定义即 cum_sum/cum_max/... 全历史累计）。--chunk-days 每块独立跑完整流水线
-# → 每块重新累计，违反 docs/interface.md「分块计算」的"与单块整段跑逐 cell
+# → 每块重新累计，违反 knowledge/contracts/interface.md「分块计算」的"与单块整段跑逐 cell
 # 一致"承诺（实测 ts_cum_sum/vwap 分块差异 14 行）。
 _CUMULATIVE_PREFIX = "ts_cum_"
 
@@ -498,7 +498,7 @@ def reject_cumulative_chunking(formula: str, pool: str | None = None) -> None:
         raise ValueError(
             f"累计算子 {names} 与 --chunk-days 分块不兼容：累计算子依赖"
             f"块内全历史，分块时每块重新累计，结果不再与整段跑逐 cell 一致"
-            f"（docs/interface.md §分块计算）。请去掉 --chunk-days 单块整段跑，"
+            f"（knowledge/contracts/interface.md §分块计算）。请去掉 --chunk-days 单块整段跑，"
             f"或改用非累计算子（如 ts_sum/ts_mean 窗口算子）")
 
 
@@ -709,7 +709,7 @@ def _normalize_pool_formula(text: str) -> str:
     except SyntaxError as exc:
         raise ValueError(
             f"池公式语法错误: {exc.msg}（v1 池公式 = 单个布尔表达式，见 "
-            f"docs/interface.md §公式化股票池）") from exc
+            f"knowledge/contracts/interface.md §公式化股票池）") from exc
     body = tree.body
     if len(body) != 1:
         raise ValueError(
@@ -743,7 +743,7 @@ def _require_boolean_pool(text: str) -> None:
         raise ValueError(
             "池公式必须布尔可判定（表达式含比较 `>`/`<`/`==`/`!=`；多条件用嵌套"
             " if_else）——纯数值/窗口表达式不是成员条件；"
-            "v1 文法指引见 docs/interface.md §公式化股票池")
+            "v1 文法指引见 knowledge/contracts/interface.md §公式化股票池")
 
 
 def _pool_cond_frame(panel: pl.DataFrame, pool: str) -> pl.DataFrame:

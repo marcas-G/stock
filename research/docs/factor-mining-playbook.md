@@ -1,7 +1,7 @@
 # FactorLab 因子挖掘手册（Factor Mining Playbook）
 
 日期：2026-08-16
-前置：数据就绪（`factorlab data update` 到最新交易日）——数据运维见 `docs/data-ops-playbook.md`
+前置：数据就绪（`factorlab data update` 到最新交易日）——数据运维见 `knowledge/contracts/data-ops-playbook.md`
 
 ## 1. 挖掘工作流总览（SOP）
 
@@ -336,7 +336,7 @@ factorlab serve                              # Web 可视化（IC 曲线/净值�
 > ⚠️ 本节原有 `factorlab data update/refresh/verify` 命令已随数据面迁移废弃（2026-09-16 注）。
 > 现行数据刷新 = **ClickHouse 灌入管线**：
 >
-> - 权威：`platform/docs/data-ops-playbook.md` + `platform/tools/ch_ingest/README.md`（刷新链
+> - 权威：`knowledge/contracts/data-ops-playbook.md` + `platform/tools/ch_ingest/README.md`（刷新链
 >   `01_import_daily → ingest_daily → 12_ch_adj_backfill → derive_stk_limit`）；技能 `factorlab-ch-pipeline`；
 > - 对账：`platform/.venv/bin/python platform/tools/ch_ingest/reconcile.py`（只读）；
 > - 平台 duckdb 库不存在：一切计算读 CH（`FACTORLAB_DATA_BACKEND=ch`）；

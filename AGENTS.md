@@ -28,7 +28,7 @@
   21GB llama-server + 6 个 opencode 会话 + 平台分钟链叠加 → 主机内存耗尽、SSH 卡死、
   ClickHouse 一度无响应（进程 D 状态零输出）。
 - 分钟链保持默认 20 交易日/块；显式超大 `--chunk-days` 按估算告警/拒绝。
-  语义/推荐值/报错：`platform/docs/interface.md` §1「进程内存护栏」。
+  语义/推荐值/报错：`knowledge/contracts/interface.md` §1「进程内存护栏」。
 
 ## 工具链速查
 

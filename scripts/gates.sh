@@ -18,7 +18,7 @@ info() { echo "    · $1"; }
 
 PLATFORM=platform
 RESEARCH=research
-FROZEN=':!platform/docs/superpowers :!docs/verification :!platform/tools/lob_fact/notes :!research/tools/lob_fact/notes :!docs/specs'
+FROZEN=':!knowledge/design/platform :!governance/evidence/verification :!platform/tools/lob_fact/notes :!research/tools/lob_fact/notes'
 
 # ── 结构门（强制）───────────────────────────────────────────────
 structure() {
@@ -29,10 +29,10 @@ structure() {
   [ -d "$PLATFORM/tools" ] && ok "platform/tools 存在（数据生产线工具集）" || bad "platform/tools 缺失"
   n=$(git ls-files | grep -cE "^$RESEARCH/(src|tests)/" || true)             # 仅顶层，research 内嵌 tests/ 属正常
   [ "$n" = "0" ] && ok "research/ 顶层无平台 src|tests" || bad "research/ 含平台内容 $n 项"
-  # 契约 4 篇各只一份
+  # 契约 4 篇各只一份（R24 起归 knowledge/contracts/）
   for f in interface.md catalog.md data-ops-playbook.md teajoin-guide.md; do
-    cnt=$(git ls-files | grep -c "/docs/$f\$" || true)
-    [ "$cnt" = "1" ] && ok "docs/$f 单副本" || bad "docs/$f 出现 $cnt 次（应为 1）"
+    cnt=$(git ls-files | grep -cE "^knowledge/contracts/$f\$" || true)
+    [ "$cnt" = "1" ] && ok "knowledge/contracts/$f 单副本" || bad "knowledge/contracts/$f 出现 $cnt 次（应为 1）"
   done
 
   echo "[G-BOUNDARY] platform/ 不得 import research/"

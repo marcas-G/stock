@@ -18,7 +18,7 @@
 **默认行为**：`FACTORLAB_MAX_MEMORY` 与 `FACTORLAB_MIN_AVAILABLE_MEMORY` 都
 未设 → 整个护栏不启用（零线程、零采样、行为与现状一致——避免误杀 CI/小 run）。
 推荐生产值（16GB 机 + LLM 并发）：`FACTORLAB_MAX_MEMORY=8GB`、
-`FACTORLAB_MIN_AVAILABLE_MEMORY=2GB`；语义见 `docs/interface.md` §1 内存护栏。
+`FACTORLAB_MIN_AVAILABLE_MEMORY=2GB`；语义见 `knowledge/contracts/interface.md` §1 内存护栏。
 """
 from __future__ import annotations
 
@@ -159,7 +159,7 @@ class MemoryWatchdog:
             + "；".join(hits)
             + f"（当前 RSS={format_bytes(s.rss)}，系统可用={format_bytes(s.available)}）。"
             "建议：减小 --chunk-days（分钟链默认 20 交易日/块，见 "
-            "platform/docs/interface.md §1）、调大/设置 FACTORLAB_MAX_MEMORY、"
+            "knowledge/contracts/interface.md §1）、调大/设置 FACTORLAB_MAX_MEMORY、"
             "避免与 LLM 服务/多 agent 并发重任务"
             "（事故记录 docs/reviews/r05-usage-2026-09-16）。")
 
@@ -320,5 +320,5 @@ def guard_minute_chunk_days(n_codes: int, n_days: int, chunk_days: int, *,
     warnings.warn(
         f"{detail}，超过建议上限 {format_bytes(MINUTE_PEAK_WARN_BYTES)}——建议 "
         f"--chunk-days {recommended}（分钟链默认 20）；运行期内存看门狗"
-        f"（FACTORLAB_MAX_MEMORY）兜底。详见 platform/docs/interface.md §1。",
+        f"（FACTORLAB_MAX_MEMORY）兜底。详见 knowledge/contracts/interface.md §1。",
         MinuteChunkSizeWarning, stacklevel=2)

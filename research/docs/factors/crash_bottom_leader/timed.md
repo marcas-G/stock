@@ -129,7 +129,7 @@ formula: |
 - **触发周集中**：106 周分布在少数几段（2015-2016、2018、2024-2026），
   周间相关性高，IR 解读需注意聚类效应。
 - **平台能力**：样本扩展依赖分块计算（`--chunk-days 500`，见
-  `docs/interface.md` §分块计算）——16GB 内存护栏下 2015+ 全市场才可跑。
+  `knowledge/contracts/interface.md` §分块计算）——16GB 内存护栏下 2015+ 全市场才可跑。
 - **数据层新增**：`idx_ret`（中证1000 日收益按需 join，`_MARKET_INDEX` 可换）。
 - 无时点版 [`crash_bottom_leader.md`](crash_bottom_leader.md)（全期 0.0428）。
 

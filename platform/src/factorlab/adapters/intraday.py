@@ -5,7 +5,7 @@
 本模块与 daily 读路径同构：公开 API 单写 + `_IMPL[rd.backend]` 分派（本域只
 实现 ch 编译函数；duckdb 侧是统一拒绝函数）。
 
-数据合约（docs/interface.md 同步；列型即生产 DDL 原样）：
+数据合约（knowledge/contracts/interface.md 同步；列型即生产 DDL 原样）：
 - `code`：接受平台 6 位纯数字（内部经 stock_basic.symbol → ts_code 解析）或带
   后缀 ts_code（'000001.SZ'）；输出 `code` 一律 6 位纯数字（与 daily 一致）。
 - 时间窗：`day='YYYY-MM-DD'` 快捷（= start=end），或 `date_start/date_end`
@@ -276,7 +276,7 @@ def load_bars_1m_coverage(rd: ReadPort, *, date_start: str | None = None,
 
     口径注意：按**全窗覆盖**选样生成静态池本身含前视（用未来存活信息选宇宙），
     只应作为研究便利并知情披露；run 级 drop 开关（FACTORLAB_MINUTE_UNCOVERED）
-    才是 PIT 安全的口径，详见 docs/interface.md 分钟覆盖口径节。
+    才是 PIT 安全的口径，详见 knowledge/contracts/interface.md 分钟覆盖口径节。
     """
     if date_start is None or date_end is None:
         raise ValueError("必须指定 date_start 与 date_end（闭区间；防全表扫描）")

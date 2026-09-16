@@ -32,10 +32,10 @@ research=研究、独立 worktree）已退役，改按**目录**分权：
 
 **文档**：
 - 代码提交必须同步更新相应文档：新增/变更的 Python API、CLI 命令、DSL 语法
-  写入 `docs/interface.md`；设计决策与里程碑写入 `docs/superpowers/specs/` 与
+  写入 `../knowledge/contracts/interface.md`；设计决策与里程碑写入 `docs/superpowers/specs/` 与
   `docs/superpowers/plans/`。
 - 新模块、新接口必须有使用说明（签名、行为、错误语义），不允许"代码即文档"。
-- 文档与实现冲突时，文档必须修订到与实现一致，并在 `docs/interface.md` 注明。
+- 文档与实现冲突时，文档必须修订到与实现一致，并在 `../knowledge/contracts/interface.md` 注明。
 - 实现中发现的设计缺口（计划/规格与实现不符）必须记录到对应设计/计划文档。
 
 ## 架构分层（2026-09-12 深度重构后，spec = docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md）
@@ -56,7 +56,7 @@ surfaces/ (cli/web)  →  app/ (bootstrap/run/evaluate)  →  ports/ (6 条契�
   `evaluate.evaluate_run/publish_run`）——**唯一评估装配点**。
 - **`surfaces/`**：CLI 与 Web（只做参数解析与呈现）。
 - 旧路径已退役（`factorlab.data.*`、`factorlab.artifacts`、`factorlab.engine.*` 等 → 新层）；
-  `docs/interface.md` §4 是路径权威，且有 `tests/test_doc_paths_exist.py` 自动核。
+  `../knowledge/contracts/interface.md` §4 是路径权威，且有 `tests/test_doc_paths_exist.py` 自动核。
 
 ## 环境事实
 

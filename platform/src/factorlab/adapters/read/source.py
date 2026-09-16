@@ -10,7 +10,7 @@ from factorlab.ports.read import ReadPort
 # 平台库 daily 列映射：引擎列名 → tushare 原始列名（SQL 别名阶段完成）
 _COL_MAP = {"volume": "vol"}
 # R01-DATA-I7：duckdb 平台库单位 → canonical 引擎单位（股/元）。
-# 契约（platform/docs/catalog.md volume/amount 行）：引擎列 volume=股、amount=元。
+# 契约（knowledge/contracts/catalog.md volume/amount 行）：引擎列 volume=股、amount=元。
 # - ch 灌入（platform/tools/ch_ingest）已按 股/元 落库 → 读面不转换；
 # - duckdb 平台库由 data rebuild 直接落 teajoin（tushare 约定）原始值：
 #     vol = 手（1 手 = 100 股）→ ×100
@@ -36,7 +36,7 @@ _MARKET_INDEX = "000852.SH"
 
 # 报错助手文案片段（模块常量：活文档 catalog 错误修复手册的文案样板同源引用——
 # 换文案必须同步目录，目录 sample 逐字锁）
-_MSG_COLUMN_DIR_HINT = "；列/算子目录见 docs/interface.md（无字段白名单——可用列随当前数据面变化）"
+_MSG_COLUMN_DIR_HINT = "；列/算子目录见 knowledge/contracts/interface.md（无字段白名单——可用列随当前数据面变化）"
 _MSG_RAW_MAPPED_PREFIX = "；平台库原始列 "
 
 # ---- M1（G3）：无白名单的列供给分类 + 报错助手 ----

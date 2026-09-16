@@ -109,7 +109,7 @@ def validate_formula(source: str) -> None:
                 "执行期必崩）；布尔与/用嵌套 if_else 表达——"
                 "if_else(条件1, if_else(条件2, x, None), None)；分钟零成交/"
                 "陈旧尾部 bar 守卫可用注入列 has_trade："
-                "if_else(has_trade, x, None)（见 docs/interface.md 分钟面）",
+                "if_else(has_trade, x, None)（见 knowledge/contracts/interface.md 分钟面）",
                 getattr(node, "lineno", None),
                 getattr(node, "col_offset", None),
             )

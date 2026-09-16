@@ -48,8 +48,8 @@ FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python platform/tools/1m_features/r
 
 ## 平台文档（在兄弟目录）
 
-- 接口/DSL/CLI：`../platform/docs/interface.md`
-- 列/算子活目录：`../platform/docs/catalog.md`
-- 数据运维：`../platform/docs/data-ops-playbook.md`
+- 接口/DSL/CLI：`../knowledge/contracts/interface.md`
+- 列/算子活目录：`../knowledge/contracts/catalog.md`
+- 数据运维：`../knowledge/contracts/data-ops-playbook.md`
 - 工作区数据地图与约定：`../docs/data-map.md`、`../docs/directory-conventions.md`
 - 因子索引：`../docs/index/factors.md`（自动生成，`build_index.py --check` 门）

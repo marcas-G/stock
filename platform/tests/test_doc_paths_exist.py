@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-DOC = REPO / "docs" / "interface.md"
+DOC = REPO.parent / "knowledge" / "contracts" / "interface.md"
 _CAND = re.compile(r"factorlab\.[A-Za-z_][A-Za-z0-9_.]*")
 
 

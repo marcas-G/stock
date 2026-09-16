@@ -123,7 +123,7 @@
     **调仓成本建模**（R8 登记，原 `cost` 形参已删）
     现状：`core/eval/layered.py::layered_backtest` 的 `cost: float = 0.0` 自 M4b 起就是
     **静默 no-op**（签名收下、计算不用）——调用方传 `cost=0.002` 会拿到"零成本"结论而无任何提示，
-    比"没有该参数"更危险，故 R8 删除并同步 `platform/docs/interface.md` §layered_backtest。
+    比"没有该参数"更危险，故 R8 删除并同步 `knowledge/contracts/interface.md` §layered_backtest。
     启动条件：需要成本口径（单边费率 / 换手×费率 / 冲击成本）的研究决策 + 与 `turnover`
     指标的口径对齐；实现后须同时改 interface.md 签名与分层回测的净值语义测试。
 

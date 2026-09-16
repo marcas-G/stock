@@ -178,7 +178,7 @@ def _reject_cross_layer(tree: ast.AST) -> None:
         if node.func.id.startswith(_CROSS_PREFIXES):
             raise ValueError(
                 f"bars_1m 公式不允许跨层算子 {node.func.id}（ts_/ta_/cs_/gp_ 是"
-                f"日频通道——日内窗口请用 im_*、折日请用 day_*，见 docs/interface.md"
+                f"日频通道——日内窗口请用 im_*、折日请用 day_*，见 knowledge/contracts/interface.md"
                 f"分钟面）")
 
 
@@ -299,4 +299,4 @@ def reject_minute_ops_in_daily(formula: str) -> None:
             raise ValueError(
                 f"分钟算子 {node.func.id}（im_*/day_*）只在 interface: bars_1m "
                 f"scope 可用（本公式是日频 scope——日内窗口/折日算子是分钟模板"
-                f"接口；日频请用 ts_*/cs_*，见 docs/interface.md 分钟面）")
+                f"接口；日频请用 ts_*/cs_*，见 knowledge/contracts/interface.md 分钟面）")

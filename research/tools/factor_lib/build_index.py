@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """因子索引生成器（R5）：`research/factor/**` → `docs/index/factors.md`。
 
-产物纪律（沿用 `docs/catalog.md` 的范式）：**生成物与生成器输出逐字节一致**，
+产物纪律（沿用 `knowledge/contracts/catalog.md` 的范式）：**生成物与生成器输出逐字节一致**，
 不一致即门红（`--check` 模式；测试 `tests/test_index.py` 常驻）。
 
 索引内容：

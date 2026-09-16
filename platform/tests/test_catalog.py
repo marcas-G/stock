@@ -5,7 +5,7 @@
    命名类约定（含"未来列必须落未来前缀"纪律）、错误与修法手册；
 2. 关闭面描述：每条门规则 + 触发示例 + 报错文案样板（门表 ↔ 测试逐条对照）；
 3. 机器可读 JSON（`catalog dump` 入口）同源生成，供写因子的 AI 开写前阅读；
-4. 文档 = 教学与帮助：docs/interface.md 只写已实现行为，不超前。
+4. 文档 = 教学与帮助：knowledge/contracts/interface.md 只写已实现行为，不超前。
 「无白名单」：目录是活文档不是校验门——任何真实存在的列/def 新算子/新字段都自由。
 
 「禁止行为」保证：
@@ -422,8 +422,8 @@ def test_markdown_renders_every_entry_completely():
 
 
 def test_markdown_docs_file_committed_and_fresh():
-    """仓库内 docs/catalog.md 必须与生成器当前输出逐字节一致（活文档不陈旧）。"""
-    doc_path = REPO / "docs" / "catalog.md"
+    """仓库内 knowledge/contracts/catalog.md 必须与生成器当前输出逐字节一致（活文档不陈旧）。"""
+    doc_path = REPO.parent / "knowledge" / "contracts" / "catalog.md"
     if not doc_path.is_file():  # 文件尚未提交——实现阶段生成；此处先红
-        pytest.fail("docs/catalog.md 缺失：文档正文与生成器不同步")
+        pytest.fail("knowledge/contracts/catalog.md 缺失：文档正文与生成器不同步")
     assert doc_path.read_text(encoding="utf-8") == render_catalog_markdown()

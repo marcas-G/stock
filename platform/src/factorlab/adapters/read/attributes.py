@@ -14,7 +14,7 @@
 （可用清单已并入属性面）。
 
 note: 库中属性当前值（非 PIT）语义——industry 等静态属性以 stock_basic 现值近似，
-不做历史追溯（design §5.4），见 docs/interface.md。
+不做历史追溯（design §5.4），见 knowledge/contracts/interface.md。
 """
 
 from __future__ import annotations

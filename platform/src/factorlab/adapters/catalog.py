@@ -13,7 +13,7 @@
   对照测试真实存在），tests 引用 tests/<file>.py::<test>。
 - known_approximations：已知近似（design §7 三条逐字语义）。
 
-目录正文 = render_catalog_markdown() 输出（docs/catalog.md 逐字节同源，防陈旧）；
+目录正文 = render_catalog_markdown() 输出（knowledge/contracts/catalog.md 逐字节同源，防陈旧）；
 JSON = catalog_json()（确定性别名导出）。
 """
 
@@ -680,7 +680,7 @@ def build_catalog() -> dict:
                  "属性 attributes 列 + 算子 + def 组合规范 + 命名类约定 + 关闭面三类墙 + 错误修复手册）。"
                  "数据全开放——目录是活文档不是校验门：任何真实存在的读面列/字段/新算子都自由，"
                  "无字段白名单（可用列随当前数据面实探），纪律只做名字类检查（未来前缀/内部保留名）",
-        "source_ref": "docs/superpowers/specs/2026-09-06-factorlab-dsl-shape-design.md"
+        "source_ref": "knowledge/design/platform/specs/2026-09-06-factorlab-dsl-shape-design.md"
                       "（§5.3 关闭面三类墙、§5.4 活文档、§6 G4/G5 差距行、§7 已知近似）",
         "open_surface": open_surface,
         "closed_gates": [row for row in gates if row["category"] in WALLS],
@@ -756,7 +756,7 @@ def catalog_json(cat: dict | None = None) -> str:
 
 
 def render_catalog_markdown(cat: dict | None = None) -> str:
-    """目录正文（docs/catalog.md 与之逐字节一致——活文档不陈旧）。"""
+    """目录正文（knowledge/contracts/catalog.md 与之逐字节一致——活文档不陈旧）。"""
     cat = cat if cat is not None else build_catalog()
     ops = cat["open_surface"]["operators"]
     lines: list[str] = []

@@ -444,7 +444,7 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
         raise ValueError(
             f"run_factor 只接日频 interface: daily 的 spec（收到 {spec.interface!r}"
             f"——interface: bars_1m 的分钟模板请走 run_factor_minute，见 "
-            f"docs/interface.md 分钟面）")
+            f"knowledge/contracts/interface.md 分钟面）")
     if spec.factors is not None:
         raise NotImplementedError("多因子 factors/combine 组合不在平台范围（平台定位单因子计算与评估）")
     formula, pool = prepare_formula_pipeline(spec)  # 展开链（打开数据库前完成，见 helper docstring）
@@ -742,7 +742,7 @@ def _warn_minute_uncovered(uncovered: pl.DataFrame) -> None:
         f"{str(uncovered['date'].min())}..{str(uncovered['date'].max())}），"
         f"FACTORLAB_MINUTE_UNCOVERED=drop 已显式从分钟宇宙剔除该日——"
         f"分钟源存在幸存者偏差，结果口径不可与完整覆盖混比；"
-        f"审计见 summary.minute_uncovered / docs/interface.md 分钟覆盖口径。",
+        f"审计见 summary.minute_uncovered / knowledge/contracts/interface.md 分钟覆盖口径。",
         MinuteUncoveredWarning, stacklevel=2)
 
 
@@ -793,7 +793,7 @@ def _run_factor_minute(spec, ctx: RunContext,
     if adjustment != "raw":
         raise ValueError(
             f"interface: bars_1m 只接受 adjustment: raw（分钟面 raw 不复权事实"
-            f"契约；收到 {adjustment!r}——见 docs/interface.md 分钟面）")
+            f"契约；收到 {adjustment!r}——见 knowledge/contracts/interface.md 分钟面）")
     if ctx.data_backend == "duckdb":
         raise ValueError("bars_1m 分钟面仅 ClickHouse 后端提供（duckdb 平台文件"
                          "无 intraday 表）")

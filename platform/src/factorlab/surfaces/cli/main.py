@@ -517,7 +517,7 @@ def catalog_dump(out: Path | None = typer.Option(None, "--out",
 @catalog_app.command("docs")
 def catalog_docs(out: Path | None = typer.Option(None, "--out",
                                                  help="输出文件路径（缺省打 stdout）")) -> None:
-    """目录正文 markdown（与 docs/catalog.md 同源生成——活文档防陈旧）。"""
+    """目录正文 markdown（与 knowledge/contracts/catalog.md 同源生成——活文档防陈旧）。"""
     payload = render_catalog_markdown()
     if out is None:
         typer.echo(payload)

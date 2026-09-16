@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # R05-C1（P0 事故：3 年分钟链触发主机内存耗尽）：**进程级**内存护栏——
     # 与 default_max_memory（DuckDB 连接上限）不同，二者都未设 = 护栏不启用
     # （零行为变化）。支持 "8GB"/"512MB"/纯字节数；显式 max_memory 时 CLI 同时
-    # 落 RLIMIT_AS 硬上限。推荐值/语义见 platform/docs/interface.md §1 内存护栏。
+    # 落 RLIMIT_AS 硬上限。推荐值/语义见 knowledge/contracts/interface.md §1 内存护栏。
     max_memory: str | None = None  # FACTORLAB_MAX_MEMORY：进程 RSS 上限
     min_available_memory: str | None = None  # FACTORLAB_MIN_AVAILABLE_MEMORY：系统可用内存下限
     default_chunk_size: int = 1000

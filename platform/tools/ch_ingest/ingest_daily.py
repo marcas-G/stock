@@ -5,7 +5,7 @@
   round((prev_close - div_cash/10 + rights_price×rights_num/10)
         / (1 + div_bonus/10 + div_transfer/10), 2)（half-up；单位：元或股/10股）。
   组内首行 NULL。change = close - pre_close；pct_chg = (close/pre_close-1)*100。
-  ——R01-TOOLS-DATA-C2：raw 前收与 platform/docs/catalog.md「除权参考价」承诺不符；
+  ——R01-TOOLS-DATA-C2：raw 前收与 knowledge/contracts/catalog.md「除权参考价」承诺不符；
   300842.SZ 2024-04-10 验算 (70.9-0.8)/1.4=50.07。
 - total_mv = close × total_shares（源 total_shares 单位=万股 → 万元 tushare 口径）。
   ——R01-TOOLS-C1：旧版多除 1e4。

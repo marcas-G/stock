@@ -16,7 +16,7 @@ description: 挖因子循环。随机选一个已入库因子为种子，分析�
 ## 前置检查
 
 1. 因子库非空：`ls research/docs/factors/*/*.md`（家族子目录；模板在 `research/docs/factors/_template.md`），空则报错并停止。
-2. 平台数据可用：`FACTORLAB_DATA_BACKEND=ch $FLAB list` 不报错。平台 duckdb 库（`data/factorlab.duckdb`）不存在，**当前唯一可用读后端是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）；CH 无 `stock_st` 表时 `exclude_st` 默认 fail fast，显式降级开关与挖矿口径见 `platform/docs/interface.md` §4.2（`FACTORLAB_ST_DEGRADE=allow`）。
+2. 平台数据可用：`FACTORLAB_DATA_BACKEND=ch $FLAB list` 不报错。平台 duckdb 库（`data/factorlab.duckdb`）不存在，**当前唯一可用读后端是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）；CH 无 `stock_st` 表时 `exclude_st` 默认 fail fast，显式降级开关与挖矿口径见 `knowledge/contracts/interface.md` §4.2（`FACTORLAB_ST_DEGRADE=allow`）。
 3. 每轮开工前向用户播报：`第 k/N 轮：种子=<seed>`，然后继续（不等待）。
 
 ## CLI 调用方式（重要）
@@ -69,8 +69,8 @@ assumption-review.md §0。
 ### 3. 假设审核（每条判定：成立 / 可疑 / 证伪 / 可精确化）
 
 - **语义矛盾**：假设间互斥？与平台语义冲突？（TS/CS 分区、防未来、方向语义——
-  见 `platform/docs/interface.md` §DSL 语义与防未来、`research/docs/factor-mining-playbook.md` §3.3）
-- **数据可实现**：字段存在性（`platform/docs/interface.md` §数据字段；可查 CH 临时库/生产库
+  见 `knowledge/contracts/interface.md` §DSL 语义与防未来、`research/docs/factor-mining-playbook.md` §3.3）
+- **数据可实现**：字段存在性（`knowledge/contracts/interface.md` §数据字段；可查 CH 临时库/生产库
   `platform/.venv/bin/python -c "from factorlab.adapters import ch_read; print([r[0] for r in ch_read.query_rows(\"SELECT name FROM system.columns WHERE database='factorlab' AND table='daily'\")])"`）、
   窗口长度 vs 历史（数据自 2000-01-04）、缺失率预估（种子档案 signal_null_ratio 参照）。
 - **证据**：种子档案 §4 验证数据（IC/t/近 26 周/分层）+ 已知市场异象知识。
@@ -94,7 +94,7 @@ assumption-review.md §0。
 - 写 `research/factor/<族>/<name>.yaml`（族见 `research/factor/_families.yaml`），结构变异 = 新 spec（**不用 `--set`**；
   `--set` 仅用于同结构参数扫描）。
 - 语义↔代码映射表：每条变异语义 → 公式行（写在变异点记录里）。
-- 沿用平台自由代码公式（def/参数化，见 `platform/docs/interface.md` §formula 与
+- 沿用平台自由代码公式（def/参数化，见 `knowledge/contracts/interface.md` §formula 与
   `research/factor/vol_run_energy/vol_run_energy.yaml` 范例）。direction 语义要与变异后假设一致。
 
 ### 6. 代码审核（独立 subagent）
@@ -108,7 +108,7 @@ general-purpose subagent，输入：变异点记录 + `research/factor/<族>/<na
 ```bash
 FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
 # 报 "exclude_st 需要 stock_st 表" 时：CH 无 stock_st（挖矿口径，见
-# platform/docs/interface.md §4.2）——加 FACTORLAB_ST_DEGRADE=allow 显式降级重跑：
+# knowledge/contracts/interface.md §4.2）——加 FACTORLAB_ST_DEGRADE=allow 显式降级重跑：
 # FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow $FLAB run research/factor/<族>/<name>.yaml
 ```
 

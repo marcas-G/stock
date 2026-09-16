@@ -5,7 +5,7 @@ TS/CS/GP 分区 + 池公式 + 多输出）、分块计算、日频/分钟双链�
 分层回测、Web 可视化、M7 策略组合、M8 执行运行时、PIT 正确性收口、读路径双后端
 （DuckDB 平台库 | ClickHouse）。
 
-**权威文档**：`docs/interface.md`（CLI/Spec/DSL/Python API 全量）+ `docs/catalog.md`
+**权威文档**：`../knowledge/contracts/interface.md`（CLI/Spec/DSL/Python API 全量）+ `../knowledge/contracts/catalog.md`
 （列/算子活目录）。本 README 只给入口。
 
 ## 快速开始
@@ -31,7 +31,7 @@ bash ../scripts/reinstall_editable.sh
 | `factorlab serve` | Web 可视化（FastAPI） |
 | `factorlab op list\|doc\|add\|remove` | 算子注册表管理 |
 | `factorlab data rebuild\|refresh\|update\|verify` | 平台库（DuckDB）数据链 |
-| `factorlab catalog dump\|docs` | 列/算子活目录（docs/catalog.md 同源生成） |
+| `factorlab catalog dump\|docs` | 列/算子活目录（`../knowledge/contracts/catalog.md` 同源生成） |
 
 ## 数据后端
 
@@ -49,4 +49,4 @@ bash ../scripts/reinstall_editable.sh
 - **`tools/` 是数据生产线工具集**（R27 从 `research/tools/` 归位；转换/灌库/LOB/下载/池分层等），
   测试用平台 venv：`.venv/bin/python -m pytest tools -q`（或根目录 `make test-research`）。
 - 任何代码改动遵循 TDD（先失败测试再加实现），提交前全量 `pytest -q` 通过；
-  文档与实现同步（`docs/interface.md` / `docs/catalog.md`）。
+  文档与实现同步（`../knowledge/contracts/interface.md` / `../knowledge/contracts/catalog.md`）。

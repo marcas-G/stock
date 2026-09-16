@@ -87,7 +87,7 @@ def compute_minute_factor_panel(
                if c not in bars.columns]
     if missing:
         raise ValueError(f"bars_1m 面板缺列: {missing}（需 date/code/minute_index"
-                         f"——读面见 docs/interface.md 分钟面）")
+                         f"——读面见 knowledge/contracts/interface.md 分钟面）")
     if bars.schema["date"] != pl.Date:
         raise ValueError(f"bars_1m 网格不完整/跨日泄漏疑似：date 必须 pl.Date"
                          f"（实际 {bars.schema['date']}——读面解码或跨日泄漏）")
@@ -120,14 +120,14 @@ def compute_minute_factor_panel(
             raise ValueError(
                 "公式引用 has_trade（该分钟有真实成交 = amount > 0 派生列），但"
                 " bars_1m 面板缺 amount 列——has_trade 派生需分钟成交额；读面见 "
-                "docs/interface.md 分钟面")
+                "knowledge/contracts/interface.md 分钟面")
         bars = bars.with_columns((pl.col("amount") > 0).alias("has_trade"))
     unknown = [c for c in refs if c not in bars.columns]
     if unknown:
         raise ValueError(
             f"公式引用未知列: {unknown}（bars_1m 可用列: "
             f"{[c for c in bars.columns if not c.startswith('__')]}"
-            f"——bars 分钟面列 + 日级注入列见 docs/interface.md 分钟面）")
+            f"——bars 分钟面列 + 日级注入列见 knowledge/contracts/interface.md 分钟面）")
     g = bars.group_by(["date", "code"]).agg(
         pl.len().alias("n"),
         pl.col("minute_index").n_unique().alias("u"),
