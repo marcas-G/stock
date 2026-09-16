@@ -425,6 +425,7 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
     R05-C1（P0 内存事故）：显式 `FACTORLAB_MAX_MEMORY`/`FACTORLAB_MIN_AVAILABLE_MEMORY`
     时启用进程内存看门狗（chunk 边界协作检查 → `MemoryLimitExceeded` 干净中止，
     落盘前中止即无半成品）；未设 = 零行为变化（见 app/memory.py）。"""
+    _ensure_assembly()   # 公共入口防御性装配（R05-C1 拆分后入口不变量由测试锁定）
     wd = memory_watchdog_from_settings()
     if wd is not None:
         wd.start()
@@ -758,6 +759,7 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
     R05-C1（P0 内存事故）：显式巨大 chunk/未分块长窗按静态估算告警/拒绝
     （guard_minute_chunk_days）；显式 `FACTORLAB_MAX_MEMORY` 时另启进程内存
     看门狗（chunk 边界协作检查 → 干净中止）。"""
+    _ensure_assembly()   # 公共入口防御性装配（R05-C1 拆分后入口不变量由测试锁定）
     wd = memory_watchdog_from_settings()
     if wd is not None:
         wd.start()
