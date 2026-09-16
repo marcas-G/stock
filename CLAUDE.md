@@ -1,6 +1,7 @@
 # stock 工作区项目指南（单仓单树，2026-09-15 起）
 
-一个仓库、三棵树：`platform/`（平台代码）· `research/`（因子与工具）· `docs/`（文档）。
+一个仓库：`platform/`（平台代码）· `research/`（因子与工具）· `knowledge/`（文档与知识）·
+`governance/`（治理与证据）。所有代码与文档都在版本控制内；`data/`/`runs/`/`_archive/` 只在本地。
 **旧的双分支纪律（main=平台 / research=研究）已退役**——现在按**目录**分权，不再按分支。
 
 ## 硬性要求
@@ -11,7 +12,8 @@
   提交前缀用平台语义：`feat(engine)` / `fix(adapters)` / `docs(interface)` / `refactor(core)`。
 - **`research/`** 只收研究内容：`research/factor/`、`research/tools/`（剩余：`strategies/`、`factor_lib/`）、`research/strategy/`（档案 R24 起在 `knowledge/dossiers/`）。
   提交前缀用研究语义：`feat(factor)` / `feat(tools)` / `docs(factors)`。
-- **`docs/`**（根）只收工作区级文档与验证证据。
+- **`knowledge/`** 只收文档与知识（契约/设计/档案/手册/索引）；**`governance/`** 收门与脚本、工作区约定（`workspace/`）、验证与评审证据（`evidence/`）。
+  R24 起根 `docs/` 已迁入上述两处（映射见 `governance/workspace/migration-r04.md`）。
 - 一次改动同时涉及多棵树 → **分目录分别提交**（一个提交只描述一棵树的改动）。
 - `data/`、`_archive/`、`runs/` **永不入库**（根 `.gitignore` 白名单 + 显式忽略三重保护）。
 
@@ -27,9 +29,11 @@
 **测试**：
 - TDD：先写失败测试再实现；覆盖正常/边界/错误路径；断言真实行为，不用 mock 糊弄。
 - 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**。
-- 提交前跑对应测试：平台 `cd platform && .venv/bin/python -m pytest -q`（基线 **3099 passed / 13 skipped**，
-  R23/R27 两次实测一致）；工具/研究 `make test-research`（= `platform/tools` **337** + `research/tools` **35**；
-  **单解释器**（平台 venv 3.13），R27 实测，清单与迁移前 372 逐一相同）。
+- 提交前跑对应测试：平台 `cd platform && .venv/bin/python -m pytest -q`（最近基线 **3150 passed / 13 skipped**，
+  2026-09-16 R24 采集，原始输出 `governance/evidence/verification/R24/00-baseline/platform-pytest.txt`；
+  新基线以最新一轮 `governance/evidence/verification/R2x/` 为准）；工具/研究 `make test-research`
+  （= `platform/tools` **337** + `research/tools` **58 passed / 2 skipped**，R24 验收实测：
+  `governance/evidence/verification/R24/12-acceptance/test-research.txt`；**单解释器**（平台 venv 3.13））。
   （旧 T1/T2 两腿口径（emb + 平台 venv）已退役；`emb` 不再是工具依赖。）
 - 工具拓扑门：`python governance/ops/check_tool_layering.py`（core 不反依赖 / 生产不带诊断 /
   工具不互相 import / lib 是叶子）+ `--selftest`。
@@ -70,4 +74,4 @@ surfaces(cli,web) → app(装配) → ports(6 契约) → core(纯核)
 - 评估内核 `quant_core`（shim）自 R18 起在 **`platform/kernels/quant_core/`**（内核发行物唯一声明点，
   仅装入 `platform/.venv`；emb 不装）。重装 + 落位断言：`bash governance/ops/reinstall_editable.sh`。
 - `projects/` 已随 R24 Task 11 归档移除：`_archive/2026-09-16-ashare-alpha3/`（R19/R20 已收编；2026-10-16 到期）。**新东西一律进三棵树。**
-- lob_fact 校准常量（W1 冻结值 + `pins.sha256` 金样）**不可改**：改动即让 191 测试与历史结论失效。
+- lob_fact 校准常量（W1 冻结值 + `pins.sha256` 金样）**不可改**：改动即让 192 测试与历史结论失效。

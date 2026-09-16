@@ -1,0 +1,31 @@
+# R04-Q6 死符号删除 — 删除后引用复查（cwd=/data/students/gaolei/stock，2026-09-16）
+# 命令模板：git grep -n <sym> -- ':!governance/evidence' ':(exclude)_archive' ':!runs'
+
+== bars_columns
+   (0 refs)
+== lob_columns
+   (0 refs)
+== BARS_1M_REQUIRED
+   (0 refs)
+== ensure_output_dirs
+   (0 refs)
+== entry_weeks
+   (0 refs)
+== first_trade_dates_by_month
+   (0 refs)
+== query_1m
+   (0 refs)
+== SZ_POOL
+   (0 refs)
+== SH_POOL
+   (0 refs)
+
+== delisted_codes（函数名；.parquet 字符串引用为合法数据文件名，不算函数引用）
+   (0 函数 refs)
+
+== platform_head（保留：REQ-Q-011 文档性 API，非删除项）
+knowledge/design/platform/specs/2026-09-12-mining-system-refactor-design.md:165:`../quant-platform-main/src` 并**运行时断言** `factorlab.__file__` 落位；`platform_head()` 记录
+knowledge/design/platform/specs/2026-09-12-mining-system-refactor-design.md:213:（干净门 + platform_head）。
+platform/tools/_env.py:10:运行产物如需可追溯性，用 `platform_head()` 记录仓库根 HEAD（REQ-Q-011）。
+platform/tools/_env.py:46:def platform_head() -> str:
+research/README.md:47:长任务运行前：`git -C .. status --porcelain` 必须为空；运行产物用 `platform_head()` 记录共享核版本。

@@ -1,0 +1,6 @@
+== before ==
+pycache_dirs_all=894
+pycache_dirs_outside_venv=80
+pycache_KB=157440
+pytest_cache_dirs=4
+pytest_cache_KB=488

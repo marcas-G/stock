@@ -1,6 +1,6 @@
 # stock —— 策略挖掘工作区（单仓单树）
 
-一个仓库、三棵树、一份本地数据。所有代码与文档都在版本控制内；**数据与运行产物只在本地**（`data/` 353G，gitignore）。
+一个仓库、三棵树、一份本地数据。所有代码与文档都在版本控制内；**数据与运行产物只在本地**（`data/` 体量随灌入变化，权威见 [governance/workspace/data-map.md](governance/workspace/data-map.md)；2026-09-16 快照 ≈353G，gitignore）。
 
 > **R24 顶层目录重整（方案 A，2026-09-16）**：文档与知识 → `knowledge/`、治理与证据 →
 > `governance/`、运行产物 → `runs/`；代码树（`platform/`、`research/`）与 `data/` 零位移。
@@ -15,7 +15,7 @@ stock/                     ← 仓库根（治理薄层，白名单定稿 14 项
 ├── governance/            治理与证据：门与脚本（ops/）、工作区约定（workspace/）、
 │                          验证与评审（evidence/）
 ├── runs/                  【本地】运行产物（runs/platform/<名>/，不入库）
-├── data/                  【本地】事实库与原始数据（353G，不入库）
+├── data/                  【本地】事实库与原始数据（不入库；体量与清单见 data-map）
 └── _archive/              【本地】30 天归档区（不入库）
 ```
 
@@ -50,9 +50,9 @@ FACTORLAB_DATA_BACKEND=ch .venv/bin/factorlab run ../research/factor/<族>/<名>
 ## 跑测试与门
 
 ```bash
-make test-platform        # 平台全量（约 13 分钟）
-make test-research        # 工具/研究测试（单解释器：平台 venv 3.13）
-make gates                # 结构/契约/标记/旧路径/索引 全套常驻门（governance/ops/gates.sh）
+make test-platform        # 平台全量（约 13 分钟；最近基线 3150/13 见 governance/evidence/verification/R24/00-baseline/）
+make test-research        # 工具/研究测试（单解释器：平台 venv 3.13；最近实测 337 + 58/2skip 见 R24/12-acceptance/）
+make gates                # 结构/契约/标记/旧路径/索引/台账口径 全套常驻门（governance/ops/gates.sh）
 ```
 
 ## 环境事实（容易踩的坑）

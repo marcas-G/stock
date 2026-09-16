@@ -51,7 +51,7 @@ formula: |
 
 ## 4. 验证结果（策略层，K=30 等权 + 段首缓冲 + 跌停过滤 + 成本）
 
-> 快照自 `tools/strategy_crash_bottom.py`（2026-08-18）。
+> 快照自 `research/tools/strategies/strategy_crash_bottom.py`（2026-08-18；R04-Q6 校正：原 `tools/strategy_crash_bottom.py`，SP/TM 迁移后策略工具留 `research/tools/strategies/`）。
 
 | 指标 | 本变体（-6%） | 种子（-8%） |
 |------|--------------|-------------|

@@ -7,11 +7,11 @@
 
 | 路径 | 内容 |
 |---|---|
-| `factor/<族>/<短名>.yaml` | **152 个因子 spec**（14 族；族规则 `factor/_families.yaml`；索引 `../knowledge/index/factors.md`）|
+| `factor/<族>/<短名>.yaml` | **167 个因子 spec**（15 族，2026-09-16 现测快照；数量随挖矿增长；族规则 `factor/_families.yaml`；索引 `../knowledge/index/factors.md`，`build_index.py --check` 门校准）|
 | `../knowledge/dossiers/factors/<族>/<短名>.md` | 因子档案（与 yaml **同族同短名**镜像；`xname` == spec.name）。R24 起档案单点迁 `knowledge/dossiers/`。**R21 起验证数字标 `snapshot: 历史快照`**（产物未入库、当前不可复跑，口径见 `../knowledge/dossiers/factors/README.md`）|
 | `../knowledge/dossiers/strategies/` | 策略档案（含结论：崩底反弹已实现、死等股灾已证伪）|
 | `../knowledge/dossiers/factor-mining-playbook.md` | 挖因子 playbook |
-| `knowledge/design/platform/` | **研究独有**的 spec/plan（平台 spec 在 `../knowledge/design/platform/`，单副本）|
+| `../knowledge/design/research/` | **研究独有**的 spec/plan（平台 spec 在 `../knowledge/design/platform/`，单副本）|
 | `../platform/tools/lib/` | 数据生产线共享库（R27 归位）：`tickdata`（读单点薄封装）· `writekit`（标记·锁·state·原子写·流式月写入器）· `tickkit`（转换小件）· `monthflow`（月分片写入骨架）|
 | `../platform/tools/lob_fact/` | tick 订单簿重建工具链（引擎/锚定/因子面板/批算/QA/校准；192 tests + 金样 pins）|
 | `../platform/tools/ch_ingest/` | 事实库 → ClickHouse 灌入与对账（**唯一对账入口** `reconcile.py`）；职责三分：`ch_source`（源侧只读）/ `ch_state`（断点）/ `ch_write`（灌入+编排+对账），`ingest_common` 只转发 |
@@ -22,11 +22,11 @@
 | `../platform/tools/universe_stages/` | 股票池分层（R20 收编）：按因子值多级构建股票池（layer1-3 + 10/11/20/30/40）|
 | `tools/strategies/` | 策略回测脚本（crash_bottom / wait_crash）——留研究（策略 = 成果）|
 | `tools/factor_lib/` | 因子库工具：`plan_rename`（族改名计划）/`build_index`（索引生成 + `--check` 门）——留研究（写死研究树因子库/档案路径）|
-| `platform/tools/*/tests/` + `tools/*/tests/` | 各工具测试（**R27 实测**，单解释器）：`platform/tools` **337**（`lob_fact` 192（金样 pins）· `ch_ingest` 37 · `universe_stages` 30 · `lib` 28 · `ashare_ingest` 25 · `converters` 11 · `quark_download` 9 · `1m_features` 5）；`research/tools` **35**（`strategies` 30 · `factor_lib` 5） |
+| `platform/tools/*/tests/` + `tools/*/tests/` | 各工具测试（**单解释器现测**，2026-09-16）：`platform/tools` **337**（`lob_fact` 192（金样 pins）· `ch_ingest` 37 · `universe_stages` 30 · `lib` 28 · `ashare_ingest` 25 · `converters` 11 · `quark_download` 9 · `1m_features` 5）；`research/tools` **60 collected = 58 passed / 2 skipped**（`strategies` 47 · `factor_lib` 13）。原始输出 `../governance/evidence/verification/R24/12-acceptance/test-research.txt` |
 
 ## 共享核与解释器（重要）
 
-平台源码的**唯一副本**在 `../platform/src`。工具引用平台经 `tools/_env.py` 做**落位断言**
+平台源码的**唯一副本**在 `../platform/src`。工具引用平台经 `../platform/tools/_env.py` 做**落位断言**
 （解析到别处即 RuntimeError；单解释器下只作防错内核）。
 
 **单解释器（2026-09-16 R27 起）**：全部工具与测试统一用 `../platform/.venv/bin/python`
@@ -36,9 +36,9 @@
 ## 测试
 
 ```bash
-# 工具/研究全量（单解释器；实测基线 372 passed，2026-09-16 R27；= make test-research）
+# 工具/研究全量（单解释器；最近验收实测 337 + 58/2skip，2026-09-16 R24；= make test-research）
 platform/.venv/bin/python -m pytest platform/tools -q     # 337（数据生产线，R27 归位）
-platform/.venv/bin/python -m pytest research/tools -q     # 35（strategies/factor_lib）
+platform/.venv/bin/python -m pytest research/tools -q     # 58 passed / 2 skipped（strategies 47 · factor_lib 13）
 
 # 分钟面 × 本地 parquet 逐值对拍（真 CH）
 FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python platform/tools/1m_features/run_1m_feature.py check-day 2024-01-15

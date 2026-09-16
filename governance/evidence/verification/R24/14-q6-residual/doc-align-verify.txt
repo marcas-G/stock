@@ -1,0 +1,31 @@
+# R04-Q6 数字/断链对齐 — 验证记录（2026-09-16）
+
+## 数字现测（命令 + 结果）
+$ platform/.venv/bin/factorlab lint --all | tail -1
+factor lint: 167 通过 / 0 失败
+$ grep -c '^  [a-z_]*:' research/factor/_families.yaml  # 族数
+15
+$ pytest platform/tools -q | tail -1   # 337
+337 passed in 48.78s
+$ pytest research/tools -q | tail -1  # 60 collected；当前 2 failed 为挖矿在途（netflow_vol.yaml 无档案，见 test-research-after.txt），R24 验收时为 58 passed / 2 skipped
+2 failed, 56 passed, 2 skipped in 2.12s
+
+## 断链修复核实（test -e）
+  ✓ platform/tools/lob_fact/pipeline/run_lob_batch.py
+  ✓ platform/tools/lob_fact/pipeline/extract_sz_cancels.py
+  ✓ research/tools/strategies/strategy_crash_bottom.py
+  ✓ platform/tools/_env.py
+  ✓ knowledge/design/research
+  ✓ knowledge/design/platform/specs/2026-09-09-tick-lob-fact-design.md
+  ✓ knowledge/design/platform/specs/2026-09-07-factorlab-resic-design.md
+  ✓ knowledge/design/platform/specs/2026-09-12-mining-system-refactor-design.md
+  ✓ governance/evidence/verification/R24/00-baseline/platform-pytest.txt
+  ✓ governance/evidence/verification/R24/12-acceptance/test-research.txt
+
+## 勘误行核实（grep）
+knowledge/design/platform/specs/2026-09-09-tick-lob-fact-design.md:7:> **R04 勘误（2026-09-16）**：本文路径为 2026-09-09 快照；`extract_sz_cancels.py`
+knowledge/design/platform/specs/2026-09-09-tick-lob-fact-design.md:10:> **R27 勘误（2026-09-16）**：工具归位后 `extract_sz_cancels.py` 落位
+knowledge/design/platform/specs/2026-09-07-factorlab-resic-design.md:8:> **R04 勘误（2026-09-16）**：本文路径为 2026-09-07 快照；`cross_section.py` 现落位
+knowledge/design/platform/specs/2026-09-12-mining-system-refactor-design.md:8:> **R04 勘误（2026-09-16）**：本文路径为 2026-09-12 快照；lob_fact 的 `config.py` 现落位
+knowledge/design/platform/specs/2026-09-12-mining-system-refactor-design.md:12:> **R27 勘误（2026-09-16）**：工具归位后 `config.py` 落位 `platform/tools/lob_fact/core/config.py`
+54:> 快照自 `research/tools/strategies/strategy_crash_bottom.py`（2026-08-18；R04-Q6 校正：原 `tools/strategy_crash_bottom.py`，SP/TM 迁移后策略工具留 `research/tools/strategies/`）。

@@ -5,12 +5,13 @@ PLATFORM_PY := platform/.venv/bin/python
 .PHONY: help test-platform test-research test-all gates lint-factors index reconcile clean
 
 help:
-	@echo "make test-platform   平台全量测试（约 13 分钟；基线见 governance/evidence/verification/R27/）"
+	@echo "make test-platform   平台全量测试（约 13 分钟；最近基线见 governance/evidence/verification/R24/00-baseline/）"
 	@echo "make test-research   工具/研究测试（单解释器：平台 venv 3.13）"
-	@echo "make gates           全套常驻门（结构/契约/标记/旧路径/索引/文档路径）"
+	@echo "make gates           全套常驻门（结构/契约/标记/旧路径/索引/文档路径/台账口径）"
 	@echo "make lint-factors    全库因子 spec lint（单进程批跑；任一失败非零退出）"
 	@echo "make index           重生成 knowledge/index/factors.md + knowledge/index/strategies.md"
 	@echo "make reconcile       CH 灌入对账（唯一对账入口；依赖 ClickHouse 在线）"
+	@echo "make clean           清理 __pycache__ / .pytest_cache（本地缓存，可再生）"
 
 test-platform:
 	cd platform && .venv/bin/python -m pytest -q
@@ -37,3 +38,4 @@ reconcile:
 
 clean:
 	find . -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
+	find . -name .pytest_cache -type d -prune -exec rm -rf {} + 2>/dev/null || true
