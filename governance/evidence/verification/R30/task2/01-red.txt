@@ -1,0 +1,20 @@
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests/test_share.py -q
+
+
+==================================== ERRORS ====================================
+____________ ERROR collecting tools/pan_update/tests/test_share.py _____________
+ImportError while importing test module '/data/students/gaolei/stock/platform/tools/pan_update/tests/test_share.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tools/pan_update/tests/test_share.py:7: in <module>
+    from pan_update import config, share
+E   ImportError: cannot import name 'share' from 'pan_update' (/data/students/gaolei/stock/platform/tools/pan_update/__init__.py)
+=========================== short test summary info ============================
+ERROR platform/tools/pan_update/tests/test_share.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.12s
+
+[exit=2]

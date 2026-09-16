@@ -1,0 +1,13 @@
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests/test_share.py -q
+
+.......                                                                  [100%]
+7 passed in 0.05s
+
+[exit=0]
+
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests -q
+
+..............                                                           [100%]
+14 passed in 0.05s
+
+[exit=0]
