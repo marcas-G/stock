@@ -281,17 +281,12 @@
     或明细行缺失/全 0-NULL / 负值事件列 / 事件命中停牌持仓 / 明细非有限值 / 事件 code 不在
     PRE 持仓——均 `ExecutionDataQualityError` 拒绝（不得静默放行）。
 
-29. ✅ **2026-09-16 完成（R07-DATA-I4）**：`daily_basic.circ_mv` 已派生灌入
-    （`float_shares × close / 1e4`，万元口径，与 total_mv 同式；`ingest_daily.py`）——
-    2026-09-16 CH 实测 16,873,795 / 18,124,805 行非空，原"全空 → 10 spec×4 族静默 null"消除；
-    契约见 `knowledge/contracts/interface.md`（commit `73f30f6`）；证据
-    `governance/evidence/verification/R29/contracts/06-counts-measured.txt`。
-    残余：`pe_ttm/pb/dv_ratio/volume_ratio` 4 列仍占位空列（无数据源，见 interface §4 注）。
-
-28. ✅ **2026-09-16 完成：`daily_basic.circ_mv` 派生重灌（R07-DATA-I4）**
+29. ✅ **2026-09-16 完成：`daily_basic.circ_mv` 派生重灌（R07-DATA-I4）**
     `ingest_daily.py` 派生 `circ_mv = close×float_shares`（万元）；CH 单表重灌
-    18,124,805 行，非空 0 → 16,873,795，`reconcile daily` exit 0；R29 抽样 3 spec
-    复跑 `signal_null_ratio` 1.0 → ≤0.01、n_weeks 0 → 182、IC 可算。
-    commit `18e8531`；证据 `governance/evidence/verification/R24/17-r07-fixes/data-i4/`
-    + `governance/evidence/verification/R29/data/`。
+    18,124,805 行，非空 0 → 16,873,795（2026-09-16 实测），`reconcile daily` exit 0；
+    R29 抽样 3 spec 复跑 `signal_null_ratio` 1.0 → ≤0.01、n_weeks 0 → 182、IC 可算。
+    commit `18e8531`；契约 `knowledge/contracts/interface.md`（`73f30f6` 同步）；
+    证据 `governance/evidence/verification/R24/17-r07-fixes/data-i4/`
+    + `governance/evidence/verification/R29/data/`（派生/复跑）
+    + `governance/evidence/verification/R29/contracts/06-counts-measured.txt`（非空计数复测）。
     残余：`pe_ttm/pb/dv_ratio/volume_ratio` 4 列仍为占位空列（无数据源，不 advertise）。
