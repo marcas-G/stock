@@ -44,3 +44,8 @@ ls: 无法访问'results': 没有那个文件或目录
 [5] 残余风险
   活跃挖矿会话（最近一次 run 21:33，坐标已在 runs/platform）若按旧上下文再写根 results/，
   按本轮同法迁回；write-point（技能/脚本/设置）已零残留。
+
+[6] RunContext/settings 复核（R06-M8）
+$ grep -n "results_dir" platform/src/factorlab/config.py platform/src/factorlab/app/context.py
+platform/src/factorlab/config.py:39:    results_dir: Path = _REPO_ROOT / "runs" / "platform"  # FACTORLAB_RESULTS_DIR 可覆盖；run --output-dir 缺省根目录
+platform/src/factorlab/app/context.py:27:    output_dir: Path = settings.results_dir  # R06-M8：跟随运行产物单点（settings.results_dir）
