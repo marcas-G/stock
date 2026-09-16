@@ -1,0 +1,17 @@
+
+==================================== ERRORS ====================================
+______ ERROR collecting tools/ch_ingest/tests/test_ingest_fundamentals.py ______
+ImportError while importing test module '/data/students/gaolei/stock/platform/tools/ch_ingest/tests/test_ingest_fundamentals.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tools/ch_ingest/tests/test_ingest_fundamentals.py:27: in <module>
+    from lib import fundamentals as LF  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   ImportError: cannot import name 'fundamentals' from 'lib' (/data/students/gaolei/stock/platform/tools/lib/__init__.py)
+=========================== short test summary info ============================
+ERROR platform/tools/ch_ingest/tests/test_ingest_fundamentals.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.36s

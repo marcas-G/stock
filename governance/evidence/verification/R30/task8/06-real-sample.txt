@@ -1,0 +1,9 @@
+$ platform/.venv/bin/python governance/evidence/verification/R30/task8/real_sample_probe.py
+样本：fin_basic.xlsx
+解析：5556 行；丢弃 updated_date 缺失 16 行
+后缀分布：{'BJ': 341, 'SH': 2316, 'SZ': 2899}
+updated_date：38 个（2026-07-16 .. 2026-09-03）
+首行：000001.SZ 2026-08-15 net_profit=25696000.0
+fact 写入：/tmp/opencode/pansample/fact_probe/fundamentals_snapshot.parquet（5556 行；.prev 存在=False）
+二次覆盖写：current=10 prev=5556（旧版轮换，只留 1 份）
+探针通过

@@ -1,0 +1,19 @@
+CAUGHT  rc=1  lib: 总股本/流通A股 映射互换
+CAUGHT  rc=1  lib: ts_code_of 忽略市场列（优先级丢失）
+CAUGHT  rc=1  lib: ts_code_of 缺市场回退禁用
+CAUGHT  rc=1  parse: 丢 updated_date 缺失行过滤（保留占位行）
+CAUGHT  rc=1  parse: `None` 字符串不视为缺失
+CAUGHT  rc=1  parse: 表头缺列校验关闭
+CAUGHT  rc=1  parse: parse_xlsx 硬编码存根（200 行首行复制）
+CAUGHT  rc=1  parse: 数值解析恒 None
+CAUGHT  rc=1  parse: write_fact 不轮换 .prev
+CAUGHT  rc=1  parse: find_latest_xlsx 取最小（最早）
+CAUGHT  rc=1  ingest: write 丢 TRUNCATE（重跑翻倍）
+CAUGHT  rc=1  ingest: load_fact 缺文件校验移除
+CAUGHT  rc=1  ingest: load_fact 列漂移校验关闭
+CAUGHT  rc=1  ingest: create_sql 排序键反转
+CAUGHT  rc=1  ingest: 批量切片步长错（漏行）
+CAUGHT  rc=1  ddl: fundamentals 块去掉 net_profit 行
+
+16/16 突变被测试抓住；工作区已恢复逐字节一致
+恢复后两组测试：rc=0
