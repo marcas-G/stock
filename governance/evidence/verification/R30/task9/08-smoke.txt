@@ -1,0 +1,53 @@
+$ platform/.venv/bin/python platform/tools/pan_update/cli.py --help
+usage: pan_update [-h] [--categories CATEGORIES] [--dry-run] [--prune]
+                  [--workers WORKERS]
+                  {sync,build,publish,verify,all}
+
+pan_update CLI（Plan P T9）：`sync|build|publish|verify|all`。
+设计：knowledge/design/workspace/2026-09-16-pan-data-update-design.md §3/§5/§8
+用法： platform/.venv/bin/python platform/tools/pan_update/cli.py all [--dry-run]
+[--categories daily,minutes,fund_flow,financials] [--prune] [--workers N] T9
+裁决（brief 未逐字覆盖处，报告同录）： - **build 与 publish 共用同一阶段标记**（phase="build"）：T5-T8
+为每类别收口一条 完整链（含 CH 灌入=发布面），T4 转接项要求「同一 phase 跑完整链」；publish 作为 设计 CLI
+动词保留，幂等跳过，不重放链。`all` = sync → build → publish(跳过) → verify。 - **freshness
+闩锁**：sync 有 downloaded 非空 → 清该类别 `stages[cat]` 全部标记， 下次 build
+重跑整链；无新增则阶段跳过（命令不再执行）。 - **state_path 固定**
+`data/raw/pan_state.json`；每成功文件原子落盘（T3 断点续跑）。 -
+**内存护栏**：`FACTORLAB_MAX_MEMORY` 显式设置 → 复用 `factorlab.app.memory` 的 RLIMIT_AS
+公式落进程级硬限（子进程继承）；env 白名单透传子命令。 - **cookie**：sync/all
+启动即校验（`quark_client.cookies()`），缺失/空 → exit 2 且文案含 `quark_cookies.txt`
+路径；build/publish/verify 离线可跑。 - **manual_required 不为错**（exit 0）；failed 非空 →
+exit 1；未知类别 → exit 2。 - **--prune**：删除本地 raw 中不在本次分享清单内的残留文件（默认保留）。
+
+positional arguments:
+  {sync,build,publish,verify,all}
+                        sync=差集下载；build=处理链（含 CH 灌入）；publish=build
+                        同义（幂等）；verify=reconcile 全量；all=全链
+
+options:
+  -h, --help            show this help message and exit
+  --categories CATEGORIES
+                        逗号分隔（缺省全部：daily,minutes,fund_flow,financials）
+  --dry-run             只打印清单/计划，不下载、不执行、不写 state
+  --prune               删除本地 raw 中不在分享清单内的残留（默认保留）
+  --workers WORKERS     下载并发上限（默认 8；1=串行）
+rc=0
+
+$ platform/.venv/bin/python platform/tools/pan_update/cli.py sync --categories bogus
+参数错误：未知类别 ['bogus']；可选：daily, minutes, fund_flow, financials
+rc=2
+
+$ make -n data-update
+FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/pan_update/cli.py all
+rc=0
+
+$ bash -n governance/ops/install_pan_timer.sh
+rc=0
+
+$ bash governance/ops/install_pan_timer.sh status
+repo: /data/students/gaolei/stock
+timer 文件：不存在
+0 timers listed.
+Pass --all to see loaded but inactive timers, too.
+Failed to get unit file state for pan-data-update.timer: No such file or directory
+rc=0

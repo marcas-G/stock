@@ -1,0 +1,30 @@
+CAUGHT  rc=1  cli: 忽略 --workers（恒 1）
+CAUGHT  rc=1  cli: dry-run 仍真下载
+CAUGHT  rc=1  cli: 新文件不清阶段标记（闩锁失效）
+CAUGHT  rc=1  cli: 新文件清标记语句删除
+CAUGHT  rc=1  cli: 不传 state_path（断点记账丢失）
+CAUGHT  rc=1  cli: manual 也当失败（exit 1）
+CAUGHT  rc=1  cli: failed 被吞（恒 exit 0）
+CAUGHT  rc=1  cli: 未知类别不校验（放行进链）
+CAUGHT  rc=1  cli: 跳过类别目录 find_dir（不按 share_dir 匹配）
+CAUGHT  rc=1  cli: 缺省 listdir 换成空树存根
+CAUGHT  rc=1  cli: cookie 缺失以 exit 1（契约是 2）
+CAUGHT  rc=1  cli: 不查 cookie（静默下网盘）
+CAUGHT  rc=1  cli: 未设内存上限也落 RLIMIT_AS
+CAUGHT  rc=1  cli: env 白名单不透传（空 env）
+CAUGHT  rc=1  cli: publish 用另一 phase（重放链）
+CAUGHT  rc=1  cli: verify 退出码被吞（恒 0）
+CAUGHT  rc=1  cli: verify 带表名参数（非全量）
+CAUGHT  rc=1  cli: all 不跑 verify
+CAUGHT  rc=1  stages: fund_flow 链缺失
+CAUGHT  rc=1  stages: financials 链顺序颠倒（先灌后解析）
+CAUGHT  rc=1  parse: --raw-dir 被忽略（恒默认源）
+CAUGHT  rc=1  parse: --prev 被忽略（恒默认 .prev）
+CAUGHT  rc=1  parse: write_fact 不轮换旧 fact
+CAUGHT  rc=1  makefile: 去掉内存护栏
+CAUGHT  rc=1  makefile: data-update 只跑 sync
+CAUGHT  rc=1  timer: 定时从 08:10 改 09:10
+CAUGHT  rc=1  timer: crontab 行时间改 08:00
+
+27/27 突变被测试抓住；工作区已恢复逐字节一致
+恢复后 T9 测试：rc=0

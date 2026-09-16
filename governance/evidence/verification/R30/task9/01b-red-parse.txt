@@ -1,0 +1,3 @@
+usage: - [-h] [--src SRC] [--out OUT]
+-: error: unrecognized arguments: --raw-dir /tmp/none --prev /tmp/x.prev
+SystemExit: 2
