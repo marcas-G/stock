@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **159 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **160 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -17,7 +17,7 @@
 | reversal_10d | 3 | `research/factor/reversal_10d/` |
 | reversal_20d | 82 | `research/factor/reversal_20d/` |
 | reversal_5d | 4 | `research/factor/reversal_5d/` |
-| reversal_rsi | 2 | `research/factor/reversal_rsi/` |
+| reversal_rsi | 3 | `research/factor/reversal_rsi/` |
 | size | 2 | `research/factor/size/` |
 | value | 4 | `research/factor/value/` |
 | vol_run_energy | 17 | `research/factor/vol_run_energy/` |
@@ -206,6 +206,7 @@
 |---|---|---|---|---|---|
 | `rsi_oversold_14` | 1 | fwd5d |  | [oversold_14.md](../../research/docs/factors/reversal_rsi/oversold_14.md) | [yaml](../../research/factor/reversal_rsi/oversold_14.yaml) |
 | `rsi_reversal_14` | -1 | fwd5d |  | [reversal_14.md](../../research/docs/factors/reversal_rsi/reversal_14.md) | [yaml](../../research/factor/reversal_rsi/reversal_14.yaml) |
+| `rsi_reversal_14_ret` | -1 | fwd5d |  | [reversal_14_ret.md](../../research/docs/factors/reversal_rsi/reversal_14_ret.md) | [yaml](../../research/factor/reversal_rsi/reversal_14_ret.yaml) |
 
 ## 族：size
 
