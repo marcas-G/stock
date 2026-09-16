@@ -62,6 +62,11 @@
    未在工作区留存**（jqdata 口径）。
    未决因：No Orphan 纪律要求每个资产能回答"我为什么存在/谁生产我"。
    启动条件：溯源外部来源并补生产者说明，或标注"外部一次性交付、不可再生成"。
+   **2026-09-16 校正（R29）**："生成链路未在工作区留存"已失真——源脚本
+   `_archive/2026-09-16-ashare-alpha3/references/v4_jqdata_final_original.py`（jqdata 口径；
+   `_archive/2026-09-12-S1/root_files/v4_top300.csv` 亦存）随 R24 Task 11 归档。
+   归档 2026-10-16 到期前裁决：随归档删除则真正"外部一次性交付、不可再生成"（需显式标注），
+   或另行留存脚本；data-map A9 行已同步。
 
 10. **CH 灌入状态与 schema 漂移检查**（低优先）
     现状：`ch_ingest/state.json/` 记录已完成月份；ddl.sql 与 CH 实际 schema 未做逐列核对。
@@ -81,6 +86,8 @@
       （`platform/tools/lob_fact/core/factor_panel.py:701`）均经 `lib.tickdata` 薄封装到平台单点。
     - ❌ ④ catalog 拆分（`core/catalog_model` + `adapters/catalog_docs`）：**未做**——R21 实测
       仍为单模块 `platform/src/factorlab/adapters/catalog.py`；保留为未竟项。
+      **2026-09-16 现状（R29）**：仍单模块（853 行）；本轮仅加"分类表全集入口"
+      （`op list --catalog`，528 条）指针，未拆分。
     **原表述保留如下**（R21 只加核对结论，不改写历史）：
     > ① P-5 批算编排单点：端口已在 `ports/batch.py` 定义 + `InlineOrchestrator` 契约测试绿；
     > 真实实现 `adapters/batch_flock.py`（flock+ProcessPool+看门狗+_SUCCESS）与三份样板
@@ -93,9 +100,10 @@
 
 12. **数据接口收口剩余专项**（2026-09-15 R4 登记；R21 校正 ① 计数口径）
     ① **表名常量单点**（`core/factio/tables.py`）：平台 `read/*` 的 duckdb|ch 编译对里
-       **68 处表名字面量**（R21 门实测）。**口径** = `governance/ops/check_dataiface.py::report_platform_tables()`
+       **70 处表名字面量**（2026-09-16 门实测；R21 当时 68 处）。**口径** = `governance/ops/check_dataiface.py::report_platform_tables()`
        的 AST 字符串常量出现**处数**，范围 `platform/src` 且排除 `core/factio/`，docstring 不计；
-       输出见 `governance/evidence/verification/R21/EVID/I7-dataiface-count.txt`。R0 文本的"~460 处"系
+       输出见 `governance/evidence/verification/R21/EVID/I7-dataiface-count.txt`（R21）；
+       2026-09-16 复测见 `governance/evidence/verification/R29/contracts/06-counts-measured.txt`。R0 文本的"~460 处"系
        grep 口径（注释/测试/SQL 文档串都算入），**与门不可比，引用以门实测为准**。
        收敛需逐条改 SQL 字符串，风险 > 收益 →
        需与"位级门 + 全库 reconcile"配套的专项轮次。
@@ -150,7 +158,8 @@
     代价与收益须一起评估。
 
 18. **venv 无法从依赖声明复现**（R18 登记，实测）
-    现状：`platform/pyproject.toml` 只声明 20 个依赖，而 `platform/.venv` 里实际有 **72 个包**
+    现状：`platform/pyproject.toml` 只声明 **19 个直接依赖**（2026-09-16 复测；R18 登记时记 20；
+    另有可选组 talib 1 / dev 2），而 `platform/.venv` 里实际有 **72 个包**
     （未声明者含 pandas / openpyxl / plotly / black / numba / sympy / httpx…，见
     `governance/evidence/verification/R18/04-venv-freeze.txt`）；全仓**无** `uv.lock` / `requirements*.txt`。
     影响：venv 一旦丢失或重建，**得到的是另一个环境**（版本漂移会威胁 lob_fact 的字节级重跑
@@ -207,6 +216,8 @@
     启动条件：设计已存（`knowledge/design/workspace/2026-09-15-open-operators/`；
     明细 R07 `feature/01-open-operators-plan23.md` A1-A11/B1-B2）——下一轮功能排期
     直接写 Plan 2/3 实施计划。
+    **触发状态（2026-09-16 R29 复核）**：已燃——现状三类入口可复现（`op_meta` 非空、
+    `rank(close, by=date)`、方法窗体），无阻塞依赖；只差排期。
 
 24. **分钟执行 V2（量能触发 / 分钟 NAV / 临停规则库）**（2026-09-16 登记）
     现状：V1（NEXT_WINDOW 分钟窗口成交 + WINDOW_END_BASED 日级 marks）已落地（R22，
@@ -217,22 +228,29 @@
     §6.3-6.5），非缺陷。
     启动条件：量价异动执行算法 / 日内风险视图 / 临停仿真精度的研究需求各自触发。
 
-25. **`index_daily` 空表 + `ingest_index_sina.py` 死引用**（2026-09-16 登记）
+25. **`index_daily` 空表 + `ingest_index_sina.py` 死引用**（2026-09-16 登记；**R29 同日裁决**）
     现状：CH `factorlab.index_daily` 全表 0 行 → 9 个 crash_bottom 族 spec 的 `idx_ret`
-    恒 NULL（族不可复跑）；`platform/tools/ch_ingest/ddl.sql:70` 注释指向的补数脚本
-    `ingest_index_sina.py` 全仓无此文件（死引用，`git grep` 仅注释自身命中）。
-    未决因：补数源未裁决（sina 拉 000852.SH vs teajoin token 恢复后 `data update`
-    指数增量）；读路径 LEFT JOIN 依赖表存在，不能简单删表。
-    启动条件：先裁决补数源 → 灌目标指数全历史 → 重跑 crash_bottom 族；同时删/改
-    `ddl.sql` 死引用并停止在文档 advertise。
+    恒 NULL（族不可复跑）。**裁决（R29，2026-09-16）：当前无可用补数路径**——候选源
+    teajoin `index_daily` 接口（token 缺失且 2026-08-22 已过期）；现 `factorlab data
+    refresh` 的指数增量只写 duckdb 平台库、不接 CH；CH 侧无 index_daily 灌入工具。
+    死引用已清：DDL/README/interface 三处同口径（`ingest_index_sina.py` 全仓确无此文件，
+    不再 advertise）。
+    未决因：补数源与灌入工具均未落地；读路径 LEFT JOIN 依赖表存在，不能简单删表。
+    启动条件：teajoin token 恢复或新增 index→CH 灌入工具 → 补 `000852.SH` 全历史 →
+    重跑 crash_bottom 族。证据：`governance/evidence/verification/R29/data/`。
 
-26. **`stock_st` 缺表（exclude_st 全场降级）**（2026-09-16 登记）
+26. **`stock_st` 缺表（exclude_st 全场降级）**（2026-09-16 登记；**R29 同日裁决**）
     现状：CH 无 `stock_st` 表；94% spec 带 `exclude_st: true` → 全市场挖矿/复跑必须
     `FACTORLAB_ST_DEGRADE=allow`（warning + `is_st=null` + summary `st_degrade: true`，
     即无 ST 口径）；真实 ST 过滤不可用，降级结果与 ST 过滤结果不可混比。
-    未决因：无 ST 历史快照源（需外部数据）。
-    启动条件：确定 ST 源 → 建表灌入（沿 interface.md §4.2 coverage 契约）→ 关开关按
-    标准 ST 过滤复跑；此前涉及 ST 的验收口径按「无 ST」记录。
+    **源核实（R29）**：本地无任何 `stock_st` 历史数据（CH 无表、`data/raw` 与 `_archive`
+    无快照、平台 duckdb 库不存在）；唯一候选源 = teajoin `stock_st` 接口（在套餐 137
+    接口目录内，见 `knowledge/contracts/teajoin-guide.md` §5），但 token 缺失且
+    2026-08-22 已过期。**裁决**：保留 `FACTORLAB_ST_DEGRADE` 显式降级为现行口径，
+    不伪造 ST 数据（interface.md §4.2 ST coverage 段已记同款裁决）。
+    启动条件：teajoin token 恢复（可直接拉 `stock_st` 历史快照）或外部 ST 源到位 →
+    建表灌入（沿 interface.md §4.2 coverage 契约）→ 关开关按标准 ST 过滤复跑；
+    此前涉及 ST 的验收口径按「无 ST」记录。证据：`governance/evidence/verification/R29/data/`。
 
 27. **R07-MIG-I2：档案旧坐标清理残余**（2026-09-16 登记；主体同日完成 ✅；编号 #27——
     并行 agent 先占 #23-26，原登记号 #23 让位）
@@ -252,3 +270,28 @@
     （现行单点 `knowledge/handbooks/factor-mining-playbook.md`，R06-M10 已归位）。
     在途：挖矿 untracked 档案的旧落点引用由挖矿循环提交前按 skill 修
     （`factor-mine` §8 门纪律）；G-LEGACY 已纳入 untracked 扫描，漏网即红。
+
+28. ✅ **2026-09-16 落地（R07-DATA-I8）**：CA Gate 连续回测工作流——支持事件（现金分红/
+    送转/配股不参与）在 execution date 开盘前调整 PRE 持仓，跨除权**单 run 连续多年**可跑、
+    NAV 连续（Sharpe/回撤直接可算，分段重基退役；分段历史口径见 interface §CA Gate）。
+    证据：`platform/tests/test_backtest_ca_multi_year.py`（≥3 年/52 决策/4 事件手算对拍 +
+    存根必败）、契约 `knowledge/contracts/interface.md` §CA Gate（R07-DATA-I8 v2）、
+    `governance/evidence/verification/R24/17-r07-fixes/ca/`。
+    **残余 fail-closed（保持不加宽）**：armed 缺 `adj_event` 表 / 命中事件缺 `adj_detail`
+    或明细行缺失/全 0-NULL / 负值事件列 / 事件命中停牌持仓 / 明细非有限值 / 事件 code 不在
+    PRE 持仓——均 `ExecutionDataQualityError` 拒绝（不得静默放行）。
+
+29. ✅ **2026-09-16 完成（R07-DATA-I4）**：`daily_basic.circ_mv` 已派生灌入
+    （`float_shares × close / 1e4`，万元口径，与 total_mv 同式；`ingest_daily.py`）——
+    2026-09-16 CH 实测 16,873,795 / 18,124,805 行非空，原"全空 → 10 spec×4 族静默 null"消除；
+    契约见 `knowledge/contracts/interface.md`（commit `73f30f6`）；证据
+    `governance/evidence/verification/R29/contracts/06-counts-measured.txt`。
+    残余：`pe_ttm/pb/dv_ratio/volume_ratio` 4 列仍占位空列（无数据源，见 interface §4 注）。
+
+28. ✅ **2026-09-16 完成：`daily_basic.circ_mv` 派生重灌（R07-DATA-I4）**
+    `ingest_daily.py` 派生 `circ_mv = close×float_shares`（万元）；CH 单表重灌
+    18,124,805 行，非空 0 → 16,873,795，`reconcile daily` exit 0；R29 抽样 3 spec
+    复跑 `signal_null_ratio` 1.0 → ≤0.01、n_weeks 0 → 182、IC 可算。
+    commit `18e8531`；证据 `governance/evidence/verification/R24/17-r07-fixes/data-i4/`
+    + `governance/evidence/verification/R29/data/`。
+    残余：`pe_ttm/pb/dv_ratio/volume_ratio` 4 列仍为占位空列（无数据源，不 advertise）。
