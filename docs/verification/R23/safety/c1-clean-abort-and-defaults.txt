@@ -1,0 +1,35 @@
+seeded: /tmp/opencode/r05c1/demo/q.duckdb
+===== [1] 人为低阈值 clean abort: FACTORLAB_MAX_MEMORY=1KB =====
+错误: 进程内存超限（R05-C1 内存看门狗，已干净中止、未落半成品产物）：RSS 350.6MB
+> FACTORLAB_MAX_MEMORY=1.0KB（当前 RSS=350.6MB，系统可用=85.3GB）。建议：减小 
+--chunk-days（分钟链默认 20 交易日/块，见 platform/docs/interface.md 
+§1）、调大/设置 FACTORLAB_MAX_MEMORY、避免与 LLM 服务/多 agent 
+并发重任务（事故记录 docs/reviews/r05-usage-2026-09-16）。
+EXIT=1
+--- 产物检查: ls out_abort ---
+ls: 无法访问'out_abort': 没有那个文件或目录
+--- 产物检查: loader ---
+LOADER REJECTED: summary.json 不存在: out_abort
+===== [2] 默认行为不变（未设 FACTORLAB_MAX_MEMORY） =====
+2026-09-16 10:28:32.044 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 10:28:32.071 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+提示: 十分位组 [0, 1, 3, 4, 5, 6, 8, 9]（0=最小 
+signal）全期无有效收益——信号重并列/离散时分位跳档，spread/单调性不可用；建议降低
+分组数或改用其他评估口径
+提示: 档位 ['D2', 'D3', 'D4', 'D5', 'D7', 'D8', 'D9', 'D10'] 
+全期无股票——universe 过小或 --groups 过大
+memdemo: n_weeks=1 ic_mean=1.0 spread=nan
+EXIT=0
+===== [3] 显式充裕阈值 + RLIMIT_AS 硬上限: FACTORLAB_MAX_MEMORY=100GB =====
+2026-09-16 10:28:35.505 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 10:28:35.532 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+提示: 十分位组 [0, 1, 3, 4, 5, 6, 8, 9]（0=最小 
+signal）全期无有效收益——信号重并列/离散时分位跳档，spread/单调性不可用；建议降低
+分组数或改用其他评估口径
+提示: 档位 ['D2', 'D3', 'D4', 'D5', 'D7', 'D8', 'D9', 'D10'] 
+全期无股票——universe 过小或 --groups 过大
+memdemo: n_weeks=1 ic_mean=1.0 spread=nan
+EXIT=0
+===== [4] 两次成功 run 产物可加载（summary/signal rows） =====
+out_default: signal_rows=18 panel_rows=18 runtime_semantics=pit_universe_signal_label_v1
+out_guarded: signal_rows=18 panel_rows=18 runtime_semantics=pit_universe_signal_label_v1

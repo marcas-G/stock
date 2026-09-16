@@ -1,0 +1,17 @@
+===== [1] 分钟长窗估算门（R05-C1）真实常量 =====
+校准常量: 65536 B/(code·日); WARN=8.0GB; REJECT=32.0GB
+
+-- (a) R05 事故窗: 5207 code × 729 日, 显式 chunk=10000 → 拒绝
+REJECT: 显式 --chunk-days 10000 被拒绝：分钟链块峰值估算 ≈ 231.7GB（5207 code × 729 交易日 × 64KB/code·日，R04-P1 实测校准），超过拒绝阈值 32.0GB——会耗尽主机内存（R05-C1 事故：3 年全市场分钟链）。请用 --chunk-days 25 或更小（默认 20）；或先设置 FACTORLAB_MAX_MEMORY 护栏并小步验证。
+
+-- (b) 告警带: 5207 code × 60 日, 显式 chunk=60 → 告警后照跑
+WARN: 分钟链块峰值估算 ≈ 19.1GB（5207 code × 60 交易日 × 64KB/code·日，R04-P1 实测校准），超过建议上限 8.0GB——建议 --chunk-days 25（分钟链默认 20）；运行期内存看门狗（FACTORLAB_MAX_MEMORY）兜底。详见 platform/docs/interface.md §1。
+
+-- (c) 默认自动 20 日/块（全市场 729 日）→ 不告警（6.4GB < 8GB）
+warnings=0
+
+-- (d) 小宇宙整段（2 code × 46 日, 显式 chunk=10000）→ 不误拒
+OK (passed)
+
+-- (e) RLIMIT_AS 硬上限（FACTORLAB_MAX_MEMORY=8GB）实际落值
+computed RLIMIT_AS = 24.0GB; rlimit=(25769803776, 25769803776)

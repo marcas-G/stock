@@ -1,0 +1,32 @@
+===== R04-P1 commit（分钟链默认自动分块，R05-C1 引用核实） =====
+commit 6985bc5a49d9e402b851468e8f0263ddc076595d
+Author: marcas-G <2639833758@qq.com>
+Date:   Wed Sep 16 08:43:47 2026 +0800
+
+    perf(platform): R04-P1 — 分钟链默认自动分块（20 交易日/块，显式 --chunk-days 优先）
+    
+    - run_factor_minute：ctx.chunk_days=None → MINUTE_DEFAULT_CHUNK_DAYS=20 自动分块
+      （实测非分块 peak RSS 34.95GB / 16GB OOM；20 日/块 6.95GB 且 wall 不增）
+    - 分块 == 整段逐值一致：新增 3 个 parity 测试（默认多块计数 + 逐值相等、
+      R03-I6 drop 口径、R03-I7 has_trade 陈旧尾守卫）
+    - interface.md / CLI help：分钟默认分块与内存语义
+
+ platform/docs/interface.md                  | 12 +++-
+ platform/src/factorlab/app/run.py           | 25 ++++++--
+ platform/src/factorlab/surfaces/cli/main.py |  2 +-
+ platform/tests/test_minute_engine.py        | 97 +++++++++++++++++++++++++++++
+ 4 files changed, 126 insertions(+), 10 deletions(-)
+
+===== 默认自动分块行为核实（R04-P1 既有例，pytest -v） =====
+cachedir: .pytest_cache
+rootdir: /data/students/gaolei/stock/platform
+configfile: pyproject.toml
+plugins: cov-7.1.0, anyio-4.14.2
+collecting ... collected 33 items / 29 deselected / 4 selected
+
+tests/test_minute_engine.py::test_minute_default_auto_chunk_splits_and_equals_whole PASSED [ 25%]
+tests/test_minute_engine.py::test_minute_default_auto_chunk_drop_mode_equals_whole PASSED [ 50%]
+tests/test_minute_engine.py::test_minute_default_auto_chunk_has_trade_guard_equals_whole PASSED [ 75%]
+tests/test_minute_engine.py::test_minute_default_auto_chunk_never_rejected PASSED [100%]
+
+======================= 4 passed, 29 deselected in 8.94s =======================

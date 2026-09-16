@@ -52,6 +52,7 @@ make gates                # 结构/契约/标记/旧路径/索引 全套常驻�
 - `emb` **装不了** `factorlab`（包要求 ≥3.13）——T2 靠 `research/tools/_env.py` 注入 `platform/src` 并做落位断言，这是唯一注入点。
 - **当前生产读路径是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）：平台 duckdb 库不存在（teajoin token 过期，见 [docs/pending-items.md](docs/pending-items.md) #1）。
 - **`data/` 零改动**：任何操作都不得写入 `data/`；只读消费。
+- **重任务内存护栏**：全市场/分钟链 `factorlab run` 前设 `FACTORLAB_MAX_MEMORY=8GB`（显式设置即启用进程看门狗 + RLIMIT_AS 硬上限）——见 [platform/docs/interface.md](platform/docs/interface.md) §1「进程内存护栏」与 [AGENTS.md](AGENTS.md)「重任务运行协议」。
 - `projects/` 是历史遗留：合并前的两个旧克隆已于 2026-09-15 删除（R17）；`quant_core_shim` 已收编为 **`platform/kernels/quant_core/`**（R18）；`ashare_alpha3` 已收编完成（数据侧 R19 → `research/tools/ashare_ingest/`，股票池段 R20 → `research/tools/universe_stages/`），旧目录仅作本地历史参考。**不要再往里放新东西**——新代码进三棵树。
 
 ## 文档地图

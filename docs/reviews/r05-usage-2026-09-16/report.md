@@ -48,3 +48,32 @@ factorlab run /tmp/opencode/mine/cap_bb.yaml         # BBANDS → Struct dtype �
 factorlab run /tmp/opencode/mine/cap_opmeta.yaml     # op_meta 被吞 → 未知算子
 factorlab lint /tmp/opencode/mine/cap_bogus.yaml     # bogus 字段静默通过
 ```
+
+---
+
+## 事故记录：3 年分钟链触发主机内存耗尽（2026-09-16）
+
+**时间线**：
+
+1. 10:00 启动 2023–2025 分钟链 run（`--chunk-days 20`，池 4852 只）——**主机内存耗尽、SSH 卡死**（用户报告并断开连接）；
+2. 恢复后检查：进程 `37236` 处于 **D 状态、日志 0 字节**；ClickHouse 一度无响应（进程未死，过载恢复）；
+3. `kill -TERM` 终止进程；确认 CH 恢复（`SELECT 1`=1；daily=18,124,805 行完整）；无其他残留进程。
+
+**环境并发**：`llama-server` 21GB + 6 个 opencode 会话 + 开发团队 `factorlab lint --all` 等——多负载叠加。
+
+**根因（待平台修复）**：`factorlab run` **无内存上限/看门狗**（研究侧批处理工具已有 `_mem_gate`，平台 run 链没有）；
+长窗分钟运行即使 `--chunk-days 20` 也缺乏进程级保护；`systemd-run --user` 在本机不可用（无 cgroup 委派）。
+
+**立即缓解（已验证）**：`/tmp/opencode/mine/safe_run.sh`
+—— `prlimit --as` 硬上限 + RSS/系统可用内存双看门狗（5s 采样，超限 TERM→KILL）+ 日志：
+
+- 演示 1：AS 上限 1GB 跑 2GB 分配 → `MemoryError` exit=1（进程失败而非主机 OOM）；
+- 演示 2：RSS 上限 1GB 跑 3GB 分配 → `WATCHDOG kill: rss > 1GB`，exit=143。
+
+**平台修复建议（R05-C1，P0）**：
+
+1. `factorlab run` 内置 psutil RSS 看门狗：超过 `FACTORLAB_MAX_MEMORY`（或系统可用内存下限）→ 干净中止
+   （清理半成品）+ 明确报错；
+2. 分钟链**默认自动分块**（R04 §7 Q1）并**拒绝/显式确认"长窗未分块"**；
+3. 文档标注各链内存需求与推荐 chunk；
+4. 运维协议（写进 AGENTS/README）：重任务必须经内存上限包装器运行；禁止与 LLM 服务/多 agent 并发重任务。

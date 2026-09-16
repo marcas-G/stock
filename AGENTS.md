@@ -18,6 +18,18 @@
   （真 CH 或真 parquet）并留下输出。
 - 破坏性/不可逆操作（删除、强推、覆盖远端）**先备份后执行**，并把退路（bundle/tag/路径）写进证据。
 
+## 重任务运行协议（R05-C1；2026-09-16 主机 OOM 事故后）
+
+- 重任务（全市场/长窗 `factorlab run`、分钟链、灌库/回测批跑）**必须**设进程内存护栏：
+  `FACTORLAB_MAX_MEMORY=8GB`（16GB 机推荐；显式设置时 CLI 同时落 RLIMIT_AS 硬上限）
+  + 可选 `FACTORLAB_MIN_AVAILABLE_MEMORY=2GB`。超限 → `MemoryLimitExceeded` 干净中止
+  （exit 1、不落半成品，产物 dir 无可加载 summary）。
+- **禁止与 LLM 服务（llama-server）/多 agent 会话并发重任务**。事故教训（2026-09-16）：
+  21GB llama-server + 6 个 opencode 会话 + 平台分钟链叠加 → 主机内存耗尽、SSH 卡死、
+  ClickHouse 一度无响应（进程 D 状态零输出）。
+- 分钟链保持默认 20 交易日/块；显式超大 `--chunk-days` 按估算告警/拒绝。
+  语义/推荐值/报错：`platform/docs/interface.md` §1「进程内存护栏」。
+
 ## 工具链速查
 
 | 目的 | 命令 |
