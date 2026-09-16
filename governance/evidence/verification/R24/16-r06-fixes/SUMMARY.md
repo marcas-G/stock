@@ -5,7 +5,8 @@
 - **本批范围**：R06-SKILL-I2、R06-MIG-I3、R06-M4/M5/M6/M7/M8/M9/M10
   （其余 R06 发现由并行开发者处理，其证据在本目录 `ledger/`、`cli-strategy/` 子目录）
 - **起始 HEAD**：`08a327b`（本批期间）｜ **纪律**：只精确 `git add`；挖矿/评审/其他开发者在途文件未提交
-- **最终门态**：`13-gates-final.txt`（`make gates` **exit 0，全绿**；G-LEGACY 两段/索引/annotate/venv/lint/台账全 ✓）
+- **最终门态**：`13-gates-final.txt`（`make gates` **exit 0，全绿**；G-LEGACY 两段/索引/annotate/venv/lint/台账全 ✓）；
+  并行开发者提交落地后 HEAD 复核（`14-gates-final-head.txt`，`f3968f4` 之上）**仍 exit 0 全绿**
 
 ## 逐 finding
 
@@ -44,6 +45,8 @@
   （本批未动索引生成器输入；重生成后一致，见 13-gates-final）。**未随本批提交**
   `knowledge/index/factors.md`（属挖矿在途状态）。
 - `13-gates-final.txt`（17:4x）：**exit 0 全绿**。
+- `14-gates-final-head.txt`（并行提交 `2177f29`（台账门）、`f3968f4`（TEST-I5）落地后）：**exit 0 全绿**；
+  `f3968f4` 一并收录本批对 `test_run_strategy_cli.py` 的注释坐标一行（其提交范围含该文件）。
 - **并行开发者豁免**：`research/tools/strategies/{run_strategy.py,tests/test_run_strategy_cli.py}`
   正被 R06-TEST-I5/TOOLS-I6 修复（在途），其旧路径历史注记/反向断言按文件豁免
   （见 `gates.sh` G-LEGACY 判据注释）；本批未提交这两文件的在途改动（仅 test 文件一行
