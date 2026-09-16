@@ -163,6 +163,31 @@ def test_write_batches_rows(tmp_path):
 
 
 # ---------------------------------------------------------------
+# 空源护栏（终评 I1）：0 行帧不得 CREATE/TRUNCATE/INSERT（拒绝清空 CH 表）
+# ---------------------------------------------------------------
+
+def test_write_refuses_empty_frame_without_touching_ch(tmp_path):
+    """镜像 ingest_fundamentals 空快照护栏：空源不是"合法清表"，是 loud fail。"""
+    empty = IM.load_frames(tmp_path)          # 无 zip → 空帧（schema 完整）
+    assert empty.height == 0
+    fake = _FakeCH()
+    with pytest.raises(ValueError, match="空源拒绝灌入"):
+        IM.write(fake, "factorlab_test", empty)
+    assert fake.commands == []                # 未 CREATE / 未 TRUNCATE
+    assert fake.insert_calls == []            # 未 INSERT
+
+
+def test_main_empty_root_refuses_and_leaves_ch_untouched(tmp_path, monkeypatch):
+    """首次/空 raw 跑 main：必须 ValueError（exit≠0）且 CH 零交互。"""
+    fake = _FakeCH()
+    monkeypatch.setattr(IM, "connect", lambda: fake)
+    with pytest.raises(ValueError, match="空源拒绝灌入"):
+        IM.main(root=tmp_path)
+    assert fake.commands == []
+    assert fake.insert_calls == []
+
+
+# ---------------------------------------------------------------
 # DDL 同步（裁决 R3：ddl.sql 与脚本内 CREATE IF NOT EXISTS 同列）
 # ---------------------------------------------------------------
 

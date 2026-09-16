@@ -44,9 +44,9 @@ from pan_update import config, share, stages, sync  # noqa: E402
 from pan_update import state as st  # noqa: E402
 from quark_download import quark_client  # noqa: E402
 
-STATE_PATH = config.repo_root() / "data" / "raw" / "pan_state.json"
-LOCK_PATH = config.repo_root() / "data" / "raw" / "pan_update.lock"
-RAW_ROOT = config.repo_root() / "data" / "raw"
+STATE_PATH = config.RAW_ROOT / "pan_state.json"
+LOCK_PATH = config.RAW_ROOT / "pan_update.lock"
+RAW_ROOT = config.RAW_ROOT
 RECONCILE = config.repo_root() / "platform" / "tools" / "ch_ingest" / "reconcile.py"
 VENV_PYTHON = config.repo_root() / "platform" / ".venv" / "bin" / "python"
 
@@ -132,7 +132,7 @@ def _category_entries(listdir: Callable, cat: str):
 
 
 def _dest_root(raw_root: Path, cat: str) -> Path:
-    rel = Path(config.CATEGORIES[cat].local_root).relative_to("data/raw")
+    rel = config.CATEGORIES[cat].local_root.relative_to(config.RAW_ROOT)
     return Path(raw_root) / rel
 
 

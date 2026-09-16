@@ -10,17 +10,26 @@ R21 TOOLS-I7 扩展（旧版只对 5 张 daily 表行数）：
     日期范围 == daily；
   - adj_event —— 行数 == parquet 事件谓词复算（div_cash/div_bonus/div_transfer/
     rights_num 任一非 0）；uniq == 行数。
+- 终评 I3 扩展（Plan P 两新表）：
+  - moneyflow —— 行数/日期范围/天数/键 uniq == raw zip 全量帧（复用 ingest 的
+    `load_frames`，含日 zip 覆盖月 zip 与 (ts_code,trade_date) 去重语义）；
+    关键列 main_net_inflow 空值数 == 源；ts_code 空串/uniq 键不变量；
+  - fundamentals —— 行数/updated_date 范围/天数 == fact parquet（复用 ingest 的
+    `load_fact`）；关键列 total_shares 空值数 == 源；ts_code 空串/uniq 键不变量。
 
-用法：python reconcile.py        # 全表对账
-      python reconcile.py daily  # daily 层 5 表 + 派生表
-      python reconcile.py bars   # bars_1m
-      python reconcile.py tick   # tick 3 表
+用法：python reconcile.py                # 全表对账
+      python reconcile.py daily          # daily 层 5 表 + 派生表
+      python reconcile.py moneyflow      # 资金流表
+      python reconcile.py fundamentals   # 财报快照表
+      python reconcile.py bars           # bars_1m
+      python reconcile.py tick           # tick 3 表
 退出码 0=全一致，1=有差异。
 """
 from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 import polars as pl
 import pyarrow.parquet as pq
@@ -30,6 +39,9 @@ from factorlab.core.factio import paths  # R8：路径单点
 from common import connect, load_config
 
 DAILY_SRC = str(paths.daily_fact_path())   # R8：取 factio.paths（原硬编码绝对路径）
+MONEYFLOW_SRC = paths.RAW_ROOT / "fund_flow"
+FUNDAMENTALS_SRC = (paths.FACT_ROOT / "fundamentals" /
+                    "fundamentals_snapshot.parquet")
 EVENT_COLS = ["div_cash", "div_bonus", "div_transfer", "rights_num"]
 MIN_LIMIT_DATE = "1996-12-16"
 
@@ -166,6 +178,51 @@ def _check_derived_tables(client, db, fact_rows: int) -> bool:
     return ok
 
 
+def _check_moneyflow(client, db, root: Path | None = None) -> bool:
+    """moneyflow：CH vs raw zip 全量帧（与灌入同一 load_frames 语义）+ 关键字段。"""
+    from ingest_moneyflow import load_frames
+    src = load_frames(Path(MONEYFLOW_SRC if root is None else root))
+    n, mn, mx, days, nulls, bad_code, uniq = client.query(
+        f"SELECT count(), min(trade_date), max(trade_date), uniqExact(trade_date), "
+        f"countIf(main_net_inflow IS NULL), countIf(ts_code = '' OR ts_code IS NULL), "
+        f"uniqExact((ts_code, trade_date)) FROM {db}.moneyflow").result_rows[0]
+    s_rows = src.height
+    s_min = src["trade_date"].min() if s_rows else None
+    s_max = src["trade_date"].max() if s_rows else None
+    s_days = src["trade_date"].n_unique()
+    s_nulls = src["main_net_inflow"].null_count()
+    good = (n == s_rows and mn == s_min and mx == s_max and days == s_days
+            and nulls == s_nulls and bad_code == 0 and uniq == n)
+    print(f"  moneyflow    CH={n:>12,} 源={s_rows:>12,}  "
+          f"日期 {mn}..{mx} / {s_min}..{s_max}  天={days}/{s_days}  "
+          f"main_net_inflow 空值={nulls}/{s_nulls}  键异常={bad_code}  "
+          f"{'一致' if good else '不一致'}", flush=True)
+    return good
+
+
+def _check_fundamentals(client, db, path: Path | None = None) -> bool:
+    """fundamentals：CH vs fact parquet 快照（与灌入同一 load_fact 语义）+ 关键字段。"""
+    from ingest_fundamentals import load_fact
+    src = load_fact(Path(FUNDAMENTALS_SRC if path is None else path))
+    n, mn, mx, days, nulls, bad_code, uniq = client.query(
+        f"SELECT count(), min(updated_date), max(updated_date), "
+        f"uniqExact(updated_date), countIf(total_shares IS NULL), "
+        f"countIf(ts_code = '' OR ts_code IS NULL), "
+        f"uniqExact((updated_date, ts_code)) FROM {db}.fundamentals").result_rows[0]
+    s_rows = src.height
+    s_min = src["updated_date"].min() if s_rows else None
+    s_max = src["updated_date"].max() if s_rows else None
+    s_days = src["updated_date"].n_unique()
+    s_nulls = src["total_shares"].null_count()
+    good = (n == s_rows and mn == s_min and mx == s_max and days == s_days
+            and nulls == s_nulls and bad_code == 0 and uniq == n)
+    print(f"  fundamentals CH={n:>12,} 源={s_rows:>12,}  "
+          f"日期 {mn}..{mx} / {s_min}..{s_max}  天={days}/{s_days}  "
+          f"total_shares 空值={nulls}/{s_nulls}  键异常={bad_code}  "
+          f"{'一致' if good else '不一致'}", flush=True)
+    return good
+
+
 def main():
     from ingest_common import discover_tasks
 
@@ -186,6 +243,14 @@ def main():
         ok &= _check_daily_invariants(client, db)
         print("派生表:", flush=True)
         ok &= _check_derived_tables(client, db, fact_rows)
+
+    if which in ("all", "moneyflow"):
+        print("moneyflow:", flush=True)
+        ok &= _check_moneyflow(client, db)
+
+    if which in ("all", "fundamentals"):
+        print("fundamentals:", flush=True)
+        ok &= _check_fundamentals(client, db)
 
     if which in ("all", "bars"):
         print("bars_1m:", flush=True)

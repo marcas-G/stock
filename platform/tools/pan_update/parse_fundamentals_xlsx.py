@@ -46,9 +46,8 @@ OUT_COLUMNS = FU.OUT_COLUMNS
 NUM_COLUMNS = FU.NUM_COLUMNS
 OUT_SCHEMA = FU.OUT_SCHEMA
 
-DEFAULT_SRC = config.repo_root() / "data" / "raw" / "financial"
-DEFAULT_FACT = config.repo_root() / "data" / "fact" / "fundamentals" / \
-    "fundamentals_snapshot.parquet"
+DEFAULT_SRC = config.RAW_ROOT / "financial"
+DEFAULT_FACT = config.FACT_ROOT / "fundamentals" / "fundamentals_snapshot.parquet"
 
 _BLANK = {"", "None", "-", "—"}
 

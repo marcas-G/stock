@@ -70,8 +70,8 @@ def test_zip_days_rel_path_maps_directly_under_local_root():
     assert rels == ["2025/12/20251231.zip",
                     "2026/01/20260102.zip",
                     "2026/09/20260916.zip"], "rel_path 必须是 <年>/<月>/<文件名>，不得带类别前缀"
-    local_root = config.repo_root() / cat.local_root
-    assert local_root == config.repo_root() / "data/raw/minutes"
+    local_root = cat.local_root
+    assert local_root == config.RAW_ROOT / "minutes"
     for e in entries:
         assert local_root / e.rel_path == local_root / e.name[:4] / e.name[4:6] / e.name
         assert (local_root / e.rel_path).parent.parent.name == e.name[:4], "年目录 = YYYY"

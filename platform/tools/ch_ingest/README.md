@@ -12,6 +12,8 @@ ClickHouse（`127.0.0.1:8123` HTTP——clickhouse-connect 仅支持 HTTP；`190
 | adj_detail / adj_event（派生：daily_fact 除权 7 列） | `data/fact/daily_fact/daily_fact.parquet`（相对 `stock/`） | 18,124,805 / 57,173 | `ch_ingest/adj_backfill.py`（R19 从 ashare 项目 12 号脚本归位），DROP+CREATE 全量 |
 | bars_1m | `data/fact/bars_1m/year=YYYY/month=MM/` | 1,853,379,840（R21 probe 实测） | 月分区 ×80 |
 | tick_trades / tick_orders / tick_snapshots | `data/fact/tick_fact/{trades,orders,snapshots}/year=YYYY/month=MM/` | 98.6 亿 | 月分区 ×13×3 |
+| moneyflow（Plan P T7；列映射见 `lib/moneyflow.py`） | `data/raw/fund_flow/**/*.zip`（月 zip 补历史 + 当月日 zip 增量，日 zip 覆盖月 zip） | 1,113,668（T10 实测，202 日 / 5,596 码） | `ingest_moneyflow.py`，TRUNCATE+INSERT 全量；**空源拒绝灌入**（不清表） |
+| fundamentals（Plan P T8；当期快照，非 PIT 历史） | `data/fact/fundamentals/fundamentals_snapshot.parquet`（由 `pan_update/parse_fundamentals_xlsx.py` 从周更小 xlsx 生成） | 5,556（T10 实测） | `ingest_fundamentals.py`，TRUNCATE+INSERT 全量；**空快照拒绝灌入** |
 
 R21 行数为重灌后实测；每次重生成 daily_fact 后以 `reconcile.py` 输出为准（README 数字只在
 明显漂移时更新——对账门本身按源 parquet metadata 动态取数，不读本表）。
@@ -44,8 +46,10 @@ python ingest_tick.py --trades      # 只灌 trades
 python derive_stk_limit.py          # stk_limit（规则见脚本 docstring）
 python platform/tools/ch_ingest/adj_backfill.py   # adj_detail + adj_event（平台 venv）
 
-# 6) 对账（退出码 0=全一致）
-python reconcile.py
+# 6) 对账（退出码 0=全一致；14 表）
+python reconcile.py                 # 全表（含 moneyflow / fundamentals）
+python reconcile.py moneyflow       # 资金流：行数/日期/天数/关键列空值 vs raw zip 源
+python reconcile.py fundamentals    # 财报快照：行数/updated_date/关键列空值 vs fact parquet
 ```
 
 ## 设计
@@ -105,3 +109,8 @@ python reconcile.py
 - `adj_detail` 全量行级；`adj_event` 仅除权事件日（div_cash/div_bonus/div_transfer/rights_num ≠ 0）
 - `reconcile.py`（R21 I7）对账 daily 5 表行数 + daily 恒等式/日期范围 + 派生三表
   （stk_limit 期望行数独立复算、band/日期不变量；adj_detail/adj_event 行数与 uniq）
+- `reconcile.py`（终评 I3）新增两表：**moneyflow** 行数/日期范围/天数/`main_net_inflow`
+  空值数/`ts_code` 键异常 vs `raw/fund_flow` zip 全量帧（与灌入同一 `load_frames`
+  语义，含日 zip 覆盖月 zip 与去重）；**fundamentals** 行数/`updated_date` 范围/天数/
+  `total_shares` 空值数/键异常 vs fact parquet（与灌入同一 `load_fact` 语义）。
+  任一不一致 → 非零退出（`make reconcile` / `pan_update verify` 原样传播）

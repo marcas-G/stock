@@ -82,7 +82,13 @@ def load_frames(root: Path) -> pl.DataFrame:
 
 
 def write(client, db: str, df: pl.DataFrame, *, batch_size: int = BATCH) -> int:
-    """CREATE IF NOT EXISTS + TRUNCATE + 批量 INSERT；返回插入行数。"""
+    """CREATE IF NOT EXISTS + TRUNCATE + 批量 INSERT；返回插入行数。
+
+    空源护栏（终评 I1，镜像 ingest_fundamentals）：0 行帧不是"合法清表"——
+    首次/空 raw 下 TRUNCATE 会静默清空 CH 表且 exit 0；此处 loud fail。
+    """
+    if df.height == 0:
+        raise ValueError("moneyflow: 空源拒绝灌入（拒绝清空 CH 表）")
     client.command(create_sql(db))
     client.command(f"TRUNCATE TABLE {db}.{TABLE}")
     total = 0
