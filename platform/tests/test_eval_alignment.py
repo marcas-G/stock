@@ -47,7 +47,9 @@ def test_align_weekly_full_year_keeps_first_bar():
 
 
 def test_align_weekly_per_code_no_leak():
-    # A、B 同处 2024 年第 1 周：分组若忽略 code 会把整组周末取为 1/5，丢弃 A 的观测
+    # A、B 同处 2024 年第 1 周：分组若忽略 code 会丢 A 的观测；R05-I4 后
+    # **每周恰一个评估日期**——各 code 保留自己的周内最后观测，date 统一改标为
+    # 帧内该 ISO 周最后交易日（1/5），不再产生 1/3 的第二个评估日期
     df = pl.DataFrame({
         "date": [datetime.date(2024, 1, 2), datetime.date(2024, 1, 3),
                  datetime.date(2024, 1, 4), datetime.date(2024, 1, 5)],
@@ -56,8 +58,27 @@ def test_align_weekly_per_code_no_leak():
     })
     out = align_weekly(df).sort(["code", "date"])
     assert out["code"].to_list() == ["A", "B"]
-    assert out["date"].to_list() == [datetime.date(2024, 1, 3), datetime.date(2024, 1, 5)]
+    assert out["date"].to_list() == [datetime.date(2024, 1, 5)] * 2
     assert out["signal"].to_list() == [3.0, 5.0]
+
+
+def test_align_weekly_one_date_per_iso_week_minute_like():
+    """R05-I4 回归：分钟链（无停牌骨架补行）各股周内最后交易日不同时，
+    同一 ISO 周不得产出多个评估日期（154 周→370 日期/n_weeks=171 的病灶）。
+
+    A 只有 1/3 行、B 只有 1/4 行、C 只有 1/5 行 → 帧内该周最后交易日 = 1/5：
+    三 code 各自保留自己的最后观测但都改标 1/5，该 ISO 周恰一个评估日期。
+    """
+    df = pl.DataFrame({
+        "date": [datetime.date(2024, 1, 3), datetime.date(2024, 1, 4),
+                 datetime.date(2024, 1, 5)],
+        "code": ["A", "B", "C"],
+        "signal": [1.0, 2.0, 3.0],
+    })
+    out = align_weekly(df).sort(["code", "date"])
+    assert out["date"].n_unique() == 1
+    assert out["date"].to_list() == [datetime.date(2024, 1, 5)] * 3
+    assert out["signal"].to_list() == [1.0, 2.0, 3.0]
 
 
 def test_align_weekly_empty_panel():
