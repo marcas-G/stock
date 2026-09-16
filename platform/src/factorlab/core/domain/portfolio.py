@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 
 import polars as pl
 
-from factorlab.core.domain.codes import is_canonical_stock_code
+from factorlab.core.domain.codes import CANONICAL_TS_CODE_PATTERN
 from factorlab.core.domain.timing import SignalTiming
 
 _NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
@@ -110,9 +110,10 @@ class TargetPortfolio:
             dup = f.group_by(["decision_date", "code"]).len().filter(pl.col("len") > 1)
             if dup.height:
                 raise ValueError(f"(decision_date, code) 重复 {dup.height} 组——不静默去重")
-            # canonical stock code（复用 domain.codes 单一权威）
-            bad_code = f.filter(~pl.col("code").map_elements(
-                is_canonical_stock_code, return_dtype=pl.Boolean).fill_null(False))
+            # canonical stock code（复用 domain.codes 单一权威 pattern；向量化，
+            # R03-M4：map_elements 会触发 PolarsInefficientMapWarning）
+            bad_code = f.filter(~pl.col("code").str.contains(
+                CANONICAL_TS_CODE_PATTERN).fill_null(False))
             if bad_code.height:
                 raise ValueError(
                     f"code 必须为 canonical stock code（收到 {bad_code['code'].unique().to_list()}）"
@@ -144,12 +145,10 @@ class TargetPortfolio:
                 raise ValueError(
                     f"decision_dates 必须严格递增唯一（{dates[i - 1]} -> {d}）"
                     f"——不自动 sort/dedup")
-        # frame date ⊆ decision_dates
+        # frame date ⊆ decision_dates（向量化 is_in，null → 拒绝；R03-M4）
         if self.frame.height:
-            known = set(dates)
             bad = self.frame.filter(
-                ~pl.col("decision_date").map_elements(
-                    lambda d: d in known, return_dtype=pl.Boolean))
+                ~pl.col("decision_date").is_in(list(dates)).fill_null(False))
             if bad.height:
                 raise ValueError(
                     f"frame.decision_date 不在 decision_dates 中: "

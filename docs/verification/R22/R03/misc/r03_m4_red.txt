@@ -1,0 +1,10 @@
+### R03-M4 RED (portfolio.py 原样 map_elements)
+$ .venv/bin/python -m pytest -q tests/test_portfolio_domain.py -k 'inefficient or null_code or null_decision'
+E         
+E         Left contains one more item: '\nExpr.map_elements is significantly slower than the native expressions API.\nOnly use if you absolutely CANNOT imple...l.col("decision_date").map_elements(lambda d: ...)\nwith this one instead:\n  + pl.col("decision_date").is_in(known)\n'
+E         Use -v to get more diff
+
+tests/test_portfolio_domain.py:244: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_portfolio_domain.py::test_no_inefficient_map_warning_on_construct
+1 failed, 2 passed, 39 deselected in 0.73s

@@ -1,6 +1,7 @@
 """M7-01：TargetPortfolio / TargetPortfolioMeta 领域契约。"""
 
 import datetime
+import warnings
 from dataclasses import FrozenInstanceError
 
 import polars as pl
@@ -223,6 +224,40 @@ def test_frozen_portfolio():
     tp = _tp()
     with pytest.raises(FrozenInstanceError):
         tp.decision_dates = (D3,)
+
+
+# ---------------- R03-M4：校验向量化（无 PolarsInefficientMapWarning） ----------------
+
+def test_no_inefficient_map_warning_on_construct():
+    """R03-M4：合法构造不得触发 PolarsInefficientMapWarning（校验须向量化）。
+
+    行为契约不变：frame.height==4 照常通过；警告断言防止 map_elements 回归
+    （每个策略构建都刷警告 = 性能与 pristine 测试输出双违背）。
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        tp = _tp()
+    inefficient = [str(w.message) for w in caught
+                   if issubclass(w.category,
+                                 pl.exceptions.PolarsInefficientMapWarning)]
+    assert tp.frame.height == 4
+    assert inefficient == []
+
+
+def test_null_code_rejected_vectorized():
+    """向量化等价的拒绝路径：code 为 null 行必须被拒（旧 map_elements 语义）。"""
+    f = pl.DataFrame({"decision_date": pl.Series([D1], dtype=pl.Date),
+                      "code": pl.Series([None], dtype=pl.String),
+                      "target_weight": pl.Series([1.0], dtype=pl.Float64)})
+    with pytest.raises(ValueError, match="canonical"):
+        _tp(frame=f)
+
+
+def test_null_decision_date_rejected_vectorized():
+    """向量化等价的拒绝路径：decision_date 为 null 必须被拒（旧 membership 语义）。"""
+    f = _frame().with_columns(pl.lit(None, dtype=pl.Date).alias("decision_date"))
+    with pytest.raises(ValueError):
+        _tp(frame=f)
 
 
 # ---------------- meta validation ----------------
