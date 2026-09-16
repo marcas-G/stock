@@ -102,13 +102,24 @@ def daily_codes_clause(codes: list[str]) -> tuple[str, dict[str, str]]:
 
 
 class ClickHouseRead(ReadPort):
-    """ClickHouse 句柄（P-1 实现）：无状态包本模块客户端单例。
+    """ClickHouse 句柄（P-1 实现）：包本模块客户端单例。
 
     SQL 文本内所有表带 {settings.ch_database}. 前缀（由编译函数生成），
     客户端默认库无关紧要——ch_db 测试临时库靠 monkeypatch ch_database 生效。
+
+    R04-P4（2026-09-16）：schema 探测（tables()/columns()）按 (当前 ch_database
+    [, table]) memoize，缓存生命周期 = 本实例（`open_read` 每次新开）。M8 逐
+    decision 重探 system.tables/columns 实测 160+ 次/run 降为每实例每键一次。
+    按库名隔离（换库重新探测）；**同库内 DDL 变更不自动失效**——实例内 schema
+    视为静态 reference，需要看到新表请新开句柄（open_read）。探测异常不写缓存。
+    返回值恒为副本（调用方修改不得污染缓存）。
     """
 
     backend = "ch"
+
+    def __init__(self) -> None:
+        self._tables_cache: dict[str, set[str]] = {}
+        self._columns_cache: dict[tuple[str, str], set[str]] = {}
 
     def query_df(self, sql: str, params: Any = None) -> pl.DataFrame:
         return query_df(sql, params)
@@ -120,13 +131,24 @@ class ClickHouseRead(ReadPort):
         return command(sql, params)
 
     def tables(self) -> set[str]:
-        return {r[0] for r in query_rows(
-            f"SELECT name FROM system.tables WHERE database = '{settings.ch_database}'")}
+        db = settings.ch_database
+        cached = self._tables_cache.get(db)
+        if cached is None:
+            cached = {r[0] for r in query_rows(
+                f"SELECT name FROM system.tables WHERE database = '{db}'")}
+            self._tables_cache[db] = cached
+        return set(cached)
 
     def columns(self, table: str) -> set[str]:
-        return {r[0] for r in query_rows(
-            f"SELECT name FROM system.columns "
-            f"WHERE database = '{settings.ch_database}' AND table = '{table}'")}
+        db = settings.ch_database
+        key = (db, table)
+        cached = self._columns_cache.get(key)
+        if cached is None:
+            cached = {r[0] for r in query_rows(
+                f"SELECT name FROM system.columns "
+                f"WHERE database = '{db}' AND table = '{table}'")}
+            self._columns_cache[key] = cached
+        return set(cached)
 
     def close(self) -> None:
         pass

@@ -121,6 +121,12 @@ class _EnvCh(_Env):
         self._rd = None
 
     def seed(self, tables):
+        # 与 duckdb 腿对齐（R04-P4）：seed 视为"新库状态"——ClickHouseRead 按
+        # 实例缓存 schema，继续用 seed 前的旧句柄会看到旧表/旧列；seed 时作废
+        # 句柄（下次 .rd 重开）。
+        if self._rd is not None:
+            self._rd.close()
+            self._rd = None
         dualbridge.seed_ch(self.client, self.db, tables)
 
     @property
