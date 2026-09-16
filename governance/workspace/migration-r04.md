@@ -56,9 +56,9 @@
 | 9 | `docs/verification/` | `governance/evidence/verification/` | 6 | ✅ `583217f` |
 | 10 | `docs/reviews/`（余下） | `governance/evidence/reviews/` | 6 | ✅ `583217f` |
 | 11 | `scripts/*` | `governance/ops/` | 7 | ✅ `227acd9` |
-| 12 | `platform/results/` | `runs/platform/` | 8 | ✅ `TBD-T8` |
-| 13 | 两树 `AGENTS.md` 并入根；`CLAUDE.md` 薄化；`platform/docs`、`research/docs` 留壳 | — | 10 | ☐ |
-| 14 | `projects/ashare_alpha3` | `_archive/2026-09-16-ashare-alpha3/` | 11 | ✅ `TBD-T11` |
+| 12 | `platform/results/` | `runs/platform/` | 8 | ✅ `024e45f` |
+| 13 | 两树 `AGENTS.md` 并入根；`CLAUDE.md` 薄化；`platform/docs`、`research/docs` 留壳 | — | 10 | ✅ `898a4a1` |
+| 14 | `projects/ashare_alpha3` | `_archive/2026-09-16-ashare-alpha3/` | 11 | ✅ `ca8c6a5` |
 
 ## 3b. 并发冲突记录（如实标注，不回滚）
 
@@ -87,4 +87,4 @@
 | 9 | `75dc818` | 仓外 5 技能路径同步（26 处 → 0 残留）；diff 证据落盘；`factor-mine`（仓内）复检 0 残留 | `governance/evidence/verification/R24/09-skills/` |
 | 10 | `898a4a1` | 两树 AGENTS 并入根；CLAUDE 薄化；docs 指针壳；白名单 15→14 待 Task 11 | `governance/evidence/verification/R24/10-agent-docs/` |
 | 11 | 见下 | `projects/ashare_alpha3` → `_archive/2026-09-16-ashare-alpha3/`（manifest + 到期 2026-10-16）；根白名单收敛 14 项；相关文档同步 | `governance/evidence/verification/R24/11-archive/` |
-| 12 | | | |
+| 12 | 见下 | 全量验收：平台 3150/13、make test-research 337+58/2skip、门=仅挖矿 G-ANNOTATE 红、data/ 零写、旧路径仅冻结/映射；补修 4 处迁移遗漏 | `governance/evidence/verification/R24/12-acceptance/` |

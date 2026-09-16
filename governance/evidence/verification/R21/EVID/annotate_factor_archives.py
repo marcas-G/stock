@@ -17,7 +17,7 @@ from __future__ import annotations
 import pathlib
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[4]          # stock/
+ROOT = pathlib.Path(__file__).resolve().parents[5]          # stock/（R24 迁 governance/evidence 后深度 +1）
 DOCS = ROOT / "knowledge" / "dossiers" / "factors"
 MARK = "snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）"
 

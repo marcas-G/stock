@@ -15,8 +15,8 @@ import pytest
 import quant_core
 from factorlab.core.eval.ic_series import weekly_ic
 
-_CONTRACT_DOC = (pathlib.Path(__file__).resolve().parents[1]
-                 / "docs" / "superpowers" / "specs" / "2026-08-26-quant-core-contract.md")
+_CONTRACT_DOC = (pathlib.Path(__file__).resolve().parents[2]
+                 / "knowledge" / "design" / "platform" / "specs" / "2026-08-26-quant-core-contract.md")
 
 
 def test_contract_doc_present():

@@ -1,0 +1,2 @@
+已生成 knowledge/index/factors.md（329 行）
+已生成 knowledge/index/strategies.md（14 行）

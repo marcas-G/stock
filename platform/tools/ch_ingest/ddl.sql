@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS factorlab.stk_limit (
 ) ENGINE = MergeTree
   ORDER BY (trade_date, ts_code);
 
--- adj_detail / adj_event: 由 ashare_alpha3/scripts/12_ch_adj_backfill.py 管理
+-- adj_detail / adj_event: 由 ch_ingest/adj_backfill.py 管理（R19 收编自 ashare_alpha3/scripts/12_ch_adj_backfill.py）
 --   （DROP + CREATE + 流式全量，源 = daily_fact.parquet 除权 7 列）。
 --   adj_event 是平台 CA Gate 事件源（ts_code String + trade_date Date 契约）。
 CREATE TABLE IF NOT EXISTS factorlab.adj_detail (

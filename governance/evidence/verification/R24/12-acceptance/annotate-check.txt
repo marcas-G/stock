@@ -1,0 +1,8 @@
+缺 snapshot 标注：7 份
+  - knowledge/dossiers/factors/liquidity/level_ma20.md
+  - knowledge/dossiers/factors/reversal_10d/cumret_log.md
+  - knowledge/dossiers/factors/reversal_20d/cumret_freq.md
+  - knowledge/dossiers/factors/reversal_20d/overnight.md
+  - knowledge/dossiers/factors/reversal_rsi/reversal_14_ret.md
+  - knowledge/dossiers/factors/volatility/high_intraday.md
+  - knowledge/dossiers/factors/volatility/low_vol_20d_park.md

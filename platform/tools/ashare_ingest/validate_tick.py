@@ -18,7 +18,7 @@ import pandas as pd
 
 import datapaths  # 工具内配置/路径单点（R19）
 
-# tick 转换回执清单（**回执非事实表**；G-READ 登记见 scripts/check_dataiface.py）。
+# tick 转换回执清单（**回执非事实表**；G-READ 登记见 governance/ops/check_dataiface.py）。
 # 路径在模块常量处求值：读取表达式因此化简为常量名，可登记（R19）。
 TICK_MANIFEST = datapaths.tick_manifest()
 

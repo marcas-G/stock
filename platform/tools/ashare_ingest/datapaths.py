@@ -83,5 +83,5 @@ def bars_1m_root() -> Path:
 
 def tick_manifest() -> Path:
     """A4 转换回执清单（`validate_tick` 对账读；**回执非事实表**，G-READ 登记见
-    scripts/check_dataiface.py 的 G_READ_ALLOWED）。"""
+    governance/ops/check_dataiface.py 的 G_READ_ALLOWED）。"""
     return fpaths.tick_fact_root() / "_manifest" / "conversion_manifest.parquet"
