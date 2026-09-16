@@ -1,0 +1,4 @@
+# R06 修复后终态复核（reviewer 亲跑）
+# 命令: cd platform && FACTORLAB_MAX_MEMORY=8GB .venv/bin/python -m pytest -q
+# 结果: 3151 passed, 13 skipped, 47 warnings in 816.31s (0:13:36)
+# 说明: 与团队声称 3151/13 一致；此前 R06 轮（HEAD 9fd442f）为 3150/13，新增 1 测试

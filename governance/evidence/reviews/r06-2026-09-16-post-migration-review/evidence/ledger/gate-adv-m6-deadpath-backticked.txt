@@ -1,5 +1,6 @@
 $ platform/.venv/bin/python governance/ops/check_reviews.py --ledger /tmp/r06-gate-ledger/m6-deadpath-backticked.md
-[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）
+[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/证据 token/统计实计）
+  [BAD] line 25 [R01-ENG-C1] fixed-claimed 但「修复说明」无证据 token（须含提交 SHA 或存在的路径；见 README §流程 2）
   [BAD] line 25 [R01-ENG-C1] [修复说明（团队填：commit+命令+输出）] 路径不存在: docs/verification/R21/ENG/definitely_missing.txt
 台账门：有失败（见上）
 
