@@ -38,6 +38,10 @@ STAGE_CHAINS: dict[str, list[list[str]]] = {
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "derive_stk_limit.py")],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "adj_backfill.py")],
     ],
+    "minutes": [
+        [str(_VENV_PYTHON), str(_TOOLS / "converters" / "convert_minutes_to_parquet.py")],
+        [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_bars.py")],
+    ],
 }
 
 
