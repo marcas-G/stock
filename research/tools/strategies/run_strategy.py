@@ -19,7 +19,6 @@ import argparse
 import sys
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]         # stock/
 # 因子结果根：**缺省跟随平台 settings.results_dir**（R24 后 = <repo>/runs/platform；
 # FACTORLAB_RESULTS_DIR 可覆盖，相对 cwd 解释）。此前硬编码 platform/results
 # （R24 迁移前旧落点）导致策略入口读不到迁移后的因子结果（R05 式使用验证实测）。
