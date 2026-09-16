@@ -1,0 +1,21 @@
+# R24 post-migration 使用验证（R05 式）：策略入口 stale results 路径
+# date: 2026-09-16T16:20:39+08:00
+
+== BEFORE（修复前）==
+$ FACTORLAB_DATA_BACKEND=ch FACTORLAB_MAX_MEMORY=8GB python research/tools/strategies/run_strategy.py research/strategy/low_lottery_top30_weekly.yaml
+错误：summary.json 不存在: /data/students/gaolei/stock/platform/results/max_effect_20d_high
+
+根因：research/tools/strategies/run_strategy.py:19 _DEFAULT_RESULTS = <repo>/platform/results（R24 迁移前旧落点；实际已迁 runs/platform）
+
+== AFTER（修复后）==
+策略 low_lottery_top30_weekly 完成：
+  out_dir   = /data/students/gaolei/stock/runs/platform/strategies/low_lottery_top30_weekly
+  signal    = max_effect_20d_high
+  decisions = 5
+  NAV       = 9992407.37 → 10214807.42（+2.23%）
+  fills     = 176 笔（5 个执行事件）
+
+== 回归测试 ==
+cd platform && .venv/bin/python -m pytest -q research/tools/strategies/tests/test_run_strategy_cli.py -> 8 passed, 2 skipped
+
+== 同批清扫：lob_fact notes 硬编码 projects/quant-platform-research/tools/lob_fact -> platform/tools/lob_fact（8 文件；残留 0）
