@@ -7,7 +7,7 @@
 
 | 项 | 命令 | 结果 |
 |---|---|---|
-| 平台全量 | `cd platform && .venv/bin/python -m pytest -q` | **3098 passed / 13 skipped**，801s，exit 0 |
+| 平台全量 | `cd platform && .venv/bin/python -m pytest -q` | **3099 passed / 13 skipped**，793s，exit 0（含 R05-I4 align_weekly 修复） |
 | 研究 T2 | `emb/bin/python -m pytest research/tools -q` | **278 passed / 10 skipped** |
 | 研究 T1 | `platform/.venv/bin/python -m pytest -q research/tools/{strategies,ch_ingest,1m_features,ashare_ingest,universe_stages,converters,factor_lib}/tests` | **143 passed** |
 | 常驻门 | `bash scripts/gates.sh` | 结构门全绿 + 数据接口门 ENFORCED 全绿（G-ANNOTATE/G-LINT 新增后首次全绿） |
@@ -25,7 +25,8 @@
 | R04 流程 P1/P2 | `99509c6`/`536e519` | lint 552s→3.8s；gates 增 G-ANNOTATE/G-LINT |
 | R04 §3 快清 | `76444ee`/`08ab327`/`d1df129` | NameError 修复；断链勘误；陈旧 gitignore 例外删除 |
 | R05-I1/I2/M1 | `fa8aa1e`/`928b3ee`/`1c54ea4` | 返回形态标注+Struct 拒绝；spec strict+op_meta 明确；op list --catalog |
-| R05-C1 内存护栏 | `2d4cbb2`/`bd7e85c` | RSS 看门狗+RLIMIT_AS+分钟估算门；1KB 阈值 clean abort；默认零行为变化 |
+| R05-C1 内存护栏 | `2d4cbb2`/`bd7e85c` | RSS 看门狗+RLIMIT_AS+分钟估算门；1KB 阈值 clean abort；默认零行为变化（reviewer verified） |
+| R05-I4 周对齐 | `29d1e07` | align_weekly 每周恰一个评估日期（分钟链 154周→370日期/n_weeks=171 修复）；R22 零迁移 delta=0 |
 | factor_lib `_` 约定 | `2d34d80`/`a679f8e` | `_pools` 不入索引/族校验；tripwire 只增不删 |
 
 ## 证据目录
