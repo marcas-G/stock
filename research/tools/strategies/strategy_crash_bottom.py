@@ -108,7 +108,7 @@ def strategy_backtest(
     use_rules = take_profit is not None or stock_stop_loss is not None or max_hold is not None
     holdings: set[str] | dict[str, tuple[float, int]] = set() if not use_rules else {}
     nav, cost_paid, turnover_sum = 1.0, 0.0, 0.0
-    weeks, rets, turnovers, entry_weeks = [], [], [], []
+    weeks, rets, turnovers = [], [], []
     prev_week_end: pl.Date | None = None
     per_episode: dict = {}
     episodes: list[dict] = []
