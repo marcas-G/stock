@@ -10,7 +10,9 @@ date: 2026-09-16 | 执行分支: workspace（HEAD 起步 881a077，并发 agent 
 | uv.lock 生成 + 声明补齐 | `f5f9a1e` |
 | interface stock_st/index_daily 裁决 | `f8014d5` |
 | pending 登记 + 评审 M 口径 | `d121651` |
-| 本证据 | 本提交 |
+| 证据本体（hygiene） | `48d4c14` |
+| 证据本体（data-t4 + 引用同步） | `c6a59fb` |
+| 门最终态复跑标注 | `9afe3b7` |
 
 ## data-t4/（Task 4 残余）
 
