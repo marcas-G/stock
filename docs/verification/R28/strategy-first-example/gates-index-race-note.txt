@@ -1,0 +1,10 @@
+== 索引门当前状态 vs 在途挖矿文件（mine 循环并发写）==
+2026年 09月 16日 星期三 13:22:19 CST
+
+$ python3 research/tools/factor_lib/build_index.py --check
+索引与生成器输出不一致（doc 陈旧或手改）——重跑 build_index.py
+rc=1
+
+== 近 30 分钟内变更/新增的因子 yaml（非我改动）==
+  liquidity/level_ma20.yaml  (mtime 13:19:30)
+  volatility/low_vol_20d_park.yaml  (mtime 12:54:12)
