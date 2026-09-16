@@ -6,7 +6,8 @@ RLIMIT_AS 硬上限、干净中止（无半成品）、显式巨大 chunk/长窗
 
 | 证据 | 文件 | 要点 |
 |---|---|---|
-| 新增单测（解析/采样/触发/协作检查/线程/RLIMIT_AS/估算门） | `c1-tests.txt` | `tests/test_memory_guard.py` **39 passed**（实现前 RED：`ModuleNotFoundError: factorlab.app.memory`） |
+| TDD RED（测试 × 实现前源码） | `c1-tdd-red.txt` | detached worktree@`c7b68fd` + 新测试：4 个测试文件收集期 `ModuleNotFoundError: factorlab.app.memory`（先失败） |
+| 新增单测（解析/采样/触发/协作检查/线程/RLIMIT_AS/估算门） | `c1-tests.txt` | `tests/test_memory_guard.py` **39 passed**（实现后 GREEN） |
 | 必跑相关文件（含新增 run/CLI/分钟测试） | `c1-tests.txt` | `test_run_factor + test_minute_engine + test_cli_run + test_memory_guard` → **199 passed**；`test_architecture + test_doc_paths_exist` → 13 passed |
 | 真实 CLI clean abort（人为阈值 `FACTORLAB_MAX_MEMORY=1KB`） | `c1-clean-abort-and-defaults.txt` | `factorlab run` exit **1** + 明确文案（当前 RSS=350.6MB / 阈值 1.0KB / 建议）；输出目录**不存在**；loader `summary.json 不存在` 拒绝 |
 | 默认行为不变（未设 env） | 同上 | run exit 0、`signal_rows=18`、loader 可加载 |

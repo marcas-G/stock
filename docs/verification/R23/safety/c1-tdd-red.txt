@@ -1,0 +1,22 @@
+===== TDD RED 复现：新增/改动测试 × 实现前源码（commit c7b68fd，detached worktree） =====
+说明：测试先写（memory 模块不存在）→ 收集期 ModuleNotFoundError；实现后 GREEN 见 c1-tests.txt
+
+$ cd /tmp/opencode/r05c1/red/platform && python -m pytest -q tests/test_memory_guard.py tests/test_run_factor.py tests/test_minute_engine.py tests/test_cli_run.py -k 'memory or hard_address or huge_chunk or large_chunk or never_rejected'
+ImportError while importing test module '/tmp/opencode/r05c1/red/platform/tests/test_cli_run.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_cli_run.py:10: in <module>
+    from test_run_factor import build_db
+tests/test_run_factor.py:26: in <module>
+    from factorlab.app.memory import MemoryLimitExceeded, MemoryWatchdog
+E   ModuleNotFoundError: No module named 'factorlab.app.memory'
+=========================== short test summary info ============================
+ERROR tests/test_memory_guard.py
+ERROR tests/test_run_factor.py
+ERROR tests/test_minute_engine.py
+ERROR tests/test_cli_run.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 4 errors during collection !!!!!!!!!!!!!!!!!!!!
+4 errors in 3.78s
