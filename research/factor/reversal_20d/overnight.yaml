@@ -11,4 +11,4 @@ process:
   - standardize()
 formula: |
   from polars_ta.prefix.wq import ts_sum, ts_delay
-  signal = ts_sum(open/ts_delay(close, 1) - 1, 20)
+  signal = ts_sum(open / ts_delay(close, 1) - 1, 20)
