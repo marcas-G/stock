@@ -8,7 +8,7 @@
 3. **自检**：`platform/.venv/bin/factorlab lint <spec>`（秒级）。全库 lint 必须 152/152 通过。
 4. **跑**：`FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/factorlab run <spec>`；看 IC/分层/换手。
 5. **归档**：同族同名档案 `knowledge/dossiers/factors/<族>/<短名>.md` + 重生成 `knowledge/index/factors.md`。
-6. **记账**：把结论（含负结论）写进档案；未决项进 `docs/pending-items.md`。
+6. **记账**：把结论（含负结论）写进档案；未决项进 `governance/workspace/pending-items.md`。
 
 ## 提交与证据纪律
 

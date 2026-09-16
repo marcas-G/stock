@@ -25,7 +25,7 @@ import import_daily  # noqa: E402
 def test_no_workspace_absolute_prefix():
     """工具内**不得**出现工作区绝对前缀。
 
-    R19 收编前，这个项目把工作区绝对路径散落在 60 处（`docs/workspace-p0p8.md` 登记过
+    R19 收编前，这个项目把工作区绝对路径散落在 60 处（`governance/workspace/workspace-p0p8.md` 登记过
     这条隐性断链风险）；收编后的纪律是"路径只经 datapaths.py → factio.paths"。
     """
     bad = []

@@ -3,7 +3,7 @@
 #
 # 为什么不是重建：平台 venv 里有大量 pyproject **未声明**的包（实测 pandas/openpyxl/plotly/
 # black/numba…），且全仓无 lock 文件 → 从声明重建 venv **不可复现**，重建还会引入
-# polars/duckdb 版本漂移（威胁 lob_fact 的字节级重跑）。那笔欠账登记在 docs/pending-items.md。
+# polars/duckdb 版本漂移（威胁 lob_fact 的字节级重跑）。那笔欠账登记在 governance/workspace/pending-items.md。
 # 本脚本只做一件事：目录移动/搬迁之后，把两个 editable 指回新路径，并**断言落位**。
 #
 # 用法：bash scripts/reinstall_editable.sh [freeze-输出路径]

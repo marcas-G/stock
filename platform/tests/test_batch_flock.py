@@ -1,7 +1,7 @@
 """P-5 真实现 `adapters/batch_flock.py` —— 契约一致 + flock/断点/看门狗/标记四条独有语义。
 
 `ports/batch.py` 声明"实现者：adapters/batch_flock.py（WS6）"，但该模块长期不存在（No Orphan
-欠账，`docs/pending-items.md#14`）。本测试先于实现写：契约部分对齐 `_doubles.InlineOrchestrator`
+欠账，`governance/workspace/pending-items.md#14`）。本测试先于实现写：契约部分对齐 `_doubles.InlineOrchestrator`
 （失败记账不中断、断点跳过），额外锁住只有真实现才有的行为——**锁被占时零执行**、
 **停滞看门狗按时收敛且不静默吞任务**、**失败时不得落 `_SUCCESS`**、**state 原子写回**。
 """

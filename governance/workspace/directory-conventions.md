@@ -72,7 +72,7 @@
 - 一切"疑似无用但不可证明是垃圾"的移除物先 mv 进 `_archive/<日期>-<阶段>/`（保留期与程序见 `archive-policy.md`——**TTL 政策单点**）。
 - 每批必须附 manifest（来源/原因/恢复命令/到期日），manifest 入 `governance/evidence/verification/<阶段>/`
   并提交根仓库；`_archive/README.md` 只放政策指针。
-- 到期清理程序见 `docs/archive-policy.md`。
+- 到期清理程序见 `governance/workspace/archive-policy.md`。
 
 ## 5. 路径写法纪律（防再生"三轨"）
 

@@ -1,7 +1,7 @@
 """P-5 批算编排真实现：flock 单实例 + 进程池 + 停滞看门狗 + 断点 + `_SUCCESS`。
 
 `ports/batch.py` 从 WS6 起声明"实现者：adapters/batch_flock.py"，但该模块长期不存在
-（No Orphan 欠账，见 `docs/pending-items.md#14`）；本模块**只兑现声明**，不改任何工具：
+（No Orphan 欠账，见 `governance/workspace/pending-items.md#14`）；本模块**只兑现声明**，不改任何工具：
 研究侧三份编排样板（converters / extract_sz_cancels / run_lob_batch）的切换仍待专项轮次
 （它们的热路径需要字节级重跑对照，且各自的 manifest/月门语义不同）。
 

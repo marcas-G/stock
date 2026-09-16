@@ -13,7 +13,7 @@
 `throttle()`（派单闸门：False 则本轮不派新单）、`on_tick`/`on_tick_s`（周期回调）、
 `pool_hook(pool)`（池创建即回调——审计要读 worker 进程 RSS 时用）。
 **未纳入**：内存低水位派单闸门与周期性审计回调（run_lob_batch 专有，绑 16GB 内存纪律与
-runbook 取证，见 `docs/pending-items.md#14`）。
+runbook 取证，见 `governance/workspace/pending-items.md#14`）。
 """
 from __future__ import annotations
 

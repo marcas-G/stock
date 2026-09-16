@@ -87,7 +87,7 @@ def migrate_legacy_done_dir(path: str | Path, *, aside_suffix: str = ".legacy-20
     """把**旧形态的 state 目录**（`state.json/` 里一堆 `<key>.done` 空文件）迁移为 JSON。
 
     返回迁移出的 {key: True}（供调用方核对）；目录整体改名为 `<name><aside_suffix>/`
-    留档（30 天内可回溯，之后按 `docs/archive-policy.md` 清理），JSON 由其后的 save 写出。
+    留档（30 天内可回溯，之后按 `governance/workspace/archive-policy.md` 清理），JSON 由其后的 save 写出。
 
     只在"目标路径当前是目录"时动作；已是 JSON 文件 → 返回 {}（幂等）。
     """

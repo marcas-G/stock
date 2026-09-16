@@ -58,4 +58,4 @@ status: draft
 ## 6. 风险与未决
 
 - 已知风险（数据口径/窗口/容量/成本假设）：
-- 未决项（登记去向：`docs/pending-items.md` / Plan S Task 7 触发条件表）：
+- 未决项（登记去向：`governance/workspace/pending-items.md` / Plan S Task 7 触发条件表）：

@@ -39,7 +39,7 @@
   证据见 `docs/verification/R20/`。旧 `projects/ashare_alpha3` 仅作本地历史参考。
 
 6. **30 天归档到期清理**（2026-10-12）
-   程序见 `docs/archive-policy.md`；三个真实决策点（tick_dev 去留 / minutes-raw 深度血缘 /
+   程序见 `governance/workspace/archive-policy.md`；三个真实决策点（tick_dev 去留 / minutes-raw 深度血缘 /
    备份克隆目录清空）。
    - **口径注**："备份克隆目录清空"指 `_archive/2026-09-12-S3`（975M 的归档克隆，含 4 个
      主仓原本没有的提交，已抢救为分支 `archive/local-backup-20260903`）。与 2026-09-15

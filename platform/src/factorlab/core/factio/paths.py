@@ -1,6 +1,6 @@
 """工作区数据根路径单点（DER-008）。全部可经环境变量覆盖（FACTORLAB_STOCK_ROOT）。
 
-布局（2026-09-12 workspace 归并，权威见 workspace docs/data-map.md）：
+布局（2026-09-12 workspace 归并，权威见 workspace governance/workspace/data-map.md）：
     <STOCK_ROOT>/data/{raw,fact,panel,calib,ref}
 研究侧 tools/ 经 tools/_env.py 使用同一定义；禁止任何第二份绝对路径常量。
 """
@@ -13,7 +13,7 @@ STOCK_ROOT = Path(os.environ.get("FACTORLAB_STOCK_ROOT", "/data/students/gaolei/
 DATA_ROOT = STOCK_ROOT / "data"
 RAW_ROOT = DATA_ROOT / "raw"
 FACT_ROOT = DATA_ROOT / "fact"
-PANEL_ROOT = DATA_ROOT / "panel"   # 预留面板区（docs/data-map.md A12；当前空，零消费者属预期）
+PANEL_ROOT = DATA_ROOT / "panel"   # 预留面板区（governance/workspace/data-map.md A12；当前空，零消费者属预期）
 CALIB_ROOT = DATA_ROOT / "calib"
 REF_ROOT = DATA_ROOT / "ref"
 

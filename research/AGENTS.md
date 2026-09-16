@@ -24,7 +24,7 @@
 
 ## 调试
 
-- 数据问题先查 `../../docs/data-map.md`（哪个表是谁生产的、生产者在哪）。
+- 数据问题先查 `../../governance/workspace/data-map.md`（哪个表是谁生产的、生产者在哪）。
 - 批算异常先看 flock 单写者门与 `_SUCCESS` 事务边界（半成品分区不入库）。
 - 数字不对时先确认用的是**哪个内核**（`_env.py::ensure_platform()` 的落位断言就是为此存在；
   单解释器：平台 venv 3.13，`emb` 已退役）。

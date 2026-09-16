@@ -36,8 +36,8 @@
 
 | # | 项目 | 分支/角色 | 权威内容 |
 |---|---|---|---|
-| C1 | `platform/`（仓库内） | 平台树 | src/factorlab、tests、docs/（契约 4 篇 + superpowers） |
-| C2 | `research/`（仓库内） | 研究树 | factor/（152 yaml，14 族）、docs/（factors 档案 + strategies + playbook）、tools/（剩余研究工具：strategies/factor_lib）——数据生产线工具集 R27 归位 `platform/tools/` |
+| C1 | `platform/`（仓库内） | 平台树 | src/factorlab、tests、（契约 4 篇 → `knowledge/contracts/`、设计 → `knowledge/design/platform/`，R24） |
+| C2 | `research/`（仓库内） | 研究树 | factor/（152 yaml，14 族）、tools/（剩余研究工具：strategies/factor_lib）——档案/索引/playbook R24 迁 `knowledge/dossiers/`；数据生产线工具集 R27 归位 `platform/tools/` |
 | C3 | `platform/kernels/quant_core`（R18 起；原 `projects/quant_core_shim`） | 仓库内（内核发行物唯一声明点） | quant-core 0.1.0 shim（仅装 `platform/.venv`；Rust 版到位时同目录换 build backend） |
 | C4 | `projects/ashare_alpha3`（**R19/R20 收编完成**） | 无 git（本地项目，仅剩历史参考） | 数据侧已完成 → `platform/tools/ashare_ingest/`；股票池段已完成 → `platform/tools/universe_stages/`（R20） |
 
@@ -57,5 +57,5 @@ A8 daily zip → A5 daily_fact（ashare_ingest/import_daily）→ CH daily 层�
 
 ## 豁免清单（路径未重指但合法）
 
-`_archive/**`、历史战役备忘（`platform/tools/lob_fact/notes/*.md`）、`docs/superpowers/**` 历史
+`_archive/**`、历史战役备忘（`platform/tools/lob_fact/notes/*.md`）、`knowledge/design/platform/**` 历史
 spec/plan、`universe_stages/MIGRATION_GAP.md`（R20 迁入）——记录当时事实，不参与 grep 门。

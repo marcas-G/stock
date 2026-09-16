@@ -24,7 +24,7 @@
 - **批算编排只用单点**（R10 收敛）：`converters/convert_tick_to_parquet` 与
   `lob_fact/extract_sz_cancels` 的进程池/在飞窗口/停滞重试/结果回调一律走平台
   `factorlab.adapters.batch_flock.BatchFlock`（`mp_context='spawn'` 是硬要求——fork 会复制
-  父进程缓冲）；`run_lob_batch` 因内存闸门与审计回调保留自有循环（见 `docs/pending-items.md#14`）。
+  父进程缓冲）；`run_lob_batch` 因内存闸门与审计回调保留自有循环（见 `governance/workspace/pending-items.md#14`）。
 - **数据接口只用单点**（R4 收敛）：读 tick/lob/bars 经 `adapters.tick_read` / `adapters.lob_read` /
   `adapters.bars_read`（工具侧薄封装 `platform/tools/lib/tickdata.py`）；写/标记/锁/断点经
   `platform/tools/lib/writekit.py`（`_SUCCESS` + state JSON 两种形态，禁止新形态）。

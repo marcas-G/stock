@@ -68,7 +68,7 @@ surfaces/ (cli/web)  →  app/ (bootstrap/run/evaluate)  →  ports/ (6 条契�
 - 平台库 `data/factorlab.duckdb`（`settings.platform_db`）**当前不存在**（teajoin token 过期）：
   生产读路径用 `FACTORLAB_DATA_BACKEND=ch`（ClickHouse）。写入仅经
   `factorlab data rebuild/update/refresh`。
-- 数据位置以仓库根 `docs/data-map.md` 为唯一权威；本目录**不得写入** `../data/`。
+- 数据位置以仓库根 `../governance/workspace/data-map.md` 为唯一权威；本目录**不得写入** `../data/`。
 - `daily.code` 为纯数字（`000001`），`stock_basic_tushare.ts_code` 带后缀
   （`000001.SZ`）；`symbol` 列是两者桥梁。
 - 目标机器约 16GB 内存且无页面文件：SQL-first、float32、DuckDB `memory_limit`

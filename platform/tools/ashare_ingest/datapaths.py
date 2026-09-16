@@ -48,7 +48,7 @@ def out_dir(cfg: dict, key: str) -> Path:
 
 # ── 事实路径单点（全部经 factio.paths；本模块是工具内取路径的唯一入口）──────────
 def daily_fact() -> Path:
-    """A5 日线事实（本工具生产；见 docs/data-map.md）。"""
+    """A5 日线事实（本工具生产；见 governance/workspace/data-map.md）。"""
     return fpaths.daily_fact_path()
 
 

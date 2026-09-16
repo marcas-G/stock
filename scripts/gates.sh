@@ -47,7 +47,7 @@ structure() {
   n=$(git grep -nI -e "quant-platform-main" -e "quant-platform-research" -e "projects/quant-platform" -- . \
         ':!governance/evidence/verification' ':!docs/verification' ':!knowledge/design/platform' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' ':!knowledge/design/research' 2>/dev/null \
       | grep -vE '^scripts/gates.sh:' \
-      | grep -vE '^docs/(workspace-p0p8|traceability-matrix|remote-cleanup-checklist)\.md:' \
+      | grep -vE '^governance/workspace/(workspace-p0p8|traceability-matrix|remote-cleanup-checklist)\.md:' \
       | grep -v 'local-backup-20260903（975M' \
       | grep -vE 'R17' | wc -l)
   if [ "$n" = "0" ]; then ok "活文件零残留（豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）";

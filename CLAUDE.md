@@ -18,7 +18,7 @@
 ### 数据纪律（最高优先级）
 
 - **`data/` 零改动**：任何命令都不得写入（只读消费）。`data/` 与 `_archive/` 的 mtime/容量基线在 `docs/verification/`。
-- 数据位置与血缘以 `docs/data-map.md` 为唯一权威；目录/命名约定以 `docs/directory-conventions.md` 为唯一权威；
+- 数据位置与血缘以 `governance/workspace/data-map.md` 为唯一权威；目录/命名约定以 `governance/workspace/directory-conventions.md` 为唯一权威；
   两者冲突时**以磁盘为准并修订文档**。
 - 数据接口（读/写/契约）见 `docs/verification/R4/`（收口记录）与 `knowledge/contracts/interface.md` §4。
 
@@ -40,7 +40,7 @@
 **文档**：
 - 平台 API/CLI/DSL 变更 → `knowledge/contracts/interface.md`；设计与里程碑 → `knowledge/design/platform/{plans,specs}`。
 - 因子新增/改名 → `knowledge/dossiers/factors/<族>/<名>.md` 同名档案 + 重生成 `knowledge/index/factors.md`（有 byte-equality 门）。
-- 文档与实现冲突时改文档；实现中发现的设计缺口写进对应 spec 或 `docs/pending-items.md`。
+- 文档与实现冲突时改文档；实现中发现的设计缺口写进对应 spec 或 `governance/workspace/pending-items.md`。
 
 ## 架构分层（平台包）
 

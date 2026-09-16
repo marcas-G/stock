@@ -45,14 +45,14 @@
 
 | # | 旧路径 | 新路径 | Task | 状态 |
 |---|---|---|---|---|
-| 1 | `platform/docs/{interface,catalog,data-ops-playbook,teajoin-guide}.md` | `knowledge/contracts/` | 2 | ☐ |
-| 2 | `platform/docs/superpowers/{plans,specs}` | `knowledge/design/platform/` | 3 | ☐ |
-| 3 | `research/docs/superpowers/{plans,specs}` | `knowledge/design/research/` | 3 | ☐ |
-| 4 | `research/docs/{factors,strategies,factor-mining-playbook.md}` | `knowledge/dossiers/` | 4 | ☐ |
-| 5 | `docs/reviews/2026-09-15-{open-operators,minute-execution}/`、`2026-09-16-strategy-decomposition/`（计划补遗） | `knowledge/design/workspace/` | 3 | ☐ |
-| 6 | `docs/{data-map,directory-conventions,pending-items,archive-policy,traceability-matrix,remote-cleanup-checklist,workspace-p0p8}.md` | `governance/workspace/` | 5 | ☐ |
-| 7 | `docs/递归式需求驱动系统工程开发手册：NASA Systems Engineering × V-Model.md` | `knowledge/handbooks/` | 4 | ☐ |
-| 8 | `docs/index/{factors,strategies}.md`（strategies 为计划补遗） | `knowledge/index/` | 4 | ☐ |
+| 1 | `platform/docs/{interface,catalog,data-ops-playbook,teajoin-guide}.md` | `knowledge/contracts/` | 2 | ✅ `e3d2887` |
+| 2 | `platform/docs/superpowers/{plans,specs}` | `knowledge/design/platform/` | 3 | ✅ `305b757` |
+| 3 | `research/docs/superpowers/{plans,specs}` | `knowledge/design/research/` | 3 | ✅ `305b757` |
+| 4 | `research/docs/{factors,strategies,factor-mining-playbook.md}` | `knowledge/dossiers/` | 4 | ✅ `6aaefad` |
+| 5 | `docs/reviews/2026-09-15-{open-operators,minute-execution}/`、`2026-09-16-strategy-decomposition/`（计划补遗） | `knowledge/design/workspace/` | 3 | ✅ `305b757` |
+| 6 | `docs/{data-map,directory-conventions,pending-items,archive-policy,traceability-matrix,remote-cleanup-checklist,workspace-p0p8}.md` | `governance/workspace/` | 5 | ✅ `TBD-T5` |
+| 7 | `docs/递归式需求驱动系统工程开发手册：NASA Systems Engineering × V-Model.md` | `knowledge/handbooks/` | 4 | ✅ `6aaefad` |
+| 8 | `docs/index/{factors,strategies}.md`（strategies 为计划补遗） | `knowledge/index/` | 4 | ✅ `6aaefad` |
 | 9 | `docs/verification/` | `governance/evidence/verification/` | 6 | ☐ |
 | 10 | `docs/reviews/`（余下） | `governance/evidence/reviews/` | 6 | ☐ |
 | 11 | `scripts/*` | `governance/ops/` | 7 | ☐ |
@@ -60,16 +60,25 @@
 | 13 | 两树 `AGENTS.md` 并入根；`CLAUDE.md` 薄化；`platform/docs`、`research/docs` 留壳 | — | 10 | ☐ |
 | 14 | `projects/ashare_alpha3` | `_archive/<date>-ashare-alpha3/` | 11 | ☐ |
 
+## 3b. 并发冲突记录（如实标注，不回滚）
+
+| # | Task | 文件 | 事实 | 处置 |
+|---|---|---|---|---|
+| C1 | 4 | `knowledge/dossiers/factors/vol_run_energy/symrun_r30.md`、`knowledge/dossiers/factors/volatility/max_effect_20d.md` | 挖矿在途改写（mtime 2026-09-16 < Task 4 前）；`git mv` 会以**工作区内容**落 index，故两文件的挖矿在途内容随 6aaefad 的 rename 一并提交（相似度 92%/90%，非 100%） | 不回滚（回滚会丢弃挖矿在途编辑）；已在本表登记；后续 Task 6 对移动目录**不做 `git add -u`**，并把"移动文件 vs HEAD 内容差异清单"先落证据再提交 |
+| C2 | 0 | `research/docs/factors/**` 等 18 项 | 冻结窗口内挖矿/评审持续写入（基线 `make test-research` 2 red、G-ANNOTATE 4 red） | 归因记录，未改挖矿文件 |
+
+**Task 4 附注**：`research/docs/factor-authoring-manual.md`（untracked，挖矿/文档在途）经用户预期允许的目录搬迁行为物理移到 `knowledge/dossiers/factor-authoring-manual.md`，**保持 untracked，未随本批提交**；`knowledge/dossiers/factors/intraday/` 等挖矿 untracked 文件同样保持 untracked。`docs/verification/R21/EVID/annotate_factor_archives.py` 的 DOCS 硬编码路径 `research/docs/factors` → `knowledge/dossiers/factors`（修复前门退化为"0 份 ✓"永真，已恢复真实计数：5 份缺 snapshot，归因挖矿在途）。
+
 ## 4. 阶段记录
 
 | Task | 提交 | 结果 | 证据 |
 |---|---|---|---|
-| 0 | 见下 | 冻结偏差声明 + 基线 + 清单 | `docs/verification/R24/00-baseline/` |
-| 1 | | | |
-| 2 | | | |
-| 3 | | | |
-| 4 | | | |
-| 5 | | | |
+| 0 | `fdf000e` | 冻结偏差声明 + 基线 + 清单 | `docs/verification/R24/00-baseline/` |
+| 1 | `b891639` | 骨架 + 根 README/公约定稿（白名单 15 项）+ `.gitignore` 放行 knowledge/governance | `docs/verification/R24/` |
+| 2 | `e3d2887` | 契约迁 `knowledge/contracts/`；G-COPY 新判据；全库 84 处契约引用重指（含代码 docstring/错误文案） | `docs/verification/R24/02-contracts/` |
+| 3 | `305b757` | 设计/计划迁 `knowledge/design/{platform,research,workspace}`（100% rename）；minute-execution/strategy-decomposition 引用重指 | `docs/verification/R24/03-design/` |
+| 4 | `6aaefad` | 档案/索引/手册迁 `knowledge/dossiers|index|handbooks`；生成器输入输出切换；annotate 脚本路径修复；见冲突 C1 | `docs/verification/R24/04-dossiers/` |
+| 5 | 见下 | 治理文档迁 `governance/workspace/`；31 处引用重指；leftover grep = 0 | `docs/verification/R24/05-workspace/` |
 | 6 | | | |
 | 7 | | | |
 | 8 | | | |

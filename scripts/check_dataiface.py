@@ -9,7 +9,7 @@
 
 判据分两档：
 - **ENFORCED**：已达到 0，门失败即红（工具树分区字面量、标记路径构造、**工具树直读**）；
-- **REPORT**：未竟项，只打印计数并指向登记条目（平台表名字面量 → `docs/pending-items.md#12①`）。
+- **REPORT**：未竟项，只打印计数并指向登记条目（平台表名字面量 → `governance/workspace/pending-items.md#12①`）。
   报告档**不判红**，但也**不谎报绿**：未竟就是未竟。
 
 用法：
@@ -405,7 +405,7 @@ def main() -> int:
         print("  ✓ 0 处（注释/print 文案不算；writekit 自身豁免）")
 
     hits = report_platform_tables()
-    print(f"[G-CONTRACT/平台表名字面量] REPORT：{len(hits)} 处（未竟 → docs/pending-items.md #12①）")
+    print(f"[G-CONTRACT/平台表名字面量] REPORT：{len(hits)} 处（未竟 → governance/workspace/pending-items.md #12①）")
     for h in hits[:5]:
         print(f"      {h}")
 

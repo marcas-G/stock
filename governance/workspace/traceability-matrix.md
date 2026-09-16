@@ -15,7 +15,7 @@
 | REQ-WS-001 | 根收敛 7 项 | LF-05 | `/`（根） | S1 归档、S2 归并、S3 项目归并、S4 文档 | Inspection | `S4/01-gates.log`、`final/01-gates.log` §1 | ● |
 | REQ-WS-002 | 先归档后删除 + manifest | LF-03/04/10 | `_archive/` | S1 | Inspection + Demonstration | `S1/manifest.md`、`S1/01-archive.log` | ● |
 | REQ-WS-003 | 直删仅限可证明垃圾 | LF-02/03 | `_archive/` 政策 | S1 | Analysis | `S1/02-delete-gates.log`（lsof/模式/空目录） | ● |
-| REQ-WS-004 | data-map 无孤儿 | LF-01/08 | `docs/data-map.md` | S2 血缘 + S4 成文 | Inspection | `S2/02-post-verify.log`、`docs/data-map.md`（A9 待考已登记 pending #9） | ● |
+| REQ-WS-004 | data-map 无孤儿 | LF-01/08 | `governance/workspace/data-map.md` | S2 血缘 + S4 成文 | Inspection | `S2/02-post-verify.log`、`governance/workspace/data-map.md`（A9 待考已登记 pending #9） | ● |
 | REQ-WS-005 | 活跃旧路径死链 = 0 | LF-06 | 各 config 单点 | S3 | Test（grep 门） | `S3/05-verify.log`（=0）、`S3/tasklist.md` | ● |
 | REQ-WS-006 | 三链新路径可跑 | LF-06/09 | projects/* | S3 冒烟、S5 全量 | Demonstration | `S3/06-smoke-and-shim.log`、`S5/05-pytest-after.log`（2423 passed）、`S5/06-ch-reconcile.log`（全库一致） | ● |
 | REQ-WS-007 | git 实体唯一 + 4 提交保全 | LF-07 | `projects/quant-platform-main` | S3 抢救 | Test | `S3/07-backup-rescue.log`（cat-file=e66b349） | ● |
@@ -52,7 +52,7 @@ spec = `projects/quant-platform-main/docs/superpowers/specs/2026-09-12-mining-sy
 | DER-008 路径单点（factio.paths） | 平台 `core/factio/paths.py` + 研究 `tools/lob_fact/core/config.py` 派生 | ● |
 | DER-010 研究侧注入单点（_env.py + 落位断言） | `tools/_env.py` + 架构门 | ● |
 | REQ-F-009 纯核入口（GP 消费面） | `factorlab.core.engine.*`（无文件系统/数据库） | ● |
-| WS6 剩余（P-5 编排单点、ch_ingest 拆分、生产读点收敛） | `docs/pending-items.md` #11 | ○ |
+| WS6 剩余（P-5 编排单点、ch_ingest 拆分、生产读点收敛） | `governance/workspace/pending-items.md` #11 | ○ |
 
 ## 变更程序
 

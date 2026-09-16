@@ -63,7 +63,7 @@ def index_daily(name: str = "000905.SH") -> Path:
 
 
 def fundamentals() -> Path:
-    """基本面 PIT（**当前缺源**，见 docs/pending-items.md #4）。"""
+    """基本面 PIT（**当前缺源**，见 governance/workspace/pending-items.md #4）。"""
     return fpaths.FACT_ROOT / "fundamentals" / "fundamentals_pti.parquet"
 
 
@@ -106,11 +106,11 @@ def preflight_layer1(*, from_golden: bool = False) -> dict[str, Path]:
     out = {
         "daily_fact": _require(
             daily_fact(), what="日线事实 daily_fact.parquet",
-            hint="ashare_ingest/import_daily.py（或 CH 读路径；见 docs/data-map.md A5）"),
+            hint="ashare_ingest/import_daily.py（或 CH 读路径；见 governance/workspace/data-map.md A5）"),
         "fundamentals": _require(
             fundamentals(), what="基本面 PIT fundamentals_pti.parquet（当前缺源）",
             hint="Windows 导出 TDX 财务 parquet 后运行 ashare_ingest/import_fundamentals.py "
-                 "--fin-parquet <...>；见 docs/pending-items.md #4"),
+                 "--fin-parquet <...>；见 governance/workspace/pending-items.md #4"),
         "index_daily": _require(
             index_daily(), what="指数基准 000905.SH.parquet",
             hint="ashare_ingest/import_index.py（A10）"),
@@ -118,7 +118,7 @@ def preflight_layer1(*, from_golden: bool = False) -> dict[str, Path]:
     if from_golden:
         out["golden_universe"] = _require(
             golden_universe(), what="golden 股池 v4_top300.parquet",
-            hint="生成链未留存（docs/pending-items.md #9）；需从上游 jqdata 交付恢复")
+            hint="生成链未留存（governance/workspace/pending-items.md #9）；需从上游 jqdata 交付恢复")
     return out
 
 
@@ -127,10 +127,10 @@ def preflight_layer2() -> dict[str, Path]:
     return {
         "golden_universe": _require(
             golden_universe(), what="golden 股池 v4_top300.parquet",
-            hint="生成链未留存（docs/pending-items.md #9）；需从上游 jqdata 交付恢复"),
+            hint="生成链未留存（governance/workspace/pending-items.md #9）；需从上游 jqdata 交付恢复"),
         "daily_fact": _require(
             daily_fact(), what="日线事实 daily_fact.parquet",
-            hint="ashare_ingest/import_daily.py（见 docs/data-map.md A5）"),
+            hint="ashare_ingest/import_daily.py（见 governance/workspace/data-map.md A5）"),
         "bars_1m_root": _require(
             bars_1m_root(), what="分钟事实库根 data/fact/bars_1m",
             hint="converters/convert_minutes_to_parquet.py（先灌分钟原始 zip）"),
@@ -143,7 +143,7 @@ def preflight_layer3(day: str | None = None) -> dict[str, Path]:
     return {
         "ticks": _require(
             ticks_root(d), what=f"{d} 逐笔原始导出目录",
-            hint=f"当前只有 {DEFAULT_TICK_DAY}.7z 未解包（docs/pending-items.md #3）："
+            hint=f"当前只有 {DEFAULT_TICK_DAY}.7z 未解包（governance/workspace/pending-items.md #3）："
                  f"先 `df` 复核磁盘余量，再 `7z x data/raw/{DEFAULT_TICK_DAY}.7z "
                  f"-odata/raw/{DEFAULT_TICK_DAY}`；其他交易日需先下载逐笔导出"),
     }
