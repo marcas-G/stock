@@ -1,0 +1,486 @@
+== platform/docs/
+.claude/skills/factor-mine/SKILL.md:19:2. 平台数据可用：`FACTORLAB_DATA_BACKEND=ch $FLAB list` 不报错。平台 duckdb 库（`data/factorlab.duckdb`）不存在，**当前唯一可用读后端是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）；CH 无 `stock_st` 表时 `exclude_st` 默认 fail fast，显式降级开关与挖矿口径见 `platform/docs/interface.md` §4.2（`FACTORLAB_ST_DEGRADE=allow`）。
+.claude/skills/factor-mine/SKILL.md:72:  见 `platform/docs/interface.md` §DSL 语义与防未来、`research/docs/factor-mining-playbook.md` §3.3）
+.claude/skills/factor-mine/SKILL.md:73:- **数据可实现**：字段存在性（`platform/docs/interface.md` §数据字段；可查 CH 临时库/生产库
+.claude/skills/factor-mine/SKILL.md:97:- 沿用平台自由代码公式（def/参数化，见 `platform/docs/interface.md` §formula 与
+.claude/skills/factor-mine/SKILL.md:111:# platform/docs/interface.md §4.2）——加 FACTORLAB_ST_DEGRADE=allow 显式降级重跑：
+.claude/skills/factor-mine/assumption-review.md:74:- 字段在平台库存在（`platform/docs/interface.md` 字段表 / CH `system.columns` 核对）？
+.claude/skills/factor-mine/code-review.md:10:4. 平台事实：数据字段（platform/docs/interface.md §数据字段）、DSL 语义与防未来（§DSL 语义）、
+.claude/skills/factor-mine/code-review.md:24:   自由代码公式语法（def/params）符合 platform/docs/interface.md。
+AGENTS.md:31:  语义/推荐值/报错：`platform/docs/interface.md` §1「进程内存护栏」。
+CLAUDE.md:10:- **`platform/`** 只收平台改动：`platform/src/factorlab/`、`platform/tests/`、`platform/docs/`（契约 4 篇 + superpowers）、`platform/scripts/`。
+CLAUDE.md:23:- 数据接口（读/写/契约）见 `docs/verification/R4/`（收口记录）与 `platform/docs/interface.md` §4。
+CLAUDE.md:41:- 平台 API/CLI/DSL 变更 → `platform/docs/interface.md`；设计与里程碑 → `platform/docs/superpowers/{plans,specs}`。
+CLAUDE.md:60:- `platform/docs/interface.md` §4 是模块路径权威，有 `platform/tests/test_doc_paths_exist.py` 自动核。
+README.md:22:| 改平台代码（引擎/DSL/评估） | `platform/src/factorlab/` + [platform/docs/interface.md](platform/docs/interface.md) |
+README.md:24:| 看平台设计与里程碑 | `platform/docs/superpowers/`（spec 唯一副本） |
+README.md:57:- **重任务内存护栏**：全市场/分钟链 `factorlab run` 前设 `FACTORLAB_MAX_MEMORY=8GB`（显式设置即启用进程看门狗 + RLIMIT_AS 硬上限）——见 [platform/docs/interface.md](platform/docs/interface.md) §1「进程内存护栏」与 [AGENTS.md](AGENTS.md)「重任务运行协议」。
+README.md:65:| `platform/docs/` | 平台契约（interface/catalog/data-ops-playbook/teajoin-guide）+ 设计与计划（superpowers/） |
+docs/pending-items.md:126:    比"没有该参数"更危险，故 R8 删除并同步 `platform/docs/interface.md` §layered_backtest。
+platform/docs/superpowers/specs/2026-08-15-factorlab-m3a-data-layer-design.md:5:      `platform/docs/interface.md` §4 与 `docs/data-map.md`）
+platform/docs/superpowers/specs/2026-08-16-factorlab-m3b-data-platform-design.md:5:      `platform/docs/interface.md` §4 与 `platform/docs/data-ops-playbook.md`）
+platform/docs/superpowers/specs/2026-08-16-factorlab-m4a-engine-eval-design.md:5:      `platform/docs/interface.md`）
+platform/docs/superpowers/specs/2026-08-16-factorlab-m4b-single-factor-eval-design.md:12:> `platform/docs/interface.md` §`layered_backtest` 与 `docs/pending-items.md` #15）。
+platform/docs/superpowers/specs/2026-08-16-factorlab-m5-web-design.md:4:状态：已实现（M5 Web 已交付；原"待评审"为文档漂移，R21 补正。现状见 `platform/docs/interface.md`）
+platform/docs/superpowers/specs/2026-08-17-factorlab-free-form-formula-design.md:5:      `platform/docs/interface.md` §DSL）
+platform/docs/superpowers/specs/2026-08-26-quant-core-contract.md:7:>    `platform/docs/superpowers/specs/`。
+platform/kernels/quant_core/quant_core/__init__.py:3:契约文档：`platform/docs/superpowers/specs/2026-08-26-quant-core-contract.md`
+platform/src/factorlab/adapters/read/source.py:13:# 契约（platform/docs/catalog.md volume/amount 行）：引擎列 volume=股、amount=元。
+platform/src/factorlab/app/memory.py:162:            "platform/docs/interface.md §1）、调大/设置 FACTORLAB_MAX_MEMORY、"
+platform/src/factorlab/app/memory.py:323:        f"（FACTORLAB_MAX_MEMORY）兜底。详见 platform/docs/interface.md §1。",
+platform/src/factorlab/config.py:28:    # 落 RLIMIT_AS 硬上限。推荐值/语义见 platform/docs/interface.md §1 内存护栏。
+platform/src/factorlab/core/engine/compute.py:229:        f"platform/docs/catalog.md）")
+platform/src/factorlab/core/engine/compute.py:246:            f"platform/docs/catalog.md）")
+platform/tests/test_quant_core_shim.py:5:契约文档：platform/docs/superpowers/specs/2026-08-26-quant-core-contract.md
+platform/tools/ch_ingest/README.md:74:  （half-up；单位：元或股/10股），与 platform/docs/catalog.md 承诺一致；组内首日 NULL
+platform/tools/ch_ingest/README.md:86:  结论：**不要 advertise**——`platform/docs/catalog.md` 的 `industry` 行（申万最新归属）
+platform/tools/ch_ingest/ingest_daily.py:8:  ——R01-TOOLS-DATA-C2：raw 前收与 platform/docs/catalog.md「除权参考价」承诺不符；
+research/README.md:14:| `docs/superpowers/` | **研究独有**的 spec/plan（平台 spec 在 `../platform/docs/superpowers/`，单副本）|
+research/README.md:51:- 接口/DSL/CLI：`../platform/docs/interface.md`
+research/README.md:52:- 列/算子活目录：`../platform/docs/catalog.md`
+research/README.md:53:- 数据运维：`../platform/docs/data-ops-playbook.md`
+research/docs/factor-mining-playbook.md:339:> - 权威：`platform/docs/data-ops-playbook.md` + `platform/tools/ch_ingest/README.md`（刷新链
+scripts/gates.sh:21:FROZEN=':!platform/docs/superpowers :!docs/verification :!platform/tools/lob_fact/notes :!research/tools/lob_fact/notes :!docs/specs'
+scripts/gates.sh:48:        ':!docs/verification' ':!platform/docs/superpowers' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' ':!research/docs/superpowers' 2>/dev/null \
+== research/docs/
+.claude/skills/factor-mine/SKILL.md:9:参照设计：`research/docs/superpowers/specs/2026-08-17-factorlab-factor-mine-skill-design.md`（2026-09-15 单仓单树前的路径以该文为准；现行路径以本 skill 为准）。
+.claude/skills/factor-mine/SKILL.md:18:1. 因子库非空：`ls research/docs/factors/*/*.md`（家族子目录；模板在 `research/docs/factors/_template.md`），空则报错并停止。
+.claude/skills/factor-mine/SKILL.md:42:         for p in pathlib.Path('research/docs/factors').glob('*/*.md')
+.claude/skills/factor-mine/SKILL.md:50:  种子 = `族/stem`——glob 已适配 `research/docs/factors/<族>/` 子目录布局）；
+.claude/skills/factor-mine/SKILL.md:52:- 读 `research/docs/factors/<族>/<stem>.md` 全文 + `research/factor/<族>/<stem>.yaml`（族见 `research/factor/_families.yaml`、索引见 `docs/index/factors.md`）。
+.claude/skills/factor-mine/SKILL.md:72:  见 `platform/docs/interface.md` §DSL 语义与防未来、`research/docs/factor-mining-playbook.md` §3.3）
+.claude/skills/factor-mine/SKILL.md:120:1. 对照 `research/docs/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
+.claude/skills/factor-mine/SKILL.md:121:2. 复制 `research/docs/factors/_template.md` → `research/docs/factors/<族>/<stem>.md`，逐节填写：
+.claude/skills/factor-mine/SKILL.md:124:3. 种子档案 `research/docs/factors/<族>/<stem>.md` §5 迭代历史加一行（日期/新因子/变异点/结果/结论）。
+.claude/skills/factor-mine/SKILL.md:126:5. `git add research/factor/<族>/<stem>.yaml research/docs/factors/<族>/<stem>.md`（并重生成索引：`python3 research/tools/factor_lib/build_index.py`）
+.claude/skills/factor-mine/SKILL.md:152:- `research/docs/factors/_template.md` — 入库档案模板
+.claude/skills/factor-mine/SKILL.md:153:- `research/docs/factor-mining-playbook.md` — 评估阈值与方法论
+AGENTS.md:10:5. **归档**：同族同名档案 `research/docs/factors/<族>/<短名>.md` + 重生成 `docs/index/factors.md`。
+CLAUDE.md:12:- **`research/`** 只收研究内容：`research/factor/`、`research/tools/`（剩余：`strategies/`、`factor_lib/`）、`research/docs/`（factors/strategies/playbook）。
+CLAUDE.md:42:- 因子新增/改名 → `research/docs/factors/<族>/<名>.md` 同名档案 + 重生成 `docs/index/factors.md`（有 byte-equality 门）。
+README.md:19:| 写一个因子并跑出结果 | [research/docs/factor-authoring-manual.md](research/docs/factor-authoring-manual.md)（单页闭环：写→自检→跑→读数→入库） |
+README.md:25:| 看研究档案（因子/策略） | `research/docs/factors/`、`research/docs/strategies/` |
+README.md:31:> 完整闭环（含入库/提交/常见坑）：[research/docs/factor-authoring-manual.md](research/docs/factor-authoring-manual.md)
+README.md:66:| `research/docs/` | 因子档案（factors/，与 `research/factor/` 一一对应）、策略档案、挖因子 playbook |
+docs/index/factors.md:30:| `crash_bottom_leader` | 1 | fwd5d |  | [crash_bottom_leader.md](../../research/docs/factors/crash_bottom_leader/crash_bottom_leader.md) | [yaml](../../research/factor/crash_bottom_leader/crash_bottom_leader.yaml) |
+docs/index/factors.md:31:| `crash_bottom_leader_adv20` | 1 | fwd5d |  | [adv20.md](../../research/docs/factors/crash_bottom_leader/adv20.md) | [yaml](../../research/factor/crash_bottom_leader/adv20.yaml) |
+docs/index/factors.md:32:| `crash_bottom_leader_adv_mv` | 1 | fwd5d |  | [adv_mv.md](../../research/docs/factors/crash_bottom_leader/adv_mv.md) | [yaml](../../research/factor/crash_bottom_leader/adv_mv.yaml) |
+docs/index/factors.md:33:| `crash_bottom_leader_dd` | 1 | fwd5d |  | [dd.md](../../research/docs/factors/crash_bottom_leader/dd.md) | [yaml](../../research/factor/crash_bottom_leader/dd.yaml) |
+docs/index/factors.md:34:| `crash_bottom_leader_mom10` | 1 | fwd5d |  | [mom10.md](../../research/docs/factors/crash_bottom_leader/mom10.md) | [yaml](../../research/factor/crash_bottom_leader/mom10.yaml) |
+docs/index/factors.md:35:| `crash_bottom_leader_timed` | 1 | fwd5d |  | [timed.md](../../research/docs/factors/crash_bottom_leader/timed.md) | [yaml](../../research/factor/crash_bottom_leader/timed.yaml) |
+docs/index/factors.md:36:| `crash_bottom_leader_timed_m6` | 1 | fwd5d |  | [timed_m6.md](../../research/docs/factors/crash_bottom_leader/timed_m6.md) | [yaml](../../research/factor/crash_bottom_leader/timed_m6.yaml) |
+docs/index/factors.md:37:| `crash_bottom_leader_timed_stable` | 1 | fwd5d |  | [timed_stable.md](../../research/docs/factors/crash_bottom_leader/timed_stable.md) | [yaml](../../research/factor/crash_bottom_leader/timed_stable.yaml) |
+docs/index/factors.md:43:| `dividend_yield` | 1 | fwd5d |  | [yield.md](../../research/docs/factors/dividend/yield.md) | [yaml](../../research/factor/dividend/yield.yaml) |
+docs/index/factors.md:49:| `intraday_high_time` | -1 | fwd5d |  | [intraday_high_time.md](../../research/docs/factors/intraday/intraday_high_time.md) | [yaml](../../research/factor/intraday/intraday_high_time.yaml) |
+docs/index/factors.md:50:| `intraday_tail_amt_share` | 1 | fwd5d |  | [intraday_tail_amt_share.md](../../research/docs/factors/intraday/intraday_tail_amt_share.md) | [yaml](../../research/factor/intraday/intraday_tail_amt_share.yaml) |
+docs/index/factors.md:56:| `amihud_illiq_20d` | 1 | fwd5d |  | [20d.md](../../research/docs/factors/liquidity/20d.md) | [yaml](../../research/factor/liquidity/20d.yaml) |
+docs/index/factors.md:57:| `amihud_illiq_turn_20d` | 1 | fwd5d |  | [turn_20d.md](../../research/docs/factors/liquidity/turn_20d.md) | [yaml](../../research/factor/liquidity/turn_20d.yaml) |
+docs/index/factors.md:58:| `turnover_accel` | -1 | fwd5d |  | [accel.md](../../research/docs/factors/liquidity/accel.md) | [yaml](../../research/factor/liquidity/accel.yaml) |
+docs/index/factors.md:59:| `turnover_level` | -1 | fwd5d |  | [level.md](../../research/docs/factors/liquidity/level.md) | [yaml](../../research/factor/liquidity/level.yaml) |
+docs/index/factors.md:60:| `turnover_level_ma20` | -1 | fwd5d |  | [level_ma20.md](../../research/docs/factors/liquidity/level_ma20.md) | [yaml](../../research/factor/liquidity/level_ma20.yaml) |
+docs/index/factors.md:61:| `volume_ratio` | -1 | fwd5d |  | [volume_ratio.md](../../research/docs/factors/liquidity/volume_ratio.md) | [yaml](../../research/factor/liquidity/volume_ratio.yaml) |
+docs/index/factors.md:62:| `volume_ratio_directional` | -1 | fwd5d |  | [directional.md](../../research/docs/factors/liquidity/directional.md) | [yaml](../../research/factor/liquidity/directional.yaml) |
+docs/index/factors.md:68:| `closing_strength_20d` | -1 | fwd5d |  | [closing_strength_20d.md](../../research/docs/factors/misc/closing_strength_20d.md) | [yaml](../../research/factor/misc/closing_strength_20d.yaml) |
+docs/index/factors.md:74:| `momentum_20d` | 1 | fwd5d |  | [momentum_20d.md](../../research/docs/factors/momentum_20d/momentum_20d.md) | [yaml](../../research/factor/momentum_20d/momentum_20d.yaml) |
+docs/index/factors.md:75:| `momentum_20d_cumret_turn` | -1 | fwd5d |  | [cumret_turn.md](../../research/docs/factors/momentum_20d/cumret_turn.md) | [yaml](../../research/factor/momentum_20d/cumret_turn.yaml) |
+docs/index/factors.md:76:| `momentum_20d_decile` | -1 | fwd5d |  | [decile.md](../../research/docs/factors/momentum_20d/decile.md) | [yaml](../../research/factor/momentum_20d/decile.yaml) |
+docs/index/factors.md:77:| `momentum_20d_decile5` | -1 | fwd5d |  | [decile5.md](../../research/docs/factors/momentum_20d/decile5.md) | [yaml](../../research/factor/momentum_20d/decile5.yaml) |
+docs/index/factors.md:78:| `momentum_20d_downtrend` | -1 | fwd5d |  | [downtrend.md](../../research/docs/factors/momentum_20d/downtrend.md) | [yaml](../../research/factor/momentum_20d/downtrend.yaml) |
+docs/index/factors.md:79:| `momentum_20d_m120` | 1 | fwd5d |  | [m120.md](../../research/docs/factors/momentum_20d/m120.md) | [yaml](../../research/factor/momentum_20d/m120.yaml) |
+docs/index/factors.md:80:| `momentum_20d_m60` | 1 | fwd5d |  | [m60.md](../../research/docs/factors/momentum_20d/m60.md) | [yaml](../../research/factor/momentum_20d/m60.yaml) |
+docs/index/factors.md:81:| `momentum_20d_net60` | -1 | fwd5d |  | [net60.md](../../research/docs/factors/momentum_20d/net60.md) | [yaml](../../research/factor/momentum_20d/net60.yaml) |
+docs/index/factors.md:82:| `momentum_20d_open` | -1 | fwd5d |  | [open.md](../../research/docs/factors/momentum_20d/open.md) | [yaml](../../research/factor/momentum_20d/open.yaml) |
+docs/index/factors.md:83:| `momentum_20d_turnrank` | -1 | fwd5d |  | [turnrank.md](../../research/docs/factors/momentum_20d/turnrank.md) | [yaml](../../research/factor/momentum_20d/turnrank.yaml) |
+docs/index/factors.md:84:| `momentum_20d_turnrank_avg20` | -1 | fwd5d |  | [turnrank_avg20.md](../../research/docs/factors/momentum_20d/turnrank_avg20.md) | [yaml](../../research/factor/momentum_20d/turnrank_avg20.yaml) |
+docs/index/factors.md:85:| `momentum_20d_turnrank_extreme` | -1 | fwd5d |  | [turnrank_extreme.md](../../research/docs/factors/momentum_20d/turnrank_extreme.md) | [yaml](../../research/factor/momentum_20d/turnrank_extreme.yaml) |
+docs/index/factors.md:86:| `momentum_20d_turnrank_lowturn` | -1 | fwd5d |  | [turnrank_lowturn.md](../../research/docs/factors/momentum_20d/turnrank_lowturn.md) | [yaml](../../research/factor/momentum_20d/turnrank_lowturn.yaml) |
+docs/index/factors.md:87:| `momentum_20d_turnrank_quad` | -1 | fwd5d |  | [turnrank_quad.md](../../research/docs/factors/momentum_20d/turnrank_quad.md) | [yaml](../../research/factor/momentum_20d/turnrank_quad.yaml) |
+docs/index/factors.md:88:| `momentum_20d_turnrank_vol` | -1 | fwd5d |  | [turnrank_vol.md](../../research/docs/factors/momentum_20d/turnrank_vol.md) | [yaml](../../research/factor/momentum_20d/turnrank_vol.yaml) |
+docs/index/factors.md:89:| `momentum_20d_vol_extreme` | -1 | fwd5d |  | [vol_extreme.md](../../research/docs/factors/momentum_20d/vol_extreme.md) | [yaml](../../research/factor/momentum_20d/vol_extreme.yaml) |
+docs/index/factors.md:90:| `momentum_20d_volrank` | -1 | fwd5d |  | [volrank.md](../../research/docs/factors/momentum_20d/volrank.md) | [yaml](../../research/factor/momentum_20d/volrank.yaml) |
+docs/index/factors.md:91:| `momentum_20d_vwap` | -1 | fwd5d |  | [vwap.md](../../research/docs/factors/momentum_20d/vwap.md) | [yaml](../../research/factor/momentum_20d/vwap.yaml) |
+docs/index/factors.md:92:| `momentum_20d_vwap_turn` | -1 | fwd5d |  | [vwap_turn.md](../../research/docs/factors/momentum_20d/vwap_turn.md) | [yaml](../../research/factor/momentum_20d/vwap_turn.yaml) |
+docs/index/factors.md:98:| `quality_defensive` | 1 | fwd5d |  | [defensive.md](../../research/docs/factors/quality/defensive.md) | [yaml](../../research/factor/quality/defensive.yaml) |
+docs/index/factors.md:104:| `reversal_10d_cumret` | -1 | fwd5d |  | [cumret.md](../../research/docs/factors/reversal_10d/cumret.md) | [yaml](../../research/factor/reversal_10d/cumret.yaml) |
+docs/index/factors.md:105:| `reversal_10d_cumret_log` | -1 | fwd5d |  | [cumret_log.md](../../research/docs/factors/reversal_10d/cumret_log.md) | [yaml](../../research/factor/reversal_10d/cumret_log.yaml) |
+docs/index/factors.md:106:| `reversal_10d_intraday` | -1 | fwd5d |  | [intraday.md](../../research/docs/factors/reversal_10d/intraday.md) | [yaml](../../research/factor/reversal_10d/intraday.yaml) |
+docs/index/factors.md:107:| `reversal_10d_intraday_extreme` | -1 | fwd5d |  | [intraday_extreme.md](../../research/docs/factors/reversal_10d/intraday_extreme.md) | [yaml](../../research/factor/reversal_10d/intraday_extreme.yaml) |
+docs/index/factors.md:113:| `reversal_20d` | -1 | fwd5d |  | [reversal_20d.md](../../research/docs/factors/reversal_20d/reversal_20d.md) | [yaml](../../research/factor/reversal_20d/reversal_20d.yaml) |
+docs/index/factors.md:114:| `reversal_20d_civ_extreme` | -1 | fwd5d |  | [civ_extreme.md](../../research/docs/factors/reversal_20d/civ_extreme.md) | [yaml](../../research/factor/reversal_20d/civ_extreme.yaml) |
+docs/index/factors.md:115:| `reversal_20d_closepos` | -1 | fwd5d |  | [closepos.md](../../research/docs/factors/reversal_20d/closepos.md) | [yaml](../../research/factor/reversal_20d/closepos.yaml) |
+docs/index/factors.md:116:| `reversal_20d_corr10_intraday` | -1 | fwd5d |  | [corr10_intraday.md](../../research/docs/factors/reversal_20d/corr10_intraday.md) | [yaml](../../research/factor/reversal_20d/corr10_intraday.yaml) |
+docs/index/factors.md:117:| `reversal_20d_corr_flow` | -1 | fwd5d |  | [corr_flow.md](../../research/docs/factors/reversal_20d/corr_flow.md) | [yaml](../../research/factor/reversal_20d/corr_flow.yaml) |
+docs/index/factors.md:118:| `reversal_20d_corr_flow30` | -1 | fwd5d |  | [corr_flow30.md](../../research/docs/factors/reversal_20d/corr_flow30.md) | [yaml](../../research/factor/reversal_20d/corr_flow30.yaml) |
+docs/index/factors.md:119:| `reversal_20d_corr_flow_intraday` | -1 | fwd5d |  | [corr_flow_intraday.md](../../research/docs/factors/reversal_20d/corr_flow_intraday.md) | [yaml](../../research/factor/reversal_20d/corr_flow_intraday.yaml) |
+docs/index/factors.md:120:| `reversal_20d_corr_intraday` | -1 | fwd5d |  | [corr_intraday.md](../../research/docs/factors/reversal_20d/corr_intraday.md) | [yaml](../../research/factor/reversal_20d/corr_intraday.yaml) |
+docs/index/factors.md:121:| `reversal_20d_corr_intraday_turn` | -1 | fwd5d |  | [corr_intraday_turn.md](../../research/docs/factors/reversal_20d/corr_intraday_turn.md) | [yaml](../../research/factor/reversal_20d/corr_intraday_turn.yaml) |
+docs/index/factors.md:122:| `reversal_20d_corr_intraday_turn_vol` | -1 | fwd5d |  | [corr_intraday_turn_vol.md](../../research/docs/factors/reversal_20d/corr_intraday_turn_vol.md) | [yaml](../../research/factor/reversal_20d/corr_intraday_turn_vol.yaml) |
+docs/index/factors.md:123:| `reversal_20d_corr_skew` | -1 | fwd5d |  | [corr_skew.md](../../research/docs/factors/reversal_20d/corr_skew.md) | [yaml](../../research/factor/reversal_20d/corr_skew.yaml) |
+docs/index/factors.md:124:| `reversal_20d_corr_turn` | -1 | fwd5d |  | [corr_turn.md](../../research/docs/factors/reversal_20d/corr_turn.md) | [yaml](../../research/factor/reversal_20d/corr_turn.yaml) |
+docs/index/factors.md:125:| `reversal_20d_corr_turn_flow` | -1 | fwd5d |  | [corr_turn_flow.md](../../research/docs/factors/reversal_20d/corr_turn_flow.md) | [yaml](../../research/factor/reversal_20d/corr_turn_flow.yaml) |
+docs/index/factors.md:126:| `reversal_20d_corr_turn_flow30` | -1 | fwd5d |  | [corr_turn_flow30.md](../../research/docs/factors/reversal_20d/corr_turn_flow30.md) | [yaml](../../research/factor/reversal_20d/corr_turn_flow30.yaml) |
+docs/index/factors.md:127:| `reversal_20d_corr_turn_intraday` | -1 | fwd5d |  | [corr_turn_intraday.md](../../research/docs/factors/reversal_20d/corr_turn_intraday.md) | [yaml](../../research/factor/reversal_20d/corr_turn_intraday.yaml) |
+docs/index/factors.md:128:| `reversal_20d_corr_turn_skew` | -1 | fwd5d |  | [corr_turn_skew.md](../../research/docs/factors/reversal_20d/corr_turn_skew.md) | [yaml](../../research/factor/reversal_20d/corr_turn_skew.yaml) |
+docs/index/factors.md:129:| `reversal_20d_corr_turn_vol` | -1 | fwd5d |  | [corr_turn_vol.md](../../research/docs/factors/reversal_20d/corr_turn_vol.md) | [yaml](../../research/factor/reversal_20d/corr_turn_vol.yaml) |
+docs/index/factors.md:130:| `reversal_20d_corr_vol` | -1 | fwd5d |  | [corr_vol.md](../../research/docs/factors/reversal_20d/corr_vol.md) | [yaml](../../research/factor/reversal_20d/corr_vol.yaml) |
+docs/index/factors.md:131:| `reversal_20d_cti_flow30` | -1 | fwd5d |  | [cti_flow30.md](../../research/docs/factors/reversal_20d/cti_flow30.md) | [yaml](../../research/factor/reversal_20d/cti_flow30.yaml) |
+docs/index/factors.md:132:| `reversal_20d_cti_near5` | -1 | fwd5d |  | [cti_near5.md](../../research/docs/factors/reversal_20d/cti_near5.md) | [yaml](../../research/factor/reversal_20d/cti_near5.yaml) |
+docs/index/factors.md:133:| `reversal_20d_cumret` | -1 | fwd5d |  | [cumret.md](../../research/docs/factors/reversal_20d/cumret.md) | [yaml](../../research/factor/reversal_20d/cumret.yaml) |
+docs/index/factors.md:134:| `reversal_20d_drawdown` | -1 | fwd5d |  | [drawdown.md](../../research/docs/factors/reversal_20d/drawdown.md) | [yaml](../../research/factor/reversal_20d/drawdown.yaml) |
+docs/index/factors.md:135:| `reversal_20d_five_dim` | -1 | fwd5d |  | [five_dim.md](../../research/docs/factors/reversal_20d/five_dim.md) | [yaml](../../research/factor/reversal_20d/five_dim.yaml) |
+docs/index/factors.md:136:| `reversal_20d_five_dim_all` | -1 | fwd5d |  | [five_dim_all.md](../../research/docs/factors/reversal_20d/five_dim_all.md) | [yaml](../../research/factor/reversal_20d/five_dim_all.yaml) |
+docs/index/factors.md:137:| `reversal_20d_five_dim_ctfi` | -1 | fwd5d |  | [five_dim_ctfi.md](../../research/docs/factors/reversal_20d/five_dim_ctfi.md) | [yaml](../../research/factor/reversal_20d/five_dim_ctfi.yaml) |
+docs/index/factors.md:138:| `reversal_20d_five_dim_tsv` | -1 | fwd5d |  | [five_dim_tsv.md](../../research/docs/factors/reversal_20d/five_dim_tsv.md) | [yaml](../../research/factor/reversal_20d/five_dim_tsv.yaml) |
+docs/index/factors.md:139:| `reversal_20d_five_dim_tsv10` | -1 | fwd5d |  | [five_dim_tsv10.md](../../research/docs/factors/reversal_20d/five_dim_tsv10.md) | [yaml](../../research/factor/reversal_20d/five_dim_tsv10.yaml) |
+docs/index/factors.md:140:| `reversal_20d_five_dim_tsvf` | -1 | fwd5d |  | [five_dim_tsvf.md](../../research/docs/factors/reversal_20d/five_dim_tsvf.md) | [yaml](../../research/factor/reversal_20d/five_dim_tsvf.yaml) |
+docs/index/factors.md:141:| `reversal_20d_flow_skew` | -1 | fwd5d |  | [flow_skew.md](../../research/docs/factors/reversal_20d/flow_skew.md) | [yaml](../../research/factor/reversal_20d/flow_skew.yaml) |
+docs/index/factors.md:142:| `reversal_20d_four_dim10` | -1 | fwd5d |  | [four_dim10.md](../../research/docs/factors/reversal_20d/four_dim10.md) | [yaml](../../research/factor/reversal_20d/four_dim10.yaml) |
+docs/index/factors.md:143:| `reversal_20d_four_dim10v10` | -1 | fwd5d |  | [four_dim10v10.md](../../research/docs/factors/reversal_20d/four_dim10v10.md) | [yaml](../../research/factor/reversal_20d/four_dim10v10.yaml) |
+docs/index/factors.md:144:| `reversal_20d_four_dim_ctfi` | -1 | fwd5d |  | [four_dim_ctfi.md](../../research/docs/factors/reversal_20d/four_dim_ctfi.md) | [yaml](../../research/factor/reversal_20d/four_dim_ctfi.yaml) |
+docs/index/factors.md:145:| `reversal_20d_four_dim_ctfm` | -1 | fwd5d |  | [four_dim_ctfm.md](../../research/docs/factors/reversal_20d/four_dim_ctfm.md) | [yaml](../../research/factor/reversal_20d/four_dim_ctfm.yaml) |
+docs/index/factors.md:146:| `reversal_20d_four_dim_ctfs` | -1 | fwd5d |  | [four_dim_ctfs.md](../../research/docs/factors/reversal_20d/four_dim_ctfs.md) | [yaml](../../research/factor/reversal_20d/four_dim_ctfs.yaml) |
+docs/index/factors.md:147:| `reversal_20d_four_dim_ctfs30` | -1 | fwd5d |  | [four_dim_ctfs30.md](../../research/docs/factors/reversal_20d/four_dim_ctfs30.md) | [yaml](../../research/factor/reversal_20d/four_dim_ctfs30.yaml) |
+docs/index/factors.md:148:| `reversal_20d_four_dim_flow` | -1 | fwd5d |  | [four_dim_flow.md](../../research/docs/factors/reversal_20d/four_dim_flow.md) | [yaml](../../research/factor/reversal_20d/four_dim_flow.yaml) |
+docs/index/factors.md:149:| `reversal_20d_four_dim_tsc` | -1 | fwd5d |  | [four_dim_tsc.md](../../research/docs/factors/reversal_20d/four_dim_tsc.md) | [yaml](../../research/factor/reversal_20d/four_dim_tsc.yaml) |
+docs/index/factors.md:150:| `reversal_20d_four_dim_tsfi` | -1 | fwd5d |  | [four_dim_tsfi.md](../../research/docs/factors/reversal_20d/four_dim_tsfi.md) | [yaml](../../research/factor/reversal_20d/four_dim_tsfi.yaml) |
+docs/index/factors.md:151:| `reversal_20d_four_dim_tsv` | -1 | fwd5d |  | [four_dim_tsv.md](../../research/docs/factors/reversal_20d/four_dim_tsv.md) | [yaml](../../research/factor/reversal_20d/four_dim_tsv.yaml) |
+docs/index/factors.md:152:| `reversal_20d_four_dim_tsv10` | -1 | fwd5d |  | [four_dim_tsv10.md](../../research/docs/factors/reversal_20d/four_dim_tsv10.md) | [yaml](../../research/factor/reversal_20d/four_dim_tsv10.yaml) |
+docs/index/factors.md:153:| `reversal_20d_highmomentum` | 1 | fwd5d |  | [highmomentum.md](../../research/docs/factors/reversal_20d/highmomentum.md) | [yaml](../../research/factor/reversal_20d/highmomentum.yaml) |
+docs/index/factors.md:154:| `reversal_20d_intraday` | -1 | fwd5d |  | [intraday.md](../../research/docs/factors/reversal_20d/intraday.md) | [yaml](../../research/factor/reversal_20d/intraday.yaml) |
+docs/index/factors.md:155:| `reversal_20d_intraday_adv` | -1 | fwd5d |  | [intraday_adv.md](../../research/docs/factors/reversal_20d/intraday_adv.md) | [yaml](../../research/factor/reversal_20d/intraday_adv.yaml) |
+docs/index/factors.md:156:| `reversal_20d_intraday_flow` | -1 | fwd5d |  | [intraday_flow.md](../../research/docs/factors/reversal_20d/intraday_flow.md) | [yaml](../../research/factor/reversal_20d/intraday_flow.yaml) |
+docs/index/factors.md:157:| `reversal_20d_intraday_flow30` | -1 | fwd5d |  | [intraday_flow30.md](../../research/docs/factors/reversal_20d/intraday_flow30.md) | [yaml](../../research/factor/reversal_20d/intraday_flow30.yaml) |
+docs/index/factors.md:158:| `reversal_20d_intraday_flowextreme` | -1 | fwd5d |  | [intraday_flowextreme.md](../../research/docs/factors/reversal_20d/intraday_flowextreme.md) | [yaml](../../research/factor/reversal_20d/intraday_flowextreme.yaml) |
+docs/index/factors.md:159:| `reversal_20d_intraday_skew` | -1 | fwd5d |  | [intraday_skew.md](../../research/docs/factors/reversal_20d/intraday_skew.md) | [yaml](../../research/factor/reversal_20d/intraday_skew.yaml) |
+docs/index/factors.md:160:| `reversal_20d_intraday_turn` | -1 | fwd5d |  | [intraday_turn.md](../../research/docs/factors/reversal_20d/intraday_turn.md) | [yaml](../../research/factor/reversal_20d/intraday_turn.yaml) |
+docs/index/factors.md:161:| `reversal_20d_intraday_tv` | -1 | fwd5d |  | [intraday_tv.md](../../research/docs/factors/reversal_20d/intraday_tv.md) | [yaml](../../research/factor/reversal_20d/intraday_tv.yaml) |
+docs/index/factors.md:162:| `reversal_20d_intraday_vol` | -1 | fwd5d |  | [intraday_vol.md](../../research/docs/factors/reversal_20d/intraday_vol.md) | [yaml](../../research/factor/reversal_20d/intraday_vol.yaml) |
+docs/index/factors.md:163:| `reversal_20d_kurt` | -1 | fwd5d |  | [kurt.md](../../research/docs/factors/reversal_20d/kurt.md) | [yaml](../../research/factor/reversal_20d/kurt.yaml) |
+docs/index/factors.md:164:| `reversal_20d_near5` | -1 | fwd5d |  | [near5.md](../../research/docs/factors/reversal_20d/near5.md) | [yaml](../../research/factor/reversal_20d/near5.yaml) |
+docs/index/factors.md:165:| `reversal_20d_netflow` | -1 | fwd5d |  | [netflow.md](../../research/docs/factors/reversal_20d/netflow.md) | [yaml](../../research/factor/reversal_20d/netflow.yaml) |
+docs/index/factors.md:166:| `reversal_20d_netflow10` | -1 | fwd5d |  | [netflow10.md](../../research/docs/factors/reversal_20d/netflow10.md) | [yaml](../../research/factor/reversal_20d/netflow10.yaml) |
+docs/index/factors.md:167:| `reversal_20d_netflow30` | -1 | fwd5d |  | [netflow30.md](../../research/docs/factors/reversal_20d/netflow30.md) | [yaml](../../research/factor/reversal_20d/netflow30.yaml) |
+docs/index/factors.md:168:| `reversal_20d_netflow_pct` | -1 | fwd5d |  | [netflow_pct.md](../../research/docs/factors/reversal_20d/netflow_pct.md) | [yaml](../../research/factor/reversal_20d/netflow_pct.yaml) |
+docs/index/factors.md:169:| `reversal_20d_nowin` | -1 | fwd5d |  | [nowin.md](../../research/docs/factors/reversal_20d/nowin.md) | [yaml](../../research/factor/reversal_20d/nowin.yaml) |
+docs/index/factors.md:170:| `reversal_20d_nowin_fill0` | -1 | fwd5d |  | [nowin_fill0.md](../../research/docs/factors/reversal_20d/nowin_fill0.md) | [yaml](../../research/factor/reversal_20d/nowin_fill0.yaml) |
+docs/index/factors.md:171:| `reversal_20d_overnight` | -1 | fwd5d |  | [overnight.md](../../research/docs/factors/reversal_20d/overnight.md) | [yaml](../../research/factor/reversal_20d/overnight.yaml) |
+docs/index/factors.md:172:| `reversal_20d_pricevolcorr` | -1 | fwd5d |  | [pricevolcorr.md](../../research/docs/factors/reversal_20d/pricevolcorr.md) | [yaml](../../research/factor/reversal_20d/pricevolcorr.yaml) |
+docs/index/factors.md:173:| `reversal_20d_pricevolcorr10` | -1 | fwd5d |  | [pricevolcorr10.md](../../research/docs/factors/reversal_20d/pricevolcorr10.md) | [yaml](../../research/factor/reversal_20d/pricevolcorr10.yaml) |
+docs/index/factors.md:174:| `reversal_20d_pricevolcorr60` | -1 | fwd5d |  | [pricevolcorr60.md](../../research/docs/factors/reversal_20d/pricevolcorr60.md) | [yaml](../../research/factor/reversal_20d/pricevolcorr60.yaml) |
+docs/index/factors.md:175:| `reversal_20d_pricevolcorr_lev` | -1 | fwd5d |  | [pricevolcorr_lev.md](../../research/docs/factors/reversal_20d/pricevolcorr_lev.md) | [yaml](../../research/factor/reversal_20d/pricevolcorr_lev.yaml) |
+docs/index/factors.md:176:| `reversal_20d_pricevolcorr_turn` | -1 | fwd5d |  | [pricevolcorr_turn.md](../../research/docs/factors/reversal_20d/pricevolcorr_turn.md) | [yaml](../../research/factor/reversal_20d/pricevolcorr_turn.yaml) |
+docs/index/factors.md:177:| `reversal_20d_ranknorm` | -1 | fwd5d |  | [ranknorm.md](../../research/docs/factors/reversal_20d/ranknorm.md) | [yaml](../../research/factor/reversal_20d/ranknorm.yaml) |
+docs/index/factors.md:178:| `reversal_20d_six_dim` | -1 | fwd5d |  | [six_dim.md](../../research/docs/factors/reversal_20d/six_dim.md) | [yaml](../../research/factor/reversal_20d/six_dim.yaml) |
+docs/index/factors.md:179:| `reversal_20d_skew` | -1 | fwd5d |  | [skew.md](../../research/docs/factors/reversal_20d/skew.md) | [yaml](../../research/factor/reversal_20d/skew.yaml) |
+docs/index/factors.md:180:| `reversal_20d_skew10` | -1 | fwd5d |  | [skew10.md](../../research/docs/factors/reversal_20d/skew10.md) | [yaml](../../research/factor/reversal_20d/skew10.yaml) |
+docs/index/factors.md:181:| `reversal_20d_skew_extreme` | -1 | fwd5d |  | [skew_extreme.md](../../research/docs/factors/reversal_20d/skew_extreme.md) | [yaml](../../research/factor/reversal_20d/skew_extreme.yaml) |
+docs/index/factors.md:182:| `reversal_20d_smallcap` | -1 | fwd5d |  | [smallcap.md](../../research/docs/factors/reversal_20d/smallcap.md) | [yaml](../../research/factor/reversal_20d/smallcap.yaml) |
+docs/index/factors.md:183:| `reversal_20d_turn_skew` | -1 | fwd5d |  | [turn_skew.md](../../research/docs/factors/reversal_20d/turn_skew.md) | [yaml](../../research/factor/reversal_20d/turn_skew.yaml) |
+docs/index/factors.md:184:| `reversal_20d_turn_skew_corr` | -1 | fwd5d |  | [turn_skew_corr.md](../../research/docs/factors/reversal_20d/turn_skew_corr.md) | [yaml](../../research/factor/reversal_20d/turn_skew_corr.yaml) |
+docs/index/factors.md:185:| `reversal_20d_turn_skew_flow30` | -1 | fwd5d |  | [turn_skew_flow30.md](../../research/docs/factors/reversal_20d/turn_skew_flow30.md) | [yaml](../../research/factor/reversal_20d/turn_skew_flow30.yaml) |
+docs/index/factors.md:186:| `reversal_20d_turn_skew_vol` | -1 | fwd5d |  | [turn_skew_vol.md](../../research/docs/factors/reversal_20d/turn_skew_vol.md) | [yaml](../../research/factor/reversal_20d/turn_skew_vol.yaml) |
+docs/index/factors.md:187:| `reversal_20d_vol_flow` | -1 | fwd5d |  | [vol_flow.md](../../research/docs/factors/reversal_20d/vol_flow.md) | [yaml](../../research/factor/reversal_20d/vol_flow.yaml) |
+docs/index/factors.md:188:| `reversal_20d_volconf` | -1 | fwd5d |  | [volconf.md](../../research/docs/factors/reversal_20d/volconf.md) | [yaml](../../research/factor/reversal_20d/volconf.yaml) |
+docs/index/factors.md:189:| `reversal_20d_volconf_fwd` | -1 | fwd5d |  | [volconf_fwd.md](../../research/docs/factors/reversal_20d/volconf_fwd.md) | [yaml](../../research/factor/reversal_20d/volconf_fwd.yaml) |
+docs/index/factors.md:190:| `reversal_20d_volturn` | -1 | fwd5d |  | [volturn.md](../../research/docs/factors/reversal_20d/volturn.md) | [yaml](../../research/factor/reversal_20d/volturn.yaml) |
+docs/index/factors.md:191:| `reversal_20d_wcorr` | -1 | fwd5d |  | [wcorr.md](../../research/docs/factors/reversal_20d/wcorr.md) | [yaml](../../research/factor/reversal_20d/wcorr.yaml) |
+docs/index/factors.md:192:| `reversal_20d_wcorr_cti` | -1 | fwd5d |  | [wcorr_cti.md](../../research/docs/factors/reversal_20d/wcorr_cti.md) | [yaml](../../research/factor/reversal_20d/wcorr_cti.yaml) |
+docs/index/factors.md:193:| `reversal_20d_wcorr_tsv10` | -1 | fwd5d |  | [wcorr_tsv10.md](../../research/docs/factors/reversal_20d/wcorr_tsv10.md) | [yaml](../../research/factor/reversal_20d/wcorr_tsv10.yaml) |
+docs/index/factors.md:194:| `reversal_20d_wskew_tsv10` | -1 | fwd5d |  | [wskew_tsv10.md](../../research/docs/factors/reversal_20d/wskew_tsv10.md) | [yaml](../../research/factor/reversal_20d/wskew_tsv10.yaml) |
+docs/index/factors.md:200:| `reversal_5d_corr` | -1 | fwd5d |  | [corr.md](../../research/docs/factors/reversal_5d/corr.md) | [yaml](../../research/factor/reversal_5d/corr.yaml) |
+docs/index/factors.md:201:| `reversal_5d_intraday` | -1 | fwd5d |  | [intraday.md](../../research/docs/factors/reversal_5d/intraday.md) | [yaml](../../research/factor/reversal_5d/intraday.yaml) |
+docs/index/factors.md:202:| `reversal_5d_turn` | -1 | fwd5d |  | [turn.md](../../research/docs/factors/reversal_5d/turn.md) | [yaml](../../research/factor/reversal_5d/turn.yaml) |
+docs/index/factors.md:203:| `reversal_5d_volconf` | -1 | fwd5d |  | [volconf.md](../../research/docs/factors/reversal_5d/volconf.md) | [yaml](../../research/factor/reversal_5d/volconf.yaml) |
+docs/index/factors.md:209:| `rsi_oversold_14` | 1 | fwd5d |  | [oversold_14.md](../../research/docs/factors/reversal_rsi/oversold_14.md) | [yaml](../../research/factor/reversal_rsi/oversold_14.yaml) |
+docs/index/factors.md:210:| `rsi_reversal_14` | -1 | fwd5d |  | [reversal_14.md](../../research/docs/factors/reversal_rsi/reversal_14.md) | [yaml](../../research/factor/reversal_rsi/reversal_14.yaml) |
+docs/index/factors.md:211:| `rsi_reversal_14_ret` | -1 | fwd5d |  | [reversal_14_ret.md](../../research/docs/factors/reversal_rsi/reversal_14_ret.md) | [yaml](../../research/factor/reversal_rsi/reversal_14_ret.yaml) |
+docs/index/factors.md:217:| `small_cap` | 1 | fwd5d |  | [small_cap.md](../../research/docs/factors/size/small_cap.md) | [yaml](../../research/factor/size/small_cap.yaml) |
+docs/index/factors.md:218:| `small_cap_extreme` | 1 | fwd5d |  | [extreme.md](../../research/docs/factors/size/extreme.md) | [yaml](../../research/factor/size/extreme.yaml) |
+docs/index/factors.md:224:| `value_bp` | 1 | fwd5d |  | [bp.md](../../research/docs/factors/value/bp.md) | [yaml](../../research/factor/value/bp.yaml) |
+docs/index/factors.md:225:| `value_ep` | 1 | fwd5d |  | [ep.md](../../research/docs/factors/value/ep.md) | [yaml](../../research/factor/value/ep.yaml) |
+docs/index/factors.md:226:| `value_retained` | 1 | fwd5d |  | [retained.md](../../research/docs/factors/value/retained.md) | [yaml](../../research/factor/value/retained.yaml) |
+docs/index/factors.md:227:| `value_spread` | 1 | fwd5d |  | [spread.md](../../research/docs/factors/value/spread.md) | [yaml](../../research/factor/value/spread.yaml) |
+docs/index/factors.md:233:| `vol_run_energy` | -1 | fwd5d |  | [vol_run_energy.md](../../research/docs/factors/vol_run_energy/vol_run_energy.md) | [yaml](../../research/factor/vol_run_energy/vol_run_energy.yaml) |
+docs/index/factors.md:234:| `vol_run_energy_cumret` | -1 | fwd5d |  | [cumret.md](../../research/docs/factors/vol_run_energy/cumret.md) | [yaml](../../research/factor/vol_run_energy/cumret.yaml) |
+docs/index/factors.md:235:| `vol_run_energy_rl120_turn` | -1 | fwd5d |  | [rl120_turn.md](../../research/docs/factors/vol_run_energy/rl120_turn.md) | [yaml](../../research/factor/vol_run_energy/rl120_turn.yaml) |
+docs/index/factors.md:236:| `vol_run_energy_rl120_turn_up` | -1 | fwd5d |  | [rl120_turn_up.md](../../research/docs/factors/vol_run_energy/rl120_turn_up.md) | [yaml](../../research/factor/vol_run_energy/rl120_turn_up.yaml) |
+docs/index/factors.md:237:| `vol_run_energy_symrun` | -1 | fwd5d |  | [symrun.md](../../research/docs/factors/vol_run_energy/symrun.md) | [yaml](../../research/factor/vol_run_energy/symrun.yaml) |
+docs/index/factors.md:238:| `vol_run_energy_symrun_bell03` | -1 | fwd5d |  | [symrun_bell03.md](../../research/docs/factors/vol_run_energy/symrun_bell03.md) | [yaml](../../research/factor/vol_run_energy/symrun_bell03.yaml) |
+docs/index/factors.md:239:| `vol_run_energy_symrun_bell1` | -1 | fwd5d |  | [symrun_bell1.md](../../research/docs/factors/vol_run_energy/symrun_bell1.md) | [yaml](../../research/factor/vol_run_energy/symrun_bell1.yaml) |
+docs/index/factors.md:240:| `vol_run_energy_symrun_corr` | -1 | fwd5d |  | [symrun_corr.md](../../research/docs/factors/vol_run_energy/symrun_corr.md) | [yaml](../../research/factor/vol_run_energy/symrun_corr.yaml) |
+docs/index/factors.md:241:| `vol_run_energy_symrun_down` | -1 | fwd5d |  | [symrun_down.md](../../research/docs/factors/vol_run_energy/symrun_down.md) | [yaml](../../research/factor/vol_run_energy/symrun_down.yaml) |
+docs/index/factors.md:242:| `vol_run_energy_symrun_extreme` | -1 | fwd5d |  | [symrun_extreme.md](../../research/docs/factors/vol_run_energy/symrun_extreme.md) | [yaml](../../research/factor/vol_run_energy/symrun_extreme.yaml) |
+docs/index/factors.md:243:| `vol_run_energy_symrun_lin` | -1 | fwd5d |  | [symrun_lin.md](../../research/docs/factors/vol_run_energy/symrun_lin.md) | [yaml](../../research/factor/vol_run_energy/symrun_lin.yaml) |
+docs/index/factors.md:244:| `vol_run_energy_symrun_r30` | -1 | fwd5d |  | [symrun_r30.md](../../research/docs/factors/vol_run_energy/symrun_r30.md) | [yaml](../../research/factor/vol_run_energy/symrun_r30.yaml) |
+docs/index/factors.md:245:| `vol_run_energy_symrun_r30_flip` | -1 | fwd5d |  | [symrun_r30_flip.md](../../research/docs/factors/vol_run_energy/symrun_r30_flip.md) | [yaml](../../research/factor/vol_run_energy/symrun_r30_flip.yaml) |
+docs/index/factors.md:246:| `vol_run_energy_symrun_r30_streak` | -1 | fwd5d |  | [symrun_r30_streak.md](../../research/docs/factors/vol_run_energy/symrun_r30_streak.md) | [yaml](../../research/factor/vol_run_energy/symrun_r30_streak.yaml) |
+docs/index/factors.md:247:| `vol_run_energy_symrun_r60` | -1 | fwd5d |  | [symrun_r60.md](../../research/docs/factors/vol_run_energy/symrun_r60.md) | [yaml](../../research/factor/vol_run_energy/symrun_r60.yaml) |
+docs/index/factors.md:248:| `vol_run_energy_symrun_turn` | -1 | fwd5d |  | [symrun_turn.md](../../research/docs/factors/vol_run_energy/symrun_turn.md) | [yaml](../../research/factor/vol_run_energy/symrun_turn.yaml) |
+docs/index/factors.md:249:| `vol_run_energy_symrun_w100` | -1 | fwd5d |  | [symrun_w100.md](../../research/docs/factors/vol_run_energy/symrun_w100.md) | [yaml](../../research/factor/vol_run_energy/symrun_w100.yaml) |
+docs/index/factors.md:255:| `low_downside_vol_20d` | 1 | fwd5d |  | [vol_20d.md](../../research/docs/factors/volatility/vol_20d.md) | [yaml](../../research/factor/volatility/vol_20d.yaml) |
+docs/index/factors.md:256:| `low_vol_20d` | 1 | fwd5d |  | [low_vol_20d.md](../../research/docs/factors/volatility/low_vol_20d.md) | [yaml](../../research/factor/volatility/low_vol_20d.yaml) |
+docs/index/factors.md:257:| `low_vol_20d_park` | 1 | fwd5d |  | [low_vol_20d_park.md](../../research/docs/factors/volatility/low_vol_20d_park.md) | [yaml](../../research/factor/volatility/low_vol_20d_park.yaml) |
+docs/index/factors.md:258:| `max_effect_20d` | -1 | fwd5d |  | [max_effect_20d.md](../../research/docs/factors/volatility/max_effect_20d.md) | [yaml](../../research/factor/volatility/max_effect_20d.yaml) |
+docs/index/factors.md:259:| `max_effect_20d_extcnt` | -1 | fwd5d |  | [max_effect_20d_extcnt.md](../../research/docs/factors/volatility/max_effect_20d_extcnt.md) | [yaml](../../research/factor/volatility/max_effect_20d_extcnt.yaml) |
+docs/index/factors.md:260:| `max_effect_20d_high` | -1 | fwd5d |  | [max_effect_20d_high.md](../../research/docs/factors/volatility/max_effect_20d_high.md) | [yaml](../../research/factor/volatility/max_effect_20d_high.yaml) |
+docs/index/factors.md:261:| `max_effect_20d_zmax` | -1 | fwd5d |  | [max_effect_20d_zmax.md](../../research/docs/factors/volatility/max_effect_20d_zmax.md) | [yaml](../../research/factor/volatility/max_effect_20d_zmax.yaml) |
+docs/index/factors.md:262:| `max_effect_5d` | -1 | fwd5d |  | [5d.md](../../research/docs/factors/volatility/5d.md) | [yaml](../../research/factor/volatility/5d.yaml) |
+docs/index/strategies.md:10:| `low_lottery_top30_weekly` | `max_effect_20d_high` | -1 | weekly | NEXT_OPEN | 2025-03-01 ~ 2025-03-31 | verified | [low_lottery_top30_weekly.md](../../research/docs/strategies/low_lottery_top30_weekly.md) | [low_lottery_top30_weekly.yaml](../../research/strategy/low_lottery_top30_weekly.yaml) |
+docs/index/strategies.md:14:- [crash_bottom_leader_strategy.md](../../research/docs/strategies/crash_bottom_leader_strategy.md)——历史研究档案，补 front matter（spec + window）后进入上表
+research/docs/factor-mining-playbook.md:319:**因子档案（md）**：每个因子在 `research/docs/factors/<族>/<stem>.md` 维护一份研究档案
+research/docs/factor-mining-playbook.md:320:（模板：`research/docs/factors/_template.md`），与 `research/factor/<族>/<stem>.yaml` 同族同短名并行存放：
+research/docs/factor-mining-playbook.md:343:> - 用户单页入口：`research/docs/factor-authoring-manual.md`。
+research/docs/factors/README.md:1:# 因子档案目录（research/docs/factors）
+research/docs/strategies/_template.md:10:> 模板使用：复制为 `research/docs/strategies/<策略名>.md`（与 spec 同名）。
+research/docs/strategies/low_lottery_top30_weekly.md:17:  （IC 0.0699, t=5.00, IR=0.375，见 `research/docs/factors/volatility/max_effect_20d_high.md`）。
+research/tools/factor_lib/build_strategy_index.py:2:"""策略索引生成器（Plan S Task 4）：`research/strategy/**` + `research/docs/strategies/**`
+research/tools/factor_lib/build_strategy_index.py:9:- 每个 `research/strategy/<stem>.yaml` 必须有 `research/docs/strategies/<stem>.md` 档案；
+research/tools/factor_lib/build_strategy_index.py:114:                           "md": f"research/docs/strategies/{f.name}"})
+research/tools/factor_lib/build_strategy_index.py:132:            "md": f"research/docs/strategies/{f.name}",
+research/tools/factor_lib/build_strategy_index.py:149:                          f"research/docs/strategies/{s['stem']}.md{hint}")
+research/tools/factor_lib/tests/test_strategy_index.py:3:设计规格：plan.md Task 4——`research/strategy/*.yaml` + `research/docs/strategies/*.md`
+research/tools/factor_lib/tests/test_strategy_index.py:78:                  "../../research/docs/strategies/test_strat.md",
+research/tools/strategies/README.md:6:| `l5_rules.py` | **L5 规则层 V1**：`max_hold` 调仓日粒度近似（边界见 `research/docs/strategies/_l5-rules.md`） | 目标组合历史 + 交易日历 |
+research/tools/strategies/README.md:10:**策略 spec/档案**：`research/strategy/*.yaml` + `research/docs/strategies/*.md`（索引
+scripts/gates.sh:48:        ':!docs/verification' ':!platform/docs/superpowers' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' ':!research/docs/superpowers' 2>/dev/null \
+== docs/verification
+AGENTS.md:16:- 每轮结构/行为改动都要留**可复现证据**：`docs/verification/<轮次>/`（命令 + 原始输出 + 门结果）。
+CLAUDE.md:20:- **`data/` 零改动**：任何命令都不得写入（只读消费）。`data/` 与 `_archive/` 的 mtime/容量基线在 `docs/verification/`。
+CLAUDE.md:23:- 数据接口（读/写/契约）见 `docs/verification/R4/`（收口记录）与 `platform/docs/interface.md` §4。
+Makefile:8:	@echo "make test-platform   平台全量测试（约 13 分钟；基线见 docs/verification/R27/）"
+README.md:26:| 看某轮工作的验证证据 | [docs/verification/](docs/verification/) |
+docs/archive-policy.md:13:| S1 | `_archive/2026-09-12-S1/` | 2026-10-12 | `docs/verification/S1/manifest.md` |
+docs/archive-policy.md:14:| S3 | `_archive/2026-09-12-S3/` | 2026-10-12 | `docs/verification/S3/status.md` §5 |
+docs/directory-conventions.md:9:> （历史与过程见 `docs/verification/R1..R2/` 与 `docs/verification/archive/`）；
+docs/directory-conventions.md:11:> 证据 `docs/verification/R17/`）——`projects/` 实况自此与 §3 表逐条一致。
+docs/directory-conventions.md:52:  历史过程见 `docs/verification/archive/`。
+docs/directory-conventions.md:66:- 每批必须附 manifest（来源/原因/恢复命令/到期日），manifest 入 `docs/verification/<阶段>/`
+docs/pending-items.md:39:  证据见 `docs/verification/R20/`。旧 `projects/ashare_alpha3` 仅作本地历史参考。
+docs/pending-items.md:47:     那两个不在归档批次里，删除记录见 `docs/verification/R17/`。
+docs/pending-items.md:73:      全部切换、各自自建进程池循环删除，切换前后逐值/字节等价——见 `docs/verification/R14/`；
+docs/pending-items.md:78:      `docs/verification/R15/status.md`。
+docs/pending-items.md:98:       输出见 `docs/verification/R21/EVID/I7-dataiface-count.txt`。R0 文本的"~460 处"系
+docs/pending-items.md:155:    `docs/verification/R18/04-venv-freeze.txt`）；全仓**无** `uv.lock` / `requirements*.txt`。
+docs/traceability-matrix.md:24:| REQ-WS-010 | 每阶段证据目录 | LF-09 | `docs/verification/` | S1-S5 | Inspection | 各 `verification/S*/` 非空 | ● |
+docs/traceability-matrix.md:44:| REQ-Q-008 单副本（research 无平台 src/tests） | `docs/verification/WS1/` | ● |
+docs/traceability-matrix.md:45:| REQ-Q-001 纯核（无 I/O 依赖可导入） | `tests/test_architecture.py` 双门 + `docs/verification/WS3/` | ● |
+docs/traceability-matrix.md:47:| REQ-Q-010 旧路径零残留（代码） | 各批 grep/collect 门 + `docs/verification/WS4/` | ● |
+docs/traceability-matrix.md:48:| REQ-Q-010 旧路径零残留（文档） | `tests/test_doc_paths_exist.py`（interface.md 全路径可解析）+ `docs/verification/WS7/` | ● |
+docs/traceability-matrix.md:51:| DER-005 列契约单点（factio.schema） | `core/factio/schema.py` + `docs/verification/WS6/` | ● |
+docs/workspace-p0p8.md:140:- **S1** 垃圾直删 + 第一波归档 → 证据 `docs/verification/S1/`
+docs/workspace-p0p8.md:141:- **S2** 数据归并 data/ → 证据 `docs/verification/S2/`
+docs/workspace-p0p8.md:142:- **S3** 项目归并 projects/ + worktree 迁移 + 路径全量重指 → 证据 `docs/verification/S3/`
+docs/workspace-p0p8.md:143:- **S4** 根 workspace 仓库 + 文档体系 → 证据 `docs/verification/S4/`
+docs/workspace-p0p8.md:144:- **S5** 仓库内文档修复 + 收口验证 → 证据 `docs/verification/S5/`
+docs/workspace-p0p8.md:150:| REQ-WS-002/003/009 | S1 门输出 + manifest + df 前后 | `docs/verification/S1/` |
+docs/workspace-p0p8.md:151:| REQ-WS-004（输血） | 血缘对照（minutes 80=80 bars_1m）+ schema 抽样 | `docs/verification/S2/` |
+docs/workspace-p0p8.md:152:| REQ-WS-005 | grep 门 = 0（活跃死链） | `docs/verification/S3/05-verify.log` |
+docs/workspace-p0p8.md:153:| REQ-WS-006 | 冒烟（四根+读路径+zip）+ 183 tests | `docs/verification/S3/06-smoke-and-shim.log` |
+docs/workspace-p0p8.md:154:| REQ-WS-007 | cat-file e66b349 + 4 提交 log | `docs/verification/S3/07-backup-rescue.log` |
+docs/workspace-p0p8.md:155:| REQ-WS-001/008 | 收口核验（S4/S5） | `docs/verification/final/` |
+docs/workspace-p0p8.md:159:对照 P0-Q4 逐项（核验详情与证据：`docs/verification/final/02-p8.md`）：
+platform/AGENTS.md:34:- 证据留痕：关键验证命令与输出存档（工作区级见 `stock/docs/verification/`）。
+platform/docs/interface.md:208:  （校准见 `docs/verification/R23/safety/`）。非 POSIX（Windows）/设置失败 →
+platform/docs/interface.md:235:  2026-09-15 实测回归，见 `docs/verification/R13/`）。
+platform/docs/interface.md:1412:探针 docs/verification/R22/R03/misc/probe_m5_bar_time_labeling.{py,txt}）。
+platform/docs/interface.md:1440:真实数据**内容逐值等价**（详见 `docs/verification/R10/`、`R14/`）。
+platform/docs/superpowers/specs/2026-09-07-factorlab-daily-closeout-design.md:11:> 实施记录见本文 §13 验证记录 / §14 提交序列与 `docs/verification/` 证据。正文不改。
+platform/docs/superpowers/specs/2026-09-08-factorlab-1m-funnel-design.md:258:  docs/verification/R22/R03/misc/probe_m5_bar_time_labeling.{py,txt}。
+platform/docs/superpowers/specs/2026-09-08-factorlab-1m-funnel-design.md:320:  docs/verification/R22/R03/minute/。make lint-factors 159/159。
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:6:> 执行计划与阶段门见 workspace `docs/verification/WS*/` 证据目录与同批 plan 文档。
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:10:> `docs/verification/archive/2026-09-workspace-cleanup/final/03-p8.md`。正文不改。
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:220:各阶段门、证据与提交边界见 workspace `docs/verification/WS*/`（随实施同步落盘）。
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:299:V17 数据零变更。P8 判定 Mission satisfied（`docs/verification/final/03-p8.md`）。
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:308:门：每批全量；终态 2460 passed/13 skipped。证据：workspace `docs/verification/WS5/`。
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:317:全量 2456 passed/13 skipped；catalog 每批重生成。证据：workspace `docs/verification/WS3/`。
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:324:4g（catalog 拆分）推迟至 WS7（纯位移、低净值）。证据：workspace `docs/verification/WS4/`。
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:333:证据：workspace `docs/verification/WS2/`。
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:338:证据：workspace `docs/verification/WS0/`。
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:348:证据：workspace `docs/verification/WS1/`；提交 main `34f3919`、research `feff0f8`/`9cba8dc`/`8e01168`。
+platform/scripts/gen_op_catalog.py:20:与计划字面规则的偏差（理由见 docs/verification/R22/02-ta-catalog/README.md）：
+platform/src/factorlab/adapters/intraday.py:23:  证据：docs/verification/R22/R03/misc/probe_m5_bar_time_labeling.{py,txt}。
+platform/src/factorlab/app/memory.py:230:# 让正常 run 误报 MemoryError（见 docs/verification/R23/safety 测量）。软看门狗
+platform/tests/test_regression_152.py:5:  `docs/verification/R22/00-baseline/`）经真实 CLI + ch 后端重跑，逐值对比
+platform/tests/test_regression_152.py:27:BASELINE = REPO / "docs/verification/R22/00-baseline"
+platform/tools/ch_ingest/ddl.sql:59:-- docs/verification/R21/TOOLS-A/after/ddl_alter.txt）：
+platform/tools/ch_ingest/derive_stk_limit.py:46:    与 docs/verification/R21/TOOLS-A/after/probe2）。
+platform/tools/lob_fact/tests/test_config_paths.py:3:断言源 = docs/verification/S3 归并方案：
+platform/tools/universe_stages/config.yaml:7:# 必须同步 docs/verification 证据与 parity 结论。
+research/README.md:4:（2026-09-15 单仓单树重构，见 `docs/verification/R*/`）。平台代码在兄弟目录 `../platform/`。
+research/docs/factors/README.md:13:不可复跑的事实（复现命令与原始输出：`docs/verification/R21/EVID/C1-not-reproducible.txt`）：
+research/docs/factors/README.md:32:   （例：`docs/verification/R12/r12_smoke.yaml`），但**不构成**对全市场档案数字的复现。
+research/docs/factors/README.md:41:  `docs/verification/R21/EVID/annotate_factor_archives.py`（幂等，`--check` 可验）。
+research/docs/strategies/_l5-rules.md:45:- 证据：`docs/verification/R28/strategy-first-example/task6-*.txt`。
+research/docs/strategies/_template.md:49:- 原始输出：`docs/verification/R28/strategy-first-example/…`
+research/docs/strategies/crash_bottom_leader_strategy.md:11:> `docs/verification/R21/STRAT/i6_data_availability.txt`、`i6_factor_run.log`、
+research/docs/strategies/crash_bottom_leader_strategy.md:16:> `exclude_st` 的全市场口径，如 `docs/verification/R21/STRAT/timed_no_exclude_st.yaml`）；
+research/docs/strategies/low_lottery_top30_weekly.md:50:  2025-03 干净可跑；原始输出 `docs/verification/R28/strategy-first-example/task5-ca-window-probe.txt`。
+scripts/check_dataiface.py:35:#   会触发 G-CONTRACT 4 处 + G-MARK 1 处**强制判红**（实测见 docs/verification/R19/ 与 pending #19）。
+scripts/gates.sh:21:FROZEN=':!platform/docs/superpowers :!docs/verification :!platform/tools/lob_fact/notes :!research/tools/lob_fact/notes :!docs/specs'
+scripts/gates.sh:48:        ':!docs/verification' ':!platform/docs/superpowers' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes' ':!research/docs/superpowers' 2>/dev/null \
+scripts/gates.sh:74:  if out=$(python3 docs/verification/R21/EVID/annotate_factor_archives.py --check 2>&1); then ok "$out"; else bad "$out"; fi
+== docs/reviews
+platform/docs/interface.md:188:响应（进程 D 状态零输出；事故记录 `docs/reviews/r05-usage-2026-09-16/report.md`）。
+platform/src/factorlab/app/memory.py:5:见 `docs/reviews/r05-usage-2026-09-16/report.md`）。本模块提供：
+platform/src/factorlab/app/memory.py:164:            "（事故记录 docs/reviews/r05-usage-2026-09-16）。")
+platform/tests/test_cli_lint_batch.py:3:断言源 = `docs/reviews/r04-efficiency-2026-09-16/report.md` §2 P1：
+platform/tests/test_cli_lint_params.py:99:             / "docs/reviews/r01-2026-09-15-strict-review/evidence/engine-dsl")
+platform/tests/test_memory_guard.py:4:断言来源：`docs/reviews/r05-usage-2026-09-16/report.md`「事故记录」平台修复
+platform/tests/test_strategy_doc.py:3:设计规格：docs/reviews/2026-09-16-strategy-decomposition/plan.md §接口契约 1)。
+platform/tests/test_window_spec.py:3:断言来源：docs/reviews/2026-09-15-minute-execution/design.md §2/§3 与 plan.md
+platform/tools/ashare_ingest/tests/test_import_daily_delisted.py:3:依据（docs/reviews/r01-2026-09-15-strict-review/report.md TOOLS-C2）：
+platform/tools/ch_ingest/tests/test_ingest_daily_derive.py:3:断言来源 = docs/reviews/r01-2026-09-15-strict-review/report.md / findings.md：
+platform/tools/lob_fact/tests/test_verify_cancels_sample.py:3:断言源 = `docs/reviews/r04-efficiency-2026-09-16/report.md` §3 P0-1：
+platform/tools/universe_stages/tests/test_cli_bootstrap.py:3:依据（docs/reviews/findings.md R02-I6a，R01-TOOLS-I9 partial）：
+platform/tools/universe_stages/tests/test_layer3_tick_guard.py:3:断言来源 = `docs/reviews/findings.md` R01-TOOLS-I8 的修复要求，不是现有实现：
+platform/tools/universe_stages/tests/test_preflight.py:3:断言来源 = `docs/reviews/findings.md` R01-TOOLS-I9：
+research/docs/factors/README.md:11:R01-EVID-C1（台账 `docs/reviews/findings.md`）的修复选择**如实标注为历史快照**，不伪造产物。
+research/docs/strategies/_l5-rules.md:5:> 注：Plan S Task 6 Step 5 原要求更新 `docs/reviews/2026-09-16-strategy-decomposition/design.md`
+research/docs/strategies/_l5-rules.md:6:> §4-G3；按本轮任务约束 **`docs/reviews/**` 只读**，边界登记改落本文件（作为代码
+research/docs/strategies/low_lottery_top30_weekly.md:96:  触发条件登记见 Task 7（`docs/reviews/2026-09-16-strategy-decomposition/plan.md`）与
+research/tools/strategies/l5_rules.py:4:设计边界（`docs/reviews/2026-09-16-strategy-decomposition/design.md` §4-G3）：
+research/tools/strategies/l5_rules.py:18:注：本模块属研究侧 V1；`docs/reviews/**` 只读，边界登记以本 docstring +
+research/tools/strategies/tests/test_l5_rules.py:3:规格：`docs/reviews/2026-09-16-strategy-decomposition/plan.md` Task 6——
+== docs/index
+.claude/skills/factor-mine/SKILL.md:52:- 读 `research/docs/factors/<族>/<stem>.md` 全文 + `research/factor/<族>/<stem>.yaml`（族见 `research/factor/_families.yaml`、索引见 `docs/index/factors.md`）。
+AGENTS.md:10:5. **归档**：同族同名档案 `research/docs/factors/<族>/<短名>.md` + 重生成 `docs/index/factors.md`。
+CLAUDE.md:42:- 因子新增/改名 → `research/docs/factors/<族>/<名>.md` 同名档案 + 重生成 `docs/index/factors.md`（有 byte-equality 门）。
+Makefile:12:	@echo "make index           重生成 docs/index/factors.md + docs/index/strategies.md"
+research/AGENTS.md:22:   新增/改名后重生成索引 `docs/index/factors.md`（有 byte-equality 门）。
+research/CLAUDE.md:40:  `../docs/index/factors.md`（`build_index.py --check` 是常驻门）。
+research/README.md:10:| `factor/<族>/<短名>.yaml` | **152 个因子 spec**（14 族；族规则 `factor/_families.yaml`；索引 `../docs/index/factors.md`）|
+research/README.md:55:- 因子索引：`../docs/index/factors.md`（自动生成，`build_index.py --check` 门）
+research/docs/factors/README.md:4:front matter + 六节模板，规范见 `_template.md`）。机器索引在 `docs/index/factors.md`
+research/docs/factors/README.md:39:  `docs/index/factors.md` 生成（索引只读 `research/factor/**/*.yaml`），因此不影响索引
+research/tools/factor_lib/build_index.py:2:"""因子索引生成器（R5）：`research/factor/**` → `docs/index/factors.md`。
+research/tools/factor_lib/build_strategy_index.py:3:→ `docs/index/strategies.md`。
+research/tools/factor_lib/tests/test_index.py:24:    """门：docs/index/factors.md 必须与生成器输出逐字节一致（防手改/陈旧）。"""
+research/tools/factor_lib/tests/test_strategy_index.py:4:→ `docs/index/strategies.md`；spec 缺档案 / 档案缺 spec → 门红并列出名字；
+research/tools/strategies/README.md:11:`docs/index/strategies.md`，`make index` / G-INDEX 有 --check 门）。
+== docs/data-map
+CLAUDE.md:21:- 数据位置与血缘以 `docs/data-map.md` 为唯一权威；目录/命名约定以 `docs/directory-conventions.md` 为唯一权威；
+README.md:20:| 看数据放在哪、谁生产它 | [docs/data-map.md](docs/data-map.md)（数据资产唯一权威） |
+docs/traceability-matrix.md:18:| REQ-WS-004 | data-map 无孤儿 | LF-01/08 | `docs/data-map.md` | S2 血缘 + S4 成文 | Inspection | `S2/02-post-verify.log`、`docs/data-map.md`（A9 待考已登记 pending #9） | ● |
+platform/CLAUDE.md:71:- 数据位置以仓库根 `docs/data-map.md` 为唯一权威；本目录**不得写入** `../data/`。
+platform/docs/superpowers/specs/2026-08-15-factorlab-m3a-data-layer-design.md:5:      `platform/docs/interface.md` §4 与 `docs/data-map.md`）
+platform/src/factorlab/core/factio/paths.py:3:布局（2026-09-12 workspace 归并，权威见 workspace docs/data-map.md）：
+platform/src/factorlab/core/factio/paths.py:16:PANEL_ROOT = DATA_ROOT / "panel"   # 预留面板区（docs/data-map.md A12；当前空，零消费者属预期）
+platform/tools/ashare_ingest/datapaths.py:51:    """A5 日线事实（本工具生产；见 docs/data-map.md）。"""
+platform/tools/universe_stages/universe_paths.py:109:            hint="ashare_ingest/import_daily.py（或 CH 读路径；见 docs/data-map.md A5）"),
+platform/tools/universe_stages/universe_paths.py:133:            hint="ashare_ingest/import_daily.py（见 docs/data-map.md A5）"),
+research/AGENTS.md:27:- 数据问题先查 `../../docs/data-map.md`（哪个表是谁生产的、生产者在哪）。
+research/CLAUDE.md:41:- 数据位置与血缘以 `../docs/data-map.md` 为唯一权威；目录约定以 `../docs/directory-conventions.md` 为准。
+research/README.md:54:- 工作区数据地图与约定：`../docs/data-map.md`、`../docs/directory-conventions.md`
+== docs/directory-conventions
+CLAUDE.md:21:- 数据位置与血缘以 `docs/data-map.md` 为唯一权威；目录/命名约定以 `docs/directory-conventions.md` 为唯一权威；
+README.md:21:| 看目录/命名约定 | [docs/directory-conventions.md](docs/directory-conventions.md)（结构唯一权威） |
+research/CLAUDE.md:41:- 数据位置与血缘以 `../docs/data-map.md` 为唯一权威；目录约定以 `../docs/directory-conventions.md` 为准。
+research/README.md:54:- 工作区数据地图与约定：`../docs/data-map.md`、`../docs/directory-conventions.md`
+== docs/pending-items
+AGENTS.md:11:6. **记账**：把结论（含负结论）写进档案；未决项进 `docs/pending-items.md`。
+CLAUDE.md:43:- 文档与实现冲突时改文档；实现中发现的设计缺口写进对应 spec 或 `docs/pending-items.md`。
+README.md:27:| 知道还有什么没做 | [docs/pending-items.md](docs/pending-items.md) |
+README.md:55:- **当前生产读路径是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）：平台 duckdb 库不存在（teajoin token 过期，见 [docs/pending-items.md](docs/pending-items.md) #1）。
+docs/traceability-matrix.md:55:| WS6 剩余（P-5 编排单点、ch_ingest 拆分、生产读点收敛） | `docs/pending-items.md` #11 | ○ |
+platform/docs/superpowers/specs/2026-08-16-factorlab-m4b-single-factor-eval-design.md:12:> `platform/docs/interface.md` §`layered_backtest` 与 `docs/pending-items.md` #15）。
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:4:> （NASA SE × V-Model）》P0-P4 递归分解；本文即 workspace `docs/pending-items.md` #5
+platform/src/factorlab/adapters/batch_flock.py:4:（No Orphan 欠账，见 `docs/pending-items.md#14`）；本模块**只兑现声明**，不改任何工具：
+platform/src/factorlab/ports/batch.py:16:runbook 取证，见 `docs/pending-items.md#14`）。
+platform/tests/test_batch_flock.py:4:欠账，`docs/pending-items.md#14`）。本测试先于实现写：契约部分对齐 `_doubles.InlineOrchestrator`
+platform/tools/universe_stages/universe_paths.py:66:    """基本面 PIT（**当前缺源**，见 docs/pending-items.md #4）。"""
+platform/tools/universe_stages/universe_paths.py:113:                 "--fin-parquet <...>；见 docs/pending-items.md #4"),
+platform/tools/universe_stages/universe_paths.py:121:            hint="生成链未留存（docs/pending-items.md #9）；需从上游 jqdata 交付恢复")
+platform/tools/universe_stages/universe_paths.py:130:            hint="生成链未留存（docs/pending-items.md #9）；需从上游 jqdata 交付恢复"),
+platform/tools/universe_stages/universe_paths.py:146:            hint=f"当前只有 {DEFAULT_TICK_DAY}.7z 未解包（docs/pending-items.md #3）："
+research/CLAUDE.md:27:  父进程缓冲）；`run_lob_batch` 因内存闸门与审计回调保留自有循环（见 `docs/pending-items.md#14`）。
+research/docs/strategies/_template.md:61:- 未决项（登记去向：`docs/pending-items.md` / Plan S Task 7 触发条件表）：
+scripts/check_dataiface.py:12:- **REPORT**：未竟项，只打印计数并指向登记条目（平台表名字面量 → `docs/pending-items.md#12①`）。
+scripts/check_dataiface.py:408:    print(f"[G-CONTRACT/平台表名字面量] REPORT：{len(hits)} 处（未竟 → docs/pending-items.md #12①）")
+scripts/reinstall_editable.sh:6:# polars/duckdb 版本漂移（威胁 lob_fact 的字节级重跑）。那笔欠账登记在 docs/pending-items.md。
+== docs/archive-policy
+docs/directory-conventions.md:68:- 到期清理程序见 `docs/archive-policy.md`。
+docs/pending-items.md:42:   程序见 `docs/archive-policy.md`；三个真实决策点（tick_dev 去留 / minutes-raw 深度血缘 /
+platform/tools/lib/writekit.py:90:    留档（30 天内可回溯，之后按 `docs/archive-policy.md` 清理），JSON 由其后的 save 写出。
+== docs/traceability-matrix
+== docs/remote-cleanup-checklist
+== docs/workspace-p0p8
+platform/tools/ashare_ingest/tests/test_layout.py:28:    R19 收编前，这个项目把工作区绝对路径散落在 60 处（`docs/workspace-p0p8.md` 登记过
+== scripts/
+.gitignore:10:!/scripts/
+CLAUDE.md:10:- **`platform/`** 只收平台改动：`platform/src/factorlab/`、`platform/tests/`、`platform/docs/`（契约 4 篇 + superpowers）、`platform/scripts/`。
+CLAUDE.md:34:- 工具拓扑门：`python scripts/check_tool_layering.py`（core 不反依赖 / 生产不带诊断 /
+CLAUDE.md:36:- 数据接口门（AST）：`python scripts/check_dataiface.py`（ENFORCED：研究侧分区字面量 / 标记路径构造；
+CLAUDE.md:71:  仅装入 `platform/.venv`；emb 不装）。重装 + 落位断言：`bash scripts/reinstall_editable.sh`。
+Makefile:25:	bash scripts/gates.sh
+docs/directory-conventions.md:20:- **禁止在根目录新建条目**；脚本、日志、图片、中间产物一律不进根（工作区级脚本进 `scripts/`，
+docs/directory-conventions.md:46:| `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶）、`kernels/quant_core/`（评估内核 shim = 内核发行物唯一声明点，R18 起）、`tools/`（数据生产线工具集：lob_fact / converters / 1m_features / ch_ingest / quark_download / ashare_ingest / universe_stages + `lib/` + `_env.py`；R27 归位）、`tests/`、`docs/`（契约 4 篇 + superpowers）、`scripts/` |
+docs/pending-items.md:96:       **68 处表名字面量**（R21 门实测）。**口径** = `scripts/check_dataiface.py::report_platform_tables()`
+docs/pending-items.md:104:       **阻塞点**：用户级技能 `~/.claude/skills/quark-share-download/scripts/` 里有这三个文件的
+docs/pending-items.md:108:13. ✅ **2026-09-15 完成**（`scripts/check_dataiface.py::check_g_read`）：AST 取直读目标表达式，
+docs/pending-items.md:111:    **G-READ 转强制**（AST 级判据）：R8c 已给出 `scripts/check_dataiface.py`（AST + `--selftest`），
+docs/pending-items.md:157:    与 `pins.sha256` 金样）。故 `scripts/reinstall_editable.sh` **只做 editable 重装**，
+platform/CLAUDE.md:13:- 本目录只收平台改动：`src/factorlab/`、`tests/`、`docs/`（契约 4 篇 + superpowers）、`scripts/`。
+platform/CLAUDE.md:64:  目录移动后重装 editable + 落位断言：`bash ../scripts/reinstall_editable.sh`
+platform/README.md:17:bash ../scripts/reinstall_editable.sh
+platform/scripts/gen_op_catalog.py:5:    .venv/bin/python scripts/gen_op_catalog.py          # 重新生成产物
+platform/scripts/gen_op_catalog.py:6:    .venv/bin/python scripts/gen_op_catalog.py --check  # 校验产物与生成一致（exit 1 不一致）
+platform/scripts/gen_op_catalog.py:279:HEADER = '''# 由 platform/scripts/gen_op_catalog.py 生成；勿手改（--check 校验）。
+platform/scripts/gen_op_catalog.py:455:        "# 由 platform/scripts/gen_op_catalog.py 生成；勿手改（--check 校验）。\n"
+platform/src/factorlab/core/ops/_generated_polars_methods.py:1:# 由 platform/scripts/gen_op_catalog.py 生成；勿手改（--check 校验）。
+platform/src/factorlab/core/ops/_generated_ta_ops.py:1:# 由 platform/scripts/gen_op_catalog.py 生成；勿手改（--check 校验）。
+platform/src/factorlab/core/ops/classification.py:5:由 platform/scripts/gen_op_catalog.py 生成、`--check` 校验一致性。
+platform/tests/test_op_classification.py:89:    r = subprocess.run([sys.executable, str(ROOT / "scripts/gen_op_catalog.py"), "--check"],
+platform/tests/test_op_classification.py:226:    path = ROOT / "scripts/gen_op_catalog.py"
+platform/tools/ashare_ingest/datapaths.py:86:    scripts/check_dataiface.py 的 G_READ_ALLOWED）。"""
+platform/tools/ashare_ingest/validate_tick.py:21:# tick 转换回执清单（**回执非事实表**；G-READ 登记见 scripts/check_dataiface.py）。
+platform/tools/ch_ingest/ddl.sql:84:-- adj_detail / adj_event: 由 ashare_alpha3/scripts/12_ch_adj_backfill.py 管理
+platform/tools/converters/convert_minutes_to_parquet.py:195:    (row0=真实 T 日收盘), 由 scripts/detect_date_shift.py 全库扫描生成。
+platform/tools/universe_stages/MIGRATION_GAP.md:32:| layer1 single snapshot | `scripts/run_layer1.py --scan-date` | **not runnable end-to-end** | fundamentals PIT source missing (pending #4) |
+platform/tools/universe_stages/MIGRATION_GAP.md:33:| layer1 historical batch | `scripts/run_layer1.py --from-golden` | **not runnable end-to-end** | same + golden generation chain not retained (pending #9) |
+platform/tools/universe_stages/MIGRATION_GAP.md:34:| layer2 SAS | `scripts/run_layer2_sas.py` | sources present (not exercised end-to-end this round) | — |
+platform/tools/universe_stages/MIGRATION_GAP.md:35:| layer3 tick | `scripts/run_layer3_tick.py` | **not runnable end-to-end** | `data/raw/20260817.7z` not unpacked (pending #3); layer2 outputs absent |
+platform/tools/universe_stages/README.md:24:python scripts/run_layer1.py --scan-date 2026-07-01
+platform/tools/universe_stages/README.md:27:python scripts/run_layer1.py --from-golden --start 2020-01-01 --end 2026-07-31
+platform/tools/universe_stages/README.md:30:python scripts/validate_layer1_parity.py --scan-date 2026-07-01
+platform/tools/universe_stages/README.md:33:python scripts/tail_capture_audit.py
+platform/tools/universe_stages/README.md:36:python scripts/run_layer2_sas.py --scan-date 2026-07-01
+platform/tools/universe_stages/README.md:39:python scripts/run_layer3_tick.py --scan-date 2026-07-01 --top-k 50
+platform/tools/universe_stages/layer2/sas.py:6:    """bar 级 Sell Shock 标注（z-score 定义，与 scripts/ 下已验证的 SAS 语义一致（R20：sas_v0/v1.py 已不存在，语义由 tests/test_sas_zscore.py 固化））：
+platform/tools/universe_stages/scripts/run_layer1.py:8:  python scripts/run_layer1.py --scan-date 2026-07-01
+platform/tools/universe_stages/scripts/run_layer1.py:9:  python scripts/run_layer1.py --from-golden --start 2020-01-01 --end 2026-07-31
+research/CLAUDE.md:17:- **工具拓扑有门**（R11）：`python scripts/check_tool_layering.py`（G-TOPO）——core 不做反向
+scripts/check_dataiface.py:16:    python scripts/check_dataiface.py [--selftest]
+scripts/check_dataiface.py:98:    ("platform/tools/universe_stages/scripts/run_layer1.py", "main", "universe_paths.golden_universe()"):
+scripts/check_dataiface.py:100:    ("platform/tools/universe_stages/scripts/run_layer2_sas.py", "main", "universe_paths.golden_universe()"):
+scripts/check_dataiface.py:102:    ("platform/tools/universe_stages/scripts/tail_capture_audit.py", "main", "a.ranked or universe_paths.golden_universe()"):
+scripts/check_dataiface.py:104:    ("platform/tools/universe_stages/scripts/validate_layer1_parity.py", "main", "universe_paths.out_dir(cfg, 'universes') / 'v4_top300_local.parquet'"):
+scripts/check_dataiface.py:106:    ("platform/tools/universe_stages/scripts/validate_layer1_parity.py", "main", "universe_paths.golden_universe()"):
+scripts/check_dataiface.py:108:    ("platform/tools/universe_stages/scripts/run_layer3_tick.py", "main", "feats_path"):
+scripts/check_dataiface.py:110:    ("platform/tools/universe_stages/scripts/run_layer3_tick.py", "main", "events_path"):
+scripts/check_dataiface.py:301:                           f"应走平台单点；确有理由则登记进 scripts/check_dataiface.py")
+scripts/check_tool_layering.py:24:用法：python scripts/check_tool_layering.py [--selftest]
+scripts/gates.sh:4:# 用法：bash scripts/gates.sh [--all|--structure|--topo|--dataiface]
+scripts/gates.sh:7:#   [判定] 数据接口门：R8c 起由 `scripts/check_dataiface.py` 做 **AST 判据**
+scripts/gates.sh:49:      | grep -vE '^scripts/gates.sh:' \
+scripts/gates.sh:63:  if "$PLATFORM/.venv/bin/python" scripts/check_imports.py --selftest >/dev/null 2>&1; then ok "自检通过（能抓到迁移遗漏）"; else bad "自检失败——门失效"; fi
+scripts/gates.sh:64:  if out=$("$PLATFORM/.venv/bin/python" scripts/check_imports.py 2>&1); then ok "$(echo "$out" | tail -1)"; else bad "导入解析失败"; echo "$out" | head -8 | sed 's/^/      /'; fi
+scripts/gates.sh:101:  # R11：工具拓扑（依赖方向 / 横向耦合）。判据与自检见 scripts/check_tool_layering.py。
+scripts/gates.sh:104:  "$PY" scripts/check_tool_layering.py || FAIL=1
+scripts/gates.sh:105:  "$PY" scripts/check_tool_layering.py --selftest || FAIL=1
+scripts/gates.sh:115:  if ! "$PY" scripts/check_dataiface.py; then
+scripts/gates.sh:118:  "$PY" scripts/check_dataiface.py --selftest || FAIL=1
+scripts/gates.sh:130:echo "数据接口门：ENFORCED 判定（AST）+ REPORT 未竟计数（见 scripts/check_dataiface.py）"
+scripts/reinstall_editable.sh:9:# 用法：bash scripts/reinstall_editable.sh [freeze-输出路径]
+== platform/results
+README.md:40:产物落 `platform/results/<名>/`（本地，不入库）。库级分析：`list` / `corr` / `svd` / `resic` / `serve`。
+research/docs/factors/README.md:10:`platform/results/<name>/summary.json`，该产物从未随仓存档，且当前环境不可复跑。**
+research/docs/factors/README.md:17:| `platform/results/` 为空（`results/` 被 gitignore，历史运行产物已清） | `find platform/results -mindepth 1` → 0 项 |
+research/tools/strategies/README.md:5:| `run_strategy.py` | **策略 YAML 薄入口（Plan S）**：`load_strategy_doc` → `run_strategy`（M7 组合 → M8 回测 → 落盘）；`--dry-run` 秒级自检 | `platform/results/<因子名>/signal.parquet` + CH 执行面 |
+== projects/ashare_alpha3
+CLAUDE.md:72:- `projects/ashare_alpha3` 已在 R19/R20 完成收编，仅作本地历史参考；**不要再往里放新东西**。
+docs/data-map.md:42:| C4 | `projects/ashare_alpha3`（**R19/R20 收编完成**） | 无 git（本地项目，仅剩历史参考） | 数据侧已完成 → `platform/tools/ashare_ingest/`；股票池段已完成 → `platform/tools/universe_stages/`（R20） |
+docs/directory-conventions.md:49:| `projects/ashare_alpha3` | 本地项目（无 git） | 自包含；`config.yaml` 消费 `data/`。**R19/R20 已完成收编**（数据侧 → `platform/tools/ashare_ingest/`、股票池段 → `platform/tools/universe_stages/`）；仅作本地历史参考 |
+docs/pending-items.md:39:  证据见 `docs/verification/R20/`。旧 `projects/ashare_alpha3` 仅作本地历史参考。
+docs/traceability-matrix.md:36:| `projects/ashare_alpha3` 内部 | layer1-3 管线、fundamentals 缺源、golden 链路待考 | `pending-items.md` #5/#9 |
+docs/workspace-p0p8.md:128:| `projects/ashare_alpha3` | A 股 alpha 验证项目 | 项目代码、config、universes/research/validation 子目录 | 被它消费的事实库 |
+platform/tools/universe_stages/README.md:9:本工具是 `projects/ashare_alpha3` 股票池段在 R20 的收编落位。数据侧收编见

@@ -1,0 +1,19 @@
+ M research/docs/factors/vol_run_energy/symrun_r30.md
+ M research/docs/factors/volatility/max_effect_20d.md
+ M research/factor/_families.yaml
+ M research/factor/reversal_20d/overnight.yaml
+?? docs/verification/R24/
+?? research/docs/factor-authoring-manual.md
+?? research/docs/factors/intraday/
+?? research/docs/factors/vol_run_energy/symrun_r30_flip.md
+?? research/docs/factors/vol_run_energy/symrun_r30_streak.md
+?? research/docs/factors/volatility/max_effect_20d_extcnt.md
+?? research/docs/factors/volatility/max_effect_20d_high.md
+?? research/docs/factors/volatility/max_effect_20d_zmax.md
+?? research/factor/intraday/
+?? research/factor/vol_run_energy/symrun_r30_flip.yaml
+?? research/factor/vol_run_energy/symrun_r30_streak.yaml
+?? research/factor/volatility/max_effect_20d_extcnt.yaml
+?? research/factor/volatility/max_effect_20d_high.yaml
+?? research/factor/volatility/max_effect_20d_zmax.yaml
+?? research/tools/factor_lib/gen_minute_pool.py
