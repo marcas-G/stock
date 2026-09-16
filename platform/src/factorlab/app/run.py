@@ -365,6 +365,33 @@ def _compute_labels(
                          "forward_return_20d"]).sort(["date", "code"])
 
 
+def _resolve_pair_universe_frames(
+    rd: ReadPort,
+    spec: FactorSpec,
+    codes: list[str],
+    signal_cal: pl.Series,
+    label_cal: pl.Series,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """R04-P2：signal/label 两次 PIT 解析去重（同一日历复用 / 分块按并集切片）。
+
+    - 非分块（及任何 signal_cal == label_cal 的块）：两次输入完全相同 → 解析
+      一次、两侧共享同一 UniverseFrame（此前重复查询 + 重复 polars 构建）。
+    - 分块：label 窗含右 lookahead（日历与 signal 不同）→ 按二者并集解析一次，
+      再按各窗日期集切片。PIT 骨架行值只依赖 (date, code)，不依赖同批其它
+      日期（st coverage 校验/规则 SQL 均与 dates 集合无关或仅整体 fail fast）——
+      切片结果与分别调用逐行严格相同（既有 chunk==整段 / PIT 测试锁语义）。
+    """
+    if signal_cal.equals(label_cal):
+        uf = resolve_universe_frame(spec, rd, dates=signal_cal.to_list(),
+                                    candidate_codes=codes)
+        return uf, uf
+    union = pl.concat([signal_cal, label_cal]).unique().sort()
+    uf = resolve_universe_frame(spec, rd, dates=union.to_list(),
+                                candidate_codes=codes)
+    return (uf.filter(pl.col("date").is_in(signal_cal.to_list())),
+            uf.filter(pl.col("date").is_in(label_cal.to_list())))
+
+
 def _ensure_assembly() -> None:
     """防御性装配（幂等）：算子族 + process 处理器——核心入口不依赖调用顺序。
 
@@ -465,10 +492,8 @@ def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
                 label_cal = cal.filter(
                     (cal >= (load_start if pool is not None else chunk_start))
                     & (cal <= label_end))
-            signal_uf = resolve_universe_frame(spec, rd, dates=signal_cal.to_list(),
-                                               candidate_codes=codes)
-            label_uf = resolve_universe_frame(spec, rd, dates=label_cal.to_list(),
-                                              candidate_codes=codes)
+            signal_uf, label_uf = _resolve_pair_universe_frames(
+                rd, spec, codes, signal_cal, label_cal)
             sig = _compute_signal(rd, ctx, spec, formula, codes, signal_uf,
                                   load_start.isoformat() if load_start else None,
                                   chunk_end.isoformat() if chunk_end else None,

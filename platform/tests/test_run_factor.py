@@ -801,6 +801,58 @@ def test_chunked_pure_cs_consistency(env, tmp_path):
     assert float(diff) < 1e-9
 
 
+# ---------- R04-P2：universe frame 复用（同历一次；分块按并集切片） ----------
+
+
+def _uf_call_spy(monkeypatch):
+    """run_factor 内 resolve_universe_frame 调用计数（包装真函数，只记录 dates）。"""
+    import factorlab.app.run as run_mod
+    real = run_mod.resolve_universe_frame
+    calls = []
+
+    def _spy(spec, rd, dates, **kw):
+        calls.append(list(dates))
+        return real(spec, rd, dates, **kw)
+
+    monkeypatch.setattr(run_mod, "resolve_universe_frame", _spy)
+    return calls
+
+
+def test_run_factor_universe_resolved_once_nonchunked(env, tmp_path, monkeypatch):
+    """R04-P2：非分块 signal/label 日历相同（全窗）→ resolve_universe_frame
+    恰 1 次（此前 2 次完全相同输入）；请求日期集仍为全窗日历。"""
+    _seed(env)
+    calls = _uf_call_spy(monkeypatch)
+    result = run_factor(_spec(tmp_path), _ctx(env, tmp_path / "out"))
+    assert len(calls) == 1
+    assert [str(d) for d in calls[0]] == ["2024-01-02", "2024-01-03",
+                                          "2024-01-04", "2024-01-05",
+                                          "2024-01-08", "2024-01-09"]
+    assert result.panel.height == 12 * 1
+
+
+def test_run_factor_universe_resolved_once_per_chunk_union(env, tmp_path,
+                                                           monkeypatch):
+    """R04-P2：分块下 label 带右 lookahead（日历不同）→ 每块按并集解析 1 次
+    （此前每块 2 次）；并集含 lookahead 日期；chunk vs 整段 signal 逐 cell 一致。"""
+    _seed(env, ex_date=True, n_days=12)
+    calls = _uf_call_spy(monkeypatch)
+    spec = _chunk_spec(tmp_path)
+    full = run_factor(spec, _ctx(env, tmp_path / "out_full", float32=False))
+    assert len(calls) == 1                     # 整段：signal == label 全窗
+    calls.clear()
+    chunked = run_factor(spec, _ctx(env, tmp_path / "out_chunked",
+                                    float32=False, chunk_days=6, warmup_days=1))
+    assert len(calls) == 2                     # 2 块 × 1 次（此前 2 块 × 2 次）
+    # 首块并集 = [chunk_start..label_end]（12 日）> signal 窗（6 日）——证明是并集
+    assert len(calls[0]) == 12
+    assert len(calls[1]) == 7                  # [load_start(cal5)..label_end(cal11)]
+    joined = full.panel.join(chunked.panel, on=["date", "code"], how="inner",
+                             suffix="_c")
+    assert joined.height == full.panel.height == 12 * 2
+    assert float((joined["signal"] - joined["signal_c"]).abs().max()) < 1e-9
+
+
 # ---------- R01-ENG C1/C2：未来函数门 E2E ----------
 
 
