@@ -1,0 +1,22 @@
+dir                          class                     root               runs  files(root/runs) mtime(root/runs)
+amihud_illiq_turn_20d        ROOT_ONLY             6f 186MB                  -  6/0          09-16 12:32/-
+low_vol_20d                  DIFFER                6f 186MB           6f 186MB  6/6          09-16 12:53/09-16 17:07
+                              diff=['summary.json']
+low_vol_20d_park             DIFFER                6f 186MB           6f 186MB  6/6          09-16 12:55/09-16 14:53
+                              diff=['summary.json']
+max_effect_20d_high          DIFFER                6f 186MB           6f 186MB  6/6          09-16 14:19/09-16 01:24
+                              diff=['summary.json', 'weekly.parquet']
+reversal_10d_cumret          ROOT_ONLY             6f 187MB                  -  6/0          09-16 12:38/-
+reversal_10d_cumret_log      ROOT_ONLY             6f 187MB                  -  6/0          09-16 12:41/-
+reversal_20d_cumret          ROOT_ONLY             6f 186MB                  -  6/0          09-16 13:59/-
+reversal_20d_cumret_freq     ROOT_ONLY             6f 124MB                  -  6/0          09-16 13:58/-
+reversal_20d_intraday        ROOT_ONLY             6f 186MB                  -  6/0          09-16 13:39/-
+reversal_20d_overnight       ROOT_ONLY             6f 186MB                  -  6/0          09-16 13:40/-
+rsi_reversal_14              ROOT_ONLY             6f 186MB                  -  6/0          09-16 12:11/-
+rsi_reversal_14_ret          ROOT_ONLY             6f 186MB                  -  6/0          09-16 12:12/-
+small_cap                    ROOT_ONLY             6f 113MB                  -  6/0          09-16 12:31/-
+turnover_level               ROOT_ONLY             6f 149MB                  -  6/0          09-16 13:19/-
+turnover_level_ma20          ROOT_ONLY             6f 148MB                  -  6/0          09-16 13:20/-
+value_bp                     DIFFER                6f 113MB           5f 113MB  6/5          09-16 12:30/09-15 22:19
+                              only_root=['.factorlab-run.lock']
+                              diff=['summary.json', 'weekly.parquet']

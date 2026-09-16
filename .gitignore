@@ -16,7 +16,8 @@
 # 平台/研究运行时数据与产物（防御性显式声明）
 data/
 # R24：运行产物单点 → 仓库根 runs/（runs/platform/<name>/）。
-# `results/` 保留忽略：挖矿在途仍在写根 results/（过渡期，挖矿停机后清理）。
+# `results/` 为 R24 迁移前遗留落点；R06-MIG-I3（2026-09-16）已清空、目录移除并停写，
+# 保留忽略仅作防御（再出现写入即为 bug；挖矿记录现落 runs/platform/_mine_rounds/）。
 results/
 !/runs/
 /runs/*
@@ -44,7 +45,7 @@ htmlcov/
 
 # 凭据类（永不入库）
 # quark 下载 cookie：QUARK_COOKIE_FILE 缺省外的工具目录旁回退路径
-# research/tools/quark_cookies.txt（读点 quark_client.py:33-35）
+# platform/tools/quark_cookies.txt（读点 quark_download/quark_client.py）
 quark_cookies.txt
 quark_cookies.*
 # 环境变量文件：factorlab Settings env_file=".env"（platform/.env 等，平台树在白名单内）

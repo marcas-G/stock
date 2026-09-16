@@ -1,0 +1,56 @@
+== R06-MIG-I3 清理：before ==
+2696083710	results
+96
+
+== 1) DIFFER 项差异文件备份（只含差异小文件；其余大文件 sha256 已证相同）==
+-rw-rw-r-- 1 gaolei gaolei 32837256 9月  16 17:35 _archive/backups/r06-mig-i3-root-results-differing-files-2026-09-16.tar.gz
+ad7b7b1bc52335d6c247a53ef83b3c1dd2a029e7e1d8c6797de6c78eb593eb16  _archive/backups/r06-mig-i3-root-results-differing-files-2026-09-16.tar.gz
+备份内容：
+results/low_vol_20d/summary.json
+results/low_vol_20d_park/summary.json
+results/max_effect_20d_high/summary.json
+results/max_effect_20d_high/weekly.parquet
+results/value_bp/summary.json
+results/value_bp/weekly.parquet
+
+== 2) ROOT_ONLY（12）→ runs/platform/ ==
+renamed 'results/amihud_illiq_turn_20d' -> 'runs/platform/amihud_illiq_turn_20d'
+renamed 'results/reversal_10d_cumret' -> 'runs/platform/reversal_10d_cumret'
+renamed 'results/reversal_10d_cumret_log' -> 'runs/platform/reversal_10d_cumret_log'
+renamed 'results/reversal_20d_cumret' -> 'runs/platform/reversal_20d_cumret'
+renamed 'results/reversal_20d_cumret_freq' -> 'runs/platform/reversal_20d_cumret_freq'
+renamed 'results/reversal_20d_intraday' -> 'runs/platform/reversal_20d_intraday'
+renamed 'results/reversal_20d_overnight' -> 'runs/platform/reversal_20d_overnight'
+renamed 'results/rsi_reversal_14' -> 'runs/platform/rsi_reversal_14'
+renamed 'results/rsi_reversal_14_ret' -> 'runs/platform/rsi_reversal_14_ret'
+renamed 'results/small_cap' -> 'runs/platform/small_cap'
+renamed 'results/turnover_level' -> 'runs/platform/turnover_level'
+renamed 'results/turnover_level_ma20' -> 'runs/platform/turnover_level_ma20'
+
+== 3) 根更新 DIFFER 项 → 保留双份（不覆盖，加 root-dup 后缀）==
+renamed 'results/max_effect_20d_high' -> 'runs/platform/max_effect_20d_high__root-dup-20260916'
+renamed 'results/value_bp' -> 'runs/platform/value_bp__root-dup-20260916'
+
+== 4) runs 更新 DIFFER 项（根为 legacy 无 ST/旧摘要）→ 删除（已备份差异文件）==
+已删除'results/low_vol_20d/summary.json'
+已删除'results/low_vol_20d/panel.parquet'
+已删除'results/low_vol_20d/.factorlab-run.lock'
+已删除'results/low_vol_20d/weekly.parquet'
+已删除'results/low_vol_20d/signal.parquet'
+已删除'results/low_vol_20d/labels.parquet'
+removed directory 'results/low_vol_20d'
+已删除'results/low_vol_20d_park/summary.json'
+已删除'results/low_vol_20d_park/panel.parquet'
+已删除'results/low_vol_20d_park/.factorlab-run.lock'
+已删除'results/low_vol_20d_park/weekly.parquet'
+已删除'results/low_vol_20d_park/signal.parquet'
+已删除'results/low_vol_20d_park/labels.parquet'
+removed directory 'results/low_vol_20d_park'
+
+== 5) 清空校验与目录移除 ==
+rmdir: 正在删除目录 'results'
+
+== after ==
+ls: 无法访问'results': 没有那个文件或目录
+results/ 已移除
+6.2G	runs/platform

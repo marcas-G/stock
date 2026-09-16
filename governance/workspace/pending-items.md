@@ -185,3 +185,15 @@
     测试走 in-process import + conftest 铺路所以一直没暴露（与 R14 修好的 `run_lob_batch`
     同类问题；本文件漏网）。R27 迁移前后行为一致（非迁移引入）。
     启动条件：下次动该工具时按 R14 同法修（自举移出 docstring）+ 补"可直跑"冒烟测试。
+
+22. **R06-MIG-I3：根 `results/` 清理**（2026-09-16 登记并**同日完成主体** ✅；保留 1 项裁决）
+    现状：R24 迁移前遗留根 `results/`（2.6G/96 文件）已清——12 个仅存于根的因子产物
+    移入 `runs/platform/`；`max_effect_20d_high`、`value_bp` 的根版本更新且与标准目录
+    不同 → **保留双份**（`runs/platform/<名>__root-dup-20260916/`，来源与差异见目录内
+    `_R06-MIG-I3.md`）；`low_vol_20d`、`low_vol_20d_park` 根副本为旧态（runs 更新）→
+    差异小文件 tar 备份后删除；`_mine_round_{1..12}.md` → `runs/platform/_mine_rounds/`；
+    根 `results/` 目录移除，技能坐标同步（R06-SKILL-I2）。
+    证据：`governance/evidence/verification/R24/16-r06-fixes/`（盘点 JSON + 清理日志 +
+    sha256）；备份 `_archive/backups/r06-mig-i3-root-results-differing-files-2026-09-16.tar.gz`。
+    **保留裁决项**：`__root-dup-20260916` 两份以哪个为准（研究侧确认后合并/删除其一）。
+    **残余风险**：活跃挖矿会话若仍按旧坐标写根 `results/`，按新坐标迁回（skill 已更新）。
