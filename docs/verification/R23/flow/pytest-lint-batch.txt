@@ -1,0 +1,12 @@
+plugins: cov-7.1.0, anyio-4.14.2
+collecting ... collected 7 items
+
+platform/tests/test_cli_lint_batch.py::test_lint_batch_two_paths_one_process PASSED [ 14%]
+platform/tests/test_cli_lint_batch.py::test_lint_batch_reports_failing_spec_and_exits_1 PASSED [ 28%]
+platform/tests/test_cli_lint_batch.py::test_lint_all_scans_tree_skips_underscore PASSED [ 42%]
+platform/tests/test_cli_lint_batch.py::test_lint_all_reports_inflight_failure PASSED [ 57%]
+platform/tests/test_cli_lint_batch.py::test_lint_no_args_guides_and_fails PASSED [ 71%]
+platform/tests/test_cli_lint_batch.py::test_lint_all_without_factor_tree_fails_clearly PASSED [ 85%]
+platform/tests/test_cli_lint_batch.py::test_lint_single_path_output_unchanged PASSED [100%]
+
+============================== 7 passed in 1.66s ===============================

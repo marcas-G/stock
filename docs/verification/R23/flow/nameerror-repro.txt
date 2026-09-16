@@ -1,0 +1,8 @@
+== pre-fix (HEAD) ==
+  000155@20260706: 缺失 (raw=False tbl=False)
+== 整月 manifest vs 表行数
+BEFORE-FIX: NameError: name 'count_tick_month' is not defined at line 86 path
+== post-fix (worktree) ==
+  202508: manifest=7 表=3 -> MISMATCH
+RESULT: 7 MISMATCH
+AFTER-FIX: no NameError; count_tick_month calls = [('cancels', 2025, 8, '/tmp/opencode/cancel-root')]

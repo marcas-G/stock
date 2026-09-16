@@ -1,0 +1,5 @@
+specs=159 errors=0
+import+assembly: 1.73s
+per-spec loop: 0.78s (avg 5ms, max 11ms)
+batch est total: 2.51s
+slowest5: ['symrun_r30_streak.yaml:11ms', 'adv20.yaml:11ms', 'five_dim.yaml:10ms', 'vol_extreme.yaml:9ms', 'symrun_corr.yaml:9ms']

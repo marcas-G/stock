@@ -1,0 +1,5 @@
+collecting ... collected 1 item
+
+research/tools/lob_fact/tests/test_verify_cancels_sample.py::test_full_reconciliation_calls_count_tick_month PASSED [100%]
+
+============================== 1 passed in 0.65s ===============================

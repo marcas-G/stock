@@ -1,0 +1,8 @@
+platform/docs/superpowers/specs/2026-09-07-factorlab-daily-closeout-design.md:8: docs/superpowers/plans/crystalline-imagining-crab.md
+platform/docs/superpowers/specs/2026-09-07-factorlab-resic-design.md:78: src/factorlab/eval/cross_section.py
+platform/docs/superpowers/specs/2026-09-07-factorlab-resic-design.md:139: src/factorlab/cli/main.py
+platform/docs/superpowers/specs/2026-09-09-tick-lob-fact-design.md:37: tools/lob_fact/extract_sz_cancels.py
+platform/docs/superpowers/specs/2026-09-09-tick-lob-fact-design.md:84: tools/lob_fact/extract_sz_cancels.py
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:279: core/config.py
+platform/docs/superpowers/specs/2026-09-12-mining-system-refactor-design.md:296: docs/verification/final/03-p8.md
+# total missing: 7

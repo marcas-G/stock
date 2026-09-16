@@ -1,0 +1,2 @@
+platform/.venv/bin/factorlab lint --all
+factor lint: 159 通过 / 0 失败

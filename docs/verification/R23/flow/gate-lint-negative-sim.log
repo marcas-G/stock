@@ -1,0 +1,4 @@
+  lint 失败: /tmp/opencode/gate-sim/research/factor/probe/inflight_broken.yaml: 
+1:9: 未知算子 no_such_op；若为自定义/外部函数请补 op_meta（例：op_meta:
+  no_such_op: {partition: ts, window: ${win}}）
+factor lint: 0 通过 / 1 失败
