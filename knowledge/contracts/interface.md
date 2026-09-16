@@ -1,5 +1,11 @@
 # FactorLab 接口文档（M1–M8 + 读路径双后端）
 
+> **数据面现状（2026-09-17，Plan P T11 起）**：生产数据源 = ClickHouse
+> （`FACTORLAB_DATA_BACKEND=ch`），更新链 = 夸克网盘 → `make data-update`
+> （`platform/tools/pan_update/`）→ 转换/灌入 CH，见 §8「数据平台（网盘更新链）」。
+> duckdb 平台库写路径（teajoin 源）已退役删除，duckdb 后端仅作测试/历史只读；
+> 文中 M3b/M4a 等历史小节的「平台库唯一数据源」为当时口径。
+
 本文件描述已交付的 CLI、Spec、因子脚本和 Python API（M1–M8，叠加
 duckdb|ch 读路径双后端与 bars_1m/tick 读接口，见 §4 读路径双后端小节）。
 实现与设计文档冲突时以 `knowledge/design/platform/specs/2026-08-15-factor-dsl-platform-design.md`
@@ -389,9 +395,9 @@ formula: |
   **`pe_ttm/pb/dv_ratio/volume_ratio` 4 列仍为占位空列（100% NULL，无数据源）**，
   引用可加载但信号恒缺失；`idx_ret`（index_daily）为空的 `000852.SH` 可选灌入位，
   生产库当前恒 NULL——**R29 裁决（2026-09-16）**：CH 侧当前无可用补数路径（原注释所指
-  `ingest_index_sina.py` 全仓不存在，死引用已删；候选源 teajoin `index_daily` 接口 token
-  2026-08-22 已过期，且现 `data refresh` 指数增量只写 duckdb 平台库、不接 CH），
-  触发条件 = token 恢复或新增 index→CH 灌入工具后补 000852.SH 全历史，不伪造数据。
+  `ingest_index_sina.py` 全仓不存在，死引用已删；候选源 teajoin `index_daily` 接口随旧源
+  退役不可用；网盘指数目录 `截止_*_指数…_日线.zip` 超分享直链上限，仅人工可下），
+  触发条件 = 人工取得指数日线补数并新增 index→CH 灌入工具后补 000852.SH 全历史，不伪造数据。
 - `params`：可选顶层参数映射 `dict[str, number|str|bool]`（缺省空）。formula（含
   operators 宏体、def 体）内 `${name}` 文本引用在编译期替换为字面量；引用未声明
   的参数名报错。`factorlab run --set k=v` 覆盖（合并进 spec.params）并生成变体
@@ -815,7 +821,7 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
   `load_bars_1m_coverage`（见 §4 适配器节）供生成**静态覆盖池**（用户侧
   `ref`/`codes` 选择，平台不隐式使用；静态池按全窗覆盖选样本身带前视偏差，
   只应作为研究便利并知情披露）。缺分钟段整体无 bars 时两种模式都 ValueError
-  （data refresh）。
+  （覆盖与更新链见 §8 数据平台（网盘更新链））。
 - `compute_minute_factor_panel(bars, formula, *, outputs=None, daily=None)
   -> pl.DataFrame` B4.7 **面板级纯计算入口**（loader 无关；引擎测试与批算工具
   共用同一代码路径）：date 列规范化（trade_date→date）→ 结构列/date dtype/
@@ -958,9 +964,9 @@ code 候选先经 stock_basic.symbol 匹配归一（ch 侧两层 IN 命中索引
 `ts_code`（'000001.SZ'）→ `code`（去后缀）、`vol`→`volume`、`turnover_rate`→
 `turnover`（daily_basic left join，cols 含 turnover/total_mv/circ_mv 时）；
 close 恒加载，adj_factor 恒 inner join。**R21 单位契约（R01-DATA-I7）**：离开读面
-的 canonical 单位恒为 `volume=股`、`amount=元`；duckdb 平台库（teajoin 源）原始
-为 `手`/`千元`，`adapters/read/source.py` 在读适配层显式 ×100/×1000 归一；ch
-灌入原生即股/元（恒等）。两腿消费者所见单位一致。
+的 canonical 单位恒为 `volume=股`、`amount=元`；duckdb 历史库（旧外部源写入，
+2026-09 随源退役）原始为 `手`/`千元`，`adapters/read/source.py` 在读适配层显式
+×100/×1000 归一；ch 灌入原生即股/元（恒等）。两腿消费者所见单位一致。
 
 **列供给：无字段白名单（M1，spec 决策③修订）**。`cols` 可请求：引擎特殊名字
 （`date/code/adj_factor/idx_ret`）、平台映射名（`open/high/low/close/pre_close/
@@ -1174,60 +1180,39 @@ CLI 消费：`factorlab run` 默认调用并把结果写入
 - `adjustment_sensitivity_check(factor_fn, df, views=("raw","qfq","hfq")) -> AuditReport`
   复权口径切换敏感性：各视图因子值相对 raw 的最大绝对差（`max_abs_diff`）。
 
-### `factorlab.adapters.mirror_db.PlatformDB`
+### 数据平台旧写路径（M3b）——已退役（2026-09-17，Plan P T11）
 
-`PlatformDB(path)`：duckdb 写库，自动建表、按 keys upsert 去重、完整性自检。
-列名沿用 tushare API 原始命名（trade_date/ts_code），与 API 零转换。
+`factorlab.adapters.{fetcher,mirror_db,rebuild,refresh}` 与 CLI
+`factorlab data rebuild|update|refresh|verify` 随 teajoin 源退役**删除**（历史实现
+见 git 历史；teajoin 使用指南存档 `teajoin-guide.md`，不再维护）。现行数据链：
+夸克网盘（唯一外部源）→ `platform/tools/pan_update/`（`make data-update`）→
+转换/灌入 → CH；消费侧统一 `FACTORLAB_DATA_BACKEND=ch`（见 §8 数据平台（网盘更新链）
+与 `data-ops-playbook.md`）。duckdb 后端保留为**测试/历史只读库**（`open_read`
+工厂与双腿测试设施不变；`settings.platform_db` 指向历史库路径）。
 
-- `connect() -> duckdb.DuckDBPyConnection`：打开写连接；rebuild/refresh 批量场景
-  复用（每批重开连接 ~24ms，47k 批纯开销 ~19 分钟），调用方负责 close（或用 `with`）。
-- `upsert_on(con, table, df, keys, dedup=True)`：在给定连接上 upsert，与 `upsert()`
-  同语义。`dedup=False` 纯 INSERT——调用方保证批内无重复（如 rebuild 单日批按
-  trade_date 唯一），省去全表扫描 DELETE（~80ms/批）。
-  **表已存在时 INSERT 前过滤 df 中表不存在的列**：`build_final_db` 稀疏剔除后
-  refresh 用全字段 df 写最终库不再 Binder 报错（此前被 except 吞掉 → 数据永不
-  更新），仅插入存在的列；表不存在时按 df 全字段建表（首插路径不变）。
-- `upsert(table, df, keys)`：公共 API，每次自开连接，`dedup=True` 保持去重语义。
-- `query(sql, params=None) -> pl.DataFrame` / `list_tables()` / `describe(table)` /
-  `integrity_check() -> dict`。
+### `factorlab.adapters.read.verify` 读面列命名纪律（M5/G4，双重锁的数据侧）
 
-### `factorlab.adapters.rebuild` 全量重建编排
+- `ENGINE_SURFACE_TABLES`：引擎读面表 frozenset（**10 表**：daily/daily_basic/
+  adj_factor/index_daily/stock_basic/trade_cal/stock_st/stk_limit/suspend_d/
+  **moneyflow**——moneyflow 自 T7（Plan P）起经 `load_daily` LEFT JOIN 供给公式，
+  纳入读面纪律；`fundamentals` 等暂无 `load_daily` 供给的表不受纪律约束）。
+- `validate_surface_columns(tables: dict[str, list[str]]) -> list[str]`（纯函数，
+  无 DB）：逐引擎读面表检查列名——禁止引擎内部保留名（`__factorlab_*` 前缀 /
+  `in_universe` 精确名——注入/join 与引擎内部列碰撞毒化面板）与未来前缀列
+  （`forward_*/future_*` 前缀 / `target`/`label` 精确名——读面按构造即 PIT，
+  未来数据只由评估运行时内存计算或研究侧落库）。违例给表名/列名 + 修法指引。
+- `validate_engine_surface(rd) -> list[str]`：对 Rd 句柄（duckdb|ch 双腿同一
+  函数）逐读面表实探列名检查（缺表 → 空列集，不报错）。
+- 旧 `verify_all`/`compare_sample`/`PlatformDB.integrity_check` 六规则随旧写路径
+  退役删除；CH 侧对账统一走 `platform/tools/ch_ingest/reconcile.py`（`make reconcile`，
+  daily 层 + moneyflow/fundamentals 人工核对口径见 §8）。
 
-- `load_manifest(path) -> dict` / `save_manifest(path, manifest)`：断点续传
-  manifest 读写（每批落盘）。结构：`{table: {completed: [dates], failed: [dates]}, last_updated: "YYYYMMDD"}`。
-- `RebuildScope(start="20000104", end=None)`：重建日期范围（end 缺省 20261231）。
-- `rebuild_all(db, client, scope=RebuildScope(), resume=True, manifest_path=None) -> dict`
-  编排时序：trade_cal（is_open=1 过滤，无交易日报错；**未来公告日截断到 today**——
-  真实 API 返回未来日，避免为未来日白拉请求）→ stock_basic（L/D 分页）→
-  行情 7 表按日（DAILY_TABLES，单连接复用，completed 跳过、failed 记录）→
-  index_daily（4 指数全历史，ts_code 参数）+ index_weight（每月最后一个交易日，
-  **index_code 参数**——真实 API 必填 index_code 而非 ts_code；upsert 键
-  `["index_code", "trade_date"]`）。**M3b v1 不含财报三表**（真实 API 强制 ts_code，
-  全市场按报告期不可行；`FINANCIAL_TABLES` 常量保留，M3b+ 按 ts_code 分批拉取）。
-  manifest_path 缺省 `settings.data_dir / "manifest.json"`。
-  resume=True 跳过 completed、重试 failed（成功后移除）；resume=False 忽略既有
-  manifest 全量重拉。缺 token 抛 `ValueError`。返回
-  `{"tables": {table: {"dates_fetched"/"month_dates", "rows", "failed"}}}`。
-  `last_updated` = 截断后的最近交易日（< today，refresh 增量窗口起点）。
-- `assess_sparsity(db) -> {table: {col: {null_ratio, stock_coverage, first_date}}}`
-  每表每字段稀疏度评估。键列（trade_date/cal_date/ts_code/exchange/index_code）与
-  trade_cal 不参与；无日期列的表 first_date 为 None；空表字段 null_ratio 记 1.0。
-- `build_final_db(staging, final_path, null_threshold=0.2, coverage_threshold=0.8) -> dict`
-  按稀疏度重建最终库（物理剔除超限字段）：任一超限（null_ratio > 阈值 或
-  stock_coverage < 阈值）即剔除；无保留列的表跳过建表；最终库已存在时整体替换
-  （CREATE OR REPLACE）。返回
-  `{"excluded_fields": {table: [cols]}, "tables": [最终库表]}`。staging 库不存在抛
-  `ValueError`。
+### Canonical research identifier（M6-07B4）
 
-常量：`DAILY_TABLES`（7 行情表）、`FINANCIAL_TABLES`（3 财报表，M3b v1 不拉取，
-M3b+ 按 ts_code 分批）、`INDEX_CODES`（4 指数）。
-
-### Canonical research identifier 与 source partition（M6-07B4）
-
-**背景**：vendor（TeaJoin/Tushare）`stock_basic` 可能含历史遗留别名/实体标识，
-超出 canonical 六位 A 股证券代码域（实测：`T600018.SH`/`TS0018.SH`——上港集箱
-退市残留；平台冻结库亦含此两行，均无 `daily` 行情）。这些行**不映射、不合并、
-不删除、不猜测关系**——M6 无 verified corporate-action/entity-lineage 模型。
+**背景**：vendor source（旧 teajoin/Tushare 路径，已退役）曾返回历史遗留
+别名/实体标识，超出 canonical 六位 A 股证券代码域（实测：`T600018.SH`/
+`TS0018.SH`——上港集箱退市残留）。这些行**不映射、不合并、不删除、不猜测关系**
+——M6 无 verified corporate-action/entity-lineage 模型。
 
 **Canonical research universe v1**（唯一权威：`factorlab.core.domain.codes`）：
 
@@ -1237,96 +1222,12 @@ ts_code 匹配 ^\d{6}\.(SH|SZ|BJ)$  且  symbol == ts_code 前六位
 
 - `is_canonical_stock_code(ts_code) -> bool`：ts_code 形态判断（None/非 str → False）。
 - `CANONICAL_TS_CODE_PATTERN`：Python re 与 DuckDB `regexp_matches()` 共用同一
-  pattern 常量——rebuild/universe 代码不得独立重写该正则。
+  pattern 常量——读路径/universe 代码不得独立重写该正则。
 
-**Source partition**（`factorlab.adapters.rebuild`）：
-
-- `StockBasicSourcePartition(canonical, quarantined)`（frozen dataclass）：
-  - `canonical`：标准证券，完整走 `validate_stock_basic_source()`——endpoint
-    L/D 正确性、日期、temporal、uniqueness、symbol 全部保持 fail fast（canonical
-    D 行缺 delist_date 依然 BLOCK）。
-  - `quarantined`：非 canonical 的**退市** vendor alias，保留自身标识，仅供
-    audit/migration report——不参与 PIT universe、不进 future rebuild 的
-    research `stock_basic`。**隔离 ≠ 合并**。
-- `partition_stock_basic_source(l_df, d_df) -> StockBasicSourcePartition`：
-  分类前置 fail fast 与 validator 同契约（L/D 非空、必需列、endpoint status
-  分区含 null 显式拒绝）。quarantine 候选四条件全 true 才进入：
-  `list_status==D` + ts_code 非 null + symbol 非 null + ts_code 以
-  `.SH/.SZ/.BJ` 结尾 + `symbol == ts_code 去后缀`。quarantined D 允许
-  delist_date=null。其余任何形态（非 canonical 且 L、unsupported suffix、
-  null、symbol/base mismatch）→ fail fast。**禁止硬编码别名清单**——规则来自
-  标识类别与 source 语义。
-- `fetch_stock_basic_source(client) -> StockBasicSourcePartition`：L/D 分页
-  fetch → partition（quarantine 审计可见，不静默丢弃）。
-- `fetch_stock_basic_all(client) -> pl.DataFrame`：兼容 API，**canonical-only**
-  （future rebuild 的 research stock_basic 只收 canonical 行）。
-
-### `factorlab.adapters.refresh` 增量续拉
-
-- `refresh(db, client, manifest_path=None) -> dict`
-  增量续拉行情 7 表（DAILY_TABLES）：重试 manifest 中 failed 日期，并从
-  last_updated 续拉到最新交易日（`datetime.date.today()`）。manifest_path 缺省
-  `settings.data_dir / "manifest.json"`。返回
-  `{"new_dates": [处理日期], "tables": {table: {"rows": 新拉行数, "failed": [失败日期]}}}`。
-  行为：起始日期取最早 failed 日（若有，覆盖 ≤ last_updated 的重试窗口），
-  trade_cal 按 is_open=1 过滤，取 `> last_updated` 或 failed 的日期；无新日期直接
-  返回空报告（不改写 manifest）。逐表逐日拉取，`upsert` 默认 `dedup=True`——崩溃
-  窗口重拉已存在日期按 (trade_date, ts_code) 去重替换（与 rebuild 的 dedup=False
-  不同）；成功日期加入 completed 并从 failed 移除，失败日期记入 failed（下次
-  refresh 重试，与 rebuild 同语义），单日失败不阻塞其他日期/表。处理后
-  `last_updated` 推进到处理范围末端（failed 日也算已处理，避免重复拉）并落盘。
-  **死锁修复语义**：rebuild 已将 `last_updated` 截断为最近交易日（< today），
-  trade_cal 请求 `start_date=last / end_date=today`，`d > last` 即增量窗口——不会
-  出现 last_updated 为未来日导致永久无新日。
-  错误语义：manifest 缺失或 `last_updated` 不存在抛
-  `ValueError("manifest 无 last_updated，请先 rebuild")`；trade_cal 缺 `is_open`
-  列或返回异常时异常向上传播（fail-loud，不静默）。
-
-### `factorlab.adapters.read.verify` 数据验证与抽样对拍
-
-- `verify_all(db, ref_db=None, n_stocks=30, seed=42) -> dict`
-  完整性自检 + 稀疏摘要 + 可选抽样对拍。返回
-  `{"integrity": {table: {rule: ...}}, "sparse_summary": {table: {col: ...}},
-  "column_discipline": [读面列纪律违例, ...], "compare": dict | None}`
-  （`column_discipline` = M5 读面列命名纪律报告，见下）。
-  ref_db（PlatformDB 或路径）给定且文件存在时执行对拍（参考库仅作参考，差异不
-  阻塞，旧参考库清理流程以 verify 报告 + 用户显式确认为准）；参考库缺失时
-  `compare` 为 None。空库不抛错：完整性规则逐条 skipped，稀疏摘要为空。
-- `compare_sample(primary, ref_path, n_stocks=30, segments=None, tol=1e-4, seed=42) -> dict`
-  随机抽样 n_stocks 只股票 × 日期段，对比 primary 与参考库 daily.close（相对误差
-  ≤ tol 视为一致）。segments 缺省三段：2020/2023/2026 各 1 月（`SEGMENTS`）。
-  种子确定性：同 seed 抽样结果一致；n_stocks 超过库内股票数时抽样全部。
-  单侧 close 为 null 记 mismatch，双侧 null（停牌/无数据）不算差异。差异逐条进
-  `details`（最多 50 条）。返回
-  `{"compared_rows", "mismatches", "details", "sampled_stocks"}`。
-  **参考库列结构自动检测映射**（`_ref_query_sql(ref_cols)`）：`DESCRIBE daily` 后
-  有 `trade_date/ts_code` 用原列；date/code 风格（`date/code`，日期 `2024-01-02`
-  VARCHAR 或 DATE、代码纯数字，旧只读库布局）映射为 `strftime(CAST(date AS DATE), '%Y%m%d')
-  AS trade_date`（对齐 primary 的 YYYYMMDD）、`code = substr(?, 1, 6)`（ts_code
-  前 6 位）、日期 `CAST(date AS DATE) BETWEEN CAST(strptime(?, '%Y%m%d') AS DATE) ...`
-  （显式 CAST：DuckDB 禁止 VARCHAR 与 TIMESTAMP 混用 BETWEEN）。join 只取
-  trade_date/close（映射后列名），date/code 之外的参考列不影响。
-  错误语义：参考库文件不存在抛 `ValueError("参考库不存在...")`；primary 无 daily
-  表返回零报告（含 `note`）；参考库无 daily 表或结构不兼容时返回零报告（含
-  `note`）或对应段跳过（duckdb 错误捕获，不阻塞）。primary 为 `PlatformDB`，
-  ref_path 接受 `PlatformDB | Path`。
-
-- 读面列命名纪律（M5/G4，双重锁的数据侧——活文档 catalog 命名类约定 + 入库
-  校验）：
-  - `ENGINE_SURFACE_TABLES`：引擎读面表 frozenset（daily/daily_basic/adj_factor/
-    index_daily/stock_basic/trade_cal/stock_st/stk_limit/suspend_d——engine 读
-    路径盘点；moneyflow 等非读面表不受纪律约束，研究/写入面自由）。
-  - `validate_surface_columns(tables: dict[str, list[str]]) -> list[str]`（纯函数，
-    无 DB）：逐引擎读面表检查列名——禁止引擎内部保留名（`__factorlab_*` 前缀 /
-    `in_universe` 精确名——注入/join 与引擎内部列碰撞毒化面板）与未来前缀列
-    （`forward_*/future_*` 前缀 / `target`/`label` 精确名——读面按构造即 PIT，
-    未来数据只由评估运行时内存计算或研究侧落库）。违例给表名/列名 + 修法指引。
-  - `validate_engine_surface(rd) -> list[str]`：对 Rd 句柄（duckdb|ch 双腿同一
-    函数）逐读面表实探列名检查（缺表 → 空列集，不报错）。
-  - `verify_all` 报告 `column_discipline` 键即上述违例列表（[] = 干净）。
-  - 入库收口：`rebuild.build_final_db` 对含违例列的最终库 **fail fast**——
-    raise `ValueError`（文案含违规列名），不产出会污染读面供给的最终库；修法 =
-    上游入库去掉该列后重灌整表（`upsert` 按 key 合并，表已存在不会新增/删除列）。
+**Source partition**（`partition_stock_basic_source`/`fetch_stock_basic_*`）随旧源
+退役删除（2026-09-17 Plan P T11）；其 fail-fast 语义（canonical 校验、L/D 分区、
+quarantine 审计）以 git 历史为准，CH `stock_basic` 灌入侧（`ch_ingest`）沿用
+canonical-only 口径。
 
 - `factorlab.adapters.catalog`（M5 活文档数据体；R8 从包顶层归位到 adapters）：`build_catalog()`（组装目录 dict——
   常量/registry 同源 + `validate_catalog` 通过才返回）、`validate_catalog(cat)`
@@ -1497,7 +1398,7 @@ PIT 语义：
 - **listing**：`is_listed = list_date <= t AND (delist_date IS NULL OR t < delist_date)`（`t < delist_date` 平台语义）
 - **list_days**：`date − list_date`（**自然日**年龄，非交易日数）；**pre-list（date < list_date）→ list_days = null**
 - **ST coverage**：以 `min/max(stock_st.trade_date)` 为 coverage（v1 contract，内部 gap 的精确 provenance 留给 Data Coverage Registry）——coverage 内：当日快照出现 → true、缺席 → false；**coverage 外：is_st = null（unknown ≠ false）**；`exclude_st=true` 且请求日期落在 coverage 外 → **ValueError（fail fast，错误含 requested date 与 coverage 区间）**；缺 stock_st 表：exclude_st=true → ValueError、false → is_st=null
-- **ST 显式降级（R03-I1，仅"缺表"一种 unknown）**：`exclude_st=true` 且库中**无** `stock_st` 表时，默认仍 **ValueError（fail fast，不把 unknown 当非 ST）**；只有显式设置 `FACTORLAB_ST_DEGRADE=allow`（`settings.st_degrade`，默认 `"fail"`）才降级为**无 ST 口径**——`warnings.warn` 响亮告警（文案含"ST 未知按非 ST 处理，结果为无 ST 口径"）、`is_st=null`（unknown ≠ false 语义保留）、`in_universe` 不做 ST 过滤；`run_factor`/`run_factor_minute`/`resolve_universe_frame` 调用方可用 `st_degrade_active(spec, rd, override=...)` 查询本 run 是否降级，run 摘要恒写 `st_degrade: true/false`（审计，不静默）。空 `stock_st` 表、请求日期在 coverage 外（后两种 unknown）**不受开关影响，仍 fail fast**。**挖矿口径**：CH 当前无 `stock_st`，全市场挖矿/复跑须显式 `FACTORLAB_ST_DEGRADE=allow` 接受无 ST 口径（挖矿 spec 保持库规范 `exclude_st: true`，不写"无 ST 影子 spec"）；有真实 `stock_st` 后应关开关按标准 ST 过滤复跑——降级结果与 ST 过滤结果口径不同，不得混比。**R29 当前裁决（2026-09-16）**：本机无 `stock_st` 历史源（CH 无表、`data/raw` 无快照、teajoin token 缺失/过期）——保留本开关为现行口径，不伪造 ST 数据；触发条件 = teajoin token 恢复（`stock_st` 在套餐接口目录内，见 `teajoin-guide.md` §5）或外部 ST 历史源到位 → 建表灌入（沿本节 coverage 契约）→ 关开关按标准 ST 过滤复跑，届时解除降级口径。
+- **ST 显式降级（R03-I1，仅"缺表"一种 unknown）**：`exclude_st=true` 且库中**无** `stock_st` 表时，默认仍 **ValueError（fail fast，不把 unknown 当非 ST）**；只有显式设置 `FACTORLAB_ST_DEGRADE=allow`（`settings.st_degrade`，默认 `"fail"`）才降级为**无 ST 口径**——`warnings.warn` 响亮告警（文案含"ST 未知按非 ST 处理，结果为无 ST 口径"）、`is_st=null`（unknown ≠ false 语义保留）、`in_universe` 不做 ST 过滤；`run_factor`/`run_factor_minute`/`resolve_universe_frame` 调用方可用 `st_degrade_active(spec, rd, override=...)` 查询本 run 是否降级，run 摘要恒写 `st_degrade: true/false`（审计，不静默）。空 `stock_st` 表、请求日期在 coverage 外（后两种 unknown）**不受开关影响，仍 fail fast**。**挖矿口径**：CH 当前无 `stock_st`，全市场挖矿/复跑须显式 `FACTORLAB_ST_DEGRADE=allow` 接受无 ST 口径（挖矿 spec 保持库规范 `exclude_st: true`，不写"无 ST 影子 spec"）；有真实 `stock_st` 后应关开关按标准 ST 过滤复跑——降级结果与 ST 过滤结果口径不同，不得混比。**R29 当前裁决（2026-09-16）**：本机无 `stock_st` 历史源（CH 无表、`data/raw` 无快照、历史外部源 2026-09-17 已退役）——保留本开关为现行口径，不伪造 ST 数据；触发条件 = 外部 ST 历史源到位 → 建表灌入（沿本节 coverage 契约）→ 关开关按标准 ST 过滤复跑，届时解除降级口径。
 - **exchange**：ts_code 后缀（.SH→SSE / .SZ→SZSE / .BJ→BSE）；默认池 SSE+SZSE，不意外纳入 BSE
 - 显式 codes 同样尊重上市/退市 PIT 状态（不自动增加 exclude_st/min_list_days 规则）
 - 输入校验：dates 仅接受 datetime.date / ISO `YYYY-MM-DD`（非法格式、重复日期 fail fast）；candidate_codes 重复 fail fast；输出前主动验证 (date, code) 唯一
@@ -1682,7 +1583,7 @@ integrity 或 immutable run identity（hash/data snapshot 属后续 reproducibil
   已灌入（329 codes，代理 = 最后交易日 + 1；R01-DATA-C1），退市股 `is_listed`
   在退市后为 false，不再 forward-fill 死价格。缺列旧库（如未重建的 duckdb 平台库）
   由运行期 staleness gate fail loudly 兜底（>250 交易日断流且 listed）；恢复路径 =
-  `data rebuild`（duckdb）或重灌 stock_basic（ch）
+  `data rebuild`（duckdb；已退役）或重灌 stock_basic（ch）
 - `ST_AWARE_GATE` = **NOT_READY**（code-level duplicate-ST repair complete；
   production smoke pending stock_basic migration / token availability）
 
@@ -1693,7 +1594,7 @@ dedup=False 不变）；stock_basic fetch 显式字段（STOCK_BASIC_FIELDS 含
 delist_date/list_status）+ fetch_stock_basic_all（L/D 合并、ts_code unique fail
 fast、D 行缺 delist_date fail fast）+ migrate_stock_basic_pit_fields（定向迁移：
 ALTER ADD COLUMN + upsert keys=ts_code，保留原字段）。真实迁移依赖
-FACTORLAB_TEAJOIN_TOKEN——未设置时 M6-07B 数据部分 BLOCKED（代码与测试已就绪）。
+FACTORLAB_TEAJOIN_TOKEN（**历史：该 token/源已于 2026-09-17 Plan P T11 退役**）。
 
 **M6-07B2 source integrity**：validate_stock_basic_source（纯 validator，唯一正式
 入口）——list_date 非空、endpoint status 分区（L endpoint 全 L / D endpoint 全 D）、
@@ -3081,71 +2982,83 @@ python -m pytest
 ```
 
 当前覆盖 Spec 校验、AST 白名单、算子插件生命周期、最小计算路径、polars_ta 算子族、
-平台薄封装、分区校验与防未来函数、CLI smoke、数据平台单元
-（fetcher/platform_db/rebuild/sparsity/verify/refresh/adjust/audit）与 CLI data
-命令、分层回测（`tests/test_layered.py`：分档/方向翻转/净值数学/long-short/摘要/
+平台薄封装、分区校验与防未来函数、CLI smoke、数据审计与读路径
+（adjust/audit、读面列纪律 `test_column_discipline.py`、外部源清理守卫
+`test_dataiface_clean.py`）、分层回测（`tests/test_layered.py`：分档/方向翻转/净值数学/long-short/摘要/
 无效周排除/全 null 空回测）、run 参数与 list/show（`tests/test_cli_run.py`、
 `tests/test_cli_list_show.py`）、真实平台库集成（`tests/test_e2e_m4.py`：
 run → 周频评估 + 分层回测，回测期数 = 评估周数；`tests/test_e2e_free_form.py`：
 free-form 端到端——A 股日频版 RunLength 思路因子 vol_run_energy（def 内窗口算子 +
 params 替换 + run --set 变体，n_weeks > 50）），真实 results 目录 Web 冒烟
-（`tests/test_e2e_web.py`：列表含因子名/详情含图表数据/旧因子降级/缺失 404），
-以及 teajoin 集成测试（token 配置时真实拉取，`tests/test_e2e_data.py`）。
+（`tests/test_e2e_web.py`：列表含因子名/详情含图表数据/旧因子降级/缺失 404）。
+数据更新链（网盘 pan_update/转换/灌入）测试在 `platform/tools/`（`make test-research`）。
 
-## 8. 数据平台（M3b）
+## 8. 数据平台（网盘更新链）
 
-数据平台层以 teajoin（Tushare 兼容代理）为数据源，落地本地 DuckDB 库供因子计算
-与回测只读使用。全链路：拉取（TeaJoinClient）→ 落库（PlatformDB）→ 全量重建/增量
-（rebuild/refresh）→ 校验（verify）→ 复权视图（adjust）。本节为总览 + CLI 用法；
-各模块详细 API 见 `4.x` 对应小节。
+**现行链路（Plan P，2026-09-17 起）**：唯一外部源 = 夸克网盘分享
+（PWD/PASSCODE 单点 `platform/tools/pan_update/config.py`；cookie 仓根
+`quark_cookies.txt`，chmod 600、gitignored，`QUARK_COOKIE_FILE` 可覆盖）。
+四类别（日K/分钟/日线资金/财报）经 `make data-update` 一键：
+`sync`（分享树遍历 → 差集下载；超分享直链上限的文件记 **manual_required**，写清单
+告警、不 fail 整链）→ `build`（类别阶段链：转换/灌入 CH）→ `verify`
+（`platform/tools/ch_ingest/reconcile.py` 全库对账，rc=0 为一致；`all` = 幂等全链）。
+工具/手册：`platform/tools/pan_update/README.md`；运维经验见
+`data-ops-playbook.md`（《网盘数据更新手册》）；定时器
+`governance/ops/install_pan_timer.sh`（user systemd `pan-data-update.timer` 每日
+08:10，失败回退 crontab；日志 `runs/platform/logs/pan_update-*.log`；状态
+`data/raw/pan_state.json`、flock `data/raw/pan_update.lock`）。
+**内存护栏**：入口 `FACTORLAB_MAX_MEMORY=8GB`；stage 默认
+`MALLOC_ARENA_MAX=2`（40 核 glibc arena VA 事故对策，T10）。
 
-### `factorlab.adapters.fetcher.TeaJoinClient`
+### 类别 → 目标端（T5-T8）
 
-teajoin Tushare 兼容代理客户端（全局限流 0.2s、指数退避重试 3 次、4xx 抛
-`TeaJoinError`）：
+| 类别 | 网盘路径（`level2_detail/` 下） | 本地 raw | 转换 | 目标端 |
+|---|---|---|---|---|
+| 日K | `日K线数据---复权因子-经典技术指标--bs点缠论划线/`（全量 `19910101至*` + 增量 `YYYY-MM-DD至*` + `退市股/`） | `data/raw/daily/` | `ashare_ingest/import_daily.py` | `data/fact/daily_fact/daily_fact.parquet` → CH `daily` 层 5 表 + `stk_limit` + `adj_detail/adj_event`（`ch_ingest` 脚本） |
+| 分钟 | `A股分钟线/<年>/<月>/<YYYYMMDD>.zip` | `data/raw/minutes/` | `converters/convert_minutes_to_parquet.py`（7z 魔数兼容） | `data/fact/bars_1m/` → CH `bars_1m`（月分区） |
+| 日线资金 | `日线资金--每日沪深京个股日线数据和资金流数据/<年>/<MM>.zip` | `data/raw/fund_flow/` | `pan_update/parse_fund_flow.py`（`zj.xls` GBK TSV） | CH **`moneyflow`**（`ch_ingest/ingest_moneyflow.py`，TRUNCATE+INSERT 幂等） |
+| 财报 | `财报报表---有史以来--每周更新/`（周更 `*更新简化个股基本面数据.xlsx`；大件 `*_financial.parquet`/zip 超直链 → manual） | `data/raw/financial/` | `pan_update/parse_fundamentals_xlsx.py`（openpyxl 快照） | `data/fact/fundamentals/fundamentals_snapshot.parquet`（旧版留 `.prev`）→ CH **`fundamentals`**（`ingest_fundamentals.py`，全量替换） |
 
-- `fetch(api_name, params, fields=None) -> pl.DataFrame`：单次拉取。`fields` 为
-  逗号分隔白名单；空串列自动转 null、纯数值列转 Float64；空数据返回空表。
-- `fetch_paged(api_name, params, page_size=5000, max_pages=50, fields=None)`：
-  通用分页（limit/offset 注入，空页停止）；超过 `page_size*max_pages` 行抛
-  `TeaJoinError`。
+manual_required 处理：浏览器下载/转存后放入对应 raw 目录，`pan_update` 下次按本地
+命名登记并接续（`sync._adopt_local`）；当前清单含日K 全量 3.79GB、财务
+`*_financial.parquet`、指数日线 zip（见 pending #30）。
 
-token 来自 `FACTORLAB_TEAJOIN_TOKEN`；端点 `FACTORLAB_TEAJOIN_BASE_URL`
-（默认 `https://teajoin.com`，根路径）。构造 `TeaJoinClient(token="")` 不报错，
-缺 token 由调用方（`rebuild_all` 抛 `ValueError`、CLI 打印错误并退出）处理。
+### CH 消费侧（读面）
 
-### CLI：`factorlab data rebuild|update|refresh|verify`
+- **moneyflow（T7）**：18 列经 `load_daily(cols=[...])` 按 `(trade_date, ts_code)`
+  LEFT JOIN 供给公式（缺行 → null）：`main_net_inflow`、`auction`、
+  `super_in/super_out/super_net/super_net_pct`、`big_in/big_out/big_net/big_net_pct`、
+  `mid_in/mid_out/mid_net/mid_net_pct`、`small_in/small_out/small_net/small_net_pct`。
+  单位=元（源 亿/万 归一）、占比=百分数、缺失=NULL。列映射单点
+  `adapters/read/source.py::_MONEYFLOW_MAP`；moneyflow 已纳入
+  `read/verify.ENGINE_SURFACE_TABLES` 读面列纪律（§4）。
+- **fundamentals（T8）**：**当期快照**（`updated_date` 为行键，同一 code 可有多行），
+  非历史 PIT 序列——不能回溯"某历史日已知财务值"；平台当前**无 `load_daily`
+  消费方**。列（30）：`ts_code, updated_date, report_period, list_date, market,
+  industry, sw_industry, sw_sub, total_shares(万股), float_a_shares(万股), eps,
+  total_assets, current_assets, fixed_assets, intangible_assets, shareholders,
+  current_liab, long_liab, capital_reserve, net_assets, revenue, operating_cost,
+  op_profit, invest_income, op_cashflow, total_cashflow, inventory, total_profit,
+  net_profit, undist_profit`（金额=元）。PIT 历史待多期快照累积/人工
+  `*_financial.parquet`（manual_required）。
+- **index_daily**：CH 仍为空表（R29 裁决；`idx_ret` 恒 NULL）；网盘指数目录的
+  `截止_*_指数…_日线.zip`（100MB）超直链上限，补数路径待人工核对（pending #25）。
+- **对账**：`make reconcile` 覆盖 daily 层；`moneyflow`/`fundamentals` 自动对账
+  尚未纳入（T10 残余③，pending #30），当前以源帧 vs CH 行数/样本核对
+  （1,113,668 / 5,556 行，002281 9/16 精确，见 `R30/task10/`）。
 
-`data update`：一键更新链路（手动触发）——行情 7 表增量 + 指数增量
-（`refresh_indexes`：index_daily 到最新交易日、index_weight 补新月份）+ 自动 verify
-+ 失败报告。操作经验与故障排查见 `data-ops-playbook.md`。
+### 旧平台（M3b，teajoin）——已退役（2026-09-17，Plan P T11）
 
-| 命令 | 说明 |
-|------|------|
-| `factorlab data rebuild [--start 20000104] [--end 20261231] [--resume/--no-resume]` | teajoin 全量重建。先写**暂存库** `data/rebuild_staging.duckdb`（`rebuild_all`，manifest 断点续传），再 `build_final_db` 稀疏剔除重建**最终库** `data/factorlab.duckdb`。缺 token 打印错误并以非 0 退出 |
-| `factorlab data refresh` | 增量续拉：读 manifest 的 `last_updated` 与 failed 日期，`upsert(dedup=True)` 更新**最终库** `data/factorlab.duckdb`。缺 token 同 rebuild；manifest 缺失（未 rebuild 过）抛 `ValueError` |
-| `factorlab data verify [--compare PATH]` | 完整性自检 + 稀疏摘要（读**最终库**）+ 可选抽样对拍（参考库仅参考，差异不阻塞）。无需 token；最终库不存在时完整性规则逐条 skipped，正常退出 |
+数据平台层原以 teajoin（Tushare 兼容代理）为数据源、落地本地 DuckDB 库
+（`factorlab data rebuild|update|refresh|verify`）。随唯一外部源收敛到夸克网盘，
+`adapters/{fetcher,mirror_db,rebuild,refresh}` 与上述 CLI 已**删除**（历史实现见
+git 历史；使用指南存档 `teajoin-guide.md`）。duckdb 后端仅保留为测试/历史只读库
+（双腿测试设施不变）。
 
-路径语义：`rebuild` 写暂存库并重建最终库（两库都在 `settings.data_dir`）；
-`refresh`/`verify` 直接操作最终库。`start/end` 为 `YYYYMMDD`（缺省 end 为
-20261231）。
+### 汇总速查
 
-### 汇总速查（详细 API 见 `4.x` 对应小节）
-
-- `factorlab.adapters.mirror_db.PlatformDB`：duckdb 写库，自动建表、按 keys upsert
-  去重（`dedup=False` 纯 INSERT 批量语义）、`integrity_check()` 六规则自检
-  （日历缺日/重复行/pct_chg 自洽/adj_factor 有效/stk_limit 边界/市值有效）。
-- `factorlab.adapters.rebuild`：`rebuild_all`（manifest 断点续传编排：交易日历（未来
-  公告日截断）→ 静态 → 行情 7 表按日 → 指数（index_weight 用 index_code 参数）；
-  **无财报三表**）；`assess_sparsity`（每表每字段 null_ratio/stock_coverage/
-  first_date）；`build_final_db`（null_ratio > 20% 或 stock_coverage < 80% 的字段
-  物理剔除后重建最终库）。
-- `factorlab.adapters.refresh.refresh`：从 manifest `last_updated`（rebuild 截断后的
-  最近交易日）增量续拉行情 7 表，重试 failed 日期，`upsert` 默认 `dedup=True`
-  去重替换。
-- `factorlab.adapters.read.verify`：`verify_all` 完整性 + 稀疏摘要 + 抽样对拍（30 只 ×
-  三段 × 相对误差容差 1e-4）；`compare_sample` 自动映射参考库列结构
-  （trade_date/ts_code 或 date/code 风格），对拍细节与错误语义见 `4.x`。
+- `platform/tools/pan_update/`：`sync|build|publish|verify|all [--categories a,b]
+  [--dry-run] [--prune]`（`publish` = build 同义；详见工具 README）。
 - `factorlab.adapters.read.adjust`：`view_prices`（raw/qfq/hfq/pit_qfq 价格视图）、
   `total_return`（HFQ 含分红再投资收益）、审计三查（`lookahead_check` /
   `scale_invariance_check` / `adjustment_sensitivity_check`）。

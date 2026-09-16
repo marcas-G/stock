@@ -1,5 +1,11 @@
 # teajoin Tushare 代理使用指南（2026-08-16 存档）
 
+> **已退役（2026-09-17，Plan P T11）：不再维护。** teajoin 源的生产路径
+> （`adapters/{fetcher,mirror_db,rebuild,refresh}` 与 `factorlab data
+> rebuild|update|refresh|verify`）已删除；唯一外部源改为夸克网盘
+> （`make data-update`，见 `data-ops-playbook.md` §0 与 `data-map.md`）。
+> 本文仅作历史存档（当时的 token/接口/限流事实）。
+
 > 来源：`https://teajoin.com/g` 使用指南页（访问验证后内容）。
 > 平台配置：API Key 存于项目 `.env`（`FACTORLAB_TEAJOIN_TOKEN`，gitignored）。
 > **状态（2026-08-23）：API Key 已于 2026-08-22 到期，live 集成测试因此 skip；

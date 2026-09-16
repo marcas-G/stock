@@ -251,16 +251,16 @@ _check_future_inputs('x = close + forward_return_5d')
 
 ### gate_future_surface_discipline（读面表未来列（数据侧入库校验））
 - 墙：future
-- 规则：引擎读面表（ENGINE_SURFACE_TABLES 9 表：daily/daily_basic/adj_factor/index_daily/stock_basic/trade_cal/stock_st/stk_limit/suspend_d）禁止出现未来前缀列——入库校验 validate_engine_surface/validate_surface_columns 与活文档双重锁
-- 触发：重建/入库（build_final_db 收口）时读面表含 forward_*/future_* 前缀或 target/label 精确名列
+- 规则：引擎读面表（ENGINE_SURFACE_TABLES 10 表：daily/daily_basic/adj_factor/index_daily/stock_basic/trade_cal/stock_st/stk_limit/suspend_d/moneyflow）禁止出现未来前缀列——读面探测校验 validate_engine_surface/validate_surface_columns 与活文档双重锁
+- 触发：读面探测（validate_engine_surface）时读面表含 forward_*/future_* 前缀或 target/label 精确名列
 - 报错文案样板：`未来/标签命名（forward_*/future_* 前缀与 target/label 精确名）——读面按构造即 PIT，未来数据只允许由评估运行时在内存计算或研究侧落库，命名纪律见设计 §5.3-2 与目录命名类约定`
 - 修法：请重命名或移出读面（未来/标签数据由运行时 forward 计算或研究侧落库）
-- 对照测试：`tests/test_column_discipline.py::test_pure_fn_future_prefixed_columns_rejected`, `tests/test_column_discipline.py::test_build_final_db_rejects_violating_surface`
+- 对照测试：`tests/test_column_discipline.py::test_pure_fn_future_prefixed_columns_rejected`, `tests/test_column_discipline.py::test_engine_surface_reports_violations_via_rd`
 
 ### gate_surface_internal_column（读面表内部保留列（数据侧））
 - 墙：internal
 - 规则：引擎读面表禁止内部保留名列（__factorlab_* 前缀 / in_universe 精确名）——读面列注入/join 与引擎内部列碰撞毒化面板
-- 触发：重建/入库（build_final_db 收口）或读面探测（validate_engine_surface）发现读面表含内部名列
+- 触发：读面探测（validate_engine_surface）发现读面表含内部名列
 - 报错文案样板：`引擎内部保留名（__factorlab_* 前缀与 in_universe）——读面列注入/join 会与引擎内部列碰撞毒化面板，属设计 §5.3-3 内部墙的数据侧`
 - 修法：请重命名或移出读面（内部名是引擎运行时命名空间，不由用户数据占用）
 - 对照测试：`tests/test_column_discipline.py::test_pure_fn_internal_name_rejected`, `tests/test_column_discipline.py::test_engine_surface_reports_violations_via_rd`
@@ -374,15 +374,15 @@ _check_future_inputs('x = close + forward_return_5d')
 - 对照测试：`tests/test_signal_label_runtime.py::test_formula_future_input_guard`, `tests/test_pool_formula.py::test_pool_reject_future_input`
 
 ### gate_future_surface_discipline（读面表未来列（数据侧入库校验））
-- 规则：引擎读面表（ENGINE_SURFACE_TABLES 9 表：daily/daily_basic/adj_factor/index_daily/stock_basic/trade_cal/stock_st/stk_limit/suspend_d）禁止出现未来前缀列——入库校验 validate_engine_surface/validate_surface_columns 与活文档双重锁
-- 触发：重建/入库（build_final_db 收口）时读面表含 forward_*/future_* 前缀或 target/label 精确名列
+- 规则：引擎读面表（ENGINE_SURFACE_TABLES 10 表：daily/daily_basic/adj_factor/index_daily/stock_basic/trade_cal/stock_st/stk_limit/suspend_d/moneyflow）禁止出现未来前缀列——读面探测校验 validate_engine_surface/validate_surface_columns 与活文档双重锁
+- 触发：读面探测（validate_engine_surface）时读面表含 forward_*/future_* 前缀或 target/label 精确名列
 - 报错文案样板：`未来/标签命名（forward_*/future_* 前缀与 target/label 精确名）——读面按构造即 PIT，未来数据只允许由评估运行时在内存计算或研究侧落库，命名纪律见设计 §5.3-2 与目录命名类约定`
 - 修法：请重命名或移出读面（未来/标签数据由运行时 forward 计算或研究侧落库）
-- 对照测试：`tests/test_column_discipline.py::test_pure_fn_future_prefixed_columns_rejected`, `tests/test_column_discipline.py::test_build_final_db_rejects_violating_surface`
+- 对照测试：`tests/test_column_discipline.py::test_pure_fn_future_prefixed_columns_rejected`, `tests/test_column_discipline.py::test_engine_surface_reports_violations_via_rd`
 
 ### gate_surface_internal_column（读面表内部保留列（数据侧））
 - 规则：引擎读面表禁止内部保留名列（__factorlab_* 前缀 / in_universe 精确名）——读面列注入/join 与引擎内部列碰撞毒化面板
-- 触发：重建/入库（build_final_db 收口）或读面探测（validate_engine_surface）发现读面表含内部名列
+- 触发：读面探测（validate_engine_surface）发现读面表含内部名列
 - 报错文案样板：`引擎内部保留名（__factorlab_* 前缀与 in_universe）——读面列注入/join 会与引擎内部列碰撞毒化面板，属设计 §5.3-3 内部墙的数据侧`
 - 修法：请重命名或移出读面（内部名是引擎运行时命名空间，不由用户数据占用）
 - 对照测试：`tests/test_column_discipline.py::test_pure_fn_internal_name_rejected`, `tests/test_column_discipline.py::test_engine_surface_reports_violations_via_rd`

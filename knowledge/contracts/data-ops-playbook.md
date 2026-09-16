@@ -1,4 +1,85 @@
-# FactorLab 数据运维手册（Data Ops Playbook）
+# FactorLab 网盘数据更新手册（Data Ops Playbook）
+
+> **2026-09-17（Plan P T11）**：外部源收敛为**夸克网盘（唯一）**，入口
+> `make data-update`（`platform/tools/pan_update/`），终点 CH 可用。
+> **本文件 §0 为现行运维手册；§1 起为 M3b teajoin 历史存档（已退役，仅追溯）。**
+> 工具级细节（目录映射/命令/state schema/测试）见 `platform/tools/pan_update/README.md`；
+> 设计权威 `knowledge/design/workspace/2026-09-16-pan-data-update-design.md`。
+
+## 0. 现行：网盘更新链
+
+### 0.1 入口与阶段
+
+```bash
+make data-update        # = FACTORLAB_MAX_MEMORY=8GB python platform/tools/pan_update/cli.py all
+# 直调：cli.py sync|build|publish|verify|all [--categories a,b] [--dry-run] [--prune] [--workers N]
+```
+
+阶段链（类别一整链；`build`/`publish` 共用阶段标记）：`sync`（差集下载 + manual 分类）
+→ `build`（daily: import_daily→ingest_daily→derive_stk_limit→adj_backfill；minutes:
+convert→ingest_bars；fund_flow: ingest_moneyflow；financials: parse_xlsx→ingest_fundamentals）
+→ `publish`（同 build，幂等跳过）→ `verify`（`ch_ingest/reconcile.py` 全库对账）。
+退出码：0 成功 / 1 运行失败 / 2 配置或用法错误；`manual_required` 不算错。
+
+### 0.2 定时与并发
+
+- 安装：`bash governance/ops/install_pan_timer.sh install`（systemd user
+  `pan-data-update.timer` 每日 08:10；`systemctl --user` 不可用 → 打印 crontab 行回退）。
+  查看：`systemctl --user list-timers pan-data-update.timer`、`journalctl --user -u pan-data-update.service`。
+- 日志 `runs/platform/logs/pan_update-YYYYMMDD.log`；手动/定时共用 flock 单实例锁
+  `data/raw/pan_update.lock`（第二实例立即失败不等待）；state `data/raw/pan_state.json`
+  （原子写 + 损坏隔离；每个成功文件后落盘）。
+- **重任务内存护栏（R05-C1）**：入口显式 `FACTORLAB_MAX_MEMORY=8GB`（落 RLIMIT_AS）；
+  stage 子进程默认 `MALLOC_ARENA_MAX=2`（40 核 glibc arena VA 事故对策，T10 实测
+  `ingest_daily` VmPeak 26.0→16.4GB）。禁止与 LLM 服务/多 agent 会话并发跑重任务。
+
+### 0.3 Cookie 维护
+
+- 单点 = 仓根 `quark_cookies.txt`（gitignored，`chmod 600`；`QUARK_COOKIE_FILE` 可覆盖）。
+- 失效（401/空 stoken）/缺失 → `sync`/`all` 启动即 exit 2，文案含 cookie 路径，**不静默
+  重试打转**。更新：浏览器登录夸克 → 导出 Cookie 串 → 覆盖仓根文件。
+- `build`/`publish`/`verify` 不需要 cookie（离线可跑）。
+
+### 0.4 manual_required（超分享直链上限，设计 §2.1）
+
+- 取链 HTTP 400 `download file size limit` 的大件（日K 全量 3.79GB、`*_financial.parquet`、
+  财务大 zip、指数日线 zip）→ 写 `manual_required` 清单（不 fail 整链，exit 0）。
+- 处理：浏览器下载/转存后**同名**放入对应 `data/raw/<类别>/`，下次 `make data-update`
+  自动接续（size 匹配 → `adopted` 视同新数据并清阶段标记；不符 → 不登记照常重试）。
+- 当前清单与触发条件见 `governance/workspace/pending-items.md` #30。
+
+### 0.5 状态、幂等与失败续跑
+
+- `sync` 差集 = 分享清单 vs state（新文件/同名 size 变 → 下载；同名同 size → 跳过）。
+- freshness 闩锁：本次有 `downloaded`/`adopted` → 清该类别阶段标记重跑整链；否则阶段
+  幂等跳过（命令不再执行）——二次 `make data-update` 应为 no-op。
+- 文件级失败不打断全链（汇总后 rc=1，缺文件由下次 sync 差额自愈）；**阶段链失败即停**
+  （publish/verify 不跑），重跑从链头幂等重放；下载先写 `.part`，size 校验通过才
+  `os.replace`（半成品不入账）。
+
+### 0.6 对账与消费
+
+- `verify` / `make reconcile`：`platform/tools/ch_ingest/reconcile.py` 全库对账
+  （daily 层 + 派生表；rc=0 全一致）。
+- `moneyflow`/`fundamentals` 自动对账尚未纳入（pending #30③）：当前以源帧 vs CH
+  行数/样本核对（T10：1,113,668 / 5,556 行）。
+- 消费：`FACTORLAB_DATA_BACKEND=ch factorlab run <spec>`（`moneyflow` 18 列可直接进
+  公式，见 interface.md §8）。
+
+### 0.7 现行故障排查速查
+
+| 现象 | 处置 |
+|---|---|
+| exit 2 且文案含 cookie | 刷新仓根 `quark_cookies.txt`（§0.3） |
+| 大件进 manual_required | 浏览器下载放对应 raw 目录后重跑（§0.4） |
+| stage 失败（rc=1，日志含阶段名/文件/异常） | 修复后重跑 `make data-update`（幂等续跑） |
+| reconcile 有差异 | 看 `ch_ingest/reconcile.py` 输出定位表/日期；重灌对应阶段 |
+| 分钟链异常（zip 实为 7z 等命名漂移） | 转换器已按魔数识别；新漂移按 loud fail 上报 |
+| 定时未跑 | `install_pan_timer.sh status`；systemd user 不可用走 crontab 回退（§0.2） |
+
+---
+
+# 附录：M3b teajoin 运维存档（已退役，2026-09-17；以下正文为当时事实）
 
 日期：2026-08-16
 来源：M3b 全量重建实战经验（teajoin Tushare 代理，2000-01-04 至今，~46,000 请求）
