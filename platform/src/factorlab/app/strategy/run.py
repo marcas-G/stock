@@ -4,6 +4,7 @@
 
     load_signal_artifact(results_dir / signal_name)
       → 按 doc.date 过滤 signal frame
+      → 按 doc.universe_override 过滤 signal frame（R07-STRAT-I6：canonical 子集）
       → construct_target_portfolio（M7：StrategySpec）
       → build_rebalance_schedule
       → write_strategy_artifacts(out_dir)
@@ -58,6 +59,30 @@ def _filter_to_window(signal: SignalArtifact, doc: StrategyDoc) -> SignalArtifac
     return SignalArtifact(frame=frame, meta=signal.meta)
 
 
+def _filter_to_universe(signal: SignalArtifact, doc: StrategyDoc) -> SignalArtifact:
+    """L1 universe_override：按 canonical ts_code 列表过滤信号帧（R07-STRAT-I6）。
+
+    - `None`（缺省）→ 原样返回（零行为变化）；
+    - 口径：override 为 canonical ts_code（如 `000001.SZ`），信号帧 code 已是
+      canonical——精确匹配、输出保持 canonical（不做后缀推断/静默改写）；
+    - 空交集 → fail fast（列出 override 与窗口内可用 codes，不静默空跑）；
+    - 部分命中 = 合法子集（个股停牌/退市由 M7 on_insufficient 语义处理）。
+    """
+    override = doc.universe_override
+    if override is None:
+        return signal
+    wanted = sorted(set(override))
+    frame = signal.frame.filter(pl.col("code").is_in(wanted))
+    if frame.height == 0:
+        available = sorted(signal.frame["code"].unique().to_list())
+        raise ValueError(
+            f"策略 {doc.strategy.name}: universe_override {wanted} 与 date 窗口 "
+            f"{doc.date.start}~{doc.date.end} 内的 signal codes 无交集"
+            f"（窗口内可用 {available}；override 需为 canonical ts_code 形态，"
+            f"如 '000001.SZ'）——不静默空跑")
+    return SignalArtifact(frame=frame, meta=signal.meta)
+
+
 def run_strategy(doc: StrategyDoc, rd: ReadPort,
                  results_dir: Path | None = None,
                  out_dir: Path | None = None,
@@ -67,6 +92,8 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
     - results_dir：results 根（缺省 settings.results_dir）——信号按
       `results_dir/<signal_name>` 读取；
     - out_dir：策略产物目录显式覆盖（缺省 `results_dir/"strategies"/<name>`）；
+    - `doc.universe_override` 非 null → 组合前先按 canonical ts_code 过滤信号帧
+      （空交集 fail fast；null = 零行为变化，见 `_filter_to_universe`）；
     - target_transform：可选 M7 → M8 之间的目标组合变换钩子（研究侧 L5 规则
       V1 注入点，如 max_hold；须返回 TargetPortfolio 且保持 decision_dates/
       gross_exposure 契约——写盘交叉校验会复验）。
@@ -79,6 +106,7 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
         settings.results_dir)
     signal = load_signal_artifact(root / doc.strategy.signal_name)
     filtered = _filter_to_window(signal, doc)
+    filtered = _filter_to_universe(filtered, doc)
     target = construct_target_portfolio(filtered, doc.strategy)
     if target_transform is not None:
         target = target_transform(target)

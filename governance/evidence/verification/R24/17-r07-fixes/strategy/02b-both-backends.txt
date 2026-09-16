@@ -1,0 +1,12 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.13, pytest-9.1.1, pluggy-1.6.0 -- /data/students/gaolei/stock/platform/../platform/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /data/students/gaolei/stock/platform
+configfile: pyproject.toml
+plugins: cov-7.1.0, anyio-4.14.2
+collecting ... collected 2 items
+
+tests/test_run_strategy.py::test_universe_override_filters_signal_before_construction[duckdb] PASSED [ 50%]
+tests/test_run_strategy.py::test_universe_override_filters_signal_before_construction[ch] PASSED [100%]
+
+============================== 2 passed in 3.67s ===============================

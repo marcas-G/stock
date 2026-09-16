@@ -140,3 +140,15 @@ def load_strategy_doc(path: str | Path) -> StrategyDoc:
     if raw is None:
         raise ValueError(f"策略 spec 为空: {p}")
     return strategy_doc_from_mapping(raw, path=p)
+
+
+def looks_like_strategy_doc(path: str | Path) -> bool:
+    """形态识别（lint 分派）：顶层 mapping 且同时含 `signal` 与 `portfolio`。
+
+    读取/解析失败返回 False——错误交原 spec 路径处理（这里不吞、不抢报）。
+    """
+    try:
+        raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return False
+    return isinstance(raw, dict) and "signal" in raw and "portfolio" in raw

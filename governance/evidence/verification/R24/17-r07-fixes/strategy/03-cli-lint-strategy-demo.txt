@@ -1,0 +1,33 @@
+# R07-STRAT-I6 手工复核（真 CLI，仓库根；输入变体均写 /tmp，不动 tracked 文件）
+
+$ factorlab lint research/strategy/low_lottery_top30_weekly.yaml
+OK low_lottery_top30_weekly
+exit=0
+
+$ factorlab lint /tmp/opencode/r07-strategy-lint/rules_v1.yaml（stop_loss 非 null = V1 拒绝）
+V1 不支持策略路径依赖规则 ['stop_loss']——M8 
+执行层无止损/止盈语义，不允许静默忽略。max_hold 的 V1 
+近似在研究侧（research/tools/strategies/l5_rules.py，调仓日粒度）；stop_loss/tak
+e_profit 平台化见 Plan S Task 7 触发条件（连续/日内触发语义 + 
+成交明细级回放，另立里程碑）
+exit=1
+
+$ factorlab lint /tmp/opencode/r07-strategy-lint/next_window.yaml（NEXT_WINDOW 缺 minute_window）
+策略 spec /tmp/opencode/r07-strategy-lint/next_window.yaml: execution（L5） 
+非法: 1 validation error for ExecutionSpec
+  Value error, execution_timing=NEXT_WINDOW 必须提供 
+minute_window（窗口执行配置缺失，禁止隐式默认窗口） 
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+exit=1
+
+$ factorlab lint /tmp/opencode/r07-strategy-lint/unknown_key.yaml（未知键）
+策略 spec /tmp/opencode/r07-strategy-lint/unknown_key.yaml: 根 含未知键 
+['bogus_key']（extra=forbid，允许 ['date', 'direction', 'execution', 'name', 
+'portfolio', 'regime', 'rules', 'signal', 'universe_override']）
+exit=1
+
+$ factorlab lint <因子 spec with totally_new>（原路径回归：未知算子指引）
+1:9: 未知算子 totally_new；自定义逻辑请写在公式内 
+def（本因子专用，零注册），或注册插件算子（factorlab op add）；spec.op_meta 
+尚未实现（Plan 2，写了会被拒绝）
+exit=1

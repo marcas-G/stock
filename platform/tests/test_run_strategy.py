@@ -110,7 +110,7 @@ formula: |
 
 def _doc_yaml(*, start="2024-01-02", end="2024-01-05", name="ws7_doc",
               direction=1, top_k=2, freq="daily", cash=1_000_000.0,
-              commission=0.0):
+              commission=0.0, override="null"):
     return f"""\
 name: {name}
 signal: {_SIGNAL_NAME}
@@ -124,6 +124,7 @@ execution:
                stamp_tax_sell_rate: 0.0005, transfer_fee_rate: 0.00001,
                slippage_bps: 5.0}}
 date: {{start: "{start}", end: "{end}"}}
+universe_override: {override}
 """
 
 
@@ -342,6 +343,64 @@ def test_empty_window_fails_fast_with_readable_error(env, tmp_path):
         run_strategy(doc, env.rd, results_dir=results)
     msg = str(ei.value)
     assert "ws7_doc" in msg and "2024-02-01" in msg
+
+
+# ================================================================
+# 2b. universe_override（R07-STRAT-I6）：L1 子集过滤，空交集 fail fast
+# ================================================================
+
+def test_universe_override_filters_signal_before_construction(env, tmp_path, monkeypatch):
+    """override 子集 → 信号帧先被过滤，target 只含该子集 code（不是构造后筛选）。"""
+    import factorlab.app.strategy.run as R
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    _seed_and_run_factor(env, tmp_path, results)
+    doc = _load_doc(tmp_path, override='["000001.SZ"]')
+
+    seen: dict = {}
+    real_ctor = R.construct_target_portfolio
+
+    def spy_ctor(signal, spec):
+        seen["codes"] = sorted(signal.frame["code"].unique().to_list())
+        return real_ctor(signal, spec)
+
+    monkeypatch.setattr(R, "construct_target_portfolio", spy_ctor)
+    res = run_strategy(doc, env.rd, results_dir=results)
+
+    assert seen["codes"] == [_A], "过滤必须发生在 construct_target_portfolio 之前"
+    assert set(res.target.frame["code"].unique().to_list()) == {_A}
+    assert res.target.decision_dates == (_D1, _D2, _D3, _D4)  # 决策日不因 override 改变
+    # 禁止行为：未在 override 中的 code 不得出现（未过滤时 top-2 = {A, B}）
+    assert _B not in res.target.frame["code"].to_list()
+
+
+def test_universe_override_no_intersection_fails_fast(env, tmp_path):
+    """override 与窗口内 signal codes 无交集 → 明确报错、不落任何产物。"""
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    _seed_and_run_factor(env, tmp_path, results)
+    doc = _load_doc(tmp_path, override='["999999.SZ"]')
+    with pytest.raises(ValueError) as ei:
+        run_strategy(doc, env.rd, results_dir=results)
+    msg = str(ei.value)
+    assert "universe_override" in msg and "999999.SZ" in msg
+    assert _A in msg  # 可用 codes 提示（不是静默空跑）
+    assert not (results / "strategies" / "ws7_doc").exists()
+
+
+def test_universe_override_null_is_zero_behavior_change(env, tmp_path):
+    """override=null（缺省）→ 与既有链逐帧一致（零行为变化保护）。"""
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    _seed_and_run_factor(env, tmp_path, results)
+    doc = _load_doc(tmp_path, override="null")
+    res = run_strategy(doc, env.rd, results_dir=results)
+    # 未过滤：d1 截面 top-2 = {A, C}（31 > 30 > 21）
+    rows = res.target.frame.filter(pl.col("decision_date") == _D1)
+    assert sorted(rows["code"].to_list()) == [_A, _C]
 
 
 # ================================================================

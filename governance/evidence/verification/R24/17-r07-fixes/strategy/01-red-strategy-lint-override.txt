@@ -1,0 +1,214 @@
+FFFF..FFFFF..                                                            [100%]
+=================================== FAILURES ===================================
+_____________________ test_lint_accepts_valid_strategy_doc _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1716/test_lint_accepts_valid_strate0')
+
+    def test_lint_accepts_valid_strategy_doc(tmp_path):
+        p = _write(tmp_path, _STRATEGY)
+        r = runner.invoke(app, ["lint", str(p)])
+>       assert r.exit_code == 0, r.output
+E       AssertionError: 8 validation errors for FactorSpec
+E         category
+E           Field required 
+E             For further information visit https://errors.pydantic.dev/2.13/v/missing
+E         universe
+E           Field required 
+E             For further information visit https://errors.pydantic.dev/2.13/v/missing
+E         signal
+E           Extra inputs are not permitted 
+E             For further information visit 
+E         https://errors.pydantic.dev/2.13/v/extra_forbidden
+E         regime
+E           Extra inputs are not permitted 
+E             For further information visit 
+E         https://errors.pydantic.dev/2.13/v/extra_forbidden
+E         portfolio
+E           Extra inputs are not permitted 
+E             For further information visit 
+E         https://errors.pydantic.dev/2.13/v/extra_forbidden
+E         execution
+E           Extra inputs are not permitted 
+E             For further information visit 
+E         https://errors.pydantic.dev/2.13/v/extra_forbidden
+E         rules
+E           Extra inputs are not permitted 
+E             For further information visit 
+E         https://errors.pydantic.dev/2.13/v/extra_forbidden
+E         universe_override
+E           Extra inputs are not permitted 
+E             For further information visit 
+E         https://errors.pydantic.dev/2.13/v/extra_forbidden
+E         
+E       assert 1 == 0
+E        +  where 1 = <Result SystemExit(1)>.exit_code
+
+tests/test_cli_lint_strategy.py:59: AssertionError
+____________________ test_lint_rejects_strategy_unknown_key ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1716/test_lint_rejects_strategy_unk0')
+
+    def test_lint_rejects_strategy_unknown_key(tmp_path):
+        p = _write(tmp_path, _STRATEGY + "bogus: 1\n")
+        r = runner.invoke(app, ["lint", str(p)])
+        assert r.exit_code != 0, r.output
+>       assert "未知键" in r.output and "bogus" in r.output
+E       AssertionError: assert ('未知键' in '9 validation errors for FactorSpec\ncategory\n  Field required \n    For further information visit https://errors.pyd...ra inputs are not permitted \n    For further information visit \nhttps://errors.pydantic.dev/2.13/v/extra_forbidden\n')
+E        +  where '9 validation errors for FactorSpec\ncategory\n  Field required \n    For further information visit https://errors.pyd...ra inputs are not permitted \n    For further information visit \nhttps://errors.pydantic.dev/2.13/v/extra_forbidden\n' = <Result SystemExit(1)>.output
+
+tests/test_cli_lint_strategy.py:67: AssertionError
+_________ test_lint_rejects_strategy_next_window_without_minute_window _________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1716/test_lint_rejects_strategy_nex0')
+
+    def test_lint_rejects_strategy_next_window_without_minute_window(tmp_path):
+        p = _write(tmp_path, _STRATEGY.replace("timing: NEXT_OPEN", "timing: NEXT_WINDOW"))
+        r = runner.invoke(app, ["lint", str(p)])
+        assert r.exit_code != 0, r.output
+>       assert "minute_window" in r.output
+E       AssertionError: assert 'minute_window' in '8 validation errors for FactorSpec\ncategory\n  Field required \n    For further information visit https://errors.pyd...ra inputs are not permitted \n    For further information visit \nhttps://errors.pydantic.dev/2.13/v/extra_forbidden\n'
+E        +  where '8 validation errors for FactorSpec\ncategory\n  Field required \n    For further information visit https://errors.pyd...ra inputs are not permitted \n    For further information visit \nhttps://errors.pydantic.dev/2.13/v/extra_forbidden\n' = <Result SystemExit(1)>.output
+
+tests/test_cli_lint_strategy.py:74: AssertionError
+_____________________ test_lint_rejects_strategy_v1_rules ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1716/test_lint_rejects_strategy_v1_0')
+
+    def test_lint_rejects_strategy_v1_rules(tmp_path):
+        p = _write(tmp_path, _STRATEGY.replace("stop_loss: null", "stop_loss: 0.1"))
+        r = runner.invoke(app, ["lint", str(p)])
+        assert r.exit_code != 0, r.output
+>       assert "stop_loss" in r.output
+E       AssertionError: assert 'stop_loss' in '8 validation errors for FactorSpec\ncategory\n  Field required \n    For further information visit https://errors.pyd...ra inputs are not permitted \n    For further information visit \nhttps://errors.pydantic.dev/2.13/v/extra_forbidden\n'
+E        +  where '8 validation errors for FactorSpec\ncategory\n  Field required \n    For further information visit https://errors.pyd...ra inputs are not permitted \n    For further information visit \nhttps://errors.pydantic.dev/2.13/v/extra_forbidden\n' = <Result SystemExit(1)>.output
+
+tests/test_cli_lint_strategy.py:81: AssertionError
+__________________ test_lint_batch_mixes_factor_and_strategy ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1716/test_lint_batch_mixes_factor_a0')
+
+    def test_lint_batch_mixes_factor_and_strategy(tmp_path):
+        good = _write(tmp_path, _STRATEGY, name="strategy.yaml")
+        bad = _write(tmp_path, _STRATEGY.replace("direction: -1", "direction: 0"),
+                     name="bad_strategy.yaml")
+        r = runner.invoke(app, ["lint", str(good), str(bad)])
+        assert r.exit_code != 0, r.output
+>       assert "1 通过 / 1 失败" in r.output
+E       AssertionError: assert '1 通过 / 1 失败' in '  lint 失败: \n/tmp/pytest-of-gaolei/pytest-1716/test_lint_batch_mixes_factor_a0/strategy.yaml:\n8 validation errors fo...d \n    For further information visit \nhttps://errors.pydantic.dev/2.13/v/extra_forbidden\nfactor lint: 0 通过 / 2 失败\n'
+E        +  where '  lint 失败: \n/tmp/pytest-of-gaolei/pytest-1716/test_lint_batch_mixes_factor_a0/strategy.yaml:\n8 validation errors fo...d \n    For further information visit \nhttps://errors.pydantic.dev/2.13/v/extra_forbidden\nfactor lint: 0 通过 / 2 失败\n' = <Result SystemExit(1)>.output
+
+tests/test_cli_lint_strategy.py:111: AssertionError
+______ test_universe_override_filters_signal_before_construction[duckdb] _______
+
+env = <conftest._EnvDuck object at 0x7fe4ce9f0050>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1716/test_universe_override_filters0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe389b81e00>
+
+    def test_universe_override_filters_signal_before_construction(env, tmp_path, monkeypatch):
+        """override 子集 → 信号帧先被过滤，target 只含该子集 code（不是构造后筛选）。"""
+        import factorlab.app.strategy.run as R
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+        _seed_and_run_factor(env, tmp_path, results)
+        doc = _load_doc(tmp_path, override='["000001.SZ"]')
+    
+        seen: dict = {}
+        real_ctor = R.construct_target_portfolio
+    
+        def spy_ctor(signal, spec):
+            seen["codes"] = sorted(signal.frame["code"].unique().to_list())
+            return real_ctor(signal, spec)
+    
+        monkeypatch.setattr(R, "construct_target_portfolio", spy_ctor)
+        res = run_strategy(doc, env.rd, results_dir=results)
+    
+>       assert seen["codes"] == [_A], "过滤必须发生在 construct_target_portfolio 之前"
+E       AssertionError: 过滤必须发生在 construct_target_portfolio 之前
+E       assert ['000001.SZ',..., '600519.SH'] == ['000001.SZ']
+E         
+E         Left contains 2 more items, first extra item: '600000.SH'
+E         Use -v to get more diff
+
+tests/test_run_strategy.py:371: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2026-09-16 19:02:09.570 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 19:02:09.596 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+________ test_universe_override_filters_signal_before_construction[ch] _________
+
+env = <conftest._EnvCh object at 0x7fe3899ffa10>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1716/test_universe_override_filters1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe38884a190>
+
+    def test_universe_override_filters_signal_before_construction(env, tmp_path, monkeypatch):
+        """override 子集 → 信号帧先被过滤，target 只含该子集 code（不是构造后筛选）。"""
+        import factorlab.app.strategy.run as R
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+        _seed_and_run_factor(env, tmp_path, results)
+        doc = _load_doc(tmp_path, override='["000001.SZ"]')
+    
+        seen: dict = {}
+        real_ctor = R.construct_target_portfolio
+    
+        def spy_ctor(signal, spec):
+            seen["codes"] = sorted(signal.frame["code"].unique().to_list())
+            return real_ctor(signal, spec)
+    
+        monkeypatch.setattr(R, "construct_target_portfolio", spy_ctor)
+        res = run_strategy(doc, env.rd, results_dir=results)
+    
+>       assert seen["codes"] == [_A], "过滤必须发生在 construct_target_portfolio 之前"
+E       AssertionError: 过滤必须发生在 construct_target_portfolio 之前
+E       assert ['000001.SZ',..., '600519.SH'] == ['000001.SZ']
+E         
+E         Left contains 2 more items, first extra item: '600000.SH'
+E         Use -v to get more diff
+
+tests/test_run_strategy.py:371: AssertionError
+__________ test_universe_override_no_intersection_fails_fast[duckdb] ___________
+
+env = <conftest._EnvDuck object at 0x7fe389af3750>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1716/test_universe_override_no_inte0')
+
+    def test_universe_override_no_intersection_fails_fast(env, tmp_path):
+        """override 与窗口内 signal codes 无交集 → 明确报错、不落任何产物。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+        _seed_and_run_factor(env, tmp_path, results)
+        doc = _load_doc(tmp_path, override='["999999.SZ"]')
+>       with pytest.raises(ValueError) as ei:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_run_strategy.py:385: Failed
+____________ test_universe_override_no_intersection_fails_fast[ch] _____________
+
+env = <conftest._EnvCh object at 0x7fe389af2d50>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1716/test_universe_override_no_inte1')
+
+    def test_universe_override_no_intersection_fails_fast(env, tmp_path):
+        """override 与窗口内 signal codes 无交集 → 明确报错、不落任何产物。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+        _seed_and_run_factor(env, tmp_path, results)
+        doc = _load_doc(tmp_path, override='["999999.SZ"]')
+>       with pytest.raises(ValueError) as ei:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_run_strategy.py:385: Failed
+=========================== short test summary info ============================
+FAILED tests/test_cli_lint_strategy.py::test_lint_accepts_valid_strategy_doc
+FAILED tests/test_cli_lint_strategy.py::test_lint_rejects_strategy_unknown_key
+FAILED tests/test_cli_lint_strategy.py::test_lint_rejects_strategy_next_window_without_minute_window
+FAILED tests/test_cli_lint_strategy.py::test_lint_rejects_strategy_v1_rules
+FAILED tests/test_cli_lint_strategy.py::test_lint_batch_mixes_factor_and_strategy
+FAILED tests/test_run_strategy.py::test_universe_override_filters_signal_before_construction[duckdb]
+FAILED tests/test_run_strategy.py::test_universe_override_filters_signal_before_construction[ch]
+FAILED tests/test_run_strategy.py::test_universe_override_no_intersection_fails_fast[duckdb]
+FAILED tests/test_run_strategy.py::test_universe_override_no_intersection_fails_fast[ch]
+9 failed, 4 passed in 7.29s

@@ -45,15 +45,25 @@ def version() -> None:
 
 
 def _lint_one(spec_path: Path) -> str:
-    """校验单个 spec（与引擎同序静态管线，不打开 DB）；返回 spec.name。
+    """校验单个 spec；返回 name。
 
-    校验范围：formula / factors[].formula / universe.formula（池公式）/ operators 宏体。
-    R22（Task 8）：改用 `prepare_static`——参数替换 → 宏展开 → def 内联 →
-    薄封装展开 → stable_rank/vendor alias 改写 → 分类表归一化（开放面全量放行，
-    未知算子给 op_meta 指引）→ 未来门（全形态 行:列）→ 输出名检查。引擎侧
-    compute_formula 执行同一序列（仅多一层 universe masking），lint 只是把失败
-    提前到写因子的第一条命令。
+    分派（R07-STRAT-I6）：YAML 顶层含 `signal`/`portfolio` 形态 → 策略文档，
+    走 `load_strategy_doc` 严格校验（未知键/类型/NEXT_WINDOW 无窗口/rules V1）；
+    其余仍走因子 spec 的完整静态管线（行为不变）。
+
+    因子校验范围：formula / factors[].formula / universe.formula（池公式）/
+    operators 宏体。R22（Task 8）：改用 `prepare_static`——参数替换 → 宏展开 →
+    def 内联 → 薄封装展开 → stable_rank/vendor alias 改写 → 分类表归一化
+    （开放面全量放行，未知算子给 op_meta 指引）→ 未来门（全形态 行:列）→
+    输出名检查。引擎侧 compute_formula 执行同一序列（仅多一层 universe
+    masking），lint 只是把失败提前到写因子的第一条命令。
     """
+    from factorlab.core.strategy.spec_io import looks_like_strategy_doc
+
+    if looks_like_strategy_doc(spec_path):
+        from factorlab.core.strategy import load_strategy_doc
+        return load_strategy_doc(spec_path).strategy.name
+
     from factorlab.core.engine.compute import prepare_static
 
     spec = load_spec(spec_path)
@@ -99,15 +109,18 @@ def _factor_spec_paths() -> list[Path]:
 
 @app.command()
 def lint(
-    spec_paths: list[Path] = typer.Argument(None, help="一个或多个因子 spec YAML 路径"),
+    spec_paths: list[Path] = typer.Argument(
+        None, help="一个或多个因子 spec 或策略文档 YAML 路径"),
     all_specs: bool = typer.Option(False, "--all",
                                    help="扫描 research/factor/**/*.yaml 全库单进程批跑"),
 ) -> None:
-    """校验 YAML Spec 与 factor formula（与引擎同序：完整静态管线，不打开 DB）。
+    """校验 YAML Spec（因子 formula / 策略文档，与引擎同序静态管线，不打开 DB）。
 
-    单路径：输出 `OK <name>`；失败打印原因并 exit 1（行为与退出码保持兼容）。
-    多路径 / `--all`：单进程批跑（消灭 N 个进程 N 次 import 的启动开销），
-    逐个失败隔离上报，任一失败 exit 1，末行汇总 `factor lint: N 通过 / M 失败`。
+    分派：含 `signal`/`portfolio` 的 YAML → 策略文档（load_strategy_doc 严格校验）；
+    其余 → 因子 spec（完整静态管线）。单路径：输出 `OK <name>`；失败打印原因并
+    exit 1（行为与退出码保持兼容）。多路径 / `--all`：单进程批跑（消灭 N 个进程
+    N 次 import 的启动开销），逐个失败隔离上报，任一失败 exit 1，末行汇总
+    `factor lint: N 通过 / M 失败`。
     """
     paths: list[Path] = list(spec_paths or [])
     if all_specs:
@@ -123,7 +136,7 @@ def lint(
     if len(paths) == 1 and not all_specs:
         try:
             name = _lint_one(paths[0])
-        except (ValueError, FactorDSLError) as exc:
+        except (ValueError, FactorDSLError, NotImplementedError) as exc:
             console.print(str(exc))
             raise typer.Exit(code=1) from exc
         console.print(f"OK {name}")
