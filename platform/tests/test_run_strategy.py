@@ -303,6 +303,35 @@ def test_explicit_out_dir_override(env, tmp_path):
     assert not (results / "strategies").exists()
 
 
+def test_target_transform_applies_before_persist_and_backtest(env, tmp_path):
+    """L5 研究侧规则（如 max_hold）经 target_transform 钩子注入：变换后落盘/回测。
+
+    变换返回 TargetPortfolio（研究侧 V1 近似保持 decision_dates/gross 不变）。
+    """
+    from factorlab.app.strategy import run_strategy
+    from factorlab.core.domain.portfolio import TargetPortfolio
+
+    results = _results_dir(tmp_path)
+    _seed_and_run_factor(env, tmp_path, results)
+    doc = _load_doc(tmp_path)
+    calls = {"n": 0}
+
+    def drop_d2(target):
+        calls["n"] += 1
+        assert isinstance(target, TargetPortfolio)
+        return TargetPortfolio(
+            frame=target.frame.filter(pl.col("decision_date") != _D2),
+            decision_dates=target.decision_dates, meta=target.meta)
+
+    res = run_strategy(doc, env.rd, results_dir=results, target_transform=drop_d2)
+    assert calls["n"] == 1, "钩子必须被调用一次"
+    assert res.target.frame.filter(pl.col("decision_date") == _D2).height == 0
+    assert res.target.decision_dates == (_D1, _D2, _D3, _D4)  # all-cash 日保留
+    assert load_strategy_artifacts(res.out_dir).target.frame.equals(res.target.frame)
+    # M8 消费变换后的 target：D2 全现金 → D3 执行后持仓为空
+    assert res.backtest.artifacts[1].post_state.positions.height == 0
+
+
 def test_empty_window_fails_fast_with_readable_error(env, tmp_path):
     from factorlab.app.strategy import run_strategy
 

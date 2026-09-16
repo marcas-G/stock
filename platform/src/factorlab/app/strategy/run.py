@@ -60,12 +60,16 @@ def _filter_to_window(signal: SignalArtifact, doc: StrategyDoc) -> SignalArtifac
 
 def run_strategy(doc: StrategyDoc, rd: ReadPort,
                  results_dir: Path | None = None,
-                 out_dir: Path | None = None) -> StrategyRunResult:
+                 out_dir: Path | None = None,
+                 target_transform=None) -> StrategyRunResult:
     """执行策略文档：读信号 → 窗口过滤 → M7 组合 → 落盘 → M8 回测 → 落盘。
 
     - results_dir：results 根（缺省 settings.results_dir）——信号按
       `results_dir/<signal_name>` 读取；
-    - out_dir：策略产物目录显式覆盖（缺省 `results_dir/"strategies"/<name>`）。
+    - out_dir：策略产物目录显式覆盖（缺省 `results_dir/"strategies"/<name>`）；
+    - target_transform：可选 M7 → M8 之间的目标组合变换钩子（研究侧 L5 规则
+      V1 注入点，如 max_hold；须返回 TargetPortfolio 且保持 decision_dates/
+      gross_exposure 契约——写盘交叉校验会复验）。
     """
     if not isinstance(doc, StrategyDoc):
         raise TypeError(
@@ -76,6 +80,12 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
     signal = load_signal_artifact(root / doc.strategy.signal_name)
     filtered = _filter_to_window(signal, doc)
     target = construct_target_portfolio(filtered, doc.strategy)
+    if target_transform is not None:
+        target = target_transform(target)
+        if not isinstance(target, TargetPortfolio):
+            raise TypeError(
+                f"target_transform 必须返回 TargetPortfolio（收到 "
+                f"{type(target).__name__}）——L5 规则层不得改变目标组合契约")
     schedule = build_rebalance_schedule(filtered, doc.strategy)
     target_dir = (Path(out_dir) if out_dir is not None
                   else root / "strategies" / doc.strategy.name)

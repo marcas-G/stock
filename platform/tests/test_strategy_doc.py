@@ -215,21 +215,38 @@ def test_next_open_with_minute_window_rejected(tmp_path):
     assert "minute_window" in str(ei.value)
 
 
-# ---------------- V1 rules 边界（Task 6 放开 max_hold）----------------
+# ---------------- V1 rules 边界（Task 6 起 max_hold 放开）----------------
 
 @pytest.mark.parametrize("rule_yaml", [
     "rules: {stop_loss: 0.1, take_profit: null, max_hold: null}",
     "rules: {stop_loss: null, take_profit: 0.2, max_hold: null}",
-    "rules: {stop_loss: null, take_profit: null, max_hold: 60}",
 ])
-def test_non_null_rules_not_implemented_v1(tmp_path, rule_yaml):
-    """V1：L5 路径依赖规则未落地——非 null 一律 NotImplementedError（非静默忽略）。"""
+def test_stop_loss_take_profit_not_implemented_v1(tmp_path, rule_yaml):
+    """V1：止损/止盈平台化未落地——非 null 一律 NotImplementedError（非静默忽略）。"""
     bad = _FULL_YAML.replace(
         "rules: {stop_loss: null, take_profit: null, max_hold: null}", rule_yaml)
     with pytest.raises(NotImplementedError) as ei:
         _load(tmp_path, bad)
-    msg = str(ei.value)
-    assert "stop_loss" in msg or "take_profit" in msg or "max_hold" in msg
+    assert "stop_loss" in str(ei.value) or "take_profit" in str(ei.value)
+
+
+def test_max_hold_accepted_v1(tmp_path):
+    """Task 6：max_hold 放开（研究侧 V1 近似；加载器只做类型/值域校验）。"""
+    text = _FULL_YAML.replace(
+        "rules: {stop_loss: null, take_profit: null, max_hold: null}",
+        "rules: {stop_loss: null, take_profit: null, max_hold: 60}")
+    doc = _load(tmp_path, text)
+    assert doc.rules.max_hold == 60
+    assert doc.rules.stop_loss is None and doc.rules.take_profit is None
+
+
+@pytest.mark.parametrize("bad", ["0", "-1", "true", '"60"'])
+def test_max_hold_rejects_invalid_v1(tmp_path, bad):
+    text = _FULL_YAML.replace(
+        "rules: {stop_loss: null, take_profit: null, max_hold: null}",
+        f"rules: {{stop_loss: null, take_profit: null, max_hold: {bad}}}")
+    with pytest.raises(ValueError):
+        _load(tmp_path, text)
 
 
 # ---------------- universe_override / regime 声明 ----------------

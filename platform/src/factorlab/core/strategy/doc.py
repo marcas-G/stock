@@ -9,7 +9,7 @@
     ├── date: DateRange             回测窗口（decision 过滤）
     ├── universe_override           L1 可选 codes 覆盖（null = 随因子）
     ├── regime: RegimeSpec          L2 门控语义（V1 仅 signal_gate）
-    └── rules: RulesSpec            L5 路径依赖规则（V1 仅 null；Task 6 放开 max_hold）
+    └── rules: RulesSpec            L5 路径依赖规则（V1：max_hold 放开；止损/止盈后置）
 
 YAML 读入在 `spec_io.py`（与 `core/spec.py::load_spec` 同模式）；本模块保持
 纯契约（无文件 I/O）。
@@ -59,9 +59,10 @@ class RegimeSpec(BaseModel):
 class RulesSpec(BaseModel):
     """L5 路径依赖规则（有状态，唯一带状态的层）。
 
-    V1 仅允许全 null：`max_hold` 的 V1 近似在研究侧（`l5_rules.py`，Task 6 放开）；
-    `stop_loss` / `take_profit` 平台化后置（Plan S Task 7 触发条件）。非 null 在
-    StrategyDoc 层显式 `NotImplementedError`——不静默忽略。
+    V1：仅 `max_hold` 放开（研究侧近似，`research/tools/strategies/l5_rules.py`，
+    调仓日粒度、非成交明细级）；`stop_loss` / `take_profit` 平台化后置（Plan S
+    Task 7 触发条件）。后两者非 null 在 StrategyDoc 层显式 `NotImplementedError`
+    ——不静默忽略。
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -93,7 +94,7 @@ class RulesSpec(BaseModel):
         return v
 
 
-_V1_UNSUPPORTED_RULES = ("stop_loss", "take_profit", "max_hold")
+_V1_UNSUPPORTED_RULES = ("stop_loss", "take_profit")
 
 
 class StrategyDoc(BaseModel):
@@ -132,8 +133,9 @@ class StrategyDoc(BaseModel):
                    if getattr(self.rules, name) is not None]
         if present:
             raise NotImplementedError(
-                f"V1 不支持策略路径依赖规则 {present}——M8 执行层无止损/止盈/持有上限"
-                f"语义，不允许静默忽略。max_hold 的 V1 近似在研究侧"
-                f"（research/tools/strategies/l5_rules.py，Task 6）；"
-                f"stop_loss/take_profit 平台化见 Plan S Task 7 触发条件")
+                f"V1 不支持策略路径依赖规则 {present}——M8 执行层无止损/止盈语义，"
+                f"不允许静默忽略。max_hold 的 V1 近似在研究侧"
+                f"（research/tools/strategies/l5_rules.py，调仓日粒度）；"
+                f"stop_loss/take_profit 平台化见 Plan S Task 7 触发条件"
+                f"（连续/日内触发语义 + 成交明细级回放，另立里程碑）")
         return self
