@@ -1,0 +1,12 @@
+$ platform/.venv/bin/python <<'EOF'  # Plan S §接口契约 2) 逐字冒烟
+
+doc.strategy : StrategySpec low_lottery_top30_weekly -1 30 weekly
+doc.execution: ExecutionSpec NEXT_OPEN
+doc.date     : 2025-03-01 ~ 2025-03-31 | regime: signal_gate | rules: {'stop_loss': None, 'take_profit': None, 'max_hold': None}
+run_strategy signature: (doc: 'StrategyDoc', rd: 'ReadPort', results_dir: 'Path | None' = None, out_dir: 'Path | None' = None, target_transform=None) -> 'StrategyRunResult'
+StrategyRunResult fields: ['out_dir', 'target', 'backtest', 'nav_series', 'signal_name', 'decision_count']
+
+== 门再确认 ==
+$ build_strategy_index.py --check
+策略索引一致 ✓
+rc=0
