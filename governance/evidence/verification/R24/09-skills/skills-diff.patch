@@ -1,0 +1,107 @@
+--- /tmp/opencode/skills-orig/factorlab-dsl.SKILL.md	2026-09-16 14:22:07.440121634 +0800
++++ /data/students/gaolei/.claude/skills/factorlab-dsl/SKILL.md	2026-09-16 14:22:11.096278730 +0800
+@@ -1,6 +1,6 @@
+ ---
+ name: factorlab-dsl
+-description: FactorLab 因子 DSL 与 Spec——编写/修改因子 spec.yaml（DSL 表达式、TS/CS/GP 分区、算子、池公式、多输出、target）。用户要求新建因子、改公式、写 spec、解释 DSL 语义、查算子/列可用性时调用。权威文档: quant-platform-main/docs/interface.md §1-§3 与 docs/catalog.md。
++description: FactorLab 因子 DSL 与 Spec——编写/修改因子 spec.yaml（DSL 表达式、TS/CS/GP 分区、算子、池公式、多输出、target）。用户要求新建因子、改公式、写 spec、解释 DSL 语义、查算子/列可用性时调用。权威文档: knowledge/contracts/interface.md §1-§3 与 knowledge/contracts/catalog.md。
+ ---
+ 
+ # FactorLab 因子 DSL（Spec/表达式/分区/算子）
+@@ -13,13 +13,13 @@
+ 何时不用：评估已有运行结果 → factorlab-evaluate；跑回测 → factorlab-backtest；数据问题 → factorlab-data / factorlab-ch-pipeline。
+ 
+ ## 权威文档（活的，以它们为准；本文件只做速查）
+-- `/data/students/gaolei/stock/quant-platform-main/docs/interface.md`
++- `/data/students/gaolei/stock/knowledge/contracts/interface.md`
+   - §1 `factorlab run <spec.yaml>`（:88）— 参数/输出/错误语义；`--chunk-days` 分块（:131）
+   - §2 Spec 文件（:221）— 全字段 schema
+   - §3 因子脚本（:314）— 表达式语法、分区与 lookback、池公式 `universe.formula`（:395）
+   - §4.5 Versioned Result Artifacts（:1238）、§4.4 labels、§4.6 Semantic Guards
+-- `/data/students/gaolei/stock/quant-platform-main/docs/catalog.md` — DSL 列/算子**活文档**（`factorlab catalog docs` 可再生成）
+-- `/data/students/gaolei/stock/quant-platform-main/docs/superpowers/specs/`
++- `/data/students/gaolei/stock/knowledge/contracts/catalog.md` — DSL 列/算子**活文档**（`factorlab catalog docs` 可再生成）
++- `/data/students/gaolei/stock/knowledge/design/platform/specs/`
+   - 2026-08-15-factor-dsl-platform-design.md — 平台总纲（目标 :303、M4）
+   - 2026-09-06-factorlab-dsl-shape-design.md — 输出形态/多输出逐输出评估语义（§3.2）
+   - 2026-08-17-factorlab-free-form-formula-design.md、2026-08-18-chunked-compute-design.md
+--- /tmp/opencode/skills-orig/factorlab-data.SKILL.md	2026-09-16 14:22:07.440121634 +0800
++++ /data/students/gaolei/.claude/skills/factorlab-data/SKILL.md	2026-09-16 14:22:07.504124384 +0800
+@@ -1,6 +1,6 @@
+ ---
+ name: factorlab-data
+-description: FactorLab 平台数据层——读路径双后端（duckdb 平台库 | ClickHouse）、open_read/Rd 句柄、load_daily/trading_calendar/复权视图 adjust、intraday（bars_1m/tick 仅 ch）、CLI data rebuild|update|refresh|verify、数据契约与 integrity 六规则。用户遇到数据缺行/后端切换/复权语义/数据验证/平台数据更新问题时调用。权威文档: quant-platform-main/docs/interface.md §4 数据面 + §4.0 + §6 与 dual-backend spec、data-ops-playbook。
++description: FactorLab 平台数据层——读路径双后端（duckdb 平台库 | ClickHouse）、open_read/Rd 句柄、load_daily/trading_calendar/复权视图 adjust、intraday（bars_1m/tick 仅 ch）、CLI data rebuild|update|refresh|verify、数据契约与 integrity 六规则。用户遇到数据缺行/后端切换/复权语义/数据验证/平台数据更新问题时调用。权威文档: knowledge/contracts/interface.md §4 数据面 + §4.0 + §6 与 dual-backend spec、data-ops-playbook。
+ ---
+ 
+ # FactorLab 数据层（读路径 + 数据平台 CLI）
+@@ -15,13 +15,13 @@
+ 因子 spec/公式 → factorlab-dsl；回测执行错误 → factorlab-backtest。
+ 
+ ## 权威文档（活的；本文件只做速查）
+-- `/data/students/gaolei/stock/quant-platform-main/docs/interface.md`
++- `/data/students/gaolei/stock/knowledge/contracts/interface.md`
+   - §4 数据 API（:655-1015）：resolve_codes/load_daily/属性面/calendar/process 链/
+     adjust/PlatformDB/rebuild/refresh/verify
+   - §4.0 双后端（:1017-1080）：Rd 句柄与 open_read、settings.ch_*、intraday（仅 ch）
+   - §6 数据平台 CLI（:2547-2603）：TeaJoinClient/rebuild|update|refresh|verify
+-- `docs/data-ops-playbook.md` — `data update` 运维经验与故障排查
+-- `docs/superpowers/specs/`：2026-09-06 dual-backend 设计；m3a/m3b 数据平台 specs
++- `knowledge/contracts/data-ops-playbook.md` — `data update` 运维经验与故障排查
++- `knowledge/design/platform/specs/`：2026-09-06 dual-backend 设计；m3a/m3b 数据平台 specs
+ - 后端实现：src/factorlab/data/backend.py（Rd 工厂）、ch_source.py（ch 客户端）
+ 
+ ## 双后端速查（§4.0）
+--- /tmp/opencode/skills-orig/factorlab-backtest.SKILL.md	2026-09-16 14:22:07.448121977 +0800
++++ /data/students/gaolei/.claude/skills/factorlab-backtest/SKILL.md	2026-09-16 14:22:07.512124727 +0800
+@@ -1,6 +1,6 @@
+ ---
+ name: factorlab-backtest
+-description: FactorLab M7/M8 回测执行——组合构建到执行回测（run_backtest API、ExecutionSpec、CA Gate 除权闸门、停牌冻结/跳单、stk_limit 涨跌停语义、quantity rules、NAV 恒等式、结果持久化）。用户要做策略回测、遇到 ExecutionDataQualityError/涨跌停/除权/停牌错误、组装 run_factor→construct_target_portfolio→run_backtest 链时调用。权威文档: quant-platform-main/docs/interface.md §5/§6 与 m8-06a spec、daily-closeout 设计。
++description: FactorLab M7/M8 回测执行——组合构建到执行回测（run_backtest API、ExecutionSpec、CA Gate 除权闸门、停牌冻结/跳单、stk_limit 涨跌停语义、quantity rules、NAV 恒等式、结果持久化）。用户要做策略回测、遇到 ExecutionDataQualityError/涨跌停/除权/停牌错误、组装 run_factor→construct_target_portfolio→run_backtest 链时调用。权威文档: knowledge/contracts/interface.md §5/§6 与 m8-06a spec、daily-closeout 设计。
+ ---
+ 
+ # FactorLab 回测执行（M7 组合 → M8 执行）
+@@ -14,14 +14,14 @@
+ 何时不用：因子评估 → factorlab-evaluate；写 spec → factorlab-dsl；数据 → factorlab-data / factorlab-ch-pipeline。
+ 
+ ## 权威文档（活的；本文件只做速查）
+-- `/data/students/gaolei/stock/quant-platform-main/docs/interface.md`
++- `/data/students/gaolei/stock/knowledge/contracts/interface.md`
+   - §5 M7 Portfolio Construction（:1400）— TargetPortfolio/M7-01 契约、
+     M7-02 constructor、M7-03 scheduler、M7-04 artifact 持久化
+   - §6 M8 Execution Runtime（:1757 起）— 契约（:1782）、NEXT_OPEN-only、
+     quantity rules（:1788-1849，market 分类）、fills/成本/记账/NAV 各段
+     （M8-04C/04D/04E/05B）、`run_backtest`（M8-06B :2453）、
+     save/load_backtest_result（M8-06C :2491）
+-- `/data/students/gaolei/stock/quant-platform-main/docs/superpowers/specs/`
++- `/data/students/gaolei/stock/knowledge/design/platform/specs/`
+   - 2026-09-02-factorlab-m8-06a-backtest-runtime-design.md — 行为要求/错误语义
+   - 2026-09-07-factorlab-daily-closeout-design.md — WS4 停牌冻结、WS5 CA Gate、
+     §9.3 组合配方、§13 真实段解锁修正记录
+--- /tmp/opencode/skills-orig/factorlab-evaluate.SKILL.md	2026-09-16 14:22:07.448121977 +0800
++++ /data/students/gaolei/.claude/skills/factorlab-evaluate/SKILL.md	2026-09-16 14:22:07.520125071 +0800
+@@ -1,6 +1,6 @@
+ ---
+ name: factorlab-evaluate
+-description: FactorLab 因子评估——解读/运行因子评估（IC/resIC/分层分层回测/相关性/多输出逐输出评估/Web 报告）。用户问"因子质量/IC/分层/回测结果"、要评估已有 spec 运行结果、解释 summary.evaluation 结构、用 factorlab serve 看报告时调用。权威文档: quant-platform-main/docs/interface.md §0/§4 eval 段与 2026-09-07-resic spec。
++description: FactorLab 因子评估——解读/运行因子评估（IC/resIC/分层分层回测/相关性/多输出逐输出评估/Web 报告）。用户问"因子质量/IC/分层/回测结果"、要评估已有 spec 运行结果、解释 summary.evaluation 结构、用 factorlab serve 看报告时调用。权威文档: knowledge/contracts/interface.md §0/§4 eval 段与 2026-09-07-resic spec。
+ ---
+ 
+ # FactorLab 因子评估（IC/resIC/分层/多输出/报告）
+@@ -13,13 +13,13 @@
+ 何时不用：写 spec → factorlab-dsl；回测执行/订单层 → factorlab-backtest；数据 → factorlab-data / factorlab-ch-pipeline。
+ 
+ ## 权威文档（活的；本文件只做速查）
+-- `/data/students/gaolei/stock/quant-platform-main/docs/interface.md`
++- `/data/students/gaolei/stock/knowledge/contracts/interface.md`
+   - §0.1 M4a 汇总（:45）— 端到端评估链路与 evaluation dict 结构
+   - §4 eval 段：`run_factor`（:521）、`evaluate_factor_weekly`（:575/§762）、
+     `weekly_ic`（:586）、`cross_section` resIC（:596）、`layered_backtest`（:782）
+   - §0/§4 web 段（:13-30/:630）— serve 与报告
+   - §6 测试口径（:2527）
+-- `/data/students/gaolei/stock/quant-platform-main/docs/superpowers/specs/`
++- `/data/students/gaolei/stock/knowledge/design/platform/specs/`
+   - 2026-09-07-factorlab-resic-design.md — resIC 语义与验证
+   - 2026-09-06-factorlab-dsl-shape-design.md §3.2 — 逐输出独立评估语义
+   - 2026-09-07-factorlab-daily-closeout-design.md WS1-WS3 — target 接线/多输出/相关语义修订

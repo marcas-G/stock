@@ -83,8 +83,8 @@
 | 6 | `583217f` | 证据双轨迁 `governance/evidence/{verification,reviews}`（782 文件 100% rename；mtime 前后逐一相等，无并发写）；96 处活引用重指；两个 README 加旧→新映射；`make gates` 全绿 | `governance/evidence/verification/R24/06-evidence/` |
 | 6 | | | |
 | 7 | `227acd9` | 门与检查脚本迁 `governance/ops/`；ROOT 推导 `../..`；`make gates`/reinstall_editable 新路径验证 | `governance/evidence/verification/R24/07-ops/` |
-| 8 | 见下 | `platform/results/` → `runs/platform/`（2.6G mv）；`results_dir` 默认改包内派生绝对路径（与 cwd 无关）；短窗冒烟落 `runs/platform/r12_smoke` 且 `show` 可读；补 test_architecture 契约单点判据（Task 2 遗漏）；根 `results/`（挖矿在途）未清，见 C3 | `governance/evidence/verification/R24/08-runs/` |
-| 9 | | | |
+| 8 | `024e45f` | `platform/results/` → `runs/platform/`（2.6G mv）；`results_dir` 默认改包内派生绝对路径（与 cwd 无关）；短窗冒烟落 `runs/platform/r12_smoke` 且 `show` 可读；补 test_architecture 契约单点判据（Task 2 遗漏）；根 `results/`（挖矿在途）未清，见 C3 | `governance/evidence/verification/R24/08-runs/` |
+| 9 | 见下 | 仓外 5 技能路径同步（26 处 → 0 残留）；diff 证据落盘；`factor-mine`（仓内）复检 0 残留 | `governance/evidence/verification/R24/09-skills/` |
 | 10 | | | |
 | 11 | | | |
 | 12 | | | |
