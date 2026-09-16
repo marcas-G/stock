@@ -1,0 +1,34 @@
+
+### 突变：去掉 _lock 定义（NameError 复发）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+tools/quark_download/quark_client.py:92: NameError
+=========================== short test summary info ============================
+FAILED tools/quark_download/tests/test_quark_client_stoken.py::test_get_stoken_cache_true_hits_cache
+FAILED tools/quark_download/tests/test_quark_client_stoken.py::test_get_stoken_force_refetches_and_refreshes_cache
+2 failed, 1 passed in 0.08s
+
+### 突变：去掉 _state 定义（缓存状态不存在）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+=========================== short test summary info ============================
+FAILED tools/quark_download/tests/test_quark_client_stoken.py::test_get_stoken_cache_false_fetches_every_time_without_caching
+FAILED tools/quark_download/tests/test_quark_client_stoken.py::test_get_stoken_cache_true_hits_cache
+FAILED tools/quark_download/tests/test_quark_client_stoken.py::test_get_stoken_force_refetches_and_refreshes_cache
+3 failed in 0.06s
+
+### 突变：cache=True 不查缓存（每次都现取）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+  [stoken refreshed 23:26:46]
+  [stoken refreshed 23:26:46]
+=========================== short test summary info ============================
+FAILED tools/quark_download/tests/test_quark_client_stoken.py::test_get_stoken_cache_true_hits_cache
+1 failed, 2 passed in 0.05s
+
+### 突变：cache=False 也写缓存（语义改变）
+期望：测试失败；实测：FAIL（符合预期：存根被测试抓住）  [exit=1]
+  [stoken refreshed 23:26:47]
+  [stoken refreshed 23:26:47]
+=========================== short test summary info ============================
+FAILED tools/quark_download/tests/test_quark_client_stoken.py::test_get_stoken_cache_false_fetches_every_time_without_caching
+1 failed, 2 passed in 0.05s
+
+恢复原文后复跑： 12 passed in 0.49s [exit=0]

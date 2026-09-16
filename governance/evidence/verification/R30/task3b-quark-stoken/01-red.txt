@@ -1,0 +1,85 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+________ test_get_stoken_cache_false_fetches_every_time_without_caching ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8221bc4770>
+
+    def test_get_stoken_cache_false_fetches_every_time_without_caching(monkeypatch):
+        calls = []
+        monkeypatch.setattr(quark_client, "http", _fake_http(calls))
+    
+        assert quark_client.get_stoken(cache=False) == "S1"
+        assert quark_client.get_stoken(cache=False) == "S2"
+    
+        assert len(calls) == 2  # 不缓存 → 每次现取
+        assert "share/sharepage/token" in calls[0][0]
+        assert calls[0][1]["pwd_id"] == quark_client.PWD_ID
+>       assert quark_client._state["stoken"] is None  # cache=False 不写缓存
+               ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'quark_download.quark_client' has no attribute '_state'
+
+platform/tools/quark_download/tests/test_quark_client_stoken.py:42: AttributeError
+----------------------------- Captured stdout call -----------------------------
+  [stoken refreshed 23:26:20]
+  [stoken refreshed 23:26:20]
+____________________ test_get_stoken_cache_true_hits_cache _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8221dd8e90>
+
+    def test_get_stoken_cache_true_hits_cache(monkeypatch):
+        calls = []
+        monkeypatch.setattr(quark_client, "http", _fake_http(calls))
+    
+>       first = quark_client.get_stoken()
+                ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tools/quark_download/tests/test_quark_client_stoken.py:50: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+force = False, cache = True, ttl = 1500
+
+    def get_stoken(force: bool = False, *, cache: bool = True, ttl: int = STOKEN_TTL):
+        """取分享 stoken。`cache=True`（缺省，v2 口径）进程内缓存 ttl 秒；`cache=False`
+        （server 口径：每次现取）不走缓存也不上锁。失败即 assert（不吞）。
+        """
+        now = time.time()
+        if not cache:
+            return _fetch_stoken()
+>       with _lock:
+             ^^^^^
+E       NameError: name '_lock' is not defined
+
+platform/tools/quark_download/quark_client.py:90: NameError
+_____________ test_get_stoken_force_refetches_and_refreshes_cache ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8221dc5eb0>
+
+    def test_get_stoken_force_refetches_and_refreshes_cache(monkeypatch):
+        calls = []
+        monkeypatch.setattr(quark_client, "http", _fake_http(calls))
+    
+>       assert quark_client.get_stoken() == "S1"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tools/quark_download/tests/test_quark_client_stoken.py:63: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+force = False, cache = True, ttl = 1500
+
+    def get_stoken(force: bool = False, *, cache: bool = True, ttl: int = STOKEN_TTL):
+        """取分享 stoken。`cache=True`（缺省，v2 口径）进程内缓存 ttl 秒；`cache=False`
+        （server 口径：每次现取）不走缓存也不上锁。失败即 assert（不吞）。
+        """
+        now = time.time()
+        if not cache:
+            return _fetch_stoken()
+>       with _lock:
+             ^^^^^
+E       NameError: name '_lock' is not defined
+
+platform/tools/quark_download/quark_client.py:90: NameError
+=========================== short test summary info ============================
+FAILED platform/tools/quark_download/tests/test_quark_client_stoken.py::test_get_stoken_cache_false_fetches_every_time_without_caching
+FAILED platform/tools/quark_download/tests/test_quark_client_stoken.py::test_get_stoken_cache_true_hits_cache
+FAILED platform/tools/quark_download/tests/test_quark_client_stoken.py::test_get_stoken_force_refetches_and_refreshes_cache
+3 failed in 0.07s
