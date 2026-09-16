@@ -8,6 +8,7 @@ params: {}
 status: 观察中（vs 种子 extcnt：IC/t/IR 差异 <3%，中性）
 created_ts: 2026-09-16
 updated_ts: 2026-09-16
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # max_effect_20d_extsum 因子档案

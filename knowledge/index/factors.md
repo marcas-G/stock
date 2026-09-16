@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **170 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **173 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -12,7 +12,7 @@
 | intraday | 2 | `research/factor/intraday/` |
 | liquidity | 8 | `research/factor/liquidity/` |
 | misc | 1 | `research/factor/misc/` |
-| momentum_20d | 19 | `research/factor/momentum_20d/` |
+| momentum_20d | 22 | `research/factor/momentum_20d/` |
 | quality | 1 | `research/factor/quality/` |
 | reversal_10d | 4 | `research/factor/reversal_10d/` |
 | reversal_20d | 85 | `research/factor/reversal_20d/` |
@@ -86,6 +86,9 @@
 | `momentum_20d_turnrank_extreme` | -1 | fwd5d |  | [turnrank_extreme.md](../../knowledge/dossiers/factors/momentum_20d/turnrank_extreme.md) | [yaml](../../research/factor/momentum_20d/turnrank_extreme.yaml) |
 | `momentum_20d_turnrank_lowturn` | -1 | fwd5d |  | [turnrank_lowturn.md](../../knowledge/dossiers/factors/momentum_20d/turnrank_lowturn.md) | [yaml](../../research/factor/momentum_20d/turnrank_lowturn.yaml) |
 | `momentum_20d_turnrank_quad` | -1 | fwd5d |  | [turnrank_quad.md](../../knowledge/dossiers/factors/momentum_20d/turnrank_quad.md) | [yaml](../../research/factor/momentum_20d/turnrank_quad.yaml) |
+| `momentum_20d_turnrank_top10` | -1 | fwd5d |  | [turnrank_top10.md](../../knowledge/dossiers/factors/momentum_20d/turnrank_top10.md) | [yaml](../../research/factor/momentum_20d/turnrank_top10.yaml) |
+| `momentum_20d_turnrank_top2` | -1 | fwd5d |  | [turnrank_top2.md](../../knowledge/dossiers/factors/momentum_20d/turnrank_top2.md) | [yaml](../../research/factor/momentum_20d/turnrank_top2.yaml) |
+| `momentum_20d_turnrank_top5` | -1 | fwd5d |  | [turnrank_top5.md](../../knowledge/dossiers/factors/momentum_20d/turnrank_top5.md) | [yaml](../../research/factor/momentum_20d/turnrank_top5.yaml) |
 | `momentum_20d_turnrank_vol` | -1 | fwd5d |  | [turnrank_vol.md](../../knowledge/dossiers/factors/momentum_20d/turnrank_vol.md) | [yaml](../../research/factor/momentum_20d/turnrank_vol.yaml) |
 | `momentum_20d_vol_extreme` | -1 | fwd5d |  | [vol_extreme.md](../../knowledge/dossiers/factors/momentum_20d/vol_extreme.md) | [yaml](../../research/factor/momentum_20d/vol_extreme.yaml) |
 | `momentum_20d_volrank` | -1 | fwd5d |  | [volrank.md](../../knowledge/dossiers/factors/momentum_20d/volrank.md) | [yaml](../../research/factor/momentum_20d/volrank.yaml) |

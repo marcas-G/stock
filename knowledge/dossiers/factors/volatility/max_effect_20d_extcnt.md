@@ -82,7 +82,7 @@ formula: |
 
 ## 4. 验证结果
 
-> 数据快照自 `platform/results/max_effect_20d_extcnt/summary.json`（2026-09-16 运行；无 exclude_st 版）。
+> 数据快照自 `runs/platform/max_effect_20d_extcnt/summary.json`（2026-09-16 运行；无 exclude_st 版）。
 
 ### 样本
 
