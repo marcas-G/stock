@@ -43,10 +43,10 @@ stock/                     ← 仓库根（治理薄层，白名单定稿 15 项
 cd platform                                   # 平台 venv 在这里
 .venv/bin/factorlab lint   ../research/factor/<族>/<名>.yaml      # 秒级语法/白名单门
 FACTORLAB_DATA_BACKEND=ch .venv/bin/factorlab run ../research/factor/<族>/<名>.yaml
-FACTORLAB_RESULTS_DIR=results .venv/bin/factorlab show <名>       # IC/分层/换手完整档案
+.venv/bin/factorlab show <名>                                     # IC/分层/换手完整档案
 ```
 
-产物落 `platform/results/<名>/`（R24 Task 8 后默认 `runs/platform/<名>/`；本地，不入库）。库级分析：`list` / `corr` / `svd` / `resic` / `serve`。
+产物落仓库根 `runs/platform/<名>/`（R24 起默认 = `settings.results_dir`，从包位置派生、与 cwd 无关；`FACTORLAB_RESULTS_DIR` 可覆盖；本地，不入库）。库级分析：`list` / `corr` / `svd` / `resic` / `serve`。
 
 ## 跑测试与门
 

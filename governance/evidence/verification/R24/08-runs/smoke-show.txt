@@ -1,0 +1,64 @@
+=== r12_smoke ===
+spec: adjustment: qfq
+category: custom
+combine: null
+cost_rate: 0.0
+date:
+  end: '2026-06-30'
+  start: '2026-06-01'
+description: ''
+direction: 1
+factors: null
+formula: 'signal = close
+
+  '
+interface: daily
+name: r12_smoke
+op_meta: null
+operators: {}
+outputs: null
+params: {}
+process: []
+target: forward_return_5d
+universe:
+  codes:
+  - 000001.SZ
+  - 600519.SH
+  - 000002.SZ
+  - 600036.SH
+  formula: null
+  ref: null
+  rules: null
+
+universe: 4 只 | 2026-06-01 ~ 2026-06-30 | rows=84 | null_ratio=0.0
+警告: 十分位组 [0, 2, 4, 5, 7, 9]（0=最小 
+signal）全期无有效收益——信号重并列/离散，spread/单调性不可用；建议降低分组数或改
+用其他评估口径
+IC: {'mean': -0.20000000000000004, 'std': 0.34641016151377546, 't_stat': 
+-1.0000000000000002, 'ir': -0.5773502691896258, 'n_weeks': 3, 'recent_26w_mean':
+-0.20000000000000004, 'recent_26w_t': -1.0000000000000002, 'sign_consistent': 
+0.3333333333333333}
+十分位 spread: {'ret': nan}
+换手: {'monthly': nan, 'quarterly': nan} | 覆盖: {'pct_valid': 0.6, 
+'total_rows': 20, 'valid_rows': 12}
+评估: ic={'mean': -0.20000000000000004, 'std': 0.34641016151377546, 't_stat': 
+-1.0000000000000002, 'ir': -0.5773502691896258, 'n_weeks': 3, 'recent_26w_mean':
+-0.20000000000000004, 'recent_26w_t': -1.0000000000000002, 'sign_consistent': 
+0.3333333333333333}
+分层回测: {'D1': {'annual_return': -0.552883, 'annual_vol': 0.159197, 'sharpe': 
+-3.472951, 'max_drawdown': -0.043686, 'win_rate': 0.333333}, 'D2': 
+{'annual_return': 0.0, 'annual_vol': 0.0, 'sharpe': 0.0, 'max_drawdown': 0.0, 
+'win_rate': 0.0}, 'D3': {'annual_return': -0.714414, 'annual_vol': 0.176484, 
+'sharpe': -4.048048, 'max_drawdown': -0.05469, 'win_rate': 0.333333}, 'D4': 
+{'annual_return': 0.0, 'annual_vol': 0.0, 'sharpe': 0.0, 'max_drawdown': 0.0, 
+'win_rate': 0.0}, 'D5': {'annual_return': 0.0, 'annual_vol': 0.0, 'sharpe': 0.0,
+'max_drawdown': 0.0, 'win_rate': 0.0}, 'D6': {'annual_return': -0.291913, 
+'annual_vol': 0.317651, 'sharpe': -0.918972, 'max_drawdown': -0.060015, 
+'win_rate': 0.333333}, 'D7': {'annual_return': 0.0, 'annual_vol': 0.0, 'sharpe':
+0.0, 'max_drawdown': 0.0, 'win_rate': 0.0}, 'D8': {'annual_return': -0.271764, 
+'annual_vol': 0.013459, 'sharpe': -20.192739, 'max_drawdown': -0.00828, 
+'win_rate': 0.0}, 'D9': {'annual_return': 0.0, 'annual_vol': 0.0, 'sharpe': 0.0,
+'max_drawdown': 0.0, 'win_rate': 0.0}, 'D10': {'annual_return': 0.0, 
+'annual_vol': 0.0, 'sharpe': 0.0, 'max_drawdown': 0.0, 'win_rate': 0.0}, 
+'long_short': {'annual_return': -0.552883, 'annual_vol': 0.159197, 'sharpe': 
+-3.472952, 'max_drawdown': -3.631057, 'win_rate': 0.333333}}

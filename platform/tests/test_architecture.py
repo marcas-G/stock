@@ -54,9 +54,9 @@ def test_research_tree_has_no_platform_copy():
 
 
 def test_contract_docs_have_single_copy():
-    """契约 4 篇全仓各只一份（活文档单点，防漂移）。"""
+    """契约 4 篇全仓各只一份（R24 起单点 = knowledge/contracts/，防漂移）。"""
     for name in sorted(_CONTRACT_DOCS):
-        paths = [p for p in _tracked() if p.endswith(f"/docs/{name}")]
+        paths = [p for p in _tracked() if p == f"knowledge/contracts/{name}"]
         assert len(paths) == 1, f"{name} 副本数 {len(paths)}（应为 1）: {paths}"
 
 

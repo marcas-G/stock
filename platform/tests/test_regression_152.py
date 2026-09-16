@@ -63,14 +63,15 @@ def test_specs_lint_all():
 def test_sample_value_regression():
     if not _ch_available():
         pytest.skip("ClickHouse 不可达（ch 腿跳过）")
-    env = {**os.environ, "FACTORLAB_DATA_BACKEND": "ch"}
+    env = {**os.environ, "FACTORLAB_DATA_BACKEND": "ch",
+           "FACTORLAB_RESULTS_DIR": str(REPO / "runs" / "platform")}
     for name, rel in SPECS.items():
         base = json.loads((BASELINE / f"{name}.json").read_text(encoding="utf-8"))
         r = subprocess.run(
             [str(FACTORLAB), "run", str(BASELINE_SPECS / rel)],
             cwd=str(PLATFORM), env=env, capture_output=True, text=True, timeout=3600)
         assert r.returncode == 0, f"{name} run 失败:\n{r.stdout}\n{r.stderr}"
-        got = json.loads((PLATFORM / "results" / name / "summary.json").read_text(encoding="utf-8"))
+        got = json.loads((REPO / "runs" / "platform" / name / "summary.json").read_text(encoding="utf-8"))
         assert got["evaluation"]["n_weeks"] == base["evaluation"]["n_weeks"], name
         for k in IC_KEYS:
             a = got["evaluation"]["ic"][k]

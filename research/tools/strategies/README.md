@@ -2,7 +2,7 @@
 
 | 入口 | 策略 | 数据源 |
 |---|---|---|
-| `run_strategy.py` | **策略 YAML 薄入口（Plan S）**：`load_strategy_doc` → `run_strategy`（M7 组合 → M8 回测 → 落盘）；`--dry-run` 秒级自检 | `platform/results/<因子名>/signal.parquet` + CH 执行面 |
+| `run_strategy.py` | **策略 YAML 薄入口（Plan S）**：`load_strategy_doc` → `run_strategy`（M7 组合 → M8 回测 → 落盘）；`--dry-run` 秒级自检 | `runs/platform/<因子名>/signal.parquet`（results_dir 默认） + CH 执行面 |
 | `l5_rules.py` | **L5 规则层 V1**：`max_hold` 调仓日粒度近似（边界见 `knowledge/dossiers/strategies/_l5-rules.md`） | 目标组合历史 + 交易日历 |
 | `strategy_crash_bottom.py` | 崩底反弹 + 领涨股轮动（蒙特卡洛） | `results/<因子名>/panel.parquet`（经平台 `adapters.panel_store` 单点读）+ 指数日线 |
 | `strategy_wait_crash.py` | 知乎"死等股灾"战法（原样实现，**结论：已证伪**） | 同上 |

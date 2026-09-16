@@ -19,7 +19,7 @@ load_bars_1m_codes，2026-09-08 开工）见
 M5 在 M4b 结果落盘（summary.json/weekly.parquet）之上补齐浏览器可视化闭环：
 
 - **`factorlab serve`**（`--port`/`--host`，默认 `127.0.0.1:8000`）：只读启动
-  Web 服务，可视化 `settings.results_dir`（`FACTORLAB_RESULTS_DIR` 可覆盖）下
+  Web 服务，可视化 `settings.results_dir`（默认仓库根 `runs/platform/`；`FACTORLAB_RESULTS_DIR` 可覆盖）下
   已保存因子（见 §1 与 §4 `factorlab.surfaces.web`）。
 - **web 包**（`factorlab.surfaces.web`）：`app.create_app(results_dir)` 构建 FastAPI 只读
   应用——列表 `/` + 详情 `/factor/<name>`，Jinja2 模板 + Plotly 图表内嵌；
@@ -42,7 +42,7 @@ M4b 在 M4a 评估链路之上补齐单因子评估闭环：
 - **CLI `list` / `show`**：已保存因子清单与单因子完整摘要（见 §1）。
 - **M4a 遗留接线**：`pit_qfq` 消费（`run_factor` 传 `asof=spec.date.end`）、
   `weekly.parquet` 周频对齐面板落盘（替代原日频冗余）、`results_dir` 锚定
-  （`--output-dir` 缺省 `results/<name>/`）。
+  （`--output-dir` 缺省 `<results_dir>/<name>/`；`results_dir` 默认仓库根 `runs/platform/`）。
 - 回测期数口径与 quant_core 评估周数一致：signal/forward 全 null 的周（头部窗口
   未满/尾部无未来收益）不计入，`bt["periods"] == evaluation["n_weeks"]`（实测）。
 
@@ -77,10 +77,10 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 |------|------|
 | `factorlab version` | 打印包版本 |
 | `factorlab lint <spec.yaml>` | 校验 Spec、AST 白名单与引擎同序语义门（未知算子/负位移/未来下标，含池公式），失败时以非 0 退出 |
-| `factorlab run <spec.yaml> [--universe U] [--max-memory M] [--output-dir DIR] [--no-float32] [--backtest/--no-backtest] [--groups N] [--set k=v ...] [--chunk-days N] [--warmup-days N]` | 计算因子并周频评估 + 分层回测（默认），落盘 `results/<name>/`（`--set` 生成 `results/<name>_<k><v>.../` 参数变体；`--chunk-days` 日期分块，见 §运行-分块计算） |
+| `factorlab run <spec.yaml> [--universe U] [--max-memory M] [--output-dir DIR] [--no-float32] [--backtest/--no-backtest] [--groups N] [--set k=v ...] [--chunk-days N] [--warmup-days N]` | 计算因子并周频评估 + 分层回测（默认），落盘 `runs/platform/<name>/`（缺省 results_dir；`--set` 生成 `runs/platform/<name>_<k><v>.../` 参数变体；`--chunk-days` 日期分块，见 §运行-分块计算） |
 | `factorlab list` | 列出已保存因子与最近运行摘要（扫描 `results_dir/*/summary.json`，按运行时间倒序） |
 | `factorlab show <name>` | 查看单因子完整摘要（spec 原文/评估/分层回测） |
-| `factorlab corr <name1> <name2> ...` | 因子两两相关性（≥2 个）：周度横截面秩相关均值 + 全局 Pearson；任一因子无 results 报错（数据源 `results/<name>/panel.parquet` 的 signal，按 date+code inner join；join 后超 2000 万行每周降采样 5000 只） |
+| `factorlab corr <name1> <name2> ...` | 因子两两相关性（≥2 个）：周度横截面秩相关均值 + 全局 Pearson；任一因子无 results 报错（数据源 `<results_dir>/<name>/panel.parquet`（默认 `runs/platform/`） 的 signal，按 date+code inner join；join 后超 2000 万行每周降采样 5000 只） |
 | `factorlab svd [name1 ...] [--weeks 15]` | 因子库 SVD 分解：奇异值谱 + 主成分载荷（因子结构/有效维度分析）；缺省 names = 全部有 panel 因子（排除验证目录）；抽样 weeks 个交易周（concat+pivot 单次操作，规避多 join 段错误） |
 | `factorlab resic <name1> <name2> ... [--target 名] [--min-stocks 30]` | 横截面联合诊断：组内互评（默认，≥2 因子）或 `--target` 显式候选（可不在 names 中，基准应排除 target）。输出整组联合回归 R²（fwd ~ 整组逐周 OLS 均值）与每因子正交化残差 IC（resIC = 候选对基准逐周 OLS 残差 vs fwd 的周频 rankIC 均值/t 值 + 被基准解释 R²）。数据源 = results 多 run 单输出 panel 按周频对齐汇聚；每周样本 < max(min_stocks, 基准数+2) 剔除；错误路径 Exit 1（含"无结果"/"公共周"/多输出 panel 文案）。近共线因子建议先跑 corr/svd |
 | `factorlab op list [--catalog]` | 列出已注册算子；`--catalog` 列**分类表全集**（含未注册库函数：name/partition/window/source/returns） |
@@ -103,14 +103,15 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 - `--max-memory M`：运行期 DuckDB `memory_limit`（默认 `4GB`；**仅** DuckDB
   连接——进程级护栏见下方「进程内存护栏」`FACTORLAB_MAX_MEMORY`）。
 - `--output-dir DIR`：落盘目录，默认 `settings.results_dir / <spec.name>`
-  （`results/`，`FACTORLAB_RESULTS_DIR` 可覆盖——`list`/`show` 扫描同一目录）。
+  （默认仓库根 `runs/platform/`——从包位置派生、与 cwd 无关；`FACTORLAB_RESULTS_DIR` 可覆盖，
+  相对 cwd 解释——`list`/`show` 扫描同一目录）。
 - `--no-float32`：关闭 float32 内存护栏。
 - `--backtest/--no-backtest`：默认产出分层回测并写入 evaluation；`--no-backtest`
   关闭（快速评估，weekly 落盘不受影响）。
 - `--groups N`：分层档数（默认 10，`N >= 2`）。
 - `--set k=v`（可多次）：覆盖 spec 的 `params`（见 §2），生成**参数变体**——
   变体名 `<spec.name>_<k><v>...`（如 `vol_run_energy_win100_gain1.5`），results
-  独立目录，与默认变体（`results/<name>/`）并存不覆盖。值类型解析
+  独立目录，与默认变体（`runs/platform/<name>/`）并存不覆盖。值类型解析
   int → float → bool（`true/false`）→ str；格式错误（缺 `=` 或空值）以非 0
   退出提示。`--output-dir` 显式给出时优先于变体目录。
 - `--chunk-days N`：日期分块（交易日/块，`N >= 1`）。缺省：**分钟链
@@ -144,7 +145,7 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 factorlab run factor/demo.yaml --universe 600519 --output-dir out/run1
 factorlab run factor/demo.yaml --groups 5          # 5 档分层回测
 factorlab run factor/demo.yaml --no-backtest       # 仅评估，不产分层回测
-factorlab run factor/demo.yaml --set win=100       # 参数变体（results/demo_win100/）
+factorlab run factor/demo.yaml --set win=100       # 参数变体（runs/platform/demo_win100/）
 factorlab run factor/demo.yaml --set win=100 --set gain=1.5   # 多变体参数
 factorlab run factor/crash_bottom_leader_timed.yaml --chunk-days 500   # 2015-2026 分块计算
 ```
@@ -239,7 +240,7 @@ FACTORLAB_MAX_MEMORY=8GB FACTORLAB_MIN_AVAILABLE_MEMORY=2GB \
 
 ### `factorlab.adapters.results_fs` / `factorlab.adapters.panel_store`：results 布局单点（R12）
 
-`results/` 的**文件名、路径拼装、读取语义、原子写**只有这两个模块知道；`app/` 与 `surfaces/`
+`<results_dir>/`（默认 `runs/platform/`）的**文件名、路径拼装、读取语义、原子写**只有这两个模块知道；`app/` 与 `surfaces/`
 不得自己读写产物或出现布局字面量（门：`tests/test_architecture.py::test_results_io_only_in_adapters`）。
 
 - `results_fs.panel_path / weekly_path / summary_path(results_dir, name) -> Path`：布局单点；
@@ -892,7 +893,7 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
   口径一致性锁，CLI 不暴露）。缺列抛 ValueError；每周 null/NaN/非有限行
   全列过滤后才入回归。
 - `joint_diagnostics(names, results_dir, target=None, fwd_col=..., min_stocks=30) -> dict`
-  磁盘双模式入口：逐因子读 `results/<name>/panel.parquet`（仅单输出 run——
+  磁盘双模式入口：逐因子读 `<results_dir>/<name>/panel.parquet`（默认 `runs/platform/`）（仅单输出 run——
   无字面 signal 列的 panel 抛专门 ValueError；文件缺失抛 FileNotFoundError）
   → signal rename 为因子名 → date cast → align_weekly 逐因子对齐 → 公共
   日期交集过滤（空交集抛"无公共周"ValueError）→ concat+pivot 汇聚（单次
@@ -1607,7 +1608,7 @@ Label:                [ output chunk | right lookahead ]  ← 结束于 label_en
 + `adapters/results_fs.py` 统一 I/O；原 `artifacts.py` 单模块已随 WS4 分层退役）：
 
 ```
-results/<factor>/
+runs/platform/<factor>/   # = 默认 <results_dir>/<factor>/（R24）
 ├── signal.parquet      ← legacy 单输出（outputs == [signal]）正式 signal artifact
 ├── signal__<o>.parquet ← M2 多输出布局（format v2）：每声明输出一个正式 artifact
 ├── labels.parquet      ← FactorEvaluator 使用的未来标签 artifact（evaluation-only）
