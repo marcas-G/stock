@@ -11,6 +11,7 @@ docs/reviews/
 ├── findings.md              台账 = 唯一状态源（reviewer 与开发团队都写这里）
 ├── 2026-09-15-open-operators/  设计/实施方案（非评审轮次；开发团队实施入口）
 ├── 2026-09-15-minute-execution/  分钟级执行设计/实施计划（开发团队实施入口）
+├── 2026-09-16-strategy-decomposition/  策略六层漏斗分解规范（设计，待评审）
 └── rXX-YYYY-MM-DD-<标题>/    每轮评审
     ├── report.md            该轮完整报告（reviewer 只追加；勘误加在文末）
     └── evidence/            可复跑 probe 脚本 + 原始输出（索引见目录内 README.md）
