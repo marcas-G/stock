@@ -1,0 +1,25 @@
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests/test_minutes_wiring.py -q
+FF..                                                                     [100%]
+=================================== FAILURES ===================================
+__________________ test_minutes_chain_has_two_steps_in_order ___________________
+
+    def test_minutes_chain_has_two_steps_in_order():
+>       chain = stages.STAGE_CHAINS["minutes"]
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'minutes'
+
+platform/tools/pan_update/tests/test_minutes_wiring.py:19: KeyError
+___________ test_minutes_chain_uses_venv_python_and_existing_scripts ___________
+
+    def test_minutes_chain_uses_venv_python_and_existing_scripts():
+        venv_py = config.repo_root() / "platform" / ".venv" / "bin" / "python"
+>       for cmd in stages.STAGE_CHAINS["minutes"]:
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'minutes'
+
+platform/tools/pan_update/tests/test_minutes_wiring.py:27: KeyError
+=========================== short test summary info ============================
+FAILED platform/tools/pan_update/tests/test_minutes_wiring.py::test_minutes_chain_has_two_steps_in_order
+FAILED platform/tools/pan_update/tests/test_minutes_wiring.py::test_minutes_chain_uses_venv_python_and_existing_scripts
+2 failed, 2 passed in 0.07s
+exit=1
