@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import datetime
 import os
 import sys
 from pathlib import Path
@@ -111,6 +112,85 @@ def test_non_null_rules_exit_nonzero(tmp_path, capsys):
     assert "stop_loss" in err
 
 
+# ---------------- max_hold：CLI 必须把 L5 变换注入运行器（不是静默忽略）----------------
+
+class _FakeResult:
+    def __init__(self, out_dir):
+        import polars as pl
+        self.out_dir = out_dir
+        self.signal_name = "fake"
+        self.decision_count = 1
+        self.nav_series = type("NS", (), {"frame": pl.DataFrame({"nav": [1.0, 1.1]})})()
+        self.backtest = type("BT", (), {"artifacts": []})()
+
+
+def _mini_target():
+    import datetime
+    import polars as pl
+    from factorlab.core.domain.portfolio import (TargetPortfolio,
+                                                 TargetPortfolioMeta)
+    from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
+    days = [datetime.date(2024, 1, 1), datetime.date(2024, 1, 8),
+            datetime.date(2024, 1, 15)]
+    rows = []
+    for i, d in enumerate(days):
+        rows += [(d, "000001.SZ", 0.5), (d, "600519.SH", 0.5)]
+    frame = pl.DataFrame(rows, schema={"decision_date": pl.Date,
+                                       "code": pl.String,
+                                       "target_weight": pl.Float64}, orient="row")
+    meta = TargetPortfolioMeta(
+        strategy_name="wire", source_signal_name="sig",
+        source_timing=DEFAULT_EOD_SIGNAL_TIMING, gross_exposure=1.0)
+    return TargetPortfolio(frame=frame, decision_dates=tuple(days), meta=meta)
+
+
+def _run_with_patches(monkeypatch, tmp_path, yaml_text):
+    import types
+    import polars as pl
+    import factorlab.app.bootstrap as bootstrap
+    import factorlab.app.strategy as app_strategy
+    import factorlab.adapters.read.calendar as cal_mod
+
+    seen: dict = {}
+
+    def fake_run(doc, rd, results_dir=None, out_dir=None, target_transform=None):
+        seen["transform"] = target_transform
+        seen["doc"] = doc
+        return _FakeResult(tmp_path / "out")
+
+    monkeypatch.setattr(bootstrap, "open_read", lambda *a, **k: types.SimpleNamespace())
+    monkeypatch.setattr(cal_mod, "trading_calendar",
+                        lambda rd, s, e: pl.Series([datetime.date(2024, 1, 1),
+                                                    datetime.date(2024, 1, 8),
+                                                    datetime.date(2024, 1, 15)]))
+    monkeypatch.setattr(app_strategy, "run_strategy", fake_run)
+    rc = cli.main([str(_spec_file(tmp_path, yaml_text)), "--out-dir",
+                   str(tmp_path / "out")])
+    return rc, seen
+
+
+def test_max_hold_null_passes_no_transform(monkeypatch, tmp_path, capsys):
+    rc, seen = _run_with_patches(monkeypatch, tmp_path, _SPEC)
+    assert rc == 0
+    assert seen["transform"] is None
+
+
+def test_max_hold_builds_transform_and_applies_rule(monkeypatch, tmp_path, capsys):
+    import polars as pl
+    text = _SPEC.replace(
+        "rules: {stop_loss: null, take_profit: null, max_hold: null}",
+        "rules: {stop_loss: null, take_profit: null, max_hold: 1}")
+    rc, seen = _run_with_patches(monkeypatch, tmp_path, text)
+    assert rc == 0
+    assert seen["transform"] is not None, "max_hold 非 null 必须注入 L5 变换（不得静默忽略）"
+    out = seen["transform"](_mini_target())
+    # 日历 [1/1, 1/8, 1/15]：1/15 时 age=2>1 → 全部换出（all-cash 日）
+    assert out.frame.filter(
+        pl.col("decision_date") == datetime.date(2024, 1, 15)).height == 0
+    assert out.frame.filter(
+        pl.col("decision_date") == datetime.date(2024, 1, 1)).height == 2
+
+
 # ---------------- 真跑（integration：CH + 真实信号产物）----------------
 
 @pytest.mark.integration
@@ -140,3 +220,51 @@ def test_real_run_clean_window_2025_03(monkeypatch, tmp_path, capsys):
     assert (out_dir / "strategy_manifest.json").is_file()
     assert (out_dir / "manifest.json").is_file()
     assert (out_dir / "nav" / "nav_series.parquet").is_file()
+
+
+@pytest.mark.integration
+def test_real_run_max_hold_excludes_stale_and_renormalizes(monkeypatch, tmp_path):
+    """真数据端到端：max_hold=5 时连续持有 3 期的 code 在 3/21 被换出，剩余再归一。
+
+    同窗口两次真跑（无规则 vs max_hold=5）对照 target 帧——规则必须真实生效
+    （两帧不等且超限 code 缺席），不是静默忽略。
+    """
+    import polars as pl
+    signal_dir = _PLATFORM_RESULTS / "max_effect_20d_high"
+    if not (signal_dir / "signal.parquet").is_file():
+        pytest.skip(f"真实信号产物不存在: {signal_dir}（先跑 factorlab run）")
+    from factorlab.config import settings
+    try:
+        from factorlab.adapters import ch_read
+        ch_read.get_client().query("SELECT 1")
+    except Exception as exc:                       # noqa: BLE001
+        pytest.skip(f"ClickHouse 不可达: {exc}")
+    monkeypatch.setattr(settings, "data_backend", "ch")
+    from factorlab.adapters.strategy_artifacts import load_strategy_artifacts
+
+    out_a = tmp_path / "a"
+    assert cli.main([str(_spec_file(tmp_path, _SPEC)),
+                     "--results-dir", str(_PLATFORM_RESULTS),
+                     "--out-dir", str(out_a)]) == 0
+    text_b = _SPEC.replace("max_hold: null", "max_hold: 5")
+    out_b = tmp_path / "b"
+    assert cli.main([str(_spec_file(tmp_path, text_b)),
+                     "--results-dir", str(_PLATFORM_RESULTS),
+                     "--out-dir", str(out_b)]) == 0
+
+    ta = load_strategy_artifacts(out_a).target
+    tb = load_strategy_artifacts(out_b).target
+    assert ta.decision_dates == tb.decision_dates          # schedule 不变
+    assert not ta.frame.equals(tb.frame), "max_hold 必须真实改变目标组合"
+
+    d07, d14, d21 = (datetime.date(2025, 3, 7), datetime.date(2025, 3, 14),
+                     datetime.date(2025, 3, 21))
+
+    def codes(t, d):
+        return set(t.frame.filter(pl.col("decision_date") == d)["code"].to_list())
+
+    stale = codes(ta, d07) & codes(ta, d14) & codes(ta, d21)
+    assert stale, "前置：应有连续持有 3 期的 code"
+    assert not (stale & codes(tb, d21)), "连续持有 age=10 > 5 必须换出"
+    assert tb.frame.filter(
+        pl.col("decision_date") == d21)["target_weight"].sum() == pytest.approx(1.0)
