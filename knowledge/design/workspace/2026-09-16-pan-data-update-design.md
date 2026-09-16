@@ -33,10 +33,15 @@
 | 日K | `日K线数据---复权因子-经典技术指标--bs点缠论划线/` | 全量 `19910101至YYYYMMDD*.zip` + 增量 `YYYY-MM-DD至YYYY-MM-DDA股日k线.zip` + **`退市股/` 子目录逐文件（xlsx，数百个）** | `data/raw/daily/` | `ashare_ingest/import_daily.py` | `data/fact/daily_fact/daily_fact.parquet` → CH `daily` 层 5 表 + `stk_limit` + `adj_detail/adj_event` |
 | 分钟 | `A股分钟线/<年>/<月>/<YYYYMMDD>.zip` | 日 zip | `data/raw/minutes/` | `converters/convert_minutes_to_parquet.py` | `data/fact/bars_1m/` → CH `bars_1m`（月分区） |
 | 日线资金 | `日线资金--每日沪深京个股日线数据和资金流数据/<年>/<MM>.zip` + `/<年>/<MM>/<YYYYMMDD>.zip` | 月 zip + 当月日 zip | `data/raw/fund_flow/` | **新** `parse_fund_flow.py` → fact parquet | **新 CH 表 `moneyflow`**（D2）+ 平台读路径列映射 |
-| 财报/基本面 | `财报报表---有史以来--每周更新/` | 周更 `*_financial.parquet`（取最新；大 zip 可选） | `data/raw/financial/` | `ashare_ingest/import_fundamentals.py --fin-parquet` | `data/fact/fundamentals/fundamentals_pti.parquet` + **新 CH 表 `fundamentals_pti`**（D2） |
+| 财报/基本面 | `财报报表---有史以来--每周更新/` | 周更 `*更新简化个股基本面数据.xlsx`（2.2MB，51 列，自动源）；`*_financial.parquet`/大 zip 超分享直链上限（见 §2.1）→ 人工可选 | `data/raw/financial/` | **新** `parse_fundamentals_xlsx.py`（快照式）| `data/fact/fundamentals/fundamentals_snapshot.parquet` + **新 CH 表 `fundamentals`**（D2） |
 
 读路径扩展（资金流）：平台 `load_daily` 的列映射表扩展 `moneyflow` 列（按 `(trade_date, ts_code)` join，缺行传播 null），公式可引用；`interface.md`/`catalog` 同步列清单与覆盖说明。
 财报 CH 表：按 PIT 快照键 `(ts_code, ann_date, end_date)`/最新快照；平台当前无 CH 消费方，先建表 + 灌入 + 读取函数（供后续 attributes 面使用），验收以 fact/CH 双端可查为准。
+
+**§2.1 分享直链单文件大小上限（2026-09-16 实测）**：小文件可下（日K 增量 45.7MB、分钟 15MB、资金月 zip 35MB、xlsx 2.2MB、退市股 xlsx）；大文件取链即 HTTP 400 `download file size limit`（日K 全量 3.8GB、`*_financial.parquet` 367MB、财务大 zip 780MB+）。设计对策：
+- `sync` 分两类：**可自动**（限内文件）与 **manual_required**（取链 400 size limit）；
+- manual_required 不 fail 整链：写清单 + 日志告警（浏览器下载/转存后放入对应 raw 目录即可；`pan_update` 下次按本地命名登记并继续）；
+- 日K 全量只在首次/轮换时需要（本地已有 2026-07-31 旧全量 → 日常仅增量）；财报自动源改为小 xlsx，大 parquet/zip 为可选人工。
 
 **两张新表的列清单在实施计划阶段先落样本实测**（下载资金流 1 个月 zip + 最新 `*_financial.parquet`，按实际列名/单位定 DDL 与 fact schema；样本进入 `platform/tools/pan_update/tests/fixtures/` 或 R30 证据），DDL 与解析器测试同步生成，不在本设计里猜列名。
 
@@ -130,6 +135,7 @@ cli.py      pan_update sync|build|publish|verify|all [--categories ...] [--dry-r
 | Cookie 失效/降级（dl-guest） | 明确报错 + 提示刷新 Cookie；stoken 25min 自动刷新；不静默 |
 | 网盘限流/链接过期 | 复用现有 403/412 重新取链 + 退避；单实例锁防并发 |
 | 下载半成品 | 临时名 + size 校验后原子 rename；state 只在成功后写入 |
+| 分享直链大小上限（HTTP 400） | 分类为 manual_required：清单+告警，不 fail 整链；人工放入后自动接续（§2.1） |
 | CH 灌入失败 | 阶段记账可续；分区 TRAUNCATE+INSERT 幂等；失败不动 state 阶段标记 |
 | 清理误删 | 先清单+网盘等价核对+备份（可重下的可不备份，冻结件不删）；`git revert` 代码 |
 | 定时器不可用 | systemd user → crontab → 手工三条路线，文档化并登记 pending |
