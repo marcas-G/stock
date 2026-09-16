@@ -11,7 +11,7 @@ dependencies = [
     "polars>=1.38",
     "numpy>=1.26",  # 逐周横截面 OLS（eval.cross_section）/ eval.correlation 运行时依赖
     "duckdb>=1.5",
-    "pyarrow>=20",  # 本机 glibc 2.27: >=21 无 cp313 manylinux wheel, 只能 20.x
+    "pyarrow>=20,<21",  # 本机 glibc 2.27: >=21 无 cp313 manylinux wheel, 只能 20.x（R29：uv lock 需显式上界，否则解析到 25.x 源码构建必败）
     "clickhouse-connect>=1.7",  # ClickHouse 读后端 (ch_source)
     "pyyaml>=6",
     "pydantic>=2.12",
@@ -26,6 +26,8 @@ dependencies = [
     "plotly>=6.7",
     "requests>=2.32",
     "psutil>=7.2",
+    "pandas>=2",   # tools/ 直用（45 文件；此前只经 polars-ta 传递覆盖——R29 uv lock 显式声明）
+    "openpyxl>=3.1",  # tools/ashare_ingest/import_daily 的 xlsx 解析（R29 uv lock 暴露缺失）
     "quant-core>=0.1.0",  # Rust 评估内核（PyO3；源见 quant-data 项目归档，本仓库仅声明）
 ]
 
@@ -35,6 +37,10 @@ dev = ["pytest>=8", "pytest-cov>=6"]
 
 [project.scripts]
 factorlab = "factorlab.surfaces.cli.main:app"
+
+[tool.uv.sources]
+# R29：本地评估内核（不在 PyPI）——uv lock 解析用；不影响 pip/editable 安装路径
+quant-core = { path = "kernels/quant_core" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
