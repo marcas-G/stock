@@ -1,0 +1,8 @@
+daily-full signal: rows=4419466 col=signal max|diff|=0.000e+00 null_mismatch=0
+daily-full panel: rows=4419466 col=signal max|diff|=0.000e+00 null_mismatch=0
+daily-full panel: rows=4419466 col=forward_return_5d max|diff|=0.000e+00 null_mismatch=0
+daily-full panel: rows=4419466 col=forward_return_20d max|diff|=0.000e+00 null_mismatch=0
+daily-full panel: rows=4419466 col=close max|diff|=0.000e+00 null_mismatch=0
+minute signal: rows=609076 col=signal max|diff|=0.000e+00 null_mismatch=0
+minute labels: rows=609076 col=forward_return_5d max|diff|=0.000e+00 null_mismatch=0
+minute labels: rows=609076 col=forward_return_20d max|diff|=0.000e+00 null_mismatch=0

@@ -1,0 +1,27 @@
+2026-09-16 08:36:38.784 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 08:36:38.815 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+momentum_20d: n_weeks=178 ic_mean=-0.0414988679293545 
+spread=0.004278224258251657
+	Command being timed: ".venv/bin/factorlab run /data/students/gaolei/stock/docs/verification/R22/00-baseline/specs/momentum_20d/momentum_20d.yaml --output-dir /tmp/opencode/reviewer-r04-perf/results/mom_full_cli"
+	User time (seconds): 164.91
+	System time (seconds): 40.69
+	Percent of CPU this job got: 413%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:49.70
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 4390192
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 8503776
+	Voluntary context switches: 140869
+	Involuntary context switches: 541428
+	Swaps: 0
+	File system inputs: 48
+	File system outputs: 363448
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

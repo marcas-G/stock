@@ -1,0 +1,27 @@
+2026-09-16 08:30:46.708 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 08:30:46.738 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+intraday_tail_amt_share: n_weeks=27 ic_mean=0.07558398337274398 
+spread=-0.006758725230809986
+	Command being timed: ".venv/bin/factorlab run /data/students/gaolei/stock/research/factor/intraday/intraday_tail_amt_share.yaml --chunk-days 20 --output-dir /tmp/opencode/reviewer-r04-perf/results/minute_tail_chunk20"
+	User time (seconds): 808.32
+	System time (seconds): 255.11
+	Percent of CPU this job got: 852%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:04.69
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 6945132
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 28606754
+	Voluntary context switches: 288767
+	Involuntary context switches: 943347
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 39808
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

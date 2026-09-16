@@ -1,0 +1,6 @@
+
+tests/test_suspension_chunk_invariance.py::test_fill_seed_listed_guard_computed_once[duckdb] PASSED [ 33%]
+tests/test_suspension_chunk_invariance.py::test_fill_seed_listed_guard_computed_once[ch] PASSED [ 66%]
+tests/test_universe.py::test_load_universe_file_memoized_and_mtime_invalidated PASSED [100%]
+
+============================== 3 passed in 3.47s ===============================

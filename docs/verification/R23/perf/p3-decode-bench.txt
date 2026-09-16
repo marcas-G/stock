@@ -1,0 +1,15 @@
+rows=20000000
+before split.first: 1.955s
+after  slice(0,6): 0.384s
+contract-input equivalence: OK ['000001', '600519', '000001', None, '']
+abnormal >6-char base (vendor alias) divergence (intended):
+shape: (3, 2)
+┌─────────┬────────┐
+│ old     ┆ new    │
+│ ---     ┆ ---    │
+│ str     ┆ str    │
+╞═════════╪════════╡
+│ 000001  ┆ 000001 │
+│ T600018 ┆ T60001 │
+│ null    ┆ null   │
+└─────────┴────────┘

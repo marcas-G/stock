@@ -1,0 +1,36 @@
+2026-09-16 08:58:53.881 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 08:58:53.911 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+[sample] 20 codes x 22 trading days: ['000001.SZ', '000002.SZ', '000004.SZ', '000006.SZ', '000007.SZ', '000008.SZ', '000009.SZ', '000010.SZ', '000011.SZ', '000012.SZ', '000014.SZ', '000016.SZ', '000017.SZ', '000019.SZ', '000020.SZ', '000021.SZ', '000025.SZ', '000026.SZ', '000027.SZ', '000028.SZ']
+[chain-1 run_factor] signal rows=420 dates=21 codes=20 name=r22_chain
+[chain-2 target] decisions=21 (2024-01-02..2024-01-30) rows=400 gross=1.0
+[chain-3 run_backtest NEXT_WINDOW] events=21 events_with_fills=20 nav[10000000.0 .. 10150838.972474378] trailing=False
+[parity] picked event=18 decision=2024-01-26 exec=2024-01-29 code=000009.SZ filled=700 ref=11.68454592363261 exec_px=11.685714378224974
+  minute_index  detail_price        sql(amount/volume)   qty
+             0  11.68454592363261    11.68454592363261    700
+  aggregate: sql_weighted_avg=11.68454592363261 vs FillBatch.reference_price=11.68454592363261 delta=0.000e+00
+[parity] OK（逐分钟 + 汇总 + 滑点 1bp 全对拍通过）
+[persistence] schema_version=2 window_fills events=21 detail rows=651 round-trip 逐值一致
+[done] CH 全链 + 对拍 + 持久化证据 OK
+
+[query-count] total=356 wall=10.26s
+  n= 100 sum=  0.439s  SELECT name FROM system.tables WHERE database = 'factorlab'
+  n=  43 sum=  0.566s  SELECT DISTINCT cal_date FROM factorlab.trade_cal WHERE is_open = 1 ORDER BY cal_date
+  n=  20 sum=  0.087s  SELECT name FROM system.columns WHERE database = 'factorlab' AND table = 'daily'
+  n=  20 sum=  0.077s  SELECT name FROM system.columns WHERE database = 'factorlab' AND table = 'stk_limit'
+  n=  20 sum=  0.075s  SELECT name FROM system.columns WHERE database = 'factorlab' AND table = 'trade_cal'
+  n=  20 sum=  2.737s  SELECT (SELECT count() FROM factorlab.daily WHERE trade_date = toDate(%(d)s)),(SELECT count() F
+  n=  20 sum=  0.341s  SELECT trade_date, ts_code, open, pre_close FROM factorlab.daily WHERE trade_date = toDate(%(d)
+  n=  20 sum=  0.176s  SELECT trade_date, ts_code, up_limit, down_limit FROM factorlab.stk_limit WHERE trade_date = to
+  n=  20 sum=  0.138s  SELECT ts_code, market FROM factorlab.stock_basic WHERE ts_code IN (%(v0)s, %(v1)s, %(v2)s, %(v
+  n=  20 sum=  0.827s  SELECT code, minute_index, open, high, low, close, volume, amount, session_type FROM factorlab.
+  n=  19 sum=  0.077s  SELECT name FROM system.columns WHERE database = 'factorlab' AND table = 'adj_event'
+  n=  19 sum=  0.089s  SELECT ts_code, trade_date FROM factorlab.adj_event WHERE trade_date BETWEEN toDate(%(s)s) AND 
+  n=   3 sum=  0.015s  SELECT name FROM system.columns WHERE database = 'factorlab' AND table = 'stock_basic'
+  n=   2 sum=  0.052s  SELECT DISTINCT cal_date FROM factorlab.trade_cal WHERE is_open = 1 AND cal_date >= toDate(%(da
+  n=   2 sum=  0.015s  SELECT symbol, ts_code FROM factorlab.stock_basic WHERE symbol IN (%(v0)s, %(v1)s, %(v2)s, %(v3
+  n=   2 sum=  0.019s  SELECT d.date, c.code, b.ts_code, toString(toYYYYMMDD(b.list_date)) AS list_date, toString(toYY
+  n=   2 sum=  0.063s  SELECT d.trade_date AS trade_date, d.ts_code AS ts_code, a.adj_factor, d.close AS close FROM fa
+  n=   1 sum=  0.150s  SELECT b.code, count() AS n FROM factorlab.bars_1m AS b WHERE b.trade_date BETWEEN toDate(%(s)s
+  n=   1 sum=  0.116s  SELECT DISTINCT ts_code FROM factorlab.adj_event WHERE trade_date BETWEEN toDate(%(s)s) AND toD
+  n=   1 sum=  0.103s  SELECT ts_code, argMax(adj_factor, trade_date) AS __factorlab_qfq_base_adj FROM factorlab.adj_f
+  n=   1 sum=  0.035s  SELECT minute_index, amount, volume FROM factorlab.bars_1m WHERE code = %(c)s AND trade_date = 
