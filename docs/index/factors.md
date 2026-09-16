@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **162 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **163 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -10,7 +10,7 @@
 | crash_bottom_leader | 8 | `research/factor/crash_bottom_leader/` |
 | dividend | 1 | `research/factor/dividend/` |
 | intraday | 2 | `research/factor/intraday/` |
-| liquidity | 6 | `research/factor/liquidity/` |
+| liquidity | 7 | `research/factor/liquidity/` |
 | misc | 1 | `research/factor/misc/` |
 | momentum_20d | 19 | `research/factor/momentum_20d/` |
 | quality | 1 | `research/factor/quality/` |
@@ -57,6 +57,7 @@
 | `amihud_illiq_turn_20d` | 1 | fwd5d |  | [turn_20d.md](../../research/docs/factors/liquidity/turn_20d.md) | [yaml](../../research/factor/liquidity/turn_20d.yaml) |
 | `turnover_accel` | -1 | fwd5d |  | [accel.md](../../research/docs/factors/liquidity/accel.md) | [yaml](../../research/factor/liquidity/accel.yaml) |
 | `turnover_level` | -1 | fwd5d |  | [level.md](../../research/docs/factors/liquidity/level.md) | [yaml](../../research/factor/liquidity/level.yaml) |
+| `turnover_level_ma20` | -1 | fwd5d |  | [level_ma20.md](../../research/docs/factors/liquidity/level_ma20.md) | [yaml](../../research/factor/liquidity/level_ma20.yaml) |
 | `volume_ratio` | -1 | fwd5d |  | [volume_ratio.md](../../research/docs/factors/liquidity/volume_ratio.md) | [yaml](../../research/factor/liquidity/volume_ratio.yaml) |
 | `volume_ratio_directional` | -1 | fwd5d |  | [directional.md](../../research/docs/factors/liquidity/directional.md) | [yaml](../../research/factor/liquidity/directional.yaml) |
 
