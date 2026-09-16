@@ -1,0 +1,99 @@
+........................................................................ [  2%]
+........................................................................ [  4%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 16%]
+......................................................................F. [ 18%]
+........................................................................ [ 20%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................F...................................sssssssssss. [ 27%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 48%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 58%]
+........................................................................ [ 60%]
+........................................................................ [ 62%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 74%]
+........................................................................ [ 76%]
+........................................................................ [ 78%]
+........................................................................ [ 81%]
+........................................................................ [ 83%]
+........................................................................ [ 85%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 92%]
+........................................................................ [ 95%]
+........................................................................ [ 97%]
+........................................................................ [ 99%]
+...                                                                      [100%]
+=================================== FAILURES ===================================
+_________________ test_markdown_docs_file_committed_and_fresh __________________
+
+    def test_markdown_docs_file_committed_and_fresh():
+        """仓库内 knowledge/contracts/catalog.md 必须与生成器当前输出逐字节一致（活文档不陈旧）。"""
+        doc_path = REPO.parent / "knowledge" / "contracts" / "catalog.md"
+        if not doc_path.is_file():  # 文件尚未提交——实现阶段生成；此处先红
+            pytest.fail("knowledge/contracts/catalog.md 缺失：文档正文与生成器不同步")
+>       assert doc_path.read_text(encoding="utf-8") == render_catalog_markdown()
+E       AssertionError: assert '# FactorLab ...侧数据表承载并显式命名\n' == '# FactorLab ...侧数据表承载并显式命名\n'
+E         
+E         Skipping 11175 identical leading characters in diff, use -v to show
+E         - 止出现未来前缀列——读面探测校验 validate_engine_surface/validate_surface_columns 与活文档双重锁
+E         ?           ^^^^
+E         + 止出现未来前缀列——入库校验 validate_engine_surface/validate_surface_columns 与活文档双重锁
+E         ?           ^^
+E         - - 触发：读面探测（validate_engine_surface）时读面表含 forward_*/future_* 前缀或 target/label 精确名列...
+E         
+E         ...Full output truncated (284 lines hidden), use '-vv' to show
+
+tests/test_catalog.py:446: AssertionError
+____________________ test_interface_md_module_paths_resolve ____________________
+
+    def test_interface_md_module_paths_resolve():
+        paths = _paths()
+        assert len(paths) >= 30, f"提取到的路径过少（{len(paths)}）——正则或文档结构变了？"
+        bad = [p for p in paths if not _resolves(p)]
+>       assert not bad, f"interface.md 中不可解析的路径 {len(bad)} 条: {bad[:10]}"
+E       AssertionError: interface.md 中不可解析的路径 5 条: ['factorlab.adapters.fetcher.TeaJoinClient', 'factorlab.adapters.mirror_db.PlatformDB', 'factorlab.adapters.rebuild', 'factorlab.adapters.refresh', 'factorlab.adapters.refresh.refresh']
+E       assert not ['factorlab.adapters.fetcher.TeaJoinClient', 'factorlab.adapters.mirror_db.PlatformDB', 'factorlab.adapters.rebuild', 'factorlab.adapters.refresh', 'factorlab.adapters.refresh.refresh']
+
+tests/test_doc_paths_exist.py:53: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_batch_flock.py: 26 warnings
+  /home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/popen_fork.py:67: DeprecationWarning: This process (pid=34263) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/test_cli.py::test_svd_command_outputs_spectrum
+tests/test_correlation.py::test_svd_identifies_orthogonal_structure
+tests/test_correlation.py::test_svd_sampling_deterministic
+tests/test_correlation.py::test_svd_sampling_deterministic
+tests/test_web.py::test_factor_detail_has_correlation_block
+tests/test_web.py::test_factor_detail_has_correlation_block
+  /data/students/gaolei/stock/platform/src/factorlab/app/analysis/correlation.py:100: DeprecationWarning: the argument `columns` for `DataFrame.pivot` is deprecated. It was renamed to `on` in version 1.0.0.
+    joined = long.pivot(index=["date", "code"], columns="factor",
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_catalog.py::test_markdown_docs_file_committed_and_fresh - A...
+FAILED tests/test_doc_paths_exist.py::test_interface_md_module_paths_resolve
+2 failed, 3086 passed, 11 skipped, 33 warnings in 753.02s (0:12:33)

@@ -1,0 +1,10 @@
+  [stoken refreshed 04:29:10]
+entry: 截止_2026-09-16_指数商品期货期指期权外汇_日线.zip size=100566529 fid=a19dc12ab07744399ba2b9df8fef182f
+  batch 1: HTTP 400 download file size limit[a19dc12ab07744399ba2b9df8fef182f]
+  links 1/1 (got 0)
+urls: {}
+Traceback (most recent call last):
+  File "/tmp/opencode/fetch_index_zip.py", line 29, in <module>
+    ok = tr.download(urls[entry.fid], dest, entry.size)
+                     ~~~~^^^^^^^^^^^
+KeyError: 'a19dc12ab07744399ba2b9df8fef182f'

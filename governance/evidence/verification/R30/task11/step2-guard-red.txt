@@ -1,0 +1,26 @@
+# Task 11 守卫测试红态（TDD Step 1）
+# 捕获时间：2026-09-17，实施前（HEAD 4589722，删除动刀之前）
+# 命令：cd platform && .venv/bin/python -m pytest tests/test_dataiface_clean.py -q
+# 说明：随后先执行 git rm（fetcher/mirror_db/rebuild/refresh + 旧测试），
+#       再跑同命令 → 因 mirror_db 缺失进入 collection error（见 step2-guard-red-mid.txt），
+#       属删除中途态；完整绿态见 step2-guard-green.txt。
+4 failed in 2.09s
+FAILED tests/test_dataiface_clean.py::test_cli_data_platform_commands_removed
+FAILED tests/test_dataiface_clean.py::test_adapter_source_modules_removed - A...
+FAILED tests/test_dataiface_clean.py::test_no_forbidden_imports_in_platform_src
+FAILED tests/test_dataiface_clean.py::test_no_forbidden_tokens_in_platform_src
+
+# 关键失败摘要（逐字自运行输出）：
+# test_cli_data_platform_commands_removed：
+#   formatter/pytest 断言失败——`data rebuild` 仍注册（invoke 走业务路径，非 No such command）
+# test_adapter_source_modules_removed：
+#   AssertionError: 外部源生产路径未清理: fetcher.py
+# test_no_forbidden_imports_in_platform_src：
+#   AssertionError: 旧外部源 import/引用残留:
+#   ['src/factorlab/adapters/read/verify.py:9 from factorlab.adapters.mirror_db import …',
+#    'src/factorlab/adapters/read/verify.py:10 from factorlab.adapters.rebuild import …',
+#    'src/factorlab/adapters/rebuild.py:15 from factorlab.adapters.fetcher import …', ...]
+# test_no_forbidden_tokens_in_platform_src：
+#   AssertionError: 旧外部源字符串残留:
+#   ['src/factorlab/adapters/fetcher.py: teajoin',
+#    'src/factorlab/adapters/read/source.py: teajoin', ...]

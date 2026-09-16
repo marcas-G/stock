@@ -1,0 +1,35 @@
+# Task 11 本地文件清单（删除前） 
+# 命令：du -sh data/; python3 计算 sha256（逐文件）
+
+## du -sh data/
+354G	data/
+
+## 待删除
+2026年 09月 17日 星期四 04:08:38 CST
+
+[delete]
+data/raw/daily/daily_pre.parquet	size=548124649	sha256=a5edae0dc7d32663948b6655b50e6ad235529d87f35288af1097aa75b976d032	mtime=2026-08-23T02:09:34
+
+[freeze]
+data/ref/000905.SH.parquet	size=20649	sha256=02775ff2bdfa0d7c820240fbabbec546a6bf249aed8a86aecc8f787c37a1eb13	mtime=2026-08-23T02:14:01
+data/ref/universes/v4_top300.parquet	size=6841880	sha256=ed515841526364ff114b599c4336aad56125968eaf2b68ee973a06952c8b0cf5	mtime=2026-08-22T22:41:19
+
+[all candidates scan: 名字含 jq/tdx/tencent/benchmark 的文件]
+data/calib/validation/step2_benchmark.json
+data/calib/validation/step5_worker_benchmark.json
+
+## du -sh data/ (删除后)
+354G	data/
+## 删除确认
+ls: 无法访问'data/raw/daily/daily_pre.parquet': 没有那个文件或目录
+
+## du -sb data/ (删除后精确字节)
+378956976618	data/
+## 删除量
+daily_pre.parquet = 548124649 bytes（上表 sha256）
+
+## A10 覆盖判定（T11 裁决）
+- 网盘顶层指数目录直子项：分钟线/、截止_2026-09-15…日线.zip、截止_2026-09-16…日线.zip
+- 文件名不含 000905/中证500（不含 code 或名称）→ 不满足 brief 的覆盖判据
+- 直链探测：HTTP 400 download file size limit（100,566,529B > 分享直链上限）→ 内容不可程序化核对
+- 裁决：data/ref/000905.SH.parquet 冻结保留、不维护（sha256 02775ff2…）

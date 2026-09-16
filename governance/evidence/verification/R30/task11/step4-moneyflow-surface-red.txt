@@ -1,0 +1,11 @@
+# T11 读面扩展红态（moneyflow 未纳入 ENGINE_SURFACE_TABLES；实施前捕获，HEAD 工作区）
+# 命令：cd platform && .venv/bin/python -m pytest tests/test_column_discipline.py -q
+# 真实输出（摘）：
+tests/test_column_discipline.py:36: AssertionError
+E         Extra items in the right set:
+E         'moneyflow'
+E         Use -v to get more diff
+FAILED tests/test_column_discipline.py::test_pure_fn_surface_list_matches_engine_read_tables
+1 failed, 13 passed in 1.50s
+
+# 绿态见 step4-moneyflow-surface-green.txt（实现：ENGINE_SURFACE_TABLES + moneyflow）

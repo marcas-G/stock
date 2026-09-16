@@ -1,0 +1,30 @@
+# Step 4 技能同步证据（Plan P T11）
+# 日期: 2026-09-17T04:13:22+08:00
+
+## 改动前 grep（命中文件:行，逐条）
+.claude/skills/factorlab-data/SKILL.md:3  description 含 CLI data rebuild|update|refresh|verify + integrity 六规则
+.claude/skills/factorlab-data/SKILL.md:11 平台数据维护：factorlab data rebuild|update|refresh|verify
+.claude/skills/factorlab-data/SKILL.md:20 权威文档 §4 含 PlatformDB/rebuild/refresh/verify
+.claude/skills/factorlab-data/SKILL.md:22 §6 数据平台 CLI TeaJoinClient
+.claude/skills/factorlab-data/SKILL.md:23 data-ops-playbook = data update 运维
+.claude/skills/factorlab-data/SKILL.md:55-64 CLI 数据平台速查（teajoin 代理）
+.claude/skills/factorlab-data/SKILL.md:80 验证清单 data verify 六规则
+（factorlab-ch-pipeline/backtest/evaluate/dsl 与 stock/.claude/skills/factor-mine：0 命中，无需改）
+
+## 改动后 grep（应为 0）
+2
+
+## 新 SKILL.md sha256
+21fd6050d80eda4710e28237ca62d6d6e20d2cd804779909e3c4ad1df7cc3459  .claude/skills/factorlab-data/SKILL.md
+
+## 改动摘要（diff 语义）
+- description: 去掉 CLI data 命令/integrity 六规则；加 网盘更新链/CH 消费
+- 权威文档: interface §8 + data-map + playbook §0；删 §6 CLI/TeaJoinClient 行
+- 数据契约: 删 verify 六规则；加 moneyflow/fundamentals；duckdb 定位改历史/测试
+- CLI 数据平台速查 -> 数据更新（网盘链）
+- 验证清单: data verify 六规则 -> make reconcile 全绿 + manual 登记
+
+## 备注：2 命中为**退役标注**（有意保留的历史指针）
+.claude/skills/factorlab-data/SKILL.md:24  §1 起为 M3b teajoin 历史存档（已退役）
+.claude/skills/factorlab-data/SKILL.md:64 旧 factorlab data rebuild|... / teajoin 已退役删除
+生产指令面（何时用/速查/验证清单）0 命中。

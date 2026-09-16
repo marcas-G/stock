@@ -1,0 +1,205 @@
+### grep teajoin/TeaJoin/mirror_db/rebuild_all/import_index (platform/src platform/tests platform/tools)
+platform/src/factorlab/config.py:27:    teajoin_base_url: str = "https://teajoin.com"  # 根路径；/g 为文档页
+platform/src/factorlab/config.py:28:    teajoin_token: str = ""
+platform/src/factorlab/app/backtest/rules.py:202:    注意：CH stock_basic 需含 market 列（M8 ch 腿 e2e 前置；teajoin 灌入
+platform/src/factorlab/core/domain/codes.py:8:Vendor source（TeaJoin/Tushare）可能返回历史遗留别名/实体标识（实测如
+platform/src/factorlab/adapters/rebuild.py:15:from factorlab.adapters.fetcher import TeaJoinClient
+platform/src/factorlab/adapters/rebuild.py:16:from factorlab.adapters.mirror_db import PlatformDB
+platform/src/factorlab/adapters/rebuild.py:88:def _fetch_one_date(client: TeaJoinClient, table: str, d: str) -> tuple[str, pl.DataFrame]:
+platform/src/factorlab/adapters/rebuild.py:95:# 的 staging 会再次丢失 PIT 字段）。可按真实 TeaJoin 支持字段最小调整。
+platform/src/factorlab/adapters/rebuild.py:331:def fetch_stock_basic_source(client: TeaJoinClient) -> StockBasicSourcePartition:
+platform/src/factorlab/adapters/rebuild.py:345:def fetch_stock_basic_all(client: TeaJoinClient) -> pl.DataFrame:
+platform/src/factorlab/adapters/rebuild.py:445:    client: TeaJoinClient,
+platform/src/factorlab/adapters/rebuild.py:454:    并发 5 路（~250 req/min < teajoin 450/min 上限）；duckdb 单写者——worker 只
+platform/src/factorlab/adapters/rebuild.py:507:def rebuild_all(
+platform/src/factorlab/adapters/rebuild.py:509:    client: TeaJoinClient,
+platform/src/factorlab/adapters/rebuild.py:522:        raise ValueError("teajoin token 未配置（FACTORLAB_TEAJOIN_TOKEN）")
+platform/src/factorlab/adapters/read/universe.py:533:      上游 teajoin 环境灌入表，本机无源时该 JOIN 不可用——resolve 层有
+platform/src/factorlab/adapters/read/verify.py:9:from factorlab.adapters.mirror_db import PlatformDB
+platform/src/factorlab/adapters/read/source.py:15:# - duckdb 平台库由 data rebuild 直接落 teajoin（tushare 约定）原始值：
+platform/src/factorlab/adapters/refresh.py:9:from factorlab.adapters.fetcher import TeaJoinClient
+platform/src/factorlab/adapters/refresh.py:10:from factorlab.adapters.mirror_db import PlatformDB
+platform/src/factorlab/adapters/refresh.py:14:def refresh(db: PlatformDB, client: TeaJoinClient, manifest_path: Path | None = None) -> dict:
+platform/src/factorlab/adapters/refresh.py:64:def refresh_indexes(db: PlatformDB, client: TeaJoinClient, manifest_path: Path | None = None) -> dict:
+platform/src/factorlab/adapters/fetcher.py:10:class TeaJoinError(Exception):
+platform/src/factorlab/adapters/fetcher.py:11:    """teajoin 业务错误（4xx、响应异常或重试耗尽）。"""
+platform/src/factorlab/adapters/fetcher.py:14:        super().__init__(f"teajoin[{api_name}]: {message}")
+platform/src/factorlab/adapters/fetcher.py:18:class TeaJoinClient:
+platform/src/factorlab/adapters/fetcher.py:19:    """teajoin Tushare 兼容代理客户端：全局限流 + 指数退避重试 + 分页。"""
+platform/src/factorlab/adapters/fetcher.py:24:        base_url: str = "https://teajoin.com",
+platform/src/factorlab/adapters/fetcher.py:68:                last_exc = TeaJoinError(api_name, f"HTTP {resp.status_code}: {resp.text[:200]}")
+platform/src/factorlab/adapters/fetcher.py:72:                raise TeaJoinError(api_name, f"HTTP {resp.status_code}: {resp.text[:200]}")
+platform/src/factorlab/adapters/fetcher.py:76:                last_exc = TeaJoinError(api_name, f"响应 JSON 解析失败: {exc}")
+platform/src/factorlab/adapters/fetcher.py:80:                raise TeaJoinError(api_name, f"code={body.get('code')} msg={body.get('msg', '')}")
+platform/src/factorlab/adapters/fetcher.py:94:                raise TeaJoinError(api_name, f"返回数据与字段不匹配: {exc}") from exc
+platform/src/factorlab/adapters/fetcher.py:112:        raise TeaJoinError(api_name, f"重试 {self.max_retries} 次仍失败: {last_exc}")
+platform/src/factorlab/adapters/fetcher.py:136:            raise TeaJoinError(api_name, "数据超过 max_pages*page_size 行，请增大 max_pages")
+platform/src/factorlab/surfaces/cli/main.py:12:from factorlab.adapters.fetcher import TeaJoinClient
+platform/src/factorlab/surfaces/cli/main.py:13:from factorlab.adapters.mirror_db import PlatformDB
+platform/src/factorlab/surfaces/cli/main.py:14:from factorlab.adapters.rebuild import RebuildScope, build_final_db, rebuild_all
+platform/src/factorlab/surfaces/cli/main.py:251:def _client() -> TeaJoinClient:
+platform/src/factorlab/surfaces/cli/main.py:252:    return TeaJoinClient(token=settings.teajoin_token, base_url=settings.teajoin_base_url)
+platform/src/factorlab/surfaces/cli/main.py:469:    """teajoin 全量重建平台数据（暂存库 → 稀疏剔除 → 最终库）。"""
+platform/src/factorlab/surfaces/cli/main.py:470:    if not settings.teajoin_token:
+platform/src/factorlab/surfaces/cli/main.py:474:    report = rebuild_all(staging, _client(), scope=RebuildScope(start=start, end=end), resume=resume)
+platform/src/factorlab/surfaces/cli/main.py:484:    if not settings.teajoin_token:
+platform/src/factorlab/surfaces/cli/main.py:494:    if not settings.teajoin_token:
+platform/tests/test_e2e_data.py:4:from factorlab.adapters.fetcher import TeaJoinClient, TeaJoinError
+platform/tests/test_e2e_data.py:5:from factorlab.adapters.mirror_db import PlatformDB
+platform/tests/test_e2e_data.py:13:    if not settings.teajoin_token:
+platform/tests/test_e2e_data.py:14:        pytest.skip("teajoin token 未配置（FACTORLAB_TEAJOIN_TOKEN）")
+platform/tests/test_e2e_data.py:15:    client = TeaJoinClient(token=settings.teajoin_token)
+platform/tests/test_e2e_data.py:18:    except TeaJoinError as exc:
+platform/tests/test_e2e_data.py:19:        pytest.skip(f"teajoin 数据源不可用（如 token 到期）：{exc}")
+platform/tests/test_platform_db.py:5:from factorlab.adapters.mirror_db import PlatformDB
+platform/tests/test_architecture.py:22:_CONTRACT_DOCS = {"interface.md", "catalog.md", "data-ops-playbook.md", "teajoin-guide.md"}
+platform/tests/test_stock_basic_migration.py:6:from factorlab.adapters.mirror_db import PlatformDB
+platform/tests/test_stock_basic_migration.py:12:    """模拟 TeaJoin stock_basic（记录 fields 请求；L/D 可配置返回）。"""
+platform/tests/test_column_discipline.py:23:from factorlab.adapters.mirror_db import PlatformDB
+platform/tests/test_rebuild.py:7:from factorlab.adapters.fetcher import TeaJoinClient
+platform/tests/test_rebuild.py:8:from factorlab.adapters.mirror_db import PlatformDB
+platform/tests/test_rebuild.py:10:                                        load_manifest, rebuild_all, save_manifest)
+platform/tests/test_rebuild.py:29:def _fake_client(monkeypatch, tables, fail=None, calls=None) -> TeaJoinClient:
+platform/tests/test_rebuild.py:35:    client = TeaJoinClient(token="t", interval=0.0)
+platform/tests/test_rebuild.py:145:def test_rebuild_all_populates_tables(tmp_path, monkeypatch):
+platform/tests/test_rebuild.py:148:    report = rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_rebuild.py:160:    report = rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_rebuild.py:170:    settings = Settings(teajoin_token="")
+platform/tests/test_rebuild.py:172:        rebuild_all(PlatformDB(Path("x.duckdb")), TeaJoinClient(token=settings.teajoin_token),
+platform/tests/test_rebuild.py:180:        rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_rebuild.py:190:    client = TeaJoinClient(token="t", interval=0.0)
+platform/tests/test_rebuild.py:198:        rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_rebuild.py:207:    report = rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_rebuild.py:220:    report = rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_rebuild.py:233:    report = rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_rebuild.py:251:    rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240202"),
+platform/tests/test_rebuild.py:271:    rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_rebuild.py:284:    rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"))
+platform/tests/test_rebuild.py:301:    report = rebuild_all(db, client, scope=RebuildScope(start=dates[0], end=dates[-1]),
+platform/tests/test_rebuild.py:325:    report = rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_rebuild.py:344:        client = TeaJoinClient(token="t", interval=0.0)
+platform/tests/test_rebuild.py:358:    rebuild_all(db1, make_client(0.2), scope=RebuildScope(start="20240102", end="20240109"),
+platform/tests/test_rebuild.py:364:    rebuild_all(db5, make_client(0.2), scope=RebuildScope(start="20240102", end="20240109"),
+platform/tests/test_rebuild.py:384:    report = rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_rebuild.py:408:    report = rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_rebuild.py:429:    report = rebuild_all(db, client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_sparsity.py:4:from factorlab.adapters.mirror_db import PlatformDB
+platform/tests/test_source.py:248:# R01-DATA-I7：duckdb 源单位（teajoin 原始：手/千元）→ canonical（股/元）
+platform/tests/test_source.py:252:    """duckdb 平台库由 data rebuild 落 teajoin 原始单位（vol=手、amount=千元），
+platform/tests/test_cli_data.py:18:    monkeypatch.setattr(settings, "teajoin_token", "")
+platform/tests/test_cli_data.py:26:    monkeypatch.setattr(settings, "teajoin_token", "")
+platform/tests/test_refresh.py:4:from factorlab.adapters.fetcher import TeaJoinClient
+platform/tests/test_refresh.py:5:from factorlab.adapters.mirror_db import PlatformDB
+platform/tests/test_refresh.py:6:from factorlab.adapters.rebuild import RebuildScope, load_manifest, rebuild_all, save_manifest
+platform/tests/test_refresh.py:26:def _client(monkeypatch, table_df: pl.DataFrame, fail_dates: set[str] | None = None) -> TeaJoinClient:
+platform/tests/test_refresh.py:27:    client = TeaJoinClient(token="t", interval=0.0)
+platform/tests/test_refresh.py:82:    rebuild_client = TeaJoinClient(token="t", interval=0.0)
+platform/tests/test_refresh.py:95:    rebuild_all(db, rebuild_client, scope=RebuildScope(start="20240102", end="20240103"),
+platform/tests/test_refresh.py:222:    client = TeaJoinClient(token="t", interval=0.0)
+platform/tests/test_fetcher.py:5:from factorlab.adapters.fetcher import TeaJoinClient, TeaJoinError
+platform/tests/test_fetcher.py:25:    client = TeaJoinClient(token="t", interval=interval)
+platform/tests/test_fetcher.py:53:    with pytest.raises(TeaJoinError, match="daily"):
+platform/tests/test_fetcher.py:80:    with pytest.raises(TeaJoinError):
+platform/tests/test_fetcher.py:120:    """data 存在但 items 为空：返回 0 行且保留字段列（teajoin 无数据时返回空列表）。"""
+platform/tests/test_fetcher.py:136:    with pytest.raises(TeaJoinError, match="daily"):
+platform/tests/test_fetcher.py:161:    """所有页都满时静默截断是丢数据：超过 max_pages 抛 TeaJoinError。"""
+platform/tests/test_fetcher.py:170:    with pytest.raises(TeaJoinError, match="max_pages"):
+platform/tests/test_fetcher.py:177:        TeaJoinClient(token="t", max_retries=0)
+platform/tests/test_fetcher.py:213:    with pytest.raises(TeaJoinError, match="daily"):
+platform/tests/test_fetcher.py:222:    with pytest.raises(TeaJoinError, match="权限不足"):
+platform/tests/test_fetcher.py:227:    """行宽与字段数不一致：包装为带 api_name 的 TeaJoinError，不静默丢数据。"""
+platform/tests/test_fetcher.py:229:    with pytest.raises(TeaJoinError, match="daily"):
+platform/tests/test_verify.py:4:from factorlab.adapters.mirror_db import PlatformDB
+platform/tools/ashare_ingest/tests/test_import_index.py:1:"""import_index 的离线测试：上游响应形状（R19 修的 bug）与请求 URL 契约。
+platform/tools/ashare_ingest/tests/test_import_index.py:14:pytest.importorskip("requests", reason="import_index 模块级 import requests")
+platform/tools/ashare_ingest/tests/test_import_index.py:17:import import_index  # noqa: E402
+platform/tools/ashare_ingest/tests/test_import_index.py:34:    assert import_index.default_end() == today
+platform/tools/ashare_ingest/tests/test_import_index.py:43:        return _Resp({"code": 0, "data": {import_index.SYMBOL: {
+platform/tools/ashare_ingest/tests/test_import_index.py:46:    monkeypatch.setattr(import_index.requests, "get", fake_get)
+platform/tools/ashare_ingest/tests/test_import_index.py:47:    bars = import_index.fetch_page("2026-09-12", count=3)
+platform/tools/ashare_ingest/tests/test_import_index.py:59:    monkeypatch.setattr(import_index.requests, "get",
+platform/tools/ashare_ingest/tests/test_import_index.py:64:        import_index.fetch_page("2026-12-31")
+platform/tools/ashare_ingest/tests/test_import_index.py:71:    monkeypatch.setattr(import_index.requests, "get",
+platform/tools/ashare_ingest/tests/test_import_index.py:73:                            {"code": 0, "data": {import_index.SYMBOL: {}}}))
+platform/tools/ashare_ingest/tests/test_import_index.py:74:    assert import_index.fetch_page("2018-01-02") == []
+platform/tools/universe_stages/universe_paths.py:55:    """A10 指数基准（ashare_ingest/import_index 生产）。"""
+platform/tools/universe_stages/universe_paths.py:110:            hint="ashare_ingest/import_index.py（A10）"),
+
+### grep refresh (adapters/CLI/tests/tools)
+platform/src/factorlab/adapters/mirror_db.py:15:    批量写入（rebuild/refresh）用 connect() 复用连接 + upsert_on()，避免每批重开连接。
+platform/src/factorlab/adapters/mirror_db.py:25:        """打开写连接；rebuild/refresh 批量场景复用，调用方负责 close（或 with）。"""
+platform/src/factorlab/adapters/mirror_db.py:56:        表已存在时 INSERT 前过滤 df 中表不存在的列（refresh 用全字段 df 写稀疏剔除
+platform/src/factorlab/adapters/refresh.py:14:def refresh(db: PlatformDB, client: TeaJoinClient, manifest_path: Path | None = None) -> dict:
+platform/src/factorlab/adapters/refresh.py:46:                db.upsert(table, df, keys=["trade_date", "ts_code"])  # 默认 dedup=True（refresh 可能重拉）
+platform/src/factorlab/adapters/refresh.py:52:                failed.add(d)  # 失败日记入 failed，下次 refresh 重试
+platform/src/factorlab/adapters/refresh.py:64:def refresh_indexes(db: PlatformDB, client: TeaJoinClient, manifest_path: Path | None = None) -> dict:
+platform/src/factorlab/surfaces/cli/main.py:15:from factorlab.adapters.refresh import refresh, refresh_indexes
+platform/src/factorlab/surfaces/cli/main.py:481:@data_app.command("refresh")
+platform/src/factorlab/surfaces/cli/main.py:482:def data_refresh() -> None:
+platform/src/factorlab/surfaces/cli/main.py:487:    report = refresh(_final_db(), _client())
+platform/src/factorlab/surfaces/cli/main.py:488:    console.print(f"refresh 完成: {report}")
+platform/src/factorlab/surfaces/cli/main.py:497:    report = refresh(_final_db(), _client())
+platform/src/factorlab/surfaces/cli/main.py:498:    index_report = refresh_indexes(_final_db(), _client())
+platform/src/factorlab/app/context.py:25:    db_path: Path = settings.platform_db  # duckdb 后端读 + 写路径（data rebuild/refresh）
+platform/src/factorlab/app/run.py:197:        raise ValueError("日期段无数据，可运行 data refresh（M3b）")
+platform/src/factorlab/app/run.py:327:        raise ValueError("日期段无数据，可运行 data refresh（M3b）")
+platform/src/factorlab/app/run.py:463:        raise FileNotFoundError(f"数据库不存在: {ctx.db_path}（可运行 data refresh 或检查路径）") from exc
+platform/src/factorlab/app/run.py:473:            raise ValueError("日期段无数据，可运行 data refresh（M3b）")
+platform/src/factorlab/app/run.py:814:            f"数据库不存在: {ctx.db_path}（可运行 data refresh 或检查路径）") from exc
+platform/src/factorlab/app/run.py:824:            raise ValueError("日期段无数据，可运行 data refresh（M3b）")
+platform/src/factorlab/app/run.py:860:                raise ValueError(f"分钟段 {cs}..{ce} 无数据，可运行 data refresh"
+platform/src/factorlab/app/run.py:891:            raise ValueError("分钟段无数据，可运行 data refresh（M3b）")
+platform/tests/test_platform_db.py:90:    仅插入表存在的列，不抛 Binder 错误（refresh 写最终库的崩溃窗口）。"""
+platform/tests/test_backtest_persistence.py:224:    _refresh_hash(out, "artifacts/fills.parquet")   # 隔离出列契约校验
+platform/tests/test_backtest_persistence.py:235:    _refresh_hash(out, "artifacts/orders.parquet")  # 隔离出 dtype 校验
+platform/tests/test_backtest_persistence.py:251:def _refresh_hash(out: Path, rel: str) -> None:
+platform/tests/test_backtest_persistence.py:320:    _refresh_hash(out, "nav/nav_series.parquet")
+platform/tests/test_backtest_persistence.py:334:    _refresh_hash(out, "state/final_state.parquet")
+platform/tests/test_backtest_persistence.py:348:    _refresh_hash(out, "artifacts/accounting.parquet")
+platform/tests/test_cli_data.py:12:    for command in ("rebuild", "refresh", "verify"):
+platform/tests/test_cli_data.py:24:def test_data_refresh_missing_token_reports(monkeypatch):
+platform/tests/test_cli_data.py:25:    """错误路径：refresh 同样需要 token。"""
+platform/tests/test_cli_data.py:27:    result = runner.invoke(app, ["data", "refresh"])
+platform/tests/test_refresh.py:7:from factorlab.adapters.refresh import refresh
+platform/tests/test_refresh.py:44:def test_refresh_pulls_from_last_updated(tmp_path, monkeypatch):
+platform/tests/test_refresh.py:52:    report = refresh(db, client, manifest_path=manifest_path)
+platform/tests/test_refresh.py:60:def test_refresh_after_rebuild_no_deadlock(tmp_path, monkeypatch):
+platform/tests/test_refresh.py:61:    """rebuild 截断未来公告日后 last_updated=最近交易日（< today），refresh 正常续拉新日。
+platform/tests/test_refresh.py:62:    回归：旧版 last_updated 可能是未来日（trade_cal 返回未来公告日），refresh 从此
+platform/tests/test_refresh.py:99:    # 再 refresh：下一个交易日正常拉取（last_updated < today，无死锁）
+platform/tests/test_refresh.py:103:    report = refresh(db, client, manifest_path=manifest_path)
+platform/tests/test_refresh.py:108:def test_refresh_no_new_dates(tmp_path, monkeypatch):
+platform/tests/test_refresh.py:113:    report = refresh(db, client, manifest_path=manifest_path)
+platform/tests/test_refresh.py:117:def test_refresh_requires_last_updated(tmp_path, monkeypatch):
+platform/tests/test_refresh.py:126:        refresh(db, client, manifest_path=manifest_path)
+platform/tests/test_refresh.py:131:def test_refresh_upsert_dedup_replaces_existing(tmp_path, monkeypatch):
+platform/tests/test_refresh.py:142:    report = refresh(db, client, manifest_path=manifest_path)
+platform/tests/test_refresh.py:148:def test_refresh_retries_failed_dates(tmp_path, monkeypatch):
+platform/tests/test_refresh.py:157:    report = refresh(db, client, manifest_path=manifest_path)
+platform/tests/test_refresh.py:165:def test_refresh_records_failed(tmp_path, monkeypatch):
+platform/tests/test_refresh.py:173:    report = refresh(db, client, manifest_path=manifest_path)
+platform/tests/test_refresh.py:181:def test_refresh_records_failed_errors(tmp_path, monkeypatch):
+platform/tests/test_refresh.py:184:    rebuild 的 _rebuild_daily_table 已记录 failed_errors；refresh 不得丢弃。
+platform/tests/test_refresh.py:192:    report = refresh(db, client, manifest_path=manifest_path)
+platform/tests/test_refresh.py:200:def test_refresh_indexes_pulls_new_daily_and_month(tmp_path, monkeypatch):
+platform/tests/test_refresh.py:202:    from factorlab.adapters.refresh import refresh_indexes
+platform/tests/test_refresh.py:225:    report = refresh_indexes(db, client, manifest_path=manifest_path)
+platform/tools/lob_fact/tests/test_factor_panel.py:221:def test_band_fold_nq_refresh_no_stale_carry_across_checkpoints():
+platform/tools/lob_fact/core/factor_panel.py:280:                nq[side] = {}                       # (旧值不得残留, 见 test_..._refresh)
+platform/tools/pan_update/sync.py:312:            new_url = self._refreshed_url(url, ex)
+platform/tools/pan_update/sync.py:320:    def _refreshed_url(self, url: str, ex: BaseException) -> str:
+platform/tools/quark_download/share_manifest.py:21:_token_lock = threading.Lock()  # serializes token refresh across threads
+platform/tools/quark_download/share_manifest.py:62:    """Holds a share stoken; refreshes on expiry (非法token)."""
+platform/tools/quark_download/share_manifest.py:69:    def refresh(self):
+platform/tools/quark_download/share_manifest.py:75:    """List one dir page. On 非法token, refresh and retry once."""
+platform/tools/quark_download/share_manifest.py:84:        print("token expired -> refreshing", flush=True)
+platform/tools/quark_download/share_manifest.py:85:        stoken.refresh()
+platform/tools/quark_download/share_manifest.py:185:            # transient backend / stale token: refresh + backoff
+platform/tools/quark_download/share_manifest.py:187:                print(f"search err {r.get('code')} -> refreshing token",
+platform/tools/quark_download/share_manifest.py:190:                    stoken.refresh()
+platform/tools/quark_download/share_manifest.py:222:    st = Stoken(pwd_id, passcode)  # ONE shared token; refresh is serialized
+platform/tools/quark_download/download_share_dir.py:110:        print(f"guest-degraded links ({len(urls)}/{len(fid_tok_list)}), refreshing once ...")
+platform/tools/quark_download/download_share_dir.py:146:                        print(f"    link refresh failed", flush=True)
+platform/tools/quark_download/tests/test_quark_client_stoken.py:59:def test_get_stoken_force_refetches_and_refreshes_cache(monkeypatch):
+platform/tools/quark_download/quark_client.py:112:    print(f"  [stoken refreshed {time.strftime('%H:%M:%S')}]", flush=True)
+platform/tools/quark_download/download_level2.py:198:                                  f"link refreshed", flush=True)
