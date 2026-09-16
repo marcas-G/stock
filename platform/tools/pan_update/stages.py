@@ -43,6 +43,13 @@ STAGE_CHAINS: dict[str, list[list[str]]] = {
          "--mode", "production"],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_bars.py")],
     ],
+    "fund_flow": [
+        [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_moneyflow.py")],
+    ],
+    "financials": [
+        [str(_VENV_PYTHON), str(_TOOLS / "pan_update" / "parse_fundamentals_xlsx.py")],
+        [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_fundamentals.py")],
+    ],
 }
 
 

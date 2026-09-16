@@ -17,6 +17,10 @@ fact 落盘：`data/fact/fundamentals/fundamentals_snapshot.parquet`，覆盖写
     from pan_update import parse_fundamentals_xlsx as fp
     df = fp.parse_xlsx("data/raw/financial/2026-09-04更新简化个股基本面数据.xlsx")
     fp.write_fact(df, fp.DEFAULT_FACT)
+
+CLI（T9 补链：`STAGE_CHAINS["financials"]` 第一步即本脚本；也可手工指定路径）：
+    python parse_fundamentals_xlsx.py [--raw-dir DIR] [--out FACT.parquet] [--prev PATH]
+    （--raw-dir 缺省 data/raw/financial；--prev 缺省 <out>.prev；--src 为 --raw-dir 旧别名）
 """
 from __future__ import annotations
 
@@ -145,12 +149,18 @@ def parse_xlsx(path: Path) -> pl.DataFrame:
     return pl.DataFrame(rows, schema=FU.OUT_SCHEMA)
 
 
-def write_fact(df: pl.DataFrame, out: Path) -> Path:
-    """覆盖写 fact；已存在则先轮换为 `<name>.prev`（只留 1 份）；tmp+replace 原子。"""
+def write_fact(df: pl.DataFrame, out: Path, *, prev: Path | None = None) -> Path:
+    """覆盖写 fact；已存在则先轮换为 ``prev``（缺省 `<name>.prev`，只留 1 份）。
+
+    `prev` 是 T9 补的显式回退路径（`--prev`）：轮换目标可指向仓库外的手工回退位；
+    tmp+os.replace 原子写。
+    """
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     if out.exists():
-        os.replace(out, out.with_name(out.name + ".prev"))
+        prev_path = Path(prev) if prev is not None else out.with_name(out.name + ".prev")
+        prev_path.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(out, prev_path)
     tmp = out.with_name(out.name + ".tmp")
     df.write_parquet(tmp)
     os.replace(tmp, out)
@@ -172,15 +182,17 @@ def find_latest_xlsx(src: Path) -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--src", type=Path, default=None,
-                    help=f"xlsx 文件或目录（缺省 {DEFAULT_SRC}）")
+    ap.add_argument("--raw-dir", "--src", dest="raw_dir", type=Path, default=None,
+                    help=f"xlsx 文件或目录（缺省 {DEFAULT_SRC}；--src 为旧别名）")
     ap.add_argument("--out", type=Path, default=None,
                     help=f"fact parquet 路径（缺省 {DEFAULT_FACT}）")
+    ap.add_argument("--prev", type=Path, default=None,
+                    help="旧 fact 轮换目标（缺省 <out>.prev）")
     args = ap.parse_args(argv)
-    src = find_latest_xlsx(args.src or DEFAULT_SRC)
+    src = find_latest_xlsx(args.raw_dir or DEFAULT_SRC)
     rows, dropped = parse_rows(src)
     df = pl.DataFrame(rows, schema=FU.OUT_SCHEMA)
-    out = write_fact(df, args.out or DEFAULT_FACT)
+    out = write_fact(df, args.out or DEFAULT_FACT, prev=args.prev)
     print(f"  财报快照：{src.name} → {df.height:,} rows"
           f"（丢弃 updated_date 缺失 {dropped} 行）", flush=True)
     print(f"  fact: {out}", flush=True)
