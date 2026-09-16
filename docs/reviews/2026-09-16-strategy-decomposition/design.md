@@ -1,6 +1,6 @@
 # 策略分解规范（六层漏斗）——设计文档
 
-日期：2026-09-16 ｜ 状态：**待评审**（用户已拍板 2 项决策，见 §0）
+日期：2026-09-16 ｜ 状态：**已评审**（D1/D2/D4 用户已拍板；实施计划见同目录 `plan.md` Plan S）
 背景：从 `crash_bottom_leader` 的现状讨论出发——"触发段/选股打分"本应是因子的事；
 本文把"一个策略"拆成六层漏斗，定义每层职责、顺序、归属（平台/研究）与接口，
 并对照现状列出缺口（供开发团队评估）。
@@ -72,11 +72,12 @@ L5 执行与风控（怎么交易）      M8（执行）+ 策略规则（路径�
 | G4 | **L4/L5 双轨**：crash_bottom 自实现组合/执行，与 M7/M8 行为可能漂移（如段界成本 R01-STRAT-C2 就是自实现才有的 bug） | 数据前置（index_daily 000852.SH/stock_st/duckdb）恢复后，把 crash_bottom 收敛到 M7/M8；收敛前明确"脚本为参考实现" |
 | G5 | **可交易性分工未文档化**：ST/次新在池（研究口径）、涨跌停/停牌在执行（成交口径） | 写入本规范 §1 注释 + 因子/策略开发手册；池=研究口径，执行=成交口径，互不重叠 |
 
-## 5. 待定问题
+## 5. 待定问题（2026-09-16 收口）
 
-1. G1 的 regime 多输出是否本期实施（依赖多输出 spec 支持：平台已支持 `outputs`，但研究库 152 个 spec 均未用）；
-2. ~~是否把"策略"配置化/建档~~ → **已定（D4，要）**，格式草案见 §6；
-3. L5 的路径依赖规则长期是否平台化（M8 扩展 vs 维持研究脚本）。
+1. G1 的 regime 多输出 → **后置**（plan Task 7 登记触发条件；平台已支持 `outputs`，研究库尚未用）；
+2. ~~是否把"策略"配置化/建档~~ → **已定（D4，要）**，实施分解见 `plan.md` Task 1-5；
+3. L5 路径依赖规则 → **V1 研究侧近似（`max_hold`，plan Task 6）**；`stop_loss/take_profit` 平台化
+   后置（plan Task 7 触发条件）。
 
 ## 6. 策略配置化与建档（D4 草案）
 
@@ -109,8 +110,12 @@ docs/index/strategies.md             # 策略索引（由 spec+档案生成，--
 **现状缺口（平台侧）**：`StrategySpec` 目前只能由 Python 构造，**没有 YAML 加载器**；
 策略档案也没有模板/索引。需要：
 1. 平台：`load_strategy_spec(path) -> StrategySpec`（含 direction 与因子 artifact 的对齐校验、
-   `universe_override` 语义、execution.rules 的"研究侧执行"边界声明）；
+   `universe_override` 语义、execution.rules 的"研究侧执行"边界声明）——**按 §5 收口改为加载器
+   组合 `StrategyDoc{StrategySpec + ExecutionSpec}`**（StrategySpec 禁 execution 字段，不可合并）；
 2. 研究侧：`research/strategy/` 目录 + 策略档案模板（可从现有
    `crash_bottom_leader_strategy.md` 提炼）+ `docs/index/strategies.md` 索引与 `--check` 门；
 3. 首例：把 `crash_bottom_leader` 转为策略 spec（需数据前置：index_daily/stock_st/duckdb），
    或先用可跑的因子（如 `max_effect_20d_high`）落一个示例。
+
+**实施分解**：见同目录 `plan.md`（Plan S）——Task 1 契约+加载器 / Task 2 运行器 / Task 3 研究入口 /
+Task 4 档案+索引门 / Task 5 首例 / Task 6 L5 规则 / Task 7 后置登记。
