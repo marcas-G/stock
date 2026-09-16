@@ -1,0 +1,13 @@
+{
+  "decisions": 53,
+  "events": 4,
+  "span_days": 1456,
+  "nav_start": 1000000.0,
+  "nav_end": 1570629.2850642926,
+  "total_return": 0.5706292850642927,
+  "sharpe_monthly_ann": 5.599701322099383,
+  "max_drawdown": -0.025669157922066588,
+  "returns_finite": true,
+  "rights_warnings": 1,
+  "trailing_unresolved": false
+}

@@ -1,0 +1,3 @@
+# CH adj_detail 全表语义分布（决策：负值 fail-closed / 配股不参与 / floor 舍入）
+# neg_cash neg_bonus neg_transfer rights_events neg_rights cash_events bonus_events fractional_bonus total_rows
+0 0 0 994 0 52815 12345 1736 18124805

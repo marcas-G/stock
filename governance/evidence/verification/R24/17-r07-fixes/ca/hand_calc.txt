@@ -1,0 +1,18 @@
+# R07-DATA-I8 CA primitive 手算对拍（platform venv 实跑）
+# date: 2026-09-16T19:29:22
+
+## 样例 1：1000 股（sellable 400）cash=500，10派2.5送3转2
+   分红现金 = 1000 × 2.5/10 = 250.0
+   新股数   = floor(1000 × (10+3+2)/10) = 1500
+   新可卖   = floor(400 × 1.5) = 600
+   实得 cash = 750.0（期望 750.0）
+   CHECK cash=OK qty=OK sell=OK
+
+## 样例 2：舍入规则（floor，不足 1 股舍去）
+   105 × 1.15 = 120.75 → 120（round 会得 121）
+   100 × 1.01 = 101.0  → 101（float 朴素 floor 会得 100 —— Decimal 精确缩放锁定）
+
+## 样例 3：配股不参与（V1 策略）
+   10配3 @6.5 → warning=1 条（CorporateActionWarning）
+   qty 不变=1000 cash 不变=0.0
+   CHECK qty=OK cash=OK
