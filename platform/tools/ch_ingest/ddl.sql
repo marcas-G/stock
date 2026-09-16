@@ -30,10 +30,10 @@ CREATE TABLE IF NOT EXISTS factorlab.adj_factor (
 CREATE TABLE IF NOT EXISTS factorlab.daily_basic (
     ts_code       String,
     trade_date    Date,
-    total_mv      Nullable(Float64),   -- 派生：close×total_shares/10000（万元 tushare 口径）
+    total_mv      Nullable(Float64),   -- 派生：close×total_shares（源万股 → 万元 tushare 口径）
     turnover_rate Nullable(Float64),   -- 派生：vol/float_shares×100（%）
-    circ_mv       Nullable(Float64),   -- 空列占位：无数据源（LEFT JOIN 不断裂，值恒 NULL）
-    pe_ttm        Nullable(Float64),   -- 空列占位
+    circ_mv       Nullable(Float64),   -- 派生：close×float_shares（源万股 → 万元）；R07-DATA-I4（旧版空列占位）
+    pe_ttm        Nullable(Float64),   -- 空列占位：无数据源（LEFT JOIN 不断裂，值恒 NULL）
     pb            Nullable(Float64),   -- 空列占位
     dv_ratio      Nullable(Float64),   -- 空列占位
     volume_ratio  Nullable(Float64)    -- 空列占位

@@ -73,9 +73,10 @@ python reconcile.py
   `round((prev - div_cash/10 + rights_price×rights_num/10) / (1 + div_bonus/10 + div_transfer/10), 2)`
   （half-up；单位：元或股/10股），与 knowledge/contracts/catalog.md 承诺一致；组内首日 NULL
 - `total_mv` = close×total_shares（源 total_shares 单位=万股 → 万元；R21 C1 修 1e4）；
+  `circ_mv` = close×float_shares（同万元口径；R07-DATA-I4 起派生，非占位）；
   `turnover_rate` = vol/(float_shares×1e4)×100（%）
 - `adj_factor` <=0（vendor 后复权价异常）归 NULL——qfq 基准 `argMax` 跳过 NULL（R21 I1）
-- `daily_basic` 后 5 列（circ_mv/pe_ttm/pb/dv_ratio/volume_ratio）为占位空列（无数据源；
+- `daily_basic` 的 `pe_ttm/pb/dv_ratio/volume_ratio` 4 列为占位空列（无数据源；
   平台读路径 `_PLATFORM_COLS` 仍映射它们，DDL 保留；**不要在文档/目录里宣传可用**）
 - `stock_basic.list_date` 为 daily_fact 最早交易日代理
 - `stock_basic.industry` **恒 NULL**（R02-I1 生产侧如实标注）：daily_fact 无行业列，

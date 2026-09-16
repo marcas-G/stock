@@ -71,6 +71,54 @@ def test_missing_shares_become_null_not_zero():
     out = ingest_daily.derive_daily_fields(df)
     assert out["total_mv"][0] is None
     assert out["turnover_rate"][0] is None
+    assert out["circ_mv"][0] is None
+
+
+# ── R07-DATA-I4：circ_mv 派生（close × float_shares，万元）────────────
+def test_circ_mv_units_600519():
+    """600519.SH 2026-08-21：close=1272.83 流通股本=125008.16 万股（全流通）。
+
+    circ_mv = close × float_shares → 万元（同 total_mv 口径，源 float_shares
+    单位=万股，直接乘积即万元）；≈1.591e8 万元（1.59 万亿）。
+    """
+    d = datetime.date(2026, 8, 21)
+    df = _frame([_row("600519.SH", d, 1272.83, total_shares=125008.16,
+                      float_shares=125008.16)])
+    out = ingest_daily.derive_daily_fields(df)
+    assert "circ_mv" in out.columns, "circ_mv 列必须派生（R07-DATA-I4）"
+    mv = out["circ_mv"][0]
+    assert mv == pytest.approx(1272.83 * 125008.16, rel=1e-12)
+    assert mv > 1e8, f"circ_mv 单位错（少除/多除 1e4）：{mv}"
+
+
+def test_circ_mv_not_total_mv_when_not_fully_floating():
+    """601390.SH 2026-08-21：total=2453131.0 / float=2032392.0（非全流通）。
+
+    流通市值必须按 float_shares 而非 total_shares——拿 total_mv 冒充的存根必败。
+    """
+    d = datetime.date(2026, 8, 21)
+    df = _frame([_row("601390.SH", d, 4.3, total_shares=2453131.0,
+                      float_shares=2032392.0)])
+    out = ingest_daily.derive_daily_fields(df)
+    assert "circ_mv" in out.columns, "circ_mv 列必须派生（R07-DATA-I4）"
+    assert out["circ_mv"][0] == pytest.approx(4.3 * 2032392.0, rel=1e-12)
+    assert out["total_mv"][0] == pytest.approx(4.3 * 2453131.0, rel=1e-12)
+    assert out["circ_mv"][0] < out["total_mv"][0]
+
+
+def test_daily_basic_frame_circ_mv_and_remaining_placeholders():
+    """daily_basic 组装：circ_mv 取自派生列；pe_ttm/pb/dv_ratio/volume_ratio 仍恒 NULL。"""
+    d = datetime.date(2026, 8, 21)
+    df = ingest_daily.derive_daily_fields(
+        _frame([_row("601390.SH", d, 4.3, total_shares=2453131.0,
+                     float_shares=2032392.0)]))
+    basic = ingest_daily.daily_basic_frame(df)
+    assert basic.columns == ["ts_code", "trade_date", "total_mv",
+                             "turnover_rate", "circ_mv", "pe_ttm", "pb",
+                             "dv_ratio", "volume_ratio"]
+    assert basic["circ_mv"][0] == pytest.approx(4.3 * 2032392.0, rel=1e-12)
+    for col in ("pe_ttm", "pb", "dv_ratio", "volume_ratio"):
+        assert basic[col][0] is None, f"{col} 应仍为占位 NULL（无数据源）"
 
 
 # ── DATA-C2 除权参考价 ─────────────────────────────────────────────────
