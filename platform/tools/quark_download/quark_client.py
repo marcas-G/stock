@@ -34,6 +34,9 @@ COOKIE_PATH = os.environ.get("QUARK_COOKIE_FILE", "/tmp/quark_cookies.txt")
 _FALLBACK_COOKIE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "..", "quark_cookies.txt")
 
+_lock = threading.Lock()
+_state: dict = {"stoken": None, "ts": 0.0}
+
 
 def cookies() -> str:
     """读 cookie 串（首尾空白剥掉）；两处都缺 → FileNotFoundError（显式，不静默）。"""
