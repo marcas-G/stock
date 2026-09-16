@@ -1,0 +1,46 @@
+== R29 Task6.5: 根 results/ 退场监督 ==
+date: 2026-09-16T21:40:38+08:00
+
+[1] 现状（根 results/ 内容）
+总用量 24
+drwxrwxr-x  2 gaolei gaolei 4096 9月  16 19:53 .
+drwxrwxr-x 13 gaolei gaolei 4096 9月  16 18:22 ..
+-rw-rw-r--  1 gaolei gaolei 1577 9月  16 18:23 _mine_round_13.md
+-rw-rw-r--  1 gaolei gaolei 1694 9月  16 19:12 _mine_round_14.md
+-rw-rw-r--  1 gaolei gaolei 1481 9月  16 19:34 _mine_round_15.md
+-rw-rw-r--  1 gaolei gaolei 1526 9月  16 19:53 _mine_round_16.md
+  hidden:
+
+[2] 在途写点 grep（技能/脚本/设置；排除 runs/platform 与历史证据）
+-- .claude/skills/ --
+.claude/skills/factor-mine/SKILL.md:130:   坐标 `results/…` 或迁移前平台落点）、跑 `build_index.py` 重生索引、缺 snapshot
+-- tools/src 内对根 results 的写点（写/输出语义） --
+platform/src/factorlab/app/strategy/__init__.py:3:契约（Plan S Task 2）：`run_strategy(doc, rd, results_dir=None)`。
+platform/src/factorlab/surfaces/cli/main.py:356:    results_dir = settings.results_dir
+platform/src/factorlab/surfaces/cli/main.py:569:    results_dir = settings.results_dir
+research/tools/strategies/tests/test_run_strategy_cli.py:159:    def fake_run(doc, rd, results_dir=None, out_dir=None, target_transform=None):
+research/tools/strategies/run_strategy.py:102:        res = run_strategy(doc, rd, results_dir=args.results_dir,
+-- 设置默认值（RunContext 跟随点）--
+-- 旧坐标读取文档串（非写点，research/tools，冻结不动作）--
+research/tools/strategies/strategy_crash_bottom.py:14:数据源：results/<name>/panel.parquet（date/code/signal/forward_return_5d）
+research/tools/strategies/strategy_crash_bottom.py:39:    """读 `results/<name>/panel.parquet`（R4a：经平台单点 adapters.panel_store）。
+
+[3] 迁移（sha256 前后逐一对照）
+6c9777e6f7522b989a9427fda94e815e85712b8464759312ba2efbd976f31711  results/_mine_round_13.md
+62348945512cef556ad22f3b0dc866dd421709767cb3676ff02fdbd143299e70  results/_mine_round_14.md
+940aa85f22911196c0947d2e81be9de43e96c3a8b53560c743c029f2a2da78f3  results/_mine_round_15.md
+63cab5843e9c06ab8e149c1ada5c08021aaabb1b4e2a823e5c658cdb6cb635bf  results/_mine_round_16.md
+-- after --
+6c9777e6f7522b989a9427fda94e815e85712b8464759312ba2efbd976f31711  runs/platform/_mine_rounds/_mine_round_13.md
+62348945512cef556ad22f3b0dc866dd421709767cb3676ff02fdbd143299e70  runs/platform/_mine_rounds/_mine_round_14.md
+940aa85f22911196c0947d2e81be9de43e96c3a8b53560c743c029f2a2da78f3  runs/platform/_mine_rounds/_mine_round_15.md
+63cab5843e9c06ab8e149c1ada5c08021aaabb1b4e2a823e5c658cdb6cb635bf  runs/platform/_mine_rounds/_mine_round_16.md
+
+[4] 目录退场
+  rmdir results: OK（已空并移除）
+ls: 无法访问'results': 没有那个文件或目录
+  根 results/: 不存在 ✓
+
+[5] 残余风险
+  活跃挖矿会话（最近一次 run 21:33，坐标已在 runs/platform）若按旧上下文再写根 results/，
+  按本轮同法迁回；write-point（技能/脚本/设置）已零残留。

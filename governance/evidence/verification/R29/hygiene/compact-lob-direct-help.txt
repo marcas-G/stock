@@ -1,0 +1,14 @@
+usage: compact_lob.py [-h] [--root ROOT] --months MONTHS [--tables TABLES]
+                      [--rgr RGR] [--level LEVEL] [--lock LOCK] [--out OUT]
+                      [--dry-run]
+
+options:
+  -h, --help       show this help message and exit
+  --root ROOT
+  --months MONTHS  逗号分隔 YYYYMM
+  --tables TABLES
+  --rgr RGR
+  --level LEVEL
+  --lock LOCK      批算锁文件 (占用则拒绝, 退出码 3)
+  --out OUT        报告 JSON 路径
+  --dry-run

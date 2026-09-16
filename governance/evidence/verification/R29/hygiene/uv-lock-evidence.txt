@@ -1,0 +1,72 @@
+== R29 Task6.3: platform/uv.lock 生成与验证（final） ==
+date: 2026-09-16T21:40:16+08:00 | uv uv 0.12.12 (x86_64-unknown-linux-gnu)
+
+[1] pyproject 改动（相对 HEAD；2 处：uv.sources + pyarrow 上界 + 直用依赖声明）
+diff --git a/platform/pyproject.toml b/platform/pyproject.toml
+index 9648655..fa2a396 100644
+--- a/platform/pyproject.toml
++++ b/platform/pyproject.toml
+@@ -11,7 +11,7 @@ dependencies = [
+     "polars>=1.38",
+     "numpy>=1.26",  # 逐周横截面 OLS（eval.cross_section）/ eval.correlation 运行时依赖
+     "duckdb>=1.5",
+-    "pyarrow>=20",  # 本机 glibc 2.27: >=21 无 cp313 manylinux wheel, 只能 20.x
++    "pyarrow>=20,<21",  # 本机 glibc 2.27: >=21 无 cp313 manylinux wheel, 只能 20.x（R29：uv lock 需显式上界，否则解析到 25.x 源码构建必败）
+     "clickhouse-connect>=1.7",  # ClickHouse 读后端 (ch_source)
+     "pyyaml>=6",
+     "pydantic>=2.12",
+@@ -26,6 +26,8 @@ dependencies = [
+     "plotly>=6.7",
+     "requests>=2.32",
+     "psutil>=7.2",
++    "pandas>=2",   # tools/ 直用（45 文件；此前只经 polars-ta 传递覆盖——R29 uv lock 显式声明）
++    "openpyxl>=3.1",  # tools/ashare_ingest/import_daily 的 xlsx 解析（R29 uv lock 暴露缺失）
+     "quant-core>=0.1.0",  # Rust 评估内核（PyO3；源见 quant-data 项目归档，本仓库仅声明）
+ ]
+ 
+@@ -36,6 +38,10 @@ dev = ["pytest>=8", "pytest-cov>=6"]
+ [project.scripts]
+ factorlab = "factorlab.surfaces.cli.main:app"
+ 
++[tool.uv.sources]
++# R29：本地评估内核（不在 PyPI）——uv lock 解析用；不影响 pip/editable 安装路径
++quant-core = { path = "kernels/quant_core" }
++
+ [tool.setuptools.packages.find]
+ where = ["src"]
+ 
+
+[2] uv lock
+Resolved 72 packages in 869ms
+Added et-xmlfile v2.0.0
+Added openpyxl v3.1.5
+  uv.lock: 1423 行, 241163 字节
+
+[3] uv lock --check
+Resolved 72 packages in 2ms
+
+[4] 独立 venv 重建验证（不动 platform/.venv；UV_PROJECT_ENVIRONMENT=/tmp/opencode/r29-uv-verify/venv）
+$ cd platform && UV_PROJECT_ENVIRONMENT=/tmp/opencode/r29-uv-verify/venv uv sync --frozen --no-dev
+ ~ factorlab==0.1.0 (from file:///data/students/gaolei/stock/platform)
+ + openpyxl==3.1.5
+throwaway venv python 3.13.13
+polars 1.44.2 | duckdb 1.5.5 | pyarrow 20.0.0 | numpy 2.5.3
+openpyxl 3.1.5 | pandas 3.0.5
+factorlab /data/students/gaolei/stock/platform/src/factorlab/__init__.py
+quant_core /tmp/opencode/r29-uv-verify/venv/lib/python3.13/site-packages/quant_core/__init__.py
+IMPORT_OK
+
+[5] 现 venv 未动核对
+  pyvenv.cfg mtime: 2026-09-03 09:28:12.789247093 +0800（改动前 2026-09-03）
+  .venv 包数: 72
+
+[6] lock 覆盖度 vs 现 venv（各 72 包）
+  venv-only（未声明且未被 lock 覆盖；live 代码无 import）: httpcore httpx setuptools vulture
+  lock-only（跨平台/extra 闭包条目）: colorama ta-lib tzdata win32-setctime
+  说明：R29 前 pyproject 未声明 pandas（45 文件直用，仅靠 polars-ta 传递）与 openpyxl
+  （import_daily 直用）——已补声明，lock 现覆盖 import_daily 运行面。
+
+[7] 残余（未硬做，触发条件见 pending #18）
+  - 三门全量回归（平台全量 / 研究 T1+T2 / lob_fact 金样）未在本轮跑；
+  - venv 内 httpx/httpcore/vulture/setuptools 未裁决（声明或剔除）；
+  - throwaway 验证只覆盖声明闭包，不替代对现 venv 的逐条版本对拍。

@@ -1,0 +1,6 @@
+== R29 相关测试（工具面） ==
+date: 2026-09-16T21:40:59+08:00
+
+$ platform/.venv/bin/python -m pytest platform/tools/lob_fact/tests/test_compact_lob.py platform/tools/quark_download/tests platform/tools/ch_ingest/tests -q
+..........................................................               [100%]
+58 passed in 16.97s

@@ -1,0 +1,38 @@
+== R29 Task6.4: quark 改名批次证据（仓内 + 用户级技能副本 + SKILL.md）==
+date: 2026-09-16T21:36:49+08:00
+HEAD: 881a077
+
+[1] 仓内改名（git status）
+ M platform/tools/quark_download/README.md
+RM platform/tools/quark_download/quark_download_v2.py -> platform/tools/quark_download/download_level2.py
+R  platform/tools/quark_download/quark_download_server.py -> platform/tools/quark_download/download_share_dir.py
+ M platform/tools/quark_download/quark_client.py
+RM platform/tools/quark_download/quark_share.py -> platform/tools/quark_download/share_manifest.py
+ M platform/tools/quark_download/tests/test_quark_download.py
+
+[2] 技能副本 after（sha256）
+11a1b160f8186e8b97b96db0ad9d227bc7cb841afa486b8372511087bf990e25  build_manifest_tree.py
+9658a4fe4d3e9b249e9b4ae70c271e255d9da9a9434a8c4c9a6c084765ffd532  download_level2.py
+cfac38f4e32ee49c8e527f6c76cc742282b36b7faa209adab1037cce767ff0db  download_share_dir.py
+1aa36ed7a13206e173a19a4253ae3ea19b1a078d72a5c2a3e8861f0932493a9e  quark_client.py
+822371d4c9ffad9a4425a09726412bbed3251709c6ccbba8923f1fd2a31a2a9e  share_manifest.py
+
+[3] repo vs skill 逐一 sha256 对拍（应全 MATCH）
+MATCH  quark_client.py
+MATCH  download_level2.py
+MATCH  download_share_dir.py
+MATCH  share_manifest.py
+
+[4] 技能副本直跑 import 烟测（系统 python3，脚本仅标准库+同目录 quark_client）
+IMPORT_OK
+
+[5] 旧名在活代码中的残留（仓内 live 树 + 技能目录；历史证据/登记文本除外）
+  仓内 live 树: 0 命中
+/home/gaolei/.claude/skills/quark-share-download/SKILL.md:64:> R29（2026-09-16）改名批次：`quark_download_v2.py`→`download_level2.py`、
+/home/gaolei/.claude/skills/quark-share-download/SKILL.md:65:> `quark_download_server.py`→`download_share_dir.py`、`quark_share.py`→`share_manifest.py`；
+
+[6] 备份（回退用）: governance/evidence/verification/R29/hygiene/quark-skill-scripts-before-20260916.tar.gz
+scripts/
+scripts/quark_download_v2.py
+scripts/quark_download_server.py
+scripts/build_manifest_tree.py

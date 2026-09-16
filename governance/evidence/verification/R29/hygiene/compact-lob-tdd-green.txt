@@ -1,0 +1,20 @@
+== 修复后: full test_compact_lob.py ==
+.........                                                                [100%]
+9 passed in 1.57s
+
+== 直跑命令 + 输出 ==
+$ cd platform/tools/lob_fact/store && ../../../.venv/bin/python compact_lob.py --help
+usage: compact_lob.py [-h] [--root ROOT] --months MONTHS [--tables TABLES]
+                      [--rgr RGR] [--level LEVEL] [--lock LOCK] [--out OUT]
+                      [--dry-run]
+
+options:
+  -h, --help       show this help message and exit
+  --root ROOT
+  --months MONTHS  逗号分隔 YYYYMM
+  --tables TABLES
+  --rgr RGR
+  --level LEVEL
+  --lock LOCK      批算锁文件 (占用则拒绝, 退出码 3)
+  --out OUT        报告 JSON 路径
+  --dry-run

@@ -1,0 +1,14 @@
+== 归因补证：HEAD 干净树 index 门红（非 R29 改动引起） ==
+date: 2026-09-16T21:45:45+08:00
+
+HEAD=3f7d8e4（含并发 agent/挖矿在途提交）在 clean worktree（git worktree add --detach HEAD）实测：
+  knowledge/index/factors.md: 177 因子 / 15 族
+  生成器 render（HEAD tracked specs）: 170 因子 / 14 族
+  → HEAD 索引含未提交的在途 spec（如 research/factor/intraday/*），系挖矿会话提交索引进度时
+    未同批提交 spec/档案（瞬时红）。
+  test_every_yaml... 失败点：缺档案 knowledge/dossiers/factors/momentum_20d/turnrank_top2.md
+  相关在途（untracked）: research/factor/intraday/ 与 knowledge/dossiers/factors/intraday/
+
+  git ls-tree HEAD 证据：
+  $ git ls-tree -r HEAD --name-only | grep -i "turnrank_top2|intraday/"
+research/factor/momentum_20d/turnrank_top2.yaml

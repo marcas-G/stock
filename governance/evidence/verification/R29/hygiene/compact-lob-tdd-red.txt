@@ -1,0 +1,33 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________________ test_script_direct_run_help_smoke _______________________
+
+    def test_script_direct_run_help_smoke():
+        """直跑 `python store/compact_lob.py --help` 必须自举成功: exit 0 且打 usage。
+    
+        背景: 该文件头部的 sys.path 自举原写在 docstring 内 (示例文本, 不执行) →
+        直跑在 `from core import config` 处 ModuleNotFoundError (R27 #21)。
+        存根必败: 删掉自举/改坏路径 → rc≠0 且 stderr 含 ModuleNotFoundError。"""
+        import subprocess
+        tool = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            'store', 'compact_lob.py')
+        r = subprocess.run([sys.executable, tool, '--help'],
+                           capture_output=True, text=True, timeout=120)
+>       assert r.returncode == 0, \
+            f"rc={r.returncode}\nSTDOUT:\n{r.stdout}\nSTDERR:\n{r.stderr}"
+E       AssertionError: rc=1
+E         STDOUT:
+E         
+E         STDERR:
+E         Traceback (most recent call last):
+E           File "/data/students/gaolei/stock/platform/tools/lob_fact/store/compact_lob.py", line 33, in <module>
+E             from core import config as C
+E         ModuleNotFoundError: No module named 'core'
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '/data/students/gaolei/stock/platform/...pact_lob.py", line 33, in <module>\n    from core import config as C\nModuleNotFoundError: No module named \'core\'\n').returncode
+
+platform/tools/lob_fact/tests/test_compact_lob.py:205: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tools/lob_fact/tests/test_compact_lob.py::test_script_direct_run_help_smoke
+1 failed in 1.04s

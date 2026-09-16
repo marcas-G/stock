@@ -1,0 +1,76 @@
+== make test-research（挖矿瞬时红归因） ==
+date: 2026-09-16T21:42:48+08:00
+
+E         ?        ^^
+E         + > 共 **177 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+E         ?        ^^...
+E         
+E         ...Full output truncated (357 lines hidden), use '-vv' to show
+research/tools/factor_lib/tests/test_index.py:26: AssertionError
+_______________ test_every_yaml_has_mirror_doc_and_name_matches ________________
+    def test_every_yaml_has_mirror_doc_and_name_matches():
+        """yaml ↔ md 一一镜像；档案 front-matter 的 xname 必须等于 spec.name。"""
+        specs = BI.load_specs()
+        # 原集 ≥152（只增不删——挖矿循环持续新增因子并逐轮归档；低于 152 说明有删除，
+        # 必须显式确认。R04 后 `_` 前缀目录/文件为元数据，不计入）
+        assert len(specs) >= 152, f"因子数少于原集 152（{len(specs)}）——有删除？"
+        for s in specs:
+            md = ROOT / s["md"]
+>           assert md.is_file(), f"缺档案 {s['md']}"
+E           AssertionError: 缺档案 knowledge/dossiers/factors/intraday/am_pm_vol.md
+E           assert False
+E            +  where False = is_file()
+E            +    where is_file = PosixPath('/data/students/gaolei/stock/knowledge/dossiers/factors/intraday/am_pm_vol.md').is_file
+research/tools/factor_lib/tests/test_index.py:37: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/factor_lib/tests/test_index.py::test_index_matches_generator
+FAILED research/tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches
+2 failed, 59 passed in 14.52s
+Makefile:20: recipe for target 'test-research' failed
+make: *** [test-research] Error 1
+
+== 归因：失败点对应的文件状态 ==
+-- 缺档案 intraday/am_pm_vol.md 的 spec（untracked=挖矿在途） --
+-rw-rw-r-- 1 gaolei gaolei 273 9月  16 20:26 research/factor/intraday/am_pm_vol.yaml
+?? knowledge/dossiers/factors/intraday/
+?? research/factor/intraday/
+
+-- 本轮改动文件列表（不涉 research/factor、knowledge/dossiers、knowledge/index） --
+ M governance/evidence/reviews/README.md
+ M governance/workspace/pending-items.md
+ M knowledge/contracts/interface.md
+ M platform/pyproject.toml
+ M platform/tools/ch_ingest/README.md
+ M platform/tools/ch_ingest/ddl.sql
+ M platform/tools/lob_fact/store/compact_lob.py
+ M platform/tools/lob_fact/tests/test_compact_lob.py
+ M platform/tools/quark_download/README.md
+RM platform/tools/quark_download/quark_download_v2.py -> platform/tools/quark_download/download_level2.py
+ M platform/tools/quark_download/quark_client.py
+RM platform/tools/quark_download/quark_share.py -> platform/tools/quark_download/share_manifest.py
+ M platform/tools/quark_download/tests/test_quark_download.py
+?? governance/evidence/verification/R29/hygiene/
+?? platform/uv.lock
+?? research/tools/factor_lib/gen_minute_pool.py
+
+== HEAD 基线（干净 worktree，已提交态）回归同一测试 ==
+$ git worktree add --detach /tmp/opencode/r29-baseline HEAD
+准备 /tmp/opencode/r29-baseline（标识符 r29-baseline）
+HEAD 现在位于 3f7d8e4 docs(workspace): circ_mv 登记去重（#28/#29 合并为 #29）
+
+$ cd /tmp/opencode/r29-baseline && platform/.venv/bin/python -m pytest research/tools/factor_lib/tests/test_index.py -q
+FAILED platform/tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables
+FAILED platform::test_index_matches_generator - AssertionError: assert '# 因...
+FAILED platform::test_every_yaml_has_mirror_doc_and_name_matches - AssertionE...
+3 failed, 342 passed in 52.72s
+
+== HEAD 基线（干净 worktree，已提交态）回归同一测试 ==
+$ git worktree add --detach /tmp/opencode/r29-baseline HEAD
+准备 /tmp/opencode/r29-baseline（标识符 r29-baseline）
+HEAD 现在位于 3f7d8e4 docs(workspace): circ_mv 登记去重（#28/#29 合并为 #29）
+
+$ cd /tmp/opencode/r29-baseline && <platform venv> python -m pytest platform/tools research/tools/factor_lib/tests/test_index.py -q
+FAILED platform/tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables
+FAILED platform::test_index_matches_generator - AssertionError: assert '# 因...
+FAILED platform::test_every_yaml_has_mirror_doc_and_name_matches - AssertionE...
+3 failed, 342 passed in 50.98s
