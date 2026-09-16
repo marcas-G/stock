@@ -1,0 +1,13 @@
+name: r24_circmv_probe
+category: custom
+direction: 1
+universe:
+  rules: {exclude_st: true, exchanges: ["SSE", "SZSE"]}
+date:
+  start: "2026-07-01"
+  end: "2026-08-21"
+process:
+  - winsorize(quantile=0.99)
+  - standardize()
+formula: |
+  signal = -log(circ_mv)

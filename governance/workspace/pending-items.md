@@ -198,9 +198,45 @@
     **保留裁决项**：`__root-dup-20260916` 两份以哪个为准（研究侧确认后合并/删除其一）。
     **残余风险**：活跃挖矿会话若仍按旧坐标写根 `results/`，按新坐标迁回（skill 已更新）。
 
+23. **Plan 2/3 功能后置（触发已燃，R07 复核）**（2026-09-16 登记）
+    现状：Plan 1（开放算子）已验收（R22）；Plan 2（算子生命周期：`op_meta` 黑盒声明、
+    conformance 套件、算子档案 `research/ops/`、插件元数据）与 Plan 3（`by=` 截面/
+    分组表达 + 数据可用性检查）未排期——`op_meta` 非空即报「暂未支持（Plan 2）」、
+    `rank(close, by=date)` 未知算子、方法窗体（`close.rolling_mean(5)`）被 AST 门拒。
+    未决因：Plan 1 交接条件已满足（"Plan 1 完成后写 Plan 2/3"）但无排期文档与落地代码。
+    启动条件：设计已存（`knowledge/design/workspace/2026-09-15-open-operators/`；
+    明细 R07 `feature/01-open-operators-plan23.md` A1-A11/B1-B2）——下一轮功能排期
+    直接写 Plan 2/3 实施计划。
+
+24. **分钟执行 V2（量能触发 / 分钟 NAV / 临停规则库）**（2026-09-16 登记）
+    现状：V1（NEXT_WINDOW 分钟窗口成交 + WINDOW_END_BASED 日级 marks）已落地（R22，
+    契约见 interface.md「R22 分钟窗口执行」）；V2 三项开放：① 量能触发
+    （`trigger.mode` 仅 limit/vwap_offset，无 volume 模式）；② 日内分钟 NAV/回撤
+    （marks 仍是日级窗口末 close）；③ 盘中临停精确规则（V1 仅按分钟缺行跳过）。
+    未决因：均为设计明示的 V1/V2 边界（`2026-09-15-minute-execution/design.md`
+    §6.3-6.5），非缺陷。
+    启动条件：量价异动执行算法 / 日内风险视图 / 临停仿真精度的研究需求各自触发。
+
+25. **`index_daily` 空表 + `ingest_index_sina.py` 死引用**（2026-09-16 登记）
+    现状：CH `factorlab.index_daily` 全表 0 行 → 9 个 crash_bottom 族 spec 的 `idx_ret`
+    恒 NULL（族不可复跑）；`platform/tools/ch_ingest/ddl.sql:70` 注释指向的补数脚本
+    `ingest_index_sina.py` 全仓无此文件（死引用，`git grep` 仅注释自身命中）。
+    未决因：补数源未裁决（sina 拉 000852.SH vs teajoin token 恢复后 `data update`
+    指数增量）；读路径 LEFT JOIN 依赖表存在，不能简单删表。
+    启动条件：先裁决补数源 → 灌目标指数全历史 → 重跑 crash_bottom 族；同时删/改
+    `ddl.sql` 死引用并停止在文档 advertise。
+
+26. **`stock_st` 缺表（exclude_st 全场降级）**（2026-09-16 登记）
+    现状：CH 无 `stock_st` 表；94% spec 带 `exclude_st: true` → 全市场挖矿/复跑必须
+    `FACTORLAB_ST_DEGRADE=allow`（warning + `is_st=null` + summary `st_degrade: true`，
+    即无 ST 口径）；真实 ST 过滤不可用，降级结果与 ST 过滤结果不可混比。
+    未决因：无 ST 历史快照源（需外部数据）。
+    启动条件：确定 ST 源 → 建表灌入（沿 interface.md §4.2 coverage 契约）→ 关开关按
+    标准 ST 过滤复跑；此前涉及 ST 的验收口径按「无 ST」记录。
+
 23. **R07-MIG-I2：档案旧坐标清理残余**（2026-09-16 登记；主体同日完成 ✅）
     现状：档案模板根因已修——`_template.md` 结果根占位 `results/<name>/summary.json` →
-    `runs/platform/<name>/summary.json`，并修模板内 `docs/factors/` 旧路径；存量
+    `runs/platform/<name>/summary.json`，并修模板内旧知识树路径；存量
     **tracked 且工作区干净**档案 156 份 163 处 `results/…` 指针机械替换为 `runs/platform/…`
     （连带 `--output-dir`/`--panel` 命令行形态与 strategies 工具旧默认值），修前 164 行/156 文件
     （具体指针口径）→ 修后 0；reviewer 反引号口径 164 行/158 文件 → 修后仅 1 行历史事实。
@@ -209,9 +245,9 @@
     ① `knowledge/dossiers/factors/README.md:16,23` R21 快照历史事实（旧落点为当时真实事实）；
     ② `knowledge/README.md:4,12`、`runs/README.md:3`、`knowledge/dossiers/factors/README.md:7,8`
     R24 路径映射注（旧→新，天然引用旧路径）；
-    ③ `governance/workspace/pending-items.md:136`「原表述保留如下」历史引文（`research/tools/lib/`）；
+    ③ `governance/workspace/pending-items.md:136`「原表述保留如下」历史引文（R8 期研究侧旧写盘路径）；
     ④ `governance/workspace/workspace-p0p8.md:126` R24 前 worktree 盘点行；
     ⑤ 全部档案尾行 `docs/factor-mining-playbook.md`——README 明示「不改写」的历史档案正文
     （现行单点 `knowledge/handbooks/factor-mining-playbook.md`，R06-M10 已归位）。
-    在途：挖矿 untracked 档案的 `platform/results` 引用由挖矿循环提交前按 skill 修
+    在途：挖矿 untracked 档案的旧落点引用由挖矿循环提交前按 skill 修
     （`factor-mine` §8 门纪律）；G-LEGACY 已纳入 untracked 扫描，漏网即红。

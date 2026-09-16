@@ -1,0 +1,19 @@
+/data/students/gaolei/stock/platform/src/factorlab/app/run.py:395: STDegradedWarning: ST 未知按非 ST 处理，结果为无 ST 口径：exclude_st=true 但库中无 stock_st 表，FACTORLAB_ST_DEGRADE=allow 已显式降级（is_st=null、in_universe 不做 ST 过滤）。需真实 ST 过滤请灌入 stock_st 并保持开关默认 fail fast。
+  uf = resolve_universe_frame(spec, rd, dates=signal_cal.to_list(),
+2026-09-16 19:04:41.758 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-16 19:04:41.785 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+r24_circmv_probe: n_weeks=7 ic_mean=0.09460956050231543 
+spread=-0.016585183387065293
+
+== summary.json 关键字段（/tmp/opencode/r24-circmv-probe/out/summary.json）==
+name               = r24_circmv_probe
+date_start/end     = 2026-07-01 2026-08-21
+universe_count     = 5530
+signal_rows        = 197670
+signal_null_ratio  = 0.0   # R07 探针修复前 = 1.0
+st_degrade         = True
+n_weeks            = 7   # R07 探针修复前 = 0
+ic_mean            = 0.09460956050231543
+
+R07 对照（08c-idx-circmv-impact.txt）：r07_idx_circmv_probe signal_null_ratio: 1.0 n_weeks: 0
+修复后：signal_null_ratio=0.0、n_weeks=7、ic_mean=0.0946（circ_mv 全链路真实产出）

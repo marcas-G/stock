@@ -1,0 +1,17 @@
+== factorlab.daily_basic BEFORE (R07-DATA-I4) ==
+rows/min/max: [(18124805, datetime.date(1990, 12, 19), datetime.date(2026, 8, 21), 5861)]
+non-null per col: [(16873795, 16873731, 0, 0, 0, 0, 0)]
+sample 3 codes x 2 dates:
+('000725.SZ', datetime.date(2026, 7, 31), 20411424.4525, 5.841347657931579, None)
+('000725.SZ', datetime.date(2026, 8, 21), 22226596.5, 3.7128562435153425, None)
+('300750.SZ', datetime.date(2026, 7, 31), 182891672.15, 0.9252159507111706, None)
+('300750.SZ', datetime.date(2026, 8, 21), 180971610.325, 0.4800288182320669, None)
+('600519.SH', datetime.date(2026, 7, 31), 168836020.896, 0.4409913720832304, None)
+('600519.SH', datetime.date(2026, 8, 21), 159114136.2928, 0.2677610005618833, None)
+daily sample (close) for cross-check:
+('000725.SZ', datetime.date(2026, 7, 31), 5.51)
+('000725.SZ', datetime.date(2026, 8, 21), 6.0)
+('300750.SZ', datetime.date(2026, 7, 31), 395.3)
+('300750.SZ', datetime.date(2026, 8, 21), 391.15)
+('600519.SH', datetime.date(2026, 7, 31), 1350.6)
+('600519.SH', datetime.date(2026, 8, 21), 1272.83)

@@ -1,0 +1,23 @@
+commit 18e85318709de238c9cc3435a042a7ae1dee5039
+Author: marcas-G <2639833758@qq.com>
+Date:   Wed Sep 16 19:06:38 2026 +0800
+
+    fix(tools): R07-DATA-I4 circ_mv 派生重灌
+    
+    - derive_daily_fields 增 circ_mv = close×float_shares（源万股 → 万元，同
+      total_mv；NaN → NULL）；新增 daily_basic_frame() 组装（circ_mv 派生 +
+      pe_ttm/pb/dv_ratio/volume_ratio 4 列仍占位）；main(--only) 支持单表重灌
+    - DDL/README 更新：circ_mv 非占位；顺手修正 total_mv 陈旧注释 /10000（R21
+      C1 已证伪）
+    - 测试：+3 用例（单位/非全流通 circ<total/组装占位）+ NaN 用例增断言；
+      实现前 RED 4 failed，实现后 GREEN 16 passed，tools 全量 340 passed
+    - CH 重灌：daily_basic 18,124,805 行，circ_mv 非空 0 → 16,873,795（同
+      total_mv 覆盖）；reconcile.py daily exit 0；下游探针 signal_null_ratio
+      1.0 → 0.0、n_weeks 0 → 7
+    - 证据：governance/evidence/verification/R24/17-r07-fixes/data/
+
+ platform/tools/ch_ingest/README.md                 |   3 +-
+ platform/tools/ch_ingest/ddl.sql                   |   6 +-
+ platform/tools/ch_ingest/ingest_daily.py           | 164 +++++++++++++--------
+ .../ch_ingest/tests/test_ingest_daily_derive.py    |  48 ++++++
+ 4 files changed, 155 insertions(+), 66 deletions(-)
