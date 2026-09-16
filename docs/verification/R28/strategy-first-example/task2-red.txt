@@ -1,0 +1,188 @@
+FFFFFFFFFFFFFF                                                           [100%]
+=================================== FAILURES ===================================
+_________ test_run_strategy_matches_manual_chain_and_persists[duckdb] __________
+
+env = <conftest._EnvDuck object at 0x7f38c8ef0050>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_run_strategy_matches_manu0')
+
+    def test_run_strategy_matches_manual_chain_and_persists(env, tmp_path):
+        """run_strategy 结果 == 手工链（同 fixture）逐值：target/nav 帧相等 + 落盘往返。"""
+>       from factorlab.app.strategy import run_strategy
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:155: ModuleNotFoundError
+___________ test_run_strategy_matches_manual_chain_and_persists[ch] ____________
+
+env = <conftest._EnvCh object at 0x7f37847f63c0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_run_strategy_matches_manu1')
+
+    def test_run_strategy_matches_manual_chain_and_persists(env, tmp_path):
+        """run_strategy 结果 == 手工链（同 fixture）逐值：target/nav 帧相等 + 落盘往返。"""
+>       from factorlab.app.strategy import run_strategy
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:155: ModuleNotFoundError
+_____________ test_nav_parquet_sha256_matches_manual_chain[duckdb] _____________
+
+env = <conftest._EnvDuck object at 0x7f37847c5950>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_nav_parquet_sha256_matche0')
+
+    def test_nav_parquet_sha256_matches_manual_chain(env, tmp_path):
+        """默认 NEXT_OPEN 路径与既有链逐字节一致：nav parquet sha256 相同。
+    
+        手工链落盘到另一目录后比对——防"跑通但口径漂移"（R05-C 教训）。
+        """
+>       from factorlab.app.strategy import run_strategy
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:198: ModuleNotFoundError
+_______________ test_nav_parquet_sha256_matches_manual_chain[ch] _______________
+
+env = <conftest._EnvCh object at 0x7f37847c5a90>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_nav_parquet_sha256_matche1')
+
+    def test_nav_parquet_sha256_matches_manual_chain(env, tmp_path):
+        """默认 NEXT_OPEN 路径与既有链逐字节一致：nav parquet sha256 相同。
+    
+        手工链落盘到另一目录后比对——防"跑通但口径漂移"（R05-C 教训）。
+        """
+>       from factorlab.app.strategy import run_strategy
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:198: ModuleNotFoundError
+__________ test_constructor_and_backtest_receive_exact_specs[duckdb] ___________
+
+env = <conftest._EnvDuck object at 0x7f37847c6990>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_constructor_and_backtest_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f37847d6cf0>
+
+    def test_constructor_and_backtest_receive_exact_specs(env, tmp_path, monkeypatch):
+>       import factorlab.app.strategy.run as R
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:227: ModuleNotFoundError
+____________ test_constructor_and_backtest_receive_exact_specs[ch] _____________
+
+env = <conftest._EnvCh object at 0x7f37847c6ad0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_constructor_and_backtest_1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3784839a50>
+
+    def test_constructor_and_backtest_receive_exact_specs(env, tmp_path, monkeypatch):
+>       import factorlab.app.strategy.run as R
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:227: ModuleNotFoundError
+__________ test_window_filter_leaves_only_in_window_decisions[duckdb] __________
+
+env = <conftest._EnvDuck object at 0x7f378479bbb0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_window_filter_leaves_only0')
+
+    def test_window_filter_leaves_only_in_window_decisions(env, tmp_path):
+        """doc.date 先过滤 signal：窗口 01-04~01-09 → decision 只剩 d3/d4。"""
+>       from factorlab.app.strategy import run_strategy
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:264: ModuleNotFoundError
+____________ test_window_filter_leaves_only_in_window_decisions[ch] ____________
+
+env = <conftest._EnvCh object at 0x7f378479b360>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_window_filter_leaves_only1')
+
+    def test_window_filter_leaves_only_in_window_decisions(env, tmp_path):
+        """doc.date 先过滤 signal：窗口 01-04~01-09 → decision 只剩 d3/d4。"""
+>       from factorlab.app.strategy import run_strategy
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:264: ModuleNotFoundError
+________________ test_default_out_dir_under_results_dir[duckdb] ________________
+
+env = <conftest._EnvDuck object at 0x7f378479b230>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_default_out_dir_under_res0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f37847188c0>
+
+    def test_default_out_dir_under_results_dir(env, tmp_path, monkeypatch):
+        """results_dir 缺省 = settings.results_dir；out_dir = <root>/strategies/<name>。"""
+>       from factorlab.app.strategy import run_strategy
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:279: ModuleNotFoundError
+__________________ test_default_out_dir_under_results_dir[ch] __________________
+
+env = <conftest._EnvCh object at 0x7f378479ad70>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_default_out_dir_under_res1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f37846fd470>
+
+    def test_default_out_dir_under_results_dir(env, tmp_path, monkeypatch):
+        """results_dir 缺省 = settings.results_dir；out_dir = <root>/strategies/<name>。"""
+>       from factorlab.app.strategy import run_strategy
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:279: ModuleNotFoundError
+___________ test_empty_window_fails_fast_with_readable_error[duckdb] ___________
+
+env = <conftest._EnvDuck object at 0x7f3784758050>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_empty_window_fails_fast_w0')
+
+    def test_empty_window_fails_fast_with_readable_error(env, tmp_path):
+>       from factorlab.app.strategy import run_strategy
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:292: ModuleNotFoundError
+_____________ test_empty_window_fails_fast_with_readable_error[ch] _____________
+
+env = <conftest._EnvCh object at 0x7f3784758170>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_empty_window_fails_fast_w1')
+
+    def test_empty_window_fails_fast_with_readable_error(env, tmp_path):
+>       from factorlab.app.strategy import run_strategy
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:292: ModuleNotFoundError
+_____________ test_ca_gate_error_propagates_without_retry[duckdb] ______________
+
+env = <conftest._EnvDuck object at 0x7f37847d79b0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_ca_gate_error_propagates_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f378474cb90>
+
+    def test_ca_gate_error_propagates_without_retry(env, tmp_path, monkeypatch):
+        """持仓跨除权 → run_backtest 抛 ExecutionDataQualityError；run_strategy 原样抛。
+    
+        A 在 d3（窗口 (d2, d3] 内）除权且 d2 后持有 → Gate 拦截。计数 spy 证明
+        run_backtest 只被调用一次（没有自动重试/吞错），backtest 产物未落盘。
+        """
+>       import factorlab.app.strategy.run as R
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:313: ModuleNotFoundError
+_______________ test_ca_gate_error_propagates_without_retry[ch] ________________
+
+env = <conftest._EnvCh object at 0x7f37847d7bd0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-1589/test_ca_gate_error_propagates_1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f378474cc50>
+
+    def test_ca_gate_error_propagates_without_retry(env, tmp_path, monkeypatch):
+        """持仓跨除权 → run_backtest 抛 ExecutionDataQualityError；run_strategy 原样抛。
+    
+        A 在 d3（窗口 (d2, d3] 内）除权且 d2 后持有 → Gate 拦截。计数 spy 证明
+        run_backtest 只被调用一次（没有自动重试/吞错），backtest 产物未落盘。
+        """
+>       import factorlab.app.strategy.run as R
+E       ModuleNotFoundError: No module named 'factorlab.app.strategy'
+
+tests/test_run_strategy.py:313: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/test_run_strategy.py::test_run_strategy_matches_manual_chain_and_persists[duckdb]
+FAILED tests/test_run_strategy.py::test_run_strategy_matches_manual_chain_and_persists[ch]
+FAILED tests/test_run_strategy.py::test_nav_parquet_sha256_matches_manual_chain[duckdb]
+FAILED tests/test_run_strategy.py::test_nav_parquet_sha256_matches_manual_chain[ch]
+FAILED tests/test_run_strategy.py::test_constructor_and_backtest_receive_exact_specs[duckdb]
+FAILED tests/test_run_strategy.py::test_constructor_and_backtest_receive_exact_specs[ch]
+FAILED tests/test_run_strategy.py::test_window_filter_leaves_only_in_window_decisions[duckdb]
+FAILED tests/test_run_strategy.py::test_window_filter_leaves_only_in_window_decisions[ch]
+FAILED tests/test_run_strategy.py::test_default_out_dir_under_results_dir[duckdb]
+FAILED tests/test_run_strategy.py::test_default_out_dir_under_results_dir[ch]
+FAILED tests/test_run_strategy.py::test_empty_window_fails_fast_with_readable_error[duckdb]
+FAILED tests/test_run_strategy.py::test_empty_window_fails_fast_with_readable_error[ch]
+FAILED tests/test_run_strategy.py::test_ca_gate_error_propagates_without_retry[duckdb]
+FAILED tests/test_run_strategy.py::test_ca_gate_error_propagates_without_retry[ch]
+14 failed in 1.77s
