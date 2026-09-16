@@ -1,0 +1,59 @@
+diff -ru /tmp/opencode/tm-evidence/skills-before/factorlab-ch-pipeline/SKILL.md /data/students/gaolei/.claude/skills/factorlab-ch-pipeline/SKILL.md
+--- /tmp/opencode/tm-evidence/skills-before/factorlab-ch-pipeline/SKILL.md	2026-09-16 12:04:01.192081823 +0800
++++ /data/students/gaolei/.claude/skills/factorlab-ch-pipeline/SKILL.md	2026-09-16 12:04:06.436307154 +0800
+@@ -1,9 +1,9 @@
+ ---
+ name: factorlab-ch-pipeline
+-description: 研究侧 ClickHouse 灌入管线（tools/ch_ingest）——daily 5 表灌入、bars_1m/tick 月分区灌入、stk_limit 派生、adj_detail/adj_event 派生、reconcile 对账、刷新链（01_import_daily→ingest_daily→12_ch_adj_backfill→derive_stk_limit）。用户要刷新 CH 数据、加表/改派生规则、对账失败排查、问 CH 表语义/涨跌停制度边界时调用。权威: stock/tools/ch_ingest/README.md + ddl.sql + 脚本 docstring。
++description: 研究侧 ClickHouse 灌入管线（platform/tools/ch_ingest）——daily 5 表灌入、bars_1m/tick 月分区灌入、stk_limit 派生、adj_detail/adj_event 派生、reconcile 对账、刷新链（import_daily→ingest_daily→adj_backfill→derive_stk_limit）。用户要刷新 CH 数据、加表/改派生规则、对账失败排查、问 CH 表语义/涨跌停制度边界时调用。权威: stock/platform/tools/ch_ingest/README.md + ddl.sql + 脚本 docstring。
+ ---
+ 
+-# 研究侧 CH 灌入管线（tools/ch_ingest + ashare_alpha3/scripts）
++# 研究侧 CH 灌入管线（platform/tools/ch_ingest；R27 起归位平台树）
+ 
+ ## 何时用
+ - 用户要刷新/重建 CH（factorlab 库 @127.0.0.1:19000）任何表
+@@ -15,19 +15,19 @@
+ → factorlab-backtest。本 skill 只管"把事实库灌进 CH"与研究侧派生。
+ 
+ ## 权威文档（活的；本文件只做速查）
+-- `/data/students/gaolei/stock/tools/ch_ingest/README.md` — 表清单/用法/设计/数据口径
+-- `tools/ch_ingest/ddl.sql` — 建库建表（幂等）；各脚本 docstring 含制度规则
++- `/data/students/gaolei/stock/platform/tools/ch_ingest/README.md` — 表清单/用法/设计/数据口径
++- `platform/tools/ch_ingest/ddl.sql` — 建库建表（幂等）；各脚本 docstring 含制度规则
+ - 灌入链：`ingest_daily.py`（daily 层 5 表）→ `ingest_bars.py`（80 月任务）→
+   `ingest_tick.py`（39 任务，可断点续跑 --trades）→ `derive_stk_limit.py` →
+-  `../ashare_alpha3/scripts/12_ch_adj_backfill.py` → `reconcile.py`
+-- 源侧导入：`ashare_alpha3/scripts/01_import_daily.py`（xlsx 日K → daily_fact.parquet）
++  `adj_backfill.py`（R19 起已在 ch_ingest）→ `reconcile.py`
++- 源侧导入：`platform/tools/ashare_ingest/import_daily.py`（xlsx 日K → daily_fact.parquet）
+ - 平台侧消费语义（哪些表被读、怎么读）：见 factorlab-data / factorlab-backtest
+ 
+ ## 刷新链（全量刷新时的完整顺序；灌完必对账）
+ ```
+-01_import_daily.py (新全包 → daily_fact.parquet，--merge-only 续跑)
++import_daily.py (新全包 → daily_fact.parquet，--merge-only 续跑)
+ → ingest_daily.py          # 5 表 TRUNCATE 幂等，单进程 ~分钟级
+-→ 12_ch_adj_backfill.py    # adj_detail + adj_event（DROP+CREATE，流式 40 万行/批）
++→ adj_backfill.py          # adj_detail + adj_event（DROP+CREATE，流式 40 万行/批）
+ → derive_stk_limit.py      # stk_limit（TRUNCATE+INSERT 全量，依赖 daily 已灌）
+ → reconcile.py             # 退出码 0 = 全一致；非 0 先查，别带账继续
+ ```
+@@ -42,7 +42,7 @@
+   daily.pre_close 都不可作除权日检测（逐日漂移/昨收原值，语义勘误勿再混淆）
+ - stock_basic.market（主板/创业板/科创板/北交所，段规则同 stk_limit）与 list_date
+   （daily_fact 最早交易日代理）——execution rules loader 显式消费 market 列
+-- 市场后缀：`6`→SH、`0/3`→SZ、`920`→BJ（market_of 映射在 01_import_daily.py）
++- 市场后缀：`6`→SH、`0/3`→SZ、`920`→BJ（market_of 映射在 import_daily.py）
+ - **内存守约（用户铁约束：勿打满 CPU/内存）**：--workers 4、分片流式
+   （iter_batches 5M）、文件落盘不物化；跑重任务前先 free 检查
+ 
+@@ -70,7 +70,7 @@
+ 1. 本目录脚本路径全绝对自锚定（任意位置可跑）；跑 CH 命令带 --port 19000
+ 2. 改动派生规则：先改 docstring 记录版本（v1-v4 先例），重灌后 reconcile 对账 +
+    抽值验证（边界日/触板分布/豁免 code）
+-3. 研究侧改动不进 platform main（tools/ 与 ashare_alpha3 均研究侧）
++3. 工具改动归位 `platform/tools/`（R27；`ashare_alpha3` 仅历史参考）；研究侧改动不进平台内核
+ 4. 对账非 0：先看 reconcile 输出差异表，再查源 parquet vs CH，别直接重灌
+ 
+ ## 验证清单

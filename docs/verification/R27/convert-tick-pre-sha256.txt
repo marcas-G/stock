@@ -1,0 +1,4 @@
+9f9f0ae4fc6fcc689835fafd1444c16215fd22168be9e497b237851f17b7ad18  ./_manifest/conversion_manifest.parquet
+f0aa641a045ea06231e77ad4c0ec1bf84dd1aef22f95cccd829583829befb9f8  ./orders/year=2025/month=08/part-000.parquet
+711e9b0544f6e049b51a1e053077a11d484970a612c6200f545d02285343250a  ./snapshots/year=2025/month=08/part-000.parquet
+074c5f510c31b79f4b6126aa351b26a20b66449a40349ee29571c3c78badfedb  ./trades/year=2025/month=08/part-000.parquet

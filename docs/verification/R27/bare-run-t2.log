@@ -1,0 +1,6 @@
+=== quark_download (T2) bare ===
+9 passed in 0.52s
+=== converters (T2) bare ===
+11 passed in 8.25s
+=== lob_fact (T2) bare ===
+192 passed in 7.84s

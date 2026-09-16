@@ -1,0 +1,5 @@
+  ✓ conversion_manifest.parquet（manifest：忽略 [] 后全列排序）
+  ✓ data/calib/tick_fact_validation/orders/year=2025/month=08/part-000.parquet 行数=1040267（全列排序逐值）
+  ✓ data/calib/tick_fact_validation/snapshots/year=2025/month=08/part-000.parquet 行数=91129（全列排序逐值）
+  ✓ data/calib/tick_fact_validation/trades/year=2025/month=08/part-000.parquet 行数=672170（全列排序逐值）
+PASS：内容逐值等价（行序/元数据差异不计）

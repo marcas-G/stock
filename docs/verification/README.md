@@ -28,6 +28,7 @@
 | `R18/` | **quant_core 内核包收编**（`projects/quant_core_shim` → `platform/kernels/quant_core`；跨枝取回契约文档与逐期对拍测试 + 勘误头块；删 emb 无消费者安装；G-VENV 增正/反向断言 + 负向自检） |
 | `R19/` | **ashare 数据侧收编**（`ashare_alpha3` 的数据更新部分 → `research/tools/ashare_ingest/`；`12` → `ch_ingest/adj_backfill.py`；修 06 的 merge dtype 与 02 的未来日期两个真 bug；05 新旧 JSON 逐字节相同；G-TOPO 抓出 `config.py` 撞名 → 改 `datapaths.py`） |
 | `R20/` | **ashare 股票池段收编**（`ashare_alpha3` 的 layer1-3 + 10/11/20/30/40 + references/tests → `research/tools/universe_stages/`；G-TOPO 抓出 `datapaths.py` 同名撞名 → 改 `universe_paths.py`；补第三层脚本；T2/T1 245/59；全门绿） |
+| `R27/` | **工具迁移 + 单解释器化**（8 项数据生产线工具 + `lib/` + `_env.py`：`research/tools/` → `platform/tools/`；平台 venv 单解释器，`emb` 退役；G-TOPO/G-CONTRACT/G-READ 双树判据 + G-COPY 归位例外；convert_tick 内容逐值等价 + reconcile 全库一致；冻结条件被挖矿在途削弱，逐条偏差见 `R27/README.md`） |
 
 > 计划里的 R3（研究侧结构）与 R4（数据接口）在执行中合并为 R4 一批完成（两者动的是同一批文件）。
 
@@ -45,7 +46,8 @@
 | `docs/verification/S1…S5/`、`final/` | `docs/verification/archive/2026-09-workspace-cleanup/…` |
 | `docs/verification/WS0…WS7/`、`POST-WS8/` | `docs/verification/archive/2026-09-mining-refactor/…` |
 | `projects/quant-platform-main/docs/…` | `platform/docs/…` |
-| `projects/quant-platform-research/tools/…` | `research/tools/…` |
+| `projects/quant-platform-research/tools/…` | `research/tools/…`（R27 前的中间位置；见下一行） |
+| `research/tools/<工具>/…`（converters/quark_download/ch_ingest/ashare_ingest/universe_stages/1m_features/lob_fact/lib） | `platform/tools/<工具>/…`（R27 工具归位；`strategies/`、`factor_lib/` 仍留 `research/tools/`） |
 
 **缺口补记（不补造）**：`archive/2026-09-mining-refactor/WS7/` 无 `status.md`（当时只落了
 `7-platform-full.log`）；`WS8` 无独立目录（其证据在 `POST-WS8/` 与 `workspace-cleanup/final/`）。

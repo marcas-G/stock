@@ -162,3 +162,25 @@ stock/                    # 根 = 治理薄层（白名单定稿）
 - 五份完整分报告（含原始命令与输出）：`/tmp/opencode/reviewer-r04-{perf,flow,tidy,storage,structure}/`；
 - 各分报告均独立声明局限（快照性、争用负载、样本外推、未跑全量测试等）；
 - 本轮仅产出提案；实施与否/顺序由用户与开发团队决定。
+
+---
+
+## §8 执行回填：工具迁移 + 单解释器化（R27，2026-09-16）
+
+`tools-migration-plan.md`（TM1–TM4）已执行，单提交 `04e9f9e`（跨树单提交例外，信息已注明）：
+
+- **TM1/TM3**：Makefile 研究测试收敛为平台 venv 单解释器；`emb` 退役为工具解释器；
+  `_env.py` 退役 T1/T2 表述、保留落位断言（`platform/tools/_env.py`，`parents[1]`）。
+- **TM2**：8 项数据生产线工具 + `lib/` + `_env.py`（170 文件）`research/tools/` → `platform/tools/`；
+  `strategies/`、`factor_lib/` 留 research；G-TOPO/G-CONTRACT/G-READ 门双树判据 +
+  G-COPY 归位例外（`scripts/{check_tool_layering,check_dataiface,gates}.sh`、
+  `platform/tests/test_architecture.py` 同步）；仓内引用清扫（活文档）；
+  仓外 `factorlab-ch-pipeline` skill 同步（`factorlab-{data,dsl,evaluate,backtest}` 零引用）。
+- **TM4 验收**：`platform/tools` **337**、`research/tools` **35**（清单逐一相同 = 372）；
+  平台全量 **3099 passed / 13 skipped**；门全绿（**除 G-INDEX**——迁移前 HEAD 即红，
+  并发挖矿未入库 yaml 使索引成超集，与迁移无关）；convert_tick 金样**内容逐值等价**；
+  `make reconcile` **全库一致**；`data/` 零写（元数据 hash 相同）。
+- **证据**：`docs/verification/R27/`（命令 + 原始输出 + 门结果 + 偏差 D1–D6；含
+  `research/tools` 2 个失败为挖矿在途所致的定位证明）。
+- **残余**：`compact_lob.py` 直跑自举漏网（遗留，非本轮）；`platform/tools` 是否并入
+  平台 testpaths 留结构计划。

@@ -178,3 +178,10 @@
     未决因：把判据扩到"字符串里含 read_parquet(" 会命中大量 SQL 构造样板，需先设计
     "哪些 SQL 是数据读路径"的正向判据（如限定 `execute(` 的实参常量 + 目标含事实库名）。
     启动条件：下次动这两个 SQL 读路径时一并设计（R19 起两处均已按 partitions 单点取文件）。
+
+21. **`compact_lob.py` 直接运行起不来（自举漏网）**（R27 登记，实测）
+    现状：文件头写着的 `sys.path.insert` 自举在 **docstring 内**（示例文本，不执行）——
+    直跑 `python compact_lob.py …` 在 `from core import config` 处 `ModuleNotFoundError`；
+    测试走 in-process import + conftest 铺路所以一直没暴露（与 R14 修好的 `run_lob_batch`
+    同类问题；本文件漏网）。R27 迁移前后行为一致（非迁移引入）。
+    启动条件：下次动该工具时按 R14 同法修（自举移出 docstring）+ 补"可直跑"冒烟测试。
