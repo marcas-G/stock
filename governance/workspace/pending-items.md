@@ -111,6 +111,10 @@
        `quark_download_server.py`→`download_share_dir.py`、`quark_share.py`→`share_manifest.py`。
        **阻塞点**：用户级技能 `~/.claude/skills/quark-share-download/scripts/` 里有这三个文件的
        **副本**（实测逐字节相同）；**R16 后同步还需一并拷 `quark_client.py`**（传输层单点，见 `R16/`）——改名必须与技能更新同批，否则技能立刻断。属用户侧动作。
+       ✅ **2026-09-16 R29 完成**：仓内三文件 `git mv`（联动 README/tests/quark_client 文档串，
+       旧名 live 树 0 命中）；用户级技能 `scripts/` 同步为新名 + 补 `quark_client.py`（与仓内
+       sha256 逐一 MATCH）、SKILL.md 同批更新、旧副本移除（backup tar 存证据）。
+       证据：`governance/evidence/verification/R29/hygiene/quark-rename-evidence.txt`。
     ③ **tools 入口统一为 `run.py` 子命令形态**（C2）：涉及 6 个工具的 CLI 重构，需各自的
        冒烟测试先行；本轮只补齐了 README 与统一命名规范文档。
 13. ✅ **2026-09-15 完成**（`governance/ops/check_dataiface.py::check_g_read`）：AST 取直读目标表达式，
@@ -167,6 +171,13 @@
     不冒充重建入口。
     启动条件：需要环境可复现时，先补 `uv lock`（或冻结快照转 requirements）+ 在验证机上
     按声明重建一次并跑三门（平台全量 / 研究 T1+T2 / lob_fact 金样），代价须一并评估。
+    **R29（2026-09-16）部分完成**：`platform/uv.lock` 已生成（72 包，`uv lock --check` exit 0），
+    并以独立 venv 从 lock 重建验证（`uv sync --frozen`，不动现 `platform/.venv`）+ 关键
+    import 通过；补齐声明 `pandas`（45 文件直用）、`openpyxl`（import_daily 直用）、pyarrow
+    上界 `<21`（glibc 2.27 无 wheel 时 lock 会解析到源码版必败）、`[tool.uv.sources]` 本地内核。
+    **残余**：① 三门全量回归未跑（触发：下次环境变更或验证机窗口）；② 现 venv 内
+    `httpx/httpcore/vulture/setuptools` 4 个未被 lock 覆盖的包未裁决（声明或剔除）。
+    证据：`governance/evidence/verification/R29/hygiene/uv-lock-evidence.txt`。
 
 19. ✅ **2026-09-15 R19 已修**：`SKIP_PARTS` 补 `/.venv/`（与 `check_imports.py` 对齐）。
     原登记（保留过程）：**`check_dataiface.py` 的 SKIP_PARTS 缺 `.venv`**（R18 登记，实测是『未来的雷』）
@@ -206,6 +217,10 @@
     sha256）；备份 `_archive/backups/r06-mig-i3-root-results-differing-files-2026-09-16.tar.gz`。
     **保留裁决项**：`__root-dup-20260916` 两份以哪个为准（研究侧确认后合并/删除其一）。
     **残余风险**：活跃挖矿会话若仍按旧坐标写根 `results/`，按新坐标迁回（skill 已更新）。
+    **R29 复核（2026-09-16）**：根 `results/` 再现 `_mine_round_{13..16}.md`（旧上下文会话，
+    18:23-19:53 写入）——已按 R24 同法 sha256 逐一对照迁入 `runs/platform/_mine_rounds/`，
+    目录移除（write-point grep：技能/脚本/设置零残留；`settings.results_dir` 默认
+    `runs/platform`，RunContext 跟随）。证据：`governance/evidence/verification/R29/hygiene/root-results-exit.txt`。
 
 23. **Plan 2/3 功能后置（触发已燃，R07 复核）**（2026-09-16 登记）
     现状：Plan 1（开放算子）已验收（R22）；Plan 2（算子生命周期：`op_meta` 黑盒声明、
