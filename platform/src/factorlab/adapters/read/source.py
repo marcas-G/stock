@@ -26,6 +26,20 @@ _DAILY_BASIC_MAP = {
     "pe_ttm": "pe_ttm", "pb": "pb", "dv_ratio": "dv_ratio",
     "volume_ratio": "volume_ratio",
 }
+# T7（Plan P）：资金流列 → moneyflow 来源列（left join，缺行 → null）。
+# 列名在 CH/平台两腿同名（灌入侧 lib/moneyflow 单点命名）；恒可请求（表未建时
+# SQL 层报错——与 _DAILY_BASIC_MAP 同语义；仅实际请求才 join）。
+_MONEYFLOW_MAP = {
+    "main_net_inflow": "main_net_inflow", "auction": "auction",
+    "super_in": "super_in", "super_out": "super_out", "super_net": "super_net",
+    "super_net_pct": "super_net_pct",
+    "big_in": "big_in", "big_out": "big_out", "big_net": "big_net",
+    "big_net_pct": "big_net_pct",
+    "mid_in": "mid_in", "mid_out": "mid_out", "mid_net": "mid_net",
+    "mid_net_pct": "mid_net_pct",
+    "small_in": "small_in", "small_out": "small_out", "small_net": "small_net",
+    "small_net_pct": "small_net_pct",
+}
 # 引擎特殊名字：date/code 是解码后恒在的键列；adj_factor/idx_ret 来自独立表 join
 # （恒可用，非 daily/daily_basic schema 成员——不参与"当前数据面"清单）
 _SPECIAL_COLS = ("date", "code", "adj_factor", "idx_ret")
@@ -67,14 +81,23 @@ def _basic_visible(rd: ReadPort) -> frozenset[str]:
     return frozenset(names)
 
 
-def _classify_columns(rd: ReadPort, requested: list[str]) -> tuple[list[str], list[str]]:
-    """请求的引擎列名 → (daily 来源列, daily_basic 来源列)；供给失败即报错。
+def _moneyflow_visible(rd: ReadPort) -> frozenset[str]:
+    """moneyflow 表上当前可供给的引擎列名（schema 实探；表缺失 → 空集）。"""
+    raw = rd.columns("moneyflow")
+    names = {c for c in raw if c not in set(_MONEYFLOW_MAP.values())}
+    names |= {k for k, v in _MONEYFLOW_MAP.items() if v in raw}
+    return frozenset(names)
+
+
+def _classify_columns(rd: ReadPort, requested: list[str]) -> tuple[list[str], list[str], list[str]]:
+    """请求的引擎列名 → (daily 来源列, daily_basic 来源列, moneyflow 来源列)；供给失败即报错。
 
     顺序：引擎特殊名字 → 平台映射名（恒可供给，SQL 面负责）→ 当前数据面实探。
     未知列收集齐后一并报错（信息完整，一次试错拿全信息）。
     """
     daily: list[str] = []
     basic: list[str] = []
+    money: list[str] = []
     unknown: list[str] = []
     dvis: frozenset[str] | None = None
     bvis: frozenset[str] | None = None
@@ -86,6 +109,9 @@ def _classify_columns(rd: ReadPort, requested: list[str]) -> tuple[list[str], li
             continue
         if c in _DAILY_BASIC_MAP:
             basic.append(c)
+            continue
+        if c in _MONEYFLOW_MAP:
+            money.append(c)
             continue
         if dvis is None:
             dvis = _daily_visible(rd)
@@ -108,9 +134,9 @@ def _classify_columns(rd: ReadPort, requested: list[str]) -> tuple[list[str], li
         # 空集（报错文案回落双面，不因缺表改变行为）。
         from factorlab.adapters.read.attributes import attributes_visible  # 延迟：仅报错路径
         available = sorted({*_SPECIAL_COLS, *(dvis or ()), *(bvis or ()),
-                            *attributes_visible(rd)})
+                            *_moneyflow_visible(rd), *attributes_visible(rd)})
         raise ValueError(_unknown_col_message(list(dict.fromkeys(unknown)), available))
-    return daily, basic
+    return daily, basic, money
 
 
 def _unknown_col_message(unknown: list[str], available: list[str]) -> str:
@@ -162,6 +188,7 @@ def _load_daily_duckdb(
     requested: list[str],
     daily_cols: list[str],
     basic_cols: list[str],
+    money_cols: list[str],
     want_adj: bool,
 ) -> pl.DataFrame:
     """duckdb 版 load_daily：SQL + 位置参数 + VARCHAR→Date 解码 + I7 单位归一
@@ -178,12 +205,15 @@ def _load_daily_duckdb(
         select_items.append("a.adj_factor")
     select_items += [_duckdb_daily_expr(c) for c in daily_cols]
     select_items += [f"b.{_DAILY_BASIC_MAP.get(c, c)} AS {c}" for c in basic_cols]
+    select_items += [f"f.{_MONEYFLOW_MAP.get(c, c)} AS {c}" for c in money_cols]
     if "idx_ret" in requested:
         select_items.append("(m.pct_chg / 100.0) AS idx_ret")
     sql = "SELECT " + ", ".join(select_items) + " FROM daily d"
     sql += " JOIN adj_factor a ON d.trade_date = a.trade_date AND d.ts_code = a.ts_code"
     if basic_cols:
         sql += " LEFT JOIN daily_basic b ON d.trade_date = b.trade_date AND d.ts_code = b.ts_code"
+    if money_cols:
+        sql += " LEFT JOIN moneyflow f ON d.trade_date = f.trade_date AND d.ts_code = f.ts_code"
     if "idx_ret" in requested:
         sql += f" LEFT JOIN index_daily m ON d.trade_date = m.trade_date AND m.ts_code = '{_MARKET_INDEX}'"
     sql += f" WHERE {' AND '.join(where)} ORDER BY d.ts_code, d.trade_date"
@@ -203,6 +233,7 @@ def _load_daily_ch(
     requested: list[str],
     daily_cols: list[str],
     basic_cols: list[str],
+    money_cols: list[str],
     want_adj: bool,
 ) -> pl.DataFrame:
     """ch 版 load_daily：命名参数 + 两层 IN 子查询（daily_codes_clause 命中主键）。
@@ -228,6 +259,7 @@ def _load_daily_ch(
         select_items.append("a.adj_factor")
     select_items += [f"d.{_COL_MAP.get(c, c)} AS {c}" for c in daily_cols]
     select_items += [f"b.{_DAILY_BASIC_MAP.get(c, c)} AS {c}" for c in basic_cols]
+    select_items += [f"f.{_MONEYFLOW_MAP.get(c, c)} AS {c}" for c in money_cols]
     if "idx_ret" in requested:
         select_items.append("(m.pct_chg / 100.0) AS idx_ret")
     sql = "SELECT " + ", ".join(select_items) + f" FROM {db}.daily d"
@@ -235,6 +267,9 @@ def _load_daily_ch(
     if basic_cols:
         sql += (f" LEFT JOIN {db}.daily_basic b"
                 f" ON d.trade_date = b.trade_date AND d.ts_code = b.ts_code")
+    if money_cols:
+        sql += (f" LEFT JOIN {db}.moneyflow f"
+                f" ON d.trade_date = f.trade_date AND d.ts_code = f.ts_code")
     if "idx_ret" in requested:
         sql += (f" LEFT JOIN {db}.index_daily m"
                 f" ON d.trade_date = m.trade_date AND m.ts_code = '{_MARKET_INDEX}'")
@@ -262,17 +297,18 @@ def load_daily(
     列映射：trade_date（'YYYYMMDD'）→ date（pl.Date）、ts_code（'000001.SZ'）→ code（去后缀）；
     close 恒加载（forward/评估依赖）；adj_factor 恒 inner join（复权消费需要，
     daily 行缺 adj_factor 时被排除）；cols 含 turnover/total_mv/circ_mv 时 left join
-    daily_basic（turnover_rate → turnover）。
+    daily_basic（turnover_rate → turnover）；cols 含 _MONEYFLOW_MAP 键（资金流列）
+    时 left join moneyflow（缺行 → null）。
 
     **无字段白名单（M1，spec 决策③修订）**：date/code 恒输出（引擎键列）；平台映射名
-    （_PLATFORM_COLS/_DAILY_BASIC_MAP 键）与当前数据面（rd.columns 实探 daily/
-    daily_basic schema）真实存在的任意列均可请求；供给失败 → 报错助手（可用列清单
+    （_PLATFORM_COLS/_DAILY_BASIC_MAP/_MONEYFLOW_MAP 键）与当前数据面（rd.columns 实探 daily/
+    daily_basic/moneyflow schema）真实存在的任意列均可请求；供给失败 → 报错助手（可用列清单
     + difflib 最相似候选 + 原始列映射提示，见 _unknown_col_message）。
     """
     if not codes:
         raise ValueError("universe 为空，无法加载数据")
     requested = cols if cols is not None else list(_PLATFORM_COLS)
-    daily_cols, basic_cols = _classify_columns(rd, requested)
+    daily_cols, basic_cols, money_cols = _classify_columns(rd, requested)
 
     # close 恒选（forward/评估依赖）；out_cols 同时决定输出列顺序
     daily_cols = list(dict.fromkeys([*daily_cols, "close"]))
@@ -280,7 +316,7 @@ def load_daily(
     out_cols = list(dict.fromkeys([*[c for c in requested if c not in {"date", "code"}], "close"]))
 
     df = _LOAD_DAILY_IMPL[rd.backend](rd, codes, date_start, date_end,
-                                      requested, daily_cols, basic_cols, want_adj)
+                                      requested, daily_cols, basic_cols, money_cols, want_adj)
     df = df.select(["date", "code", *out_cols])
     if float32:
         df = df.with_columns([pl.col(c).cast(pl.Float32) for c in out_cols])
@@ -293,6 +329,7 @@ def _fill_duckdb(
     before: str,
     daily_cols: list[str],
     basic_cols: list[str],
+    money_cols: list[str],
     want_adj: bool,
     want_idx: bool,
 ) -> pl.DataFrame:
@@ -308,6 +345,10 @@ def _fill_duckdb(
         f"last(b.{_DAILY_BASIC_MAP.get(c, c)} ORDER BY d.trade_date) "
         f"FILTER (WHERE b.{_DAILY_BASIC_MAP.get(c, c)} IS NOT NULL) AS {c}"
         for c in basic_cols]
+    select_items += [
+        f"last(f.{_MONEYFLOW_MAP.get(c, c)} ORDER BY d.trade_date) "
+        f"FILTER (WHERE f.{_MONEYFLOW_MAP.get(c, c)} IS NOT NULL) AS {c}"
+        for c in money_cols]
     if want_idx:
         select_items.append(
             "last(m.pct_chg ORDER BY d.trade_date) "
@@ -316,6 +357,8 @@ def _fill_duckdb(
     sql += " JOIN adj_factor a ON d.trade_date = a.trade_date AND d.ts_code = a.ts_code"
     if basic_cols:
         sql += " LEFT JOIN daily_basic b ON d.trade_date = b.trade_date AND d.ts_code = b.ts_code"
+    if money_cols:
+        sql += " LEFT JOIN moneyflow f ON d.trade_date = f.trade_date AND d.ts_code = f.ts_code"
     if want_idx:
         sql += f" LEFT JOIN index_daily m ON d.trade_date = m.trade_date AND m.ts_code = '{_MARKET_INDEX}'"
     sql += " WHERE substr(d.ts_code, 1, 6) IN (SELECT unnest(?)) AND d.trade_date < ?"
@@ -333,6 +376,7 @@ def _fill_ch(
     before: str,
     daily_cols: list[str],
     basic_cols: list[str],
+    money_cols: list[str],
     want_adj: bool,
     want_idx: bool,
 ) -> pl.DataFrame:
@@ -357,6 +401,9 @@ def _fill_ch(
     select_items += [
         f"argMax(b.{_DAILY_BASIC_MAP.get(c, c)}, d.trade_date) AS {c}"
         for c in basic_cols]
+    select_items += [
+        f"argMax(f.{_MONEYFLOW_MAP.get(c, c)}, d.trade_date) AS {c}"
+        for c in money_cols]
     if want_idx:
         select_items.append("argMax(m.pct_chg, d.trade_date) / 100.0 AS idx_ret")
     sql = "SELECT " + ", ".join(select_items) + f" FROM {db}.daily d"
@@ -364,6 +411,9 @@ def _fill_ch(
     if basic_cols:
         sql += (f" LEFT JOIN {db}.daily_basic b"
                 f" ON d.trade_date = b.trade_date AND d.ts_code = b.ts_code")
+    if money_cols:
+        sql += (f" LEFT JOIN {db}.moneyflow f"
+                f" ON d.trade_date = f.trade_date AND d.ts_code = f.ts_code")
     if want_idx:
         sql += (f" LEFT JOIN {db}.index_daily m"
                 f" ON d.trade_date = m.trade_date AND m.ts_code = '{_MARKET_INDEX}'")
@@ -400,13 +450,13 @@ def load_daily_fill_state(
         raise ValueError("codes 为空")
     requested = list(cols)
     # M1：与 load_daily 同一分类器（无白名单 + 报错助手）——目录外真实列同样可取
-    daily_cols, basic_cols = _classify_columns(rd, requested)
+    daily_cols, basic_cols, money_cols = _classify_columns(rd, requested)
     want_adj = "adj_factor" in requested
     want_idx = "idx_ret" in requested
     out_cols = list(dict.fromkeys([*[c for c in requested if c not in {"date", "code"}], "close"]))
 
     df = _FILL_STATE_IMPL[rd.backend](rd, codes, before, daily_cols, basic_cols,
-                                      want_adj, want_idx)
+                                      money_cols, want_adj, want_idx)
     if float32:
         df = df.with_columns([pl.col(c).cast(pl.Float32)
                               for c in out_cols if c in df.columns])

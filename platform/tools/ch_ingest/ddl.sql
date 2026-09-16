@@ -61,6 +61,36 @@ CREATE TABLE IF NOT EXISTS factorlab.stock_basic (
 --   ALTER TABLE factorlab.adj_factor MODIFY COLUMN adj_factor Nullable(Float64);
 --   ALTER TABLE factorlab.stock_basic ADD COLUMN IF NOT EXISTS delist_date Nullable(Date) AFTER industry;
 
+-- ========== moneyflow（T7 Plan P：日线资金；读路径 load_daily 按需 LEFT JOIN） ==========
+-- 来源：夸克网盘 `日线资金--每日沪深京个股日线数据和资金流数据` → data/raw/fund_flow/**.zip
+-- 内的 zj.xls（GBK TSV，见 platform/tools/lib/moneyflow.py）。灌入 ingest_moneyflow.py
+-- （CREATE IF NOT EXISTS 幂等 + TRUNCATE + INSERT 全量重算；R3 裁决：本 DDL 与脚本内建表同步维护）。
+-- 金额单位=元（源 亿/万 已归一）；占比列=百分数；缺失为 NULL（源 `-`/`—`）。
+-- 读面：load_daily(cols=[...]) 请求 main_net_inflow 等 18 列时 LEFT JOIN（缺行 → null）。
+CREATE TABLE IF NOT EXISTS factorlab.moneyflow (
+    ts_code       String,               -- '000001.SZ'
+    trade_date    Date,
+    main_net_inflow Nullable(Float64),  -- 主力净流入（元）
+    auction       Nullable(Float64),    -- 集合竞价（元）
+    super_in      Nullable(Float64),    -- 超大单流入（元）
+    super_out     Nullable(Float64),    -- 超大单流出（元）
+    super_net     Nullable(Float64),    -- 超大单净额（元）
+    super_net_pct Nullable(Float64),    -- 超大单净占比（%）
+    big_in        Nullable(Float64),
+    big_out       Nullable(Float64),
+    big_net       Nullable(Float64),
+    big_net_pct   Nullable(Float64),
+    mid_in        Nullable(Float64),
+    mid_out       Nullable(Float64),
+    mid_net       Nullable(Float64),
+    mid_net_pct   Nullable(Float64),
+    small_in      Nullable(Float64),
+    small_out     Nullable(Float64),
+    small_net     Nullable(Float64),
+    small_net_pct Nullable(Float64)
+) ENGINE = MergeTree
+  ORDER BY (ts_code, trade_date);
+
 CREATE TABLE IF NOT EXISTS factorlab.index_daily (
     ts_code String,
     trade_date Date,
