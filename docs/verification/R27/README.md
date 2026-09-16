@@ -29,7 +29,7 @@
 |---|---|---|---|
 | 工具/研究全量 | `pytest research/tools` → **372 passed / 48.06s** | `platform/tools` **337 passed / 46.74s** + `research/tools` **35 passed / 1.65s** = **372 passed**（`make test-research` exit 0）；迁移后曾出现 2 个 factor_lib 瞬时失败（挖矿在途，见 §4-D1，挖矿落盘后已转绿） | `baseline-research-tools.log`、`make-test-research.log`、`post-move-research-tools.log`（瞬时态） |
 | 测试清单（372） | 归一化清单 sha256 `4c24bff6…` | **逐一相同**（同 sha256） | `collect-before-raw.txt`、`collect-after-raw.txt`、`collect-{before,after}-normalized.txt`、`hashes.txt` |
-| 原 T2 三样（裸跑：`env -u PYTHONPATH`） | quark 9 / converters 11 / lob_fact 192（计划试点） | quark **9** / converters **11** / lob_fact **192** | `bare-run-t2.log` |
+| 原 T2 三样（裸跑：`env -u PYTHONPATH`） | quark 9 / converters 11 / lob_fact 192（计划试点） | quark **9** / converters **11** / lob_fact **192**；全量 `env -u PYTHONPATH pytest platform/tools` → **337 passed** | `bare-run-t2.log`、`bare-run-all-platform-tools.log` |
 | 入口裸跑（`--help`，无 PYTHONPATH） | — | 20/23 OK；3 项为无 argparse 的遗留脚本（行为前后一致，见 §4-D3） | `bare-run-cli-help.log` |
 | 平台全量 | **3099 passed / 13 skipped / 796.59s** | **3099 passed / 13 skipped / 805.48s**（同数） | `baseline-platform-tests.log`、`platform-full-post-move.log` |
 | 常驻门 | 全绿（R23 口径） | **全绿，除 G-ANNOTATE**（挖矿在途新档案 `research/docs/factors/reversal_rsi/reversal_14_ret.md` 未标注 `snapshot:`，见 §4-D1/D2；G-INDEX 已随挖矿落盘转绿） | `gates-post-move.log`（瞬时态）、`gates-final.log` |
