@@ -36,7 +36,7 @@
   两对账），CH 派生表脚本归位 `ch_ingest/adj_backfill.py`；空壳 `.venv`/缓存/孤儿产物已清，
   `06` 的 merge dtype bug 已修（真跑产出 74,466 code-days 对账）。**股票池段已在 R20 收编为
   `platform/tools/universe_stages/`**（layer1-3 + 10/11/20/30/40 + references/tests），
-  证据见 `governance/evidence/verification/R20/`。旧 `projects/ashare_alpha3` 仅作本地历史参考。
+  证据见 `governance/evidence/verification/R20/`。旧 `projects/ashare_alpha3` 已于 R24 Task 11 归档至 `_archive/2026-09-16-ashare-alpha3/`（manifest：`governance/evidence/verification/R24/11-archive/manifest.md`；2026-10-16 到期）。
 
 6. **30 天归档到期清理**（2026-10-12）
    程序见 `governance/workspace/archive-policy.md`；三个真实决策点（tick_dev 去留 / minutes-raw 深度血缘 /

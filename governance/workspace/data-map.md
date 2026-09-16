@@ -39,7 +39,7 @@
 | C1 | `platform/`（仓库内） | 平台树 | src/factorlab、tests、（契约 4 篇 → `knowledge/contracts/`、设计 → `knowledge/design/platform/`，R24） |
 | C2 | `research/`（仓库内） | 研究树 | factor/（152 yaml，14 族）、tools/（剩余研究工具：strategies/factor_lib）——档案/索引/playbook R24 迁 `knowledge/dossiers/`；数据生产线工具集 R27 归位 `platform/tools/` |
 | C3 | `platform/kernels/quant_core`（R18 起；原 `projects/quant_core_shim`） | 仓库内（内核发行物唯一声明点） | quant-core 0.1.0 shim（仅装 `platform/.venv`；Rust 版到位时同目录换 build backend） |
-| C4 | `projects/ashare_alpha3`（**R19/R20 收编完成**） | 无 git（本地项目，仅剩历史参考） | 数据侧已完成 → `platform/tools/ashare_ingest/`；股票池段已完成 → `platform/tools/universe_stages/`（R20） |
+| C4 | `_archive/2026-09-16-ashare-alpha3/`（原 `projects/ashare_alpha3`；**R19/R20 收编完成**） | 本地归档（无 git；2026-10-16 到期） | 数据侧已完成 → `platform/tools/ashare_ingest/`；股票池段已完成 → `platform/tools/universe_stages/`（R20）；R24 Task 11 归档 |
 
 ## D. 归档区
 

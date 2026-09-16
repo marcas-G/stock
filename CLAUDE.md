@@ -13,7 +13,7 @@
   提交前缀用研究语义：`feat(factor)` / `feat(tools)` / `docs(factors)`。
 - **`docs/`**（根）只收工作区级文档与验证证据。
 - 一次改动同时涉及多棵树 → **分目录分别提交**（一个提交只描述一棵树的改动）。
-- `data/`、`_archive/`、`projects/`、`results/` **永不入库**（根 `.gitignore` 白名单 + 显式忽略三重保护）。
+- `data/`、`_archive/`、`runs/` **永不入库**（根 `.gitignore` 白名单 + 显式忽略三重保护）。
 
 ### 数据纪律（最高优先级）
 
@@ -69,5 +69,5 @@ surfaces(cli,web) → app(装配) → ports(6 契约) → core(纯核)
 - CH：`127.0.0.1:8123` db=factorlab。目标机 16GB 无页面文件 → 批算单进程 + 流式 + 及时释放。
 - 评估内核 `quant_core`（shim）自 R18 起在 **`platform/kernels/quant_core/`**（内核发行物唯一声明点，
   仅装入 `platform/.venv`；emb 不装）。重装 + 落位断言：`bash governance/ops/reinstall_editable.sh`。
-- `projects/ashare_alpha3` 已在 R19/R20 完成收编，仅作本地历史参考；**不要再往里放新东西**。
+- `projects/` 已随 R24 Task 11 归档移除：`_archive/2026-09-16-ashare-alpha3/`（R19/R20 已收编；2026-10-16 到期）。**新东西一律进三棵树。**
 - lob_fact 校准常量（W1 冻结值 + `pins.sha256` 金样）**不可改**：改动即让 191 测试与历史结论失效。

@@ -8,14 +8,14 @@
 > `projects/` 为本地目录（gitignore）。旧的两 worktree 布局**已退役**
 > （历史与过程见 `governance/evidence/verification/R1..R2/` 与 `governance/evidence/verification/archive/`）；
 > 合并前的两个遗留克隆 `quant-platform-main` / `quant-platform-research` **已于 2026-09-15 删除**（R17，
-> 证据 `governance/evidence/verification/R17/`）——`projects/` 实况自此与 §3 表逐条一致。
+> 证据 `governance/evidence/verification/R17/`）。（R24 起 `projects/` 已归档移除，§3 表无其行。）
 
 ## 1. 根目录收敛承诺（REQ-WS-001）
 
-根目录**白名单定稿 15 项**（R24 顶层目录重整 target state，2026-09-16）：
+根目录**白名单定稿 14 项**（R24 终态，2026-09-16；Task 11 前为 15 项含过渡 `projects/`）：
 `README.md`、`CLAUDE.md`、`AGENTS.md`、`Makefile`、`.gitignore`、`.git/`、`.claude/`、
-`platform/`、`research/`、`knowledge/`、`governance/`、`runs/`、`data/`、`_archive/`、
-`projects/`（过渡项——R24 Task 11 归档 `ashare_alpha3` 后移除，收敛为 14 项）。
+`platform/`、`research/`、`knowledge/`、`governance/`、`runs/`、`data/`、`_archive/`。
+（`projects/` 已于 R24 Task 11 归档并从根移除 → `_archive/2026-09-16-ashare-alpha3/`。）
 
 - 三层归属（R24 起）：平台代码 → `platform/`；研究内容 → `research/`；
   **文档与知识 → `knowledge/`**、**治理与证据 → `governance/`**（两者入口 README 见目录内）。
@@ -43,7 +43,7 @@
 分区命名：事实库统一 Hive 风格 `year=YYYY/month=MM/`，一个交易日一个 parquet
 （`YYYYMMDD.parquet`）或 `part-000.parquet` + `_SUCCESS`。
 
-## 3. 三棵树与 projects/（单仓单树后）
+## 3. 三棵树与根白名单（R24 后）
 
 | 载体 | 角色 | 内容 |
 |---|---|---|
@@ -52,15 +52,13 @@
 | `knowledge/`（仓库内） | **文档与知识树**（R24 起） | `contracts/`（平台契约 4 篇）、`design/{platform,research,workspace}/`、`dossiers/`（factor/strategy 档案 + playbook + manual）、`handbooks/`、`index/`（生成物） |
 | `governance/`（仓库内） | **治理与证据树**（R24 起） | `ops/`（gates.sh 与 check_* 脚本）、`workspace/`（本文件、data-map、pending-items…）、`evidence/{verification,reviews}/` |
 | `runs/` | 本地运行产物（gitignore） | `runs/platform/<名>/`（`factorlab run` 产物；`FACTORLAB_RESULTS_DIR` 指向此） |
-| `projects/ashare_alpha3` | 本地项目（无 git）**过渡项** | 自包含；`config.yaml` 消费 `data/`。**R19/R20 已完成收编**（数据侧 → `platform/tools/ashare_ingest/`、股票池段 → `platform/tools/universe_stages/`）；R24 Task 11 归档至 `_archive/<日期>-ashare-alpha3/` |
 
 - 旧 worktree 迁移程序（`git worktree move` + 手工 gitdir 编辑 + 四查）**已随两 worktree 布局退役**；
   历史过程见 `governance/evidence/verification/archive/`。
 - `quant_core_shim` 原为本地包，2026-09-15（R18）**已收编**为 `platform/kernels/quant_core/`
   （仅装 `platform/.venv`；emb 的安装因 research 侧零消费者而删除）。
-- `projects/` 里仅剩 `ashare_alpha3` 一个本地项目；
-  **不要再往里放新东西**——新代码进三棵树。
-- **`projects/` 实况 = 上表两行**（2026-09-15 R17 起）：合并前的两个遗留克隆
+- `projects/` R24 起**已不存在**：`ashare_alpha3` 归档至 `_archive/2026-09-16-ashare-alpha3/`（2026-10-16 到期，见 manifest）。
+- **`projects/` 历史**（2026-09-15 R17 起至 R24 归档前，上表曾有 `ashare_alpha3` 一行）：合并前的两个遗留克隆
   `quant-platform-main`（30M）与 `quant-platform-research`（5.7M，前者为其 linked worktree）**已删除**（R17）。
   删前核验：两工作树 0 未提交/0 未跟踪；两 HEAD（`ad17f3b`/`eec9990`）在主仓对象库且各有
   `pre-monorepo/*` tag 锚点；bundle 在 `_archive/backups/`。删除理由：历史与旧分支均已覆盖，

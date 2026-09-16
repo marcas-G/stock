@@ -7,7 +7,7 @@
 > 迁移台账（旧→新映射）：[governance/workspace/migration-r04.md](governance/workspace/migration-r04.md)。
 
 ```
-stock/                     ← 仓库根（治理薄层，白名单定稿 15 项）
+stock/                     ← 仓库根（治理薄层，白名单定稿 14 项）
 ├── platform/              平台：因子 DSL 计算引擎（factorlab）+ 数据生产线工具集（tools/，R27 起）
 ├── research/              研究：因子库（factor/）、剩余工具（tools/：strategies、factor_lib）
 ├── knowledge/             文档与知识唯一入口：契约（contracts/）、设计（design/）、
@@ -16,7 +16,6 @@ stock/                     ← 仓库根（治理薄层，白名单定稿 15 项
 │                          验证与评审（evidence/）
 ├── runs/                  【本地】运行产物（runs/platform/<名>/，不入库）
 ├── data/                  【本地】事实库与原始数据（353G，不入库）
-├── projects/              【本地】过渡：ashare_alpha3（R24 Task 11 归档 → _archive/）
 └── _archive/              【本地】30 天归档区（不入库）
 ```
 
@@ -64,7 +63,7 @@ make gates                # 结构/契约/标记/旧路径/索引 全套常驻�
 - **当前生产读路径是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）：平台 duckdb 库不存在（teajoin token 过期，见 [governance/workspace/pending-items.md](governance/workspace/pending-items.md) #1）。
 - **`data/` 零改动**：任何操作都不得写入 `data/`；只读消费。
 - **重任务内存护栏**：全市场/分钟链 `factorlab run` 前设 `FACTORLAB_MAX_MEMORY=8GB`（显式设置即启用进程看门狗 + RLIMIT_AS 硬上限）——见 [knowledge/contracts/interface.md](knowledge/contracts/interface.md) §1「进程内存护栏」与 [AGENTS.md](AGENTS.md)「重任务运行协议」。
-- `projects/` 是历史遗留：合并前的两个旧克隆已于 2026-09-15 删除（R17）；`quant_core_shim` 已收编为 **`platform/kernels/quant_core/`**（R18）；`ashare_alpha3` 已收编完成（数据侧 R19 → `platform/tools/ashare_ingest/`，股票池段 R20 → `platform/tools/universe_stages/`），旧目录仅作本地历史参考。**不要再往里放新东西**——新代码进三棵树。
+- `projects/` 是历史遗留：合并前的两个旧克隆已于 2026-09-15 删除（R17）；`quant_core_shim` 已收编为 **`platform/kernels/quant_core/`**（R18）；`ashare_alpha3` 已收编完成（数据侧 R19 → `platform/tools/ashare_ingest/`，股票池段 R20 → `platform/tools/universe_stages/`），原 `projects/` 目录已于 R24 Task 11 归档至 `_archive/2026-09-16-ashare-alpha3/`（到期 2026-10-16）。**新东西一律进三棵树。**
 
 ## 文档地图
 

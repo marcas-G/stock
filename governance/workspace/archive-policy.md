@@ -12,6 +12,7 @@
 |---|---|---|---|
 | S1 | `_archive/2026-09-12-S1/` | 2026-10-12 | `governance/evidence/verification/S1/manifest.md` |
 | S3 | `_archive/2026-09-12-S3/` | 2026-10-12 | `governance/evidence/verification/S3/status.md` §5 |
+| R24 | `_archive/2026-09-16-ashare-alpha3/` | 2026-10-16 | `governance/evidence/verification/R24/11-archive/manifest.md` |
 
 ## manifest 格式（每行一条）
 
