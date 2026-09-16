@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **164 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **165 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -21,7 +21,7 @@
 | size | 2 | `research/factor/size/` |
 | value | 4 | `research/factor/value/` |
 | vol_run_energy | 17 | `research/factor/vol_run_energy/` |
-| volatility | 8 | `research/factor/volatility/` |
+| volatility | 9 | `research/factor/volatility/` |
 
 ## 族：crash_bottom_leader
 
@@ -259,6 +259,7 @@
 | `max_effect_20d` | -1 | fwd5d |  | [max_effect_20d.md](../../knowledge/dossiers/factors/volatility/max_effect_20d.md) | [yaml](../../research/factor/volatility/max_effect_20d.yaml) |
 | `max_effect_20d_extcnt` | -1 | fwd5d |  | [max_effect_20d_extcnt.md](../../knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md) | [yaml](../../research/factor/volatility/max_effect_20d_extcnt.yaml) |
 | `max_effect_20d_high` | -1 | fwd5d |  | [max_effect_20d_high.md](../../knowledge/dossiers/factors/volatility/max_effect_20d_high.md) | [yaml](../../research/factor/volatility/max_effect_20d_high.yaml) |
+| `max_effect_20d_high_intraday` | -1 | fwd5d |  | [high_intraday.md](../../knowledge/dossiers/factors/volatility/high_intraday.md) | [yaml](../../research/factor/volatility/high_intraday.yaml) |
 | `max_effect_20d_zmax` | -1 | fwd5d |  | [max_effect_20d_zmax.md](../../knowledge/dossiers/factors/volatility/max_effect_20d_zmax.md) | [yaml](../../research/factor/volatility/max_effect_20d_zmax.yaml) |
 | `max_effect_5d` | -1 | fwd5d |  | [5d.md](../../knowledge/dossiers/factors/volatility/5d.md) | [yaml](../../research/factor/volatility/5d.yaml) |
 
