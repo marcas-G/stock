@@ -305,3 +305,19 @@
     + `governance/evidence/verification/R29/data-t4/`（派生/复跑）
     + `governance/evidence/verification/R29/contracts/06-counts-measured.txt`（非空计数复测）。
     残余：`pe_ttm/pb/dv_ratio/volume_ratio` 4 列仍为占位空列（无数据源，不 advertise）。
+
+30. **Plan P T10 真实验收残余（2026-09-17 登记）**
+    证据：`governance/evidence/verification/R30/task10/`（真网盘 + CH 端到端）。
+    ① **daily 2026-08-22..08-31 缺口**：上游新全量 `19910101至20260831A股日k线.zip`
+    （3.79GB）超分享直链上限 → manual_required（未落盘）；本地旧全量（至 07-31）+旧增量
+    （至 08-21）+新增量（09-01 起）拼出 9 月，8 月末 6 个交易日暂缺。启动条件：人工放置
+    新全量到 `data/raw/daily/` 后重跑 `make data-update`（自动 adopted 接续）。
+    ② **分钟全量补齐**：本轮裁决只取 2026/09 试点 12 日；剩余 4023 个缺失日 zip
+    （~40GB）留定时首跑；首跑含 2017-2019 全量月 convert，时长视网速/CPU（unit
+    `TimeoutStartSec=12h`，flock 防重叠）。启动条件：已装 timer（每日 08:10，Linger=yes）。
+    ③ **reconcile 未覆盖 `moneyflow`/`fundamentals`**（T7/T8 转 T11）：本轮以源帧 vs CH
+    行数/样本人工核对（1,113,668 / 5,556；002281 9/16 对账精确）。启动条件：T11 契约同步。
+    ④ **平台内存护栏公式 arena 项校准**：`_AS_ARENA_PER_CPU=64MB` 低估 40 核 glibc
+    多线程 arena 预留（T10 实测 ingest_daily VmPeak 26.0GB vs 公式 headroom ~14.5GB）；
+    pan_update 已以 stage env `MALLOC_ARENA_MAX=2` 规避（16.4GB），平台常量未动。
+    启动条件：平台 owner 复核 `factorlab.app.memory.apply_address_space_limit` 校准。
