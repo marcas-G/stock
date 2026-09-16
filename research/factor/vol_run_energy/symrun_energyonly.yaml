@@ -1,0 +1,18 @@
+name: vol_run_energy_symrun_energyonly
+category: custom
+direction: -1
+params: {win: 200}
+universe:
+  rules: {exclude_st: true, exchanges: ["SSE", "SZSE"]}
+date:
+  start: "2022-01-01"
+  end: "2026-07-31"
+process:
+  - winsorize(quantile=0.99)
+  - standardize()
+formula: |
+  from polars_ta.prefix.wq import ts_rank, ts_delta
+  def oi_energy(x, n):
+      _e = ts_rank(ts_delta(x, 1).abs(), n)
+      return sqrt(_e * (1 - _e))
+  signal = -oi_energy(turnover, ${win})

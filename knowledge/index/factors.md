@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **173 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **175 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -20,7 +20,7 @@
 | reversal_rsi | 3 | `research/factor/reversal_rsi/` |
 | size | 2 | `research/factor/size/` |
 | value | 4 | `research/factor/value/` |
-| vol_run_energy | 17 | `research/factor/vol_run_energy/` |
+| vol_run_energy | 19 | `research/factor/vol_run_energy/` |
 | volatility | 11 | `research/factor/volatility/` |
 
 ## 族：crash_bottom_leader
@@ -246,12 +246,14 @@
 | `vol_run_energy_symrun_bell1` | -1 | fwd5d |  | [symrun_bell1.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_bell1.md) | [yaml](../../research/factor/vol_run_energy/symrun_bell1.yaml) |
 | `vol_run_energy_symrun_corr` | -1 | fwd5d |  | [symrun_corr.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_corr.md) | [yaml](../../research/factor/vol_run_energy/symrun_corr.yaml) |
 | `vol_run_energy_symrun_down` | -1 | fwd5d |  | [symrun_down.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_down.md) | [yaml](../../research/factor/vol_run_energy/symrun_down.yaml) |
+| `vol_run_energy_symrun_energyonly` | -1 | fwd5d |  | [symrun_energyonly.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_energyonly.md) | [yaml](../../research/factor/vol_run_energy/symrun_energyonly.yaml) |
 | `vol_run_energy_symrun_extreme` | -1 | fwd5d |  | [symrun_extreme.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_extreme.md) | [yaml](../../research/factor/vol_run_energy/symrun_extreme.yaml) |
 | `vol_run_energy_symrun_lin` | -1 | fwd5d |  | [symrun_lin.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_lin.md) | [yaml](../../research/factor/vol_run_energy/symrun_lin.yaml) |
 | `vol_run_energy_symrun_r30` | -1 | fwd5d |  | [symrun_r30.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_r30.md) | [yaml](../../research/factor/vol_run_energy/symrun_r30.yaml) |
 | `vol_run_energy_symrun_r30_flip` | -1 | fwd5d |  | [symrun_r30_flip.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_r30_flip.md) | [yaml](../../research/factor/vol_run_energy/symrun_r30_flip.yaml) |
 | `vol_run_energy_symrun_r30_streak` | -1 | fwd5d |  | [symrun_r30_streak.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_r30_streak.md) | [yaml](../../research/factor/vol_run_energy/symrun_r30_streak.yaml) |
 | `vol_run_energy_symrun_r60` | -1 | fwd5d |  | [symrun_r60.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_r60.md) | [yaml](../../research/factor/vol_run_energy/symrun_r60.yaml) |
+| `vol_run_energy_symrun_rlonly` | -1 | fwd5d |  | [symrun_rlonly.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_rlonly.md) | [yaml](../../research/factor/vol_run_energy/symrun_rlonly.yaml) |
 | `vol_run_energy_symrun_turn` | -1 | fwd5d |  | [symrun_turn.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_turn.md) | [yaml](../../research/factor/vol_run_energy/symrun_turn.yaml) |
 | `vol_run_energy_symrun_w100` | -1 | fwd5d |  | [symrun_w100.md](../../knowledge/dossiers/factors/vol_run_energy/symrun_w100.md) | [yaml](../../research/factor/vol_run_energy/symrun_w100.yaml) |
 
