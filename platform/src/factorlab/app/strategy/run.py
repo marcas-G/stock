@@ -59,8 +59,14 @@ def _filter_to_window(signal: SignalArtifact, doc: StrategyDoc) -> SignalArtifac
 
 
 def run_strategy(doc: StrategyDoc, rd: ReadPort,
-                 results_dir: Path | None = None) -> StrategyRunResult:
-    """执行策略文档：读信号 → 窗口过滤 → M7 组合 → 落盘 → M8 回测 → 落盘。"""
+                 results_dir: Path | None = None,
+                 out_dir: Path | None = None) -> StrategyRunResult:
+    """执行策略文档：读信号 → 窗口过滤 → M7 组合 → 落盘 → M8 回测 → 落盘。
+
+    - results_dir：results 根（缺省 settings.results_dir）——信号按
+      `results_dir/<signal_name>` 读取；
+    - out_dir：策略产物目录显式覆盖（缺省 `results_dir/"strategies"/<name>`）。
+    """
     if not isinstance(doc, StrategyDoc):
         raise TypeError(
             f"doc 必须为 StrategyDoc（收到 {type(doc).__name__}）——"
@@ -71,13 +77,14 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
     filtered = _filter_to_window(signal, doc)
     target = construct_target_portfolio(filtered, doc.strategy)
     schedule = build_rebalance_schedule(filtered, doc.strategy)
-    out_dir = root / "strategies" / doc.strategy.name
-    write_strategy_artifacts(out_dir, source_signal=filtered, spec=doc.strategy,
-                             schedule=schedule, target=target)
+    target_dir = (Path(out_dir) if out_dir is not None
+                  else root / "strategies" / doc.strategy.name)
+    write_strategy_artifacts(target_dir, source_signal=filtered,
+                             spec=doc.strategy, schedule=schedule, target=target)
     backtest = run_backtest(target, doc.execution, rd)
-    save_backtest_result(backtest, out_dir)
+    save_backtest_result(backtest, target_dir)
     return StrategyRunResult(
-        out_dir=out_dir,
+        out_dir=target_dir,
         target=target,
         backtest=backtest,
         nav_series=backtest.nav_series,

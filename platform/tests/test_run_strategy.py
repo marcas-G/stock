@@ -288,6 +288,21 @@ def test_default_out_dir_under_results_dir(env, tmp_path, monkeypatch):
     assert (res.out_dir / "manifest.json").exists()
 
 
+def test_explicit_out_dir_override(env, tmp_path):
+    """out_dir 显式覆盖（研究 CLI --out-dir 的落点）——不写默认 strategies/ 目录。"""
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    _seed_and_run_factor(env, tmp_path, results)
+    doc = _load_doc(tmp_path)
+    out = tmp_path / "custom_out"
+    res = run_strategy(doc, env.rd, results_dir=results, out_dir=out)
+    assert res.out_dir == out
+    assert (out / "strategy_manifest.json").exists()
+    assert (out / "manifest.json").exists()
+    assert not (results / "strategies").exists()
+
+
 def test_empty_window_fails_fast_with_readable_error(env, tmp_path):
     from factorlab.app.strategy import run_strategy
 
