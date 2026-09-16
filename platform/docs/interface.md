@@ -112,7 +112,10 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   独立目录，与默认变体（`results/<name>/`）并存不覆盖。值类型解析
   int → float → bool（`true/false`）→ str；格式错误（缺 `=` 或空值）以非 0
   退出提示。`--output-dir` 显式给出时优先于变体目录。
-- `--chunk-days N`：日期分块（交易日/块，`N >= 1`；缺省单块整段跑）。长样本
+- `--chunk-days N`：日期分块（交易日/块，`N >= 1`）。缺省：**分钟链
+  （`interface: bars_1m`）按 20 交易日/块自动分块**（R04-P1——非分块全市场峰值
+  RSS 实测 34.95GB / 16GB 机 OOM，20 日/块 6.95GB 且不变慢；需整段可显式传大于
+  窗口长度的 N）；日频缺省单块整段跑。长样本
   （2015+ 全市场）超过 16GB 内存护栏时使用，语义保证与整段跑逐 cell 一致
   （见下方"分块计算"）。**累计算子（`ts_cum_sum`/`ts_cum_max`/`ts_cum_min`/
   `ts_cum_prod` 及 `vwap` 宏展开产物）与分块不兼容**——分块下 fail fast
@@ -125,7 +128,8 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   照常落盘）。分钟面**仅 ClickHouse 后端**：设置 `FACTORLAB_DATA_BACKEND=ch`
   （并指向含 bars_1m 的 `FACTORLAB_CH_DATABASE`）。`--warmup-days` 对分钟链
   忽略（日内窗无预热；注入列 adv20 左窗由引擎独立预取 20 交易日）；`--chunk-days`
-  语义不变（分块结果 == 整段严格相等）。
+  缺省按 20 交易日/块自动分块（R04-P1，内存语义见上一条），分块结果 == 整段
+  严格相等。
 - 落盘：`panel.parquet`（run_factor 日频面板）、`weekly.parquet`（周频对齐面板——
   评估/回测输入）、`summary.json`（run_factor 摘要 + `evaluation` 字段——quant_core
   周频评估 + `layered_backtest` 分层回测，CLI 层追加后重写）。
@@ -703,7 +707,9 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
   （bars_1m 仅 CH）；spec.date.start/end 必须显式闭区间 → ValueError（修订 R5，
   分钟批读防全表扫描））→ 展开链（compute 共享 prepare_formula_pipeline）→
   候选 codes/trading_calendar/universe_frame（整段一次）→ 按
-  ctx.chunk_days 分块（chunk_calendar warmup=0；分钟窗不跨日，TS 窗=日内窗）→
+  chunk_days 分块（显式 `ctx.chunk_days` 优先；缺省 20 交易日/块——R04-P1
+  内存护栏，chunk_calendar warmup=0；分钟窗不跨日，TS 窗=日内窗，分块 == 整段
+  逐值一致）→
   每块：日级注入列预取（adv20 左窗 = spec.start 前 20 交易日，修订 R2：在
   **有行情日行序列**上滚动，停牌日自动隔开）→ load_bars_1m_codes 批读（列
   投影按公式引用 ∩ bars 面裁剪——内存纪律）→ 块内成员日 = 池成员 ∧ 日线在

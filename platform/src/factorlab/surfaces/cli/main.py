@@ -164,7 +164,7 @@ def run_factor_cli(
     groups: int = typer.Option(10, min=2),
     set_params: list[str] = typer.Option(None, "--set", help="覆盖 spec.params（k=v，可多次，生成 name_kv 变体）"),
     chunk_days: int | None = typer.Option(None, "--chunk-days", min=1,
-                                          help="日期分块（交易日/块；缺省=单块整段跑）"),
+                                          help="日期分块（交易日/块；缺省：分钟链 20 交易日/块自动分块，日频单块整段跑）"),
     warmup_days: int | None = typer.Option(None, "--warmup-days", min=0,
                                            help="TS 窗口预热天数（缺省=按公式自动提取窗口+20）"),
 ) -> None:

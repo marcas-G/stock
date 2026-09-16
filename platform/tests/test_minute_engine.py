@@ -732,3 +732,100 @@ def test_minute_has_trade_engine_guard_reads_amount_and_no_output_leak(
     assert "has_trade" not in g.panel.columns
     assert "has_trade" not in gs.columns
     assert gs.columns == ["date", "code", "signal"]
+
+
+# ---------------- R04-P1：默认自动分块（>20 交易日样本强制多块） ----------------
+# 背景（R04 实测）：非分块 2024H1 全市场峰值 RSS 34.95GB（16GB 机 OOM）；
+# --chunk-days 20 降到 6.95GB 且 wall 不增（127.5s→124.7s，IC delta=0）。
+# 新契约：ctx.chunk_days=None 时分钟链按 20 交易日/块自动分块；显式值优先
+# （显式 > 窗口长度 = 单块整段）。以下测试锁定：默认确实多块 + 与整段逐值一致
+# （含 drop 覆盖口径与 has_trade 守卫路径）。
+
+_WIDE_START = dt.date(2023, 8, 1)
+_WIDE_DATES = _bizdays(_WIDE_START, 80)
+_WIDE_SAMPLE = _WIDE_DATES[40:65]        # 25 个交易日 > 默认块长 20 → 2 块
+
+
+def _spy_bars_calls(monkeypatch):
+    """批读调用计数（包装真函数——只计数不改行为）：[(date_start, date_end)]。"""
+    import factorlab.app.run as run_mod
+    real = run_mod.load_bars_1m_codes
+    calls = []
+
+    def _spy(rd, codes, *, date_start=None, date_end=None, cols=None):
+        calls.append((date_start, date_end))
+        return real(rd, codes, date_start=date_start, date_end=date_end, cols=cols)
+
+    monkeypatch.setattr(run_mod, "load_bars_1m_codes", _spy)
+    return calls
+
+
+def _seed_wide(ch_db, **kw):
+    _seed(ch_db, dates=_WIDE_DATES, sample=_WIDE_SAMPLE, **kw)
+
+
+def test_minute_default_auto_chunk_splits_and_equals_whole(ch_db, tmp_path,
+                                                            monkeypatch):
+    """R04-P1：默认（chunk_days=None）25 交易日样本按 20 日/块切成 2 段批读；
+    显式大 chunk_days = 单块整段；两者 signal/labels/panel/审计逐值相等。"""
+    _seed_wide(ch_db)
+    spec = _spec(tmp_path, "auto", "signal = day_last(close)",
+                 sample=_WIDE_SAMPLE)
+    calls = _spy_bars_calls(monkeypatch)
+    auto = run_factor_minute(spec, _ctx(tmp_path / "auto"))
+    assert [cs for cs, _ce in calls] == [_WIDE_SAMPLE[0].isoformat(),
+                                         _WIDE_SAMPLE[20].isoformat()]
+    assert [ce for _cs, ce in calls] == [_WIDE_SAMPLE[19].isoformat(),
+                                         _WIDE_SAMPLE[-1].isoformat()]
+    calls.clear()
+    whole = run_factor_minute(spec, _ctx(tmp_path / "whole", chunk_days=10_000))
+    assert len(calls) == 1                       # 显式大块 = 单块整段
+    assert auto.signal_artifact.frame.equals(whole.signal_artifact.frame)
+    assert auto.label_artifact.frame.equals(whole.label_artifact.frame)
+    assert auto.panel.equals(whole.panel)
+    assert auto.summary["panel_rows"] == whole.summary["panel_rows"] == 50
+    assert auto.summary["minute_uncovered"] == whole.summary["minute_uncovered"]
+
+
+def test_minute_default_auto_chunk_drop_mode_equals_whole(ch_db, tmp_path,
+                                                          monkeypatch):
+    """R04-P1 + R03-I6：drop 口径下默认分块 == 整段（剔除集跨块累计、逐值/审计
+    一致），且默认确实分块（2 次批读）。"""
+    from factorlab.app.run import MinuteUncoveredWarning
+    _seed_wide(ch_db, bars_uncovered={("000001", _WIDE_SAMPLE[21]),
+                                      ("600519", _WIDE_SAMPLE[22])})
+    monkeypatch.setattr(settings, "minute_uncovered", "drop")
+    spec = _spec(tmp_path, "autodrop", "signal = day_last(close)",
+                 sample=_WIDE_SAMPLE)
+    calls = _spy_bars_calls(monkeypatch)
+    with pytest.warns(MinuteUncoveredWarning):
+        auto = run_factor_minute(spec, _ctx(tmp_path / "auto"))
+    assert len(calls) == 2
+    calls.clear()
+    with pytest.warns(MinuteUncoveredWarning):
+        whole = run_factor_minute(spec, _ctx(tmp_path / "whole",
+                                             chunk_days=10_000))
+    assert len(calls) == 1
+    assert auto.signal_artifact.frame.equals(whole.signal_artifact.frame)
+    assert auto.label_artifact.frame.equals(whole.label_artifact.frame)
+    assert auto.panel.equals(whole.panel)
+    assert auto.summary["minute_uncovered"] == whole.summary["minute_uncovered"]
+    assert auto.summary["minute_uncovered"]["dropped_code_days"] == 2
+
+
+def test_minute_default_auto_chunk_has_trade_guard_equals_whole(ch_db, tmp_path,
+                                                                monkeypatch):
+    """R04-P1 + R03-I7：has_trade 守卫（陈旧尾部 bar）在默认分块下 == 整段；
+    陈旧日信号仍为真实最后成交分钟 229（守卫不因分块失效）。"""
+    _seed_wide(ch_db, stale_tail=[("000001", _WIDE_SAMPLE[22], 230)])
+    spec = _spec(tmp_path, "autoht", _HIGH_TIME, sample=_WIDE_SAMPLE)
+    calls = _spy_bars_calls(monkeypatch)
+    auto = run_factor_minute(spec, _ctx(tmp_path / "auto"))
+    assert len(calls) == 2
+    calls.clear()
+    whole = run_factor_minute(spec, _ctx(tmp_path / "whole", chunk_days=10_000))
+    assert len(calls) == 1
+    assert auto.signal_artifact.frame.equals(whole.signal_artifact.frame)
+    stale = auto.signal_artifact.frame.filter(
+        (pl.col("date") == _WIDE_SAMPLE[22]) & (pl.col("code") == "000001.SZ"))
+    assert stale["signal"].to_list() == [229.0]

@@ -625,6 +625,12 @@ def _build_daily_injections(rd, codes: list[str], date_start: str, date_end: str
 
 _MINUTE_UNCOVERED_MODES = ("fail", "drop")
 
+# R04-P1（2026-09-16）：分钟链默认自动分块粒度（交易日/块）。非分块链峰值
+# RSS 实测 34.95GB（5207 code × 117 日 bar，16GB 机 OOM）；20 交易日/块
+# 6.95GB 且 wall 不增（127.5s→124.7s，IC delta=0）——默认值取实测安全点。
+# 显式 ctx.chunk_days 优先（显式 > 窗口长度 = 单块整段；见 run_factor_minute）。
+MINUTE_DEFAULT_CHUNK_DAYS = 20
+
 
 class MinuteUncoveredWarning(UserWarning):
     """R03-I6：FACTORLAB_MINUTE_UNCOVERED=drop 显式剔除「日线在而分钟整日缺」
@@ -685,7 +691,10 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
     interface/raw 强制/池公式 v1 排除/process v1 排除/duckdb 腿拒绝/闭区间要求；
     之后展开链（共享 helper）→ 候选/日历/uf → 注入列 + bars 分块折日 → label
     单趟全窗（_compute_labels 复用，键集过滤对齐）→ canonical → artifact 落盘
-    （write_factor_artifacts/write_multi_output_factor_artifacts，契约零放宽）。"""
+    （write_factor_artifacts/write_multi_output_factor_artifacts，契约零放宽）。
+    分块（R04-P1）：ctx.chunk_days 显式优先；None → MINUTE_DEFAULT_CHUNK_DAYS
+    （20 交易日/块）自动分块——非分块全市场分钟链峰值 RSS 实测 34.95GB，
+    20 日/块 6.95GB 且不变慢；分块 == 整段逐值一致（分钟窗不跨日）。"""
     _ensure_assembly()
     if getattr(spec, "interface", "daily") != "bars_1m":
         raise ValueError("run_factor_minute 只接 interface: bars_1m 的 spec"
@@ -745,11 +754,15 @@ def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
         tail = load_daily_tail_dates(rd, codes, before=start_d.isoformat(),
                                      n=_ADV20_LEFT_DAYS)
         warm_start = tail["warm_start"].min() if tail.height else start_d
-        if ctx.chunk_days is None:
-            chunks = [(cal[0], cal[-1])]    # 单块整段（minute 窗不跨日，无 warmup）
-        else:
-            chunks = [(cs, ce) for _ls, cs, ce
-                      in chunk_calendar(cal, ctx.chunk_days, 0)]
+        # R04-P1（2026-09-16）：默认自动分块——ctx.chunk_days is None 时按
+        # MINUTE_DEFAULT_CHUNK_DAYS（20 交易日/块）切；显式 ctx.chunk_days 优先。
+        # 分钟窗不跨日（chunk_calendar warmup=0），分块 == 整段逐值一致
+        # （test_minute_default_auto_chunk_* 锁默认路径，test_minute_chunked_equals_whole
+        # 锁显式 chunk_days=2 路径）。
+        chunk_days = (ctx.chunk_days if ctx.chunk_days is not None
+                      else MINUTE_DEFAULT_CHUNK_DAYS)
+        chunks = [(cs, ce) for _ls, cs, ce
+                  in chunk_calendar(cal, chunk_days, 0)]
         bar_cols = _bars_needed_cols(formula)
         parts = []
         uncovered_parts: list[pl.DataFrame] = []   # R03-I6 drop 剔除累计
