@@ -6,13 +6,16 @@ R19 收编自本地项目 `ashare_alpha3` 的**数据更新部分**（另一半"
 | 脚本 | 产出（data/ 资产） | 说明 |
 |---|---|---|
 | `import_daily.py` | **A5** `data/fact/daily_fact/daily_fact.parquet`（435M/1816 万行） | 通达信日K导出（xlsx zip）→ parquet；18 列 = 价量 + `adj_factor` + 7 个除权列 |
-| `import_index.py` | **A10** `data/ref/000905.SH.parquet` | 腾讯 kline 接口拉中证 500（网络依赖） |
 | `import_fundamentals.py` | 基本面 PIT（`data/fact/fundamentals/fundamentals_pti.parquet`） | 源是 Windows TDX 财务导出；**当前源缺失**（pending #4），脚本会显式报错 |
 | `check_inputs.py` | —（自检） | 三资产存在性 + 列契约；缺任一 → 非 0 退出 |
 | `validate_minutes.py` | `validation/minute_daily_crosscheck.json` | bars_1m（A3）日级聚合 vs 日线对账（duckdb 全库聚合，只读） |
 | `validate_tick.py` | `validation/tick_daily_crosscheck.json` | tick 回执清单（A4 manifest）vs 日线对账（R19 修好：原先 merge dtype 不对称，从未产出过） |
 
-执行顺序：`check_inputs` → `import_daily` → `import_index` →（`import_fundamentals`）→ 对账脚本。
+> A10 指数基准（`data/ref/000905.SH.parquet`）原由 `import_index.py`（腾讯 kline）生产——
+> 该脚本 2026-09（Plan P Task 11）随旧外部源退役删除；数据文件按网盘等价物核对结果
+> 冻结/删除（见 `governance/workspace/data-map.md` A10 行）。
+
+执行顺序：`check_inputs` → `import_daily` →（`import_fundamentals`）→ 对账脚本。
 灌入 CH 由 `../ch_ingest/`（`ingest_daily.py` 读 A5；`adj_backfill.py` 写 adj_detail/adj_event）。
 
 ## 解释器与数据纪律
@@ -32,7 +35,6 @@ R19 收编自本地项目 `ashare_alpha3` 的**数据更新部分**（另一半"
 PY=../platform/.venv/bin/python
 $PY check_inputs.py
 $PY import_daily.py                      # 默认：A8 源 → A5 权威位；分片落 <工具>/_staging
-$PY import_index.py                      # 默认：A10 权威位
 $PY validate_minutes.py --months 2026/07 # 单月便宜跑法
 $PY validate_tick.py
 ```

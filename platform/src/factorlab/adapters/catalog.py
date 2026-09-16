@@ -436,14 +436,14 @@ def _gates() -> list[dict]:
             "id": "gate_future_surface_discipline",
             "category": "future",
             "name": "读面表未来列（数据侧入库校验）",
-            "rule": "引擎读面表（ENGINE_SURFACE_TABLES 9 表：daily/daily_basic/adj_factor/index_daily/stock_basic/trade_cal/stock_st/stk_limit/suspend_d）禁止出现未来前缀列——入库校验 validate_engine_surface/validate_surface_columns 与活文档双重锁",
-            "trigger": "重建/入库（build_final_db 收口）时读面表含 forward_*/future_* 前缀或 target/label 精确名列",
+            "rule": "引擎读面表（ENGINE_SURFACE_TABLES 10 表：daily/daily_basic/adj_factor/index_daily/stock_basic/trade_cal/stock_st/stk_limit/suspend_d/moneyflow）禁止出现未来前缀列——读面探测校验 validate_engine_surface/validate_surface_columns 与活文档双重锁",
+            "trigger": "读面探测（validate_engine_surface）时读面表含 forward_*/future_* 前缀或 target/label 精确名列",
             # sample/fix 与 verify.py 违例文案常量同源（import 引用，不抄写——文案单源）
             "sample": _FUTURE_COL_SUFFIX,
             "fix": _FUTURE_COL_FIX,
             "tests": [
                 "tests/test_column_discipline.py::test_pure_fn_future_prefixed_columns_rejected",
-                "tests/test_column_discipline.py::test_build_final_db_rejects_violating_surface",
+                "tests/test_column_discipline.py::test_engine_surface_reports_violations_via_rd",
             ],
             "probe": "",
         },
@@ -452,7 +452,7 @@ def _gates() -> list[dict]:
             "category": "internal",
             "name": "读面表内部保留列（数据侧）",
             "rule": "引擎读面表禁止内部保留名列（__factorlab_* 前缀 / in_universe 精确名）——读面列注入/join 与引擎内部列碰撞毒化面板",
-            "trigger": "重建/入库（build_final_db 收口）或读面探测（validate_engine_surface）发现读面表含内部名列",
+            "trigger": "读面探测（validate_engine_surface）发现读面表含内部名列",
             # sample/fix 与 verify.py 违例文案常量同源（import 引用，不抄写——文案单源）
             "sample": _INTERNAL_COL_SUFFIX,
             "fix": _INTERNAL_COL_FIX,

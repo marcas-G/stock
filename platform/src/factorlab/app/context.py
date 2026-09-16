@@ -22,7 +22,7 @@ class RunContext:
     chunk_days：日期分块（交易日/块；None=单块整段跑）。warmup_days：TS 窗口预热天数
     （None=按公式自动提取窗口最大值 + 20 安全垫）。"""
 
-    db_path: Path = settings.platform_db  # duckdb 后端读 + 写路径（data rebuild/refresh）
+    db_path: Path = settings.platform_db  # duckdb 后端只读库路径（测试/历史库）
     data_backend: str | None = None  # 读路径后端 "duckdb"|"ch"（None → settings.data_backend）
     output_dir: Path = settings.results_dir  # R06-M8：跟随运行产物单点（settings.results_dir）
     universe_override: str | None = None

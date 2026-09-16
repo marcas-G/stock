@@ -9,11 +9,6 @@ from rich.console import Console
 from factorlab import __version__
 from factorlab.adapters.catalog import catalog_json, render_catalog_markdown
 from factorlab.config import settings
-from factorlab.adapters.fetcher import TeaJoinClient
-from factorlab.adapters.mirror_db import PlatformDB
-from factorlab.adapters.rebuild import RebuildScope, build_final_db, rebuild_all
-from factorlab.adapters.refresh import refresh, refresh_indexes
-from factorlab.adapters.read.verify import verify_all
 from factorlab.core.factor.errors import FactorDSLError
 from factorlab.core.factor.ast_gate import validate_formula
 from factorlab.core.eval.layered import degenerate_decile_groups
@@ -233,23 +228,8 @@ def op_remove(name: str) -> None:
     console.print(f"disabled: {name}")
 
 
-data_app = typer.Typer(no_args_is_help=True)
-app.add_typer(data_app, name="data")
 catalog_app = typer.Typer(no_args_is_help=True)
 app.add_typer(catalog_app, name="catalog")
-
-
-def _staging_db() -> PlatformDB:
-    settings.data_dir.mkdir(parents=True, exist_ok=True)
-    return PlatformDB(settings.data_dir / "rebuild_staging.duckdb")
-
-
-def _final_db() -> PlatformDB:
-    return PlatformDB(settings.data_dir / "factorlab.duckdb")
-
-
-def _client() -> TeaJoinClient:
-    return TeaJoinClient(token=settings.teajoin_token, base_url=settings.teajoin_base_url)
 
 
 def _parse_param_value(value: str) -> int | float | bool | str:
@@ -462,67 +442,6 @@ def show_factor(name: str) -> None:
     console.print(f"换手: {ev.get('turnover')} | 覆盖: {ev.get('coverage')}")
     console.print(f"评估: ic={summary.get('evaluation', {}).get('ic')}")
     console.print(f"分层回测: {summary.get('evaluation', {}).get('layered_backtest', {}).get('summary', '无')}")
-
-
-@data_app.command("rebuild")
-def data_rebuild(start: str = "20000104", end: str | None = None, resume: bool = True) -> None:
-    """teajoin 全量重建平台数据（暂存库 → 稀疏剔除 → 最终库）。"""
-    if not settings.teajoin_token:
-        console.print("错误: 未配置 FACTORLAB_TEAJOIN_TOKEN（.env）")
-        raise typer.Exit(code=1)
-    staging = _staging_db()
-    report = rebuild_all(staging, _client(), scope=RebuildScope(start=start, end=end), resume=resume)
-    console.print(f"rebuild 完成: {report['tables']}")
-    final = build_final_db(staging, settings.data_dir / "factorlab.duckdb")
-    console.print(f"稀疏剔除: {final['excluded_fields']}")
-    console.print(f"最终库表: {final['tables']}")
-
-
-@data_app.command("refresh")
-def data_refresh() -> None:
-    """增量拉取到最新交易日。"""
-    if not settings.teajoin_token:
-        console.print("错误: 未配置 FACTORLAB_TEAJOIN_TOKEN（.env）")
-        raise typer.Exit(code=1)
-    report = refresh(_final_db(), _client())
-    console.print(f"refresh 完成: {report}")
-
-
-@data_app.command("update")
-def data_update() -> None:
-    """一键更新：行情增量 + 指数增量 + 自动验证 + 报告（手动触发）。"""
-    if not settings.teajoin_token:
-        console.print("错误: 未配置 FACTORLAB_TEAJOIN_TOKEN（.env）")
-        raise typer.Exit(code=1)
-    report = refresh(_final_db(), _client())
-    index_report = refresh_indexes(_final_db(), _client())
-    verify = verify_all(_final_db())
-    failures = [
-        (t, info["failed"])
-        for t, info in report.get("tables", {}).items()
-        if info.get("failed")
-    ]
-    index_failures = [
-        (t, info["failed"])
-        for t, info in index_report.items()
-        if info.get("failed")
-    ]
-    console.print(f"行情增量: {report['tables']}")
-    console.print(f"指数增量: {index_report}")
-    console.print(f"verify: integrity 规则 "
-                  f"{sum(1 for r in verify['integrity'].values() for x in r.values() if x.get('passed'))}"
-                  f"/{sum(len(r) for r in verify['integrity'].values())} 通过")
-    if failures or index_failures:
-        console.print(f"⚠ 失败项: {failures + index_failures}（下次 update 自动重试）")
-    else:
-        console.print("更新完成，无失败")
-
-
-@data_app.command("verify")
-def data_verify(compare: Path | None = None) -> None:
-    """完整性自检 + 稀疏摘要 + 可选抽样对拍。"""
-    report = verify_all(_final_db(), ref_db=compare)
-    console.print(report)
 
 
 @catalog_app.command("dump")

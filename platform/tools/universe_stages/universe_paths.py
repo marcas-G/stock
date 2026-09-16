@@ -52,7 +52,7 @@ def daily_fact() -> Path:
 
 
 def index_daily(name: str = "000905.SH") -> Path:
-    """A10 指数基准（ashare_ingest/import_index 生产）。"""
+    """A10 指数基准（旧 import_index 已退役删除；文件状态见 data-map A10 行）。"""
     return fpaths.REF_ROOT / f"{name}.parquet"
 
 
@@ -107,12 +107,15 @@ def preflight_layer1(*, from_golden: bool = False) -> dict[str, Path]:
                  "--fin-parquet <...>；见 governance/workspace/pending-items.md #4"),
         "index_daily": _require(
             index_daily(), what="指数基准 000905.SH.parquet",
-            hint="ashare_ingest/import_index.py（A10）"),
+            hint="冻结保留（Plan P T11：旧 import_index 已退役；网盘指数目录无 000905 "
+                 "命名/可核对等价物）。需要时从网盘下载 `截止_*_指数…_日线.zip` "
+                 "人工核对替换；见 governance/workspace/data-map.md A10"),
     }
     if from_golden:
         out["golden_universe"] = _require(
             golden_universe(), what="golden 股池 v4_top300.parquet",
-            hint="生成链未留存（governance/workspace/pending-items.md #9）；需从上游 jqdata 交付恢复")
+            hint="冻结、不维护（Plan P T11 裁决：网盘无等价、重生成需 jqdata 环境）；"
+                 "见 governance/workspace/data-map.md A9 与 governance/workspace/pending-items.md #9")
     return out
 
 
@@ -121,7 +124,8 @@ def preflight_layer2() -> dict[str, Path]:
     return {
         "golden_universe": _require(
             golden_universe(), what="golden 股池 v4_top300.parquet",
-            hint="生成链未留存（governance/workspace/pending-items.md #9）；需从上游 jqdata 交付恢复"),
+            hint="冻结、不维护（Plan P T11 裁决：网盘无等价、重生成需 jqdata 环境）；"
+                 "见 governance/workspace/data-map.md A9 与 governance/workspace/pending-items.md #9"),
         "daily_fact": _require(
             daily_fact(), what="日线事实 daily_fact.parquet",
             hint="ashare_ingest/import_daily.py（见 governance/workspace/data-map.md A5）"),

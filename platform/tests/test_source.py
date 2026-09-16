@@ -245,13 +245,13 @@ def test_market_index_ret_loaded(env):
 
 
 # ---------------------------------------------------------------
-# R01-DATA-I7：duckdb 源单位（teajoin 原始：手/千元）→ canonical（股/元）
+# R01-DATA-I7：duckdb 历史库源单位（手/千元）→ canonical（股/元）
 # ---------------------------------------------------------------
 
 def test_load_daily_normalizes_duckdb_units(env):
-    """duckdb 平台库由 data rebuild 落 teajoin 原始单位（vol=手、amount=千元），
-    ch 灌入侧已是 股/元——读面必须把 duckdb 腿 ×100/×1000 归一，两腿 canonical
-    一致。恒等映射（不转换）的实现会让 duckdb 腿断言失败。"""
+    """duckdb 历史库（旧外部源写入，2026-09 随源退役）落原始单位（vol=手、
+    amount=千元），ch 灌入侧已是 股/元——读面必须把 duckdb 腿 ×100/×1000 归一，
+    两腿 canonical 一致。恒等映射（不转换）的实现会让 duckdb 腿断言失败。"""
     raw_vol = 1234.0 if env.backend == "duckdb" else 123400.0     # 手 vs 股
     raw_amt = 5678.0 if env.backend == "duckdb" else 5678000.0    # 千元 vs 元
     env.seed({

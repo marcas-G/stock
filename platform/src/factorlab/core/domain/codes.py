@@ -5,15 +5,16 @@ r"""Canonical research security identifier contract（M6-07B4）。
     ts_code  匹配 ^\d{6}\.(SH|SZ|BJ)$
     symbol   == ts_code 前六位
 
-Vendor source（TeaJoin/Tushare）可能返回历史遗留别名/实体标识（实测如
+Vendor source 可能返回历史遗留别名/实体标识（实测如
 T600018.SH、TS0018.SH——上港集箱退市残留），不在 canonical 域内。这类行由
-source partition 隔离（quarantine，见 rebuild.partition_stock_basic_source），
-**绝不 canonicalize / 映射 / 静默丢弃**（M6 无 verified corporate-action
-entity-lineage 模型）。隔离 ≠ 合并——alias 保持自身标识，不进 research universe。
+source partition 隔离（quarantine；该分区随 2026-09 旧外部源退役迁出生产路径，
+历史实现见 git 历史），**绝不 canonicalize / 映射 / 静默丢弃**（M6 无 verified
+corporate-action entity-lineage 模型）。隔离 ≠ 合并——alias 保持自身标识，
+不进 research universe。
 
 本模块是 canonical 谓词的**唯一权威来源**：Python 侧
 `is_canonical_stock_code()` 与 DuckDB SQL 侧 `regexp_matches()` 共用同一
-pattern 常量，不得在 rebuild/universe 代码中独立重写该正则。
+pattern 常量，不得在读路径代码中独立重写该正则。
 """
 
 import re

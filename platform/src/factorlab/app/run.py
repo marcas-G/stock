@@ -194,7 +194,7 @@ def _compute_signal(
     ).collect()
     panel = align_to_listing(raw, uf)   # is_listed skeleton（停牌日保留 null 行）
     if panel.height == 0:
-        raise ValueError("日期段无数据，可运行 data refresh（M3b）")
+        raise ValueError("日期段无数据（覆盖见 governance/workspace/data-map.md；更新：make data-update）")
     # R01-DATA-C1 / R02-C2：listed 但长期断流 fail loudly（窗口无关——全历史
     # last close 有界回看，短窗/分块不再绕过 fill-seed 复活死价格）
     assert_no_stale_listed_db(rd, panel, uf)
@@ -324,7 +324,7 @@ def _compute_labels(
     ).collect()
     panel = align_to_listing(raw, uf)
     if panel.height == 0:
-        raise ValueError("日期段无数据，可运行 data refresh（M3b）")
+        raise ValueError("日期段无数据（覆盖见 governance/workspace/data-map.md；更新：make data-update）")
     if pool is not None:
         # 池 TS warmup 与 signal runtime 同左界 → 同 seed（fill 后立即 trim）
         panel, _seeded = _inject_fill_state_seed(panel, cal, rd, ctx, uf)
@@ -460,7 +460,7 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
         rd = open_read(data_backend=ctx.data_backend, db_path=ctx.db_path,
                        max_memory=ctx.max_memory)
     except FileNotFoundError as exc:
-        raise FileNotFoundError(f"数据库不存在: {ctx.db_path}（可运行 data refresh 或检查路径）") from exc
+        raise FileNotFoundError(f"数据库不存在: {ctx.db_path}（检查路径；覆盖见 governance/workspace/data-map.md）") from exc
     try:
         codes = resolve_candidate_codes(spec, rd, override=ctx.universe_override)
         # R03-I1：ST 显式降级事实进 summary（审计；判据同 resolve_universe_frame）
@@ -470,7 +470,7 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
         today = datetime.date.today()
         cal = cal.filter(cal <= today)
         if cal.len() == 0:
-            raise ValueError("日期段无数据，可运行 data refresh（M3b）")
+            raise ValueError("日期段无数据（覆盖见 governance/workspace/data-map.md；更新：make data-update）")
         # M4（G2）：warmup 覆盖主公式与池公式两者窗口最大值（池 TS 条件在
         # chunk_start 需要与 FULL 相同的左侧历史，否则成员资格漂移）
         ts_need = _ts_window_days(formula)
@@ -811,7 +811,7 @@ def _run_factor_minute(spec, ctx: RunContext,
                        max_memory=ctx.max_memory)
     except FileNotFoundError as exc:
         raise FileNotFoundError(
-            f"数据库不存在: {ctx.db_path}（可运行 data refresh 或检查路径）") from exc
+            f"数据库不存在: {ctx.db_path}（检查路径；覆盖见 governance/workspace/data-map.md）") from exc
     try:
         codes = resolve_candidate_codes(spec, rd, override=ctx.universe_override)
         # R03-I1：ST 显式降级事实进 summary（审计；分钟链共用 resolve_universe_frame）
@@ -821,7 +821,7 @@ def _run_factor_minute(spec, ctx: RunContext,
         today = datetime.date.today()
         cal = cal.filter(cal <= today)      # 未来公告日不进样本（同 run_factor）
         if cal.len() == 0:
-            raise ValueError("日期段无数据，可运行 data refresh（M3b）")
+            raise ValueError("日期段无数据（覆盖见 governance/workspace/data-map.md；更新：make data-update）")
         uf = resolve_universe_frame(spec, rd, dates=cal.to_list(),
                                     candidate_codes=codes)
         # R02-I4：adv20 左窗按「有行情行数」补足——每 code 取 start 前第 20 个
@@ -857,8 +857,9 @@ def _run_factor_minute(spec, ctx: RunContext,
             bars = load_bars_1m_codes(rd, codes, date_start=cs.isoformat(),
                                       date_end=ce.isoformat(), cols=bar_cols)
             if bars.height == 0:
-                raise ValueError(f"分钟段 {cs}..{ce} 无数据，可运行 data refresh"
-                                 f"（M3b）")
+                raise ValueError(
+                    f"分钟段 {cs}..{ce} 无数据"
+                    f"（覆盖见 governance/workspace/data-map.md；更新：make data-update）")
             if "trade_date" in bars.columns and "date" not in bars.columns:
                 bars = bars.rename({"trade_date": "date"})
             # 块内成员日 = 池成员 ∧ 日线在（停牌日两边都缺 → 不进期望键）
@@ -888,7 +889,7 @@ def _run_factor_minute(spec, ctx: RunContext,
         signal_df = pl.concat(parts).sort(["date", "code"])
         del parts
         if signal_df.height == 0:
-            raise ValueError("分钟段无数据，可运行 data refresh（M3b）")
+            raise ValueError("分钟段无数据（覆盖见 governance/workspace/data-map.md；更新：make data-update）")
         # R05-C1：label 全窗装载（大步骤）前协作检查
         if wd is not None:
             wd.check()

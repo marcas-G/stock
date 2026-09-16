@@ -530,7 +530,7 @@ def _uf_skeleton_ch(
       pl.String schema 会在 DataFrame 构造期 ComputeError）。列缺失 →
       delist_col='NULL' 输出字面 NULL（退市信息不可用视为 NULL）
     - stock_st join 在 Date 上等值（trade_date Date = d.date Date；stock_st 为
-      上游 teajoin 环境灌入表，本机无源时该 JOIN 不可用——resolve 层有
+      历史外部源环境灌入表，本机无源时该 JOIN 不可用——resolve 层有
       缺表显式报错路径，M8 语义由 ch_db 假库测试覆盖）
     - 两层 LEFT JOIN 前提：code 恒来自 stock_basic
     """

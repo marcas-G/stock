@@ -15,17 +15,16 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # 读路径数据源：duckdb=平台库（默认，写路径同库）；ch=ClickHouse（tools/ch_ingest 灌入的事实库）
+    # 读路径数据源：duckdb=平台库（默认；已无生产写路径，仅测试/历史只读库）；
+    # ch=ClickHouse（tools/ch_ingest 灌入的事实库，生产口径）
     data_backend: str = "duckdb"  # "duckdb" | "ch"（FACTORLAB_DATA_BACKEND）
-    platform_db: Path = Path("data/factorlab.duckdb")  # duckdb 后端读 + 写路径（data rebuild/refresh）
+    platform_db: Path = Path("data/factorlab.duckdb")  # duckdb 后端只读库路径（测试/历史）
     ch_host: str = "127.0.0.1"
     ch_port: int = 8123  # clickhouse-connect 走 HTTP；tcp 19000 是 clickhouse client 用
     ch_user: str = "default"
     ch_password: str = ""
     ch_database: str = "factorlab"
     plugin_dir: Path = Path.home() / ".factorlab" / "plugins"
-    teajoin_base_url: str = "https://teajoin.com"  # 根路径；/g 为文档页
-    teajoin_token: str = ""
     default_max_memory: str = "4GB"  # DuckDB 连接 memory_limit（--max-memory 缺省）
     # R05-C1（P0 事故：3 年分钟链触发主机内存耗尽）：**进程级**内存护栏——
     # 与 default_max_memory（DuckDB 连接上限）不同，二者都未设 = 护栏不启用
@@ -35,7 +34,6 @@ class Settings(BaseSettings):
     min_available_memory: str | None = None  # FACTORLAB_MIN_AVAILABLE_MEMORY：系统可用内存下限
     default_chunk_size: int = 1000
     use_float32: bool = True
-    data_dir: Path = Path("data")
     results_dir: Path = _REPO_ROOT / "runs" / "platform"  # FACTORLAB_RESULTS_DIR 可覆盖；run --output-dir 缺省根目录
     universes_dir: Path = Path.home() / ".factorlab" / "universes"
     default_universe: str | None = None

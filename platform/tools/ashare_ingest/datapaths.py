@@ -58,7 +58,11 @@ def raw_daily_dir() -> Path:
 
 
 def index_daily(name: str = "000905.SH") -> Path:
-    """A10 指数基准（本工具生产）。"""
+    """A10 指数基准（旧 import_index 生产，脚本 2026-09 随旧外部源退役删除）。
+
+    文件状态以 `governance/workspace/data-map.md` A10 行为准（网盘有等价 →
+    删除按需重下；无等价 → 冻结保留不维护）。
+    """
     return fpaths.REF_ROOT / f"{name}.parquet"
 
 

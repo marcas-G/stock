@@ -12,11 +12,11 @@ _COL_MAP = {"volume": "vol"}
 # R01-DATA-I7：duckdb 平台库单位 → canonical 引擎单位（股/元）。
 # 契约（knowledge/contracts/catalog.md volume/amount 行）：引擎列 volume=股、amount=元。
 # - ch 灌入（platform/tools/ch_ingest）已按 股/元 落库 → 读面不转换；
-# - duckdb 平台库由 data rebuild 直接落 teajoin（tushare 约定）原始值：
+# - duckdb 历史库（旧外部源全量写入，2026-09 随源退役）落原始值：
 #     vol = 手（1 手 = 100 股）→ ×100
 #     amount = 千元 → ×1000
 #   归一发生在读适配层（唯一 engine-column 边界），两后端同公式结果一致；
-#   禁止恒等映射（否则 duckdb 全量重建后公式值静默漂移 100×/1000×）。
+#   禁止恒等映射（否则 duckdb 历史库口径下公式值静默漂移 100×/1000×）。
 _DUCKDB_UNIT_SCALE = {"vol": 100.0, "amount": 1000.0}
 # 平台库 daily 默认加载列（cols=None 时；turnover/total_mv/circ_mv 在 daily_basic，按需请求）
 _PLATFORM_COLS = ("open", "high", "low", "close", "pre_close", "change", "pct_chg", "volume", "amount")

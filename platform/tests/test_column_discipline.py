@@ -12,59 +12,30 @@ trade_cal/stock_st/stk_limit/suspend_d——engine 读路径盘点）不允许�
 （b）未来前缀列（forward_*/future_* 前缀 / target/label 精确名）——
     读面按构造即 PIT 数据面；未来/标签数据只由评估运行时在内存计算
     （engine/forward.compute_forward_returns）或落研究侧数据表，不进读面表。
-违例给修法指引；`verify_all` 报告 `column_discipline` 键；重建收口拒绝。
+违例给修法指引；读面实探版 validate_engine_surface 双腿同语义。
 
 「禁止行为」保证：把校验实现替换为恒返回 [] 的存根，以下违例断言全部失败。
 """
 
-import polars as pl
-import pytest
-
-from factorlab.adapters.mirror_db import PlatformDB
 from factorlab.adapters.read.verify import (
     ENGINE_SURFACE_TABLES,
     validate_engine_surface,
     validate_surface_columns,
-    verify_all,
 )
 
-# 引擎读面表之外的平台表（重建会建但引擎读路径不消费——不受纪律约束）
-_NON_SURFACE = "moneyflow"
-
-
-def _mk_clean_db(path):
-    db = PlatformDB(path)
-    db.upsert("daily", pl.DataFrame({
-        "trade_date": ["20240102", "20240103"],
-        "ts_code": ["000001.SZ", "000001.SZ"],
-        "close": [10.0, 11.0],
-    }), keys=["trade_date", "ts_code"])
-    db.upsert("trade_cal", pl.DataFrame({"cal_date": ["20240102"], "is_open": [1]}), keys=[])
-    return db
-
-
-def _mk_violating_db(path, bad_cols):
-    """daily 建表即带违例列（PlatformDB.upsert 按 key 合并、表已存在时不会新增
-    列——违例态必须从建表那一刻构造，正如真实 pipeline 整表入暂存再收口）。"""
-    db = PlatformDB(path)
-    db.upsert("daily", pl.DataFrame({
-        "trade_date": ["20240102", "20240103"],
-        "ts_code": ["000001.SZ", "000001.SZ"],
-        "close": [10.0, 11.0],
-        **{c: [1.0, 1.0] for c in bad_cols},
-    }), keys=["trade_date", "ts_code"])
-    db.upsert("trade_cal", pl.DataFrame({"cal_date": ["20240102"], "is_open": [1]}), keys=[])
-    return db
+# 引擎读面表之外的平台表（有读面供给但未接 load_daily——不受纪律约束；
+# moneyflow 自 T7 起经 load_daily LEFT JOIN 供给公式 → 已纳入读面）
+_NON_SURFACE = "fundamentals"
 
 
 # ---------------- 纯函数层（无 DB，双腿同语义） ----------------
 
 def test_pure_fn_surface_list_matches_engine_read_tables():
     """ENGINE_SURFACE_TABLES 是 engine 读路径盘点快照（daily/daily_basic/adj_factor/
-    index_daily/stock_basic/trade_cal/stock_st/stk_limit/suspend_d）。"""
+    index_daily/stock_basic/trade_cal/stock_st/stk_limit/suspend_d + T7 moneyflow）。"""
     assert set(ENGINE_SURFACE_TABLES) == {
         "daily", "daily_basic", "adj_factor", "index_daily", "stock_basic",
-        "trade_cal", "stock_st", "stk_limit", "suspend_d",
+        "trade_cal", "stock_st", "stk_limit", "suspend_d", "moneyflow",
     }
 
 
@@ -103,7 +74,8 @@ def test_pure_fn_future_prefixed_columns_rejected():
 
 
 def test_pure_fn_non_surface_tables_ignored():
-    """读面之外的表（如 moneyflow）不受纪律约束——不误伤研究/写入面表。"""
+    """读面之外的表（如 fundamentals，暂无 load_daily 供给）不受纪律约束——
+    不误伤研究/写入面表。"""
     out = validate_surface_columns({
         "daily": ["trade_date", "close"],
         _NON_SURFACE: ["in_universe", "forward_return_5d"],
@@ -164,52 +136,3 @@ def test_engine_surface_repair_returns_clean(env):
     })
     assert validate_engine_surface(env.rd) == []
 
-
-# ---------------- verify_all 报告（平台库完整性链路） ----------------
-
-def test_verify_all_clean_reports_empty_discipline(tmp_path):
-    report = verify_all(_mk_clean_db(tmp_path / "p.duckdb"))
-    assert report["column_discipline"] == []
-
-
-def test_verify_all_reports_violations(tmp_path):
-    db = _mk_violating_db(tmp_path / "p.duckdb", ["in_universe", "forward_return_5d"])
-    report = verify_all(db)
-    assert len(report["column_discipline"]) == 2
-    assert "in_universe" in report["column_discipline"][0]
-
-
-def test_verify_all_empty_db_discipline_empty(tmp_path):
-    report = verify_all(PlatformDB(tmp_path / "empty.duckdb"))
-    assert report["column_discipline"] == []
-
-
-# ---------------- 重建收口（build_final_db 拒绝违例读面） ----------------
-
-def test_build_final_db_rejects_violating_surface(tmp_path):
-    """数据入库收口：最终库读面带违例列 → build_final_db 抛错点名（fail fast，
-    不产出会污染读面的最终库）。"""
-    from factorlab.adapters.rebuild import build_final_db
-
-    staging = PlatformDB(tmp_path / "staging.duckdb")
-    staging.upsert("daily", pl.DataFrame({
-        "trade_date": ["20240102"],
-        "ts_code": ["000001.SZ"],
-        "close": [10.0],
-        "in_universe": [1.0],
-    }), keys=["trade_date", "ts_code"])
-    final_path = tmp_path / "final.duckdb"
-    with pytest.raises(ValueError, match="in_universe"):
-        build_final_db(staging, final_path)
-    assert not final_path.exists()  # fail fast：不产出会污染读面的最终库
-
-    # 修复后重建成功（staging 换成不带违例列的全新整表——真实 pipeline 中违例
-    # 来自上游入库，修复在上游重灌，最终库收口随之放行）
-    clean_staging = PlatformDB(tmp_path / "staging_clean.duckdb")
-    clean_staging.upsert("daily", pl.DataFrame({
-        "trade_date": ["20240102"],
-        "ts_code": ["000001.SZ"],
-        "close": [10.0],
-    }), keys=["trade_date", "ts_code"])
-    report = build_final_db(clean_staging, final_path)
-    assert "daily" in report["tables"]

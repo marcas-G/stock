@@ -199,8 +199,8 @@ def _rules_rows_duckdb(rd, codes: list[str]) -> list[tuple]:
 def _rules_rows_ch(rd, codes: list[str]) -> list[tuple]:
     """stock_basic reference rows ch 版：canonical ts_code 直接 IN (展开)。
 
-    注意：CH stock_basic 需含 market 列（M8 ch 腿 e2e 前置；teajoin 灌入
-    时按平台 schema 对齐），缺失时 CH 报 binder error——fail 而非默认。
+    注意：CH stock_basic 需含 market 列（M8 ch 腿 e2e 前置；灌入时按平台
+    schema 对齐），缺失时 CH 报 binder error——fail 而非默认。
     """
     from factorlab.adapters.ch_read import in_clause
 
