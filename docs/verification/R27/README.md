@@ -32,7 +32,7 @@
 | 原 T2 三样（裸跑：`env -u PYTHONPATH`） | quark 9 / converters 11 / lob_fact 192（计划试点） | quark **9** / converters **11** / lob_fact **192**；全量 `env -u PYTHONPATH pytest platform/tools` → **337 passed** | `bare-run-t2.log`、`bare-run-all-platform-tools.log` |
 | 入口裸跑（`--help`，无 PYTHONPATH） | — | 20/23 OK；3 项为无 argparse 的遗留脚本（行为前后一致，见 §4-D3） | `bare-run-cli-help.log` |
 | 平台全量 | **3099 passed / 13 skipped / 796.59s** | **3099 passed / 13 skipped / 805.48s**（同数） | `baseline-platform-tests.log`、`platform-full-post-move.log` |
-| 常驻门 | 全绿（R23 口径） | **全绿，除 G-ANNOTATE**（挖矿在途新档案 `research/docs/factors/reversal_rsi/reversal_14_ret.md` 未标注 `snapshot:`，见 §4-D1/D2；G-INDEX 已随挖矿落盘转绿） | `gates-post-move.log`（瞬时态）、`gates-final.log` |
+| 常驻门 | 全绿（R23 口径） | **迁移同步项全绿**；残余红项均为**挖矿在途瞬时态**（G-INDEX「索引 vs 生成器」与 G-ANNOTATE「未标注」，数量随挖矿轮次在 {0,1,2} 间翻转——`gates-final.log` 仅 G-ANNOTATE×1、`gates-final3.log` 仅 G-ANNOTATE×2、`gates-final4.log` G-INDEX+G-ANNOTATE×2）。数据接口门 ENFORCED 全绿、结构门其余全绿；挖矿循环收尾后应回归全绿 | `gates-post-move.log`、`gates-final{,3,4}.log`（瞬时态快照） |
 | convert_tick 金样（20250812 × 20 码，`--only-day`） | 3 表 + manifest 产出 → 基准 sha256 清单 | sha256 清单不同（行序/元数据）→ **全列排序内容逐值等价 PASS** | `convert-tick-{pre,post}-sha256.txt`、`convert-tick-content-compare.log` |
 | CH 灌入只读对账（`make reconcile`） | — | **全库一致，exit 0**（daily 5 表 + 不变量 + stk_limit/adj_* + bars_1m 80 分区 + tick 3 表 13 分区） | `reconcile-post-move.log` |
 | `data/` 零写 | 元数据（路径+大小+mtime）sha256 `3cb50cea…` | **完全相同**（78,120 文件） | `data-meta-before.sha256`、`hashes.txt` |
