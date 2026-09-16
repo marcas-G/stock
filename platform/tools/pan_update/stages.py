@@ -27,7 +27,18 @@ TAIL_LINES = 20
 
 LOG_DIR = config.repo_root() / "runs" / "platform" / "logs"
 
-STAGE_CHAINS: dict[str, list[list[str]]] = {}
+# 阶段链命令一律 [平台 venv 解释器, 脚本绝对路径]，路径经 config.repo_root() 派生
+_VENV_PYTHON = config.repo_root() / "platform" / ".venv" / "bin" / "python"
+_TOOLS = config.repo_root() / "platform" / "tools"
+
+STAGE_CHAINS: dict[str, list[list[str]]] = {
+    "daily": [
+        [str(_VENV_PYTHON), str(_TOOLS / "ashare_ingest" / "import_daily.py")],
+        [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_daily.py")],
+        [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "derive_stk_limit.py")],
+        [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "adj_backfill.py")],
+    ],
+}
 
 
 class StageError(Exception):
