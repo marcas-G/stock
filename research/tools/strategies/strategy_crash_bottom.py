@@ -477,7 +477,7 @@ def monte_carlo(
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="crash_bottom_leader 策略回测")
-    ap.add_argument("--panel", default="results/crash_bottom_leader_timed/panel.parquet")
+    ap.add_argument("--panel", default="runs/platform/crash_bottom_leader_timed/panel.parquet")
     ap.add_argument("--db", default="data/factorlab.duckdb")
     ap.add_argument("--k", type=int, default=K_DEFAULT)
     ap.add_argument("--cost-bps", type=int, default=COST_BPS_DEFAULT)
