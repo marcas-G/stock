@@ -1,0 +1,5 @@
+$ cd platform && .venv/bin/python -m pytest tests/test_eval_spread_sign.py tests/test_quant_core_shim.py tests/test_cli_list_show.py tests/test_cli_run.py::test_run_legacy_single_output_eval_structure_lock -q
+
+......................................                                   [100%]
+38 passed in 2.91s
+exit=0

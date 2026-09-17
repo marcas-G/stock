@@ -1,0 +1,8 @@
+$ platform/.venv/bin/python governance/evidence/verification/R30/eval-v2-task0-5/mutation.py
+
+原实现 sha256=9f9156868233e9bdaba2d1203b15e40edf9065d95cd1350f64a813e04d932493
+[突变A v1 公式] rc=1 2 failed, 3 passed in 1.59s
+[突变B 去 version] rc=1 3 failed, 2 passed in 1.53s
+[还原] sha256 一致 rc=0 5 passed in 1.50s
+OK：两突变均被抓住；还原逐字节一致且全绿
+exit=0

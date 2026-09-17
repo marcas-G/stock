@@ -373,6 +373,7 @@ def list_factors() -> None:
                     "direction": summary.get("direction", ""),
                     "ic_mean": ev_o.get("ic", {}).get("mean"),
                     "spread": ev_o.get("decile_returns", {}).get("spread", {}).get("ret"),
+                    "version": ev_o.get("version"),
                     "run_at": run_at,
                     "_sort": sort_key,
                 })
@@ -383,6 +384,7 @@ def list_factors() -> None:
             "direction": summary.get("direction", ""),
             "ic_mean": ev.get("ic", {}).get("mean"),
             "spread": ev.get("decile_returns", {}).get("spread", {}).get("ret"),
+            "version": ev.get("version"),
             "run_at": run_at,
             "_sort": sort_key,
         })
@@ -392,9 +394,13 @@ def list_factors() -> None:
     for row in sorted(rows, key=lambda r: r["_sort"], reverse=True):
         console.print(f"{row['name']} | {row['category']} | dir={row['direction']} "
                       f"| ic={row['ic_mean']} | spread={row['spread']} | {row['run_at']}")
-    # R03-M3：spread 是 direction 相对量（符号易与 raw IC 混读）——表尾注释标签
-    console.print("提示: spread=(group0−group9)×dir（group0=signal 最低档；"
-                  "负值=表现与声明方向一致；判有效性看 ic）")
+    # R30 D1=B：spread v2 正值口径；历史 v1 产物（无 version 键）单独注记，不重算
+    console.print("提示: spread=(g9−g0)×dir（g9=signal 最高档；"
+                  "正值=与声明方向一致，正=好；判有效性看 ic）")
+    legacy = sum(1 for row in rows if row["version"] != 2)
+    if legacy:
+        console.print(f"注: 含历史 v1 产物 {legacy} 条——spread=(g0−g9)×dir，"
+                      "负值=与声明方向一致；未按 v2 重算")
 
 
 @app.command("show")
@@ -426,6 +432,13 @@ def show_factor(name: str) -> None:
                   f"rows={summary.get('panel_rows')} | null_ratio={summary.get('signal_null_ratio')}")
     ev = summary.get('evaluation', {})
     per_outputs = ev.get("outputs") if isinstance(ev, dict) and isinstance(ev.get("outputs"), dict) else None
+    # R30 D1=B：按 version 渲染口径行——v2 正值读法；历史（无 version ≡ v1）不重算
+    versions = ({ev_o.get("version") for ev_o in per_outputs.values()}
+                if per_outputs else {ev.get("version")})
+    if versions == {2}:
+        console.print("评估口径: v2（spread 正值=与声明方向一致，正=好）")
+    else:
+        console.print("评估口径: v1（历史产物：spread 负值=与声明方向一致；未按 v2 重算）")
     if per_outputs:
         # 多输出：逐输出块（缺键 None/无 → 显示语义字段，不崩）
         for o, ev_o in per_outputs.items():

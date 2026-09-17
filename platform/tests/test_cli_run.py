@@ -601,11 +601,13 @@ formula: |
     assert result.exit_code == 0, result.output
     summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
     ev = summary["evaluation"]
-    # 收口前（b2b6977^）实测键快照：多输出改造不得改动 legacy 顶层结构
-    assert sorted(ev) == sorted(["coverage", "decile_returns", "direction", "factor",
+    # 收口前（b2b6977^）实测键快照 + R30 D1=B 的 version 字段：多输出改造不得改动
+    # legacy 顶层结构（version 为 v2 口径新增，历史 summary 无该键 ≡ v1）
+    assert sorted(ev) == sorted(["version", "coverage", "decile_returns", "direction", "factor",
                                  "factor_name", "ic", "layered_backtest", "n_stocks_avg",
                                  "n_weeks", "pearson_ic", "target", "turnover"])
     assert "outputs" not in ev
+    assert ev["version"] == 2
     assert ev["target"] == "forward_return_5d"
     assert ev["n_weeks"] == 1
     assert ev["ic"]["mean"] == pytest.approx(1.0, abs=1e-9)

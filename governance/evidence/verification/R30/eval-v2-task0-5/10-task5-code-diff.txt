@@ -1,0 +1,226 @@
+diff --git a/platform/kernels/quant_core/quant_core/__init__.py b/platform/kernels/quant_core/quant_core/__init__.py
+index 3d3a6ce..c4a7f85 100644
+--- a/platform/kernels/quant_core/quant_core/__init__.py
++++ b/platform/kernels/quant_core/quant_core/__init__.py
+@@ -21,6 +21,9 @@ Rust 内核完成后在**同目录换 build backend**（同名包，`import quan
+   统计分母；n_weeks 字段仍按契约含退化周）；decile 用 **average rank** 对称分位映射
+   `floor((2·avg_rank−1)·10/(2·n))`（并列同档、行序无关；无并列 n=10 时与旧
+   ordinal 公式等价，§4.3 向量不变）。
++- **R30 D1=B 口径修订**（2026-09-17）：`decile_returns.spread.ret = (g9−g0)×direction`
++  （**正=表现与声明方向一致**；v1 为 `(g0−g9)×direction` 负=自洽）。结果带
++  `version=2` 供下游区分历史 v1 产物（历史 summary 不重算，按 interface 迁移节）。
+ 
+ 周度 spearman 与平台 `factorlab.core.eval.ic_series.weekly_ic` 同源（pl.corr spearman，
+ MIN_STOCKS=3）——逐期对拍测试见平台 `tests/test_quant_core_shim.py`（10 项，含逐期对拍；
+@@ -111,11 +114,12 @@ def evaluate_factor(
+     - direction: 1/-1 翻转 decile spread 符号；0 → -1（实测契约）。
+ 
+     返回契约结构（键集与 m4a 文档一致；空面板 → 全 nan 结构）：
+-    {factor, target, direction, n_weeks, n_stocks_avg,
++    {version, factor, target, direction, n_weeks, n_stocks_avg,
+      ic{mean,std,t_stat,ir,n_weeks,recent_26w_mean,recent_26w_t,sign_consistent},
+      pearson_ic{mean,t_stat},
+      decile_returns{weighting,monotonic,spread{ret},groups[{group,mean_ret}]},
+      turnover{monthly,quarterly}, coverage{pct_valid,total_rows,valid_rows}}
++    version=2：spread 为 (g9−g0)×direction（正=方向自洽；R30 D1=B）。
+     """
+     rows = len(dates)
+     if not (len(codes) == rows == len(signals) == len(fwd)):
+@@ -131,6 +135,7 @@ def evaluate_factor(
+         direction = -1  # 实测契约：0 按 -1 处理
+ 
+     result = {
++        "version": 2,  # R30 D1=B：spread 正=好口径（v1 产物无此键）
+         "factor": factor,
+         "target": TARGET,
+         "direction": direction,
+@@ -222,8 +227,9 @@ def evaluate_factor(
+         {"group": i, "mean_ret": mean_rets[i]} for i in range(10)
+     ]
+     g0, g9 = mean_rets[0], mean_rets[9]
++    # R30 D1=B：spread=(g9−g0)×direction，正值=表现与声明方向一致（v1 为 (g0−g9)）
+     result["decile_returns"]["spread"]["ret"] = (
+-        (g0 - g9) * direction if (g0 == g0 and g9 == g9) else _NAN
++        (g9 - g0) * direction if (g0 == g0 and g9 == g9) else _NAN
+     )
+     xs = [i for i in range(10) if mean_rets[i] == mean_rets[i]]
+     if len(xs) >= 3:
+diff --git a/platform/src/factorlab/surfaces/cli/main.py b/platform/src/factorlab/surfaces/cli/main.py
+index 6426be9..109b51e 100644
+--- a/platform/src/factorlab/surfaces/cli/main.py
++++ b/platform/src/factorlab/surfaces/cli/main.py
+@@ -373,6 +373,7 @@ def list_factors() -> None:
+                     "direction": summary.get("direction", ""),
+                     "ic_mean": ev_o.get("ic", {}).get("mean"),
+                     "spread": ev_o.get("decile_returns", {}).get("spread", {}).get("ret"),
++                    "version": ev_o.get("version"),
+                     "run_at": run_at,
+                     "_sort": sort_key,
+                 })
+@@ -383,6 +384,7 @@ def list_factors() -> None:
+             "direction": summary.get("direction", ""),
+             "ic_mean": ev.get("ic", {}).get("mean"),
+             "spread": ev.get("decile_returns", {}).get("spread", {}).get("ret"),
++            "version": ev.get("version"),
+             "run_at": run_at,
+             "_sort": sort_key,
+         })
+@@ -392,9 +394,13 @@ def list_factors() -> None:
+     for row in sorted(rows, key=lambda r: r["_sort"], reverse=True):
+         console.print(f"{row['name']} | {row['category']} | dir={row['direction']} "
+                       f"| ic={row['ic_mean']} | spread={row['spread']} | {row['run_at']}")
+-    # R03-M3：spread 是 direction 相对量（符号易与 raw IC 混读）——表尾注释标签
+-    console.print("提示: spread=(group0−group9)×dir（group0=signal 最低档；"
+-                  "负值=表现与声明方向一致；判有效性看 ic）")
++    # R30 D1=B：spread v2 正值口径；历史 v1 产物（无 version 键）单独注记，不重算
++    console.print("提示: spread=(g9−g0)×dir（g9=signal 最高档；"
++                  "正值=与声明方向一致，正=好；判有效性看 ic）")
++    legacy = sum(1 for row in rows if row["version"] != 2)
++    if legacy:
++        console.print(f"注: 含历史 v1 产物 {legacy} 条——spread=(g0−g9)×dir，"
++                      "负值=与声明方向一致；未按 v2 重算")
+ 
+ 
+ @app.command("show")
+@@ -426,6 +432,13 @@ def show_factor(name: str) -> None:
+                   f"rows={summary.get('panel_rows')} | null_ratio={summary.get('signal_null_ratio')}")
+     ev = summary.get('evaluation', {})
+     per_outputs = ev.get("outputs") if isinstance(ev, dict) and isinstance(ev.get("outputs"), dict) else None
++    # R30 D1=B：按 version 渲染口径行——v2 正值读法；历史（无 version ≡ v1）不重算
++    versions = ({ev_o.get("version") for ev_o in per_outputs.values()}
++                if per_outputs else {ev.get("version")})
++    if versions == {2}:
++        console.print("评估口径: v2（spread 正值=与声明方向一致，正=好）")
++    else:
++        console.print("评估口径: v1（历史产物：spread 负值=与声明方向一致；未按 v2 重算）")
+     if per_outputs:
+         # 多输出：逐输出块（缺键 None/无 → 显示语义字段，不崩）
+         for o, ev_o in per_outputs.items():
+diff --git a/platform/tests/test_cli_list_show.py b/platform/tests/test_cli_list_show.py
+index 533cc38..ee31086 100644
+--- a/platform/tests/test_cli_list_show.py
++++ b/platform/tests/test_cli_list_show.py
+@@ -41,16 +41,62 @@ def test_list_empty_results(monkeypatch, tmp_path):
+     assert "spread=" not in result.stdout      # 空列表不打印 spread 提示（R03-M3）
+ 
+ 
+-def test_list_spread_sign_hint(monkeypatch, tmp_path):
+-    """R03-M3：list 表尾打印 spread 符号约定（direction 相对量，防误读）。"""
+-    monkeypatch.setenv("COLUMNS", "200")  # 防 rich 折行拆断断言文本
++def test_list_spread_sign_hint_v2_and_legacy_note(monkeypatch, tmp_path):
++    """R30 D1=B：表尾打印 v2 正值口径；历史 v1 产物（无 version 键）另加注记。"""
++    monkeypatch.setenv("COLUMNS", "300")  # 防 rich 折行拆断断言文本
+     monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+-    _write_summary(tmp_path, "alpha_1")
++    _write_summary(tmp_path, "v2_1", evaluation={
++        "version": 2, "ic": {"mean": 0.05},
++        "decile_returns": {"spread": {"ret": 0.02}}})
++    _write_summary(tmp_path, "legacy_1")  # 无 version 键 ≡ v1（历史不重算）
+     result = runner.invoke(app, ["list"])
+     assert result.exit_code == 0
+     assert "提示" in result.stdout
+-    assert "spread=(group0−group9)×dir" in result.stdout
+-    assert "负值=表现与声明方向一致" in result.stdout
++    assert "spread=(g9−g0)×dir" in result.stdout
++    assert "正值=与声明方向一致" in result.stdout
++    assert "含历史 v1 产物 1 条" in result.stdout
++    assert "spread=(g0−g9)×dir" in result.stdout
++    assert "负值=与声明方向一致" in result.stdout
++    assert "未按 v2 重算" in result.stdout
++
++
++def test_list_all_v2_no_legacy_note(monkeypatch, tmp_path):
++    # 负向对照：全部 v2 产物 → 只打 v2 提示，不出现 v1 注记（防提示恒亮）
++    monkeypatch.setenv("COLUMNS", "300")
++    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
++    _write_summary(tmp_path, "v2_only", evaluation={
++        "version": 2, "ic": {"mean": 0.05},
++        "decile_returns": {"spread": {"ret": 0.02}}})
++    result = runner.invoke(app, ["list"])
++    assert result.exit_code == 0
++    assert "spread=(g9−g0)×dir" in result.stdout
++    assert "历史 v1" not in result.stdout
++
++
++def test_show_version_v2_line(monkeypatch, tmp_path):
++    # R30 D1=B：show 按 version 渲染口径行（v2 正值读法）
++    monkeypatch.setenv("COLUMNS", "300")
++    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
++    _write_summary(tmp_path, "v2_show", evaluation={
++        "version": 2, "ic": {"mean": 0.05},
++        "decile_returns": {"spread": {"ret": 0.02},
++                           "groups": [{"group": 0, "mean_ret": 0.01}]}})
++    result = runner.invoke(app, ["show", "v2_show"])
++    assert result.exit_code == 0
++    assert "评估口径: v2" in result.stdout
++    assert "正值=与声明方向一致" in result.stdout
++
++
++def test_show_legacy_version_v1_line(monkeypatch, tmp_path):
++    # 历史 summary（无 version 键）→ v1 口径行 + 不重算声明（不得冒充 v2）
++    monkeypatch.setenv("COLUMNS", "300")
++    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
++    _write_summary(tmp_path, "legacy_show")
++    result = runner.invoke(app, ["show", "legacy_show"])
++    assert result.exit_code == 0
++    assert "评估口径: v1" in result.stdout
++    assert "未按 v2 重算" in result.stdout
++    assert "评估口径: v2" not in result.stdout
+ 
+ 
+ def test_show_factor_summary(monkeypatch, tmp_path):
+diff --git a/platform/tests/test_cli_run.py b/platform/tests/test_cli_run.py
+index 884a249..2b7d5c5 100644
+--- a/platform/tests/test_cli_run.py
++++ b/platform/tests/test_cli_run.py
+@@ -601,11 +601,13 @@ formula: |
+     assert result.exit_code == 0, result.output
+     summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+     ev = summary["evaluation"]
+-    # 收口前（b2b6977^）实测键快照：多输出改造不得改动 legacy 顶层结构
+-    assert sorted(ev) == sorted(["coverage", "decile_returns", "direction", "factor",
++    # 收口前（b2b6977^）实测键快照 + R30 D1=B 的 version 字段：多输出改造不得改动
++    # legacy 顶层结构（version 为 v2 口径新增，历史 summary 无该键 ≡ v1）
++    assert sorted(ev) == sorted(["version", "coverage", "decile_returns", "direction", "factor",
+                                  "factor_name", "ic", "layered_backtest", "n_stocks_avg",
+                                  "n_weeks", "pearson_ic", "target", "turnover"])
+     assert "outputs" not in ev
++    assert ev["version"] == 2
+     assert ev["target"] == "forward_return_5d"
+     assert ev["n_weeks"] == 1
+     assert ev["ic"]["mean"] == pytest.approx(1.0, abs=1e-9)
+diff --git a/platform/tests/test_quant_core_shim.py b/platform/tests/test_quant_core_shim.py
+index bea609a..a4fc3c8 100644
+--- a/platform/tests/test_quant_core_shim.py
++++ b/platform/tests/test_quant_core_shim.py
+@@ -52,8 +52,9 @@ def _args(df: pl.DataFrame):
+ def test_contract_keys_full_structure():
+     # 正常路径：12 周 × 10 股 → 契约键集完整、统计为实数
+     r = quant_core.evaluate_factor(*_args(_panel()), "_factor", 1)
+-    assert set(r) == {"factor", "target", "direction", "n_weeks", "n_stocks_avg",
++    assert set(r) == {"version", "factor", "target", "direction", "n_weeks", "n_stocks_avg",
+                       "ic", "pearson_ic", "decile_returns", "turnover", "coverage"}
++    assert r["version"] == 2
+     assert set(r["ic"]) == {"mean", "std", "t_stat", "ir", "n_weeks",
+                             "recent_26w_mean", "recent_26w_t", "sign_consistent"}
+     assert set(r["pearson_ic"]) == {"mean", "t_stat"}
+@@ -224,7 +225,7 @@ def test_decile_ties_row_order_invariant_numeric():
+     """R01-EVAL-I8：并列 signal 必须进同一档（average rank + 对称分位映射）。
+ 
+     并列对内部 fwd 故意不同：旧 ordinal rank 会把同值拆到不同档 → 行序敏感、
+-    spread 漂移；tie-aware 下两组行序逐档一致、spread 精确 -0.05。"""
++    spread 漂移；tie-aware 下两组行序逐档一致、v2 spread 精确 0.05。"""
+     base = []
+     for s in range(12):
+         v = s // 2 + 1
+@@ -240,8 +241,8 @@ def test_decile_ties_row_order_invariant_numeric():
+     expected_groups = {1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9}
+     for v, g in expected_groups.items():
+         assert ga[g] == pytest.approx(v * 0.01)  # 并列对 ±0.005 成对均值 = v*0.01
+-    assert a["decile_returns"]["spread"]["ret"] == pytest.approx(-0.05)
+-    assert b["decile_returns"]["spread"]["ret"] == pytest.approx(-0.05)
++    assert a["decile_returns"]["spread"]["ret"] == pytest.approx(0.05)
++    assert b["decile_returns"]["spread"]["ret"] == pytest.approx(0.05)
+ 
+ 
+ def test_decile_heavy_ties_deterministic_nan_spread():

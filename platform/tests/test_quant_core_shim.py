@@ -52,8 +52,9 @@ def _args(df: pl.DataFrame):
 def test_contract_keys_full_structure():
     # 正常路径：12 周 × 10 股 → 契约键集完整、统计为实数
     r = quant_core.evaluate_factor(*_args(_panel()), "_factor", 1)
-    assert set(r) == {"factor", "target", "direction", "n_weeks", "n_stocks_avg",
+    assert set(r) == {"version", "factor", "target", "direction", "n_weeks", "n_stocks_avg",
                       "ic", "pearson_ic", "decile_returns", "turnover", "coverage"}
+    assert r["version"] == 2
     assert set(r["ic"]) == {"mean", "std", "t_stat", "ir", "n_weeks",
                             "recent_26w_mean", "recent_26w_t", "sign_consistent"}
     assert set(r["pearson_ic"]) == {"mean", "t_stat"}
@@ -224,7 +225,7 @@ def test_decile_ties_row_order_invariant_numeric():
     """R01-EVAL-I8：并列 signal 必须进同一档（average rank + 对称分位映射）。
 
     并列对内部 fwd 故意不同：旧 ordinal rank 会把同值拆到不同档 → 行序敏感、
-    spread 漂移；tie-aware 下两组行序逐档一致、spread 精确 -0.05。"""
+    spread 漂移；tie-aware 下两组行序逐档一致、v2 spread 精确 0.05。"""
     base = []
     for s in range(12):
         v = s // 2 + 1
@@ -240,8 +241,8 @@ def test_decile_ties_row_order_invariant_numeric():
     expected_groups = {1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9}
     for v, g in expected_groups.items():
         assert ga[g] == pytest.approx(v * 0.01)  # 并列对 ±0.005 成对均值 = v*0.01
-    assert a["decile_returns"]["spread"]["ret"] == pytest.approx(-0.05)
-    assert b["decile_returns"]["spread"]["ret"] == pytest.approx(-0.05)
+    assert a["decile_returns"]["spread"]["ret"] == pytest.approx(0.05)
+    assert b["decile_returns"]["spread"]["ret"] == pytest.approx(0.05)
 
 
 def test_decile_heavy_ties_deterministic_nan_spread():

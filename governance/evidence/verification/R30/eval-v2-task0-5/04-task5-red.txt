@@ -1,0 +1,255 @@
+$ cd platform && .venv/bin/python -m pytest tests/test_eval_spread_sign.py tests/test_quant_core_shim.py tests/test_cli_list_show.py tests/test_cli_run.py::test_run_legacy_single_output_eval_structure_lock -q
+
+FFFFF.F..........F.....FFFF..........F                                   [100%]
+=================================== FAILURES ===================================
+______________ test_spread_v2_positive_when_direction_consistent _______________
+
+    def test_spread_v2_positive_when_direction_consistent():
+        """direction=+1 + 正相关 → v2 spread=(g9−g0)×dir > 0；旧 v1 公式值=新值取负。"""
+        r = quant_core.evaluate_factor(*_kernel_args(_monotone_panel()), "_factor", 1)
+        groups = [g["mean_ret"] for g in r["decile_returns"]["groups"]]
+        g0, g9 = groups[0], groups[9]
+        assert g0 == pytest.approx(0.0005)   # 手算：signal {0,1}
+        assert g9 == pytest.approx(0.0185)   # 手算：signal {18,19}
+        spread = r["decile_returns"]["spread"]["ret"]
+>       assert spread == pytest.approx(0.018)             # 手算 (g9−g0)×1
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert -0.018000000000000002 == 0.018 ± 1.8e-08
+E         
+E         comparison failed
+E         Obtained: -0.018000000000000002
+E         Expected: 0.018 ± 1.8e-08
+
+tests/test_eval_spread_sign.py:58: AssertionError
+_________________ test_spread_v2_direction_flip_still_negates __________________
+
+    def test_spread_v2_direction_flip_still_negates():
+        """direction 翻转仍翻转 spread（声明反向 → 负）；ic 统计不受方向影响。"""
+        up = quant_core.evaluate_factor(*_kernel_args(_monotone_panel()), "_factor", 1)
+        down = quant_core.evaluate_factor(*_kernel_args(_monotone_panel()), "_factor", -1)
+        up_spread = up["decile_returns"]["spread"]["ret"]
+        down_spread = down["decile_returns"]["spread"]["ret"]
+>       assert up_spread == pytest.approx(0.018)
+E       assert -0.018000000000000002 == 0.018 ± 1.8e-08
+E         
+E         comparison failed
+E         Obtained: -0.018000000000000002
+E         Expected: 0.018 ± 1.8e-08
+
+tests/test_eval_spread_sign.py:69: AssertionError
+________________ test_kernel_version_is_2_even_for_empty_panel _________________
+
+    def test_kernel_version_is_2_even_for_empty_panel():
+        """口径版本随结果恒在：有数据 v2；空面板（全 nan 结构）同样 v2。"""
+        r = quant_core.evaluate_factor(*_kernel_args(_monotone_panel()), "_factor", 1)
+>       assert r["version"] == 2
+               ^^^^^^^^^^^^
+E       KeyError: 'version'
+
+tests/test_eval_spread_sign.py:78: KeyError
+_______ test_evaluation_version_lands_in_summary_single_and_multi_output _______
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2360/test_evaluation_version_lands_0')
+
+    def test_evaluation_version_lands_in_summary_single_and_multi_output(tmp_path):
+        """summary 的 evaluation 带 version=2（单输出顶层/多输出逐输出），经 publish 落盘。"""
+        panel = _monotone_panel()
+        spec = _spec("spread_v2")
+        result = FactorResult(spec=spec, signal_artifact=None, label_artifact=None,
+                              panel=panel)
+        ctx = RunContext(output_dir=tmp_path / "single")
+        outcome = evaluate_run(result, spec, ctx)
+>       assert outcome.evaluation["version"] == 2
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'version'
+
+tests/test_eval_spread_sign.py:92: KeyError
+____________________ test_bridge_passthrough_keeps_version _____________________
+
+    def test_bridge_passthrough_keeps_version():
+        """桥接层不得吞/改 version（quant_core → evaluate_factor_weekly → evaluation）。"""
+        panel = _monotone_panel()
+        ev = evaluate_factor_weekly(panel, "demo", 1)
+>       assert ev["version"] == 2
+               ^^^^^^^^^^^^^
+E       KeyError: 'version'
+
+tests/test_eval_spread_sign.py:116: KeyError
+______________________ test_contract_keys_full_structure _______________________
+
+    def test_contract_keys_full_structure():
+        # 正常路径：12 周 × 10 股 → 契约键集完整、统计为实数
+        r = quant_core.evaluate_factor(*_args(_panel()), "_factor", 1)
+>       assert set(r) == {"version", "factor", "target", "direction", "n_weeks", "n_stocks_avg",
+                          "ic", "pearson_ic", "decile_returns", "turnover", "coverage"}
+E       AssertionError: assert {'coverage', ...cks_avg', ...} == {'coverage', ...cks_avg', ...}
+E         
+E         Extra items in the right set:
+E         'version'
+E         Use -v to get more diff
+
+tests/test_quant_core_shim.py:55: AssertionError
+_________________ test_decile_ties_row_order_invariant_numeric _________________
+
+    def test_decile_ties_row_order_invariant_numeric():
+        """R01-EVAL-I8：并列 signal 必须进同一档（average rank + 对称分位映射）。
+    
+        并列对内部 fwd 故意不同：旧 ordinal rank 会把同值拆到不同档 → 行序敏感、
+        spread 漂移；tie-aware 下两组行序逐档一致、v2 spread 精确 0.05。"""
+        base = []
+        for s in range(12):
+            v = s // 2 + 1
+            fwd = v * 0.01 + (0.005 if s % 2 == 0 else -0.005)
+            base.append({"date": datetime.date(2024, 1, 5), "code": f"{s:06d}",
+                         "signal": float(v), "fwd": fwd})
+        a = quant_core.evaluate_factor(*_args(pl.DataFrame(base)), "_factor", 1)
+        b = quant_core.evaluate_factor(*_args(pl.DataFrame(list(reversed(base)))), "_factor", 1)
+        ga = [g["mean_ret"] for g in a["decile_returns"]["groups"]]
+        gb = [g["mean_ret"] for g in b["decile_returns"]["groups"]]
+        assert _nan_eq(ga, gb), f"行序改变了分档：{ga} vs {gb}"
+        # n=12 的对称映射：signal v → group floor((2v-1)*10/12)
+        expected_groups = {1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9}
+        for v, g in expected_groups.items():
+            assert ga[g] == pytest.approx(v * 0.01)  # 并列对 ±0.005 成对均值 = v*0.01
+>       assert a["decile_returns"]["spread"]["ret"] == pytest.approx(0.05)
+E       assert -0.049999999999999996 == 0.05 ± 5.0e-08
+E         
+E         comparison failed
+E         Obtained: -0.049999999999999996
+E         Expected: 0.05 ± 5.0e-08
+
+tests/test_quant_core_shim.py:244: AssertionError
+________________ test_list_spread_sign_hint_v2_and_legacy_note _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7137eee7b0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2360/test_list_spread_sign_hint_v2_0')
+
+    def test_list_spread_sign_hint_v2_and_legacy_note(monkeypatch, tmp_path):
+        """R30 D1=B：表尾打印 v2 正值口径；历史 v1 产物（无 version 键）另加注记。"""
+        monkeypatch.setenv("COLUMNS", "300")  # 防 rich 折行拆断断言文本
+        monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+        _write_summary(tmp_path, "v2_1", evaluation={
+            "version": 2, "ic": {"mean": 0.05},
+            "decile_returns": {"spread": {"ret": 0.02}}})
+        _write_summary(tmp_path, "legacy_1")  # 无 version 键 ≡ v1（历史不重算）
+        result = runner.invoke(app, ["list"])
+        assert result.exit_code == 0
+        assert "提示" in result.stdout
+>       assert "spread=(g9−g0)×dir" in result.stdout
+E       AssertionError: assert 'spread=(g9−g0)×dir' in 'legacy_1 | custom | dir=1 | ic=0.05 | spread=0.02 | 2026-08-16T12:00:00\nv2_1 | custom | dir=1 | ic=0.05 | spread=0.02 | 2026-08-16T12:00:00\n提示: spread=(group0−group9)×dir（group0=signal 最低档；负值=表现与声明方向一致；判有效性看 ic）\n'
+E        +  where 'legacy_1 | custom | dir=1 | ic=0.05 | spread=0.02 | 2026-08-16T12:00:00\nv2_1 | custom | dir=1 | ic=0.05 | spread=0.02 | 2026-08-16T12:00:00\n提示: spread=(group0−group9)×dir（group0=signal 最低档；负值=表现与声明方向一致；判有效性看 ic）\n' = <Result okay>.stdout
+
+tests/test_cli_list_show.py:55: AssertionError
+_______________________ test_list_all_v2_no_legacy_note ________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7137c7c7c0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2360/test_list_all_v2_no_legacy_not0')
+
+    def test_list_all_v2_no_legacy_note(monkeypatch, tmp_path):
+        # 负向对照：全部 v2 产物 → 只打 v2 提示，不出现 v1 注记（防提示恒亮）
+        monkeypatch.setenv("COLUMNS", "300")
+        monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+        _write_summary(tmp_path, "v2_only", evaluation={
+            "version": 2, "ic": {"mean": 0.05},
+            "decile_returns": {"spread": {"ret": 0.02}}})
+        result = runner.invoke(app, ["list"])
+        assert result.exit_code == 0
+>       assert "spread=(g9−g0)×dir" in result.stdout
+E       AssertionError: assert 'spread=(g9−g0)×dir' in 'v2_only | custom | dir=1 | ic=0.05 | spread=0.02 | 2026-08-16T12:00:00\n提示: spread=(group0−group9)×dir（group0=signal 最低档；负值=表现与声明方向一致；判有效性看 ic）\n'
+E        +  where 'v2_only | custom | dir=1 | ic=0.05 | spread=0.02 | 2026-08-16T12:00:00\n提示: spread=(group0−group9)×dir（group0=signal 最低档；负值=表现与声明方向一致；判有效性看 ic）\n' = <Result okay>.stdout
+
+tests/test_cli_list_show.py:72: AssertionError
+__________________________ test_show_version_v2_line ___________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7137e4bce0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2360/test_show_version_v2_line0')
+
+    def test_show_version_v2_line(monkeypatch, tmp_path):
+        # R30 D1=B：show 按 version 渲染口径行（v2 正值读法）
+        monkeypatch.setenv("COLUMNS", "300")
+        monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+        _write_summary(tmp_path, "v2_show", evaluation={
+            "version": 2, "ic": {"mean": 0.05},
+            "decile_returns": {"spread": {"ret": 0.02},
+                               "groups": [{"group": 0, "mean_ret": 0.01}]}})
+        result = runner.invoke(app, ["show", "v2_show"])
+        assert result.exit_code == 0
+>       assert "评估口径: v2" in result.stdout
+E       assert '评估口径: v2' in "=== v2_show ===\nspec: \nuniverse: 5 只 | None ~ None | rows=100 | null_ratio=None\nIC: {'mean': 0.05}\n十分位 spread: {'ret': 0.02}\n换手: None | 覆盖: None\n评估: ic={'mean': 0.05}\n分层回测: 无\n"
+E        +  where "=== v2_show ===\nspec: \nuniverse: 5 只 | None ~ None | rows=100 | null_ratio=None\nIC: {'mean': 0.05}\n十分位 spread: {'ret': 0.02}\n换手: None | 覆盖: None\n评估: ic={'mean': 0.05}\n分层回测: 无\n" = <Result okay>.stdout
+
+tests/test_cli_list_show.py:86: AssertionError
+_______________________ test_show_legacy_version_v1_line _______________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7137c13850>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2360/test_show_legacy_version_v1_li0')
+
+    def test_show_legacy_version_v1_line(monkeypatch, tmp_path):
+        # 历史 summary（无 version 键）→ v1 口径行 + 不重算声明（不得冒充 v2）
+        monkeypatch.setenv("COLUMNS", "300")
+        monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+        _write_summary(tmp_path, "legacy_show")
+        result = runner.invoke(app, ["show", "legacy_show"])
+        assert result.exit_code == 0
+>       assert "评估口径: v1" in result.stdout
+E       assert '评估口径: v1' in "=== legacy_show ===\nspec: \nuniverse: 5 只 | None ~ None | rows=100 | null_ratio=None\nIC: {'mean': 0.05}\n十分位 spread: {'ret': 0.02}\n换手: None | 覆盖: None\n评估: ic={'mean': 0.05}\n分层回测: 无\n"
+E        +  where "=== legacy_show ===\nspec: \nuniverse: 5 只 | None ~ None | rows=100 | null_ratio=None\nIC: {'mean': 0.05}\n十分位 spread: {'ret': 0.02}\n换手: None | 覆盖: None\n评估: ic={'mean': 0.05}\n分层回测: 无\n" = <Result okay>.stdout
+
+tests/test_cli_list_show.py:97: AssertionError
+______________ test_run_legacy_single_output_eval_structure_lock _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2360/test_run_legacy_single_output_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f7137d17bb0>
+
+    def test_run_legacy_single_output_eval_structure_lock(tmp_path, monkeypatch):
+        # M2 回归锁：legacy（outputs == ["signal"]）evaluation 顶层键与收口前逐键一致
+        # （键集合为收口前实测快照）；绝无 "outputs" 映射结构混入
+        build_db(tmp_path, n_days=9)
+        spec_path = tmp_path / "legacy.yaml"
+        spec_path.write_text("""
+    name: demo_l
+    category: custom
+    direction: 1
+    universe:
+      codes: ["000001.SZ", "600519.SH"]
+    date:
+      start: "2024-01-02"
+      end: "2024-01-12"
+    formula: |
+      signal = close / open - 1
+    """, encoding="utf-8")
+        monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+        out_dir = tmp_path / "results" / "demo_l"
+        result = runner.invoke(app, ["run", str(spec_path), "--output-dir", str(out_dir)])
+        assert result.exit_code == 0, result.output
+        summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+        ev = summary["evaluation"]
+        # 收口前（b2b6977^）实测键快照 + R30 D1=B 的 version 字段：多输出改造不得改动
+        # legacy 顶层结构（version 为 v2 口径新增，历史 summary 无该键 ≡ v1）
+>       assert sorted(ev) == sorted(["version", "coverage", "decile_returns", "direction", "factor",
+                                     "factor_name", "ic", "layered_backtest", "n_stocks_avg",
+                                     "n_weeks", "pearson_ic", "target", "turnover"])
+E       AssertionError: assert ['coverage', ...e', 'ic', ...] == ['coverage', ...e', 'ic', ...]
+E         
+E         Right contains one more item: 'version'
+E         Use -v to get more diff
+
+tests/test_cli_run.py:606: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2026-09-17 08:25:03.399 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-17 08:25:03.426 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+=========================== short test summary info ============================
+FAILED tests/test_eval_spread_sign.py::test_spread_v2_positive_when_direction_consistent
+FAILED tests/test_eval_spread_sign.py::test_spread_v2_direction_flip_still_negates
+FAILED tests/test_eval_spread_sign.py::test_kernel_version_is_2_even_for_empty_panel
+FAILED tests/test_eval_spread_sign.py::test_evaluation_version_lands_in_summary_single_and_multi_output
+FAILED tests/test_eval_spread_sign.py::test_bridge_passthrough_keeps_version
+FAILED tests/test_quant_core_shim.py::test_contract_keys_full_structure - Ass...
+FAILED tests/test_quant_core_shim.py::test_decile_ties_row_order_invariant_numeric
+FAILED tests/test_cli_list_show.py::test_list_spread_sign_hint_v2_and_legacy_note
+FAILED tests/test_cli_list_show.py::test_list_all_v2_no_legacy_note - Asserti...
+FAILED tests/test_cli_list_show.py::test_show_version_v2_line - assert '评估...
+FAILED tests/test_cli_list_show.py::test_show_legacy_version_v1_line - assert...
+FAILED tests/test_cli_run.py::test_run_legacy_single_output_eval_structure_lock
+12 failed, 26 passed in 2.97s
+exit=1

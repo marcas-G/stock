@@ -21,6 +21,9 @@ Rust 内核完成后在**同目录换 build backend**（同名包，`import quan
   统计分母；n_weeks 字段仍按契约含退化周）；decile 用 **average rank** 对称分位映射
   `floor((2·avg_rank−1)·10/(2·n))`（并列同档、行序无关；无并列 n=10 时与旧
   ordinal 公式等价，§4.3 向量不变）。
+- **R30 D1=B 口径修订**（2026-09-17）：`decile_returns.spread.ret = (g9−g0)×direction`
+  （**正=表现与声明方向一致**；v1 为 `(g0−g9)×direction` 负=自洽）。结果带
+  `version=2` 供下游区分历史 v1 产物（历史 summary 不重算，按 interface 迁移节）。
 
 周度 spearman 与平台 `factorlab.core.eval.ic_series.weekly_ic` 同源（pl.corr spearman，
 MIN_STOCKS=3）——逐期对拍测试见平台 `tests/test_quant_core_shim.py`（10 项，含逐期对拍；
@@ -111,11 +114,12 @@ def evaluate_factor(
     - direction: 1/-1 翻转 decile spread 符号；0 → -1（实测契约）。
 
     返回契约结构（键集与 m4a 文档一致；空面板 → 全 nan 结构）：
-    {factor, target, direction, n_weeks, n_stocks_avg,
+    {version, factor, target, direction, n_weeks, n_stocks_avg,
      ic{mean,std,t_stat,ir,n_weeks,recent_26w_mean,recent_26w_t,sign_consistent},
      pearson_ic{mean,t_stat},
      decile_returns{weighting,monotonic,spread{ret},groups[{group,mean_ret}]},
      turnover{monthly,quarterly}, coverage{pct_valid,total_rows,valid_rows}}
+    version=2：spread 为 (g9−g0)×direction（正=方向自洽；R30 D1=B）。
     """
     rows = len(dates)
     if not (len(codes) == rows == len(signals) == len(fwd)):
@@ -131,6 +135,7 @@ def evaluate_factor(
         direction = -1  # 实测契约：0 按 -1 处理
 
     result = {
+        "version": 2,  # R30 D1=B：spread 正=好口径（v1 产物无此键）
         "factor": factor,
         "target": TARGET,
         "direction": direction,
@@ -222,8 +227,9 @@ def evaluate_factor(
         {"group": i, "mean_ret": mean_rets[i]} for i in range(10)
     ]
     g0, g9 = mean_rets[0], mean_rets[9]
+    # R30 D1=B：spread=(g9−g0)×direction，正值=表现与声明方向一致（v1 为 (g0−g9)）
     result["decile_returns"]["spread"]["ret"] = (
-        (g0 - g9) * direction if (g0 == g0 and g9 == g9) else _NAN
+        (g9 - g0) * direction if (g0 == g0 and g9 == g9) else _NAN
     )
     xs = [i for i in range(10) if mean_rets[i] == mean_rets[i]]
     if len(xs) >= 3:

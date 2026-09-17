@@ -41,16 +41,62 @@ def test_list_empty_results(monkeypatch, tmp_path):
     assert "spread=" not in result.stdout      # 空列表不打印 spread 提示（R03-M3）
 
 
-def test_list_spread_sign_hint(monkeypatch, tmp_path):
-    """R03-M3：list 表尾打印 spread 符号约定（direction 相对量，防误读）。"""
-    monkeypatch.setenv("COLUMNS", "200")  # 防 rich 折行拆断断言文本
+def test_list_spread_sign_hint_v2_and_legacy_note(monkeypatch, tmp_path):
+    """R30 D1=B：表尾打印 v2 正值口径；历史 v1 产物（无 version 键）另加注记。"""
+    monkeypatch.setenv("COLUMNS", "300")  # 防 rich 折行拆断断言文本
     monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
-    _write_summary(tmp_path, "alpha_1")
+    _write_summary(tmp_path, "v2_1", evaluation={
+        "version": 2, "ic": {"mean": 0.05},
+        "decile_returns": {"spread": {"ret": 0.02}}})
+    _write_summary(tmp_path, "legacy_1")  # 无 version 键 ≡ v1（历史不重算）
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 0
     assert "提示" in result.stdout
-    assert "spread=(group0−group9)×dir" in result.stdout
-    assert "负值=表现与声明方向一致" in result.stdout
+    assert "spread=(g9−g0)×dir" in result.stdout
+    assert "正值=与声明方向一致" in result.stdout
+    assert "含历史 v1 产物 1 条" in result.stdout
+    assert "spread=(g0−g9)×dir" in result.stdout
+    assert "负值=与声明方向一致" in result.stdout
+    assert "未按 v2 重算" in result.stdout
+
+
+def test_list_all_v2_no_legacy_note(monkeypatch, tmp_path):
+    # 负向对照：全部 v2 产物 → 只打 v2 提示，不出现 v1 注记（防提示恒亮）
+    monkeypatch.setenv("COLUMNS", "300")
+    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+    _write_summary(tmp_path, "v2_only", evaluation={
+        "version": 2, "ic": {"mean": 0.05},
+        "decile_returns": {"spread": {"ret": 0.02}}})
+    result = runner.invoke(app, ["list"])
+    assert result.exit_code == 0
+    assert "spread=(g9−g0)×dir" in result.stdout
+    assert "历史 v1" not in result.stdout
+
+
+def test_show_version_v2_line(monkeypatch, tmp_path):
+    # R30 D1=B：show 按 version 渲染口径行（v2 正值读法）
+    monkeypatch.setenv("COLUMNS", "300")
+    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+    _write_summary(tmp_path, "v2_show", evaluation={
+        "version": 2, "ic": {"mean": 0.05},
+        "decile_returns": {"spread": {"ret": 0.02},
+                           "groups": [{"group": 0, "mean_ret": 0.01}]}})
+    result = runner.invoke(app, ["show", "v2_show"])
+    assert result.exit_code == 0
+    assert "评估口径: v2" in result.stdout
+    assert "正值=与声明方向一致" in result.stdout
+
+
+def test_show_legacy_version_v1_line(monkeypatch, tmp_path):
+    # 历史 summary（无 version 键）→ v1 口径行 + 不重算声明（不得冒充 v2）
+    monkeypatch.setenv("COLUMNS", "300")
+    monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+    _write_summary(tmp_path, "legacy_show")
+    result = runner.invoke(app, ["show", "legacy_show"])
+    assert result.exit_code == 0
+    assert "评估口径: v1" in result.stdout
+    assert "未按 v2 重算" in result.stdout
+    assert "评估口径: v2" not in result.stdout
 
 
 def test_show_factor_summary(monkeypatch, tmp_path):
