@@ -116,3 +116,14 @@ def test_interface_old_formula_only_in_migration_note():
         if FORMULA_V1 in line:
             assert any(k in line for k in ("v1", "历史", "旧口径", "不重算")), (
                 f"interface:{lineno} 出现旧公式但无迁移标记（口径回潮）: {line}")
+
+
+def test_interface_strategy_side_e4_contract():
+    """E4（R30 Task 9）: interface 必须写容量代理入口、公式与因子侧纯净边界。"""
+    text = INTERFACE.read_text(encoding="utf-8")
+    assert "capacity_proxy" in text, "interface 缺 E4 capacity_proxy 入口"
+    assert "avg_amount × participation_rate / one_side_turnover" in text, \
+        "interface 缺 E4 容量公式"
+    assert "策略层" in text, "interface 缺「策略层」定位说明"
+    # 因子侧纯净边界：E3/E4 不得被写进因子评估 summary（D11/§2b）
+    assert "不进因子评估" in text, "interface 缺「不进因子评估 summary」边界声明"

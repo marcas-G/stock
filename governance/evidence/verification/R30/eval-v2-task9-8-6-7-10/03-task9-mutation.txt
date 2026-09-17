@@ -1,0 +1,19 @@
+.F..........                                                             [100%]
+=================================== FAILURES ===================================
+________________ test_capacity_varies_with_each_input_not_stub _________________
+
+    def test_capacity_varies_with_each_input_not_stub():
+        base = capacity_proxy(1e8, 0.25, participation_rate=0.1)["capacity"]
+        # 换手翻倍 → 容量减半（1e8×0.1/0.5 = 2e7）
+>       assert capacity_proxy(1e8, 0.5, participation_rate=0.1)["capacity"] == \
+            pytest.approx(2e7, rel=1e-12)
+E       assert 40000000.0 == 20000000.0 ± 2.0e-05
+E         
+E         comparison failed
+E         Obtained: 40000000.0
+E         Expected: 20000000.0 ± 2.0e-05
+
+platform/tests/test_strategy_capacity.py:46: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tests/test_strategy_capacity.py::test_capacity_varies_with_each_input_not_stub
+1 failed, 11 passed in 1.47s

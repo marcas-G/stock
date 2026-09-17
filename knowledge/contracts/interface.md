@@ -3049,6 +3049,36 @@ ExecutionSpec（L5）
   涨停日 BUY 不成交）；证据
   `governance/evidence/verification/R22/minute-execution/`。
 
+### `factorlab.app.strategy`：策略侧报告（E3 成本后净值 / E4 容量代理）
+
+评估指标 v2（R30）增强项的**策略层**交付（design §2b/§3；D11 因子侧纯净——
+**不进因子评估 summary**，因子评估保持零成本统计口径）。纯函数、无 I/O，经
+`factorlab.app.strategy` 导出：
+
+- **E3 `cost_net_report(returns, turnover, cost_rate=0.0, periods_per_year=252) -> dict`**
+  （`factorlab.app.strategy.cost_net`，R30 Task 8）：策略收益/换手序列 →
+  成本后净值报告。口径 `net_t = gross_t − cost_rate × turnover_t`（与 R9 分层
+  成本模型同式；`cost_rate` = 每单位**单边换手**的买卖总成本，如 A 股约
+  0.0007），成本后净值 = `(1+net_t)` 连乘；返回 `cost_rate` / `periods` /
+  `annual_turnover` / `total_cost` + `gross`/`net` 摘要（annual_return /
+  annual_vol / sharpe / max_drawdown / win_rate）+ `net_nav` 序列。
+  `cost_rate=0.0`（缺省）= 与 gross **逐值一致**（零行为变化）；输入长度不一致 /
+  非有限 / `cost_rate` 越界 → `ValueError`。用途：不跑 M8 全套（涨跌停/停牌/
+  CA）时对任意策略层收益序列做成本敏感性对照；**不得**写回因子评估
+  `layered_backtest`（因子侧保持零成本理想口径）。
+- **E4 `capacity_proxy(avg_amount, one_side_turnover, participation_rate=0.1) -> dict`**
+  （`factorlab.app.strategy.capacity`，R30 Task 9）：容量代理 =
+  `avg_amount × participation_rate / one_side_turnover`。`avg_amount` 为标的
+  **日均成交额**（元，调用方从 daily 读面注入）；`participation_rate` 缺省
+  **0.1**（ADV 参与率上限，公开经验值）——公式/系数/单位随结果字段披露
+  （`formula`/`unit`/`layer`，可审计）。单边换手为 0 时容量无上界，显式
+  `ValueError`（不伪造成大数）；ADV ≤ 0 / 换手 ∉ (0,1] / 参与率 ∉ (0,1]
+  同样 fail loud。
+- **边界（因子侧纯净）**：E3/E4 只存在于策略侧 `factorlab.app.strategy`；
+  `factorlab.core.eval.*`（kernel / ic_series / layered）结果不含成本后净值/
+  容量字段——`test_strategy_cost_net.py` / `test_strategy_capacity.py` 断言因子
+  评估 summary 不出现对应字段（双向锁定）。
+
 ### M8-06C Artifact Persistence Layer（`save_backtest_result` / `load_backtest_result`）
 
 ```
