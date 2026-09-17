@@ -1,0 +1,23 @@
+F....                                                                    [100%]
+=================================== FAILURES ===================================
+__________ test_ic_decay_hand_computed_monotonic_and_missing_h10_null __________
+
+    def test_ic_decay_hand_computed_monotonic_and_missing_h10_null():
+        out = ic_decay(_panel())
+        assert IC_DECAY_HORIZONS == (1, 5, 10, 20)
+        assert set(out) == {"1", "5", "10", "20"}
+    
+        for key, rhos in (("1", _RHO1), ("5", _RHO5), ("20", _RHO20)):
+            mean, std, t = _expected(rhos)
+            assert out[key]["n_periods"] == 6
+>           assert out[key]["mean"] == pytest.approx(mean, abs=1e-12)
+E           assert 0.0 == 0.9666666666666667 ± 1.0e-12
+E             
+E             comparison failed
+E             Obtained: 0.0
+E             Expected: 0.9666666666666667 ± 1.0e-12
+
+platform/tests/test_eval_ic_decay.py:100: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tests/test_eval_ic_decay.py::test_ic_decay_hand_computed_monotonic_and_missing_h10_null
+1 failed, 4 passed in 1.60s

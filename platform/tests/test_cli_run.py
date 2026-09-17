@@ -631,8 +631,10 @@ formula: |
     ev = summary["evaluation"]
     # 收口前（b2b6977^）实测键快照 + R30 D1=B version + D9 frequency（均为 append 字段）：
     # 多输出改造不得改动 legacy 顶层结构
+    # （R30 Task 6/E2 append `ic_decay`——计划 Global Constraints「一切新增字段 append」，
+    #   其余键与 M2 收口前逐键一致）
     assert sorted(ev) == sorted(["version", "frequency", "coverage", "decile_returns",
-                                 "direction", "factor", "factor_name", "ic",
+                                 "direction", "factor", "factor_name", "ic", "ic_decay",
                                  "layered_backtest", "n_stocks_avg", "n_weeks", "pearson_ic",
                                  "target", "turnover"])
     assert "outputs" not in ev

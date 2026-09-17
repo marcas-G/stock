@@ -905,6 +905,20 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 （`MIN_STOCKS`）的期 ic = null（秩相关不稳健，含有效股票为 0 的期）。
 返回 `(date, ic)` 按日期排序——`factorlab.surfaces.web` 详情页 IC 曲线数据源。
 
+### `factorlab.core.eval.ic_decay.ic_decay(panel, horizons=(1, 5, 10, 20)) -> dict`
+
+E2 IC 衰减（R30 Task 6，**因子侧统计**；append `evaluation.ic_decay`，不改变
+主指标）：对每个 h 用与 `ic_series` **同源**的逐期 RankIC（Spearman；有效股票
+< 3 的期不计、null/NaN 行排除）汇总 `n_periods/mean/std/t_stat/ir`
+（`t_stat = mean/(std/√n_periods)`）。返回按 `"1"/"5"/"10"/"20"` 键的 dict
+（含 `column`/`available` 字段）。**缺标签 → null**：面板无
+`forward_return_{h}d` 列（如默认 `DEFAULT_FORWARD_HORIZONS=(1,5,20)` 下
+`forward_return_10d` 不存在）时该 horizon `mean/std/t_stat/ir` 全 `None`、
+`n_periods=0`——不插值、不崩溃；扩展 h 需先在 label 面加列。周期无关
+（daily 面板→逐日、weekly 对齐面板→逐周）。多输出逐输出落
+`evaluation.outputs.<o>.ic_decay`。h>5 重叠标签下该曲线是**诊断**（相对强弱），
+t 推断仍以主 `ic`（D3 不重叠采样）为准；主口径仍固定 1 日 forward（D11）。
+
 ### `factorlab.app.analysis.cross_section`：横截面联合诊断（resIC）
 
 给定一组因子的逐周横截面 OLS 诊断（A 层单因子评估的多因子补充，纯 polars

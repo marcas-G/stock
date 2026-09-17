@@ -23,7 +23,9 @@ import polars as pl
 from factorlab.core.domain.frames import SignalArtifact  # noqa: F401  (类型语义文档)
 from factorlab.app.context import RunContext
 from factorlab.core.engine.compute import FactorResult
+from factorlab.core.engine.forward import FORWARD_COLUMNS
 from factorlab.core.eval.alignment import align_weekly
+from factorlab.core.eval.ic_decay import ic_decay
 from factorlab.core.eval.layered import (WEEKS_PER_YEAR, degenerate_decile_groups,
                                          layered_backtest)
 from factorlab.core.eval.metrics import DeadSignalError, dead_signal_report
@@ -127,6 +129,8 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
     if outputs == ["signal"]:
         evaluation = _evaluate_frame(eval_panel, spec, freq)
         evaluation["frequency"] = freq
+        # E2（R30 Task 6）：IC 衰减 append（不改变主指标；缺标签 horizon → null）
+        evaluation["ic_decay"] = ic_decay(eval_panel)
         _mark_degenerate_deciles(evaluation, notes)
         dead = _mark_dead_signal(evaluation, result.panel, "signal", notes)
         if backtest:
@@ -138,11 +142,13 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
         # per-output 面板：评估面板里取该输出列（date/code/o/target）→ 归一 signal
         evaluation = {"outputs": {}, "frequency": freq}
         target_col = DAILY_TARGET if freq == "daily" else spec.target
+        fwd_cols = [c for c in FORWARD_COLUMNS if c in eval_panel.columns]
         for o in outputs:
-            p = eval_panel.select(["date", "code", o, target_col])
+            p = eval_panel.select(["date", "code", o, *fwd_cols])
             if o != "signal":  # 字面 signal 输出：列名已就绪，rename 会自撞
                 p = p.rename({o: "signal"})
             ev_o = _evaluate_frame(p, spec, freq, weekly=p)
+            ev_o["ic_decay"] = ic_decay(p)   # E2：逐输出 append
             _mark_degenerate_deciles(ev_o, notes, prefix=f"输出 {o} ")
             dead_o = _mark_dead_signal(ev_o, result.panel, o, notes, prefix=f"输出 {o} ")
             if dead is None and dead_o is not None:
