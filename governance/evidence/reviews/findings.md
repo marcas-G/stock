@@ -243,3 +243,17 @@
 | R07-STRAT-I6 | I | **策略面口子**：`factorlab lint --strategy` 不存在（exit 2）；`universe_override` YAML 接了不消费（只 dry-run 打印）【实测】 | `research/tools/strategies/run_strategy.py:44`；CLI | fixed-claimed | 56f5f9e（platform）+ 9e1fdaf（research）；`factorlab lint` 自动识别策略文档走 load_strategy_doc 严格校验（未知键/NEXT_WINDOW/V1 rules，exit≠0）；universe_override 运行链消费（canonical 精确匹配、空交集 fail fast、null 零变化）；测试 test_cli_lint_strategy.py（7）+ override 双腿 3；证据 17-r07-fixes/strategy/ | |
 | R07-LINT-I7 | I | **lint 不校验库函数 arity/形态**：`ts_cum_count(close,5)` lint OK → 运行 TypeError（"lint OK ≠ 运行"一类）【实测】 | lint 静态管线（`core/engine/semantics.py` 系） | fixed-claimed | 16fbc84；生成器记录 arity（必需位置参数/上限），OpMeta 增 min_args/max_args，semantics._check_arity 静态校验越界/缺参 → SemanticError；`ts_cum_count(close,5)` lint exit 1（对照运行期 TypeError）；make lint-factors 173/173；证据 17-r07-fixes/lint/ | |
 | R07-DATA-I8 | I | **CA Gate 多年连续回测硬阻断**（R03-I8 复核）：真实事件最小复现拦截；分段重基后不可算连续 Sharpe/回撤——"多年回测"无连续产物【实测】 | `knowledge/contracts/interface.md` §6 | fixed-claimed | 377432c（platform）+ b87ddd2（契约/设计）；CA 处理落地：load_adj_detail_window + apply_corporate_actions（现金分红入账/送转 Decimal 精确缩放 floor/配股 V1 不参与+warning/多事件复合），backtest 在 snapshot 后 orders 前应用；4 年 53 决策 4 事件单 run 连续 NAV/Sharpe/Drawdown 产出，手算对拍与存根必败锁定；残余 fail-closed（停牌持仓/缺明细/缩股/负值/缺表）已文档化；证据 17-r07-fixes/ca/ | |
+
+---
+
+## R09 分钟链计算效率发现（2026-09-17，minute perf）
+
+- 报告：`r09-2026-09-17-minute-perf/report.md`（折日瓶颈剖析 + 病态公式形态 + 优化建议）
+- 背景：按 R30/D9 逐日口径重跑分钟因子时逐因子计时；数值口径经 R08 复核无问题，本处纯**吞吐/可用性**。
+- 证据：`r09-2026-09-17-minute-perf/evidence/timings.md`（实测计时）
+
+| ID | 级 | 问题 | 位置 | 状态 | 修复说明（团队填） | 复查（reviewer） |
+|---|---|---|---|---|---|---|
+| R09-PERF-I1 | I | **分钟折日逐算子逐组逐行物化**：`minute_ops.py` 所有 `im_*`/`day_*` 内联 `.over(["code","date"], order_by=...)`，多算子串联不共享分组；含 `im_delay` 序列再产品叠加（平方/乘滞后）的形态直接 ≥15min **超时**（vol_asym/autocorr_micro/vol_price_corr）【实测】 | `platform/src/factorlab/core/ops/minute_ops.py:76-135`；`core/engine/minute.py:compute_minute_factor_panel` | open | | |
+| R09-PERF-I2 | I | **条件取值 `day_max(if_else(minute_index==k,x,None))` 全组扫描物化**：列内近全 null 仍整组 max 扫描；`day_first/day_last` 亦双 over【实测】 | `platform/src/factorlab/core/ops/minute_ops.py:102-135` | open | | |
+| R09-PERF-M3 | M | **无逐阶段计时/剖析开关**：`factorlab run` 不输出折日/label/评估/分层分段墙钟与 RSS，慢在哪一步只能外部掐表【实测】 | `platform/src/factorlab/app/run.py`（分钟链 `_run_factor_minute`） | open | | |
