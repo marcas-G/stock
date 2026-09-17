@@ -66,7 +66,7 @@ def test_ingest_bars_exits_nonzero_on_failure(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["ingest_bars.py"])
     monkeypatch.setattr(ingest_bars, "discover_tasks",
                         lambda t: [("bars_1m", "2026", "01")])
-    monkeypatch.setattr(ingest_bars, "run_pool", lambda t, tasks: 2)
+    monkeypatch.setattr(ingest_bars, "run_pool", lambda t, tasks, **kw: 2)
     with pytest.raises(SystemExit) as e:
         ingest_bars.main()
     assert e.value.code == 1
@@ -76,7 +76,7 @@ def test_ingest_bars_exits_zero_on_success(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["ingest_bars.py"])
     monkeypatch.setattr(ingest_bars, "discover_tasks",
                         lambda t: [("bars_1m", "2026", "01")])
-    monkeypatch.setattr(ingest_bars, "run_pool", lambda t, tasks: 0)
+    monkeypatch.setattr(ingest_bars, "run_pool", lambda t, tasks, **kw: 0)
     with pytest.raises(SystemExit) as e:
         ingest_bars.main()
     assert e.value.code == 0

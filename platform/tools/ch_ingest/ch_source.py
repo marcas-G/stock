@@ -1,9 +1,10 @@
-"""ch_ingest 源侧只读（R15）：列投影 / 类型 cast / 源路径 / 任务发现 / 源行数。
+"""ch_ingest 源侧只读（R15）：列投影 / 类型 cast / 源路径 / 任务发现 / 源行数 / 月源指纹。
 
 从 `ingest_common`（202 行五职责）拆出。投影与 cast **从 `core/factio/schema` 派生**（R4c 单点），
 `tests/test_ch_ingest_layout.py` 锁"派生结果 == 历史列表"以防静默漂移。
 """
 
+import hashlib
 import os
 import sys
 from pathlib import Path
@@ -13,6 +14,7 @@ from _env import ensure_platform  # noqa: E402
 
 ensure_platform()
 
+import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
 
@@ -83,3 +85,32 @@ def parquet_path(task: tuple[str, str]) -> list[str]:
 def source_rows(task: tuple[str, str]) -> int:
     """源文件总行数（读 parquet metadata，不含数据；part-000+001 全收）。"""
     return sum(pq.ParquetFile(p).metadata.num_rows for p in parquet_path(task))
+
+
+_MANIFEST_NAME = "_daily_manifest.parquet"
+
+
+def source_fingerprint(task: tuple[str, str]) -> str | None:
+    """bars_1m 月断点源指纹 = 转换器回执清单的源 zip (name,size) 摘要（A4）。
+
+    与 A3 `_source_relation` 读**同一份** `_state/…/_daily_manifest.parquet`
+    （不自创 digest 源）：转换器重转同月（新增日/同名替换）必改写该清单 →
+    指纹变化 → `run_pool` 对该月删键重灌分区；清单一致 → 幂等跳过。
+    非 bars_1m（tick 等）或无回执（未转换）→ None（保持旧布尔断点语义）。
+    """
+    if task[0] != "bars_1m":
+        return None
+    root = Path(src_root("bars_1m"))
+    man = partitions.partition_dir(root, table="_state",
+                                   year=int(task[1]), month=int(task[2])) / _MANIFEST_NAME
+    if not man.is_file():
+        return None
+    try:
+        df = pl.read_parquet(man, columns=["source_zip", "source_zip_size"])
+        names, sizes = df["source_zip"].to_list(), df["source_zip_size"].to_list()
+    except Exception:
+        return None
+    h = hashlib.sha256()
+    for name, size in sorted(zip(names, sizes)):
+        h.update(f"{name}\0{int(size)}\n".encode("utf-8"))
+    return h.hexdigest()

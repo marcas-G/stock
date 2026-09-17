@@ -126,6 +126,10 @@ G_READ_ALLOWED = {
      "os.path.join(state_dir, '_daily_manifest.parquet')"):
         "A3：转换器自产月回执清单（_state/…/_daily_manifest.parquet，逐日源 zip "
         "name+size+sha）——已提交月与当前源清单比对，非事实库分区",
+    # ── R30 A4（月断点源指纹）：CH 灌入侧读同一份回执算指纹 ─────────────────────
+    ("platform/tools/ch_ingest/ch_source.py", "source_fingerprint", "man"):
+        "A4：与 A3 同一份转换器自产月回执（_state/…/_daily_manifest.parquet）——"
+        "源 zip name+size 摘要作 ch_ingest 月断点指纹（不自创 digest 源），非事实表分区",
 }
 _READ_CALLS = {"read_parquet", "scan_parquet", "ParquetFile"}
 # 硬规则：目标表达式里出现事实库名或分区标记 → 任何理由都不豁免（必须走平台单点）

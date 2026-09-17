@@ -1,5 +1,8 @@
 """ch_ingest 断点（R15/R21）：单个 JSON、键 `<table>_<yyyymm>`、**只由主进程写**。
 
+A4：bars_1m 键值 = 月源指纹（`ch_source.source_fingerprint`，转换器回执摘要），
+指纹变化即重灌；旧布尔 `true` 迁移时只回填指纹不重灌。tick 等仍为布尔 `true`。
+
 R21 TOOLS-I2：旧实现 worker 进程各自 read-modify-write 无锁 → 8 worker 存活 1。
 现在 `mark_done` 在 `state.json.lock` 上阻塞 flock + **新鲜读磁盘**再合并原子写；
 `ch_write.run_pool` 也只由主进程 on_result 记账（worker 不再碰断点）。
@@ -46,14 +49,28 @@ def _progress() -> dict:
     return _PROGRESS
 
 
-def is_done(task: tuple[str, str]) -> bool:
-    """该任务是否已完成（state 单点见 `_progress()`/`state_dir()`）。"""
-    return _progress().get(_task_key(task), False) is True
+def is_done(task: tuple[str, str], fingerprint: str | None = None) -> bool:
+    """该任务是否已完成（state 单点见 `_progress()`/`state_dir()`）。
+
+    `fingerprint` 非 None（bars_1m 月源指纹，A4）时按指纹判定：
+    - 旧布尔断点（迁移窗口）→ 就地回填当前指纹并视为已完成（**不重灌** 81 个
+      存量月；存量偏差由 reconcile 暴露后经 `--force YYYYMM` 点名重灌）；
+    - 值是字符串 → 与当前指纹相等才跳过（转换器重转同月 → 指纹变化 → 重灌）。
+    `fingerprint` 为 None（tick 等无指纹表/兼容旧调用）→ 保持布尔语义。
+    """
+    val = _progress().get(_task_key(task))
+    if fingerprint is not None:
+        if val is True:
+            mark_done(task, fingerprint)        # 迁移回填（锁 + 新鲜读改写）
+            return True
+        return val == fingerprint
+    return bool(val)
 
 
-def mark_done(task: tuple[str, str]) -> None:
+def mark_done(task: tuple[str, str], fingerprint: str | None = None) -> None:
     """记录完成（主进程调用；并发安全）。
 
+    值为 `fingerprint`（有源指纹的表）或 `True`（无指纹表，旧形态）。
     临界区 = `state.json.lock` 阻塞 flock + 新鲜读 `state.json` + 合并本 key +
     原子写。**不得**直接用进程内缓存覆盖（I2：并发写丢标记）。
     """
@@ -66,7 +83,7 @@ def mark_done(task: tuple[str, str]) -> None:
         fcntl.flock(lf.fileno(), fcntl.LOCK_EX)     # 阻塞：短临界区串行
         try:
             state = W.load_state(p.parent, p.name)  # 新鲜读（不吃缓存）
-            state[_task_key(task)] = True
+            state[_task_key(task)] = True if fingerprint is None else fingerprint
             W.save_state(p.parent, state, p.name)
         finally:
             fcntl.flock(lf.fileno(), fcntl.LOCK_UN)

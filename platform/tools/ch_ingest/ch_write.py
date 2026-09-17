@@ -19,7 +19,8 @@ import pyarrow.parquet as pq
 from factorlab.adapters.batch_flock import BatchFlock  # noqa: E402
 from factorlab.ports.batch import Task  # noqa: E402
 
-from ch_source import CASTS, PROJECTION, parquet_path, source_rows  # noqa: E402
+from ch_source import (CASTS, PROJECTION, parquet_path,  # noqa: E402
+                       source_fingerprint, source_rows)
 from ch_state import is_done, mark_done  # noqa: E402
 from common import connect, load_config  # noqa: E402
 
@@ -59,29 +60,42 @@ def _ingest_one(task):
     return ingest_task(task.key)
 
 
-def run_pool(table: str, tasks: list[tuple[str, str]]) -> int:
+def run_pool(table: str, tasks: list[tuple[str, str]], *,
+             force: set[str] | tuple[str, ...] = ()) -> int:
     """主进程：并行灌入（R15 起编排走平台 P-5），已完成任务跳过，失败单元保留标记可重跑。
+
+    A4：bars_1m 每任务按 `source_fingerprint`（转换器月回执 name+size 摘要）判定——
+    断点缺 → 灌 + 记指纹；指纹变化（转换器重转吸收新增日）→ 重灌该月 + 更新指纹；
+    一致 → 幂等跳过；旧布尔断点 → 只回填指纹不重灌。`force`（YYYYMM 集合）为
+    reconcile 暴露存量偏差后的点名重灌逃逸口（即使指纹一致也重灌）。
+    失败任务不写标记 → 下次重试仍按指纹判定。
 
     R21 修复两点：
     - I2：完成标记**只由主进程**在 `on_result` 成功分支写（worker 不再碰断点）；
     - I3：返回失败数（调用方据此定退出码；旧版忽略返回值 → 失败仍 exit 0）。
     """
-    todo = [t for t in tasks if not is_done(t)]
+    forced = {str(f) for f in force}
+    todo: list[tuple[tuple[str, str], str | None]] = []
+    for t in tasks:
+        fp = source_fingerprint(t)
+        if f"{t[1]}{t[2]}" in forced or not is_done(t, fp):
+            todo.append((t, fp))
     done = len(tasks) - len(todo)
     print(f"{table}: 任务 {len(tasks)}（已完成 {done}，待跑 {len(todo)}）", flush=True)
     if not todo:
         return 0
     workers = load_config()["ingest"]["workers"]
+    fps = {t: fp for t, fp in todo}
 
     def _report(t, r):
         d = t.key
         if isinstance(r, tuple):
-            mark_done(d)        # 主进程记账（flock + 新鲜读改写）
+            mark_done(d, fps.get(d))    # 主进程记账（flock + 新鲜读改写）
             print(f"  {d[0]}/{d[1]}{d[2]}: {r[1]:,} rows", flush=True)
         else:
             print(f"  {d[0]}/{d[1]}{d[2]}: 失败 {r!r}", flush=True)
 
-    rep = BatchFlock().run([Task(key=t) for t in todo], _ingest_one,
+    rep = BatchFlock().run([Task(key=t) for t, _ in todo], _ingest_one,
                            workers=workers, mp_context="spawn",
                            max_inflight=workers * 2, on_result=_report)
     if rep.failed:
