@@ -1,4 +1,4 @@
-name: intraday_vol_asym
+name: intraday_conc_up_share
 category: custom
 direction: -1
 interface: bars_1m
@@ -10,6 +10,6 @@ date:
   end: "2025-12-31"
 formula: |
   _r = close / im_delay(close, 1) - 1
-  _up = day_sum(if_else(_r > 0, _r * _r, 0))
-  _dn = day_sum(if_else(_r < 0, _r * _r, 0))
-  signal = if_else(_dn > 0, _up / _dn, None)
+  _up = day_sum(if_else(_r > 0, abs(_r), 0))
+  _tot = day_sum(abs(_r))
+  signal = if_else(_tot > 0, _up / _tot, None)

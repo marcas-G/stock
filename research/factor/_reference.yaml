@@ -94,3 +94,27 @@ scales:
       added: "2026-09-17"
       entry_corr_max: 0.0325
       entry_resic_t: -4.7034
+    - name: intraday_auction_range
+      style: 开盘竞价振幅
+      reason: "开盘集合竞价 high/low-1 振幅，大分歧次日反转（|t|=8.64、IR=0.32，dir=-1）；对库 max ρ=0.19、残差 t=-4.85、retention=0.88，可加入"
+      added: "2026-09-17"
+      entry_corr_max: 0.1908
+      entry_resic_t: -4.8481
+    - name: intraday_vol_asym
+      style: 日内涨跌不对称
+      reason: "上行波动/下行波动（分钟收益平方比），原 dir=1 方向记反已修正为 -1（原始 |t|=7.94、IR=0.29）；对库 max ρ=0.29、残差 t=-2.84、retention=0.77，可加入；与 vol_price_corr ρ=0.765 后者落观察不入"
+      added: "2026-09-17"
+      entry_corr_max: 0.2942
+      entry_resic_t: -2.8354
+    - name: intraday_event_density
+      style: 异常波动事件
+      reason: "日内 |r|>2σ 异常分钟计数，事件多次日反转（|t|=4.34、IR=0.16，dir=-1）；对库 max ρ=0.023、残差 t=-2.20、retention=0.90，可加入；近 26 周 t=+1.2 近期不稳，列入跟踪"
+      added: "2026-09-17"
+      entry_corr_max: 0.0225
+      entry_resic_t: -2.2026
+    - name: intraday_open_gap
+      style: 开盘跳空反转
+      reason: "开盘竞价价/昨收-1 跳空，原 dir=-1 与原始 IC 符号相反已修正为 +1（|t|=4.08、IR=0.15）；对库 max ρ=0.034、残差 t=+2.40、retention=1.02，可加入；近 26 周 t=+1.6 偏弱列入跟踪"
+      added: "2026-09-17"
+      entry_corr_max: 0.0339
+      entry_resic_t: 2.4014

@@ -1,4 +1,4 @@
-name: intraday_am_pm_vol
+name: intraday_closing_auction_intensity
 category: custom
 direction: -1
 interface: bars_1m
@@ -9,5 +9,5 @@ date:
   start: "2023-01-01"
   end: "2025-12-31"
 formula: |
-  _am = day_sum(if_else(minute_index <= 120, volume, 0))
-  signal = _am / day_sum(volume)
+  _ca = day_sum(if_else(minute_index >= 238, volume, 0))
+  signal = _ca / day_sum(volume)

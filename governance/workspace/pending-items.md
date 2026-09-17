@@ -353,3 +353,16 @@
     属结构性排期项。启动条件：磁盘余量告警或专项维护窗口；实施前先小表演练 +
     `make reconcile` 全绿对照。依据：`governance/evidence/reviews/r04-efficiency-2026-09-16/
     report.md` §4 P5。
+
+## 数据质量（分钟链，2026-09-17 代码审核发现）
+
+A1. **bars_1m minute 0（开盘竞价 bar）源数据缺陷**：2024-11-13 存在 `low=0/close=0` 行
+   （minute-perf 代码审核实测：auction_range inf 13 行、open_gap signal≤−0.2 1,039 行）。
+   现状：消费侧公式已加分母守卫（if_else(分母>0,…,None)），**源表未修**。
+   未决因：需回源核对 2024-11-13 开盘竞价快照并重灌该日 minute 0 行。
+   启动条件：数据组回灌后跑 reconcile 断言 minute 0 low>0。
+
+A2. **除权日分钟 raw 价的伪跳空**：bars_1m 强制 raw，`open_gap` 等跨日对比类分钟因子
+   在除权日 signal 系统性拉负（实测均值 −3.9% vs 正常日 −0.07%，85% 负）。
+   未决因：DSL 分钟 scope 无除权日历可注入；影响 open_gap/auction_range 等跨日字段。
+   启动条件：评估分钟因子入库时对除权日样本单独敏感性（或平台注入 adj 注入列）。

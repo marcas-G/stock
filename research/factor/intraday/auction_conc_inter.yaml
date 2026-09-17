@@ -1,0 +1,15 @@
+name: intraday_auction_conc_inter
+category: custom
+direction: -1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2023_2025
+date:
+  start: "2023-01-01"
+  end: "2025-12-31"
+formula: |
+  _r = close / im_delay(close, 1) - 1
+  _prem = day_last(close) / day_max(if_else(minute_index == 237, close, None)) - 1
+  _conc = day_max(abs(_r)) / day_sum(abs(_r))
+  signal = if_else(_prem > 0, _prem * _conc, None)
