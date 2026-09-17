@@ -56,6 +56,14 @@ transport 便于离线单测）：
 - 转存失败 → 该文件记 `failed`（exit 1，loud），不清半成品、不误删；
 - 测试：`tests/test_transfer.py`（fake transport 逐字断言 URL/body/轮询序/校验后删）
   + sync/cli 集成（无 cookie 维持 manual、失败 loud、开关透传）。
+- **实测两个硬闸（2026-09-17）**：
+  1. `/file/download` 取链按 UA 判定 size limit（Chrome UA → 400 code 23018；
+     官方客户端 UA → 200 直链）——transfer 传输层固定客户端 UA；
+  2. 下载按 UA/方式限速：Chrome/151 UA 整文件 GET ~0.1MB/s，常规/客户端 UA
+     ~8MB/s，Range 分块（64MiB）~5-10MB/s——`quark_client.download_file` 增
+     `chunk_size`/`ua`/`connections` 覆盖（退避重试/断点/200 回退重写/多连接
+     并行），transfer 用 64MiB × 4 连接 + 客户端 UA（慢速节点 ~1.2→7.7MB/s）。
+  这两点是"转存路径可用"的前提；只做转存不做这两项仍会 400 或 0.1MB/s 卡死。
 
 **两张新表的列清单在实施计划阶段先落样本实测**（下载资金流 1 个月 zip + 最新 `*_financial.parquet`，按实际列名/单位定 DDL 与 fact schema；样本进入 `platform/tools/pan_update/tests/fixtures/` 或 R30 证据），DDL 与解析器测试同步生成，不在本设计里猜列名。
 

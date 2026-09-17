@@ -3234,6 +3234,9 @@ params 替换 + run --set 变体，n_weeks > 50）），真实 results 目录 We
 记 `failed`（exit 1）且**不删副本**（下次同名同 size 复用）。回退不可用（cookie 缺失
 等）或 `--no-transfer` → manual_required。人工处理：浏览器下载/转存后放入对应 raw
 目录，`pan_update` 下次按本地命名登记并接续（`sync._adopt_local`）。
+取链/下载两个实测硬闸（2026-09-17）：取链须官方客户端 UA（Chrome UA → 400 code
+23018）；下载须客户端 UA + Range 分块 + 4 连接并行（整文件 GET 被 CDN 限速
+~0.1MB/s，分块并行 ~8MB/s）。
 
 ### CH 消费侧（读面）
 
