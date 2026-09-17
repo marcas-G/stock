@@ -1,0 +1,13 @@
+name: intraday_vol_spike
+category: custom
+direction: 1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2023_2025
+date:
+  start: "2023-01-01"
+  end: "2025-12-31"
+formula: |
+  _m = day_mean(volume)
+  signal = day_sum(if_else(volume > 3 * _m, 1, 0))

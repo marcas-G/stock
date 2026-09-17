@@ -1,0 +1,12 @@
+name: intraday_vol_herfindahl
+category: custom
+direction: 1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2023_2025
+date:
+  start: "2023-01-01"
+  end: "2025-12-31"
+formula: |
+  signal = day_sum(volume * volume) / (day_sum(volume) * day_sum(volume))

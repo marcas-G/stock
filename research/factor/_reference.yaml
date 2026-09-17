@@ -79,4 +79,18 @@ scales:
       added: "2026-09-17"
       entry_corr_max: 0.1659
       entry_resic_t: -2.3862
-  minute: []   # 待有合格分钟因子时另立（不与 daily 混用对照；spec §3b）
+  # 2026-09-17 minute 首批（D9 逐日口径 daily/forward_return_1d，evaluation.version=2；
+  # 证据 runs/platform/intraday_*/ + 档案 knowledge/dossiers/factors/intraday/）
+  minute:
+    - name: intraday_close_auction_premium
+      style: 收盘竞价反转
+      reason: "种子：收盘集合竞价价/连续竞价末价-1，溢价越高次日越跌（|t|=22.67、IR=0.84，逐年 t=-23.7/-8.3/-11.5 稳定）；近亲 close_ret 同式 ρ=1 不重复入"
+      added: "2026-09-17"
+      entry_corr_max: null
+      entry_resic_t: null
+    - name: intraday_ret_concentration
+      style: 日内冲击反转
+      reason: "日内振幅集中度 max|r|/Σ|r|（分钟收益跳变占比），高集中次日反转（|t|=11.78、IR=0.44，逐年 -5.5/-6.9/-7.3）；对种子 ρ=0.033、残差 t=-4.70，可加入"
+      added: "2026-09-17"
+      entry_corr_max: 0.0325
+      entry_resic_t: -4.7034

@@ -1,0 +1,12 @@
+name: intraday_range_position
+category: custom
+direction: -1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2023_2025
+date:
+  start: "2023-01-01"
+  end: "2025-12-31"
+formula: |
+  signal = (day_last(close) - day_min(low)) / (day_max(high) - day_min(low)) - 0.5

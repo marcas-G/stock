@@ -118,6 +118,16 @@ FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
 
 ### 8. 入库
 
+0. **冗余/增量检查（D10，入库前强制）**：候选按 scale（daily|minute）对照参考库
+   `research/factor/_reference.yaml`（`factorlab ref list`）与同批全部候选：
+   - `factorlab corr <候选们>`：任一对 |ρ|≥0.9 → 冗余，同族只留最强一只入库；
+     |ρ|≥0.7 不得同时入库；跨 scales 不混用对照。
+   - `factorlab resic`（组内互评或 `--target <候选> --against <库成员名单>`）：
+     残差 |t|≥2 且 retention≥50% → 可加入；否则观察（近共线对先跑 corr 排除，
+     避免 resIC 数值噪声）。
+   - 结果写候选档案 §备注；正式入 **库** 时同步 `_reference.yaml`
+     （name/style/reason/added/entry_corr_max/entry_resic_t），空 scale 首只即种子
+     （两项 null）。
 1. 对照 `knowledge/handbooks/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
 2. 复制 `knowledge/dossiers/factors/_template.md` → `knowledge/dossiers/factors/<族>/<stem>.md`，逐节填写：
    验证数据快照自 `runs/platform/<name>/summary.json`（注明快照日期）；

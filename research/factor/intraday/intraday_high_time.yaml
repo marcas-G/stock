@@ -1,0 +1,14 @@
+name: intraday_high_time
+category: custom
+direction: -1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2024h1
+date:
+  start: "2024-01-01"
+  end: "2024-06-30"
+formula: |
+  _h = if_else(volume > 0, if_else(amount > 0, high, None), None)
+  _at = if_else(_h >= day_max(_h), minute_index, 0)
+  signal = day_max(_at) / 239

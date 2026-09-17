@@ -1,0 +1,16 @@
+name: intraday_autocorr_micro
+category: custom
+direction: 1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2023_2025
+date:
+  start: "2023-01-01"
+  end: "2025-12-31"
+formula: |
+  _r = close / im_delay(close, 1) - 1
+  _rl = im_delay(_r, 1)
+  _num = day_sum(_r * _rl)
+  _den = day_sum(_r * _r)
+  signal = _num / _den
