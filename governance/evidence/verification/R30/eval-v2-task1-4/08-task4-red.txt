@@ -1,0 +1,41 @@
+FF..F                                                                    [100%]
+=================================== FAILURES ===================================
+______ test_20d_weekly_samples_every_4th_date_and_matches_reference_stats ______
+
+    def test_20d_weekly_samples_every_4th_date_and_matches_reference_stats():
+        panel = _ar_overlap_panel()
+        res = evaluate_factor_weekly(panel, "ov", 1, target="forward_return_20d")
+    
+>       assert res["sampling"] == {"mode": "non_overlap", "stride_weeks": 4}
+               ^^^^^^^^^^^^^^^
+E       KeyError: 'sampling'
+
+tests/test_eval_overlap_sampling.py:111: KeyError
+___________________________ test_10d_weekly_stride_2 ___________________________
+
+    def test_10d_weekly_stride_2():
+        panel = _ar_overlap_panel()
+        res = evaluate_factor_weekly(panel, "ov", 1, target="forward_return_10d")
+>       assert res["sampling"] == {"mode": "non_overlap", "stride_weeks": 2}
+               ^^^^^^^^^^^^^^^
+E       KeyError: 'sampling'
+
+tests/test_eval_overlap_sampling.py:140: KeyError
+_______________ test_empty_panel_20d_still_reports_sampling_plan _______________
+
+    def test_empty_panel_20d_still_reports_sampling_plan():
+        empty = pl.DataFrame({"date": [], "code": [], "signal": [],
+                              "forward_return_20d": []}).with_columns(
+            pl.col("date").cast(pl.Date), pl.col("signal").cast(pl.Float64),
+            pl.col("forward_return_20d").cast(pl.Float64))
+        res = evaluate_factor_weekly(empty, "ov", 1, target="forward_return_20d")
+>       assert res["sampling"] == {"mode": "non_overlap", "stride_weeks": 4}
+               ^^^^^^^^^^^^^^^
+E       KeyError: 'sampling'
+
+tests/test_eval_overlap_sampling.py:176: KeyError
+=========================== short test summary info ============================
+FAILED tests/test_eval_overlap_sampling.py::test_20d_weekly_samples_every_4th_date_and_matches_reference_stats
+FAILED tests/test_eval_overlap_sampling.py::test_10d_weekly_stride_2 - KeyErr...
+FAILED tests/test_eval_overlap_sampling.py::test_empty_panel_20d_still_reports_sampling_plan
+3 failed, 2 passed in 1.20s

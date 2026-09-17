@@ -1131,6 +1131,16 @@ R30 Task 15 从独立 quant-core 包并入的单一实现）：daily = 面板原
   **历史 summary 无 `version` 键 ≡ v1**（`(g0−g9)×direction`，负=自洽）——**不重算**，
   按 v1 口径解读；档案 `snapshot:` 注记「spread 为 v1 口径（负=自洽）」。
   `factorlab list/show` 按 `version` 分渲染提示。
+- **h>5 不重叠采样（D3，R30 Task 4）**：`target=forward_return_<h>d` 且 h>5 时，
+  先对（weekly 已对齐的）评估面板按排序日期每 `stride` 取一个评估点作**统计面板**
+  ——weekly `⌈h/5⌉` 周（20d → 每 4 周）/ daily `h` 交易日——再走既有统计（消除
+  重叠标签的 t 虚高；5d 路径逐值不变）；结果附
+  `sampling={"mode": "non_overlap", "stride_weeks": ⌈h/5⌉}`，并附
+  `ic.t_stat_nw` = 对**未采样**重叠 IC 序列（`core.eval.ic_series` 逐期口径）
+  的 Bartlett 核 Newey-West **诊断** t（`lag=⌊h/5⌋`，口径与 R08
+  `04_overlap_ttest.py` 一致；**仅诊断，不替代主 t**；与采样后简单 t 对照，
+  实测 low_vol_20d：2.53 vs 2.67）。coverage 仍以完整（未采样）评估面板为口径；
+  h≤5 零变更（无 `sampling`/`t_stat_nw` 键）。日频默认 1d（D11）不触发。
 - **IC 方向胜率字段（D4，R30 Task 3）**：`ic.sign_consistent` 保持 **raw 语义**
   （正 IC 期占比，不随 `direction` 变化）；新增
   `ic.direction_consistent_share = P(direction×IC>0)`——`direction=1` 即正 IC 期

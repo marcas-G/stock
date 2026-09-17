@@ -1,0 +1,9 @@
+=== D3 真实数据对拍（low_vol_20d weekly.parquet，934k 行）===
+panel rows 934236 cols ['date', 'code', 'signal', 'forward_return_1d', 'forward_return_5d', 'forward_return_20d', 'close']
+注：polars 并行聚合的浮点求和顺序非确定（重复跑 ~1e-18 抖动），逐值断言用 rel<=1e-9。
+5d 逐值不变 OK：ic.mean = 0.07007485259689888 t = 4.095688789051659 n_weeks = 178 （无 sampling/t_stat_nw 键）
+20d sampling = {'mode': 'non_overlap', 'stride_weeks': 4}
+20d n_weeks: 全周频 = 175 采样 = 44
+20d t: 全周频简单 = 4.489249628020046 采样简单 = 2.5268087716362735 全周频 NW(lag4) 诊断 = 2.6727292067718182
+采样简单 t vs NW 校正 t 相对差 = 0.0577
+历史 summary(旧 20d 口径) t = 4.095688789051659 （R08 复算 simple 4.49 / NW 2.67）

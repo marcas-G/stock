@@ -66,6 +66,31 @@ def _t_stat(mean: float, std: float, n: int) -> float:
     return mean / (std / math.sqrt(n))
 
 
+def newey_west_t(xs: list[float], lag: int) -> float:
+    """Bartlett 核 Newey-West t（D3 诊断，R08 参考口径；桥接层对**未采样**的
+    逐期 IC 序列调用，量化重叠标签的自相关强度）：
+
+    `x̄=mean`；`γ_l=(1/n)Σ(x_t−x̄)(x_{t−l}−x̄)`；
+    `se²=(1/n)(γ0+2Σ_{l=1..L}(1−l/(L+1))γ_l)`；`t_nw=x̄/se`。
+    仅作诊断（不替代主 t）；样本 <2、lag<0 或 se²≤0 → NaN。
+    """
+    n = len(xs)
+    if n < 2 or lag < 0:
+        return _NAN
+    s = pl.Series(xs)
+    mean = float(s.mean())
+    var = float(((s - mean) ** 2).mean())
+    for l in range(1, lag + 1):
+        if l >= n:
+            break
+        gamma = float(((s[l:] - mean) * (s[:-l] - mean)).mean())
+        var += 2.0 * (1.0 - l / (lag + 1.0)) * gamma
+    if not (var > 0):
+        return _NAN
+    se = math.sqrt(var / n)
+    return mean / se if se > 0 else _NAN
+
+
 def _turnover(df: pl.DataFrame, window: int) -> float:
     """相邻桶（window 期/桶）间 decile 组归属变化比例（假设公式，早期契约校准）。
 
@@ -125,6 +150,10 @@ def evaluate_factor(
      decile_returns{weighting,monotonic,spread{ret},groups[{group,mean_ret}]},
      turnover{monthly,quarterly}, coverage{pct_valid,total_rows,valid_rows}}
     version=2：spread 为 (g9−g0)×direction（正=方向自洽；R30 D1=B）。
+
+    D3（`t_stat_nw`）不在本函数：桥接层对 h>5 做不重叠采样后，另在**未采样**的
+    逐期 IC 序列上算 NW 诊断（`newey_west_t`）并合并到 `ic`——内核保持纯统计，
+    对传入序列逐值负责。
     """
     rows = len(dates)
     if not (len(codes) == rows == len(signals) == len(fwd)):

@@ -150,6 +150,11 @@ def test_evaluate_factor_weekly_target_20d():
     twenty = evaluate_factor_weekly(panel, "demo", 1, target="forward_return_20d")
     assert five["target"] == "forward_return_5d"
     assert twenty["target"] == "forward_return_20d"
-    assert twenty["n_weeks"] == five["n_weeks"] == 12
+    assert five["n_weeks"] == 12
+    # D3（R30 Task 4）：20d 不重叠采样——12 周每 4 周取 1 个评估点 → n_weeks=3
+    assert twenty["n_weeks"] == 3
+    assert twenty["sampling"] == {"mode": "non_overlap", "stride_weeks": 4}
+    assert "t_stat_nw" in twenty["ic"]
+    assert "sampling" not in five                  # 5d 零变更
     assert five["ic"]["mean"] > 0
     assert twenty["ic"]["mean"] < 0

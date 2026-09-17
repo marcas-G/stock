@@ -1,10 +1,46 @@
 from __future__ import annotations
 
+import math
+import re
+
 import polars as pl
 
 from factorlab.core.eval import kernel
 from factorlab.core.eval.alignment import align_weekly
+from factorlab.core.eval.ic_series import ic_series
 from factorlab.core.eval.metrics import coverage_report
+
+_HORIZON_RE = re.compile(r"forward_return_(\d+)d$")
+
+
+def _non_overlap_plan(target: str, frequency: str) -> tuple[int, int, int] | None:
+    """D3：h>5 重叠标签 → 不重叠采样计划 `(stride_periods, stride_weeks, nw_lag)`。
+
+    - weekly：步长 = `⌈h/5⌉` 个评估周（20d → 每 4 周一个评估点，窗口不重叠）；
+    - daily：步长 = `h` 个评估日（日频默认 1d 不受影响；h>5 仅扩展研究显式指定）；
+    - h≤5 / 非 `forward_return_<h>d` 目标 → `None`（零变更：无 sampling/t_stat_nw）。
+    """
+    match = _HORIZON_RE.match(target or "")
+    if match is None:
+        return None
+    h = int(match.group(1))
+    if h <= 5:
+        return None
+    stride_weeks = math.ceil(h / 5)
+    stride = stride_weeks if frequency == "weekly" else h
+    return stride, stride_weeks, h // 5
+
+
+def _overlap_nw_diagnostic(panel: pl.DataFrame, target: str, lag: int) -> float:
+    """D3 诊断：**未采样**评估面板的逐期 IC 序列 → Bartlett NW t（R08 参考口径）。
+
+    与 `core.eval.ic_series`（MIN_STOCKS=3；Web 曲线同源）一致——全周频 IC 序列的
+    NW t 量化重叠标签的自相关强度，供与采样后简单 t 对照；空/退化序列 → NaN。
+    """
+    full = ic_series(panel.select(["date", "code", "signal", target]), target)
+    xs = [float(v) for v in full["ic"].to_list()
+          if v is not None and math.isfinite(float(v))]
+    return kernel.newey_west_t(xs, lag)
 
 
 def _evaluate_panel(
@@ -33,6 +69,12 @@ def _evaluate_panel(
     - `weekly`：weekly 分支调用方已对齐的周频面板——重复对齐大面板（千万行）
       在低内存机器上 segfault，复用避免；daily 分支忽略。
     - `frequency` 回填（D9）：结果自描述（落盘 `evaluation.frequency`）。
+    - **h>5 不重叠采样（D3）**：目标 `forward_return_<h>d` 且 h>5 时，先按排序日期
+      每 `stride` 取一个评估点（weekly `⌈h/5⌉` 周 / daily h 日）作为**统计面板**；
+      coverage 仍以完整（未采样）评估面板为口径。结果附
+      `sampling={mode:"non_overlap", stride_weeks}`；`ic.t_stat_nw` = 对**未采样**
+      重叠 IC 序列的 Bartlett NW 诊断 t（lag=⌊h/5⌋；与采样后简单 t 对照，
+      **不替代主 t**）。h≤5 零变更（无 sampling/t_stat_nw 键）。
     """
     required = {"date", "code", "signal", target}
     missing = required - set(panel.columns)
@@ -43,15 +85,28 @@ def _evaluate_panel(
         eval_panel = align_weekly(panel) if weekly is None else weekly
     else:
         eval_panel = panel
+    plan = _non_overlap_plan(target, frequency)
+    stats_panel = eval_panel
+    if plan is not None:
+        # D3：先按排序日期每 stride 取一个评估点（统计面板）；coverage 与 NW 诊断
+        # 仍以**完整**评估面板为口径（采样只改统计窗口，不改数据覆盖口径）
+        stride = plan[0]
+        all_dates = eval_panel["date"].unique().sort()
+        keep = all_dates.gather_every(stride).implode()   # implode：polars is_in 标量契约
+        stats_panel = eval_panel.filter(pl.col("date").is_in(keep))
     coverage = coverage_report(eval_panel, "signal", target_col=target)
-    eval_panel = eval_panel.filter(
+    stats_panel = stats_panel.filter(
         pl.col("signal").is_not_null() & pl.col(target).is_not_null())
 
-    dates = eval_panel["date"].dt.strftime("%Y-%m-%d").to_list()
-    codes = eval_panel["code"].to_list()
-    signals = eval_panel["signal"].to_list()
-    fwd = eval_panel[target].to_list()
+    dates = stats_panel["date"].dt.strftime("%Y-%m-%d").to_list()
+    codes = stats_panel["code"].to_list()
+    signals = stats_panel["signal"].to_list()
+    fwd = stats_panel[target].to_list()
     result = kernel.evaluate_factor(dates, codes, signals, fwd, "_factor", int(direction))
+    if plan is not None:
+        result["sampling"] = {"mode": "non_overlap", "stride_weeks": plan[1]}
+        # NW（lag=⌊h/5⌋）仅诊断：对未采样的重叠 IC 序列计算，量化 t 虚高幅度
+        result["ic"]["t_stat_nw"] = _overlap_nw_diagnostic(eval_panel, target, plan[2])
     result["factor_name"] = factor_name
     # 内核结果回填 target 恒为 forward_return_5d（固定列名）——桥接层以调用方
     # target 权威覆盖（target 由平台传列值，非内核列名耦合；见

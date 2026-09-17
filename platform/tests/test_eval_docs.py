@@ -99,6 +99,17 @@ def test_interface_direction_consistent_share_contract():
     assert "dir_consistent" in text, "interface 缺 CLI 展示字段名"
 
 
+def test_interface_overlap_sampling_contract():
+    """D3（R30 Task 4）：interface 必须写不重叠采样、sampling 键与 NW 诊断字段。"""
+    text = INTERFACE.read_text(encoding="utf-8")
+    assert "不重叠采样" in text, "interface 缺不重叠采样语义"
+    assert "sampling" in text, "interface 缺 sampling 结果键"
+    assert "non_overlap" in text, "interface 缺 mode=non_overlap"
+    assert "stride_weeks" in text, "interface 缺 stride_weeks"
+    assert "t_stat_nw" in text, "interface 缺 NW 诊断字段"
+    assert "仅诊断" in text, "interface 必须注明 NW 仅诊断"
+
+
 def test_interface_old_formula_only_in_migration_note():
     """负向守卫：旧公式不得作为现行口径回潮——只许出现在 v1/历史注记行。"""
     for lineno, line in enumerate(INTERFACE.read_text(encoding="utf-8").splitlines(), 1):
