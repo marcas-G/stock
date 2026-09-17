@@ -1,0 +1,71 @@
+FFFFFF                                                                   [100%]
+=================================== FAILURES ===================================
+__________ test_kernel_market_cap_weighted_group_means_hand_computed ___________
+
+    def test_kernel_market_cap_weighted_group_means_hand_computed():
+        # 仅前 20 只（无杂行）→ 每档 2 只，手算值直接适用
+        panel = _panel().filter(pl.col("signal") < 20)
+        args = _kernel_args(panel)
+>       r = evaluate_factor(*args[:4], "_factor", 1, weighting="market_cap",
+                            mv=args[4])
+E       TypeError: evaluate_factor() got an unexpected keyword argument 'weighting'
+
+platform/tests/test_eval_mv_weighted.py:67: TypeError
+__________ test_bridge_market_cap_hand_computed_and_null_mv_coverage ___________
+
+    def test_bridge_market_cap_hand_computed_and_null_mv_coverage():
+        panel = _panel(null_mv_codes=("000020",))
+>       r = evaluate_factor_daily(panel, "e1", 1, weighting="market_cap",
+                                  mv_col="total_mv")
+E       TypeError: evaluate_factor_daily() got an unexpected keyword argument 'weighting'
+
+platform/tests/test_eval_mv_weighted.py:93: TypeError
+_____________________ test_bridge_circ_mv_accepted_for_e1b _____________________
+
+    def test_bridge_circ_mv_accepted_for_e1b():
+        """E1b：circ_mv（R07-DATA-I4 已完成）走同一 mv_col 参数。"""
+        panel = _panel(mv_col="circ_mv").filter(pl.col("signal") < 20)
+>       r = evaluate_factor_daily(panel, "e1b", 1, weighting="market_cap",
+                                  mv_col="circ_mv")
+E       TypeError: evaluate_factor_daily() got an unexpected keyword argument 'weighting'
+
+platform/tests/test_eval_mv_weighted.py:116: TypeError
+____________________ test_bridge_nan_mv_excluded_like_null _____________________
+
+    def test_bridge_nan_mv_excluded_like_null():
+        panel = _panel(nan_mv_codes=("000020",))
+>       r = evaluate_factor_daily(panel, "e1", 1, weighting="market_cap",
+                                  mv_col="total_mv")
+E       TypeError: evaluate_factor_daily() got an unexpected keyword argument 'weighting'
+
+platform/tests/test_eval_mv_weighted.py:125: TypeError
+__________ test_market_cap_missing_mv_column_or_kernel_mv_fails_loud ___________
+
+    def test_market_cap_missing_mv_column_or_kernel_mv_fails_loud():
+        panel = _panel().drop("total_mv")
+        with pytest.raises(ValueError, match="total_mv"):
+>           evaluate_factor_daily(panel, "e1", 1, weighting="market_cap",
+                                  mv_col="total_mv")
+E           TypeError: evaluate_factor_daily() got an unexpected keyword argument 'weighting'
+
+platform/tests/test_eval_mv_weighted.py:134: TypeError
+_____________________________ test_doc_contract_e1 _____________________________
+
+    def test_doc_contract_e1():
+        """interface 必须写 E1 weighting/market_cap/mv_col/null 市值口径（防漂移）。"""
+        from pathlib import Path
+        text = (Path(__file__).resolve().parents[2] / "knowledge" / "contracts"
+                / "interface.md").read_text(encoding="utf-8")
+>       assert "market_cap" in text, "interface 缺 E1 weighting=market_cap"
+E       AssertionError: interface 缺 E1 weighting=market_cap
+E       assert 'market_cap' in '# FactorLab 接口文档（M1–M8 + 读路径双后端）\n\n> **数据面现状（2026-09-17，Plan P T11 起）**：生产数据源 = ClickHouse\n> （`FACTORLAB_DATA_BACKE...`total_return`（HFQ 含分红再投资收益）、审计三查（`lookahead_check` /\n  `scale_invariance_check` / `adjustment_sensitivity_check`）。\n'
+
+platform/tests/test_eval_mv_weighted.py:156: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tests/test_eval_mv_weighted.py::test_kernel_market_cap_weighted_group_means_hand_computed
+FAILED platform/tests/test_eval_mv_weighted.py::test_bridge_market_cap_hand_computed_and_null_mv_coverage
+FAILED platform/tests/test_eval_mv_weighted.py::test_bridge_circ_mv_accepted_for_e1b
+FAILED platform/tests/test_eval_mv_weighted.py::test_bridge_nan_mv_excluded_like_null
+FAILED platform/tests/test_eval_mv_weighted.py::test_market_cap_missing_mv_column_or_kernel_mv_fails_loud
+FAILED platform/tests/test_eval_mv_weighted.py::test_doc_contract_e1 - Assert...
+6 failed in 0.70s

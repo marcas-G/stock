@@ -889,7 +889,8 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 返回 dict：`version`（口径版本，现值 2）、`frequency`（`daily|weekly`）、`factor`、
 `target`、`n_weeks`（**评估期数**：daily=交易日数、weekly=ISO 周数）、`ic`
 （mean/std/t_stat/ir 等）、`decile_returns`（含 spread，v2 正值=方向自洽）、`turnover`、
-`coverage`（pct_valid/total_rows/valid_rows）。
+`coverage`（pct_valid/total_rows/valid_rows）；`weighting="market_cap"`（E1）
+时另附 `weighting={mode, mv_col}` 披露键（等权缺省不附）。
 空面板（列齐全）不崩溃，返回全 nan 结构（`n_weeks=0`）。`direction` 透传
 `1/-1`（翻转信号方向）。
 
@@ -1202,6 +1203,16 @@ R30 Task 15 从独立 quant-core 包并入的单一实现）：daily = 面板原
   `04_overlap_ttest.py` 一致；**仅诊断，不替代主 t**；与采样后简单 t 对照，
   实测 low_vol_20d：2.53 vs 2.67）。coverage 仍以完整（未采样）评估面板为口径；
   h≤5 零变更（无 `sampling`/`t_stat_nw` 键）。日频默认 1d（D11）不触发。
+- **市值加权 decile（E1，R30 Task 7）**：`weighting ∈ equal_weight|market_cap`
+  （缺省 **equal_weight 零回归**——结果不含 `weighting` 顶层键）+ `mv_col ∈
+  total_mv|circ_mv`（E1a/E1b；`circ_mv` 依赖 R07-DATA-I4 补数——2026-09-16
+  已完成，CH `daily_basic` 非空 16.87M 行）。`market_cap` 时组收益 = 组内
+  `Σ(mv×fwd)/Σ(mv)`（决策日已知市值，PIT），`decile_returns.weighting` 回填
+  口径、结果附 `weighting={"mode": "market_cap", "mv_col": ...}` 披露。
+  **null 市值（及 NaN）行剔除并计入 coverage**（`valid_rows` 不含；缺列 /
+  非法 weighting / mv ≤ 0 fail loud）。读法：与等权对照可看组收益是否被大/小市值
+  腿主导（小盘容量口径用 `circ_mv`）。kernel 直调 `evaluate_factor(...,
+  weighting=, mv=)` 同语义。
 - **IC 方向胜率字段（D4，R30 Task 3）**：`ic.sign_consistent` 保持 **raw 语义**
   （正 IC 期占比，不随 `direction` 变化）；新增
   `ic.direction_consistent_share = P(direction×IC>0)`——`direction=1` 即正 IC 期

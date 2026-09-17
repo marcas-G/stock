@@ -130,6 +130,8 @@ def evaluate_factor(
     fwd: list[float],
     factor: str = "_factor",
     direction: int = 1,
+    weighting: str = "equal_weight",
+    mv: list[float] | None = None,
 ) -> dict:
     """逐期评估（契约签名；期=daily 的交易日 / weekly 的 ISO 周）。
 
@@ -141,6 +143,11 @@ def evaluate_factor(
     - fwd: 前向收益。None 同 signals 拒绝。
     - factor: 因子显示名（回填结果 factor 字段）。
     - direction: 1/-1 翻转 decile spread 符号；0 → -1（实测契约）。
+    - weighting（E1，R30 Task 7）：`"equal_weight"`（缺省，零回归）|
+      `"market_cap"`——后者必须给 `mv`（与 dates 等长的市值列表，正有限值；
+      决策日已知市值，PIT）。市值加权组收益 = 组内 `Σ(mv×fwd)/Σ(mv)`；
+      NaN 市值行视为无效观测剔除（`None` 市值同 signal/fwd 拒绝 TypeError），
+      mv ≤ 0 fail loud。`decile_returns.weighting` 回填该口径。
 
     返回契约结构（键集与 m4a 文档一致；空面板 → 全 nan 结构）：
     {version, factor, target, direction, n_weeks, n_stocks_avg,
@@ -164,6 +171,19 @@ def evaluate_factor(
     for v in fwd:
         if v is None:
             raise TypeError("must be real number, not NoneType")
+    if weighting not in ("equal_weight", "market_cap"):
+        raise ValueError(
+            f"weighting 必须为 equal_weight|market_cap（收到 {weighting!r}）")
+    if weighting == "market_cap":
+        if mv is None:
+            raise ValueError(
+                "weighting=market_cap 必须提供 mv（与 dates 等长的市值列表）")
+        if len(mv) != rows:
+            raise ValueError(
+                f"mv 与 dates 长度不一致（{len(mv)} != {rows}）")
+        for v in mv:
+            if v is None:
+                raise TypeError("must be real number, not NoneType")
     direction = int(direction)
     if direction == 0:
         direction = -1  # 实测契约：0 按 -1 处理
@@ -182,7 +202,7 @@ def evaluate_factor(
         },
         "pearson_ic": {"mean": _NAN, "t_stat": _NAN},
         "decile_returns": {
-            "weighting": "equal_weight", "monotonic": False,
+            "weighting": weighting, "monotonic": False,
             "spread": {"ret": _NAN}, "groups": [],
         },
         "turnover": {"monthly": _NAN, "quarterly": _NAN},
@@ -194,6 +214,13 @@ def evaluate_factor(
     df = pl.DataFrame({"date": dates, "code": codes, "signal": signals, "fwd": fwd})
     # NaN 视为无效观测（假设；实测仅"容忍不崩溃"，精确语义待校准）
     df = df.filter(pl.col("signal").is_finite() & pl.col("fwd").is_finite())
+    if weighting == "market_cap":
+        # 市值语义必须为正：有限值 ≤ 0 = 数据损坏 fail loud（不静默剔除）；
+        # NaN 市值同 NaN signal——视为无效观测剔除（有效期口径）。
+        for v in mv:
+            if math.isfinite(float(v)) and float(v) <= 0:
+                raise ValueError(f"mv 必须 > 0（市值语义；收到 {v}）")
+        df = df.with_columns(pl.Series("_w", mv)).filter(pl.col("_w").is_finite())
     result["coverage"]["valid_rows"] = df.height
     result["coverage"]["pct_valid"] = round(df.height / rows, 4) if rows else 0.0
     if df.is_empty():
@@ -257,8 +284,15 @@ def evaluate_factor(
 
     result["n_stocks_avg"] = float(ok["n_stocks"].mean())
 
-    # 十分位组：全期每组周均值再平均（组号 0 = 最小 signal）
-    grp = df.group_by(["date", "_decile"]).agg(pl.col("fwd").mean().alias("mean_ret"))
+    # 十分位组：全期每组期均值再平均（组号 0 = 最小 signal）
+    # E1：市值加权时组收益 = Σ(mv×fwd)/Σ(mv)（每期组内按市值加权；等权路径逐字不变）
+    if weighting == "market_cap":
+        grp = df.group_by(["date", "_decile"]).agg(
+            ((pl.col("_w") * pl.col("fwd")).sum() / pl.col("_w").sum())
+            .alias("mean_ret"))
+    else:
+        grp = df.group_by(["date", "_decile"]).agg(
+            pl.col("fwd").mean().alias("mean_ret"))
     grp_mean = grp.group_by("_decile").agg(pl.col("mean_ret").mean()).sort("_decile")
     gmap = {int(r[0]): float(r[1]) for r in grp_mean.iter_rows()}
     mean_rets = [gmap.get(i, _NAN) for i in range(10)]

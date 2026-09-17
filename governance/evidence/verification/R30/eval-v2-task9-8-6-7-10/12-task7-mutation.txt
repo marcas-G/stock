@@ -1,0 +1,58 @@
+FFF...                                                                   [100%]
+=================================== FAILURES ===================================
+__________ test_kernel_market_cap_weighted_group_means_hand_computed ___________
+
+    def test_kernel_market_cap_weighted_group_means_hand_computed():
+        # 仅前 20 只（无杂行）→ 每档 2 只，手算值直接适用
+        panel = _panel().filter(pl.col("signal") < 20)
+        args = _kernel_args(panel)
+        r = evaluate_factor(*args[:4], "_factor", 1, weighting="market_cap",
+                            mv=args[4])
+        assert r["decile_returns"]["weighting"] == "market_cap"
+        groups = {g["group"]: g["mean_ret"] for g in r["decile_returns"]["groups"]}
+>       assert groups[0] == pytest.approx((1 * 0.01 + 2 * 0.02) / 3, rel=1e-12)
+E       assert 0.015 == 0.016666666666666666 ± 1.0e-12
+E         
+E         comparison failed
+E         Obtained: 0.015
+E         Expected: 0.016666666666666666 ± 1.0e-12
+
+platform/tests/test_eval_mv_weighted.py:71: AssertionError
+__________ test_bridge_market_cap_hand_computed_and_null_mv_coverage ___________
+
+    def test_bridge_market_cap_hand_computed_and_null_mv_coverage():
+        panel = _panel(null_mv_codes=("000020",))
+        r = evaluate_factor_daily(panel, "e1", 1, weighting="market_cap",
+                                  mv_col="total_mv")
+        assert r["weighting"] == {"mode": "market_cap", "mv_col": "total_mv"}
+        groups = {g["group"]: g["mean_ret"] for g in r["decile_returns"]["groups"]}
+>       assert groups[0] == pytest.approx((1 * 0.01 + 2 * 0.02) / 3, rel=1e-12)
+E       assert 0.015 == 0.016666666666666666 ± 1.0e-12
+E         
+E         comparison failed
+E         Obtained: 0.015
+E         Expected: 0.016666666666666666 ± 1.0e-12
+
+platform/tests/test_eval_mv_weighted.py:97: AssertionError
+_____________________ test_bridge_circ_mv_accepted_for_e1b _____________________
+
+    def test_bridge_circ_mv_accepted_for_e1b():
+        """E1b：circ_mv（R07-DATA-I4 已完成）走同一 mv_col 参数。"""
+        panel = _panel(mv_col="circ_mv").filter(pl.col("signal") < 20)
+        r = evaluate_factor_daily(panel, "e1b", 1, weighting="market_cap",
+                                  mv_col="circ_mv")
+        assert r["weighting"] == {"mode": "market_cap", "mv_col": "circ_mv"}
+        groups = {g["group"]: g["mean_ret"] for g in r["decile_returns"]["groups"]}
+>       assert groups[9] == pytest.approx((19 * 0.19 + 20 * 0.20) / 39, rel=1e-12)
+E       assert 0.195 == 0.1951282051282051 ± 1.0e-12
+E         
+E         comparison failed
+E         Obtained: 0.195
+E         Expected: 0.1951282051282051 ± 1.0e-12
+
+platform/tests/test_eval_mv_weighted.py:120: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tests/test_eval_mv_weighted.py::test_kernel_market_cap_weighted_group_means_hand_computed
+FAILED platform/tests/test_eval_mv_weighted.py::test_bridge_market_cap_hand_computed_and_null_mv_coverage
+FAILED platform/tests/test_eval_mv_weighted.py::test_bridge_circ_mv_accepted_for_e1b
+3 failed, 3 passed in 0.75s

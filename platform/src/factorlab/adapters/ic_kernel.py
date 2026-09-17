@@ -50,6 +50,8 @@ def _evaluate_panel(
     target: str,
     frequency: str,
     weekly: pl.DataFrame | None = None,
+    weighting: str = "equal_weight",
+    mv_col: str = "total_mv",
 ) -> dict:
     """共享评估桥接：列检查 →（weekly：周频对齐）→ coverage → kernel → 回填。
 
@@ -77,6 +79,11 @@ def _evaluate_panel(
       **不替代主 t**）。h≤5 零变更（无 sampling/t_stat_nw 键）。
     """
     required = {"date", "code", "signal", target}
+    if weighting not in ("equal_weight", "market_cap"):
+        raise ValueError(
+            f"weighting 必须为 equal_weight|market_cap（收到 {weighting!r}）")
+    if weighting == "market_cap":
+        required.add(mv_col)
     missing = required - set(panel.columns)
     if missing:
         raise ValueError(f"评估面板缺少列: {sorted(missing)}")
@@ -94,15 +101,24 @@ def _evaluate_panel(
         all_dates = eval_panel["date"].unique().sort()
         keep = all_dates.gather_every(stride).implode()   # implode：polars is_in 标量契约
         stats_panel = eval_panel.filter(pl.col("date").is_in(keep))
-    coverage = coverage_report(eval_panel, "signal", target_col=target)
+    # E1：市值加权下 null/NaN 市值行剔除并计入 coverage 差额（valid_rows 不含）
+    coverage = coverage_report(
+        eval_panel, "signal", target_col=target,
+        extra_cols=(mv_col,) if weighting == "market_cap" else ())
     stats_panel = stats_panel.filter(
         pl.col("signal").is_not_null() & pl.col(target).is_not_null())
+    mv: list[float] | None = None
+    if weighting == "market_cap":
+        stats_panel = stats_panel.filter(
+            pl.col(mv_col).is_not_null() & pl.col(mv_col).is_finite())
+        mv = stats_panel[mv_col].to_list()
 
     dates = stats_panel["date"].dt.strftime("%Y-%m-%d").to_list()
     codes = stats_panel["code"].to_list()
     signals = stats_panel["signal"].to_list()
     fwd = stats_panel[target].to_list()
-    result = kernel.evaluate_factor(dates, codes, signals, fwd, "_factor", int(direction))
+    result = kernel.evaluate_factor(dates, codes, signals, fwd, "_factor",
+                                    int(direction), weighting=weighting, mv=mv)
     if plan is not None:
         result["sampling"] = {"mode": "non_overlap", "stride_weeks": plan[1]}
         # NW（lag=⌊h/5⌋）仅诊断：对未采样的重叠 IC 序列计算，量化 t 虚高幅度
@@ -113,6 +129,9 @@ def _evaluate_panel(
     # knowledge/design/platform/specs/2026-09-07-factorlab-daily-closeout-design.md §4.3）
     result["target"] = target
     result["frequency"] = frequency
+    if weighting == "market_cap":
+        # E1：口径披露（等权默认不附键——零行为变化）
+        result["weighting"] = {"mode": "market_cap", "mv_col": mv_col}
     result["coverage"] = {
         "pct_valid": coverage["pct_valid"],
         "total_rows": coverage["total_rows"],
@@ -127,10 +146,17 @@ def evaluate_factor_weekly(
     direction: int,
     target: str = "forward_return_5d",
     weekly: pl.DataFrame | None = None,
+    weighting: str = "equal_weight",
+    mv_col: str = "total_mv",
 ) -> dict:
-    """周频评估（legacy 口径，D9 weekly 对照）：日频面板 → 周频对齐 → kernel。"""
+    """周频评估（legacy 口径，D9 weekly 对照）：日频面板 → 周频对齐 → kernel。
+
+    `weighting="market_cap"`（E1）时面板需含 `mv_col`（total_mv / circ_mv），
+    组收益按市值加权（null/NaN 市值剔除并计入 coverage）；缺省等权零回归。
+    """
     return _evaluate_panel(panel, factor_name, direction, target,
-                           frequency="weekly", weekly=weekly)
+                           frequency="weekly", weekly=weekly,
+                           weighting=weighting, mv_col=mv_col)
 
 
 def evaluate_factor_daily(
@@ -138,12 +164,17 @@ def evaluate_factor_daily(
     factor_name: str,
     direction: int,
     target: str = "forward_return_1d",
+    weighting: str = "equal_weight",
+    mv_col: str = "total_mv",
 ) -> dict:
     """逐日评估（D9 默认口径）：每日截面直接进 kernel——**不调用 align_weekly**。
 
     target 固定 1 日 forward（D11）；扩展 h>1 的研究口径另由评估参数显式指定。
+    `weighting="market_cap"`（E1）时面板需含 `mv_col`（total_mv / circ_mv），
+    组收益按市值加权（null/NaN 市值剔除并计入 coverage）；缺省等权零回归。
     """
-    return _evaluate_panel(panel, factor_name, direction, target, frequency="daily")
+    return _evaluate_panel(panel, factor_name, direction, target,
+                           frequency="daily", weighting=weighting, mv_col=mv_col)
 
 
 class IcKernel:
