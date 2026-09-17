@@ -130,3 +130,27 @@ scales:
       added: "2026-09-17"
       entry_corr_max: 0.0709
       entry_resic_t: 2.9595
+    - name: intraday_closing_push
+      style: 尾盘拉升反转
+      reason: "尾盘 28 分钟累计收益高→次日反转（|t|=14.74、IR=0.55，近 26 周 t=-6.7 强；dir=-1）；对库 max ρ=0.20、retention=0.96，可加入"
+      added: "2026-09-17"
+      entry_corr_max: 0.2016
+      entry_resic_t: -2.9702
+    - name: intraday_close_vs_high
+      style: 收盘距高动量
+      reason: "收盘/日高-1 越高（贴日高）次日越强（|t|=5.56、IR=0.21，dir=+1；近 26 周 t=-0.2 走弱跟踪）；对库 max ρ=0.36、retention=0.61，可加入"
+      added: "2026-09-17"
+      entry_corr_max: 0.3628
+      entry_resic_t: 2.9774
+    - name: intraday_closing_auction_intensity
+      style: 竞价强度延续
+      reason: "收盘竞价成交量占比高→次日反转（|t|=5.08、IR=0.19，近 26 周 t=-3.97 强；dir=-1）；对库 max ρ=0.067、retention=2.32，可加入"
+      added: "2026-09-17"
+      entry_corr_max: 0.0672
+      entry_resic_t: -2.0268
+    - name: intraday_cont_last_ret
+      style: 尾盘末分钟反转
+      reason: "连续竞价最后一分钟（idx237）收益→次日均值反转（|t|=10.09、IR=0.38，dir=-1）；对库 max ρ=0.18、retention=3.29 极独立，可加入"
+      added: "2026-09-17"
+      entry_corr_max: 0.1772
+      entry_resic_t: -5.3099
