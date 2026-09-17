@@ -5549,9 +5549,9 @@
   ],
   "date_start": "2023-01-03",
   "date_end": "2026-07-31",
-  "panel_rows": 4419466,
-  "signal_rows": 4419466,
-  "label_rows": 4419466,
+  "panel_rows": 4419471,
+  "signal_rows": 4419471,
+  "label_rows": 4419471,
   "signal_null_ratio": 0.0242,
   "runtime_semantics": "pit_universe_signal_label_v1",
   "process": [
@@ -5560,13 +5560,13 @@
   ],
   "adjustment": "qfq",
   "float32": true,
-  "spec_yaml": "adjustment: qfq\ncategory: custom\ncombine: null\ncost_rate: 0.0\ndate:\n  end: '2026-07-31'\n  start: '2023-01-01'\ndescription: ''\ndirection: -1\nevaluation_frequency: daily\nfactors: null\nformula: 'from polars_ta.prefix.wq import ts_mean, ts_delay\n\n  signal = ts_mean(close, 20) / ts_delay(close, 20) - 1\n\n  '\ninterface: daily\nname: reversal_20d\nop_meta: null\noperators: {}\noutputs: null\nparams: {}\nprocess:\n- winsorize(quantile=0.99)\n- standardize()\ntarget: forward_return_5d\nuniverse:\n  codes: null\n  formula: null\n  ref: null\n  rules:\n    exchanges:\n    - SSE\n    - SZSE\n",
+  "spec_yaml": "adjustment: qfq\ncategory: custom\ncombine: null\ncost_rate: 0.0\ndate:\n  end: '2026-07-31'\n  start: '2023-01-01'\ndescription: ''\ndirection: -1\nevaluation_frequency: daily\nfactors: null\nformula: 'from polars_ta.prefix.wq import ts_mean, ts_delay\n\n  signal = ts_mean(close, 20) / ts_delay(close, 20) - 1\n\n  '\ninterface: daily\nname: reversal_20d\nop_meta: null\noperators: {}\noutputs: null\nparams: {}\nprocess:\n- winsorize(quantile=0.99)\n- standardize()\ntarget: forward_return_5d\nuniverse:\n  codes: null\n  formula: null\n  ref: null\n  rules:\n    exchanges:\n    - SSE\n    - SZSE\nweighting: equal_weight\n",
   "artifact_format_version": 1,
   "artifacts": {
     "signal": {
       "file": "signal.parquet",
       "schema_version": 1,
-      "rows": 4419466,
+      "rows": 4419471,
       "columns": [
         "date",
         "code",
@@ -5582,12 +5582,12 @@
           "default_earliest_execution": "next_open"
         }
       },
-      "sha256": "794849b11ad97b65c506e1b9683b2dc469ebd2c9466ba4d5633298aa992c0bb8"
+      "sha256": "83ad222e54720042580492a5620e9e540c048aba4aab3dd78e527c366ddcfea3"
     },
     "labels": {
       "file": "labels.parquet",
-      "schema_version": 1,
-      "rows": 4419466,
+      "schema_version": 2,
+      "rows": 4419471,
       "columns": [
         "date",
         "code",
@@ -5600,12 +5600,12 @@
         5,
         20
       ],
-      "sha256": "a20d4350d2d3127cbfe31a9f0e3ef1c0a56e417cb90757946db4442b7e154afc"
+      "sha256": "b5f06d86d2eb9a49f4b37d3c2d867aa1be22f0045fcd9ebc079595609a79c6e3"
     },
     "panel": {
       "file": "panel.parquet",
       "schema_version": 1,
-      "rows": 4419466,
+      "rows": 4419471,
       "columns": [
         "date",
         "code",
@@ -5616,7 +5616,7 @@
         "close"
       ],
       "role": "legacy_compatibility_view",
-      "sha256": "52e26e18306a8624aa4cdc8057e1642f7aa418abdf1c5b3ee94630026ce6c305"
+      "sha256": "b8f696df1b596155dfcb1c0654562d4581f71936eef2d8a4b8aa64faf110eb37"
     }
   },
   "evaluation": {
@@ -5627,34 +5627,34 @@
     "n_weeks": 178,
     "n_stocks_avg": 5082.544943820225,
     "ic": {
-      "mean": -0.040133709943340604,
-      "std": 0.16015199581526068,
-      "t_stat": -3.343389340765959,
-      "ir": -0.2505976259555069,
+      "mean": -0.040133558743973084,
+      "std": 0.16015216730118453,
+      "t_stat": -3.343373164928806,
+      "ir": -0.25059641352525264,
       "n_weeks": 178,
-      "recent_26w_mean": -0.00040051659964375166,
-      "recent_26w_t": -0.012292996801759513,
+      "recent_26w_mean": -0.00039948146551225226,
+      "recent_26w_t": -0.012261158203232493,
       "sign_consistent": 0.38202247191011235,
       "direction_consistent_share": 0.6179775280898876
     },
     "pearson_ic": {
-      "mean": -0.019563389279527263,
-      "t_stat": -1.879982764091096
+      "mean": -0.0195633038199234,
+      "t_stat": -1.8799728871857797
     },
     "decile_returns": {
       "weighting": "equal_weight",
       "monotonic": false,
       "spread": {
-        "ret": 0.0036593605515396668
+        "ret": 0.0036593605515396676
       },
       "groups": [
         {
           "group": 0,
-          "mean_ret": 0.002664897877847046
+          "mean_ret": 0.002664897877847047
         },
         {
           "group": 1,
-          "mean_ret": 0.003194979035204399
+          "mean_ret": 0.0031950013271501983
         },
         {
           "group": 2,
@@ -5662,31 +5662,31 @@
         },
         {
           "group": 3,
-          "mean_ret": 0.0029473968786586325
+          "mean_ret": 0.0029473968786586317
         },
         {
           "group": 4,
-          "mean_ret": 0.002834741668226872
+          "mean_ret": 0.0028347416682268723
         },
         {
           "group": 5,
-          "mean_ret": 0.0026437080107318597
+          "mean_ret": 0.0026437080107318592
         },
         {
           "group": 6,
-          "mean_ret": 0.0021224498663419984
+          "mean_ret": 0.002122599514763968
         },
         {
           "group": 7,
-          "mean_ret": 0.0021047131310112754
+          "mean_ret": 0.002104713131011276
         },
         {
           "group": 8,
-          "mean_ret": 0.0009830732105500233
+          "mean_ret": 0.000983073210550023
         },
         {
           "group": 9,
-          "mean_ret": -0.0009944626736926203
+          "mean_ret": -0.0009944626736926208
         }
       ]
     },
@@ -5696,11 +5696,49 @@
     },
     "coverage": {
       "pct_valid": 0.9684,
-      "total_rows": 934236,
+      "total_rows": 934237,
       "valid_rows": 904693
     },
     "factor_name": "reversal_20d",
     "frequency": "weekly",
+    "ic_decay": {
+      "1": {
+        "column": "forward_return_1d",
+        "available": true,
+        "n_periods": 178,
+        "mean": -0.0076423666383895915,
+        "std": 0.1584886803452798,
+        "t_stat": -0.6433386165002356,
+        "ir": -0.04822026798216823
+      },
+      "5": {
+        "column": "forward_return_5d",
+        "available": true,
+        "n_periods": 178,
+        "mean": -0.040133558743973084,
+        "std": 0.16015216730118453,
+        "t_stat": -3.343373164928806,
+        "ir": -0.25059641352525264
+      },
+      "10": {
+        "column": "forward_return_10d",
+        "available": false,
+        "n_periods": 0,
+        "mean": null,
+        "std": null,
+        "t_stat": null,
+        "ir": null
+      },
+      "20": {
+        "column": "forward_return_20d",
+        "available": true,
+        "n_periods": 175,
+        "mean": -0.04889264062608561,
+        "std": 0.1524336469284109,
+        "t_stat": -4.243084471325008,
+        "ir": -0.3207470372275984
+      }
+    },
     "layered_backtest": {
       "n_groups": 10,
       "periods": 178,
@@ -6063,7 +6101,7 @@
           1.64564216,
           1.57749331,
           1.54937446,
-          1.56713283
+          1.56713891
         ],
         "D3": [
           0.9913463,
@@ -6963,7 +7001,7 @@
           1.38476849,
           1.29562926,
           1.26699233,
-          1.33557558
+          1.33560932
         ],
         "D8": [
           0.98159361,
@@ -7695,9 +7733,9 @@
           "win_rate": 0.494382
         },
         "D2": {
-          "annual_return": 0.166139,
+          "annual_return": 0.16614,
           "annual_vol": 0.266003,
-          "sharpe": 0.624575,
+          "sharpe": 0.624579,
           "max_drawdown": -0.309784,
           "win_rate": 0.505618
         },
@@ -7730,9 +7768,9 @@
           "win_rate": 0.544944
         },
         "D7": {
-          "annual_return": 0.110367,
-          "annual_vol": 0.226431,
-          "sharpe": 0.487421,
+          "annual_return": 0.110375,
+          "annual_vol": 0.226433,
+          "sharpe": 0.487451,
           "max_drawdown": -0.24667,
           "win_rate": 0.511236
         },

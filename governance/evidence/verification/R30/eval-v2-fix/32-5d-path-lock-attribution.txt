@@ -1,0 +1,57 @@
+# 32 - R22 回归（6 代表 spec，全部 5d）漂移归因：D3 零适用 + 数据面前移
+
+结论：`test_regression_152::test_sample_value_regression` 的存量为**数据相关锚漂移**
+（R30 pan 数据更新 + D8 族修正），**不是** D3 不重叠采样或任何代码路径回退。
+处置 = 按 D7 口径同批刷新受影响基线（`31-r22-baseline-refresh-2.txt`），5d 评估
+路径本身保持逐值锁定（代码自 14:05 全绿后零提交 + 刷新后回归测试逐值 ≤1e-9 通过）。
+
+## 1. D3（Task 4，h>5 不重叠采样）对本回归**零适用**
+
+- 6 个基线 spec 的目标均为 `forward_return_5d`（各 baseline JSON `evaluation.target`
+  逐只 = `forward_return_5d`；`30-...inventory` 表）——h=5 ≤ 5；
+- 实现口径：`platform/src/factorlab/adapters/ic_kernel.py:16` `_non_overlap_plan`——
+  `h <= 5 / 非 forward_return_<h>d → None`（零变更：无 `sampling`/`t_stat_nw` 键）；
+  该零变更由单测 `platform/tests/test_eval_overlap_sampling.py:153`
+  `test_5d_path_zero_change_no_sampling_no_nw` 与 `:164` daily-1d 锁死；
+- 刷新脚本对每个 summary 显式断言 `"sampling" not in evaluation` 且
+  `"t_stat_nw" not in evaluation.ic`（本目录 `refresh_r22_baseline_2.py`）；
+- 量级对照：D3 真实影响（20d 目标）是 **1e-1~1e0 级**（`../eval-v2-task1-4/
+  10-task4-real-data.txt`：20d 全周频简单 t=4.489 → 采样 t=2.527，n_weeks 175→44）；
+  本回归漂移是 **1.5e-7..9.5e-6**——相差 4 个数量级，不可能是 D3 采样。
+
+## 2. 代码路径自 14:05 全绿后零提交（漂移不可能来自代码）
+
+时间线（均 2026-09-17）：
+
+| 时间 | 事件 | 证据 |
+|---|---|---|
+| 09:42 | `8805284` D3 不重叠采样合入 | `../eval-v2-task1-4/` |
+| 11:30-11:31 | D8 退市股 adj sidecar 重灌 + reconcile | `../eval-v2-task14-12-11/26/27-*` |
+| 11:42 | R22 基线首次刷新（D8 数据） | `../eval-v2-task14-12-11/32-*` |
+| 12:31 | `fc51796` 提交；平台全量 3150 passed | `../eval-v2-task14-12-11/37-*` |
+| 12:37-13:40 | E4/E3/E2/E1a/E1/label-v2/fix 波合入（等权默认，零回归） | `fc51796..1561c53` |
+| 14:05 | `1561c53` 修复波封版：平台全量 **3207 passed / 11 skipped / 0 failed**（含本回归绿） | `27-final-full-suite.txt`（本目录） |
+| 14:05→23:00 | `platform/src/factorlab` **零提交**（只有 `platform/tools/pan_update`、测试/文档/挖矿提交） | `git diff --stat 1561c53..HEAD -- platform/src/factorlab` 为空 |
+| 20:37 | pan-large-transfer `make data-update` 成功（daily 全历史 zip 下载 → build → publish） | `../pan-large-transfer/05-make-data-update.log` |
+| 21:12:57 | `data/fact/daily_fact/daily_fact.parquet` 重建（mtime；含 delisted sidecar 重放） | 文件 mtime + `25-backfill-regenerate.log` 族 |
+| 21:13:33-45 | CH `daily/adj_factor/daily_basic` parts 重灌（`system.parts.modification_time`） | reconcile：18,191,285→18,230,232 行；8,784→8,791 交易日；range ..2026-09-16→..2026-09-17 | 
+| 21:13 后 | 本回归实测 6/6 漂移（`30-...inventory`） | `30-r22-inventory-post-data-update.txt` |
+
+面板级证据（同一命令口径）：6 个 spec **每条** `coverage.total_rows` 恰 +1、
+`valid_rows` 逐值不变、`n_weeks`/`n_stocks_avg` 逐值不变——数据更新向评估面板
+新增 1 行无效观测（信号或未来收益为空）+ 个别历史价/复权修正；代码若变，不会只
+动总行数而不动期数。（`total_rows` 是过滤前口径，包含停牌补全/尾部无未来数据的
+forward 行。）
+
+## 3. 误差量级与既有非确定性注记
+
+`../eval-v2-task1-4/10-task4-real-data.txt` 已注明 polars 并行聚合浮点求和顺序
+非确定（重复跑 ~1e-18 抖动，远小于 1e-9 容差）——本回归漂移（≥1.5e-7）比该抖动
+大 11 个数量级，不能归因引擎抖动。
+
+## 4. 刷新后的锁定证明
+
+- 刷新运行（`31-r22-baseline-refresh-2.txt`）逐 spec 断言 D3 零键；
+- 刷新后 `test_regression_152.py::test_sample_value_regression` 再跑一遍全 6 spec
+  （第三次独立运行）逐值 ≤1e-9 → 绿（`33-regression-152-green.txt`）；
+- 全量 `pytest -q` 0 failed（`34-platform-fullsuite.txt`）。

@@ -5549,9 +5549,9 @@
   ],
   "date_start": "2023-01-03",
   "date_end": "2026-07-31",
-  "panel_rows": 4419466,
-  "signal_rows": 4419466,
-  "label_rows": 4419466,
+  "panel_rows": 4419471,
+  "signal_rows": 4419471,
+  "label_rows": 4419471,
   "signal_null_ratio": 0.0242,
   "runtime_semantics": "pit_universe_signal_label_v1",
   "process": [
@@ -5560,13 +5560,13 @@
   ],
   "adjustment": "qfq",
   "float32": true,
-  "spec_yaml": "adjustment: qfq\ncategory: custom\ncombine: null\ncost_rate: 0.0\ndate:\n  end: '2026-07-31'\n  start: '2023-01-01'\ndescription: ''\ndirection: 1\nevaluation_frequency: daily\nfactors: null\nformula: 'signal = -ts_std_dev(returns(close), 20)\n\n  '\ninterface: daily\nname: low_vol_20d\nop_meta: null\noperators: {}\noutputs: null\nparams: {}\nprocess:\n- winsorize(quantile=0.99)\n- standardize()\ntarget: forward_return_5d\nuniverse:\n  codes: null\n  formula: null\n  ref: null\n  rules:\n    exchanges:\n    - SSE\n    - SZSE\n",
+  "spec_yaml": "adjustment: qfq\ncategory: custom\ncombine: null\ncost_rate: 0.0\ndate:\n  end: '2026-07-31'\n  start: '2023-01-01'\ndescription: ''\ndirection: 1\nevaluation_frequency: daily\nfactors: null\nformula: 'signal = -ts_std_dev(returns(close), 20)\n\n  '\ninterface: daily\nname: low_vol_20d\nop_meta: null\noperators: {}\noutputs: null\nparams: {}\nprocess:\n- winsorize(quantile=0.99)\n- standardize()\ntarget: forward_return_5d\nuniverse:\n  codes: null\n  formula: null\n  ref: null\n  rules:\n    exchanges:\n    - SSE\n    - SZSE\nweighting: equal_weight\n",
   "artifact_format_version": 1,
   "artifacts": {
     "signal": {
       "file": "signal.parquet",
       "schema_version": 1,
-      "rows": 4419466,
+      "rows": 4419471,
       "columns": [
         "date",
         "code",
@@ -5582,12 +5582,12 @@
           "default_earliest_execution": "next_open"
         }
       },
-      "sha256": "3a0ad5c700774ba6f3f2fe0c546bf34306671dfc1782cc800e76b075705f73b6"
+      "sha256": "8c76119341a350ca4b11a463b8b99cefaf5d166e800610ed83d3db0a209822bb"
     },
     "labels": {
       "file": "labels.parquet",
-      "schema_version": 1,
-      "rows": 4419466,
+      "schema_version": 2,
+      "rows": 4419471,
       "columns": [
         "date",
         "code",
@@ -5600,12 +5600,12 @@
         5,
         20
       ],
-      "sha256": "a20d4350d2d3127cbfe31a9f0e3ef1c0a56e417cb90757946db4442b7e154afc"
+      "sha256": "b5f06d86d2eb9a49f4b37d3c2d867aa1be22f0045fcd9ebc079595609a79c6e3"
     },
     "panel": {
       "file": "panel.parquet",
       "schema_version": 1,
-      "rows": 4419466,
+      "rows": 4419471,
       "columns": [
         "date",
         "code",
@@ -5616,7 +5616,7 @@
         "close"
       ],
       "role": "legacy_compatibility_view",
-      "sha256": "2dd2f86365fe1fe54eea0da6275ed0897bd03fdf66ab8fdd511da5c59758ed4f"
+      "sha256": "6479d62225a8ebf36652cfe53d853de7083050915a7d5055fe802a1189632e91"
     }
   },
   "evaluation": {
@@ -5627,30 +5627,30 @@
     "n_weeks": 178,
     "n_stocks_avg": 5082.544943820225,
     "ic": {
-      "mean": 0.0706903205924059,
-      "std": 0.22665205715726816,
-      "t_stat": 4.1611204493716984,
-      "ir": 0.3118891638532787,
+      "mean": 0.07069073440632433,
+      "std": 0.22665252405211467,
+      "t_stat": 4.161136236359318,
+      "ir": 0.3118903471380282,
       "n_weeks": 178,
-      "recent_26w_mean": 0.08453744123460333,
-      "recent_26w_t": 1.7109457683112217,
+      "recent_26w_mean": 0.08454027426835263,
+      "recent_26w_t": 1.7109840100558755,
       "sign_consistent": 0.6067415730337079,
       "direction_consistent_share": 0.6067415730337079
     },
     "pearson_ic": {
-      "mean": 0.017503929460724273,
-      "t_stat": 1.2791089875113626
+      "mean": 0.017504202980044556,
+      "t_stat": 1.279125033400942
     },
     "decile_returns": {
       "weighting": "equal_weight",
       "monotonic": true,
       "spread": {
-        "ret": 0.002282954325208736
+        "ret": 0.0022830817246366347
       },
       "groups": [
         {
           "group": 0,
-          "mean_ret": -0.0006681474526588829
+          "mean_ret": -0.0006681252036648109
         },
         {
           "group": 1,
@@ -5658,7 +5658,7 @@
         },
         {
           "group": 2,
-          "mean_ret": 0.0023573649876986553
+          "mean_ret": 0.002357364987698658
         },
         {
           "group": 3,
@@ -5666,11 +5666,11 @@
         },
         {
           "group": 4,
-          "mean_ret": 0.002967277126790732
+          "mean_ret": 0.002967277126790731
         },
         {
           "group": 5,
-          "mean_ret": 0.0029256914143412542
+          "mean_ret": 0.002925691414341256
         },
         {
           "group": 6,
@@ -5678,15 +5678,15 @@
         },
         {
           "group": 7,
-          "mean_ret": 0.0027247561870869805
+          "mean_ret": 0.002724756187086981
         },
         {
           "group": 8,
-          "mean_ret": 0.0019331416708563926
+          "mean_ret": 0.0019331416708563928
         },
         {
           "group": 9,
-          "mean_ret": 0.001614806872549853
+          "mean_ret": 0.001614956520971824
         }
       ]
     },
@@ -5696,11 +5696,49 @@
     },
     "coverage": {
       "pct_valid": 0.9684,
-      "total_rows": 934236,
+      "total_rows": 934237,
       "valid_rows": 904693
     },
     "factor_name": "low_vol_20d",
     "frequency": "weekly",
+    "ic_decay": {
+      "1": {
+        "column": "forward_return_1d",
+        "available": true,
+        "n_periods": 178,
+        "mean": 0.021316929274457618,
+        "std": 0.23663945535131975,
+        "t_stat": 1.2018423083180398,
+        "ir": 0.09008188952603052
+      },
+      "5": {
+        "column": "forward_return_5d",
+        "available": true,
+        "n_periods": 178,
+        "mean": 0.07069073440632434,
+        "std": 0.22665252405211467,
+        "t_stat": 4.161136236359319,
+        "ir": 0.31189034713802827
+      },
+      "10": {
+        "column": "forward_return_10d",
+        "available": false,
+        "n_periods": 0,
+        "mean": null,
+        "std": null,
+        "t_stat": null,
+        "ir": null
+      },
+      "20": {
+        "column": "forward_return_20d",
+        "available": true,
+        "n_periods": 175,
+        "mean": 0.08290426235626665,
+        "std": 0.2404952608361794,
+        "t_stat": 4.560257446639419,
+        "ir": 0.34472306052109436
+      }
+    },
     "layered_backtest": {
       "n_groups": 10,
       "periods": 178,
@@ -5883,7 +5921,7 @@
           1.23934424,
           1.25616729,
           1.25081253,
-          1.29643989
+          1.29647315
         ],
         "D2": [
           0.99365222,
@@ -7503,7 +7541,7 @@
           0.96722215,
           0.77890009,
           0.72936249,
-          0.6976431
+          0.69764602
         ],
         "long_short": [
           0.02386695,
@@ -7683,14 +7721,14 @@
           0.27212209,
           0.4772672,
           0.52145004,
-          0.59879679
+          0.59882713
         ]
       },
       "summary": {
         "D1": {
-          "annual_return": 0.08397,
-          "annual_vol": 0.127822,
-          "sharpe": 0.656927,
+          "annual_return": 0.083978,
+          "annual_vol": 0.127824,
+          "sharpe": 0.656977,
           "max_drawdown": -0.133527,
           "win_rate": 0.522472
         },
@@ -7751,16 +7789,16 @@
           "win_rate": 0.52809
         },
         "D10": {
-          "annual_return": -0.034744,
+          "annual_return": -0.034743,
           "annual_vol": 0.374695,
-          "sharpe": -0.092725,
+          "sharpe": -0.092722,
           "max_drawdown": -0.521772,
           "win_rate": 0.533708
         },
         "long_short": {
-          "annual_return": 0.118714,
-          "annual_vol": 0.326679,
-          "sharpe": 0.363395,
+          "annual_return": 0.11872,
+          "annual_vol": 0.326681,
+          "sharpe": 0.363413,
           "max_drawdown": -1.146156,
           "win_rate": 0.505618
         }

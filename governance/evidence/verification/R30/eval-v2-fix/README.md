@@ -86,3 +86,19 @@ signal.parquet 两口径均保持 `[date, code, signal]` 单列契约；market_c
   （含 G-DATAIFACE ENFORCED）全绿——`26-minor-audit-gates.txt`。
 - 变更文件：`platform/src/factorlab/app/run.py`、`platform/src/factorlab/app/evaluate.py`、
   `platform/tests/{test_dead_signal,test_minute_engine,test_m6_semantic_guards}.py`。
+
+## 存量红收口（2026-09-17 深夜，pan 数据更新后）
+
+平台全量收口时现存 2 红，处置如下。
+
+| # | 红 | 根因（实测） | 处置 | 证据 |
+|---|---|---|---|---|
+| 1 | `test_regression_152::test_sample_value_regression`（6 代表 spec 全 5d） | R30 pan-large-transfer `make data-update`（20:37）重建 `daily_fact.parquet`（21:12）、CH 重灌（21:13；18,191,285→18,230,232 行）→ 6/6 基线漂移 1.5e-7..9.5e-6；面板 `total_rows` 恰 +1、`valid_rows`/`n_weeks`/`n_stocks_avg` 不变 | 按 D7 同批二次刷新基线（只刷受影响者=全 6）；D3（h>5）对本测试零适用（目标全 5d）；`platform/src/factorlab` 自 14:05 全绿后零提交，漂移纯数据面 | `30-r22-inventory-post-data-update.txt`、`31-r22-baseline-refresh-2.txt`、`32-5d-path-lock-attribution.txt`、`refresh_r22_baseline_2.py` |
+| 2 | `test_reference_library::test_initial_reference_library_per_spec`（`ref["minute"] == []`） | D10 流程下 minute 参考库已合法扩至 12（`f3b90cb`/`84b58a0`/`ec0681c`/`9052d15`） | 断言更新至现行契约：种子 `momentum_20d_turnrank_top2` 居 daily 首位；各 scales 项含 `style/reason/added`；minute 可空可非空；保留跨 scales 禁止行为（同名不得跨库、库内唯一） | `platform/tests/test_reference_library.py` diff |
+
+验证（本目录）：
+- 定向：`test_sample_value_regression` + `test_reference_library.py` **14 passed**（349s）→ `33-...`
+- 平台全量：**3207 passed / 11 skipped / 0 failed**（972s）→ `34-platform-fullsuite.txt`
+- `make test-research`：platform/tools **589 passed**；research/tools **2 failed = 预存挖矿在途**
+  （`abs_auction_premium` spec 缺档案，未跟踪文件）→ `35-test-research.txt`
+- `make gates`：唯一红 = **G-INDEX（预存：挖矿在途）**；G-DATAIFACE ENFORCED 全绿 → `36-gates.txt`

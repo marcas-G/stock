@@ -57,3 +57,12 @@ R08-DATA-I2 数据修复（退市股 adj_factor 补灌，`fix(data)` 2b39807）�
 - 旧基线值见 git 历史与本目录 §2 表；本次刷新只更新 `evaluation` 数值字段；
 - 说明：R22 基线是**数据相关**的值级回归锚；数据修复/更新后需同批刷新，
   本测试已改为写 tmp 输出目录（不再覆盖 `runs/platform/` 主产物）。
+
+### 3.1 二次刷新（2026-09-17 21:13 后，R30 eval-v2-fix / pan 数据更新后置）
+
+R30 pan-large-transfer `make data-update`（20:37）重建 `daily_fact.parquet`（21:12）
+并重灌 CH `daily/adj_factor/daily_basic`（21:13；18,191,285→18,230,232 行）→ 6 个
+5d 基线全部再次前移（1.5e-7..9.5e-6）。按 D7 同批二次刷新（旧→新逐值、D3 零适用
+与代码零提交归因：`../R30/eval-v2-fix/30..32-*`；刷新脚本
+`../R30/eval-v2-fix/refresh_r22_baseline_2.py`）。6 个目标均为 `forward_return_5d`，
+D3 不重叠采样（h>5）对本回归零适用；`evaluation` 新含 E2 `ic_decay` 字段。

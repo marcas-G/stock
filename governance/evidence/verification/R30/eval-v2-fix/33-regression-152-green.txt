@@ -1,0 +1,20 @@
+# 33 - 两处存量红单跑绿（定向：test_regression_152 + test_reference_library 全文件）
+
+命令（platform/ 下；2026-09-17 23:29 起）：
+
+```bash
+FACTORLAB_MAX_MEMORY=8GB .venv/bin/python -m pytest -q \
+  tests/test_regression_152.py::test_sample_value_regression tests/test_reference_library.py
+```
+
+结果：`14 passed, 2 warnings in 349.08s (0:05:49)`
+
+- `test_sample_value_regression`：6 个代表 spec 经真实 CLI + ch 后端 weekly 重跑，
+  与二次刷新后的基线逐值 |Δ| ≤ 1e-9（本次为刷新后第二次独立运行；首次=刷新运行，
+  reversal_20d 另有中断重启的重复运行 Δ=0.000e+00——见 `31-...`）。
+- `test_reference_library.py` 13 项全过（含更新后的
+  `test_initial_reference_library_per_spec`：种子首位、各 scales 字段、跨 scales
+  同名禁止；minute 12 只入库不再断言为空）。
+- 仅 2 条 `correlation.py:102 pivot columns 弃用` 警告（既存，与本轮无关）。
+
+全量平台套件复跑见 `34-platform-fullsuite.txt`。
