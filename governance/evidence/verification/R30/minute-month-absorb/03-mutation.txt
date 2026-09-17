@@ -1,0 +1,10 @@
+$ python3 governance/evidence/verification/R30/minute-month-absorb/mutation.py
+CAUGHT  rc=1  源比对去掉（恒 ok：回到只验产物的旧行为）
+CAUGHT  rc=1  恒 stale（无变化也重转，幂等跳过失效）
+CAUGHT  rc=1  回退不再 fail loud（rollback 走重转）
+CAUGHT  rc=1  比对忽略 size（同名替换判不出）
+CAUGHT  rc=1  manifest 缺失按 ok（不核验就冒充已提交）
+
+5/5 突变被测试抓住；工作区已恢复逐字节一致
+恢复后 platform/tools/converters/tests/test_convert_minutes_commit.py: rc=0
+exit=0

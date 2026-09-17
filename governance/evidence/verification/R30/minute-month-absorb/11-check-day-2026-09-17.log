@@ -1,0 +1,20 @@
+$ # 新吸收日对拍（A3 修复后 CH 与本地同含 9/17）
+$ FACTORLAB_MAX_MEMORY=8GB FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python platform/tools/1m_features/run_1m_feature.py check-day 2026-09-17
+Traceback (most recent call last):
+  File "/data/students/gaolei/stock/platform/tools/1m_features/run_1m_feature.py", line 279, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/data/students/gaolei/stock/platform/tools/1m_features/run_1m_feature.py", line 272, in main
+    rc = {"batch": cmd_batch, "merge": cmd_merge,
+          "check-day": cmd_check_day}[args.cmd](args)
+  File "/data/students/gaolei/stock/platform/tools/1m_features/run_1m_feature.py", line 184, in cmd_check_day
+    local = compute_minute_factor_panel(bars, FORMULA, outputs=FEATURE_NAMES,
+                                        daily=inj)
+  File "/data/students/gaolei/stock/platform/src/factorlab/core/engine/minute.py", line 111, in compute_minute_factor_panel
+    raise ValueError(
+        f"bars_1m 有 {orphan} 个 (code, date) 无当日日线行（daily 面缺失"
+        f"——缺口全在整日层契约被破坏，fail fast）")
+ValueError: bars_1m 有 6480 个 (code, date) 无当日日线行（daily 面缺失——缺口全在整日层契约被破坏，fail fast）
+Command exited with non-zero status 1
+maxRSS_MB=1423088 elapsed=3.80s
+exit=1

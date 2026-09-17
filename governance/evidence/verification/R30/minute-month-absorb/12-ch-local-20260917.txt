@@ -1,0 +1,15 @@
+$ FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python governance/evidence/verification/R30/minute-month-absorb/verify_20260917.py
+local rows=1,335,600 ch rows=1,335,600
+keys local=1,335,600 ch=1,335,600 仅local=0 仅ch=0
+open: max|Δ|=0.000e+00
+high: max|Δ|=0.000e+00
+low: max|Δ|=0.000e+00
+close: max|Δ|=0.000e+00
+amount: max|Δ|=0.000e+00
+volume: max|Δ|=0.000e+00
+session_type: 全等=True
+trade_date: 全等=True
+datetime: 全等=True
+2026-09-17 CH×本地 全列逐值 PASSED（1,335,600 行）
+maxRSS_MB=1446664 elapsed=6.17s
+exit=0

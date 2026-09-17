@@ -1,0 +1,6 @@
+$ CH post: bars_1m 202609 rows / max(trade_date) / global max
+202609 partition rows: 17,344,800
+202609 max trade_date: 2026-09-17
+global max trade_date: 2026-09-17
+202609 days: 13
+exit=0

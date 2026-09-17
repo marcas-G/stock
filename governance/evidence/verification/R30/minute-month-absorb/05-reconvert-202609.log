@@ -1,0 +1,68 @@
+$ FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/converters/convert_minutes_to_parquet.py --mode production --start-year 2026 --end-year 2026 --start-month 9 --end-month 9 --workers 1
+production: 1 months, workers=1
+  202609: stale（新增 1: 20260917.zip）-> 清理重转
+  20260901.zip: codes=5553 rows=1332720 idx=356 b=79
+  20260902.zip: codes=5554 rows=1332960 idx=356 b=79
+  20260903.zip: codes=5555 rows=1333200 idx=356 b=79
+  20260904.zip: codes=5556 rows=1333440 idx=356 b=79
+  20260907.zip: codes=5558 rows=1333920 idx=356 b=79
+  20260908.zip: codes=5558 rows=1333920 idx=356 b=79
+  20260909.zip: codes=5560 rows=1334400 idx=356 b=79
+  20260910.zip: codes=5561 rows=1334640 idx=356 b=79
+  20260911.zip: codes=5562 rows=1334880 idx=356 b=79
+  20260914.zip: codes=5562 rows=1334880 idx=356 b=79
+  20260915.zip: codes=5562 rows=1334880 idx=356 b=79
+  20260916.zip: codes=5564 rows=1335360 idx=356 b=79
+  20260917.zip: codes=5565 rows=1335600 idx=356 b=79
+{
+  "months": 1,
+  "skipped": 0,
+  "days": 13,
+  "codes": 72270,
+  "rows": 17344800,
+  "errors": 5657,
+  "suffix_isolated": 0,
+  "elapsed_min": 7.0
+}
+WARNING: 5657 conversion errors across 0 suffix-isolated stock-days (see per-month _conversion_errors.csv)
+	Command being timed: "env FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/converters/convert_minutes_to_parquet.py --mode production --start-year 2026 --end-year 2026 --start-month 9 --end-month 9 --workers 1"
+	User time (seconds): 375.95
+	System time (seconds): 45.87
+	Percent of CPU this job got: 100%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 6:59.42
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 728176
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 3168871
+	Voluntary context switches: 1429
+	Involuntary context switches: 5939
+	Swaps: 0
+	File system inputs: 398072
+	File system outputs: 3670376
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+exit=0
+
+$ # 二次运行（应 skipped=1 且不重写）
+$ FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/converters/convert_minutes_to_parquet.py --mode production --start-year 2026 --end-year 2026 --start-month 9 --end-month 9 --workers 1
+production: 1 months, workers=1
+{
+  "months": 1,
+  "skipped": 1,
+  "days": 13,
+  "codes": 72270,
+  "rows": 17344800,
+  "errors": 5657,
+  "suffix_isolated": 0,
+  "elapsed_min": 0.0
+}
+WARNING: 5657 conversion errors across 0 suffix-isolated stock-days (see per-month _conversion_errors.csv)
+maxRSS_MB=131756 elapsed=0.96s
+exit=0

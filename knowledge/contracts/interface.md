@@ -3238,6 +3238,27 @@ params 替换 + run --set 变体，n_weeks > 50）），真实 results 目录 We
 23018）；下载须客户端 UA + Range 分块 + 4 连接并行（整文件 GET 被 CDN 限速
 ~0.1MB/s，分块并行 ~8MB/s）。
 
+### 分钟月分区提交语义（A3，2026-09-17）
+
+`converters/convert_minutes_to_parquet.py` 生产模式以**月**为事务单元：`_SUCCESS`
+只是提交边界，已提交月能否跳过 = 产物校验（schema/rows/row_groups）**+ 源归档
+清单比对**（`_state/…/_daily_manifest.parquet` 逐日记录源 zip 的 name/size/sha256；
+比对取轻量可靠者 = **name+size**，不重读内容）：
+
+- 源清单与回执逐 (name,size) 一致 → `skipped`（幂等，产物不重写）；
+- 源含回执全部归档（同名同 size）且另有**新增** → 判 stale，清理该月产物重转吸收
+  （同月新增日不再被既有 `_SUCCESS` 钉死）；
+- **同名 zip size 变化**（源被替换）→ 同判 stale 重转；
+- 回执中某归档在当前源**缺失**（源回退）→ `SourceRollbackError` **fail loud**：
+  不自动重转（重转会抹掉已提交历史日 = 不可逆数据损失），保留产物、非零退出；
+  人工确认源后需先删该月产物再跑；
+- 回执 manifest 缺失/不可读 → 保守判 stale 重转（不用旧产物冒充已提交）。
+
+已知未竟（A4）：CH 灌入侧 `ch_ingest` 月断点（`bars_1m_<yyyymm>`）只记「灌过」、
+不带源指纹——转换器重转同月后 `ingest_bars` 仍会跳过该月（`reconcile` 将报
+CH≠源）。`make data-update` 自动闭环比对的完整口径见 pending-items A4
+（2026-09-17 登记，含本项实测影响）。
+
 ### CH 消费侧（读面）
 
 - **moneyflow（T7）**：18 列经 `load_daily(cols=[...])` 按 `(trade_date, ts_code)`

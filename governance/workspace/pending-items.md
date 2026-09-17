@@ -367,7 +367,14 @@ A2. **除权日分钟 raw 价的伪跳空**：bars_1m 强制 raw，`open_gap` �
    未决因：DSL 分钟 scope 无除权日历可注入；影响 open_gap/auction_range 等跨日字段。
    启动条件：评估分钟因子入库时对除权日样本单独敏感性（或平台注入 adj 注入列）。
 
-A3. **bars_1m 月分区 `_SUCCESS` 后不再吸收同月新增日**（2026-09-17 R30 pan 任务发现）
+A3. ✅ **2026-09-17 关闭（fix(tools) + docs/verification）**：`convert_minutes_to_parquet`
+   新增 `_source_relation`/`_commit_status`——已提交月按回执 manifest（`_daily_manifest.parquet`
+   逐日源 zip name+size）与当前源比对：新增/同名替换 → 清理重转吸收；源归档缺失 →
+   `SourceRollbackError` fail loud（不自动重转，避免抹掉已提交历史日）。真实重转 202609
+   （13 日，含 9/17）+ 重灌 CH：bars_1m max=2026-09-17、202609=17,344,800 行；
+   check-day 2024-01-15 max|Δ|=0；9/17 CH×本地全列逐值=0；`make reconcile` 全库一致。
+   证据 `governance/evidence/verification/R30/minute-month-absorb/`。**连带缺口见 A4**
+   （重转后 `ingest_bars` 仍按旧断点跳过，本次交付为手工重灌）。原登记保留如下——
    现状：`convert_minutes_to_parquet.convert_month_worker` 的 `_committed_ok` 只校验产物
    schema/rows/row_groups，不比对源目录 zip 天数 → 同月新增日被跳过。实测：2026-09 状态
    `days=12`（至 9/16）而 `data/raw/minutes/2026/09/` 已有 20260917.zip；20:37
@@ -375,3 +382,17 @@ A3. **bars_1m 月分区 `_SUCCESS` 后不再吸收同月新增日**（2026-09-17
    `test_minute_prod_e2e._pick_window` 取 `min(bars,daily)` 规避；修复见 commit）。
    未决因：须给 `_committed_ok` 加源天数/源 sha 比对，不一致即清理重转该月并重灌分区。
    启动条件：分钟链维护轮次；改动后跑 `reconcile` 与分钟对拍（check-day）。
+
+A4. **转换器重转同月后 CH 不自动重灌（A3 连带缺口）**（2026-09-17 A3 修复实测登记）
+   现状：`ch_ingest` 月断点（`state.json` 的 `bars_1m_<yyyymm>`）只记「灌过」布尔，
+   不带源 parquet 指纹。A3 修复后转换器会把同月新增日重转进
+   `data/fact/bars_1m/year=/month=/part-000.parquet`，但 `ingest_bars.py` 的
+   `run_pool` 仍按旧断点跳过该月 → CH 停留旧天数、`reconcile` 报 CH≠源、
+   `make data-update` verify 阶段红（实测：手工重转 202609 后若不删断点，ingest
+   报「已完成 80，待跑 0」；本次交付已删 `bars_1m_202609` 键手工重灌）。
+   未决因：给 bars/tick 任务断点加源指纹（parquet name+size+mtime 摘要，stat 级
+   不读内容）并 `is_done(task, fp)` 比对；旧布尔标记不能直接按「未完成」处理
+   （会对 81 个 bars + 39 个 tick 任务全量重灌 ≈1.85B + 99.5 亿行，不可接受），
+   需一次性迁移锚定或 CH part modification_time 兜底。
+   启动条件：分钟/逐笔链维护轮次；改动后跑 run_pool 断点回归 + 真实重转月重灌对账
+   （`make reconcile` 全绿）+ 内存护栏。

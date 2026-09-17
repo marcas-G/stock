@@ -1,0 +1,6 @@
+$ python -c "CH: bars_1m 202609 分区行数 / max(trade_date) / 全表 max(trade_date)"
+202609 partition rows: 16009200
+202609 max trade_date: 2026-09-16
+global max trade_date: 2026-09-16
+202609 min trade_date: 2026-09-01
+exit=0

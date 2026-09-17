@@ -1,0 +1,122 @@
+$ platform/.venv/bin/python -m pytest platform/tools/converters/tests/test_convert_minutes_commit.py -q
+F.FFFF                                                                   [100%]
+=================================== FAILURES ===================================
+__________________ test_new_day_in_source_triggers_reconvert ___________________
+
+env = namespace(src=PosixPath('/tmp/pytest-of-gaolei/pytest-2541/test_new_day_in_source_trigger0/data/raw/minutes/2026/09'), prod=PosixPath('/tmp/pytest-of-gaolei/pytest-2541/test_new_day_in_source_trigger0/data/fact/bars_1m'))
+
+    def test_new_day_in_source_triggers_reconvert(env):
+        _mk_zip(env.src / f"{DAYS[0]}.zip", DAYS[0])
+        _mk_zip(env.src / f"{DAYS[1]}.zip", DAYS[1])
+        first = CM.convert_month_worker(YM)
+        assert not first.get("skipped") and first["days"] == 2
+    
+        _mk_zip(env.src / f"{DAYS[2]}.zip", DAYS[2])
+        second = CM.convert_month_worker(YM)
+>       assert not second.get("skipped"), "同月源新增日必须重转，不能 skipped"
+E       AssertionError: 同月源新增日必须重转，不能 skipped
+E       assert not True
+E        +  where True = <built-in method get of dict object at 0x7fa2f7101440>('skipped')
+E        +    where <built-in method get of dict object at 0x7fa2f7101440> = {'ym': '202609', 'skipped': True, 'days': 2, 'codes': 2, ...}.get
+
+platform/tools/converters/tests/test_convert_minutes_commit.py:101: AssertionError
+----------------------------- Captured stdout call -----------------------------
+  202609: 转换中
+  20260901.zip: codes=1 rows=240 idx=0 b=0
+  20260902.zip: codes=1 rows=240 idx=0 b=0
+___________ test_source_rollback_fails_loud_and_preserves_partition ____________
+
+env = namespace(src=PosixPath('/tmp/pytest-of-gaolei/pytest-2541/test_source_rollback_fails_lou0/data/raw/minutes/2026/09'), prod=PosixPath('/tmp/pytest-of-gaolei/pytest-2541/test_source_rollback_fails_lou0/data/fact/bars_1m'))
+
+    def test_source_rollback_fails_loud_and_preserves_partition(env):
+        for d in DAYS:
+            _mk_zip(env.src / f"{d}.zip", d)
+        CM.convert_month_worker(YM)
+        part = _part(env)
+        sha_before = _sha(part)
+    
+        os.remove(env.src / f"{DAYS[2]}.zip")
+>       with pytest.raises(CM.SourceRollbackError):
+                           ^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'convert_minutes_to_parquet' has no attribute 'SourceRollbackError'
+
+platform/tools/converters/tests/test_convert_minutes_commit.py:129: AttributeError
+----------------------------- Captured stdout call -----------------------------
+  202609: 转换中
+  20260901.zip: codes=1 rows=240 idx=0 b=0
+  20260902.zip: codes=1 rows=240 idx=0 b=0
+  20260903.zip: codes=1 rows=240 idx=0 b=0
+________________ test_same_name_size_change_triggers_reconvert _________________
+
+env = namespace(src=PosixPath('/tmp/pytest-of-gaolei/pytest-2541/test_same_name_size_change_tri0/data/raw/minutes/2026/09'), prod=PosixPath('/tmp/pytest-of-gaolei/pytest-2541/test_same_name_size_change_tri0/data/fact/bars_1m'))
+
+    def test_same_name_size_change_triggers_reconvert(env):
+        _mk_zip(env.src / f"{DAYS[0]}.zip", DAYS[0])
+        CM.convert_month_worker(YM)
+        assert CM.convert_month_worker(YM)["skipped"] is True
+    
+        _mk_zip(env.src / f"{DAYS[0]}.zip", DAYS[0], codes=("000001", "000002"))
+        again = CM.convert_month_worker(YM)
+>       assert not again.get("skipped"), "同名 zip size 变化（源被替换）必须重转"
+E       AssertionError: 同名 zip size 变化（源被替换）必须重转
+E       assert not True
+E        +  where True = <built-in method get of dict object at 0x7fa30706a300>('skipped')
+E        +    where <built-in method get of dict object at 0x7fa30706a300> = {'ym': '202609', 'skipped': True, 'days': 1, 'codes': 1, ...}.get
+
+platform/tools/converters/tests/test_convert_minutes_commit.py:142: AssertionError
+----------------------------- Captured stdout call -----------------------------
+  202609: 转换中
+  20260901.zip: codes=1 rows=240 idx=0 b=0
+______________ test_missing_manifest_is_not_treated_as_committed _______________
+
+env = namespace(src=PosixPath('/tmp/pytest-of-gaolei/pytest-2541/test_missing_manifest_is_not_t0/data/raw/minutes/2026/09'), prod=PosixPath('/tmp/pytest-of-gaolei/pytest-2541/test_missing_manifest_is_not_t0/data/fact/bars_1m'))
+
+    def test_missing_manifest_is_not_treated_as_committed(env):
+        """源清单无法核验（manifest 缺失）→ 保守重转，不得冒充已提交。"""
+        _mk_zip(env.src / f"{DAYS[0]}.zip", DAYS[0])
+        CM.convert_month_worker(YM)
+        os.remove(env.prod / "_state" / "year=2026" / "month=09"
+                  / "_daily_manifest.parquet")
+    
+        again = CM.convert_month_worker(YM)
+>       assert not again.get("skipped"), "manifest 缺失时必须重转"
+E       AssertionError: manifest 缺失时必须重转
+E       assert not True
+E        +  where True = <built-in method get of dict object at 0x7fa2f71bb140>('skipped')
+E        +    where <built-in method get of dict object at 0x7fa2f71bb140> = {'ym': '202609', 'skipped': True, 'days': 1, 'codes': 1, ...}.get
+
+platform/tools/converters/tests/test_convert_minutes_commit.py:154: AssertionError
+----------------------------- Captured stdout call -----------------------------
+  202609: 转换中
+  20260901.zip: codes=1 rows=240 idx=0 b=0
+___________ test_add_and_remove_same_month_is_rollback_not_reconvert ___________
+
+env = namespace(src=PosixPath('/tmp/pytest-of-gaolei/pytest-2541/test_add_and_remove_same_month0/data/raw/minutes/2026/09'), prod=PosixPath('/tmp/pytest-of-gaolei/pytest-2541/test_add_and_remove_same_month0/data/fact/bars_1m'))
+
+    def test_add_and_remove_same_month_is_rollback_not_reconvert(env):
+        """新增与缺失同时出现：缺失优先判 rollback（不得静默丢弃已提交日）。"""
+        for d in DAYS:
+            _mk_zip(env.src / f"{d}.zip", d)
+        CM.convert_month_worker(YM)
+        sha_before = _sha(_part(env))
+    
+        os.remove(env.src / f"{DAYS[0]}.zip")
+        _mk_zip(env.src / "20260904.zip", "20260904")
+>       with pytest.raises(CM.SourceRollbackError):
+                           ^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'convert_minutes_to_parquet' has no attribute 'SourceRollbackError'
+
+platform/tools/converters/tests/test_convert_minutes_commit.py:167: AttributeError
+----------------------------- Captured stdout call -----------------------------
+  202609: 转换中
+  20260901.zip: codes=1 rows=240 idx=0 b=0
+  20260902.zip: codes=1 rows=240 idx=0 b=0
+  20260903.zip: codes=1 rows=240 idx=0 b=0
+=========================== short test summary info ============================
+FAILED platform/tools/converters/tests/test_convert_minutes_commit.py::test_new_day_in_source_triggers_reconvert
+FAILED platform/tools/converters/tests/test_convert_minutes_commit.py::test_source_rollback_fails_loud_and_preserves_partition
+FAILED platform/tools/converters/tests/test_convert_minutes_commit.py::test_same_name_size_change_triggers_reconvert
+FAILED platform/tools/converters/tests/test_convert_minutes_commit.py::test_missing_manifest_is_not_treated_as_committed
+FAILED platform/tools/converters/tests/test_convert_minutes_commit.py::test_add_and_remove_same_month_is_rollback_not_reconvert
+5 failed, 1 passed in 0.78s
+exit=1
