@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -127,3 +128,35 @@ def test_interface_strategy_side_e4_contract():
     assert "策略层" in text, "interface 缺「策略层」定位说明"
     # 因子侧纯净边界：E3/E4 不得被写进因子评估 summary（D11/§2b）
     assert "不进因子评估" in text, "interface 缺「不进因子评估 summary」边界声明"
+
+
+# ── R30 fix 波：forward horizon 单点 + label schema v2 迁移 ──────────────────
+
+# 旧 horizon 口径的定界符锚定模式：`(5, 20)` / `[5,20]` 等。
+# 注意**不能**裸查 "5, 20"——它是新口径 "(1, 5, 20)" 的子串，会把新文误伤；
+# 用括号/方括号定界，`(1, 5, 20)` 不匹配。
+_LEGACY_HORIZON_RE = re.compile(r"[\(\[]\s*5\s*,\s*20\s*[\)\]]")
+
+
+def test_interface_forward_horizon_single_source_v2():
+    """horizon 唯一来源必须写 (1, 5, 20)；旧 (5, 20)/[5,20] 只许出现在迁移注记行。"""
+    lines = INTERFACE.read_text(encoding="utf-8").splitlines()
+    text = "\n".join(lines)
+    assert "DEFAULT_FORWARD_HORIZONS = (1, 5, 20)" in text, \
+        "interface 缺 horizon 唯一来源 `DEFAULT_FORWARD_HORIZONS = (1, 5, 20)`"
+    offenders = [(lineno, line) for lineno, line in enumerate(lines, 1)
+                 if _LEGACY_HORIZON_RE.search(line)
+                 and not any(k in line for k in ("v1", "迁移", "旧口径", "重跑"))]
+    assert not offenders, \
+        f"interface 残留旧 horizon 口径（行内无 v1/迁移标记）: {offenders}"
+
+
+def test_interface_label_schema_v2_migration_contract():
+    """label schema v2：interface 必须写版本 bump、v1→v2 迁移与重跑处置（不 silent）。"""
+    text = INTERFACE.read_text(encoding="utf-8")
+    assert "LABEL_SCHEMA_VERSION = 2" in text, "interface 缺 LABEL_SCHEMA_VERSION = 2"
+    assert "Label schema v2" in text, "interface 缺 writer 校验契约（Label schema v2）"
+    assert "v1→v2 迁移" in text, "interface 缺「v1→v2 迁移」读取报错契约"
+    assert "重跑" in text, "interface 缺迁移处置（重跑 run 重生成）"
+    assert "不 silent migration" in text or "不自动迁移" in text, \
+        "interface 缺「不 silent migration」声明"

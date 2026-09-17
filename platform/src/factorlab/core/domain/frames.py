@@ -103,8 +103,9 @@ class LabelArtifact:
 
     **M6-06 v1 contract：只允许 date / code / forward_return_<N>d 列**——
     任意其他字段（signal/close/industry/__factorlab_*/arbitrary）→ ValueError。
-    必需 date/code + 至少一个 forward_return_<N>d（任意 horizon，不写死 5/20——
-    domain 层不固定 horizon；schema v1 的 [5,20] 约束在 artifacts loader 层）。
+    必需 date/code + 至少一个 forward_return_<N>d（任意 horizon，不写死具体值——
+    domain 层不固定 horizon；label schema v2 的 (1, 5, 20) 约束在 artifacts
+    loader 层，见 interface §4.5/§4.6）。
     label 尾部 null 合法（样本尾部无未来数据）。
     """
 

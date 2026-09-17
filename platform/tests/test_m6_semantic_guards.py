@@ -400,7 +400,7 @@ def test_semantic_gate_e2e(env, tmp_path):
 
 
 # ================================================================
-# M6-06A：persistence schema-v1 self-consistency
+# M6-06A：persistence label schema self-consistency（v2；R30 fix 波）
 # ================================================================
 
 def _label_60d():
@@ -421,13 +421,13 @@ def _label_5_60():
 
 
 def test_domain_allows_60d_only_label():
-    """Domain 仍允许任意 horizon——只是不能用 schema v1 落盘。"""
+    """Domain 仍允许任意 horizon——只是不能用 label schema v2 落盘。"""
     _label_60d()   # 构造 PASS
 
 
 def test_writer_rejects_60d_only_label(tmp_path):
     lab = _label_60d()
-    with pytest.raises(ValueError, match="Label schema v1"):
+    with pytest.raises(ValueError, match="Label schema v2"):
         write_factor_artifacts(tmp_path / "out", SignalArtifact(frame=_sig_frame(), meta=_meta()),
                                lab, _sig_frame(), {})
     for f in (SIGNAL_FILE, LABELS_FILE, LEGACY_PANEL_FILE, SUMMARY_FILE):
@@ -436,11 +436,37 @@ def test_writer_rejects_60d_only_label(tmp_path):
 
 def test_writer_rejects_5_60_label(tmp_path):
     lab = _label_5_60()
-    with pytest.raises(ValueError, match="Label schema v1"):
+    with pytest.raises(ValueError, match="Label schema v2"):
         write_factor_artifacts(tmp_path / "out", SignalArtifact(frame=_sig_frame(), meta=_meta()),
                                lab, _sig_frame(), {})
     for f in (SIGNAL_FILE, LABELS_FILE, LEGACY_PANEL_FILE, SUMMARY_FILE):
         assert not (tmp_path / "out" / f).exists()
+
+
+# ── R30 fix 波：label schema v1 → v2（horizons=(1, 5, 20)）────────────────────
+
+def test_writer_manifest_labels_schema_version_v2(env, tmp_path):
+    """writer 必须把 labels schema_version 写成 2（v1 老产物不可再读——迁移节）。"""
+    from factorlab.adapters.parquet_artifacts import LABEL_SCHEMA_VERSION
+    assert LABEL_SCHEMA_VERSION == 2, "LABEL_SCHEMA_VERSION 未 bump 到 2"
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
+    s = _summary(tmp_path)
+    assert s["artifacts"]["labels"]["schema_version"] == 2
+    assert s["artifacts"]["labels"]["horizons"] == [1, 5, 20]
+
+
+def test_loader_legacy_label_v1_error_points_to_migration(env, tmp_path):
+    """v1 老产物（schema_version=1，(5, 20) 时代）读取 → 报错必须指明 v1→v2 迁移。
+
+    裁定（R30 终评审）：bump LABEL_SCHEMA_VERSION=2；读取器不 silent migrate——
+    错误文案必须给出「v1→v2 迁移（重跑 run 重生成）」路径。
+    """
+    _seed(env)
+    _run(env, tmp_path, _spec(tmp_path))
+    _tamper(tmp_path, "artifacts.labels", "schema_version", 1)
+    with pytest.raises(ValueError, match="v1→v2 迁移"):
+        load_label_artifact(tmp_path / "out")
 
 
 def test_writer_accepts_normal_5_20_roundtrip(env, tmp_path):

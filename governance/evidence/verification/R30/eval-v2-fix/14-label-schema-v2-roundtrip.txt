@@ -1,0 +1,2 @@
+new artifact (schema v2) OK: ['date', 'code', 'forward_return_1d', 'forward_return_5d', 'forward_return_20d'] 4419466
+old artifact error: unsupported labels schema version 1——supported version 2；v1→v2 迁移：label schema v1 老产物（horizons=(5, 20)）与过渡期 v1 产物均不可读——请重跑 run 按 v2（horizons=(1, 5, 20)）重生成 labels.parquet（不 silent migration，见 interface §4.5）

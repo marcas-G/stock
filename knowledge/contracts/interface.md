@@ -1650,7 +1650,7 @@ Label:                [ output chunk | right lookahead ]  ← 结束于 label_en
 - 每块输出双边裁剪 [chunk_start, chunk_end]——lookahead rows 不进任何输出
 - 未来 membership 不 censor label（t+h ST/inactive 不影响 t 的 label——listed
   skeleton 承载未来市场历史）
-- `DEFAULT_FORWARD_HORIZONS = (5, 20)` 为 horizon 唯一来源（forward.py）
+- `DEFAULT_FORWARD_HORIZONS = (1, 5, 20)` 为 horizon 唯一来源（forward.py）
 
 ## 4.5 Versioned Result Artifacts（M6-05）
 
@@ -1674,8 +1674,9 @@ runs/platform/<factor>/   # = 默认 <results_dir>/<factor>/（R24）
 - **版本**：`ARTIFACT_FORMAT_VERSION = 1`（legacy 单输出 layout，行为不变）；
   **`MULTI_ARTIFACT_FORMAT_VERSION = 2`**（M2 多输出 layout：root 增 `outputs`
   声明列表，artifacts 条目 `signal__<output>` × N，无单列 signal 条目）——均为
-  结果目录 layout 版本，整数可比较；Signal/Labels/Panel `schema_version = 1`
-  （单 artifact 契约）
+  结果目录 layout 版本，整数可比较；Signal/Panel `schema_version = 1`
+  （单 artifact 契约）；**Labels `LABEL_SCHEMA_VERSION = 2`**——horizons 固定
+  `(1, 5, 20)`（D9/D11 起 forward 含 1d），v1→v2 迁移见下
 - **文件名常量**：SIGNAL_FILE/LABELS_FILE/LEGACY_PANEL_FILE/SUMMARY_FILE（单一来源）
 - **signal manifest** 含 SignalMeta（timing 以 Enum.value JSON 化：information_cutoff
   = close / available_at = after_close / default_earliest_execution = next_open——
@@ -1685,6 +1686,14 @@ runs/platform/<factor>/   # = 默认 <results_dir>/<factor>/（R24）
   验证 format/schema version、manifest 文件名 == 平台固定名、M6-01 validator 复验
   磁盘内容。**绝不 fallback 到 panel.parquet**；旧结果目录（无 versioned manifest）
   明确报错（legacy result directory does not contain versioned Signal/Label artifacts）
+- **label schema v1→v2 迁移（R30 fix 波）**：`LABEL_SCHEMA_VERSION = 2`——
+  label schema v1 老产物（horizons=(5, 20) 时代）与过渡期 v1 产物
+  （schema_version=1 但已含 1d 列）**均不可读**；`load_label_artifact` 报错文案
+  指明 `v1→v2 迁移`，处置 = **重跑 run 按 v2（horizons=(1, 5, 20)）重生成**
+  labels.parquet。writer 侧同门 fail fast（`validate_label_schema`：非
+  `(1, 5, 20)` → `Label schema v2 要求 horizons == (1, 5, 20)`，零文件写入）。
+  D7 口径：不 silent migration、不留兼容层、不重算历史 summary；
+  存量产物按 §4.5 迁移处置（挖矿在途批次随重跑自然升级）
 - **M2 多输出目录（v2）loader 行为**：per-output loader（`signal__<output>` 读取）
   在后续里程碑提供——本里程碑对 v2 目录明确报错（supported version 提示含
   "多输出布局（v2）：per-output loader 在后续里程碑提供，请以单输出
@@ -1697,9 +1706,11 @@ M6 边界 fail-fast invariants（不再新增计算能力）：
 
 - **SignalArtifact**：future data forbidden（forward_*/future_*/target/label）——保持；
   合法扩展列（raw_signal/coverage/quality_flag）允许
-- **LabelArtifact v1 contract**：只允许 `date / code / forward_return_<N>d`——
-  signal/close/open/future_price/__factorlab_*/任意普通列 → ValueError；
-  任意 horizon 仍合法（domain 不固定——schema v1 的 [5,20] 在 artifacts loader 层）
+- **LabelArtifact v2 contract（label schema v2）**：只允许
+  `date / code / forward_return_<N>d`——signal/close/open/future_price/
+  __factorlab_*/任意普通列 → ValueError；任意 horizon 仍合法（domain 不固定——
+  label schema v2 的 (1, 5, 20) 在 artifacts loader 层；v1 旧契约 (5, 20)
+  产物按 §4.5 迁移重跑）
 - **core persistence 拒绝内部列**：signal/labels/panel 含 `__factorlab_*` →
   write_factor_artifacts 写文件前 fail fast（零文件写入——暴露 runtime 泄漏）
 - **manifest integrity**：loader 验证 manifest rows/columns（含顺序）/horizons 与

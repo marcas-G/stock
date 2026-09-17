@@ -48,7 +48,10 @@ _FORWARD_RETURN_RE = re.compile(r"^forward_return_(\d+)d$")
 ARTIFACT_FORMAT_VERSION = 1    # legacy 单输出布局（signal.parquet）
 MULTI_ARTIFACT_FORMAT_VERSION = 2  # M2（G1）多输出布局（signal__<output>.parquet × N）
 SIGNAL_SCHEMA_VERSION = 1
-LABEL_SCHEMA_VERSION = 1
+# R30 fix 波：label schema v2（horizons 固定 (1, 5, 20)：D9/D11 起 forward 含 1d）。
+# v1 老产物（(5, 20) 时代）与过渡期 v1 产物不可读——读取报错指明 v1→v2 迁移，
+# 处置 = 重跑 run 重生成（interface §4.5；不 silent migration，D7）。
+LABEL_SCHEMA_VERSION = 2
 LEGACY_PANEL_SCHEMA_VERSION = 1
 
 # 文件名常量（单一来源——禁止 compute.py/loader/tests 各自手写字符串）
@@ -241,7 +244,7 @@ def _labels_entry(label_artifact: LabelArtifact) -> dict[str, Any]:
         "schema_version": LABEL_SCHEMA_VERSION,
         "rows": label_artifact.frame.height,
         "columns": list(label_artifact.frame.columns),
-        # M6-06A：horizons 来自实际 LabelArtifact 列（schema-v1 validation
+        # M6-06A：horizons 来自实际 LabelArtifact 列（schema-v2 validation
         # 已保证 actual == DEFAULT_FORWARD_HORIZONS——不重新硬编码）
         "horizons": list(extract_forward_horizons(list(label_artifact.frame.columns))),
     }
@@ -287,18 +290,18 @@ def build_multi_output_manifest(signals: dict[str, pl.DataFrame], meta: SignalMe
     }
 
 
-def validate_label_schema_v1(labels: LabelArtifact) -> None:
-    """Persistence-side Label schema v1：实际 horizons 必须 == DEFAULT_FORWARD_HORIZONS。
+def validate_label_schema(labels: LabelArtifact) -> None:
+    """Persistence-side Label schema v2：实际 horizons 必须 == DEFAULT_FORWARD_HORIZONS。
 
     Domain LabelArtifact 允许任意 horizon（forward_return_60d 合法构造），但
-    schema v1 persistence 固定 (5, 20)——writer 必须在写文件前验证，否则生成
-    自己的 loader 必然拒绝的目录。
+    label schema v2 persistence 固定 (1, 5, 20)——writer 必须在写文件前验证，
+    否则生成自己的 loader 必然拒绝的目录。
     """
     actual = extract_forward_horizons(list(labels.frame.columns))
     if actual != DEFAULT_FORWARD_HORIZONS:
         raise ValueError(
-            f"Label schema v1 要求 horizons == {DEFAULT_FORWARD_HORIZONS}，"
-            f"实际 {actual}（domain 允许任意 horizon，但不能用 schema v1 落盘）")
+            f"Label schema v2 要求 horizons == {DEFAULT_FORWARD_HORIZONS}，"
+            f"实际 {actual}（domain 允许任意 horizon，但不能用 schema v2 落盘）")
 
 
 
@@ -322,13 +325,13 @@ def write_factor_artifacts(output_dir: Path, signal_artifact: SignalArtifact,
     **写任何文件之前**执行：Signal/Label key 对齐验证 + 内部保留列 guard——
     pair mismatch / runtime 泄漏 → 零文件写入。返回加入 manifest 后的 summary。
     """
-    # 全部验证在任何 I/O 之前完成（M6-06A：含 Label schema v1 自洽——
+    # 全部验证在任何 I/O 之前完成（M6-06A：含 Label schema v2 自洽——
     # 60d-only LabelArtifact 不能生成自己的 loader 必然拒绝的目录）
     validate_signal_label_alignment(signal_artifact, label_artifact)
     _check_no_internal_columns(signal_artifact.frame, "signal")
     _check_no_internal_columns(label_artifact.frame, "labels")
     _check_no_internal_columns(panel, "panel")
-    validate_label_schema_v1(label_artifact)
+    validate_label_schema(label_artifact)
     output_dir.mkdir(parents=True, exist_ok=True)
     with _run_write_lock(output_dir):
         # R02-I8：旧 manifest 先失效（必须在任何 core 文件写入之前）
@@ -363,7 +366,7 @@ def write_multi_output_factor_artifacts(output_dir: Path,
 
     写任何文件之前的验证（零 I/O fail fast）：
     - 每输出 frame 列 == [date, code, <output>]（单列契约——防把全宽面板当 artifact）
-    - 无 __factorlab_* 内部保留列 + Label schema v1
+    - 无 __factorlab_* 内部保留列 + Label schema v2
     - 每输出 frame 与 labels 的 (date, code) key 严格对齐（复用 single-pair
       alignment——各输出 frame 同构同序，逐输出验证即全验证）
     """
@@ -379,7 +382,7 @@ def write_multi_output_factor_artifacts(output_dir: Path,
         _validate_key_alignment(frame, label_artifact.frame, f"signal__{o}", "Label")
     _check_no_internal_columns(label_artifact.frame, "labels")
     _check_no_internal_columns(panel, "panel")
-    validate_label_schema_v1(label_artifact)
+    validate_label_schema(label_artifact)
     output_dir.mkdir(parents=True, exist_ok=True)
     with _run_write_lock(output_dir):
         # R02-I8：旧 manifest 先失效（必须在任何 core 文件写入之前）
@@ -435,15 +438,21 @@ def _check_format_version(summary: dict) -> None:
                          f"supported version {ARTIFACT_FORMAT_VERSION}{hint}")
 
 
-def _check_schema_version(manifest: dict, name: str, supported: int) -> None:
-    """schema version 严格 int（非 bool）且 >= 1——True/1.0/"1"/0/-1 均拒绝。"""
+def _check_schema_version(manifest: dict, name: str, supported: int, *,
+                          migration_hint: str | None = None) -> None:
+    """schema version 严格 int（非 bool）且 >= 1——True/1.0/"1"/0/-1 均拒绝。
+
+    `migration_hint`（R30 fix 波）：低版本旧产物（如 label schema v1）报错时
+    附迁移路径——读取器绝不 silent migrate。
+    """
     v = manifest.get("schema_version")
     if not isinstance(v, int) or isinstance(v, bool) or v < 1:
         raise ValueError(f"invalid {name} schema version type/value: {v!r}"
                          f"（必须为 >=1 的整数，supported version {supported}）")
     if v != supported:
+        hint = f"；{migration_hint}" if (migration_hint is not None and v < supported) else ""
         raise ValueError(f"unsupported {name} schema version {v}——"
-                         f"supported version {supported}")
+                         f"supported version {supported}{hint}")
 
 
 def _check_fixed_file(manifest: dict, name: str, fixed: str) -> None:
@@ -481,7 +490,7 @@ def _validate_horizons(manifest: dict, name: str) -> tuple[int, ...]:
 
 
 def extract_forward_horizons(columns: list[str]) -> tuple[int, ...]:
-    """从实际 label 列推导 horizons（如 [forward_return_5d, forward_return_20d] → (5, 20)）。"""
+    """从实际 label 列推导 horizons（如默认 labels 三列 → (1, 5, 20)）。"""
     return tuple(sorted(int(m.group(1)) for c in columns
                         if (m := _FORWARD_RETURN_RE.match(c))))
 
@@ -525,13 +534,19 @@ def load_signal_artifact(result_dir: Path) -> SignalArtifact:
 def load_label_artifact(result_dir: Path) -> LabelArtifact:
     """读取 labels.parquet + manifest → LabelArtifact（validator 复验磁盘内容）。
 
-    M6-06：manifest rows/columns/horizons 与磁盘实际一致；schema v1 horizons
-    必须 == DEFAULT_FORWARD_HORIZONS。
+    M6-06：manifest rows/columns/horizons 与磁盘实际一致；label schema v2 的
+    horizons 必须 == DEFAULT_FORWARD_HORIZONS；schema v1 老产物（(5, 20) 时代与
+    过渡期）报错指明 v1→v2 迁移（不 silent migration）。
     """
     summary = _load_summary(result_dir)
     _check_format_version(summary)
     lab = _get_artifact_entry(summary, "labels")
-    _check_schema_version(lab, "labels", LABEL_SCHEMA_VERSION)
+    _check_schema_version(
+        lab, "labels", LABEL_SCHEMA_VERSION,
+        migration_hint=(
+            "v1→v2 迁移：label schema v1 老产物（horizons=(5, 20)）与过渡期 v1 "
+            "产物均不可读——请重跑 run 按 v2（horizons=(1, 5, 20)）重生成 "
+            "labels.parquet（不 silent migration，见 interface §4.5）"))
     _check_fixed_file(lab, "labels", LABELS_FILE)
     _validate_rows(lab, "labels")
     _validate_columns(lab, "labels")
@@ -551,8 +566,9 @@ def load_label_artifact(result_dir: Path) -> LabelArtifact:
         raise ValueError(f"labels manifest horizons {manifest_horizons} != 实际 label horizons "
                          f"{actual_horizons}")
     if manifest_horizons != DEFAULT_FORWARD_HORIZONS:
-        raise ValueError(f"labels schema v1 horizons 必须 == DEFAULT_FORWARD_HORIZONS "
-                         f"{DEFAULT_FORWARD_HORIZONS}，实际 {manifest_horizons}")
+        raise ValueError(f"labels schema v2 horizons 必须 == DEFAULT_FORWARD_HORIZONS "
+                         f"{DEFAULT_FORWARD_HORIZONS}，实际 {manifest_horizons}"
+                         f"（旧 (5, 20) 产物请重跑 run——interface §4.5 v1→v2 迁移）")
     return LabelArtifact(frame=frame)
 
 
