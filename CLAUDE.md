@@ -71,7 +71,8 @@ surfaces(cli,web) → app(装配) → ports(6 契约) → core(纯核)
   落位断言（解析到别处即 RuntimeError；防装成别的副本/误挂 PYTHONPATH）。
   `emb`（3.11）已退役为工具解释器（2026-09-16 R27；外部 env 保留，非工具依赖）。
 - CH：`127.0.0.1:8123` db=factorlab。目标机 16GB 无页面文件 → 批算单进程 + 流式 + 及时释放。
-- 评估内核 `quant_core`（shim）自 R18 起在 **`platform/kernels/quant_core/`**（内核发行物唯一声明点，
-  仅装入 `platform/.venv`；emb 不装）。重装 + 落位断言：`bash governance/ops/reinstall_editable.sh`。
+- 评估内核自 R30 Task 15（D12，2026-09-17）并入 **`platform/src/factorlab/core/eval/kernel.py`**
+  （单一实现；独立 quant-core dist/`kernels/` 壳已删除）。重装 + 落位断言：
+  `bash governance/ops/reinstall_editable.sh`（只装 factorlab）。
 - `projects/` 已随 R24 Task 11 归档移除：`_archive/2026-09-16-ashare-alpha3/`（R19/R20 已收编；2026-10-16 到期）。**新东西一律进三棵树。**
 - lob_fact 校准常量（W1 冻结值 + `pins.sha256` 金样）**不可改**：改动即让 192 测试与历史结论失效。

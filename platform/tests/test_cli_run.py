@@ -560,7 +560,7 @@ def test_run_multi_output_literal_signal_first_class(tmp_path, monkeypatch):
     import math
     import polars as pl
     from factorlab.core.eval.layered import layered_backtest
-    from factorlab.adapters.rust_ic import evaluate_factor_daily
+    from factorlab.adapters.ic_kernel import evaluate_factor_daily
     panel = pl.read_parquet(out_dir / "panel.parquet")
     weekly = pl.read_parquet(out_dir / "weekly.parquet")   # daily 模式 = 日频评估面板
     for o in ("signal", "neg"):

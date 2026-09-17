@@ -1,0 +1,6 @@
+R30 Task15 代码同一性（非 docstring AST 全等）
+old = HEAD:platform/kernels/quant_core/quant_core/__init__.py
+new = platform/src/factorlab/core/eval/kernel.py
+AST（去 docstring）全等: True
+行数: old=244 new=247
+PASS：迁移为纯代码搬移（仅模块/函数 docstring 与注释改动）

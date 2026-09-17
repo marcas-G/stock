@@ -15,8 +15,8 @@ import json
 import polars as pl
 import pytest
 
-import quant_core
-from factorlab.adapters.rust_ic import evaluate_factor_weekly
+from factorlab.adapters.ic_kernel import evaluate_factor_weekly
+from factorlab.core.eval.kernel import evaluate_factor
 from factorlab.app.context import RunContext
 from factorlab.app.evaluate import evaluate_run, publish_run
 from factorlab.core.engine.compute import FactorResult
@@ -50,7 +50,7 @@ def _spec(name, outputs=None):
 
 def test_spread_v2_positive_when_direction_consistent():
     """direction=+1 + 正相关 → v2 spread=(g9−g0)×dir > 0；旧 v1 公式值=新值取负。"""
-    r = quant_core.evaluate_factor(*_kernel_args(_monotone_panel()), "_factor", 1)
+    r = evaluate_factor(*_kernel_args(_monotone_panel()), "_factor", 1)
     groups = [g["mean_ret"] for g in r["decile_returns"]["groups"]]
     g0, g9 = groups[0], groups[9]
     assert g0 == pytest.approx(0.0005)   # 手算：signal {0,1}
@@ -63,8 +63,8 @@ def test_spread_v2_positive_when_direction_consistent():
 
 def test_spread_v2_direction_flip_still_negates():
     """direction 翻转仍翻转 spread（声明反向 → 负）；ic 统计不受方向影响。"""
-    up = quant_core.evaluate_factor(*_kernel_args(_monotone_panel()), "_factor", 1)
-    down = quant_core.evaluate_factor(*_kernel_args(_monotone_panel()), "_factor", -1)
+    up = evaluate_factor(*_kernel_args(_monotone_panel()), "_factor", 1)
+    down = evaluate_factor(*_kernel_args(_monotone_panel()), "_factor", -1)
     up_spread = up["decile_returns"]["spread"]["ret"]
     down_spread = down["decile_returns"]["spread"]["ret"]
     assert up_spread == pytest.approx(0.018)
@@ -75,9 +75,9 @@ def test_spread_v2_direction_flip_still_negates():
 
 def test_kernel_version_is_2_even_for_empty_panel():
     """口径版本随结果恒在：有数据 v2；空面板（全 nan 结构）同样 v2。"""
-    r = quant_core.evaluate_factor(*_kernel_args(_monotone_panel()), "_factor", 1)
+    r = evaluate_factor(*_kernel_args(_monotone_panel()), "_factor", 1)
     assert r["version"] == 2
-    empty = quant_core.evaluate_factor([], [], [], [], "_factor", 1)
+    empty = evaluate_factor([], [], [], [], "_factor", 1)
     assert empty["version"] == 2
     assert empty["n_weeks"] == 0
 
@@ -111,7 +111,7 @@ def test_evaluation_version_lands_in_summary_single_and_multi_output(tmp_path):
 
 
 def test_bridge_passthrough_keeps_version():
-    """桥接层不得吞/改 version（quant_core → evaluate_factor_weekly → evaluation）。"""
+    """桥接层不得吞/改 version（kernel → evaluate_factor_weekly → evaluation）。"""
     panel = _monotone_panel()
     ev = evaluate_factor_weekly(panel, "demo", 1)
     assert ev["version"] == 2

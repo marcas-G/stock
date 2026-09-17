@@ -89,6 +89,14 @@ MAP_PREFIX = [
     ("research/tools/", "platform/tools/"),
     # R24 脚本归位 governance/ops（旧 scripts/ 坐标仅历史引用）
     ("scripts/", "governance/ops/"),
+    # R30 Task 15（D12）：评估内核并入 core/eval、桥接改名、契约测试更名——
+    # 历史 finding 行按 append-only 不追改（实现/测试见 git 历史与新路径）。
+    ("kernels/quant_core/quant_core/__init__.py",
+     "platform/src/factorlab/core/eval/kernel.py"),
+    ("kernels/quant_core", "platform/src/factorlab/core/eval/kernel.py"),
+    ("adapters/rust_ic.py", "platform/src/factorlab/adapters/ic_kernel.py"),
+    ("tests/test_quant_core_shim.py", "platform/tests/test_eval_kernel.py"),
+    ("platform/tests/test_quant_core_shim.py", "platform/tests/test_eval_kernel.py"),
 ]
 WHITELIST = [
     (re.compile(r"^polars_ta/"),

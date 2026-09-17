@@ -26,7 +26,7 @@ from factorlab.core.engine.compute import FactorResult
 from factorlab.core.eval.alignment import align_weekly
 from factorlab.core.eval.layered import (WEEKS_PER_YEAR, degenerate_decile_groups,
                                          layered_backtest)
-from factorlab.adapters.rust_ic import evaluate_factor_daily, evaluate_factor_weekly
+from factorlab.adapters.ic_kernel import evaluate_factor_daily, evaluate_factor_weekly
 from factorlab.core.spec import FactorSpec
 
 # D9：daily 评估固定 1 日 forward（D11）；日频年化系数（250+ 交易日惯例 252）

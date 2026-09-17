@@ -6,11 +6,11 @@ import polars as pl
 
 WEEKS_PER_YEAR = 52
 DAILY_PERIODS_PER_YEAR = 252  # D9：日频年化系数（调用方可显式传 periods_per_year）
-MIN_STOCKS = 2  # 有效周最小股票数——与 quant_core.MIN_STOCKS 同值（契约 §3.1）；锁在测试中
+MIN_STOCKS = 2  # 有效周最小股票数——与 kernel.MIN_STOCKS 同值（契约 §3.1）；锁在测试中
 
 
 def degenerate_decile_groups(decile_returns: dict) -> list[int]:
-    """quant_core `decile_returns` 中"全期无有效收益"的组号（mean_ret 缺失或非有限）。
+    """kernel `decile_returns` 中"全期无有效收益"的组号（mean_ret 缺失或非有限）。
 
     R03-I3：离散/重并列信号经 average-rank 对称分位映射会**跳档**——某些 decile
     全期无成员，kernel 对这些组回填 NaN 且无告警（`layered_backtest.empty_groups`
@@ -125,7 +125,7 @@ def layered_backtest(
     - signal/forward_col 为 null **或 NaN** 的行不参与分档与收益（NaN 不是 null——
       polars rank 会把 NaN 当最大、NaN 均值传播为 NaN，必须显式 is_finite 剔除）；
       周内部分行无效的周仍计入期数；某周有效股票数 < MIN_STOCKS=2（全无效
-      或单股周）则该周不计入期数——与 quant_core 周频评估 n_weeks 口径一致
+      或单股周）则该周不计入期数——与 kernel 评估 n_weeks 口径一致
       （`bt["periods"] == evaluation["n_weeks"]`，锁在测试中）。
     - forward_col 默认 forward_return_5d（legacy 调用不变）；spec.target=20d 的评估
       传 forward_return_20d（标签与 5d 重叠属标签语义非缺陷）。
@@ -136,7 +136,7 @@ def layered_backtest(
         & pl.col(forward_col).is_not_null() & pl.col(forward_col).is_finite()
     )
     if df.height:
-        # 有效周口径（与 quant_core 一致）：≥ MIN_STOCKS 只有效股票的周才计入
+        # 有效周口径（与 kernel 一致）：≥ MIN_STOCKS 只有效股票的周才计入
         valid_weeks = df.group_by("date").len().filter(
             pl.col("len") >= MIN_STOCKS)["date"].to_list()
         df = df.filter(pl.col("date").is_in(valid_weeks))

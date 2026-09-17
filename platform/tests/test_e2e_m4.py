@@ -1,4 +1,4 @@
-"""M4b 端到端：真实平台库 + quant_core 周频评估 + 分层回测集成测试。"""
+"""M4b 端到端：真实平台库 + 内核周频评估 + 分层回测集成测试。"""
 import json
 
 import pytest
@@ -9,7 +9,7 @@ from factorlab.app.run import run_factor
 from factorlab.app.context import RunContext
 from factorlab.core.eval.alignment import align_weekly
 from factorlab.core.eval.layered import layered_backtest
-from factorlab.adapters.rust_ic import evaluate_factor_weekly
+from factorlab.adapters.ic_kernel import evaluate_factor_weekly
 from factorlab.core.spec import load_spec
 
 pytestmark = pytest.mark.integration
@@ -51,7 +51,7 @@ def test_e2e_real_factor_run(real_db_path, tmp_path):
     assert evaluation["n_weeks"] > 50  # 2 年 ≈ 104 周（有效周 98：头部窗口未满 4 周 + 尾部 2 周不计）
     assert evaluation["coverage"]["pct_valid"] > 0.5
     assert evaluation["ic"]["mean"] == evaluation["ic"]["mean"]  # 非 nan（真实数据 IC 可计算）
-    # 分层回测：同一周频对齐面板，回测期数 = 评估周数（无效周不计入，与 quant_core 口径一致）
+    # 分层回测：同一周频对齐面板，回测期数 = 评估周数（无效周不计入，与 kernel 口径一致）
     weekly = align_weekly(result.panel)
     bt = layered_backtest(weekly, 1)
     assert bt["periods"] == evaluation["n_weeks"]  # 回测期数 = 评估周数

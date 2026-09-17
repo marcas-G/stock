@@ -63,7 +63,7 @@ make gates                # 结构/契约/标记/旧路径/索引/台账口径 �
 - **当前生产读路径是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）：平台 duckdb 库不存在（teajoin token 过期，见 [governance/workspace/pending-items.md](governance/workspace/pending-items.md) #1）。
 - **`data/` 零改动**：任何操作都不得写入 `data/`；只读消费。
 - **重任务内存护栏**：全市场/分钟链 `factorlab run` 前设 `FACTORLAB_MAX_MEMORY=8GB`（显式设置即启用进程看门狗 + RLIMIT_AS 硬上限）——见 [knowledge/contracts/interface.md](knowledge/contracts/interface.md) §1「进程内存护栏」与 [AGENTS.md](AGENTS.md)「重任务运行协议」。
-- `projects/` 是历史遗留：合并前的两个旧克隆已于 2026-09-15 删除（R17）；`quant_core_shim` 已收编为 **`platform/kernels/quant_core/`**（R18）；`ashare_alpha3` 已收编完成（数据侧 R19 → `platform/tools/ashare_ingest/`，股票池段 R20 → `platform/tools/universe_stages/`），原 `projects/` 目录已于 R24 Task 11 归档至 `_archive/2026-09-16-ashare-alpha3/`（到期 2026-10-16）。**新东西一律进三棵树。**
+- `projects/` 是历史遗留：合并前的两个旧克隆已于 2026-09-15 删除（R17）；`quant_core_shim` 收编为 `platform/kernels/quant_core/`（R18）后，评估内核已于 2026-09-17（R30 Task 15/D12）并入 **`platform/src/factorlab/core/eval/kernel.py`**（独立 dist 删除）；`ashare_alpha3` 已收编完成（数据侧 R19 → `platform/tools/ashare_ingest/`，股票池段 R20 → `platform/tools/universe_stages/`），原 `projects/` 目录已于 R24 Task 11 归档至 `_archive/2026-09-16-ashare-alpha3/`（到期 2026-10-16）。**新东西一律进三棵树。**
 
 ## 文档地图
 

@@ -6,7 +6,7 @@
 - P-3 PanelStorePort  面板读取与枚举
 - P-4 FactSourcePort  事实灌入 + 对账（CH 写侧）
 - P-5 BatchOrchestrator 批算编排（flock/断点/看门狗/_SUCCESS）
-- P-6 EvalKernelPort  评估内核（quant_core 边界）
+- P-6 EvalKernelPort  评估内核（替换缝；单一实现 core.eval.kernel）
 """
 from factorlab.ports.batch import BatchOrchestrator, BatchReport, Result, Task
 from factorlab.ports.eval_kernel import EvalKernelPort

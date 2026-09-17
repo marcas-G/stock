@@ -1,0 +1,27 @@
+# Task 15 决策支持：Web/内核消费点核查（实现前）
+
+## web/app.py 的 import 与数据消费（迁移不影响：不 import 内核）
+1:from __future__ import annotations
+3:import json
+4:import math
+5:from datetime import datetime
+6:from pathlib import Path
+8:import polars as pl
+9:from fastapi import FastAPI, HTTPException
+10:from fastapi.responses import HTMLResponse
+11:from fastapi.staticfiles import StaticFiles
+12:from fastapi.templating import Jinja2Templates
+13:from starlette.requests import Request
+15:from factorlab.adapters import results_fs
+16:from factorlab.core.eval.ic_series import ic_series
+17:from factorlab.surfaces.web import charts
+
+## 内核位置引用（迁移前快照 f453c5f = Task 13 提交；platform/src + platform/tests）
+f453c5f:platform/CLAUDE.md:9:- 环境事实：Python 3.13 venv `.venv/`；重装 editable + 落位断言 `bash ../governance/ops/reinstall_editable.sh`（评估内核 `platform/kernels/quant_core/`）。
+f453c5f:platform/kernels/quant_core/quant_core/__init__.py:5:本包位置：`platform/kernels/quant_core/`——**内核发行物的唯一声明点**；
+f453c5f:platform/pyproject.toml:43:quant-core = { path = "kernels/quant_core" }
+f453c5f:platform/uv.lock:483:    { name = "quant-core", directory = "kernels/quant_core" },
+f453c5f:platform/uv.lock:1242:source = { directory = "kernels/quant_core" }
+---
+f453c5f:platform/src/factorlab/ports/eval_kernel.py:4:端口化后核只面向本契约，适配器（adapters/rust_ic.py，WS5）持有 quant_core 依赖。
+f453c5f:platform/src/factorlab/ports/eval_kernel.py:5:实现者：adapters/rust_ic.RustICKernel（WS5）、tests/_doubles.FixedEvalKernel。

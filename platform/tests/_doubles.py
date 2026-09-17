@@ -166,7 +166,7 @@ class InlineOrchestrator:
 
 
 class FixedEvalKernel:
-    """P-6 内存桩：固定返回 + 与 rust_ic 同向的缺列校验（缺列 → ValueError 点名）。"""
+    """P-6 内存桩：固定返回 + 与 ic_kernel 同向的缺列校验（缺列 → ValueError 点名）。"""
 
     def __init__(self, result: dict | None = None):
         self.result = dict(result or {})

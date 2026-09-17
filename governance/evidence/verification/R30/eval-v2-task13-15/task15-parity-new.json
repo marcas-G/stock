@@ -1,0 +1,257 @@
+{
+ "low_vol_20d": {
+  "panel_sha256": "146df1986f80486388c3e2484d99d3958c421ed57a2c44f1b99a38793289f8a6",
+  "direction": 1,
+  "rows": 896750,
+  "result": {
+   "version": 2,
+   "factor": "_factor",
+   "target": "forward_return_5d",
+   "direction": 1,
+   "n_weeks": 178,
+   "n_stocks_avg": "5037.921348314607",
+   "ic": {
+    "mean": "0.07007485259689888",
+    "std": "0.22826811089508384",
+    "t_stat": "4.095688789051659",
+    "ir": "0.30698485356593047",
+    "n_weeks": 178,
+    "recent_26w_mean": "0.08433017578054552",
+    "recent_26w_t": "1.7062795668691169",
+    "sign_consistent": "0.601123595505618"
+   },
+   "pearson_ic": {
+    "mean": "0.016719672975505476",
+    "t_stat": "1.206316741434878"
+   },
+   "decile_returns": {
+    "weighting": "equal_weight",
+    "monotonic": true,
+    "spread": {
+     "ret": "0.002142922250706159"
+    },
+    "groups": [
+     {
+      "group": 0,
+      "mean_ret": "-0.00045470732691831034"
+     },
+     {
+      "group": 1,
+      "mean_ret": "0.0023962311013814106"
+     },
+     {
+      "group": 2,
+      "mean_ret": "0.002563587990667152"
+     },
+     {
+      "group": 3,
+      "mean_ret": "0.0027563460715018906"
+     },
+     {
+      "group": 4,
+      "mean_ret": "0.003057707322283716"
+     },
+     {
+      "group": 5,
+      "mean_ret": "0.0030445186277638938"
+     },
+     {
+      "group": 6,
+      "mean_ret": "0.0031187210883853295"
+     },
+     {
+      "group": 7,
+      "mean_ret": "0.002716480089044488"
+     },
+     {
+      "group": 8,
+      "mean_ret": "0.00199701998247027"
+     },
+     {
+      "group": 9,
+      "mean_ret": "0.0016882149237878487"
+     }
+    ]
+   },
+   "turnover": {
+    "monthly": "0.7606745293616993",
+    "quarterly": "0.804011367494198"
+   },
+   "coverage": {
+    "pct_valid": "1.0",
+    "total_rows": 896750,
+    "valid_rows": 896750
+   }
+  }
+ },
+ "max_effect_20d_high": {
+  "panel_sha256": "551e1ffc46d5ecd8949a1018e67786132482a8d9e7310e3e6a58b75a9278c632",
+  "direction": -1,
+  "rows": 896750,
+  "result": {
+   "version": 2,
+   "factor": "_factor",
+   "target": "forward_return_5d",
+   "direction": -1,
+   "n_weeks": 178,
+   "n_stocks_avg": "5037.921348314607",
+   "ic": {
+    "mean": "-0.06990199193229453",
+    "std": "0.18656307562893418",
+    "t_stat": "-4.998893219518214",
+    "ir": "-0.37468288779354464",
+    "n_weeks": 178,
+    "recent_26w_mean": "-0.07528175101763804",
+    "recent_26w_t": "-1.7190067330436434",
+    "sign_consistent": "0.3595505617977528"
+   },
+   "pearson_ic": {
+    "mean": "-0.015100168279920638",
+    "t_stat": "-1.303603139801755"
+   },
+   "decile_returns": {
+    "weighting": "equal_weight",
+    "monotonic": false,
+    "spread": {
+     "ret": "0.0013626720151910985"
+    },
+    "groups": [
+     {
+      "group": 0,
+      "mean_ret": "0.002486126856488325"
+     },
+     {
+      "group": 1,
+      "mean_ret": "0.002183748423085346"
+     },
+     {
+      "group": 2,
+      "mean_ret": "0.002913199662581355"
+     },
+     {
+      "group": 3,
+      "mean_ret": "0.0033218551426283"
+     },
+     {
+      "group": 4,
+      "mean_ret": "0.002960433212818742"
+     },
+     {
+      "group": 5,
+      "mean_ret": "0.002990474343812662"
+     },
+     {
+      "group": 6,
+      "mean_ret": "0.0026810566904773223"
+     },
+     {
+      "group": 7,
+      "mean_ret": "0.00117120018557717"
+     },
+     {
+      "group": 8,
+      "mean_ret": "0.001052660605685826"
+     },
+     {
+      "group": 9,
+      "mean_ret": "0.0011234548412972266"
+     }
+    ]
+   },
+   "turnover": {
+    "monthly": "0.7759366422944691",
+    "quarterly": "0.8215418325113102"
+   },
+   "coverage": {
+    "pct_valid": "1.0",
+    "total_rows": 896750,
+    "valid_rows": 896750
+   }
+  }
+ },
+ "intraday_high_time": {
+  "panel_sha256": "0942ff573157b4f7449642a501eee0e234d4a5ba736c94b503657476f416191b",
+  "direction": -1,
+  "rows": 124924,
+  "result": {
+   "version": 2,
+   "factor": "_factor",
+   "target": "forward_return_5d",
+   "direction": -1,
+   "n_weeks": 27,
+   "n_stocks_avg": "4626.62962962963",
+   "ic": {
+    "mean": "-0.018879508695210115",
+    "std": "0.25460098112964774",
+    "t_stat": "-0.3853119670272289",
+    "ir": "-0.07415332262838494",
+    "n_weeks": 27,
+    "recent_26w_mean": "-0.025599537121251268",
+    "recent_26w_t": "-0.5075343714780179",
+    "sign_consistent": "0.5555555555555556"
+   },
+   "pearson_ic": {
+    "mean": "-0.04746507968341174",
+    "t_stat": "-1.0540120990373125"
+   },
+   "decile_returns": {
+    "weighting": "equal_weight",
+    "monotonic": false,
+    "spread": {
+     "ret": "0.0027323423155765814"
+    },
+    "groups": [
+     {
+      "group": 0,
+      "mean_ret": "-0.00033543109002571417"
+     },
+     {
+      "group": 1,
+      "mean_ret": "-0.011167138406053644"
+     },
+     {
+      "group": 2,
+      "mean_ret": "7.330068314970349e-05"
+     },
+     {
+      "group": 3,
+      "mean_ret": "-0.013604173905553588"
+     },
+     {
+      "group": 4,
+      "mean_ret": "-0.0028453697187024673"
+     },
+     {
+      "group": 5,
+      "mean_ret": "-0.025255803414821632"
+     },
+     {
+      "group": 6,
+      "mean_ret": "-0.0054214154491603085"
+     },
+     {
+      "group": 7,
+      "mean_ret": "-0.0035507163959023692"
+     },
+     {
+      "group": 8,
+      "mean_ret": "-0.0039058504097184764"
+     },
+     {
+      "group": 9,
+      "mean_ret": "-0.0030677734056022954"
+     }
+    ]
+   },
+   "turnover": {
+    "monthly": "0.8986136600945952",
+    "quarterly": "0.9107931630497408"
+   },
+   "coverage": {
+    "pct_valid": "1.0",
+    "total_rows": 124924,
+    "valid_rows": 124924
+   }
+  }
+ }
+}

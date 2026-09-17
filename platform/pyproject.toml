@@ -28,7 +28,8 @@ dependencies = [
     "psutil>=7.2",
     "pandas>=2",   # tools/ 直用（45 文件；此前只经 polars-ta 传递覆盖——R29 uv lock 显式声明）
     "openpyxl>=3.1",  # tools/ashare_ingest/import_daily 的 xlsx 解析（R29 uv lock 暴露缺失）
-    "quant-core>=0.1.0",  # Rust 评估内核（PyO3；源见 quant-data 项目归档，本仓库仅声明）
+    # R30 Task 15（D12）：评估内核并入 factorlab.core.eval.kernel——独立 quant-core
+    # dist/`kernels/` 壳删除，不再有第二份内核声明
 ]
 
 [project.optional-dependencies]
@@ -37,10 +38,6 @@ dev = ["pytest>=8", "pytest-cov>=6"]
 
 [project.scripts]
 factorlab = "factorlab.surfaces.cli.main:app"
-
-[tool.uv.sources]
-# R29：本地评估内核（不在 PyPI）——uv lock 解析用；不影响 pip/editable 安装路径
-quant-core = { path = "kernels/quant_core" }
 
 [tool.setuptools.packages.find]
 where = ["src"]

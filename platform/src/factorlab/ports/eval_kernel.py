@@ -1,8 +1,9 @@
-"""P-6 评估内核端口：周频 IC 评估的替换缝（quant_core 边界）。
+"""P-6 评估内核端口：IC 评估的替换缝（单一实现 `core.eval.kernel` 的端口契约）。
 
-现状 `eval/rust_ic.evaluate_factor_weekly` 在函数体内 import quant_core；
-端口化后核只面向本契约，适配器（adapters/rust_ic.py，WS5）持有 quant_core 依赖。
-实现者：adapters/rust_ic.RustICKernel（WS5）、tests/_doubles.FixedEvalKernel。
+R30 Task 15（D12）：原外置 quant_core 已并入 `factorlab.core.eval.kernel`；
+本端口保留——适配器 `adapters/ic_kernel.py` 面向本契约暴露内核能力，
+未来的任何实现（含真正外置的加速内核）只需满足本协议即可替换。
+实现者：adapters.ic_kernel.IcKernel、tests/_doubles.FixedEvalKernel。
 """
 from __future__ import annotations
 

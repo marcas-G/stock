@@ -177,7 +177,7 @@ formula: |
 | `params` | 顶层参数映射（number/str/bool，可选） | 公式内 `${name}` 引用；`run --set k=v` 覆盖生成变体（§2.6） |
 | `adjustment` | raw/qfq/hfq/pit_qfq | **默认 qfq**（除权日不假崩）；价差类因子可试 raw；pit_qfq 用于严格防未来研究 |
 | `process` | 处理链 | 推荐 `winsorize(quantile=0.99) → standardize()` 基线；neutralize 按需（行业/市值） |
-| `target` | forward_return_5d（当前） | 20d 暂未接线（quant_core 固定 5d） |
+| `target` | forward_return_5d（weekly 对照模式用；默认 5d） | daily（默认）评估固定 `forward_return_1d`（D11）；weekly 模式消费 `target`（5d/20d，见 interface 评估节） |
 
 ### 3.2 process 链组合
 

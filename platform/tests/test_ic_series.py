@@ -110,11 +110,11 @@ def test_weekly_ic_missing_target_column():
         weekly_ic(_panel().drop("forward_return_5d"))
 
 
-# ── R01-EVAL-C2：NaN 行剔除（与 quant_core is_finite 同口径）──
+# ── R01-EVAL-C2：NaN 行剔除（与 kernel is_finite 同口径）──
 def test_weekly_ic_nan_rows_excluded_matches_kernel():
     """R01-EVAL-C2：NaN 不是 null——weekly_ic 必须按 is_finite 剔除，
-    与 quant_core（同 web 同页 summary 的 kernel）逐周数值一致。"""
-    import quant_core
+    与 kernel（同 web 同页 summary 的实现）逐周数值一致。"""
+    from factorlab.core.eval.kernel import evaluate_factor
     rows = []
     for w in range(4):
         d = datetime.date(2024, 1, 5) + datetime.timedelta(weeks=w)
@@ -127,7 +127,7 @@ def test_weekly_ic_nan_rows_excluded_matches_kernel():
     wic = weekly_ic(panel)
     assert wic["ic"].to_list() == pytest.approx([1.0, 1.0, 1.0, 1.0])
     assert wic["ic"].null_count() == 0
-    kernel = quant_core.evaluate_factor(
+    kernel = evaluate_factor(
         panel["date"].dt.strftime("%Y-%m-%d").to_list(), panel["code"].to_list(),
         panel["signal"].to_list(), panel["forward_return_5d"].to_list(), "_factor", 1)
     assert float(wic["ic"].mean()) == pytest.approx(kernel["ic"]["mean"], abs=1e-12)
@@ -149,7 +149,7 @@ def test_weekly_ic_infinite_signal_excluded():
 def test_weekly_ic_constant_week_null_like_kernel_stat():
     """R01-EVAL-C2：常数 target 周秩相关退化 → weekly_ic null（不参与统计），
     kernel 也不把它计入 IC 统计（两边 stats 一致）。"""
-    import quant_core
+    from factorlab.core.eval.kernel import evaluate_factor
     rows = []
     for w in range(3):
         d = datetime.date(2024, 1, 5) + datetime.timedelta(weeks=w)
@@ -161,7 +161,7 @@ def test_weekly_ic_constant_week_null_like_kernel_stat():
     wic = weekly_ic(panel)
     assert wic["ic"].to_list()[1] is None  # week1 退化 → null（不进统计）
     finite = wic["ic"].drop_nulls()
-    kernel = quant_core.evaluate_factor(
+    kernel = evaluate_factor(
         panel["date"].dt.strftime("%Y-%m-%d").to_list(), panel["code"].to_list(),
         panel["signal"].to_list(), panel["forward_return_5d"].to_list(), "_factor", 1)
     assert float(finite.mean()) == pytest.approx(kernel["ic"]["mean"], abs=1e-12)

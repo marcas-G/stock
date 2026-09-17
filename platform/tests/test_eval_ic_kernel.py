@@ -4,7 +4,7 @@ import random
 import polars as pl
 import pytest
 
-from factorlab.adapters.rust_ic import evaluate_factor_weekly
+from factorlab.adapters.ic_kernel import evaluate_factor_weekly
 
 
 def _panel(weeks=12, stocks=10, seed=7):
@@ -54,7 +54,7 @@ def test_evaluate_factor_weekly_missing_columns():
 
 
 def test_evaluate_factor_weekly_null_rows_filtered():
-    # quant_core 拒绝 None（实测 TypeError）；桥接层须过滤 null 行。
+    # 内核拒绝 None（实测 TypeError）；桥接层须过滤 null 行。
     # 停牌补全（signal null）与尾部无未来数据（forward null）是真实管线常态。
     # R03-I2：coverage 以**过滤前**对齐面板为口径——null 行计入 total 不计入 valid，
     # 恒 1.0 的旧口径与同一 summary 的 signal_null_ratio 矛盾（误导）。
@@ -102,7 +102,7 @@ def test_evaluate_factor_weekly_coverage_nan_counts_invalid():
 
 
 def test_evaluate_factor_weekly_empty_panel():
-    # 空面板（列齐全、类型正确）：不崩溃，quant_core 返回 nan 结构
+    # 空面板（列齐全、类型正确）：不崩溃，内核返回 nan 结构
     panel = pl.DataFrame(schema={
         "date": pl.Date, "code": pl.String, "signal": pl.Float64, "forward_return_5d": pl.Float64,
     })
@@ -144,7 +144,7 @@ def _panel_dual(weeks=12, stocks=10, seed=7):
 
 def test_evaluate_factor_weekly_target_20d():
     # target 参数贯通：IC 数值对 20d 列成立（20d 与 signal 负相关 → 符号与 5d 相反）。
-    # quant_core 回填恒为 5d 时 target 断言必败（桥接层权威覆盖的证据）
+    # 内核回填恒为 5d 时 target 断言必败（桥接层权威覆盖的证据）
     panel = _panel_dual()
     five = evaluate_factor_weekly(panel, "demo", 1)  # 默认 5d
     twenty = evaluate_factor_weekly(panel, "demo", 1, target="forward_return_20d")

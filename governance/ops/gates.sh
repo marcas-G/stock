@@ -172,15 +172,10 @@ structure() {
     "") bad "平台 venv 无法 import factorlab" ;;
     *) bad "factorlab 解析到 $resolved（应为 platform/src）" ;;
   esac
-  # quant_core：正向（落 platform/kernels/quant_core）+ **反向**（不得再指回 projects/*
-  # —— R18 前它以 editable 写死 projects/quant_core_shim，残留 finder 会让正向也"看似"成立）。
+  # R30 Task 15（D12）：评估内核并入 platform/src/factorlab/core/eval/kernel.py——
+  # 反向断言独立 quant-core dist/旧 editable finder（projects/）不得复活。
   qc=$("$PLATFORM/.venv/bin/python" -c "import quant_core;print(quant_core.__file__)" 2>/dev/null || echo "")
-  case "$qc" in
-    "$ROOT/platform/kernels/quant_core/quant_core/__init__.py") ok "quant_core → platform/kernels ✓" ;;
-    "") bad "平台 venv 无法 import quant_core（评估内核缺失 → test_eval_rust_ic 会红）" ;;
-    *) bad "quant_core 解析到 $qc（应为 platform/kernels/quant_core）" ;;
-  esac
-  case "$qc" in *"/projects/"*) bad "quant_core 仍解析到 projects/ 下（旧 editable finder 残留）" ;; esac
+  if [ -n "$qc" ]; then bad "quant_core 仍可 import（$qc）——独立内核 dist 应已删除（D12）"; else ok "quant_core 独立包已删除（内核并入 factorlab）✓"; fi
 }
 
 # ── 数据接口门（R4 前为报告模式）────────────────────────────────

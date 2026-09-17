@@ -1,0 +1,56 @@
+platform/.venv/bin/python -m pytest platform/tools -q
+........................................................................ [ 13%]
+........................................................................ [ 27%]
+........................................................................ [ 40%]
+........................................................................ [ 54%]
+........................................................................ [ 67%]
+........................................................................ [ 81%]
+........................................................................ [ 95%]
+..........................                                               [100%]
+530 passed in 50.95s
+platform/.venv/bin/python -m pytest research/tools -q
+FF...........................................................            [100%]
+=================================== FAILURES ===================================
+_________________________ test_index_matches_generator _________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2375/test_index_matches_generator0')
+
+    def test_index_matches_generator(tmp_path):
+        """门：knowledge/index/factors.md 必须与生成器输出逐字节一致（防手改/陈旧）。"""
+        assert BI.OUT.is_file(), "索引不存在——先跑 build_index.py"
+>       assert BI.OUT.read_text(encoding="utf-8") == BI.render()
+E       AssertionError: assert '# 因子索引（自动生成，...dardize() |\n' == '# 因子索引（自动生成，...dardize() |\n'
+E         
+E         Skipping 88 identical leading characters in diff, use -v to show
+E           ）。
+E         - > 共 **196 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+E         ?        ^^
+E         + > 共 **177 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+E         ?        ^^...
+E         
+E         ...Full output truncated (357 lines hidden), use '-vv' to show
+
+research/tools/factor_lib/tests/test_index.py:26: AssertionError
+_______________ test_every_yaml_has_mirror_doc_and_name_matches ________________
+
+    def test_every_yaml_has_mirror_doc_and_name_matches():
+        """yaml ↔ md 一一镜像；档案 front-matter 的 xname 必须等于 spec.name。"""
+        specs = BI.load_specs()
+        # 原集 ≥152（只增不删——挖矿循环持续新增因子并逐轮归档；低于 152 说明有删除，
+        # 必须显式确认。R04 后 `_` 前缀目录/文件为元数据，不计入）
+        assert len(specs) >= 152, f"因子数少于原集 152（{len(specs)}）——有删除？"
+        for s in specs:
+            md = ROOT / s["md"]
+>           assert md.is_file(), f"缺档案 {s['md']}"
+E           AssertionError: 缺档案 knowledge/dossiers/factors/intraday/am_pm_vol.md
+E           assert False
+E            +  where False = is_file()
+E            +    where is_file = PosixPath('/data/students/gaolei/stock/knowledge/dossiers/factors/intraday/am_pm_vol.md').is_file
+
+research/tools/factor_lib/tests/test_index.py:37: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/factor_lib/tests/test_index.py::test_index_matches_generator
+FAILED research/tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches
+2 failed, 59 passed in 10.72s
+Makefile:21: recipe for target 'test-research' failed
+make: *** [test-research] Error 1

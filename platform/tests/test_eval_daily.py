@@ -21,7 +21,7 @@ import statistics
 import polars as pl
 import pytest
 
-from factorlab.adapters.rust_ic import evaluate_factor_weekly
+from factorlab.adapters.ic_kernel import evaluate_factor_weekly
 from factorlab.app.context import RunContext
 from factorlab.app.evaluate import evaluate_run
 from factorlab.core.engine.compute import FactorResult
@@ -139,7 +139,7 @@ def test_daily_path_never_calls_align_weekly(monkeypatch):
         raise AssertionError("daily 路径不得调用 align_weekly")
 
     monkeypatch.setattr("factorlab.app.evaluate.align_weekly", spy, raising=True)
-    monkeypatch.setattr("factorlab.adapters.rust_ic.align_weekly", spy, raising=True)
+    monkeypatch.setattr("factorlab.adapters.ic_kernel.align_weekly", spy, raising=True)
 
     panel = _ic_panel()
     spec = _spec()

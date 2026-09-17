@@ -189,16 +189,15 @@ def test_eval_kernel_contract():
                    forward_return_5d=pl.Series([0.02], dtype=pl.Float64))
     out = k.evaluate(panel, "f1", direction=1, target="forward_return_5d")
     assert out["ic_mean"] == 0.03
-    # 负行为：缺列 → ValueError 点名（与 rust_ic 现有语义一致）
+    # 负行为：缺列 → ValueError 点名（与 ic_kernel 现有语义一致）
     with pytest.raises(ValueError, match="缺少|missing|列"):
         k.evaluate(_frame(), "f1", direction=1, target="forward_return_5d")
 
 
-def test_eval_kernel_real_rust_impl_satisfies_protocol():
-    """P-6 真实实现（quant_core 桥接）结构化满足端口（缺 quant_core → skip）。"""
-    pytest.importorskip("quant_core", reason="quant_core 未安装")
-    from factorlab.adapters.rust_ic import RustICKernel
-    k = RustICKernel()
+def test_eval_kernel_real_impl_satisfies_protocol():
+    """P-6 真实实现（core.eval.kernel 桥接）结构化满足端口（合并后无 skip 条件）。"""
+    from factorlab.adapters.ic_kernel import IcKernel
+    k = IcKernel()
     assert isinstance(k, EvalKernelPort)
     out = k.evaluate(_frame(signal=pl.Series([0.1], dtype=pl.Float64),
                             forward_return_5d=pl.Series([0.02], dtype=pl.Float64)),

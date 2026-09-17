@@ -1,33 +1,37 @@
-"""quant_core 评估内核的 Python shim（契约一致的参考实现）。
+"""评估内核：单因子统计的纯计算实现（P-6 EvalKernelPort 的参考实现）。
 
-契约文档：`knowledge/design/platform/specs/2026-08-26-quant-core-contract.md`
-（R18 从 git 侧枝取回入树；带"勘误与位置变更"头块，正文不改）。
-本包位置：`platform/kernels/quant_core/`——**内核发行物的唯一声明点**；
-Rust 内核完成后在**同目录换 build backend**（同名包，`import quant_core` 无缝切换），
-不得在别处再声明第二份同名 dist。
+来源：原独立 `quant_core` shim 于 R30 Task 15（D12 单一实现裁决）整体并入
+`factorlab.core.eval`——**平台内唯一一份评估内核**；独立 dist 与 `kernels/` 壳已删除。
+历史契约文档：`knowledge/design/platform/specs/2026-08-26-quant-core-contract.md`
+（带"勘误与位置变更"头块；模块内的统计口径修正以本文件 docstring 为准）。
+
+使用方式：`adapters.ic_kernel` 的频率分支桥接（daily 面板原样 / weekly 周频对齐后）
+过滤 null 行并调用；`app.evaluate` 装配结果落盘。本模块无 I/O、不 import factorlab
+其他层（纯函数）。
 
 忠实度声明（实现依据分两级）：
 - **实测确认**（m4a 文档 + 平台桥接测试固化）：
   ic{mean,std,t_stat,ir,n_weeks}、decile spread 随 direction 翻转、n_weeks、
   coverage{pct_valid,total_rows,valid_rows}、None → TypeError("must be real number")、
   空面板全 nan 结构、NaN 容忍不崩溃、direction 0 → -1、target 固定 forward_return_5d。
-- **合理假设**（Rust 版校准）：
-  recent_26w_mean/recent_26w_t（最后 ≤26 周子窗口）、sign_consistent（正 IC 周占比）、
-  turnover{monthly,quarterly}（相邻 4/12 周桶间 decile 组归属变化比例）、
+- **合理假设**（早期契约校准）：
+  recent_26w_mean/recent_26w_t（最后 ≤26 期子窗口）、sign_consistent（正 IC 期占比）、
+  turnover{monthly,quarterly}（相邻 4/12 期桶间 decile 组归属变化比例）、
   weighting="equal_weight"、monotonic（组均值与组号 spearman 符号）、
-  NaN 行视为无效观测、有效周 = ≥2 只有效股票（秩相关退化周计入 n_weeks 但不参与 IC 统计）。
+  NaN 行视为无效观测、有效期 = ≥2 只有效股票（秩相关退化期计入 n_weeks 但不参与 IC 统计）。
 - **R01-EVAL-I7/I8 统计口径修正**（2026-09-15，契约 §3.1/§6 待勘误）：
-  t_stat/pearson t_stat/sign_consistent 的分母 = **IC 可计算周数 n_ok**（退化周不进
-  统计分母；n_weeks 字段仍按契约含退化周）；decile 用 **average rank** 对称分位映射
+  t_stat/pearson t_stat/sign_consistent 的分母 = **IC 可计算期数 n_ok**（退化期不进
+  统计分母；n_weeks 字段仍按契约含退化期）；decile 用 **average rank** 对称分位映射
   `floor((2·avg_rank−1)·10/(2·n))`（并列同档、行序无关；无并列 n=10 时与旧
   ordinal 公式等价，§4.3 向量不变）。
 - **R30 D1=B 口径修订**（2026-09-17）：`decile_returns.spread.ret = (g9−g0)×direction`
   （**正=表现与声明方向一致**；v1 为 `(g0−g9)×direction` 负=自洽）。结果带
   `version=2` 供下游区分历史 v1 产物（历史 summary 不重算，按 interface 迁移节）。
+- **D9 日频口径**（R30 Task 13）：内核周期无关——daily 桥接传入逐日面板时，
+  `n_weeks`/`recent_26w` 等键的"期"=交易日。
 
-周度 spearman 与平台 `factorlab.core.eval.ic_series.weekly_ic` 同源（pl.corr spearman，
-MIN_STOCKS=3）——逐期对拍测试见平台 `tests/test_quant_core_shim.py`（10 项，含逐期对拍；
-R18 已把该文件与契约文档一并取回入树——此前它们只存在于 git 侧枝，指针是悬空的）。
+逐期 spearman 与平台 `factorlab.core.eval.ic_series.ic_series` 同源（pl.corr spearman，
+MIN_STOCKS=3）——逐期对拍测试见平台 `tests/test_eval_kernel.py`。
 """
 
 from __future__ import annotations
@@ -38,12 +42,12 @@ import polars as pl
 
 __version__ = "0.1.0"
 
-# 有效周 = 至少 MIN_STOCKS 只有效股票的周（秩相关的最小可计算点）。
-# 注意与平台 weekly_ic 的 MIN_STOCKS=3 差异：quant_core 实测对 2 只股票的周仍计数
-# （平台 CLI 测试 2 只股票断言 n_weeks>=1）；weekly_ic 的 3 是稳健性选择，
+# 有效期 = 至少 MIN_STOCKS 只有效股票的期（秩相关的最小可计算点）。
+# 注意与平台 ic_series 的 MIN_STOCKS=3 差异：本内核实测对 2 只股票的期仍计数
+# （平台 CLI 测试 2 只股票断言 n_weeks>=1）；ic_series 的 3 是稳健性选择，
 # 对拍测试构造 ≥3 只面板避免语义分叉。
 MIN_STOCKS = 2
-TARGET = "forward_return_5d"  # quant_core 内部固定 target（契约，m4a 局限记录）
+TARGET = "forward_return_5d"  # 内核固定回填列名（契约，m4a 局限记录；桥接层权威覆盖）
 _NAN = float("nan")
 
 
@@ -62,9 +66,9 @@ def _t_stat(mean: float, std: float, n: int) -> float:
 
 
 def _turnover(df: pl.DataFrame, window: int) -> float:
-    """相邻桶（window 周/桶）间 decile 组归属变化比例（假设公式，Rust 版校准）。
+    """相邻桶（window 期/桶）间 decile 组归属变化比例（假设公式，早期契约校准）。
 
-    每股票取每个桶内**最后一周**的 decile 归属；相邻桶对中共同股票
+    每股票取每个桶内**最后一期**的 decile 归属；相邻桶对中共同股票
     归属变化的占比；不足 2 个桶 → nan。
     """
     if df.is_empty():
@@ -101,11 +105,10 @@ def evaluate_factor(
     factor: str = "_factor",
     direction: int = 1,
 ) -> dict:
-    """周频评估（契约签名）。
+    """逐期评估（契约签名；期=daily 的交易日 / weekly 的 ISO 周）。
 
-    参数（quant_core 内部列名约定，桥接层 rust_ic.evaluate_factor_weekly 已周频对齐并
-    过滤 null 行后传入）：
-    - dates: 每周观测日期，'%Y-%m-%d'（周内同日期的股票为同一横截面）。
+    参数（内部列名约定；桥接层 `adapters.ic_kernel` 已按频率对齐并过滤 null 行后传入）：
+    - dates: 每个评估期的观测日期，'%Y-%m-%d'（同期同日期为同一横截面）。
     - codes: 股票代码（与 dates/signals/fwd 等长）。
     - signals: 因子值。None → TypeError("must be real number")（实测契约）；
       NaN 容忍（视为无效观测，假设）。
@@ -157,7 +160,7 @@ def evaluate_factor(
         return result
 
     df = pl.DataFrame({"date": dates, "code": codes, "signal": signals, "fwd": fwd})
-    # NaN 视为无效观测（假设；Rust 实测仅"容忍不崩溃"，精确语义待校准）
+    # NaN 视为无效观测（假设；实测仅"容忍不崩溃"，精确语义待校准）
     df = df.filter(pl.col("signal").is_finite() & pl.col("fwd").is_finite())
     result["coverage"]["valid_rows"] = df.height
     result["coverage"]["pct_valid"] = round(df.height / rows, 4) if rows else 0.0

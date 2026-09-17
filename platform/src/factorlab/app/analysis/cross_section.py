@@ -39,7 +39,7 @@ def _weekly_samples(wide: pl.DataFrame, response: str, regressors: list[str],
     """逐周产出 (date, Z, y, fwd)。
 
     - 行过滤：response/regressors/fwd 全列 `is_not_null & is_finite`
-      （NaN 非 null——polars 语义陷阱，rust_ic 已记载真实数据含 NaN）。
+      （NaN 非 null——polars 语义陷阱，ic_kernel 已记载真实数据含 NaN）。
     - 样本 < min_rows 的周整周跳过。
     - Z = [1, regressors...] float64（含截距）；y = response 列。
     """

@@ -4,7 +4,7 @@ import math
 import polars as pl
 import pytest
 
-from factorlab.adapters.rust_ic import evaluate_factor_weekly
+from factorlab.adapters.ic_kernel import evaluate_factor_weekly
 from factorlab.core.eval.layered import degenerate_decile_groups, layered_backtest
 
 
@@ -87,7 +87,7 @@ def test_layered_backtest_empty_panel():
 
 def test_layered_backtest_dead_week_excluded():
     # signal/forward 全 null 的周（头部窗口未满/尾部无未来收益）不计入回测期数
-    # ——与 quant_core 周频评估的 n_weeks 口径一致（有效周才计）
+    # ——与 kernel 评估的 n_weeks 口径一致（有效周才计）
     panel = _weekly_panel(weeks=3)  # 3 周有效
     dead = pl.DataFrame({
         "date": [datetime.date(2024, 2, 2), datetime.date(2024, 2, 2)],
@@ -330,11 +330,11 @@ def test_layered_backtest_two_stock_week_counted_like_kernel():
 
 
 def test_layered_min_stocks_constant_matches_kernel():
-    """I6 的常量同步锁：layered.MIN_STOCKS 与 quant_core.MIN_STOCKS 必须同值
+    """I6 的常量同步锁：layered.MIN_STOCKS 与 kernel.MIN_STOCKS 必须同值
     （否则 periods == n_weeks 的承诺会随 kernel 改动静默失效）。"""
-    import quant_core
+    from factorlab.core.eval.kernel import MIN_STOCKS as KERNEL_MIN_STOCKS
     from factorlab.core.eval.layered import MIN_STOCKS
-    assert MIN_STOCKS == quant_core.MIN_STOCKS
+    assert MIN_STOCKS == KERNEL_MIN_STOCKS
 
 
 # ── R03-I3：离散/重并列信号 → average-rank 分位跳档（组全期无收益）不得静默 ──
