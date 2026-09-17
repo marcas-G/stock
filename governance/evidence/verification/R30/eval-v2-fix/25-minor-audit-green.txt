@@ -1,0 +1,7 @@
+# 复评 Minor 收口——绿相证据（实现后）
+# 命令: cd platform && .venv/bin/python -m pytest -q tests/test_dead_signal.py tests/test_m6_semantic_guards.py tests/test_cli_run.py tests/test_run_factor.py tests/test_artifact_persistence.py tests/test_evaluate_notes.py tests/test_eval_docs.py tests/test_minute_engine.py
+
+........................................................................ [ 70%]
+........................................................................ [ 94%]
+..................                                                       [100%]
+306 passed in 90.48s (0:01:30)

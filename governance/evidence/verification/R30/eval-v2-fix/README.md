@@ -71,3 +71,18 @@ platform/.venv/bin/python governance/evidence/verification/R30/eval-v2-fix/pendi
 
 signal.parquet 两口径均保持 `[date, code, signal]` 单列契约；market_cap panel
 新增 `total_mv`（`16-e1-mc-summary-check.txt`）。
+
+## 复评 Minor 收口（2026-09-17，复评 PASS 后 3 项口径一致性）
+
+| # | Minor | 处置 | 证据 |
+|---|---|---|---|
+| M1 | 多输出 `summary.signals[o].null_ratio` 只数 null（`run.py:652` 日频 / `:995` 分钟链）——与 D5（null/非有限同判死）口径分裂 | 单点改用 `signal_invalid_ratio(frame, o)`；新增日频+分钟链多输出真跑测试（恒 inf 输出 → 1.0，全有限输出 → 0.0） | `24-minor-audit-red.txt`、`25-minor-audit-green.txt` |
+| M2 | `app/evaluate.py` docstring 与 `DeadSignalError` 文案「null 行占比/（{null_rows}/{total_rows} 行为空）」——全 NaN 面板输出 `1.0 ≥ 0.99（0/200 行为空）` 自相矛盾 | 文案改「无效行 {null+nonfinite}/{total}：null a + 非有限 b」（docstring 同步）；测试锁死 note 与异常消息 | 同上 |
+| M3 | `test_writer_accepts_normal_5_20_roundtrip` 名与 v2 (1,5,20) 语义脱节 | 更名 `test_writer_accepts_v2_1_5_20_roundtrip`（断言不变） | `test_m6_semantic_guards.py` diff |
+
+- 红→绿：实现前 5 failed（`test_dead_signal.py` 3 + 分钟链 1 + 词条 1，见 24）→
+  实现后平台定向 8 文件 **306 passed**（见 25）。
+- `make gates`：唯一红 = **G-INDEX（预存：挖矿在途 spec 未入索引）**；其余
+  （含 G-DATAIFACE ENFORCED）全绿——`26-minor-audit-gates.txt`。
+- 变更文件：`platform/src/factorlab/app/run.py`、`platform/src/factorlab/app/evaluate.py`、
+  `platform/tests/{test_dead_signal,test_minute_engine,test_m6_semantic_guards}.py`。

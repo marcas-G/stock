@@ -124,9 +124,15 @@ def test_evaluate_run_all_nan_marks_dead_and_publish_fails(tmp_path):
     outcome = evaluate_run(result, spec, ctx)
     assert outcome.evaluation.get("dead_signal") is True
     assert outcome.dead_signal is not None
-    assert "signal_null_ratio=1.0" in " ".join(outcome.notes)
-    with pytest.raises(DeadSignalError, match="signal_null_ratio"):
+    note = " ".join(outcome.notes)
+    assert "signal_null_ratio=1.0" in note
+    # 复评 Minor：全 NaN 不得显示「0/200 行为空」自相矛盾——无效行 = null + 非有限
+    assert "无效行 200/200" in note
+    assert "null 0 + 非有限 200" in note
+    with pytest.raises(DeadSignalError, match="signal_null_ratio") as ei:
         publish_run(result, outcome, ctx)
+    assert "无效行 200/200" in str(ei.value)
+    assert "null 0 + 非有限 200" in str(ei.value)
 
 
 # ── 评估出口：字段落 evaluation + 响亮 note；publish 落盘后非零失败 ───────────
@@ -141,9 +147,14 @@ def test_dead_signal_marks_evaluation_and_publish_raises_loudly(tmp_path):
     note = " ".join(outcome.notes)
     assert "死信号" in note and "signal_null_ratio=1.0" in note
     assert "n_weeks" in note  # 不再把 n_weeks=0 静默当结论
+    # 复评 Minor：纯 null 场景同样分列可审计（无效行 = null + 非有限）
+    assert "无效行 200/200" in note
+    assert "null 200 + 非有限 0" in note
 
-    with pytest.raises(DeadSignalError, match="signal_null_ratio"):
+    with pytest.raises(DeadSignalError, match="signal_null_ratio") as ei:
         publish_run(result, outcome, ctx)
+    assert "无效行 200/200" in str(ei.value)
+    assert "null 200 + 非有限 0" in str(ei.value)
     summary = json.loads((tmp_path / "dead" / "summary.json").read_text(encoding="utf-8"))
     assert summary["evaluation"]["dead_signal"] is True   # 落盘可审计
     assert summary["evaluation"]["n_weeks"] == 0
@@ -224,8 +235,9 @@ def test_interface_dead_signal_nonfinite_contract():
 
 
 # ── run 链 summary 同源：全 NaN 真跑（env 双腿）→ signal_null_ratio=1.0 ─────
-def test_real_run_all_nan_signal_summary_ratio_and_dead(env, tmp_path):
-    """summary.signal_null_ratio 必须把非有限（NaN）计入空值——否则与 D5 判定分裂。"""
+def _seed_constant_prices(env):
+    """恒定价格序列（8 日）：ts_std_dev=0 → 除法 inf；窗口未满行 null——
+    非 null 的 inf 正是旧口径（只数 null）漏网路径。"""
     dates = [dt.date(2024, 1, 2) + dt.timedelta(days=i) for i in range(8)]
     env.seed({
         "daily": ([("ts_code", "str"), ("trade_date", "date"), ("open", "f64"),
@@ -244,6 +256,11 @@ def test_real_run_all_nan_signal_summary_ratio_and_dead(env, tmp_path):
         "stock_st": ([("ts_code", "str"), ("name", "str"), ("trade_date", "date"),
                       ("type", "str"), ("type_name", "str")], []),
     })
+
+
+def test_real_run_all_nan_signal_summary_ratio_and_dead(env, tmp_path):
+    """summary.signal_null_ratio 必须把非有限（NaN）计入空值——否则与 D5 判定分裂。"""
+    _seed_constant_prices(env)
     spec = FactorSpec(name="nan_real", category="custom", direction=1,
                       universe=UniverseSpec(codes=["000001.SZ"]),
                       formula="signal = close / ts_std_dev(close, 3)")
@@ -259,3 +276,26 @@ def test_real_run_all_nan_signal_summary_ratio_and_dead(env, tmp_path):
         "summary signal_null_ratio 未计入非有限（与 D5 判定分裂）"
     outcome = evaluate_run(result, spec, ctx)
     assert outcome.evaluation.get("dead_signal") is True
+
+
+# ── 复评 Minor：多输出逐输出 ratio 与 D5 同源（非有限计入）──────────────────
+def test_multi_output_summary_null_ratio_counts_nonfinite(env, tmp_path):
+    """signals[o].null_ratio 旧实现只数 null——恒 inf 的输出会得 warmup-null
+    占比而非 1.0，与 D5 判定分裂；b 全有限校验不得过度计数。"""
+    _seed_constant_prices(env)
+    spec = FactorSpec(name="multi_nan", category="custom", direction=1,
+                      universe=UniverseSpec(codes=["000001.SZ"]),
+                      formula="a = close / ts_std_dev(close, 3)\nb = close",
+                      outputs=["a", "b"])
+    kw = {"db_path": env.path} if env.backend == "duckdb" else {}
+    ctx = RunContext(data_backend=env.backend, output_dir=tmp_path / "multi_nan",
+                     warmup_days=2, **kw)
+    result = run_factor(spec, ctx)
+    assert result.signal_artifact is None   # 多输出无单列 signal artifact
+    stats = result.summary["signals"]
+    assert set(stats) == {"a", "b"}
+    assert stats["a"]["rows"] == stats["b"]["rows"] == result.summary["panel_rows"]
+    assert stats["a"]["null_ratio"] == pytest.approx(1.0), \
+        "signals[a].null_ratio 未计入非有限（与 D5 判定分裂）"
+    assert stats["b"]["null_ratio"] == 0.0   # b 全有限——不得过度计数
+    assert "signal_null_ratio" not in result.summary   # 多输出无顶层单点

@@ -469,7 +469,8 @@ def test_loader_legacy_label_v1_error_points_to_migration(env, tmp_path):
         load_label_artifact(tmp_path / "out")
 
 
-def test_writer_accepts_normal_5_20_roundtrip(env, tmp_path):
+def test_writer_accepts_v2_1_5_20_roundtrip(env, tmp_path):
+    """v2 正常 roundtrip：范围 = 实际 (1, 5, 20)（旧名 5_20 与 v2 语义脱节）。"""
     _seed(env)
     r = _run(env, tmp_path, _spec(tmp_path))
     loaded = load_label_artifact(tmp_path / "out")

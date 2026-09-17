@@ -649,7 +649,7 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
         "outputs": outputs,
         "signals": {
             o: {"rows": frame.height,
-                "null_ratio": round(frame[o].null_count() / frame.height, 4)}
+                "null_ratio": signal_invalid_ratio(frame, o)}
             for o, frame in signal_frames.items()
         },
         "runtime_semantics": "pit_universe_signal_label_v1",
@@ -992,7 +992,7 @@ def _run_factor_minute(spec, ctx: RunContext,
         "outputs": outputs,
         "signals": {
             o: {"rows": frame.height,
-                "null_ratio": round(frame[o].null_count() / frame.height, 4)}
+                "null_ratio": signal_invalid_ratio(frame, o)}
             for o, frame in signal_frames.items()
         },
         "runtime_semantics": "minute_intraday_fold_v1",

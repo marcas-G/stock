@@ -67,18 +67,21 @@ def _mark_dead_signal(ev: dict, panel: pl.DataFrame, col: str,
                       notes: list[str], prefix: str = "") -> dict | None:
     """D5（R30 Task 2 / R07-D6）：signal 空值占比 ≥ 阈值 → 显式字段 + 响亮提示。
 
-    口径：null 行占比（与 summary `signal_null_ratio` 同源；分母 = 样本全量面板，
-    而非对齐/过滤后的评估面板）。正常因子零变化——不新增任何键、不生成 note。
-    返回明细 dict（供 `publish_run` 在落盘后非零失败）；非死信号 → None。
+    口径：空值（null 或非有限 NaN/±inf）行占比（与 summary `signal_null_ratio`
+    同源；分母 = 样本全量面板，而非对齐/过滤后的评估面板）。正常因子零变化——
+    不新增任何键、不生成 note。返回明细 dict（供 `publish_run` 在落盘后非零失败）；
+    非死信号 → None。
     """
     report = dead_signal_report(panel, signal_col=col)
     if not report["dead_signal"]:
         return None
     ev["dead_signal"] = True
+    invalid_rows = report["null_rows"] + report["nonfinite_rows"]
     notes.append(
         f"{prefix}死信号（D5 fail-loud）：signal_null_ratio="
         f"{report['signal_null_ratio']} ≥ 阈值 {report['threshold']}"
-        f"（{report['null_rows']}/{report['total_rows']} 行为空）——signal 列无有效"
+        f"（无效行 {invalid_rows}/{report['total_rows']}：null {report['null_rows']} "
+        f"+ 非有限 {report['nonfinite_rows']}）——signal 列无有效"
         "数据，n_weeks=0 不再静默等价于“无效因子”；评估摘要已落盘（dead_signal=true）"
         "并以非零退出，先修取数列/数据面（governance/workspace/data-map.md）")
     return report
@@ -199,9 +202,11 @@ def publish_run(result: FactorResult, outcome: EvaluationOutcome,
                                  summary=result.summary)
     if outcome.dead_signal is not None:
         rep = outcome.dead_signal
+        invalid_rows = rep["null_rows"] + rep["nonfinite_rows"]
         raise DeadSignalError(
             f"死信号（D5 fail-loud）：signal_null_ratio={rep['signal_null_ratio']} ≥ "
-            f"阈值 {rep['threshold']}（{rep['null_rows']}/{rep['total_rows']} 行为空）"
+            f"阈值 {rep['threshold']}（无效行 {invalid_rows}/{rep['total_rows']}："
+            f"null {rep['null_rows']} + 非有限 {rep['nonfinite_rows']}）"
             "——评估摘要已落盘（summary.evaluation.dead_signal=true）供审计；"
             "本次运行非零退出，请先修复信号取数（governance/workspace/data-map.md）")
     return result.summary

@@ -327,6 +327,24 @@ d = day_amt
         assert row[2] == pytest.approx(want_adv, rel=1e-4)        # adv20_amt
 
 
+def test_minute_multi_output_summary_null_ratio_counts_nonfinite(ch_db, tmp_path):
+    """复评 Minor：分钟链多输出 summary.signals[o].null_ratio 与 D5 同源
+    （非有限计入）——a = x/0 恒 inf；b 全有限校验不过度计数。"""
+    _seed(ch_db)
+    spec = _spec(tmp_path, "m_ratio", """
+a = 1 / (day_last(close) - eod_close)
+b = day_last(close)
+""", outputs="a,b")
+    res = run_factor_minute(spec, _ctx(tmp_path / "out_ratio"))
+    stats = res.summary["signals"]
+    assert set(stats) == {"a", "b"}
+    assert stats["a"]["rows"] == stats["b"]["rows"] == res.summary["panel_rows"]
+    assert stats["a"]["null_ratio"] == pytest.approx(1.0), \
+        "signals[a].null_ratio 未计入非有限（与 D5 判定分裂）"
+    assert stats["b"]["null_ratio"] == 0.0
+    assert "signal_null_ratio" not in res.summary   # 多输出无顶层单点
+
+
 def test_minute_adv20_covers_suspension_beyond_calendar_window(ch_db, tmp_path):
     """R02-I4：停牌使固定 20 交易日左窗内行情行 < 20 时，adv20 仍按 20 个**有行情**
     交易日均值（左窗按行情行数补足）——不得恒 null；prev_close = 停牌前最后行情。
