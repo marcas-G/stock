@@ -9,6 +9,7 @@ params: {}
 status: 无效（vs 种子 t -40%、IC -44%）——lottery 是 20 日结构性非短期现象
 created_ts: 2026-09-16
 updated_ts: 2026-09-16
+snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）
 ---
 
 # reversal_20d_skew_extreme_w10 因子档案
