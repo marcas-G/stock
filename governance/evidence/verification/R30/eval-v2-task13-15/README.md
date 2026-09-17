@@ -66,6 +66,7 @@
 | `06-task15-gates.txt` | `make gates`：唯一失败 = 预存 G-INDEX；G-VENV 反向断言绿（quant_core 已删除）、G-REVIEWS 绿、G-IMPORTS 431 文件绿 |
 | `07-task15-fullsuite.txt` | **平台全量（迁移后）：3109 passed / 11 skipped / 0 failed（759s）**——与 Task 13 后逐数一致（含 R22 6 代表 spec weekly 值级回归、test_web/test_e2e_web、测试数 3120 vs 基线 3111 = 新增 9） |
 | `08-task15-tools.txt` | `make test-research`：platform/tools **530 passed**；research/tools 2 failed = **预存挖矿在途**（新增 spec 未归档/未入索引：`knowledge/dossiers/factors/intraday/am_pm_vol.md` 缺失、索引 196 spec vs 渲染 177）——与 G-INDEX 同根因，属挖矿收尾，非本批引入（`??` 在途文件自开工前即存在） |
+| `09-task15-r22-weekly.txt` | **6 代表 spec 逐值回归（显式）= 2 passed（245s）**：R22 基线 spec（reversal_20d/momentum_20d/vol_run_energy_symrun/low_vol_20d/turnover_accel/reversal_20d_wcorr）经真实 CLI `--eval-frequency weekly` 重跑，`n_weeks` 相等、`ic.{mean,t_stat,ir}` \|Δ\|≤1e-9——weekly 路径在迁移后逐值零变更 |
 
 ### 对拍结论
 
