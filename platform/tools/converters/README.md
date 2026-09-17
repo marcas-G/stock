@@ -5,7 +5,7 @@
 | 入口 | 输入 | 输出 | 说明 |
 |---|---|---|---|
 | `convert_tick_to_parquet.py` | `data/raw/quark_downloaded/<YYYYMMDD>/<code>/<code>.zip` 内 `逐笔成交.csv` / `逐笔委托.csv` / `行情.csv`（**GBK**） | 全量：`data/fact/tick_fact/{trades,orders,snapshots}/year=Y/month=M/part-*.parquet` + `_SUCCESS` + `_manifest/conversion_manifest.parquet`；`--only-day`：`data/calib/tick_fact_validation/...`（**不触碰月产物**） | 月分区；`MonthWriter` 原子落盘（tmp+fsync+os.replace）；flock 单实例 |
-| `convert_minutes_to_parquet.py` | `data/raw/minutes/…` | `data/fact/bars_1m/year=Y/month=M/part-000.parquet` + `_SUCCESS` + `_state/…/_conversion.json` | 月级提交；`_committed_ok` 校验（schema/行数/row groups） |
+| `convert_minutes_to_parquet.py` | `data/raw/minutes/…` | `data/fact/bars_1m/year=Y/month=M/part-000.parquet` + `_SUCCESS` + `_state/…/_conversion.json` | 月级提交；`_committed_ok` 校验产物（schema/行数/row groups）+ `_source_relation` 比对源归档清单（`_daily_manifest.parquet` 的 name+size；新增/替换→重转吸收，缺失→`SourceRollbackError` fail loud） |
 
 **约定**：列契约与分区规则取平台 `core.factio.schema` / `core.factio.partitions`（研究侧不得自拼 `year=/month=`）；时间解析取 `core.factio.timeparse.parse_ms_numpy`（HHMMSSsss→ms-of-day）。
 **解释器**：单解释器 = `platform/.venv/bin/python`（3.13；R27 前为 emb/T2，已退役）——本工具只需 `core.factio`（纯 polars/numpy/arrow），平台路径经 `platform/tools/_env.py` 落位断言。

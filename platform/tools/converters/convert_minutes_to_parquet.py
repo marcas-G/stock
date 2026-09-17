@@ -469,17 +469,87 @@ def _committed_ok(data_dir, state_dir):
         return False
 
 
+class SourceRollbackError(RuntimeError):
+    """已提交月的源归档在当前源目录缺失（源回退）——fail loud。
+
+    裁定（A3，2026-09-17）：源日被删时静默清理重转会把已消费的历史日从事实库
+    抹掉（不可逆数据损失），故不自动重转：保留已提交产物、非零退出、提示人工
+    确认源目录；确认要以当前源重来才可先删分区产物再跑。
+    """
+
+
+def _source_listing(src_dir):
+    """源目录归档清单 ((name, size) 有序元组；规则与 _convert_month 的 zips 一致)。
+
+    只做 listdir+getsize（不读内容）：同月新增/删除/同名替换都会改变清单，
+    足以判定"已提交月的源是否仍是转换时那一份"。
+    """
+    if not os.path.isdir(src_dir):
+        return ()
+    return tuple(sorted(
+        (f, os.path.getsize(os.path.join(src_dir, f)))
+        for f in os.listdir(src_dir) if f.endswith(('.zip', '.7z'))))
+
+
+def _source_relation(state_dir, src_dir):
+    """manifest 记录的源清单 vs 当前源目录 → (status, detail)。
+
+    - 'ok'     : 逐 (name, size) 完全一致 → 幂等跳过
+    - 'stale'  : 当前源含 manifest 全部归档（同名同 size）且有新增 → 重转吸收；
+                 同名 size 变化（源被替换）同判 stale
+    - 'rollback': manifest 中某归档在当前源缺失 → 调用方 fail loud（见
+                 SourceRollbackError 裁定）；manifest 缺失/不可读 → 'stale'
+                 （保守重转，不用旧产物冒充已提交）
+    """
+    try:
+        man = pd.read_parquet(os.path.join(state_dir, '_daily_manifest.parquet'),
+                              columns=['source_zip', 'source_zip_size'])
+    except Exception:
+        return 'stale', 'manifest 不可读'
+    recorded = {str(z): int(s)
+                for z, s in zip(man['source_zip'], man['source_zip_size'])}
+    current = dict(_source_listing(src_dir))
+    missing = sorted(n for n in recorded if n not in current)
+    if missing:
+        return 'rollback', f'缺 {len(missing)}: {", ".join(missing[:5])}'
+    if len(current) == len(recorded) and all(
+            current.get(n) == s for n, s in recorded.items()):
+        return 'ok', ''
+    added = sorted(n for n in current if n not in recorded)
+    changed = sorted(n for n, s in recorded.items() if current.get(n) != s)
+    detail = f'新增 {len(added)}' + (f': {", ".join(added[:5])}' if added else '')
+    if changed:
+        detail += f'; size 变化 {len(changed)}: {", ".join(changed[:5])}'
+    return 'stale', detail
+
+
+def _commit_status(data_dir, state_dir, src_dir):
+    """产物完整性 + 源清单一致性的合并判定 → (status, detail)。
+
+    status: 'ok' | 'stale' | 'rollback' | 'invalid'（产物缺失/损坏）。
+    """
+    if not _committed_ok(data_dir, state_dir):
+        return 'invalid', '产物校验失败'
+    return _source_relation(state_dir, src_dir)
+
+
 def convert_month_worker(ym):
-    """一个 worker 负责一个完整月; _SUCCESS 为事务边界, 已提交且校验通过则跳过"""
+    """一个 worker 负责一个完整月; _SUCCESS 为事务边界。
+
+    已提交月按 (产物校验, 源清单) 判定：源无变化 → 幂等跳过；源新增/替换 →
+    清理重转吸收；源回退（已提交日的 zip 缺失）→ SourceRollbackError fail loud。
+    """
     year, month = int(ym[:4]), int(ym[4:6])
     data_dir = str(partitions.partition_dir(Path(PROD_DIR), table=None,
                                            year=year, month=month))
     state_dir = str(partitions.partition_dir(Path(PROD_DIR), table='_state',
                                              year=year, month=month))
+    src_dir = f'{SRC_DIR}/{year}/{month:02d}'
     success = W.success_marker(data_dir)   # R8c：标记单点
 
     if W.has_success(data_dir):   # R8c：标记单点
-        if _committed_ok(data_dir, state_dir):
+        status, detail = _commit_status(data_dir, state_dir, src_dir)
+        if status == 'ok':
             conv = W.load_state(state_dir, name='_conversion.json')   # R4b：state 单点
             err_csv = os.path.join(state_dir, '_conversion_errors.csv')
             n_err = 0
@@ -489,7 +559,12 @@ def convert_month_worker(ym):
             return {'ym': ym, 'skipped': True, 'days': conv['days'],
                     'codes': conv['codes'], 'rows': conv['rows'],
                     'n_errors': n_err, 'n_suffix': 0}
-        print(f'  {ym}: _SUCCESS 存在但校验失败 -> 清理重转', flush=True)
+        if status == 'rollback':
+            raise SourceRollbackError(
+                f'{ym}: 源回退——{detail}（源目录 {src_dir}）；重转会抹掉已提交'
+                f' 交易日，拒绝执行。请人工确认源后再决定（确认后需先删 '
+                f'{data_dir} 重跑）。')
+        print(f'  {ym}: {status}（{detail}）-> 清理重转', flush=True)
     else:
         print(f'  {ym}: 转换中', flush=True)
     _cleanup_month(data_dir, state_dir)   # 未提交/损坏 → 整个月重来

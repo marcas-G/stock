@@ -121,6 +121,11 @@ G_READ_ALLOWED = {
         "R30 D8：退市股 adj sidecar（自产元数据，非事实表分区）——与 R21 delist sidecar 同款",
     ("platform/tools/ch_ingest/reconcile.py", "_check_delisted_adj", "p"):
         "R30 D8：对账校验 sidecar 每条键在 CH 非空（读取自产 sidecar 明细）",
+    # ── R30 A3（分钟月分区吸收同月新增日）：源侧回执比对 ─────────────────────────
+    ("platform/tools/converters/convert_minutes_to_parquet.py", "_source_relation",
+     "os.path.join(state_dir, '_daily_manifest.parquet')"):
+        "A3：转换器自产月回执清单（_state/…/_daily_manifest.parquet，逐日源 zip "
+        "name+size+sha）——已提交月与当前源清单比对，非事实库分区",
 }
 _READ_CALLS = {"read_parquet", "scan_parquet", "ParquetFile"}
 # 硬规则：目标表达式里出现事实库名或分区标记 → 任何理由都不豁免（必须走平台单点）
