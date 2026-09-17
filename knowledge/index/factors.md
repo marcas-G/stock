@@ -85,7 +85,7 @@
 | `intraday_rv_term_structure` | -1 | fwd5d |  | [rv_term_structure.md](../../knowledge/dossiers/factors/intraday/rv_term_structure.md) | [yaml](../../research/factor/intraday/rv_term_structure.yaml) |
 | `intraday_tail_amt_share` | 1 | fwd5d |  | [intraday_tail_amt_share.md](../../knowledge/dossiers/factors/intraday/intraday_tail_amt_share.md) | [yaml](../../research/factor/intraday/intraday_tail_amt_share.yaml) |
 | `intraday_time_above_vwap` | 1 | fwd5d |  | [time_above_vwap.md](../../knowledge/dossiers/factors/intraday/time_above_vwap.md) | [yaml](../../research/factor/intraday/time_above_vwap.yaml) |
-| `intraday_time_of_max_vol` | -1 | fwd5d |  | [time_of_max_vol.md](../../knowledge/dossiers/factors/intraday/time_of_max_vol.md) | [yaml](../../research/factor/intraday/time_of_max_vol.yaml) |
+| `intraday_time_of_max_vol` | 1 | fwd5d |  | [time_of_max_vol.md](../../knowledge/dossiers/factors/intraday/time_of_max_vol.md) | [yaml](../../research/factor/intraday/time_of_max_vol.yaml) |
 | `intraday_time_of_min` | -1 | fwd5d |  | [time_of_min.md](../../knowledge/dossiers/factors/intraday/time_of_min.md) | [yaml](../../research/factor/intraday/time_of_min.yaml) |
 | `intraday_time_range_conc` | -1 | fwd5d |  | [time_range_conc.md](../../knowledge/dossiers/factors/intraday/time_range_conc.md) | [yaml](../../research/factor/intraday/time_range_conc.yaml) |
 | `intraday_up_vol_asym` | -1 | fwd5d |  | [up_vol_asym.md](../../knowledge/dossiers/factors/intraday/up_vol_asym.md) | [yaml](../../research/factor/intraday/up_vol_asym.yaml) |

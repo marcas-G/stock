@@ -177,4 +177,9 @@ scales:
       reason: "分钟 |收益|/成交额 均值（微观 Amihud 冲击，守卫版）→次日延续（|t|=9.52、IR=0.35，dir=+1 数据驱动：高冲击=知情交易）；对库 max ρ=0.574、resIC t=+5.64、retention=0.67，可加入；冻结 bar NaN 已守卫"
       added: "2026-09-18"
       entry_corr_max: 0.5737
-      entry_resic_t: 5.6359
+      entry_resic_t: 5.6359    - name: intraday_vol_skew
+      style: 成交量分布偏度
+      reason: "分钟成交量分布偏度（右偏=偶发巨量分钟）→次日跌（|t|=6.40、IR=0.24，近 26 周 t=-3.37 强；dir=-1）；对 16 员库 max ρ=0.238、resIC t=-3.27、retention=1.03，可加入"
+      added: "2026-09-18"
+      entry_corr_max: 0.2381
+      entry_resic_t: -3.2737
