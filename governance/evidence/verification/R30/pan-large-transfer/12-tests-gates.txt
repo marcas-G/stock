@@ -1,0 +1,40 @@
+== R30 pan-large-transfer 测试/门证据（2026-09-17）==
+主机：data（125G 内存，非并发 LLM 重任务）；内存护栏：FACTORLAB_MAX_MEMORY=8GB
+
+[1] 定向测试（本任务改动面）
+$ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests \
+    platform/tools/quark_download/tests -q
+199 passed
+
+[2] 测试有效性（存根突变必败）
+- transfer.DriveTransfer.fetch 直接 return + quark_client.download_file 忽略 chunk_size
+  → 20 failed（Range 序列/续拉/回退/并行与转存行为断言均命中）
+- 恢复后 199 passed（同一逻辑）
+
+[3] 常驻门（改动后）
+$ make gates
+rc=0 全绿（31 项 ✓；本轮 G-INDEX 绿，无预存红）
+
+[4] make test-research（2026-09-17 23:0x）
+- platform/tools 全部通过（pytest 阶段先跑，未触 fail）
+- research/tools 1 failed（**预存、非本任务**）：
+  test_every_yaml_has_mirror_doc_and_name_matches 缺档案
+  knowledge/dossiers/factors/intraday/auction_conc_inter.md
+  ——yaml 由挖矿提交 84b58a0 入库、档案未提交；在途文件不动。
+
+[5] 平台全量（文档化调用：cd platform && .venv/bin/python -m pytest -q）
+$ cd platform && FACTORLAB_MAX_MEMORY=8GB .venv/bin/python -m pytest -q
+2 failed, 3205 passed, 11 skipped in 593.52s
+失败两例均为预存（非本任务改动面）：
+- tests/test_reference_library.py::test_initial_reference_library_per_spec
+  （04bbfe0 2026-09-17 10:51 分钟参考库扩至 8，测试仍断言 minute==[]）；
+- tests/test_regression_152.py::test_sample_value_regression
+  （eval-v2 基线漂移 1.5e-7；R30/eval-v2-task14-12-11/31-r22-red.txt 已记录）。
+本任务数据更新曾触发 tests/test_minute_prod_e2e（daily 先于 bars_1m 到 9/17），
+已修 _pick_window 右端取 min(bars_1m, daily)（本任务 commit），修复后单测
+1 passed；根因（分钟链月分区提交后不吸收同月新增日）登记 pending-items A3。
+
+[6] 平台调用注意
+pytest 必须按 Makefile 口径在 platform/ 下跑：test_canonical_artifact_handoff
+用相对路径 tests/test_run_factor.py；在仓根跑会误报 2 Failed（非真实失败，
+platform/ 下 12 passed）。
