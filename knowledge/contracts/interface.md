@@ -1148,9 +1148,14 @@ R30 Task 15 从独立 quant-core 包并入的单一实现）：daily = 面板原
 
 语义：
 
-- **方向感知**：`direction=1` 时 D1 = signal 最高档，`direction=-1` 时 D1 = signal
-  最低档（rank 降序/升序控制，两者都是"最佳档"）；分档边界 `(rank-1)*n_groups//n`
-  自然处理（n 不整除时末档更小）。
+- **方向感知 + average-rank 分档（D2，R30 Task 1）**：每期用 **average rank**（并列
+  同档、行序无关）经对称分位映射 `floor((2·avg_rank−1)·n_groups/(2·n))`（clip
+  `[0, n_groups−1]`）得分档——与 kernel `evaluate_factor` 的 decile **同公式**；
+  `direction=1` 时 D1 = signal 最高档（D_g ↔ 升序 decile 的 `n_groups−g`），
+  `direction=-1` 时 D1 = signal 最低档（D_g ↔ decile `g−1`），两者都是"最佳档"。
+  无并列且 N 整除 `n_groups` 时与旧 `(rank−1)·n_groups//N` **逐值等价**（唯一值面板
+  回归承诺）；重并列/不整除时可能跳档（空档由 `empty_groups` 披露，与 kernel
+  R03-I3 语义同源）。
 - **期数口径**：signal/forward 为 null 的行不参与分档与收益（期内部分行 null 的期
   仍计入，组内等权平均忽略 null）；某期**全部**行无效（头部 ts 窗口未满/尾部无未来
   收益）则该期不计入 `periods`——与桥接评估的 `n_weeks` 口径一致
@@ -1184,8 +1189,9 @@ R30 Task 15 从独立 quant-core 包并入的单一实现）：daily = 面板原
 
 **空档检测（R03-I3）**：`degenerate_decile_groups(decile_returns) -> list[int]` 返回
 kernel `decile_returns.groups` 中 `mean_ret` 缺失/非有限的组号（重并列/离散信号
-经 average-rank 对称分位映射跳档，某些 decile 全期无成员——`empty_groups` 是另一套
-ordinal 分组口径，不会触发）。`app.evaluate.evaluate_run` 检测非空时在
+经 average-rank 对称分位映射跳档，某些 decile 全期无成员——D2 后 `layered_backtest`
+采用同一 average-rank 分档，其 `empty_groups` 与 kernel 跳档同源、会同时披露）。
+`app.evaluate.evaluate_run` 检测非空时在
 `evaluation.decile_returns.degenerate_groups` 落标记并生成 notes（CLI `run` 打印
 `提示:`；`show` 打印 `警告:`，文案含降组数/换评估口径指引）；正常面板不产生该键
 （summary 逐字节不变）。

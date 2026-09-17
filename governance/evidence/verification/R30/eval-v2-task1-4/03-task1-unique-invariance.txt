@@ -1,0 +1,16 @@
+OK n= 10 G=10 direction=+1 periods=4 D1_last=1.03710538
+OK n= 10 G=10 direction=-1 periods=4 D1_last=1.00060011
+OK n=100 G=10 direction=+1 periods=4 D1_last=1.4358237
+OK n=100 G=10 direction=-1 periods=4 D1_last=1.01873011
+OK n= 50 G=10 direction=+1 periods=4 D1_last=1.20236293
+OK n= 50 G=10 direction=-1 periods=4 D1_last=1.00862775
+OK n= 20 G=10 direction=+1 periods=4 D1_last=1.07671298
+OK n= 20 G=10 direction=-1 periods=4 D1_last=1.00260251
+OK n= 30 G=10 direction=+1 periods=4 D1_last=1.11744436
+OK n= 30 G=10 direction=-1 periods=4 D1_last=1.00460792
+OK n= 20 G= 4 direction=+1 periods=4 D1_last=1.07038497
+OK n= 20 G= 4 direction=-1 periods=4 D1_last=1.00862775
+OK n=  2 G= 2 direction=+1 periods=4 D1_last=1.00460792
+OK n=  2 G= 2 direction=-1 periods=4 D1_last=1.00060011
+
+唯一值面板逐值不变：14 组对拍全部逐值相等（net_values/summary/turnover）

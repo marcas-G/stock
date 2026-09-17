@@ -57,13 +57,16 @@ def test_evaluate_run_marks_degenerate_groups_and_note():
     outcome = _outcome(_tie_heavy_panel())
     dr = outcome.evaluation["decile_returns"]
     assert dr["degenerate_groups"] == [0, 1, 2, 4, 5, 6]
-    assert len(outcome.notes) == 1
-    note = outcome.notes[0]
+    # D2（R30 Task 1）后 layered 与 kernel 同 average-rank 分档——同一跳档事实
+    # 在两处都显式化：kernel 空 decile note + layered 空档 note（都不静默）。
+    assert len(outcome.notes) == 2
+    note, bt_note = outcome.notes
     assert "全期无有效收益" in note
     assert "重并列" in note
     assert "建议降低分组数或改用其他评估口径" in note
     for g in (0, 1, 2, 4, 5, 6):
         assert str(g) in note
+    assert bt_note.startswith("档位 ") and "全期无股票" in bt_note
 
 
 def test_evaluate_run_no_false_positive_for_continuous_signal():
@@ -84,5 +87,6 @@ def test_evaluate_run_multi_output_note_names_output():
         == [0, 1, 2, 4, 5, 6]
     assert "degenerate_groups" not in \
         outcome.evaluation["outputs"]["sig_cont"]["decile_returns"]
-    assert len(outcome.notes) == 1
-    assert outcome.notes[0].startswith("输出 sig_tie ")
+    # D2 后跳出档的 layered 空档 note 同批出现（逐输出前缀一致，不误指其他输出）
+    assert len(outcome.notes) == 2
+    assert all(n.startswith("输出 sig_tie ") for n in outcome.notes)

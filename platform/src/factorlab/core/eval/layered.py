@@ -13,9 +13,10 @@ def degenerate_decile_groups(decile_returns: dict) -> list[int]:
     """kernel `decile_returns` 中"全期无有效收益"的组号（mean_ret 缺失或非有限）。
 
     R03-I3：离散/重并列信号经 average-rank 对称分位映射会**跳档**——某些 decile
-    全期无成员，kernel 对这些组回填 NaN 且无告警（`layered_backtest.empty_groups`
-    是另一套 ordinal 分组口径，不会触发）。装配层据此生成 notes / summary 标记，
-    避免 spread=NaN 被读者当作"无分层效应"。缺 groups 键（旧结构）→ 空列表。
+    全期无成员，kernel 对这些组回填 NaN 且无告警（D2 后 `layered_backtest`
+    采用同一 average-rank 分档，其 `empty_groups` 与 kernel 跳档同源）。装配层
+    据此生成 notes / summary 标记，避免 spread=NaN 被读者当作"无分层效应"。
+    缺 groups 键（旧结构）→ 空列表。
     """
     groups = (decile_returns or {}).get("groups") or []
     out: list[int] = []
@@ -29,18 +30,28 @@ def degenerate_decile_groups(decile_returns: dict) -> list[int]:
 def _group_assign(panel: pl.DataFrame, n_groups: int, direction: int) -> pl.DataFrame:
     """每期按 signal 分档：direction=1 时 D1=signal 最高档；direction=-1 时反转。
 
-    rank 用 "ordinal"：同值 tie 各得不同 rank（连续因子值 tie 罕见，可接受）；
-    分档边界由 (rank-1)*n_groups//n 自然处理（n 不整除时末档更小）。
+    **D2（R30 Task 1）与 kernel decile 统一 average-rank**：rank 用 "average"
+    （并列同档、行序无关），分档 = 对称分位映射
+    `floor((2·avg_rank−1)·n_groups/(2·n))`，clip [0, n_groups−1]——与
+    `core.eval.kernel.evaluate_factor` 的 `_decile` 同公式（kernel 固定 10 组）。
+    无并列且 n 整除 n_groups 时与旧 `(rank−1)·G//n` 逐值等价（存量唯一值面板
+    回归承诺）；重并列/不整除时可能跳档（空档由 `empty_groups` 披露），与 kernel
+    的 R03-I3 语义一致。
+
+    方向感知重排：先得升序 decile（0=最小 signal），direction=1 映射
+    `D_g ↔ decile(G−g)`；direction=−1 映射 `D_g ↔ decile(g−1)`（两端都是"最佳档"）。
+    direction 非 1 一律按 −1 处理（与 kernel `0→−1` 语义一致）。
     """
-    # 降序 rank：signal 最高 → rank 1（方向感知的"最佳"排序）
     df = panel.with_columns(
-        pl.col("signal").rank("ordinal", descending=direction == 1).over("date").alias("_rank"),
-        pl.col("signal").count().over("date").alias("_n"),
+        (((2 * pl.col("signal").rank("average").over("date") - 1) * n_groups)
+         / (2 * pl.col("signal").count().over("date"))).floor()
+        .clip(0, n_groups - 1).cast(pl.Int64).alias("_decile_asc"),
     )
-    # 档号：rank 1..n 分 n_groups 档 → (rank-1) * n_groups // n
-    return df.with_columns(
-        ((pl.col("_rank") - 1) * n_groups // pl.col("_n")).alias("_group")
-    )
+    if direction == 1:
+        return df.with_columns(
+            (n_groups - 1 - pl.col("_decile_asc")).alias("_group")
+        ).drop("_decile_asc")
+    return df.with_columns(pl.col("_decile_asc").alias("_group")).drop("_decile_asc")
 
 
 def _turnover_series(df: pl.DataFrame, n_groups: int, dates: list) -> dict[str, list[float]]:
@@ -119,7 +130,9 @@ def layered_backtest(
     - 默认 0.0 = 与历史"零成本"结果**逐值一致**；换手序列与费率一并写入返回值（可审计）。
 
     语义：
-    - direction=1 时 D1 = signal 最高档，direction=-1 时 D1 = signal 最低档（rank 方向控制）。
+    - direction=1 时 D1 = signal 最高档，direction=-1 时 D1 = signal 最低档
+      （average-rank 对称分位 + 方向感知重排；D2/R30 Task 1 起与 kernel decile
+      同公式，见 `_group_assign`）。
     - 档收益 = 当周该档 forward_col 等权平均；档空期 fill_null(0)，净值保持前值。
       净值 = (1+ret) 连乘。long_short 为 D1-D10 差值序列。
     - signal/forward_col 为 null **或 NaN** 的行不参与分档与收益（NaN 不是 null——

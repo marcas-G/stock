@@ -1,0 +1,126 @@
+FFFFF.                                                                   [100%]
+=================================== FAILURES ===================================
+___________ test_group_assign_tie_members_hand_computed_direction_up ___________
+
+    def test_group_assign_tie_members_hand_computed_direction_up():
+        """重并列面板：每 code 的组号 == average-rank 手算表（ordinal 实现必败）。"""
+>       assert _groups_by_code(_tie_panel(), 10, 1) == _TIE_DIR_UP
+E       AssertionError: assert {'000000': 9,...0003': 8, ...} == {0: 10, 1: 10... 8, 3: 8, ...}
+E         
+E         Left contains 12 more items:
+E         {'000000': 9,
+E          '000001': 10,
+E          '000002': 7,
+E          '000003': 8,
+E          '000004': 6,...
+E         
+E         ...Full output truncated (10 lines hidden), use '-vv' to show
+
+tests/test_layered_groups.py:58: AssertionError
+__________ test_group_assign_tie_members_hand_computed_direction_down __________
+
+    def test_group_assign_tie_members_hand_computed_direction_down():
+        """direction=−1：D1=最低 signal；D_g = decile(g−1)，手算映射。"""
+        expected = {0: 1, 1: 1, 2: 3, 3: 3, 4: 5, 5: 5, 6: 6, 7: 6, 8: 8, 9: 8,
+                    10: 10, 11: 10}
+>       assert _groups_by_code(_tie_panel(), 10, -1) == expected
+E       AssertionError: assert {'000000': 1,...0003': 3, ...} == {0: 1, 1: 1, 2: 3, 3: 3, ...}
+E         
+E         Left contains 12 more items:
+E         {'000000': 1,
+E          '000001': 1,
+E          '000002': 2,
+E          '000003': 3,
+E          '000004': 4,...
+E         
+E         ...Full output truncated (10 lines hidden), use '-vv' to show
+
+tests/test_layered_groups.py:65: AssertionError
+________________ test_group_assign_row_order_invariant_on_ties _________________
+
+    def test_group_assign_row_order_invariant_on_ties():
+        """并列同档：行序反转不改变每 code 组号（ordinal 行序敏感必败）。"""
+>       assert _groups_by_code(_tie_panel(reversed_order=True), 10, 1) == _TIE_DIR_UP
+E       AssertionError: assert {'000011': 1,...0008': 3, ...} == {0: 10, 1: 10... 8, 3: 8, ...}
+E         
+E         Left contains 12 more items:
+E         {'000000': 10,
+E          '000001': 9,
+E          '000002': 8,
+E          '000003': 7,
+E          '000004': 6,...
+E         
+E         ...Full output truncated (10 lines hidden), use '-vv' to show
+
+tests/test_layered_groups.py:70: AssertionError
+___________ test_layered_group_returns_match_kernel_decile_means[1] ____________
+
+direction = 1
+
+    @pytest.mark.parametrize("direction", [1, -1])
+    def test_layered_group_returns_match_kernel_decile_means(direction):
+        """交叉验证：单期面板下 layered D_g 组均收益 == kernel 对应 decile 的 mean_ret。
+    
+        映射：direction=1 → D_g ↔ decile(10−g)；direction=−1 → D_g ↔ decile(g−1)。
+        空档两侧语义一致：kernel NaN ↔ layered 空档净值 1.0（0 收益）。
+        """
+        panel = _tie_panel(forward=True)
+        decile_means = _kernel_decile_means(panel)
+        bt = layered_backtest(panel, direction=direction, n_groups=10)
+        populated = 0
+        for g in range(1, 11):
+            d = (10 - g) if direction == 1 else (g - 1)
+            got = bt["net_values"][f"D{g}"][0] - 1.0
+            want = decile_means[d]
+            if math.isfinite(want):
+                assert got == pytest.approx(want), f"D{g} vs decile{d}: {got} != {want}"
+                populated += 1
+            else:
+>               assert got == pytest.approx(0.0), f"D{g} 应为空档（净值保持 1.0）"
+E               AssertionError: D2 应为空档（净值保持 1.0）
+E               assert 0.09000000000000008 == 0.0 ± 1.0e-12
+E                 
+E                 comparison failed
+E                 Obtained: 0.09000000000000008
+E                 Expected: 0.0 ± 1.0e-12
+
+tests/test_layered_groups.py:100: AssertionError
+___________ test_layered_group_returns_match_kernel_decile_means[-1] ___________
+
+direction = -1
+
+    @pytest.mark.parametrize("direction", [1, -1])
+    def test_layered_group_returns_match_kernel_decile_means(direction):
+        """交叉验证：单期面板下 layered D_g 组均收益 == kernel 对应 decile 的 mean_ret。
+    
+        映射：direction=1 → D_g ↔ decile(10−g)；direction=−1 → D_g ↔ decile(g−1)。
+        空档两侧语义一致：kernel NaN ↔ layered 空档净值 1.0（0 收益）。
+        """
+        panel = _tie_panel(forward=True)
+        decile_means = _kernel_decile_means(panel)
+        bt = layered_backtest(panel, direction=direction, n_groups=10)
+        populated = 0
+        for g in range(1, 11):
+            d = (10 - g) if direction == 1 else (g - 1)
+            got = bt["net_values"][f"D{g}"][0] - 1.0
+            want = decile_means[d]
+            if math.isfinite(want):
+                assert got == pytest.approx(want), f"D{g} vs decile{d}: {got} != {want}"
+                populated += 1
+            else:
+>               assert got == pytest.approx(0.0), f"D{g} 应为空档（净值保持 1.0）"
+E               AssertionError: D2 应为空档（净值保持 1.0）
+E               assert 0.030000000000000027 == 0.0 ± 1.0e-12
+E                 
+E                 comparison failed
+E                 Obtained: 0.030000000000000027
+E                 Expected: 0.0 ± 1.0e-12
+
+tests/test_layered_groups.py:100: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_layered_groups.py::test_group_assign_tie_members_hand_computed_direction_up
+FAILED tests/test_layered_groups.py::test_group_assign_tie_members_hand_computed_direction_down
+FAILED tests/test_layered_groups.py::test_group_assign_row_order_invariant_on_ties
+FAILED tests/test_layered_groups.py::test_layered_group_returns_match_kernel_decile_means[1]
+FAILED tests/test_layered_groups.py::test_layered_group_returns_match_kernel_decile_means[-1]
+5 failed, 1 passed in 0.78s

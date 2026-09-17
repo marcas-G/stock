@@ -57,6 +57,28 @@ def test_interface_daily_eval_frequency_contract():
     assert "(1, 5, 20)" in text, "interface 缺默认 horizons=(1, 5, 20) 更新"
 
 
+def _layered_section() -> str:
+    text = INTERFACE.read_text(encoding="utf-8")
+    marker = "### `factorlab.core.eval.layered.layered_backtest"
+    start = text.index(marker)
+    end = text.index("\n### ", start + len(marker))
+    return text[start:end]
+
+
+def test_interface_layered_average_rank_alignment_d2():
+    """D2（R30 Task 1）：分层分档写 average-rank 对称分位、与 kernel 同公式。
+
+    旧 `(rank-1)*n_groups//n` ordinal 边界公式不得残留于现行分层节（口径回潮守卫）。
+    """
+    section = _layered_section()
+    assert "floor((2·avg_rank−1)·n_groups/(2·n))" in section, \
+        "分层节缺 average-rank 对称分位公式"
+    assert "average" in section, "分层节未注明 average rank（去 ordinal）"
+    assert "kernel" in section and "同公式" in section, \
+        "分层节未注明与 kernel decile 同公式（D2 两处一致）"
+    assert "(rank-1)*n_groups//n" not in section, "分层节残留旧 ordinal 边界公式"
+
+
 def test_interface_old_formula_only_in_migration_note():
     """负向守卫：旧公式不得作为现行口径回潮——只许出现在 v1/历史注记行。"""
     for lineno, line in enumerate(INTERFACE.read_text(encoding="utf-8").splitlines(), 1):
