@@ -157,9 +157,14 @@ def _compute_signal(
     pit_base_adj: pl.DataFrame | None = None,
     outputs: list[str] | None = None,
     pool: str | None = None,
+    extra_cols: tuple[str, ...] = (),
 ) -> pl.DataFrame:
     """Signal Runtime（M6-03）：listed market skeleton → fill → 复权视图 →
     universe-aware formula → filter(active) → process。
+
+    `extra_cols`（E1，R30 fix 波）：随 signal 透传的评估辅助列（如
+    `total_mv`）——进输出的 panel，**不进** SignalArtifact（单列契约由调用方
+    选择列保证）。
 
     - TS/TA 使用 is_listed=true 的完整历史（含 in_universe=false 期间——listing 先行）
     - CS/GP 经 __factorlab_universe_active mask 只看到当日 active 横截面
@@ -185,6 +190,9 @@ def _compute_signal(
         formula_cols = sorted(set(formula_cols) | set(_formula_columns(pool)))
     attr_cols = [c for c in formula_cols if c in visible]
     data_cols = [c for c in formula_cols if c not in attr_cols]
+    for c in extra_cols:      # E1：评估辅助列（total_mv）按需供给（去重）
+        if c not in data_cols and c not in attr_cols:
+            data_cols.append(c)
     attr_df = (load_code_attributes(rd, attr_cols, float32=ctx.float32)
                if attr_cols else None)
     raw = load_daily(
@@ -262,7 +270,7 @@ def _compute_signal(
     result = compute_formula(panel, formula,
                              universe_mask="__factorlab_universe_active",
                              outputs=outputs)
-    sig = panel.select(["date", "code", member_col, "close"]).join(
+    sig = panel.select(["date", "code", member_col, "close", *extra_cols]).join(
         result, on=["date", "code"], how="left")
     sig = sig.filter(pl.col(member_col)).drop(member_col)
     # R05-I1：Struct/多列结果不得进 process 链（运行期兜底；静态门管已知算子）
@@ -452,6 +460,10 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
         reject_cumulative_chunking(formula, pool)
     # M2（G1）：outputs 声明（spec 加载期四规则已校验）——缺省 [signal] = legacy
     outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
+    # E1（R30 fix 波）：market_cap → 评估面板按需携带 total_mv（E1a 单点；
+    # signal artifact 仍取单列，不受影响）
+    mv_cols = (spec.weighting_mv_col,) if spec.weighting_mv_col else ()
+    keep_cols = [*_chunk_keep(outputs), *(c for c in mv_cols if c not in _chunk_keep(outputs))]
     signal_artifact: SignalArtifact | None = None
     signal_frames: dict[str, pl.DataFrame] | None = None
     try:
@@ -527,7 +539,7 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
                                   load_start.isoformat() if load_start else None,
                                   chunk_end.isoformat() if chunk_end else None,
                                   signal_cal, base_adj, pit_base_adj=pit_base_adj,
-                                  outputs=outputs, pool=pool)
+                                  outputs=outputs, pool=pool, extra_cols=mv_cols)
             lab = _compute_labels(rd, ctx, spec, codes, label_uf,
                                   (load_start if pool is not None else chunk_start).isoformat()
                                   if (load_start if pool is not None else chunk_start) else None,
@@ -541,7 +553,7 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
                 # （全列面板堆叠会让峰值内存 = 所有块之和，OOM）
                 sig = sig.filter((pl.col("date") >= chunk_start) & (pl.col("date") <= chunk_end))
                 lab = lab.filter((pl.col("date") >= chunk_start) & (pl.col("date") <= chunk_end))
-            sig_parts.append(sig.select([c for c in _chunk_keep(outputs) if c in sig.columns]))
+            sig_parts.append(sig.select([c for c in keep_cols if c in sig.columns]))
             lab_parts.append(lab)
         signal_df = pl.concat(sig_parts)
         labels_df = pl.concat(lab_parts)
@@ -584,7 +596,7 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
         # 无页面文件机器上撞 commit 空间 → 0xC0000005；多输出下对齐由
         # _build_legacy_panel 键 equals 直验）
         panel = _build_legacy_panel(signal_df, labels_df, signal_artifact, label_artifact,
-                                    outputs)
+                                    outputs, extra_cols=mv_cols)
     finally:
         rd.close()
 

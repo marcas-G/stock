@@ -1,0 +1,8 @@
+market_cap weighting: {'mode': 'market_cap', 'mv_col': 'total_mv'}
+mc decile weighting: market_cap
+mc coverage: {'pct_valid': 0.9637, 'total_rows': 4419466, 'valid_rows': 4258872}
+eq coverage: {'pct_valid': 0.9724, 'total_rows': 4419466, 'valid_rows': 4297697}
+mc spread: 0.00033487505996746296
+eq spread: 0.000589165464822204
+signal columns: ['date', 'code', 'signal'] | panel has total_mv: True
+mc layered weighting (should stay equal-weight turnover): True

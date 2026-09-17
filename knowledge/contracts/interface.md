@@ -375,6 +375,16 @@ formula: |
   daily=逐日口径（每日截面/每日调仓/1 日 forward）；weekly=旧口径可选对照
   （ISO 周对齐 + `target`），逐值零变更。CLI `--eval-frequency` 可覆盖 spec 值。
   结果落 `evaluation.frequency`（历史产物无该键 ≡ weekly 旧口径）。
+- `weighting`（E1 产品入口，R30 fix 波）：`equal_weight | market_cap`，**默认
+  `equal_weight`（零回归）**。`market_cap` = 分层 decile 组收益按决策日
+  `total_mv` 市值加权（`Σ(mv×fwd)/Σ(mv)`，PIT），结果附
+  `weighting={"mode": "market_cap", "mv_col": "total_mv"}` 披露键；运行链把
+  `total_mv` 按需带进评估面板（legacy panel 扩展列），signal artifact 保持
+  单列契约；缺市值列 / 非正市值 fail loud。`interface: bars_1m` +
+  `market_cap` 加载期拒绝（分钟链不供给市值）。**E1b（`circ_mv`）**：
+  kernel/bridge `mv_col=` 参数已支持（R07-DATA-I4 已完成，`circ_mv` 数据面
+  可用——见 §4 daily_basic 扩展字段）；spec 入口当前只接 `total_mv`
+  （未暴露 `mv_col` 字段，后续按需加）。
 - `outputs`（M2 多信号输出）：可选声明输出列表；**缺省 `None` = 单输出 `signal`**
   （与旧 spec 逐字节兼容）。多输出示例：
   ```yaml
@@ -1213,6 +1223,11 @@ R30 Task 15 从独立 quant-core 包并入的单一实现）：daily = 面板原
   非法 weighting / mv ≤ 0 fail loud）。读法：与等权对照可看组收益是否被大/小市值
   腿主导（小盘容量口径用 `circ_mv`）。kernel 直调 `evaluate_factor(...,
   weighting=, mv=)` 同语义。
+  **产品入口（R30 fix 波）**：`FactorSpec.weighting`（默认 `equal_weight`）经
+  `app.evaluate.evaluate_run` 全链透传 kernel（daily/weekly 与多输出逐输出）；
+  `market_cap` 时运行链把 `total_mv` 按需带进评估面板（legacy panel 扩展列），
+  signal artifact 保持单列，CLI `factorlab run` 无新增 flag（spec 驱动）；
+  `layered_backtest` 保持等权口径（E1 只改 `decile_returns` 统计）。
 - **IC 方向胜率字段（D4，R30 Task 3）**：`ic.sign_consistent` 保持 **raw 语义**
   （正 IC 期占比，不随 `direction` 变化）；新增
   `ic.direction_consistent_share = P(direction×IC>0)`——`direction=1` 即正 IC 期
@@ -3114,6 +3129,10 @@ ExecutionSpec（L5）
   `factorlab.core.eval.*`（kernel / ic_series / layered）结果不含成本后净值/
   容量字段——`test_strategy_cost_net.py` / `test_strategy_capacity.py` 断言因子
   评估 summary 不出现对应字段（双向锁定）。
+- **接线状态（R30 fix 波，2026-09-17）**：E3/E4 **当前无调用方**——纯函数已
+  实现并导出，等 M8 / 策略报告接线（设计已豁免：策略层不在本次产品入口
+  范围，interface 仅锁函数契约）。因子侧产品入口只接 E1（见 §4 eval 段）与
+  E2（`evaluation.ic_decay`）。
 
 ### M8-06C Artifact Persistence Layer（`save_backtest_result` / `load_backtest_result`）
 

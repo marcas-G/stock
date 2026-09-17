@@ -128,12 +128,31 @@ class FactorSpec(_StrictModel):
     # 0.1% 印花税 + 双边佣金 0.005%×2）；0.0（缺省）= 零成本，与历史结果逐值一致。
     # 由 evaluate 透传到 layered_backtest，结果里回显 cost_rate 与 turnover（可审计）。
     cost_rate: float = Field(default=0.0, ge=0.0, lt=1.0)
+    # E1（R30 fix 波）：市值加权 decile——`equal_weight` 缺省零回归；`market_cap`
+    # 时评估链按 `total_mv`（E1a）加权（组收益 Σ(mv×fwd)/Σ(mv)，PIT），结果披露
+    # `weighting={mode, mv_col}`。E1b（circ_mv）kernel/bridge 已支持（`mv_col`
+    # 参数，R07-DATA-I4 已完成），spec 入口当前只接 total_mv（interface E1 节）。
+    weighting: Literal["equal_weight", "market_cap"] = "equal_weight"
     # M2（G1）多信号输出：None → 下游按 ["signal"] 处理（缺省完全兼容旧 spec）。
     # 面板结构列 / artifact 落盘文件名冲突（date/code/close/panel/labels/summary）
     # 与内部/未来保留名一样不可作输出名（design doc §3.1（c）+ 文件命名安全）。
     outputs: list[str] | None = None
     _OUTPUT_COLLISION_NAMES = frozenset(
         {"date", "code", "close", "panel", "labels", "summary"})
+
+    @property
+    def weighting_mv_col(self) -> str | None:
+        """E1 市值列单点：market_cap → `total_mv`（E1a）；等权 → None（按需供给）。"""
+        return "total_mv" if self.weighting == "market_cap" else None
+
+    @model_validator(mode="after")
+    def _validate_weighting_interface(self) -> "FactorSpec":
+        if self.weighting == "market_cap" and self.interface == "bars_1m":
+            raise ValueError(
+                "weighting=market_cap 暂不支持 interface: bars_1m"
+                "（分钟链不供给 total_mv）——请改用 interface: daily，"
+                "或保持 weighting: equal_weight")
+        return self
 
     @model_validator(mode="after")
     def _reject_op_meta(self) -> "FactorSpec":

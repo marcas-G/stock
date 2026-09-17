@@ -665,6 +665,7 @@ def _build_legacy_panel(
     signal_artifact: SignalArtifact | None,
     label_artifact: LabelArtifact,
     outputs: list[str],
+    extra_cols: tuple[str, ...] = (),
 ) -> pl.DataFrame:
     """Legacy panel 兼容视图（M6-07C2B）：**不做 key join**。
 
@@ -675,7 +676,8 @@ def _build_legacy_panel(
 
     M2（G1）：多输出下 signal_artifact=None——不构造虚拟单列 artifact，改为
     signal_df/labels_df 键 equals 直验（两帧经同一 canonicalize 排序，等价性
-    同单输出对齐契约）。输出列 = _chunk_keep(outputs)（含全声明输出 + 尾列）。
+    同单输出对齐契约）。输出列 = _chunk_keep(outputs)（含全声明输出 + 尾列）+
+    `extra_cols`（E1：评估辅助列如 total_mv——只进 legacy panel，不进 artifact）。
 
     职责窄：alignment validation + positional attach + legacy schema select；
     不含 persistence（write_factor_artifacts 是独立的 persistence boundary
@@ -690,7 +692,9 @@ def _build_legacy_panel(
             "Signal/Label (date, code) key 不一致（含顺序）——多输出 panel 构造拒绝")
     label_values = labels_df.select(list(FORWARD_COLUMNS))
     panel = signal_df.hstack(label_values)
-    return panel.select([c for c in _chunk_keep(outputs) if c in panel.columns])
+    keep = [*_chunk_keep(outputs),
+            *(c for c in extra_cols if c not in _chunk_keep(outputs))]
+    return panel.select([c for c in keep if c in panel.columns])
 
 
 

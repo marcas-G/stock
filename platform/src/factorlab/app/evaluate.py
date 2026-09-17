@@ -84,14 +84,29 @@ def _mark_dead_signal(ev: dict, panel: pl.DataFrame, col: str,
     return report
 
 
+def _weighting_args(spec: FactorSpec) -> tuple[str, str]:
+    """E1（R30 fix 波）：spec.weighting → kernel `(mode, mv_col)`。
+
+    `equal_weight` 缺省零回归（kernel 不附顶层 `weighting` 披露键）；
+    `market_cap` 用 `spec.weighting_mv_col`（= total_mv，E1a 单点）。
+    """
+    return spec.weighting, spec.weighting_mv_col or "total_mv"
+
+
 def _evaluate_frame(frame: pl.DataFrame, spec: FactorSpec, frequency: str,
                     weekly: pl.DataFrame | None = None) -> dict:
-    """频率分支评估调用（daily 不触 align_weekly；weekly 复用已对齐面板）。"""
+    """频率分支评估调用（daily 不触 align_weekly；weekly 复用已对齐面板）。
+
+    E1：`spec.weighting` 全频率透传 kernel（市值加权 decile）。
+    """
+    weighting, mv_col = _weighting_args(spec)
     if frequency == "daily":
-        return evaluate_factor_daily(frame, spec.name, spec.direction)
+        return evaluate_factor_daily(frame, spec.name, spec.direction,
+                                     weighting=weighting, mv_col=mv_col)
     return evaluate_factor_weekly(frame, spec.name, spec.direction,
                                   target=spec.target,
-                                  weekly=weekly if weekly is not None else frame)
+                                  weekly=weekly if weekly is not None else frame,
+                                  weighting=weighting, mv_col=mv_col)
 
 
 def _backtest_frame(frame: pl.DataFrame, spec: FactorSpec, frequency: str, *,
@@ -143,8 +158,9 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
         evaluation = {"outputs": {}, "frequency": freq}
         target_col = DAILY_TARGET if freq == "daily" else spec.target
         fwd_cols = [c for c in FORWARD_COLUMNS if c in eval_panel.columns]
+        mv_cols = [spec.weighting_mv_col] if spec.weighting_mv_col else []
         for o in outputs:
-            p = eval_panel.select(["date", "code", o, *fwd_cols])
+            p = eval_panel.select(["date", "code", o, *fwd_cols, *mv_cols])
             if o != "signal":  # 字面 signal 输出：列名已就绪，rename 会自撞
                 p = p.rename({o: "signal"})
             ev_o = _evaluate_frame(p, spec, freq, weekly=p)
