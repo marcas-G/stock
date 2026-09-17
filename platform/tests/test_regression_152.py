@@ -3,7 +3,11 @@
 - `test_specs_lint_all`：研究树 152 个 spec 结构锁定（全量 lint 由 make lint-factors 承担）；
 - `test_sample_value_regression`：6 个代表 spec（改动前基线见
   `governance/evidence/verification/R22/00-baseline/`）经真实 CLI + ch 后端重跑，逐值对比
-  `evaluation.ic.{mean,t_stat,ir}`（|Δ| ≤ 1e-9）与 `n_weeks`。
+  `evaluation.ic.{mean,t_stat,ir}`（|Δ| ≤ 1e-9）与 `n_weeks`。基线为**数据相关锚**：
+  2026-09-17 D8 退市股补灌（Task 11，见 `R30/eval-v2-task14-12-11/`）与 pan 数据更新
+  （`R30/eval-v2-fix/`）后各按 D7 口径同批刷新一次；6 个目标均为 `forward_return_5d`，
+  D3 不重叠采样（h>5）对本测试**零适用**（代码 `_non_overlap_plan` h≤5→None，
+  summary 无 `sampling` 键）。
 
 数据面等价代表说明（详见 00-baseline/README.md）：CH 无 stock_st/index_daily，
 `pb`/`circ_mv` 全 null → 计划 6 个 spec 中 value/bp 与 crash_bottom_leader 不可跑，
@@ -71,6 +75,9 @@ def test_sample_value_regression(tmp_path):
         # "weekly 路径零变更"回归；daily 为平台新默认，不用于本值级基线对拍。
         # R30 Task 11（D7）：产物写 tmp_path——旧实现直接写 runs/platform/<name>，
         # 每次全量测试都把主产物覆盖成 weekly（脏产物源），污染 D7 口径。
+        # R30 eval-v2-fix（2026-09-17）：D8 补灌 + pan 数据更新（daily 重灌 21:13）
+        # 两次按 D7 同批刷新基线；漂移归因数据面（同批 `platform/src` 自 14:05 全绿
+        # 后零提交）——证据 `R30/eval-v2-fix/30..32-*`。5d 目标不触发 D3 采样。
         out = tmp_path / name
         r = subprocess.run(
             [str(FACTORLAB), "run", "--eval-frequency", "weekly",

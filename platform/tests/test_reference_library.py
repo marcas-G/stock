@@ -101,16 +101,20 @@ def _fixture_ref(tmp_path: Path) -> Path:
 # ── 初始库（真实文件）──
 
 def test_initial_reference_library_per_spec():
-    """spec §3b/plan Task 14：初始 10 只、每风格一只、种子=momentum_20d_turnrank_top2、
-    初始仅 daily（minute 空待另立）；每项含 style/reason/added。"""
+    """spec §3b/plan Task 14 + D10 挖矿入库：种子=momentum_20d_turnrank_top2 居 daily 首位；
+    minute 库可空可非空（2026-09-17 首批 12 只已按 D10 冗余/增量检查工序入库，见
+    `_reference.yaml` minute 节）；各 scales 每项含 style/reason/added。
+    跨 scales 禁止行为（spec §3b「两类不混用对照」）：同名不得跨库登记。"""
     ref = load_reference(default_reference_path())
-    daily = ref["daily"]
-    assert len(daily) == 10, f"初始库应为 10 只：{len(daily)}"
-    assert daily[0].name == "momentum_20d_turnrank_top2"
-    assert ref["minute"] == []
-    assert len({e.name for e in daily}) == 10, "库内 name 不得重复"
-    for e in daily:
+    daily, minute = ref["daily"], ref["minute"]
+    assert daily, "daily 库不得为空（至少含种子）"
+    assert daily[0].name == "momentum_20d_turnrank_top2", "种子应在 daily 首位"
+    for e in daily + minute:
         assert e.style and e.reason and e.added, f"{e.name} 缺 style/reason/added"
+    names = [e.name for e in daily + minute]
+    assert len(set(names)) == len(names), "库内 name 不得重复（含跨 scales）"
+    assert not ({e.name for e in daily} & {e.name for e in minute}), \
+        "同一 name 跨 daily/minute 登记（跨 scales 混用对照）"
 
 
 def test_reference_loader_rejects_unknown_scale_and_duplicates(tmp_path):
