@@ -38,3 +38,9 @@ $ cd platform && FACTORLAB_MAX_MEMORY=8GB .venv/bin/python -m pytest -q
 pytest 必须按 Makefile 口径在 platform/ 下跑：test_canonical_artifact_handoff
 用相对路径 tests/test_run_factor.py；在仓根跑会误报 2 Failed（非真实失败，
 platform/ 下 12 passed）。
+
+[7] 2026-09-17 23:5x 复查（挖矿并行提交 9052d15/2bb3a44 后）
+- auction_conc_inter.md 已由挖矿补档；research/tools index 测试转红 2 例
+  （test_index_matches_generator / test_every_yaml_has_mirror_doc_and_name_matches）
+  ——新增 spec 后未跑 `make index`，属挖矿在途，本任务不动。
+- 本任务一应改动（platform/tools、transfer、分钟 e2e 窗口）不涉 index 生成物。
