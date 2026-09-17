@@ -86,10 +86,17 @@ def test_adj_factor_nonpositive_and_nan_are_null(ch):
           FROM factorlab.adj_factor GROUP BY ts_code
         ) WHERE last_adj <= 0""")[0]
     assert bad_latest == 0, "仍存在 latest adj_factor<=0（qfq 基准破坏）"
-    # 600811.SH 全部来自退市文件（无复权源）→ adj_factor 全 NULL
-    n_null, n_all = _one(ch, "SELECT countIf(isNull(adj_factor)), count() "
-                             "FROM factorlab.adj_factor WHERE ts_code='600811.SH'")
-    assert n_all > 0 and n_null == n_all
+    # 600811.SH：退市文件无复权源；R08-DATA-I2 sidecar 补灌 2022+（pre-2022 仍 NULL；
+    # 源 hfq<=0 的极少数日剔除 → 允许 <1% 的 2022+ 空洞）
+    n_null, n_all, n_recent_null, n_recent_ok = _one(ch, """
+        SELECT countIf(isNull(adj_factor)), count(),
+               countIf(isNull(adj_factor) AND trade_date >= toDate('2022-01-01')),
+               countIf(NOT isNull(adj_factor) AND trade_date >= toDate('2022-01-01'))
+        FROM factorlab.adj_factor WHERE ts_code='600811.SH'""")
+    assert n_all > 0 and n_recent_ok > 0, "退市股 2022+ adj 未补灌（sidecar 未消费？）"
+    assert n_recent_null / (n_recent_null + n_recent_ok) < 0.01, \
+        f"2022+ 空洞 {n_recent_null} 过大"
+    assert n_null < n_all, "pre-2022 应保持 NULL（恢复范围=2022 起，不伪造）"
 
 
 def test_daily_amount_nan_is_null(ch):

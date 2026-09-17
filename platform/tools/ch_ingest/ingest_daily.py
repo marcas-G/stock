@@ -37,6 +37,8 @@ from common import connect, load_config
 DAILY_SRC = str(paths.daily_fact_path())   # R8：取 factio.paths（原硬编码绝对路径）
 # 退市 sidecar：与 fact 同目录（import_daily.py 原子写；缺失 → 仅断流兜底）
 DELISTED_SRC = str(Path(DAILY_SRC).with_name("delisted_codes.parquet"))
+# 退市股 adj sidecar（R08-DATA-I2）：delisted_adj_backfill.py 原子写；缺失 → 旧行为
+DELISTED_ADJ_SRC = str(Path(DAILY_SRC).with_name("delisted_adj_factor.parquet"))
 BATCH = 2_000_000  # insert_arrow 每批行数
 STALE_TRADING_DAYS = 250   # 断流兜底：>250 交易日无数据且不在 sidecar → 判退市
 DAILY_TABLES = ("daily", "adj_factor", "daily_basic", "trade_cal", "stock_basic")
@@ -129,6 +131,36 @@ def load_delisted_sidecar(path: str = DELISTED_SRC) -> pl.DataFrame | None:
     return sc
 
 
+def load_delisted_adj_sidecar(path: str = DELISTED_ADJ_SRC) -> pl.DataFrame | None:
+    """退市股 adj sidecar（R08-DATA-I2）；缺失 → None（旧行为：adj 保持 NULL）。"""
+    p = Path(path)
+    if not p.is_file():
+        print(f"  delisted-adj sidecar 缺失（{p}）→ 退市股 adj 保持 NULL", flush=True)
+        return None
+    sc = pl.read_parquet(p).select("code", "trade_date", "adj_factor")
+    print(f"  delisted-adj sidecar: {sc.height:,} rows / "
+          f"{sc['code'].n_unique():,} codes", flush=True)
+    return sc
+
+
+def apply_delisted_adj(df: pl.DataFrame, sidecar: pl.DataFrame | None) -> pl.DataFrame:
+    """把退市股 sidecar adj 合入 df：**只填 NULL**（coalesce），vendor 值绝不覆盖。
+
+    调用方须在 `nullify_invalid` 之后调用（NaN/<=0 已归 NULL）。sidecar None/空 →
+    原帧返回（零行为变化）。
+    """
+    if sidecar is None or sidecar.height == 0:
+        return df
+    side = sidecar.select([
+        pl.col("code"), pl.col("trade_date"),
+        pl.col("adj_factor").alias("__delisted_adj"),
+    ])
+    out = df.join(side, on=["code", "trade_date"], how="left")
+    return out.with_columns(
+        pl.coalesce([pl.col("adj_factor"), pl.col("__delisted_adj")]).alias("adj_factor")
+    ).drop("__delisted_adj")
+
+
 def daily_basic_frame(df: pl.DataFrame) -> pl.DataFrame:
     """daily_basic 表 frame：total_mv/turnover_rate/circ_mv + 4 列占位恒 NULL。
 
@@ -193,11 +225,15 @@ def main(tables: set[str] | None = None):
         ])
         _insert_table(client, "daily", daily)
 
-    # --- adj_factor（拆列；Nullable：NaN/<=0 归 NULL）---
+    # --- adj_factor（拆列；Nullable：NaN/<=0 归 NULL；R08-DATA-I2 sidecar 补退市股）---
     if "adj_factor" in want:
         print("TRUNCATE + 灌 adj_factor", flush=True)
         client.command(f"TRUNCATE TABLE {db}.adj_factor")
-        _insert_table(client, "adj_factor", df.select([
+        adjf = apply_delisted_adj(df, load_delisted_adj_sidecar())
+        n_null = adjf["adj_factor"].null_count()
+        print(f"  adj_factor NULL 行: {n_null:,}"
+              f"（sidecar 前 {df['adj_factor'].null_count():,}）", flush=True)
+        _insert_table(client, "adj_factor", adjf.select([
             pl.col("code").alias("ts_code"), "trade_date", "adj_factor",
         ]))
 

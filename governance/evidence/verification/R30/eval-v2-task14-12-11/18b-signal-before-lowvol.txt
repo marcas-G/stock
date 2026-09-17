@@ -1,0 +1,4 @@
+panel.parquet sha256[:16]= 4ee12d567890b05f
+summary.json sha256[:16]= bfd1ac7c09528af3
+panel rows 4419466 signal null=148181 (0.0335)
+sidecar codes in panel: 138; all-history null: 131

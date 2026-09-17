@@ -1,0 +1,30 @@
+daily 层:
+  daily        CH=      18,191,285 源=      18,191,285  一致
+  adj_factor   CH=      18,191,285 源=      18,191,285  一致
+  daily_basic  CH=      18,191,285 源=      18,191,285  一致
+  trade_cal    CH=           8,784 源=           8,784  一致
+  stock_basic  CH=           5,879 源=           5,879  一致
+daily 不变量:
+  不变量 pre_close/change 恒等式   违规=0  OK
+  不变量 pct_chg 恒等式            违规=0  OK
+  不变量 pre_close NULL 仅组内首行   违规=0  OK
+  daily 日期范围 CH=1990-12-19..2026-09-16 源=1990-12-19..2026-09-16  一致
+派生表:
+  stk_limit    CH=      17,921,186 期望=      17,921,186  日期 1996-12-16..2026-09-16  band违例=0 早于1996-12-16=0 悬空=0  一致
+  adj_detail   CH=      18,191,285 源=      18,191,285  uniq=      18,191,285  日期 1990-12-19..2026-09-16  一致
+  adj_event    CH=          57,352 源=          57,352  uniq=          57,352  一致
+退市股 adj 补灌:
+  delisted_adj sidecar=  83,967 行 /  180 码  CH 缺行或空值=0  重复键=0  一致
+moneyflow:
+  moneyflow    CH=   1,113,668 源=   1,113,668  日期 2025-11-20..2026-09-16 / 2025-11-20..2026-09-16  天=202/202  main_net_inflow 空值=8794/8794  键异常=0  一致
+fundamentals:
+  fundamentals CH=       5,556 源=       5,556  日期 2026-07-16..2026-09-03 / 2026-07-16..2026-09-03  天=38/38  total_shares 空值=0/0  键异常=0  一致
+bars_1m:
+  bars_1m: 全部 81 分区一致
+tick_trades:
+  tick_trades: 全部 13 分区一致
+tick_orders:
+  tick_orders: 全部 13 分区一致
+tick_snapshots:
+  tick_snapshots: 全部 13 分区一致
+全库一致

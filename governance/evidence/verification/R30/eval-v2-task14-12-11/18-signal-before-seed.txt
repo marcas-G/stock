@@ -1,0 +1,6 @@
+panel.parquet sha256[:16]= 7111204215c2c7b6
+summary.json sha256[:16]= ade2b59c90f80479
+panel rows 4419466 cols ['date', 'code', 'signal', 'forward_return_5d', 'forward_return_20d', 'close']
+signal null=148181 (0.0335) nan=0 null_or_nan=148181 (0.0335)
+sidecar codes present in panel: 138; all-history signal null: 131
+sample all-null codes: ['000005.SZ', '000040.SZ', '000046.SZ', '000150.SZ', '000413.SZ', '000416.SZ', '000540.SZ', '000584.SZ', '000587.SZ', '000606.SZ']

@@ -1,0 +1,7 @@
+读取 daily_fact.parquet ...
+  18,191,285 rows / 5,879 codes / 8,784 trade dates
+TRUNCATE + 灌 adj_factor
+  delisted-adj sidecar: 83,967 rows / 180 codes
+  adj_factor NULL 行: 1,182,578（sidecar 前 1,259,244）
+  adj_factor: 18,191,285 rows
+daily 层灌入完成

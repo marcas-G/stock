@@ -1,0 +1,327 @@
+targets: 180 codes（start=2022-01-01 end=2026-09-17）
+  000150.SZ: 318 rows rawΔ=0.0 calib=无
+  000416.SZ: 557 rows rawΔ=0.0 calib=无
+  000502.SZ: 92 rows rawΔ=0.0 calib=无
+  000540.SZ: 330 rows rawΔ=0.0 calib=无
+  000584.SZ: 804 rows rawΔ=0.0 calib=无
+  000585.SZ: 72 rows rawΔ=0.0 calib=无
+  000587.SZ: 260 rows rawΔ=0.0 calib=无
+  000606.SZ: 334 rows rawΔ=0.0 calib=无
+  000611.SZ: 92 rows rawΔ=0.0 calib=无
+  000613.SZ: 92 rows rawΔ=0.0 calib=无
+  000616.SZ: 348 rows rawΔ=0.0 calib=无
+  000622.SZ: 818 rows rawΔ=0.0 calib=无
+  000627.SZ: 829 rows rawΔ=0.0 calib=无
+  000666.SZ: 402 rows rawΔ=0.0 calib=无
+  000667.SZ: 335 rows rawΔ=0.0 calib=无
+  000671.SZ: 346 rows rawΔ=0.0 calib=无
+  000673.SZ: 92 rows rawΔ=0.0 calib=无
+  000687.SZ: 90 rows rawΔ=0.0 calib=无
+  000732.SZ: 341 rows rawΔ=0.0 calib=无
+  000806.SZ: 334 rows rawΔ=0.0 calib=无
+  000835.SZ: 68 rows rawΔ=0.0 calib=无
+  000836.SZ: 591 rows rawΔ=0.0 calib=无
+  000851.SZ: 905 rows rawΔ=0.0 calib=无
+  000861.SZ: 617 rows rawΔ=0.0 calib=无
+  000918.SZ: 339 rows rawΔ=0.0 calib=无
+  000961.SZ: 564 rows rawΔ=0.0 calib=无
+  000971.SZ: 583 rows rawΔ=0.0 calib=无
+  000976.SZ: 574 rows rawΔ=0.0 calib=无
+  000982.SZ: 596 rows rawΔ=0.0 calib=无
+  000996.SZ: 566 rows rawΔ=0.0 calib=无
+  002002.SZ: 496 rows rawΔ=0.0 calib=无
+  002013.SZ: 252 rows rawΔ=0.0 calib=无
+  002087.SZ: 575 rows rawΔ=0.0 calib=无
+  002089.SZ: 523 rows rawΔ=0.0 calib=无
+  002113.SZ: 347 rows rawΔ=0.0 calib=无
+  002118.SZ: 311 rows rawΔ=0.0 calib=无
+  002147.SZ: 92 rows rawΔ=0.0 calib=无
+  002231.SZ: 987 rows rawΔ=0.0 calib=无
+  002260.SZ: 30 rows rawΔ=0.0 calib=无
+  002280.SZ: 598 rows rawΔ=0.0 calib=无
+  002288.SZ: 593 rows rawΔ=0.0 calib=无
+  002308.SZ: 595 rows rawΔ=0.0 calib=无
+  002325.SZ: 600 rows rawΔ=0.0 calib=无
+  002336.SZ: 813 rows rawΔ=0.0 calib=无
+  002341.SZ: 597 rows rawΔ=0.0 calib=无
+  002411.SZ: 295 rows rawΔ=0.0 calib=无
+  002417.SZ: 333 rows rawΔ=0.0 calib=无
+  002433.SZ: 545 rows rawΔ=0.0 calib=无
+  002435.SZ: FAIL RuntimeError: sz002435 2026-01-01..2026-09-17 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002447.SZ: FAIL RuntimeError: sz002447 2026-01-01..2026-09-17 fq='hfq' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002464.SZ: FAIL RuntimeError: sz002464 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002473.SZ: FAIL RuntimeError: sz002473 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002499.SZ: FAIL RuntimeError: sz002499 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002502.SZ: FAIL RuntimeError: sz002502 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002503.SZ: FAIL RuntimeError: sz002503 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002504.SZ: FAIL RuntimeError: sz002504 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002505.SZ: FAIL RuntimeError: sz002505 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002610.SZ: FAIL RuntimeError: sz002610 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002618.SZ: FAIL RuntimeError: sz002618 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002619.SZ: FAIL RuntimeError: sz002619 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002621.SZ: FAIL RuntimeError: sz002621 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002665.SZ: FAIL RuntimeError: sz002665 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002684.SZ: FAIL RuntimeError: sz002684 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002699.SZ: FAIL RuntimeError: sz002699 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002740.SZ: FAIL RuntimeError: sz002740 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002750.SZ: FAIL RuntimeError: sz002750 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002751.SZ: FAIL RuntimeError: sz002751 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002770.SZ: FAIL RuntimeError: sz002770 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002776.SZ: FAIL RuntimeError: sz002776 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002781.SZ: FAIL RuntimeError: sz002781 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002808.SZ: FAIL RuntimeError: sz002808 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  002898.SZ: FAIL RuntimeError: sz002898 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300023.SZ: FAIL RuntimeError: sz300023 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300029.SZ: FAIL RuntimeError: sz300029 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300038.SZ: FAIL RuntimeError: sz300038 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300064.SZ: FAIL RuntimeError: sz300064 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300089.SZ: FAIL RuntimeError: sz300089 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300108.SZ: FAIL RuntimeError: sz300108 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300114.SZ: FAIL RuntimeError: sz300114 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300116.SZ: FAIL RuntimeError: sz300116 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300117.SZ: FAIL RuntimeError: sz300117 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300178.SZ: FAIL RuntimeError: sz300178 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300202.SZ: FAIL RuntimeError: sz300202 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300208.SZ: FAIL RuntimeError: sz300208 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300262.SZ: FAIL RuntimeError: sz300262 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300273.SZ: FAIL RuntimeError: sz300273 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300280.SZ: FAIL RuntimeError: sz300280 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300282.SZ: FAIL RuntimeError: sz300282 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300297.SZ: FAIL RuntimeError: sz300297 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300309.SZ: FAIL RuntimeError: sz300309 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300312.SZ: FAIL RuntimeError: sz300312 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300325.SZ: FAIL RuntimeError: sz300325 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300330.SZ: FAIL RuntimeError: sz300330 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300336.SZ: FAIL RuntimeError: sz300336 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300344.SZ: FAIL RuntimeError: sz300344 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300356.SZ: FAIL RuntimeError: sz300356 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300367.SZ: FAIL RuntimeError: sz300367 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300379.SZ: FAIL RuntimeError: sz300379 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300391.SZ: FAIL RuntimeError: sz300391 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300392.SZ: FAIL RuntimeError: sz300392 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300495.SZ: FAIL RuntimeError: sz300495 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300526.SZ: FAIL RuntimeError: sz300526 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300630.SZ: FAIL RuntimeError: sz300630 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300742.SZ: FAIL RuntimeError: sz300742 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  300799.SZ: FAIL RuntimeError: sz300799 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600070.SH: FAIL RuntimeError: sh600070 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600077.SH: FAIL RuntimeError: sh600077 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600083.SH: FAIL RuntimeError: sh600083 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600090.SH: FAIL RuntimeError: sh600090 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600091.SH: FAIL RuntimeError: sh600091 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600093.SH: FAIL RuntimeError: sh600093 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600112.SH: FAIL RuntimeError: sh600112 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600122.SH: FAIL RuntimeError: sh600122 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600139.SH: FAIL RuntimeError: sh600139 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600145.SH: FAIL RuntimeError: sh600145 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600146.SH: FAIL RuntimeError: sh600146 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600190.SH: FAIL RuntimeError: sh600190 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600193.SH: FAIL RuntimeError: sh600193 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600200.SH: FAIL RuntimeError: sh600200 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600209.SH: FAIL RuntimeError: sh600209 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600213.SH: FAIL RuntimeError: sh600213 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600220.SH: FAIL RuntimeError: sh600220 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600225.SH: FAIL RuntimeError: sh600225 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600242.SH: FAIL RuntimeError: sh600242 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600260.SH: FAIL RuntimeError: sh600260 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600275.SH: FAIL RuntimeError: sh600275 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600277.SH: FAIL RuntimeError: sh600277 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600290.SH: FAIL RuntimeError: sh600290 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600291.SH: FAIL RuntimeError: sh600291 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600297.SH: FAIL RuntimeError: sh600297 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600306.SH: FAIL RuntimeError: sh600306 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600311.SH: FAIL RuntimeError: sh600311 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600321.SH: FAIL RuntimeError: sh600321 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600355.SH: FAIL RuntimeError: sh600355 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600385.SH: FAIL RuntimeError: sh600385 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600387.SH: FAIL RuntimeError: sh600387 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600393.SH: FAIL RuntimeError: sh600393 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600421.SH: FAIL RuntimeError: sh600421 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600462.SH: FAIL RuntimeError: sh600462 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600466.SH: FAIL RuntimeError: sh600466 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600532.SH: FAIL RuntimeError: sh600532 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600555.SH: FAIL RuntimeError: sh600555 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600565.SH: FAIL RuntimeError: sh600565 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600599.SH: FAIL RuntimeError: sh600599 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600608.SH: FAIL RuntimeError: sh600608 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600636.SH: FAIL RuntimeError: sh600636 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600647.SH: FAIL RuntimeError: sh600647 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600652.SH: FAIL RuntimeError: sh600652 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600695.SH: FAIL RuntimeError: sh600695 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600696.SH: FAIL RuntimeError: sh600696 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600705.SH: FAIL RuntimeError: sh600705 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600766.SH: FAIL RuntimeError: sh600766 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600767.SH: FAIL RuntimeError: sh600767 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600781.SH: FAIL RuntimeError: sh600781 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600804.SH: FAIL RuntimeError: sh600804 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600811.SH: FAIL RuntimeError: sh600811 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600823.SH: FAIL RuntimeError: sh600823 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600836.SH: FAIL RuntimeError: sh600836 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600837.SH: FAIL RuntimeError: sh600837 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600856.SH: FAIL RuntimeError: sh600856 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600870.SH: FAIL RuntimeError: sh600870 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600890.SH: FAIL RuntimeError: sh600890 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600896.SH: FAIL RuntimeError: sh600896 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  600898.SH: FAIL RuntimeError: sh600898 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  601028.SH: FAIL RuntimeError: sh601028 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  601258.SH: FAIL RuntimeError: sh601258 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  601989.SH: FAIL RuntimeError: sh601989 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  603003.SH: FAIL RuntimeError: sh603003 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  603056.SH: FAIL RuntimeError: sh603056 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  603133.SH: FAIL RuntimeError: sh603133 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  603157.SH: FAIL RuntimeError: sh603157 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  603388.SH: FAIL RuntimeError: sh603388 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  603555.SH: FAIL RuntimeError: sh603555 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  603603.SH: FAIL RuntimeError: sh603603 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  603963.SH: FAIL RuntimeError: sh603963 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  603996.SH: FAIL RuntimeError: sh603996 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  605081.SH: FAIL RuntimeError: sh605081 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  688086.SH: FAIL RuntimeError: sh688086 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  688287.SH: FAIL RuntimeError: sh688287 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+  688555.SH: FAIL RuntimeError: sh688555 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get
+{
+  "codes_requested": 180,
+  "codes_ok": 48,
+  "codes_failed": {
+    "002435.SZ": "RuntimeError: sz002435 2026-01-01..2026-09-17 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002447.SZ": "RuntimeError: sz002447 2026-01-01..2026-09-17 fq='hfq' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002464.SZ": "RuntimeError: sz002464 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002473.SZ": "RuntimeError: sz002473 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002499.SZ": "RuntimeError: sz002499 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002502.SZ": "RuntimeError: sz002502 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002503.SZ": "RuntimeError: sz002503 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002504.SZ": "RuntimeError: sz002504 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002505.SZ": "RuntimeError: sz002505 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002610.SZ": "RuntimeError: sz002610 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002618.SZ": "RuntimeError: sz002618 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002619.SZ": "RuntimeError: sz002619 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002621.SZ": "RuntimeError: sz002621 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002665.SZ": "RuntimeError: sz002665 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002684.SZ": "RuntimeError: sz002684 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002699.SZ": "RuntimeError: sz002699 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002740.SZ": "RuntimeError: sz002740 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002750.SZ": "RuntimeError: sz002750 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002751.SZ": "RuntimeError: sz002751 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002770.SZ": "RuntimeError: sz002770 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002776.SZ": "RuntimeError: sz002776 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002781.SZ": "RuntimeError: sz002781 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002808.SZ": "RuntimeError: sz002808 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "002898.SZ": "RuntimeError: sz002898 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300023.SZ": "RuntimeError: sz300023 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300029.SZ": "RuntimeError: sz300029 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300038.SZ": "RuntimeError: sz300038 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300064.SZ": "RuntimeError: sz300064 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300089.SZ": "RuntimeError: sz300089 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300108.SZ": "RuntimeError: sz300108 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300114.SZ": "RuntimeError: sz300114 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300116.SZ": "RuntimeError: sz300116 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300117.SZ": "RuntimeError: sz300117 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300178.SZ": "RuntimeError: sz300178 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300202.SZ": "RuntimeError: sz300202 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300208.SZ": "RuntimeError: sz300208 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300262.SZ": "RuntimeError: sz300262 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300273.SZ": "RuntimeError: sz300273 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300280.SZ": "RuntimeError: sz300280 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300282.SZ": "RuntimeError: sz300282 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300297.SZ": "RuntimeError: sz300297 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300309.SZ": "RuntimeError: sz300309 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300312.SZ": "RuntimeError: sz300312 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300325.SZ": "RuntimeError: sz300325 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300330.SZ": "RuntimeError: sz300330 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300336.SZ": "RuntimeError: sz300336 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300344.SZ": "RuntimeError: sz300344 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300356.SZ": "RuntimeError: sz300356 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300367.SZ": "RuntimeError: sz300367 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300379.SZ": "RuntimeError: sz300379 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300391.SZ": "RuntimeError: sz300391 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300392.SZ": "RuntimeError: sz300392 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300495.SZ": "RuntimeError: sz300495 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300526.SZ": "RuntimeError: sz300526 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300630.SZ": "RuntimeError: sz300630 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300742.SZ": "RuntimeError: sz300742 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "300799.SZ": "RuntimeError: sz300799 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600070.SH": "RuntimeError: sh600070 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600077.SH": "RuntimeError: sh600077 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600083.SH": "RuntimeError: sh600083 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600090.SH": "RuntimeError: sh600090 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600091.SH": "RuntimeError: sh600091 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600093.SH": "RuntimeError: sh600093 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600112.SH": "RuntimeError: sh600112 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600122.SH": "RuntimeError: sh600122 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600139.SH": "RuntimeError: sh600139 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600145.SH": "RuntimeError: sh600145 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600146.SH": "RuntimeError: sh600146 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600190.SH": "RuntimeError: sh600190 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600193.SH": "RuntimeError: sh600193 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600200.SH": "RuntimeError: sh600200 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600209.SH": "RuntimeError: sh600209 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600213.SH": "RuntimeError: sh600213 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600220.SH": "RuntimeError: sh600220 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600225.SH": "RuntimeError: sh600225 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600242.SH": "RuntimeError: sh600242 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600260.SH": "RuntimeError: sh600260 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600275.SH": "RuntimeError: sh600275 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600277.SH": "RuntimeError: sh600277 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600290.SH": "RuntimeError: sh600290 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600291.SH": "RuntimeError: sh600291 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600297.SH": "RuntimeError: sh600297 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600306.SH": "RuntimeError: sh600306 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600311.SH": "RuntimeError: sh600311 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600321.SH": "RuntimeError: sh600321 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600355.SH": "RuntimeError: sh600355 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600385.SH": "RuntimeError: sh600385 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600387.SH": "RuntimeError: sh600387 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600393.SH": "RuntimeError: sh600393 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600421.SH": "RuntimeError: sh600421 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600462.SH": "RuntimeError: sh600462 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600466.SH": "RuntimeError: sh600466 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600532.SH": "RuntimeError: sh600532 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600555.SH": "RuntimeError: sh600555 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600565.SH": "RuntimeError: sh600565 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600599.SH": "RuntimeError: sh600599 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600608.SH": "RuntimeError: sh600608 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600636.SH": "RuntimeError: sh600636 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600647.SH": "RuntimeError: sh600647 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600652.SH": "RuntimeError: sh600652 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600695.SH": "RuntimeError: sh600695 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600696.SH": "RuntimeError: sh600696 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600705.SH": "RuntimeError: sh600705 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600766.SH": "RuntimeError: sh600766 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600767.SH": "RuntimeError: sh600767 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600781.SH": "RuntimeError: sh600781 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600804.SH": "RuntimeError: sh600804 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600811.SH": "RuntimeError: sh600811 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600823.SH": "RuntimeError: sh600823 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600836.SH": "RuntimeError: sh600836 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600837.SH": "RuntimeError: sh600837 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600856.SH": "RuntimeError: sh600856 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600870.SH": "RuntimeError: sh600870 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600890.SH": "RuntimeError: sh600890 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600896.SH": "RuntimeError: sh600896 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "600898.SH": "RuntimeError: sh600898 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "601028.SH": "RuntimeError: sh601028 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "601258.SH": "RuntimeError: sh601258 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "601989.SH": "RuntimeError: sh601989 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "603003.SH": "RuntimeError: sh603003 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "603056.SH": "RuntimeError: sh603056 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "603133.SH": "RuntimeError: sh603133 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "603157.SH": "RuntimeError: sh603157 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "603388.SH": "RuntimeError: sh603388 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "603555.SH": "RuntimeError: sh603555 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "603603.SH": "RuntimeError: sh603603 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "603963.SH": "RuntimeError: sh603963 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "603996.SH": "RuntimeError: sh603996 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "605081.SH": "RuntimeError: sh605081 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "688086.SH": "RuntimeError: sh688086 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "688287.SH": "RuntimeError: sh688287 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get",
+    "688555.SH": "RuntimeError: sh688555 2022-01-01..2023-12-31 fq='' 取数失败: HTTP 501 @ https://ifzq.gtimg.cn/appstock/app/fqkline/get"
+  },
+  "rows": 20871,
+  "date_min": "2022-01-04",
+  "date_max": "2026-01-29",
+  "source": "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get",
+  "fetched_at": "2026-09-17T11:19:26.085005",
+  "start": "2022-01-01",
+  "end": "2026-09-17"
+}
+sidecar: /data/students/gaolei/stock/data/fact/daily_fact/delisted_adj_factor.parquet

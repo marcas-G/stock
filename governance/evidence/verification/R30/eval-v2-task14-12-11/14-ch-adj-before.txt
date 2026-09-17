@@ -1,0 +1,5 @@
+global max trade_date: 2026-09-16
+codes with any NULL adj: 383 null rows total: 1259244
+all-NULL delisted-like codes: 315 rows: 1246656
+panel window >=2023: codes: 5695 codes with NULL rows: 146 null rows: 41984
+spot-check 5 delisted codes NULL rows >=2023: 3550

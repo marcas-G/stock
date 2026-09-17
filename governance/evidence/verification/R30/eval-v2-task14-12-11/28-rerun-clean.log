@@ -1,0 +1,6 @@
+== research/factor/volatility/low_vol_20d.yaml
+low_vol_20d: n_weeks=845 ic_mean=0.05646431326288975 
+spread=0.0005891654648222037 freq=daily
+== research/factor/momentum_20d/turnrank_top2.yaml
+momentum_20d_turnrank_top2: n_weeks=845 ic_mean=-0.02794228242402124 
+spread=0.0018498119097050368 freq=daily

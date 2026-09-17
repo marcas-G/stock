@@ -1,0 +1,205 @@
+targets: 185 codes（start=2022-01-01 end=2026-09-17）
+  000004.SZ: FAIL ValueError: 000004.SZ: vendor 与 hfq/raw 漂移过大（rel_max_err=4.28e-01 > 5e-03）——拒绝填洞
+  000005.SZ: 524 rows rawΔ=0.0 calib=无
+  000040.SZ: 700 rows rawΔ=0.0 calib=无
+  000046.SZ: 481 rows rawΔ=0.0 calib=无
+  000150.SZ: 318 rows rawΔ=0.0 calib=无
+  000413.SZ: 589 rows rawΔ=0.0 calib=无
+  000416.SZ: 557 rows rawΔ=0.0 calib=无
+  000502.SZ: 92 rows rawΔ=0.0 calib=无
+  000540.SZ: 330 rows rawΔ=0.0 calib=无
+  000584.SZ: 804 rows rawΔ=0.0 calib=无
+  000585.SZ: 72 rows rawΔ=0.0 calib=无
+  000587.SZ: 260 rows rawΔ=0.0 calib=无
+  000606.SZ: 334 rows rawΔ=0.0 calib=无
+  000611.SZ: 92 rows rawΔ=0.0 calib=无
+  000613.SZ: 92 rows rawΔ=0.0 calib=无
+  000616.SZ: 348 rows rawΔ=0.0 calib=无
+  000622.SZ: 818 rows rawΔ=0.0 calib=无
+  000627.SZ: 829 rows rawΔ=0.0 calib=无
+  000666.SZ: 402 rows rawΔ=0.0 calib=无
+  000667.SZ: 335 rows rawΔ=0.0 calib=无
+  000671.SZ: 346 rows rawΔ=0.0 calib=无
+  000673.SZ: 92 rows rawΔ=0.0 calib=无
+  000687.SZ: 90 rows rawΔ=0.0 calib=无
+  000732.SZ: 341 rows rawΔ=0.0 calib=无
+  000806.SZ: 334 rows rawΔ=0.0 calib=无
+  000835.SZ: 68 rows rawΔ=0.0 calib=无
+  000836.SZ: 591 rows rawΔ=0.0 calib=无
+  000851.SZ: 905 rows rawΔ=0.0 calib=无
+  000861.SZ: 617 rows rawΔ=0.0 calib=无
+  000918.SZ: 339 rows rawΔ=0.0 calib=无
+  000961.SZ: 564 rows rawΔ=0.0 calib=无
+  000971.SZ: 583 rows rawΔ=0.0 calib=无
+  000976.SZ: 574 rows rawΔ=0.0 calib=无
+  000982.SZ: 596 rows rawΔ=0.0 calib=无
+  000996.SZ: 566 rows rawΔ=0.0 calib=无
+  002002.SZ: 496 rows rawΔ=0.0 calib=无
+  002013.SZ: 252 rows rawΔ=0.0 calib=无
+  002087.SZ: 575 rows rawΔ=0.0 calib=无
+  002089.SZ: 523 rows rawΔ=0.0 calib=无
+  002113.SZ: 347 rows rawΔ=0.0 calib=无
+  002118.SZ: 311 rows rawΔ=0.0 calib=无
+  002147.SZ: 92 rows rawΔ=0.0 calib=无
+  002231.SZ: 987 rows rawΔ=0.0 calib=无
+  002260.SZ: 30 rows rawΔ=0.0 calib=无
+  002280.SZ: 598 rows rawΔ=0.0 calib=无
+  002288.SZ: 593 rows rawΔ=0.0 calib=无
+  002308.SZ: 595 rows rawΔ=0.0 calib=无
+  002325.SZ: 600 rows rawΔ=0.0 calib=无
+  002336.SZ: 813 rows rawΔ=0.0 calib=无
+  002341.SZ: 597 rows rawΔ=0.0 calib=无
+  002411.SZ: 295 rows rawΔ=0.0 calib=无
+  002417.SZ: 333 rows rawΔ=0.0 calib=无
+  002433.SZ: 545 rows rawΔ=0.0 calib=无
+  002435.SZ: 601 rows rawΔ=0.0 calib=无
+  002447.SZ: 92 rows rawΔ=0.0 calib=无
+  002464.SZ: 91 rows rawΔ=0.0 calib=无
+  002473.SZ: 92 rows rawΔ=0.0 calib=无
+  002499.SZ: 275 rows rawΔ=0.0 calib=无
+  002502.SZ: 612 rows rawΔ=0.0 calib=无
+  002503.SZ: 331 rows rawΔ=0.0 calib=无
+  002504.SZ: 347 rows rawΔ=0.0 calib=无
+  002505.SZ: 603 rows rawΔ=0.0 calib=无
+  002610.SZ: 592 rows rawΔ=0.0 calib=无
+  002618.SZ: 92 rows rawΔ=0.0 calib=无
+  002619.SZ: 58 rows rawΔ=0.0 calib=无
+  002621.SZ: 589 rows rawΔ=0.0 calib=无
+  002665.SZ: 599 rows rawΔ=0.0 calib=无
+  002684.SZ: 92 rows rawΔ=0.0 calib=无
+  002699.SZ: 557 rows rawΔ=0.0 calib=无
+  002740.SZ: 496 rows rawΔ=0.0 calib=无
+  002750.SZ: 814 rows rawΔ=0.0 calib=无
+  002751.SZ: 334 rows rawΔ=0.0 calib=无
+  002770.SZ: 92 rows rawΔ=0.0 calib=无
+  002776.SZ: 439 rows rawΔ=0.0 calib=无
+  002781.SZ: 333 rows rawΔ=0.0 calib=无
+  002808.SZ: FAIL ValueError: 002808.SZ: vendor 与 hfq/raw 漂移过大（rel_max_err=6.99e-03 > 5e-03）——拒绝填洞
+  002898.SZ: 1060 rows rawΔ=0.0 calib=C=0.9998 n=1045
+  300023.SZ: 92 rows rawΔ=0.0 calib=无
+  300029.SZ: 1058 rows rawΔ=0.0 calib=C=1.0000 n=1045
+  300038.SZ: 91 rows rawΔ=0.0 calib=无
+  300064.SZ: 92 rows rawΔ=0.0 calib=无
+  300089.SZ: 334 rows rawΔ=0.0 calib=无
+  300108.SZ: 758 rows rawΔ=0.0 calib=无
+  300114.SZ: 742 rows rawΔ=0.0 calib=无
+  300116.SZ: 570 rows rawΔ=0.0 calib=无
+  300117.SZ: 782 rows rawΔ=0.0 calib=无
+  300178.SZ: 89 rows rawΔ=0.0 calib=无
+  300202.SZ: 91 rows rawΔ=0.0 calib=无
+  300208.SZ: 818 rows rawΔ=0.0 calib=无
+  300262.SZ: 592 rows rawΔ=0.0 calib=无
+  300273.SZ: 333 rows rawΔ=0.0 calib=无
+  300280.SZ: 787 rows rawΔ=0.0 calib=无
+  300282.SZ: 575 rows rawΔ=0.0 calib=无
+  300297.SZ: 331 rows rawΔ=0.0 calib=无
+  300309.SZ: 312 rows rawΔ=0.0 calib=无
+  300312.SZ: 92 rows rawΔ=0.0 calib=无
+  300325.SZ: 92 rows rawΔ=0.0 calib=无
+  300330.SZ: 255 rows rawΔ=0.0 calib=无
+  300336.SZ: 332 rows rawΔ=0.0 calib=无
+  300344.SZ: 1005 rows rawΔ=0.0 calib=无
+  300356.SZ: 332 rows rawΔ=0.0 calib=无
+  300367.SZ: 90 rows rawΔ=0.0 calib=无
+  300379.SZ: 957 rows rawΔ=0.0 calib=无
+  300391.SZ: 998 rows rawΔ=0.0 calib=无
+  300392.SZ: 334 rows rawΔ=0.0 calib=无
+  300495.SZ: 565 rows rawΔ=0.0 calib=无
+  300526.SZ: 333 rows rawΔ=0.0 calib=无
+  300630.SZ: 747 rows rawΔ=0.0 calib=无
+  300742.SZ: 576 rows rawΔ=0.0 calib=无
+  300799.SZ: 569 rows rawΔ=0.0 calib=无
+  600070.SH: 785 rows rawΔ=0.0 calib=无
+  600077.SH: 348 rows rawΔ=0.0 calib=无
+  600083.SH: 735 rows rawΔ=0.0 calib=无
+  600090.SH: 78 rows rawΔ=0.0 calib=无
+  600091.SH: 90 rows rawΔ=0.0 calib=无
+  600093.SH: 89 rows rawΔ=0.0 calib=无
+  600112.SH: 614 rows rawΔ=0.0 calib=无
+  600122.SH: 336 rows rawΔ=0.0 calib=无
+  600139.SH: 276 rows rawΔ=0.0 calib=无
+  600145.SH: 52 rows rawΔ=0.0 calib=无
+  600146.SH: 92 rows rawΔ=0.0 calib=无
+  600190.SH: 798 rows rawΔ=0.0 calib=无
+  600193.SH: 1057 rows rawΔ=0.0 calib=C=1.0033 n=1052
+  600200.SH: 957 rows rawΔ=0.0 calib=无
+  600209.SH: 91 rows rawΔ=0.0 calib=无
+  600213.SH: 629 rows rawΔ=0.0 calib=无
+  600220.SH: 589 rows rawΔ=0.0 calib=无
+  600225.SH: 730 rows rawΔ=0.0 calib=无
+  600242.SH: 334 rows rawΔ=0.0 calib=无
+  600260.SH: 259 rows rawΔ=0.0 calib=无
+  600275.SH: 92 rows rawΔ=0.0 calib=无
+  600277.SH: 595 rows rawΔ=0.0 calib=无
+  600290.SH: 476 rows rawΔ=0.0 calib=无
+  600291.SH: 92 rows rawΔ=0.0 calib=无
+  600297.SH: 614 rows rawΔ=0.0 calib=无
+  600306.SH: 573 rows rawΔ=0.0 calib=无
+  600311.SH: 279 rows rawΔ=0.0 calib=无
+  600321.SH: 581 rows rawΔ=0.0 calib=无
+  600355.SH: 1027 rows rawΔ=0.0 calib=无
+  600385.SH: 91 rows rawΔ=0.0 calib=无
+  600387.SH: 815 rows rawΔ=0.0 calib=无
+  600393.SH: 344 rows rawΔ=0.0 calib=无
+  600421.SH: 1042 rows rawΔ=0.0 calib=C=0.9995 n=1027
+  600462.SH: 817 rows rawΔ=0.0 calib=无
+  600466.SH: 323 rows rawΔ=0.0 calib=无
+  600532.SH: 291 rows rawΔ=0.0 calib=无
+  600555.SH: 92 rows rawΔ=0.0 calib=无
+  600565.SH: 595 rows rawΔ=0.0 calib=无
+  600599.SH: 1054 rows rawΔ=0.0 calib=C=1.0001 n=1039
+  600608.SH: FAIL ValueError: 600608.SH: vendor 与 hfq/raw 漂移过大（rel_max_err=1.69e+00 > 5e-03）——拒绝填洞
+  600636.SH: FAIL ValueError: 600636.SH: vendor 与 hfq/raw 漂移过大（rel_max_err=3.70e-02 > 5e-03）——拒绝填洞
+  600647.SH: 549 rows rawΔ=0.0 calib=无
+  600652.SH: 92 rows rawΔ=0.0 calib=无
+  600695.SH: 88 rows rawΔ=0.0 calib=无
+  600696.SH: 1059 rows rawΔ=0.0 calib=C=1.0027 n=1044
+  600705.SH: 784 rows rawΔ=0.0 calib=无
+  600766.SH: 565 rows rawΔ=0.0 calib=无
+  600767.SH: 333 rows rawΔ=0.0 calib=无
+  600781.SH: 295 rows rawΔ=0.0 calib=无
+  600804.SH: 813 rows rawΔ=0.0 calib=无
+  600811.SH: 791 rows rawΔ=0.0 calib=无
+  600823.SH: 568 rows rawΔ=0.0 calib=无
+  600836.SH: 591 rows rawΔ=0.0 calib=无
+  600837.SH: 728 rows rawΔ=0.0 calib=无
+  600856.SH: 87 rows rawΔ=0.0 calib=无
+  600870.SH: 92 rows rawΔ=0.0 calib=无
+  600890.SH: 91 rows rawΔ=0.0 calib=无
+  600896.SH: 92 rows rawΔ=0.0 calib=无
+  600898.SH: 730 rows rawΔ=0.0 calib=无
+  601028.SH: 777 rows rawΔ=0.0 calib=无
+  601258.SH: 334 rows rawΔ=0.0 calib=无
+  601989.SH: 864 rows rawΔ=0.0 calib=无
+  603003.SH: 817 rows rawΔ=0.0 calib=无
+  603056.SH: 968 rows rawΔ=0.0 calib=无
+  603133.SH: 570 rows rawΔ=0.0 calib=无
+  603157.SH: 72 rows rawΔ=0.0 calib=无
+  603388.SH: 930 rows rawΔ=0.0 calib=无
+  603555.SH: 524 rows rawΔ=0.0 calib=无
+  603603.SH: 514 rows rawΔ=0.0 calib=无
+  603963.SH: 744 rows rawΔ=0.0 calib=无
+  603996.SH: 72 rows rawΔ=0.0 calib=无
+  605081.SH: 1054 rows rawΔ=0.0 calib=C=0.9994 n=1049
+  688086.SH: 328 rows rawΔ=0.0 calib=无
+  688287.SH: FAIL ValueError: 688287.SH: vendor 与 hfq/raw 漂移过大（rel_max_err=8.96e-01 > 5e-03）——拒绝填洞
+  688555.SH: 326 rows rawΔ=0.0 calib=无
+{
+  "codes_requested": 185,
+  "codes_ok": 180,
+  "codes_failed": {
+    "000004.SZ": "ValueError: 000004.SZ: vendor 与 hfq/raw 漂移过大（rel_max_err=4.28e-01 > 5e-03）——拒绝填洞",
+    "002808.SZ": "ValueError: 002808.SZ: vendor 与 hfq/raw 漂移过大（rel_max_err=6.99e-03 > 5e-03）——拒绝填洞",
+    "600608.SH": "ValueError: 600608.SH: vendor 与 hfq/raw 漂移过大（rel_max_err=1.69e+00 > 5e-03）——拒绝填洞",
+    "600636.SH": "ValueError: 600636.SH: vendor 与 hfq/raw 漂移过大（rel_max_err=3.70e-02 > 5e-03）——拒绝填洞",
+    "688287.SH": "ValueError: 688287.SH: vendor 与 hfq/raw 漂移过大（rel_max_err=8.96e-01 > 5e-03）——拒绝填洞"
+  },
+  "rows": 84054,
+  "date_min": "2022-01-04",
+  "date_max": "2026-07-16",
+  "source": "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get",
+  "fetched_at": "2026-09-17T10:56:36.317282",
+  "start": "2022-01-01",
+  "end": "2026-09-17"
+}
+dry-run：不落盘

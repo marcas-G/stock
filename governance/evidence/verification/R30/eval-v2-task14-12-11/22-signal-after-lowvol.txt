@@ -1,0 +1,7 @@
+panel.parquet sha256[:16]= 2dd2f86365fe1fe5
+summary.json sha256[:16]= 7acb4ce9046fc7e0
+version= 2 frequency= daily target= forward_return_1d
+panel rows 4419466 signal null=106883 (0.0242)
+sidecar codes in panel: 138; all-history null: 2
+remaining all-null: [{'code': '600260.SH', 'nn': 0, 'n': 18}, {'code': '000587.SZ', 'nn': 0, 'n': 18}]
+recovered codes: 136 samples: [('002898.SZ', 835, 855), ('300029.SZ', 830, 850), ('600193.SH', 822, 842), ('605081.SH', 822, 842), ('600421.SH', 817, 837), ('600696.SH', 817, 837)]

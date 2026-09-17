@@ -46,6 +46,10 @@ python ingest_tick.py --trades      # 只灌 trades
 python derive_stk_limit.py          # stk_limit（规则见脚本 docstring）
 python platform/tools/ch_ingest/adj_backfill.py   # adj_detail + adj_event（平台 venv）
 
+# 5b) 退市股 adj 补灌（R08-DATA-I2；按需，sidecar 缺省缺失=旧行为）
+python platform/tools/ch_ingest/delisted_adj_backfill.py   # 腾讯 hfq → sidecar（限流可重跑续传）
+python platform/tools/ch_ingest/ingest_daily.py --only adj_factor   # coalesce 后重灌
+
 # 6) 对账（退出码 0=全一致；14 表）
 python reconcile.py                 # 全表（含 moneyflow / fundamentals）
 python reconcile.py moneyflow       # 资金流：行数/日期/天数/关键列空值 vs raw zip 源
@@ -80,6 +84,15 @@ python reconcile.py fundamentals    # 财报快照：行数/updated_date/关键�
   `circ_mv` = close×float_shares（同万元口径；R07-DATA-I4 起派生，非占位）；
   `turnover_rate` = vol/(float_shares×1e4)×100（%）
 - `adj_factor` <=0（vendor 后复权价异常）归 NULL——qfq 基准 `argMax` 跳过 NULL（R21 I1）
+- **退市股 adj 补灌（R08-DATA-I2，2026-09-17）**：退市股源（`daily/退市股/*.xlsx`）为
+  8 列精简格式，无复权列 → CH `adj_factor` 全 NULL、评估全历史丢行。补口
+  `delisted_adj_backfill.py`：腾讯复权 K 线（双域名，hfq）→ `adj=后复权价/收盘`，
+  raw 收盘逐日对拍 `daily_fact`（不一致拒绝）；部分有 vendor 值的按 vendor 段末端
+  锚定比例常数（漂移 >0.5% 拒绝）→ sidecar `data/fact/daily_fact/delisted_adj_factor.parquet`
+  （+`.meta.json`；写盘自动合并=断点续跑）→ `ingest_daily --only adj_factor` 灌入时
+  `coalesce`（只填 NULL，不覆盖 vendor）；`reconcile` 校验 sidecar 每条键在 CH 非空。
+  范围默认 2022-01-01 起（评估窗口 2023+ 与 warmup）；已知精度边界：hfq 小数位 +
+  低价股 → 派生 TR 日差 p99≈0.16%（恢复样本优于全空，证据 R30/eval-v2-task14-12-11/）
 - `daily_basic` 的 `pe_ttm/pb/dv_ratio/volume_ratio` 4 列为占位空列（无数据源；
   平台读路径 `_PLATFORM_COLS` 仍映射它们，DDL 保留；**不要在文档/目录里宣传可用**）
 - `stock_basic.list_date` 为 daily_fact 最早交易日代理

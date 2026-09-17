@@ -42,6 +42,8 @@ DAILY_SRC = str(paths.daily_fact_path())   # R8：取 factio.paths（原硬编�
 MONEYFLOW_SRC = paths.RAW_ROOT / "fund_flow"
 FUNDAMENTALS_SRC = (paths.FACT_ROOT / "fundamentals" /
                     "fundamentals_snapshot.parquet")
+DELISTED_ADJ_NAME = "delisted_adj_factor.parquet"   # R08-DATA-I2 sidecar
+DELISTED_ADJ_PATH = Path(DAILY_SRC).with_name(DELISTED_ADJ_NAME)
 EVENT_COLS = ["div_cash", "div_bonus", "div_transfer", "rights_num"]
 MIN_LIMIT_DATE = "1996-12-16"
 
@@ -178,6 +180,39 @@ def _check_derived_tables(client, db, fact_rows: int) -> bool:
     return ok
 
 
+def _check_delisted_adj(client, db, path: Path | None = None) -> bool:
+    """R08-DATA-I2：退市股 adj sidecar 的每条 (code, date) 在 CH 必须有非空 adj。
+
+    sidecar 缺失 → 跳过（旧行为，不算红）；sidecar 存在 → CH 缺行/空值/重复键即红。
+    """
+    p = Path(DELISTED_ADJ_PATH if path is None else path)
+    if not p.is_file():
+        print(f"  delisted_adj sidecar 缺失（{p}）→ 跳过", flush=True)
+        return True
+    side = pl.read_parquet(p).select("code", "trade_date", "adj_factor")
+    if side.height == 0:
+        print("  delisted_adj sidecar 空 → 跳过", flush=True)
+        return True
+    codes = sorted(side["code"].unique().to_list())
+    mn, mx = side["trade_date"].min(), side["trade_date"].max()
+    in_list = ", ".join("'%s'" % c.replace("'", "''") for c in codes)
+    rows = client.query(
+        f"SELECT ts_code, trade_date, adj_factor FROM {db}.adj_factor "
+        f"WHERE ts_code IN ({in_list}) AND trade_date BETWEEN "
+        f"toDate('{mn}') AND toDate('{mx}')").result_rows
+    got = pl.DataFrame(rows, schema={"ts_code": pl.String, "trade_date": pl.Date,
+                                     "ch_adj": pl.Float64}, orient="row")
+    merged = side.rename({"code": "ts_code"}).join(
+        got, on=["ts_code", "trade_date"], how="left")
+    missing = int((merged["ch_adj"].is_null()).sum())
+    dup = got.height - got.select(["ts_code", "trade_date"]).n_unique()
+    good = missing == 0 and dup == 0
+    print(f"  delisted_adj sidecar={side.height:>8,} 行 / {len(codes):>4} 码  "
+          f"CH 缺行或空值={missing}  重复键={dup}  "
+          f"{'一致' if good else '不一致'}", flush=True)
+    return good
+
+
 def _check_moneyflow(client, db, root: Path | None = None) -> bool:
     """moneyflow：CH vs raw zip 全量帧（与灌入同一 load_frames 语义）+ 关键字段。"""
     from ingest_moneyflow import load_frames
@@ -243,6 +278,8 @@ def main():
         ok &= _check_daily_invariants(client, db)
         print("派生表:", flush=True)
         ok &= _check_derived_tables(client, db, fact_rows)
+        print("退市股 adj 补灌:", flush=True)
+        ok &= _check_delisted_adj(client, db)
 
     if which in ("all", "moneyflow"):
         print("moneyflow:", flush=True)

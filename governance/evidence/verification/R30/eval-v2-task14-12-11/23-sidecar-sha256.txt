@@ -1,0 +1,2 @@
+5c7b2aeb0c483c1d655b9403fb8dbf12d98f796f63b6831351537461143b287b  data/fact/daily_fact/delisted_adj_factor.parquet
+d69ad88d30cd0af1be3ffd08bdf515b8d7ebee9d14bac10295303de52b49cc1c  data/fact/daily_fact/delisted_adj_factor.meta.json

@@ -1,0 +1,8 @@
+panel.parquet sha256[:16]= 19797754e18f350f
+summary.json sha256[:16]= f547de4748f25a4c
+evaluation.version= 2 frequency= daily target= forward_return_1d
+st_degrade= True
+panel rows 4419466 signal null=148181 (0.0335)
+sidecar codes present in panel: 138; all-history signal null: 131
+sample now-nonnull codes: ['002898.SZ', '300029.SZ', '605081.SH', '600193.SH', '600696.SH', '600421.SH', '600599.SH']
+old all-null sample recovery: [('000540.SZ', 0, 89), ('000584.SZ', 0, 609), ('000587.SZ', 0, 18), ('000005.SZ', 0, 282), ('000416.SZ', 0, 316), ('000413.SZ', 0, 392), ('000606.SZ', 0, 121), ('000040.SZ', 0, 541), ('000150.SZ', 0, 77), ('000046.SZ', 0, 240)]

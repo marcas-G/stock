@@ -1,0 +1,26 @@
+codes with any NULL adj: 381 null rows total: 1182491
+all-NULL delisted-like codes: 142
+panel window >=2023: codes: 5695 codes with NULL rows: 10 null rows: 157
+spot-check 5 delisted codes NULL rows >=2023: [('002231.SZ', 0), ('300379.SZ', 0), ('300391.SZ', 0), ('600355.SH', 0), ('600811.SH', 0)]
+coverage window per spot code: [('300379.SZ', 1932, datetime.date(2022, 1, 4), datetime.date(2026, 1, 21)), ('600355.SH', 4754, datetime.date(2022, 1, 4), datetime.date(2026, 4, 3)), ('600811.SH', 6807, datetime.date(2022, 1, 4), datetime.date(2025, 4, 14))]
+Traceback (most recent call last):
+  File "<stdin>", line 33, in <module>
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/client.py", line 462, in query
+    return self._query_with_context(query_context)
+           ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/_backendclient.py", line 49, in _query_with_context
+    execution = self._backend.execute_query(context, runtime, self._prep_query(context))
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/_backend/http_sync.py", line 157, in execute_query
+    response = self.request(
+        plan.body if plan.body is not None else b"",
+    ...<5 lines>...
+        server_wait=not context.streaming,
+    )
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/_backend/http_sync.py", line 382, in request
+    self.error_handler(response)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/clickhouse_connect/driver/_backend/http_sync.py", line 126, in error_handler
+    raise build_http_error(
+    ...<6 lines>...
+    ) from None
+clickhouse_connect.driver.exceptions.DatabaseError: Received ClickHouse exception, code: 184, server response: Code: 184. DB::Exception: Aggregate function max(trade_date) is found in WHERE in query. (ILLEGAL_AGGREGATION) (for url http://127.0.0.1:8123)

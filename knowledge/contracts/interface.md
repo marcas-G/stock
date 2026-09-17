@@ -1027,6 +1027,18 @@ close 恒加载，adj_factor 恒 inner join。**R21 单位契约（R01-DATA-I7�
 2026-09 随源退役）原始为 `手`/`千元`，`adapters/read/source.py` 在读适配层显式
 ×100/×1000 归一；ch 灌入原生即股/元（恒等）。两腿消费者所见单位一致。
 
+**退市股 adj 补灌（R08-DATA-I2，2026-09-17）**：`daily_fact` 源的退市股为 8 列精简
+格式（date/OHLCV，无复权列）且全量 zip 不含退市代码 → CH `adj_factor` 对退市股全
+NULL → adj inner join 使这些代码全历史进不了评估。补口（`platform/tools/ch_ingest/
+delisted_adj_backfill.py`）：腾讯复权 K 线（hfq）→ `adj=后复权价/收盘`，
+**raw 收盘逐日对拍 `daily_fact`（不一致拒绝）**；部分已有 vendor 值的代码按 vendor
+段末端锚定比例常数（漂移 >0.5% 拒绝）保持尺度连续；写 sidecar
+`data/fact/daily_fact/delisted_adj_factor.parquet`（+ `.meta.json`；限流可断点续跑
+合并）→ `ingest_daily` 灌 `adj_factor` 表时 `coalesce(vendor, sidecar)`（**只填
+NULL，绝不覆盖 vendor**）→ `reconcile` 校验 sidecar 每条 (ts_code, trade_date) 在 CH
+非空。恢复范围默认 `2022-01-01` 起（评估窗口 2023+ 与 warmup；更早历史腾讯/通达信
+存在个别交易日差异，不在范围）。
+
 **列供给：无字段白名单（M1，spec 决策③修订）**。`cols` 可请求：引擎特殊名字
 （`date/code/adj_factor/idx_ret`）、平台映射名（`open/high/low/close/pre_close/
 change/pct_chg/volume/amount`；`turnover/total_mv/circ_mv/pe_ttm/pb/dv_ratio/
