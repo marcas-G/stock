@@ -1,0 +1,17 @@
+target: 2026-09-04_financial.parquet
+  [stoken refreshed 17:09:37]
+share item: name=2026-09-04_financial.parquet size=367597336 fid=f7f395be8cad42539287942c8754ed5d token_len=32
+Traceback (most recent call last):
+  File "/data/students/gaolei/stock/governance/evidence/verification/R30/pan-large-transfer/sample_transfer.py", line 79, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/data/students/gaolei/stock/governance/evidence/verification/R30/pan-large-transfer/sample_transfer.py", line 61, in main
+    transfer.fetch(dataclasses.asdict(item), DEST)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/tools/pan_update/transfer.py", line 255, in fetch
+    url = self._own_url(own["fid"])
+  File "/data/students/gaolei/stock/platform/tools/pan_update/transfer.py", line 209, in _own_url
+    raise TransferError(
+        f"自取直链失败：HTTP {status} "
+        f"{(resp or {}).get('message') or ''}".strip())
+pan_update.transfer.TransferError: 自取直链失败：HTTP 400 download file size limit[97b989c03363428688ec0dc1016ee15c]

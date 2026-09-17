@@ -1,0 +1,73 @@
+2026-09-17T17:15:02+08:00
+FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/pan_update/cli.py all
+  [stoken refreshed 17:15:03]
+
+== rerun (ranged) 2026-09-17T19:48:14+08:00 ==
+FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/pan_update/cli.py all
+  [stoken refreshed 19:48:15]
+Makefile:44: recipe for target 'data-update' failed
+make: *** [data-update] 已终止
+== rerun2 setsid 2026-09-17T19:50:22+08:00 ==
+FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/pan_update/cli.py all
+  [stoken refreshed 19:50:22]
+Makefile:44: recipe for target 'data-update' failed
+make: *** [data-update] 已终止
+== rerun3 client-UA+ranged 2026-09-17T20:12:37+08:00 ==
+FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/pan_update/cli.py all
+  [stoken refreshed 20:12:37]
+Makefile:44: recipe for target 'data-update' failed
+make: *** [data-update] 已终止
+== rerun4 parallel-connections 2026-09-17T20:37:07+08:00 ==
+FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/pan_update/cli.py all
+  [stoken refreshed 20:37:07]
+[daily] to_fetch=1 downloaded=1 adopted=0 unchanged=374 manual=0 failed=0
+  got    19910101至20260831A股日k线.zip
+[minutes] to_fetch=1 downloaded=1 adopted=0 unchanged=5644 manual=0 failed=0
+  got    2026/09/20260917.zip
+[fund_flow] to_fetch=1 downloaded=1 adopted=0 unchanged=44 manual=0 failed=0
+  got    2026/09/20260917.zip
+[financials] to_fetch=2 downloaded=2 adopted=1 unchanged=2 manual=0 failed=0
+  got    个股财务数据_2026-09-04_更新.zip
+  got    财务季报年报_2026-09-04_更新.zip
+  adopt  2026-09-04_financial.parquet
+[daily] 阶段 build：执行完成
+[minutes] 阶段 build：执行完成
+[fund_flow] 阶段 build：执行完成
+[financials] 阶段 build：执行完成
+[daily] 阶段 publish：已标记，跳过
+[minutes] 阶段 publish：已标记，跳过
+[fund_flow] 阶段 publish：已标记，跳过
+[financials] 阶段 publish：已标记，跳过
+$ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py
+daily 层:
+  daily        CH=      18,230,232 源=      18,230,232  一致
+  adj_factor   CH=      18,230,232 源=      18,230,232  一致
+  daily_basic  CH=      18,230,232 源=      18,230,232  一致
+  trade_cal    CH=           8,791 源=           8,791  一致
+  stock_basic  CH=           5,879 源=           5,879  一致
+daily 不变量:
+  不变量 pre_close/change 恒等式   违规=0  OK
+  不变量 pct_chg 恒等式            违规=0  OK
+  不变量 pre_close NULL 仅组内首行   违规=0  OK
+  daily 日期范围 CH=1990-12-19..2026-09-17 源=1990-12-19..2026-09-17  一致
+派生表:
+  stk_limit    CH=      17,960,133 期望=      17,960,133  日期 1996-12-16..2026-09-17  band违例=0 早于1996-12-16=0 悬空=0  一致
+  adj_detail   CH=      18,230,232 源=      18,230,232  uniq=      18,230,232  日期 1990-12-19..2026-09-17  一致
+  adj_event    CH=          57,426 源=          57,426  uniq=          57,426  一致
+退市股 adj 补灌:
+  delisted_adj sidecar=  83,967 行 /  180 码  CH 缺行或空值=0  重复键=0  一致
+moneyflow:
+  moneyflow    CH=   1,119,242 源=   1,119,242  日期 2025-11-20..2026-09-17 / 2025-11-20..2026-09-17  天=203/203  main_net_inflow 空值=8794/8794  键异常=0  一致
+fundamentals:
+  fundamentals CH=       5,556 源=       5,556  日期 2026-07-16..2026-09-03 / 2026-07-16..2026-09-03  天=38/38  total_shares 空值=0/0  键异常=0  一致
+bars_1m:
+  bars_1m: 全部 81 分区一致
+tick_trades:
+  tick_trades: 全部 13 分区一致
+tick_orders:
+  tick_orders: 全部 13 分区一致
+tick_snapshots:
+  tick_snapshots: 全部 13 分区一致
+全库一致
+  reconcile：全库一致（rc=0）
+总结：downloaded=5 adopted=1 manual=0 failed=0

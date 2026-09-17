@@ -1,0 +1,4 @@
+factorlab_tmp before cleanup: [('2026-09-01至2026-09-16A股日k线.zip', 45735561, '1d9d0eeaea4a46cba3d834326de6c821')]
+delete 2026-09-01至2026-09-16A股日k线.zip -> 200 0
+  task done 1
+factorlab_tmp after cleanup: []

@@ -1,0 +1,11 @@
+== 自有盘会话状态（2026-09-17 22:22:00 +08:00）==
+drive file/sort : HTTP 401 code 31004 token [st invalid,code:50051]（drive-pc/drive/drive-h 三主机一致）
+share token     : HTTP 200（分享链 stoken 仍可取）
+
+结论：当前 quark_cookies.txt 的**自有盘会话已失效**，分享侧仍可用。
+- 已完成的转存/取链/删副本发生在其失效前（07 显示 factorlab_tmp 已空；04 为清理记录）。
+- 影响：后续 size limit 项走 transfer 会 TransferError → 该文件记 failed（loud、不误删副本）；
+  小件分享直链（daily/minutes/fund_flow 增量）不受影响。
+- 操作：从浏览器重新复制 pan.quark.cn 最新 Cookie 覆盖 quark_cookies.txt 后重跑
+  `make data-update` 即可（同名同 size 副本复用，不重复转存）。
+- 本文件不含任何 cookie 值（依据：仅记录 HTTP 状态码/错误码）。

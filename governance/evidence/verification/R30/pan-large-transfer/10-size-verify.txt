@@ -1,0 +1,23 @@
+  [stoken refreshed 22:20:21]
+OK  daily/19910101至20260831A股日k线.zip share=3787622963 local=3787622963 rel=19910101至20260831A股日k线.zip
+     sha256=e19191305f57c6357387e3676a28a63aedbf86ba3cd0b75ffdce70e3a2f430aa
+OK  financials/个股财务数据_2026-09-04_更新.zip share=802433855 local=802433855 rel=个股财务数据_2026-09-04_更新.zip
+     sha256=43eec1487f60e38f5226db863a5852d9689cd44210f59baa566312008a66d93d
+OK  financials/财务季报年报_2026-09-04_更新.zip share=785637584 local=785637584 rel=财务季报年报_2026-09-04_更新.zip
+     sha256=c2e3f14bd10c5e737e3b89c4b06dd9c5cf6bd6f1d91c665e05aaa9e98235daa0
+OK  financials/2026-09-04_financial.parquet share=367597336 local=367597336 rel=2026-09-04_financial.parquet
+     sha256=c33a218b02e6c4d15cc0dabe3120c87c8e8f48128798355824a32f22e8c75c51
+Traceback (most recent call last):
+  File "/data/students/gaolei/stock/governance/evidence/verification/R30/pan-large-transfer/10-size-verify.py", line 68, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/data/students/gaolei/stock/governance/evidence/verification/R30/pan-large-transfer/10-size-verify.py", line 57, in main
+    tmp_fid = dt._find_tmp_dir()
+  File "/data/students/gaolei/stock/platform/tools/pan_update/transfer.py", line 152, in _find_tmp_dir
+    for it in self._list_dir("0"):
+              ~~~~~~~~~~~~~~^^^^^
+  File "/data/students/gaolei/stock/platform/tools/pan_update/transfer.py", line 122, in _list_dir
+    raise TransferError(
+        f"列网盘目录失败：HTTP {status} "
+        f"{(resp or {}).get('message') or ''}".strip())
+pan_update.transfer.TransferError: 列网盘目录失败：HTTP 401 token [st invalid,code:50051]
