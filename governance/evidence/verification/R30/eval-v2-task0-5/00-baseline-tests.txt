@@ -1,0 +1,4 @@
+# baseline relevant tests (pre-change)
+$ cd platform && .venv/bin/python -m pytest tests/test_quant_core_shim.py tests/test_eval_rust_ic.py tests/test_cli_list_show.py tests/test_cli_run.py tests/test_layered.py tests/test_web.py tests/test_doc_paths_exist.py tests/test_evaluate_notes.py tests/test_eval_alignment.py -q
+
+129 passed, 3 warnings in 12.91s

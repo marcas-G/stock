@@ -1,0 +1,80 @@
+diff --git a/knowledge/contracts/interface.md b/knowledge/contracts/interface.md
+index a6e5fbb..1d96631 100644
+--- a/knowledge/contracts/interface.md
++++ b/knowledge/contracts/interface.md
+@@ -265,8 +265,8 @@ FACTORLAB_MAX_MEMORY=8GB FACTORLAB_MIN_AVAILABLE_MEMORY=2GB \
+ 
+ - `factorlab list`：扫描 `results_dir/*/summary.json`（损坏/不可读的跳过），按运行
+   时间倒序展示 `name | category | dir | ic_mean | spread | run_at`；无结果时提示
+-  「暂无因子结果（先运行 factorlab run）」。表尾附 spread 符号约定提示
+-  （R03-M3：direction 相对量，负值=与声明方向一致；详见评估段）。
++  「暂无因子结果（先运行 factorlab run）」。表尾附 spread 口径提示（v2：正值=表现与
++  声明方向一致；含历史 v1 产物时另行注记；详见评估段）。
+ - `factorlab show <name>`：读 `results_dir/<name>/summary.json`，展示 spec 原文、
+   `evaluation.ic` 与 `layered_backtest.summary`（各档 + long-short 摘要指标）；
+   因子不存在或读取失败以非 0 退出并打印原因。
+@@ -866,8 +866,9 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单
+ 评估。输入须含 `date/code/signal/target` 列，缺列抛 `ValueError`；`signal`/`target`
+ 为 null 的行在桥接层过滤（停牌补全行、尾部无未来收益行不进入评估）。
+ 
+-返回 dict：`factor`、`target`、`n_weeks`、`ic`（mean/std/t_stat/ir 等）、
+-`decile_returns`（含 spread）、`turnover`、`coverage`（pct_valid/total_rows/valid_rows）。
++返回 dict：`version`（口径版本，现值 2）、`factor`、`target`、`n_weeks`、`ic`
++（mean/std/t_stat/ir 等）、`decile_returns`（含 spread，v2 正值=方向自洽）、`turnover`、
++`coverage`（pct_valid/total_rows/valid_rows）。
+ 空面板（列齐全）不崩溃，返回全 nan 结构（`n_weeks=0`）。`direction` 透传
+ `1/-1`（翻转信号方向）。
+ 
+@@ -1061,7 +1062,7 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
+ 签名 `evaluate_factor_weekly(panel, factor_name, direction, target="forward_return_5d") -> dict`，
+ `panel` 需含 `date`（pl.Date）、`code`（str）、`signal`、`target` 四列，缺列抛
+ `ValueError`（中文消息，含缺失列名）。`direction` 约定 `1`（多）/`-1`（空）。
+-返回 quant_core 原始 dict（`factor`/`target`/`n_weeks`/`ic`/`pearson_ic`/
++返回 quant_core 原始 dict（`version`/`factor`/`target`/`n_weeks`/`ic`/`pearson_ic`/
+ `decile_returns`/`turnover`/`coverage`），另附加 `factor_name` 字段；内部 `factor`
+ 恒为 `"_factor"`（quant_core 内部列名约定）。
+ 
+@@ -1080,17 +1081,19 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
+   而非 polars dtype 错误。
+ - `direction` 原样透传为 int（`0` 实测按 `-1` 处理，属 quant_core 内部语义，桥接层
+   不校验）。
+-- **spread 符号约定（R03-M3；不改 kernel 数值语义）**：
+-  `decile_returns.spread.ret = (group0.mean_ret − group9.mean_ret) × direction`
+-  （group0 = signal 最低档、group9 = 最高档；quant_core 契约 2026-08-26 §3.1）。
+-  `direction` **只翻转 spread 符号，不影响 `ic` 统计**。因低档在前，**方向自洽
+-  的因子 spread 恒为负**：direction=+1（越大越优）+ 正相关（raw IC>0）→
+-  spread = 低档−高档 < 0；direction=−1（越小越优）+ 负相关（IC<0）→
+-  spread = 高档−低档 < 0。实测（R03-M3）：同一因子 raw IC +0.0756 不变，
+-  direction −1→+1 时 spread +0.00676→−0.00676。**读法**：spread 是 direction
+-  相对量——`spread<0` = 实际表现与声明方向一致，`spread>0` = 相反；
+-  判有效性/方向以 raw `ic` 与 `layered_backtest.long_short`（D1=方向感知的
+-  好档，正=好）为准，勿与 spread 符号混读。`factorlab list` 表尾有同款提示。
++- **spread 符号约定（v2，R30 D1=B；`evaluation.version=2`）**：
++  `decile_returns.spread.ret = (g9−g0)×direction`（`g9` = group9 = signal 最高档的
++  全期组均值、`g0` = group0 = signal 最低档；quant_core 契约 2026-08-26 §3.1 为
++  v1 口径）。`direction` **只翻转 spread 符号，不影响 `ic` 统计**。
++  **读法（行业惯例，正=好）**：`spread>0` = 最佳档跑赢最差档、与声明方向一致；
++  `spread<0` = 相反。实测（R30）：同一因子 direction −1→+1 时 spread
++  −0.00676→+0.00676（v1 为 +0.00676→−0.00676）。判有效性/方向也可看 raw `ic`
++  与 `layered_backtest.long_short`。`factorlab list` 表尾与 `factorlab show`
++  有同款提示。
++- **口径迁移（D1=B；历史不重算）**：`evaluation.version=2` = 现行正值口径；
++  **历史 summary 无 `version` 键 ≡ v1**（`(g0−g9)×direction`，负=自洽）——**不重算**，
++  按 v1 口径解读；档案 `snapshot:` 注记「spread 为 v1 口径（负=自洽）」。
++  `factorlab list/show` 按 `version` 分渲染提示。
+ 
+ ### `factorlab.core.eval.layered.layered_backtest(panel, direction, n_groups=10, forward_col="forward_return_5d", cost_rate=0.0) -> dict`
+ 
+diff --git a/knowledge/handbooks/factor-mining-playbook.md b/knowledge/handbooks/factor-mining-playbook.md
+index 04e6eef..362dc83 100644
+--- a/knowledge/handbooks/factor-mining-playbook.md
++++ b/knowledge/handbooks/factor-mining-playbook.md
+@@ -208,7 +208,7 @@ formula: |
+ | **IC t_stat** | `ic.t_stat` | 显著性（mean/std×√n） | \|t\|>2 显著；1-2 边际 |
+ | **IC IR** | `ic.ir` | mean/std（稳定性） | >0.3 优秀；0.1-0.3 可研究 |
+ | **十分位单调性** | `decile_returns.monotonic` | 档间收益是否单调 | true 理想；false 但两端区分也可 |
+-| **十分位 spread** | `decile_returns.spread.ret` | 最佳-最差档周收益差 | >0.2%/周 可关注 |
++| **十分位 spread** | `decile_returns.spread.ret` | 最佳-最差档周收益差 × direction（v2：`(g9−g0)×direction`，正=好） | >0.2%/周 可关注；正值=表现与声明方向一致 |
+ | **分层回测年化** | `layered_backtest.summary.long_short.annual_return` | long-short 年化 | >10% 可关注（无成本） |
+ | **long-short 夏普** | `...long_short.sharpe` | 风险调整 | >1 优秀 |
+ | **换手** | `turnover.monthly` | 因子调仓频率 | <50%/月 可实盘化；高换手容量差 |

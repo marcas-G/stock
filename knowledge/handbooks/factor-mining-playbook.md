@@ -208,7 +208,7 @@ formula: |
 | **IC t_stat** | `ic.t_stat` | 显著性（mean/std×√n） | \|t\|>2 显著；1-2 边际 |
 | **IC IR** | `ic.ir` | mean/std（稳定性） | >0.3 优秀；0.1-0.3 可研究 |
 | **十分位单调性** | `decile_returns.monotonic` | 档间收益是否单调 | true 理想；false 但两端区分也可 |
-| **十分位 spread** | `decile_returns.spread.ret` | 最佳-最差档周收益差 | >0.2%/周 可关注 |
+| **十分位 spread** | `decile_returns.spread.ret` | 最佳-最差档周收益差 × direction（v2：`(g9−g0)×direction`，正=好） | >0.2%/周 可关注；正值=表现与声明方向一致 |
 | **分层回测年化** | `layered_backtest.summary.long_short.annual_return` | long-short 年化 | >10% 可关注（无成本） |
 | **long-short 夏普** | `...long_short.sharpe` | 风险调整 | >1 优秀 |
 | **换手** | `turnover.monthly` | 因子调仓频率 | <50%/月 可实盘化；高换手容量差 |

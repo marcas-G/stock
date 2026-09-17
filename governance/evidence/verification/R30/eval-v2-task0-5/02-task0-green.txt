@@ -1,0 +1,5 @@
+$ cd platform && .venv/bin/python -m pytest tests/test_eval_docs.py tests/test_doc_paths_exist.py -q
+
+......                                                                   [100%]
+6 passed in 1.65s
+exit=0

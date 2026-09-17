@@ -1,0 +1,23 @@
+ M governance/evidence/reviews/README.md
+ M governance/evidence/reviews/findings.md
+ M governance/evidence/reviews/r06-2026-09-16-post-migration-review/report.md
+ M governance/evidence/reviews/r07-2026-09-16-gap-audit/report.md
+ M knowledge/dossiers/factors/reversal_10d/intraday_extreme_high.md
+ M knowledge/dossiers/factors/reversal_20d/skew_extreme_w10.md
+ M research/factor/_families.yaml
+?? governance/evidence/reviews/r07-2026-09-16-gap-audit/improvement-plan.md
+?? governance/evidence/reviews/r08-2026-09-16-metrics-audit/
+?? governance/evidence/verification/R30/eval-v2-task0-5/
+?? knowledge/design/platform/plans/2026-09-16-factorlab-eval-metrics-v2.md
+?? knowledge/design/platform/specs/2026-09-16-factorlab-eval-metrics-v2-design.md
+?? knowledge/dossiers/factors/intraday/
+?? knowledge/dossiers/factors/vol_run_energy/symrun_r30_flip.md
+?? knowledge/dossiers/factors/vol_run_energy/symrun_r30_streak.md
+?? knowledge/dossiers/factors/volatility/max_effect_20d_zmax.md
+?? research/factor/intraday/
+?? research/factor/vol_run_energy/symrun_r30_flip.yaml
+?? research/factor/vol_run_energy/symrun_r30_streak.yaml
+?? research/factor/volatility/max_effect_20d_extcnt.yaml
+?? research/factor/volatility/max_effect_20d_high.yaml
+?? research/factor/volatility/max_effect_20d_zmax.yaml
+?? research/tools/factor_lib/gen_minute_pool.py

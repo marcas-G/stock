@@ -1,0 +1,29 @@
+$ cd platform && .venv/bin/python -m pytest tests/test_eval_docs.py -q
+
+FF.                                                                      [100%]
+=================================== FAILURES ===================================
+_________________ test_playbook_spread_row_v2_positive_is_good _________________
+
+    def test_playbook_spread_row_v2_positive_is_good():
+        """playbook §4.1 spread 行必须写 v2 公式与「正=好」读法（旧行只有「最佳-最差」）。"""
+        row = _playbook_spread_row()
+>       assert FORMULA_V2 in row, f"playbook spread 行缺 v2 公式 {FORMULA_V2}: {row}"
+E       AssertionError: playbook spread 行缺 v2 公式 (g9−g0)×direction: | **十分位 spread** | `decile_returns.spread.ret` | 最佳-最差档周收益差 | >0.2%/周 可关注 |
+E       assert '(g9−g0)×direction' in '| **十分位 spread** | `decile_returns.spread.ret` | 最佳-最差档周收益差 | >0.2%/周 可关注 |'
+
+tests/test_eval_docs.py:33: AssertionError
+____________ test_interface_spread_v2_formula_and_version_migration ____________
+
+    def test_interface_spread_v2_formula_and_version_migration():
+        """interface 必须含 v2 公式、`evaluation.version=2` 字段与 v1 迁移处置（不重算）。"""
+        text = INTERFACE.read_text(encoding="utf-8")
+>       assert FORMULA_V2 in text, f"interface 缺 v2 公式 {FORMULA_V2}"
+E       AssertionError: interface 缺 v2 公式 (g9−g0)×direction
+E       assert '(g9−g0)×direction' in '# FactorLab 接口文档（M1–M8 + 读路径双后端）\n\n> **数据面现状（2026-09-17，Plan P T11 起）**：生产数据源 = ClickHouse\n> （`FACTORLAB_DATA_BACKE...`total_return`（HFQ 含分红再投资收益）、审计三查（`lookahead_check` /\n  `scale_invariance_check` / `adjustment_sensitivity_check`）。\n'
+
+tests/test_eval_docs.py:41: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_eval_docs.py::test_playbook_spread_row_v2_positive_is_good
+FAILED tests/test_eval_docs.py::test_interface_spread_v2_formula_and_version_migration
+2 failed, 1 passed in 0.67s
+exit=1
