@@ -39,17 +39,26 @@ def _canon(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _pick_window(client):
-    """最近 _WIN_DAYS 个交易日闭窗 [start, end]，两 code 全程 240 网格 + 日线在；
-    任一不满足 → 换次近窗重试一次，仍不行 skip。返回 (start, end, end_iso)。"""
+    """最近 _WIN_DAYS 个交易日闭窗 [start, end]，窗口右端取 bars_1m 与 daily 的
+    较早日（两者入库节奏可差一天，如 daily 已到 T 而 bars 仍 T-1）；
+    两 code 全程 240 网格 + 日线在；任一不满足 → 换次近窗重试一次，仍不行 skip。
+    返回 (start, end, end_iso)。"""
     db = client.database
+    bars_end = None
     for code in _CODES:
         r = client.query(f"SELECT max(trade_date), count() FROM {db}.bars_1m "
                          f"WHERE code = '{code}'").result_rows[0]
         if r[0] is None or str(r[0]).startswith("1970"):
             pytest.skip(f"bars_1m 生产库无 {code} 数据")
-    end = client.query(f"SELECT max(trade_date) FROM {db}.daily "
-                       f"WHERE ts_code IN ('{_CODES[0]}', '{_CODES[1]}')"
-                       ).result_rows[0][0]
+        bars_end = r[0] if bars_end is None else min(bars_end, r[0])
+    daily_end = None
+    for code in _CODES:
+        v = client.query(f"SELECT max(trade_date) FROM {db}.daily "
+                         f"WHERE ts_code = '{code}'").result_rows[0][0]
+        if v is None or str(v).startswith("1970"):
+            pytest.skip(f"daily 生产库无 {code} 数据")
+        daily_end = v if daily_end is None else min(daily_end, v)
+    end = min(bars_end, daily_end)
     assert end is not None and not str(end).startswith("1970"), \
         "daily 生产库无样本 code 数据"
     cal = client.query(f"SELECT cal_date FROM {db}.trade_cal "
