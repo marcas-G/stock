@@ -1,0 +1,16 @@
+name: intraday_time_range_conc
+category: custom
+direction: -1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2023_2025
+date:
+  start: "2023-01-01"
+  end: "2025-12-31"
+formula: |
+  _late_hi = day_max(if_else(minute_index >= 210, close, None))
+  _late_lo = day_min(if_else(minute_index >= 210, close, None))
+  _hi = day_max(close)
+  _lo = day_min(close)
+  signal = if_else(_hi - _lo > 0, (_late_hi - _late_lo) / (_hi - _lo), None)

@@ -1,0 +1,14 @@
+name: intraday_time_above_vwap
+category: custom
+direction: 1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2023_2025
+date:
+  start: "2023-01-01"
+  end: "2025-12-31"
+formula: |
+  _vwap = day_sum(close * volume) / day_sum(volume)
+  _n = day_sum(if_else(close > _vwap, 1, 0))
+  signal = if_else(day_sum(volume) > 0, _n / 239, None)

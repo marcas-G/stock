@@ -1,0 +1,15 @@
+name: intraday_cross_count
+category: custom
+direction: 1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2023_2025
+date:
+  start: "2023-01-01"
+  end: "2025-12-31"
+formula: |
+  _r = close / im_delay(close, 1) - 1
+  _s = sign(_r)
+  _sl = im_delay(_s, 1)
+  signal = day_sum(if_else(_s != _sl, 1, 0))

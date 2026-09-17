@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **213 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **221 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -9,7 +9,7 @@
 |---|---|---|
 | crash_bottom_leader | 8 | `research/factor/crash_bottom_leader/` |
 | dividend | 1 | `research/factor/dividend/` |
-| intraday | 38 | `research/factor/intraday/` |
+| intraday | 46 | `research/factor/intraday/` |
 | liquidity | 8 | `research/factor/liquidity/` |
 | misc | 1 | `research/factor/misc/` |
 | momentum_20d | 22 | `research/factor/momentum_20d/` |
@@ -49,6 +49,7 @@
 | `intraday_abs_auction_premium` | 1 | fwd5d |  | [abs_auction_premium.md](../../knowledge/dossiers/factors/intraday/abs_auction_premium.md) | [yaml](../../research/factor/intraday/abs_auction_premium.yaml) |
 | `intraday_afternoon_ret` | -1 | fwd5d |  | [afternoon_ret.md](../../knowledge/dossiers/factors/intraday/afternoon_ret.md) | [yaml](../../research/factor/intraday/afternoon_ret.yaml) |
 | `intraday_am_pm_vol` | -1 | fwd5d |  | [am_pm_vol.md](../../knowledge/dossiers/factors/intraday/am_pm_vol.md) | [yaml](../../research/factor/intraday/am_pm_vol.yaml) |
+| `intraday_amihud_minute` | -1 | fwd5d |  | [amihud_minute.md](../../knowledge/dossiers/factors/intraday/amihud_minute.md) | [yaml](../../research/factor/intraday/amihud_minute.yaml) |
 | `intraday_auction_conc_inter` | -1 | fwd5d |  | [auction_conc_inter.md](../../knowledge/dossiers/factors/intraday/auction_conc_inter.md) | [yaml](../../research/factor/intraday/auction_conc_inter.yaml) |
 | `intraday_auction_range` | -1 | fwd5d |  | [auction_range.md](../../knowledge/dossiers/factors/intraday/auction_range.md) | [yaml](../../research/factor/intraday/auction_range.yaml) |
 | `intraday_autocorr_micro` | -1 | fwd5d |  | [autocorr_micro.md](../../knowledge/dossiers/factors/intraday/autocorr_micro.md) | [yaml](../../research/factor/intraday/autocorr_micro.yaml) |
@@ -62,7 +63,10 @@
 | `intraday_conc_last_hour` | 1 | fwd5d |  | [conc_last_hour.md](../../knowledge/dossiers/factors/intraday/conc_last_hour.md) | [yaml](../../research/factor/intraday/conc_last_hour.yaml) |
 | `intraday_conc_up_share` | -1 | fwd5d |  | [conc_up_share.md](../../knowledge/dossiers/factors/intraday/conc_up_share.md) | [yaml](../../research/factor/intraday/conc_up_share.yaml) |
 | `intraday_cont_last_ret` | -1 | fwd5d |  | [cont_last_ret.md](../../knowledge/dossiers/factors/intraday/cont_last_ret.md) | [yaml](../../research/factor/intraday/cont_last_ret.yaml) |
+| `intraday_cross_count` | 1 | fwd5d |  | [cross_count.md](../../knowledge/dossiers/factors/intraday/cross_count.md) | [yaml](../../research/factor/intraday/cross_count.yaml) |
 | `intraday_event_density` | -1 | fwd5d |  | [event_density.md](../../knowledge/dossiers/factors/intraday/event_density.md) | [yaml](../../research/factor/intraday/event_density.yaml) |
+| `intraday_gap_fill_ratio` | -1 | fwd5d |  | [gap_fill_ratio.md](../../knowledge/dossiers/factors/intraday/gap_fill_ratio.md) | [yaml](../../research/factor/intraday/gap_fill_ratio.yaml) |
+| `intraday_gap_fill_speed` | -1 | fwd5d |  | [gap_fill_speed.md](../../knowledge/dossiers/factors/intraday/gap_fill_speed.md) | [yaml](../../research/factor/intraday/gap_fill_speed.yaml) |
 | `intraday_high_time` | -1 | fwd5d |  | [intraday_high_time.md](../../knowledge/dossiers/factors/intraday/intraday_high_time.md) | [yaml](../../research/factor/intraday/intraday_high_time.yaml) |
 | `intraday_lunch_jump` | 1 | fwd5d |  | [lunch_jump.md](../../knowledge/dossiers/factors/intraday/lunch_jump.md) | [yaml](../../research/factor/intraday/lunch_jump.yaml) |
 | `intraday_morning_ret` | -1 | fwd5d |  | [morning_ret.md](../../knowledge/dossiers/factors/intraday/morning_ret.md) | [yaml](../../research/factor/intraday/morning_ret.yaml) |
@@ -78,12 +82,16 @@
 | `intraday_ret_extreme_imb` | -1 | fwd5d |  | [ret_extreme_imb.md](../../knowledge/dossiers/factors/intraday/ret_extreme_imb.md) | [yaml](../../research/factor/intraday/ret_extreme_imb.yaml) |
 | `intraday_ret_vv_ratio` | 1 | fwd5d |  | [ret_vv_ratio.md](../../knowledge/dossiers/factors/intraday/ret_vv_ratio.md) | [yaml](../../research/factor/intraday/ret_vv_ratio.yaml) |
 | `intraday_tail_amt_share` | 1 | fwd5d |  | [intraday_tail_amt_share.md](../../knowledge/dossiers/factors/intraday/intraday_tail_amt_share.md) | [yaml](../../research/factor/intraday/intraday_tail_amt_share.yaml) |
+| `intraday_time_above_vwap` | 1 | fwd5d |  | [time_above_vwap.md](../../knowledge/dossiers/factors/intraday/time_above_vwap.md) | [yaml](../../research/factor/intraday/time_above_vwap.yaml) |
+| `intraday_time_of_min` | -1 | fwd5d |  | [time_of_min.md](../../knowledge/dossiers/factors/intraday/time_of_min.md) | [yaml](../../research/factor/intraday/time_of_min.yaml) |
+| `intraday_time_range_conc` | -1 | fwd5d |  | [time_range_conc.md](../../knowledge/dossiers/factors/intraday/time_range_conc.md) | [yaml](../../research/factor/intraday/time_range_conc.yaml) |
 | `intraday_up_vol_asym` | -1 | fwd5d |  | [up_vol_asym.md](../../knowledge/dossiers/factors/intraday/up_vol_asym.md) | [yaml](../../research/factor/intraday/up_vol_asym.yaml) |
 | `intraday_vol_asym` | -1 | fwd5d |  | [vol_asym.md](../../knowledge/dossiers/factors/intraday/vol_asym.md) | [yaml](../../research/factor/intraday/vol_asym.yaml) |
 | `intraday_vol_herfindahl` | 1 | fwd5d |  | [vol_herfindahl.md](../../knowledge/dossiers/factors/intraday/vol_herfindahl.md) | [yaml](../../research/factor/intraday/vol_herfindahl.yaml) |
 | `intraday_vol_price_corr` | -1 | fwd5d |  | [vol_price_corr.md](../../knowledge/dossiers/factors/intraday/vol_price_corr.md) | [yaml](../../research/factor/intraday/vol_price_corr.yaml) |
 | `intraday_vol_spike` | 1 | fwd5d |  | [vol_spike.md](../../knowledge/dossiers/factors/intraday/vol_spike.md) | [yaml](../../research/factor/intraday/vol_spike.yaml) |
 | `intraday_volume_timing` | 1 | fwd5d |  | [volume_timing.md](../../knowledge/dossiers/factors/intraday/volume_timing.md) | [yaml](../../research/factor/intraday/volume_timing.yaml) |
+| `intraday_vwap_ret_spread` | 1 | fwd5d |  | [vwap_ret_spread.md](../../knowledge/dossiers/factors/intraday/vwap_ret_spread.md) | [yaml](../../research/factor/intraday/vwap_ret_spread.yaml) |
 
 ## 族：liquidity
 
