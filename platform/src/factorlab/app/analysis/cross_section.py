@@ -246,3 +246,115 @@ def joint_diagnostics(names: list[str], results_dir: str | pathlib.Path,
                                 min_stocks=min_stocks)
         factors.append({"name": f_name, "base": base, **res})
     return {"mode": mode, "group": group, "factors": factors}
+
+
+# ---------- D10：库外因子对参考库的增量信息评估 ----------
+
+VERDICT_JOIN = "可加入"
+VERDICT_WATCH = "观察"
+VERDICT_REDUNDANT = "冗余"
+
+
+def _series_stats(xs: list[float]) -> tuple[float, float, float]:
+    """(mean, std ddof=1, t=mean/(std/√n))；n<1 → 全 nan；n<2 或 std=0 → t=nan。"""
+    if not xs:
+        return float("nan"), float("nan"), float("nan")
+    mean = float(np.mean(xs))
+    std = float(np.std(xs, ddof=1)) if len(xs) >= 2 else float("nan")
+    t = mean / (std / np.sqrt(len(xs))) if std == std and std > 0 else float("nan")
+    return mean, std, t
+
+
+def _incremental_verdict(corr_max: float, r2_lib: float, resic_t: float,
+                         retention: float) -> str:
+    """建议门槛（spec §3b 建议值，真实对照后校准）：
+
+    - **冗余**：max|ρ| ≥ 0.9 或 r2_lib ≥ 0.9 或 retention < 20%（近亲/几乎被库解释）；
+    - **可加入**：残差 |t| ≥ 2（方向因子按绝对值——IC 符号由 direction 约定，
+      spec 的"残差 t≥2"按显著性读）且 max|ρ| < 0.7 且 retention ≥ 50%；
+    - 其余 → **观察**。
+    """
+    if ((corr_max == corr_max and corr_max >= 0.9)
+            or (r2_lib == r2_lib and r2_lib >= 0.9)
+            or (retention == retention and retention < 0.2)):
+        return VERDICT_REDUNDANT
+    if ((resic_t == resic_t and abs(resic_t) >= 2.0)
+            and (corr_max == corr_max and corr_max < 0.7)
+            and (retention == retention and retention >= 0.5)):
+        return VERDICT_JOIN
+    return VERDICT_WATCH
+
+
+def _incremental_one(name: str, base: list[str], rd: pathlib.Path,
+                     fwd_col: str, min_stocks: int) -> dict:
+    """单候选：rank 残差回归（r2_lib/resIC/retention）+ 与库成员 |ρ| + verdict。"""
+    from factorlab.app.analysis.correlation import factor_correlation
+    wide = _join_weekly_wide([name, *base], rd, fwd_col, carrier=name)
+    k = len(base)
+    m = max(min_stocks, k + 2)
+    resics: list[float] = []
+    r2s: list[float] = []
+    raw_ics: list[float] = []
+    for _d, Z, y, fwd in _weekly_samples(wide, name, base, fwd_col, m):
+        ranks = [pl.Series(Z[:, j]).rank().to_numpy().astype(np.float64)
+                 for j in range(1, Z.shape[1])]
+        yr = pl.Series(y).rank().to_numpy().astype(np.float64)
+        Zr = np.column_stack([np.ones(yr.shape[0]), *ranks])
+        beta, *_ = np.linalg.lstsq(Zr, yr, rcond=None)
+        e = yr - Zr @ beta
+        sst = float(((yr - yr.mean()) ** 2).sum())
+        if sst > 0:
+            r2s.append(1.0 - float(e @ e) / sst)
+        r_res = _spearman(e, fwd)
+        if not np.isnan(r_res):
+            resics.append(r_res)
+        r_raw = _spearman(yr, fwd)
+        if not np.isnan(r_raw):
+            raw_ics.append(r_raw)
+    resic_mean, resic_std, resic_t = _series_stats(resics)
+    ic_mean, ic_std, ic_t = _series_stats(raw_ics)
+    retention = (float(resic_mean / ic_mean)
+                 if ic_mean == ic_mean and ic_mean != 0 else float("nan"))
+    # 与库成员的相关（复用唯二实现：周度横截面 average-rank Spearman）
+    mtx = factor_correlation([name, *base], rd)
+    vals = [abs(float(v)) for v in
+            mtx.filter((pl.col("factor_a") == name) | (pl.col("factor_b") == name))
+            ["rank_corr"].to_list() if v == v]
+    corr_max = max(vals) if vals else float("nan")
+    corr_mean = float(np.mean(vals)) if vals else float("nan")
+    r2_lib = float(np.mean(r2s)) if r2s else float("nan")
+    return {
+        "name": name, "base": list(base),
+        "corr_max": corr_max, "corr_mean": corr_mean,
+        "r2_lib": r2_lib,
+        "resic_mean": resic_mean, "resic_std": resic_std, "resic_t": resic_t,
+        "ic_mean": ic_mean, "ic_std": ic_std, "ic_t": ic_t,
+        "retention": retention, "n_weeks": len(resics),
+        "verdict": _incremental_verdict(corr_max, r2_lib, resic_t, retention),
+    }
+
+
+def incremental_diagnostics(candidates: list[str],
+                            results_dir: str | pathlib.Path,
+                            base: list[str],
+                            fwd_col: str = "forward_return_5d",
+                            min_stocks: int = MIN_STOCKS) -> dict:
+    """D10 增量信息评估：候选（库外）对基准库的 corr_max/mean、r2_lib、resIC、
+    retention、verdict（spec §3b 表）。
+
+    - `corr_*` 与 target 无关（signal-only，复用 factor_correlation）；resIC/r2_lib
+      在指定 `fwd_col` 下计算（rank 空间逐周 OLS 残差 → 残差 rankIC）；
+    - `retention = resIC.mean / raw rankIC.mean`（原始 IC 用同一批有效周）；
+    - 候选 ∈ 基准 → ValueError（基准应排除候选本身）；base 空 → ValueError。
+    返回 {"kind": "incremental", "base": [...], "candidates": [{...}]}。
+    """
+    rd = pathlib.Path(results_dir)
+    base = list(dict.fromkeys(base))
+    if not base:
+        raise ValueError("至少需要 1 个基准因子")
+    out = []
+    for name in candidates:
+        if name in base:
+            raise ValueError(f"候选 {name} 在基准组内——基准应排除候选本身")
+        out.append(_incremental_one(name, base, rd, fwd_col, min_stocks))
+    return {"kind": "incremental", "base": base, "candidates": out}

@@ -1,0 +1,44 @@
+{
+  "kind": "incremental",
+  "base": [
+    "momentum_20d_turnrank_top2",
+    "reversal_10d_intraday_extreme_high",
+    "reversal_20d_skew_extreme",
+    "rsi_reversal_14",
+    "max_effect_20d",
+    "amihud_illiq_turn_20d",
+    "turnover_accel",
+    "reversal_20d_netflow",
+    "reversal_20d_overnight",
+    "vol_run_energy_symrun"
+  ],
+  "candidates": [
+    {
+      "name": "reversal_20d_netflow_vol",
+      "base": [
+        "momentum_20d_turnrank_top2",
+        "reversal_10d_intraday_extreme_high",
+        "reversal_20d_skew_extreme",
+        "rsi_reversal_14",
+        "max_effect_20d",
+        "amihud_illiq_turn_20d",
+        "turnover_accel",
+        "reversal_20d_netflow",
+        "reversal_20d_overnight",
+        "vol_run_energy_symrun"
+      ],
+      "corr_max": 0.9195597724189726,
+      "corr_mean": 0.23746829308082246,
+      "r2_lib": 0.854015167991845,
+      "resic_mean": 0.0019147322758311114,
+      "resic_std": 0.09122533469356285,
+      "resic_t": 0.2501132876205472,
+      "ic_mean": -0.031090540658409795,
+      "ic_std": 0.10616937405238346,
+      "ic_t": -3.4895802456537326,
+      "retention": -0.06158568604091445,
+      "n_weeks": 142,
+      "verdict": "冗余"
+    }
+  ]
+}

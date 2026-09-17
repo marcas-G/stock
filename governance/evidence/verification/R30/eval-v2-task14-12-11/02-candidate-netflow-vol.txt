@@ -1,0 +1,6 @@
+candidate: reversal_20d_netflow_vol
+base(10): momentum_20d_turnrank_top2, reversal_10d_intraday_extreme_high, reversal_20d_skew_extreme, rsi_reversal_14, max_effect_20d, amihud_illiq_turn_20d, turnover_accel, reversal_20d_netflow, reversal_20d_overnight, vol_run_energy_symrun
+corr_max=0.9196 corr_mean=0.2375 r2_lib=0.8540
+resIC mean=0.0019 t=0.2501 n_weeks=142
+rawIC mean=-0.0311 t=-3.4896 retention=-0.0616
+verdict=冗余

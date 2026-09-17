@@ -16,10 +16,12 @@ Pearson（也按周快照、逐对剔除 NaN）。供 `factorlab corr` 与 Web �
 from __future__ import annotations
 
 import pathlib
+import re
 
 import numpy as np
 import polars as pl
 
+from factorlab.app.analysis.reference import reference_names
 from factorlab.core.eval.alignment import align_weekly
 
 MAX_JOINED_ROWS = 20_000_000  # 内存护栏：join 后超限则每周降采样
@@ -118,8 +120,29 @@ def _join_panels(names: list[str], results_dir: pathlib.Path,
     return joined
 
 
+def resolve_against(spec: str, results_dir: str | pathlib.Path,
+                    reference_path: pathlib.Path | None = None) -> list[str]:
+    """解析 `--against`（D10，spec §3b）：`reference`（读 `_reference.yaml` 的 daily
+    组——**不扫全库、不跨 scales**）| `all`（显式扫全库）| 逗号/空白分隔显式名单。
+
+    返回对照成员名单（顺序稳定）；未知 spec 空名单 → ValueError。
+    """
+    s = (spec or "").strip()
+    if s == "reference":
+        return reference_names("daily", reference_path)
+    if s == "all":
+        from factorlab.adapters.panel_store import ParquetPanelStore
+        return list(ParquetPanelStore().list_factors(pathlib.Path(results_dir)))
+    names = [x for x in re.split(r"[,\s]+", s) if x]
+    if not names:
+        raise ValueError("--against 为空（支持 reference|all|<逗号分隔名单>）")
+    return names
+
+
 def factor_correlation(names: list[str], results_dir: str | pathlib.Path,
                        sample_weeks: int | None = None, seed: int = 42,
+                       against: str | None = None,
+                       reference_path: pathlib.Path | None = None,
                        ) -> pl.DataFrame:
     """两两相关矩阵：周度横截面秩相关均值 + 全局 Pearson（同周快照）。
 
@@ -133,7 +156,15 @@ def factor_correlation(names: list[str], results_dir: str | pathlib.Path,
     `rank_corr`/`pearson` 均值分母 = 该对计入周数；全部周无有效样本 → nan、
     n_weeks = 0。
     sample_weeks 非 None：抽样交易周（Web 全库热力图等大量因子场景的省内存路径）。
+    against 非 None（D10）：把 `--against` 解析出的对照成员并入 names（去重保序），
+    空 names + `against="reference"` 即"参考库自成矩阵"。
     """
+    merged = list(names or [])
+    if against is not None:
+        for n in resolve_against(against, results_dir, reference_path):
+            if n not in merged:
+                merged.append(n)
+    names = merged
     if len(names) < 2:
         raise ValueError("至少需要 2 个因子")
     joined = _join_panels(names, pathlib.Path(results_dir),

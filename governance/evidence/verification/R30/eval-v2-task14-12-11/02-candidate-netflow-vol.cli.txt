@@ -1,0 +1,8 @@
+库外增量信息（候选对参考库，基准 10 只：momentum_20d_turnrank_top2, 
+reversal_10d_intraday_extreme_high, reversal_20d_skew_extreme, rsi_reversal_14, 
+max_effect_20d, amihud_illiq_turn_20d, turnover_accel, reversal_20d_netflow, 
+reversal_20d_overnight, vol_run_energy_symrun）:
+  因子          corr_max  corr_mean   r2_lib     resIC      t值  retention    
+有效周 verdict
+  reversal_20d_netflow_vol    0.9196     0.2375   0.8540    0.0019  0.2501    
+-0.0616    142      冗余

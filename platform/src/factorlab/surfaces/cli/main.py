@@ -516,7 +516,7 @@ def catalog_dump(out: Path | None = typer.Option(None, "--out",
 @catalog_app.command("docs")
 def catalog_docs(out: Path | None = typer.Option(None, "--out",
                                                  help="输出文件路径（缺省打 stdout）")) -> None:
-    """目录正文 markdown（与 knowledge/contracts/catalog.md 同源生成——活文档防陈旧）。"""
+    """目录正文 markdown（与 `knowledge/contracts/catalog.md` 同源生成——活文档防陈旧）。"""
     payload = render_catalog_markdown()
     if out is None:
         typer.echo(payload)
@@ -525,19 +525,61 @@ def catalog_docs(out: Path | None = typer.Option(None, "--out",
         console.print(f"catalog 正文已写入 {out}")
 
 
+ref_app = typer.Typer(no_args_is_help=True)
+app.add_typer(ref_app, name="ref")
+
+
+@ref_app.command("list")
+def ref_list(scales: str | None = typer.Option(
+        None, "--scales", help="只看某组（daily|minute）；缺省打印全部组")) -> None:
+    """参考库成员清单（D10；读 `research/factor/_reference.yaml`）。
+
+    用法: factorlab ref list [--scales daily]
+    """
+    from factorlab.app.analysis.reference import load_reference, default_reference_path
+    try:
+        ref = load_reference()
+    except (FileNotFoundError, ValueError) as e:
+        console.print(f"错误: {e}", style="red")
+        raise typer.Exit(code=1)
+    groups = [scales] if scales else list(ref)
+    if scales and scales not in ref:
+        console.print(f"错误: 未知 scales {scales}（支持 {list(ref)}）", style="red")
+        raise typer.Exit(code=1)
+    console.print(f"参考库（{default_reference_path()}；库级分析默认 against=reference）:")
+    for s in groups:
+        entries = ref[s]
+        console.print(f"scales: {s}（{len(entries)} 只）")
+        for e in entries:
+            extra = (f"  corr_max={e.entry_corr_max}  resic_t={e.entry_resic_t}"
+                     if e.entry_corr_max is not None or e.entry_resic_t is not None
+                     else "")
+            console.print(f"  - {e.name:<28}[{e.style}] 加入 {e.added}{extra}")
+            console.print(f"      理由: {e.reason}")
+
+
 @app.command("corr")
-def corr_factors(names: list[str] = typer.Argument(...)) -> None:
+def corr_factors(names: list[str] = typer.Argument(None),
+                 against: str | None = typer.Option(
+                     None, "--against",
+                     help="对照集（D10）：reference（参考库 daily 组）|all（扫全库）|逗号分隔名单；"
+                          "缺省=仅 names")) -> None:
     """因子两两相关性：周度横截面秩相关均值 + 全局 Pearson。
 
-    用法: factorlab corr <name1> <name2> [<name3>...]
+    用法: factorlab corr <name1> <name2> [<name3>...] [--against reference]
+    `--against reference`：names 与参考库（`research/factor/_reference.yaml` daily 组）
+    的并集自成矩阵（names 可省略=库内自相关矩阵）——只读库清单，不扫全库、不跨 scales。
     """
-    if len(names) < 2:
-        console.print("错误: 至少需要 2 个因子", style="red")
+    if against is None and len(names or []) < 2:
+        console.print("错误: 至少需要 2 个因子（或用 --against reference|all|<名单>）", style="red")
         raise typer.Exit(code=1)
     from factorlab.app.analysis.correlation import factor_correlation
     try:
-        m = factor_correlation(names, settings.results_dir)
+        m = factor_correlation(names, settings.results_dir, against=against)
     except FileNotFoundError as e:
+        console.print(f"错误: {e}", style="red")
+        raise typer.Exit(code=1)
+    except ValueError as e:
         console.print(f"错误: {e}", style="red")
         raise typer.Exit(code=1)
     console.print(m.to_pandas().to_string(index=False))
@@ -545,18 +587,32 @@ def corr_factors(names: list[str] = typer.Argument(...)) -> None:
 
 @app.command("svd")
 def svd_factors(names: list[str] = typer.Argument(None),
-                weeks: int = typer.Option(15, "--weeks", help="抽样交易周数（内存护栏，默认 15）")) -> None:
+                weeks: int = typer.Option(15, "--weeks", help="抽样交易周数（内存护栏，默认 15）"),
+                all_: bool = typer.Option(False, "--all",
+                                          help="显式扫全库因子（D10 前旧默认；缺省=参考库 daily 组）")) -> None:
     """因子库 SVD 分解：奇异值谱 + 主成分载荷（因子结构/有效维度分析）。
 
-    用法: factorlab svd [name1 name2 ...] [--weeks 15]
-    缺省 names = 全部有 panel 的因子（排除验证目录）。
+    用法: factorlab svd [name1 name2 ...] [--weeks 15] [--all]
+    缺省 names = 参考库 daily 组（D10；只读 `_reference.yaml`）；`--all` = 全部有
+    panel 的因子（排除验证目录——D10 前的旧默认，显式 opt-in）。
     """
     from factorlab.app.analysis.correlation import factor_svd
+    from factorlab.app.analysis.reference import reference_names
     results_dir = settings.results_dir
+    source = "names"
     if not names:
-        skip = {"acceptance", "demo_vol_skew", "m4b_smoke"}
-        names = sorted(p.parent.name for p in results_dir.glob("*/panel.parquet")
-                       if p.parent.name not in skip)
+        if all_:
+            skip = {"acceptance", "demo_vol_skew", "m4b_smoke"}
+            names = sorted(p.parent.name for p in results_dir.glob("*/panel.parquet")
+                           if p.parent.name not in skip)
+            source = "全库"
+        else:
+            try:
+                names = reference_names("daily")
+            except (FileNotFoundError, ValueError) as e:
+                console.print(f"错误: 参考库不可用（{e}）；可用 --all 扫全库", style="red")
+                raise typer.Exit(code=1)
+            source = "参考库 daily"
     if len(names) < 2:
         console.print("错误: 至少需要 2 个因子", style="red")
         raise typer.Exit(code=1)
@@ -565,7 +621,7 @@ def svd_factors(names: list[str] = typer.Argument(None),
     except FileNotFoundError as e:
         console.print(f"错误: {e}", style="red")
         raise typer.Exit(code=1)
-    console.print(f"SVD（{len(names)} 因子，抽样 {weeks} 周）：")
+    console.print(f"SVD（{len(names)} 因子，{source}，抽样 {weeks} 周）：")
     console.print("奇异值谱：")
     for k, (sv, cum) in enumerate(zip(r["singular_values"], r["cum_explained"]), 1):
         console.print(f"  PC{k:<2} 奇异值 {sv:8.3f}  累计解释 {cum * 100:5.1f}%")
@@ -580,22 +636,57 @@ def svd_factors(names: list[str] = typer.Argument(None),
 
 @app.command("resic")
 def resic_factors(
-    names: list[str] = typer.Argument(...,
+    names: list[str] = typer.Argument(None,
         help="因子名（results/<name>/panel.parquet）；互评模式 ≥2，--target 模式 ≥1"),
     target: str | None = typer.Option(None, "--target",
         help="目标因子（对基准组求正交化残差 IC）；缺省=组内轮流互评"),
     min_stocks: int = typer.Option(None, "--min-stocks", min=3,
         help="每周最少股票数（缺省 30；自动与基准数+2 取大）"),
+    against: str | None = typer.Option(None, "--against",
+        help="D10 增量信息模式：reference（参考库 daily 组）|all|逗号分隔名单；"
+             "候选=names（或 --target），输出 corr_max/mean、r2_lib、resIC、retention、verdict"),
 ) -> None:
     """横截面联合诊断：整组联合回归 R² + 每因子正交化残差 IC（resIC）。
 
-    用法: factorlab resic <name1> <name2> [<name3>...] [--target <名>]
+    用法: factorlab resic <name1> <name2> [<name3>...] [--target <名>] [--against reference]
     组内互评（缺省）：每个因子轮流当候选、其余因子当基准，输出每因子的
     resIC（候选对基准 OLS 残差的周频 rankIC——剔除与基准重叠后的净新增
     预测力）与整组联合回归 R²。--target <名>：只评估该候选相对显式基准组。
+    --against reference|all|<名单>（D10）：候选对**参考库**做增量信息评估
+    （rank 残差回归 + verdict：可加入/观察/冗余）；候选 ∈ 基准报错。
     近共线（相关≈0.9999）会放大 resIC 数值噪声——建议先跑 factorlab corr / svd。
     """
-    from factorlab.app.analysis.cross_section import joint_diagnostics
+    from factorlab.app.analysis.correlation import resolve_against
+    from factorlab.app.analysis.cross_section import (
+        incremental_diagnostics, joint_diagnostics)
+
+    if against is not None:
+        candidates = [target] if target else list(names or [])
+        if not candidates:
+            console.print("错误: --against 模式需要候选（位置参数或 --target）", style="red")
+            raise typer.Exit(code=1)
+        try:
+            base = [b for b in resolve_against(against, settings.results_dir)
+                    if b not in candidates]
+            r = incremental_diagnostics(candidates, settings.results_dir, base=base,
+                                        min_stocks=min_stocks or 30)
+        except (ValueError, FileNotFoundError) as exc:
+            console.print(f"错误: {exc}", style="red")
+            raise typer.Exit(code=1)
+
+        def _num(x: float) -> str:
+            return "nan" if x != x else f"{x:.4f}"
+
+        console.print(f"库外增量信息（候选对参考库，基准 {len(r['base'])} 只："
+                      f"{', '.join(r['base'])}）:")
+        console.print(f"  {'因子':<10}{'corr_max':>10}{'corr_mean':>11}{'r2_lib':>9}"
+                      f"{'resIC':>10}{'t值':>8}{'retention':>11}{'有效周':>7}{'verdict':>8}")
+        for f in r["candidates"]:
+            console.print(
+                f"  {f['name']:<10}{_num(abs(f['corr_max'])):>10}{_num(f['corr_mean']):>11}"
+                f"{_num(f['r2_lib']):>9}{_num(f['resic_mean']):>10}{_num(f['resic_t']):>8}"
+                f"{_num(f['retention']):>11}{f['n_weeks']:>7}{f['verdict']:>8}")
+        return
 
     try:
         r = joint_diagnostics(names, settings.results_dir, target=target,

@@ -1,0 +1,92 @@
+                          factor_a                           factor_b  rank_corr
+pearson  n_weeks
+        momentum_20d_turnrank_top2 reversal_10d_intraday_extreme_high   0.203698
+0.295581      179
+        momentum_20d_turnrank_top2          reversal_20d_skew_extreme   0.102693
+0.097352      179
+        momentum_20d_turnrank_top2                    rsi_reversal_14   0.108533
+0.160180      179
+        momentum_20d_turnrank_top2                     max_effect_20d   0.126421
+0.206134      179
+        momentum_20d_turnrank_top2              amihud_illiq_turn_20d  -0.096022
+-0.054975      179
+        momentum_20d_turnrank_top2                     turnover_accel   0.094749
+0.125258      179
+        momentum_20d_turnrank_top2               reversal_20d_netflow   0.110175
+0.178142      179
+        momentum_20d_turnrank_top2             reversal_20d_overnight  -0.001903
+0.009196      179
+        momentum_20d_turnrank_top2              vol_run_energy_symrun   0.071102
+0.077880      143
+reversal_10d_intraday_extreme_high          reversal_20d_skew_extreme   0.427104
+0.453957      179
+reversal_10d_intraday_extreme_high                    rsi_reversal_14   0.241088
+0.299805      180
+reversal_10d_intraday_extreme_high                     max_effect_20d   0.455874
+0.547713      179
+reversal_10d_intraday_extreme_high              amihud_illiq_turn_20d  -0.456348
+-0.269091      179
+reversal_10d_intraday_extreme_high                     turnover_accel   0.231710
+0.336404      179
+reversal_10d_intraday_extreme_high               reversal_20d_netflow   0.252926
+0.279466      179
+reversal_10d_intraday_extreme_high             reversal_20d_overnight  -0.141090
+-0.180492      179
+reversal_10d_intraday_extreme_high              vol_run_energy_symrun   0.165932
+0.183150      143
+         reversal_20d_skew_extreme                    rsi_reversal_14   0.161674
+0.213622      179
+         reversal_20d_skew_extreme                     max_effect_20d   0.320688
+0.493566      179
+         reversal_20d_skew_extreme              amihud_illiq_turn_20d  -0.175365
+-0.128682      179
+         reversal_20d_skew_extreme                     turnover_accel   0.127515
+0.249829      179
+         reversal_20d_skew_extreme               reversal_20d_netflow   0.075849
+0.054543      179
+         reversal_20d_skew_extreme             reversal_20d_overnight  -0.021553
+-0.010807      179
+         reversal_20d_skew_extreme              vol_run_energy_symrun   0.090309
+0.134688      143
+                   rsi_reversal_14                     max_effect_20d   0.242117
+0.224164      179
+                   rsi_reversal_14              amihud_illiq_turn_20d  -0.017894
+0.010162      179
+                   rsi_reversal_14                     turnover_accel   0.419046
+0.431527      179
+                   rsi_reversal_14               reversal_20d_netflow   0.490267
+0.344628      179
+                   rsi_reversal_14             reversal_20d_overnight   0.056385
+0.094131      179
+                   rsi_reversal_14              vol_run_energy_symrun   0.114181
+0.153042      143
+                    max_effect_20d              amihud_illiq_turn_20d  -0.205918
+-0.144344      179
+                    max_effect_20d                     turnover_accel   0.029254
+0.142035      179
+                    max_effect_20d               reversal_20d_netflow   0.225666
+0.198868      179
+                    max_effect_20d             reversal_20d_overnight  -0.092837
+-0.084034      179
+                    max_effect_20d              vol_run_energy_symrun   0.093857
+0.117515      143
+             amihud_illiq_turn_20d                     turnover_accel   0.106679
+0.055999      179
+             amihud_illiq_turn_20d               reversal_20d_netflow  -0.116854
+-0.053505      179
+             amihud_illiq_turn_20d             reversal_20d_overnight   0.193087
+0.123099      179
+             amihud_illiq_turn_20d              vol_run_energy_symrun   0.005598
+0.030771      143
+                    turnover_accel               reversal_20d_netflow   0.185371
+0.132384      179
+                    turnover_accel             reversal_20d_overnight   0.109504
+0.115419      179
+                    turnover_accel              vol_run_energy_symrun   0.139589
+0.200870      143
+              reversal_20d_netflow             reversal_20d_overnight  -0.044195
+-0.006769      179
+              reversal_20d_netflow              vol_run_energy_symrun   0.071438
+0.062061      143
+            reversal_20d_overnight              vol_run_energy_symrun   0.007085
+0.008925      143

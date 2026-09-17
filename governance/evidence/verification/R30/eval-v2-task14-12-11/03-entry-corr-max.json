@@ -1,0 +1,12 @@
+{
+  "momentum_20d_turnrank_top2": 0.2037,
+  "reversal_10d_intraday_extreme_high": 0.4563,
+  "reversal_20d_skew_extreme": 0.4271,
+  "rsi_reversal_14": 0.4903,
+  "max_effect_20d": 0.4559,
+  "amihud_illiq_turn_20d": 0.4563,
+  "turnover_accel": 0.419,
+  "reversal_20d_netflow": 0.4903,
+  "reversal_20d_overnight": 0.1931,
+  "vol_run_energy_symrun": 0.1659
+}

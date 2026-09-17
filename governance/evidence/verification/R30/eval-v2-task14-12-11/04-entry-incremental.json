@@ -1,0 +1,65 @@
+{
+  "reversal_10d_intraday_extreme_high": {
+    "corr_max": 0.4563,
+    "r2_lib": 0.5022,
+    "resic_t": -6.3752,
+    "retention": 0.3443,
+    "verdict": "观察"
+  },
+  "reversal_20d_skew_extreme": {
+    "corr_max": 0.4271,
+    "r2_lib": 0.2556,
+    "resic_t": -1.6763,
+    "retention": 0.3024,
+    "verdict": "观察"
+  },
+  "rsi_reversal_14": {
+    "corr_max": 0.4903,
+    "r2_lib": 0.4276,
+    "resic_t": 0.3591,
+    "retention": -0.1025,
+    "verdict": "冗余"
+  },
+  "max_effect_20d": {
+    "corr_max": 0.4559,
+    "r2_lib": 0.3164,
+    "resic_t": -2.1724,
+    "retention": 0.4839,
+    "verdict": "观察"
+  },
+  "amihud_illiq_turn_20d": {
+    "corr_max": 0.4563,
+    "r2_lib": 0.264,
+    "resic_t": -1.1661,
+    "retention": -0.4439,
+    "verdict": "冗余"
+  },
+  "turnover_accel": {
+    "corr_max": 0.419,
+    "r2_lib": 0.3079,
+    "resic_t": -4.0122,
+    "retention": 0.5885,
+    "verdict": "可加入"
+  },
+  "reversal_20d_netflow": {
+    "corr_max": 0.4903,
+    "r2_lib": 0.3005,
+    "resic_t": -2.2454,
+    "retention": 0.3704,
+    "verdict": "观察"
+  },
+  "reversal_20d_overnight": {
+    "corr_max": 0.1931,
+    "r2_lib": 0.1009,
+    "resic_t": 2.6982,
+    "retention": 0.5994,
+    "verdict": "可加入"
+  },
+  "vol_run_energy_symrun": {
+    "corr_max": 0.1659,
+    "r2_lib": 0.0602,
+    "resic_t": -2.3862,
+    "retention": 0.2526,
+    "verdict": "观察"
+  }
+}
