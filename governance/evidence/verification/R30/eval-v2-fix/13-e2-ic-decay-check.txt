@@ -1,0 +1,46 @@
+version: 2 | frequency: daily | target: forward_return_1d
+evaluation keys: ['coverage', 'decile_returns', 'direction', 'factor', 'factor_name', 'frequency', 'ic', 'ic_decay', 'layered_backtest', 'n_stocks_avg', 'n_weeks', 'pearson_ic', 'target', 'turnover', 'version']
+ic_decay:
+{
+  "1": {
+    "column": "forward_return_1d",
+    "available": true,
+    "n_periods": 845,
+    "mean": 0.05646431326288974,
+    "std": 0.23058582708257214,
+    "t_stat": 7.118193588172586,
+    "ir": 0.24487330369472374
+  },
+  "5": {
+    "column": "forward_return_5d",
+    "available": true,
+    "n_periods": 841,
+    "mean": 0.07713444220360735,
+    "std": 0.22658240648726838,
+    "t_stat": 9.872341187400638,
+    "ir": 0.3404255581862289
+  },
+  "10": {
+    "column": "forward_return_10d",
+    "available": false,
+    "n_periods": 0,
+    "mean": null,
+    "std": null,
+    "t_stat": null,
+    "ir": null
+  },
+  "20": {
+    "column": "forward_return_20d",
+    "available": true,
+    "n_periods": 826,
+    "mean": 0.08914813551448764,
+    "std": 0.23474499888398195,
+    "t_stat": 10.914552635726166,
+    "ir": 0.3797658563049828
+  }
+}
+labels schema_version: 2
+labels horizons: [1, 5, 20]
+labels columns: ['date', 'code', 'forward_return_1d', 'forward_return_5d', 'forward_return_20d']
+weighting top-level key present: False
+icspread sign check: {'ret': 0.000589165464822204}

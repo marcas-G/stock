@@ -1,0 +1,6 @@
+[CAUGHT] label-schema-bump 回退 1 → rc=1 :: 4 failed, 90 deselected in 2.88s
+[CAUGHT] E1 透传存根（恒等权） → rc=1 :: 3 failed, 2 passed in 2.60s
+[CAUGHT] dead-signal 只数 null（旧口径） → rc=1 :: 5 failed, 7 deselected in 2.47s
+[CAUGHT] horizon 文档回退 (5, 20) → rc=1 :: 1 failed, 10 deselected in 0.61s
+
+突变 4 例，未被捕获 0 例

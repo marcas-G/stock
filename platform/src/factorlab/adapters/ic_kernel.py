@@ -17,8 +17,13 @@ def _non_overlap_plan(target: str, frequency: str) -> tuple[int, int, int] | Non
     """D3：h>5 重叠标签 → 不重叠采样计划 `(stride_periods, stride_weeks, nw_lag)`。
 
     - weekly：步长 = `⌈h/5⌉` 个评估周（20d → 每 4 周一个评估点，窗口不重叠）；
-    - daily：步长 = `h` 个评估日（日频默认 1d 不受影响；h>5 仅扩展研究显式指定）；
+    - daily：步长 = `h` 个评估日（**单位是日，不是 ⌈h/5⌉ 周**；日频默认 1d 不受
+      影响；h>5 仅扩展研究显式指定）；
     - h≤5 / 非 `forward_return_<h>d` 目标 → `None`（零变更：无 sampling/t_stat_nw）。
+
+    注意 `stride_weeks` 结果字段是历史命名：weekly 时确为周数，daily 时表达的是
+    采样间隔的**评估期数（=交易日数）**——两种频率语义不同但字段同形（interface
+    D3 节已注明）。
     """
     match = _HORIZON_RE.match(target or "")
     if match is None:
@@ -36,6 +41,11 @@ def _overlap_nw_diagnostic(panel: pl.DataFrame, target: str, lag: int) -> float:
 
     与 `core.eval.ic_series`（MIN_STOCKS=3；Web 曲线同源）一致——全周频 IC 序列的
     NW t 量化重叠标签的自相关强度，供与采样后简单 t 对照；空/退化序列 → NaN。
+
+    **MIN_STOCKS 差异（文档级，勿混比）**：主 `evaluate_factor` 的 IC/t 用 kernel
+    `MIN_STOCKS=2`（2 只有效股票的期仍计数），本诊断走 `ic_series.MIN_STOCKS=3`
+    （2 股期被置 null 排除）——`ic.t_stat_nw` 与主 `ic.t_stat` 的期集合可能不同；
+    NW 仅诊断、不替代主 t。
     """
     full = ic_series(panel.select(["date", "code", "signal", target]), target)
     xs = [float(v) for v in full["ic"].to_list()

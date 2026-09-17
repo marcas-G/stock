@@ -88,7 +88,8 @@
   R07 探针 4 + 烟测/验收 6（mine_smoke_01/minute_smoke_*/r12_smoke/r30_accept_min/
   verify_guard_2024h1）+ 根副本 2（`__root-dup-20260916`）+ 孤儿 2（cap_real2/4）+
   死源 2（value_bp=pb 占位；crash_bottom_leader_adv20=index_daily 空表）。退路=spec
-  保留可重跑；manifest 含文件级 sha/size。
+  保留可重跑；manifest 含逐 run 的文件数/总大小、summary sha256[:16] 与文件名清单
+  （**无逐文件 sha/size**——R30 fix 波事实校正）。
 - **挖矿在途例外**（未动，17 个）：`max_effect_20d_{extcnt,high,zmax}`、
   `vol_run_energy_symrun_r30_{flip,streak}`、intraday_* 12 个（spec 未入 git）——
   含 R08 点名的 `max_effect_20d_high`（等挖矿批次收尾产出 v2 产物）。

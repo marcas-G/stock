@@ -1,0 +1,66 @@
+# v1/v2 口径档案注记待办清单（R30 fix 波重生成，只读脚本）
+
+- 运行目录总数：58
+- a) run 仍 v1 未重跑：17 个（关联档案 5 份；未匹配 12 个）
+- b) run 已 v2（档案值写于 v1 需刷新）：41 个（关联档案 39 份；未匹配 2 个）
+
+口径：a) 档案注「spread 为 v1 口径（负=自洽）」；b) 档案数值/符号按 v2 产物刷新（spread 正=好、版本字段 v2）。**不重算历史 summary**（interface 迁移节）。
+下表 `git status` 非 clean = 挖矿在途，本轮禁动。
+
+## a) 仍为 v1 的 run（未重跑）
+
+| # | 档案路径 | 关联 v1 运行 | git status |
+|---|---|---|---|
+| 1 | `knowledge/dossiers/factors/vol_run_energy/symrun_r30_flip.md` | `vol_run_energy_symrun_r30_flip` | ?? knowledge/dossiers/factors/vol_run_energy/symrun_r30_flip.md |
+| 2 | `knowledge/dossiers/factors/vol_run_energy/symrun_r30_streak.md` | `vol_run_energy_symrun_r30_streak` | ?? knowledge/dossiers/factors/vol_run_energy/symrun_r30_streak.md |
+| 3 | `knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md` | `max_effect_20d_extcnt` | clean |
+| 4 | `knowledge/dossiers/factors/volatility/max_effect_20d_high.md` | `max_effect_20d_high` | clean |
+| 5 | `knowledge/dossiers/factors/volatility/max_effect_20d_zmax.md` | `max_effect_20d_zmax` | ?? knowledge/dossiers/factors/volatility/max_effect_20d_zmax.md |
+
+未匹配档案的 v1 运行（无档案引用；核对其档案命名）：`intraday_am_pm_vol`、`intraday_close_auction_premium`、`intraday_close_ret`、`intraday_event_density`、`intraday_lunch_jump`、`intraday_morning_ret`、`intraday_open_minute_mom`、`intraday_order_flow_imb`、`intraday_path_efficiency`、`intraday_ret_concentration`、`intraday_vol_herfindahl`、`intraday_volume_timing`
+
+## b) 已 v2 的 run（档案数值待刷新）
+
+| # | 档案路径 | 关联 v2 运行（frequency） | git status |
+|---|---|---|---|
+| 1 | `knowledge/dossiers/factors/intraday/intraday_high_time.md` | `intraday_high_time(daily)` | ?? knowledge/dossiers/factors/intraday/intraday_high_time.md |
+| 2 | `knowledge/dossiers/factors/liquidity/accel.md` | `turnover_accel(daily)` | clean |
+| 3 | `knowledge/dossiers/factors/liquidity/accel_inflow.md` | `turnover_accel_inflow(daily)` | clean |
+| 4 | `knowledge/dossiers/factors/liquidity/level.md` | `turnover_level(daily)` | clean |
+| 5 | `knowledge/dossiers/factors/liquidity/level_ma20.md` | `turnover_level_ma20(daily)` | clean |
+| 6 | `knowledge/dossiers/factors/liquidity/turn_20d.md` | `amihud_illiq_turn_20d(daily)` | clean |
+| 7 | `knowledge/dossiers/factors/momentum_20d/momentum_20d.md` | `momentum_20d(daily)` | clean |
+| 8 | `knowledge/dossiers/factors/momentum_20d/turnrank_extreme.md` | `momentum_20d_turnrank_extreme(daily)` | clean |
+| 9 | `knowledge/dossiers/factors/momentum_20d/turnrank_top10.md` | `momentum_20d_turnrank_top10(daily)` | clean |
+| 10 | `knowledge/dossiers/factors/reversal_10d/cumret.md` | `reversal_10d_cumret(daily)` | clean |
+| 11 | `knowledge/dossiers/factors/reversal_10d/cumret_log.md` | `reversal_10d_cumret_log(daily)` | clean |
+| 12 | `knowledge/dossiers/factors/reversal_10d/intraday_extreme.md` | `reversal_10d_intraday_extreme(daily)` | clean |
+| 13 | `knowledge/dossiers/factors/reversal_10d/intraday_extreme_high.md` | `reversal_10d_intraday_extreme_high(daily)` | M knowledge/dossiers/factors/reversal_10d/intraday_extreme_high.md |
+| 14 | `knowledge/dossiers/factors/reversal_20d/corr_intraday_turn_vol.md` | `reversal_20d_corr_intraday_turn_vol(daily)` | clean |
+| 15 | `knowledge/dossiers/factors/reversal_20d/cumret.md` | `reversal_20d_cumret(daily)` | clean |
+| 16 | `knowledge/dossiers/factors/reversal_20d/cumret_freq.md` | `reversal_20d_cumret_freq(daily)` | clean |
+| 17 | `knowledge/dossiers/factors/reversal_20d/intraday.md` | `reversal_20d_intraday(daily)` | clean |
+| 18 | `knowledge/dossiers/factors/reversal_20d/intraday_turn.md` | `reversal_20d_intraday_turn(daily)` | clean |
+| 19 | `knowledge/dossiers/factors/reversal_20d/intraday_turn_high.md` | `reversal_20d_intraday_turn_high(daily)` | clean |
+| 20 | `knowledge/dossiers/factors/reversal_20d/netflow.md` | `reversal_20d_netflow(daily)` | clean |
+| 21 | `knowledge/dossiers/factors/reversal_20d/netflow_vol.md` | `reversal_20d_netflow_vol(daily)` | clean |
+| 22 | `knowledge/dossiers/factors/reversal_20d/overnight.md` | `reversal_20d_overnight(daily)` | clean |
+| 23 | `knowledge/dossiers/factors/reversal_20d/reversal_20d.md` | `reversal_20d(daily)` | clean |
+| 24 | `knowledge/dossiers/factors/reversal_20d/skew_extreme.md` | `reversal_20d_skew_extreme(daily)` | clean |
+| 25 | `knowledge/dossiers/factors/reversal_20d/skew_extreme_w10.md` | `reversal_20d_skew_extreme_w10(daily)` | M knowledge/dossiers/factors/reversal_20d/skew_extreme_w10.md |
+| 26 | `knowledge/dossiers/factors/reversal_20d/wcorr.md` | `reversal_20d_wcorr(daily)` | clean |
+| 27 | `knowledge/dossiers/factors/reversal_rsi/reversal_14.md` | `rsi_reversal_14(daily)` | clean |
+| 28 | `knowledge/dossiers/factors/reversal_rsi/reversal_14_ret.md` | `rsi_reversal_14_ret(daily)` | clean |
+| 29 | `knowledge/dossiers/factors/size/small_cap.md` | `small_cap(daily)` | clean |
+| 30 | `knowledge/dossiers/factors/vol_run_energy/symrun.md` | `vol_run_energy_symrun(daily)` | clean |
+| 31 | `knowledge/dossiers/factors/vol_run_energy/symrun_energyonly.md` | `vol_run_energy_symrun_energyonly(daily)` | clean |
+| 32 | `knowledge/dossiers/factors/vol_run_energy/symrun_r30.md` | `vol_run_energy_symrun_r30(daily)` | clean |
+| 33 | `knowledge/dossiers/factors/vol_run_energy/symrun_rlonly.md` | `vol_run_energy_symrun_rlonly(daily)` | clean |
+| 34 | `knowledge/dossiers/factors/volatility/extsum.md` | `max_effect_20d_extsum(daily)` | clean |
+| 35 | `knowledge/dossiers/factors/volatility/high_intraday.md` | `max_effect_20d_high_intraday(daily)` | clean |
+| 36 | `knowledge/dossiers/factors/volatility/low_vol_20d.md` | `low_vol_20d(daily)` | clean |
+| 37 | `knowledge/dossiers/factors/volatility/low_vol_20d_park.md` | `low_vol_20d_park(daily)` | clean |
+| 38 | `knowledge/dossiers/factors/volatility/low_vol_20d_park_gk.md` | `low_vol_20d_park_gk(daily)` | clean |
+| 39 | `knowledge/dossiers/factors/volatility/max_effect_20d.md` | `max_effect_20d(daily)` | clean |
+
+未匹配档案的 v2 运行（无档案引用；多为变体/探针）：`momentum_20d_turnrank_top2(daily)`、`momentum_20d_turnrank_top5(daily)`

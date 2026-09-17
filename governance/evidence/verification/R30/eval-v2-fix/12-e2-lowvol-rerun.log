@@ -1,0 +1,6 @@
+/data/students/gaolei/stock/platform/src/factorlab/app/run.py:402: STDegradedWarning: ST 未知按非 ST 处理，结果为无 ST 口径：exclude_st=true 但库中无 stock_st 表，FACTORLAB_ST_DEGRADE=allow 已显式降级（is_st=null、in_universe 不做 ST 过滤）。需真实 ST 过滤请灌入 stock_st 并保持开关默认 fail fast。
+  uf = resolve_universe_frame(spec, rd, dates=signal_cal.to_list(),
+2026-09-17 13:20:15.648 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-17 13:20:15.677 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+low_vol_20d: n_weeks=845 ic_mean=0.05646431326288975 spread=0.000589165464822204
+freq=daily

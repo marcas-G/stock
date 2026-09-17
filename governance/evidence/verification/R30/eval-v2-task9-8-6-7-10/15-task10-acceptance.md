@@ -2,7 +2,7 @@
 
 日期：2026-09-17 ｜ 计划：`knowledge/design/platform/plans/2026-09-16-factorlab-eval-metrics-v2.md`
 
-## 提交链（14 commits）
+## 提交链（17 commits；e530732..42e2245，验收文档为 5852d36）
 
 | 阶段 | commits |
 |---|---|
@@ -11,6 +11,11 @@
 | 修订（Task 1/2/3/4） | `1cf4a92` `7cc4984` `0ee8454` `8805284` `2e63bf9` |
 | 参考库/退市/重跑（Task 14/12/11） | `04bbfe0` `2b39807` `fc51796` |
 | 增强（Task 9/8/6/7） | `4d86a9f` `8084376` `c1f510d` `42e2245` |
+
+> 注（R30 fix 波校正）：原写「14 commits」与表不符（表内即 17 个）。
+> `8084376` 标题「成本后净值进 summary（E3）」**与实现相反**——实际交付为策略层
+> 纯函数 `app/strategy/cost_net.py`（`cost_net_report`），**不进因子评估 summary**
+> （D11 因子侧纯净）。标题保留历史（不复写公开提交），此处注记以正视听。
 
 ## 验收数字
 
@@ -23,14 +28,26 @@
 
 ## 范围符合性（因子侧纯净）
 
-- E3/E4 落策略层模块，不写因子评估 summary；E2/E1 落因子侧统计（E1a `total_mv` 口径；circ_mv=E1b 待 R07-DATA-I4）
+- E3/E4 落策略层模块，不写因子评估 summary（**当前无调用方**，等 M8/策略报告接线）；
+  E2/E1 落因子侧统计。**R30 fix 波补口**：E1 产品入口 `FactorSpec.weighting`
+  （默认 equal_weight 零回归）→ `evaluate_run` → kernel 全链接通；`market_cap`
+  用 `total_mv`（E1a）按需进评估面板（signal artifact 单列不变）；E1b（`circ_mv`）
+  kernel/bridge `mv_col=` 已可用（R07-DATA-I4 于 2026-09-16 完成），spec 入口未暴露
+  `mv_col` 字段（后续按需加）。
 - `frequency=daily` 为默认；`weekly` 保留可选对照且零变更
 
 ## 遗留（给协调者/挖矿收尾后）
 
 1. G-INDEX 与 research/tools 索引 2 红：挖矿收尾后 `make index` 收口
-2. 历史 v1 口径注记：74 个 v1 运行 → 46 份档案待注 `spread 为 v1 口径（负=自洽）`（其中 6 份挖矿在途未动），清单见 `eval-v2-task0-5/09-v1-annotation-pending.md`
+2. **档案注记清单已重生成（R30 fix 波，2026-09-17）**：实际 **17 个 v1 运行 /
+   5 份关联档案 / 12 个未匹配**（旧口径「74 runs / 46 档案」随 D7 重跑删除失效）；
+   另 **41 个 v2+daily 运行 → 39 份关联档案数值/符号仍写于 v1 时代，待按 v2 产物
+   刷新**（如 `low_vol_20d`；2 个无档案 = 参考库种子 top2/top5）。区分清单见
+   `governance/evidence/verification/R30/eval-v2-fix/11-pending-annotations-v2.txt`
+   （脚本 `pending_annotations_v2.py`，只读）——a) 5 份含挖矿在途禁动；
+   b) 刷新属研究树动作，由协调者/挖矿收尾执行
 3. `max_effect_20d_high` 等 17 个挖矿在途产物待挖矿批次产出 v2 产物
 4. 参考库 2 只（`rsi_reversal_14`/`amihud_illiq_turn_20d`）初判冗余，按入库流程待替换
 5. 退市股 turnover 类因子仍缺股本/成交额（超出 adj 补口范围）；5 码 vendor 漂移拒补、87 日 hfq≤0 剔除（loud，不伪造）
-6. E1b（circ_mv 加权）待 R07-DATA-I4 完成后启用
+6. E1b（circ_mv 加权）：数据与 kernel 参数均已就绪（R07-DATA-I4，2026-09-16 完成）；
+   待产品决策是否在 spec 暴露 `mv_col` 字段

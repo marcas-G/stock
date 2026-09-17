@@ -1,0 +1,31 @@
+# v1 口径档案注记待办清单（R30 Task5，生成于 pending_annotations.py）
+
+- v1 运行（evaluation 无 version 键）：17 个
+- 关联档案（待注记「spread 为 v1 口径（负=自洽）」）：5 份
+- 未匹配到档案的 v1 运行：12 个
+
+说明：档案注记**不重算**（interface 迁移节），由协调者在挖矿在途批次收尾后统一补；
+下表 `git status` 非 clean 的档案 = 挖矿在途，本轮（eval-v2 Task 0/5）禁动。
+
+| # | 档案路径 | 关联 v1 运行 | git status |
+|---|---|---|---|
+| 1 | `knowledge/dossiers/factors/vol_run_energy/symrun_r30_flip.md` | `vol_run_energy_symrun_r30_flip` | ?? knowledge/dossiers/factors/vol_run_energy/symrun_r30_flip.md |
+| 2 | `knowledge/dossiers/factors/vol_run_energy/symrun_r30_streak.md` | `vol_run_energy_symrun_r30_streak` | ?? knowledge/dossiers/factors/vol_run_energy/symrun_r30_streak.md |
+| 3 | `knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md` | `max_effect_20d_extcnt` | clean |
+| 4 | `knowledge/dossiers/factors/volatility/max_effect_20d_high.md` | `max_effect_20d_high` | clean |
+| 5 | `knowledge/dossiers/factors/volatility/max_effect_20d_zmax.md` | `max_effect_20d_zmax` | ?? knowledge/dossiers/factors/volatility/max_effect_20d_zmax.md |
+
+## 未匹配档案的 v1 运行（无档案引用；核对其档案命名）
+
+- `intraday_am_pm_vol`
+- `intraday_close_auction_premium`
+- `intraday_close_ret`
+- `intraday_event_density`
+- `intraday_lunch_jump`
+- `intraday_morning_ret`
+- `intraday_open_minute_mom`
+- `intraday_order_flow_imb`
+- `intraday_path_efficiency`
+- `intraday_ret_concentration`
+- `intraday_vol_herfindahl`
+- `intraday_volume_timing`
