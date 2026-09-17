@@ -43,6 +43,20 @@
 - manual_required 不 fail 整链：写清单 + 日志告警（浏览器下载/转存后放入对应 raw 目录即可；`pan_update` 下次按本地命名登记并继续）；
 - 日K 全量只在首次/轮换时需要（本地已有 2026-07-31 旧全量 → 日常仅增量）；财报自动源改为小 xlsx，大 parquet/zip 为可选人工。
 
+**§2.1 实施补记（2026-09-17，R30）——超限自动「转存自有盘 → 自取直链」回退**：
+上述 manual_required 对日常自动化是断点，改为默认自动回退（`transfer.py`，HTTP 经可注入
+transport 便于离线单测）：
+- 分享项 → `share/sharepage/save` 转存到自有盘临时目录 `factorlab_tmp`（无则创建）→
+  轮询 `task`（`status=2` 完成；风控/失败/超时 loud fail）→ `file/download` 取自取直链
+  （自有文件不受分享直链上限限制）→ 下载 `<rel>.part` + size 校验 + `os.replace`；
+- 校验通过后删除网盘临时副本（不可逆；`--keep-drive-copy` 保留）；失败路径不发删除，
+  副本留给下次同名同 size 复用（断点续跑，不重复转存）；
+- CLI 开关：`--transfer`（**默认启用**）/`--no-transfer`（维持 manual_required）、
+  `--keep-drive-copy`；cookie 不可用 → 自动维持 manual_required；
+- 转存失败 → 该文件记 `failed`（exit 1，loud），不清半成品、不误删；
+- 测试：`tests/test_transfer.py`（fake transport 逐字断言 URL/body/轮询序/校验后删）
+  + sync/cli 集成（无 cookie 维持 manual、失败 loud、开关透传）。
+
 **两张新表的列清单在实施计划阶段先落样本实测**（下载资金流 1 个月 zip + 最新 `*_financial.parquet`，按实际列名/单位定 DDL 与 fact schema；样本进入 `platform/tools/pan_update/tests/fixtures/` 或 R30 证据），DDL 与解析器测试同步生成，不在本设计里猜列名。
 
 ## 3. 架构（`platform/tools/pan_update/`）

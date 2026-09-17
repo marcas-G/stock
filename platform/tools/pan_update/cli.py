@@ -22,6 +22,9 @@ T9 裁决（brief 未逐字覆盖处，报告同录）：
 - **manual 就位接续（修复轮 1）**：sync 前扫 dest_root——分享清单存在 + 本地已有 +
   size 匹配 + state 未登记 → 记 `adopted`（不取链/不下载），视同新数据清阶段标记。
 - **manual_required 不为错**（exit 0）；failed 非空 → exit 1；未知类别 → exit 2。
+- **超限转存回退**（2026-09-17）：size limit 项默认经 `transfer.DriveTransfer`
+  转存自有盘 `factorlab_tmp` 后自取直链下载（`--no-transfer` 关闭维持 manual、
+  `--keep-drive-copy` 保留网盘副本；失败 loud 不误删，见 transfer.py）。
 - **--prune**：删除本地 raw 中不在本次分享清单内的残留文件（默认保留）。
 """
 from __future__ import annotations
@@ -42,6 +45,7 @@ if str(_TOOLS) not in sys.path:
 
 from pan_update import config, share, stages, sync  # noqa: E402
 from pan_update import state as st  # noqa: E402
+from pan_update import transfer  # noqa: E402
 from quark_download import quark_client  # noqa: E402
 
 STATE_PATH = config.RAW_ROOT / "pan_state.json"
@@ -183,7 +187,7 @@ def _print_report(cat: str, rep: sync.SyncReport, removed: list[str],
 
 def _print_summary(downloaded: int, adopted: int, manual: list, failed: list) -> None:
     if manual:
-        print(f"manual_required（{len(manual)} 项；超分享直链上限或需人工放置，"
+        print(f"manual_required（{len(manual)} 项；转存回退不可用或已 --no-transfer，"
               f"放入对应 data/raw/<类别> 后重跑）：", flush=True)
         for cat, item, dest_root in manual:
             print(f"  [{cat}] {item['name']}（{item['reason']}）→ {dest_root}",
@@ -213,7 +217,8 @@ def _run_sync(cats: list[str], state: dict, deps, *, dry_run: bool, prune: bool,
             state, cat, entries=entries,
             transport=transport if transport is not None else sync.QuarkTransport(),
             dest_root=dest_root, dry_run=dry_run, workers=workers,
-            state_path=None if dry_run else deps["state_path"])
+            state_path=None if dry_run else deps["state_path"],
+            transfer=deps.get("transfer"))
         removed: list[str] = []
         if prune:
             removed = _prune_extras(dest_root, entries, dry_run=dry_run, log=log)
@@ -302,6 +307,12 @@ def _parser() -> argparse.ArgumentParser:
                     help="删除本地 raw 中不在分享清单内的残留（默认保留）")
     ap.add_argument("--workers", type=int, default=8,
                     help="下载并发上限（默认 8；1=串行）")
+    ap.add_argument("--transfer", dest="transfer", action="store_true", default=True,
+                    help="超限文件自动「转存自有网盘 → 自取直链」下载（默认启用）")
+    ap.add_argument("--no-transfer", dest="transfer", action="store_false",
+                    help="关闭转存回退：超限文件维持 manual_required")
+    ap.add_argument("--keep-drive-copy", action="store_true",
+                    help="下载校验通过后保留网盘临时副本（默认删除清空间）")
     return ap
 
 
@@ -309,11 +320,13 @@ def main(argv: list[str] | None = None, *, listdir: Callable | None = None,
          transport=None, runner: Callable | None = None,
          verify_runner: Callable[[list[str]], int] | None = None,
          state_path: Path | None = None, lock_path: Path | None = None,
-         log_dir: Path | None = None, raw_root: Path | None = None) -> int:
+         log_dir: Path | None = None, raw_root: Path | None = None,
+         transfer_client=None) -> int:
     """CLI 入口；返回进程退出码（0 成功 / 1 运行失败 / 2 用法或配置错误）。
 
     注入面（测试/装配用，生产留 None）：listdir、transport、runner、verify_runner、
-    state_path、lock_path、log_dir、raw_root。
+    state_path、lock_path、log_dir、raw_root、transfer_client（转存回退客户端；
+    缺省且 --transfer 开启时装配生产 ``transfer.DriveTransfer``）。
     """
     raw_argv = list(argv) if argv is not None else list(sys.argv[1:])
     _wire_cookie_env()
@@ -341,7 +354,14 @@ def main(argv: list[str] | None = None, *, listdir: Callable | None = None,
         "state_path": Path(state_path) if state_path is not None else STATE_PATH,
         "log_dir": Path(log_dir) if log_dir is not None else stages.LOG_DIR,
         "raw_root": Path(raw_root) if raw_root is not None else RAW_ROOT,
+        "transfer": transfer_client,
     }
+    if args.command in ("sync", "all"):
+        if not args.transfer:
+            deps["transfer"] = None
+        elif deps["transfer"] is None:
+            deps["transfer"] = transfer.DriveTransfer(
+                transfer.QuarkPcTransport(), keep_copy=args.keep_drive_copy)
     state = st.load_state(deps["state_path"])
     started = _now()
     ran = False

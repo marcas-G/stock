@@ -25,10 +25,12 @@ from typing import Callable
 
 try:
     from pan_update import state as st
+    from pan_update import transfer as transfer_mod
     from quark_download import quark_client
 except ModuleNotFoundError:  # 脚本直启（无 conftest 铺路）→ 补 platform/tools 再导入
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from pan_update import state as st
+    from pan_update import transfer as transfer_mod
     from quark_download import quark_client
 
 
@@ -185,7 +187,7 @@ def _run_downloads(transport, dest_root: Path, jobs: list[tuple[int, dict, str]]
 
 def sync_category(state: dict, category: str, *, entries, transport, dest_root,
                   dry_run: bool = False, workers: int = 8,
-                  state_path: Path | None = None) -> SyncReport:
+                  state_path: Path | None = None, transfer=None) -> SyncReport:
     """下载一个类别的差集 → ``SyncReport``。
 
     - entries：``share.Entry`` 或已 ``dataclasses.asdict`` 的 dict。
@@ -197,6 +199,10 @@ def sync_category(state: dict, category: str, *, entries, transport, dest_root,
     - state_path：给定则每个成功文件后 ``state.save_state_atomic``。
     - adopted：人工就位件（清单存在 + 本地已有 + size 匹配 + state 未登记）登记为
       adopted，不计 downloaded；dry-run 只识别不写 state 并从 to_fetch 剔除。
+    - transfer：超限（size limit）回退客户端（``available()``/``fetch(item, dest)``，
+      即 ``transfer.DriveTransfer``）。可用时超限项走「转存自有盘 → 自取直链」并记
+      downloaded；不可用/未提供 → 维持 manual_required。``fetch`` 失败抛
+      ``transfer.TransferError`` → 记 failed（loud，副本不删）。
     """
     dest_root = Path(dest_root)
     items = [_as_dict(e) for e in entries]
@@ -216,14 +222,15 @@ def sync_category(state: dict, category: str, *, entries, transport, dest_root,
     blocked: dict[str, str] = {}
     urls = _take_urls(transport, diff.to_fetch, blocked)
     jobs: list[tuple[int, dict, str]] = []
+    blocked_items: list[tuple[dict, str]] = []
     for idx, item in enumerate(diff.to_fetch):
         name = item["name"]
         if name in blocked:
-            report.manual.append({"name": name, "reason": blocked[name]})
+            blocked_items.append((item, blocked[name]))
             continue
         reason = item.get("_blocked_reason")
         if reason:
-            report.manual.append({"name": name, "reason": reason})
+            blocked_items.append((item, reason))
             continue
         url = urls.get(item.get("fid"))
         if not url:
@@ -235,6 +242,25 @@ def sync_category(state: dict, category: str, *, entries, transport, dest_root,
         item = diff.to_fetch[idx]
         if detail is not None:
             report.failed.append({"name": item["name"], "reason": detail})
+            continue
+        report.downloaded.append(item["rel_path"])
+        _record(state, category, item)
+        if state_path is not None:
+            st.save_state_atomic(Path(state_path), state)
+
+    for item, reason in blocked_items:
+        if transfer is None or not transfer.available():
+            report.manual.append({"name": item["name"], "reason": reason})
+            continue
+        try:
+            dest = _dest_for(dest_root, item["rel_path"])
+        except ValueError as ex:
+            report.failed.append({"name": item["name"], "reason": str(ex)})
+            continue
+        try:
+            transfer.fetch(item, dest)
+        except transfer_mod.TransferError as ex:
+            report.failed.append({"name": item["name"], "reason": f"transfer: {ex}"})
             continue
         report.downloaded.append(item["rel_path"])
         _record(state, category, item)

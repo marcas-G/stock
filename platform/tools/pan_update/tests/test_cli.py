@@ -13,6 +13,7 @@ import pytest
 
 from pan_update import cli, config, parse_fundamentals_xlsx as fp
 from pan_update import share, stages, sync
+from pan_update import transfer as xfer
 
 ROOT = config.repo_root()
 VENV = ROOT / "platform" / ".venv" / "bin" / "python"
@@ -106,6 +107,26 @@ class FakeRunner:
             raise stages.StageError(Path(cmd[1]).stem, list(cmd), 3, "boom")
 
 
+class FakeTransferClient:
+    """离线转存客户端：可脚本化 available/fail，记录 fetch 调用。"""
+
+    def __init__(self, *, available=True, fail=None):
+        self._available = available
+        self.fail = fail
+        self.calls = []
+
+    def available(self):
+        return self._available
+
+    def fetch(self, item, dest):
+        self.calls.append((item["name"], str(dest)))
+        if self.fail is not None:
+            raise self.fail
+        dest = Path(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"T")
+
+
 @pytest.fixture
 def cookie_ok(monkeypatch):
     monkeypatch.setattr(cli.quark_client, "cookies", lambda: "cookie=1")
@@ -132,13 +153,16 @@ def _cookie_env_guard():
 
 
 def _run(argv, tmp_path, *, tree=None, transport=None, runner=None,
-         verify_runner=None, categories=None, raw_root=None, events=None):
+         verify_runner=None, categories=None, raw_root=None, events=None,
+         transfer_client=None):
     events = events if events is not None else []
     argv = list(argv)
     if categories is not None:
         argv += ["--categories", categories]
     state_path = tmp_path / "pan_state.json"
     lock_path = tmp_path / "pan_update.lock"
+    if transfer_client is None:
+        transfer_client = FakeTransferClient(available=False)
     return cli.main(
         argv,
         listdir=FakeListdir(tree if tree is not None else _tree(), events),
@@ -149,6 +173,7 @@ def _run(argv, tmp_path, *, tree=None, transport=None, runner=None,
         lock_path=lock_path,
         log_dir=tmp_path / "logs",
         raw_root=raw_root if raw_root is not None else tmp_path / "raw",
+        transfer_client=transfer_client,
     )
 
 
@@ -701,3 +726,100 @@ def test_install_script_readonly_status_runs(tmp_path):
                        env={**os.environ, "HOME": str(tmp_path)})
     assert r.returncode == 0, r.stdout + r.stderr
     assert "pan-data-update" in (r.stdout + r.stderr)
+
+
+# ---------------------------------------------------------------
+# 转存回退（transfer）：默认启用、--no-transfer 关闭、--keep-drive-copy 透传
+# ---------------------------------------------------------------
+
+def test_transfer_flags_default_on_and_opt_out():
+    p = cli._parser()
+    assert p.parse_args(["sync"]).transfer is True, "默认启用转存回退"
+    assert p.parse_args(["sync", "--no-transfer"]).transfer is False
+    assert p.parse_args(["sync"]).keep_drive_copy is False
+    assert p.parse_args(["sync", "--keep-drive-copy"]).keep_drive_copy is True
+
+
+def test_cli_blocked_item_goes_through_transfer_and_records_state(tmp_path, capsys, cookie_ok):
+    x = FakeTransferClient()
+    tp = FakeTransport(block=("daily.bin",))
+    rc = _run(["sync", "--categories", "daily"], tmp_path, transport=tp,
+              transfer_client=x)
+    assert rc == 0
+    assert x.calls == [("daily.bin", str(tmp_path / "raw" / "daily" / "daily.bin"))]
+    data = json.loads((tmp_path / "pan_state.json").read_text(encoding="utf-8"))
+    assert data["files"]["daily/daily.bin"]["size"] == 10
+    out = capsys.readouterr().out
+    assert "manual_required" not in out, "已转存成功不得再报 manual"
+
+
+def test_cli_no_transfer_flag_keeps_manual_required(tmp_path, capsys, cookie_ok):
+    x = FakeTransferClient()
+    rc = _run(["sync", "--categories", "daily", "--no-transfer"], tmp_path,
+              transport=FakeTransport(block=("daily.bin",)), transfer_client=x)
+    assert rc == 0 and x.calls == [], "--no-transfer 必须关闭回退"
+    out = capsys.readouterr().out
+    assert "manual" in out and "daily.bin" in out and "size limit" in out
+
+
+def test_cli_transfer_failure_exits_1_and_prints(tmp_path, capsys, cookie_ok):
+    x = FakeTransferClient(fail=xfer.TransferTimeout("转存 task 超时（600s）"))
+    rc = _run(["sync", "--categories", "daily"], tmp_path,
+              transport=FakeTransport(block=("daily.bin",)), transfer_client=x)
+    assert rc == 1, "转存失败必须 loud fail"
+    out = capsys.readouterr().out
+    assert "failed" in out and "transfer:" in out and "超时" in out
+    data = json.loads((tmp_path / "pan_state.json").read_text(encoding="utf-8"))
+    assert "daily/daily.bin" not in data["files"]
+
+
+def test_cli_builds_production_transfer_with_flags(tmp_path, monkeypatch, cookie_ok):
+    made = []
+
+    class Rec:
+        def __init__(self, transport, **kw):
+            made.append({"transport": transport, **kw})
+
+        def available(self):
+            return True
+
+        def fetch(self, item, dest):
+            dest = Path(dest)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(b"T")
+
+    monkeypatch.setattr(cli.transfer, "DriveTransfer", Rec)
+    rc = cli.main(
+        ["sync", "--categories", "daily", "--keep-drive-copy"],
+        listdir=FakeListdir(_tree()), transport=FakeTransport(block=("daily.bin",)),
+        runner=FakeRunner(), verify_runner=lambda cmd: 0,
+        state_path=tmp_path / "s.json", lock_path=tmp_path / "l.lock",
+        log_dir=tmp_path / "logs", raw_root=tmp_path / "raw")
+    assert rc == 0
+    assert made and made[0]["keep_copy"] is True, "--keep-drive-copy 必须透传"
+    assert isinstance(made[0]["transport"], xfer.QuarkPcTransport), "生产 transport"
+    data = json.loads((tmp_path / "s.json").read_text(encoding="utf-8"))
+    assert data["files"]["daily/daily.bin"], "转存成功要记账"
+
+
+# ---------------------------------------------------------------
+# 文档防漂移：转存回退的开关/临时目录/不可逆删除必须与实现同步
+# ---------------------------------------------------------------
+
+def test_readme_documents_transfer_fallback():
+    text = (Path(cli.__file__).parent / "README.md").read_text(encoding="utf-8")
+    for token in ("--transfer", "--no-transfer", "--keep-drive-copy",
+                  xfer.TMP_DIR_NAME, "TransferError"):
+        assert token in text, f"README 缺转存回退说明：{token}"
+    assert "删除" in text, "不可逆删除（网盘临时副本）必须显式告知"
+
+
+def test_design_doc_documents_transfer_fallback():
+    doc = (ROOT / "knowledge" / "design" / "workspace"
+           / "2026-09-16-pan-data-update-design.md").read_text(encoding="utf-8")
+    assert "transfer.py" in doc and xfer.TMP_DIR_NAME in doc
+
+
+def test_interface_contract_documents_transfer_fallback():
+    text = (ROOT / "knowledge" / "contracts" / "interface.md").read_text(encoding="utf-8")
+    assert "--no-transfer" in text and xfer.TMP_DIR_NAME in text

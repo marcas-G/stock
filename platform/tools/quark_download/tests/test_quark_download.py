@@ -215,3 +215,39 @@ def test_server_main_proceeds_past_cookie_check_with_manifest(tmp_path, monkeypa
     monkeypatch.setattr(QS, "get_stoken", lambda **kw: (_ for _ in ()).throw(_Stop("past-cookie")))
     with pytest.raises(_Stop, match="past-cookie"):
         QS.main()
+
+
+# ── R30（2026-09-17）：UA 反爬阈值——官方客户端 UA 绕过 /file/download 大小限制 ──
+def test_http_ua_override_and_default(monkeypatch, tmp_path):
+    """`http(ua=...)` 必须落到 User-Agent 头；缺省仍是模块 UA 常量（旧调用不受影响）。
+
+    实测：同一 367MB 自有文件，Chrome UA → 400 code 23018；官方客户端 UA → 200 直链。
+    """
+    import quark_client as QC
+
+    cookie = tmp_path / "c.txt"
+    cookie.write_text("k=v", encoding="utf-8")
+    monkeypatch.setattr(QC, "COOKIE_PATH", str(cookie))
+    seen = []
+
+    class FakeResp:
+        status = 200
+
+        def read(self):
+            return b'{"status":200}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=60):
+        seen.append(req.get_header("User-agent"))
+        return FakeResp()
+
+    monkeypatch.setattr(QC.urllib.request, "urlopen", fake_urlopen)
+    assert QC.http("http://x") == (200, {"status": 200})
+    assert seen[-1] == QC.UA
+    QC.http("http://x", {"a": 1}, ua="Client/UA 1.0")
+    assert seen[-1] == "Client/UA 1.0"

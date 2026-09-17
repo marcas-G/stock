@@ -25,7 +25,8 @@ make data-update
 # 等价直调（可注入参数）：
 PLATFORM_PY=platform/.venv/bin/python
 $PLATFORM_PY platform/tools/pan_update/cli.py sync|build|publish|verify|all \
-    [--categories daily,minutes,fund_flow,financials] [--dry-run] [--prune] [--workers N]
+    [--categories daily,minutes,fund_flow,financials] [--dry-run] [--prune] \
+    [--workers N] [--transfer|--no-transfer] [--keep-drive-copy]
 ```
 
 | 命令 | 行为 |
@@ -40,6 +41,8 @@ $PLATFORM_PY platform/tools/pan_update/cli.py sync|build|publish|verify|all \
   不取链、不下载、不写 state。
 - `--workers N`：下载并发上限（默认 8；1=串行）。worker 只下载落盘，state 记账在主线程。
 - `--prune`：删除本地 raw 中**不在本次分享清单内**的残留文件（默认保留）；`--dry-run` 只列不删。
+- `--transfer/--no-transfer`：超限文件自动转存回退（**默认启用**；见下节）。
+- `--keep-drive-copy`：下载校验通过后保留网盘临时副本（默认删除清空间；删除不可逆）。
 - 未知 `--categories` 项 / cookie 缺失或为空 / `FACTORLAB_MAX_MEMORY` 非法 → exit 2。
 - `manual_required` 不算错（exit 0）；`failed` 非空 → exit 1。
 
@@ -71,17 +74,36 @@ $PLATFORM_PY platform/tools/pan_update/cli.py sync|build|publish|verify|all \
   **不静默重试打转**。更新方式：浏览器登录夸克 → 导出 Cookie 串 → 覆盖仓根文件。
 - `build`/`publish`/`verify` 不需要 cookie（离线可跑）。
 
-## manual_required（超分享直链上限，设计 §2.1）
+## 超限大文件自动转存（transfer 回退，设计 §2.1）
 
-`sync` 会对取链返回 HTTP 400 `download file size limit` 的大文件（如日K 全量 zip、
-`*_financial.parquet`、财务大 zip）打印：
+分享直链对超限文件取链返回 HTTP 400 `download file size limit`（实测 45.7MB 可下；
+367MB / 780MB / 3.8GB 不可下）。`sync` 默认（`--transfer`）对这类项走自有网盘路径：
+
+1. 在自有盘根目录确保临时目录 `factorlab_tmp` 存在（无则创建并轮询 task）；
+2. 分享项 `share/sharepage/save` 转存到该目录 → 轮询 `task` 到 `status=2`；
+3. `file/download` 取自取直链（自有文件不受分享直链上限限制）→ 流式下载到
+   `<rel>.part` → size 校验通过才 `os.replace`（与普通下载同纪律）；
+4. 校验通过后删除网盘临时副本（**不可逆**；`--keep-drive-copy` 可保留；
+   默认删除以免长期占满网盘容量）。
+
+- **失败语义**：转存/轮询超时/风控/直链取链失败 → `transfer.TransferError` →
+   该文件记 `failed`（exit 1，loud），**绝不发删除**；已转存的副本留在
+   `factorlab_tmp`，下次运行同名同 size 直接复用（断点续跑，不会重复转存）；
+- **cookie 不可用**（`available()=False；文件缺失/空）→ 维持 `manual_required`，
+   不尝试回退；`--no-transfer` 强制关闭回退；
+- **清理仅在下载校验通过后**：`size` 不符/下载失败时副本保留、`.part` 清除，
+   本地不留半成品。
+
+### manual_required（回退不可用/关闭时的超限项）
+
+`--no-transfer`（或 transfer 不可用）时，`sync` 对超限文件打印：
 
 ```
-manual_required（N 项；超分享直链上限或需人工放置，放入对应 data/raw/<类别> 后重跑）：
+manual_required（N 项；转存回退不可用或已 --no-transfer，放入对应 data/raw/<类别> 后重跑）：
   [daily] 19910101至....zip（size limit）→ /abs/path/data/raw/daily
 ```
 
-处理：浏览器下载 / 转存后用同名文件放入箭头所指目录，下次 `make data-update` 自动接续：
+处理：浏览器下载 / 手动转存后用同名文件放入箭头所指目录，下次 `make data-update` 自动接续：
 size 匹配 → 登记 `adopted`（视同新数据，清该类别阶段标记并进入阶段链）；size 不符 → 不登记，
 照常尝试下载/报 failed。**manual 不影响退出码**。
 

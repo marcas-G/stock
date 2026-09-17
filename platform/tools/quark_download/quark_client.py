@@ -54,16 +54,20 @@ def cookies() -> str:
         f"QUARK_COOKIE_FILE")
 
 
-def http(url, body=None, retry=3, timeout=60):
+def http(url, body=None, retry=3, timeout=60, ua=None):
     """→ (status, json_body)。**HTTP 错误也返回（不抛）**：401/403 立即返回给调用方
     触发 stoken 刷新；其它异常按 2s/4s/6s 退避重试。逐字保留 v2/server 原实现语义
     （R16 合并时曾误写成"重试后抛异常"——那会夺走调用方的 401→刷新链路，已回退）。
+
+    `ua`：可选 User-Agent 覆盖（默认模块 `UA`）。R30 实测：`/file/download` 对超限
+    文件按 UA 判定（Chrome UA → 400 code 23018；官方客户端 UA → 200 直链），
+    转存回退路径经此传客户端 UA。
     """
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json, text/plain, */*",
         "Referer": "https://pan.quark.cn/",
-        "User-Agent": UA,
+        "User-Agent": ua or UA,
         "Origin": "https://pan.quark.cn",
         "Cookie": cookies(),
     }

@@ -3207,8 +3207,9 @@ params 替换 + run --set 变体，n_weeks > 50）），真实 results 目录 We
 （PWD/PASSCODE 单点 `platform/tools/pan_update/config.py`；cookie 仓根
 `quark_cookies.txt`，chmod 600、gitignored，`QUARK_COOKIE_FILE` 可覆盖）。
 四类别（日K/分钟/日线资金/财报）经 `make data-update` 一键：
-`sync`（分享树遍历 → 差集下载；超分享直链上限的文件记 **manual_required**，写清单
-告警、不 fail 整链）→ `build`（类别阶段链：转换/灌入 CH）→ `verify`
+`sync`（分享树遍历 → 差集下载；**超分享直链上限的文件默认走转存回退**——用账号 cookie
+转存到自有盘 `factorlab_tmp` 再自取直链下载，校验后清副本；`--no-transfer` 关闭后记
+**manual_required**，写清单告警、不 fail 整链）→ `build`（类别阶段链：转换/灌入 CH）→ `verify`
 （`platform/tools/ch_ingest/reconcile.py` 全库对账，rc=0 为一致；`all` = 幂等全链）。
 工具/手册：`platform/tools/pan_update/README.md`；运维经验见
 `data-ops-playbook.md`（《网盘数据更新手册》）；定时器
@@ -3225,11 +3226,14 @@ params 替换 + run --set 变体，n_weeks > 50）），真实 results 目录 We
 | 日K | `日K线数据---复权因子-经典技术指标--bs点缠论划线/`（全量 `19910101至*` + 增量 `YYYY-MM-DD至*` + `退市股/`） | `data/raw/daily/` | `ashare_ingest/import_daily.py` | `data/fact/daily_fact/daily_fact.parquet` → CH `daily` 层 5 表 + `stk_limit` + `adj_detail/adj_event`（`ch_ingest` 脚本） |
 | 分钟 | `A股分钟线/<年>/<月>/<YYYYMMDD>.zip` | `data/raw/minutes/` | `converters/convert_minutes_to_parquet.py`（7z 魔数兼容） | `data/fact/bars_1m/` → CH `bars_1m`（月分区） |
 | 日线资金 | `日线资金--每日沪深京个股日线数据和资金流数据/<年>/<MM>.zip` | `data/raw/fund_flow/` | `pan_update/parse_fund_flow.py`（`zj.xls` GBK TSV） | CH **`moneyflow`**（`ch_ingest/ingest_moneyflow.py`，TRUNCATE+INSERT 幂等） |
-| 财报 | `财报报表---有史以来--每周更新/`（周更 `*更新简化个股基本面数据.xlsx`；大件 `*_financial.parquet`/zip 超直链 → manual） | `data/raw/financial/` | `pan_update/parse_fundamentals_xlsx.py`（openpyxl 快照） | `data/fact/fundamentals/fundamentals_snapshot.parquet`（旧版留 `.prev`）→ CH **`fundamentals`**（`ingest_fundamentals.py`，全量替换） |
+| 财报 | `财报报表---有史以来--每周更新/`（周更 `*更新简化个股基本面数据.xlsx`；大件 `*_financial.parquet`/zip 超直链 → 转存回退，`--no-transfer` 时 manual） | `data/raw/financial/` | `pan_update/parse_fundamentals_xlsx.py`（openpyxl 快照） | `data/fact/fundamentals/fundamentals_snapshot.parquet`（旧版留 `.prev`）→ CH **`fundamentals`**（`ingest_fundamentals.py`，全量替换） |
 
-manual_required 处理：浏览器下载/转存后放入对应 raw 目录，`pan_update` 下次按本地
-命名登记并接续（`sync._adopt_local`）；当前清单含日K 全量 3.79GB、财务
-`*_financial.parquet`、指数日线 zip（见 pending #30）。
+超限大文件（`sync` 取链 HTTP 400 `download file size limit`）：默认 `--transfer`
+自动回退——转存自有盘 `factorlab_tmp` → 自取直链 → `.part` + size 校验 + `os.replace`
+→ 删网盘副本（不可逆；`--keep-drive-copy` 保留）；失败（task 超时/风控/校验不符）
+记 `failed`（exit 1）且**不删副本**（下次同名同 size 复用）。回退不可用（cookie 缺失
+等）或 `--no-transfer` → manual_required。人工处理：浏览器下载/转存后放入对应 raw
+目录，`pan_update` 下次按本地命名登记并接续（`sync._adopt_local`）。
 
 ### CH 消费侧（读面）
 
@@ -3248,7 +3252,7 @@ manual_required 处理：浏览器下载/转存后放入对应 raw 目录，`pan
   current_liab, long_liab, capital_reserve, net_assets, revenue, operating_cost,
   op_profit, invest_income, op_cashflow, total_cashflow, inventory, total_profit,
   net_profit, undist_profit`（金额=元）。PIT 历史待多期快照累积/人工
-  `*_financial.parquet`（manual_required）。
+  `*_financial.parquet`（默认转存回退可自动补齐）。
 - **index_daily**：CH 仍为空表（R29 裁决；`idx_ret` 恒 NULL）；网盘指数目录的
   `截止_*_指数…_日线.zip`（100MB）超直链上限，补数路径待人工核对（pending #25）。
 - **对账**：`make reconcile` 覆盖 daily 层；`moneyflow`/`fundamentals` 自动对账
@@ -3266,7 +3270,8 @@ git 历史；使用指南存档 `teajoin-guide.md`）。duckdb 后端仅保留�
 ### 汇总速查
 
 - `platform/tools/pan_update/`：`sync|build|publish|verify|all [--categories a,b]
-  [--dry-run] [--prune]`（`publish` = build 同义；详见工具 README）。
+  [--dry-run] [--prune] [--workers N] [--transfer|--no-transfer] [--keep-drive-copy]`
+  （`publish` = build 同义；超限大件默认转存回退 `transfer.py`；详见工具 README）。
 - `factorlab.adapters.read.adjust`：`view_prices`（raw/qfq/hfq/pit_qfq 价格视图）、
   `total_return`（HFQ 含分红再投资收益）、审计三查（`lookahead_check` /
   `scale_invariance_check` / `adjustment_sensitivity_check`）。

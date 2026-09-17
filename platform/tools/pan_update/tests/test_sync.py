@@ -513,3 +513,90 @@ def test_adopt_traversal_path_skipped(tmp_path):
                 "fid": "1", "fid_token": "t"}]
     rep = sync.sync_category(s, "daily", entries=entries, transport=t, dest_root=dest)
     assert rep.adopted == [] and s["files"] == {}
+
+
+# —— 转存回退（transfer）：超限项经自有网盘下载；失败 loud 不误删 ——
+
+class FakeTransfer:
+    """注入 sync 的转存客户端：available/fetch 行为可脚本化，记录调用。"""
+
+    def __init__(self, *, available=True, fail=None):
+        self._available = available
+        self.fail = fail
+        self.calls = []
+
+    def available(self):
+        return self._available
+
+    def fetch(self, item, dest):
+        self.calls.append((item["name"], str(dest)))
+        if self.fail is not None:
+            raise self.fail
+        Path(dest).write_bytes(b"T")
+
+
+def test_blocked_item_transferred_when_available(tmp_path):
+    """size limit 项 → transfer.fetch 落盘 + 记账 downloaded；不再进 manual。"""
+    s = _empty_state()
+    x = FakeTransfer()
+    rep = sync.sync_category(s, "financials", entries=_entries(), transport=T(),
+                             transfer=x, dest_root=tmp_path)
+    assert rep.downloaded == ["a.zip", "big.parquet"]
+    assert rep.manual == []
+    assert x.calls == [("big.parquet", str(tmp_path / "big.parquet"))]
+    assert (tmp_path / "big.parquet").read_bytes() == b"T"
+    assert s["files"]["financials/big.parquet"]["size"] == 367_000_000
+
+
+def test_transfer_failure_marks_failed_loud(tmp_path):
+    """task 超时/风控 → failed（reason 带 transfer:），不记账、不误报 manual。"""
+    from pan_update import transfer as xfer
+
+    s = _empty_state()
+    x = FakeTransfer(fail=xfer.TransferTimeout("转存 task 超时（600s）"))
+    rep = sync.sync_category(s, "financials", entries=_entries(), transport=T(),
+                             transfer=x, dest_root=tmp_path)
+    assert rep.manual == []
+    assert rep.downloaded == ["a.zip"]
+    assert rep.failed == [{"name": "big.parquet",
+                           "reason": "transfer: 转存 task 超时（600s）"}]
+    assert set(s["files"]) == {"financials/a.zip"}
+
+
+def test_transfer_unavailable_keeps_manual_required(tmp_path):
+    """cookie 不可用（available=False）→ 维持 manual_required，不调 fetch。"""
+    s = _empty_state()
+    x = FakeTransfer(available=False)
+    rep = sync.sync_category(s, "financials", entries=_entries(), transport=T(),
+                             transfer=x, dest_root=tmp_path)
+    assert rep.manual == [{"name": "big.parquet", "reason": "size limit"}]
+    assert x.calls == [] and rep.failed == []
+
+
+def test_no_transfer_client_keeps_manual_required(tmp_path):
+    s = _empty_state()
+    rep = sync.sync_category(s, "financials", entries=_entries(), transport=T(),
+                             dest_root=tmp_path)
+    assert rep.manual == [{"name": "big.parquet", "reason": "size limit"}]
+
+
+def test_transfer_not_called_for_unblocked_items(tmp_path):
+    s = _empty_state()
+    x = FakeTransfer()
+    rep = sync.sync_category(s, "daily",
+                             entries=[_entry("a.zip", 10, "1"), _entry("b.zip", 20, "2")],
+                             transport=T(), transfer=x, dest_root=tmp_path)
+    assert rep.downloaded == ["a.zip", "b.zip"]
+    assert x.calls == []
+
+
+def test_blocked_traversal_item_never_reaches_transfer(tmp_path):
+    s = _empty_state()
+    x = FakeTransfer()
+    entries = [{"name": "evil", "size": 367_000_000, "rel_path": "../evil",
+                "fid": "1", "fid_token": "t"}]
+    rep = sync.sync_category(s, "daily", entries=entries, transport=T(),
+                             transfer=x, dest_root=tmp_path / "raw")
+    assert x.calls == [], "越界路径不得传给转存（外部清单不可信）"
+    assert rep.failed == [{"name": "evil", "reason": "rel_path 越界：'../evil'"}]
+    assert rep.manual == []
