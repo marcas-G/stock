@@ -15,23 +15,54 @@ class DeadSignalError(ValueError):
     """
 
 
-def dead_signal_report(panel: pl.DataFrame, signal_col: str = "signal",
-                       threshold: float = DEAD_SIGNAL_NULL_RATIO) -> dict:
-    """死信号判定（D5）：signal 列 null 行占比 ≥ `threshold` → `dead_signal=True`。
+def signal_invalid_mask(panel: pl.DataFrame, signal_col: str = "signal") -> pl.Series:
+    """signal 空值掩码：null **或非有限**（NaN/±inf）——D5 判定与 summary 同源。
 
-    口径与 summary `signal_null_ratio` 同源（null 计数，非 NaN/非有限；分母=面板
-    全部行）。空面板 → ratio 0.0 且不判死（无行可判，由既有空面板路径处理）。
-    返回可落盘/可审计明细（真实行计数，非硬编码）。
+    R30 fix 波裁定（终评审）：全 NaN 信号（`is_finite=false`）与全 null 同判死信号
+    ——只数 null 会漏网（`1/pb` 型空列常见 NaN 而非 null，R07-D6 复发路径）。
+    整数列无 NaN/inf，只判 null（dtype 守卫，不 cast 不报错）。
+    """
+    col = panel[signal_col]
+    mask = col.is_null()
+    if col.dtype.is_float():
+        mask = mask | col.is_nan().fill_null(False) | col.is_infinite().fill_null(False)
+    return mask
+
+
+def signal_invalid_ratio(panel: pl.DataFrame, signal_col: str = "signal") -> float:
+    """空值（null/非有限）行占比（4 位）——run summary `signal_null_ratio` 单点。
+
+    空面板 → 0.0（与 `coverage_report` 空面板口径一致）。
     """
     total = panel.height
-    nulls = int(panel[signal_col].null_count()) if total else 0
-    ratio = (nulls / total) if total else 0.0
+    if not total:
+        return 0.0
+    return round(int(signal_invalid_mask(panel, signal_col).sum()) / total, 4)
+
+
+def dead_signal_report(panel: pl.DataFrame, signal_col: str = "signal",
+                       threshold: float = DEAD_SIGNAL_NULL_RATIO) -> dict:
+    """死信号判定（D5）：signal 列空值（null/非有限）行占比 ≥ `threshold` → 死。
+
+    口径与 summary `signal_null_ratio` 同源（`signal_invalid_mask`；分母=面板
+    全部行）；`null_rows` 与 `nonfinite_rows` 分列供审计。空面板 → ratio 0.0 且
+    不判死（无行可判，由既有空面板路径处理）。返回可落盘/可审计明细（真实行
+    计数，非硬编码）。
+    """
+    total = panel.height
+    if total:
+        invalid_rows = int(signal_invalid_mask(panel, signal_col).sum())
+        nulls = int(panel[signal_col].null_count())
+    else:
+        invalid_rows = nulls = 0
+    ratio = (invalid_rows / total) if total else 0.0
     return {
         "dead_signal": ratio >= threshold,
         "signal_null_ratio": round(ratio, 4),
         "threshold": threshold,
         "total_rows": total,
         "null_rows": nulls,
+        "nonfinite_rows": invalid_rows - nulls,
     }
 
 

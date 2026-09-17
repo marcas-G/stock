@@ -25,6 +25,7 @@ from factorlab.app.memory import (MemoryWatchdog, guard_minute_chunk_days,
                                   memory_watchdog_from_settings)
 from factorlab.config import settings
 from factorlab.core.engine.compute import (_WARMUP_SAFETY_PAD, _build_legacy_panel, _canonicalize_artifact_codes, _chunk_keep, _formula_columns, _pool_cond_frame, _ts_window_days, compute_formula, FactorResult, fill_suspension_values, label_lookahead_end, prepare_formula_pipeline, reject_cumulative_chunking)
+from factorlab.core.eval.metrics import signal_invalid_ratio
 from factorlab.core.engine.forward import (DEFAULT_FORWARD_HORIZONS, FORWARD_COLUMNS,
                                            compute_forward_returns)
 from factorlab.core.engine.minute import (_ADV20_LEFT_DAYS,
@@ -620,7 +621,8 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
             "panel_rows": panel.height,
             "signal_rows": signal_artifact.frame.height,
             "label_rows": label_artifact.frame.height,
-            "signal_null_ratio": round(panel["signal"].null_count() / panel.height, 4),
+            # R30 fix 波：空值 = null 或非有限（NaN/±inf）——与 D5 判定同源
+            "signal_null_ratio": signal_invalid_ratio(panel, "signal"),
             "runtime_semantics": "pit_universe_signal_label_v1",
             "process": spec.process,
             "adjustment": adjustment,
@@ -959,8 +961,8 @@ def _run_factor_minute(spec, ctx: RunContext,
             "panel_rows": panel.height,
             "signal_rows": signal_artifact.frame.height,
             "label_rows": label_artifact.frame.height,
-            "signal_null_ratio": round(
-                panel["signal"].null_count() / panel.height, 4),
+            # R30 fix 波：空值 = null 或非有限（NaN/±inf）——与 D5 判定同源
+            "signal_null_ratio": signal_invalid_ratio(panel, "signal"),
             "runtime_semantics": "minute_intraday_fold_v1",
             "interface": spec.interface,
             "grid_rows_per_day": _GRID_ROWS_PER_DAY,

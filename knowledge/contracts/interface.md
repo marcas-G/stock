@@ -1237,12 +1237,15 @@ R30 Task 15 从独立 quant-core 包并入的单一实现）：daily = 面板原
   逐行打印 `dir_consistent=<值|—>` 并附读法提示，`factorlab show` 打印
   `方向一致率`（含 dir 与 raw 对照）；历史产物缺该字段显示 `—`（不重算）。
 - **dead-signal fail-loud（D5，R30 Task 2；收口 R07-D6）**：样本面板 signal 列
-  null 占比 ≥ `core.eval.metrics.DEAD_SIGNAL_NULL_RATIO`（默认 **0.99**，含 0.99）
+  **空值占比** ≥ `core.eval.metrics.DEAD_SIGNAL_NULL_RATIO`（默认 **0.99**，含 0.99）
   即判死信号——`evaluation.dead_signal=true` 先落盘供审计，`factorlab run` 随后以
   **非零退出**（`DeadSignalError`，消息含 `signal_null_ratio`），不再以 `n_weeks=0`
-  静默等价于"无效因子"。判定与 summary `signal_null_ratio` 同源（null 行占比，
-  真实行计数 `dead_signal_report`；分母=样本全量面板）。正常因子**不含该键**、
-  行为零变化；多输出逐输出判定（任一输出为死信号即整体非零退出）。
+  静默等价于"无效因子"。**空值 = null 或非有限（NaN/±inf）**（R30 fix 波裁定：
+  全 NaN 信号与全 null 同判死——`1/pb` 型空列常产出 NaN 而非 null，只数 null 会
+  漏网；`signal_invalid_mask`，`null_rows`/`nonfinite_rows` 分列审计）。判定与
+  summary `signal_null_ratio` 同源（真实行计数 `dead_signal_report`；分母=样本
+  全量面板）。正常因子**不含该键**、行为零变化；多输出逐输出判定（任一输出为
+  死信号即整体非零退出）。
 
 ### `factorlab.core.eval.layered.layered_backtest(panel, direction, n_groups=10, forward_col="forward_return_5d", cost_rate=0.0, periods_per_year=52) -> dict`
 

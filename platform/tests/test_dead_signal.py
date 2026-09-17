@@ -22,6 +22,7 @@ from typer.testing import CliRunner
 
 from factorlab.app.context import RunContext
 from factorlab.app.evaluate import evaluate_run, publish_run
+from factorlab.app.run import run_factor
 from factorlab.core.engine.compute import FactorResult
 from factorlab.core.eval.metrics import (DEAD_SIGNAL_NULL_RATIO, DeadSignalError,
                                          dead_signal_report)
@@ -82,6 +83,50 @@ def test_dead_signal_report_uses_real_row_counts():
     assert below["signal_null_ratio"] == pytest.approx(0.985)
     assert below["dead_signal"] is False
     assert below["null_rows"] == 197
+
+
+# ── R30 fix 波裁定：全 NaN（非有限）signal 同样 fail loud（null-only 是漏网）──
+def _nan_panel(n_rows=200, value=float("nan")):
+    return _panel(n_rows, 0).with_columns(pl.lit(value).alias("signal"))
+
+
+def test_all_nan_signal_triggers_dead_signal_with_real_counts():
+    """全 NaN signal：is_finite=false 行同样计空——存根（只数 null）必败。"""
+    report = dead_signal_report(_nan_panel(200))
+    assert report["dead_signal"] is True
+    assert report["signal_null_ratio"] == pytest.approx(1.0)
+    assert report["null_rows"] == 0             # 纯 null 计数仍真实（审计分离）
+    assert report["nonfinite_rows"] == 200      # NaN 行计数
+    assert report["total_rows"] == 200
+
+    inf_report = dead_signal_report(_nan_panel(200, float("inf")))
+    assert inf_report["dead_signal"] is True
+    assert inf_report["signal_null_ratio"] == pytest.approx(1.0)
+
+
+def test_mixed_nan_ratio_is_fraction_not_null_only():
+    """50% NaN + 0 null → ratio 0.5（<0.99 不触发）——证明 NaN 真进分母分子。"""
+    panel = _panel(200, 0).with_columns(
+        pl.when(pl.int_range(pl.len()) < 100)
+        .then(float("nan")).otherwise(pl.col("signal")).alias("signal"))
+    report = dead_signal_report(panel)
+    assert report["signal_null_ratio"] == pytest.approx(0.5)
+    assert report["null_rows"] == 0
+    assert report["nonfinite_rows"] == 100
+    assert report["dead_signal"] is False
+
+
+def test_evaluate_run_all_nan_marks_dead_and_publish_fails(tmp_path):
+    spec = _spec(name="nan_signal")
+    panel = _nan_panel(200)
+    result = _result(panel, spec)
+    ctx = RunContext(output_dir=tmp_path / "nan")
+    outcome = evaluate_run(result, spec, ctx)
+    assert outcome.evaluation.get("dead_signal") is True
+    assert outcome.dead_signal is not None
+    assert "signal_null_ratio=1.0" in " ".join(outcome.notes)
+    with pytest.raises(DeadSignalError, match="signal_null_ratio"):
+        publish_run(result, outcome, ctx)
 
 
 # ── 评估出口：字段落 evaluation + 响亮 note；publish 落盘后非零失败 ───────────
@@ -167,3 +212,50 @@ formula: |
     assert "signal_null_ratio=1.0" in result.output
     summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
     assert summary["evaluation"]["dead_signal"] is True
+
+
+def test_interface_dead_signal_nonfinite_contract():
+    """R30 fix 波裁定：interface 必须写「空值 = null 或非有限」与分列审计字段。"""
+    from pathlib import Path
+    text = (Path(__file__).resolve().parents[2] / "knowledge" / "contracts"
+            / "interface.md").read_text(encoding="utf-8")
+    assert "非有限" in text, "interface 缺「空值 = null 或非有限（NaN/±inf）」口径"
+    assert "nonfinite_rows" in text, "interface 缺 nonfinite_rows 审计字段"
+
+
+# ── run 链 summary 同源：全 NaN 真跑（env 双腿）→ signal_null_ratio=1.0 ─────
+def test_real_run_all_nan_signal_summary_ratio_and_dead(env, tmp_path):
+    """summary.signal_null_ratio 必须把非有限（NaN）计入空值——否则与 D5 判定分裂。"""
+    dates = [dt.date(2024, 1, 2) + dt.timedelta(days=i) for i in range(8)]
+    env.seed({
+        "daily": ([("ts_code", "str"), ("trade_date", "date"), ("open", "f64"),
+                   ("high", "f64"), ("low", "f64"), ("close", "f64"),
+                   ("vol", "f64"), ("amount", "f64")],
+                  [("000001.SZ", d.strftime("%Y%m%d"), 10.0, 10.1, 9.9, 10.0,
+                    1e6, 1e7) for d in dates]),
+        "adj_factor": ([("ts_code", "str"), ("trade_date", "date"),
+                        ("adj_factor", "f64")],
+                       [("000001.SZ", d.strftime("%Y%m%d"), 1.0) for d in dates]),
+        "trade_cal": ([("exchange", "str"), ("cal_date", "date"), ("is_open", "i64")],
+                      [("SSE", d.strftime("%Y%m%d"), 1) for d in dates]),
+        "stock_basic": ([("ts_code", "str"), ("symbol", "str"), ("exchange", "str"),
+                         ("list_date", "date"), ("industry", "str"), ("market", "str")],
+                        [("000001.SZ", "000001", "SZSE", "20240101", "x", "主板")]),
+        "stock_st": ([("ts_code", "str"), ("name", "str"), ("trade_date", "date"),
+                      ("type", "str"), ("type_name", "str")], []),
+    })
+    spec = FactorSpec(name="nan_real", category="custom", direction=1,
+                      universe=UniverseSpec(codes=["000001.SZ"]),
+                      formula="signal = close / ts_std_dev(close, 3)")
+    kw = {"db_path": env.path} if env.backend == "duckdb" else {}
+    ctx = RunContext(data_backend=env.backend, output_dir=tmp_path / "nan_run",
+                     warmup_days=2, **kw)
+    result = run_factor(spec, ctx)
+    panel = result.panel
+    # 价格恒定 → 窗口 std=0 → 除法 inf；窗口未满行 null——非 null 的 inf 是旧口径漏网
+    assert int(panel["signal"].is_finite().fill_null(False).sum()) == 0
+    assert panel["signal"].null_count() > 0
+    assert result.summary["signal_null_ratio"] == pytest.approx(1.0), \
+        "summary signal_null_ratio 未计入非有限（与 D5 判定分裂）"
+    outcome = evaluate_run(result, spec, ctx)
+    assert outcome.evaluation.get("dead_signal") is True
