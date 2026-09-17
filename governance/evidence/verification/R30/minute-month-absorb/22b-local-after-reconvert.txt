@@ -1,0 +1,4 @@
+conversion: days=21 rows=27942240
+manifest days=21 last=20260831.zip
+part sha256: 4a33e0bf3ad5e0280ffd92a131eaf47401461b25884c11f2c8f1743dbbfd44b3
+part rows: 27942240

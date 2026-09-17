@@ -1,0 +1,24 @@
+[minutes] [minutes] 阶段 build 已标记，跳过
+[minutes] [minutes] 阶段 build 已标记，跳过
+[minutes] [minutes] 阶段 build 开始（2 步）
+[minutes] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/converters/convert_minutes_to_parquet.py --mode production
+[minutes] production: 81 months, workers=16
+[minutes] {
+[minutes]   "months": 81,
+[minutes]   "skipped": 81,
+[minutes]   "days": 1628,
+[minutes]   "codes": 7827983,
+[minutes]   "rows": 1878715920,
+[minutes]   "errors": 49284,
+[minutes]   "suffix_isolated": 0,
+[minutes]   "elapsed_min": 0.0
+[minutes] }
+[minutes] WARNING: 49284 conversion errors across 0 suffix-isolated stock-days (see per-month _conversion_errors.csv)
+[minutes] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/ingest_bars.py
+[minutes] bars_1m: 任务 81（已完成 80，待跑 1）
+[minutes]   bars_1m/202608: 27,942,240 rows
+[minutes] bars_1m: 全部完成
+[minutes] [minutes] 阶段 build 完成（23.0s）
+[minutes] [minutes] 阶段 build 已标记，跳过
+[minutes] [minutes] 阶段 build 已标记，跳过
+[minutes] [minutes] 阶段 build 已标记，跳过

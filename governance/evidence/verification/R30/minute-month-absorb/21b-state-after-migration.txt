@@ -1,0 +1,5 @@
+bars keys: 81
+bars 全指纹: True
+bars 仍布尔: 0
+tick 全布尔: True
+202608 fp: a0ec7c601f6a750639fa840458baaf0810dd044af00ec41da2125a7cf28836a8

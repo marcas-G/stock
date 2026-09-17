@@ -1,0 +1,4 @@
+bars_1m ('202608', 19950960)
+bars_1m ('202609', 17344800)
+bars_1m total: (1870724640, datetime.datetime(2026, 9, 17, 23, 0, tzinfo=zoneinfo.ZoneInfo(key='Asia/Shanghai')))
+partitions: 81 rows: 1870724640

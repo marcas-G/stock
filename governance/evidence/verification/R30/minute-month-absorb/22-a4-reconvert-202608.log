@@ -1,0 +1,34 @@
+production: 1 months, workers=1
+  202608: stale（新增 6: 20260824.zip, 20260825.zip, 20260826.zip, 20260827.zip, 20260828.zip）-> 清理重转
+  20260803.zip: codes=5535 rows=1328400 idx=356 b=79
+  20260804.zip: codes=5536 rows=1328640 idx=356 b=79
+  20260805.zip: codes=5537 rows=1328880 idx=356 b=79
+  20260806.zip: codes=5538 rows=1329120 idx=356 b=79
+  20260807.zip: codes=5539 rows=1329360 idx=356 b=79
+  20260810.zip: codes=5539 rows=1329360 idx=356 b=79
+  20260811.zip: codes=5542 rows=1330080 idx=356 b=79
+  20260812.zip: codes=5543 rows=1330320 idx=356 b=79
+  20260813.zip: codes=5543 rows=1330320 idx=356 b=79
+  20260814.zip: codes=5543 rows=1330320 idx=356 b=79
+  20260817.zip: codes=5544 rows=1330560 idx=356 b=79
+  20260818.zip: codes=5545 rows=1330800 idx=356 b=79
+  20260819.zip: codes=5547 rows=1331280 idx=356 b=79
+  20260820.zip: codes=5549 rows=1331760 idx=356 b=79
+  20260821.zip: codes=5549 rows=1331760 idx=356 b=79
+  20260824.zip: codes=5549 rows=1331760 idx=356 b=79
+  20260825.zip: codes=5546 rows=1331040 idx=356 b=77
+  20260826.zip: codes=5550 rows=1332000 idx=356 b=79
+  20260827.zip: codes=5550 rows=1332000 idx=356 b=79
+  20260828.zip: codes=5551 rows=1332240 idx=356 b=79
+  20260831.zip: codes=5551 rows=1332240 idx=356 b=79
+{
+  "months": 1,
+  "skipped": 0,
+  "days": 21,
+  "codes": 116426,
+  "rows": 27942240,
+  "errors": 9137,
+  "suffix_isolated": 0,
+  "elapsed_min": 9.7
+}
+WARNING: 9137 conversion errors across 0 suffix-isolated stock-days (see per-month _conversion_errors.csv)

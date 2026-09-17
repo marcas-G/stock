@@ -1,0 +1,143 @@
+FFFFFFF                                                                  [100%]
+=================================== FAILURES ===================================
+______________ test_source_fingerprint_tracks_manifest_name_size _______________
+
+env = namespace(root=PosixPath('/tmp/pytest-of-gaolei/pytest-2557/test_source_fingerprint_tracks0/bars_1m'), sdir=PosixPath(...26/month=08'), state=PosixPath('/tmp/pytest-of-gaolei/pytest-2557/test_source_fingerprint_tracks0/state.json'), ran=[])
+
+    def test_source_fingerprint_tracks_manifest_name_size(env):
+        _write_manifest(env.sdir, MANIFEST_1D)
+>       fp1 = ch_source.source_fingerprint(TASK)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ch_source' has no attribute 'source_fingerprint'
+
+platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py:94: AttributeError
+______________ test_new_month_ingests_then_fingerprint_idempotent ______________
+
+env = namespace(root=PosixPath('/tmp/pytest-of-gaolei/pytest-2557/test_new_month_ingests_then_fi0/bars_1m'), sdir=PosixPath(...xPath('/tmp/pytest-of-gaolei/pytest-2557/test_new_month_ingests_then_fi0/state.json'), ran=[('bars_1m', '2026', '08')])
+
+    def test_new_month_ingests_then_fingerprint_idempotent(env):
+        _write_manifest(env.sdir, MANIFEST_1D)
+        assert ch_write.run_pool("bars_1m", [TASK]) == 0
+        assert env.ran == [TASK], "无断点的新月必须灌"
+>       fp = ch_source.source_fingerprint(TASK)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ch_source' has no attribute 'source_fingerprint'
+
+platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py:115: AttributeError
+----------------------------- Captured stdout call -----------------------------
+bars_1m: 任务 1（已完成 0，待跑 1）
+  bars_1m/202608: 10 rows
+bars_1m: 全部完成
+____________ test_manifest_change_reingests_that_month_exactly_once ____________
+
+env = namespace(root=PosixPath('/tmp/pytest-of-gaolei/pytest-2557/test_manifest_change_reingests0/bars_1m'), sdir=PosixPath(...xPath('/tmp/pytest-of-gaolei/pytest-2557/test_manifest_change_reingests0/state.json'), ran=[('bars_1m', '2026', '08')])
+
+    def test_manifest_change_reingests_that_month_exactly_once(env):
+        _write_manifest(env.sdir, MANIFEST_1D)
+        ch_write.run_pool("bars_1m", [TASK])
+        assert env.ran == [TASK]
+    
+        _write_manifest(env.sdir, MANIFEST_1D + [("20260804.zip", 2000)])
+        assert ch_write.run_pool("bars_1m", [TASK]) == 0
+>       assert env.ran == [TASK, TASK], "指纹变化必须重灌该月（恰好一次）"
+E       AssertionError: 指纹变化必须重灌该月（恰好一次）
+E       assert [('bars_1m', '2026', '08')] == [('bars_1m', ...'2026', '08')]
+E         
+E         Right contains one more item: ('bars_1m', '2026', '08')
+E         Use -v to get more diff
+
+platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py:129: AssertionError
+----------------------------- Captured stdout call -----------------------------
+bars_1m: 任务 1（已完成 0，待跑 1）
+  bars_1m/202608: 10 rows
+bars_1m: 全部完成
+bars_1m: 任务 1（已完成 1，待跑 0）
+__________ test_legacy_boolean_backfills_fingerprint_without_reingest __________
+
+env = namespace(root=PosixPath('/tmp/pytest-of-gaolei/pytest-2557/test_legacy_boolean_backfills_0/bars_1m'), sdir=PosixPath(...26/month=08'), state=PosixPath('/tmp/pytest-of-gaolei/pytest-2557/test_legacy_boolean_backfills_0/state.json'), ran=[])
+
+    def test_legacy_boolean_backfills_fingerprint_without_reingest(env):
+        _write_manifest(env.sdir, MANIFEST_1D)
+        _seed_state(env, True)                      # A3 之前的旧断点形态
+        assert ch_write.run_pool("bars_1m", [TASK]) == 0
+        assert env.ran == [], "旧布尔迁移首跑只回填指纹、不得重灌"
+        val = _state(env)[KEY]
+>       assert val == ch_source.source_fingerprint(TASK) and val is not True, \
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "迁移后断点必须是指纹，供后续变化判定"
+E       AttributeError: module 'ch_source' has no attribute 'source_fingerprint'
+
+platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py:142: AttributeError
+----------------------------- Captured stdout call -----------------------------
+bars_1m: 任务 1（已完成 1，待跑 0）
+________ test_force_reingests_named_month_even_when_fingerprint_matches ________
+
+env = namespace(root=PosixPath('/tmp/pytest-of-gaolei/pytest-2557/test_force_reingests_named_mon0/bars_1m'), sdir=PosixPath(...xPath('/tmp/pytest-of-gaolei/pytest-2557/test_force_reingests_named_mon0/state.json'), ran=[('bars_1m', '2026', '08')])
+
+    def test_force_reingests_named_month_even_when_fingerprint_matches(env):
+        _write_manifest(env.sdir, MANIFEST_1D)
+        ch_write.run_pool("bars_1m", [TASK])
+        assert env.ran == [TASK]
+    
+>       assert ch_write.run_pool("bars_1m", [TASK], force={"202608"}) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: run_pool() got an unexpected keyword argument 'force'
+
+platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py:154: TypeError
+----------------------------- Captured stdout call -----------------------------
+bars_1m: 任务 1（已完成 0，待跑 1）
+  bars_1m/202608: 10 rows
+bars_1m: 全部完成
+___________________ test_ingest_bars_force_cli_parses_months ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fedd7514550>
+
+    def test_ingest_bars_force_cli_parses_months(monkeypatch):
+        captured: dict = {}
+    
+        def fake_run(table, tasks, force=()):
+            captured["force"] = set(force)
+            return 0
+    
+        monkeypatch.setattr(ingest_bars, "discover_tasks",
+                            lambda t: [TASK, ("bars_1m", "2026", "09")])
+        monkeypatch.setattr(ingest_bars, "run_pool", fake_run)
+        monkeypatch.setattr(sys, "argv", ["ingest_bars.py", "--force", "202608,202609"])
+        with pytest.raises(SystemExit) as e:
+            ingest_bars.main()
+        assert e.value.code == 0
+>       assert captured["force"] == {"202608", "202609"}
+E       AssertionError: assert set() == {'202608', '202609'}
+E         
+E         Extra items in the right set:
+E         '202608'
+E         '202609'
+E         Use -v to get more diff
+
+platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py:175: AssertionError
+_________________ test_ingest_bars_force_cli_rejects_bad_month _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fedd7514f50>
+
+    def test_ingest_bars_force_cli_rejects_bad_month(monkeypatch):
+        monkeypatch.setattr(ingest_bars, "discover_tasks", lambda t: [TASK])
+        monkeypatch.setattr(ingest_bars, "run_pool", lambda t, tasks, **kw: 0)
+        monkeypatch.setattr(sys, "argv", ["ingest_bars.py", "--force", "2026"])
+        with pytest.raises(SystemExit) as e:
+            ingest_bars.main()
+>       assert e.value.code != 0, "非法月份必须 fail loud，不得静默全灌/漏灌"
+E       AssertionError: 非法月份必须 fail loud，不得静默全灌/漏灌
+E       assert 0 != 0
+E        +  where 0 = SystemExit(0).code
+E        +    where SystemExit(0) = <ExceptionInfo SystemExit(0) tblen=2>.value
+
+platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py:184: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py::test_source_fingerprint_tracks_manifest_name_size
+FAILED platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py::test_new_month_ingests_then_fingerprint_idempotent
+FAILED platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py::test_manifest_change_reingests_that_month_exactly_once
+FAILED platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py::test_legacy_boolean_backfills_fingerprint_without_reingest
+FAILED platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py::test_force_reingests_named_month_even_when_fingerprint_matches
+FAILED platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py::test_ingest_bars_force_cli_parses_months
+FAILED platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py::test_ingest_bars_force_cli_rejects_bad_month
+7 failed in 0.52s

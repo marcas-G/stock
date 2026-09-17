@@ -383,8 +383,17 @@ A3. ✅ **2026-09-17 关闭（fix(tools) + docs/verification）**：`convert_min
    未决因：须给 `_committed_ok` 加源天数/源 sha 比对，不一致即清理重转该月并重灌分区。
    启动条件：分钟链维护轮次；改动后跑 `reconcile` 与分钟对拍（check-day）。
 
-A4. **转换器重转同月后 CH 不自动重灌（A3 连带缺口）**（2026-09-17 A3 修复实测登记）
-   现状：`ch_ingest` 月断点（`state.json` 的 `bars_1m_<yyyymm>`）只记「灌过」布尔，
+A4. ✅ **2026-09-18 关闭（fix(tools) + docs/verification）**：`ch_ingest` bars_1m 月断点
+    改记转换器月回执（`_state/…/_daily_manifest.parquet`）源 zip name+size 摘要
+    （`ch_source.source_fingerprint`，与 A3 同一单点）：指纹变化 → 自动删键重灌该月、
+    一致 → 幂等；旧布尔断点首跑只回填指纹不重灌，存量偏差经
+    `ingest_bars.py --force YYYYMM` 点名重灌。实测：202608 重转 21 日（27,942,240 行）
+    → 迁移 81 月全回填 0 重灌 → 旧指纹经真实 `make data-update` 分钟链自动重灌
+    → `make reconcile` 81 分区全绿；data-update 连跑幂等（downloaded=0、产物/断点
+    sha 不变）。单测 7 条（TDD 红→绿）+ 突变 5/5 抓住；证据
+    `governance/evidence/verification/R30/minute-month-absorb/`（A4 段）。
+    **残余见 A5**（tick 3 表断点仍布尔）。原登记保留如下——
+    现状：`ch_ingest` 月断点（`state.json` 的 `bars_1m_<yyyymm>`）只记「灌过」布尔，
    不带源 parquet 指纹。A3 修复后转换器会把同月新增日重转进
    `data/fact/bars_1m/year=/month=/part-000.parquet`，但 `ingest_bars.py` 的
    `run_pool` 仍按旧断点跳过该月 → CH 停留旧天数、`reconcile` 报 CH≠源、
@@ -394,5 +403,16 @@ A4. **转换器重转同月后 CH 不自动重灌（A3 连带缺口）**（2026-
    不读内容）并 `is_done(task, fp)` 比对；旧布尔标记不能直接按「未完成」处理
    （会对 81 个 bars + 39 个 tick 任务全量重灌 ≈1.85B + 99.5 亿行，不可接受），
    需一次性迁移锚定或 CH part modification_time 兜底。
-   启动条件：分钟/逐笔链维护轮次；改动后跑 run_pool 断点回归 + 真实重转月重灌对账
-   （`make reconcile` 全绿）+ 内存护栏。
+    启动条件：分钟/逐笔链维护轮次；改动后跑 run_pool 断点回归 + 真实重转月重灌对账
+    （`make reconcile` 全绿）+ 内存护栏。
+
+A5. **tick 3 表月断点仍为布尔、无源指纹（A4 同款缺口残余）**（2026-09-18 A4 交付登记）
+    现状：`ingest_tick.py` 的 39 个任务断点（`tick_trades/orders/snapshots_<yyyymm>`）
+    仍是布尔 `true`；`source_fingerprint` 对非 bars_1m 返回 None，保持旧语义。
+    tick 回执是另一份 `tick_fact/_manifest/conversion_manifest.parquet`（day/code 粒度，
+    非 bars 的 `_daily_manifest.parquet`），`ingest_tick` 也尚未接 `--force`。
+    未决因：tick 的「已提交月能否重吸收同月新增目录日」需先核对转换器回执字段与
+    重转语义（对齐 A3 先例）；tick 月分区总量 ≈99.5 亿行，错误重灌代价高。
+    启动条件：逐笔链维护轮次；先核 `convert_tick_to_parquet` 的月提交判定，再给
+    `run_pool` 接同一指纹与 `--force`，改动后跑 `python reconcile.py tick` +
+    内存护栏（8GB）+ 单月重灌对拍。

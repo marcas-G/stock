@@ -3254,10 +3254,23 @@ params 替换 + run --set 变体，n_weeks > 50）），真实 results 目录 We
   人工确认源后需先删该月产物再跑；
 - 回执 manifest 缺失/不可读 → 保守判 stale 重转（不用旧产物冒充已提交）。
 
-已知未竟（A4）：CH 灌入侧 `ch_ingest` 月断点（`bars_1m_<yyyymm>`）只记「灌过」、
-不带源指纹——转换器重转同月后 `ingest_bars` 仍会跳过该月（`reconcile` 将报
-CH≠源）。`make data-update` 自动闭环比对的完整口径见 pending-items A4
-（2026-09-17 登记，含本项实测影响）。
+**CH 灌入侧月断点指纹（A4，2026-09-18）**：`ch_ingest` 的 bars_1m 月断点
+（`state.json` 的 `bars_1m_<yyyymm>`）记**同月回执的源 zip name+size 摘要**
+（`ch_source.source_fingerprint`，读 A3 同一份 `_state/…/_daily_manifest.parquet`，
+不自创 digest 源）。`ingest_bars.run_pool` 判定：
+
+- 断点缺（新月）→ 灌入并记指纹；
+- **指纹变化**（转换器重转吸收同月新增日/同名替换）→ 该月 `DROP PARTITION` 重灌
+  并更新指纹（转换器重转 → CH 自动跟随，`reconcile` 不再报 CH≠源）；
+- 指纹一致 → 幂等跳过（不重灌，不重写）；
+- **旧布尔断点迁移** → 首跑只回填当前指纹、**不重灌**（81 个存量月 ≈18.7 亿行
+  不可全量重灌）；存量偏差由 `make reconcile` 暴露后经
+  `ingest_bars.py --force YYYYMM[,YYYYMM...]` **点名重灌**（无视指纹的逃逸口）；
+- 失败分区不写指纹 → 下次按同样判定重试。
+
+tick 3 表断点仍为布尔 `true`（tick 回执是另一份
+`tick_fact/_manifest/conversion_manifest.parquet`，未纳入本轮；残余见
+pending-items A5）。
 
 ### CH 消费侧（读面）
 

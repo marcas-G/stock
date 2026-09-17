@@ -1,0 +1,3 @@
+96bae213158cfda98ff1d3142f248548cb31b1db2176bae09636bdf08b791941  platform/tools/ch_ingest/state.json
+4b39e16fc650d8332292f5e1cc4bdbe5420399b42ae6eb49cf0dabcb4c2775cd  data/fact/bars_1m/year=2026/month=08/part-000.parquet
+111239ddabafb82f389991dfe4eb5c368d2a5ea81aef19fbc6ce505a9b8d76a6  data/fact/bars_1m/year=2026/month=09/part-000.parquet

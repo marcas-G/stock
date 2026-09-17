@@ -70,3 +70,58 @@ name+size；取轻量可靠者，不重读内容）：
 重转同月后 CH 不自动重灌：`ch_ingest` 月断点只记布尔、不带源指纹，
 `ingest_bars.run_pool` 仍按旧断点跳过 → `make data-update` verify 会红。本次交付为
 手工删键重灌；A4 已登记源指纹方案与旧标记迁移约束（不能全量重灌）。
+
+---
+
+# A4（2026-09-18）：bars_1m 月断点源指纹——转换器重转同月 → CH 自动重灌
+
+## Commit
+
+| commit | 说明 |
+|---|---|
+| `fix(tools): ch_ingest 月断点记源指纹（A4，转换器重转月自动重灌）` | `ch_source.source_fingerprint` + `ch_state` 指纹断点/迁移回填 + `ch_write.run_pool` 指纹判定与 `--force` + `ingest_bars --force` + G-READ 登记 |
+| `docs(verification): A4 关闭（interface 提交语义 + pending ✅/A5 + 证据）` | 契约/pending/本证据 |
+
+- 需求源：`governance/workspace/pending-items.md` A4（A3 连带缺口），迁移约束：
+  旧布尔断点不可按「未完成」处理（81 bars+39 tick ≈ 18.7 亿+99.5 亿行全量重灌不可接受）。
+- 设计：月断点值 = 转换器月回执 `_state/…/_daily_manifest.parquet` 源 zip **name+size**
+  摘要（sha256，与 A3 `_source_relation` 同一清单，不自创 digest 源）；指纹变化 →
+  `ingest_task` 既有 `DROP PARTITION`+重建（事务边界不变）；旧布尔 → 只回填不重灌；
+  存量偏差逃逸口 = `ingest_bars.py --force YYYYMM[,YYYYMM...]`（点名重灌）。
+- 测试：`platform/tools/ch_ingest/tests/test_bars_month_fingerprint.py`（7 条，TDD 红→绿）
+
+## 证据清单（A4 段，接 A3 编号）
+
+| 证据 | 命令 | 结果 |
+|---|---|---|
+| `18-a4-red.txt` | 实现前 `pytest …test_bars_month_fingerprint.py -q` | **7 failed**（源指纹 API/迁移/force 全红，失败原因=特性缺失） |
+| `19-a4-green.txt` | 实现后同测试（无 monkeypatch 真读 parquet 回执/真写断点 JSON） | **7 passed** |
+| `20-a4-mutation.txt` | `python3 …/mutation_a4.py` | **5/5 突变被抓**：指纹恒 None / 判定忽略指纹 / 旧布尔不回填 / 忽略 force / 断点恒写布尔；恢复后逐字节一致 + rc=0 |
+| `pre-sha.txt` / `pre-ch.txt` | 改前 sha + CH | state 96bae213…（81 bars+39 tick 全布尔）；bars_1m 202608=19,950,960（15 天）/202609=17,344,800；全表 1,870,724,640 行 |
+| `22-a4-reconvert-202608.log` | `FACTORLAB_MAX_MEMORY=8GB …convert_minutes_to_parquet.py --mode production --start-year 2026 --start-month 8 --end-year 2026 --end-month 8 --workers 1` | `202608: stale（新增 6）-> 清理重转`：days=21 / rows=27,942,240 / 9.7min（源 8/24~31 六日吸收） |
+| `22b-local-after-reconvert.txt` | 产物/回执字段 | `_conversion.json` days=21 rows=27,942,240；manifest 21 行（至 20260831.zip）；part sha `4a33e0bf…`（旧 `4b39e16f…`） |
+| `21-a4-migrate-backfill.log` | `FACTORLAB_MAX_MEMORY=8GB …ingest_bars.py`（**迁移路径**） | `任务 81（已完成 81，待跑 0）`——旧布尔只回填指纹、0 重灌 |
+| `21b-state-after-migration.txt` | 断点形态 | 81 bars 全部 64-hex 指纹（0 布尔）；39 tick 仍布尔；202608 fp=`a0ec7c60…` |
+| `23-a4-reconcile-red.log` | `make reconcile` | **红**（exit Error 1）：`MISMATCH bars_1m/202608: CH=19,950,960 src=27,942,240`——迁移设计让存量偏差由对账暴露 |
+| `24-a4-force-202608.log` | `…ingest_bars.py --force 202608` | `任务 81（已完成 80，待跑 1）` → 202608 重灌 **27,942,240 rows** |
+| `24b-ch-after-force.txt` | CH 查询 | 202608=27,942,240；全表 1,878,715,920（+7,991,280=6 个新增日） |
+| `25-a4-reconcile-green.log` | `make reconcile` | **全库一致**（bars_1m 81 分区全绿，exit=0） |
+| `26-a4-data-update-run1-skip.log` | `FACTORLAB_MAX_MEMORY=8GB make data-update`（第 1 次） | downloaded=0（分享无新增）→ 阶段全「已标记，跳过」；reconcile 全绿 |
+| `27-a4-data-update-absorb.log` + `27b-a4-pan-minutes-chain.log` | 模拟 A4 触发（注入旧指纹 + 清 minutes 阶段闩锁；备份见 `/tmp/opencode/a4/*.pre-absorb`）后 `make data-update` | minutes 链**真跑**：converter `skipped: 81` → ingest `任务 81（已完成 80，待跑 1）` → `bars_1m/202608: 27,942,240 rows`（**指纹变化自动重灌**）→ verify 全库一致；23.0s |
+| `28-a4-data-update-idempotent.log` + `28-pre/post-run2-sha.txt` | 再跑 `make data-update`（第 2 次） | downloaded=0、阶段全跳过、reconcile 全绿；202608/202609 产物与 state.json **sha 逐字节不变** |
+| `29-a4-gates.txt` | `make gates` | 数据接口/结构门全绿；仅 **G-INDEX 预存红**（在途挖矿 spec 未归档，同 A3） |
+| `30-a4-test-research.txt` | `FACTORLAB_MAX_MEMORY=8GB make test-research` | platform/tools **602 passed**（A3 基线 595 + 本项 7）；research/tools 2 failed 为**在途挖矿**（G-INDEX 同源），非本项回退 |
+| `31-a4-platform-suite.txt` | `cd platform && FACTORLAB_MAX_MEMORY=8GB .venv/bin/python -m pytest -q` | **3207 passed, 11 skipped**（与 A3 基线一致，无平台 src 改动） |
+| `mutation_a4.py` | 复现脚本 | — |
+
+## A4 关键语义与数字
+
+- 指纹源：转换器月回执的源 zip (name,size) 摘要（sha256 64-hex）；与 A3 比对同一份
+  清单——转换器「重转」与 ingest「重灌」同一触发器，不自创第二判据。
+- 202608：15 天 19,950,960 → **21 天 27,942,240 行**（CH 与本地一致）；全表
+  +7,991,280 行。
+- 迁移：81 存量月 0 重灌（仅 81 次指纹回填）；存量偏差不静默吞——由 `reconcile`
+  暴露 → `--force YYYYMM` 点名重灌。
+- data-update：无新增时全跳过（run1）；模拟重转触发时分钟链 23.0s 内自动吸收并
+  全绿（absorb run）；二跑产物/断点 sha 不变（幂等）。
+- tick 残余（无 `_daily_manifest.parquet`，断点仍布尔）→ pending A5。
