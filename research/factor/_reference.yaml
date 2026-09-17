@@ -118,3 +118,15 @@ scales:
       added: "2026-09-17"
       entry_corr_max: 0.0339
       entry_resic_t: 2.4014
+    - name: intraday_autocorr_micro
+      style: 微观趋势反转
+      reason: "分钟收益 lag1 自相关（日内微观趋势强→次日均值回归，|t|=7.97、IR=0.30，dir=-1 修正）；对库 max ρ=0.364、残差 t=-3.11、retention=0.59，可加入；近 26 周 t=+1.0 近期反向，重点跟踪"
+      added: "2026-09-17"
+      entry_corr_max: 0.3637
+      entry_resic_t: -3.1101
+    - name: intraday_vol_spike
+      style: 放量事件
+      reason: "日内成交量>3均值 的分钟计数（放量事件多→次日延续, dir=+1 与原始 IC 同号，|t|=4.57、IR=0.17）；对库 max ρ=0.071、残差 t=+2.96、retention=0.77，可加入"
+      added: "2026-09-17"
+      entry_corr_max: 0.0709
+      entry_resic_t: 2.9595
