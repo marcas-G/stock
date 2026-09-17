@@ -1,0 +1,6 @@
+env: 3.13.13
+[task1-ordinal] 突变 → 测试失败（exit=1）✓ 还原 sha256 一致 ✓
+[task2-dead-false] 突变 → 测试失败（exit=1）✓ 还原 sha256 一致 ✓
+[task3-copy-sign] 突变 → 测试失败（exit=1）✓ 还原 sha256 一致 ✓
+[task4-no-sampling] 突变 → 测试失败（exit=1）✓ 还原 sha256 一致 ✓
+还原后四任务用例全绿 ✓
