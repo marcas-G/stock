@@ -1,6 +1,6 @@
-name: intraday_autocorr_micro
+name: intraday_conc_last_hour
 category: custom
-direction: -1
+direction: 1
 interface: bars_1m
 adjustment: raw
 universe:
@@ -10,7 +10,6 @@ date:
   end: "2025-12-31"
 formula: |
   _r = close / im_delay(close, 1) - 1
-  _rl = im_delay(_r, 1)
-  _num = day_sum(_r * _rl)
-  _den = day_sum(_r * _r)
-  signal = if_else(_den > 0, _num / _den, None)
+  _late = day_sum(if_else(minute_index >= 210, abs(_r), 0))
+  _tot = day_sum(abs(_r))
+  signal = if_else(_tot > 0, _late / _tot, None)

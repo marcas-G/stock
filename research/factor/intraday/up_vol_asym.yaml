@@ -1,4 +1,4 @@
-name: intraday_autocorr_micro
+name: intraday_up_vol_asym
 category: custom
 direction: -1
 interface: bars_1m
@@ -10,7 +10,6 @@ date:
   end: "2025-12-31"
 formula: |
   _r = close / im_delay(close, 1) - 1
-  _rl = im_delay(_r, 1)
-  _num = day_sum(_r * _rl)
-  _den = day_sum(_r * _r)
-  signal = if_else(_den > 0, _num / _den, None)
+  _uv = day_sum(if_else(_r > 0, volume, 0))
+  _dv = day_sum(if_else(_r < 0, volume, 0))
+  signal = if_else(_dv > 0, _uv / _dv, None)

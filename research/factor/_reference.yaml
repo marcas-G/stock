@@ -154,3 +154,15 @@ scales:
       added: "2026-09-17"
       entry_corr_max: 0.1772
       entry_resic_t: -5.3099
+    - name: intraday_close_pos_last30
+      style: 尾盘区间位置反转
+      reason: "收盘在过去 30 分钟（idx≥210）区间内的相对位置，贴顶→次日跌（|t|=23.83、IR=0.89，近 26 周 t=-10.08 强；dir=-1）；对 12 员库 max ρ=0.632、resIC t=-7.21、retention=0.72，可加入"
+      added: "2026-09-18"
+      entry_corr_max: 0.6324
+      entry_resic_t: -7.2142
+    - name: intraday_abs_auction_premium
+      style: 竞价扰动延续
+      reason: "收盘竞价溢价绝对值（双向扰动幅度），大扰动次日更强（原始 IC=+0.0046、resIC t=+4.88、retention=1.55；原假设\"扰动→反转\"被数据否，方向修正 dir=+1）；对库 max ρ=0.110 独立"
+      added: "2026-09-18"
+      entry_corr_max: 0.1102
+      entry_resic_t: 4.8801
