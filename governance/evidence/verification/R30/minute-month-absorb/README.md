@@ -55,6 +55,7 @@ name+size；取轻量可靠者，不重读内容）：
 | `14-tools-suite.txt` | `FACTORLAB_MAX_MEMORY=8GB … pytest platform/tools -q` | **595 passed**（基线 589 + 本项新增 6） |
 | `15-platform-suite.txt` | `cd platform && FACTORLAB_MAX_MEMORY=8GB .venv/bin/python -m pytest -q`（Makefile 口径） | **3207 passed, 11 skipped, 0 failed**（14m29s；本项无平台 src 改动） |
 | `16-test-research.txt` | `make test-research` | 平台工具面 **595 passed**；research/tools 2 failed 为**在途挖矿**（`knowledge/dossiers/factors/…/amihud_minute.md` 等新 spec 未归档/索引未重建，属他人在途文件），非本项回退 |
+| `17-month-classification-audit.txt` | 用已提交 `_commit_status` 只读扫描全部 81 个月 | **80 ok / 1 stale**（仅 202608 缺 6 日 8/24~8/31 待重转；202609 已 ok）——无历史月误重转 |
 | `mutation.py` / `verify_20260917.py` | 复现脚本 | — |
 
 ## 关键数字
