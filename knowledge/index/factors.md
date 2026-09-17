@@ -49,7 +49,7 @@
 | `intraday_abs_auction_premium` | 1 | fwd5d |  | [abs_auction_premium.md](../../knowledge/dossiers/factors/intraday/abs_auction_premium.md) | [yaml](../../research/factor/intraday/abs_auction_premium.yaml) |
 | `intraday_afternoon_ret` | -1 | fwd5d |  | [afternoon_ret.md](../../knowledge/dossiers/factors/intraday/afternoon_ret.md) | [yaml](../../research/factor/intraday/afternoon_ret.yaml) |
 | `intraday_am_pm_vol` | -1 | fwd5d |  | [am_pm_vol.md](../../knowledge/dossiers/factors/intraday/am_pm_vol.md) | [yaml](../../research/factor/intraday/am_pm_vol.yaml) |
-| `intraday_amihud_minute` | -1 | fwd5d |  | [amihud_minute.md](../../knowledge/dossiers/factors/intraday/amihud_minute.md) | [yaml](../../research/factor/intraday/amihud_minute.yaml) |
+| `intraday_amihud_minute` | 1 | fwd5d |  | [amihud_minute.md](../../knowledge/dossiers/factors/intraday/amihud_minute.md) | [yaml](../../research/factor/intraday/amihud_minute.yaml) |
 | `intraday_auction_conc_inter` | -1 | fwd5d |  | [auction_conc_inter.md](../../knowledge/dossiers/factors/intraday/auction_conc_inter.md) | [yaml](../../research/factor/intraday/auction_conc_inter.yaml) |
 | `intraday_auction_range` | -1 | fwd5d |  | [auction_range.md](../../knowledge/dossiers/factors/intraday/auction_range.md) | [yaml](../../research/factor/intraday/auction_range.yaml) |
 | `intraday_autocorr_micro` | -1 | fwd5d |  | [autocorr_micro.md](../../knowledge/dossiers/factors/intraday/autocorr_micro.md) | [yaml](../../research/factor/intraday/autocorr_micro.yaml) |

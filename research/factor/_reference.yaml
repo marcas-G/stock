@@ -166,3 +166,15 @@ scales:
       added: "2026-09-18"
       entry_corr_max: 0.1102
       entry_resic_t: 4.8801
+    - name: intraday_cross_count
+      style: 趋势切换延续
+      reason: "分钟收益符号切换次数（日内来回交易活跃）→次日延续（|t|=7.48、IR=0.28，dir=+1 数据驱动，原 -1 假设反）；对库 max ρ=0.273、resIC t=+4.53、retention=0.69，可加入；近 26 周 t≈0 跟踪"
+      added: "2026-09-18"
+      entry_corr_max: 0.2729
+      entry_resic_t: 4.5346
+    - name: intraday_amihud_minute
+      style: 微观价格冲击
+      reason: "分钟 |收益|/成交额 均值（微观 Amihud 冲击，守卫版）→次日延续（|t|=9.52、IR=0.35，dir=+1 数据驱动：高冲击=知情交易）；对库 max ρ=0.574、resIC t=+5.64、retention=0.67，可加入；冻结 bar NaN 已守卫"
+      added: "2026-09-18"
+      entry_corr_max: 0.5737
+      entry_resic_t: 5.6359

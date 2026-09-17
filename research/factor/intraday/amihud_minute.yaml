@@ -1,6 +1,6 @@
 name: intraday_amihud_minute
 category: custom
-direction: -1
+direction: 1
 interface: bars_1m
 adjustment: raw
 universe:
