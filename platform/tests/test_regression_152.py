@@ -60,7 +60,7 @@ def test_specs_lint_all():
 
 
 @pytest.mark.skipif(not BASELINE.is_dir(), reason="R22 基线档不存在")
-def test_sample_value_regression():
+def test_sample_value_regression(tmp_path):
     if not _ch_available():
         pytest.skip("ClickHouse 不可达（ch 腿跳过）")
     env = {**os.environ, "FACTORLAB_DATA_BACKEND": "ch",
@@ -69,11 +69,15 @@ def test_sample_value_regression():
         base = json.loads((BASELINE / f"{name}.json").read_text(encoding="utf-8"))
         # R30 D9：R22 基线为周频口径产物（n_weeks=178 等）——显式 weekly 对照锁定
         # "weekly 路径零变更"回归；daily 为平台新默认，不用于本值级基线对拍。
+        # R30 Task 11（D7）：产物写 tmp_path——旧实现直接写 runs/platform/<name>，
+        # 每次全量测试都把主产物覆盖成 weekly（脏产物源），污染 D7 口径。
+        out = tmp_path / name
         r = subprocess.run(
-            [str(FACTORLAB), "run", "--eval-frequency", "weekly", str(BASELINE_SPECS / rel)],
+            [str(FACTORLAB), "run", "--eval-frequency", "weekly",
+             "--output-dir", str(out), str(BASELINE_SPECS / rel)],
             cwd=str(PLATFORM), env=env, capture_output=True, text=True, timeout=3600)
         assert r.returncode == 0, f"{name} run 失败:\n{r.stdout}\n{r.stderr}"
-        got = json.loads((REPO / "runs" / "platform" / name / "summary.json").read_text(encoding="utf-8"))
+        got = json.loads((out / "summary.json").read_text(encoding="utf-8"))
         assert got["evaluation"]["n_weeks"] == base["evaluation"]["n_weeks"], name
         for k in IC_KEYS:
             a = got["evaluation"]["ic"][k]

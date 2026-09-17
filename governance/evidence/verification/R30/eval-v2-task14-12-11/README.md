@@ -75,4 +75,46 @@
 
 ## Task 11：D7 脏产物重跑/清理（R08-MET-I1）——`chore(runs): D7 脏产物重跑/清理（R08-MET-I1）`
 
-（待填）
+### 处置策略（在证据里先落清单，再执行）
+
+- **盘点**（`30-task11-inventory.txt`）：改动前 78 个 run 目录逐一亮 version/frequency/
+  pct_valid/n_weeks + spec/档案映射；v2+daily=2（Task 12 已重跑）、v2+weekly=5、
+  其余 v1（含无 version）。
+- **重跑仍相关**（`33-task11-rerun.log`，39 个，39/39 OK，30m49s；CH+8GB 护栏，
+  `ST_DEGRADE=allow`=无 ST 口径）：参考库 9 + R22 代表 3（low_vol/seed 已在 Task 12）
+  + **`intraday_high_time`（必重跑）** + `small_cap`（circ_mv 补数后可跑）+ 存量变体 25。
+  **全部产物 `version=2 frequency=daily target=forward_return_1d`**。
+- **删除无重跑价值**（`35-task11-delete-manifest.txt`，16 个目录已删）：
+  R07 探针 4 + 烟测/验收 6（mine_smoke_01/minute_smoke_*/r12_smoke/r30_accept_min/
+  verify_guard_2024h1）+ 根副本 2（`__root-dup-20260916`）+ 孤儿 2（cap_real2/4）+
+  死源 2（value_bp=pb 占位；crash_bottom_leader_adv20=index_daily 空表）。退路=spec
+  保留可重跑；manifest 含文件级 sha/size。
+- **挖矿在途例外**（未动，17 个）：`max_effect_20d_{extcnt,high,zmax}`、
+  `vol_run_energy_symrun_r30_{flip,streak}`、intraday_* 12 个（spec 未入 git）——
+  含 R08 点名的 `max_effect_20d_high`（等挖矿批次收尾产出 v2 产物）。
+- 保留 `_evalv2-task13/`（Task 13 每日/周对照证据输入，daily 口径）。
+
+### 抽验（`36-task11-spotcheck.txt`）
+
+- 重跑后 run 分类：**v2+daily=41**、stale-v1=17（全为在途例外）、calib=1。
+- `intraday_high_time`：`version=2 frequency=daily n_weeks=116`（2024H1 交易日数）；
+  `weekly.parquet`=逐日评估面板（117 日期；ISO 周 5 日/周为 daily 正确形态，
+  R05-I4 的"每周多日期"是 weekly 口径 bug，daily 路径不再 align_weekly）；
+  `factorlab list` 正常渲染 `freq=daily`。
+
+### R22 值级基线刷新（数据修复后置；同批）
+
+- D8 恢复退市样本 → R22 基线（改动前冻结）与现行数据不再逐值可比：
+  `test_regression_152` 实测红（reversal_20d ic.mean Δ=+1.37e-3，`31-r22-red.txt`）。
+- 刷新：`refresh_r22_baseline.py` + `32-r22-baseline-refresh.txt`（6 代表 weekly 重跑
+  旧→新逐值）；R22 `00-baseline/README.md §3` 记录原因/证据。
+- 测试修复：`test_regression_152` 改 `--output-dir tmp_path`——**旧实现每次全量测试都把
+  主产物覆盖成 weekly（脏产物源）**，与 daily 默认口径冲突；改后 runs/ 不再被测试污染。
+
+### 验证
+
+| 文件 | 结果 |
+|---|---|
+| `37-platform-fullsuite-task11.txt` | 平台全量 **3150 passed / 11 skipped / 0 failed**（含新基线下的 R22 值级回归 2 passed / 243s） |
+| `24-test-research.log`（Task 12 段） | platform/tools **549 passed**；research/tools 2 failed=**预存挖矿在途**（intraday 索引/档案） |
+| `38-gates-task11.txt` | `make gates`：唯一红 = 预存 G-INDEX（挖矿在途 intraday spec 未入索引），与批 4 前一致 |

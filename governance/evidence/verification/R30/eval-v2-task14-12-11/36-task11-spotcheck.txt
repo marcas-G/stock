@@ -1,0 +1,54 @@
+== intraday_high_time
+version= 2 frequency= daily target= forward_return_1d n_weeks= 116
+weekly.parquet rows 609076 dates 117 cols ['date', 'code', 'signal', 'forward_return_1d', 'forward_return_5d', 'forward_return_20d']
+Traceback (most recent call last):
+  File "<stdin>", line 12, in <module>
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/dataframe/group_by.py", line 614, in len
+    return self.agg(len_expr)
+           ~~~~~~~~^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/dataframe/group_by.py", line 381, in agg
+    ._collect_eager(optimizations=QueryOptFlags.none())
+     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/lazyframe/frame.py", line 2240, in _collect_eager
+    return _eager_engine().collect(
+           ~~~~~~~~~~~~~~~~~~~~~~~^
+        self, optimizations=optimizations, background=False
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/lazyframe/engine.py", line 435, in collect
+    return wrap_df(ldf.collect(self.name, callback))
+                   ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+polars.exceptions.DuplicateError: column with name 'len' has more than one occurrence
+
+Resolved plan until failure:
+
+	---> FAILED HERE RESOLVING 'group_by' <---
+DF ["y", "w", "len"]; PROJECT */3 COLUMNS
+
+This error occurred with the following context stack:
+	[1] 'group_by'
+
+
+intraday_high_time 每周日期数分布: [{'n_dates': 2, 'n_weeks': 1}, {'n_dates': 3, 'n_weeks': 1}, {'n_dates': 4, 'n_weeks': 3}, {'n_dates': 5, 'n_weeks': 20}]
+
+剩余 run 分类: {'no-summary': 1, 'v2-daily': 41, 'stale-v1': 17}
+v2-daily: 41
+   no-summary _evalv2-task13
+   stale-v1 intraday_am_pm_vol
+   stale-v1 intraday_close_auction_premium
+   stale-v1 intraday_close_ret
+   stale-v1 intraday_event_density
+   stale-v1 intraday_lunch_jump
+   stale-v1 intraday_morning_ret
+   stale-v1 intraday_open_minute_mom
+   stale-v1 intraday_order_flow_imb
+   stale-v1 intraday_path_efficiency
+   stale-v1 intraday_ret_concentration
+   stale-v1 intraday_vol_herfindahl
+   stale-v1 intraday_volume_timing
+   stale-v1 max_effect_20d_extcnt
+   stale-v1 max_effect_20d_high
+   stale-v1 max_effect_20d_zmax
+   stale-v1 vol_run_energy_symrun_r30_flip
+   stale-v1 vol_run_energy_symrun_r30_streak

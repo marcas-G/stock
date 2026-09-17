@@ -1,0 +1,41 @@
+[ 1/39] reversal_10d_intraday_extreme_high         OK                 51.4s  ver=2 freq=daily n_weeks=856 pct_valid=0.9766
+[ 2/39] reversal_20d_skew_extreme                  OK                 47.5s  ver=2 freq=daily n_weeks=845 pct_valid=0.9637
+[ 3/39] rsi_reversal_14                            OK                 41.5s  ver=2 freq=daily n_weeks=851 pct_valid=0.9797
+[ 4/39] max_effect_20d                             OK                 42.5s  ver=2 freq=daily n_weeks=845 pct_valid=0.9724
+[ 5/39] amihud_illiq_turn_20d                      OK                 42.3s  ver=2 freq=daily n_weeks=845 pct_valid=0.9637
+[ 6/39] turnover_accel                             OK                 41.8s  ver=2 freq=daily n_weeks=846 pct_valid=0.9648
+[ 7/39] reversal_20d_netflow                       OK                 43.3s  ver=2 freq=daily n_weeks=845 pct_valid=0.9637
+[ 8/39] reversal_20d_overnight                     OK                 40.1s  ver=2 freq=daily n_weeks=845 pct_valid=0.9724
+[ 9/39] vol_run_energy_symrun                      OK                 48.3s  ver=2 freq=daily n_weeks=669 pct_valid=0.5789
+[10/39] momentum_20d                               OK                 40.6s  ver=2 freq=daily n_weeks=845 pct_valid=0.9724
+[11/39] reversal_20d                               OK                 41.6s  ver=2 freq=daily n_weeks=845 pct_valid=0.9724
+[12/39] reversal_20d_wcorr                         OK                 67.9s  ver=2 freq=daily n_weeks=845 pct_valid=0.9637
+[13/39] intraday_high_time                         OK                124.9s  ver=2 freq=daily n_weeks=116 pct_valid=0.9913
+[14/39] small_cap                                  OK                 41.0s  ver=2 freq=daily n_weeks=865 pct_valid=0.9872
+[15/39] low_vol_20d_park                           OK                 42.0s  ver=2 freq=daily n_weeks=846 pct_valid=0.9737
+[16/39] low_vol_20d_park_gk                        OK                 42.3s  ver=2 freq=daily n_weeks=846 pct_valid=0.9737
+[17/39] max_effect_20d_extsum                      OK                 41.6s  ver=2 freq=daily n_weeks=845 pct_valid=0.9724
+[18/39] max_effect_20d_high_intraday               OK                 40.5s  ver=2 freq=daily n_weeks=846 pct_valid=0.9737
+[19/39] momentum_20d_turnrank_extreme              OK                 49.2s  ver=2 freq=daily n_weeks=845 pct_valid=0.9637
+[20/39] momentum_20d_turnrank_top10                OK                 47.2s  ver=2 freq=daily n_weeks=845 pct_valid=0.9637
+[21/39] momentum_20d_turnrank_top5                 OK                 50.6s  ver=2 freq=daily n_weeks=845 pct_valid=0.9637
+[22/39] reversal_10d_cumret                        OK                 41.1s  ver=2 freq=daily n_weeks=855 pct_valid=0.9845
+[23/39] reversal_10d_cumret_log                    OK                 41.0s  ver=2 freq=daily n_weeks=855 pct_valid=0.9845
+[24/39] reversal_10d_intraday_extreme              OK                 48.3s  ver=2 freq=daily n_weeks=856 pct_valid=0.9766
+[25/39] reversal_20d_corr_intraday_turn_vol        OK                 64.4s  ver=2 freq=daily n_weeks=845 pct_valid=0.9637
+[26/39] reversal_20d_cumret                        OK                 40.1s  ver=2 freq=daily n_weeks=845 pct_valid=0.9724
+[27/39] reversal_20d_cumret_freq                   OK                 41.7s  ver=2 freq=daily n_weeks=845 pct_valid=0.9724
+[28/39] reversal_20d_intraday                      OK                 42.5s  ver=2 freq=daily n_weeks=846 pct_valid=0.9737
+[29/39] reversal_20d_intraday_turn                 OK                 48.0s  ver=2 freq=daily n_weeks=846 pct_valid=0.9648
+[30/39] reversal_20d_intraday_turn_high            OK                 48.1s  ver=2 freq=daily n_weeks=846 pct_valid=0.9648
+[31/39] reversal_20d_netflow_vol                   OK                 41.3s  ver=2 freq=daily n_weeks=845 pct_valid=0.9724
+[32/39] reversal_20d_skew_extreme_w10              OK                 47.3s  ver=2 freq=daily n_weeks=855 pct_valid=0.9754
+[33/39] rsi_reversal_14_ret                        OK                 41.0s  ver=2 freq=daily n_weeks=851 pct_valid=0.9797
+[34/39] turnover_accel_inflow                      OK                 41.9s  ver=2 freq=daily n_weeks=846 pct_valid=0.9755
+[35/39] turnover_level                             OK                 41.5s  ver=2 freq=daily n_weeks=865 pct_valid=0.9872
+[36/39] turnover_level_ma20                        OK                 41.0s  ver=2 freq=daily n_weeks=846 pct_valid=0.9648
+[37/39] vol_run_energy_symrun_energyonly           OK                 50.0s  ver=2 freq=daily n_weeks=907 pct_valid=0.7971
+[38/39] vol_run_energy_symrun_r30                  OK                 50.8s  ver=2 freq=daily n_weeks=849 pct_valid=0.7436
+[39/39] vol_run_energy_symrun_rlonly               OK                 49.9s  ver=2 freq=daily n_weeks=868 pct_valid=0.7611
+
+total 1849s  failed=0  []

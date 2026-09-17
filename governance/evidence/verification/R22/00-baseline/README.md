@@ -44,3 +44,16 @@
 
 `bash run_baseline.sh 10-regression` 用同一 spec 副本与同一命令重跑，逐 spec 对比
 `evaluation.ic.{mean,t_stat,ir}` 与 `00-baseline/<name>.json`，容差 `|Δ| ≤ 1e-9`。
+
+## 3. 基线刷新（2026-09-17，R30 批 4 Task 11 / R08-DATA-I2 后置）
+
+R08-DATA-I2 数据修复（退市股 adj_factor 补灌，`fix(data)` 2b39807）恢复了评估窗口内
+约 130 只退市股的历史样本 → 本基线（改动前口径）与现行数据不再逐值可比：
+`platform/tests/test_regression_152.py` 实测红色（reversal_20d `ic.mean` Δ=+1.37e-3）。
+按 D7「不留快照兼容层」刷新基线（weekly 重跑，spec 副本逐字不变）：
+
+- 刷新脚本/留痕：`governance/evidence/verification/R30/eval-v2-task14-12-11/refresh_r22_baseline.py`
+  + `32-r22-baseline-refresh.txt`（旧→新逐值）；
+- 旧基线值见 git 历史与本目录 §2 表；本次刷新只更新 `evaluation` 数值字段；
+- 说明：R22 基线是**数据相关**的值级回归锚；数据修复/更新后需同批刷新，
+  本测试已改为写 tmp 输出目录（不再覆盖 `runs/platform/` 主产物）。

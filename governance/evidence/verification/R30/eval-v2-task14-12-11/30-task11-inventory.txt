@@ -1,0 +1,79 @@
+run                                      ver  freq   pct_valid n_weeks spec dossier mt          
+_evalv2-task13                           None                          n    n       09-17 08:56 
+_mine_rounds                             [special]
+amihud_illiq_turn_20d                    None           0.9599     178 y    y       09-16 12:32 
+cap_real2                                None           0.0000       0 n    n       09-16 08:57 
+cap_real4                                None           0.7866      20 n    n       09-16 08:58 
+crash_bottom_leader_adv20                None           0.0000       0 y    y       09-15 22:27 
+intraday_am_pm_vol                       None           0.9861     152 y    n       09-16 21:44 
+intraday_close_auction_premium           None           0.9861     152 y    n       09-16 21:33 
+intraday_close_ret                       None           0.9861     152 y    n       09-16 23:40 
+intraday_event_density                   None           0.9861     152 y    n       09-16 22:51 
+intraday_high_time                       None           0.9597      27 y    y       09-16 07:56 
+intraday_lunch_jump                      None           0.9861     152 y    n       09-16 22:37 
+intraday_morning_ret                     None           0.9861     152 y    n       09-16 21:06 
+intraday_open_minute_mom                 None           0.9861     152 y    n       09-16 22:10 
+intraday_order_flow_imb                  None           0.9861     152 y    n       09-16 23:04 
+intraday_path_efficiency                 None           0.9843     152 y    n       09-16 20:53 
+intraday_ret_concentration               None           0.9843     152 y    n       09-16 23:18 
+intraday_vol_herfindahl                  None           0.9861     152 y    n       09-16 20:35 
+intraday_volume_timing                   None           0.9861     152 y    n       09-16 23:29 
+logs                                     [special]
+low_vol_20d                              2    daily     0.9724     845 y    y       09-17 11:31 
+low_vol_20d_park                         None           0.9600     178 y    y       09-16 14:53 
+low_vol_20d_park_gk                      None           0.9600     178 y    y       09-16 14:55 
+max_effect_20d                           None           0.9599     178 y    y       09-16 08:55 
+max_effect_20d_extcnt                    None           0.9599     178 y    y       09-16 17:27 
+max_effect_20d_extsum                    None           0.9599     178 y    y       09-16 18:14 
+max_effect_20d_high                      None           1.0000     178 y    y       09-16 01:24 
+max_effect_20d_high__root-dup-20260916   None           0.9599     178 n    n       09-16 17:35 
+max_effect_20d_high_intraday             None           0.9600     178 y    y       09-16 14:39 
+max_effect_20d_zmax                      None           1.0000     174 y    y       09-16 01:25 
+mine_smoke_01                            None           1.0000       3 n    n       09-16 01:19 
+minute_smoke_high_time                   None           0.6000       3 n    n       09-16 01:48 
+minute_smoke_tail_share                  None           0.6000       3 n    n       09-16 01:48 
+momentum_20d                             2    weekly    0.9599     178 y    y       09-17 10:46 
+momentum_20d_turnrank_extreme            None           0.9599     178 y    y       09-16 18:21 
+momentum_20d_turnrank_top10              None           0.9599     178 y    y       09-16 18:24 
+momentum_20d_turnrank_top2               2    daily     0.9637     845 y    n       09-17 11:32 
+momentum_20d_turnrank_top5               None           0.9599     178 y    n       09-16 18:26 
+r07_idx_circmv_probe                     None           0.0000       0 n    n       09-16 18:34 
+r07_minute_cov_probe                     None           0.0000       0 n    n       09-16 18:32 
+r07_st_probe                             None           0.6656       2 n    n       09-16 18:30 
+r07_totalmv_probe                        None           0.6667       2 n    n       09-16 18:34 
+r12_smoke                                None           0.6000       3 n    n       09-16 14:20 
+r30_accept_min                           None           0.8159       9 n    n       09-17 03:34 
+reversal_10d_cumret                      None           0.9711     180 y    y       09-16 12:38 
+reversal_10d_cumret_log                  None           0.9711     180 y    y       09-16 12:41 
+reversal_10d_intraday_extreme            None           0.9711     180 y    y       09-16 19:34 
+reversal_10d_intraday_extreme_high       None           0.9711     180 y    y       09-16 19:36 
+reversal_20d                             2    weekly    0.9599     178 y    y       09-17 10:46 
+reversal_20d_corr_intraday_turn_vol      None           0.9599     178 y    y       09-16 18:19 
+reversal_20d_cumret                      None           0.9599     178 y    y       09-16 13:59 
+reversal_20d_cumret_freq                 None           0.9599     178 y    y       09-16 13:58 
+reversal_20d_intraday                    None           0.9600     178 y    y       09-16 13:39 
+reversal_20d_intraday_turn               None           0.9600     178 y    y       09-16 16:57 
+reversal_20d_intraday_turn_high          None           0.9600     178 y    y       09-16 17:00 
+reversal_20d_netflow                     None           0.9599     178 y    y       09-16 15:12 
+reversal_20d_netflow_vol                 None           0.9599     178 y    y       09-16 15:22 
+reversal_20d_overnight                   None           0.9599     178 y    y       09-16 13:40 
+reversal_20d_skew_extreme                None           0.9599     178 y    y       09-16 19:53 
+reversal_20d_skew_extreme_w10            None           0.9711     180 y    y       09-16 19:55 
+reversal_20d_wcorr                       2    weekly    0.9599     178 y    y       09-17 10:49 
+rsi_reversal_14                          None           0.9655     179 y    y       09-16 12:11 
+rsi_reversal_14_ret                      None           0.9655     179 y    y       09-16 12:12 
+small_cap                                None           0.0000       0 y    y       09-16 12:31 
+strategies                               [special]
+turnover_accel                           2    weekly    0.9600     178 y    y       09-17 10:48 
+turnover_accel_inflow                    None           0.9618     178 y    y       09-16 16:14 
+turnover_level                           None           0.9823     182 y    y       09-16 13:19 
+turnover_level_ma20                      None           0.9600     178 y    y       09-16 13:20 
+value_bp                                 None           0.0000       0 y    y       09-15 22:19 
+value_bp__root-dup-20260916              None           0.0000       0 n    n       09-16 17:35 
+verify_guard_2024h1                      None           0.9597      27 n    n       09-16 10:44 
+vol_run_energy_symrun                    2    weekly    0.5835     142 y    y       09-17 10:47 
+vol_run_energy_symrun_energyonly         None           0.7975     191 y    y       09-16 19:15 
+vol_run_energy_symrun_r30                None           1.0000     179 y    y       09-16 01:40 
+vol_run_energy_symrun_r30_flip           None           1.0000     179 y    y       09-16 01:41 
+vol_run_energy_symrun_r30_streak         None           0.7712     185 y    y       09-16 01:42 
+vol_run_energy_symrun_rlonly             None           0.7623     183 y    y       09-16 19:14 
