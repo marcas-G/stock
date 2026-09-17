@@ -94,6 +94,23 @@ $PLATFORM_PY platform/tools/pan_update/cli.py sync|build|publish|verify|all \
 - **清理仅在下载校验通过后**：`size` 不符/下载失败时副本保留、`.part` 清除，
    本地不留半成品。
 
+**实测要点（2026-09-17，R30；两项都是"不修就 0.1MB/s 或 400"的硬闸）**：
+- **取链按 UA 判定**：同一 367MB 自有文件，Chrome UA 取链 → HTTP 400
+  `download file size limit`（code 23018）；官方客户端 UA
+  （`transfer.DRIVE_CLIENT_UA`，`quark-cloud-drive/2.5.20`）→ 200 直链。
+  `QuarkPcTransport` 一律带客户端 UA（cookie 仍是唯一登录凭据）。
+- **下载同样按 UA/方式限速**：同一链接实测——Chrome/151 常量 UA 整文件 GET
+  ~0.1-1MB/s；常规/客户端 UA 整文件 ~8MB/s；Range 分块（64MiB）~5-10MB/s。
+  `quark_client.download_file` 增 `chunk_size`/`ua`/`connections`（瞬时失败退避
+  重试、同 offset 续拉、服务端忽略 Range 回 200 时整段重写不拼接错位）；
+  transfer 下载固定 `DRIVE_CHUNK_SIZE=64MiB` + `DRIVE_CLIENT_UA` +
+  `DRIVE_CONNECTIONS=4` 并行（慢速节点下实测 ~1.2MB/s → ~7.7MB/s）。
+- **自有盘会话可单独失效**（2026-09-17 22:22 实测）：cookie 的分享链 stoken 仍可取
+  （`share/sharepage/token` 200），但自有盘接口 401 `code 31004 token [st invalid,
+  code:50051]`（`file/sort` 等三主机一致）——此时 transfer 项记 `failed`（loud、
+  不误删），分享直链的小件不受影响。处理：浏览器重新复制最新 Cookie 覆盖
+  `quark_cookies.txt` 后重跑 `make data-update`（同名同 size 副本会复用）。
+
 ### manual_required（回退不可用/关闭时的超限项）
 
 `--no-transfer`（或 transfer 不可用）时，`sync` 对超限文件打印：

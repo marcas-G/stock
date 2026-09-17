@@ -33,6 +33,11 @@ except ModuleNotFoundError:  # 脚本直启（无 conftest 铺路）→ 补 plat
 
 TMP_DIR_NAME = "factorlab_tmp"
 _QUERY = "pr=ucpro&fr=pc&uc_param_str="
+# Range 分块大小（R30 实测：同一链接整文件 GET 被 CDN 限速 ~100KB/s，
+# Range 分块 ~10MB/s；64MiB ≈ 6s/块 @10MB/s）。
+DRIVE_CHUNK_SIZE = 64 << 20
+# 并行连接数（慢速节点下 4 连接并行抬高聚合带宽；内存/句柄开销可忽略）。
+DRIVE_CONNECTIONS = 4
 # 官方客户端 UA（R30 实测）：/file/download 对超限文件按 UA 判定——
 # Chrome UA → 400 code 23018 `download file size limit`；客户端 UA → 200 直链。
 DRIVE_CLIENT_UA = (
@@ -60,7 +65,9 @@ class QuarkPcTransport:
         return quark_client.http(url, body, ua=DRIVE_CLIENT_UA)
 
     def download(self, url, out, size) -> bool:
-        ok, _actual = quark_client.download_file(url, out, size)
+        ok, _actual = quark_client.download_file(
+            url, out, size, chunk_size=DRIVE_CHUNK_SIZE, ua=DRIVE_CLIENT_UA,
+            connections=DRIVE_CONNECTIONS)
         return bool(ok)
 
     def get_stoken(self) -> str:

@@ -403,3 +403,24 @@ def test_quark_pc_transport_sends_client_ua(monkeypatch):
     tr.http("http://x/file/download", {"fids": ["1"]})
     assert seen == [("http://x/file/download", {"fids": ["1"]}, transfer.DRIVE_CLIENT_UA)]
     assert "quark-cloud-drive" in transfer.DRIVE_CLIENT_UA
+
+
+def test_quark_pc_transport_download_uses_ranged_chunks(monkeypatch, tmp_path):
+    """实测（2026-09-17）：整文件 GET 被 CDN 限速 ~100KB/s，Range 分块 ~10MB/s；
+    且 Chrome/151 常量 UA 下载被限速（客户端 UA ~8MB/s）。生产 transport 下载
+    必须同时带分块 + 客户端 UA。"""
+    seen = {}
+
+    def fake_download_file(url, out, size, **kw):
+        seen.update(kw)
+        Path(out).write_bytes(b"x" * size)
+        return True, size
+
+    monkeypatch.setattr(transfer.quark_client, "download_file", fake_download_file)
+    ok = transfer.QuarkPcTransport().download("http://u", tmp_path / "o.part", 10)
+    assert ok is True
+    assert seen == {"chunk_size": transfer.DRIVE_CHUNK_SIZE,
+                    "ua": transfer.DRIVE_CLIENT_UA,
+                    "connections": transfer.DRIVE_CONNECTIONS}
+    assert transfer.DRIVE_CHUNK_SIZE >= 8 << 20
+    assert transfer.DRIVE_CONNECTIONS >= 2

@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -251,3 +252,194 @@ def test_http_ua_override_and_default(monkeypatch, tmp_path):
     assert seen[-1] == QC.UA
     QC.http("http://x", {"a": 1}, ua="Client/UA 1.0")
     assert seen[-1] == "Client/UA 1.0"
+
+
+# ── R30 二次实测：整文件 GET 被限速 ~100KB/s；Range 分块 ~10MB/s ──
+def _install_fake_urlopen(monkeypatch, data: bytes, *, ignore_range=False,
+                          fail_once=False, fail_on_range=None):
+    import quark_client as QC
+    calls = []
+    state = {"fail": fail_once, "done": False}
+
+    class Resp:
+        def __init__(self, status, body):
+            self.status = status
+            self._body = body
+            self._pos = 0
+
+        def read(self, n=-1):
+            if n is None or n < 0:
+                out, self._pos = self._body[self._pos:], len(self._body)
+                return out
+            out = self._body[self._pos:self._pos + n]
+            self._pos += len(out)
+            return out
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=60):
+        rng = req.get_header("Range")
+        calls.append(rng)
+        if state["fail"] or (fail_on_range is not None
+                             and fail_on_range == rng and not state["done"]):
+            state["fail"] = False
+            state["done"] = True
+            raise urllib.error.URLError("boom")
+        if ignore_range or not rng:
+            return Resp(200, data)
+        spec = rng.removeprefix("bytes=")
+        start, end = (int(x) for x in spec.split("-"))
+        return Resp(206, data[start:end + 1])
+
+    monkeypatch.setattr(QC.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(QC.time, "sleep", lambda _s: None)
+    return calls
+
+
+def _cookie_env(monkeypatch, tmp_path):
+    import quark_client as QC
+    cookie = tmp_path / "c.txt"
+    cookie.write_text("k=v", encoding="utf-8")
+    monkeypatch.setattr(QC, "COOKIE_PATH", str(cookie))
+    return QC
+
+
+def test_download_file_ranged_splits_and_verifies(monkeypatch, tmp_path):
+    QC = _cookie_env(monkeypatch, tmp_path)
+    data = bytes(range(150))
+    calls = _install_fake_urlopen(monkeypatch, data)
+    out = tmp_path / "o.part"
+
+    ok, actual = QC.download_file("http://u", out, 150, chunk_size=64)
+
+    assert (ok, actual) == (True, 150)
+    assert out.read_bytes() == data
+    assert calls == ["bytes=0-63", "bytes=64-127", "bytes=128-149"]
+
+
+def test_download_file_ranged_falls_back_when_server_ignores_range(monkeypatch, tmp_path):
+    QC = _cookie_env(monkeypatch, tmp_path)
+    data = b"z" * 100
+    calls = _install_fake_urlopen(monkeypatch, data, ignore_range=True)
+    out = tmp_path / "o.part"
+
+    ok, actual = QC.download_file("http://u", out, 100, chunk_size=32)
+
+    assert (ok, actual) == (True, 100)
+    assert out.read_bytes() == data, "服务端 200 全量应答也必须写对（不能拼接错位）"
+
+
+def test_download_file_ranged_retries_transient_and_resumes(monkeypatch, tmp_path):
+    QC = _cookie_env(monkeypatch, tmp_path)
+    data = b"q" * 130
+    calls = _install_fake_urlopen(monkeypatch, data, fail_once=True)
+    out = tmp_path / "o.part"
+
+    ok, actual = QC.download_file("http://u", out, 130, chunk_size=64)
+
+    assert (ok, actual) == (True, 130)
+    assert out.read_bytes() == data
+    assert len(calls) == 4, "首个请求失败后从同一 offset 续拉（不整段重下）"
+    assert calls[:2] == ["bytes=0-63", "bytes=0-63"]
+
+
+def test_download_file_plain_still_single_request(monkeypatch, tmp_path):
+    QC = _cookie_env(monkeypatch, tmp_path)
+    data = b"p" * 70
+    calls = _install_fake_urlopen(monkeypatch, data)
+    out = tmp_path / "o.part"
+
+    ok, actual = QC.download_file("http://u", out, 70)
+
+    assert (ok, actual) == (True, 70) and out.read_bytes() == data
+    assert calls == [None], "缺省仍整文件单请求（旧调用语义不变）"
+
+
+def test_download_file_ua_override_and_default(monkeypatch, tmp_path):
+    """下载 GET 的 UA 必须可覆盖（实测：Chrome/151 常量 UA 被 CDN 限速 ~1MB/s，
+    客户端/常规 UA ~8MB/s）；缺省保持模块 UA（旧调用语义不变）。"""
+    QC = _cookie_env(monkeypatch, tmp_path)
+    seen = []
+    data = b"u" * 10
+
+    class Resp:
+        def __init__(self, status, body):
+            self.status, self._body, self._pos = status, body, 0
+
+        def read(self, n=-1):
+            if n is None or n < 0:
+                out, self._pos = self._body[self._pos:], len(self._body)
+                return out
+            out = self._body[self._pos:self._pos + n]
+            self._pos += len(out)
+            return out
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=60):
+        rng = req.get_header("Range")
+        seen.append((req.get_header("User-agent"), rng))
+        if not rng:
+            return Resp(200, data)
+        a, b = (int(x) for x in rng.removeprefix("bytes=").split("-"))
+        return Resp(206, data[a:b + 1])
+
+    monkeypatch.setattr(QC.urllib.request, "urlopen", fake_urlopen)
+    QC.download_file("http://u", tmp_path / "a.part", 10)
+    assert seen[0] == (QC.UA, None)
+    QC.download_file("http://u", tmp_path / "b.part", 10, chunk_size=4, ua="Client/UA")
+    assert [r for _, r in seen[1:]] == ["bytes=0-3", "bytes=4-7", "bytes=8-9"]
+    assert {ua for ua, _ in seen[1:]} == {"Client/UA"}
+
+
+def test_download_file_parallel_connections_cover_all_ranges(monkeypatch, tmp_path):
+    """多连接并行 Range：所有块恰好各请求一次、内容正确（串行慢速下的提速路径）。"""
+    QC = _cookie_env(monkeypatch, tmp_path)
+    data = bytes(range(150))
+    calls = _install_fake_urlopen(monkeypatch, data)
+    out = tmp_path / "o.part"
+
+    ok, actual = QC.download_file("http://u", out, 150, chunk_size=32, connections=3)
+
+    assert (ok, actual) == (True, 150)
+    assert out.read_bytes() == data
+    assert calls[0] == "bytes=0-0", "并行前先探测 Range 支持"
+    assert sorted(calls[1:]) == ["bytes=0-31", "bytes=128-149", "bytes=32-63",
+                                 "bytes=64-95", "bytes=96-127"]
+
+
+def test_download_file_parallel_falls_back_when_range_unsupported(monkeypatch, tmp_path):
+    """探测发现服务端不支持 Range（200）→ 退回整文件路径，不得并发写错位。"""
+    QC = _cookie_env(monkeypatch, tmp_path)
+    data = b"w" * 90
+    calls = _install_fake_urlopen(monkeypatch, data, ignore_range=True)
+    out = tmp_path / "o.part"
+
+    ok, actual = QC.download_file("http://u", out, 90, chunk_size=32, connections=4)
+
+    assert (ok, actual) == (True, 90)
+    assert out.read_bytes() == data
+    assert calls[0] == "bytes=0-0"
+
+
+def test_download_file_parallel_retries_one_range(monkeypatch, tmp_path):
+    """单块瞬时失败 → 重试成功；内容仍精确（pwrite 定位写不互相覆盖）。"""
+    QC = _cookie_env(monkeypatch, tmp_path)
+    data = b"r" * 130
+    calls = _install_fake_urlopen(monkeypatch, data, fail_on_range="bytes=64-127")
+    out = tmp_path / "o.part"
+
+    ok, actual = QC.download_file("http://u", out, 130, chunk_size=64, connections=2)
+
+    assert (ok, actual) == (True, 130)
+    assert out.read_bytes() == data
+    assert sorted(c for c in calls if c) == sorted(
+        ["bytes=0-0", "bytes=0-63", "bytes=64-127", "bytes=64-127", "bytes=128-129"])
