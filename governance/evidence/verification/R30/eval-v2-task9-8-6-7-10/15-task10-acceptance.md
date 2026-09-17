@@ -17,9 +17,16 @@
 > 纯函数 `app/strategy/cost_net.py`（`cost_net_report`），**不进因子评估 summary**
 > （D11 因子侧纯净）。标题保留历史（不复写公开提交），此处注记以正视听。
 
+## 终评修复波（2026-09-17）
+
+- 终评审（`5852d36` 后）：判定需修复 → 修复波 1 `29cf432`/`3a54788`/`5905a9d`/`2d54cbe`
+  （label schema v2 + E1 产品入口 + dead-signal 非有限 + 证据/清单重生成）→ scoped 复评 **PASS**；
+  修复波 2 `72e00c2`（复评 3 Minor：多输出审计口径、错误文案无效行计数、测试更名）。
+- 终态平台全量：**3207 passed / 11 skipped / 0 failed**（775.25s，`governance/evidence/verification/R30/eval-v2-fix/27-final-full-suite.txt`；基线 3089/11 → 新测试 +118）
+
 ## 验收数字
 
-- 平台全量：**3187 passed / 11 skipped / 0 failed**（766.72s，`14-task10-full-suite.txt`；基线 3089/11 → 新测试 +98）
+- 平台全量（初验）：**3187 passed / 11 skipped / 0 failed**（766.72s，`14-task10-full-suite.txt`；基线 3089/11 → 新测试 +98）
 - `make test-research`：platform/tools 549 passed / 0 failed；research/tools 2 failed = 挖矿在途（`factor_lib/test_index.py`，非本次范围）
 - `make gates`：唯一红 = **G-INDEX**（挖矿在途 spec 未入索引，与各批基线一致）；**G-DATAIFACE 全绿**（`delisted_adj_backfill`/`ingest_daily`/`reconcile` 4 个 D8 直读点补登记，`governance/ops/check_dataiface.py`）
 - `ch_ingest/reconcile.py all` → exit 0（批 4）
