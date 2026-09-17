@@ -1131,6 +1131,13 @@ R30 Task 15 从独立 quant-core 包并入的单一实现）：daily = 面板原
   **历史 summary 无 `version` 键 ≡ v1**（`(g0−g9)×direction`，负=自洽）——**不重算**，
   按 v1 口径解读；档案 `snapshot:` 注记「spread 为 v1 口径（负=自洽）」。
   `factorlab list/show` 按 `version` 分渲染提示。
+- **dead-signal fail-loud（D5，R30 Task 2；收口 R07-D6）**：样本面板 signal 列
+  null 占比 ≥ `core.eval.metrics.DEAD_SIGNAL_NULL_RATIO`（默认 **0.99**，含 0.99）
+  即判死信号——`evaluation.dead_signal=true` 先落盘供审计，`factorlab run` 随后以
+  **非零退出**（`DeadSignalError`，消息含 `signal_null_ratio`），不再以 `n_weeks=0`
+  静默等价于"无效因子"。判定与 summary `signal_null_ratio` 同源（null 行占比，
+  真实行计数 `dead_signal_report`；分母=样本全量面板）。正常因子**不含该键**、
+  行为零变化；多输出逐输出判定（任一输出为死信号即整体非零退出）。
 
 ### `factorlab.core.eval.layered.layered_backtest(panel, direction, n_groups=10, forward_col="forward_return_5d", cost_rate=0.0, periods_per_year=52) -> dict`
 

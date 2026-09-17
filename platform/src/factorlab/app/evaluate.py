@@ -26,6 +26,7 @@ from factorlab.core.engine.compute import FactorResult
 from factorlab.core.eval.alignment import align_weekly
 from factorlab.core.eval.layered import (WEEKS_PER_YEAR, degenerate_decile_groups,
                                          layered_backtest)
+from factorlab.core.eval.metrics import DeadSignalError, dead_signal_report
 from factorlab.adapters.ic_kernel import evaluate_factor_daily, evaluate_factor_weekly
 from factorlab.core.spec import FactorSpec
 
@@ -42,6 +43,7 @@ class EvaluationOutcome:
     outputs: list[str]
     frequency: str = "daily"
     notes: list[str] = field(default_factory=list)   # 展示层提示（CLI 打印）
+    dead_signal: dict | None = None   # D5：死信号明细（非 None → publish 落盘后非零失败）
 
 
 def _mark_degenerate_deciles(evaluation: dict, notes: list[str], prefix: str = "") -> None:
@@ -57,6 +59,27 @@ def _mark_degenerate_deciles(evaluation: dict, notes: list[str], prefix: str = "
     notes.append(
         f"{prefix}十分位组 {degenerate}（0=最小 signal）全期无有效收益——信号重并列/"
         "离散时分位跳档，spread/单调性不可用；建议降低分组数或改用其他评估口径")
+
+
+def _mark_dead_signal(ev: dict, panel: pl.DataFrame, col: str,
+                      notes: list[str], prefix: str = "") -> dict | None:
+    """D5（R30 Task 2 / R07-D6）：signal 空值占比 ≥ 阈值 → 显式字段 + 响亮提示。
+
+    口径：null 行占比（与 summary `signal_null_ratio` 同源；分母 = 样本全量面板，
+    而非对齐/过滤后的评估面板）。正常因子零变化——不新增任何键、不生成 note。
+    返回明细 dict（供 `publish_run` 在落盘后非零失败）；非死信号 → None。
+    """
+    report = dead_signal_report(panel, signal_col=col)
+    if not report["dead_signal"]:
+        return None
+    ev["dead_signal"] = True
+    notes.append(
+        f"{prefix}死信号（D5 fail-loud）：signal_null_ratio="
+        f"{report['signal_null_ratio']} ≥ 阈值 {report['threshold']}"
+        f"（{report['null_rows']}/{report['total_rows']} 行为空）——signal 列无有效"
+        "数据，n_weeks=0 不再静默等价于“无效因子”；评估摘要已落盘（dead_signal=true）"
+        "并以非零退出，先修取数列/数据面（governance/workspace/data-map.md）")
+    return report
 
 
 def _evaluate_frame(frame: pl.DataFrame, spec: FactorSpec, frequency: str,
@@ -100,10 +123,12 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
         eval_panel = align_weekly(result.panel)
     outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
     notes: list[str] = []
+    dead: dict | None = None
     if outputs == ["signal"]:
         evaluation = _evaluate_frame(eval_panel, spec, freq)
         evaluation["frequency"] = freq
         _mark_degenerate_deciles(evaluation, notes)
+        dead = _mark_dead_signal(evaluation, result.panel, "signal", notes)
         if backtest:
             bt = _backtest_frame(eval_panel, spec, freq, groups=groups)
             evaluation["layered_backtest"] = bt
@@ -119,6 +144,9 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
                 p = p.rename({o: "signal"})
             ev_o = _evaluate_frame(p, spec, freq, weekly=p)
             _mark_degenerate_deciles(ev_o, notes, prefix=f"输出 {o} ")
+            dead_o = _mark_dead_signal(ev_o, result.panel, o, notes, prefix=f"输出 {o} ")
+            if dead is None and dead_o is not None:
+                dead = dead_o
             if backtest:
                 bt = _backtest_frame(p, spec, freq, groups=groups)
                 ev_o["layered_backtest"] = bt
@@ -127,7 +155,8 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
                                  "——universe 过小或 --groups 过大")
             evaluation["outputs"][o] = ev_o
     return EvaluationOutcome(evaluation=evaluation, eval_panel=eval_panel,
-                             outputs=outputs, frequency=freq, notes=notes)
+                             outputs=outputs, frequency=freq, notes=notes,
+                             dead_signal=dead)
 
 
 def publish_run(result: FactorResult, outcome: EvaluationOutcome,
@@ -136,10 +165,21 @@ def publish_run(result: FactorResult, outcome: EvaluationOutcome,
 
     weekly.parquet 保留历史文件名（布局单点），内容 = 评估输入面板：
     daily 模式为日频全量面板、weekly 模式为周频对齐面板（interface 已注明）。
+
+    D5（R30 Task 2）：死信号（`evaluation.dead_signal=true`）**先落盘再失败**——
+    summary 保留审计字段后抛 `DeadSignalError`（CLI `run` 统一非零退出），
+    不再以 `n_weeks=0` 静默成功；正常因子零变化。
     """
     from factorlab.adapters import results_fs
     result.summary["evaluation"] = outcome.evaluation
     # R12：走 results 单点（布局 + **原子**写）——原先直写，崩在中途会留半截 summary.json
     results_fs.write_run_outputs(Path(ctx.output_dir), weekly=outcome.eval_panel,
                                  summary=result.summary)
+    if outcome.dead_signal is not None:
+        rep = outcome.dead_signal
+        raise DeadSignalError(
+            f"死信号（D5 fail-loud）：signal_null_ratio={rep['signal_null_ratio']} ≥ "
+            f"阈值 {rep['threshold']}（{rep['null_rows']}/{rep['total_rows']} 行为空）"
+            "——评估摘要已落盘（summary.evaluation.dead_signal=true）供审计；"
+            "本次运行非零退出，请先修复信号取数（governance/workspace/data-map.md）")
     return result.summary

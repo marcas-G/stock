@@ -303,13 +303,16 @@ formula: |
 """, encoding="utf-8")
     monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
     monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path / "results")
-    # 默认变体：params 原样（win=20 → 全 null）
+    # 默认变体：params 原样（win=20 → 全 null）——D5 死信号 fail-loud：
+    # 评估摘要落盘（dead_signal=true）后非零退出；产物目录仍生成，--set 变体并存
     result = runner.invoke(app, ["run", str(spec_path)])
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 1, result.output
+    assert "死信号" in result.output and "signal_null_ratio=1.0" in result.output
     default_dir = tmp_path / "results" / "demo"
     assert (default_dir / "summary.json").exists()
     default_summary = json.loads((default_dir / "summary.json").read_text(encoding="utf-8"))
     assert default_summary["signal_null_ratio"] == 1.0
+    assert default_summary["evaluation"]["dead_signal"] is True
     assert yaml.safe_load(default_summary["spec_yaml"])["params"] == {"win": 20}
     # --set 变体：独立目录 + 覆盖值进入计算
     result = runner.invoke(app, ["run", str(spec_path), "--set", "win=2"])

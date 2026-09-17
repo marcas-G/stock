@@ -79,6 +79,16 @@ def test_interface_layered_average_rank_alignment_d2():
     assert "(rank-1)*n_groups//n" not in section, "分层节残留旧 ordinal 边界公式"
 
 
+def test_interface_dead_signal_fail_loud_contract():
+    """D5（R30 Task 2）：interface 必须写 `evaluation.dead_signal`、阈值常量与非零退出。"""
+    text = INTERFACE.read_text(encoding="utf-8")
+    assert "dead_signal" in text, "interface 缺 evaluation.dead_signal 字段"
+    assert "DEAD_SIGNAL_NULL_RATIO" in text, "interface 缺阈值常量名"
+    assert "0.99" in text, "interface 缺阈值 0.99"
+    assert "非零退出" in text, "interface 缺 fail-loud 非零退出语义"
+    assert "signal_null_ratio" in text, "interface 缺判据字段 signal_null_ratio"
+
+
 def test_interface_old_formula_only_in_migration_note():
     """负向守卫：旧公式不得作为现行口径回潮——只许出现在 v1/历史注记行。"""
     for lineno, line in enumerate(INTERFACE.read_text(encoding="utf-8").splitlines(), 1):
