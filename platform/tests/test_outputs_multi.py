@@ -202,8 +202,8 @@ formula: |
 """, encoding="utf-8")
     single = run_factor(load_spec(path), _ctx(env, tmp_path / "single")).panel
     # 单输出 outputs: [a] 时列名即声明输出名（a），不是 signal 字面
-    assert single.columns == ["date", "code", "a", "forward_return_5d",
-                              "forward_return_20d", "close"]
+    assert single.columns == ["date", "code", "a", "forward_return_1d",
+                              "forward_return_5d", "forward_return_20d", "close"]
     assert panel["a"].to_list() == single["a"].to_list()
 
 

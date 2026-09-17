@@ -15,14 +15,15 @@ runner = CliRunner()
 def test_run_help():
     result = runner.invoke(app, ["run", "--help"])
     assert result.exit_code == 0
-    for opt in ("--universe", "--max-memory", "--output-dir", "--backtest", "--no-backtest", "--groups", "--set"):
+    for opt in ("--universe", "--max-memory", "--output-dir", "--backtest", "--no-backtest",
+                "--groups", "--set", "--eval-frequency"):
         assert opt in result.stdout
 
 
 def test_run_end_to_end(tmp_path, monkeypatch):
     # 平台库风格 tmp 库 + spec → run 落盘（panel/weekly/summary，summary 含 evaluation）
-    # 9 个交易日：align_weekly 取周内最后交易日（01-05），其 forward_return_5d 需 t+5
-    # （01-12）在面板内——9 天恰好使第 1 个 ISO 周有 2 行有效，n_weeks=1
+    # D9（R30 Task 13）：默认 daily——每日截面直接评估（不做周频对齐），
+    # 评估面板（weekly.parquet 文件名保留历史布局）= 日频面板
     build_db(tmp_path, n_days=9)
     spec_path = tmp_path / "demo.yaml"
     spec_path.write_text("""
@@ -47,9 +48,13 @@ formula: |
     summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
     assert summary["name"] == "demo"
     assert "evaluation" in summary
+    assert summary["evaluation"]["frequency"] == "daily"
+    assert summary["evaluation"]["target"] == "forward_return_1d"
     assert summary["evaluation"]["n_weeks"] >= 1
+    assert pl.read_parquet(out_dir / "weekly.parquet").height == pl.read_parquet(
+        out_dir / "panel.parquet").height
     # 评估信息回显到 stdout
-    assert "n_weeks=" in result.stdout
+    assert "n_weeks=" in result.stdout and "freq=daily" in result.stdout
 
 
 def test_run_universe_override(tmp_path, monkeypatch):
@@ -128,8 +133,7 @@ formula: |
 
 def test_run_backtest_flag(tmp_path, monkeypatch):
     # --backtest（默认）：summary.evaluation 含 layered_backtest；--output-dir 缺省 results_dir/<name>
-    # 9 个交易日：第 1 个 ISO 周（01-05）的 forward 在面板内 → 1 个有效周，
-    # 回测期数 = 评估周数（无效周不计，M4b 期数口径）
+    # D9 daily：回测期数 = 评估期数（每日调仓；无有效 forward 的末日不计）
     build_db(tmp_path, n_days=9)
     spec_path = tmp_path / "demo.yaml"
     spec_path.write_text("""
@@ -151,7 +155,9 @@ formula: |
     summary = json.loads((tmp_path / "results" / "demo" / "summary.json").read_text(encoding="utf-8"))
     assert "layered_backtest" in summary["evaluation"]
     assert summary["evaluation"]["layered_backtest"]["n_groups"] == 10
-    assert summary["evaluation"]["layered_backtest"]["periods"] == summary["evaluation"]["n_weeks"] == 1
+    assert summary["evaluation"]["frequency"] == "daily"
+    assert summary["evaluation"]["layered_backtest"]["periods"] == summary["evaluation"]["n_weeks"]
+    assert summary["evaluation"]["n_weeks"] >= 2      # 逐日：多个交易日（非周数 1）
 
 
 def test_run_no_backtest_flag(tmp_path, monkeypatch):
@@ -223,14 +229,16 @@ formula: |
     assert "groups" in result.output
 
 
-def test_run_weekly_parquet_is_weekly_aligned(tmp_path, monkeypatch):
-    # weekly.parquet 为周频对齐面板（行数 = 周数 × 股票数），不再冗余日频（panel.parquet 保留日频）
+def test_run_weekly_frequency_parquet_is_weekly_aligned(tmp_path, monkeypatch):
+    # weekly 对照模式（evaluation_frequency: weekly）：weekly.parquet 为周频对齐面板
+    # （行数 = 周数 × 股票数），评估链零变更（D9 weekly 回归）
     build_db(tmp_path, n_days=9)  # 9 交易日 = 2 个 ISO 周（01-05 / 01-12 各为周内最后交易日）
     spec_path = tmp_path / "demo.yaml"
     spec_path.write_text("""
 name: demo
 category: custom
 direction: 1
+evaluation_frequency: weekly
 universe:
   codes: ["000001.SZ", "600519.SH"]
 date:
@@ -248,6 +256,9 @@ formula: |
     daily = pl.read_parquet(out_dir / "panel.parquet")
     assert daily.height == 9 * 2
     assert daily.height > weekly.height
+    summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["evaluation"]["frequency"] == "weekly"
+    assert summary["evaluation"]["target"] == "forward_return_5d"
 
 
 def test_run_empty_universe(tmp_path, monkeypatch):
@@ -412,6 +423,7 @@ def test_run_spec_target_20d_wired(tmp_path, monkeypatch):
 name: demo20
 category: custom
 direction: 1
+evaluation_frequency: weekly
 universe:
   codes: ["000001.SZ", "600519.SH"]
 date:
@@ -434,8 +446,9 @@ formula: |
     assert "layered_backtest" in summary["evaluation"]
 
 
-def test_run_default_target_is_5d(tmp_path, monkeypatch):
-    # 回归：spec 不写 target（默认 5d）→ evaluation.target=="forward_return_5d"
+def test_run_default_eval_target_is_1d_then_weekly_5d(tmp_path, monkeypatch):
+    # D9：默认（daily）评估 target 固定 forward_return_1d（D11）；显式 weekly 对照
+    # 时回归 spec.target 缺省 5d——两分支各自可证
     build_db(tmp_path, n_days=9)
     spec_path = tmp_path / "demo5.yaml"
     spec_path.write_text("""
@@ -455,7 +468,16 @@ formula: |
     result = runner.invoke(app, ["run", str(spec_path), "--output-dir", str(out_dir)])
     assert result.exit_code == 0, result.output
     summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
-    assert summary["evaluation"]["target"] == "forward_return_5d"
+    assert summary["evaluation"]["frequency"] == "daily"
+    assert summary["evaluation"]["target"] == "forward_return_1d"
+
+    out_w = tmp_path / "results" / "demo5_weekly"
+    result = runner.invoke(app, ["run", "--eval-frequency", "weekly", str(spec_path),
+                                 "--output-dir", str(out_w)])
+    assert result.exit_code == 0, result.output
+    summary_w = json.loads((out_w / "summary.json").read_text(encoding="utf-8"))
+    assert summary_w["evaluation"]["frequency"] == "weekly"
+    assert summary_w["evaluation"]["target"] == "forward_return_5d"
 
 
 # ================================================================
@@ -502,19 +524,21 @@ def test_run_multi_output_eval_per_output(tmp_path, monkeypatch):
         ["a = close / open - 1", "b = ts_delay(close, 1) / close - 1"])
     assert result.exit_code == 0, result.output
     ev = summary["evaluation"]
-    assert set(ev) == {"outputs"}  # 多输出 → 顶层仅 outputs（legacy 顶层键结构不混入）
+    # 多输出 → 顶层 outputs + frequency（legacy 顶层键结构不混入）
+    assert set(ev) == {"outputs", "frequency"}
+    assert ev["frequency"] == "daily"
     assert list(ev["outputs"]) == ["a", "b"]  # 声明序保留
     for o in ("a", "b"):
         ev_o = ev["outputs"][o]
-        assert ev_o["target"] == "forward_return_5d"
-        assert ev_o["n_weeks"] == 1
-        assert ev_o["ic"]["mean"] == ev_o["ic"]["mean"]  # 非 nan（有有效周）
+        assert ev_o["target"] == "forward_return_1d"
+        assert ev_o["n_weeks"] >= 1
+        assert ev_o["ic"]["mean"] == ev_o["ic"]["mean"]  # 非 nan（有有效期）
         bt = ev_o["layered_backtest"]
-        assert bt["periods"] == ev_o["n_weeks"] == 1  # 无效周不计（M4b 期数口径）
+        assert bt["periods"] == ev_o["n_weeks"]  # 无效期不计（期数口径）
         assert bt["n_groups"] == 10
     # console 逐输出一行
-    assert "__a: n_weeks=1" in result.output
-    assert "__b: n_weeks=1" in result.output
+    assert "__a: n_weeks=" in result.output
+    assert "__b: n_weeks=" in result.output
 
 
 def test_run_multi_output_literal_signal_first_class(tmp_path, monkeypatch):
@@ -532,17 +556,18 @@ def test_run_multi_output_literal_signal_first_class(tmp_path, monkeypatch):
     # 价格单调序列（build_db 梯形价）→ 与 fwd5 完全单调：IC=+1/-1，非退化数据
     assert abs(ic_sig - 1.0) < 1e-9 and abs(ic_neg + 1.0) < 1e-9
     assert ic_neg == pytest.approx(-ic_sig, abs=1e-9)
-    # 逐输出落盘面板/周频 + 独立重算：每输出评估 = 该列直接 rust_ic 值（禁止共用/硬编码）
+    # 逐输出落盘面板/评估面板 + 独立重算：每输出评估 = 该列直接 ic_kernel 值（禁止共用/硬编码）
     import math
     import polars as pl
     from factorlab.core.eval.layered import layered_backtest
-    from factorlab.adapters.rust_ic import evaluate_factor_weekly
+    from factorlab.adapters.rust_ic import evaluate_factor_daily
     panel = pl.read_parquet(out_dir / "panel.parquet")
-    weekly = pl.read_parquet(out_dir / "weekly.parquet")
+    weekly = pl.read_parquet(out_dir / "weekly.parquet")   # daily 模式 = 日频评估面板
     for o in ("signal", "neg"):
-        w = weekly.select(["date", "code", o, "forward_return_5d"]).rename({o: "signal"})
-        expect = evaluate_factor_weekly(w, "demo_ms", 1, target="forward_return_5d", weekly=w)
-        expect["layered_backtest"] = layered_backtest(w, 1, forward_col="forward_return_5d")
+        w = weekly.select(["date", "code", o, "forward_return_1d"]).rename({o: "signal"})
+        expect = evaluate_factor_daily(w, "demo_ms", 1)
+        expect["layered_backtest"] = layered_backtest(
+            w, 1, forward_col="forward_return_1d", periods_per_year=252)
         got = outs[o]
         assert got["target"] == expect["target"]
         assert got["n_weeks"] == expect["n_weeks"]
@@ -601,15 +626,17 @@ formula: |
     assert result.exit_code == 0, result.output
     summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
     ev = summary["evaluation"]
-    # 收口前（b2b6977^）实测键快照 + R30 D1=B 的 version 字段：多输出改造不得改动
-    # legacy 顶层结构（version 为 v2 口径新增，历史 summary 无该键 ≡ v1）
-    assert sorted(ev) == sorted(["version", "coverage", "decile_returns", "direction", "factor",
-                                 "factor_name", "ic", "layered_backtest", "n_stocks_avg",
-                                 "n_weeks", "pearson_ic", "target", "turnover"])
+    # 收口前（b2b6977^）实测键快照 + R30 D1=B version + D9 frequency（均为 append 字段）：
+    # 多输出改造不得改动 legacy 顶层结构
+    assert sorted(ev) == sorted(["version", "frequency", "coverage", "decile_returns",
+                                 "direction", "factor", "factor_name", "ic",
+                                 "layered_backtest", "n_stocks_avg", "n_weeks", "pearson_ic",
+                                 "target", "turnover"])
     assert "outputs" not in ev
     assert ev["version"] == 2
-    assert ev["target"] == "forward_return_5d"
-    assert ev["n_weeks"] == 1
+    assert ev["frequency"] == "daily"
+    assert ev["target"] == "forward_return_1d"
+    assert ev["n_weeks"] >= 1
     assert ev["ic"]["mean"] == pytest.approx(1.0, abs=1e-9)
     assert ev["layered_backtest"]["periods"] == ev["n_weeks"]
 
@@ -647,7 +674,8 @@ formula: |
     assert summary["runtime_semantics"] == "minute_intraday_fold_v1"
     assert summary["grid_rows_per_day"] == 240
     assert summary["adjustment"] == "raw"
-    assert "evaluation" in summary          # 周频对齐/评估/分层链对分钟折日面板零改动复用
+    assert "evaluation" in summary          # 评估/分层链对分钟折日面板零改动复用（daily 默认）
+    assert summary["evaluation"]["frequency"] == "daily"
     assert "n_weeks=" in result.stdout
     panel = pl.read_parquet(out_dir / "panel.parquet")
     assert panel.height == 12               # 2 code × 6 交易日（无停牌）

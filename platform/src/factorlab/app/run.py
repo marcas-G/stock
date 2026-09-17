@@ -25,7 +25,7 @@ from factorlab.app.memory import (MemoryWatchdog, guard_minute_chunk_days,
                                   memory_watchdog_from_settings)
 from factorlab.config import settings
 from factorlab.core.engine.compute import (_WARMUP_SAFETY_PAD, _build_legacy_panel, _canonicalize_artifact_codes, _chunk_keep, _formula_columns, _pool_cond_frame, _ts_window_days, compute_formula, FactorResult, fill_suspension_values, label_lookahead_end, prepare_formula_pipeline, reject_cumulative_chunking)
-from factorlab.core.engine.forward import (DEFAULT_FORWARD_HORIZONS,
+from factorlab.core.engine.forward import (DEFAULT_FORWARD_HORIZONS, FORWARD_COLUMNS,
                                            compute_forward_returns)
 from factorlab.core.engine.minute import (_ADV20_LEFT_DAYS,
                                           _GRID_ROWS_PER_DAY, _bars_needed_cols,
@@ -337,8 +337,7 @@ def _compute_labels(
         panel = panel.join(uf.select(["date", "code", "in_universe"]),
                            on=["date", "code"], how="left")
         panel = panel.filter(pl.col("in_universe"))
-        return panel.select(["date", "code", "forward_return_5d",
-                             "forward_return_20d"]).sort(["date", "code"])
+        return panel.select(["date", "code", *FORWARD_COLUMNS]).sort(["date", "code"])
     # ---- M4（G2）池模式：成员资格视图与 signal runtime 同基准 ----
     adjustment = getattr(spec, "adjustment", None) or ctx.adjustment
     qfq_base_col = None
@@ -371,8 +370,7 @@ def _compute_labels(
     panel = panel.filter(
         pl.col("in_universe").fill_null(False)
         & pl.col("signal").fill_null(False))
-    return panel.select(["date", "code", "forward_return_5d",
-                         "forward_return_20d"]).sort(["date", "code"])
+    return panel.select(["date", "code", *FORWARD_COLUMNS]).sort(["date", "code"])
 
 
 def _resolve_pair_universe_frames(
@@ -580,7 +578,7 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
             signal_frames = {o: signal_df.select(["date", "code", o])
                              for o in outputs}
         label_artifact = LabelArtifact(
-            frame=labels_df.select(["date", "code", "forward_return_5d", "forward_return_20d"]))
+            frame=labels_df.select(["date", "code", *FORWARD_COLUMNS]))
         # legacy panel：Signal/Label key 对齐已证明 → 位置化附加 label 值列
         # （M6-07C2B：不做 hash join——1,155 万行 × 2 侧的 join 峰值分配在
         # 无页面文件机器上撞 commit 空间 → 0xC0000005；多输出下对齐由
@@ -924,7 +922,7 @@ def _run_factor_minute(spec, ctx: RunContext,
             signal_frames = {o: signal_df.select(["date", "code", o])
                              for o in outputs}
         label_artifact = LabelArtifact(frame=labels_df.select(
-            ["date", "code", "forward_return_5d", "forward_return_20d"]))
+            ["date", "code", *FORWARD_COLUMNS]))
         panel = _build_legacy_panel(signal_df, labels_df, signal_artifact,
                                     label_artifact, outputs)
     finally:

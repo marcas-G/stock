@@ -457,7 +457,7 @@ def test_manifest_horizons_from_actual_columns(env, tmp_path):
     from factorlab.adapters.parquet_artifacts import extract_forward_horizons
     lab = pl.read_parquet(tmp_path / "out" / LABELS_FILE)
     assert s["artifacts"]["labels"]["horizons"] == list(extract_forward_horizons(list(lab.columns)))
-    assert s["artifacts"]["labels"]["horizons"] == [5, 20]
+    assert s["artifacts"]["labels"]["horizons"] == [1, 5, 20]
 
 
 @pytest.mark.parametrize("bad", [True, 1.0, "1", -1])

@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import polars as pl
 
-# M6-04：forward horizon 唯一来源（5d/20d 平台固定；数学定义不变）
-DEFAULT_FORWARD_HORIZONS: tuple[int, ...] = (5, 20)
+# M6-04：forward horizon 唯一来源（平台固定；数学定义不变）。
+# D9（R30 Task 13）：加入 1d——daily 评估口径固定 1 日 forward（D11）。
+DEFAULT_FORWARD_HORIZONS: tuple[int, ...] = (1, 5, 20)
+# 与 horizons 对应的面板列序（label/panel 组装单点；避免各处硬编码列名清单）
+FORWARD_COLUMNS: tuple[str, ...] = tuple(
+    f"forward_return_{h}d" for h in DEFAULT_FORWARD_HORIZONS)
 
 
 def compute_forward_returns(

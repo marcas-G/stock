@@ -310,7 +310,8 @@ d = day_amt
 """, outputs="a,e,p,d")
     res = run_factor_minute(spec, _ctx(tmp_path / "out"))
     assert res.panel.columns == ["date", "code", "a", "e", "p", "d",
-                                 "forward_return_5d", "forward_return_20d"]
+                                 "forward_return_1d", "forward_return_5d",
+                                 "forward_return_20d"]
     assert res.summary["panel_rows"] == 12
     ts_by_code = [ts for _sym, ts, _b in _CODES]
     for row in res.panel.sort(["date", "code"]).select(["date", "code", "a",

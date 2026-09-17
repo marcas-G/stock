@@ -105,6 +105,9 @@ class FactorSpec(_StrictModel):
     universe: UniverseSpec
     date: DateRange = Field(default_factory=DateRange)
     target: Literal["forward_return_5d", "forward_return_20d"] = "forward_return_5d"
+    # D9（R30 Task 13）：评估频率——daily（默认：逐日截面/每日调仓/1 日 forward）
+    # / weekly（旧口径可选对照，零变更：ISO 周对齐 + spec.target）。
+    evaluation_frequency: Literal["daily", "weekly"] = "daily"
     process: list[str] = Field(default_factory=list)
     operators: dict[str, OperatorMacro] = Field(default_factory=dict)
     params: dict[str, Any] = Field(default_factory=dict)  # 顶层参数（formula 内 ${name} 引用）

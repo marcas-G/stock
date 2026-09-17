@@ -60,9 +60,12 @@ def test_forward_returns_float32_precision():
 
 
 def test_forward_returns_default_horizons():
+    # D9（R30 Task 13）：默认 horizons 含 1d（daily 评估固定 1 日 forward）
     df = _panel()
     out = compute_forward_returns(df)
-    assert out.columns == ["date", "code", "close", "adj_factor", "forward_return_5d", "forward_return_20d"]
+    assert out.columns == ["date", "code", "close", "adj_factor",
+                           "forward_return_1d", "forward_return_5d", "forward_return_20d"]
+    assert out["forward_return_1d"][0] == pytest.approx(11.0 / 10.0 - 1)
     assert out["forward_return_20d"].null_count() == out.height  # 仅 4 天，20 日全部缺失
 
 

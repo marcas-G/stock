@@ -14,7 +14,8 @@ from expr_codegen import codegen_exec
 
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
-from factorlab.core.engine.forward import DEFAULT_FORWARD_HORIZONS, compute_forward_returns
+from factorlab.core.engine.forward import (DEFAULT_FORWARD_HORIZONS, FORWARD_COLUMNS,
+                                           compute_forward_returns)
 from factorlab.core.engine.partitions import check_causality
 from factorlab.core.factor.ast_gate import validate_formula
 from factorlab.core.factor.errors import FactorDSLError
@@ -617,7 +618,7 @@ class FactorResult:
 _WARMUP_SAFETY_PAD = 20  # 自动 warmup 的安全垫：覆盖 ts_delay 等窗口内偏移
 # spec 2.5 对齐输出列（分块路径每块算完即裁剪到这些列再累积，避免全列面板堆叠 OOM）。
 # M2：signal 字面 → outputs 声明列（全保留）+ 对齐尾列
-_LEGACY_KEEP_TAIL = ["forward_return_5d", "forward_return_20d", "close"]
+_LEGACY_KEEP_TAIL = [*FORWARD_COLUMNS, "close"]
 
 
 def _chunk_keep(outputs: list[str]) -> list[str]:
@@ -687,7 +688,7 @@ def _build_legacy_panel(
     elif not signal_df.select(["date", "code"]).equals(labels_df.select(["date", "code"])):
         raise ValueError(
             "Signal/Label (date, code) key 不一致（含顺序）——多输出 panel 构造拒绝")
-    label_values = labels_df.select(["forward_return_5d", "forward_return_20d"])
+    label_values = labels_df.select(list(FORWARD_COLUMNS))
     panel = signal_df.hstack(label_values)
     return panel.select([c for c in _chunk_keep(outputs) if c in panel.columns])
 

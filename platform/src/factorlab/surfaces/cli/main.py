@@ -261,10 +261,14 @@ def run_factor_cli(
                                           help="日期分块（交易日/块；缺省：分钟链 20 交易日/块自动分块，日频单块整段跑；显式超大块按内存估算告警/拒绝，见 interface.md §1）"),
     warmup_days: int | None = typer.Option(None, "--warmup-days", min=0,
                                            help="TS 窗口预热天数（缺省=按公式自动提取窗口+20）"),
+    eval_frequency: str | None = typer.Option(
+        None, "--eval-frequency",
+        help="评估频率覆盖：daily（逐日默认）| weekly（周频对照）；缺省取 spec.evaluation_frequency"),
 ) -> None:
     """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
     --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
-    --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。"""
+    --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。--eval-frequency 覆盖 spec 评估频率
+    （daily 默认逐日口径；weekly 为旧口径可选对照）。"""
     from factorlab.app.run import run_factor, run_factor_minute
     from factorlab.app.context import RunContext
     from factorlab.app.evaluate import evaluate_run, publish_run
@@ -277,6 +281,8 @@ def run_factor_cli(
         if not re.fullmatch(r"[A-Za-z0-9_.-]+", value):
             raise typer.BadParameter(f"--set 值含非法字符（仅字母数字_.-）: {value}")
         overrides[key] = _parse_param_value(value)
+    if eval_frequency is not None and eval_frequency not in ("daily", "weekly"):
+        raise typer.BadParameter(f"--eval-frequency 应为 daily|weekly: {eval_frequency}")
     try:
         spec = load_spec(spec_path)
     except (FileNotFoundError, ValueError) as exc:
@@ -307,7 +313,8 @@ def run_factor_cli(
     try:
         result = run_impl(spec, ctx)
         # 评估装配单点（WS5）：app.evaluate.evaluate_run + publish_run（此前为本函数内联）
-        outcome = evaluate_run(result, spec, ctx, groups=groups, backtest=backtest)
+        outcome = evaluate_run(result, spec, ctx, groups=groups, backtest=backtest,
+                               frequency=eval_frequency)
         for note in outcome.notes:
             console.print(f"提示: {note}")
         publish_run(result, outcome, ctx)
@@ -319,12 +326,14 @@ def run_factor_cli(
     if outputs == ["signal"]:
         ic = evaluation.get("ic", {})
         console.print(f"{variant}: n_weeks={evaluation.get('n_weeks')} "
-                      f"ic_mean={ic.get('mean')} spread={evaluation.get('decile_returns', {}).get('spread', {}).get('ret')}")
+                      f"ic_mean={ic.get('mean')} spread={evaluation.get('decile_returns', {}).get('spread', {}).get('ret')} "
+                      f"freq={evaluation.get('frequency')}")
     else:
         for o, ev_o in evaluation["outputs"].items():  # 逐输出一行（legacy 行同型）
             ic = ev_o.get("ic", {})
             console.print(f"{variant}__{o}: n_weeks={ev_o.get('n_weeks')} "
-                          f"ic_mean={ic.get('mean')} spread={ev_o.get('decile_returns', {}).get('spread', {}).get('ret')}")
+                          f"ic_mean={ic.get('mean')} spread={ev_o.get('decile_returns', {}).get('spread', {}).get('ret')} "
+                          f"freq={ev_o.get('frequency')}")
 
 
 def _run_at(summary: dict, summary_path: Path) -> tuple[str, float]:
@@ -374,6 +383,7 @@ def list_factors() -> None:
                     "ic_mean": ev_o.get("ic", {}).get("mean"),
                     "spread": ev_o.get("decile_returns", {}).get("spread", {}).get("ret"),
                     "version": ev_o.get("version"),
+                    "frequency": ev_o.get("frequency"),
                     "run_at": run_at,
                     "_sort": sort_key,
                 })
@@ -385,6 +395,7 @@ def list_factors() -> None:
             "ic_mean": ev.get("ic", {}).get("mean"),
             "spread": ev.get("decile_returns", {}).get("spread", {}).get("ret"),
             "version": ev.get("version"),
+            "frequency": ev.get("frequency"),
             "run_at": run_at,
             "_sort": sort_key,
         })
@@ -393,7 +404,8 @@ def list_factors() -> None:
         return
     for row in sorted(rows, key=lambda r: r["_sort"], reverse=True):
         console.print(f"{row['name']} | {row['category']} | dir={row['direction']} "
-                      f"| ic={row['ic_mean']} | spread={row['spread']} | {row['run_at']}")
+                      f"| ic={row['ic_mean']} | spread={row['spread']} | {row['run_at']} "
+                      f"| freq={row['frequency'] or '—'}")
     # R30 D1=B：spread v2 正值口径；历史 v1 产物（无 version 键）单独注记，不重算
     console.print("提示: spread=(g9−g0)×dir（g9=signal 最高档；"
                   "正值=与声明方向一致，正=好；判有效性看 ic）")
@@ -439,6 +451,17 @@ def show_factor(name: str) -> None:
         console.print("评估口径: v2（spread 正值=与声明方向一致，正=好）")
     else:
         console.print("评估口径: v1（历史产物：spread 负值=与声明方向一致；未按 v2 重算）")
+    # D9（R30 Task 13）：按 frequency 渲染评估期语义（历史产物无该键 ≡ weekly 旧口径）
+    freqs = ({ev_o.get("frequency") for ev_o in per_outputs.values()}
+             if per_outputs else {ev.get("frequency")})
+    freqs.discard(None)
+    freq = next(iter(freqs)) if len(freqs) == 1 else None
+    if freq == "daily":
+        console.print("评估频率: daily（逐日截面/每日调仓/1 日 forward）")
+    elif freq == "weekly":
+        console.print("评估频率: weekly（ISO 周对齐；目标=spec.target）")
+    else:
+        console.print("评估频率: —（历史产物未记录（≡ weekly 旧口径）或逐输出不一致）")
     if per_outputs:
         # 多输出：逐输出块（缺键 None/无 → 显示语义字段，不崩）
         for o, ev_o in per_outputs.items():

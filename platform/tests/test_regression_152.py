@@ -67,8 +67,10 @@ def test_sample_value_regression():
            "FACTORLAB_RESULTS_DIR": str(REPO / "runs" / "platform")}
     for name, rel in SPECS.items():
         base = json.loads((BASELINE / f"{name}.json").read_text(encoding="utf-8"))
+        # R30 D9：R22 基线为周频口径产物（n_weeks=178 等）——显式 weekly 对照锁定
+        # "weekly 路径零变更"回归；daily 为平台新默认，不用于本值级基线对拍。
         r = subprocess.run(
-            [str(FACTORLAB), "run", str(BASELINE_SPECS / rel)],
+            [str(FACTORLAB), "run", "--eval-frequency", "weekly", str(BASELINE_SPECS / rel)],
             cwd=str(PLATFORM), env=env, capture_output=True, text=True, timeout=3600)
         assert r.returncode == 0, f"{name} run 失败:\n{r.stdout}\n{r.stderr}"
         got = json.loads((REPO / "runs" / "platform" / name / "summary.json").read_text(encoding="utf-8"))

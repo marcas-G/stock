@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from factorlab.adapters import results_fs
-from factorlab.core.eval.ic_series import weekly_ic
+from factorlab.core.eval.ic_series import ic_series
 from factorlab.surfaces.web import charts
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -153,7 +153,7 @@ def create_app(results_dir: Path) -> FastAPI:
                 target = first.get("target") if isinstance(first, dict) else None
             if not isinstance(target, str):
                 target = "forward_return_5d"   # legacy summary（无 target 字段）
-            charts_data["ic"] = charts.ic_curve_figure(weekly_ic(panel, target=target))
+            charts_data["ic"] = charts.ic_curve_figure(ic_series(panel, target=target))
             has_weekly = True
         except (OSError, ValueError, pl.exceptions.PolarsError):
             pass  # 损坏/缺列的 weekly.parquet（含 target 列缺失）→ IC 曲线区域降级

@@ -36,7 +36,8 @@ def _tie_heavy_panel(weeks=4, n=100):
         for s in range(n):
             sig = 0.0 if s < 60 else (1.0 if s < 80 else (2.0 if s < 95 else 3.0))
             rows.append({"date": d, "code": f"{s:06d}", "signal": sig,
-                         "forward_return_5d": 0.001 * sig + 1e-6 * s})
+                         "forward_return_5d": 0.001 * sig + 1e-6 * s,
+                         "forward_return_1d": 0.001 * sig + 1e-6 * s})
     return pl.DataFrame(rows)
 
 
@@ -47,7 +48,8 @@ def _continuous_panel(weeks=4, n=100):
         for s in range(n):
             sig = (s + 1) / n + w * 0.001
             rows.append({"date": d, "code": f"{s:06d}", "signal": sig,
-                         "forward_return_5d": 0.001 * sig})
+                         "forward_return_5d": 0.001 * sig,
+                         "forward_return_1d": 0.001 * sig})
     return pl.DataFrame(rows)
 
 

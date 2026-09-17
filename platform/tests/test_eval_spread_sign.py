@@ -30,7 +30,8 @@ def _monotone_panel(weeks=2, stocks=20):
         d = dt.date(2024, 1, 5) + dt.timedelta(weeks=w)
         for s in range(stocks):
             rows.append({"date": d, "code": f"{s:06d}",
-                         "signal": float(s), "forward_return_5d": float(s) * 0.001})
+                         "signal": float(s), "forward_return_5d": float(s) * 0.001,
+                         "forward_return_1d": float(s) * 0.001})
     return pl.DataFrame(rows)
 
 

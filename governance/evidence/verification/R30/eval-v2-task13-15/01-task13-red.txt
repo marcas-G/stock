@@ -1,0 +1,222 @@
+FFFFFFFF                                                                 [100%]
+=================================== FAILURES ===================================
+___________________ test_daily_ic_per_trading_day_and_stats ____________________
+
+    def test_daily_ic_per_trading_day_and_stats():
+        panel = _ic_panel()
+>       spec = _spec()
+               ^^^^^^^
+
+tests/test_eval_daily.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'daily_eval', evaluation_frequency = 'daily'
+target = 'forward_return_5d', outputs = None, cost_rate = 0.0
+
+    def _spec(name="daily_eval", *, evaluation_frequency="daily", target="forward_return_5d",
+              outputs=None, cost_rate=0.0):
+>       return FactorSpec(name=name, category="custom", direction=1,
+                          universe=UniverseSpec(codes=["000001.SZ"]),
+                          formula="signal = close", outputs=outputs,
+                          evaluation_frequency=evaluation_frequency,
+                          target=target, cost_rate=cost_rate)
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for FactorSpec
+E       evaluation_frequency
+E         Extra inputs are not permitted [type=extra_forbidden, input_value='daily', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/test_eval_daily.py:46: ValidationError
+________ test_daily_layered_returns_nav_turnover_and_annualization_252 _________
+
+    def test_daily_layered_returns_nav_turnover_and_annualization_252():
+        panel = _turnover_panel()
+>       spec = _spec(cost_rate=0.001)
+               ^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_eval_daily.py:107: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'daily_eval', evaluation_frequency = 'daily'
+target = 'forward_return_5d', outputs = None, cost_rate = 0.001
+
+    def _spec(name="daily_eval", *, evaluation_frequency="daily", target="forward_return_5d",
+              outputs=None, cost_rate=0.0):
+>       return FactorSpec(name=name, category="custom", direction=1,
+                          universe=UniverseSpec(codes=["000001.SZ"]),
+                          formula="signal = close", outputs=outputs,
+                          evaluation_frequency=evaluation_frequency,
+                          target=target, cost_rate=cost_rate)
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for FactorSpec
+E       evaluation_frequency
+E         Extra inputs are not permitted [type=extra_forbidden, input_value='daily', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/test_eval_daily.py:46: ValidationError
+___________________ test_daily_path_never_calls_align_weekly ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f297d38c180>
+
+    def test_daily_path_never_calls_align_weekly(monkeypatch):
+        calls = []
+    
+        def spy(*args, **kwargs):
+            calls.append(1)
+            raise AssertionError("daily 路径不得调用 align_weekly")
+    
+        monkeypatch.setattr("factorlab.app.evaluate.align_weekly", spy, raising=True)
+        monkeypatch.setattr("factorlab.adapters.rust_ic.align_weekly", spy, raising=True)
+    
+        panel = _ic_panel()
+>       spec = _spec()
+               ^^^^^^^
+
+tests/test_eval_daily.py:145: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'daily_eval', evaluation_frequency = 'daily'
+target = 'forward_return_5d', outputs = None, cost_rate = 0.0
+
+    def _spec(name="daily_eval", *, evaluation_frequency="daily", target="forward_return_5d",
+              outputs=None, cost_rate=0.0):
+>       return FactorSpec(name=name, category="custom", direction=1,
+                          universe=UniverseSpec(codes=["000001.SZ"]),
+                          formula="signal = close", outputs=outputs,
+                          evaluation_frequency=evaluation_frequency,
+                          target=target, cost_rate=cost_rate)
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for FactorSpec
+E       evaluation_frequency
+E         Extra inputs are not permitted [type=extra_forbidden, input_value='daily', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/test_eval_daily.py:46: ValidationError
+______________ test_weekly_frequency_aligns_and_uses_spec_target _______________
+
+    def test_weekly_frequency_aligns_and_uses_spec_target():
+        rows = []
+        for w, monday in enumerate((dt.date(2024, 1, 2), dt.date(2024, 1, 9))):
+            for d in (monday, monday + dt.timedelta(days=2)):
+                for s in range(5):
+                    rows.append({"date": d, "code": f"{s:06d}", "signal": float(s),
+                                 "forward_return_5d": float((s + w) % 5) * 0.01})
+        panel = pl.DataFrame(rows)
+>       spec = _spec(evaluation_frequency="weekly")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_eval_daily.py:166: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'daily_eval', evaluation_frequency = 'weekly'
+target = 'forward_return_5d', outputs = None, cost_rate = 0.0
+
+    def _spec(name="daily_eval", *, evaluation_frequency="daily", target="forward_return_5d",
+              outputs=None, cost_rate=0.0):
+>       return FactorSpec(name=name, category="custom", direction=1,
+                          universe=UniverseSpec(codes=["000001.SZ"]),
+                          formula="signal = close", outputs=outputs,
+                          evaluation_frequency=evaluation_frequency,
+                          target=target, cost_rate=cost_rate)
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for FactorSpec
+E       evaluation_frequency
+E         Extra inputs are not permitted [type=extra_forbidden, input_value='weekly', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/test_eval_daily.py:46: ValidationError
+_______ test_default_forward_horizons_include_1d_and_total_return_value ________
+
+    def test_default_forward_horizons_include_1d_and_total_return_value():
+>       assert DEFAULT_FORWARD_HORIZONS == (1, 5, 20)
+E       assert (5, 20) == (1, 5, 20)
+E         
+E         At index 0 diff: 5 != 1
+E         Right contains one more item: 20
+E         Use -v to get more diff
+
+tests/test_eval_daily.py:181: AssertionError
+________________ test_spec_evaluation_frequency_defaults_daily _________________
+
+    def test_spec_evaluation_frequency_defaults_daily():
+>       assert _spec().evaluation_frequency == "daily"
+               ^^^^^^^
+
+tests/test_eval_daily.py:201: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'daily_eval', evaluation_frequency = 'daily'
+target = 'forward_return_5d', outputs = None, cost_rate = 0.0
+
+    def _spec(name="daily_eval", *, evaluation_frequency="daily", target="forward_return_5d",
+              outputs=None, cost_rate=0.0):
+>       return FactorSpec(name=name, category="custom", direction=1,
+                          universe=UniverseSpec(codes=["000001.SZ"]),
+                          formula="signal = close", outputs=outputs,
+                          evaluation_frequency=evaluation_frequency,
+                          target=target, cost_rate=cost_rate)
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for FactorSpec
+E       evaluation_frequency
+E         Extra inputs are not permitted [type=extra_forbidden, input_value='daily', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/test_eval_daily.py:46: ValidationError
+_______________ test_daily_missing_forward_return_1d_fails_loud ________________
+
+    def test_daily_missing_forward_return_1d_fails_loud():
+        panel = _ic_panel().drop("forward_return_1d")
+>       spec = _spec()
+               ^^^^^^^
+
+tests/test_eval_daily.py:207: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'daily_eval', evaluation_frequency = 'daily'
+target = 'forward_return_5d', outputs = None, cost_rate = 0.0
+
+    def _spec(name="daily_eval", *, evaluation_frequency="daily", target="forward_return_5d",
+              outputs=None, cost_rate=0.0):
+>       return FactorSpec(name=name, category="custom", direction=1,
+                          universe=UniverseSpec(codes=["000001.SZ"]),
+                          formula="signal = close", outputs=outputs,
+                          evaluation_frequency=evaluation_frequency,
+                          target=target, cost_rate=cost_rate)
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for FactorSpec
+E       evaluation_frequency
+E         Extra inputs are not permitted [type=extra_forbidden, input_value='daily', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/test_eval_daily.py:46: ValidationError
+______________ test_daily_multi_output_per_output_uses_1d_target _______________
+
+    def test_daily_multi_output_per_output_uses_1d_target():
+        panel = _ic_panel().with_columns(
+            (pl.col("signal") * -1).alias("sig_neg"))
+>       spec = _spec(name="daily_multi", outputs=["signal", "sig_neg"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_eval_daily.py:215: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'daily_multi', evaluation_frequency = 'daily'
+target = 'forward_return_5d', outputs = ['signal', 'sig_neg'], cost_rate = 0.0
+
+    def _spec(name="daily_eval", *, evaluation_frequency="daily", target="forward_return_5d",
+              outputs=None, cost_rate=0.0):
+>       return FactorSpec(name=name, category="custom", direction=1,
+                          universe=UniverseSpec(codes=["000001.SZ"]),
+                          formula="signal = close", outputs=outputs,
+                          evaluation_frequency=evaluation_frequency,
+                          target=target, cost_rate=cost_rate)
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for FactorSpec
+E       evaluation_frequency
+E         Extra inputs are not permitted [type=extra_forbidden, input_value='daily', input_type=str]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+tests/test_eval_daily.py:46: ValidationError
+=========================== short test summary info ============================
+FAILED tests/test_eval_daily.py::test_daily_ic_per_trading_day_and_stats - py...
+FAILED tests/test_eval_daily.py::test_daily_layered_returns_nav_turnover_and_annualization_252
+FAILED tests/test_eval_daily.py::test_daily_path_never_calls_align_weekly - p...
+FAILED tests/test_eval_daily.py::test_weekly_frequency_aligns_and_uses_spec_target
+FAILED tests/test_eval_daily.py::test_default_forward_horizons_include_1d_and_total_return_value
+FAILED tests/test_eval_daily.py::test_spec_evaluation_frequency_defaults_daily
+FAILED tests/test_eval_daily.py::test_daily_missing_forward_return_1d_fails_loud
+FAILED tests/test_eval_daily.py::test_daily_multi_output_per_output_uses_1d_target
+8 failed in 1.60s

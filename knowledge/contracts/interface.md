@@ -31,9 +31,10 @@ M5 在 M4b 结果落盘（summary.json/weekly.parquet）之上补齐浏览器可
   应用——列表 `/` + 详情 `/factor/<name>`，Jinja2 模板 + Plotly 图表内嵌；
   `charts` 构造 IC 曲线/十分位柱状/分层净值 figure JSON；缺失/损坏 summary 与
   缺 evaluation 字段的因子降级展示不崩溃（见 §4）。
-- **`factorlab.core.eval.ic_series.weekly_ic`**：周度 RankIC 序列（Spearman 秩相关，
-  与 quant_core 同源定义；signal/target null 过滤、有效股票 < 3 的周 ic = null），
-  详情页 IC 曲线数据源（见 §4）。
+- **`factorlab.core.eval.ic_series.ic_series`**（旧名 `weekly_ic` 保留为别名）：
+  逐期 RankIC 序列（Spearman 秩相关，与 quant_core 同源定义；signal/target null
+  过滤、有效股票 < 3 的期 ic = null）——daily 面板→逐日曲线、weekly 对齐面板→
+  逐周曲线；详情页 IC 曲线数据源（见 §4）。
 - 集成测试 `tests/test_e2e_web.py`：真实 results 目录（main 工作树，3 个因子）
   冒烟——列表含因子名、详情含图表数据、旧因子降级、缺失 404（见 §7 测试）。
 
@@ -41,15 +42,16 @@ M5 在 M4b 结果落盘（summary.json/weekly.parquet）之上补齐浏览器可
 
 M4b 在 M4a 评估链路之上补齐单因子评估闭环：
 
-- **分层回测**（`factorlab.core.eval.layered.layered_backtest`，见 §4）：周频面板按
+- **分层回测**（`factorlab.core.eval.layered.layered_backtest`，见 §4）：评估面板按
   signal 分档（默认十分位）等权组合累计净值 + long-short + 摘要指标；`factorlab run`
   默认产出并写入 `summary.json.evaluation.layered_backtest`（`--no-backtest` 关闭，
   `--groups N` 调整档数）。
 - **CLI `list` / `show`**：已保存因子清单与单因子完整摘要（见 §1）。
 - **M4a 遗留接线**：`pit_qfq` 消费（`run_factor` 传 `asof=spec.date.end`）、
-  `weekly.parquet` 周频对齐面板落盘（替代原日频冗余）、`results_dir` 锚定
+  评估输入面板落盘为 `weekly.parquet`（**文件名保留历史布局**；D9 起 daily 模式
+  内容为日频面板、weekly 模式为周频对齐面板）、`results_dir` 锚定
   （`--output-dir` 缺省 `<results_dir>/<name>/`；`results_dir` 默认仓库根 `runs/platform/`）。
-- 回测期数口径与 quant_core 评估周数一致：signal/forward 全 null 的周（头部窗口
+- 回测期数口径与评估期数一致：signal/forward 全 null 的期（头部窗口
   未满/尾部无未来收益）不计入，`bt["periods"] == evaluation["n_weeks"]`（实测）。
 
 ## 0.1 M4a 汇总：端到端评估链路
@@ -61,15 +63,17 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   已从代码彻底移除。`load_daily` 加载平台库 `daily`（`trade_date/ts_code` →
   `date/code` 映射、`adj_factor` 恒 join，见 §4）。
 - **`factorlab run <spec.yaml>`**：计算 + 评估端到端命令（见 §1）：run_factor 日频
-  面板 → 周频对齐 → `quant_core` 评估 → `summary.json` 追加 `evaluation` 字段，
-  另落盘 `weekly.parquet`（评估输入面板）。
+  面板 → **评估频率分支**（D9：daily 默认=逐日截面直接评估、**不做周频对齐**；
+  weekly=ISO 周对齐对照）→ `quant_core` 评估 → `summary.json` 追加 `evaluation`
+  字段（含 `frequency`），另落盘 `weekly.parquet`（评估输入面板）。
 - **复权视图（adjustment）**：spec `adjustment` 字段（`raw|qfq|hfq|pit_qfq`，
   默认 `qfq`）决定因子计算所用价格口径（`view_prices`，见 §4）；前向收益恒用
   **total_return 口径**（raw close×adj，先于复权视图计算、避免二次复权）。
 - **eval 包**（`factorlab.core.eval`）：`alignment.align_weekly`（ISO 周最后交易日
-  对齐）、`metrics.coverage_report`（覆盖率；valid = signal 非 null 且有限，
-  `target_col` 给定时 target 同样要求——调用方在过滤前计算，R03-I2）；`rust_ic.evaluate_factor_weekly`
-  （`quant_core` 周频评估桥接，见 §4）在 `factorlab.adapters.rust_ic`（R8 分层：纯计算
+  对齐，仅 weekly 模式调用）、`metrics.coverage_report`（覆盖率；valid = signal
+  非 null 且有限，`target_col` 给定时 target 同样要求——调用方在过滤前计算，
+  R03-I2）；`rust_ic.evaluate_factor_weekly` / `evaluate_factor_daily`（`quant_core`
+  频率分支评估桥接，见 §4）在 `factorlab.adapters.rust_ic`（R8 分层：纯计算
   在 core、I/O 与内核桥接在 adapters）。
 - **`default_universe` 接线**：`factorlab run` 缺省 `--universe` 时回落
   `settings.default_universe`（`FACTORLAB_DEFAULT_UNIVERSE`），未配置再用 spec
@@ -83,7 +87,7 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 |------|------|
 | `factorlab version` | 打印包版本 |
 | `factorlab lint <spec.yaml>` | 校验 Spec、AST 白名单与引擎同序语义门（未知算子/负位移/未来下标，含池公式），失败时以非 0 退出 |
-| `factorlab run <spec.yaml> [--universe U] [--max-memory M] [--output-dir DIR] [--no-float32] [--backtest/--no-backtest] [--groups N] [--set k=v ...] [--chunk-days N] [--warmup-days N]` | 计算因子并周频评估 + 分层回测（默认），落盘 `runs/platform/<name>/`（缺省 results_dir；`--set` 生成 `runs/platform/<name>_<k><v>.../` 参数变体；`--chunk-days` 日期分块，见 §运行-分块计算） |
+| `factorlab run <spec.yaml> [--universe U] [--max-memory M] [--output-dir DIR] [--no-float32] [--backtest/--no-backtest] [--groups N] [--eval-frequency daily\|weekly] [--set k=v ...] [--chunk-days N] [--warmup-days N]` | 计算因子并评估（daily 逐日默认 / weekly 对照）+ 分层回测（默认），落盘 `runs/platform/<name>/`（缺省 results_dir；`--set` 生成 `runs/platform/<name>_<k><v>.../` 参数变体；`--chunk-days` 日期分块，见 §运行-分块计算） |
 | `factorlab list` | 列出已保存因子与最近运行摘要（扫描 `results_dir/*/summary.json`，按运行时间倒序） |
 | `factorlab show <name>` | 查看单因子完整摘要（spec 原文/评估/分层回测） |
 | `factorlab corr <name1> <name2> ...` | 因子两两相关性（≥2 个）：周度横截面秩相关均值 + 全局 Pearson；任一因子无 results 报错（数据源 `<results_dir>/<name>/panel.parquet`（默认 `runs/platform/`） 的 signal，按 date+code inner join；join 后超 2000 万行每周降采样 5000 只） |
@@ -113,8 +117,10 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   相对 cwd 解释——`list`/`show` 扫描同一目录）。
 - `--no-float32`：关闭 float32 内存护栏。
 - `--backtest/--no-backtest`：默认产出分层回测并写入 evaluation；`--no-backtest`
-  关闭（快速评估，weekly 落盘不受影响）。
+  关闭（快速评估，评估面板落盘不受影响）。
 - `--groups N`：分层档数（默认 10，`N >= 2`）。
+- `--eval-frequency daily|weekly`：覆盖 spec 的 `evaluation_frequency`（D9，
+  R30 Task 13）——daily 默认逐日口径、weekly 旧口径对照；缺省取 spec 值。
 - `--set k=v`（可多次）：覆盖 spec 的 `params`（见 §2），生成**参数变体**——
   变体名 `<spec.name>_<k><v>...`（如 `vol_run_energy_win100_gain1.5`），results
   独立目录，与默认变体（`runs/platform/<name>/`）并存不覆盖。值类型解析
@@ -133,15 +139,16 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   + 20 安全垫）。
 - **分钟面分派（W5）**：`interface: bars_1m` 的 spec（字段与口径见 §2）由 run
   分派 `run_factor_minute`（engine.minute，B7.1）——折日面板与日频同列契约，
-  下方评估/周频对齐/分层回测同一路径零改动（`weekly.parquet` + `evaluation`
+  下方评估/分层回测同一路径零改动（`weekly.parquet` + `evaluation`
   照常落盘）。分钟面**仅 ClickHouse 后端**：设置 `FACTORLAB_DATA_BACKEND=ch`
   （并指向含 bars_1m 的 `FACTORLAB_CH_DATABASE`）。`--warmup-days` 对分钟链
   忽略（日内窗无预热；注入列 adv20 左窗由引擎独立预取 20 交易日）；`--chunk-days`
   缺省按 20 交易日/块自动分块（R04-P1，内存语义见上一条），分块结果 == 整段
   严格相等。
-- 落盘：`panel.parquet`（run_factor 日频面板）、`weekly.parquet`（周频对齐面板——
-  评估/回测输入）、`summary.json`（run_factor 摘要 + `evaluation` 字段——quant_core
-  周频评估 + `layered_backtest` 分层回测，CLI 层追加后重写）。
+- 落盘：`panel.parquet`（run_factor 日频面板）、`weekly.parquet`（评估输入面板——
+  daily 模式为日频面板 / weekly 模式为周频对齐面板；文件名保留历史布局）、
+  `summary.json`（run_factor 摘要 + `evaluation` 字段——频率分支评估
+  （`frequency`/`target`）+ `layered_backtest` 分层回测，CLI 层追加后重写）。
 - 错误路径以非 0 退出并打印原因：spec 不存在、平台库缺失、universe 无有效股票、
   `--set` 格式错误、公式/process 校验失败等。
 
@@ -362,6 +369,11 @@ formula: |
     求值语义见 §3「池公式」。
 - `date.start` / `date.end`：可选，`YYYY-MM-DD`。
 - `target`：`forward_return_5d | forward_return_20d`，默认 `forward_return_5d`。
+  **仅 weekly 评估模式消费**（见下）；daily 模式评估目标固定 `forward_return_1d`（D11）。
+- `evaluation_frequency`（D9，R30 Task 13）：`daily | weekly`，**默认 `daily`**——
+  daily=逐日口径（每日截面/每日调仓/1 日 forward）；weekly=旧口径可选对照
+  （ISO 周对齐 + `target`），逐值零变更。CLI `--eval-frequency` 可覆盖 spec 值。
+  结果落 `evaluation.frequency`（历史产物无该键 ≡ weekly 旧口径）。
 - `outputs`（M2 多信号输出）：可选声明输出列表；**缺省 `None` = 单输出 `signal`**
   （与旧 spec 逐字节兼容）。多输出示例：
   ```yaml
@@ -747,9 +759,9 @@ date 对象）。**R21（R01-DATA-I3）**：asof base 由 `load_pit_qfq_base_adj
 全局装载（`argMax(adj_factor, trade_date) WHERE trade_date <= asof`，每 code 一次），
 FULL/CHUNK 共用同一 base 列——保证分块结果与整段逐 cell 一致（此前按块内帧重算）。
 
-`FactorResult`：`spec`、`panel`（列：`date, code, <outputs…>, forward_return_5d,
-forward_return_20d, close`——legacy 单输出时 `<outputs…> = signal`；close 为复权
-视图价格）、
+`FactorResult`：`spec`、`panel`（列：`date, code, <outputs…>, forward_return_1d,
+forward_return_5d, forward_return_20d, close`——legacy 单输出时 `<outputs…> = signal`；
+close 为复权视图价格）、
 `summary`（含 spec 原文、codes、universe_count、panel_rows、signal_null_ratio、process、
 adjustment、float32）。
 
@@ -860,26 +872,35 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 - 门/错误表全集与测试矩阵见规格文档文末；真 CH 三对拍 e2e 见
   tests/test_minute_prod_e2e.py（integration 标记）。
 
-### `factorlab.adapters.rust_ic.evaluate_factor_weekly(panel, factor_name, direction, target="forward_return_5d") -> dict`
+### `factorlab.adapters.rust_ic.evaluate_factor_daily / evaluate_factor_weekly`
 
-日频面板 → 周频对齐（ISO 周最后交易日）→ Rust `quant_core.evaluate_factor`
-评估。输入须含 `date/code/signal/target` 列，缺列抛 `ValueError`；`signal`/`target`
+频率分支评估桥接（D9，R30 Task 13）——两者共用同一 kernel 与过滤/coverage 语义：
+- `evaluate_factor_daily(panel, factor_name, direction, target="forward_return_1d")`：
+  **daily 默认口径**——评估面板原样进 kernel（**不得调用 `align_weekly`**），
+  每日一个截面；target 固定 1 日 forward（D11）。
+- `evaluate_factor_weekly(panel, factor_name, direction, target="forward_return_5d", weekly=None)`：
+  weekly 可选对照——日频面板 → 周频对齐（ISO 周最后交易日）→ 评估（旧口径零变更）。
+
+输入须含 `date/code/signal/target` 列，缺列抛 `ValueError`；`signal`/`target`
 为 null 的行在桥接层过滤（停牌补全行、尾部无未来收益行不进入评估）。
 
-返回 dict：`version`（口径版本，现值 2）、`factor`、`target`、`n_weeks`、`ic`
+返回 dict：`version`（口径版本，现值 2）、`frequency`（`daily|weekly`）、`factor`、
+`target`、`n_weeks`（**评估期数**：daily=交易日数、weekly=ISO 周数）、`ic`
 （mean/std/t_stat/ir 等）、`decile_returns`（含 spread，v2 正值=方向自洽）、`turnover`、
 `coverage`（pct_valid/total_rows/valid_rows）。
 空面板（列齐全）不崩溃，返回全 nan 结构（`n_weeks=0`）。`direction` 透传
 `1/-1`（翻转信号方向）。
 
-### `factorlab.core.eval.ic_series.weekly_ic(panel, target="forward_return_5d") -> pl.DataFrame`
+### `factorlab.core.eval.ic_series.ic_series(panel, target="forward_return_5d") -> pl.DataFrame`
 
-周度 RankIC 序列：每期（周）signal 与 target 的 Spearman 秩相关——与
+逐期 RankIC 序列：每个日期（评估期）signal 与 target 的 Spearman 秩相关——与
 `quant_core` 的 RankIC 同源定义（秩相关即秩的 Pearson，polars 1.38
-`pl.corr(method="spearman")` 直接支持）。输入须含 `date/code/signal/target`
+`pl.corr(method="spearman")` 直接支持）。**周期无关**（R30 Task 13 改名自
+`weekly_ic`；旧名保留为别名）：daily 面板→逐日 IC 曲线（Web 详情页对 daily 产物
+的默认路径）、weekly 对齐面板→逐周曲线。输入须含 `date/code/signal/target`
 四列，缺列抛 `ValueError`（不依赖 polars 内部异常）；`signal`/`target` null
 行排除（复用 rust_ic 的过滤语义）。面板中每个日期都保留一行：有效股票 < 3
-（`MIN_STOCKS`）的周 ic = null（秩相关不稳健，含有效股票为 0 的周）。
+（`MIN_STOCKS`）的期 ic = null（秩相关不稳健，含有效股票为 0 的期）。
 返回 `(date, ic)` 按日期排序——`factorlab.surfaces.web` 详情页 IC 曲线数据源。
 
 ### `factorlab.app.analysis.cross_section`：横截面联合诊断（resIC）
@@ -927,8 +948,9 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
 - `GET /`：因子列表页——扫描 `results_dir/*/summary.json`（损坏/不可读跳过，
   不中断列表），展示 name/category/direction/ic_mean/spread/run_at。
 - `GET /factor/{name}`：单因子详情页——读 `summary.json`（缺失/损坏 → 404，
-  与 spec §3.2 缺失兼容一致），渲染指标表 + 图表：周度 RankIC 曲线
-  （`weekly.parquet` + `weekly_ic`）、十分位收益柱状（`decile_returns.groups`）、
+  与 spec §3.2 缺失兼容一致），渲染指标表 + 图表：RankIC 曲线
+  （`weekly.parquet` 评估面板 + `ic_series`，target 取 summary——
+  daily 产物=逐日曲线）、十分位收益柱状（`decile_returns.groups`）、
   分层回测净值（`layered_backtest.net_values`）；缺 weekly.parquet 或
   evaluation 字段时对应图表/指标降级（空串/空图），页面不崩溃。
 - `GET /static/*`：静态资源（plotly.min.js 等）。
@@ -1051,36 +1073,49 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
 
 前向收益 **total_return 口径** `close[t+h]×adj[t+h] / (close[t]×adj[t]) - 1`
 （含分红再投资；输入须停牌补全且 close 为 raw 价格——先于复权视图计算，避免二次复权）；
-签名 `compute_forward_returns(df, horizons=(5, 20), close_col="close", adj_col="adj_factor")`，
-缺 adj 列时显式报错。
+签名 `compute_forward_returns(df, horizons=(1, 5, 20), close_col="close", adj_col="adj_factor")`，
+缺 adj 列时显式报错。**D9（R30 Task 13）起默认 horizons 含 1d**——daily 评估
+固定 1 日 forward（`forward_return_1d`，D11）；label/panel 列清单由
+`FORWARD_COLUMNS` 单点派生。
 `align_weekly` 对齐到 **ISO 周**最后一个交易日（跨年日期同属 ISO 周时合并为该周
-最后交易日，与 tushare weekly 语义一致；M4a 起由 `eval` 使用）。
+最后交易日，与 tushare weekly 语义一致；**仅 weekly 评估模式调用**——daily 路径
+不得调用，桥接层禁用测试锁定）。
 
-### `factorlab.adapters.rust_ic.evaluate_factor_weekly`
+### `factorlab.adapters.rust_ic.evaluate_factor_daily / evaluate_factor_weekly`
 
-周频评估桥接：日频面板 → 周频对齐（`align_weekly`）→ Rust `quant_core.evaluate_factor`。
-签名 `evaluate_factor_weekly(panel, factor_name, direction, target="forward_return_5d") -> dict`，
+频率分支评估桥接（D9，R30 Task 13）：daily = 面板原样进评估（**不调用
+`align_weekly`**，每日截面）；weekly = 日频面板 → 周频对齐（`align_weekly`）→
+评估（旧口径零变更）。
+签名 `evaluate_factor_daily(panel, factor_name, direction, target="forward_return_1d") -> dict` /
+`evaluate_factor_weekly(panel, factor_name, direction, target="forward_return_5d", weekly=None) -> dict`，
 `panel` 需含 `date`（pl.Date）、`code`（str）、`signal`、`target` 四列，缺列抛
 `ValueError`（中文消息，含缺失列名）。`direction` 约定 `1`（多）/`-1`（空）。
-返回 quant_core 原始 dict（`version`/`factor`/`target`/`n_weeks`/`ic`/`pearson_ic`/
+返回 kernel dict（`version`/`frequency`/`factor`/`target`/`n_weeks`/`ic`/`pearson_ic`/
 `decile_returns`/`turnover`/`coverage`），另附加 `factor_name` 字段；内部 `factor`
-恒为 `"_factor"`（quant_core 内部列名约定）。
+恒为 `"_factor"`（kernel 内部列名约定）。
 
 行为约定（实测）：
-- `signal`/`target` 为 null 的行在桥接层**过滤**（quant_core 拒绝 Python `None`，
+- `signal`/`target` 为 null 的行在桥接层**过滤**（kernel 拒绝 Python `None`，
   实测 `TypeError: must be real number`）；停牌补全行与尾部无未来数据的 forward
-  行均不进入评估。`NaN` 不属 null，quant_core 容忍（实测）。
-- **coverage 口径（R03-I2）**：以**过滤前**对齐面板计算——`total_rows` 含全部行，
+  行均不进入评估。`NaN` 不属 null，kernel 容忍（实测）。
+- **coverage 口径（R03-I2）**：以**过滤前**评估面板计算——`total_rows` 含全部行，
   `valid_rows` 只计 signal/target 非 null 且有限（`is_finite`）的行，`pct_valid` 与
   同一 summary 的 `signal_null_ratio` 可对账。kernel 只见过滤后的行、自身 coverage
   恒 1.0，桥接层以 kernel 形状覆盖返回值；`quant_core.evaluate_factor` 直调的
-  coverage 契约不变（shim 契约）。
+  coverage 契约不变。
 - 空面板（列齐全）不报错，透传后返回全 `nan` 结构（`n_weeks == 0`；coverage
   `pct_valid=0.0`、`total_rows=0`）。
-- 列检查先于周频对齐：缺列的裸 `date`/`code` 空表（Null dtype）也报 `ValueError`，
+- 列检查先于对齐：缺列的裸 `date`/`code` 空表（Null dtype）也报 `ValueError`，
   而非 polars dtype 错误。
-- `direction` 原样透传为 int（`0` 实测按 `-1` 处理，属 quant_core 内部语义，桥接层
+- `direction` 原样透传为 int（`0` 实测按 `-1` 处理，属 kernel 内部语义，桥接层
   不校验）。
+- **daily 期语义**：`n_weeks` = 评估期数（交易日数）——字段名保留历史键；
+  `turnover.monthly/quarterly` = 4/12 个**连续评估日**桶的 decile 归属变化
+  （不是日历月/季；日频换手权威口径 = `layered_backtest.turnover` 的
+  `1−|S_t∩S_{t−1}|/|S_t|` 逐日序列）。
+- **年化**：`evaluation.frequency=daily` 时 layered_backtest 年化系数 = **252**
+  （`periods_per_year` 参数；weekly=52 缺省）——日频成本敏感度显著高于周频
+  （成本 = 日频换手 × `cost_rate`，真实反映每日调仓）。
 - **spread 符号约定（v2，R30 D1=B；`evaluation.version=2`）**：
   `decile_returns.spread.ret = (g9−g0)×direction`（`g9` = group9 = signal 最高档的
   全期组均值、`g0` = group0 = signal 最低档；quant_core 契约 2026-08-26 §3.1 为
@@ -1095,11 +1130,12 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
   按 v1 口径解读；档案 `snapshot:` 注记「spread 为 v1 口径（负=自洽）」。
   `factorlab list/show` 按 `version` 分渲染提示。
 
-### `factorlab.core.eval.layered.layered_backtest(panel, direction, n_groups=10, forward_col="forward_return_5d", cost_rate=0.0) -> dict`
+### `factorlab.core.eval.layered.layered_backtest(panel, direction, n_groups=10, forward_col="forward_return_5d", cost_rate=0.0, periods_per_year=52) -> dict`
 
 分层回测：每期按 signal 分档，各档 forward 等权平均累积净值；long-short = 最佳档 −
-最差档净值差。输入**周频面板**（date/code/signal/forward_return_5d，即
-`align_weekly` 输出）。**调仓成本**（R9 起建模，可验证口径）：
+最差档净值差。输入**评估面板**：daily 模式为日频面板（`forward_col="forward_return_1d"`、
+`periods_per_year=252`，每日调仓）；weekly 模式为周频对齐面板（`forward_col=spec.target`、
+`periods_per_year=52` 缺省）。**调仓成本**（R9 起建模，可验证口径）：
 
 - `cost_rate` = 每单位**单边换手**的买卖总成本（费率语义；如 A 股约 0.0007 = 0.1% 印花税
   + 双边佣金 0.005%×2 + 少量冲击，**由调用方给**，默认 0.0 = 与历史零成本结果逐值一致）；
@@ -1113,20 +1149,21 @@ fillna(method=industry_mean) 同理需 ProcessCtx(db)，缺上下文显式 Value
 - **方向感知**：`direction=1` 时 D1 = signal 最高档，`direction=-1` 时 D1 = signal
   最低档（rank 降序/升序控制，两者都是"最佳档"）；分档边界 `(rank-1)*n_groups//n`
   自然处理（n 不整除时末档更小）。
-- **期数口径**：signal/forward 为 null 的行不参与分档与收益（周内部分行 null 的周
-  仍计入，组内等权平均忽略 null）；某周**全部**行无效（头部 ts 窗口未满/尾部无未来
-  收益）则该周不计入 `periods`——与 `evaluate_factor_weekly` 的 `n_weeks` 口径一致
+- **期数口径**：signal/forward 为 null 的行不参与分档与收益（期内部分行 null 的期
+  仍计入，组内等权平均忽略 null）；某期**全部**行无效（头部 ts 窗口未满/尾部无未来
+  收益）则该期不计入 `periods`——与桥接评估的 `n_weeks` 口径一致
   （`bt["periods"] == evaluation["n_weeks"]`）。
 - **档空期**：某期某档无股票 → 该档收益记 0（fill_null(0)，净值保持前值，不跳变）。
-- 年化：周收益均值 × 52；年化波动：std × √52；夏普 = 年化收益/年化波动（vol=0 时
-  记 0.0 退化）；最大回撤 = 净值峰值到谷值最大跌幅；胜率 = 周收益 > 0 比例。
+- 年化：期收益均值 × `periods_per_year`（weekly=52 / daily=252）；年化波动：
+  std × √`periods_per_year`；夏普 = 年化收益/年化波动（vol=0 时记 0.0 退化）；
+  最大回撤 = 净值峰值到谷值最大跌幅；胜率 = 期收益 > 0 比例。
 
 返回结构：
 
 ```python
 {
   "n_groups": 10,
-  "periods": 98,                      # 回测期数 = 有效周数（= 评估 n_weeks）
+  "periods": 98,                      # 回测期数 = 有效评估期数（= 评估 n_weeks）
   "net_values": {                     # 各档净值序列 + long_short（每期一点，长度 = periods）
     "D1": [1.0, 1.01, ...], ..., "D10": [...],
     "long_short": [1.0, 1.02, ...],   # D1 − D10 净值差（非组合净值）

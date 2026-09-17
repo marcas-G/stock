@@ -31,6 +31,7 @@ def _labels_df():
     return pl.DataFrame({
         "date": [D1, D2, D3],
         "code": ["000001", "000002", "000003"],
+        "forward_return_1d": [0.001, None, -0.002],
         "forward_return_5d": [0.01, None, -0.03],
         "forward_return_20d": [0.05, -0.02, None],
     })
@@ -43,8 +44,8 @@ def _artifacts(signal_df=None, labels_df=None):
                         meta=SignalMeta(name="t", frequency="1d",
                                         timing=DEFAULT_EOD_SIGNAL_TIMING,
                                         adjustment="qfq"))
-    la = LabelArtifact(frame=l.select(["date", "code", "forward_return_5d",
-                                       "forward_return_20d"]))
+    la = LabelArtifact(frame=l.select(["date", "code", "forward_return_1d",
+                                       "forward_return_5d", "forward_return_20d"]))
     return sa, la
 
 
@@ -53,8 +54,8 @@ def _join_reference(signal_df=None, labels_df=None):
     s = signal_df if signal_df is not None else _signal_df()
     l = labels_df if labels_df is not None else _labels_df()
     return (s.join(l, on=["date", "code"], how="left")
-            .select(["date", "code", "signal", "forward_return_5d",
-                     "forward_return_20d", "close"]))
+            .select(["date", "code", "signal", "forward_return_1d",
+                     "forward_return_5d", "forward_return_20d", "close"]))
 
 
 # ---------------------------------------------------------------- 基本输出
@@ -62,10 +63,11 @@ def _join_reference(signal_df=None, labels_df=None):
 def test_panel_schema_and_values():
     sa, la = _artifacts()
     panel = _build_legacy_panel(_signal_df(), _labels_df(), sa, la, ["signal"])
-    assert panel.columns == ["date", "code", "signal", "forward_return_5d",
-                             "forward_return_20d", "close"]
+    assert panel.columns == ["date", "code", "signal", "forward_return_1d",
+                             "forward_return_5d", "forward_return_20d", "close"]
     assert panel.height == 3
     assert panel["signal"].to_list() == [0.5, None, -1.2]
+    assert panel["forward_return_1d"].to_list() == [0.001, None, -0.002]
     assert panel["forward_return_5d"].to_list() == [0.01, None, -0.03]
     assert panel["forward_return_20d"].to_list() == [0.05, -0.02, None]
     assert panel["close"].to_list() == [10.0, 11.5, None]
@@ -85,7 +87,8 @@ def test_panel_null_masks_match_reference():
     sa, la = _artifacts()
     panel = _build_legacy_panel(_signal_df(), _labels_df(), sa, la, ["signal"])
     expected = _join_reference()
-    for c in ("signal", "forward_return_5d", "forward_return_20d", "close"):
+    for c in ("signal", "forward_return_1d", "forward_return_5d",
+              "forward_return_20d", "close"):
         assert panel[c].null_count() == expected[c].null_count(), c
 
 

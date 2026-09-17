@@ -5,6 +5,7 @@ import math
 import polars as pl
 
 WEEKS_PER_YEAR = 52
+DAILY_PERIODS_PER_YEAR = 252  # D9：日频年化系数（调用方可显式传 periods_per_year）
 MIN_STOCKS = 2  # 有效周最小股票数——与 quant_core.MIN_STOCKS 同值（契约 §3.1）；锁在测试中
 
 
@@ -69,14 +70,18 @@ def _turnover_series(df: pl.DataFrame, n_groups: int, dates: list) -> dict[str, 
     return out
 
 
-def _summary_metrics(net_values: pl.Series, returns: pl.Series) -> dict:
-    """净值序列摘要：年化收益/波动/夏普/最大回撤/胜率。"""
+def _summary_metrics(net_values: pl.Series, returns: pl.Series,
+                     periods_per_year: int = WEEKS_PER_YEAR) -> dict:
+    """净值序列摘要：年化收益/波动/夏普/最大回撤/胜率。
+
+    `periods_per_year`：期频年化系数（weekly=52 缺省；daily=252——D9/R30 Task 13）。
+    """
     if len(returns) == 0:
         return {}
-    annual_return = float(returns.mean() * WEEKS_PER_YEAR)
+    annual_return = float(returns.mean() * periods_per_year)
     std = returns.std()
     # 单期 std=None（样本标准差无定义）→ 波动记 0（sharpe 同理退化）
-    annual_vol = float(std * (WEEKS_PER_YEAR ** 0.5)) if std is not None else 0.0
+    annual_vol = float(std * (periods_per_year ** 0.5)) if std is not None else 0.0
     sharpe = annual_return / annual_vol if annual_vol and annual_vol > 0 else 0.0
     peak = net_values.cum_max()
     drawdown = (net_values - peak) / peak
@@ -100,10 +105,12 @@ def layered_backtest(
     n_groups: int = 10,
     forward_col: str = "forward_return_5d",
     cost_rate: float = 0.0,
+    periods_per_year: int = WEEKS_PER_YEAR,
 ) -> dict:
     """分层回测：每期按 signal 分档，各档 forward 等权平均累积净值；long-short = D1 - D10。
 
-    输入周频面板（date/code/signal/forward_col）。**调仓成本**按可验证口径建模（R9）：
+    输入面板（date/code/signal/forward_col）——weekly 模式为周频对齐面板、daily 模式
+    为日频面板（每日调仓；`periods_per_year=252`）。**调仓成本**按可验证口径建模（R9）：
 
     - `cost_rate` = 每单位**单边换手**的买卖总成本（费率语义，例：A 股单边约 0.0007 ≈
       0.1% 印花税 + 双边佣金 0.005%×2 + 少量冲击，按公开费率估算，实际由调用方给）；
@@ -174,7 +181,7 @@ def layered_backtest(
             rets = pl.Series(ls_returns)
         else:
             rets = pl.Series(returns_by_group[label])
-        summary[label] = _summary_metrics(nv, rets)
+        summary[label] = _summary_metrics(nv, rets, periods_per_year)
 
     empty_groups = [
         label for label in (f"D{i}" for i in range(1, n_groups + 1))

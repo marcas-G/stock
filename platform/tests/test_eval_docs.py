@@ -46,6 +46,17 @@ def test_interface_spread_v2_formula_and_version_migration():
     assert "负=自洽" in text, "interface 缺 v1 档案注记文案（负=自洽）"
 
 
+def test_interface_daily_eval_frequency_contract():
+    """D9/D11（R30 Task 13）：interface 必须写清 daily 默认口径、1 日 forward、252 年化。"""
+    text = INTERFACE.read_text(encoding="utf-8")
+    assert "evaluation.frequency" in text, "interface 缺 evaluation.frequency 字段"
+    assert "evaluation_frequency" in text, "interface 缺 spec.evaluation_frequency 字段"
+    assert "forward_return_1d" in text, "interface 缺 daily 固定的 1 日 forward 标签"
+    assert "252" in text, "interface 缺日频年化系数 252"
+    assert "evaluate_factor_daily" in text, "interface 缺日频评估桥接入口"
+    assert "(1, 5, 20)" in text, "interface 缺默认 horizons=(1, 5, 20) 更新"
+
+
 def test_interface_old_formula_only_in_migration_note():
     """负向守卫：旧公式不得作为现行口径回潮——只许出现在 v1/历史注记行。"""
     for lineno, line in enumerate(INTERFACE.read_text(encoding="utf-8").splitlines(), 1):

@@ -37,7 +37,8 @@ formula: |
 
     panel = result.panel
     assert panel.height > 0
-    assert panel.columns == ["date", "code", "signal", "forward_return_5d", "forward_return_20d", "close"]
+    assert panel.columns == ["date", "code", "signal", "forward_return_1d",
+                             "forward_return_5d", "forward_return_20d", "close"]
     assert panel["date"].dtype == pl.Date
     assert (out_dir / "panel.parquet").exists()
     summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))

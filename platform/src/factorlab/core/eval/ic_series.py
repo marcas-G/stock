@@ -5,8 +5,11 @@ import polars as pl
 MIN_STOCKS = 3  # 秩相关稳健性的最小有效股票数
 
 
-def weekly_ic(panel: pl.DataFrame, target: str = "forward_return_5d") -> pl.DataFrame:
-    """周度 RankIC：每期（周）signal 与 target 的 Spearman 秩相关序列。
+def ic_series(panel: pl.DataFrame, target: str = "forward_return_5d") -> pl.DataFrame:
+    """逐期 RankIC：每个日期（评估期）signal 与 target 的 Spearman 秩相关序列。
+
+    **周期无关**（D9/R30 Task 13 改名自 weekly_ic）：daily 面板 → 逐日 IC 曲线、
+    weekly 对齐面板 → 逐周 IC 曲线；口径不随命名变。
 
     - 与 quant_core 的 RankIC 同源定义（秩相关）；polars 1.38 的
       pl.corr(method="spearman") 直接支持，无需手工 rank（rank 后
@@ -14,9 +17,9 @@ def weekly_ic(panel: pl.DataFrame, target: str = "forward_return_5d") -> pl.Data
     - signal/target null 行排除（复用 rust_ic 的过滤语义）；**NaN/inf 也排除**
       （`is_finite`）——NaN 不是 null，polars 会把 NaN 当有效值参与秩相关
       （与 quant_core `is_finite` 口径不一致，Web 曲线会与同页 summary 矛盾）。
-    - 面板中每个日期都保留一行：有效股票 < MIN_STOCKS 的周 ic = null
-      （秩相关不稳健；含有效股票为 0 的周）；秩相关退化（常数序列 → NaN/非有限）
-      同样记 null（不进任何下游统计——与 quant_core 只统计可计算周一致）。
+    - 面板中每个日期都保留一行：有效股票 < MIN_STOCKS 的期 ic = null
+      （秩相关不稳健；含有效股票为 0 的期）；秩相关退化（常数序列 → NaN/非有限）
+      同样记 null（不进任何下游统计——与 quant_core 只统计可计算期一致）。
     - 输出 (date, ic) 按日期排序。
     - 缺列（date/code/signal/target）抛 ValueError（不依赖 polars 内部异常）。
     """
@@ -44,3 +47,7 @@ def weekly_ic(panel: pl.DataFrame, target: str = "forward_return_5d") -> pl.Data
         .select(["date", "ic"])
         .sort("date")
     )
+
+
+# 兼容别名（旧调用/旧测试/历史脚本）：同一实现，无独立语义。
+weekly_ic = ic_series
