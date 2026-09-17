@@ -167,15 +167,20 @@ _MULTI_EVAL = {
 
 def test_list_multi_output_per_output_rows(monkeypatch, tmp_path):
     # M4：list 对多输出 summary 逐输出显示（因子名__输出名行），单输出行格式不变
+    monkeypatch.setenv("COLUMNS", "300")  # D4 标注后行更长：防 rich 折行拆断断言
     monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
     _write_summary(tmp_path, "multi_1", evaluation=_MULTI_EVAL)
     _write_summary(tmp_path, "alpha_1")  # 单输出同行基线
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 0
-    assert "multi_1__a | custom | dir=1 | ic=0.11 | spread=0.021 | 2026-08-16T12:00:00" in result.stdout
-    assert "multi_1__b | custom | dir=1 | ic=-0.22 | spread=0.033 | 2026-08-16T12:00:00" in result.stdout
-    # 单输出行格式逐字节不变（既有 list 断言只查子串，这里锁整行）
-    assert "alpha_1 | custom | dir=1 | ic=0.05 | spread=0.02 | 2026-08-16T12:00:00" in result.stdout
+    # D4（R30 Task 3）后逐行新增 dir_consistent 标注（缺字段 → —，历史产物兼容）
+    assert ("multi_1__a | custom | dir=1 | dir_consistent=— | ic=0.11 | spread=0.021 "
+            "| 2026-08-16T12:00:00") in result.stdout
+    assert ("multi_1__b | custom | dir=1 | dir_consistent=— | ic=-0.22 | spread=0.033 "
+            "| 2026-08-16T12:00:00") in result.stdout
+    # 单输出行格式（含 D4 标注）
+    assert ("alpha_1 | custom | dir=1 | dir_consistent=— | ic=0.05 | spread=0.02 "
+            "| 2026-08-16T12:00:00") in result.stdout
 
 
 def test_show_multi_output_per_output_blocks(monkeypatch, tmp_path):

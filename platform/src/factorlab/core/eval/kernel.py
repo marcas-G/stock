@@ -15,7 +15,8 @@
   coverage{pct_valid,total_rows,valid_rows}、None → TypeError("must be real number")、
   空面板全 nan 结构、NaN 容忍不崩溃、direction 0 → -1、target 固定 forward_return_5d。
 - **合理假设**（早期契约校准）：
-  recent_26w_mean/recent_26w_t（最后 ≤26 期子窗口）、sign_consistent（正 IC 期占比）、
+  recent_26w_mean/recent_26w_t（最后 ≤26 期子窗口）、sign_consistent（正 IC 期占比；
+  **raw 语义**，不随 direction 变化）、direction_consistent_share（D4：P(direction×IC>0)）、
   turnover{monthly,quarterly}（相邻 4/12 期桶间 decile 组归属变化比例）、
   weighting="equal_weight"、monotonic（组均值与组号 spearman 符号）、
   NaN 行视为无效观测、有效期 = ≥2 只有效股票（秩相关退化期计入 n_weeks 但不参与 IC 统计）。
@@ -118,7 +119,8 @@ def evaluate_factor(
 
     返回契约结构（键集与 m4a 文档一致；空面板 → 全 nan 结构）：
     {version, factor, target, direction, n_weeks, n_stocks_avg,
-     ic{mean,std,t_stat,ir,n_weeks,recent_26w_mean,recent_26w_t,sign_consistent},
+     ic{mean,std,t_stat,ir,n_weeks,recent_26w_mean,recent_26w_t,sign_consistent,
+        direction_consistent_share},
      pearson_ic{mean,t_stat},
      decile_returns{weighting,monotonic,spread{ret},groups[{group,mean_ret}]},
      turnover{monthly,quarterly}, coverage{pct_valid,total_rows,valid_rows}}
@@ -147,6 +149,7 @@ def evaluate_factor(
         "ic": {
             "mean": _NAN, "std": _NAN, "t_stat": _NAN, "ir": _NAN, "n_weeks": 0,
             "recent_26w_mean": _NAN, "recent_26w_t": _NAN, "sign_consistent": _NAN,
+            "direction_consistent_share": _NAN,   # D4（R30 Task 3）：方向感知胜率
         },
         "pearson_ic": {"mean": _NAN, "t_stat": _NAN},
         "decile_returns": {
@@ -210,6 +213,10 @@ def evaluate_factor(
     result["ic"]["recent_26w_mean"] = r_mean
     result["ic"]["recent_26w_t"] = _t_stat(r_mean, r_std, len(recent))
     result["ic"]["sign_consistent"] = sum(1 for x in ics if x > 0) / n_ok
+    # D4（R30 Task 3）：方向感知胜率 = P(direction×IC>0)——dir=1 即正 IC 期占比，
+    # dir=−1 为负 IC 期占比（raw `sign_consistent` 语义不动，恒为正 IC 占比）。
+    result["ic"]["direction_consistent_share"] = (
+        sum(1 for x in ics if x * direction > 0) / n_ok)
 
     pearsons = ok.filter(
         pl.col("pearson").is_not_null() & pl.col("pearson").is_finite()

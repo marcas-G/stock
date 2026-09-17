@@ -382,6 +382,8 @@ def list_factors() -> None:
                     "direction": summary.get("direction", ""),
                     "ic_mean": ev_o.get("ic", {}).get("mean"),
                     "spread": ev_o.get("decile_returns", {}).get("spread", {}).get("ret"),
+                    "dir_consistent": ev_o.get("ic", {}).get(
+                        "direction_consistent_share"),
                     "version": ev_o.get("version"),
                     "frequency": ev_o.get("frequency"),
                     "run_at": run_at,
@@ -394,6 +396,7 @@ def list_factors() -> None:
             "direction": summary.get("direction", ""),
             "ic_mean": ev.get("ic", {}).get("mean"),
             "spread": ev.get("decile_returns", {}).get("spread", {}).get("ret"),
+            "dir_consistent": ev.get("ic", {}).get("direction_consistent_share"),
             "version": ev.get("version"),
             "frequency": ev.get("frequency"),
             "run_at": run_at,
@@ -403,12 +406,17 @@ def list_factors() -> None:
         console.print("暂无因子结果（先运行 factorlab run）")
         return
     for row in sorted(rows, key=lambda r: r["_sort"], reverse=True):
+        dcs = row["dir_consistent"]
         console.print(f"{row['name']} | {row['category']} | dir={row['direction']} "
+                      f"| dir_consistent={dcs if dcs is not None else '—'} "
                       f"| ic={row['ic_mean']} | spread={row['spread']} | {row['run_at']} "
                       f"| freq={row['frequency'] or '—'}")
     # R30 D1=B：spread v2 正值口径；历史 v1 产物（无 version 键）单独注记，不重算
     console.print("提示: spread=(g9−g0)×dir（g9=signal 最高档；"
                   "正值=与声明方向一致，正=好；判有效性看 ic）")
+    # R30 D4：方向一致率口径（按声明方向；raw 正 IC 占比仍在 ic.sign_consistent）
+    console.print("提示: dir_consistent=方向一致率（dir=1：IC>0 期占比；"
+                  "dir=-1：IC<0 期占比）——按声明方向标注；raw 口径见 ic.sign_consistent")
     legacy = sum(1 for row in rows if row["version"] != 2)
     if legacy:
         console.print(f"注: 含历史 v1 产物 {legacy} 条——spread=(g0−g9)×dir，"
@@ -436,6 +444,17 @@ def show_factor(name: str) -> None:
             console.print(f"警告: {prefix}十分位组 {degenerate}（0=最小 signal）全期无有效"
                           "收益——信号重并列/离散，spread/单调性不可用；建议降低分组数"
                           "或改用其他评估口径")
+
+    def _print_dir_consistent(ev_: dict, prefix: str = "") -> None:
+        # R30 D4：方向一致率按声明方向标注；raw 正 IC 占比仍在 ic.sign_consistent
+        ic_ = ev_.get("ic") or {}
+        dcs = ic_.get("direction_consistent_share")
+        direction = summary.get("direction")
+        if dcs is None:
+            console.print(f"{prefix}方向一致率: —（历史产物无该字段）")
+            return
+        console.print(f"{prefix}方向一致率: {dcs}（dir={direction}：IC×dir>0 期占比；"
+                      f"raw sign_consistent={ic_.get('sign_consistent')}）")
 
     console.print(f"=== {name} ===")
     console.print(f"spec: {summary.get('spec_yaml', '')}")
@@ -468,12 +487,14 @@ def show_factor(name: str) -> None:
             console.print(f"输出: {o}")
             _warn_degenerate(ev_o, prefix=f"输出 {o} ")
             console.print(f"  IC: {ev_o.get('ic')}")
+            _print_dir_consistent(ev_o, prefix="  ")
             console.print(f"  十分位 spread: {ev_o.get('decile_returns', {}).get('spread')}")
             console.print(f"  换手: {ev_o.get('turnover')} | 覆盖: {ev_o.get('coverage')}")
             console.print(f"  分层回测: {ev_o.get('layered_backtest', {}).get('summary', '无')}")
         return
     _warn_degenerate(ev)
     console.print(f"IC: {ev.get('ic')}")
+    _print_dir_consistent(ev)
     console.print(f"十分位 spread: {ev.get('decile_returns', {}).get('spread')}")
     console.print(f"换手: {ev.get('turnover')} | 覆盖: {ev.get('coverage')}")
     console.print(f"评估: ic={summary.get('evaluation', {}).get('ic')}")

@@ -56,7 +56,8 @@ def test_contract_keys_full_structure():
                       "ic", "pearson_ic", "decile_returns", "turnover", "coverage"}
     assert r["version"] == 2
     assert set(r["ic"]) == {"mean", "std", "t_stat", "ir", "n_weeks",
-                            "recent_26w_mean", "recent_26w_t", "sign_consistent"}
+                            "recent_26w_mean", "recent_26w_t", "sign_consistent",
+                            "direction_consistent_share"}  # D4 append-only 字段
     assert set(r["pearson_ic"]) == {"mean", "t_stat"}
     assert set(r["decile_returns"]) == {"weighting", "monotonic", "spread", "groups"}
     assert set(r["decile_returns"]["spread"]) == {"ret"}

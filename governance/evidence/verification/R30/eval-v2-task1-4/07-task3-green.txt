@@ -1,0 +1,8 @@
+........................................................................ [ 79%]
+...................                                                      [100%]
+91 passed in 11.25s
+
+=== D4 方向对拍（手工表） ===
+base dir=+1            sign_consistent=0.6400 direction_consistent_share=0.6400 ic_mean=+0.2800
+base dir=-1            sign_consistent=0.6400 direction_consistent_share=0.3600 ic_mean=+0.2800
+signal-negated dir=-1  sign_consistent=0.3600 direction_consistent_share=0.6400 ic_mean=-0.2800

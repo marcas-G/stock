@@ -1131,6 +1131,14 @@ R30 Task 15 从独立 quant-core 包并入的单一实现）：daily = 面板原
   **历史 summary 无 `version` 键 ≡ v1**（`(g0−g9)×direction`，负=自洽）——**不重算**，
   按 v1 口径解读；档案 `snapshot:` 注记「spread 为 v1 口径（负=自洽）」。
   `factorlab list/show` 按 `version` 分渲染提示。
+- **IC 方向胜率字段（D4，R30 Task 3）**：`ic.sign_consistent` 保持 **raw 语义**
+  （正 IC 期占比，不随 `direction` 变化）；新增
+  `ic.direction_consistent_share = P(direction×IC>0)`——`direction=1` 即正 IC 期
+  占比、`direction=−1` 为负 IC 期占比（按声明方向标注）。仅翻 `direction` 参数时
+  两字段互补（如 0.64↔0.36，raw 不变）；翻经济方向（信号取负 + 声明方向取负）时
+  `direction_consistent_share` 不变、`sign_consistent` 随数据翻。`factorlab list`
+  逐行打印 `dir_consistent=<值|—>` 并附读法提示，`factorlab show` 打印
+  `方向一致率`（含 dir 与 raw 对照）；历史产物缺该字段显示 `—`（不重算）。
 - **dead-signal fail-loud（D5，R30 Task 2；收口 R07-D6）**：样本面板 signal 列
   null 占比 ≥ `core.eval.metrics.DEAD_SIGNAL_NULL_RATIO`（默认 **0.99**，含 0.99）
   即判死信号——`evaluation.dead_signal=true` 先落盘供审计，`factorlab run` 随后以

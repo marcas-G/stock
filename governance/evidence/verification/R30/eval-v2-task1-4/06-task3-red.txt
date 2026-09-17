@@ -1,0 +1,102 @@
+FFFFFFF                                                                  [100%]
+=================================== FAILURES ===================================
+______ test_direction_consistent_share_hand_computed_and_direction_aware _______
+
+    def test_direction_consistent_share_hand_computed_and_direction_aware():
+        panel = _sign_panel()
+        up = evaluate_factor(*_args(panel), "_factor", 1)
+        assert up["ic"]["sign_consistent"] == pytest.approx(0.64)
+>       assert up["ic"]["direction_consistent_share"] == pytest.approx(0.64)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'direction_consistent_share'
+
+tests/test_eval_sign_fields.py:73: KeyError
+___ test_direction_consistent_share_invariant_when_economic_direction_flips ____
+
+    def test_direction_consistent_share_invariant_when_economic_direction_flips():
+        """翻经济方向（信号取负 + dir 取负）→ 新字段不变 0.64；raw 随数据翻 0.36。"""
+        flipped = evaluate_factor(*_args(_sign_panel(negate_signal=True)), "_factor", -1)
+>       assert flipped["ic"]["direction_consistent_share"] == pytest.approx(0.64)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'direction_consistent_share'
+
+tests/test_eval_sign_fields.py:86: KeyError
+__________ test_direction_consistent_share_not_constant_on_other_mix ___________
+
+    def test_direction_consistent_share_not_constant_on_other_mix():
+        """40% 正 IC 面板 → 0.4（常量/复制存根必败）。"""
+        panel = _sign_panel(neg_weeks=15)  # 16 正 / 15 负 = 0.516…；再取 6 正 9 负面板
+        r = evaluate_factor(*_args(panel), "_factor", 1)
+>       assert r["ic"]["direction_consistent_share"] == pytest.approx(16 / 31)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'direction_consistent_share'
+
+tests/test_eval_sign_fields.py:94: KeyError
+_______ test_direction_consistent_share_empty_panel_nan_and_key_present ________
+
+    def test_direction_consistent_share_empty_panel_nan_and_key_present():
+        empty = evaluate_factor([], [], [], [], "_factor", 1)
+>       assert set(empty["ic"]) == {"mean", "std", "t_stat", "ir", "n_weeks",
+                                    "recent_26w_mean", "recent_26w_t",
+                                    "sign_consistent", "direction_consistent_share"}
+E       AssertionError: assert {'ir', 'mean'...sistent', ...} == {'direction_c...t_26w_t', ...}
+E         
+E         Extra items in the right set:
+E         'direction_consistent_share'
+E         Use -v to get more diff
+
+tests/test_eval_sign_fields.py:112: AssertionError
+_____________ test_bridge_and_evaluate_run_pass_through_new_field ______________
+
+    def test_bridge_and_evaluate_run_pass_through_new_field():
+        panel = _sign_panel()
+        ev = evaluate_factor_weekly(panel, "demo", 1)
+>       assert ev["ic"]["direction_consistent_share"] == pytest.approx(0.64)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'direction_consistent_share'
+
+tests/test_eval_sign_fields.py:121: KeyError
+________________ test_list_annotates_direction_consistent_share ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb61789f5c0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2384/test_list_annotates_direction_0')
+
+    def test_list_annotates_direction_consistent_share(monkeypatch, tmp_path):
+        monkeypatch.setenv("COLUMNS", "300")
+        monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+        _write_summary(tmp_path, "long_1", direction=1, dcs=0.64)
+        _write_summary(tmp_path, "short_1", direction=-1, dcs=0.36)
+        _write_summary(tmp_path, "legacy_1", direction=1, dcs=None)
+        result = runner.invoke(app, ["list"])
+        assert result.exit_code == 0
+>       assert "dir=1" in result.stdout and "dir_consistent=0.64" in result.stdout
+E       AssertionError: assert ('dir=1' in 'legacy_1 | custom | dir=1 | ic=0.05 | spread=0.02 | 2026-08-16T12:00:00 | freq=—\nlong_1 | custom | dir=1 | ic=0.05 |... ic=0.05 | spread=0.02 | 2026-08-16T12:00:00 | freq=—\n提示: spread=(g9−g0)×dir（g9=signal 最高档；正值=与声明方向一致，正=好；判有效性看 ic）\n' and 'dir_consistent=0.64' in 'legacy_1 | custom | dir=1 | ic=0.05 | spread=0.02 | 2026-08-16T12:00:00 | freq=—\nlong_1 | custom | dir=1 | ic=0.05 |... ic=0.05 | spread=0.02 | 2026-08-16T12:00:00 | freq=—\n提示: spread=(g9−g0)×dir（g9=signal 最高档；正值=与声明方向一致，正=好；判有效性看 ic）\n')
+E        +  where 'legacy_1 | custom | dir=1 | ic=0.05 | spread=0.02 | 2026-08-16T12:00:00 | freq=—\nlong_1 | custom | dir=1 | ic=0.05 |... ic=0.05 | spread=0.02 | 2026-08-16T12:00:00 | freq=—\n提示: spread=(g9−g0)×dir（g9=signal 最高档；正值=与声明方向一致，正=好；判有效性看 ic）\n' = <Result okay>.stdout
+E        +  and   'legacy_1 | custom | dir=1 | ic=0.05 | spread=0.02 | 2026-08-16T12:00:00 | freq=—\nlong_1 | custom | dir=1 | ic=0.05 |... ic=0.05 | spread=0.02 | 2026-08-16T12:00:00 | freq=—\n提示: spread=(g9−g0)×dir（g9=signal 最高档；正值=与声明方向一致，正=好；判有效性看 ic）\n' = <Result okay>.stdout
+
+tests/test_eval_sign_fields.py:155: AssertionError
+________________ test_show_annotates_direction_consistent_share ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb61787da70>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2384/test_show_annotates_direction_0')
+
+    def test_show_annotates_direction_consistent_share(monkeypatch, tmp_path):
+        monkeypatch.setenv("COLUMNS", "300")
+        monkeypatch.setattr("factorlab.config.settings.results_dir", tmp_path)
+        _write_summary(tmp_path, "short_show", direction=-1, dcs=0.36)
+        result = runner.invoke(app, ["show", "short_show"])
+        assert result.exit_code == 0
+>       assert "方向一致率" in result.stdout
+E       assert '方向一致率' in "=== short_show ===\nspec: \nuniverse: None 只 | None ~ None | rows=None | null_ratio=None\n评估口径: v2（spread 正值=与声明方向一致，...2}\n换手: None | 覆盖: None\n评估: ic={'mean': 0.05, 'sign_consistent': 0.64, 'direction_consistent_share': 0.36}\n分层回测: 无\n"
+E        +  where "=== short_show ===\nspec: \nuniverse: None 只 | None ~ None | rows=None | null_ratio=None\n评估口径: v2（spread 正值=与声明方向一致，...2}\n换手: None | 覆盖: None\n评估: ic={'mean': 0.05, 'sign_consistent': 0.64, 'direction_consistent_share': 0.36}\n分层回测: 无\n" = <Result okay>.stdout
+
+tests/test_eval_sign_fields.py:167: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_eval_sign_fields.py::test_direction_consistent_share_hand_computed_and_direction_aware
+FAILED tests/test_eval_sign_fields.py::test_direction_consistent_share_invariant_when_economic_direction_flips
+FAILED tests/test_eval_sign_fields.py::test_direction_consistent_share_not_constant_on_other_mix
+FAILED tests/test_eval_sign_fields.py::test_direction_consistent_share_empty_panel_nan_and_key_present
+FAILED tests/test_eval_sign_fields.py::test_bridge_and_evaluate_run_pass_through_new_field
+FAILED tests/test_eval_sign_fields.py::test_list_annotates_direction_consistent_share
+FAILED tests/test_eval_sign_fields.py::test_show_annotates_direction_consistent_share
+7 failed in 1.78s

@@ -89,6 +89,16 @@ def test_interface_dead_signal_fail_loud_contract():
     assert "signal_null_ratio" in text, "interface 缺判据字段 signal_null_ratio"
 
 
+def test_interface_direction_consistent_share_contract():
+    """D4（R30 Task 3）：interface 必须写方向感知字段、raw 语义保留与 CLI 标注。"""
+    text = INTERFACE.read_text(encoding="utf-8")
+    assert "direction_consistent_share" in text, "interface 缺方向感知字段"
+    assert "direction×IC>0" in text or "IC×dir>0" in text, \
+        "interface 缺判定定义 P(direction×IC>0)"
+    assert "raw" in text and "sign_consistent" in text, "interface 缺 raw 语义保留说明"
+    assert "dir_consistent" in text, "interface 缺 CLI 展示字段名"
+
+
 def test_interface_old_formula_only_in_migration_note():
     """负向守卫：旧公式不得作为现行口径回潮——只许出现在 v1/历史注记行。"""
     for lineno, line in enumerate(INTERFACE.read_text(encoding="utf-8").splitlines(), 1):
