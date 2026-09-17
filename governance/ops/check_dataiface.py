@@ -111,6 +111,16 @@ G_READ_ALLOWED = {
         "layer2 自有产物 sas_features_*.parquet，属本工具 output，不是事实库分区",
     ("platform/tools/universe_stages/scripts/run_layer3_tick.py", "main", "events_path"):
         "layer2 自有产物 sas_events_*.parquet，属本工具 output，不是事实库分区",
+    # ── R30 D8（退市股 adj 补口/对账；2b39807 落地时漏登记，评估 v2 批 5 验收补）─────
+    ("platform/tools/ch_ingest/delisted_adj_backfill.py", "write_sidecar", "path"):
+        "自产 sidecar（data/fact/daily_fact/delisted_adj_factor.parquet）合并写前旧值读取"
+        "——本工具自有产物，非事实库分区",
+    ("platform/tools/ch_ingest/delisted_adj_backfill.py", "main", "paths.daily_fact_path()"):
+        "daily_fact 是补口工具的**输入源**（raw 收盘对拍基准），路径已取 factio.paths 单点",
+    ("platform/tools/ch_ingest/ingest_daily.py", "load_delisted_adj_sidecar", "p"):
+        "R30 D8：退市股 adj sidecar（自产元数据，非事实表分区）——与 R21 delist sidecar 同款",
+    ("platform/tools/ch_ingest/reconcile.py", "_check_delisted_adj", "p"):
+        "R30 D8：对账校验 sidecar 每条键在 CH 非空（读取自产 sidecar 明细）",
 }
 _READ_CALLS = {"read_parquet", "scan_parquet", "ParquetFile"}
 # 硬规则：目标表达式里出现事实库名或分区标记 → 任何理由都不豁免（必须走平台单点）
