@@ -118,8 +118,11 @@ bit 对拍共同锁定。
   恢复后 52 passed。
 - **平台全量**：`3489 passed, 15 skipped`（0 failed）。
 - `make lint-factors`：233 通过 / 0 失败。
-- **`make gates`**：14 处 `[BAD]` 全部在在途 `platform/tools/lob_fact/pipeline/*`
-  （预存红，与 P3 同款；本改动路径零 BAD），输出 `gates_p4.txt`。
+- **`make gates`**：快照（tree `6729370`，2026-09-19 00:22，`gates_p4.txt`）
+  17 处 `[BAD]`——14 处在在途 `platform/tools/lob_fact/pipeline/*`（P1-P3 同款
+  预存红）+ 3 处在并发在途 DQ-M1（`platform/tools/ch_ingest/ingest_daily.py`、
+  `platform/tools/data_quality/pipeline.py`；非 P4 路径）；**本改动路径零 BAD**，
+  G-REVIEWS 台账自洽（114 行 finding、状态词合法、引用可解析）✓。
 - 边界说明：分钟链仅 ch 后端，N=1/N=2 对拍在真 CH（本机 26.3）进行；duckdb
   腿在引擎入口即拒绝（原设计），不存在双后端并行差异面。`make test-research`
   的 1 个红为预存缺档案（`momentum_20d/turnrank_top2.md`），与 P4 无关。

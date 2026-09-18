@@ -304,7 +304,8 @@ convert_tick 未触碰**）。自包含证据/数字见 [`after-p4/README.md`](a
   版本/频率/目标）全等，仅分层组收益 1e-16..7e-15 跨进程归约噪声：
   [`after-p4/zero_change_vs_p3.txt`](after-p4/zero_change_vs_p3.txt)。
 - 门：平台全量 `3489 passed, 15 skipped`；`make lint-factors` 233/0；
-  `make gates` 14 BAD 全为 `lob_fact` 预存红（`after-p4/gates_p4.txt`）；
+  `make gates` 快照 17 BAD = 14 在途 `lob_fact` 预存红 + 3 并发在途 DQ-M1
+  （本改动路径零 BAD；`after-p4/gates_p4.txt`）；
   突变 5 杀（[`spike/mutation-p4.txt`](spike/mutation-p4.txt)）。
 - 限制：fold 段在 N≥2 是并发 worker 折日墙钟之和（Profiler 线程锁累加，
   大于 elapsed；收益以 read_data/总墙钟为准）；N 曲线受 8GB 护栏约束只有 1/2。
