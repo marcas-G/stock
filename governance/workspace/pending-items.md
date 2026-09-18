@@ -421,7 +421,9 @@ A5. **tick 3 表月断点仍为布尔、无源指纹（A4 同款缺口残余）*
 
 H1. **sudo 主机加固待用户执行**（2026-09-18 登记）
     现状：`governance/ops/memory-hardening-sudo.sh` 已生成并 `bash -n` 校验，但
-    **未执行**（按任务约束只生成不代跑）。内容：sysctl `vm.swappiness=10` +
+    **未执行**（按任务约束只生成不代跑）。R30.1 补一页管理员说明
+    `governance/ops/memory-hardening-request.md`（现状/证据/3 条请求/无 sudo
+    替代保护/验收方法）。内容：sysctl `vm.swappiness=10` +
     `vm.min_free_kbytes=1GB` 写 `/etc/sysctl.d/99-factorlab-memory.conf` 并 apply；
     `apt-get install -y earlyoom` 并配置 `-m 5 -s 5 --avoid 'sshd|systemd|clickhouse'`
     后 enable（当前 `systemd-oomd`/`earlyoom` 均 inactive）。

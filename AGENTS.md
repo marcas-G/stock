@@ -52,7 +52,9 @@
 
 1. **memguard（用户级常驻守护；systemd user service `memguard.service`，Restart=always）**
    ——2s 采样 `/proc/meminfo` + 本用户进程 RSS；阈值 avail<10GB warn / <5GB term /
-   <2.5GB kill；只杀 gaolei 且 RSS>=2GB 的重任务候选（cmd 匹配 python|pytest|vllm|
+   <2.5GB kill；**R30.1 swap 前置触发**（机械盘 swap 是 freeze 主因）：swap_free<10GB
+   且 avail<15GB → term、swap_free<6GB 且 avail<8GB → kill，与原阈值取更严重者
+   （心跳带 swap 用量与 source 标注）；只杀 gaolei 且 RSS>=2GB 的重任务候选（cmd 匹配 python|pytest|vllm|
    run_pipeline|factorlab|convert|ingest|polars|jupyter），保护 sshd/systemd/opencode/
    code/vscode-server/clickhouse/bash/memguard 自身；llama-server 默认保护，RSS>38GB
    才转候选（模型重载爆内存场景）；SIGTERM→3s→SIGKILL，动作后 30s 冷却，`--dry-run`
@@ -61,10 +63,12 @@
    测试 `governance/ops/tests/test_memguard.py`。
    **取证日志**：`~/.local/state/memguard/memlog.tsv`（10s 粒度、7 天轮转，
    time/avail/swap_free/load1/top5 RSS）+ `memguard.log` / `journalctl --user -u memguard`。
-2. **`governance/ops/heavy.sh` 重任务闸**——重任务一律经它跑：flock 限 2 并发
-   （HEAVY_MAX_CONCURRENT 可调）+ 启动前可用内存 <8GB 拒绝 + 默认注入
-   `FACTORLAB_MAX_MEMORY=8GB`、`FACTORLAB_MIN_AVAILABLE_MEMORY=6GB`、
-   `OMP_NUM_THREADS=8`、`POLARS_MAX_THREADS=8` + `nice -n 10`（已显式导出的值优先）。
+2. **`governance/ops/heavy.sh` 重任务闸（含自牺牲优先级）**——重任务一律经它跑：
+   flock 限 2 并发（HEAVY_MAX_CONCURRENT 可调）+ 启动前可用内存 <8GB 拒绝 + 默认
+   注入 `FACTORLAB_MAX_MEMORY=8GB`、`FACTORLAB_MIN_AVAILABLE_MEMORY=6GB`、
+   `OMP_NUM_THREADS=8`、`POLARS_MAX_THREADS=8` + `nice -n 10`（已显式导出的值优先）
+   + exec 前写 `/proc/self/oom_score_adj=${HEAVY_OOM_SCORE_ADJ:-700}`（R30.1：内核
+   OOM 时优先杀本重任务而非 sshd；仅允许 0..1000，非法值拒绝启动）。
    例：`governance/ops/heavy.sh platform/.venv/bin/factorlab run <spec>`。
 3. **FactorLab CLI 默认护栏（R30）**——`factorlab run` 在 env 未设时自动：
    `FACTORLAB_MIN_AVAILABLE_MEMORY=6GB`（安全预检）+ `FACTORLAB_MAX_MEMORY=
@@ -80,7 +84,8 @@
 - ClickHouse 进程上限已收紧（2026-09-18）：`max_server_memory_usage` 48→**28GiB**、
   `max_memory_usage_for_all_queries` 24→**12GiB**（`/data/students/gaolei/clickhouse/config/config.xml`）。
 - 主机级加固（sysctl `vm.swappiness=10`/`vm.min_free_kbytes=1GB` + earlyoom）需
-  sudo：脚本已生成 `governance/ops/memory-hardening-sudo.sh`，**待用户执行**
+  sudo：脚本已生成 `governance/ops/memory-hardening-sudo.sh`，申请单一页版
+  `governance/ops/memory-hardening-request.md`，**待用户执行**
   （本机 user cgroup MemoryMax 不可用——memory 控制器未委派，实测 900MB 分配在
   512M 限制下仍成功）。
 - 分钟链保持默认 20 交易日/块；显式超大 `--chunk-days` 按估算告警/拒绝。
