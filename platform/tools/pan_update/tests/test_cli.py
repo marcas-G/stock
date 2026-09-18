@@ -381,7 +381,8 @@ def test_no_new_files_keeps_marks_and_skips_commands(tmp_path, capsys, cookie_ok
     rc = _run(["sync", "--categories", "daily"], tmp_path, runner=runner)
     assert rc == 0
     rc = _run(["build", "--categories", "daily"], tmp_path, runner=runner)
-    assert rc == 0 and len(runner.calls) == 5, "首跑应执行 daily 五步链（含 DQ clean）"
+    assert rc == 0 and len(runner.calls) == 6, (
+        "首跑应执行 daily 六步链（含 DQ clean + post-ingest health 发布）")
     runner.calls.clear()
     tp2 = FakeTransport()
     rc = cli.main(["sync", "--categories", "daily"], listdir=FakeListdir(_tree()),
@@ -580,7 +581,7 @@ def test_all_runs_sync_then_build_then_verify_in_order(tmp_path, cookie_ok, caps
     assert runner.calls, "build 链应执行"
     assert [Path(c[1]).name for c in runner.calls] == [
         "import_daily.py", "pipeline.py", "ingest_daily.py",
-        "derive_stk_limit.py", "adj_backfill.py"]
+        "derive_stk_limit.py", "adj_backfill.py", "health.py"]
 
 
 def test_all_propagates_verify_rc(tmp_path, cookie_ok):
@@ -594,7 +595,7 @@ def test_publish_is_idempotent_alias_of_build_phase(tmp_path, cookie_ok):
     runner = FakeRunner()
     assert _run(["build", "--categories", "daily"], tmp_path, runner=runner) == 0
     n = len(runner.calls)
-    assert n == 5
+    assert n == 6
     runner.calls.clear()
     assert _run(["publish", "--categories", "daily"], tmp_path, runner=runner) == 0
     assert runner.calls == [], "publish 不重放已 build 的链（同一阶段标记）"

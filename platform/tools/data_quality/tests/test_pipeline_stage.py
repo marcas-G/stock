@@ -216,8 +216,9 @@ def test_pan_update_daily_chain_clean_args_and_ingest_source():
     chain = stages.STAGE_CHAINS["daily"]
     names = [Path(c[1]).name for c in chain]
     assert names == ["import_daily.py", "pipeline.py", "ingest_daily.py",
-                     "derive_stk_limit.py", "adj_backfill.py"], (
-        "clean 必须插在 import_daily 与 ingest_daily 之间（ingest 是下一链步）")
+                     "derive_stk_limit.py", "adj_backfill.py", "health.py"], (
+        "clean 必须插在 import_daily 与 ingest_daily 之间（ingest 是下一链步）；"
+        "health 发布（T6 post-ingest audit）必须在 canonical ingest 之后")
 
     venv = str(stages._VENV_PYTHON)
     tag = stages._DAILY_RUN_TAG

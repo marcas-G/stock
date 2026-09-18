@@ -8,6 +8,11 @@
   ``data/staging/ashare_daily/<run_tag>/daily_fact.parquet``，同一 run_tag 路径经
   ``ingest_daily --source`` 传入（被隔离/dedup 的行不进 canonical）；clean 非零退出
   （PRE-INGEST FAIL）→ 阶段失败上抛，ingest 不执行、stage 标记不落。
+  daily 链**最后**追加 ``data_quality/health.py publish``（Plan DQ-M1 T6 §5：
+  CANONICAL INGEST → POST-INGEST AUDIT → FINAL PARTITION GATE → HEALTH ARTIFACT
+  → PUBLISH RESEARCH-READY）：post-ingest 审计（completeness/PK/reconcile/腾讯
+  抽样/漂移）+ FINAL 门 + 原子发布 ``data/health/ashare_daily/<partition>.json``；
+  FINAL FAIL → 非零退出，阶段失败上抛。
 - ``run_category_stage``：同一 (类别, 阶段) 成功才落标记（值为 ISO 时间）；
   失败即停、标记不动，重跑从链头整链重放（链内每步须幂等，设计 §3/§8）。
 - ``run_cmd``：子进程输出逐行喂给 log；非零退出抛 ``StageError(stage, cmd, rc, tail)``，
@@ -52,6 +57,9 @@ STAGE_CHAINS: dict[str, list[list[str]]] = {
          "--source", str(_DAILY_STAGING)],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "derive_stk_limit.py")],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "adj_backfill.py")],
+        # T6：post-ingest audit + FINAL 门 + health 发布（在 canonical 派生完成后）
+        [str(_VENV_PYTHON), str(_TOOLS / "data_quality" / "health.py"),
+         "publish", "--partition", "latest", "--run-tag", _DAILY_RUN_TAG],
     ],
     "minutes": [
         [str(_VENV_PYTHON), str(_TOOLS / "converters" / "convert_minutes_to_parquet.py"),
