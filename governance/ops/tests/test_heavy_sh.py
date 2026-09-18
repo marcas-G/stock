@@ -2,6 +2,10 @@
 默认注入 FACTORLAB_MAX_MEMORY=8GB / FACTORLAB_MIN_AVAILABLE_MEMORY=6GB /
 OMP_NUM_THREADS=8 / POLARS_MAX_THREADS=8 + nice -n 10。
 
+R30.1 OOM 自牺牲优先级：exec 前写 /proc/self/oom_score_adj=700（内核 OOM 时
+优先杀本任务而非 sshd/关键进程）；HEAVY_OOM_SCORE_ADJ 可覆盖（0..1000）；
+非法值拒绝且命令不执行。
+
 测试用真实 bash 子进程 + fake 内存文件/锁目录（不 mock 逻辑，测真实行为：
 退出码/输出/marker 文件/阻塞时序）。
 """
@@ -102,3 +106,29 @@ def test_usage_error_without_command(env):
     r = _run([], env)
     assert r.returncode == 2
     assert "用法" in r.stderr
+
+
+# ---------------- OOM 自牺牲优先级（R30.1） ----------------
+
+def test_default_oom_score_adj_700_visible_in_command(env):
+    """真实 /proc/self：heavy.sh 先写自身 oom_score_adj=700，exec 后命令继承。"""
+    r = _run(["bash", "-c", "cat /proc/self/oom_score_adj"], env)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "700"
+
+
+def test_oom_score_adj_override_via_env(env):
+    env["HEAVY_OOM_SCORE_ADJ"] = "300"
+    r = _run(["bash", "-c", "cat /proc/self/oom_score_adj"], env)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "300"
+
+
+@pytest.mark.parametrize("bad", ["abc", "7.5", "-1", "1001"])
+def test_rejects_illegal_oom_score_adj(env, tmp_path, bad):
+    env["HEAVY_OOM_SCORE_ADJ"] = bad
+    marker = tmp_path / "ran"
+    r = _run(["bash", "-c", f"touch {marker}"], env)
+    assert r.returncode == 5
+    assert "HEAVY_OOM_SCORE_ADJ" in r.stderr
+    assert not marker.exists()                     # 非法值不执行任何命令

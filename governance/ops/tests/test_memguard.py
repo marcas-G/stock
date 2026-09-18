@@ -6,6 +6,10 @@ python|pytest|vllm|run_pipeline|factorlab|convert|ingest|polars|jupyter）；
 llama-server 默认保护但 RSS>38GB 转候选；SIGTERM→3s→SIGKILL；30s 冷却；
 触发时 top5 RSS 快照；--dry-run 不杀；memlog 10s/7 天轮转。
 
+R30.1 swap 压力前置触发（机械盘 swap 是 freeze 主因，提前动手避免换页到 HDD）：
+swap_free<10GB 且 avail<15GB → term 候选；swap_free<6GB 且 avail<8GB → kill；
+与原 avail 阈值取更严重者（先触发者）；heartbeat 带 swap 用量与触发来源标注。
+
 断言均针对行为（不是格式）：选择/动作/信号序列/文件内容/日志快照。
 """
 from __future__ import annotations
@@ -132,32 +136,36 @@ def _procs():
 
 
 def test_decide_ok_no_action():
-    d = mg.decide(20 * GB, _procs(), thresholds=mg.DEFAULT_THRESHOLDS,
+    d = mg.decide(20 * GB, _procs(), swap_free=50 * GB,
+                  thresholds=mg.DEFAULT_THRESHOLDS,
                   last_action_ts=None, now=1000.0, target_user="gaolei")
     assert d.level == "ok" and d.action == "none" and d.victims == ()
 
 
 def test_decide_warn_no_victims():
-    d = mg.decide(8 * GB, _procs(), thresholds=mg.DEFAULT_THRESHOLDS,
+    d = mg.decide(8 * GB, _procs(), swap_free=50 * GB,
+                  thresholds=mg.DEFAULT_THRESHOLDS,
                   last_action_ts=None, now=1000.0, target_user="gaolei")
     assert d.level == "warn" and d.action == "none" and d.victims == ()
 
 
 def test_decide_term_selects_victims_rss_desc():
-    d = mg.decide(4 * GB, _procs(), thresholds=mg.DEFAULT_THRESHOLDS,
+    d = mg.decide(4 * GB, _procs(), swap_free=50 * GB,
+                  thresholds=mg.DEFAULT_THRESHOLDS,
                   last_action_ts=None, now=1000.0, target_user="gaolei")
     assert d.level == "term" and d.action == "terminate" and d.victims == (1, 2)
 
 
 def test_decide_kill_level_and_no_candidates():
-    d = mg.decide(1 * GB, [P(1, 100 * MB, "python tiny")],
+    d = mg.decide(1 * GB, [P(1, 100 * MB, "python tiny")], swap_free=50 * GB,
                   thresholds=mg.DEFAULT_THRESHOLDS,
                   last_action_ts=None, now=1000.0, target_user="gaolei")
     assert d.level == "kill" and d.action == "none" and d.victims == ()
 
 
 def test_decide_cooldown_blocks_for_30s():
-    kw = dict(thresholds=mg.DEFAULT_THRESHOLDS, target_user="gaolei")
+    kw = dict(thresholds=mg.DEFAULT_THRESHOLDS, target_user="gaolei",
+              swap_free=50 * GB)
     cooling = mg.decide(1 * GB, _procs(), last_action_ts=990.0, now=1000.0, **kw)
     assert cooling.action == "cooldown" and cooling.victims == ()
     ready = mg.decide(1 * GB, _procs(), last_action_ts=960.0, now=1000.0, **kw)
@@ -168,9 +176,61 @@ def test_decide_cooldown_blocks_for_30s():
 def test_decide_never_picks_protected_or_other_users():
     procs = [P(1, 60 * GB, "clickhouse server"), P(2, 50 * GB, "python x", user="bob"),
              P(3, 30 * GB, "llama-server -m m.gguf")]
-    d = mg.decide(1 * GB, procs, thresholds=mg.DEFAULT_THRESHOLDS,
+    d = mg.decide(1 * GB, procs, swap_free=50 * GB,
+                  thresholds=mg.DEFAULT_THRESHOLDS,
                   last_action_ts=None, now=1000.0, target_user="gaolei")
     assert d.victims == ()
+
+
+# ---------------- swap 压力前置触发（R30.1） ----------------
+
+@pytest.mark.parametrize("avail_gb,swap_free_gb,expected", [
+    (20, 50, "ok"), (14.99, 50, "ok"), (10, 50, "ok"),
+    (14.99, 9.99, "term"),      # swap 前置：avail 仍 >10GB（原判 ok）
+    (15, 9.99, "ok"),           # avail 边界：不严格小于 15 → 不触发
+    (14.99, 10, "ok"),          # swap 边界：不严格小于 10 → 不触发
+    (8, 5.99, "term"),          # kill 的 avail 边界不满足 → 退到 term
+    (8, 9.99, "term"),
+    (7.99, 5.99, "kill"),       # swap kill 前置：avail 仍在 warn 区间
+    (7.99, 6, "term"),          # kill 的 swap 边界不满足 → term
+    (7.99, 50, "warn"),         # swap 健康 → 原 avail 判定不受影响
+    (4.99, 4, "kill"),          # 原判 term + swap kill → 取更严重者
+    (2.49, 50, "kill"),         # 原 avail kill 仍生效
+])
+def test_level_for_swap_boundaries_and_first_trigger(avail_gb, swap_free_gb, expected):
+    level, _ = mg.classify(int(avail_gb * GB), int(swap_free_gb * GB),
+                           mg.DEFAULT_THRESHOLDS)
+    assert level == expected
+
+
+def test_decide_swap_term_upgrades_before_avail_ok():
+    d = mg.decide(14 * GB, _procs(), swap_free=9 * GB,
+                  thresholds=mg.DEFAULT_THRESHOLDS,
+                  last_action_ts=None, now=1000.0, target_user="gaolei")
+    assert d.level == "term" and d.action == "terminate" and d.victims == (1, 2)
+    assert d.source == "swap"
+
+
+def test_decide_swap_kill_upgrades_avail_term():
+    d = mg.decide(7 * GB, _procs(), swap_free=5 * GB,
+                  thresholds=mg.DEFAULT_THRESHOLDS,
+                  last_action_ts=None, now=1000.0, target_user="gaolei")
+    assert d.level == "kill" and d.action == "terminate"
+    assert d.source == "swap"
+
+
+def test_decide_avail_only_source_is_avail():
+    d = mg.decide(4 * GB, _procs(), swap_free=50 * GB,
+                  thresholds=mg.DEFAULT_THRESHOLDS,
+                  last_action_ts=None, now=1000.0, target_user="gaolei")
+    assert d.level == "term" and d.source == "avail"
+
+
+def test_decide_both_same_level_flags_both_sources():
+    d = mg.decide(4 * GB, _procs(), swap_free=9 * GB,
+                  thresholds=mg.DEFAULT_THRESHOLDS,
+                  last_action_ts=None, now=1000.0, target_user="gaolei")
+    assert d.level == "term" and d.source == "avail+swap"
 
 
 # ---------------- MemGuard.step：动作 / 信号序列 / 冷却 / dry-run ----------------
@@ -178,13 +238,14 @@ def test_decide_never_picks_protected_or_other_users():
 class _Rig:
     """测试台：可控 meminfo / 进程表 / 信号 / 时钟 / 存活表。"""
 
-    def __init__(self, tmp_path, *, avail=20 * GB, procs=None, dry_run=False):
+    def __init__(self, tmp_path, *, avail=20 * GB, procs=None, dry_run=False,
+                 swap_free=50 * GB, swap_total=64 * GB):
         self.signals = []
         self.sleeps = []
         self.alive = {}
         self.now = 1000.0
         self.mem = mg.MemSample(total=125 * GB, available=avail,
-                                swap_free=50 * GB, swap_total=64 * GB)
+                                swap_free=swap_free, swap_total=swap_total)
         self.procs = list(procs or [])
         self.g = mg.MemGuard(
             target_user="gaolei", dry_run=dry_run,
@@ -281,6 +342,28 @@ def test_step_periodic_heartbeat_in_log(tmp_path, caplog):
     beats = [r for r in caplog.records if "heartbeat" in r.getMessage()]
     assert len(beats) == 2                         # 60s 到点再写
     assert mg.DEFAULT_HEARTBEAT_S == 60.0
+
+
+def test_heartbeat_includes_swap_usage_and_source(tmp_path, caplog):
+    """R30.1：心跳必须带 swap 用量（used=total-free）与触发来源标注。"""
+    rig = _Rig(tmp_path, avail=20 * GB, swap_total=64 * GB, swap_free=50 * GB)
+    with caplog.at_level(logging.INFO, logger="memguard"):
+        rig.step()
+    msg = next(r.getMessage() for r in caplog.records if "heartbeat" in r.getMessage())
+    assert "swap_used=14.0GB" in msg               # 64-50，不是硬编码
+    assert "swap_free=50.0GB" in msg
+    assert "source=ok" in msg
+
+
+def test_heartbeat_source_swap_when_swap_pressure_early(tmp_path, caplog):
+    """R30.1：swap 前置条触发时，心跳 level/source 标注来源=swap。"""
+    rig = _Rig(tmp_path, avail=14 * GB, swap_total=64 * GB, swap_free=9 * GB)
+    with caplog.at_level(logging.INFO, logger="memguard"):
+        res = rig.step()
+    msg = next(r.getMessage() for r in caplog.records if "heartbeat" in r.getMessage())
+    assert res.decision.level == "term" and res.decision.source == "swap"
+    assert "level=term" in msg and "source=swap" in msg
+    assert "swap_used=55.0GB" in msg
 
 
 # ---------------- memlog 取证采样（10s 粒度 / 7 天轮转） ----------------

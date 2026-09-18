@@ -8,14 +8,17 @@
 
 职责：
 - 每 2s 采样 `/proc/meminfo`（MemAvailable/SwapFree）+ 本用户进程 RSS（psutil）；
-- 纯函数决策（`level_for`/`select_candidates`/`decide`，全部可单测）：
-  阈值 warn<10GB / term<5GB / kill<2.5GB；只杀本用户且 RSS>=2GB 的候选
-  （cmd 匹配 python|pytest|vllm|run_pipeline|factorlab|convert|ingest|polars|
-  jupyter）；保护 sshd/systemd/opencode/code/vscode-server/clickhouse/
-  memguard 自身/bash；llama-server 默认保护，RSS>38GB 转候选（模型重载爆内
-  存场景）；
+- 纯函数决策（`level_for`/`level_for_swap`/`classify`/`select_candidates`/
+  `decide`，全部可单测）：阈值 warn<10GB / term<5GB / kill<2.5GB；
+  **swap 压力前置触发（R30.1，机械盘 swap 是 freeze 主因）**：
+  swap_free<10GB 且 avail<15GB → term 候选；swap_free<6GB 且 avail<8GB → kill；
+  与原 avail 阈值取更严重者（先触发者，`source` 标注 avail/swap/avail+swap）；
+  只杀本用户且 RSS>=2GB 的候选（cmd 匹配 python|pytest|vllm|run_pipeline|
+  factorlab|convert|ingest|polars|jupyter）；保护 sshd/systemd/opencode/code/
+  vscode-server/clickhouse/memguard 自身/bash；llama-server 默认保护，
+  RSS>38GB 转候选（模型重载爆内存场景）；
 - 动作：SIGTERM → 3s → SIGKILL；动作后 30s 冷却；触发日志附 top5 RSS 快照；
-  `--dry-run` 只看不杀；
+  `--dry-run` 只看不杀；heartbeat 带 swap 用量与触发来源；
 - 取证：每 10s 追加 `~/.local/state/memguard/memlog.tsv`
   （time/avail/swap_free/load1/top5 RSS），按天轮转、保留 7 天。
 
@@ -65,7 +68,7 @@ log = logging.getLogger("memguard")
 
 @dataclass(frozen=True)
 class Thresholds:
-    """分级阈值（字节）+ 候选 RSS 下限 + llama 例外 + 冷却。"""
+    """分级阈值（字节）+ 候选 RSS 下限 + llama 例外 + 冷却 + swap 前置触发。"""
 
     warn: int = 10 * GB
     term: int = 5 * GB
@@ -73,6 +76,11 @@ class Thresholds:
     candidate_rss: int = 2 * GB
     llama_candidate_rss: int = 38 * GB
     cooldown_s: float = 30.0
+    # swap 压力前置触发（R30.1）：机械盘 swap 开始大量换页前先动手
+    swap_term_free: int = 10 * GB       # swap_free 低于此值 + avail<swap_term_avail
+    swap_term_avail: int = 15 * GB      # → term 候选（早于 avail<5GB）
+    swap_kill_free: int = 6 * GB        # swap_free 低于此值 + avail<swap_kill_avail
+    swap_kill_avail: int = 8 * GB       # → kill 级
 
 
 DEFAULT_THRESHOLDS = Thresholds()
@@ -100,6 +108,7 @@ class Decision:
     action: str                      # none | terminate | cooldown
     victims: tuple[int, ...]
     reason: str
+    source: str = ""                 # ok | avail | swap | avail+swap（触发来源）
 
 
 @dataclass
@@ -143,6 +152,38 @@ def level_for(avail: int, thresholds: Thresholds = DEFAULT_THRESHOLDS) -> str:
     return "ok"
 
 
+def level_for_swap(avail: int, swap_free: int,
+                   thresholds: Thresholds = DEFAULT_THRESHOLDS) -> str:
+    """swap 压力前置分级（严格小于；机械盘 swap 大量换页前先兆）：
+    kill: swap_free<swap_kill_free 且 avail<swap_kill_avail；
+    term: swap_free<swap_term_free 且 avail<swap_term_avail；否则 ok。"""
+    if (swap_free < thresholds.swap_kill_free
+            and avail < thresholds.swap_kill_avail):
+        return "kill"
+    if (swap_free < thresholds.swap_term_free
+            and avail < thresholds.swap_term_avail):
+        return "term"
+    return "ok"
+
+
+_SEVERITY = {"ok": 0, "warn": 1, "term": 2, "kill": 3}
+
+
+def classify(avail: int, swap_free: int,
+             thresholds: Thresholds = DEFAULT_THRESHOLDS) -> tuple[str, str]:
+    """综合 avail 阈值与 swap 前置条件 → (level, source)，取更严重者（先触发者）。
+    同级且非 ok → source=avail+swap；source ∈ ok|avail|swap|avail+swap。"""
+    avail_level = level_for(avail, thresholds)
+    swap_level = level_for_swap(avail, swap_free, thresholds)
+    if _SEVERITY[swap_level] > _SEVERITY[avail_level]:
+        return swap_level, "swap"
+    if _SEVERITY[avail_level] > _SEVERITY[swap_level]:
+        return avail_level, "avail"
+    if avail_level == "ok":
+        return "ok", "ok"
+    return avail_level, "avail+swap"
+
+
 def is_protected(cmd: str) -> bool:
     return bool(PROTECTED_RE.search(cmd))
 
@@ -172,26 +213,29 @@ def select_candidates(procs: Iterable[ProcInfo], *, target_user: str,
     return out
 
 
-def decide(avail: int, procs: Sequence[ProcInfo], *,
+def decide(avail: int, procs: Sequence[ProcInfo], *, swap_free: int,
            thresholds: Thresholds = DEFAULT_THRESHOLDS,
            last_action_ts: float | None, now: float, target_user: str) -> Decision:
-    """纯决策：avail 级别 + 候选 + 冷却 → 意图动作（不执行任何信号）。"""
-    level = level_for(avail, thresholds)
+    """纯决策：avail/swap 级别（取更严重者，source 标注来源）+ 候选 + 冷却
+    → 意图动作（不执行任何信号）。"""
+    level, source = classify(avail, swap_free, thresholds)
     if level == "ok":
-        return Decision(level, "none", (), "可用内存充足")
+        return Decision(level, "none", (), "可用内存与 swap 充足", source)
     if level == "warn":
         return Decision(level, "none", (),
-                        f"可用内存 < {fmt(thresholds.warn)}，仅告警")
+                        f"可用内存 < {fmt(thresholds.warn)}，仅告警", source)
     candidates = select_candidates(procs, target_user=target_user,
                                    thresholds=thresholds)
     if not candidates:
-        return Decision(level, "none", (), "无合格候选（用户/RSS/保护名单过滤后）")
+        return Decision(level, "none", (),
+                        "无合格候选（用户/RSS/保护名单过滤后）", source)
     if last_action_ts is not None and (now - last_action_ts) < thresholds.cooldown_s:
         return Decision(level, "cooldown", (),
-                        f"{thresholds.cooldown_s:.0f}s 冷却期内，跳过本轮")
+                        f"{thresholds.cooldown_s:.0f}s 冷却期内，跳过本轮", source)
+    limit = thresholds.term if level == "term" else thresholds.kill
     return Decision(level, "terminate", tuple(p.pid for p in candidates),
-                    f"可用内存 < {fmt(thresholds.term if level == 'term' else thresholds.kill)}，"
-                    f"终止 {len(candidates)} 个候选")
+                    f"avail<{fmt(limit)}（source={source}），"
+                    f"终止 {len(candidates)} 个候选", source)
 
 
 def fmt(n: int) -> str:
@@ -297,7 +341,7 @@ class MemGuard:
         now = self._clock()
         sample = self._read_meminfo()
         procs = self._read_procs()
-        decision = decide(sample.available, procs,
+        decision = decide(sample.available, procs, swap_free=sample.swap_free,
                           thresholds=self.thresholds,
                           last_action_ts=self.last_action_ts, now=now,
                           target_user=self.target_user)
@@ -305,42 +349,55 @@ class MemGuard:
         executed = False
         if decision.action == "terminate":
             if self.dry_run:
-                log.warning("memguard 触发（dry-run，不发送信号）: level=%s avail=%s "
-                            "victims=%s top5: %s",
-                            decision.level, fmt(sample.available),
+                log.warning("memguard 触发（dry-run，不发送信号）: level=%s source=%s "
+                            "avail=%s swap_used=%s victims=%s top5: %s",
+                            decision.level, decision.source, fmt(sample.available),
+                            fmt(self._swap_used(sample)),
                             list(decision.victims), format_top(procs))
             else:
                 sent = self._terminate(decision.victims)
                 executed = True
                 self.last_action_ts = now
-                log.warning("memguard 触发（已执行）: level=%s avail=%s victims=%s "
-                            "signals=%s top5: %s",
-                            decision.level, fmt(sample.available),
+                log.warning("memguard 触发（已执行）: level=%s source=%s avail=%s "
+                            "swap_used=%s victims=%s signals=%s top5: %s",
+                            decision.level, decision.source, fmt(sample.available),
+                            fmt(self._swap_used(sample)),
                             list(decision.victims), sent, format_top(procs))
         elif decision.action == "cooldown":
-            log.warning("memguard 触发但冷却中: level=%s avail=%s top5: %s",
-                        decision.level, fmt(sample.available), format_top(procs))
+            log.warning("memguard 触发但冷却中: level=%s source=%s avail=%s "
+                        "swap_used=%s top5: %s",
+                        decision.level, decision.source, fmt(sample.available),
+                        fmt(self._swap_used(sample)), format_top(procs))
         elif decision.action == "none" and decision.level in ("term", "kill"):
-            log.warning("memguard 内存紧张但无候选: level=%s avail=%s top5: %s",
-                        decision.level, fmt(sample.available), format_top(procs))
+            log.warning("memguard 内存紧张但无候选: level=%s source=%s avail=%s "
+                        "swap_used=%s top5: %s",
+                        decision.level, decision.source, fmt(sample.available),
+                        fmt(self._swap_used(sample)), format_top(procs))
         elif decision.level == "warn":
-            log.warning("memguard warn: avail=%s (<%s) top5: %s",
-                        fmt(sample.available), fmt(self.thresholds.warn),
+            log.warning("memguard warn: source=%s avail=%s (<%s) swap_used=%s top5: %s",
+                        decision.source, fmt(sample.available),
+                        fmt(self.thresholds.warn), fmt(self._swap_used(sample)),
                         format_top(procs))
         self._maybe_heartbeat(now, sample, decision)
         self._maybe_write_memlog(now, sample, procs)
         return StepResult(sample=sample, decision=decision, executed=executed,
                           signals_sent=sent)
 
+    @staticmethod
+    def _swap_used(sample: MemSample) -> int:
+        return max(0, sample.swap_total - sample.swap_free)
+
     def _maybe_heartbeat(self, now: float, sample: MemSample,
                          decision: Decision) -> None:
-        """周期心跳日志（默认 60s；服务验收的"日志有周期采样"证据）。"""
+        """周期心跳日志（默认 60s；服务验收的"日志有周期采样"证据）；
+        R30.1：带 swap 用量（used=total-free）与触发来源标注。"""
         if (self._last_heartbeat_ts is not None
                 and now - self._last_heartbeat_ts < self.heartbeat_interval):
             return
-        log.info("memguard heartbeat: level=%s avail=%s swap_free=%s steps=%d",
-                 decision.level, fmt(sample.available), fmt(sample.swap_free),
-                 self.steps)
+        log.info("memguard heartbeat: level=%s source=%s avail=%s swap_used=%s "
+                 "swap_free=%s steps=%d",
+                 decision.level, decision.source, fmt(sample.available),
+                 fmt(self._swap_used(sample)), fmt(sample.swap_free), self.steps)
         self._last_heartbeat_ts = now
 
     def _terminate(self, victims: Sequence[int]) -> list[tuple[int, int]]:
@@ -394,10 +451,15 @@ class MemGuard:
     def run_forever(self) -> None:
         prune_memlog_history(self.state_dir, now=self._clock())
         log.info("memguard 启动: user=%s interval=%.1fs dry_run=%s state=%s "
-                 "thresholds(warn=%s term=%s kill=%s candidate>=%s)",
+                 "thresholds(warn=%s term=%s kill=%s candidate>=%s "
+                 "swap_term=<%s free & <%s avail, swap_kill=<%s free & <%s avail)",
                  self.target_user, self.interval, self.dry_run, self.state_dir,
                  fmt(self.thresholds.warn), fmt(self.thresholds.term),
-                 fmt(self.thresholds.kill), fmt(self.thresholds.candidate_rss))
+                 fmt(self.thresholds.kill), fmt(self.thresholds.candidate_rss),
+                 fmt(self.thresholds.swap_term_free),
+                 fmt(self.thresholds.swap_term_avail),
+                 fmt(self.thresholds.swap_kill_free),
+                 fmt(self.thresholds.swap_kill_avail))
         while True:
             try:
                 self.step()
@@ -481,6 +543,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "available": res.sample.available,
             "swap_free": res.sample.swap_free,
             "level": res.decision.level,
+            "source": res.decision.source,
             "action": res.decision.action,
             "victims": list(res.decision.victims),
             "executed": res.executed,
