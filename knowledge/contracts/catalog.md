@@ -58,6 +58,7 @@
 #### 注册清单（`registry.list_ops()` 实时快照——别名无独立行）
 
 - `adv20`（ts v0.1.0）
+- `at_minute`（day v0.1.0）
 - `cs_demean`（cs v0.1.0）
 - `cs_mad_zscore`（cs v0.1.0）
 - `cs_quantile`（cs v0.1.0）
@@ -73,6 +74,7 @@
 - `day_sum`（day v0.1.0）
 - `gp_mean`（gp v0.2.0）
 - `gp_rank`（gp v0.2.0）
+- `im_cummax`（im v0.1.0）
 - `im_delay`（im v0.1.0）
 - `im_max`（im v0.1.0）
 - `im_mean`（im v0.1.0）
@@ -115,7 +117,7 @@
 
 #### 分类表全集（含未注册库函数——注册面之外的开放算子底座）
 
-- 入口：`factorlab op list --catalog`——528 条（含未注册库函数）；分类面 = 生成分类表 + 注册面全集（注册清单见上一小节）
+- 入口：`factorlab op list --catalog`——530 条（含未注册库函数）；分类面 = 生成分类表 + 注册面全集（注册清单见上一小节）
 - 生成器：platform/scripts/gen_op_catalog.py（--check 校验生成产物与当前依赖一致）
 
 #### 元素级方法链白名单（与解析器单源一致——仅限这组可写 `.abs()` 形态）

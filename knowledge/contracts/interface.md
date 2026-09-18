@@ -893,26 +893,45 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
   日频算符（ts_*/ta_*/cs_*/gp_*，含 returns/vwap/adv20 宏展开后残余）在分钟
   scope 门拒绝；im_delay k<0/k=0 拒绝。日频 scope 引用 im_*/day_* → 拒绝。
   网格/折日双断言是跨日泄漏的机械保证（B3.5）。
-- **折日物化共享（R09-PERF-I1，2026-09-18）**：`compute_formula(scope="bars_1m")`
-  在 codegen 前尝试融合路径（`core/engine/minute_fold.py`）——AST 收集全部
-  day_* 聚合项（含嵌在算术/变量链中的），按依赖分 pass；每 pass 用同链
-  codegen 把聚合参数物化一次 → 组内 over 广播（sum/mean/max/min 单 over；
-  day_first/day_last 与旧实现同形双 over），后续 pass/最终输出复用结果列。
-  `im_*` 仍走 over 路径，但输入预排序一次（已物理有序则零代价）、经物理序
-  变体去 order_by、重复子表达式 CSE 临时列只算一次。**回退语义**：分析期不
-  支持形态（跨层/未知调用、非简单赋值、保留前缀 `factorlab_fold_`/
-  `factorlab_cse_` 名字冲突、缺网格列、依赖环）→ 完整回退既有 codegen 路径
-  （行为与数值不变）。**数值锁定**：合成网格 + 真数据 4 因子同窗逐 cell 对拍
-  （`after/fold_parity.json`）——参数为纯逐行表达式时 bit-exact
-  （am_pm_vol/vol_asym）；旧路径把 im_delay/day_mean 内联进 day_* 聚合的嵌套
-  over 形态（autocorr_micro/vol_price_corr）仅末位 ulp 级差异（f32 归约计划对
-  嵌套敏感，null 掩码严格一致；新旧各自 vs f64 oracle 的舍入量级更大），
-  证据/复现见 `governance/evidence/verification/R31/minute-perf/`。
+- **折日物化共享与条件取值（R09-PERF-I1/I2，2026-09-18）**：
+  `compute_formula(scope="bars_1m")` 在 codegen 前尝试融合路径
+  （`core/engine/minute_fold.py`）——AST 收集全部 day_* 聚合项（含嵌在算术/
+  变量链中的），按依赖分 pass；每 pass 用同链 codegen 把聚合参数物化一次 →
+  组内 over 广播，后续 pass/最终输出复用结果列。`im_*` 仍走 over 路径，但输入
+  预排序一次（已物理有序则零代价）、经物理序变体去 order_by、重复子表达式 CSE
+  临时列只算一次。**聚合单次化（I2）**：`day_first/day_last` 用
+  `sort_by(minute_index).first/last` 单次 agg（旧双 over 极值定位等价，网格内
+  minute_index 唯一）；`day_max/day_min` 的 `if_else(cond, x, None)`（及
+  `x if cond else None`）条件取值形态**自动外提条件**，聚合改为
+  `x.filter(cond).max/min` 单次 agg——不再物化 when/None 全列、不做全组 null
+  扫描（R09 §2.3 针对 lunch_jump/close_auction_premium/open_minute_mom 类形态）；
+  cond 为 `minute_index <cmp> 常量` 时直接内联 polars 条件，其余条件（如
+  `volume > 0`）经 pass 物化条件列。**回退语义**：分析期不支持形态（跨层/未知
+  调用、非简单赋值、保留前缀 `factorlab_fold_`/`factorlab_cse_` 名字冲突、缺网格
+  列、依赖环）→ 完整回退既有 codegen 路径（行为与数值不变）。**数值锁定**：
+  合成网格 + 真数据 5 因子同窗逐 cell 对拍（`after-p3/fold_parity.json`）——
+  参数为纯逐行表达式/条件取值形态时 legacy-vs-融合 bit-exact
+  （am_pm_vol/vol_asym/lunch_jump）；旧路径把 im_delay/day_mean 内联进 day_*
+  聚合的嵌套 over 形态（autocorr_micro/vol_price_corr）仅末位 ulp 级差异（f32
+  归约计划对嵌套敏感，null 掩码严格一致；新旧各自 vs f64 oracle 的舍入量级
+  更大）；P3 树 vs 变更前 `HEAD` 融合树逐 cell max|Δ|=0（零变化硬门），证据/
+  复现见 `governance/evidence/verification/R31/minute-perf/`。
+- **`at_minute(k)` 条件取值便利算子（R09-PERF-I2，2026-09-18）**：取当日
+  `minute_index == k` 行的 x 值广播全组（k 为显式 int ∈ 0..239；静态门
+  `minute_gate` + 运行时 `minute_ops` 双防线拒 bool/float/负/越界）。k 行缺失
+  或该行 x 为 null → 全组 null（不取邻近分钟、不跨日）；与
+  `day_max(if_else(minute_index == k, x, None))` 逐位一致（重复 k 行取 max——
+  标准 240 网格下 k 恒唯一）。融合路径把 `at_minute` 归一为等价条件节点单次
+  filter 聚合。**慢形态指引**：精确取某分钟值优先写 `at_minute(x, k)`（读作
+  "第 k 分钟那行的值"）；等价旧写法 `day_max(if_else(minute_index == k, x,
+  None))` 已自动重写（无需改 spec）；`day_sum/day_mean(if_else(cond, x, 0))`
+  的 0 填充掩码语义**不**适用本重写（保持原物化路径，数值口径不变）。
 - **参数硬校验双防线（R02-C1，2026-09-15）**：静态门折叠 Pow/IfExp/`abs`/`int`
   常量形态并解析 `from ... import ... as` 别名（`2**2-5`→-1 不再静默取未来
   分钟；别名 `imd(...)` 与跨层 `tm(...)` 同样按原名判）；`im_*` 运行时在
-  `minute_ops` 逐调用硬校验（k/window 必须 int 且 >= 1，拒 bool/float）作为
-  最后防线——静态门漏掉的动态形态在此 fail fast。
+  `minute_ops` 逐调用硬校验（k/window 必须 int 且 >= 1，拒 bool/float），
+  `at_minute` 同样硬校验 k 必须 int ∈ 0..239（R09-PERF-I2）——静态门漏掉的
+  动态形态在此 fail fast。
 - **修订注记（实现期，W4-W6，规格同步）**：R1 池公式、R4 process、R5 闭区间
   强制、R3 空窗 raise（规格错误表原"空帧不抛"行已随修订）；R2 adv20 滚动语义
   （有行情日序列）；R6 折日双保险实施形态（组内 n_unique==1 断言 + keep-first
