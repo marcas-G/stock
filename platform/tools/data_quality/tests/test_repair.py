@@ -15,6 +15,7 @@ import math
 from datetime import datetime, timedelta, timezone
 
 import polars as pl
+import pytest
 from polars.testing import assert_frame_equal
 
 from data_quality import repair, rules, validators
@@ -67,8 +68,17 @@ def test_exact_duplicate_rows_deduped_keep_first_order():
     assert e["count"] == 1 and e["keys"] == [f"{SYM}|2026-09-18"]
 
 
-def test_same_pk_different_payload_not_deduped_without_results():
-    """全列一致才删：同 PK 不同 payload 在无 results 时也必须保留两行。"""
+def test_repair_rejects_missing_results_fail_closed():
+    """契约：results 必填（brief 签名 repair(df, results)）；None/缺省 = fail-open → ValueError。"""
+    df = _frame([_row(close=10.2), _row(close=10.3)])
+    with pytest.raises(ValueError, match="results"):
+        repair.repair(df)
+    with pytest.raises(ValueError, match="results"):
+        repair.repair(df, None)
+
+
+def test_explicit_empty_results_only_dedups_identical_rows():
+    """显式 [] 表示"无 issues"：非全列一致（同 PK 不同 payload）不得 dedup。"""
     df = _frame([_row(close=10.2), _row(close=10.3)])
     clean, q, log = repair.repair(df, [])
     assert clean.height == 2
@@ -101,6 +111,19 @@ def test_datetime_tz_normalized_to_exchange_date():
     clean, _, log = repair.repair(df, [])
     assert clean.schema["trade_date"] == pl.Date
     # 交易所本地日（Asia/Shanghai）= 09-18；按 UTC 会错成 09-17
+    assert clean["trade_date"].to_list() == [DAY2]
+    assert _finds(log, "normalize_time")[0]["count"] == 1
+
+
+def test_datetime_utc_converted_to_exchange_date_not_identity():
+    """UTC 16:30Z = Asia/Shanghai 09-18 00:30（跨日）；恒等取 Date 会错成 09-17。"""
+    df = pl.DataFrame(
+        {"symbol": [SYM],
+         "trade_date": [datetime(2026, 9, 17, 16, 30, tzinfo=timezone.utc)],
+         "open": [10.0], "high": [10.5], "low": [9.8], "close": [10.2],
+         "volume": [1000.0], "amount": [10200.0]},
+        schema={**_SCHEMA, "trade_date": pl.Datetime("us", "UTC")})
+    clean, _, log = repair.repair(df, [])
     assert clean["trade_date"].to_list() == [DAY2]
     assert _finds(log, "normalize_time")[0]["count"] == 1
 
@@ -138,6 +161,24 @@ def test_pk_conflict_both_rows_quarantined_clean_has_no_key():
     assert e["rule_id"] == rules.PK_CONFLICT
     assert e["count"] == 2
     assert e["keys"] == [f"{SYM}|2026-09-18"]
+
+
+def test_blocking_key_all_rows_quarantined_before_dedup_no_partial_dedup():
+    """控制者裁决 a：有 blocking key 时该键全部行 quarantine（3 行混合组 q=3），
+    先判冲突再 dedup——绝不部分 dedup 后再隔离。"""
+    df = _frame([_row(close=10.2), _row(close=10.2), _row(close=10.4),
+                 _row(symbol="AAA.SH")])
+    res = validators.validate_daily(df, _cal(), None, None)
+    clean, q, log = repair.repair(df, res)
+
+    assert q.height == 3, "混合组必须整组隔离（含两条完全相同行）"
+    assert set(q["close"].to_list()) == {10.2, 10.4}
+    assert clean.height == 1 and clean["symbol"][0] == "AAA.SH"
+    assert clean.filter((pl.col("symbol") == SYM)
+                        & (pl.col("trade_date") == DAY2)).height == 0
+    assert _finds(log, "dedup_identical") == [], "blocking 键不得部分 dedup"
+    e = _finds(log, "quarantine")[0]
+    assert e["rule_id"] == rules.PK_CONFLICT and e["count"] == 3
 
 
 def test_error_quarantined_while_warn_and_info_rows_kept():
@@ -199,3 +240,27 @@ def test_write_quarantine_layout_index_and_rewrite(tmp_path):
     assert d2 == d
     assert pl.read_parquet(d / "rows.parquet").height == 1
     assert json.loads((d / "index.json").read_text(encoding="utf-8"))["row_count"] == 1
+
+
+def test_rewrite_failure_leaves_no_success_marker(tmp_path, monkeypatch):
+    """撕裂分区防护：重写中途失败 → `_SUCCESS` 必须已失效（消费侧视为不可信）。"""
+    import os
+
+    rows = _frame([_row(close=10.2)])
+    index = [{"rule_id": "PK_CONFLICT", "reason": "payload 冲突", "count": 1}]
+    d = repair.write_quarantine("ashare_daily", "2026-09-18", rows, index, root=tmp_path)
+    assert (d / "_SUCCESS").exists()
+
+    real_replace = os.replace
+    state = {"n": 0}
+
+    def flaky_replace(src, dst):
+        state["n"] += 1
+        if state["n"] == 2:      # rows.parquet 已换，index.json 替换失败
+            raise OSError("disk full")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(repair.os, "replace", flaky_replace)
+    with pytest.raises(OSError):
+        repair.write_quarantine("ashare_daily", "2026-09-18", rows, index, root=tmp_path)
+    assert not (d / "_SUCCESS").exists(), "半写分区不得残留完成标记"

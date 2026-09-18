@@ -138,6 +138,19 @@ def test_trade_date_string_forms_parse_and_bad_one_errors():
     assert hits[0].key == f"{SYM}|20261340"
 
 
+def test_datetime_utc_cross_day_recognized_as_exchange_day():
+    """UTC 16:30Z = 沪市 09-18 00:30；日历仅含 09-18 → 恒等取 Date 会误报非交易日。"""
+    df = pl.DataFrame(
+        {"symbol": [SYM],
+         "trade_date": [dt.datetime(2026, 9, 17, 16, 30, tzinfo=dt.timezone.utc)],
+         "open": [10.0], "high": [10.5], "low": [9.8], "close": [10.2],
+         "volume": [1000.0], "amount": [10200.0]},
+        schema={**_BASE_SCHEMA, "trade_date": pl.Datetime("us", "UTC")})
+    res = _run(df, calendar=_cal(DAY2))
+    assert _hits(res, rules.TIME_UNPARSEABLE) == []
+    assert _hits(res, rules.TRADE_DATE_INVALID) == []
+
+
 def test_list_before_and_after_delist_error():
     """上市前/退市后（is_listed = t < delist_date）→ ERROR；窗口内 → 无。"""
     listing = _listing([{"symbol": SYM, "list_date": DAY2, "delist_date": None}])

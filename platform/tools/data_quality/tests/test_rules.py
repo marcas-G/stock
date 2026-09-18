@@ -130,6 +130,15 @@ def test_cross_source_and_health_referenced_rule_ids_exist():
         assert rules.RULE_LEVELS[rid] in (rules.WARN, rules.INFO)
 
 
+def test_rule_fields_covers_every_rule_id():
+    """T4 系统性检测按 rule_id 查 RULE_FIELDS，任何目录 rule_id 不得 KeyError。"""
+    assert set(rules.RULE_FIELDS) == set(rules.RULE_LEVELS)
+    for rid, field in rules.RULE_FIELDS.items():
+        assert field is None or isinstance(field, str)
+    assert rules.RULE_FIELDS[rules.SCHEMA_MISSING_COLUMN] is None
+    assert rules.RULE_FIELDS[rules.SCHEMA_DATE_DTYPE] == "trade_date"
+
+
 def test_rule_result_carries_interface_fields_and_is_frozen():
     r = rules.RuleResult("PK_CONFLICT", rules.ERROR, "600519.SH|2026-09-18", "payload 冲突")
     assert (r.rule_id, r.level, r.key, r.detail) == (

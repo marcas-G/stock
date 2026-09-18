@@ -53,59 +53,63 @@ def repair(
     df: pl.DataFrame,
     results: list[RuleResult] | None = None,
 ) -> tuple[pl.DataFrame, pl.DataFrame, list[dict[str, Any]]]:
-    """执行确定性修复并隔离 ERROR/FATAL 命中的行（纯函数：不改输入）。"""
-    results = list(results or [])
+    """执行确定性修复并隔离 ERROR/FATAL 命中的行（纯函数：不改输入）。
+
+    ``results`` 必填：``None``/缺省 → ``ValueError``（fail-closed——repair 只在
+    校验器结论之上工作，禁止"没传 issues 就当干净"的 fail-open；无问题传 ``[]``）。
+    """
+    if results is None:
+        raise ValueError(
+            "repair(df, results): results 必填（None = fail-open 拒绝；"
+            "无问题请显式传 []）")
+    results = list(results)
     log: list[dict[str, Any]] = []
 
-    # ── 1) 完全相同行 dedup（全列一致才删；keep first + 保持原顺序）────────
     work = _with_key(df)
     has_key = "_key" in work.columns
-    before = work.height
-    if has_key:
-        before_counts = work.group_by("_key").len().rename({"len": "_n0"})
-    deduped = work.unique(keep="first", maintain_order=True)
-    removed = before - deduped.height
+
+    # ── 1) 先判 blocking（ERROR/FATAL）key：该键**全部行** quarantine，绝不 dedup ──
+    blocking = [r for r in results
+                if rules.SEVERITY[r.level] <= rules.SEVERITY[rules.ERROR]]
+    by_rule: dict[str, list[RuleResult]] = {}
+    for r in blocking:
+        if r.key:
+            by_rule.setdefault(r.rule_id, []).append(r)
+    blocking_keys = sorted({r.key for r in blocking if r.key})
+
+    if has_key and blocking_keys:
+        cond = pl.col("_key").is_in(blocking_keys).fill_null(False)
+        q_frame = work.filter(cond)
+        pool = work.filter(~cond)
+    else:
+        q_frame = work.head(0)
+        pool = work
+
+    # ── 2) 仅对非 blocking 行做完全相同行 dedup（全列一致才删；keep first）──
+    before = pool.height
+    if has_key and before:
+        before_counts = pool.group_by("_key").len().rename({"len": "_n0"})
+    clean = pool.unique(keep="first", maintain_order=True)
+    removed = before - clean.height
     if removed:
         keys: list[str] = []
         if has_key:
-            after_counts = (deduped.group_by("_key").len().rename({"len": "_n1"}))
+            after_counts = clean.group_by("_key").len().rename({"len": "_n1"})
             merged = (before_counts.join(after_counts, on="_key", how="left")
                       .with_columns(pl.col("_n1").fill_null(0)))
             keys = sorted(merged.filter(pl.col("_n0") > pl.col("_n1"))["_key"].to_list())
         log.append({"action": "dedup_identical", "count": removed, "keys": keys})
-    work = deduped
 
-    # ── 2) ERROR/FATAL 命中 key → 全部行 quarantine ──────────────────────
-    blocking = [r for r in results
-                if rules.SEVERITY[r.level] <= rules.SEVERITY[rules.ERROR]]
-    if has_key and blocking:
-        by_rule: dict[str, list[RuleResult]] = {}
-        for r in blocking:
-            if r.key:
-                by_rule.setdefault(r.rule_id, []).append(r)
-
-        cond: pl.Expr | None = None
-        keys_by_rule: dict[str, list[str]] = {}
-        for rid in sorted(by_rule):
-            keys = sorted({r.key for r in by_rule[rid]})
-            if not keys:
-                continue
-            keys_by_rule[rid] = keys
-            m = pl.col("_key").is_in(keys).fill_null(False)
-            cond = m if cond is None else (cond | m)
-        if cond is not None:
-            q_frame = work.filter(cond)
-            clean = work.filter(~cond)
-            for rid, keys in keys_by_rule.items():
-                n = q_frame.filter(pl.col("_key").is_in(keys)).height
-                if n:
-                    log.append({"action": "quarantine", "rule_id": rid,
-                                "reason": by_rule[rid][0].detail, "count": n,
-                                "keys": keys})
-        else:
-            clean, q_frame = work, work.head(0)
-    else:
-        clean, q_frame = work, work.head(0)
+    # ── 3) quarantine 日志（按规则计数；该键全部行）──────────────────────
+    for rid in sorted(by_rule):
+        keys = sorted({r.key for r in by_rule[rid]})
+        if not keys:
+            continue
+        n = q_frame.filter(pl.col("_key").is_in(keys)).height
+        if n:
+            log.append({"action": "quarantine", "rule_id": rid,
+                        "reason": by_rule[rid][0].detail, "count": n,
+                        "keys": keys})
 
     if "_key" in clean.columns:
         clean = clean.drop("_key")
@@ -139,12 +143,19 @@ def write_quarantine(
 
     ``root`` 缺省 = 工作区 data 根（``factorlab.core.factio.paths.DATA_ROOT``，
     测试传 tmp_path）；返回分区目录。
+
+    撕裂防护：写入前先撤销旧 ``_SUCCESS``——重写中途任何失败都会让分区保持
+    "无完成标记 = 消费侧不可信"，绝不出现 rows/index 新旧混杂却带成功标记。
     """
     from factorlab.core.factio import paths
 
     base = (Path(root) if root is not None else paths.DATA_ROOT) / "quarantine"
     d = base / dataset / str(partition)
     d.mkdir(parents=True, exist_ok=True)
+
+    marker = d / "_SUCCESS"
+    if marker.exists():
+        marker.unlink()               # 重写前失效旧标记（半写分区不可信）
 
     tmp_rows = d / ".rows.parquet.tmp"
     rows.write_parquet(tmp_rows)
@@ -159,7 +170,7 @@ def write_quarantine(
                        encoding="utf-8")
     os.replace(tmp_idx, d / "index.json")
 
-    (d / "_SUCCESS").touch()          # 完成标记最后落（半写分区不可信）
+    marker.touch()                    # 两文件都就位后才落完成标记
     return d
 
 

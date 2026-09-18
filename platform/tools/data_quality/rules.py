@@ -118,6 +118,8 @@ RULE_FIELDS: dict[str, str | None] = {
     CROSS_SOURCE_DEVIATION: None,
     MINUTE_DAILY_MISMATCH: None,
     UNIT_SUSPECT: None,
+    SCHEMA_MISSING_COLUMN: None,      # key = 缺失列名
+    SCHEMA_DATE_DTYPE: "trade_date",
 }
 
 
