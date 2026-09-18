@@ -4,8 +4,10 @@
 - ``STAGE_CHAINS``：类别 → 命令序列（daily/minutes/fund_flow/financials 由 T5-T8 填实）。
   daily 链在 import_daily（raw → daily_fact）与 ingest_daily 之间插入
   ``data_quality/pipeline.py clean``（Plan DQ-M1 §5：CLEAN STAGING → PRE-INGEST GATE
-  → CANONICAL INGEST）；clean 非零退出（PRE-INGEST FAIL）→ 阶段失败上抛，ingest 不执行、
-  stage 标记不落。M1 只 clean 最新分区（增量硬门；全史体检是 T8 的只审不改职责）。
+  → CANONICAL INGEST）：clean **全表**校验/修复/隔离并落
+  ``data/staging/ashare_daily/<run_tag>/daily_fact.parquet``，同一 run_tag 路径经
+  ``ingest_daily --source`` 传入（被隔离/dedup 的行不进 canonical）；clean 非零退出
+  （PRE-INGEST FAIL）→ 阶段失败上抛，ingest 不执行、stage 标记不落。
 - ``run_category_stage``：同一 (类别, 阶段) 成功才落标记（值为 ISO 时间）；
   失败即停、标记不动，重跑从链头整链重放（链内每步须幂等，设计 §3/§8）。
 - ``run_cmd``：子进程输出逐行喂给 log；非零退出抛 ``StageError(stage, cmd, rc, tail)``，
@@ -35,12 +37,19 @@ LOG_DIR = config.repo_root() / "runs" / "platform" / "logs"
 _VENV_PYTHON = config.repo_root() / "platform" / ".venv" / "bin" / "python"
 _TOOLS = config.repo_root() / "platform" / "tools"
 
+# DQ clean（Plan DQ-M1 I1）：run_tag 在模块导入时固定 → clean 写入与 ingest 读取
+# 同一目录（跨午夜也不漂移）；同日重跑幂等覆盖。
+_DAILY_RUN_TAG = datetime.date.today().strftime("%Y%m%d")
+_DAILY_STAGING = (config.DATA_ROOT / "staging" / "ashare_daily" / _DAILY_RUN_TAG
+                  / "daily_fact.parquet")
+
 STAGE_CHAINS: dict[str, list[list[str]]] = {
     "daily": [
         [str(_VENV_PYTHON), str(_TOOLS / "ashare_ingest" / "import_daily.py")],
         [str(_VENV_PYTHON), str(_TOOLS / "data_quality" / "pipeline.py"),
-         "clean", "--partition", "latest"],
-        [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_daily.py")],
+         "clean", "--partition", "latest", "--run-tag", _DAILY_RUN_TAG],
+        [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_daily.py"),
+         "--source", str(_DAILY_STAGING)],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "derive_stk_limit.py")],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "adj_backfill.py")],
     ],

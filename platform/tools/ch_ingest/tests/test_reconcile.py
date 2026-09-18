@@ -386,3 +386,29 @@ def test_main_concept_members_exit_codes(tmp_path, monkeypatch, capsys):
     with pytest.raises(SystemExit) as ex:
         RC.main()
     assert ex.value.code == 1
+
+
+# ── I1（修复轮 1）：clean staging 口径说明（期望 = raw − quarantine_count）────
+class _FakeCountCH:
+    def __init__(self, n: int):
+        self._n = n
+
+    def command(self, sql: str) -> int:
+        return self._n
+
+
+def test_daily_reconcile_note_documents_quarantine_adjustment(capsys):
+    """ingest 消费 clean staging 时 CH 行数 = raw − quarantine_count——输出须带口径说明。"""
+    ch, src, note = RC._reconcile(_FakeCountCH(123), "dbtest", "daily", 130)
+    assert (ch, src) == (123, 130)
+    assert "quarantine_count" in note and "raw" in note
+    out = capsys.readouterr().out
+    assert "不一致" in out and "quarantine_count" in out
+    assert "quarantine_count" in RC.QUARANTINE_NOTE
+    assert RC.QUARANTINE_NOTE in RC.__doc__, "口径说明必须在模块文档中"
+
+
+def test_non_daily_reconcile_note_has_no_quarantine_hint(capsys):
+    """其它表不套用 clean staging 口径（说明只对 daily 表追加）。"""
+    _ch, _src, note = RC._reconcile(_FakeCountCH(5), "dbtest", "moneyflow", 6)
+    assert "quarantine_count" not in note

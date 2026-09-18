@@ -19,10 +19,14 @@
 - trade_cal = distinct trade_date（is_open=1）；stock_basic.list_date = 最早交易日代理。
 
 单进程即可（18M 行一次物化 ~3GB）。幂等：每表先 TRUNCATE 再灌。
-用法：python ingest_daily.py [--only TABLE ...]（缺省全 5 表；--only 单表重灌）
+用法：python ingest_daily.py [--only TABLE ...] [--source PARQUET]
+（缺省全 5 表；--only 单表重灌；--source 缺省 A5 权威位 daily_fact.parquet，
+Plan DQ-M1 I1 起 pan_update daily 链传 clean staging 的全表 cleaned parquet——
+被隔离/dedup 的行由此**不进 canonical**；无 --source 时行为与历史完全一致）。
 """
 from __future__ import annotations
 
+import argparse
 import os
 import datetime
 from pathlib import Path
@@ -185,12 +189,25 @@ def _insert_table(client, table: str, df: pl.DataFrame):
     print(f"  {table}: {total:,} rows", flush=True)
 
 
-def main(tables: set[str] | None = None):
+def resolve_source(source: str | Path | None = None) -> str:
+    """数据来源：``--source`` 覆盖优先；缺省 = A5 权威位 ``DAILY_SRC``（向后兼容）。
+
+    Plan DQ-M1 I1：canonical ingest 必须消费 clean staging 的 cleaned 全表；
+    显式传入时 CH 写入的数据只来自该 parquet。退市 sidecar 仍锚定 A5 目录
+    （sidecar 由 import_daily/adj_backfill 生产，不随 --source 漂移）。
+    """
+    return str(source) if source is not None else DAILY_SRC
+
+
+def main(tables: set[str] | None = None, source: str | Path | None = None):
     """灌 daily 层 5 表；tables=None → 全部，否则仅指定表（单表重灌）。
 
+    ``source``：源 parquet（缺省 ``DAILY_SRC``）；Plan DQ-M1 I1 起由 pan_update
+    daily 链传 ``--source <clean staging>/daily_fact.parquet``。
     --only 提供单表重灌路径（如 R07-DATA-I4 只重灌 daily_basic，不动其余
     4 表）；每表仍 TRUNCATE + INSERT 全量，幂等语义不变。
     """
+    src = resolve_source(source)
     want = set(DAILY_TABLES) if tables is None else set(tables)
     unknown = want - set(DAILY_TABLES)
     if unknown:
@@ -198,9 +215,9 @@ def main(tables: set[str] | None = None):
             f"未知表 {sorted(unknown)}（可选 {list(DAILY_TABLES)}）")
     client = connect()
     db = load_config()["ch"]["database"]
-    print("读取 daily_fact.parquet ...", flush=True)
+    print(f"读取 {src} ...", flush=True)
     df = (
-        pl.scan_parquet(DAILY_SRC)
+        pl.scan_parquet(src)
         .sort(["code", "trade_date"])
         .collect()
     )
@@ -288,13 +305,19 @@ def main(tables: set[str] | None = None):
     print("daily 层灌入完成", flush=True)
 
 
-if __name__ == "__main__":
+def cli(argv: list[str] | None = None) -> None:
+    """命令行入口：解析 --only/--source 后调 ``main``。"""
     os.environ.setdefault("PYARROW_JEMALLOC", "0")
-    import argparse
-
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--only", action="append", choices=list(DAILY_TABLES),
                     metavar="TABLE",
                     help="仅重灌指定表（可重复；缺省全 5 表）")
-    args = ap.parse_args()
-    main(set(args.only) if args.only else None)
+    ap.add_argument("--source", default=None,
+                    help="源 parquet（缺省 A5 权威位 daily_fact；clean staging 时传 "
+                         "data/staging/ashare_daily/<run_tag>/daily_fact.parquet）")
+    args = ap.parse_args(argv)
+    main(set(args.only) if args.only else None, source=args.source)
+
+
+if __name__ == "__main__":
+    cli()

@@ -32,6 +32,8 @@ R21 TOOLS-I7 扩展（旧版只对 5 张 daily 表行数）：
       python reconcile.py bars             # bars_1m
       python reconcile.py tick             # tick 3 表
 退出码 0=全一致，1=有差异。
+
+口径（Plan DQ-M1 I1）：ingest 消费 clean staging（--source）时，期望 CH 行数 = raw 源行数 − quarantine_count（data/staging/ashare_daily/<run_tag>/summary.json）——被隔离/dedup 的行不入 canonical，因此 daily 层行数与 raw 源存在**已知且应有**的差额。
 """
 from __future__ import annotations
 
@@ -53,6 +55,9 @@ except ModuleNotFoundError:
 from common import connect, load_config
 
 DAILY_SRC = str(paths.daily_fact_path())   # R8：取 factio.paths（原硬编码绝对路径）
+# I1 口径说明：ingest 走 clean staging（--source）时 CH 行数 = raw − quarantine_count。
+QUARANTINE_NOTE = ("ingest 消费 clean staging（--source）时，期望 CH 行数 = raw 源行数 − "
+                   "quarantine_count（data/staging/ashare_daily/<run_tag>/summary.json）")
 MONEYFLOW_SRC = paths.RAW_ROOT / "fund_flow"
 MONEYFLOW_SECTOR_FACT = paths.FACT_ROOT / MF.SECTOR_FACT_RELPATH
 CONCEPT_MEMBERS_FACT = paths.FACT_ROOT / MF.CONCEPT_FACT_RELPATH
@@ -112,6 +117,8 @@ def _reconcile(client, db, table: str, src_rows: int | None) -> tuple[int, int, 
         else:
             src_rows = pq.ParquetFile(DAILY_SRC).metadata.num_rows
     note = "一致" if ch == src_rows else f"不一致 (差 {ch - src_rows:+,})"
+    if ch != src_rows and table == "daily":
+        note += f"（{QUARANTINE_NOTE}）"
     print(f"  {table:12s} CH={ch:>16,} 源={src_rows:>16,}  {note}", flush=True)
     return ch, src_rows, note
 
