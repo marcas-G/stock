@@ -255,7 +255,10 @@ at_minute 静态范围门存根化（1 failed）；恢复后 67 passed。
   （catalog.md 未同步 im_cummax）已随 catalog 重生成清零。
 - 分钟族 145 passed；`make lint-factors` 233 通过 / 0 失败；
   `tests/test_architecture.py` + `test_doc_paths_exist.py` 19 passed。
-- **`make gates`**：预存红（在途 lob_fact 工具链）不受本改动影响。
+- **`make gates`**：14 处 `[BAD]` **全部**在 `platform/tools/lob_fact/pipeline/*`
+  （在途 tick/LOB 工具链：G-READ 未登记直读 8 + `year=` 字面量 6），本改动路径
+  零 BAD；其余门全过（G-LINT 233/0、G-REVIEWS 统计自洽）。输出见
+  `after-p3/gates_p3.txt`（预存红，I1 同款）。
 
 ### 偏差/限制
 
