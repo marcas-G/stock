@@ -42,7 +42,22 @@ _STALENESS_RE = re.compile(r"^(\d+)d$")
 
 
 class DatasetQualityError(RuntimeError):
-    """读取门拒绝（fail-closed）：数据未发布为 research-ready 或声明过期。"""
+    """读取门拒绝（fail-closed）：数据未发布为 research-ready 或声明过期。
+
+    N2（R32 终审修复）：携带结构化上下文（dataset/partition/status/freshness），
+    CLI/门面据此渲染友好报错，不靠解析错误文案。
+    """
+
+    def __init__(self, message: str, *, dataset: str | None = None,
+                 partition: str | None = None, status: str | None = None,
+                 freshness: dict | None = None,
+                 guidance: str | None = None) -> None:
+        super().__init__(message)
+        self.dataset = dataset
+        self.partition = partition
+        self.status = status
+        self.freshness = freshness
+        self.guidance = guidance
 
 
 @dataclass(frozen=True)
@@ -82,6 +97,45 @@ def parse_max_staleness(text: str) -> datetime.timedelta:
     return datetime.timedelta(days=int(m.group(1)))
 
 
+def parse_accept_quality(text: str | None) -> tuple[str, ...]:
+    """`--accept-quality` 文本解析：逗号分隔、大小写归一、去重；空 → ()。
+
+    空元组语义 = 未显式 opt-in（`resolve_accept_quality` 归一为默认 PASS-only）。
+    """
+    if text is None:
+        return ()
+    return tuple(dict.fromkeys(
+        part.strip().upper() for part in str(text).split(",") if part.strip()))
+
+
+def resolve_accept_quality(
+    accept_quality: tuple[str, ...] | list[str] | None,
+    override_reason: str | None,
+) -> tuple[str, ...]:
+    """入口 opt-in 参数归一/校验（CLI 与门面共用；设计 §7）。
+
+    - 空 → ``("PASS",)``（默认 fail-closed）；
+    - 非空必须同时给 ``override_reason``（否则 ValueError → CLI exit 2 / 门面 USAGE）；
+    - 未知状态 / ``FAIL`` 不可 opt-in → ValueError（不进入计算链）。
+    """
+    quality = tuple(accept_quality or ())
+    if not quality:
+        return ("PASS",)
+    bad = [s for s in quality if s not in HEALTH_STATUSES]
+    if bad:
+        raise ValueError(
+            f"--accept-quality 含未知状态 {bad}（可用：{', '.join(HEALTH_STATUSES)}）")
+    if "FAIL" in quality:
+        raise ValueError(
+            "--accept-quality 不可含 FAIL（设计 §7：FAIL ❌ 不可 opt-in）——"
+            "先修复数据并重发 health")
+    if not (override_reason or "").strip():
+        raise ValueError(
+            "--accept-quality 非空时必须同时给 --override-reason（opt-in 原因；"
+            "DEGRADED/LEGACY opt-in 自动写 Experiment Manifest）")
+    return quality
+
+
 def _default_root() -> Path:
     from factorlab.core.factio import paths
 
@@ -95,10 +149,13 @@ def health_artifact_path(dataset: str, partition: str,
 
 
 def _reject(dataset: str, partition: str, status: str, why: str,
-            *, guidance: str) -> "DatasetQualityError":
+            *, guidance: str,
+            freshness: dict | None = None) -> "DatasetQualityError":
     return DatasetQualityError(
         f"读取门拒绝：dataset={dataset} partition={partition} status={status}"
-        f"——{why}；指引：{guidance}")
+        f"——{why}；指引：{guidance}",
+        dataset=dataset, partition=partition, status=status,
+        freshness=freshness, guidance=guidance)
 
 
 def _atomic_write_json(path: Path, doc: dict) -> None:
@@ -209,13 +266,15 @@ def require_dataset(
             dataset, as_of, str(doc.get("health_status")),
             f"health artifact dataset_id={doc.get('dataset_id')!r} 与请求 "
             f"dataset={dataset!r} 不一致（错读保护）",
-            guidance="检查 health 落点/请求参数；重发对应 dataset 的 health")
+            guidance="检查 health 落点/请求参数；重发对应 dataset 的 health",
+            freshness=doc.get("freshness"))
     if doc.get("partition") != as_of:
         raise _reject(
             dataset, as_of, str(doc.get("health_status")),
             f"health artifact partition={doc.get('partition')!r} 与请求 "
             f"as_of={as_of!r} 不一致（错读保护）",
-            guidance="检查 health 落点/请求分区；重发对应 partition 的 health")
+            guidance="检查 health 落点/请求分区；重发对应 partition 的 health",
+            freshness=doc.get("freshness"))
 
     status = doc["health_status"]
     verification = doc.get("verification_state")
@@ -223,42 +282,49 @@ def require_dataset(
         raise _reject(dataset, as_of, str(status),
                       f"health/verification 枚举非法（health_status={status!r} / "
                       f"verification_state={verification!r}）",
-                      guidance="重发 health（§6 双枚举契约）")
+                      guidance="重发 health（§6 双枚举契约）",
+                      freshness=doc.get("freshness"))
     if status == "FAIL":
         raise _reject(
             dataset, as_of, status, "FINAL 门判 FAIL（不可 opt-in）",
-            guidance="修复数据并重跑 clean → ingest → health；不得绕过")
+            guidance="修复数据并重跑 clean → ingest → health；不得绕过",
+            freshness=doc.get("freshness"))
     if status not in accept_quality:
         raise _reject(
             dataset, as_of, status,
             f"不在 accept_quality={tuple(accept_quality)}（默认 fail-closed）",
             guidance="DEGRADED 需显式 opt-in（accept_quality 含 DEGRADED + "
-                     "override_reason，自动写 manifest）；或修复数据重发 health")
+                     "override_reason，自动写 manifest）；或修复数据重发 health",
+            freshness=doc.get("freshness"))
 
     if status == "UNKNOWN":
         if verification != "LEGACY_UNVERIFIED":
             raise _reject(
                 dataset, as_of, status,
                 f"UNKNOWN 仅限 LEGACY 存量（verification_state={verification!r}）",
-                guidance="重发 health 或按 §8 过渡条款处理")
+                guidance="重发 health 或按 §8 过渡条款处理",
+                freshness=doc.get("freshness"))
         if override_reason is None:
             raise _reject(
                 dataset, as_of, status, "UNKNOWN opt-in 缺少 override_reason",
                 guidance="显式声明 accept_quality 含 UNKNOWN + override_reason"
-                         "（过渡期条款；自动写 manifest）")
+                         "（过渡期条款；自动写 manifest）",
+                freshness=doc.get("freshness"))
 
     completeness = doc.get("completeness") or {}
     c_status = completeness.get("status")
     if c_status not in COMPLETENESS_STATUSES:
         raise _reject(dataset, as_of, status,
                       f"completeness.status 非法（{c_status!r}）",
-                      guidance="重发 health（§6 completeness.status 契约）")
+                      guidance="重发 health（§6 completeness.status 契约）",
+                      freshness=doc.get("freshness"))
     if c_status != completeness_required:
         raise _reject(
             dataset, as_of, status,
             f"completeness.status={c_status} ≠ {completeness_required}"
             f"（独立检查，不靠 coverage 推）",
-            guidance="补齐/重导缺失分区后重发 health；完整性未证实不得 research-ready")
+            guidance="补齐/重导缺失分区后重发 health；完整性未证实不得 research-ready",
+            freshness=doc.get("freshness"))
 
     freshness = doc.get("freshness") or {}
     latest = freshness.get("latest_trade_date")
@@ -267,7 +333,8 @@ def require_dataset(
     except (TypeError, ValueError):
         raise _reject(dataset, as_of, status,
                       f"freshness.latest_trade_date 非法/缺失（{latest!r}）",
-                      guidance="重发 health（§6 freshness 契约）") from None
+                      guidance="重发 health（§6 freshness 契约）",
+                      freshness=doc.get("freshness")) from None
     gap = datetime.date.fromisoformat(as_of) - latest_d
     if gap > max_delta:
         raise _reject(
@@ -275,13 +342,15 @@ def require_dataset(
             f"数据陈旧：freshness.latest_trade_date={latest_d} 距 as_of 为 "
             f"{gap.days}d > max_staleness={max_staleness}",
             guidance="刷新数据到 as_of 后重发 health；或不要求该新鲜度（放宽 "
-                     "max_staleness 会被审计）")
+                     "max_staleness 会被审计）",
+            freshness=doc.get("freshness"))
 
     if status != "PASS" and override_reason is None:
         raise _reject(
             dataset, as_of, status,
             "非 PASS opt-in 缺少 override_reason（必须显式声明原因）",
-            guidance="显式给出 override_reason（自动写 Experiment Manifest）")
+            guidance="显式给出 override_reason（自动写 Experiment Manifest）",
+            freshness=doc.get("freshness"))
 
     quality = doc.get("quality") or {}
     gate = DatasetGate(

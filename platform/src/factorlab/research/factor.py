@@ -33,6 +33,10 @@ from typing import Any, Iterator
 import yaml
 
 from factorlab.adapters.atomicio import atomic_write_text
+# Plan DQ-M1 终审修复 N2：读取门 opt-in（入口参数校验 + DATA 信封映射）
+from factorlab.adapters.read.health import (DatasetQualityError,
+                                            parse_accept_quality,
+                                            resolve_accept_quality)
 from factorlab.config import settings
 from factorlab.research import envelope, registry
 from factorlab.research._guard import GuardError, guard_heavy, release_slots
@@ -66,6 +70,11 @@ _RUN_PARAMS = (
     registry.ParamSpec("eval_frequency", kind="str", help="评估频率 daily|weekly"),
     registry.ParamSpec("wait", kind="bool", help="heavy 闸满时阻塞等槽（缺省立即 BUSY）"),
     registry.ParamSpec("no_float32", kind="bool", help="关闭 float32 面板"),
+    registry.ParamSpec("accept_quality", kind="str",
+                       help="读取门 opt-in：逗号分隔 health_status（默认空=仅 PASS；"
+                            "非空必须同时给 --override-reason；FAIL 不可 opt-in）"),
+    registry.ParamSpec("override_reason", kind="str",
+                       help="非 PASS 读取门 opt-in 原因（写入 Experiment Manifest）"),
 )
 _FACTOR_HINT = ("因子产物缺失先 `flab factor run <spec.yaml>`；"
                 "命令目录 `flab describe --json`")
@@ -225,6 +234,17 @@ def factor_run(args: Any) -> envelope.Envelope:
     from factorlab.surfaces.cli.main import execute_run
 
     _ensure()
+    # N2：入口参数校验先于重链（缺 reason / FAIL / 未知状态 → USAGE，不占闸）
+    override_reason = getattr(args, "override_reason", None)
+    try:
+        quality = resolve_accept_quality(
+            parse_accept_quality(getattr(args, "accept_quality", None)),
+            override_reason)
+    except ValueError as exc:
+        return envelope.fail(
+            "factor.run", "USAGE", str(exc),
+            hint="例：flab factor run <spec> --accept-quality PASS,DEGRADED "
+                 "--override-reason '探索性研究'")
     spec_path = Path(args.spec_path)
     argv = ["factor", "run", str(spec_path)]
     try:
@@ -244,7 +264,10 @@ def factor_run(args: Any) -> envelope.Envelope:
                 eval_frequency=getattr(args, "eval_frequency", None),
                 chunk_workers=getattr(args, "chunk_workers", None) or 1,
                 # Plan DQ-M1 F3：真实入口 fail-closed 读取门（ashare_daily）
+                # N2：DEGRADED/LEGACY opt-in 透传（自动写 Experiment Manifest）
                 dataset="ashare_daily",
+                accept_quality=quality,
+                override_reason=override_reason,
             )
     except GuardError as exc:
         return envelope.fail("factor.run", exc.code, exc.message,
@@ -261,6 +284,12 @@ def factor_run(args: Any) -> envelope.Envelope:
     except FactorDSLError as exc:
         return envelope.fail("factor.run", "LINT", f"spec 校验失败: {exc}",
                              hint="先 `flab factor lint <spec>`")
+    except DatasetQualityError as exc:
+        return envelope.fail(
+            "factor.run", "DATA", f"读取门拒绝: {exc}",
+            hint="如需探索性读取非 PASS 分区：--accept-quality PASS,DEGRADED "
+                 "--override-reason <原因>（FAIL 不可 opt-in；DEGRADED/LEGACY "
+                 "opt-in 自动写 Experiment Manifest）")
     except (ValueError, OSError) as exc:
         return envelope.fail("factor.run", "RUN_FAILED", f"{type(exc).__name__}: {exc}",
                              hint="核对 spec/数据面；日志见 artifacts.log")
@@ -549,7 +578,8 @@ def _run_args(spec_path: Path, **over: Any) -> argparse.Namespace:
     base = dict(spec_path=spec_path, universe=None, max_memory="4GB", output_dir=None,
                 no_backtest=False, groups=10, set=None, chunk_days=None,
                 warmup_days=None, eval_frequency=None, wait=False,
-                chunk_workers=None, no_float32=False, pretty=False)
+                chunk_workers=None, no_float32=False, pretty=False,
+                accept_quality=None, override_reason=None)
     base.update(over)
     return argparse.Namespace(**base)
 
@@ -851,7 +881,8 @@ def _reg_all() -> None:
         defaults={"universe": None, "max_memory": "4GB", "output_dir": None,
                   "no_backtest": False, "groups": 10, "set": None,
                   "chunk_days": None, "warmup_days": None, "eval_frequency": None,
-                  "wait": False, "chunk_workers": None, "no_float32": False},
+                  "wait": False, "chunk_workers": None, "no_float32": False,
+                  "accept_quality": None, "override_reason": None},
         description="计算+评估+分层回测（过 heavy 闸；返回 IC/十分位/换手/覆盖/ic_decay）",
         examples=("flab factor run research/factor/momentum_20d/turnrank_top2.yaml",
                   "flab factor run <spec> --no-backtest --wait"),

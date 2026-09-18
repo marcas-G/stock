@@ -27,6 +27,10 @@ from typing import Any, Iterator
 import polars as pl
 
 from factorlab.adapters.execution_store import load_backtest_result
+# Plan DQ-M1 终审修复 N2：读取门 opt-in（入口参数校验 + DATA 信封映射）
+from factorlab.adapters.read.health import (DatasetQualityError,
+                                            parse_accept_quality,
+                                            resolve_accept_quality)
 from factorlab.adapters.read.source import load_daily
 from factorlab.adapters.strategy_artifacts import load_strategy_artifacts
 from factorlab.app import bootstrap
@@ -230,6 +234,18 @@ def strategy_run(args: Any) -> envelope.Envelope:
     from factorlab.core.strategy import load_strategy_doc
     from factorlab.research._guard import GuardError as _GuardError  # noqa: F401
 
+    # N2：入口参数校验先于重链（缺 reason / FAIL / 未知状态 → USAGE，不占闸）
+    override_reason = getattr(args, "override_reason", None)
+    try:
+        quality = resolve_accept_quality(
+            parse_accept_quality(getattr(args, "accept_quality", None)),
+            override_reason)
+    except ValueError as exc:
+        return envelope.fail(
+            "strategy.run", "USAGE", str(exc),
+            hint="例：flab strategy run <doc> --accept-quality PASS,DEGRADED "
+                 "--override-reason '探索性研究'")
+
     doc_path = Path(args.doc_path)
     try:
         doc = load_strategy_doc(doc_path)
@@ -285,7 +301,9 @@ def strategy_run(args: Any) -> envelope.Envelope:
             apply_hard_memory_limit_from_settings()
             with _read_handle() as rd:
                 res = run_strategy(doc, rd, results_dir=results_dir,
-                                   out_dir=out_dir)
+                                   out_dir=out_dir,
+                                   accept_quality=quality,
+                                   override_reason=override_reason)
     except GuardError as exc:
         return envelope.fail("strategy.run", exc.code, exc.message,
                              hint=exc.hint, log=exc.log)
@@ -293,6 +311,12 @@ def strategy_run(args: Any) -> envelope.Envelope:
         return envelope.fail(
             "strategy.run", "STRATEGY_FAILED", f"执行数据质量闸拦截: {exc}",
             hint="核对除权/停牌/涨跌停数据面；产物未完成（strategy 目录可能已写）")
+    except DatasetQualityError as exc:
+        return envelope.fail(
+            "strategy.run", "DATA", f"读取门拒绝: {exc}",
+            hint="如需探索性读取非 PASS 分区：--accept-quality PASS,DEGRADED "
+                 "--override-reason <原因>（FAIL 不可 opt-in；DEGRADED/LEGACY "
+                 "opt-in 自动写 Experiment Manifest）")
     except FileNotFoundError as exc:
         return envelope.fail("strategy.run", "NOT_FOUND", f"读面文件缺失: {exc}",
                              hint=_FACTOR_HINT)
@@ -568,8 +592,16 @@ def _reg_all() -> None:
                                    help="策略产物目录（缺省 runs/platform/strategies/<name>）"),
                 registry.ParamSpec("wait", kind="bool",
                                    help="heavy 闸满时阻塞等槽（缺省立即 BUSY）"),
+                registry.ParamSpec("accept_quality", kind="str",
+                                   help="读取门 opt-in：逗号分隔 health_status"
+                                        "（默认空=仅 PASS；非空必须同时给 "
+                                        "--override-reason；FAIL 不可 opt-in）"),
+                registry.ParamSpec("override_reason", kind="str",
+                                   help="非 PASS 读取门 opt-in 原因（写入 "
+                                        "Experiment Manifest）"),
                 _JSON, _PRETTY),
-        defaults={"signal": None, "dry_run": False, "out_dir": None, "wait": False},
+        defaults={"signal": None, "dry_run": False, "out_dir": None, "wait": False,
+                  "accept_quality": None, "override_reason": None},
         description="策略回测：信号→M7 组合→M8 回测→持久化（过 heavy 闸）",
         examples=("flab strategy run research/strategy/low_lottery_top30_weekly.yaml",
                   "flab strategy run <doc> --dry-run",

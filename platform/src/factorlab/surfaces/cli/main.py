@@ -8,6 +8,10 @@ from rich.console import Console
 
 from factorlab import __version__
 from factorlab.adapters.catalog import catalog_json, render_catalog_markdown
+# Plan DQ-M1 终审修复 N2：读取门 opt-in 通道（入口参数校验 + 友好报错）
+from factorlab.adapters.read.health import (DatasetQualityError,
+                                            parse_accept_quality,
+                                            resolve_accept_quality)
 from factorlab.config import settings
 from factorlab.research.cli import research_app
 from factorlab.core.factor.errors import FactorDSLError
@@ -267,6 +271,8 @@ def execute_run(
     chunk_workers: int = 1,
     read_cache: bool | None = None,
     dataset: str | None = "ashare_daily",
+    accept_quality: tuple[str, ...] = ("PASS",),
+    override_reason: str | None = None,
 ) -> dict:
     """`factorlab run` 的计算主体（CLI 与 research.factor 门面共用，不打印）。
 
@@ -285,6 +291,9 @@ def execute_run(
 
     Plan DQ-M1 F3：`dataset`（缺省 "ashare_daily"）透传给 `evaluate_run` 的
     读取门（fail-closed，as_of=面板最新日）；合成/测试调用可显式 None 关闭。
+
+    Plan DQ-M1 终审修复 N2：`accept_quality`/`override_reason` 透传读取门
+    （DEGRADED/LEGACY opt-in；CLI `--accept-quality`/`--override-reason`）。
 
     R31：`read_cache`（None=env `FACTORLAB_READ_CACHE` 默认开；False=CLI
     `--no-read-cache`）透传 RunContext——分钟链 bars_1m chunk 级磁盘缓存开关。
@@ -339,13 +348,28 @@ def execute_run(
             result = run_impl(spec, ctx)
             # 评估装配单点（WS5）：app.evaluate.evaluate_run + publish_run
             outcome = evaluate_run(result, spec, ctx, groups=groups, backtest=backtest,
-                                   frequency=eval_frequency, dataset=dataset)
+                                   frequency=eval_frequency, dataset=dataset,
+                                   accept_quality=accept_quality,
+                                   override_reason=override_reason)
             publish_run(result, outcome, ctx)
     finally:
         if profiler is not None:
             profiler.stop()
     return {"spec": spec, "variant": variant, "ctx": ctx,
             "result": result, "outcome": outcome}
+
+
+def _print_quality_reject(exc: DatasetQualityError) -> None:
+    """读取门拒绝的友好报错（N2）：结构化上下文 + 所需旗标指引（不裸 traceback）。"""
+    console.print(f"错误: {exc}", soft_wrap=True)
+    ctx = f"dataset={exc.dataset} partition={exc.partition} status={exc.status}"
+    if exc.freshness is not None:
+        ctx += f" freshness={exc.freshness}"
+    console.print(f"  读取门上下文: {ctx}", soft_wrap=True)
+    console.print("  提示: 如需探索性读取非 PASS 分区，显式传 "
+                  "`--accept-quality PASS,DEGRADED --override-reason <原因>`"
+                  "（FAIL 不可 opt-in；DEGRADED/LEGACY opt-in 自动写 "
+                  "Experiment Manifest）", soft_wrap=True)
 
 
 @app.command("run")
@@ -381,12 +405,28 @@ def run_factor_cli(
         False, "--no-read-cache",
         help="R31 关闭分钟链 bars_1m chunk 级磁盘缓存（默认开；env "
              "FACTORLAB_READ_CACHE=0 等效；仅 interface: bars_1m 生效）"),
+    accept_quality: str | None = typer.Option(
+        None, "--accept-quality",
+        help="读取门 opt-in：逗号分隔 health_status（默认空=仅 PASS；非空必须同时给 "
+             "--override-reason；FAIL 不可 opt-in；DEGRADED/LEGACY opt-in 自动写 "
+             "Experiment Manifest）"),
+    override_reason: str | None = typer.Option(
+        None, "--override-reason",
+        help="非 PASS 读取门 opt-in 的原因（写入 Experiment Manifest；与 "
+             "--accept-quality 配对）"),
 ) -> None:
     """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
     --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
     --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。--eval-frequency 覆盖 spec 评估频率
     （daily 默认逐日口径；weekly 为旧口径可选对照）。--profile 输出分段计时。
-    --chunk-workers 分钟链 chunk 并行度（默认 1，见 --help）。"""
+    --chunk-workers 分钟链 chunk 并行度（默认 1，见 --help）。
+    --accept-quality/--override-reason 读取门 opt-in（N2：DEGRADED/LEGACY 显式接受）。"""
+    try:
+        quality = resolve_accept_quality(parse_accept_quality(accept_quality),
+                                         override_reason)
+    except ValueError as exc:
+        console.print(f"错误: {exc}", soft_wrap=True)
+        raise typer.Exit(code=2) from exc
     try:
         out = execute_run(spec_path, universe=universe, max_memory=max_memory,
                           output_dir=output_dir, float32=float32,
@@ -395,13 +435,22 @@ def run_factor_cli(
                           eval_frequency=eval_frequency, profile=profile,
                           chunk_workers=chunk_workers,
                           read_cache=False if no_read_cache else None,
-                          dataset="ashare_daily")
+                          dataset="ashare_daily",
+                          accept_quality=quality,
+                          override_reason=override_reason)
+    except DatasetQualityError as exc:
+        _print_quality_reject(exc)
+        raise typer.Exit(code=1) from exc
     except (ValueError, FileNotFoundError, FactorDSLError) as exc:
         # ValueError 含 pydantic 的 ValidationError（spec 字段非法，如 cost_rate 越界）——
         # 用户写错 YAML 不该看到裸 traceback（`lint` 子命令同款处理）。
         console.print(f"错误: {exc}")
         raise typer.Exit(code=1) from exc
     variant = out["variant"]
+    gate = getattr(out["outcome"], "dataset_gate", None)
+    if gate is not None and gate.health_status != "PASS":
+        console.print(f"提示: 读取门 opt-in（status={gate.health_status}）——"
+                      f"Experiment Manifest: {gate.manifest_path}")
     evaluation = out["outcome"].evaluation
     outputs = out["outcome"].outputs
     # R09-M3：人读分段摘要走 stderr（stdout 仍是既有评估行，零污染）

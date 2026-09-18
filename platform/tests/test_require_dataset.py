@@ -365,3 +365,34 @@ class _MemoryRead:
 
     def close(self):
         pass
+
+
+# ── N2（R32 终审修复）：opt-in 入口参数校验 + 拒绝异常结构化上下文 ──────────
+def test_resolve_accept_quality_cli_semantics():
+    """入口参数归一/校验（CLI exit 2 / 门面 USAGE 共用）：默认空=PASS-only；
+    非空必须给 override_reason；FAIL/未知状态拒绝。"""
+    from factorlab.adapters.read.health import (parse_accept_quality,
+                                                resolve_accept_quality)
+    assert parse_accept_quality(None) == ()
+    assert parse_accept_quality("") == ()
+    assert parse_accept_quality(" pass , degraded ,pass") == ("PASS", "DEGRADED")
+    assert resolve_accept_quality((), None) == ("PASS",)
+    assert resolve_accept_quality(("PASS", "DEGRADED"), "探索") == ("PASS", "DEGRADED")
+    with pytest.raises(ValueError, match="--override-reason"):
+        resolve_accept_quality(("PASS", "DEGRADED"), None)
+    with pytest.raises(ValueError, match="FAIL"):
+        resolve_accept_quality(("PASS", "FAIL"), "x")
+    with pytest.raises(ValueError, match="未知状态"):
+        resolve_accept_quality(("PASS", "BOGUS"), "x")
+
+
+def test_quality_error_exposes_dataset_partition_status_freshness(tmp_path):
+    """拒绝异常必须带结构化上下文（CLI 友好报错按字段渲染，不靠解析文案）。"""
+    _write(tmp_path, _doc(status="DEGRADED"))
+    with pytest.raises(DatasetQualityError) as ei:
+        require_dataset(DATASET, PART, root=tmp_path)
+    exc = ei.value
+    assert exc.dataset == DATASET
+    assert exc.partition == PART
+    assert exc.status == "DEGRADED"
+    assert exc.freshness == {"latest_trade_date": PART}

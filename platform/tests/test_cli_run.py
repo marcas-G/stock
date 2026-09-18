@@ -1,5 +1,6 @@
 """factorlab run 命令测试：help、tmp 平台库端到端落盘（含 evaluation）、--set 变体、错误路径。"""
 import json
+from pathlib import Path
 
 import polars as pl
 import pytest
@@ -952,3 +953,160 @@ formula: |
         "dataset_version": "v20260919_01", "quality_status": "PASS",
         "quarantined_rows": 2, "coverage": 1.0,
         "cleaning_policy_version": "daily-v1"}
+
+
+# ================================================================
+# R32 终审修复 N2：读取门 opt-in 通道与友好报错（真实 require_dataset）
+#   —— 不复用 conftest 假 gate；health artifact 复用 T9 证据样本改写分区。
+# ================================================================
+
+_T9_HEALTH_SAMPLE = (
+    Path(__file__).resolve().parents[2] / "governance" / "evidence" / "verification"
+    / "R32" / "m1-e2e" / "health-root" / "health" / "ashare_daily" / "2026-09-17.json")
+_QUALITY_PARTITION = "2024-01-12"      # build_db(n_days=9) 面板最新日
+
+
+def _quality_spec(tmp_path: Path) -> Path:
+    spec_path = tmp_path / "quality_demo.yaml"
+    spec_path.write_text("""
+name: quality_demo
+category: custom
+direction: 1
+universe:
+  codes: ["000001.SZ", "600519.SH"]
+date:
+  start: "2024-01-02"
+  end: "2024-01-12"
+formula: |
+  signal = close / open - 1
+""", encoding="utf-8")
+    return spec_path
+
+
+def _quality_doc(*, status="DEGRADED", verification="VERIFIED",
+                 completeness="COMPLETE", latest=None,
+                 partition=_QUALITY_PARTITION) -> dict:
+    """T9 真跑样本（DEGRADED/VERIFIED，五字段结构）→ 按测试分区改写。"""
+    doc = json.loads(_T9_HEALTH_SAMPLE.read_text(encoding="utf-8"))
+    doc["partition"] = partition
+    doc["health_status"] = status
+    doc["verification_state"] = verification
+    doc["completeness"]["status"] = completeness
+    doc["freshness"] = {"latest_trade_date": latest or partition}
+    return doc
+
+
+def _use_real_gate(tmp_path, monkeypatch, doc: dict) -> Path:
+    """撤销 conftest 假 gate（本组用例必须走真实 require_dataset）；数据根隔离到
+    tmp（health 读取 + manifest 落盘均不触生产 data/）。返回隔离数据根。"""
+    import factorlab.adapters.read.health as health_mod
+    import factorlab.app.evaluate as evaluate_mod
+    from factorlab.adapters.read.health import require_dataset
+
+    monkeypatch.setattr(evaluate_mod, "require_dataset", require_dataset)
+    root = tmp_path / "data"
+    monkeypatch.setattr(health_mod, "_default_root", lambda: root)
+    p = root / "health" / "ashare_daily" / f"{doc['partition']}.json"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    return root
+
+
+def _run_quality_cli(tmp_path, monkeypatch, *extra):
+    build_db(tmp_path, n_days=9)
+    spec_path = _quality_spec(tmp_path)
+    monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+    out_dir = tmp_path / "results" / "quality_demo"
+    result = runner.invoke(app, ["run", str(spec_path), "--output-dir",
+                                 str(out_dir), *extra])
+    return result, out_dir
+
+
+def test_run_quality_default_rejects_degraded_friendly(tmp_path, monkeypatch):
+    """默认 fail-closed：DEGRADED 拒绝 exit 1；友好报错含 dataset/partition/
+    status/freshness 与所需旗标提示（无裸 traceback）。"""
+    _use_real_gate(tmp_path, monkeypatch, _quality_doc(status="DEGRADED"))
+    result, out_dir = _run_quality_cli(tmp_path, monkeypatch)
+    assert result.exit_code == 1, result.output
+    out = result.output
+    assert "dataset=ashare_daily" in out and f"partition={_QUALITY_PARTITION}" in out
+    assert "status=DEGRADED" in out and "freshness" in out
+    assert "--accept-quality" in out and "--override-reason" in out
+    # 拒绝发生在 publish 前：run 链预写 summary 无 evaluation/data_quality
+    summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    assert "evaluation" not in summary and "data_quality" not in summary
+
+
+def test_run_quality_stale_pass_rejects_with_freshness(tmp_path, monkeypatch):
+    _use_real_gate(tmp_path, monkeypatch,
+                   _quality_doc(status="PASS", latest="2023-12-01"))
+    result, _ = _run_quality_cli(tmp_path, monkeypatch)
+    assert result.exit_code == 1
+    assert "freshness" in result.output and "陈旧" in result.output
+
+
+def test_run_quality_opt_in_degraded_runs_and_writes_manifest(tmp_path, monkeypatch):
+    """`--accept-quality PASS,DEGRADED` + reason：DEGRADED 可运行；Experiment
+    Manifest 五字段 + reason 齐；summary 追加五字段。"""
+    root = _use_real_gate(tmp_path, monkeypatch, _quality_doc(status="DEGRADED"))
+    reason = "探索性研究：接受 DEGRADED 分区"
+    result, out_dir = _run_quality_cli(
+        tmp_path, monkeypatch,
+        "--accept-quality", "PASS,DEGRADED", "--override-reason", reason)
+    assert result.exit_code == 0, result.output
+    summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["data_quality"]["quality_status"] == "DEGRADED"
+    manifest_path = root / "manifest" / "ashare_daily" / f"{_QUALITY_PARTITION}.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert set(manifest) == {"dataset_quality", "quality_issues",
+                             "affected_partitions", "dq_policy_version",
+                             "override_reason"}, "Experiment Manifest 必须五字段"
+    assert manifest["dataset_quality"] == "DEGRADED"
+    assert manifest["affected_partitions"] == [_QUALITY_PARTITION]
+    assert manifest["override_reason"] == reason
+
+
+def test_run_quality_opt_in_missing_reason_exit2(tmp_path, monkeypatch):
+    _use_real_gate(tmp_path, monkeypatch, _quality_doc(status="DEGRADED"))
+    result, out_dir = _run_quality_cli(tmp_path, monkeypatch,
+                                       "--accept-quality", "PASS,DEGRADED")
+    assert result.exit_code == 2
+    assert "--override-reason" in result.output
+    assert not (out_dir / "summary.json").exists(), "用法错误不得落到计算/评估"
+
+
+def test_run_quality_fail_flag_rejected_exit2(tmp_path, monkeypatch):
+    """FAIL 不可 opt-in（设计 §7）——用法层直接拒绝，不进入计算。"""
+    _use_real_gate(tmp_path, monkeypatch, _quality_doc(status="FAIL"))
+    result, _ = _run_quality_cli(tmp_path, monkeypatch,
+                                 "--accept-quality", "PASS,FAIL",
+                                 "--override-reason", "x")
+    assert result.exit_code == 2
+    assert "FAIL" in result.output and "opt-in" in result.output
+
+
+def test_run_quality_unknown_non_legacy_rejected(tmp_path, monkeypatch):
+    """UNKNOWN 仅 LEGACY 过渡可 opt-in；VERIFIED 的 UNKNOWN 仍拒（exit 1）。"""
+    _use_real_gate(tmp_path, monkeypatch,
+                   _quality_doc(status="UNKNOWN", verification="VERIFIED"))
+    result, _ = _run_quality_cli(tmp_path, monkeypatch,
+                                 "--accept-quality", "PASS,UNKNOWN",
+                                 "--override-reason", "过渡")
+    assert result.exit_code == 1
+    assert "UNKNOWN" in result.output and "LEGACY" in result.output
+
+
+def test_run_quality_legacy_unknown_opt_in_writes_manifest(tmp_path, monkeypatch):
+    """LEGACY 存量过渡（§8）：显式 opt-in 可读 + 自动写 Experiment Manifest。"""
+    root = _use_real_gate(tmp_path, monkeypatch,
+                          _quality_doc(status="UNKNOWN",
+                                       verification="LEGACY_UNVERIFIED"))
+    reason = "存量过渡（LEGACY）"
+    result, _ = _run_quality_cli(tmp_path, monkeypatch,
+                                 "--accept-quality", "PASS,UNKNOWN",
+                                 "--override-reason", reason)
+    assert result.exit_code == 0, result.output
+    manifest = json.loads((root / "manifest" / "ashare_daily"
+                           / f"{_QUALITY_PARTITION}.json").read_text(encoding="utf-8"))
+    assert manifest["dataset_quality"] == "UNKNOWN"
+    assert manifest["override_reason"] == reason
