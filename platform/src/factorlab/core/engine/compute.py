@@ -366,15 +366,25 @@ def compute_formula(
     if _normalized_imports:
         extra_codes = extra_codes + "\n" + _normalized_imports
     try:
-        result = codegen_exec(
-            df.lazy(),
-            formula,
-            over_null="partition_by",
-            style="polars",
-            date=date,
-            asset=asset,
-            extra_codes=extra_codes,
-        ).collect()
+        # R09-PERF-I1：bars_1m 走折日聚合融合路径（参数物化一次 + 组内 over
+        # 广播；im_* 预排序去 order_by + CSE）；不支持形态完整回退旧 codegen
+        # （行为/数值不变，见 engine/minute_fold.py）。
+        result = None
+        if scope == "bars_1m":
+            from factorlab.core.engine import minute_fold
+            result = minute_fold.try_fused(
+                df, formula, date=date, asset=asset, outputs=outputs,
+                extra_codes=extra_codes)
+        if result is None:
+            result = codegen_exec(
+                df.lazy(),
+                formula,
+                over_null="partition_by",
+                style="polars",
+                date=date,
+                asset=asset,
+                extra_codes=extra_codes,
+            ).collect()
     except FactorDSLError:
         raise
     except Exception as exc:  # noqa: BLE001
