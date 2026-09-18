@@ -243,6 +243,8 @@ def factor_run(args: Any) -> envelope.Envelope:
                 warmup_days=getattr(args, "warmup_days", None),
                 eval_frequency=getattr(args, "eval_frequency", None),
                 chunk_workers=getattr(args, "chunk_workers", None) or 1,
+                # Plan DQ-M1 F3：真实入口 fail-closed 读取门（ashare_daily）
+                dataset="ashare_daily",
             )
     except GuardError as exc:
         return envelope.fail("factor.run", exc.code, exc.message,

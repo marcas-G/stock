@@ -156,10 +156,18 @@ class BacktestResult:
     nav_series: NavSeries
     final_state: PortfolioState
     trailing_unresolved: bool = False
+    # Plan DQ-M1 F4：数据集质量五字段（dataset_version/quality_status/
+    # quarantined_rows/coverage/cleaning_policy_version）+ 运行上下文；
+    # None = 未过读取门（存量调用/合成 run）——持久化 manifest 同字段 round-trip。
+    data_quality: dict | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.artifacts, tuple):
             raise ValueError("artifacts 必须为 tuple")
+        if self.data_quality is not None and not isinstance(self.data_quality, dict):
+            raise ValueError(
+                f"data_quality 必须为 dict | None（收到 "
+                f"{type(self.data_quality).__name__}）")
         if not isinstance(self.trailing_unresolved, bool):
             raise ValueError(
                 f"trailing_unresolved 必须为 bool（收到 "
@@ -222,11 +230,16 @@ class ArtifactManifest:
     execution_date_start: object   # datetime.date
     execution_date_end: object     # datetime.date
     columns: dict
+    data_quality: dict | None = None   # Plan DQ-M1 F4（可选；legacy 缺省 None）
 
     def __post_init__(self) -> None:
         if self.schema_version != "1":
             raise ValueError(
                 f"不支持 schema_version {self.schema_version!r}（当前仅 1）")
+        if self.data_quality is not None and not isinstance(self.data_quality, dict):
+            raise ValueError(
+                f"data_quality 必须为 dict | None（收到 "
+                f"{type(self.data_quality).__name__}）")
         if self.artifact_type != "backtest_result":
             raise ValueError(f"artifact_type 必须为 backtest_result")
         if not isinstance(self.columns, dict):

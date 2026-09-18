@@ -872,3 +872,52 @@ def test_run_cli_default_guardrail_does_not_apply_hard_rlimit(tmp_path, monkeypa
     result = runner.invoke(app, ["run", str(spec_path), "--output-dir", str(out_dir)])
     assert result.exit_code == 0, result.output
     assert calls == []
+
+
+def test_run_cli_passes_dq_gate_and_records_summary(tmp_path, monkeypatch):
+    """Plan DQ-M1 F3：CLI 真实入口默认 dataset='ashare_daily' 透传读取门，
+    factor summary 追加五字段（合成库用假 health；真实门矩阵见
+    platform/tests/test_require_dataset.py）。"""
+    from factorlab.adapters.read.health import DatasetGate
+    import factorlab.app.evaluate as evaluate_mod
+
+    build_db(tmp_path, n_days=9)
+    spec_path = tmp_path / "demo.yaml"
+    spec_path.write_text("""
+name: dq_gate_demo
+category: custom
+direction: 1
+universe:
+  codes: ["000001.SZ", "600519.SH"]
+date:
+  start: "2024-01-02"
+  end: "2024-01-12"
+formula: |
+  signal = close / ts_delay(close, 1) - 1
+""", encoding="utf-8")
+    monkeypatch.setattr("factorlab.config.settings.platform_db",
+                        tmp_path / "q.duckdb")
+    calls: list = []
+
+    def fake_require_dataset(dataset, as_of, **kw):
+        calls.append({"dataset": dataset, "as_of": as_of, **kw})
+        return DatasetGate(
+            dataset=dataset, partition=as_of, health_status="PASS",
+            verification_state="VERIFIED", data_version="v20260919_01",
+            dq_policy_version="daily-v1", completeness_status="COMPLETE",
+            quarantined_rows=2, coverage=1.0,
+            max_staleness=kw.get("max_staleness", "1d"),
+            override_reason=kw.get("override_reason"))
+
+    monkeypatch.setattr(evaluate_mod, "require_dataset", fake_require_dataset)
+    out_dir = tmp_path / "results" / "dq_gate_demo"
+    result = runner.invoke(app, ["run", str(spec_path), "--output-dir",
+                                 str(out_dir)])
+    assert result.exit_code == 0, result.output
+    assert calls and calls[0]["dataset"] == "ashare_daily"
+    summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    assert calls[0]["as_of"] == summary["date_end"], "as_of = 面板最新日"
+    assert summary["data_quality"] == {
+        "dataset_version": "v20260919_01", "quality_status": "PASS",
+        "quarantined_rows": 2, "coverage": 1.0,
+        "cleaning_policy_version": "daily-v1"}

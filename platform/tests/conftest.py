@@ -152,6 +152,42 @@ def _registry_isolated():
     ensure_all_ops_registered()
 
 
+# ================================================================
+# Plan DQ-M1 F3：真实入口读取门假 health（平台测试专用）
+#   CLI（execute_run）/ research.factor / run_strategy 默认
+#   dataset="ashare_daily"（fail-closed）——平台测试是**合成 tmp 库/历史窗口**，
+#   没有 data/health 产物；统一注入假 PASS gate + 把 backtest usage sidecar
+#   重定向到 tmp（防写入生产 data/manifest/）。真实门的拒绝矩阵由
+#   platform/tests/test_require_dataset.py 覆盖；入口透传由 test_cli_run.py /
+#   test_run_strategy.py 专测断言；测试可自行 monkeypatch 覆盖（后设置者生效）。
+# ================================================================
+@pytest.fixture(autouse=True)
+def _dq_read_gate_fake(tmp_path, monkeypatch):
+    from factorlab.adapters.read.health import DatasetGate
+
+    def fake_require_dataset(dataset, as_of, **kw):
+        return DatasetGate(
+            dataset=dataset, partition=as_of, health_status="PASS",
+            verification_state="VERIFIED", data_version="vTEST",
+            dq_policy_version="daily-v1", completeness_status="COMPLETE",
+            quarantined_rows=0, coverage=1.0,
+            max_staleness=kw.get("max_staleness", "1d"),
+            override_reason=kw.get("override_reason"))
+
+    import factorlab.app.evaluate as _evaluate
+    import factorlab.app.backtest.backtest as _backtest
+    monkeypatch.setattr(_evaluate, "require_dataset", fake_require_dataset)
+    monkeypatch.setattr(_backtest, "require_dataset", fake_require_dataset)
+
+    real_record = _backtest.record_gate_usage
+
+    def _record_tmp(gate, *, root=None, suffix="usage"):
+        return real_record(gate, root=root or (tmp_path / "dq_manifest"),
+                           suffix=suffix)
+
+    monkeypatch.setattr(_backtest, "record_gate_usage", _record_tmp)
+
+
 @pytest.fixture(params=["duckdb", "ch"])
 def env(request, tmp_path, ch_client, monkeypatch):
     """双腿参数化环境：yield env（seed 灌数 + .rd 被测句柄）。CH 不可达自动 skip。

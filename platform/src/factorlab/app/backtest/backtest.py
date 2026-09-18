@@ -344,6 +344,9 @@ def run_backtest(
             decision_dates=tuple(all_dates), meta=target.meta)
 
     # ---- Plan DQ-M1 T7 读取门（决策窗口所需 dataset/freshness；只读 health）----
+    # F4：过门后五字段（dataset_version/quality_status/quarantined_rows/
+    # coverage/cleaning_policy_version）随 result 进入持久化 manifest。
+    data_quality: dict | None = None
     if dataset is not None:
         as_of = max(all_dates).isoformat()
         gate = require_dataset(
@@ -351,6 +354,7 @@ def run_backtest(
             max_staleness=max_staleness, root=dq_root,
             override_reason=override_reason, strict=strict)
         record_gate_usage(gate, root=dq_root, suffix="backtest")
+        data_quality = gate.summary_fields()
 
     # ---- schedule（scoped target——construct_order_batch 要求全局一致）----
     schedule = resolve_execution_schedule(scoped_target, rd)
@@ -570,8 +574,10 @@ def run_backtest(
             artifacts=tuple(artifacts), nav_series=NavSeries(frame=nav_frame),
             final_state=final_state if trailing else state,
             trailing_unresolved=trailing,
-            window_fills=tuple(window_details), execution_spec=execution_spec)
+            window_fills=tuple(window_details), execution_spec=execution_spec,
+            data_quality=data_quality)
     return BacktestResult(artifacts=tuple(artifacts),
                           nav_series=NavSeries(frame=nav_frame),
                           final_state=final_state if trailing else state,
-                          trailing_unresolved=trailing)
+                          trailing_unresolved=trailing,
+                          data_quality=data_quality)

@@ -265,6 +265,7 @@ def execute_run(
     eval_frequency: str | None = None,
     profile: bool = False,
     chunk_workers: int = 1,
+    dataset: str | None = "ashare_daily",
 ) -> dict:
     """`factorlab run` 的计算主体（CLI 与 research.factor 门面共用，不打印）。
 
@@ -280,6 +281,9 @@ def execute_run(
     R09-PERF-P4：`chunk_workers`（缺省 1=顺序）分钟链 chunk 并行度——仅
     interface=bars_1m 生效（日频链忽略）；并发前按 chunk_days 校准的单 chunk
     估值（3.6GB × max(chunk_days, 10)/10，R09 复评 F1）对内存预算做门。
+
+    Plan DQ-M1 F3：`dataset`（缺省 "ashare_daily"）透传给 `evaluate_run` 的
+    读取门（fail-closed，as_of=面板最新日）；合成/测试调用可显式 None 关闭。
     """
     from factorlab.app.run import run_factor, run_factor_minute
     from factorlab.app.context import RunContext
@@ -330,7 +334,7 @@ def execute_run(
             result = run_impl(spec, ctx)
             # 评估装配单点（WS5）：app.evaluate.evaluate_run + publish_run
             outcome = evaluate_run(result, spec, ctx, groups=groups, backtest=backtest,
-                                   frequency=eval_frequency)
+                                   frequency=eval_frequency, dataset=dataset)
             publish_run(result, outcome, ctx)
     finally:
         if profiler is not None:
@@ -380,7 +384,7 @@ def run_factor_cli(
                           backtest=backtest, groups=groups, set_params=set_params,
                           chunk_days=chunk_days, warmup_days=warmup_days,
                           eval_frequency=eval_frequency, profile=profile,
-                          chunk_workers=chunk_workers)
+                          chunk_workers=chunk_workers, dataset="ashare_daily")
     except (ValueError, FileNotFoundError, FactorDSLError) as exc:
         # ValueError 含 pydantic 的 ValidationError（spec 字段非法，如 cost_rate 越界）——
         # 用户写错 YAML 不该看到裸 traceback（`lint` 子命令同款处理）。

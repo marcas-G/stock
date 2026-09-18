@@ -227,6 +227,8 @@ def test_require_dataset_reads_health_json_only(tmp_path, monkeypatch):
         raise AssertionError("读取门不得重跑行级校验/重算 OHLC")
 
     monkeypatch.setattr(validators, "validate_daily", boom)
+    import factorlab.app.evaluate as evaluate_mod
+    monkeypatch.setattr(evaluate_mod, "require_dataset", require_dataset)
 
     as_of = _panel()["date"].max().isoformat()
     _write(tmp_path, _doc(partition=as_of), partition=as_of)
@@ -262,7 +264,11 @@ def _result(panel=None):
                         label_artifact=None, panel=panel or _panel())
 
 
-def test_evaluate_run_gate_blocked_by_default_and_opt_in_records_summary(tmp_path):
+def test_evaluate_run_gate_blocked_by_default_and_opt_in_records_summary(
+        tmp_path, monkeypatch):
+    # conftest 为合成测试注入假 gate；本用例验证 evaluate_run 的真实门行为 → 还原
+    import factorlab.app.evaluate as evaluate_mod
+    monkeypatch.setattr(evaluate_mod, "require_dataset", require_dataset)
     # health 落在 panel 最新日 2024-01-11 上（§6 doc 的 partition 用该日）
     as_of = _panel()["date"].max().isoformat()
     _write(tmp_path, _doc(partition=as_of, status="DEGRADED"), partition=as_of)

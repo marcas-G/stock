@@ -141,8 +141,13 @@ class WindowArtifactManifest:
     execution_date_end: object
     columns: dict
     execution_spec: dict
+    data_quality: dict | None = None   # Plan DQ-M1 F4（可选；legacy 缺省 None）
 
     def __post_init__(self) -> None:
+        if self.data_quality is not None and not isinstance(self.data_quality, dict):
+            raise ValueError(
+                f"data_quality 必须为 dict | None（收到 "
+                f"{type(self.data_quality).__name__}）")
         if self.schema_version != SCHEMA_VERSION_WINDOW:
             raise ValueError(
                 f"WindowArtifactManifest.schema_version 必须为 "
@@ -349,7 +354,8 @@ def save_backtest_result(
             execution_date_end=(result.artifacts[-1].execution_date
                                 if result.artifacts else None),
             columns={rel: list(cols) for rel, cols in schemas.items()},
-            execution_spec=result.execution_spec.model_dump(mode="json"))
+            execution_spec=result.execution_spec.model_dump(mode="json"),
+            data_quality=result.data_quality)
     else:
         manifest = ArtifactManifest(
         schema_version=SCHEMA_VERSION, artifact_type=ARTIFACT_TYPE,
@@ -359,7 +365,8 @@ def save_backtest_result(
                               if result.artifacts else None),
         execution_date_end=(result.artifacts[-1].execution_date
                             if result.artifacts else None),
-        columns={rel: list(cols) for rel, cols in schemas.items()})
+        columns={rel: list(cols) for rel, cols in schemas.items()},
+        data_quality=result.data_quality)
     # R01-M8-I1：对磁盘实际字节计算内容 hash（load 端逐文件复核）
     sha256 = {rel: _sha256_file(out / rel) for rel in schemas}
     doc = {
@@ -375,6 +382,8 @@ def save_backtest_result(
         "execution_timing": timing.value if timing is not None else None,
         "columns": manifest.columns,
         "sha256": sha256,
+        # Plan DQ-M1 F4：数据集质量五字段（None = 未过读取门）
+        "data_quality": manifest.data_quality,
     }
     if is_window:
         doc["execution_spec"] = manifest.execution_spec
@@ -594,6 +603,16 @@ def _check_final_state(final: PortfolioState, artifacts: list,
     return False
 
 
+def _load_data_quality(doc: dict) -> dict | None:
+    """Plan DQ-M1 F4：manifest.data_quality（legacy 缺字段 → None；非 dict 拒绝）。"""
+    dq = doc.get("data_quality")
+    if dq is not None and not isinstance(dq, dict):
+        raise ValueError(
+            f"manifest.data_quality 必须为 dict | None（收到 "
+            f"{type(dq).__name__}）")
+    return dq
+
+
 def _load_window_execution_spec(doc: dict) -> ExecutionSpec:
     """R22：schema v2 必须携带可重建的 NEXT_WINDOW ExecutionSpec（fail closed）。"""
     raw = doc.get("execution_spec")
@@ -760,9 +779,11 @@ def load_backtest_result(artifact_dir: Path) -> BacktestResult:
                            phase=PortfolioStatePhase(hdr[1]), cash=hdr[2],
                            positions=pos)
     trailing = _check_final_state(final, artifacts, nav_frame)
+    data_quality = _load_data_quality(doc)
     if not is_window:
         return BacktestResult(artifacts=tuple(artifacts), nav_series=nav_series,
-                              final_state=final, trailing_unresolved=trailing)
+                              final_state=final, trailing_unresolved=trailing,
+                              data_quality=data_quality)
     spec = _load_window_execution_spec(doc)
     wf = frames[WINDOW_FILLS_REL]
     detail_by_event = [wf.filter(pl.col("event_index") == i)
@@ -770,4 +791,4 @@ def load_backtest_result(artifact_dir: Path) -> BacktestResult:
     return WindowBacktestResult(
         artifacts=tuple(artifacts), nav_series=nav_series, final_state=final,
         trailing_unresolved=trailing, window_fills=tuple(detail_by_event),
-        execution_spec=spec)
+        execution_spec=spec, data_quality=data_quality)

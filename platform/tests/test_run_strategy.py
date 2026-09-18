@@ -30,6 +30,11 @@ from factorlab.core.domain.execution import ExecutionDataQualityError
 from factorlab.core.domain.frames import SignalArtifact
 from factorlab.core.strategy import construct_target_portfolio, load_strategy_doc
 
+# Plan DQ-M1 F3：run_strategy 真实入口默认 dataset="ashare_daily"（读取门
+# fail-closed，as_of=决策窗口末端）；本文件全部是合成 duckdb/CH 临时库链路，
+# 没有 data/health 产物 → 所有直达调用显式 dataset=None（库层 None = 不过门，
+# 零行为变化）；真实入口透传/五字段落盘由文件末专测用假 health 覆盖。
+
 # ================================================================
 # 合成数据（镜像 test_execution_signal_chain：A 缓涨 / B 快涨 / C 恒 30）
 # ================================================================
@@ -158,7 +163,7 @@ def test_run_strategy_matches_manual_chain_and_persists(env, tmp_path):
     results = _results_dir(tmp_path)
     _seed_and_run_factor(env, tmp_path, results)
     doc = _load_doc(tmp_path)
-    res = run_strategy(doc, env.rd, results_dir=results)
+    res = run_strategy(doc, env.rd, dataset=None, results_dir=results)
 
     assert res.out_dir == results / "strategies" / "ws7_doc"
     assert res.signal_name == _SIGNAL_NAME
@@ -202,7 +207,7 @@ def test_nav_parquet_sha256_matches_manual_chain(env, tmp_path):
     results = _results_dir(tmp_path)
     _seed_and_run_factor(env, tmp_path, results)
     doc = _load_doc(tmp_path)
-    res = run_strategy(doc, env.rd, results_dir=results)
+    res = run_strategy(doc, env.rd, dataset=None, results_dir=results)
 
     sig = load_signal_artifact(results / _SIGNAL_NAME)
     fsig = SignalArtifact(frame=sig.frame.filter(
@@ -239,13 +244,13 @@ def test_constructor_and_backtest_receive_exact_specs(env, tmp_path, monkeypatch
         seen["ctor"].append((signal.meta.name, spec))
         return real_ctor(signal, spec)
 
-    def spy_bt(target, spec, rd):
+    def spy_bt(target, spec, rd, **kw):
         seen["bt"].append((target, spec, rd))
-        return real_bt(target, spec, rd)
+        return real_bt(target, spec, rd, **kw)
 
     monkeypatch.setattr(R, "construct_target_portfolio", spy_ctor)
     monkeypatch.setattr(R, "run_backtest", spy_bt)
-    run_strategy(doc, env.rd, results_dir=results)
+    run_strategy(doc, env.rd, dataset=None, results_dir=results)
 
     assert len(seen["ctor"]) == 1, "construct_target_portfolio 必须被真实调用一次"
     assert len(seen["bt"]) == 1, "run_backtest 必须被真实调用一次"
@@ -267,7 +272,7 @@ def test_window_filter_leaves_only_in_window_decisions(env, tmp_path):
     results = _results_dir(tmp_path)
     _seed_and_run_factor(env, tmp_path, results)
     doc = _load_doc(tmp_path, start="2024-01-04", end="2024-01-09")
-    res = run_strategy(doc, env.rd, results_dir=results)
+    res = run_strategy(doc, env.rd, dataset=None, results_dir=results)
     assert res.target.decision_dates == (_D3, _D4)
     assert res.decision_count == 2
     # d3 截面 Top-2 = {A, C}（33 > 30 > 29）——窗口内真实选择
@@ -283,7 +288,7 @@ def test_default_out_dir_under_results_dir(env, tmp_path, monkeypatch):
     _seed_and_run_factor(env, tmp_path, results)
     doc = _load_doc(tmp_path)
     monkeypatch.setattr(settings, "results_dir", results)
-    res = run_strategy(doc, env.rd)
+    res = run_strategy(doc, env.rd, dataset=None)
     assert res.out_dir == results / "strategies" / "ws7_doc"
     assert (res.out_dir / "strategy_manifest.json").exists()
     assert (res.out_dir / "manifest.json").exists()
@@ -297,7 +302,7 @@ def test_explicit_out_dir_override(env, tmp_path):
     _seed_and_run_factor(env, tmp_path, results)
     doc = _load_doc(tmp_path)
     out = tmp_path / "custom_out"
-    res = run_strategy(doc, env.rd, results_dir=results, out_dir=out)
+    res = run_strategy(doc, env.rd, dataset=None, results_dir=results, out_dir=out)
     assert res.out_dir == out
     assert (out / "strategy_manifest.json").exists()
     assert (out / "manifest.json").exists()
@@ -324,7 +329,7 @@ def test_target_transform_applies_before_persist_and_backtest(env, tmp_path):
             frame=target.frame.filter(pl.col("decision_date") != _D2),
             decision_dates=target.decision_dates, meta=target.meta)
 
-    res = run_strategy(doc, env.rd, results_dir=results, target_transform=drop_d2)
+    res = run_strategy(doc, env.rd, dataset=None, results_dir=results, target_transform=drop_d2)
     assert calls["n"] == 1, "钩子必须被调用一次"
     assert res.target.frame.filter(pl.col("decision_date") == _D2).height == 0
     assert res.target.decision_dates == (_D1, _D2, _D3, _D4)  # all-cash 日保留
@@ -340,7 +345,7 @@ def test_empty_window_fails_fast_with_readable_error(env, tmp_path):
     _seed_and_run_factor(env, tmp_path, results)
     doc = _load_doc(tmp_path, start="2024-02-01", end="2024-02-28")
     with pytest.raises(ValueError) as ei:
-        run_strategy(doc, env.rd, results_dir=results)
+        run_strategy(doc, env.rd, dataset=None, results_dir=results)
     msg = str(ei.value)
     assert "ws7_doc" in msg and "2024-02-01" in msg
 
@@ -366,7 +371,7 @@ def test_universe_override_filters_signal_before_construction(env, tmp_path, mon
         return real_ctor(signal, spec)
 
     monkeypatch.setattr(R, "construct_target_portfolio", spy_ctor)
-    res = run_strategy(doc, env.rd, results_dir=results)
+    res = run_strategy(doc, env.rd, dataset=None, results_dir=results)
 
     assert seen["codes"] == [_A], "过滤必须发生在 construct_target_portfolio 之前"
     assert set(res.target.frame["code"].unique().to_list()) == {_A}
@@ -383,7 +388,7 @@ def test_universe_override_no_intersection_fails_fast(env, tmp_path):
     _seed_and_run_factor(env, tmp_path, results)
     doc = _load_doc(tmp_path, override='["999999.SZ"]')
     with pytest.raises(ValueError) as ei:
-        run_strategy(doc, env.rd, results_dir=results)
+        run_strategy(doc, env.rd, dataset=None, results_dir=results)
     msg = str(ei.value)
     assert "universe_override" in msg and "999999.SZ" in msg
     assert _A in msg  # 可用 codes 提示（不是静默空跑）
@@ -397,7 +402,7 @@ def test_universe_override_null_is_zero_behavior_change(env, tmp_path):
     results = _results_dir(tmp_path)
     _seed_and_run_factor(env, tmp_path, results)
     doc = _load_doc(tmp_path, override="null")
-    res = run_strategy(doc, env.rd, results_dir=results)
+    res = run_strategy(doc, env.rd, dataset=None, results_dir=results)
     # 未过滤：d1 截面 top-2 = {A, C}（31 > 30 > 21）
     rows = res.target.frame.filter(pl.col("decision_date") == _D1)
     assert sorted(rows["code"].to_list()) == [_A, _C]
@@ -428,14 +433,69 @@ def test_ca_gate_error_propagates_without_retry(env, tmp_path, monkeypatch):
     calls = {"n": 0}
     real_bt = R.run_backtest
 
-    def counting_bt(target, spec, rd):
+    def counting_bt(target, spec, rd, **kw):
         calls["n"] += 1
-        return real_bt(target, spec, rd)
+        return real_bt(target, spec, rd, **kw)
 
     monkeypatch.setattr(R, "run_backtest", counting_bt)
     with pytest.raises(ExecutionDataQualityError) as ei:
-        run_strategy(doc, env.rd, results_dir=results)
+        run_strategy(doc, env.rd, dataset=None, results_dir=results)
     assert calls["n"] == 1, "ExecutionDataQualityError 不得触发重试"
     assert _A in str(ei.value)
     # strategy 产物已写（设计如此），backtest manifest 不得存在
     assert not (results / "strategies" / "ws7_doc" / "manifest.json").exists()
+
+
+# ================================================================
+# 4. Plan DQ-M1 F3/F4：读取门透传 + 五字段进持久化 manifest
+# ================================================================
+
+def test_run_strategy_records_data_quality_five_fields_in_manifest(
+        env, tmp_path, monkeypatch):
+    """真实入口（run_strategy）传 dataset 给 run_backtest；五字段落 manifest +
+    result + usage sidecar（F4；假 health = 合成库专用，真实门矩阵见
+    test_require_dataset.py）。"""
+    import json
+
+    import factorlab.app.backtest.backtest as bt_mod
+    from factorlab.adapters.read.health import DatasetGate
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    _seed_and_run_factor(env, tmp_path, results)
+    doc = _load_doc(tmp_path)
+    calls: list = []
+
+    def fake_require_dataset(dataset, as_of, **kw):
+        calls.append({"dataset": dataset, "as_of": as_of, **kw})
+        return DatasetGate(
+            dataset=dataset, partition=as_of, health_status="DEGRADED",
+            verification_state="VERIFIED", data_version="v20260919_01",
+            dq_policy_version="daily-v1", completeness_status="COMPLETE",
+            quarantined_rows=4, coverage=0.9995,
+            max_staleness=kw.get("max_staleness", "1d"),
+            override_reason=kw.get("override_reason"))
+
+    monkeypatch.setattr(bt_mod, "require_dataset", fake_require_dataset)
+    dq_root = tmp_path / "dq"
+    res = run_strategy(doc, env.rd, results_dir=results, dataset="ashare_daily",
+                       accept_quality=("PASS", "DEGRADED"),
+                       override_reason="探索性研究", dq_root=dq_root)
+
+    assert calls and calls[0]["dataset"] == "ashare_daily"
+    assert calls[0]["as_of"] == _D4.isoformat(), "as_of = 决策窗口末端"
+    five = {"dataset_version": "v20260919_01", "quality_status": "DEGRADED",
+            "quarantined_rows": 4, "coverage": 0.9995,
+            "cleaning_policy_version": "daily-v1"}
+    manifest = json.loads((res.out_dir / "manifest.json").read_text(
+        encoding="utf-8"))
+    assert manifest["data_quality"] == five
+    assert res.backtest.data_quality == five
+    # sidecar 保留（F4；入口回归时同样记录）
+    usage = (dq_root / "manifest" / "ashare_daily"
+             / f"{_D4.isoformat()}.backtest.json")
+    assert usage.is_file()
+    assert json.loads(usage.read_text(encoding="utf-8")) == five
+    # 往返读回（persistence round-trip）
+    from factorlab.app.backtest import load_backtest_result
+    assert load_backtest_result(res.out_dir).data_quality == five

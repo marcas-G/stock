@@ -105,6 +105,34 @@ def test_manifest_content(tmp_path):
     assert "runtime_version" in doc and "columns" in doc
 
 
+DQ_FIELDS = {"dataset_version": "v20260919_01", "quality_status": "DEGRADED",
+             "quarantined_rows": 7, "coverage": 0.9995,
+             "cleaning_policy_version": "daily-v1"}
+
+
+def test_data_quality_manifest_round_trip(tmp_path):
+    """F4：五字段随 result 进 manifest，load 后逐值 round-trip。"""
+    import dataclasses
+
+    r = dataclasses.replace(_run(tmp_path), data_quality=DQ_FIELDS)
+    save_backtest_result(r, tmp_path / "out")
+    doc = json.loads((tmp_path / "out" / "manifest.json").read_text(
+        encoding="utf-8"))
+    assert doc["data_quality"] == DQ_FIELDS
+    loaded = load_backtest_result(tmp_path / "out")
+    assert loaded.data_quality == DQ_FIELDS
+
+
+def test_legacy_manifest_without_data_quality_loads_none(tmp_path):
+    """F4 兼容：旧 manifest 无 data_quality 键 → None（不做迁移/不报错）。"""
+    save_backtest_result(_run(tmp_path), tmp_path / "out")
+    mpath = tmp_path / "out" / "manifest.json"
+    doc = json.loads(mpath.read_text(encoding="utf-8"))
+    doc.pop("data_quality", None)
+    mpath.write_text(json.dumps(doc), encoding="utf-8")
+    assert load_backtest_result(tmp_path / "out").data_quality is None
+
+
 def test_save_guards(tmp_path):
     with pytest.raises(TypeError, match="result"):
         save_backtest_result({"x": 1}, tmp_path / "o")

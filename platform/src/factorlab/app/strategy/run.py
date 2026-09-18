@@ -86,7 +86,13 @@ def _filter_to_universe(signal: SignalArtifact, doc: StrategyDoc) -> SignalArtif
 def run_strategy(doc: StrategyDoc, rd: ReadPort,
                  results_dir: Path | None = None,
                  out_dir: Path | None = None,
-                 target_transform=None) -> StrategyRunResult:
+                 target_transform=None,
+                 dataset: str | None = "ashare_daily",
+                 accept_quality: tuple[str, ...] = ("PASS",),
+                 max_staleness: str = "1d",
+                 dq_root=None,
+                 override_reason: str | None = None,
+                 strict: bool = False) -> StrategyRunResult:
     """执行策略文档：读信号 → 窗口过滤 → M7 组合 → 落盘 → M8 回测 → 落盘。
 
     - results_dir：results 根（缺省 settings.results_dir）——信号按
@@ -97,6 +103,9 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
     - target_transform：可选 M7 → M8 之间的目标组合变换钩子（研究侧 L5 规则
       V1 注入点，如 max_hold；须返回 TargetPortfolio 且保持 decision_dates/
       gross_exposure 契约——写盘交叉校验会复验）。
+    - Plan DQ-M1 F3/F4：`dataset`（默认 "ashare_daily"）传给 run_backtest 的
+      读取门（fail-closed）；过门后五字段随 BacktestResult 进持久化 manifest。
+      合成/历史调用可显式 `dataset=None` 关闭（库层默认 None 语义）。
     """
     if not isinstance(doc, StrategyDoc):
         raise TypeError(
@@ -119,7 +128,10 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
                   else root / "strategies" / doc.strategy.name)
     write_strategy_artifacts(target_dir, source_signal=filtered,
                              spec=doc.strategy, schedule=schedule, target=target)
-    backtest = run_backtest(target, doc.execution, rd)
+    backtest = run_backtest(target, doc.execution, rd, dataset=dataset,
+                            accept_quality=accept_quality,
+                            max_staleness=max_staleness, dq_root=dq_root,
+                            override_reason=override_reason, strict=strict)
     save_backtest_result(backtest, target_dir)
     return StrategyRunResult(
         out_dir=target_dir,

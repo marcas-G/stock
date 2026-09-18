@@ -63,12 +63,43 @@ def test_specs_lint_all():
     assert not missing, f"基线 spec 副本缺失: {missing}"
 
 
+def _dq_fake_health_env(tmp_path) -> dict:
+    """Plan DQ-M1 F3：CLI 真实入口默认 dataset='ashare_daily'（读取门 fail-closed）。
+    本测试走**子进程**（conftest 的假 gate 不生效）→ 用 tmp STOCK_ROOT 提供假
+    PASS health（6 个基线 spec 同 end，逐 as_of 写；不碰生产 data/）。"""
+    import yaml
+
+    stock = tmp_path / "stock_root"
+    ends = set()
+    for rel in SPECS.values():
+        doc = yaml.safe_load((BASELINE_SPECS / rel).read_text(encoding="utf-8"))
+        ends.add(str(doc["date"]["end"]))
+    for as_of in sorted(ends):
+        p = stock / "data" / "health" / "ashare_daily" / f"{as_of}.json"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({
+            "dataset_id": "ashare_daily", "partition": as_of,
+            "data_version": "vTEST", "dq_policy_version": "daily-v1",
+            "health_status": "PASS", "verification_state": "VERIFIED",
+            "completeness": {"status": "COMPLETE", "expected_count": 1,
+                             "actual_count": 1, "coverage": 1.0},
+            "quality": {"fatal_count": 0, "error_count": 0, "warning_count": 0,
+                        "quarantine_count": 0, "error_rate": 0.0,
+                        "systematic_issue": False, "systemic_detail": None},
+            "freshness": {"latest_trade_date": as_of}, "rules": {},
+            "validated_at": "2026-09-19T00:00:00+08:00",
+            "raw_lineage": {"source_version": None, "raw_sha256": None},
+        }, ensure_ascii=False), encoding="utf-8")
+    return {**os.environ, "FACTORLAB_DATA_BACKEND": "ch",
+            "FACTORLAB_RESULTS_DIR": str(REPO / "runs" / "platform"),
+            "FACTORLAB_STOCK_ROOT": str(stock)}
+
+
 @pytest.mark.skipif(not BASELINE.is_dir(), reason="R22 基线档不存在")
 def test_sample_value_regression(tmp_path):
     if not _ch_available():
         pytest.skip("ClickHouse 不可达（ch 腿跳过）")
-    env = {**os.environ, "FACTORLAB_DATA_BACKEND": "ch",
-           "FACTORLAB_RESULTS_DIR": str(REPO / "runs" / "platform")}
+    env = _dq_fake_health_env(tmp_path)
     for name, rel in SPECS.items():
         base = json.loads((BASELINE / f"{name}.json").read_text(encoding="utf-8"))
         # R30 D9：R22 基线为周频口径产物（n_weeks=178 等）——显式 weekly 对照锁定
