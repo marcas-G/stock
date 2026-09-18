@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# memory-hardening-sudo.sh —— 需要 sudo 的主机内存加固（R30；本脚本只生成、不代为执行）。
+#
+# 用法（由用户 gaolei 用 sudo 手动跑）：
+#     sudo bash /data/students/gaolei/stock/governance/ops/memory-hardening-sudo.sh
+#
+# 做三件事：
+#   1) 写 /etc/sysctl.d/99-factorlab-memory.conf 并 apply：
+#        vm.swappiness = 10          （默认 60 → 机械盘 /www/swap 少抖动）
+#        vm.min_free_kbytes = 1GB    （内核保留水位，OOM 前留出回收余量）
+#   2) apt-get install -y earlyoom，配置 -m 5 -s 5 --avoid 'sshd|systemd|clickhouse'
+#      并 enable --now（本机 systemd-oomd/earlyoom 当前均 inactive）。
+#   3) /www/swap（机械盘 62.5G）取舍说明（见文件末尾注释块）。
+#
+# 幂等：重复执行会重写 sysctl 文件与 /etc/default/earlyoom（先备份旧文件）。
+set -euo pipefail
+
+if [ "${EUID:-$(id -u)}" -ne 0 ]; then
+    echo "需要 root：请用 sudo bash $0" >&2
+    exit 1
+fi
+
+SYSCTL_FILE=/etc/sysctl.d/99-factorlab-memory.conf
+EARLYOOM_DEFAULT=/etc/default/earlyoom
+
+echo "== 1/3 sysctl：swappiness + min_free_kbytes =="
+if [ -f "$SYSCTL_FILE" ]; then
+    cp -a "$SYSCTL_FILE" "${SYSCTL_FILE}.bak-r30-$(date +%Y%m%d%H%M%S)"
+fi
+cat > "$SYSCTL_FILE" <<'EOF'
+# R30 FactorLab 主机内存加固（2026-09-18）
+# 根因：sar -r -f /var/log/sysstat/sa18 显示 09:37/09:57 两次 MemAvailable
+# 99.7% 耗尽、可用 ~1GB；swap 在机械盘 sda 且 swappiness=60。
+vm.swappiness = 10
+vm.min_free_kbytes = 1048576
+EOF
+sysctl -p "$SYSCTL_FILE"
+sysctl -w vm.swappiness=10 vm.min_free_kbytes=1048576
+echo "  当前值: swappiness=$(cat /proc/sys/vm/swappiness) min_free_kbytes=$(cat /proc/sys/vm/min_free_kbytes)"
+
+echo "== 2/3 earlyoom =="
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq
+apt-get install -y earlyoom
+if [ -f "$EARLYOOM_DEFAULT" ]; then
+    cp -a "$EARLYOOM_DEFAULT" "${EARLYOOM_DEFAULT}.bak-r30-$(date +%Y%m%d%H%M%S)"
+fi
+cat > "$EARLYOOM_DEFAULT" <<'EOF'
+# R30 FactorLab：内存 5%、swap 5% 时启动杀进程；保护 sshd/systemd/clickhouse
+EARLYOOM_ARGS="-r 60 -m 5 -s 5 --avoid 'sshd|systemd|clickhouse'"
+EOF
+systemctl enable --now earlyoom
+systemctl --no-pager --full status earlyoom | head -8 || true
+cat /proc/sys/vm/overcommit_memory   # 记录当前 overcommit（=1；保持现状，不在此脚本改）
+
+echo "== 3/3 /www/swap 取舍（未改动，仅说明） =="
+swapon --show || true
+cat <<'NOTE'
+
+--- /www/swap（file 62.5G，机械盘 sda）取舍 ---
+* 保留（当前建议，配合 swappiness=10）：极端内存压力下内核仍能换出冷页，
+  给 memguard/earlyoom 争取反应时间；缺点：机械盘换入换出会带来秒级 IO 卡顿。
+* 禁用：swapoff /www/swap 并注释 /etc/fstab 对应行；可完全消除机械盘 swap
+  抖动，但失去 OOM 前缓冲（memguard 2s + earlyoom 5% 仍是主动保护）。
+* 另外 /swapfile（2G，当前已 100% 使用）保留即可，量级小。
+* 决策依据：R30 memguard 已上线（~/.local/state/memguard/memlog.tsv 可查
+  历史压力）；若日志显示长期未触发 kill 且系统盘 IO 敏感，再考虑禁用
+  /www/swap。
+NOTE
+echo "memory-hardening-sudo.sh 执行完成。"
