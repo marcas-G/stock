@@ -1,0 +1,8 @@
+summary partitions=8791 legacy=8790 verified=1
+verified entries: [{'health_status': 'DEGRADED', 'partition': '2026-09-17', 'validated_at': '2026-09-18T19:20:56.351254+00:00', 'verification_state': 'VERIFIED'}]
+real legacy artifact: {'health_status': 'UNKNOWN', 'verification_state': 'LEGACY_UNVERIFIED', 'data_version': 'LEGACY'}
+[OK] 真实 LEGACY 分区默认被拒：读取门拒绝：dataset=ashare_daily partition=1991-01-02 status=UNKNOWN——不在 accept_quality=('PASS',)（默认 fail-closed）；指引：DEGRADED 需显式 opt-in（accept_quality 含 DE
+[NOTE] 仅 accept_quality 放宽仍被 completeness 独立腿拒：读取门拒绝：dataset=ashare_daily partition=1991-01-02 status=UNKNOWN——completeness.status=UNKNOWN ≠ COMPLETE（独立检查，不靠 coverage 
+[OK] LEGACY 显式 opt-in 通过: UNKNOWN LEGACY_UNVERIFIED completeness: UNKNOWN
+     manifest: /data/students/gaolei/stock/data/manifest/ashare_daily/1991-01-02.json
+     summary_fields: {"dataset_version": "LEGACY", "quality_status": "UNKNOWN", "quarantined_rows": 1, "coverage": null, "cleaning_policy_version": "daily-v1"}

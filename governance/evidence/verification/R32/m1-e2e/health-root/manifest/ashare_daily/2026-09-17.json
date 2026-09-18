@@ -1,0 +1,17 @@
+{
+  "affected_partitions": [
+    "2026-09-17"
+  ],
+  "dataset_quality": "UNKNOWN",
+  "dq_policy_version": "daily-v1",
+  "override_reason": "R32 验收：存量过渡条款",
+  "quality_issues": {
+    "error_count": 0,
+    "error_rate": 0.0,
+    "fatal_count": 0,
+    "quarantine_count": 0,
+    "systematic_issue": false,
+    "systemic_detail": null,
+    "warning_count": 0
+  }
+}

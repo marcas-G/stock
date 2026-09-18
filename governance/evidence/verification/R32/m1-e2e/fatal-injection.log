@@ -1,0 +1,68 @@
+[daily] 阶段 build 开始（6 步）
+[probe] skip import_daily（隔离根无 raw zip；非注入目标）
+$ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/data_quality/pipeline.py clean --partition latest --run-tag 20260919
+[ashare_daily] run_tag=20260919 scope=full_table partition=2026-09-17: decision=FAIL rows=1 clean=1 quarantined=0
+[pipeline] 2026-09-17 decision=FAIL clean=1 quarantined=0 staging=/tmp/r32-fatal-a-qp9f26ht/data/staging/ashare_daily/20260919/daily_fact.parquet
+[daily] 阶段 build 开始（6 步）
+[probe] skip import_daily（隔离根无 raw zip；非注入目标）
+$ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/data_quality/pipeline.py clean --partition latest --run-tag 20260919
+[ashare_daily] run_tag=20260919 scope=full_table partition=2026-09-17: decision=FAIL rows=52 clean=50 quarantined=2
+[pipeline] 2026-09-17 decision=FAIL clean=50 quarantined=2 staging=/tmp/r32-fatal-b-hkqmg82m/data/staging/ashare_daily/20260919/daily_fact.parquet
+[
+  {
+    "scenario": "A 帧级 FATAL（缺 volume → SCHEMA_MISSING_COLUMN）",
+    "tmp_root": "/tmp/r32-fatal-a-qp9f26ht",
+    "executed_steps": [
+      "import_daily",
+      "pipeline"
+    ],
+    "stage_error": {
+      "stage": "pipeline",
+      "rc": 1
+    },
+    "staging_decision": "FAIL",
+    "ch_daily_before_after": [
+      18214142,
+      18214142
+    ],
+    "checks": {
+      "clean_exit_1_pre_ingest_fail": true,
+      "chain_stopped_after_clean": true,
+      "ingest_not_called": true,
+      "stage_marker_not_set": true,
+      "staging_no_success_marker": true,
+      "staging_decision_fail": true,
+      "canonical_untouched_production": true
+    },
+    "ok": true
+  },
+  {
+    "scenario": "B 行级 FAIL（2/52 > fail.min_error_rate）",
+    "tmp_root": "/tmp/r32-fatal-b-hkqmg82m",
+    "executed_steps": [
+      "import_daily",
+      "pipeline"
+    ],
+    "stage_error": {
+      "stage": "pipeline",
+      "rc": 1
+    },
+    "staging_decision": "FAIL",
+    "quarantined_rows": 2,
+    "ch_daily_before_after": [
+      18214142,
+      18214142
+    ],
+    "checks": {
+      "clean_exit_1_error_rate_fail": true,
+      "chain_stopped_after_clean": true,
+      "ingest_not_called": true,
+      "stage_marker_not_set": true,
+      "staging_no_success_marker": true,
+      "staging_decision_fail": true,
+      "quarantine_rows_kept": true,
+      "canonical_untouched_production": true
+    },
+    "ok": true
+  }
+]

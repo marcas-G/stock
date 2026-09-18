@@ -1,0 +1,5 @@
+  [stoken refreshed 02:34:20]
+[daily] to_fetch=1 downloaded=0 adopted=0 unchanged=374 manual=0 failed=1
+failed（1 项）：
+  [daily] 2026-09-01至2026-09-18A股日k线.zip：download error: 重取链后仍失败：HTTP Error 412: Precondition Failed（原错误：HTTP Error 412: Precondition Failed）
+总结：downloaded=0 adopted=0 manual=0 failed=1

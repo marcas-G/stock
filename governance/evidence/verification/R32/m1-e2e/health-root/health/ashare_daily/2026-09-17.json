@@ -1,0 +1,32 @@
+{
+  "completeness": {
+    "actual_count": 100,
+    "coverage": 1.0,
+    "expected_count": 100,
+    "status": "COMPLETE"
+  },
+  "data_version": "v20260919_01",
+  "dataset_id": "ashare_daily",
+  "dq_policy_version": "daily-v1",
+  "freshness": {
+    "latest_trade_date": "2026-09-17"
+  },
+  "health_status": "DEGRADED",
+  "partition": "2026-09-17",
+  "quality": {
+    "error_count": 0,
+    "error_rate": 0.0,
+    "fatal_count": 0,
+    "quarantine_count": 0,
+    "systematic_issue": false,
+    "systemic_detail": null,
+    "warning_count": 0
+  },
+  "raw_lineage": {
+    "raw_sha256": null,
+    "source_version": "probe"
+  },
+  "rules": {},
+  "validated_at": "2026-09-18T19:23:43.845422+00:00",
+  "verification_state": "VERIFIED"
+}

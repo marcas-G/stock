@@ -1,0 +1,16 @@
+[OK] PASS/fresh/COMPLETE → 过: accepted=True
+[OK] PASS/stale/COMPLETE → 拒（freshness）: accepted=False | 读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=PASS——数据陈旧：freshness.latest_trade_d
+[OK] PASS/fresh/INCOMPLETE → 拒（completeness）: accepted=False | 读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=PASS——completeness.status=INCOMPLET
+[OK] PASS/fresh/UNKNOWN → 拒（completeness）: accepted=False | 读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=PASS——completeness.status=UNKNOWN ≠
+[OK] DEGRADED/默认 → 拒: accepted=False | 读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=DEGRADED——不在 accept_quality=('PASS'
+[OK] DEGRADED/fresh/COMPLETE/opt-in → 过 + manifest: accepted=True
+[OK] DEGRADED/stale/opt-in → 拒（freshness）: accepted=False | 读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=DEGRADED——数据陈旧：freshness.latest_tra
+[OK] DEGRADED/fresh/INCOMPLETE/opt-in → 拒（completeness）: accepted=False | 读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=DEGRADED——completeness.status=INCOM
+[OK] FAIL/默认 → 拒: accepted=False | 读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=FAIL——FINAL 门判 FAIL（不可 opt-in）；指引：修
+[OK] FAIL/opt-in → 拒（不可 opt-in）: accepted=False | ValueError: FAIL 不可 opt-in（设计 §7：FAIL ❌ 不可 opt-in）——先修复数据重发 health
+[OK] UNKNOWN(LEGACY)/默认 → 拒: accepted=False | 读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=UNKNOWN——不在 accept_quality=('PASS',
+[OK] UNKNOWN(LEGACY)/fresh/COMPLETE/opt-in → 过 + manifest: accepted=True
+[OK] UNKNOWN(LEGACY)/stale/opt-in → 拒（freshness）: accepted=False | 读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=UNKNOWN——数据陈旧：freshness.latest_trad
+[OK] UNKNOWN(LEGACY)/fresh/INCOMPLETE/opt-in → 拒（completeness）: accepted=False | 读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=UNKNOWN——completeness.status=INCOMP
+[OK] UNKNOWN(VERIFIED) → 拒（非 LEGACY）: accepted=False | 读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=UNKNOWN——UNKNOWN 仅限 LEGACY 存量（verif
+[OK] strict + DEGRADED opt-in → ValueError: accepted=False | ValueError: strict（正式 OOS/验收/基准场景）只接受 PASS：accept_quality=('PASS', 'DEGRADED') 非法

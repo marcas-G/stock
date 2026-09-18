@@ -1,0 +1,47 @@
+artifact: /data/students/gaolei/stock/data/health/ashare_daily/2026-09-17.json
+health_status=DEGRADED verification_state=VERIFIED completeness=COMPLETE coverage=0.9991174001515724
+[OK] 默认读取被拒：读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=DEGRADED——不在 accept_quality=('PASS',)（默认 fail-closed）；指引：DEGRADED 需显式 opt-in（accept_quality 含 DEGRADED + 
+[OK] strict PASS-only 拒绝 opt-in：strict（正式 OOS/验收/基准场景）只接受 PASS：accept_quality=('PASS', 'DEGRADED') 非法
+[OK] opt-in 通过：gate=DEGRADED/VERIFIED manifest=/data/students/gaolei/stock/data/manifest/ashare_daily/2026-09-17.json
+[OK] manifest 键：['affected_partitions', 'dataset_quality', 'dq_policy_version', 'override_reason', 'quality_issues']
+[OK] 产物五字段：{"dataset_version": "v20260919_01", "quality_status": "DEGRADED", "quarantined_rows": 16090, "coverage": 0.9991174001515724, "cleaning_policy_version": "daily-v1"}
+{
+  "artifact": "/data/students/gaolei/stock/data/health/ashare_daily/2026-09-17.json",
+  "artifact_status": {
+    "health_status": "DEGRADED",
+    "verification_state": "VERIFIED",
+    "data_version": "v20260919_01"
+  },
+  "manifest": {
+    "affected_partitions": [
+      "2026-09-17"
+    ],
+    "dataset_quality": "DEGRADED",
+    "dq_policy_version": "daily-v1",
+    "override_reason": "R32 T9 验收：真实 DEGRADED health opt-in",
+    "quality_issues": {
+      "error_count": 16090,
+      "error_rate": 0.0008825998484276009,
+      "fatal_count": 0,
+      "quarantine_count": 16090,
+      "systematic_issue": false,
+      "systemic_detail": null,
+      "warning_count": 1294837
+    }
+  },
+  "summary_fields": {
+    "dataset_version": "v20260919_01",
+    "quality_status": "DEGRADED",
+    "quarantined_rows": 16090,
+    "coverage": 0.9991174001515724,
+    "cleaning_policy_version": "daily-v1"
+  },
+  "checks": {
+    "default_rejected": true,
+    "strict_rejected": true,
+    "opt_in_accepted": true,
+    "manifest_five_fields": true,
+    "summary_five_fields": true
+  },
+  "ok": true
+}

@@ -1,0 +1,282 @@
+[
+  {
+    "case": "PASS/fresh/COMPLETE → 过",
+    "health_status": "PASS",
+    "verification": "VERIFIED",
+    "completeness": "COMPLETE",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS"
+    ],
+    "override_reason": null,
+    "strict": false,
+    "accepted": true,
+    "manifest_path": null,
+    "ok": true
+  },
+  {
+    "case": "PASS/stale/COMPLETE → 拒（freshness）",
+    "health_status": "PASS",
+    "verification": "VERIFIED",
+    "completeness": "COMPLETE",
+    "freshness": "2026-08-18",
+    "accept_quality": [
+      "PASS"
+    ],
+    "override_reason": null,
+    "strict": false,
+    "accepted": false,
+    "reason": "读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=PASS——数据陈旧：freshness.latest_trade_date=2026-08-18 距 as_of 为 30d > max_staleness=1d；指引：刷新数据到 as_of 后重发 health；或不要求该新鲜度（放宽 max_staleness 会被审计）",
+    "ok": true
+  },
+  {
+    "case": "PASS/fresh/INCOMPLETE → 拒（completeness）",
+    "health_status": "PASS",
+    "verification": "VERIFIED",
+    "completeness": "INCOMPLETE",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS"
+    ],
+    "override_reason": null,
+    "strict": false,
+    "accepted": false,
+    "reason": "读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=PASS——completeness.status=INCOMPLETE ≠ COMPLETE（独立检查，不靠 coverage 推）；指引：补齐/重导缺失分区后重发 health；完整性未证实不得 research-ready",
+    "ok": true
+  },
+  {
+    "case": "PASS/fresh/UNKNOWN → 拒（completeness）",
+    "health_status": "PASS",
+    "verification": "VERIFIED",
+    "completeness": "UNKNOWN",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS"
+    ],
+    "override_reason": null,
+    "strict": false,
+    "accepted": false,
+    "reason": "读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=PASS——completeness.status=UNKNOWN ≠ COMPLETE（独立检查，不靠 coverage 推）；指引：补齐/重导缺失分区后重发 health；完整性未证实不得 research-ready",
+    "ok": true
+  },
+  {
+    "case": "DEGRADED/默认 → 拒",
+    "health_status": "DEGRADED",
+    "verification": "VERIFIED",
+    "completeness": "COMPLETE",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS"
+    ],
+    "override_reason": null,
+    "strict": false,
+    "accepted": false,
+    "reason": "读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=DEGRADED——不在 accept_quality=('PASS',)（默认 fail-closed）；指引：DEGRADED 需显式 opt-in（accept_quality 含 DEGRADED + override_reason，自动写 manifest）；或修复数据重发 health",
+    "ok": true
+  },
+  {
+    "case": "DEGRADED/fresh/COMPLETE/opt-in → 过 + manifest",
+    "health_status": "DEGRADED",
+    "verification": "VERIFIED",
+    "completeness": "COMPLETE",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS",
+      "DEGRADED"
+    ],
+    "override_reason": "R32 验收：真实 DEGRADED opt-in",
+    "strict": false,
+    "accepted": true,
+    "manifest_path": "governance/evidence/verification/R32/m1-e2e/health-root/manifest/ashare_daily/2026-09-17.json",
+    "manifest_keys": [
+      "affected_partitions",
+      "dataset_quality",
+      "dq_policy_version",
+      "override_reason",
+      "quality_issues"
+    ],
+    "manifest_five_fields_ok": true,
+    "gate_summary_fields": [
+      "cleaning_policy_version",
+      "coverage",
+      "dataset_version",
+      "quality_status",
+      "quarantined_rows"
+    ],
+    "ok": true
+  },
+  {
+    "case": "DEGRADED/stale/opt-in → 拒（freshness）",
+    "health_status": "DEGRADED",
+    "verification": "VERIFIED",
+    "completeness": "COMPLETE",
+    "freshness": "2026-08-18",
+    "accept_quality": [
+      "PASS",
+      "DEGRADED"
+    ],
+    "override_reason": "probe",
+    "strict": false,
+    "accepted": false,
+    "reason": "读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=DEGRADED——数据陈旧：freshness.latest_trade_date=2026-08-18 距 as_of 为 30d > max_staleness=1d；指引：刷新数据到 as_of 后重发 health；或不要求该新鲜度（放宽 max_staleness 会被审计）",
+    "ok": true
+  },
+  {
+    "case": "DEGRADED/fresh/INCOMPLETE/opt-in → 拒（completeness）",
+    "health_status": "DEGRADED",
+    "verification": "VERIFIED",
+    "completeness": "INCOMPLETE",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS",
+      "DEGRADED"
+    ],
+    "override_reason": "probe",
+    "strict": false,
+    "accepted": false,
+    "reason": "读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=DEGRADED——completeness.status=INCOMPLETE ≠ COMPLETE（独立检查，不靠 coverage 推）；指引：补齐/重导缺失分区后重发 health；完整性未证实不得 research-ready",
+    "ok": true
+  },
+  {
+    "case": "FAIL/默认 → 拒",
+    "health_status": "FAIL",
+    "verification": "VERIFIED",
+    "completeness": "COMPLETE",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS"
+    ],
+    "override_reason": null,
+    "strict": false,
+    "accepted": false,
+    "reason": "读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=FAIL——FINAL 门判 FAIL（不可 opt-in）；指引：修复数据并重跑 clean → ingest → health；不得绕过",
+    "ok": true
+  },
+  {
+    "case": "FAIL/opt-in → 拒（不可 opt-in）",
+    "health_status": "FAIL",
+    "verification": "VERIFIED",
+    "completeness": "COMPLETE",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS",
+      "DEGRADED",
+      "FAIL"
+    ],
+    "override_reason": "probe",
+    "strict": false,
+    "accepted": false,
+    "reason": "ValueError: FAIL 不可 opt-in（设计 §7：FAIL ❌ 不可 opt-in）——先修复数据重发 health",
+    "ok": true
+  },
+  {
+    "case": "UNKNOWN(LEGACY)/默认 → 拒",
+    "health_status": "UNKNOWN",
+    "verification": "LEGACY_UNVERIFIED",
+    "completeness": "COMPLETE",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS"
+    ],
+    "override_reason": null,
+    "strict": false,
+    "accepted": false,
+    "reason": "读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=UNKNOWN——不在 accept_quality=('PASS',)（默认 fail-closed）；指引：DEGRADED 需显式 opt-in（accept_quality 含 DEGRADED + override_reason，自动写 manifest）；或修复数据重发 health",
+    "ok": true
+  },
+  {
+    "case": "UNKNOWN(LEGACY)/fresh/COMPLETE/opt-in → 过 + manifest",
+    "health_status": "UNKNOWN",
+    "verification": "LEGACY_UNVERIFIED",
+    "completeness": "COMPLETE",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS",
+      "UNKNOWN"
+    ],
+    "override_reason": "R32 验收：存量过渡条款",
+    "strict": false,
+    "accepted": true,
+    "manifest_path": "governance/evidence/verification/R32/m1-e2e/health-root/manifest/ashare_daily/2026-09-17.json",
+    "manifest_keys": [
+      "affected_partitions",
+      "dataset_quality",
+      "dq_policy_version",
+      "override_reason",
+      "quality_issues"
+    ],
+    "manifest_five_fields_ok": true,
+    "gate_summary_fields": [
+      "cleaning_policy_version",
+      "coverage",
+      "dataset_version",
+      "quality_status",
+      "quarantined_rows"
+    ],
+    "ok": true
+  },
+  {
+    "case": "UNKNOWN(LEGACY)/stale/opt-in → 拒（freshness）",
+    "health_status": "UNKNOWN",
+    "verification": "LEGACY_UNVERIFIED",
+    "completeness": "COMPLETE",
+    "freshness": "2026-08-18",
+    "accept_quality": [
+      "PASS",
+      "UNKNOWN"
+    ],
+    "override_reason": "probe",
+    "strict": false,
+    "accepted": false,
+    "reason": "读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=UNKNOWN——数据陈旧：freshness.latest_trade_date=2026-08-18 距 as_of 为 30d > max_staleness=1d；指引：刷新数据到 as_of 后重发 health；或不要求该新鲜度（放宽 max_staleness 会被审计）",
+    "ok": true
+  },
+  {
+    "case": "UNKNOWN(LEGACY)/fresh/INCOMPLETE/opt-in → 拒（completeness）",
+    "health_status": "UNKNOWN",
+    "verification": "LEGACY_UNVERIFIED",
+    "completeness": "INCOMPLETE",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS",
+      "UNKNOWN"
+    ],
+    "override_reason": "probe",
+    "strict": false,
+    "accepted": false,
+    "reason": "读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=UNKNOWN——completeness.status=INCOMPLETE ≠ COMPLETE（独立检查，不靠 coverage 推）；指引：补齐/重导缺失分区后重发 health；完整性未证实不得 research-ready",
+    "ok": true
+  },
+  {
+    "case": "UNKNOWN(VERIFIED) → 拒（非 LEGACY）",
+    "health_status": "UNKNOWN",
+    "verification": "VERIFIED",
+    "completeness": "COMPLETE",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS",
+      "UNKNOWN"
+    ],
+    "override_reason": "probe",
+    "strict": false,
+    "accepted": false,
+    "reason": "读取门拒绝：dataset=ashare_daily partition=2026-09-17 status=UNKNOWN——UNKNOWN 仅限 LEGACY 存量（verification_state='VERIFIED'）；指引：重发 health 或按 §8 过渡条款处理",
+    "ok": true
+  },
+  {
+    "case": "strict + DEGRADED opt-in → ValueError",
+    "health_status": "DEGRADED",
+    "verification": "VERIFIED",
+    "completeness": "COMPLETE",
+    "freshness": "2026-09-17",
+    "accept_quality": [
+      "PASS",
+      "DEGRADED"
+    ],
+    "override_reason": "probe",
+    "strict": true,
+    "accepted": false,
+    "reason": "ValueError: strict（正式 OOS/验收/基准场景）只接受 PASS：accept_quality=('PASS', 'DEGRADED') 非法",
+    "ok": true
+  }
+]
