@@ -1,0 +1,16 @@
+name: intraday_realized_skew
+category: custom
+direction: -1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2023_2025
+date:
+  start: "2023-01-01"
+  end: "2025-12-31"
+formula: |
+  _r = close / im_delay(close, 1) - 1
+  _r2 = _r * _r
+  _r3 = _r * _r * _r
+  _s2 = day_sum(_r2)
+  signal = if_else(_s2 > 0, day_sum(_r3) / (_s2 * sqrt(_s2)), None)

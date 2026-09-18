@@ -1,0 +1,15 @@
+name: intraday_dvr
+category: custom
+direction: 1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2023_2025
+date:
+  start: "2023-01-01"
+  end: "2025-12-31"
+formula: |
+  _r = close / im_delay(close, 1) - 1
+  _d = if_else(_r < 0, _r * _r, 0)
+  _u = if_else(_r > 0, _r * _r, 0)
+  signal = if_else(day_sum(_u) > 0, day_sum(_d) / day_sum(_u), None)
