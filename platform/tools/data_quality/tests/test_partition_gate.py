@@ -180,7 +180,7 @@ def test_field_concentration_over_share_and_count_is_systemic():
 
 
 def test_field_concentration_at_threshold_not_systemic():
-    """严格大于：share==0.80 或 count==field_count 均不命中。"""
+    """严格大于：share==0.80 或 error_count==field_count 均不命中。"""
     at_share = (
         _r(rules.VOLUME_NEGATIVE, rules.ERROR,
            *[_sym_key(f"6005{i:02d}.SH") for i in range(80)])
@@ -195,6 +195,35 @@ def test_field_concentration_at_threshold_not_systemic():
                   *[_sym_key(f"6005{i:02d}.SH") for i in range(50)])
     m2 = aggregate.aggregate(at_count, 100000, 100000)
     assert aggregate.detect_systemic(m2, None, POLICY) is None
+
+
+def test_field_boundary_compares_total_error_count_not_field_subset():
+    """I2（spec §2 字面）：`C_field > 0.80 且 error_count > N_field`。
+
+    偏差带用例：59 errors、单字段 50 → share 50/59≈0.847>0.80 且**总数** 59>50
+    → 命中（旧「字段自身计数 50>50 不成立」的语义会漏报）。
+    """
+    keys = [_sym_key(f"6005{i:02d}.SH") for i in range(59)]
+    res = (_r(rules.VOLUME_NEGATIVE, rules.ERROR, *keys[:50])
+           + _r(rules.OHLC_INVALID, rules.ERROR, *keys[50:]))
+    m = aggregate.aggregate(res, 100000, 100000)
+    assert (m.error_count, m.errors_by_field) == (59, {"volume": 50})
+    sd = aggregate.detect_systemic(m, None, POLICY)
+    assert sd is not None and sd.rule == aggregate.SYSTEMATIC_FIELD_FAILURE
+    assert sd.subject == "volume" and sd.count == 50
+
+
+def test_policy_field_count_not_hardcoded():
+    """M2：非默认 policy 必须改变判定（field_count 50→10 才命中）。"""
+    keys = [_sym_key(f"6005{i:02d}.SH") for i in range(20)]
+    res = (_r(rules.VOLUME_NEGATIVE, rules.ERROR, *keys[:17])
+           + _r(rules.OHLC_INVALID, rules.ERROR, *keys[17:]))
+    m = aggregate.aggregate(res, 100000, 100000)       # 20 errors / volume 17 (85%)
+    assert aggregate.detect_systemic(m, None, POLICY) is None, "默认 20 不 > 50"
+    tight = dataclasses.replace(
+        POLICY, systemic={**POLICY.systemic, "field_count": 10})
+    sd = aggregate.detect_systemic(m, None, tight)
+    assert sd is not None and sd.rule == aggregate.SYSTEMATIC_FIELD_FAILURE
 
 
 def test_warn_level_does_not_feed_field_concentration():
@@ -222,11 +251,19 @@ def test_group_concentration_ratio_and_count_is_systemic():
 
 
 def test_group_count_at_threshold_not_systemic():
+    """I2 钉语义：`group_count` = **组内 error 数**，不是分区总 error_count。
+
+    SH 组 50 错（== group_count，不满足严格大于）+ SZ 组 10 错 → 总 60>50 也不命中；
+    若实现拿总数 60 与阈值比会误报。
+    """
     rows = _rows([f"6005{i:02d}.SH" for i in range(100)]
                  + [f"0000{i:02d}.SZ" for i in range(9900)])
-    res = _r(rules.OHLC_INVALID, rules.ERROR,
-             *[_sym_key(f"6005{i:02d}.SH") for i in range(50)])
+    res = (_r(rules.OHLC_INVALID, rules.ERROR,
+              *[_sym_key(f"6005{i:02d}.SH") for i in range(50)])
+           + _r(rules.OHLC_INVALID, rules.ERROR,
+                *[_sym_key(f"0000{i:02d}.SZ") for i in range(10)]))
     m = aggregate.aggregate(res, 10000, 10000)
+    assert m.error_count == 60
     assert aggregate.detect_systemic(m, rows, POLICY) is None
 
 
@@ -256,6 +293,47 @@ def test_temporal_count_at_threshold_not_systemic():
     res = _r(rules.OHLC_INVALID, rules.ERROR, *[_sym_key(s) for s in syms])
     m = aggregate.aggregate(res, 100, 100)
     assert aggregate.detect_systemic(m, _rows(syms), POLICY) is None
+
+
+def test_temporal_boundary_compares_total_error_count_not_day_subset():
+    """I2（spec §2 字面）：`C_time > 0.80 且 error_count > N_time`。
+
+    偏差带用例：120 errors、单日 100 → share 100/120≈0.833>0.80 且**总数**
+    120>100 → 命中（旧「当日自身计数 100>100 不成立」的语义会漏报）。
+    """
+    day_keys = [f"6005{i:02d}.SH|{DAY.isoformat()}" for i in range(100)]
+    other_keys = [f"0000{i:02d}.SZ|2026-09-17" for i in range(20)]
+    res = _r(rules.OHLC_INVALID, rules.ERROR, *(day_keys + other_keys))
+    m = aggregate.aggregate(res, 100000, 100000)
+    assert (m.error_count, m.errors_by_date) == (120, {DAY.isoformat(): 100,
+                                                       "2026-09-17": 20})
+    sd = aggregate.detect_systemic(m, None, POLICY)
+    assert sd is not None and sd.rule == aggregate.SYSTEMATIC_TEMPORAL_FAILURE
+    assert sd.subject == DAY.isoformat() and sd.count == 100
+
+
+def test_time_spread_across_dates_not_systemic():
+    """I3：时间集中按范围内 trade_date 分布——错误均匀跨日即便总数 > N_time 也不命中。"""
+    keys = []
+    for day in ("2026-09-15", "2026-09-16", "2026-09-17"):
+        keys += [f"6005{j:02d}.SH|{day}" for j in range(40)]
+    res = _r(rules.OHLC_INVALID, rules.ERROR, *keys)
+    m = aggregate.aggregate(res, 100000, 100000)
+    assert m.error_count == 120
+    assert max(m.errors_by_date.values()) == 40
+    assert aggregate.detect_systemic(m, None, POLICY) is None
+
+
+def test_policy_time_count_not_hardcoded():
+    """M2：非默认 policy 必须改变判定（time_count 100→200 改变命中）。"""
+    keys = [f"6005{i:03d}.SH|{DAY.isoformat()}" for i in range(150)]
+    res = _r(rules.OHLC_INVALID, rules.ERROR, *keys)
+    m = aggregate.aggregate(res, 100000, 100000)       # 150 同日 errors
+    sd = aggregate.detect_systemic(m, None, POLICY)
+    assert sd is not None and sd.rule == aggregate.SYSTEMATIC_TEMPORAL_FAILURE
+    loose = dataclasses.replace(
+        POLICY, systemic={**POLICY.systemic, "time_count": 200})
+    assert aggregate.detect_systemic(m, None, loose) is None
 
 
 def test_systemic_none_when_no_rule_hit():

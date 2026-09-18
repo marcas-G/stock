@@ -150,6 +150,12 @@ def detect_systemic(
 ) -> SystemicDetail | None:
     """systemic 三规则（§2 表）：字段集中 → 分组集中 → 时间集中，首中即返回。
 
+    计数口径（I2 按 spec §2 字面）：
+    - 字段：``C_field > field_share`` 且 **分区总 ``error_count`` > field_count``**；
+    - 分组：``group_rate > market_rate × group_ratio`` 且 ``group_count`` = **组内
+      error 数** > group_count（阈值与组内计数比，不与总数比）；
+    - 时间：``C_time > time_share`` 且 **分区总 ``error_count`` > time_count``**。
+
     ``rows`` = 该分区输入行（含随后被隔离的行），仅用于**分组错误率的分母**；
     ``None``/无 symbol 列 → 跳过分组规则（不猜、不误报）。
     """
@@ -157,19 +163,19 @@ def detect_systemic(
     if metrics.error_count <= 0:
         return None
 
-    # ① 字段集中：单一字段占全部 error 的比例（严格大于阈值）
+    # ① 字段集中：C_field > field_share 且分区总 error_count > field_count
     if metrics.errors_by_field:
         field, cnt = max(metrics.errors_by_field.items(),
                          key=lambda kv: (kv[1], kv[0]))
         share = cnt / metrics.error_count
-        if share > s["field_share"] and cnt > s["field_count"]:
+        if share > s["field_share"] and metrics.error_count > s["field_count"]:
             return SystemicDetail(
                 rule=SYSTEMATIC_FIELD_FAILURE, subject=field, count=cnt, share=share,
                 detail=(f"字段集中：单一字段 {field} 占全部 error {share:.2%}"
-                        f"（>{s['field_share']:.0%}）且 count {cnt}"
-                        f" > {int(s['field_count'])}"))
+                        f"（>{s['field_share']:.0%}）且分区 error_count "
+                        f"{metrics.error_count} > {int(s['field_count'])}"))
 
-    # ② 分组集中：group_rate > market_rate × K 且 group_count > N_group
+    # ② 分组集中：group_rate > market_rate × K 且组内 error 数 > N_group
     group_rows = _rows_by_group(rows)
     if group_rows and metrics.errors_by_group:
         total_rows = sum(group_rows.values())
@@ -186,19 +192,19 @@ def detect_systemic(
             return SystemicDetail(
                 rule=SYSTEMATIC_GROUP_FAILURE, subject=group, count=cnt, share=rate,
                 detail=(f"分组集中：{group} 错误率 {rate:.4g} > 全市场 {market:.4g}"
-                        f" × {s['group_ratio']:g} 且 count {cnt}"
+                        f" × {s['group_ratio']:g} 且组内 error {cnt}"
                         f" > {int(s['group_count'])}"))
 
-    # ③ 时间集中：单日占错误比例（严格大于阈值）
+    # ③ 时间集中：C_time > time_share 且分区总 error_count > time_count
     if metrics.errors_by_date:
         day, cnt = max(metrics.errors_by_date.items(), key=lambda kv: (kv[1], kv[0]))
         share = cnt / metrics.error_count
-        if share > s["time_share"] and cnt > s["time_count"]:
+        if share > s["time_share"] and metrics.error_count > s["time_count"]:
             return SystemicDetail(
                 rule=SYSTEMATIC_TEMPORAL_FAILURE, subject=day, count=cnt, share=share,
                 detail=(f"时间集中：{day} 占全部 error {share:.2%}"
-                        f"（>{s['time_share']:.0%}）且 count {cnt}"
-                        f" > {int(s['time_count'])}"))
+                        f"（>{s['time_share']:.0%}）且分区 error_count "
+                        f"{metrics.error_count} > {int(s['time_count'])}"))
 
     return None
 
@@ -239,14 +245,21 @@ def _group_of(symbol: str) -> str:
 
 
 def _rows_by_group(rows: pl.DataFrame | None) -> dict[str, int] | None:
-    """输入行 → 分组行数（分组规则的分母）；不可归因 → None（跳过该规则）。"""
+    """输入行 → 分组行数（分组规则的分母）；不可归因 → None（跳过该规则）。
+
+    向量化实现（I1 全表清洗下 rows 可达千万级）：与 ``_group_of`` 同语义——
+    交易所后缀（600519.SH → SH）；无后缀/空值 → UNKNOWN。
+    """
     if rows is None or not isinstance(rows, pl.DataFrame) or rows.height == 0:
         return None
     sym_col = next((c for c in validators._SYM_ALIASES if c in rows.columns), None)
     if sym_col is None:
         return None
-    counts: dict[str, int] = {}
-    for sym in rows[sym_col].cast(pl.String, strict=False).to_list():
-        group = _group_of(sym or "")
-        counts[group] = counts.get(group, 0) + 1
-    return counts
+    grouped = (
+        rows.select(pl.col(sym_col).cast(pl.String, strict=False).alias("_sym"))
+        .with_columns(
+            pl.col("_sym").str.extract(r"\.([^.]+)$", 1)
+            .str.to_uppercase().fill_null("UNKNOWN").alias("_g"))
+        .group_by("_g").len()
+    )
+    return {g: n for g, n in grouped.iter_rows()}
