@@ -101,28 +101,31 @@ def repair(
         log.append({"action": "dedup_identical", "count": removed, "keys": keys})
 
     # ── 3) quarantine 日志（按规则计数；该键全部行）──────────────────────
-    for rid in sorted(by_rule):
-        keys = sorted({r.key for r in by_rule[rid]})
-        if not keys:
-            continue
-        n = q_frame.filter(pl.col("_key").is_in(keys)).height
-        if n:
-            log.append({"action": "quarantine", "rule_id": rid,
-                        "reason": by_rule[rid][0].detail, "count": n,
-                        "keys": keys})
+    # has_key=False（schema 门：缺 symbol/trade_date、SCHEMA_DATE_DTYPE）时帧无
+    # `_key`，行不可定位——FATAL 交分区门，日志循环必须短路（q_frame 也无 `_key`）。
+    if has_key and "_key" in q_frame.columns:
+        for rid in sorted(by_rule):
+            keys = sorted({r.key for r in by_rule[rid]})
+            if not keys:
+                continue
+            n = q_frame.filter(pl.col("_key").is_in(keys)).height
+            if n:
+                log.append({"action": "quarantine", "rule_id": rid,
+                            "reason": by_rule[rid][0].detail, "count": n,
+                            "keys": keys})
 
     if "_key" in clean.columns:
         clean = clean.drop("_key")
     if "_key" in q_frame.columns:
         q_frame = q_frame.drop("_key")
 
-    # ── 3) 时间解析/时区规范化（幂等）───────────────────────────────────
+    # ── 4) 时间解析/时区规范化（幂等）───────────────────────────────────
     clean, n_time = _normalize_time(clean)
     if n_time:
         log.append({"action": "normalize_time", "column": "trade_date",
                     "count": n_time})
 
-    # ── 4) schema/类型强制（幂等；非法值归 NULL，绝不填 0）──────────────
+    # ── 5) schema/类型强制（幂等；非法值归 NULL，绝不填 0）──────────────
     clean, coerced = _coerce_dtypes(clean)
     if coerced:
         log.append({"action": "coerce_dtypes", "count": len(coerced),

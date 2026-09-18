@@ -208,6 +208,47 @@ def test_frame_level_fatal_does_not_isolate_rows():
     assert _finds(log, "quarantine") == []
 
 
+def test_schema_fatal_missing_symbol_not_keyable_no_crash():
+    """D1：缺 symbol 的帧无法加 key → 不得在 quarantine 日志循环炸（FATAL 交分区门）。"""
+    df = _frame([_row()]).drop("symbol")
+    res = validators.validate_daily(df, _cal(), None, None)
+    assert [r.rule_id for r in res] == [rules.SCHEMA_MISSING_COLUMN]
+
+    clean, q, log = repair.repair(df, res)
+    assert clean.height == 1, "行不得被误隔离/丢失"
+    assert q.height == 0
+    assert _finds(log, "quarantine") == []
+
+
+def test_schema_fatal_missing_trade_date_not_keyable_no_crash():
+    """D1：缺 trade_date 的帧无法加 key → 直通且 FATAL 计数不丢。"""
+    df = _frame([_row()]).drop("trade_date")
+    res = validators.validate_daily(df, _cal(), None, None)
+    assert [r.rule_id for r in res] == [rules.SCHEMA_MISSING_COLUMN]
+    assert {r.key for r in res} == {"trade_date"}
+
+    clean, q, log = repair.repair(df, res)
+    assert clean.height == 1
+    assert q.height == 0
+    assert _finds(log, "quarantine") == []
+
+
+def test_schema_fatal_duration_date_not_keyable_no_crash():
+    """D1：Duration 日期 → SCHEMA_DATE_DTYPE FATAL，帧不可加 key，直通不炸。"""
+    df = pl.DataFrame(
+        {"symbol": [SYM], "trade_date": [dt.timedelta(seconds=1)],
+         "open": [10.0], "high": [10.5], "low": [9.8], "close": [10.2],
+         "volume": [1000.0], "amount": [10200.0]},
+        schema={**_SCHEMA, "trade_date": pl.Duration("us")})
+    res = validators.validate_daily(df, _cal(), None, None)
+    assert [r.rule_id for r in res] == [rules.SCHEMA_DATE_DTYPE]
+
+    clean, q, log = repair.repair(df, res)
+    assert clean.height == 1
+    assert q.height == 0
+    assert _finds(log, "quarantine") == []
+
+
 def test_quarantined_keeps_raw_form_clean_normalized():
     """隔离行是证据，保持原始形态；规范化只作用于 clean。"""
     df = _frame([_row(trade_date="2026-09-18", close=-1.0, low=-1.0)],
