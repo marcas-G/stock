@@ -20,6 +20,8 @@ from factorlab.research.registry import (
 )
 # import 副作用：注册通用命令（version/describe），保证 dispatch/describe 可见
 from factorlab.research.cli import research_app
+# import 副作用：注册 data 组全部命令（tables/schema/.../fundamentals）
+from factorlab.research import data as _data  # noqa: F401
 
 __all__ = [
     "COMMANDS",

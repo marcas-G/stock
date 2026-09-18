@@ -114,6 +114,20 @@ def version_cmd(
     _dispatch_typer("version", argparse.Namespace(pretty=pretty), pretty)
 
 
+@research_app.command(
+    "data",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def data_cmd(ctx: typer.Context) -> None:
+    """data 组：全库读取（子命令经 registry 单点，`describe --json` 查看）。"""
+    argv = list(ctx.args)
+    if not argv:
+        raise typer.Exit(code=envelope.emit(envelope.fail(
+            "data", "USAGE", "缺少 data 子命令",
+            hint="factorlab research describe --json 查看命令目录")))
+    raise typer.Exit(code=registry.dispatch([f"data.{argv[0]}", *argv[1:]]))
+
+
 @research_app.callback(invoke_without_command=True)
 def _research_main(ctx: typer.Context) -> None:
     """裸调用 `factorlab research` → USAGE 信封（与单 JSON 契约一致）。"""
