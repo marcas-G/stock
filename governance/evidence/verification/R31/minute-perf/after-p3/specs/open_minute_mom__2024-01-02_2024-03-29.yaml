@@ -1,0 +1,16 @@
+name: intraday_open_minute_mom
+category: custom
+direction: 1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2023_2025
+date:
+  start: '2024-01-02'
+  end: '2024-03-29'
+formula: '_open_ret = day_max(if_else(minute_index == 1, close, None)) / day_max(if_else(minute_index
+  == 0, close, None)) - 1
+
+  signal = _open_ret
+
+  '

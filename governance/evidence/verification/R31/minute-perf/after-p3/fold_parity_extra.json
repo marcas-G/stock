@@ -1,0 +1,77 @@
+{
+  "window": "2024-01-02..2024-03-29",
+  "chunk_days": 10,
+  "head_ref": "b3acf07",
+  "head_commit": "b3acf070f8cfb639e626a117ad3c1535d7d4bcf3",
+  "tree_commit": "aa9f351690d23474f63bded3db50becb9abe9395",
+  "factors": {
+    "open_minute_mom": {
+      "rows": 281338,
+      "signal": {
+        "dtype": "Float32",
+        "bit_exact": false,
+        "n_cells": 281338,
+        "n_bit_diff": 137995,
+        "max_abs_delta": 1.1734664440155029e-07,
+        "max_rel_delta": 1.0,
+        "null_mask_equal": true
+      },
+      "p3_vs_head": {
+        "rows": 281338,
+        "signal": {
+          "dtype": "Float32",
+          "bit_exact": true,
+          "n_cells": 281338,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "max_rel_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "fold_s_legacy": 14.63,
+      "fold_s_fused": 12.27,
+      "fold_s_head": 12.05,
+      "f32_rounding_scale": {
+        "signal": {
+          "legacy_vs_f64_oracle_max_abs": 1.1731707860555829e-07,
+          "fused_vs_f64_oracle_max_abs": 4.44392828091722e-09
+        }
+      },
+      "wall_s_with_four_compute": 79.6
+    },
+    "close_auction_premium": {
+      "rows": 281338,
+      "signal": {
+        "dtype": "Float32",
+        "bit_exact": true,
+        "n_cells": 281338,
+        "n_bit_diff": 0,
+        "max_abs_delta": 0.0,
+        "max_rel_delta": 0.0,
+        "null_mask_equal": true
+      },
+      "p3_vs_head": {
+        "rows": 281338,
+        "signal": {
+          "dtype": "Float32",
+          "bit_exact": true,
+          "n_cells": 281338,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "max_rel_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "fold_s_legacy": 19.0,
+      "fold_s_fused": 11.87,
+      "fold_s_head": 17.78,
+      "f32_rounding_scale": {
+        "signal": {
+          "legacy_vs_f64_oracle_max_abs": 6.825189385883945e-09,
+          "fused_vs_f64_oracle_max_abs": 6.825189385883945e-09
+        }
+      },
+      "wall_s_with_four_compute": 88.6
+    }
+  }
+}

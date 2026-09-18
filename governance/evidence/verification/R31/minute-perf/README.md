@@ -163,3 +163,105 @@ codegen 前接管；提交 `2b4daae feat(engine): 分钟折日物化共享融合
   简单两聚合形态旧路径已接近最优；融合主力收益在病态共享形态。
 - after 在 `commit 48858f2`（挖掘/reviewer 在途提交推进了树，dirty_files=22；
   minute 链功能无相关改动），before 在 `df0c3b0`；bench 同窗同口径可比。
+
+---
+
+## R09-PERF-I2（P3）：条件取值 filter 单次聚合 + at_minute（2026-09-18）
+
+实现（平台 `core/engine/minute_fold.py` + `core/ops/minute_ops.py` +
+`core/engine/minute_gate.py`；提交 `7760357 feat(engine): R09-PERF-I2 ...`，
+文档 `aa9f351 docs(interface): ...`）。范围仅分钟链（bars_1m）——**tick/LOB/
+convert_tick/lob_fact/tick_fact 未触碰**。
+
+- **条件取值重写（不改 spec 即生效）**：`day_max/day_min(if_else(cond, x, None))`
+  （含 `x if cond else None`、两参 if_else）自动外提条件 → 单次
+  `x.filter(cond).max/min().over(partition)`；`minute_index <cmp> 常量` 直接
+  内联 polars 条件，复合条件经 pass 物化条件列。现存 spec 覆盖
+  （`after-p3/shape_coverage.txt`）：lunch_jump（1 节点）/open_minute_mom
+  （2 节点）/close_auction_premium（1 条件 + day_last）。
+- **新算子 `at_minute(x, k)`**：k 显式 int ∈ 0..239（静态门 + 运行时双防线，
+  拒 bool/float/负/越界）；语义 = 当日 minute_index==k 行的值广播全组，k 缺失/
+  该行 null → 全组 null；与 `day_max(if_else(minute_index==k, x, None))` 逐位
+  一致。catalog/interface 同步（注册清单 + 语义/慢形态指引）。
+- **day_first/day_last 单次 agg**：融合路径 `sort_by(minute_index).first/last`
+  （旧双 over 回退保持）。
+- **回退语义不变**：不支持形态完整回退旧 codegen 路径。
+
+### 数值硬门（同一次读盘多路径；`after-p3/fold_parity.json` + `fold_parity_extra.json`）
+
+路径：legacy（融合关）/ fused（P3 树）/ head（预 P3 ref `b3acf07`）/ f64
+oracle。窗口同 bench（58 交易日，整段 281338 行对齐）：
+
+| 因子 | legacy vs fused max\|Δ\| | fused vs head max\|Δ\|（零变化门） | null 掩码 |
+|---|---|---|---|
+| am_pm_vol | 0（bit-exact） | 0 | 一致 |
+| vol_asym | 0（bit-exact） | 0 | 一致 |
+| autocorr_micro | 3.28e-07（f32 ulp） | 0 | 一致 |
+| vol_price_corr | 2.42e-06（f64 ulp） | 0 | 一致 |
+| lunch_jump（条件形态） | 0（bit-exact） | 0 | 一致 |
+| close_auction_premium（条件+day_last） | 0（bit-exact） | 0 | 一致 |
+| open_minute_mom（双条件） | 1.17e-07（f32 ulp） | 0 | 一致 |
+
+- `at_minute(x,120)` vs `day_max(if_else(mi==120,x,None))` 真数据逐 cell
+  **bit-exact（0/281338 差异，max|Δ|=0）**（lunch_jump 同 chunk）。
+- **P3 零变化**：全部 7 因子 fused(P3) vs head(P2) max|Δ|=0——P3 数值语义零变化；
+  autocorr/vol_price/open_minute 对 legacy 的 ulp 为 I1 已记录的 f32 嵌套归约
+  计划敏感（新旧各自 vs f64 oracle 的舍入更大，非错值）。
+
+### 同进程折日墙钟（spy 内逐 chunk 累计，不含读盘；单位 s）
+
+| 因子 | legacy | fused(P3) | head(P2) | legacy→P3 |
+|---|---|---|---|---|
+| am_pm_vol | 14.13 | 13.06 | 12.83 | 1.08× |
+| vol_asym | 16.04 | 16.87 | 17.19 | 0.95× |
+| autocorr_micro | 24.82 | 19.63 | 19.23 | 1.26× |
+| vol_price_corr | 52.49 | 22.07 | 21.17 | 2.38× |
+| lunch_jump | 20.69 | 16.23 | 16.37 | 1.27× |
+| open_minute_mom | 14.63 | 12.27 | 12.05 | 1.19× |
+| close_auction_premium | 19.00 | 11.87 | 17.78 | **1.60×**（vs P2 1.50×） |
+
+- P3 相对 P2 的增量收益集中于 `day_last` 单次 agg（close_auction_premium
+  17.78→11.87）；条件 filter 重写（lunch_jump/open_minute_mom）在同窗为噪声级
+  （省 when/None 物化列，主收益是结构上免全组 null 扫描）；非条件因子
+  （vol_asym/vol_price_corr）与 P2 互在噪声带（预期：表达式未变）。
+
+### after-p3 bench（`after-p3/timings.md`；commit `aa9f351`，同 before 窗口/口径）
+
+| 因子 | before 总/fold | after-P3 总/fold | fold 倍率 |
+|---|---|---|---|
+| am_pm_vol | 55.6/18.2s | 46.3/13.7s | 1.33× |
+| vol_asym | 52.2/20.4s | 48.1/18.7s | 1.09× |
+| autocorr_micro | 63.4/31.2s | 50.3/21.1s | 1.48× |
+| vol_price_corr | 101.2/64.7s | 58.3/23.2s | 2.78× |
+| lunch_jump | —（bench 7 因子后补） | 48.2/18.7s | （同进程 legacy→P3 1.27×） |
+| open_minute_mom | — | 43.1/13.4s | （同进程 1.19×） |
+| close_auction_premium | — | 43.4/13.8s | （同进程 1.60×） |
+
+- RSS 3.0–3.6GB 无回退；read 段（P4 范畴）未动。四基线因子 fold 较 I1 after
+  再有 0.5–4s 波动（跨 run 方差/host 缓存；同进程 head-vs-P3 对其为 ±0.9s
+  噪声——如实记录，不归因 P3）。
+
+### 突变检验（`spike/mutation-p3.txt` + `spike/mutation_p3.sh`）
+
+5 处突变全杀：at_minute 错值 max→first（1 failed；首轮存活 → 补直接算子
+duplicate-k 断言后必杀）、条件聚合回退 when/None 全列（4 failed）、
+_day_node 条件识别存根化（4 failed）、day_first/last 回退双 over（1 failed）、
+at_minute 静态范围门存根化（1 failed）；恢复后 67 passed。
+
+### 门结果（2026-09-18，P3 树 `aa9f351`）
+
+- **平台全量**：`cd platform && .venv/bin/python -m pytest -q` →
+  `3470 passed, 15 skipped`（13:24，0 failed）——I1 期 1 个预存红
+  （catalog.md 未同步 im_cummax）已随 catalog 重生成清零。
+- 分钟族 145 passed；`make lint-factors` 233 通过 / 0 失败；
+  `tests/test_architecture.py` + `test_doc_paths_exist.py` 19 passed。
+- **`make gates`**：预存红（在途 lob_fact 工具链）不受本改动影响。
+
+### 偏差/限制
+
+- 任务书「真数据 4 因子新 vs 旧逐 cell max|Δ|=0」按 legacy-vs-fused 口径：
+  vol_asym/lunch_jump 为 0；autocorr_micro/vol_price_corr 为 I1 已记录的 f32
+  嵌套 over ulp（非 P3 引入）。P3 自身的零变化硬门（fused vs head(P2) 逐 cell
+  max|Δ|=0）在全部 7 因子达成。
+- 条件 filter 重写在 58 日窗收益为噪声级；其价值主要在结构（免全组 null
+  扫描）与大窗/昂贵参数形态，未在本窗做外推。

@@ -1,0 +1,14 @@
+heavy.sh: slot=1/2 avail=72.6GB  max_memory=8GB oom_score_adj=700 -> /data/students/gaolei/stock/platform/.venv/bin/factorlab run governance/evidence/verification/R31/minute-perf/after-p3/specs/close_auction_premium__2024-01-02_2024-03-29.yaml --chunk-days 10 --profile --output-dir governance/evidence/verification/R31/minute-perf/after-p3/runs/close_auction_premium
+2026-09-18 23:13:55.403 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 23:13:55.438 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-18 23:13:55.814 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 23:13:55.847 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+[profile] total=43431ms (clock=wall_ms, rss=mb)
+  read_data            40035ms  peak=3121MB (+2657MB)  calls=2
+  fold                 13751ms  peak=3121MB (+964MB)  calls=6
+  label                  653ms  peak=2679MB (+0MB)  calls=1
+  evaluate               575ms  peak=1322MB (+0MB)  calls=1
+  layered_backtest       118ms  peak=1019MB (+2MB)  calls=1
+  persist                118ms  peak=1492MB (+0MB)  calls=2
+intraday_close_auction_premium: n_weeks=57 ic_mean=-0.02497635414383215 
+spread=0.0019121646329576009 freq=daily

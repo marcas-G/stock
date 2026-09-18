@@ -1,0 +1,31 @@
+R09-PERF-I2（P3）突变检验——脚本 mutation_p3.sh（自动恢复；每处突变相互隔离）
+M1 首轮曾存活（直接算子口径缺 duplicate-k 断言）→ 已补 test_at_minute_missing_k_null_and_duplicate_k_max 直接调用断言后必杀。
+
+===== M1: at_minute 错值（filter(max) -> filter(first)）
+2026-09-18 22:38:49.505 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+=========================== short test summary info ============================
+FAILED tests/test_minute_ops.py::test_at_minute_missing_k_null_and_duplicate_k_max
+1 failed, 48 passed in 5.94s
+===== M2: 条件取值改为旧 when/None 全列物化（关优化，数值不变）
+FAILED tests/test_minute_fold.py::test_plan_at_minute_fused_as_condition_node
+FAILED tests/test_minute_fold.py::test_plan_compound_condition_materializes_cond_column
+FAILED tests/test_minute_fold.py::test_fused_condition_path_not_stub - Assert...
+4 failed, 29 passed in 4.97s
+===== M3: 条件取值识别存根化（_day_node 不再外提 if_else 条件）
+FAILED tests/test_minute_fold.py::test_plan_condition_ifexp_and_two_arg_forms_extracted
+FAILED tests/test_minute_fold.py::test_plan_compound_condition_materializes_cond_column
+FAILED tests/test_minute_fold.py::test_fused_condition_path_not_stub - Assert...
+4 failed, 29 passed in 5.18s
+===== M4: day_first/day_last 回退双 over 旧形（关单次聚合优化）
+tests/test_minute_fold.py:384: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_minute_fold.py::test_plan_first_last_single_agg_no_double_over
+1 failed, 32 passed in 4.94s
+===== M5: at_minute 静态范围门存根化（去 0..239 边界拒绝）
+tests/test_minute_gate.py:239: Failed
+=========================== short test summary info ============================
+FAILED tests/test_minute_gate.py::test_at_minute_k_static_validation - Failed...
+1 failed, 33 passed in 3.43s
+===== 恢复后回归
+...................................................................      [100%]
+67 passed in 5.86s

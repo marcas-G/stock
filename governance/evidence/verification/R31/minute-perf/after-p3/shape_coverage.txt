@@ -1,0 +1,6 @@
+R09-PERF-I2 条件取值形态重写覆盖（现存 spec，只读；prepare_formula_pipeline 展开后 build_plan）
+格式: <spec>: nodes=[(op, cond外提, cond内联 pl.Expr)] pass_src_has_if_else=<是否残留 if_else 物化>
+
+lunch_jump: nodes=[('day_max', True, True)] pass_src_has_if_else=False
+close_auction_premium: nodes=[('day_max', True, True), ('day_last', False, False)] pass_src_has_if_else=False
+open_minute_mom: nodes=[('day_max', True, True), ('day_max', True, True)] pass_src_has_if_else=False

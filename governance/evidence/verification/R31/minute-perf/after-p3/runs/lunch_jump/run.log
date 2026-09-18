@@ -1,0 +1,14 @@
+heavy.sh: slot=1/2 avail=72.8GB  max_memory=8GB oom_score_adj=700 -> /data/students/gaolei/stock/platform/.venv/bin/factorlab run governance/evidence/verification/R31/minute-perf/after-p3/specs/lunch_jump__2024-01-02_2024-03-29.yaml --chunk-days 10 --profile --output-dir governance/evidence/verification/R31/minute-perf/after-p3/runs/lunch_jump
+2026-09-18 22:55:22.801 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 22:55:22.836 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-18 22:55:23.462 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 22:55:23.490 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+[profile] total=48225ms (clock=wall_ms, rss=mb)
+  read_data            44756ms  peak=3048MB (+2588MB)  calls=2
+  fold                 18693ms  peak=3048MB (+1027MB)  calls=6
+  label                  670ms  peak=2616MB (+0MB)  calls=1
+  evaluate               538ms  peak=1291MB (+0MB)  calls=1
+  layered_backtest       127ms  peak=960MB (+7MB)  calls=1
+  persist                147ms  peak=1651MB (+0MB)  calls=2
+intraday_lunch_jump: n_weeks=57 ic_mean=0.015015010235157547 
+spread=0.0020305293099289936 freq=daily

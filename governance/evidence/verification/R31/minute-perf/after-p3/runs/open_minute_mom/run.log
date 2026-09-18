@@ -1,0 +1,14 @@
+heavy.sh: slot=1/2 avail=72.7GB  max_memory=8GB oom_score_adj=700 -> /data/students/gaolei/stock/platform/.venv/bin/factorlab run governance/evidence/verification/R31/minute-perf/after-p3/specs/open_minute_mom__2024-01-02_2024-03-29.yaml --chunk-days 10 --profile --output-dir governance/evidence/verification/R31/minute-perf/after-p3/runs/open_minute_mom
+2026-09-18 23:13:09.441 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 23:13:09.469 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-18 23:13:09.789 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 23:13:09.816 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+[profile] total=43087ms (clock=wall_ms, rss=mb)
+  read_data            39722ms  peak=3162MB (+2697MB)  calls=2
+  fold                 13441ms  peak=3162MB (+972MB)  calls=6
+  label                  678ms  peak=2661MB (+0MB)  calls=1
+  evaluate               547ms  peak=1183MB (+0MB)  calls=1
+  layered_backtest       131ms  peak=1033MB (+9MB)  calls=1
+  persist                116ms  peak=1372MB (+9MB)  calls=2
+intraday_open_minute_mom: n_weeks=57 ic_mean=0.01698530588903821 
+spread=0.000429478102629003 freq=daily

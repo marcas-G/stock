@@ -141,7 +141,9 @@ def max_rss_mb(time_txt: Path):
 def main():
     env = (out / "env.txt").read_text(encoding="utf-8").strip() if (
         out / "env.txt").is_file() else "(no env.txt)"
-    _phase = "after（R09-PERF-I1 融合）" if out.name == "after" else "before"
+    _phase = ("after（R09-PERF-I1 融合）" if out.name == "after"
+              else "after（R09-PERF-I2 条件取值/单次 agg）"
+              if out.name == "after-p3" else "before")
     lines = [
         f"# R09 分钟链性能{_phase}——M3 分段计时实测",
         "",
