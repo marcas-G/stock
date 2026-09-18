@@ -82,6 +82,15 @@ def im_max(x: pl.Expr, window: int) -> pl.Expr:
     return _roll(x, window, "rolling_max", "im_max")
 
 
+def im_cummax(x: pl.Expr) -> pl.Expr:
+    """日内累计最大（含当前行，自组首起；无前导 null，不跨日）。
+
+    与 im_max(x, 239) 的区别：后者满窗才出值（组首 238 行 null），
+    im_cummax 自第一分钟起逐行累计——日内最高价轨迹（MDD 类因子用）。
+    """
+    return x.cum_max().over(_PARTITION, order_by=_ORDER)
+
+
 def im_min(x: pl.Expr, window: int) -> pl.Expr:
     """日内滚动最小。"""
     return _roll(x, window, "rolling_min", "im_min")
@@ -133,13 +142,69 @@ def day_min(x: pl.Expr) -> pl.Expr:
     return x.min().over(_PARTITION)
 
 
+# ---------------- seq_*：物理序内部变体（R09-PERF-I1 融合路径专用） ----------------
+# 公开 im_* 的 over 带 order_by="minute_index"（乱序输入确定性锁）；融合路径
+# （engine/minute_fold.py）先把面板预排序为 (code, date, minute_index)，再经本族
+# 去 order_by 的 over 计算——polars 用物理序，等价性由 bit 对拍锁定
+# （spike ③：滚动/位移全族 bit-exact）。**不注册**：只由融合路径重写后的公式调用，
+# 公式层直写不在门白名单（_fold_const 不认）——无新增公开算子面。
+
+def _roll_seq(x: pl.Expr, window: int, method: str, op: str) -> pl.Expr:
+    """物理序滚动（调用方保证组内 minute_index 升序）；参数硬校验同公开族。"""
+    w = _check_window(window, op)
+    return getattr(x, method)(w).over(_PARTITION)
+
+
+def seq_im_mean(x: pl.Expr, window: int) -> pl.Expr:
+    return _roll_seq(x, window, "rolling_mean", "im_mean")
+
+
+def seq_im_sum(x: pl.Expr, window: int) -> pl.Expr:
+    return _roll_seq(x, window, "rolling_sum", "im_sum")
+
+
+def seq_im_std(x: pl.Expr, window: int) -> pl.Expr:
+    return _roll_seq(x, window, "rolling_std", "im_std")
+
+
+def seq_im_max(x: pl.Expr, window: int) -> pl.Expr:
+    return _roll_seq(x, window, "rolling_max", "im_max")
+
+
+def seq_im_min(x: pl.Expr, window: int) -> pl.Expr:
+    return _roll_seq(x, window, "rolling_min", "im_min")
+
+
+def seq_im_median(x: pl.Expr, window: int) -> pl.Expr:
+    return _roll_seq(x, window, "rolling_median", "im_median")
+
+
+def seq_im_delay(x: pl.Expr, k: int) -> pl.Expr:
+    """物理序位移（调用方保证组内有序）；k 硬校验同 im_delay。"""
+    return x.shift(_check_shift(k)).over(_PARTITION)
+
+
+def seq_im_cummax(x: pl.Expr) -> pl.Expr:
+    """物理序累计最大（调用方保证组内有序）；语义同 im_cummax。"""
+    return x.cum_max().over(_PARTITION)
+
+
 # ---------------- 注册 ----------------
 
 _IM_OPS = {"im_mean": im_mean, "im_sum": im_sum, "im_std": im_std,
            "im_max": im_max, "im_min": im_min, "im_median": im_median,
-           "im_delay": im_delay}
+           "im_delay": im_delay, "im_cummax": im_cummax}
 _DAY_OPS = {"day_last": day_last, "day_first": day_first, "day_sum": day_sum,
             "day_mean": day_mean, "day_max": day_max, "day_min": day_min}
+# 融合路径（minute_fold）用：公开名 → 物理序变体名；名单同源防漂移
+SEQ_FUNCS = {name: f"seq_{name}" for name in _IM_OPS}
+SEQ_EXTRA_CODES = (
+    "from factorlab.core.ops.minute_ops import ("
+    + ", ".join(SEQ_FUNCS.values())
+    + ")"
+)
+IM_OPS_NAMES = tuple(_IM_OPS)
+DAY_OPS_NAMES = tuple(_DAY_OPS)
 # extra_codes 注入用同一名单（compute_formula scope="bars_1m" 与注册表同源防漂移）
 IMPORT_NAMES = (*_IM_OPS, *_DAY_OPS)
 EXTRA_CODES = (

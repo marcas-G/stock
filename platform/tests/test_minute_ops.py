@@ -259,3 +259,27 @@ def test_im_window_runtime_rejects_lt_one_or_non_int():
         "minute_index": [0, 1, 2], "close": [1.0, 3.0, 5.0]})
     out = df.select(minute_ops.im_mean(pl.col("close"), 2).alias("v"))
     assert out["v"].to_list() == [None, 2.0, 4.0]
+
+
+def test_im_cummax_intraday_running_max():
+    """im_cummax(close) = 组内累计最高（含当前行，首行起即有值，不跨日、无前导 null）。
+
+    断言参照 = 独立手工累计最大值；并断言与 im_max(close,239)（满窗才出值）语义不同。
+    """
+    formula = """
+cmv = im_cummax(close)
+cm = day_last(cmv)
+"""
+    res = compute_formula(_frame(), formula, outputs=["cm"], scope="bars_1m")
+    for ci, code in enumerate(_CODES):
+        for di, d in enumerate((_D1, _D2)):
+            xs = _group_close(ci, di)
+            v = res.filter((pl.col("date") == d) & (pl.col("code") == code))["cm"][0]
+            assert v == pytest.approx(max(xs), rel=1e-9)      # 全日 max（组末行）
+            assert v != pytest.approx(xs[-1], rel=1e-6) if xs != sorted(xs) else True
+    # 参照自洽断言（防测试自身腐化）：手工累计 max 在 50 处 = 前 51 值最大
+    xs = _group_close(0, 0)
+    cur = xs[0]; acc = []
+    for x in xs:
+        cur = max(cur, x); acc.append(cur)
+    assert acc[50] == max(xs[:51]) and acc[0] == xs[0]

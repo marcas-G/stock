@@ -1,7 +1,7 @@
 # 因子索引（自动生成，勿手改）
 
 > 生成器：`research/tools/factor_lib/build_index.py`（`--check` 门：产物必须逐字节一致）。
-> 共 **229 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+> 共 **233 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
 
 ## 族总览
 
@@ -9,7 +9,7 @@
 |---|---|---|
 | crash_bottom_leader | 8 | `research/factor/crash_bottom_leader/` |
 | dividend | 1 | `research/factor/dividend/` |
-| intraday | 54 | `research/factor/intraday/` |
+| intraday | 58 | `research/factor/intraday/` |
 | liquidity | 8 | `research/factor/liquidity/` |
 | misc | 1 | `research/factor/misc/` |
 | momentum_20d | 22 | `research/factor/momentum_20d/` |
@@ -52,6 +52,7 @@
 | `intraday_amihud_minute` | 1 | fwd5d |  | [amihud_minute.md](../../knowledge/dossiers/factors/intraday/amihud_minute.md) | [yaml](../../research/factor/intraday/amihud_minute.yaml) |
 | `intraday_auction_conc_inter` | -1 | fwd5d |  | [auction_conc_inter.md](../../knowledge/dossiers/factors/intraday/auction_conc_inter.md) | [yaml](../../research/factor/intraday/auction_conc_inter.yaml) |
 | `intraday_auction_range` | -1 | fwd5d |  | [auction_range.md](../../knowledge/dossiers/factors/intraday/auction_range.md) | [yaml](../../research/factor/intraday/auction_range.yaml) |
+| `intraday_autocorr_lag2` | -1 | fwd5d |  | [autocorr_lag2.md](../../knowledge/dossiers/factors/intraday/autocorr_lag2.md) | [yaml](../../research/factor/intraday/autocorr_lag2.yaml) |
 | `intraday_autocorr_micro` | -1 | fwd5d |  | [autocorr_micro.md](../../knowledge/dossiers/factors/intraday/autocorr_micro.md) | [yaml](../../research/factor/intraday/autocorr_micro.yaml) |
 | `intraday_close_auction_premium` | -1 | fwd5d |  | [close_auction_premium.md](../../knowledge/dossiers/factors/intraday/close_auction_premium.md) | [yaml](../../research/factor/intraday/close_auction_premium.yaml) |
 | `intraday_close_pos_last30` | -1 | fwd5d |  | [close_pos_last30.md](../../knowledge/dossiers/factors/intraday/close_pos_last30.md) | [yaml](../../research/factor/intraday/close_pos_last30.yaml) |
@@ -60,6 +61,7 @@
 | `intraday_close_vs_high` | 1 | fwd5d |  | [close_vs_high.md](../../knowledge/dossiers/factors/intraday/close_vs_high.md) | [yaml](../../research/factor/intraday/close_vs_high.yaml) |
 | `intraday_closing_auction_intensity` | -1 | fwd5d |  | [closing_auction_intensity.md](../../knowledge/dossiers/factors/intraday/closing_auction_intensity.md) | [yaml](../../research/factor/intraday/closing_auction_intensity.yaml) |
 | `intraday_closing_push` | -1 | fwd5d |  | [closing_push.md](../../knowledge/dossiers/factors/intraday/closing_push.md) | [yaml](../../research/factor/intraday/closing_push.yaml) |
+| `intraday_cn_spread` | -1 | fwd5d |  | [cn_spread.md](../../knowledge/dossiers/factors/intraday/cn_spread.md) | [yaml](../../research/factor/intraday/cn_spread.yaml) |
 | `intraday_conc_last_hour` | 1 | fwd5d |  | [conc_last_hour.md](../../knowledge/dossiers/factors/intraday/conc_last_hour.md) | [yaml](../../research/factor/intraday/conc_last_hour.yaml) |
 | `intraday_conc_up_share` | -1 | fwd5d |  | [conc_up_share.md](../../knowledge/dossiers/factors/intraday/conc_up_share.md) | [yaml](../../research/factor/intraday/conc_up_share.yaml) |
 | `intraday_cont_last_ret` | -1 | fwd5d |  | [cont_last_ret.md](../../knowledge/dossiers/factors/intraday/cont_last_ret.md) | [yaml](../../research/factor/intraday/cont_last_ret.yaml) |
@@ -73,6 +75,7 @@
 | `intraday_kurtosis` | -1 | fwd5d |  | [kurtosis.md](../../knowledge/dossiers/factors/intraday/kurtosis.md) | [yaml](../../research/factor/intraday/kurtosis.yaml) |
 | `intraday_lunch_jump` | 1 | fwd5d |  | [lunch_jump.md](../../knowledge/dossiers/factors/intraday/lunch_jump.md) | [yaml](../../research/factor/intraday/lunch_jump.yaml) |
 | `intraday_max_vol_ratio` | -1 | fwd5d |  | [max_vol_ratio.md](../../knowledge/dossiers/factors/intraday/max_vol_ratio.md) | [yaml](../../research/factor/intraday/max_vol_ratio.yaml) |
+| `intraday_mdd` | 1 | fwd5d |  | [mdd.md](../../knowledge/dossiers/factors/intraday/mdd.md) | [yaml](../../research/factor/intraday/mdd.yaml) |
 | `intraday_morning_ret` | -1 | fwd5d |  | [morning_ret.md](../../knowledge/dossiers/factors/intraday/morning_ret.md) | [yaml](../../research/factor/intraday/morning_ret.yaml) |
 | `intraday_open_gap` | 1 | fwd5d |  | [open_gap.md](../../knowledge/dossiers/factors/intraday/open_gap.md) | [yaml](../../research/factor/intraday/open_gap.yaml) |
 | `intraday_open_minute_mom` | 1 | fwd5d |  | [open_minute_mom.md](../../knowledge/dossiers/factors/intraday/open_minute_mom.md) | [yaml](../../research/factor/intraday/open_minute_mom.yaml) |
@@ -89,6 +92,7 @@
 | `intraday_rv_term_structure` | -1 | fwd5d |  | [rv_term_structure.md](../../knowledge/dossiers/factors/intraday/rv_term_structure.md) | [yaml](../../research/factor/intraday/rv_term_structure.yaml) |
 | `intraday_tail_amt_share` | 1 | fwd5d |  | [intraday_tail_amt_share.md](../../knowledge/dossiers/factors/intraday/intraday_tail_amt_share.md) | [yaml](../../research/factor/intraday/intraday_tail_amt_share.yaml) |
 | `intraday_time_above_vwap` | 1 | fwd5d |  | [time_above_vwap.md](../../knowledge/dossiers/factors/intraday/time_above_vwap.md) | [yaml](../../research/factor/intraday/time_above_vwap.yaml) |
+| `intraday_time_of_max_r` | -1 | fwd5d |  | [time_of_max_r.md](../../knowledge/dossiers/factors/intraday/time_of_max_r.md) | [yaml](../../research/factor/intraday/time_of_max_r.yaml) |
 | `intraday_time_of_max_vol` | 1 | fwd5d |  | [time_of_max_vol.md](../../knowledge/dossiers/factors/intraday/time_of_max_vol.md) | [yaml](../../research/factor/intraday/time_of_max_vol.yaml) |
 | `intraday_time_of_min` | -1 | fwd5d |  | [time_of_min.md](../../knowledge/dossiers/factors/intraday/time_of_min.md) | [yaml](../../research/factor/intraday/time_of_min.yaml) |
 | `intraday_time_range_conc` | -1 | fwd5d |  | [time_range_conc.md](../../knowledge/dossiers/factors/intraday/time_range_conc.md) | [yaml](../../research/factor/intraday/time_range_conc.yaml) |
