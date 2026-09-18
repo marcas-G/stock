@@ -1,0 +1,20 @@
+{
+  "elapsed_s": 45.796,
+  "generated_at": "2026-09-18T18:33:28.548217+00:00",
+  "issue_hits": 1310927,
+  "legacy": {
+    "existing": 8791,
+    "marked": 0
+  },
+  "partition_count": 8791,
+  "raw": {
+    "path": "data/fact/daily_fact/daily_fact.parquet",
+    "sha256": "903ab1603b582c2500c6d3c26f417eccb6453b709dfa644e9e05bb2d6a82e323"
+  },
+  "row_count": 18230232,
+  "scope": {
+    "end": "2026-09-17",
+    "start": "1990-12-19"
+  },
+  "tool": "data_quality/historical_audit.py"
+}

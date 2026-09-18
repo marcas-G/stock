@@ -168,6 +168,55 @@ def publish_health(*, dataset_id: str, partition: str, data_version: str,
     return path
 
 
+def write_health_artifact(root: str | Path | None, doc: dict) -> Path:
+    """原子写单份 health artifact（**不更新**数据集 summary；批量打标路径）。
+
+    T8 存量打标用：全史逐分区写 ``LEGACY_UNVERIFIED/UNKNOWN`` 时若逐份走
+    ``publish_health`` 的 summary 重写会 O(n²)；批量写完后由
+    ``refresh_dataset_summary`` 一次性重建。
+    """
+    path = _resolve_root(root) / "health" / doc["dataset_id"] / f"{doc['partition']}.json"
+    _atomic_write_json(path, doc)
+    return path
+
+
+def refresh_dataset_summary(health_dir: str | Path) -> Path:
+    """扫描 health 目录重建 ``summary.json``（保留全部已发布条目，原子写）。
+
+    ``health_dir`` 下每份 ``<partition>.json`` 一条（``summary.json`` 自身与
+    无法解析/缺键的文件跳过——坏文件不阻断汇总）。同一目录内条目以文件为准，
+    因此不会覆盖/丢失既有 VERIFIED 记录。
+    """
+    d = Path(health_dir)
+    entries: dict[str, dict] = {}
+    dataset: str | None = None
+    for p in sorted(d.glob("*.json")):
+        if p.name == "summary.json":
+            continue
+        try:
+            doc = json.loads(p.read_text(encoding="utf-8"))
+            key = doc["partition"]
+        except (ValueError, KeyError, TypeError):
+            continue
+        dataset = dataset or doc.get("dataset_id")
+        entries[str(key)] = {
+            "partition": str(key),
+            "health_status": doc.get("health_status"),
+            "verification_state": doc.get("verification_state"),
+            "validated_at": doc.get("validated_at"),
+        }
+    summary_path = d / "summary.json"
+    if dataset is None and summary_path.is_file():
+        try:
+            dataset = json.loads(summary_path.read_text(encoding="utf-8")).get("dataset_id")
+        except ValueError:
+            pass
+    summary = {"dataset_id": dataset,
+               "partitions": [entries[k] for k in sorted(entries)]}
+    _atomic_write_json(summary_path, summary)
+    return summary_path
+
+
 def _update_dataset_summary(health_dir: Path, doc: dict) -> None:
     """数据集汇总（spec §5「+数据集汇总」）：各分区状态列表（旧文件损坏 → 重建）。"""
     summary_path = health_dir / "summary.json"
