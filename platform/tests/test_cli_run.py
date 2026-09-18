@@ -388,6 +388,37 @@ def test_run_help_chunk_options():
     assert result.exit_code == 0
     for opt in ("--chunk-days", "--warmup-days", "--chunk-workers"):
         assert opt in result.stdout
+    # R31 读缓存开关（默认开；--no-read-cache 关）
+    assert "--no-read-cache" in result.stdout
+
+
+def test_run_no_read_cache_wired(tmp_path, monkeypatch):
+    """R31：--no-read-cache 透传 execute_run（缺省 None=env 默认开）。"""
+    import factorlab.surfaces.cli.main as cli_main
+    from types import SimpleNamespace
+    spec_path = tmp_path / "dummy.yaml"
+    spec_path.write_text("name: dummy\n", encoding="utf-8")
+    outcome = SimpleNamespace(
+        evaluation={"n_weeks": 1, "ic": {"mean": 0.0},
+                    "decile_returns": {"spread": {"ret": 0.0}},
+                    "frequency": "daily"},
+        outputs=["signal"], notes=[])
+    fake_out = {"spec": object(), "variant": "v", "ctx": object(),
+                "result": SimpleNamespace(summary={}), "outcome": outcome}
+    captured: dict = {}
+
+    def fake_execute_run(spec_path_arg, **kw):
+        captured.update(kw)
+        return fake_out
+
+    monkeypatch.setattr(cli_main, "execute_run", fake_execute_run)
+    r1 = runner.invoke(app, ["run", str(spec_path), "--no-read-cache"])
+    assert r1.exit_code == 0, r1.output
+    assert captured["read_cache"] is False
+    captured.clear()
+    r2 = runner.invoke(app, ["run", str(spec_path)])
+    assert r2.exit_code == 0, r2.output
+    assert captured["read_cache"] is None          # 默认 env 决定（开）
 
 
 def test_run_chunk_workers_wired(tmp_path, monkeypatch):

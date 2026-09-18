@@ -904,7 +904,9 @@ def _run_factor_minute(spec, ctx: RunContext,
             inj = _build_daily_injections(rd, codes, warm_start.isoformat(),
                                           ce.isoformat(), float32=ctx.float32)
             bars = load_bars_1m_codes(rd, codes, date_start=cs.isoformat(),
-                                      date_end=ce.isoformat(), cols=bar_cols)
+                                      date_end=ce.isoformat(), cols=bar_cols,
+                                      profiler=prof,
+                                      read_cache=ctx.read_cache)
             if bars.height == 0:
                 raise ValueError(
                     f"分钟段 {cs}..{ce} 无数据"

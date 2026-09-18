@@ -41,9 +41,13 @@ bars_1m 事实契约（2026-09-08 实测补正，勿凭旧描述）：
 
 from __future__ import annotations
 
+import sys
+from contextlib import nullcontext
+
 import polars as pl
 
 from factorlab.adapters.ch_read import bars_read_settings
+from factorlab.adapters.read import chunk_cache
 from factorlab.core.factio.schema import (BARS_1M_COLS,
                                           TICK_ORDERS_COLS,
                                           TICK_SNAP_COLS,
@@ -162,9 +166,25 @@ def _resolve_ts_codes(rd: ReadPort, codes: list[str]) -> list[str]:
     return ts_codes
 
 
+def _span(profiler, name: str):
+    """`profiler` None → nullcontext（零开销）；否则复用 Profiler.segment
+    （duck-typed，避免 adapters → app 的违规依赖）。"""
+    if profiler is None:
+        return nullcontext()
+    return profiler.segment(name)
+
+
+def _emit_cache_event(event: str, **fields: object) -> None:
+    """读缓存审计行（run.log=stderr；字段排序稳定便于 grep）。"""
+    detail = " ".join(f"{k}={v}" for k, v in sorted(fields.items()))
+    print(f"[read-cache] {event}" + (f" {detail}" if detail else ""),
+          file=sys.stderr, flush=True)
+
+
 def _codes_ch(rd: ReadPort, codes: list[str], date_start: str | None,
               date_end: str | None,
-              cols: list[str] | None) -> pl.DataFrame:
+              cols: list[str] | None, *, profiler=None,
+              read_cache: bool | None = None) -> pl.DataFrame:
     """ch 编译函数（批读）：6 位 code 子集一次 symbol→ts_code 映射（未知 → 整批
     ValueError 防静默丢 code），带后缀子集原样 → 单条 SQL（code IN + trade_date
     闭区间）→ 与单 code 同款 decode。排序 (code, datetime)。
@@ -172,6 +192,12 @@ def _codes_ch(rd: ReadPort, codes: list[str], date_start: str | None,
     R09-PERF-P4：查询设置经 `ch_read.bars_read_settings()`（env
     `FACTORLAB_CH_MAX_THREADS`/`FACTORLAB_CH_MAX_BLOCK_SIZE`）单查询注入；
     未设 = {} 默认路径零行为变化。
+
+    R31 读路径：chunk 级磁盘缓存（`read_cache` None=env `FACTORLAB_READ_CACHE`，
+    False=`--no-read-cache` 强制关；键含源指纹，回填/新数据自动失效；损坏回退
+    直读）。`profiler`（`app.profile.Profiler`，duck-typed）记录
+    `cache_lookup`/`cache_hit`/`cache_miss`/`cache_fallback` 段；命中/未命中/
+    回退写 stderr（run.log）。
     """
     db = settings.ch_database
     out_cols = cols if cols is not None else _DEFAULT_COLS["bars_1m"]
@@ -179,17 +205,49 @@ def _codes_ch(rd: ReadPort, codes: list[str], date_start: str | None,
     if unknown:
         raise ValueError(f"未知列: {unknown}（bars_1m 可用列: {_TABLE_COLS['bars_1m']}）")
     ts_codes = _resolve_ts_codes(rd, codes)
+    cache = chunk_cache.get_chunk_cache(enabled=read_cache)
+    if cache is None:
+        return _decode(_read_codes_sql(rd, db, ts_codes, date_start, date_end,
+                                       out_cols))
+    with _span(profiler, "cache_lookup"):
+        fingerprint = chunk_cache.bars_source_fingerprint(rd)
+        key = chunk_cache.chunk_cache_key(
+            codes=ts_codes, date_start=date_start, date_end=date_end,
+            columns=out_cols, fingerprint=fingerprint)
+        lookup = cache.load(key)
+    if lookup.frame is not None:
+        _emit_cache_event("hit", rows=lookup.frame.height, cols=len(out_cols),
+                          key=key[:12])
+        with _span(profiler, "cache_hit"):
+            return lookup.frame.select(out_cols)
+    status = lookup.status
+    _emit_cache_event(status, reason=lookup.reason or "-", key=key[:12])
+    span_name = "cache_fallback" if status == "fallback" else "cache_miss"
+    with _span(profiler, span_name):
+        df = _decode(_read_codes_sql(rd, db, ts_codes, date_start, date_end,
+                                     out_cols))
+        cache.store(key, df, fingerprint)
+    return df
+
+
+def _read_codes_sql(rd: ReadPort, db: str, ts_codes: list[str],
+                    date_start: str | None, date_end: str | None,
+                    out_cols: list[str]) -> pl.DataFrame:
+    """批读 SQL 执行：优先 CH 句柄的 Arrow 流读取（R31 `perf` 提交；
+    `query_arrow_stream` + `pl.from_arrow`，dtype/行序与原 query_df 逐 bit
+    一致），无该能力（测试桩/duckdb）→ `query_df` 原路径。"""
     ph2 = ", ".join(f"%(t{i})s" for i in range(len(ts_codes)))
     params = {f"t{i}": c for i, c in enumerate(ts_codes)}
     params["start"], params["end"] = date_start, date_end
     select = ", ".join(out_cols)
-    df = rd.query_df(
-        f"SELECT {select} FROM {db}.bars_1m "
-        f"WHERE code IN ({ph2}) "
-        f"AND trade_date >= toDate(%(start)s) AND trade_date <= toDate(%(end)s) "
-        f"ORDER BY code, datetime", params,
-        settings=bars_read_settings())
-    return _decode(df)
+    sql = (f"SELECT {select} FROM {db}.bars_1m "
+           f"WHERE code IN ({ph2}) "
+           f"AND trade_date >= toDate(%(start)s) AND trade_date <= toDate(%(end)s) "
+           f"ORDER BY code, datetime")
+    stream = getattr(rd, "query_arrow_stream_df", None)
+    if stream is not None:
+        return stream(sql, params, settings=bars_read_settings())
+    return rd.query_df(sql, params, settings=bars_read_settings())
 
 
 def _coverage_ch(rd: ReadPort, date_start: str, date_end: str,
@@ -249,7 +307,8 @@ def load_bars_1m(rd: ReadPort, code: str, *, day: str | None = None,
 def load_bars_1m_codes(rd: ReadPort, codes: list[str], *,
                        date_start: str | None = None,
                        date_end: str | None = None,
-                       cols: list[str] | None = None) -> pl.DataFrame:
+                       cols: list[str] | None = None, profiler=None,
+                       read_cache: bool | None = None) -> pl.DataFrame:
     """1 分钟线批读（bars_1m）：多 code × 交易日闭区间窗，单条 SQL 返回。
 
     与 load_bars_1m 同契约（列白名单/排序/decode/空结果/raw 与单位语义），差异：
@@ -260,12 +319,17 @@ def load_bars_1m_codes(rd: ReadPort, codes: list[str], *,
       防全表扫描，缺任一侧 ValueError）。
     - 排序 (code, datetime)（组内 datetime 升序）——引擎分钟装配按 (code, date)
       分区与批算共用本入口。
+    - R31：chunk 级磁盘缓存默认开启（`read_cache=None` → env
+      `FACTORLAB_READ_CACHE`，`False` 强制直读；指纹/目录/上限/TTL/回退语义见
+      `adapters/read/chunk_cache.py` 与 interface.md §1）；`profiler` 记录
+      cache_hit/miss/fallback 段（None=不记）。
     """
     if not codes:
         raise ValueError("codes 不能为空")
     if date_start is None or date_end is None:
         raise ValueError("必须指定 date_start 与 date_end（闭区间；防全表扫描）")
-    return _CODES_IMPL[rd.backend](rd, codes, date_start, date_end, cols)
+    return _CODES_IMPL[rd.backend](rd, codes, date_start, date_end, cols,
+                                   profiler=profiler, read_cache=read_cache)
 
 
 def load_bars_1m_coverage(rd: ReadPort, *, date_start: str | None = None,

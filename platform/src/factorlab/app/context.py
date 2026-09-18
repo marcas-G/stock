@@ -39,3 +39,4 @@ class RunContext:
     max_memory: str | None = None  # duckdb 读连接内存上限（None → settings.default_max_memory）
     profiler: Profiler | None = None  # R09-M3 分段计时（None=关闭）
     chunk_workers: int = 1  # R09-PERF-P4 分钟链 chunk 并行（1=顺序，>=2 opt-in）
+    read_cache: bool | None = None  # R31 分钟链 bars 读磁盘缓存（None=env 默认开；False=--no-read-cache）

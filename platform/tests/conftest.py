@@ -153,6 +153,23 @@ def _registry_isolated():
 
 
 # ================================================================
+# R31 读缓存隔离：平台测试默认关闭 chunk 级磁盘缓存
+#   默认开（生产）会把单测写进 ~/.cache/factorlab；测试要缓存的场景自行
+#   monkeypatch FACTORLAB_READ_CACHE=1 + FACTORLAB_READ_CACHE_DIR=tmp_path
+#   （本夹具先设 0，测试体内 setenv 覆盖生效）。
+# ================================================================
+@pytest.fixture(autouse=True)
+def _read_cache_disabled(monkeypatch):
+    from factorlab.adapters.read import chunk_cache
+    monkeypatch.setenv("FACTORLAB_READ_CACHE", "0")
+    chunk_cache.reset_chunk_cache()
+    chunk_cache.reset_fingerprint_cache()
+    yield
+    chunk_cache.reset_chunk_cache()
+    chunk_cache.reset_fingerprint_cache()
+
+
+# ================================================================
 # Plan DQ-M1 F3：真实入口读取门假 health（平台测试专用）
 #   CLI（execute_run）/ research.factor / run_strategy 默认
 #   dataset="ashare_daily"（fail-closed）——平台测试是**合成 tmp 库/历史窗口**，

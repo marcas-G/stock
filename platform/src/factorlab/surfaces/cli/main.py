@@ -265,6 +265,7 @@ def execute_run(
     eval_frequency: str | None = None,
     profile: bool = False,
     chunk_workers: int = 1,
+    read_cache: bool | None = None,
     dataset: str | None = "ashare_daily",
 ) -> dict:
     """`factorlab run` 的计算主体（CLI 与 research.factor 门面共用，不打印）。
@@ -284,6 +285,9 @@ def execute_run(
 
     Plan DQ-M1 F3：`dataset`（缺省 "ashare_daily"）透传给 `evaluate_run` 的
     读取门（fail-closed，as_of=面板最新日）；合成/测试调用可显式 None 关闭。
+
+    R31：`read_cache`（None=env `FACTORLAB_READ_CACHE` 默认开；False=CLI
+    `--no-read-cache`）透传 RunContext——分钟链 bars_1m chunk 级磁盘缓存开关。
     """
     from factorlab.app.run import run_factor, run_factor_minute
     from factorlab.app.context import RunContext
@@ -318,6 +322,7 @@ def execute_run(
         max_memory=max_memory,
         profiler=profiler,
         chunk_workers=chunk_workers,
+        read_cache=read_cache,
     )
     # R05-C1：显式 FACTORLAB_MAX_MEMORY 时先落进程级 RLIMIT_AS 硬上限
     # （软看门狗在 run_* 内自动启用；未设 = 不动进程资源）。
@@ -372,6 +377,10 @@ def run_factor_cli(
              "并发前按 chunk_days 校准的单 chunk 估值（3.6GB×max(chunk_days,"
              "10)/10；默认 20 日块 7.2GB/chunk）对 FACTORLAB_MAX_MEMORY 做"
              "预算门，超限拒绝；仅 interface: bars_1m 生效）"),
+    no_read_cache: bool = typer.Option(
+        False, "--no-read-cache",
+        help="R31 关闭分钟链 bars_1m chunk 级磁盘缓存（默认开；env "
+             "FACTORLAB_READ_CACHE=0 等效；仅 interface: bars_1m 生效）"),
 ) -> None:
     """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
     --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
@@ -384,7 +393,9 @@ def run_factor_cli(
                           backtest=backtest, groups=groups, set_params=set_params,
                           chunk_days=chunk_days, warmup_days=warmup_days,
                           eval_frequency=eval_frequency, profile=profile,
-                          chunk_workers=chunk_workers, dataset="ashare_daily")
+                          chunk_workers=chunk_workers,
+                          read_cache=False if no_read_cache else None,
+                          dataset="ashare_daily")
     except (ValueError, FileNotFoundError, FactorDSLError) as exc:
         # ValueError 含 pydantic 的 ValidationError（spec 字段非法，如 cost_rate 越界）——
         # 用户写错 YAML 不该看到裸 traceback（`lint` 子命令同款处理）。

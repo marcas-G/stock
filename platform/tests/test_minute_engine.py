@@ -639,10 +639,10 @@ def test_minute_uncovered_drop_reads_no_future_dates(ch_db, tmp_path, monkeypatc
     import factorlab.app.run as run_mod
     real = run_mod.load_bars_1m_codes
 
-    def _spy(rd, codes, *, date_start=None, date_end=None, cols=None):
+    def _spy(rd, codes, *, date_start=None, date_end=None, cols=None, **kw):
         calls.append((date_start, date_end))
         return real(rd, codes, date_start=date_start, date_end=date_end,
-                    cols=cols)
+                    cols=cols, **kw)
 
     monkeypatch.setattr(run_mod, "load_bars_1m_codes", _spy)
     from factorlab.app.run import MinuteUncoveredWarning
@@ -773,9 +773,10 @@ def _spy_bars_calls(monkeypatch):
     real = run_mod.load_bars_1m_codes
     calls = []
 
-    def _spy(rd, codes, *, date_start=None, date_end=None, cols=None):
+    def _spy(rd, codes, *, date_start=None, date_end=None, cols=None, **kw):
         calls.append((date_start, date_end))
-        return real(rd, codes, date_start=date_start, date_end=date_end, cols=cols)
+        return real(rd, codes, date_start=date_start, date_end=date_end,
+                    cols=cols, **kw)
 
     monkeypatch.setattr(run_mod, "load_bars_1m_codes", _spy)
     return calls
@@ -943,10 +944,11 @@ def test_minute_chunk_workers_two_equals_one_exact(ch_db, tmp_path, monkeypatch)
     calls: list = []
     real = run_mod.load_bars_1m_codes
 
-    def spy(rd, codes, *, date_start=None, date_end=None, cols=None):
+    def spy(rd, codes, *, date_start=None, date_end=None, cols=None, **kw):
         with lock:
             calls.append((date_start, date_end))
-        return real(rd, codes, date_start=date_start, date_end=date_end, cols=cols)
+        return real(rd, codes, date_start=date_start, date_end=date_end,
+                    cols=cols, **kw)
 
     monkeypatch.setattr(run_mod, "load_bars_1m_codes", spy)
     one = run_factor_minute(spec, _ctx(tmp_path / "w1", chunk_days=5,
@@ -1168,3 +1170,53 @@ def test_minute_chunk_workers_drop_mode_audit_equals_one(ch_db, tmp_path,
     assert one.panel.equals(two.panel)
     assert one.summary["minute_uncovered"] == two.summary["minute_uncovered"]
     assert one.summary["minute_uncovered"]["dropped_code_days"] == 2
+
+
+# ================================================================
+# R31 读路径：ctx.read_cache / profiler 透传到 bars 批读入口
+# ================================================================
+
+def test_minute_read_cache_and_profiler_threaded_to_bars_read(ch_db, tmp_path,
+                                                              monkeypatch):
+    """R31：`ctx.read_cache`（None=env 默认，False=--no-read-cache）与
+    `ctx.profiler` 逐 chunk 透传到 `load_bars_1m_codes`——装配层不丢参数
+    （缓存真开真读由 test_read_cache.py 锁）。"""
+    from factorlab.app.profile import Profiler
+    _seed(ch_db)
+    spec = _spec(tmp_path, "rc", "signal = day_last(close)")
+    import factorlab.app.run as run_mod
+    captured: list[dict] = []
+    real = run_mod.load_bars_1m_codes
+
+    def spy(rd, codes, *, date_start=None, date_end=None, cols=None, **kw):
+        captured.append(dict(kw))
+        return real(rd, codes, date_start=date_start, date_end=date_end,
+                    cols=cols, **kw)
+
+    monkeypatch.setattr(run_mod, "load_bars_1m_codes", spy)
+    prof = Profiler()
+    res = run_factor_minute(spec, _ctx(tmp_path / "o", chunk_days=1,
+                                       read_cache=False, profiler=prof))
+    assert captured, "批读未被调用"
+    assert all(kw.get("read_cache") is False for kw in captured)
+    assert all(kw.get("profiler") is prof for kw in captured)
+    assert res.summary["panel_rows"] > 0
+
+
+def test_minute_read_cache_default_none(ch_db, tmp_path, monkeypatch):
+    """缺省 ctx（read_cache=None）→ 透传 None（env 开关生效点唯一）。"""
+    _seed(ch_db)
+    spec = _spec(tmp_path, "rcd", "signal = day_last(close)")
+    import factorlab.app.run as run_mod
+    captured: list[dict] = []
+    real = run_mod.load_bars_1m_codes
+
+    def spy(rd, codes, *, date_start=None, date_end=None, cols=None, **kw):
+        captured.append(dict(kw))
+        return real(rd, codes, date_start=date_start, date_end=date_end,
+                    cols=cols, **kw)
+
+    monkeypatch.setattr(run_mod, "load_bars_1m_codes", spy)
+    run_factor_minute(spec, _ctx(tmp_path / "o", chunk_days=1))
+    assert captured and all("read_cache" in kw and kw["read_cache"] is None
+                            for kw in captured)
