@@ -505,6 +505,28 @@ def test_env_passthrough_to_stage_runner(tmp_path, monkeypatch, cookie_ok):
     assert runner.envs[0].get("FACTORLAB_MAX_MEMORY") == "1GB"
 
 
+def test_stage_env_defaults_backend_ch(tmp_path, monkeypatch, cookie_ok):
+    """N1（R32 终审修复）：裸 `make data-update` 不导出 FACTORLAB_DATA_BACKEND →
+    阶段子进程缺省必须得到生产 ch 后端（health/ingest 依赖），不得由此必败。"""
+    monkeypatch.setattr(resource, "setrlimit", lambda *a: None)
+    assert "FACTORLAB_DATA_BACKEND" not in os.environ
+    runner = FakeRunner()
+    rc = _run(["build", "--categories", "daily"], tmp_path, runner=runner)
+    assert rc == 0
+    assert runner.envs, "runner 应被调用"
+    assert runner.envs[0].get("FACTORLAB_DATA_BACKEND") == "ch"
+
+
+def test_stage_env_respects_explicit_backend(tmp_path, monkeypatch, cookie_ok):
+    """N1 边界：调用方显式设置 FACTORLAB_DATA_BACKEND → 缺省不得覆盖。"""
+    monkeypatch.setattr(resource, "setrlimit", lambda *a: None)
+    monkeypatch.setenv("FACTORLAB_DATA_BACKEND", "duckdb")
+    runner = FakeRunner()
+    rc = _run(["build", "--categories", "daily"], tmp_path, runner=runner)
+    assert rc == 0
+    assert runner.envs[0].get("FACTORLAB_DATA_BACKEND") == "duckdb"
+
+
 def test_stage_env_caps_malloc_arenas_by_default(tmp_path, monkeypatch, cookie_ok):
     """T10 实测（R30）：40 核 glibc arena VA 预留 ~18GB → ingest_daily VmPeak 26.0GB
     > RLIMIT_AS 24GiB（3×8GB）→ ArrowMemoryError。stage env 默认压 arena 数（=2）。"""

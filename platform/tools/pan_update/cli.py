@@ -100,6 +100,9 @@ def _stage_env() -> dict[str, str]:
     # 24GiB RLIMIT_AS（=3×FACTORLAB_MAX_MEMORY）内 ingest_daily 的 Arrow IPC
     # malloc 失败（VmPeak 26.0GB → arena 上限 2 时 16.4GB）。显式设置优先。
     env["MALLOC_ARENA_MAX"] = os.environ.get("MALLOC_ARENA_MAX") or "2"
+    # N1（R32 终审修复）：裸 `make data-update` 无 backend → 阶段链（health/
+    # ingest）必败；缺省注入生产 ch，调用方显式设置优先（不覆盖）。
+    env.setdefault("FACTORLAB_DATA_BACKEND", "ch")
     return env
 
 
