@@ -152,11 +152,15 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   现行为顺序执行；仅 `interface: bars_1m` 生效，日频链忽略）。`N >= 2` 时按
   chunk 并行「注入/批读/成员过滤 + 折日」，按 chunk 顺序合并——分钟窗不跨日，
   数值与 N=1 逐 cell 严格一致（真 CH 4 因子 bit-exact 对拍：`after-p4/
-  chunk_workers_parity.json`）。**并发前内存预算门**：估算 `N × 3.6GB/chunk`
-  （P2/P3 同窗实测每 chunk/进程峰值上界 RSS 3.0–3.6GB）超过
-  `FACTORLAB_MAX_MEMORY` → 打开 DB 前 `MemoryLimitExceeded` 干净拒绝（示例：
-  8GB 护栏下 N=3 拒绝、N=2 放行——实测 N=2 峰值 RSS ≤6.2GB）；未设预算且估算
-  >8GB 时响亮告警（N 为显式 opt-in，宿主 memguard 兜底）。任一 chunk 失败 →
+  chunk_workers_parity.json`）。**并发前内存预算门（R09 复评 F1：按生效
+  chunk_days 校准）**：单 chunk 估值 = `3.6GB × max(chunk_days, 10)/10`
+  （10 日/块 = P2/P3 同窗实测每 chunk/进程峰值上界 RSS 3.0–3.6GB；20 日/块
+  R04-P1 实测 6.95GB 与 7.2GB 外推同量级；下限 10 日 = 校准块长，更小块固定
+  开销不降），估算 `N × 单 chunk` 超过 `FACTORLAB_MAX_MEMORY` → 打开 DB 前
+  `MemoryLimitExceeded` 干净拒绝（示例：8GB 护栏下 **chunk_days≤10** 时 N=3
+  拒绝、N=2 放行——实测 N=2 峰值 RSS ≤6.2GB；默认 `chunk_days=20` 时 N=2
+  估算 14.4GB 同样拒绝——实测放行后峰值 10.37GB、看门狗 8.3GB 中止）；
+  未设预算且估算 >8GB 时响亮告警（N 为显式 opt-in，宿主 memguard 兜底）。任一 chunk 失败 →
   整体失败（取消未启动任务、异常原样传播、无半成品）；R03-I6 覆盖审计（drop
   剔除集跨块累计）与看门狗 chunk 边界协作检查语义不变。**barrier 测试证明
   N≥2 真的并发折日**（非顺序伪并行）。
