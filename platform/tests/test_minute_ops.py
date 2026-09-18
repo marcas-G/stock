@@ -261,6 +261,71 @@ def test_im_window_runtime_rejects_lt_one_or_non_int():
     assert out["v"].to_list() == [None, 2.0, 4.0]
 
 
+def test_at_minute_value_broadcast_and_boundaries():
+    """at_minute(k)（R09-PERF-I2）：取当日 minute_index==k 行的值广播全组
+    （k=0/120/239 边界），组内逐行同值。"""
+    formula = """
+a = at_minute(close, 0)
+b = at_minute(close, 120)
+c = at_minute(close, 239)
+"""
+    res = compute_formula(_frame(), formula, outputs=["a", "b", "c"], scope="bars_1m")
+    per = res.group_by(["date", "code"]).agg(
+        pl.col("a").n_unique().alias("a_u"), pl.col("a").first().alias("a_v"),
+        pl.col("b").n_unique().alias("b_u"), pl.col("b").first().alias("b_v"),
+        pl.col("c").n_unique().alias("c_u"), pl.col("c").first().alias("c_v"))
+    assert per.height == 4
+    for row in per.iter_rows():
+        date, code = row[0], row[1]
+        xs = _group_close(_CODES.index(code), (date - _D1).days)
+        assert row[2] == 1 and row[4] == 1 and row[6] == 1    # 组内广播
+        assert row[3] == pytest.approx(xs[0], rel=1e-9)
+        assert row[5] == pytest.approx(xs[120], rel=1e-9)
+        assert row[7] == pytest.approx(xs[239], rel=1e-9)
+
+
+def test_at_minute_missing_k_null_and_duplicate_k_max():
+    """k 缺失（组内无该 minute_index）→ 全组 null；重复 k 行 → 取 max
+    （与 day_max(if_else(mi==k,x,None)) 一致，不是物理首个）。"""
+    df = pl.DataFrame({"date": [_D1] * 4, "code": ["A"] * 4,
+                       "minute_index": [0, 1, 1, 2],
+                       "close": [1.0, 2.0, 3.0, 4.0]})
+    out = compute_formula(df, "a = at_minute(close, 1)\n"
+                              "b = at_minute(close, 200)",
+                          outputs=["a", "b"], scope="bars_1m")
+    assert out["a"].to_list() == [3.0] * 4          # duplicate k → max(2,3)=3
+    assert out["b"].null_count() == 4               # k 缺失 → null（非 0/非首值）
+    # 直接算子口径（融合路径重写后不再调 minute_ops.at_minute；回退路径经它）
+    direct = df.select(minute_ops.at_minute(pl.col("close"), 1).alias("a"),
+                       minute_ops.at_minute(pl.col("close"), 200).alias("b"))
+    assert direct["a"].to_list() == [3.0] * 4       # max 而非物理首个（2.0）
+    assert direct["b"].null_count() == 4
+
+
+def test_at_minute_runtime_rejects_out_of_range_or_non_int():
+    """at_minute k 运行时硬校验（门漏形态最后防线）：int ∈ 0..239；bool/float/
+    字符串/负/越界拒。合法 k 产出真实取值（非存根）。"""
+    x = pl.col("close")
+    for bad in (-1, 240, True, 1.5, "120"):
+        with pytest.raises(ValueError, match="at_minute"):
+            minute_ops.at_minute(x, bad)
+    df = pl.DataFrame({"date": [dt.date(2026, 8, 20)] * 3, "code": ["A"] * 3,
+                       "minute_index": [0, 1, 2], "close": [10.0, 11.0, 12.0]})
+    out = df.select(minute_ops.at_minute(pl.col("close"), 1).alias("v"))
+    assert out["v"].to_list() == [11.0] * 3
+
+
+def test_at_minute_registered_day_kind_and_exported():
+    """注册面/codegen 注入面同源：at_minute 是 day 族算子（catalog/op list 可查），
+    且 EXTRA_CODES 导出名（公式层可直写）。"""
+    from factorlab.core.ops.registration import ensure_all_ops_registered
+    from factorlab.core.ops import registry
+    ensure_all_ops_registered()
+    assert registry.has_op("at_minute")
+    assert registry.get_op("at_minute").kind == "day"
+    assert "at_minute" in minute_ops.EXTRA_CODES
+
+
 def test_im_cummax_intraday_running_max():
     """im_cummax(close) = 组内累计最高（含当前行，首行起即有值，不跨日、无前导 null）。
 

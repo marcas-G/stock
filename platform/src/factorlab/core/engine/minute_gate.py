@@ -22,9 +22,10 @@ _INJECTED_COLS = frozenset({"prev_close", "eod_close", "day_amt", "day_vol",
 _SERIES_COLS = frozenset({"datetime", "minute_index", "session_type", "open",
                           "high", "low", "close", "amount", "volume"})
 _DAY_CALLS = frozenset({"day_last", "day_first", "day_sum", "day_mean",
-                        "day_max", "day_min"})
+                        "day_max", "day_min", "at_minute"})
 _IM_CALLS = frozenset({"im_mean", "im_sum", "im_std", "im_max", "im_min",
                        "im_median", "im_delay"})
+_GRID_MAX_INDEX = 239   # 当日网格 0..239（at_minute k 静态范围门）
 # 一元保常数函数（元素级单参；参数折日常数 → 结果折日常数）
 _UNARY_CONST = frozenset({"abs", "log", "log1p", "sqrt", "exp", "sign", "floor"})
 # 常量调用折叠表（R02-C1：abs/int 常量参数在门内折叠为数值）
@@ -185,7 +186,9 @@ def _reject_cross_layer(tree: ast.AST) -> None:
 def _check_im_params(tree: ast.AST) -> None:
     """B3.4：im_delay 位移 <= 0 拒（负 = 未来/零 = 无意义）；im_* 窗口 < 1 拒。
     覆盖字面量/算术折叠（四则/Pow/IfExp/abs/int）/顶层常量间接/kw 形态；非 int
-    静态值（bool/float）同样拒（运行时另有硬校验——见 minute_ops，这是主防线）。"""
+    静态值（bool/float）同样拒（运行时另有硬校验——见 minute_ops，这是主防线）。
+    R09-PERF-I2：at_minute k 必须 int ∈ 0..239（bool/float/负/越界拒；非折叠
+    形态静态放行，交给运行时硬校验）。"""
     consts = _top_consts(tree)
     for node in _call_names(tree):
         name = node.func.id
@@ -202,6 +205,23 @@ def _check_im_params(tree: ast.AST) -> None:
                 raise ValueError(
                     f"im_delay 不允许 k<1（{node.lineno}:{node.col_offset}，"
                     f"k={k}——lookback 只能取过去；日内位移 k>=1）")
+        elif name == "at_minute":
+            arg = _call_arg(node, ("k",))
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, bool):
+                raise ValueError(
+                    f"at_minute k 必须为 int ∈ 0..239（{node.lineno}:"
+                    f"{node.col_offset}，收到 {arg.value!r}——bool 非法）")
+            k = _try_num(arg, consts) if arg is not None else None
+            if k is None:
+                continue
+            if isinstance(k, bool) or not isinstance(k, int):
+                raise ValueError(
+                    f"at_minute k 必须为 int ∈ 0..239（{node.lineno}:"
+                    f"{node.col_offset}，收到 {k!r}——bool/float 非法）")
+            if k < 0 or k > _GRID_MAX_INDEX:
+                raise ValueError(
+                    f"at_minute k 必须在 0..239（{node.lineno}:"
+                    f"{node.col_offset}，收到 {k}——越界；当日网格 240 行）")
         elif name in _IM_CALLS:
             arg = _call_arg(node, "window")
             w = _try_num(arg, consts) if arg is not None else None

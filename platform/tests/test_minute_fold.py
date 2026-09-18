@@ -43,6 +43,20 @@ _VOL_PRICE_CORR = (
     "_den_r = day_sum((_r - _m_r) * (_r - _m_r))\n"
     "_den_v = day_sum((volume - _m_v) * (volume - _m_v))\n"
     "signal = _num / sqrt(_den_r * _den_v)")
+# R09-PERF-I2 条件取值形态（现网 spec lunch_jump/open_minute_mom/close_auction
+# _premium 同形）：day_max/min(if_else(<cond>, x, None)) 与 IfExp 等价形态。
+_COND_MAX = ("_r = close / im_delay(close, 1) - 1\n"
+             "signal = day_max(if_else(minute_index == 120, _r, None))")
+_COND_MIN = "signal = day_min(if_else(minute_index >= 210, close, None))"
+_COND_IFEXP = "signal = day_max(close if minute_index == 1 else None)"
+_COND_2ARG = "signal = day_max(if_else(minute_index == 1, close))"
+_COND_COMPOUND = ("signal = day_max(if_else(volume > 0, "
+                  "if_else(minute_index >= 210, close, None), None))")
+_AT_MINUTE = "signal = at_minute(close / im_delay(close, 1) - 1, 120)"
+_AT_MINUTE_CONST_K = ("_k = 120\n"
+                      "signal = at_minute(close / im_delay(close, 1) - 1, _k)")
+_AT_MINUTE_EQ = ("signal = day_max(if_else(minute_index == 120, "
+                 "close / im_delay(close, 1) - 1, None))")
 _FACTORS = {
     "am_pm_vol": _AM_PM_VOL,
     "vol_asym": _VOL_ASYM,
@@ -317,3 +331,144 @@ def test_fused_multi_output_and_isinstance_panel():
                outputs=["signal", "sig2"])
     assert out.columns == ["date", "code", "signal", "sig2"]
     assert out.height == 960                      # 2 code × 2 日 × 240 广播行
+
+
+# ---------------- R09-PERF-I2：条件取值形态重写 + at_minute + 单次 first/last ----------------
+
+def test_plan_condition_shape_extracts_filter_and_drops_ifelse_column():
+    """`day_min(if_else(minute_index >= 210, close, None))` → 聚合项参数 = close、
+    条件外提；pass 源不再物化 when/None 全列，聚合表达式用 filter 单 over。"""
+    from factorlab.core.engine import minute_fold
+    plan = minute_fold.build_plan(_COND_MIN, columns=_grid().columns)
+    assert plan is not None and len(plan.nodes) == 1
+    node = plan.nodes[0]
+    assert node.op == "day_min" and node.cond is not None
+    src = plan.pass_source(1)
+    assert "if_else" not in src, src
+    agg = str(minute_fold._aggregate_expr(node, ["code", "date"]))
+    assert "filter" in agg, agg
+    assert agg.count(".over(") == 1, agg
+
+
+def test_plan_condition_ifexp_and_two_arg_forms_extracted():
+    """等价形态同样识别：IfExp `x if cond else None`、if_else 两参（默认 else=None）。"""
+    from factorlab.core.engine import minute_fold
+    for formula in (_COND_IFEXP, _COND_2ARG):
+        plan = minute_fold.build_plan(formula, columns=_grid().columns)
+        assert plan is not None, formula
+        assert plan.nodes[0].cond is not None, formula
+        assert "if_else" not in plan.pass_source(1), formula
+
+
+def test_plan_at_minute_fused_as_condition_node():
+    """at_minute(x, k) 进融合路径：等价条件节点（不再依赖运行时全组 when/max）。"""
+    from factorlab.core.engine import minute_fold
+    plan = minute_fold.build_plan(_AT_MINUTE, columns=_grid().columns)
+    assert plan is not None and len(plan.nodes) == 1
+    node = plan.nodes[0]
+    assert node.op == "at_minute" and node.cond is not None
+    assert "at_minute" not in plan.pass_source(1), plan.pass_source(1)
+    agg = str(minute_fold._aggregate_expr(node, ["code", "date"]))
+    assert "filter" in agg and agg.count(".over(") == 1, agg
+
+
+def test_plan_first_last_single_agg_no_double_over():
+    """day_first/day_last 融合路径单次 agg（sort_by minute_index + first/last），
+    不再旧实现的双 over 极值定位。"""
+    from factorlab.core.engine import minute_fold
+    plan = minute_fold.build_plan(
+        "signal = day_last(close) + day_first(close)", columns=_grid().columns)
+    assert plan is not None and len(plan.nodes) == 2
+    for node in plan.nodes:
+        agg = str(minute_fold._aggregate_expr(node, ["code", "date"]))
+        assert "sort_by" in agg, agg
+        assert agg.count(".over(") == 1, agg
+
+
+@pytest.mark.parametrize("formula", [_COND_MAX, _COND_MIN, _COND_IFEXP,
+                                     _COND_2ARG, _COND_COMPOUND])
+def test_fused_condition_shape_bit_exact_vs_legacy(formula):
+    """R09-PERF-I2 数值硬门：条件取值形态融合重写 vs 旧路径逐 cell bit-exact
+    （filter(x, cond).max/min == when(cond).then(x).otherwise(None).max/min；
+    含非网格简单比较 → 条件列物化路径）。"""
+    df = _grid()
+    with _legacy_mode():
+        legacy = _run(df, formula, outputs=["signal"])
+    fused = _run(df, formula, outputs=["signal"])
+    _assert_bit_equal(fused, legacy, ["signal"])
+
+
+def test_plan_compound_condition_materializes_cond_column():
+    """非 `minute_index <cmp> 常量` 条件（如 volume > 0）→ 物化条件列单次 filter
+    聚合（复用 pass 物化链，不再 when/None 全列 + 全组 max）。"""
+    from factorlab.core.engine import minute_fold
+    plan = minute_fold.build_plan(_COND_COMPOUND, columns=_grid().columns)
+    assert plan is not None and len(plan.nodes) == 1
+    node = plan.nodes[0]
+    assert node.cond is not None and node.cond_pl is None
+    src = plan.pass_source(1)
+    assert "factorlab_fold_cond_0" in src, src
+    agg = str(minute_fold._aggregate_expr(node, ["code", "date"]))
+    assert f'col("{node.cond_temp}")' in agg and "filter" in agg, agg
+
+
+@pytest.mark.parametrize("formula", [_AT_MINUTE, _AT_MINUTE_CONST_K])
+def test_fused_at_minute_bit_exact_vs_legacy(formula):
+    """at_minute 融合路径 vs 旧路径逐 cell bit-exact（含顶层常量 k 间接形态）。"""
+    df = _grid()
+    with _legacy_mode():
+        legacy = _run(df, formula, outputs=["signal"])
+    fused = _run(df, formula, outputs=["signal"])
+    _assert_bit_equal(fused, legacy, ["signal"])
+
+
+def test_at_minute_equals_day_max_if_else_bit_exact():
+    """任务硬门：at_minute(k) 与 day_max(if_else(minute_index==k, x, None))
+    逐值 0（同一网格上两式各自全链执行）。"""
+    df = _grid()
+    a = _run(df, _AT_MINUTE, outputs=["signal"])
+    b = _run(df, _AT_MINUTE_EQ, outputs=["signal"])
+    _assert_bit_equal(a, b, ["signal"])
+
+
+def test_fused_hand_computed_condition_and_at_minute():
+    """手算竖例：day_max(if_else(mi==120, close, None)) == close[120]；
+    at_minute(close,120) 同值；day_min(mi>=210) == min(close[210:])；a-b == 0。"""
+    df = _grid(dates=_D[:1], codes=_CODES[:1])
+    out = _run(df, "a = day_max(if_else(minute_index == 120, close, None))\n"
+                   "b = at_minute(close, 120)\n"
+                   "c = day_min(if_else(minute_index >= 210, close, None))\n"
+                   "signal = a - b",
+               outputs=["signal", "a", "b", "c"])
+    xs = df.sort(["code", "date", "minute_index"])["close"].to_list()
+    assert out["a"][0] == xs[120]
+    assert out["b"][0] == xs[120]
+    assert out["c"][0] == min(xs[210:])
+    assert out["signal"][0] == 0.0
+
+
+def test_fused_condition_shuffled_input_bit_exact():
+    """条件形态乱序输入：融合路径重写与有序输入逐 bit 一致（filter/sort_by 不依赖
+    物理行序；旧路径 order_by 锁同口径）。"""
+    df = _grid()
+    shuffled = df.sample(fraction=1.0, shuffle=True, seed=13)
+    ordered = _run(df, _COND_MAX, outputs=["signal"])
+    out = _run(shuffled, _COND_MAX, outputs=["signal"])
+    _assert_bit_equal(out, ordered, ["signal"])
+
+
+def test_fused_condition_path_not_stub(monkeypatch):
+    """非存根锁：条件形态必须真正走 filter 聚合（若把条件重写回退成 when/None
+    全列 + max 旧形，结构断言失败——数值对拍无法区分两者）。"""
+    from factorlab.core.engine import minute_fold
+    seen = []
+    real = minute_fold._aggregate_expr
+
+    def spy(node, partition):
+        expr = real(node, partition)
+        seen.append(str(expr))
+        return expr
+
+    monkeypatch.setattr(minute_fold, "_aggregate_expr", spy)
+    _run(_grid(), _COND_MAX, outputs=["signal"])
+    assert seen and any("filter" in s for s in seen), seen

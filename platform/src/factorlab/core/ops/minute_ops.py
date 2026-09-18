@@ -27,6 +27,7 @@ from factorlab.core.ops.registry import factor_op
 
 _PARTITION = ["code", "date"]
 _ORDER = "minute_index"
+_GRID_MAX_INDEX = 239   # 当日网格 0..239（engine/minute.py 240 行断言同口径）
 
 
 def _check_window(window, op: str) -> int:
@@ -51,6 +52,19 @@ def _check_shift(k, op: str = "im_delay") -> int:
     if k < 1:
         raise ValueError(
             f"{op} 不允许 k<1（收到 {k}——lookback 只能取过去；日内位移 k>=1）")
+    return int(k)
+
+
+def _check_at_minute(k, op: str = "at_minute") -> int:
+    """at_minute 参数运行时硬校验：int（拒 bool/float）且 0 <= k <= 239。"""
+    if isinstance(k, bool) or not isinstance(k, numbers.Integral):
+        raise ValueError(
+            f"{op} k 必须为 int ∈ 0..239（收到 {k!r}——bool/float 非法；"
+            f"minute_index 网格为 0..239）")
+    if k < 0 or k > _GRID_MAX_INDEX:
+        raise ValueError(
+            f"{op} k 必须在 0..239（收到 {k}——越界；当日网格为 240 行"
+            f"（0..239））")
     return int(k)
 
 
@@ -142,6 +156,20 @@ def day_min(x: pl.Expr) -> pl.Expr:
     return x.min().over(_PARTITION)
 
 
+def at_minute(x: pl.Expr, k: int) -> pl.Expr:
+    """当日 minute_index == k 行的值，广播全组（R09-PERF-I2 便利算子）。
+
+    - k 必须为 int ∈ 0..239（运行时硬校验；静态门为主防线，见 minute_gate）；
+    - k 在组内缺失，或该行 x 为 null → 全组 null（不取邻近分钟、不跨日）；
+    - 重复 k 行（非标准网格；引擎 240 网格断言拒绝）取组内 max——与
+      `day_max(if_else(minute_index == k, x, None))` 逐值一致；
+    - 实现为组内 filter + max 单次聚合：不物化 when/None 全列、不做全组
+      max 扫描（R09 §2.3 条件取值形态）。
+    """
+    kk = _check_at_minute(k)
+    return x.filter(pl.col(_ORDER) == kk).max().over(_PARTITION)
+
+
 # ---------------- seq_*：物理序内部变体（R09-PERF-I1 融合路径专用） ----------------
 # 公开 im_* 的 over 带 order_by="minute_index"（乱序输入确定性锁）；融合路径
 # （engine/minute_fold.py）先把面板预排序为 (code, date, minute_index)，再经本族
@@ -195,7 +223,8 @@ _IM_OPS = {"im_mean": im_mean, "im_sum": im_sum, "im_std": im_std,
            "im_max": im_max, "im_min": im_min, "im_median": im_median,
            "im_delay": im_delay, "im_cummax": im_cummax}
 _DAY_OPS = {"day_last": day_last, "day_first": day_first, "day_sum": day_sum,
-            "day_mean": day_mean, "day_max": day_max, "day_min": day_min}
+            "day_mean": day_mean, "day_max": day_max, "day_min": day_min,
+            "at_minute": at_minute}
 # 融合路径（minute_fold）用：公开名 → 物理序变体名；名单同源防漂移
 SEQ_FUNCS = {name: f"seq_{name}" for name in _IM_OPS}
 SEQ_EXTRA_CODES = (

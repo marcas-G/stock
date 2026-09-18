@@ -37,7 +37,12 @@ from typing import Iterable
 import polars as pl
 from expr_codegen import codegen_exec
 
-from factorlab.core.engine.minute_gate import _UNARY_CONST, _import_aliases
+from factorlab.core.engine.minute_gate import (
+    _UNARY_CONST,
+    _import_aliases,
+    _top_consts,
+    _try_num,
+)
 from factorlab.core.ops.minute_ops import (
     DAY_OPS_NAMES,
     IM_OPS_NAMES,
@@ -53,6 +58,19 @@ _IM = frozenset(IM_OPS_NAMES)
 _ALLOWED_CALLS = _IM | _UNARY_CONST | {"if_else"}
 _AGG_METHOD = {"day_sum": "sum", "day_mean": "mean",
                "day_max": "max", "day_min": "min"}
+# R09-PERF-I2：条件取值形态重写（x 仅在条件行参与聚合）——只对 max/min 做
+# filter 改写（sum/mean 的 0 填充形态语义不同；None else 数学上等价但收益小，
+# 保守不重写）。
+_FILTER_OPS = frozenset({"day_max", "day_min"})
+_GRID_MAX_INDEX = 239   # 与 minute_ops._GRID_MAX_INDEX / 引擎 240 网格同口径
+_AT_MINUTE = "at_minute"
+_CMP_POLARS = {
+    ast.Eq: lambda c, k: c == k, ast.NotEq: lambda c, k: c != k,
+    ast.Lt: lambda c, k: c < k, ast.LtE: lambda c, k: c <= k,
+    ast.Gt: lambda c, k: c > k, ast.GtE: lambda c, k: c >= k,
+}
+_FLIP_CMP = {ast.Lt: ast.Gt, ast.LtE: ast.GtE, ast.Gt: ast.Lt,
+             ast.GtE: ast.LtE, ast.Eq: ast.Eq, ast.NotEq: ast.NotEq}
 _UNSUPPORTED_NODES = (ast.Lambda, ast.ListComp, ast.SetComp, ast.DictComp,
                       ast.GeneratorExp, ast.NamedExpr, ast.Await, ast.Yield,
                       ast.YieldFrom)
@@ -64,12 +82,21 @@ class _Fallback(Exception):
 
 @dataclass(eq=False)
 class FoldNode:
-    """一个 day_* 折日聚合项（一个 AST 调用节点 ↔ 一个结果临时列）。"""
+    """一个 day_* 折日聚合项（一个 AST 调用节点 ↔ 一个结果临时列）。
+
+    R09-PERF-I2：`cond` 非空 = 条件取值形态（参数 x 仅条件行参与聚合，等价
+    `agg(if_else(cond, x, None))`，但聚合用单次 `x.filter(cond).agg()` 而非
+    when/None 全列物化 + 全组扫描）；简单 `minute_index <cmp> 常量` 条件直接
+    构造 polars 表达式（`cond_pl`），其余条件物化 `cond_temp` 列。
+    `at_minute(x, k)` 归一为等价条件节点（cond = `minute_index == k`）。"""
 
     op: str
     arg: ast.expr
+    cond: ast.expr | None = None
+    cond_pl: pl.Expr | None = None
     pass_no: int = 0
     arg_temp: str = ""
+    cond_temp: str = ""
     result_temp: str = ""
 
 
@@ -171,14 +198,21 @@ class FusionPlan:
     # ---- 公式文本生成 ----
 
     def pass_source(self, p: int) -> str:
-        """第 p pass 的物化公式：用户赋值（按需）+ CSE 定义 + 聚合参数临时列。"""
+        """第 p pass 的物化公式：用户赋值（按需）+ CSE 定义 + 聚合参数临时列
+        （R09-PERF-I2：复合条件另物化条件列；简单网格比较不物化）。"""
         arg_items: list[tuple[FoldNode, ast.expr]] = []
+        cond_items: list[tuple[FoldNode, ast.expr]] = []
         needed: set[str] = set()
         for node in self.nodes_in_pass(p):
             rewritten = self._rewrite(copy.deepcopy(node.arg), pass_no=p,
                                       cse_upto=p)
             arg_items.append((node, rewritten))
             needed |= self._names(rewritten)
+            if node.cond is not None and node.cond_pl is None:
+                cond_rw = self._rewrite(copy.deepcopy(node.cond), pass_no=p,
+                                        cse_upto=p)
+                cond_items.append((node, cond_rw))
+                needed |= self._names(cond_rw)
         cse_items: list[tuple[CseNode, ast.expr]] = []
         for cse in sorted(self.cse, key=lambda c: (c.pass_no,
                                                    _node_count(c.raw_expr))):
@@ -202,6 +236,8 @@ class FusionPlan:
             lines.append(ast.unparse(rewritten))
         lines += [f"{cse.name} = {ast.unparse(expr)}"
                   for cse, expr in cse_items]
+        lines += [f"{node.cond_temp} = {ast.unparse(expr)}"
+                  for node, expr in cond_items]
         lines += [f"{node.arg_temp} = {ast.unparse(expr)}"
                   for node, expr in arg_items]
         return "\n".join(lines)
@@ -234,6 +270,106 @@ class FusionPlan:
 
 def _node_count(expr: ast.expr) -> int:
     return sum(1 for _ in ast.walk(expr))
+
+
+def _is_none_const(node: ast.expr) -> bool:
+    return isinstance(node, ast.Constant) and node.value is None
+
+
+def _extract_cond(call: ast.expr, aliases: dict[str, str]):
+    """`if_else(cond, x, None)` / `x if cond else None` → (x, cond)；否则 None。
+
+    只认 else 分支为 None/缺省的形态（0 填充 = 掩码求和语义，不是条件取值）；
+    false_value kw 非 None 不识别（交给既有整表达式物化路径）。"""
+    if isinstance(call, ast.IfExp):
+        return (call.body, call.test) if _is_none_const(call.orelse) else None
+    if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name):
+        return None
+    if aliases.get(call.func.id, call.func.id) != "if_else":
+        return None
+    if len(call.args) < 2 or isinstance(call.args[0], ast.Starred):
+        return None
+    false_value = call.args[2] if len(call.args) == 3 else None
+    if len(call.args) > 3:
+        return None
+    for kw in call.keywords:
+        if kw.arg != "false_value" or not _is_none_const(kw.value):
+            return None
+        if false_value is not None:
+            return None
+        false_value = kw.value
+    if false_value is not None and not _is_none_const(false_value):
+        return None
+    return call.args[1], call.args[0]
+
+
+def _int_const(node: ast.expr | None, consts: dict) -> int | None:
+    """静态折叠为 int（拒 bool/float）——at_minute k 与简单网格比较用。"""
+    if node is None:
+        return None
+    v = _try_num(node, consts)
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
+
+
+def _simple_cond(cond: ast.expr | None, consts: dict) -> pl.Expr | None:
+    """`minute_index <cmp> 常量`（含反向、常量折叠）→ 直接 polars 条件表达式；
+    其余条件返回 None（由 pass 物化条件列）。"""
+    if not (isinstance(cond, ast.Compare) and len(cond.ops) == 1
+            and len(cond.comparators) == 1):
+        return None
+    left, right, op = cond.left, cond.comparators[0], cond.ops[0]
+    fn = _CMP_POLARS.get(type(op))
+    if fn is None:
+        return None
+    if isinstance(left, ast.Name) and left.id == _ORDER:
+        k = _int_const(right, consts)
+        return None if k is None else fn(pl.col(_ORDER), k)
+    if isinstance(right, ast.Name) and right.id == _ORDER:
+        k = _int_const(left, consts)
+        if k is None:
+            return None
+        flip = _CMP_POLARS.get(_FLIP_CMP[type(op)])
+        return flip(pl.col(_ORDER), k) if flip is not None else None
+    return None
+
+
+def _day_node(op: str, call: ast.Call, aliases: dict[str, str],
+              consts: dict) -> FoldNode | None:
+    """折日调用 → FoldNode（条件取值/at_minute 归一）；不支持形态 → None 回退。
+
+    at_minute k 必须是可静态折叠的 int ∈ 0..239（任务书：k 或显式常量）——
+    非折叠/越界形态返回 None 交旧路径运行时硬校验（门为主防线，双保险）。"""
+    if op == _AT_MINUTE:
+        if len(call.args) < 1 or len(call.args) > 2 \
+                or isinstance(call.args[0], ast.Starred):
+            return None
+        if call.args[1:]:
+            k_node = call.args[1]
+            if call.keywords:
+                return None
+        else:
+            kws = [kw for kw in call.keywords if kw.arg == "k"]
+            if len(kws) != 1 or len(call.keywords) != 1:
+                return None
+            k_node = kws[0].value
+        k = _int_const(k_node, consts)
+        if k is None or k < 0 or k > _GRID_MAX_INDEX:
+            return None
+        cond = ast.Compare(left=ast.Name(id=_ORDER, ctx=ast.Load()),
+                           ops=[ast.Eq()], comparators=[k_node])
+        return FoldNode(op, call.args[0], cond=cond,
+                        cond_pl=pl.col(_ORDER) == k)
+    if len(call.args) != 1 or call.keywords \
+            or isinstance(call.args[0], ast.Starred):
+        return None
+    arg = call.args[0]
+    if op in _FILTER_OPS:
+        extracted = _extract_cond(arg, aliases)
+        if extracted is not None:
+            x, cond = extracted
+            return FoldNode(op, x, cond=cond,
+                            cond_pl=_simple_cond(cond, consts))
+    return FoldNode(op, arg)
 
 
 def _expr_deps(expr: ast.expr,
@@ -307,6 +443,7 @@ def _build_plan(formula: str, columns: Iterable[str]) -> FusionPlan | None:
         return None
 
     aliases = _import_aliases(tree)
+    consts = _top_consts(tree)
     fold_nodes: list[FoldNode] = []
     for stmt in statements:
         for sub in ast.walk(stmt.value):
@@ -317,10 +454,12 @@ def _build_plan(formula: str, columns: Iterable[str]) -> FusionPlan | None:
                     return None
                 eff = aliases.get(sub.func.id, sub.func.id)
                 if eff in _DAY:
-                    if len(sub.args) != 1 or sub.keywords \
-                            or isinstance(sub.args[0], ast.Starred):
+                    node = _day_node(eff, sub, aliases, consts)
+                    if node is None:
                         return None
-                    fold_nodes.append(FoldNode(eff, sub.args[0]))
+                    # 原节点标记：`_fold_day` 随 deepcopy 保留（跨拷贝身份稳定）
+                    sub._fold_day = node
+                    fold_nodes.append(node)
                 elif eff in _IM:
                     if eff not in SEQ_FUNCS:   # 新算子未配物理序变体 → 回退
                         return None
@@ -329,23 +468,7 @@ def _build_plan(formula: str, columns: Iterable[str]) -> FusionPlan | None:
     if not fold_nodes:
         return None
 
-    # 原节点标记：`_fold_day` 随 deepcopy 保留（跨拷贝身份稳定）
-    attached = 0
-    for stmt in statements:
-        for sub in ast.walk(stmt.value):
-            if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name):
-                eff = aliases.get(sub.func.id, sub.func.id)
-                if eff in _DAY:
-                    match = [n for n in fold_nodes if n.arg is sub.args[0]
-                             and n.op == eff]
-                    if not match:
-                        return None
-                    sub._fold_day = match[0]
-                    attached += 1
-    if attached != len(fold_nodes):
-        return None  # 同一 arg 对象被两个调用复用等异常形态——回退
-
-    # pass 划分（依赖 = 参数表达式中的其他 day 结果；环 → 回退）
+    # pass 划分（依赖 = 参数/条件表达式中的其他 day 结果；环 → 回退）
     state: dict[int, int] = {}
 
     def pass_of(node: FoldNode) -> int:
@@ -356,7 +479,10 @@ def _build_plan(formula: str, columns: Iterable[str]) -> FusionPlan | None:
             return state[key]
         state[key] = 0
         p = 1
-        for dep in _expr_deps(node.arg, assigns):
+        deps = _expr_deps(node.arg, assigns)
+        if node.cond is not None:
+            deps |= _expr_deps(node.cond, assigns)
+        for dep in deps:
             p = max(p, pass_of(dep) + 1)
         state[key] = p
         node.pass_no = p
@@ -366,6 +492,7 @@ def _build_plan(formula: str, columns: Iterable[str]) -> FusionPlan | None:
         pass_of(node)
     for i, node in enumerate(fold_nodes):
         node.arg_temp = f"{FOLD_PREFIX}arg_{i}"
+        node.cond_temp = f"{FOLD_PREFIX}cond_{i}"
         node.result_temp = f"{FOLD_PREFIX}{i}"
     max_pass = max(n.pass_no for n in fold_nodes)
 
@@ -447,20 +574,35 @@ def _replace_inner_cse(root: ast.expr, plan: FusionPlan) -> ast.expr:
 
 
 def _aggregate_expr(node: FoldNode, partition: list[str]) -> pl.Expr:
-    """聚合项 → 组内广播列表达式（逐字节复刻 minute_ops day_* 旧实现语义：
-    sum/mean/max/min 单 over；day_first/day_last 双 over 极值定位）。"""
+    """聚合项 → 组内广播列表达式。
+
+    逐字节复刻 minute_ops day_* 旧实现语义；R09-PERF-I2 起：
+    - 条件取值/at_minute：`col.filter(cond).max/min.over(partition)` 单次聚合
+      （等价旧 `when(cond).then(col).otherwise(None).max/min`，不物化全组 when
+      列、不做全组 null 扫描）；
+    - day_first/day_last：`sort_by(minute_index).first/last.over(partition)`
+      单次聚合（等价旧「idx 极值定位 + 组内 min/max」双 over）。
+    """
     col = pl.col(node.arg_temp)
+    if node.cond is not None or node.op == _AT_MINUTE:
+        cond = node.cond_pl if node.cond_pl is not None \
+            else pl.col(node.cond_temp)
+        if node.op in ("day_max", _AT_MINUTE):
+            return (col.filter(cond).max().over(partition)
+                    .alias(node.result_temp))
+        if node.op == "day_min":
+            return (col.filter(cond).min().over(partition)
+                    .alias(node.result_temp))
+        raise _Fallback(f"条件聚合不支持: {node.op}")
     if node.op in _AGG_METHOD:
         return (getattr(col, _AGG_METHOD[node.op])().over(partition)
                 .alias(node.result_temp))
     if node.op == "day_last":
-        mmax = pl.col(_ORDER).max().over(partition)
-        return (pl.when(pl.col(_ORDER) == mmax).then(col).otherwise(None)
-                .max().over(partition).alias(node.result_temp))
+        return (col.sort_by(_ORDER).last().over(partition)
+                .alias(node.result_temp))
     if node.op == "day_first":
-        mmin = pl.col(_ORDER).min().over(partition)
-        return (pl.when(pl.col(_ORDER) == mmin).then(col).otherwise(None)
-                .min().over(partition).alias(node.result_temp))
+        return (col.sort_by(_ORDER).first().over(partition)
+                .alias(node.result_temp))
     raise _Fallback(f"未知折日算子: {node.op}")
 
 

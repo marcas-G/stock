@@ -226,6 +226,36 @@ def test_gate_alias_does_not_treat_import_name_as_call():
         "signal = _ds(close)", ["signal"])
 
 
+def test_at_minute_k_static_validation():
+    """R09-PERF-I2：at_minute k 静态门——必须 int ∈ 0..239（字面量/常量折叠/
+    顶层常量间接）；bool/float/负/越界拒。非折叠形态静态放行（运行时硬校验）。"""
+    for bad in ("signal = at_minute(close, -1)",
+                "signal = at_minute(close, 240)",
+                "signal = at_minute(close, True)",
+                "signal = at_minute(close, 1.5)",
+                "signal = at_minute(close, 120.0)",
+                "signal = at_minute(close, 241 - 1)",
+                "_k = 250\nsignal = at_minute(close, _k)"):
+        with pytest.raises(ValueError, match="at_minute"):
+            validate_minute_scope(bad, ["signal"])
+    # 合法边界/常量折叠/顶层常量间接放行；at_minute 是折日常数（可直出）
+    validate_minute_scope("a = at_minute(close, 0)\nb = at_minute(close, 239)\n"
+                          "c = at_minute(close, 2 * 60)\n"
+                          "_k = 120\nd = at_minute(close, _k)",
+                          ["a", "b", "c", "d"])
+
+
+def test_at_minute_bad_k_rejected_e2e():
+    """at_minute 非法 k 经 compute_formula 全链报错（静态门主防线），不得静默
+    生成空/错误取值。"""
+    for bad in ("signal = at_minute(close, -1)",
+                "signal = at_minute(close, 240)",
+                "signal = at_minute(close, True)",
+                "signal = at_minute(close, 1.5)"):
+        with pytest.raises(ValueError, match="at_minute"):
+            _run(bad)
+
+
 def test_gate_direct_fold_combinators():
     """折日 fold 判定组合子：未知列名=序列（拒）、一元负序列（拒）、BoolOp 含
     序列（拒）、Compare 对序列（拒）、一元保常数函数与 if_else 全常数（放行）、
