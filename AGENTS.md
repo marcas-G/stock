@@ -46,17 +46,44 @@
   （真 CH 或真 parquet）并留下输出。
 - 破坏性/不可逆操作（删除、强推、覆盖远端）**先备份后执行**，并把退路（bundle/tag/路径）写进证据。
 
-## 重任务运行协议（R05-C1；2026-09-16 主机 OOM 事故后）
+## 重任务运行协议（R05-C1 + R30 主机内存保护；2026-09-16/18 主机内存事故后）
 
-- 重任务（全市场/长窗 `factorlab run`、分钟链、灌库/回测批跑）**必须**设进程内存护栏：
-  `FACTORLAB_MAX_MEMORY=8GB`（16GB 机推荐；显式设置时 CLI 同时落 RLIMIT_AS 硬上限）
-  + 可选 `FACTORLAB_MIN_AVAILABLE_MEMORY=2GB`。超限 → `MemoryLimitExceeded` 干净中止
-  （exit 1、不落半成品，产物 dir 无可加载 summary）。
-- **禁止与 LLM 服务（llama-server）/多 agent 会话并发重任务**。事故教训（2026-09-16）：
-  21GB llama-server + 6 个 opencode 会话 + 平台分钟链叠加 → 主机内存耗尽、SSH 卡死、
-  ClickHouse 一度无响应（进程 D 状态零输出）。
+三层防护（2026-09-18 R30 上线，根因证据 `governance/evidence/verification/R30/memory-guard/`）：
+
+1. **memguard（用户级常驻守护；systemd user service `memguard.service`，Restart=always）**
+   ——2s 采样 `/proc/meminfo` + 本用户进程 RSS；阈值 avail<10GB warn / <5GB term /
+   <2.5GB kill；只杀 gaolei 且 RSS>=2GB 的重任务候选（cmd 匹配 python|pytest|vllm|
+   run_pipeline|factorlab|convert|ingest|polars|jupyter），保护 sshd/systemd/opencode/
+   code/vscode-server/clickhouse/bash/memguard 自身；llama-server 默认保护，RSS>38GB
+   才转候选（模型重载爆内存场景）；SIGTERM→3s→SIGKILL，动作后 30s 冷却，`--dry-run`
+   只看不杀。代码 `governance/ops/memguard.py`；安装 `governance/ops/install_memguard.sh`
+   （linger 不可用则回退 crontab，路径记录在 `~/.local/state/memguard/install-method`）；
+   测试 `governance/ops/tests/test_memguard.py`。
+   **取证日志**：`~/.local/state/memguard/memlog.tsv`（10s 粒度、7 天轮转，
+   time/avail/swap_free/load1/top5 RSS）+ `memguard.log` / `journalctl --user -u memguard`。
+2. **`governance/ops/heavy.sh` 重任务闸**——重任务一律经它跑：flock 限 2 并发
+   （HEAVY_MAX_CONCURRENT 可调）+ 启动前可用内存 <8GB 拒绝 + 默认注入
+   `FACTORLAB_MAX_MEMORY=8GB`、`FACTORLAB_MIN_AVAILABLE_MEMORY=6GB`、
+   `OMP_NUM_THREADS=8`、`POLARS_MAX_THREADS=8` + `nice -n 10`（已显式导出的值优先）。
+   例：`governance/ops/heavy.sh platform/.venv/bin/factorlab run <spec>`。
+3. **FactorLab CLI 默认护栏（R30）**——`factorlab run` 在 env 未设时自动：
+   `FACTORLAB_MIN_AVAILABLE_MEMORY=6GB`（安全预检）+ `FACTORLAB_MAX_MEMORY=
+   min(16GB, 12% 物理内存)`（本机 125GB → ≈15GB；显式 `off`/`none` 关闭；run 结束
+   语义复原）。`RLIMIT_AS` 硬上限仍只跟显式设置；API 直调 `run_factor` 不变。超限 →
+   `MemoryLimitExceeded` 干净中止（exit 1、不落半成品，产物 dir 无可加载 summary）。
+   语义/推荐值/报错：`knowledge/contracts/interface.md` §1「进程内存护栏」。
+
+- **禁止与 LLM 服务（llama-server）/多 agent 会话并发重任务**（memguard 的
+  llama>38GB 例外是最后兜底，不是许可）。事故教训（2026-09-16）：21GB llama-server
+  + 6 个 opencode 会话 + 平台分钟链叠加 → 主机内存耗尽、SSH 卡死、ClickHouse 一度
+  无响应（进程 D 状态零输出）。
+- ClickHouse 进程上限已收紧（2026-09-18）：`max_server_memory_usage` 48→**28GiB**、
+  `max_memory_usage_for_all_queries` 24→**12GiB**（`/data/students/gaolei/clickhouse/config/config.xml`）。
+- 主机级加固（sysctl `vm.swappiness=10`/`vm.min_free_kbytes=1GB` + earlyoom）需
+  sudo：脚本已生成 `governance/ops/memory-hardening-sudo.sh`，**待用户执行**
+  （本机 user cgroup MemoryMax 不可用——memory 控制器未委派，实测 900MB 分配在
+  512M 限制下仍成功）。
 - 分钟链保持默认 20 交易日/块；显式超大 `--chunk-days` 按估算告警/拒绝。
-  语义/推荐值/报错：`knowledge/contracts/interface.md` §1「进程内存护栏」。
 
 ## 工具链速查
 

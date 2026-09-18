@@ -416,3 +416,45 @@ A5. **tick 3 表月断点仍为布尔、无源指纹（A4 同款缺口残余）*
     启动条件：逐笔链维护轮次；先核 `convert_tick_to_parquet` 的月提交判定，再给
     `run_pool` 接同一指纹与 `--force`，改动后跑 `python reconcile.py tick` +
     内存护栏（8GB）+ 单月重灌对拍。
+
+## 主机内存保护（R30，2026-09-18）
+
+H1. **sudo 主机加固待用户执行**（2026-09-18 登记）
+    现状：`governance/ops/memory-hardening-sudo.sh` 已生成并 `bash -n` 校验，但
+    **未执行**（按任务约束只生成不代跑）。内容：sysctl `vm.swappiness=10` +
+    `vm.min_free_kbytes=1GB` 写 `/etc/sysctl.d/99-factorlab-memory.conf` 并 apply；
+    `apt-get install -y earlyoom` 并配置 `-m 5 -s 5 --avoid 'sshd|systemd|clickhouse'`
+    后 enable（当前 `systemd-oomd`/`earlyoom` 均 inactive）。
+    未决因：需 sudo（用户 gaolei 自行决定执行时机）。
+    启动条件：`sudo bash governance/ops/memory-hardening-sudo.sh`；执行后把
+    `systemctl is-active earlyoom` + sysctl 值补进 `R30/memory-guard/` 证据。
+
+H2. **user cgroup 内存上限仍不可用（结构性欠账）**（2026-09-18 复核）
+    现状：`systemd-run --user -p MemoryMax=512M` 单元能起，但 memory 控制器未委派
+    （v2 unified 单元目录无 `memory.max`），实测每页触碰 900MB 分配仍成功
+    （证据 `R30/memory-guard/cgroup-memorymax-probe.txt`）。
+    未决因：容器/宿主的 cgroup memory 委派与 systemd 版本组合；非本仓可修。
+    启动条件：宿主开放 memory 控制器委派后，可给 memguard/heavy 任务加 cgroup 硬限；
+    在那之前进程级 memguard 是唯一可靠护栏。
+
+H3. **memguard.service 启动时 journal 有 inotify ENOSPC 警告**（2026-09-18 登记）
+    现状：`systemd[19654]: memguard.service: Failed to add inotify watch descriptor
+    for control group ...: No space left on device`——`fs.inotify.max_user_watches`
+    被 VSCode/多会话耗尽；服务本身 active、采样/取证正常。
+    未决因：属于宿主 sysctl 调优，非仓内代码；不影响守护功能。
+    启动条件：并入 H1 脚本（`fs.inotify.max_user_watches=524288`）随 sudo 加固一起做。
+
+H4. **/www/swap（机械盘 62.5G）取舍待决策**（2026-09-18 登记）
+    现状：swap 总量 64G（/swapfile 2G + /www/swap 62.5G，机械盘 sda，
+    swappiness=60）；09:37 峰值 swap 用量 87%。
+    未决因：保留=极端压力下内核有换出缓冲但机械盘 IO 卡顿；禁用=消除抖动但失去
+    OOM 前缓冲。H1 把 swappiness 降到 10 已先减小日常换出。
+    启动条件：memguard 取证日志（`~/.local/state/memguard/memlog.tsv`）观察
+    1–2 周；若 kill 触发少且 IO 敏感，再考虑禁用 /www/swap（见 sudo 脚本内注释块）。
+
+H5. **memguard 未做真实触发演练（避免人为 OOM）**（2026-09-18 登记）
+    现状：决策/信号序列/冷却/dry-run/轮转均单测覆盖（19 条）+ 突变验证
+    （stub 后 19/16 条失败）；live 服务在 82GB 可用下未触发 kill。
+    未决因：真实触发需把主机压到 <2.5GB 可用，风险大于收益（可能真卡 SSH）。
+    启动条件：下次真实内存事件后核对 memlog + memguard.log 的动作记录；如阈值
+    不合适（误杀/漏杀）再调 `--warn/--term/--kill`。

@@ -206,9 +206,12 @@ llama-server）与多 agent 会话触发主机内存耗尽、SSH 卡死、ClickH
 
 - **开关**：`FACTORLAB_MAX_MEMORY`（进程 RSS 上限）与
   `FACTORLAB_MIN_AVAILABLE_MEMORY`（系统可用内存下限）——支持
-  `"8GB"`/`"512MB"`/纯字节数（1024 进制）。**二者都未设 = 不启用（默认，零
-  行为变化，避免误杀 CI/小 run）；显式设置才拦**。注意与 `--max-memory`
-  （DuckDB 连接上限）是两个东西。
+  `"8GB"`/`"512MB"`/纯字节数（1024 进制）。`factorlab run` CLI 在 **env 未设时
+  默认化**（R30）：`FACTORLAB_MIN_AVAILABLE_MEMORY=6GB` 安全预检 +
+  `FACTORLAB_MAX_MEMORY=min(16GB, 12% 物理内存)`（本机 125GB → ≈15GB）；显式
+  `off`/`none` 可逐项关闭。默认化只在 CLI 进程内生效（run 结束即原样恢复），
+  **API 直调 `run_factor`/`run_factor_minute` 且 env 未设仍 = 不启用（零行为
+  变化，避免误杀 CI/小 run）**。注意与 `--max-memory`（DuckDB 连接上限）是两个东西。
 - **软看门狗**：daemon 线程约 5s 采样进程 RSS 与系统可用内存；run 链在
   **chunk 边界与落盘前**协作检查——超限抛 `MemoryLimitExceeded`
   （`ValueError` 子类，CLI 干净 exit 1；文案含当前 RSS/可用内存、阈值、建议：
@@ -220,11 +223,18 @@ llama-server）与多 agent 会话触发主机内存耗尽、SSH 卡死、ClickH
   `max(3×RSS 上限, 当前 VA + RSS 上限 + 12GB + 64MB×核数)`。为什么远高于 RSS
   阈值：polars/glibc arena 的**虚拟地址空间**预留远大于 RSS（本机实测小 run
   VmSize 13.6GB vs VmRSS 0.4GB），贴阈值设会让正常 run 误报 MemoryError
-  （校准见 `governance/evidence/verification/R23/safety/`）。非 POSIX（Windows）/设置失败 →
+  （校准见 `governance/evidence/verification/R23/safety/`）。  非 POSIX（Windows）/设置失败 →
   warning 降级，软看门狗仍生效；Python API 直调 `run_factor` 只启软看门狗
-  （不替宿主进程设进程级 rlimit）。
-- **推荐值**（16GB 机 + LLM 并发）：`FACTORLAB_MAX_MEMORY=8GB`、
-  `FACTORLAB_MIN_AVAILABLE_MEMORY=2GB`；重任务运行协议见根 `AGENTS.md`。
+  （不替宿主进程设进程级 rlimit）。R30 默认化**只加软看门狗**——`RLIMIT_AS`
+  硬上限仍只由显式 `FACTORLAB_MAX_MEMORY` 触发（避免默认值把宿主虚拟地址
+  空间锁死）。
+- **推荐运行方式**（R30）：重任务（全市场/长窗 run、分钟链、灌库/回测批跑）
+  统一经 `governance/ops/heavy.sh <命令>` 启动——flock 限 2 并发 + 启动前可用
+  内存 <8GB 拒绝 + 默认注入 `FACTORLAB_MAX_MEMORY=8GB`/
+  `FACTORLAB_MIN_AVAILABLE_MEMORY=6GB`/`OMP_NUM_THREADS=8`/
+  `POLARS_MAX_THREADS=8` + `nice -n 10`。显式设置的值优先于注入默认（16GB 机 +
+  LLM 并发推荐 `FACTORLAB_MAX_MEMORY=8GB`）；宿主级 memguard 守护
+  （2s 采样、只杀本用户重任务）与取证日志见根 `AGENTS.md`「重任务运行协议」。
 - **分钟长窗防护**：分钟链默认 20 交易日/块自动分块（R04-P1，见上）；
   **显式** `--chunk-days` 另按 `code 数 × min(chunk_days, 窗口交易日数) ×
   64KB/(code·日)`（R04-P1 实测校准：5207 code × 117 日非分块峰值 34.95GB、
@@ -234,8 +244,10 @@ llama-server）与多 agent 会话触发主机内存耗尽、SSH 卡死、ClickH
   （测试/单票）合法长窗不误拒。
 
 ```bash
-# 重任务：显式护栏 + 分钟默认 20 日/块
-FACTORLAB_MAX_MEMORY=8GB FACTORLAB_MIN_AVAILABLE_MEMORY=2GB \
+# 重任务（R30 推荐）：经 heavy.sh（限并发 + 内存闸 + 默认护栏 + nice）
+governance/ops/heavy.sh env FACTORLAB_DATA_BACKEND=ch factorlab run factor/demo_1m.yaml
+# 等价显式写法（不经常驻闸时）：
+FACTORLAB_MAX_MEMORY=8GB FACTORLAB_MIN_AVAILABLE_MEMORY=6GB \
   FACTORLAB_DATA_BACKEND=ch factorlab run factor/demo_1m.yaml
 ```
 
