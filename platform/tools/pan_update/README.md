@@ -9,7 +9,7 @@
 |---|---|---|---|
 | `daily` | `日K线数据---复权因子-经典技术指标--bs点缠论划线/` | `data/raw/daily/` | `import_daily.py` → `ingest_daily.py` → `derive_stk_limit.py` → `adj_backfill.py` |
 | `minutes` | `A股分钟线/<年>/<月>/<YYYYMMDD>.zip` | `data/raw/minutes/` | `convert_minutes_to_parquet.py --mode production` → `ingest_bars.py` |
-| `fund_flow` | `日线资金--每日沪深京个股日线数据和资金流数据/<年>/…zip` | `data/raw/fund_flow/` | `ingest_moneyflow.py`（脚本内直接解析 zip → CH `moneyflow`） |
+| `fund_flow` | `日线资金--每日沪深京个股日线数据和资金流数据/<年>/…zip` | `data/raw/fund_flow/` | `parse_fund_flow.py`（zj/hyzj/gnzj/gn_detail → fact：`moneyflow_sector`/`concept_members`）→ `ingest_moneyflow.py`（个股 zip→CH `moneyflow`，两 fact→CH `moneyflow_sector`/`concept_members`） |
 | `financials` | `财报报表---有史以来--每周更新/` | `data/raw/financial/` | `parse_fundamentals_xlsx.py`（xlsx → fact）→ `ingest_fundamentals.py`（fact → CH `fundamentals`） |
 
 - 全树遍历每次跑；仅遍历上述四目录（设计 §4：不遍历 level2 超大目录）。

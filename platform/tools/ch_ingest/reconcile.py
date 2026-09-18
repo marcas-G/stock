@@ -16,13 +16,21 @@ R21 TOOLS-I7 扩展（旧版只对 5 张 daily 表行数）：
     关键列 main_net_inflow 空值数 == 源；ts_code 空串/uniq 键不变量；
   - fundamentals —— 行数/updated_date 范围/天数 == fact parquet（复用 ingest 的
     `load_fact`）；关键列 total_shares 空值数 == 源；ts_code 空串/uniq 键不变量。
+- R30 项 2 扩展（资金流板块/成分）：
+  - moneyflow_sector —— 行数/日期范围/天数/`main_net_inflow` 空值数/board_type 合法值/
+    BK 码格式/board_name 空串数/键 uniq/industry+concept 分型行数 == fact parquet
+    （复用 ingest 的 `load_sector_fact`，与灌入同语义）；
+  - concept_members —— 行数/日期范围/天数/键 uniq/BK 码与 ts_code 格式/名称空串数/
+    每日行数 min+max（>0 且分布一致）== fact parquet（复用 `load_members_fact`）。
 
-用法：python reconcile.py                # 全表对账
-      python reconcile.py daily          # daily 层 5 表 + 派生表
-      python reconcile.py moneyflow      # 资金流表
-      python reconcile.py fundamentals   # 财报快照表
-      python reconcile.py bars           # bars_1m
-      python reconcile.py tick           # tick 3 表
+用法：python reconcile.py                  # 全表对账
+      python reconcile.py daily            # daily 层 5 表 + 派生表
+      python reconcile.py moneyflow        # 个股资金流表
+      python reconcile.py moneyflow_sector # 板块资金流表
+      python reconcile.py concept_members  # 概念成分快照表
+      python reconcile.py fundamentals     # 财报快照表
+      python reconcile.py bars             # bars_1m
+      python reconcile.py tick             # tick 3 表
 退出码 0=全一致，1=有差异。
 """
 from __future__ import annotations
@@ -36,10 +44,18 @@ import pyarrow.parquet as pq
 
 from factorlab.core.factio import paths  # R8：路径单点
 
+try:  # 脚本直启时补 tools/ 再导入 lib（与 ingest_moneyflow 同款）
+    from lib import moneyflow as MF
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from lib import moneyflow as MF
+
 from common import connect, load_config
 
 DAILY_SRC = str(paths.daily_fact_path())   # R8：取 factio.paths（原硬编码绝对路径）
 MONEYFLOW_SRC = paths.RAW_ROOT / "fund_flow"
+MONEYFLOW_SECTOR_FACT = paths.FACT_ROOT / MF.SECTOR_FACT_RELPATH
+CONCEPT_MEMBERS_FACT = paths.FACT_ROOT / MF.CONCEPT_FACT_RELPATH
 FUNDAMENTALS_SRC = (paths.FACT_ROOT / "fundamentals" /
                     "fundamentals_snapshot.parquet")
 DELISTED_ADJ_NAME = "delisted_adj_factor.parquet"   # R08-DATA-I2 sidecar
@@ -235,6 +251,85 @@ def _check_moneyflow(client, db, root: Path | None = None) -> bool:
     return good
 
 
+def _check_moneyflow_sector(client, db, path: Path | None = None) -> bool:
+    """moneyflow_sector：CH vs fact parquet（与灌入同一 load_sector_fact 语义）+ 不变量。
+
+    BK 码格式/board_type 合法值/名称空串数/键 uniq/分型行数全查；行数相等不代表
+    内容一致，故逐项与源复算比对（硬编码存根必败）。
+    """
+    from ingest_moneyflow import load_sector_fact
+    src = load_sector_fact(Path(MONEYFLOW_SECTOR_FACT if path is None else path))
+    (n, mn, mx, days, nulls, bad_type, bad_code, empty_name, uniq, n_ind,
+     n_con) = client.query(
+        f"SELECT count(), min(trade_date), max(trade_date), uniqExact(trade_date), "
+        f"countIf(main_net_inflow IS NULL), "
+        f"countIf(board_type NOT IN ('industry', 'concept')), "
+        f"countIf(NOT match(board_code, '^BK[0-9]{{4}}$')), "
+        f"countIf(board_name = ''), "
+        f"uniqExact((board_type, board_code, trade_date)), "
+        f"countIf(board_type = 'industry'), countIf(board_type = 'concept') "
+        f"FROM {db}.moneyflow_sector").result_rows[0]
+    s_rows = src.height
+    s_min = src["trade_date"].min() if s_rows else None
+    s_max = src["trade_date"].max() if s_rows else None
+    s_days = src["trade_date"].n_unique()
+    s_nulls = src["main_net_inflow"].null_count()
+    s_empty = int((src["board_name"] == "").sum())
+    s_ind = src.filter(pl.col("board_type") == "industry").height
+    s_con = src.filter(pl.col("board_type") == "concept").height
+    good = (n == s_rows and mn == s_min and mx == s_max and days == s_days
+            and nulls == s_nulls and bad_type == 0 and bad_code == 0
+            and empty_name == s_empty and uniq == n
+            and n_ind == s_ind and n_con == s_con)
+    print(f"  moneyflow_sector CH={n:>12,} 源={s_rows:>12,}  "
+          f"日期 {mn}..{mx} / {s_min}..{s_max}  天={days}/{s_days}  "
+          f"main_net_inflow 空值={nulls}/{s_nulls}  类型异常={bad_type}  "
+          f"BK码异常={bad_code}  名称空={empty_name}/{s_empty}  "
+          f"行业/概念={n_ind}/{s_ind} + {n_con}/{s_con}  "
+          f"{'一致' if good else '不一致'}", flush=True)
+    return good
+
+
+def _check_concept_members(client, db, path: Path | None = None) -> bool:
+    """concept_members：CH vs fact parquet（与灌入同一 load_members_fact 语义）+ 不变量。
+
+    每日行数 min/max 参与比对：源每个快照日必有成分行（>0），且分布与源一致。
+    """
+    from ingest_moneyflow import load_members_fact
+    src = load_members_fact(Path(CONCEPT_MEMBERS_FACT if path is None else path))
+    (n, mn, mx, days, uniq, bad_bk, bad_ts, empty_name, day_min,
+     day_max) = client.query(
+        f"SELECT count(), min(trade_date), max(trade_date), uniqExact(trade_date), "
+        f"uniqExact((trade_date, board_code, ts_code)), "
+        f"countIf(NOT match(board_code, '^BK[0-9]{{4}}$')), "
+        f"countIf(NOT match(ts_code, '^[0-9]{{6}}\\.(SH|SZ|BJ)$')), "
+        f"countIf(board_name = ''), "
+        f"(SELECT min(n) FROM (SELECT count() AS n FROM {db}.concept_members "
+        f" GROUP BY trade_date)), "
+        f"(SELECT max(n) FROM (SELECT count() AS n FROM {db}.concept_members "
+        f" GROUP BY trade_date)) "
+        f"FROM {db}.concept_members").result_rows[0]
+    s_rows = src.height
+    s_min = src["trade_date"].min() if s_rows else None
+    s_max = src["trade_date"].max() if s_rows else None
+    s_days = src["trade_date"].n_unique()
+    s_empty = int((src["board_name"] == "").sum())
+    per_day = src.group_by("trade_date").len()["len"] if s_rows else []
+    s_day_min = int(min(per_day)) if s_rows else 0
+    s_day_max = int(max(per_day)) if s_rows else 0
+    good = (n == s_rows and mn == s_min and mx == s_max and days == s_days
+            and uniq == n and bad_bk == 0 and bad_ts == 0
+            and empty_name == s_empty and day_min == s_day_min
+            and day_max == s_day_max)
+    print(f"  concept_members CH={n:>12,} 源={s_rows:>12,}  "
+          f"日期 {mn}..{mx} / {s_min}..{s_max}  天={days}/{s_days}  "
+          f"键 uniq={uniq:,}  BK码异常={bad_bk}  ts_code 异常={bad_ts}  "
+          f"名称空={empty_name}/{s_empty}  每日行数={day_min}..{day_max} / "
+          f"{s_day_min}..{s_day_max}  "
+          f"{'一致' if good else '不一致'}", flush=True)
+    return good
+
+
 def _check_fundamentals(client, db, path: Path | None = None) -> bool:
     """fundamentals：CH vs fact parquet 快照（与灌入同一 load_fact 语义）+ 关键字段。"""
     from ingest_fundamentals import load_fact
@@ -284,6 +379,14 @@ def main():
     if which in ("all", "moneyflow"):
         print("moneyflow:", flush=True)
         ok &= _check_moneyflow(client, db)
+
+    if which in ("all", "moneyflow_sector"):
+        print("moneyflow_sector:", flush=True)
+        ok &= _check_moneyflow_sector(client, db)
+
+    if which in ("all", "concept_members"):
+        print("concept_members:", flush=True)
+        ok &= _check_concept_members(client, db)
 
     if which in ("all", "fundamentals"):
         print("fundamentals:", flush=True)

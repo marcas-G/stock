@@ -185,7 +185,9 @@ def test_stage_chains_cover_all_categories_and_scripts_exist():
     assert set(stages.STAGE_CHAINS) == set(config.CATEGORIES)
     fund_flow = [Path(c[1]).relative_to(ROOT).as_posix()
                  for c in stages.STAGE_CHAINS["fund_flow"]]
-    assert fund_flow == ["platform/tools/ch_ingest/ingest_moneyflow.py"]
+    # R30 项 2：先解析（raw zip → fact：含 hyzj/gnzj/gn_detail）再灌入 CH 三表
+    assert fund_flow == ["platform/tools/pan_update/parse_fund_flow.py",
+                         "platform/tools/ch_ingest/ingest_moneyflow.py"]
     financials = [Path(c[1]).name for c in stages.STAGE_CHAINS["financials"]]
     assert financials == ["parse_fundamentals_xlsx.py", "ingest_fundamentals.py"]
     for cat, chain in stages.STAGE_CHAINS.items():

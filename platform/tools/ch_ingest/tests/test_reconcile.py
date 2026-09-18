@@ -99,6 +99,10 @@ def _wire_main(monkeypatch, fake: _FakeCH, *, src: Path, which: str) -> None:
     monkeypatch.setattr(sys, "argv", ["reconcile.py", which])
     if which == "moneyflow":
         monkeypatch.setattr(RC, "MONEYFLOW_SRC", src)
+    elif which == "moneyflow_sector":
+        monkeypatch.setattr(RC, "MONEYFLOW_SECTOR_FACT", src)
+    elif which == "concept_members":
+        monkeypatch.setattr(RC, "CONCEPT_MEMBERS_FACT", src)
     else:
         monkeypatch.setattr(RC, "FUNDAMENTALS_SRC", src)
 
@@ -217,6 +221,168 @@ def test_main_fundamentals_mismatch_exits_nonzero(tmp_path, monkeypatch):
     _fund_df([("000001.SZ", D1, 100.0), ("000002.SZ", D2, 200.0)]).write_parquet(fact)
     fake = _FakeCH([(0, None, None, 0, 0, 0, 0)])
     _wire_main(monkeypatch, fake, src=fact, which="fundamentals")
+    with pytest.raises(SystemExit) as ex:
+        RC.main()
+    assert ex.value.code == 1
+
+
+# ── 资金流扩充（项 2）：moneyflow_sector / concept_members ────────────────
+
+from lib import moneyflow as LMF  # noqa: E402
+
+FIXTURES = Path(__file__).resolve().parents[2] / "pan_update" / "tests" / "fixtures"
+DS = datetime.date(2026, 7, 15)
+
+
+def _sector_df() -> pl.DataFrame:
+    hy = LMF.parse_zj_sector((FIXTURES / "hyzj_sample.xls").read_bytes().decode("gbk"),
+                             DS, "industry")
+    gn = LMF.parse_zj_sector((FIXTURES / "gnzj_sample.xls").read_bytes().decode("gbk"),
+                             DS, "concept")
+    return pl.concat([hy, gn])
+
+
+def _members_df() -> pl.DataFrame:
+    return LMF.parse_gn_detail(
+        (FIXTURES / "gn_detail_sample.csv").read_bytes().decode("utf-8-sig"), DS)
+
+
+def _sector_agg(df: pl.DataFrame) -> tuple:
+    """CH 侧聚合语义的独立复算（行数/日期/天数/关键列空值/类型/BK码/名称/键/分型行数）。"""
+    return (df.height, df["trade_date"].min(), df["trade_date"].max(),
+            df["trade_date"].n_unique(), df["main_net_inflow"].null_count(),
+            0, 0, int((df["board_name"] == "").sum()),
+            df.select(["board_type", "board_code", "trade_date"]).n_unique(),
+            df.filter(pl.col("board_type") == "industry").height,
+            df.filter(pl.col("board_type") == "concept").height)
+
+
+def _members_agg(df: pl.DataFrame) -> tuple:
+    per_day = df.group_by("trade_date").len()["len"]
+    return (df.height, df["trade_date"].min(), df["trade_date"].max(),
+            df["trade_date"].n_unique(),
+            df.select(["trade_date", "board_code", "ts_code"]).n_unique(),
+            0, 0, int((df["board_name"] == "").sum()),
+            int(per_day.min()), int(per_day.max()))
+
+
+def _write_sector_fact(tmp_path) -> Path:
+    out = tmp_path / "moneyflow_sector.parquet"
+    _sector_df().write_parquet(out)
+    return out
+
+
+def _write_members_fact(tmp_path) -> Path:
+    out = tmp_path / "concept_members.parquet"
+    _members_df().write_parquet(out)
+    return out
+
+
+def test_moneyflow_sector_consistent(tmp_path):
+    df = _sector_df()
+    fact = _write_sector_fact(tmp_path)
+    fake = _FakeCH([_sector_agg(df)])
+    assert RC._check_moneyflow_sector(fake, "factorlab_test", fact) is True
+    assert any("factorlab_test.moneyflow_sector" in q for q in fake.queries)
+
+
+def test_moneyflow_sector_gap_and_empty_detected(tmp_path):
+    df = _sector_df()
+    fact = _write_sector_fact(tmp_path)
+    assert RC._check_moneyflow_sector(
+        _FakeCH([_sector_agg(df.head(5))]), "factorlab_test", fact) is False
+    assert RC._check_moneyflow_sector(
+        _FakeCH([(0, None, None, 0, 0, 0, 0, 0, 0, 0, 0)]),
+        "factorlab_test", fact) is False
+
+
+def test_moneyflow_sector_key_drift_detected(tmp_path):
+    """行数/日期不变：bad board_type / 非 BK 码 / 空名称 / 键重复 / 分型漂移 → 判红。"""
+    fact = _write_sector_fact(tmp_path)
+    base = list(_sector_agg(_sector_df()))
+    for idx in (5, 6):
+        bad = base.copy()
+        bad[idx] = 1
+        assert RC._check_moneyflow_sector(
+            _FakeCH([tuple(bad)]), "factorlab_test", fact) is False
+    bad = base.copy()
+    bad[8] -= 1                      # 键 uniq 少 1 → 重复键
+    assert RC._check_moneyflow_sector(
+        _FakeCH([tuple(bad)]), "factorlab_test", fact) is False
+    bad = base.copy()
+    bad[9] += 1                      # industry 行数漂移
+    assert RC._check_moneyflow_sector(
+        _FakeCH([tuple(bad)]), "factorlab_test", fact) is False
+
+
+def test_concept_members_consistent(tmp_path):
+    df = _members_df()
+    fact = _write_members_fact(tmp_path)
+    fake = _FakeCH([_members_agg(df)])
+    assert RC._check_concept_members(fake, "factorlab_test", fact) is True
+    assert any("factorlab_test.concept_members" in q for q in fake.queries)
+
+
+def test_concept_members_missing_day_and_empty_detected(tmp_path):
+    df = _members_df()
+    fact = _write_members_fact(tmp_path)
+    assert RC._check_concept_members(
+        _FakeCH([_members_agg(df.filter(pl.col("ts_code") != "000009.SZ"))]),
+        "factorlab_test", fact) is False
+    assert RC._check_concept_members(
+        _FakeCH([(0, None, None, 0, 0, 0, 0, 0, 0, 0)]),
+        "factorlab_test", fact) is False
+
+
+def test_concept_members_key_drift_detected(tmp_path):
+    fact = _write_members_fact(tmp_path)
+    base = list(_members_agg(_members_df()))
+    for idx in (5, 6):                # 非 BK 码 / 非法 ts_code
+        bad = base.copy()
+        bad[idx] = 1
+        assert RC._check_concept_members(
+            _FakeCH([tuple(bad)]), "factorlab_test", fact) is False
+    bad = base.copy()
+    bad[4] -= 1                       # 键 uniq 少 1
+    assert RC._check_concept_members(
+        _FakeCH([tuple(bad)]), "factorlab_test", fact) is False
+    bad = base.copy()
+    bad[8] = 0                        # 每日最小行数 0 → 空日
+    assert RC._check_concept_members(
+        _FakeCH([tuple(bad)]), "factorlab_test", fact) is False
+
+
+def test_main_moneyflow_sector_exit_codes(tmp_path, monkeypatch, capsys):
+    fact = tmp_path / "moneyflow_sector.parquet"
+    df = _sector_df()
+    df.write_parquet(fact)
+    _wire_main(monkeypatch, _FakeCH([_sector_agg(df)]), src=fact,
+               which="moneyflow_sector")
+    with pytest.raises(SystemExit) as ex:
+        RC.main()
+    assert ex.value.code == 0
+    assert "moneyflow_sector" in capsys.readouterr().out
+
+    _wire_main(monkeypatch, _FakeCH([_sector_agg(df.head(5))]), src=fact,
+               which="moneyflow_sector")
+    with pytest.raises(SystemExit) as ex:
+        RC.main()
+    assert ex.value.code == 1
+
+
+def test_main_concept_members_exit_codes(tmp_path, monkeypatch, capsys):
+    fact = tmp_path / "concept_members.parquet"
+    df = _members_df()
+    df.write_parquet(fact)
+    _wire_main(monkeypatch, _FakeCH([_members_agg(df)]), src=fact,
+               which="concept_members")
+    with pytest.raises(SystemExit) as ex:
+        RC.main()
+    assert ex.value.code == 0
+    assert "concept_members" in capsys.readouterr().out
+
+    _wire_main(monkeypatch, _FakeCH([(0, None, None, 0, 0, 0, 0, 0, 0, 0)]),
+               src=fact, which="concept_members")
     with pytest.raises(SystemExit) as ex:
         RC.main()
     assert ex.value.code == 1

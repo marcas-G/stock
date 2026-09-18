@@ -91,6 +91,53 @@ CREATE TABLE IF NOT EXISTS factorlab.moneyflow (
 ) ENGINE = MergeTree
   ORDER BY (ts_code, trade_date);
 
+-- ========== 资金流扩充（R30 项 2）：板块资金 + 概念成分 ==========
+-- 来源：同一 `日线资金--每日沪深京个股日线数据和资金流数据` 分享树内 `hyzj.xls`（行业）/
+-- `gnzj.xls`（概念）与 `gn_detail.csv`（概念成分）。解析 `lib/moneyflow.py`
+-- （parse_zj_sector/parse_gn_detail，BK 码单独校验），pan_update/parse_fund_flow.py
+-- 先写 fact（data/fact/moneyflow_sector/、data/fact/concept_members/），
+-- 本目录 ingest_moneyflow.py 读 fact 全量替换灌入（TRUNCATE+INSERT 幂等）。
+-- 语义：18 项资金指标与 moneyflow 同套同名同单位（元/%；源 亿/万 已归一）；
+-- 覆盖：hyzj/gnzj 自 2026-02-04 起（源 20260903/0904/0908/0909 为增仓排名变体、
+-- 20260422 为个股串档——解析侧显式跳过，不入库）；gn_detail 自 2026-05-19 起每日快照。
+CREATE TABLE IF NOT EXISTS factorlab.moneyflow_sector (
+    trade_date    Date,
+    board_type    String,               -- 'industry' | 'concept'（hyzj | gnzj）
+    board_code    String,               -- 'BK0465'（BK+4 位；源代码壳已去）
+    board_name    String,               -- 板块名（逐日源值；源改名如实反映）
+    main_net_inflow Nullable(Float64),  -- 18 项资金指标：列名/语义/单位与 moneyflow 一致
+    auction       Nullable(Float64),
+    super_in      Nullable(Float64),
+    super_out     Nullable(Float64),
+    super_net     Nullable(Float64),
+    super_net_pct Nullable(Float64),
+    big_in        Nullable(Float64),
+    big_out       Nullable(Float64),
+    big_net       Nullable(Float64),
+    big_net_pct   Nullable(Float64),
+    mid_in        Nullable(Float64),
+    mid_out       Nullable(Float64),
+    mid_net       Nullable(Float64),
+    mid_net_pct   Nullable(Float64),
+    small_in      Nullable(Float64),
+    small_out     Nullable(Float64),
+    small_net     Nullable(Float64),
+    small_net_pct Nullable(Float64)
+) ENGINE = MergeTree
+  ORDER BY (board_type, board_code, trade_date);
+
+-- concept_members：**每日快照**（PIT 成员；同一 (trade_date, board_code) 当日成分）。
+-- 非长表 PIT 序列：判断"某日某概念成分"须按 trade_date 取当日快照。名称可为空串
+-- （源实测 BK1753 20260728 为空；改名逐日如实）。ts_code 带交易所后缀（B 股
+-- 200/201→SZ、900→SH 已覆盖）。
+CREATE TABLE IF NOT EXISTS factorlab.concept_members (
+    trade_date    Date,
+    board_code    String,               -- 'BK0490'
+    board_name    String,               -- 概念名（可空串，源如此）
+    ts_code       String                -- '000009.SZ'
+) ENGINE = MergeTree
+  ORDER BY (trade_date, board_code, ts_code);
+
 -- ========== fundamentals（T8 Plan P：财报 xlsx 当期快照） ==========
 -- 来源：夸克网盘 `财报报表---有史以来--每周更新` 的 `*更新简化个股基本面数据.xlsx`
 -- → data/raw/financial/ → parse_fundamentals_xlsx.py → fact

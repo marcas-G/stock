@@ -44,6 +44,9 @@ STAGE_CHAINS: dict[str, list[list[str]]] = {
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_bars.py")],
     ],
     "fund_flow": [
+        # 项 2：先解析 raw zip（zj/hyzj/gnzj/gn_detail）→ fact，再灌 CH moneyflow +
+        # moneyflow_sector + concept_members（parse 落 fact 后 ingest 全量重算，两步幂等）
+        [str(_VENV_PYTHON), str(_TOOLS / "pan_update" / "parse_fund_flow.py")],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_moneyflow.py")],
     ],
     "financials": [

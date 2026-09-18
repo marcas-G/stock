@@ -12,7 +12,9 @@ ClickHouse（`127.0.0.1:8123` HTTP——clickhouse-connect 仅支持 HTTP；`190
 | adj_detail / adj_event（派生：daily_fact 除权 7 列） | `data/fact/daily_fact/daily_fact.parquet`（相对 `stock/`） | 18,124,805 / 57,173 | `ch_ingest/adj_backfill.py`（R19 从 ashare 项目 12 号脚本归位），DROP+CREATE 全量 |
 | bars_1m | `data/fact/bars_1m/year=YYYY/month=MM/` | 1,853,379,840（R21 probe 实测） | 月分区 ×80 |
 | tick_trades / tick_orders / tick_snapshots | `data/fact/tick_fact/{trades,orders,snapshots}/year=YYYY/month=MM/` | 98.6 亿 | 月分区 ×13×3 |
-| moneyflow（Plan P T7；列映射见 `lib/moneyflow.py`） | `data/raw/fund_flow/**/*.zip`（月 zip 补历史 + 当月日 zip 增量，日 zip 覆盖月 zip） | 1,113,668（T10 实测，202 日 / 5,596 码） | `ingest_moneyflow.py`，TRUNCATE+INSERT 全量；**空源拒绝灌入**（不清表） |
+| moneyflow（Plan P T7；列映射见 `lib/moneyflow.py`） | `data/raw/fund_flow/**/*.zip` 内 `zj.xls`（月 zip 补历史 + 当月日 zip 增量，日 zip 覆盖月 zip） | 1,119,242（2026-09-18 实测，203 日） | `ingest_moneyflow.py`，TRUNCATE+INSERT 全量；**空源拒绝灌入**（不清表） |
+| moneyflow_sector（R30 项 2；板块资金，列名/语义同 moneyflow 18 项） | `data/fact/moneyflow_sector/moneyflow_sector.parquet`（由 `pan_update/parse_fund_flow.py` 从 `hyzj.xls`/`gnzj.xls` 生成） | 77,524（实测，147 日 / 558 板块：行业 18,480 + 概念 59,044；自 2026-02-04） | `ingest_moneyflow.py`，TRUNCATE+INSERT 全量；**空 fact 拒绝灌入** |
+| concept_members（R30 项 2；概念成分每日快照，PIT 成员） | `data/fact/concept_members/concept_members.parquet`（由 `parse_fund_flow.py` 从 `gn_detail.csv` 生成） | 7,281,555（实测，87 日 / 964 板块；自 2026-05-19，每日 81,219..85,972 行） | `ingest_moneyflow.py`，TRUNCATE+INSERT 全量；**空 fact 拒绝灌入** |
 | fundamentals（Plan P T8；当期快照，非 PIT 历史） | `data/fact/fundamentals/fundamentals_snapshot.parquet`（由 `pan_update/parse_fundamentals_xlsx.py` 从周更小 xlsx 生成） | 5,556（T10 实测） | `ingest_fundamentals.py`，TRUNCATE+INSERT 全量；**空快照拒绝灌入** |
 
 R21 行数为重灌后实测；每次重生成 daily_fact 后以 `reconcile.py` 输出为准（README 数字只在
@@ -50,9 +52,11 @@ python platform/tools/ch_ingest/adj_backfill.py   # adj_detail + adj_event（平
 python platform/tools/ch_ingest/delisted_adj_backfill.py   # 腾讯 hfq → sidecar（限流可重跑续传）
 python platform/tools/ch_ingest/ingest_daily.py --only adj_factor   # coalesce 后重灌
 
-# 6) 对账（退出码 0=全一致；14 表）
-python reconcile.py                 # 全表（含 moneyflow / fundamentals）
-python reconcile.py moneyflow       # 资金流：行数/日期/天数/关键列空值 vs raw zip 源
+# 6) 对账（退出码 0=全一致）
+python reconcile.py                 # 全表（含 moneyflow / moneyflow_sector / concept_members / fundamentals）
+python reconcile.py moneyflow       # 个股资金流：行数/日期/天数/关键列空值 vs raw zip 源
+python reconcile.py moneyflow_sector # 板块资金：行数/日期/天数/关键列/BK 码/类型分型 vs fact
+python reconcile.py concept_members  # 概念成分：行数/日期/键 uniq/码格式/每日行数 min+max vs fact
 python reconcile.py fundamentals    # 财报快照：行数/updated_date/关键列空值 vs fact parquet
 ```
 
@@ -126,4 +130,11 @@ python reconcile.py fundamentals    # 财报快照：行数/updated_date/关键�
   空值数/`ts_code` 键异常 vs `raw/fund_flow` zip 全量帧（与灌入同一 `load_frames`
   语义，含日 zip 覆盖月 zip 与去重）；**fundamentals** 行数/`updated_date` 范围/天数/
   `total_shares` 空值数/键异常 vs fact parquet（与灌入同一 `load_fact` 语义）。
+- `reconcile.py`（R30 项 2）新增两表：**moneyflow_sector** 行数/日期/天数/关键列空值/
+  board_type 合法值/BK 码格式/名称空串数/键 uniq/行业+概念分型行数 vs fact；**concept_members**
+  行数/日期/天数/键 uniq/BK 码与 ts_code 格式/名称空串数/每日行数 min+max vs fact
+  （均复用灌入同一 loader，与灌入同语义）。
+- **项 2 解析侧跳过语义**：hyzj/gnzj 源中「增仓占比排名」变体（20260903/0904/0908/0909）
+  与个股串档（20260422）由 `lib/moneyflow.parse_zj_sector` 抛 `UnsupportedSectorFormat`，
+  `load_sector_frames` 记 warning 跳过——不入库、不静默（reconcile 用同一 loader，源口径一致）。
   任一不一致 → 非零退出（`make reconcile` / `pan_update verify` 原样传播）

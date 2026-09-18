@@ -130,6 +130,10 @@ G_READ_ALLOWED = {
     ("platform/tools/ch_ingest/ch_source.py", "source_fingerprint", "man"):
         "A4：与 A3 同一份转换器自产月回执（_state/…/_daily_manifest.parquet）——"
         "源 zip name+size 摘要作 ch_ingest 月断点指纹（不自创 digest 源），非事实表分区",
+    # ── R30 项 2（资金流板块/概念成分）：灌入读 parse 产出的 fact ────────────────
+    ("platform/tools/ch_ingest/ingest_moneyflow.py", "_load_fact", "path"):
+        "项 2：moneyflow_sector/concept_members fact 是灌入的**输入源**（生产者视角，"
+        "与 fundamentals load_fact 同款），路径取 factio.paths.FACT_ROOT 单点",
 }
 _READ_CALLS = {"read_parquet", "scan_parquet", "ParquetFile"}
 # 硬规则：目标表达式里出现事实库名或分区标记 → 任何理由都不豁免（必须走平台单点）
