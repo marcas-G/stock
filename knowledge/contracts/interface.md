@@ -893,6 +893,21 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
   日频算符（ts_*/ta_*/cs_*/gp_*，含 returns/vwap/adv20 宏展开后残余）在分钟
   scope 门拒绝；im_delay k<0/k=0 拒绝。日频 scope 引用 im_*/day_* → 拒绝。
   网格/折日双断言是跨日泄漏的机械保证（B3.5）。
+- **折日物化共享（R09-PERF-I1，2026-09-18）**：`compute_formula(scope="bars_1m")`
+  在 codegen 前尝试融合路径（`core/engine/minute_fold.py`）——AST 收集全部
+  day_* 聚合项（含嵌在算术/变量链中的），按依赖分 pass；每 pass 用同链
+  codegen 把聚合参数物化一次 → 组内 over 广播（sum/mean/max/min 单 over；
+  day_first/day_last 与旧实现同形双 over），后续 pass/最终输出复用结果列。
+  `im_*` 仍走 over 路径，但输入预排序一次（已物理有序则零代价）、经物理序
+  变体去 order_by、重复子表达式 CSE 临时列只算一次。**回退语义**：分析期不
+  支持形态（跨层/未知调用、非简单赋值、保留前缀 `factorlab_fold_`/
+  `factorlab_cse_` 名字冲突、缺网格列、依赖环）→ 完整回退既有 codegen 路径
+  （行为与数值不变）。**数值锁定**：合成网格 + 真数据 4 因子同窗逐 cell 对拍
+  （`after/fold_parity.json`）——参数为纯逐行表达式时 bit-exact
+  （am_pm_vol/vol_asym）；旧路径把 im_delay/day_mean 内联进 day_* 聚合的嵌套
+  over 形态（autocorr_micro/vol_price_corr）仅末位 ulp 级差异（f32 归约计划对
+  嵌套敏感，null 掩码严格一致；新旧各自 vs f64 oracle 的舍入量级更大），
+  证据/复现见 `governance/evidence/verification/R31/minute-perf/`。
 - **参数硬校验双防线（R02-C1，2026-09-15）**：静态门折叠 Pow/IfExp/`abs`/`int`
   常量形态并解析 `from ... import ... as` 别名（`2**2-5`→-1 不再静默取未来
   分钟；别名 `imd(...)` 与跨层 `tm(...)` 同样按原名判）；`im_*` 运行时在

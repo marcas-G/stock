@@ -254,6 +254,6 @@
 
 | ID | 级 | 问题 | 位置 | 状态 | 修复说明（团队填） | 复查（reviewer） |
 |---|---|---|---|---|---|---|
-| R09-PERF-I1 | I | **分钟折日逐算子逐组逐行物化**：`minute_ops.py` 所有 `im_*`/`day_*` 内联 `.over(["code","date"], order_by=...)`，多算子串联不共享分组；含 `im_delay` 序列再产品叠加（平方/乘滞后）的形态直接 ≥15min **超时**（vol_asym/autocorr_micro/vol_price_corr）【实测】 | `platform/src/factorlab/core/ops/minute_ops.py:76-135`；`core/engine/minute.py:compute_minute_factor_panel` | open | | |
+| R09-PERF-I1 | I | **分钟折日逐算子逐组逐行物化**：`minute_ops.py` 所有 `im_*`/`day_*` 内联 `.over(["code","date"], order_by=...)`，多算子串联不共享分组；含 `im_delay` 序列再产品叠加（平方/乘滞后）的形态直接 ≥15min **超时**（vol_asym/autocorr_micro/vol_price_corr）【实测】 | `platform/src/factorlab/core/ops/minute_ops.py:76-135`；`core/engine/minute.py:compute_minute_factor_panel` | fixed-claimed | `core/engine/minute_fold.py` 融合路径（commit `2b4daae`）：day_* 聚合参数物化一次 + 组内 over 广播（死赋值剪枝）；im_* 预排序/`seq_*` 去 order_by/CSE；不支持形态完整回退旧路径。after 同窗（`governance/evidence/verification/R31/minute-perf/`）：vol_price_corr fold 64.7s→27.3s（**2.37×**）、autocorr 1.36×、am_pm_vol 1.29×；真数据 4 因子逐 cell 对拍：纯逐行参数 bit-exact，旧路径嵌套 over 形态 ≤3.3e-7（f32 ulp；旧路径自身 vs f64 oracle 达 1.2e-5）；平台全量 3447 passed（1 预存红：并发在途 `im_cummax` 未同步 catalog.md） | |
 | R09-PERF-I2 | I | **条件取值 `day_max(if_else(minute_index==k,x,None))` 全组扫描物化**：列内近全 null 仍整组 max 扫描；`day_first/day_last` 亦双 over【实测】 | `platform/src/factorlab/core/ops/minute_ops.py:102-135` | open | | |
 | R09-PERF-M3 | M | **无逐阶段计时/剖析开关**：`factorlab run` 不输出折日/label/评估/分层分段墙钟与 RSS，慢在哪一步只能外部掐表【实测】 | `platform/src/factorlab/app/run.py`（分钟链 `_run_factor_minute`） | open | | |
