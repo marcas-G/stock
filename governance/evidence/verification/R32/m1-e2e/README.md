@@ -11,6 +11,7 @@
 | `probe_rejection_matrix.py` / `rejection_matrix.{md,json}` / `rejection-matrix.log` | 拒绝矩阵 16 用例 | 全过 |
 | `health-root/` | 矩阵用独立临时 health artifact | — |
 | `legacy-default-reject.log` | 真实 LEGACY 分区默认拒 + 显式过渡 opt-in | 默认拒 ✅；opt-in 需 `completeness_required="UNKNOWN"` |
+| `post-chain-test-state.log` | T9 链跑后测试状态（ch_ingest 集成测 + data_quality） | **1 failed**（reconcile 未消费 staging 账本，见待裁定 1）；data_quality 121 ✅ |
 
 环境读数：heavy 闸报告 `avail=70.4GB / FACTORLAB_MAX_MEMORY=8GB / oom_score_adj=700`；
 T8 全史扫描 `avail=70.5GB`；全程无并发重任务冲突。

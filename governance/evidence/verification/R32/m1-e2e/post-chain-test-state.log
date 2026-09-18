@@ -1,0 +1,16 @@
+# T9 真跑后的测试状态（2026-09-19）
+# 根因：首个消费 clean staging 的生产 ingest 已执行，canonical=raw−quarantine(16,090)
+# 与 Batch B I1 预告一致（reconcile daily 将显示 CH=raw−16,090）；reconcile 尚未消费 staging 账本
+$ platform/.venv/bin/python -m pytest platform/tools/ch_ingest/tests/test_ch_data_semantics.py -q
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/data/students/gaolei/stock/platform/.venv/bin/python', '/data/students/gaolei/stock/platform/...        57,426  一致\n退市股 adj 补灌:\n  delisted_adj sidecar=  83,967 行 /  180 码  CH 缺行或空值=0  重复键=0  一致\n存在差异\n', stderr='').returncode
+
+platform/tools/ch_ingest/tests/test_ch_data_semantics.py:168: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables
+1 failed, 8 passed in 9.52s
+
+$ platform/.venv/bin/python -m pytest platform/tools/data_quality/tests -q
+.................................................                        [100%]
+121 passed in 3.74s
