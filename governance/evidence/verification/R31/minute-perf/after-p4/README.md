@@ -36,6 +36,10 @@ CH 26.3 服务器默认 `max_threads=40`/`max_block_size=65409`；**所有变体
 `session_id` 且禁止同 session 并发查询；`get_client()` 由进程级单例改为
 **线程级单例**（库方推荐），同线程复用语义不变。
 
+**端到端真跑**（`ch_knob_e2e.txt`）：真 CH 10 日窗 + `--chunk-workers 2` 下，
+`FACTORLAB_CH_MAX_THREADS=8`/`…_BLOCK_SIZE=524288` 显式设置 vs 未设（服务器
+默认）→ `signal.parquet` 逐 bit 相等、panel_rows/审计一致（全链走通且零差异）。
+
 ## 2. chunk 并行（`--chunk-workers N`，默认 1=现行为）
 
 - `--chunk-workers N`（`RunContext.chunk_workers`，CLI/flab 同名参数；仅

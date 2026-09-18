@@ -1,0 +1,30 @@
+# R09-PERF-P4：FACTORLAB_CH_MAX_THREADS/…_BLOCK_SIZE 端到端真跑（2026-09-19）
+
+口径：真 CH、窗口 2024-01-02..01-12（10 交易日、单 chunk）、`--chunk-workers 2`
+（同时验证并行 + 旋钮组合）、`--no-backtest`、经 heavy.sh（8GB 护栏）；
+spec 由 `research/factor/intraday/am_pm_vol.yaml` 改窗生成。
+
+```bash
+export FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow FACTORLAB_MINUTE_UNCOVERED=drop
+# on：旋钮显式设置
+FACTORLAB_CH_MAX_THREADS=8 FACTORLAB_CH_MAX_BLOCK_SIZE=524288 \
+  governance/ops/heavy.sh platform/.venv/bin/factorlab run <short-spec> \
+  --chunk-days 10 --chunk-workers 2 --no-backtest --output-dir /tmp/opencode/p4/knob/on
+# off：旋钮未设（服务器默认）
+env -u FACTORLAB_CH_MAX_THREADS -u FACTORLAB_CH_MAX_BLOCK_SIZE \
+  governance/ops/heavy.sh platform/.venv/bin/factorlab run <short-spec> \
+  --chunk-days 10 --chunk-workers 2 --no-backtest --output-dir /tmp/opencode/p4/knob/off
+```
+
+结果（两次均 exit 0）：
+
+```
+rows 43660 43660 equals True
+panel_rows 43660 43660 uncovered_eq True
+```
+
+- `signal.parquet` 逐 bit 相等（`pl.DataFrame.equals`）；
+- `panel_rows` 与 `minute_uncovered` 审计一致；
+- 结论：旋钮走通「env → bars_read_settings → 单查询 settings → CH」全链，且
+  on/off 数值零差异（默认路径零行为变化的端到端旁证；单查询收益见
+  `../spike/ch_read_spike.json`——噪声带，故不设平台默认）。

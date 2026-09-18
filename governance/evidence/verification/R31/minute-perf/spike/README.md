@@ -66,3 +66,15 @@ order_by=O)` 与预排序后 `.over(P)` 逐 bit 一致（含 null 掩码）—�
 | `try_fused → None`（优化器存根） | **2 failed**（路径非存根锁 + 乱序确定性锁） |
 | CSE 关闭（重复 im_* 不再共享） | **1 failed**（CSE 只算一次锁） |
 | 恢复 | 17 passed |
+
+---
+
+## R09-PERF-P4 spike（2026-09-19）：CH 查询设置 + 突变
+
+- `spike_ch_read.py` + `ch_read_spike.json`：bars_1m 单条批读 SQL（真 CH、4852
+  只 × 2024-01-02..01-12）10 变体 × 2 轮——`max_threads` 2..16、
+  `max_block_size` 128k..1M 相对默认全在 3.1–3.6s 噪声带（服务器默认
+  mt=40/bs=65409）→ 平台默认不变，仅提供 env 旋钮（见
+  [`../after-p4/README.md`](../after-p4/README.md) §1）。
+- `mutation_p4.sh` + `mutation-p4.txt`：5 处突变（预算门存根 / 并行走顺序 /
+  settings 不注入 / 全局客户端回退 / 峰值常量清零）全部被杀；恢复后 52 passed。
