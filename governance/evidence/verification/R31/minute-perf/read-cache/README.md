@@ -92,7 +92,7 @@ M5 开关恒开、M6 LRU→FIFO。还原后 `test_read_cache.py`+`test_ch_arrow_
   （`platform/tools/{lob_fact,ch_ingest,data_quality}`，DQ-M1/tick 在途）+
   G-BOUNDARY 1 处（不在本改动路径）+ G-INDEX 陈旧（挖矿在途 spec）；本改动
   路径零 BAD；G-LINT 239/0、G-REVIEWS 自洽。
-- 新增测试：`tests/test_read_cache.py` 25 条（键/指纹/开关/TTL/LRU/原子写/
+- 新增测试：`tests/test_read_cache.py` 26 条（键/指纹/开关/TTL/LRU/原子写/
   回退/空表/列序/审计/profile 段/装配透传）+ `tests/test_ch_arrow_stream.py`
   8 条（流拼接 bit-exact/空流 schema/settings/句柄透传/优先流与回退 + 3 条
   真 CH 硬门）。
