@@ -1,0 +1,4 @@
+0557a54be8e8dd090b0241251f2575b3eb1d33cc22603a561e04b473584bb302  governance/ops/memguard.py
+12258f73f14d9b5363cf8fe440c08c8043c043c31ddab44aa545d6157e401e11  governance/ops/heavy.sh
+334e2fba2cd1fb8f1ab16847c48169305617c4c606ec69157ec5b08ccedaa509  governance/ops/install_memguard.sh
+174564fb36e85a3c48bd824e39f9d767f1328a6b98d119b1229fbef58e32c2b5  governance/ops/memory-hardening-sudo.sh

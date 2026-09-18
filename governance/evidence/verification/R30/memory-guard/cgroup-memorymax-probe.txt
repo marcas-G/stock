@@ -1,0 +1,53 @@
+## user cgroup MemoryMax 实测（R30 复核，2026-09-18 11:57:27）
+```
+$ mount | grep cgroup
+tmpfs on /sys/fs/cgroup type tmpfs (ro,nosuid,nodev,noexec,mode=755)
+cgroup on /sys/fs/cgroup/unified type cgroup2 (rw,nosuid,nodev,noexec,relatime,nsdelegate)
+cgroup on /sys/fs/cgroup/systemd type cgroup (rw,nosuid,nodev,noexec,relatime,xattr,name=systemd)
+cgroup on /sys/fs/cgroup/cpu,cpuacct type cgroup (rw,nosuid,nodev,noexec,relatime,cpu,cpuacct)
+cgroup on /sys/fs/cgroup/cpuset type cgroup (rw,nosuid,nodev,noexec,relatime,cpuset)
+cgroup on /sys/fs/cgroup/rdma type cgroup (rw,nosuid,nodev,noexec,relatime,rdma)
+cgroup on /sys/fs/cgroup/memory type cgroup (rw,nosuid,nodev,noexec,relatime,memory)
+cgroup on /sys/fs/cgroup/devices type cgroup (rw,nosuid,nodev,noexec,relatime,devices)
+cgroup on /sys/fs/cgroup/pids type cgroup (rw,nosuid,nodev,noexec,relatime,pids)
+cgroup on /sys/fs/cgroup/hugetlb type cgroup (rw,nosuid,nodev,noexec,relatime,hugetlb)
+cgroup on /sys/fs/cgroup/net_cls,net_prio type cgroup (rw,nosuid,nodev,noexec,relatime,net_cls,net_prio)
+cgroup on /sys/fs/cgroup/blkio type cgroup (rw,nosuid,nodev,noexec,relatime,blkio)
+cgroup on /sys/fs/cgroup/perf_event type cgroup (rw,nosuid,nodev,noexec,relatime,perf_event)
+cgroup on /sys/fs/cgroup/freezer type cgroup (rw,nosuid,nodev,noexec,relatime,freezer)
+
+$ cat /proc/self/cgroup
+12:freezer:/
+11:perf_event:/
+10:blkio:/user.slice
+9:net_cls,net_prio:/
+8:hugetlb:/
+7:pids:/user.slice/user-1010.slice/session-73215.scope
+6:devices:/user.slice
+5:memory:/user.slice
+4:rdma:/
+3:cpuset:/
+2:cpu,cpuacct:/user.slice
+1:name=systemd:/user.slice/user-1010.slice/session-73215.scope
+0::/user.slice/user-1010.slice/session-73215.scope
+
+$ systemd-run --user -p MemoryMax=512M -p StandardOutput=inherit --wait $PY -c 'allocate 900MB'; echo exit=$?
+Running as unit: run-u50.service
+Finished with result: success
+Main processes terminated with: code=exited/status=0
+Service runtime: 740ms
+exit=0
+
+→ 结论：分配 900MB > MemoryMax 512M 仍成功（exit=0），且 memory.max 文件不存在——
+  user cgroup 内存上限在本机未生效（与任务书根因一致；systemd-run 的
+  'Running as unit' 只是单元起了，限制未落）。journal 2026-09-18 11:45:51 另有
+  run-*.scope Failed with result 'resources' 记录。故 memguard 进程级守护
+  是当前唯一可靠护栏。
+```
+
+## 复核 2：单元目录存在但 memory 控制器未委派（2026-09-18 11:57:37）
+```
+$ ls /sys/fs/cgroup/unified/user.slice/user-1010.slice/user@1010.service/ | grep -c memory.max  → 0（无 memory.max 文件）
+$ systemd-run --user -p MemoryMax=512M（每页触碰 900MB）→ exit=0
+结论不变：MemoryMax 请求被静默忽略，user cgroup 无法限制内存。
+```

@@ -1,0 +1,264 @@
+....FFFFFF.......................FFFF.FFFFFF......                       [100%]
+=================================== FAILURES ===================================
+_____________________ test_level_for_boundaries[9.99-warn] _____________________
+
+avail_gb = 9.99, expected = 'warn'
+
+    @pytest.mark.parametrize("avail_gb,expected", [
+        (20, "ok"), (10, "ok"), (9.99, "warn"), (5, "warn"),
+        (4.99, "term"), (2.5, "term"), (2.49, "kill"), (0.5, "kill"),
+    ])
+    def test_level_for_boundaries(avail_gb, expected):
+>       assert mg.level_for(int(avail_gb * GB), mg.DEFAULT_THRESHOLDS) == expected
+E       AssertionError: assert 'ok' == 'warn'
+E         
+E         - warn
+E         + ok
+
+governance/ops/tests/test_memguard.py:62: AssertionError
+______________________ test_level_for_boundaries[5-warn] _______________________
+
+avail_gb = 5, expected = 'warn'
+
+    @pytest.mark.parametrize("avail_gb,expected", [
+        (20, "ok"), (10, "ok"), (9.99, "warn"), (5, "warn"),
+        (4.99, "term"), (2.5, "term"), (2.49, "kill"), (0.5, "kill"),
+    ])
+    def test_level_for_boundaries(avail_gb, expected):
+>       assert mg.level_for(int(avail_gb * GB), mg.DEFAULT_THRESHOLDS) == expected
+E       AssertionError: assert 'ok' == 'warn'
+E         
+E         - warn
+E         + ok
+
+governance/ops/tests/test_memguard.py:62: AssertionError
+_____________________ test_level_for_boundaries[4.99-term] _____________________
+
+avail_gb = 4.99, expected = 'term'
+
+    @pytest.mark.parametrize("avail_gb,expected", [
+        (20, "ok"), (10, "ok"), (9.99, "warn"), (5, "warn"),
+        (4.99, "term"), (2.5, "term"), (2.49, "kill"), (0.5, "kill"),
+    ])
+    def test_level_for_boundaries(avail_gb, expected):
+>       assert mg.level_for(int(avail_gb * GB), mg.DEFAULT_THRESHOLDS) == expected
+E       AssertionError: assert 'ok' == 'term'
+E         
+E         - term
+E         + ok
+
+governance/ops/tests/test_memguard.py:62: AssertionError
+_____________________ test_level_for_boundaries[2.5-term] ______________________
+
+avail_gb = 2.5, expected = 'term'
+
+    @pytest.mark.parametrize("avail_gb,expected", [
+        (20, "ok"), (10, "ok"), (9.99, "warn"), (5, "warn"),
+        (4.99, "term"), (2.5, "term"), (2.49, "kill"), (0.5, "kill"),
+    ])
+    def test_level_for_boundaries(avail_gb, expected):
+>       assert mg.level_for(int(avail_gb * GB), mg.DEFAULT_THRESHOLDS) == expected
+E       AssertionError: assert 'ok' == 'term'
+E         
+E         - term
+E         + ok
+
+governance/ops/tests/test_memguard.py:62: AssertionError
+_____________________ test_level_for_boundaries[2.49-kill] _____________________
+
+avail_gb = 2.49, expected = 'kill'
+
+    @pytest.mark.parametrize("avail_gb,expected", [
+        (20, "ok"), (10, "ok"), (9.99, "warn"), (5, "warn"),
+        (4.99, "term"), (2.5, "term"), (2.49, "kill"), (0.5, "kill"),
+    ])
+    def test_level_for_boundaries(avail_gb, expected):
+>       assert mg.level_for(int(avail_gb * GB), mg.DEFAULT_THRESHOLDS) == expected
+E       AssertionError: assert 'ok' == 'kill'
+E         
+E         - kill
+E         + ok
+
+governance/ops/tests/test_memguard.py:62: AssertionError
+_____________________ test_level_for_boundaries[0.5-kill] ______________________
+
+avail_gb = 0.5, expected = 'kill'
+
+    @pytest.mark.parametrize("avail_gb,expected", [
+        (20, "ok"), (10, "ok"), (9.99, "warn"), (5, "warn"),
+        (4.99, "term"), (2.5, "term"), (2.49, "kill"), (0.5, "kill"),
+    ])
+    def test_level_for_boundaries(avail_gb, expected):
+>       assert mg.level_for(int(avail_gb * GB), mg.DEFAULT_THRESHOLDS) == expected
+E       AssertionError: assert 'ok' == 'kill'
+E         
+E         - kill
+E         + ok
+
+governance/ops/tests/test_memguard.py:62: AssertionError
+_________________________ test_decide_warn_no_victims __________________________
+
+    def test_decide_warn_no_victims():
+        d = mg.decide(8 * GB, _procs(), thresholds=mg.DEFAULT_THRESHOLDS,
+                      last_action_ts=None, now=1000.0, target_user="gaolei")
+>       assert d.level == "warn" and d.action == "none" and d.victims == ()
+E       AssertionError: assert ('ok' == 'warn'
+E         
+E         - warn
+E         + ok)
+
+governance/ops/tests/test_memguard.py:143: AssertionError
+__________________ test_decide_term_selects_victims_rss_desc ___________________
+
+    def test_decide_term_selects_victims_rss_desc():
+        d = mg.decide(4 * GB, _procs(), thresholds=mg.DEFAULT_THRESHOLDS,
+                      last_action_ts=None, now=1000.0, target_user="gaolei")
+>       assert d.level == "term" and d.action == "terminate" and d.victims == (1, 2)
+E       AssertionError: assert ('ok' == 'term'
+E         
+E         - term
+E         + ok)
+
+governance/ops/tests/test_memguard.py:149: AssertionError
+___________________ test_decide_kill_level_and_no_candidates ___________________
+
+    def test_decide_kill_level_and_no_candidates():
+        d = mg.decide(1 * GB, [P(1, 100 * MB, "python tiny")],
+                      thresholds=mg.DEFAULT_THRESHOLDS,
+                      last_action_ts=None, now=1000.0, target_user="gaolei")
+>       assert d.level == "kill" and d.action == "none" and d.victims == ()
+E       AssertionError: assert ('ok' == 'kill'
+E         
+E         - kill
+E         + ok)
+
+governance/ops/tests/test_memguard.py:156: AssertionError
+_____________________ test_decide_cooldown_blocks_for_30s ______________________
+
+    def test_decide_cooldown_blocks_for_30s():
+        kw = dict(thresholds=mg.DEFAULT_THRESHOLDS, target_user="gaolei")
+        cooling = mg.decide(1 * GB, _procs(), last_action_ts=990.0, now=1000.0, **kw)
+>       assert cooling.action == "cooldown" and cooling.victims == ()
+E       AssertionError: assert ('none' == 'cooldown'
+E         
+E         - cooldown
+E         + none)
+
+governance/ops/tests/test_memguard.py:162: AssertionError
+_______________________ test_step_dry_run_never_signals ________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2614/test_step_dry_run_never_signal0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x7f677bde2ba0>
+
+    def test_step_dry_run_never_signals(tmp_path, caplog):
+        rig = _Rig(tmp_path, avail=1 * GB, procs=[P(1, 5 * GB, "python a")], dry_run=True)
+        with caplog.at_level(logging.WARNING, logger="memguard"):
+            res = rig.step()
+        assert rig.signals == []                       # 一个信号都没发
+>       assert res.decision.action == "terminate"      # 决策仍意图终止（可审计）
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 'none' == 'terminate'
+E         
+E         - terminate
+E         + none
+
+governance/ops/tests/test_memguard.py:209: AssertionError
+_______________ test_step_sends_sigterm_then_sigkill_after_grace _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2614/test_step_sends_sigterm_then_s0')
+
+    def test_step_sends_sigterm_then_sigkill_after_grace(tmp_path):
+        rig = _Rig(tmp_path, avail=1 * GB,
+                   procs=[P(42, 5 * GB, "python a")])
+        rig.alive[42] = True                           # TERM 后仍活着 → 升级 KILL
+        res = rig.step()
+>       assert rig.signals == [(signal.SIGTERM, 42), (signal.SIGKILL, 42)]
+E       assert [] == [(<Signals.SI...KILL: 9>, 42)]
+E         
+E         Right contains 2 more items, first extra item: (<Signals.SIGTERM: 15>, 42)
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:219: AssertionError
+____________________ test_step_no_sigkill_when_process_dead ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2614/test_step_no_sigkill_when_proc0')
+
+    def test_step_no_sigkill_when_process_dead(tmp_path):
+        rig = _Rig(tmp_path, avail=1 * GB, procs=[P(42, 5 * GB, "python a")])
+        rig.alive[42] = False
+        rig.step()
+>       assert rig.signals == [(signal.SIGTERM, 42)]
+E       assert [] == [(<Signals.SIGTERM: 15>, 42)]
+E         
+E         Right contains one more item: (<Signals.SIGTERM: 15>, 42)
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:228: AssertionError
+______________________ test_step_action_sets_30s_cooldown ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2614/test_step_action_sets_30s_cool0')
+
+    def test_step_action_sets_30s_cooldown(tmp_path):
+        rig = _Rig(tmp_path, avail=1 * GB, procs=[P(42, 5 * GB, "python a")])
+        rig.alive[42] = False
+        rig.step()
+>       assert rig.g.last_action_ts == 1000.0
+E       assert None == 1000.0
+E        +  where None = <memguard.MemGuard object at 0x7f677bc81ba0>.last_action_ts
+E        +    where <memguard.MemGuard object at 0x7f677bc81ba0> = <test_memguard._Rig object at 0x7f677bd603e0>.g
+
+governance/ops/tests/test_memguard.py:235: AssertionError
+_____________________ test_step_trigger_logs_top5_snapshot _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2614/test_step_trigger_logs_top5_sn0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x7f677bc45e50>
+
+    def test_step_trigger_logs_top5_snapshot(tmp_path, caplog):
+        procs = [P(i, (10 - i) * GB, f"python w{i}.py") for i in range(7)]
+        rig = _Rig(tmp_path, avail=1 * GB, procs=procs)
+        for p in procs:
+            rig.alive[p.pid] = False
+        with caplog.at_level(logging.WARNING, logger="memguard"):
+            rig.step()
+        text = caplog.text
+        for p in procs[:5]:
+>           assert f"pid={p.pid}" in text              # 触发日志含 top5 RSS 快照
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AssertionError: assert 'pid=0' in ''
+
+governance/ops/tests/test_memguard.py:251: AssertionError
+________________________ test_step_warn_logs_no_signal _________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2614/test_step_warn_logs_no_signal0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x7f677bc460d0>
+
+    def test_step_warn_logs_no_signal(tmp_path, caplog):
+        rig = _Rig(tmp_path, avail=8 * GB, procs=[P(1, 5 * GB, "python a")])
+        with caplog.at_level(logging.WARNING, logger="memguard"):
+            res = rig.step()
+        assert rig.signals == []
+>       assert res.decision.level == "warn"
+E       AssertionError: assert 'ok' == 'warn'
+E         
+E         - warn
+E         + ok
+
+governance/ops/tests/test_memguard.py:260: AssertionError
+=========================== short test summary info ============================
+FAILED governance/ops/tests/test_memguard.py::test_level_for_boundaries[9.99-warn]
+FAILED governance/ops/tests/test_memguard.py::test_level_for_boundaries[5-warn]
+FAILED governance/ops/tests/test_memguard.py::test_level_for_boundaries[4.99-term]
+FAILED governance/ops/tests/test_memguard.py::test_level_for_boundaries[2.5-term]
+FAILED governance/ops/tests/test_memguard.py::test_level_for_boundaries[2.49-kill]
+FAILED governance/ops/tests/test_memguard.py::test_level_for_boundaries[0.5-kill]
+FAILED governance/ops/tests/test_memguard.py::test_decide_warn_no_victims - A...
+FAILED governance/ops/tests/test_memguard.py::test_decide_term_selects_victims_rss_desc
+FAILED governance/ops/tests/test_memguard.py::test_decide_kill_level_and_no_candidates
+FAILED governance/ops/tests/test_memguard.py::test_decide_cooldown_blocks_for_30s
+FAILED governance/ops/tests/test_memguard.py::test_step_dry_run_never_signals
+FAILED governance/ops/tests/test_memguard.py::test_step_sends_sigterm_then_sigkill_after_grace
+FAILED governance/ops/tests/test_memguard.py::test_step_no_sigkill_when_process_dead
+FAILED governance/ops/tests/test_memguard.py::test_step_action_sets_30s_cooldown
+FAILED governance/ops/tests/test_memguard.py::test_step_trigger_logs_top5_snapshot
+FAILED governance/ops/tests/test_memguard.py::test_step_warn_logs_no_signal
+16 failed, 34 passed in 0.40s

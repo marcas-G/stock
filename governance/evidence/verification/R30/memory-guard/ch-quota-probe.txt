@@ -1,0 +1,19 @@
+=== system.server_settings: max_server_memory_usage 生效（changed=1, 28GiB） ===
+   ┌─name────────────────────┬─value───────┬─changed─┐
+1. │ max_server_memory_usage │ 30064771072 │       1 │
+   └─────────────────────────┴─────────────┴─────────┘
+
+=== max_memory_usage_for_all_queries：全局 tracker 配置（config.xml 12GiB；system.settings 显示 profile 默认 0 属预期） ===
+   ┌─name─────────────────────────────┬─value─┬─changed─┐
+1. │ max_memory_usage_for_all_queries │ 0     │       0 │
+   └──────────────────────────────────┴───────┴─────────┘
+
+=== 会话默认单查询上限（users.xml） ===
+   ┌─name─────────────┬─value──────┬─changed─┐
+1. │ max_memory_usage │ 8589934592 │       1 │
+   └──────────────────┴────────────┴─────────┘
+
+=== 活跃 MemoryTracking ===
+   ┌─metric─────────┬────value─┐
+1. │ MemoryTracking │ 40480181 │ -- 40.48 million
+   └────────────────┴──────────┘

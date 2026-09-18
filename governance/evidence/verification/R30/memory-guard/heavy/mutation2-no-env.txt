@@ -1,0 +1,77 @@
+F..FFF.                                                                  [100%]
+=================================== FAILURES ===================================
+_______________________ test_injects_guard_env_and_nice ________________________
+
+env = {'CONDA_SHLVL': '1', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=...6:', 'LD_LIBRARY_PATH': '/home/gaolei/cuda-12.2/lib64:', 'CONDA_EXE': '/data/students/gaolei/anaconda3/bin/conda', ...}
+
+    def test_injects_guard_env_and_nice(env):
+        r = _run(["bash", "-c",
+                  'echo "$FACTORLAB_MAX_MEMORY|$FACTORLAB_MIN_AVAILABLE_MEMORY|'
+                  '$OMP_NUM_THREADS|$POLARS_MAX_THREADS|$(ps -o ni= -p $$ | tr -d " ")"'],
+                 env)
+>       assert r.returncode == 0, r.stderr
+E       AssertionError: /data/students/gaolei/stock/governance/ops/heavy.sh: 行 70: FACTORLAB_MAX_MEMORY: 未绑定的变量
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/data/students/gaolei/stock/governance/ops/heavy.sh', 'bash', '-c', 'echo "$FACTORLAB_...ncode=1, stdout='', stderr='/data/students/gaolei/stock/governance/ops/heavy.sh: 行 70: FACTORLAB_MAX_MEMORY: 未绑定的变量\n').returncode
+
+governance/ops/tests/test_heavy_sh.py:49: AssertionError
+_____________________ test_runs_when_available_sufficient ______________________
+
+env = {'CONDA_SHLVL': '1', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=...6:', 'LD_LIBRARY_PATH': '/home/gaolei/cuda-12.2/lib64:', 'CONDA_EXE': '/data/students/gaolei/anaconda3/bin/conda', ...}
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2603/test_runs_when_available_suffi0')
+
+    def test_runs_when_available_sufficient(env, tmp_path):
+        marker = tmp_path / "ran"
+        r = _run(["bash", "-c", f"touch {marker}"], env)
+>       assert r.returncode == 0, r.stderr
+E       AssertionError: /data/students/gaolei/stock/governance/ops/heavy.sh: 行 70: FACTORLAB_MAX_MEMORY: 未绑定的变量
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/data/students/gaolei/stock/governance/ops/heavy.sh', 'bash', '-c', 'touch /tmp/pytest...ncode=1, stdout='', stderr='/data/students/gaolei/stock/governance/ops/heavy.sh: 行 70: FACTORLAB_MAX_MEMORY: 未绑定的变量\n').returncode
+
+governance/ops/tests/test_heavy_sh.py:72: AssertionError
+____________________ test_default_concurrency_limit_is_two _____________________
+
+env = {'CONDA_SHLVL': '1', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=...6:', 'LD_LIBRARY_PATH': '/home/gaolei/cuda-12.2/lib64:', 'CONDA_EXE': '/data/students/gaolei/anaconda3/bin/conda', ...}
+
+    def test_default_concurrency_limit_is_two(env):
+        # 两个长任务占满 2 槽；第三个应阻塞（timeout → 124），释放后恢复可跑
+        p1 = subprocess.Popen(["bash", str(HEAVY), "sleep", "3"], env=env)
+        p2 = subprocess.Popen(["bash", str(HEAVY), "sleep", "3"], env=env)
+        time.sleep(0.7)
+        r = subprocess.run(["timeout", "1", "bash", str(HEAVY), "true"],
+                           env=env, capture_output=True, text=True)
+>       assert r.returncode == 124, f"第三个任务未被闸住: rc={r.returncode} {r.stderr}"
+E       AssertionError: 第三个任务未被闸住: rc=1 /data/students/gaolei/stock/governance/ops/heavy.sh: 行 70: FACTORLAB_MAX_MEMORY: 未绑定的变量
+E         
+E       assert 1 == 124
+E        +  where 1 = CompletedProcess(args=['timeout', '1', 'bash', '/data/students/gaolei/stock/governance/ops/heavy.sh', 'true'], returncode=1, stdout='', stderr='/data/students/gaolei/stock/governance/ops/heavy.sh: 行 70: FACTORLAB_MAX_MEMORY: 未绑定的变量\n').returncode
+
+governance/ops/tests/test_heavy_sh.py:83: AssertionError
+----------------------------- Captured stderr call -----------------------------
+/data/students/gaolei/stock/governance/ops/heavy.sh: 行 70: FACTORLAB_MAX_MEMORY: 未绑定的变量
+/data/students/gaolei/stock/governance/ops/heavy.sh: 行 70: FACTORLAB_MAX_MEMORY: 未绑定的变量
+____________________ test_custom_concurrency_limit_via_env _____________________
+
+env = {'CONDA_SHLVL': '1', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=...6:', 'LD_LIBRARY_PATH': '/home/gaolei/cuda-12.2/lib64:', 'CONDA_EXE': '/data/students/gaolei/anaconda3/bin/conda', ...}
+
+    def test_custom_concurrency_limit_via_env(env):
+        env["HEAVY_MAX_CONCURRENT"] = "1"
+        p1 = subprocess.Popen(["bash", str(HEAVY), "sleep", "2"], env=env)
+        time.sleep(0.5)
+        r = subprocess.run(["timeout", "1", "bash", str(HEAVY), "true"],
+                           env=env, capture_output=True, text=True)
+>       assert r.returncode == 124
+E       AssertionError: assert 1 == 124
+E        +  where 1 = CompletedProcess(args=['timeout', '1', 'bash', '/data/students/gaolei/stock/governance/ops/heavy.sh', 'true'], returncode=1, stdout='', stderr='/data/students/gaolei/stock/governance/ops/heavy.sh: 行 70: FACTORLAB_MAX_MEMORY: 未绑定的变量\n').returncode
+
+governance/ops/tests/test_heavy_sh.py:97: AssertionError
+----------------------------- Captured stderr call -----------------------------
+/data/students/gaolei/stock/governance/ops/heavy.sh: 行 70: FACTORLAB_MAX_MEMORY: 未绑定的变量
+=========================== short test summary info ============================
+FAILED governance/ops/tests/test_heavy_sh.py::test_injects_guard_env_and_nice
+FAILED governance/ops/tests/test_heavy_sh.py::test_runs_when_available_sufficient
+FAILED governance/ops/tests/test_heavy_sh.py::test_default_concurrency_limit_is_two
+FAILED governance/ops/tests/test_heavy_sh.py::test_custom_concurrency_limit_via_env
+4 failed, 3 passed in 1.44s

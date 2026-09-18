@@ -1,0 +1,13 @@
+## 结论：test-research 的 1 条失败为预存红（挖矿在途提交 5cc51da 只提交 yaml、缺档案 md）
+
+$ git diff HEAD --name-only | grep -E 'research/|knowledge/dossiers' || echo '(空：本轮改动不含 research/ 与 dossiers)'
+research/factor/_families.yaml
+
+$ git show --stat 5cc51da | grep -c 'turnrank_top2.md'
+turnrank_top2.md 在该提交中的出现次数: 0
+
+$ git ls-files knowledge/dossiers/factors/momentum_20d/ | grep top2 || echo 'top2.md 从未入库（HEAD 也缺）'
+top2.md 从未入库（HEAD 也缺）
+
+$ git log --oneline -1 5cc51da
+5cc51da feat(factor): momentum_20d_turnrank_top{10,5,2} — 阈值扫描（观察中）

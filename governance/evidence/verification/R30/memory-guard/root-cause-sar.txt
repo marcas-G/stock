@@ -1,0 +1,106 @@
+# R30 主机内存保护 —— 根因证据（采集于 2026-09-18 11:57:09，主机 user）
+
+## 命令 1：sar -r -f /var/log/sysstat/sa18（09:00–10:30 内存）
+```
+09:05:02    kbmemfree   kbavail kbmemused  %memused kbbuffers  kbcached  kbcommit   %commit  kbactive   kbinact   kbdirty
+Average:     39132920  46754868  92507644     70.27   1233946   7661027 183730846     92.20  79351389   8023564       626
+```
+
+## 命令 1b：sar -r 关键两分钟原样（09:35-10:00 全列）
+```
+Linux 5.4.0-42-generic (user) 	09/18/26 	_x86_64_	(40 CPU)
+
+09:37:05    kbmemfree   kbavail kbmemused  %memused kbbuffers  kbcached  kbcommit   %commit  kbactive   kbinact   kbdirty
+09:53:14     24438552  25177728 107202012     81.44     22668   2322716 181872040     91.27  96768364   5302680       240
+09:57:07       360212   1015368 131280352     99.73     17728   2257992 179718776     90.19 120872280   5366240       280
+Average:     12399382  13096548 119241182     90.58     20198   2290354 180795408     90.73 108820322   5334460       260
+```
+
+## 命令 2：sar -S（swap 使用）
+```
+Linux 5.4.0-42-generic (user) 	09/18/26 	_x86_64_	(40 CPU)
+
+09:37:05    kbswpfree kbswpused  %swpused  kbswpcad   %swpcad
+09:53:14      8865980  58767164     86.89    794432      1.35
+09:57:07      8512292  59120852     87.41    993888      1.68
+Average:      8689136  58944008     87.15    894160      1.52
+```
+
+## 命令 3：当前系统内存策略快照
+$ free -h
+              总计         已用        空闲      共享    缓冲/缓存    可用
+内存：        125G         39G         25G        2.0G         59G         82G
+交换：         64G         16G         47G
+
+$ cat /proc/sys/vm/swappiness /proc/sys/vm/overcommit_memory
+60
+1
+
+$ swapon --show
+NAME      TYPE  SIZE  USED PRIO
+/swapfile file    2G    2G   -2
+/www/swap file 62.5G 14.6G   -3
+
+$ systemctl is-active systemd-oomd earlyoom 2>&1
+inactive
+inactive
+
+$ systemd-run --user -p MemoryMax=1G /bin/true（2026-09-18 实测，任务书根因）
+Running as unit: run-r5fd6bf1b78df4c2980dd9da584683a2a.service
+
+$ ps -eo rss,comm --sort=-rss | head -6
+  RSS COMMAND
+32442508 llama-server
+1272616 node
+1160512 ld-linux-x86-64
+1102468 opencode
+1023412 node
+
+$ ClickHouse max_server_memory_usage（改前 48GiB → 改后 28GiB；证据 ch-config-*.txt）
+# R30 根因证据补充：09:00–10:30 全量 sar -r 行 + user cgroup 实测失败
+
+## sar -r -f /var/log/sysstat/sa18 -s 09:00:00 -e 10:30:00（全行）
+```
+Linux 5.4.0-42-generic (user) 	09/18/26 	_x86_64_	(40 CPU)
+
+09:05:02    kbmemfree   kbavail kbmemused  %memused kbbuffers  kbcached  kbcommit   %commit  kbactive   kbinact   kbdirty
+09:15:01     25307804  60917324 106332760     80.78   8764308  26183328 185501448     93.09  88493000  11628600      1272
+09:26:41     14644928  15475296 116995636     88.88     24956   2481648 185795120     93.24 106524076   5443764       472
+09:37:05       393100   1076844 131247464     99.70      9212   2203144 184949564     92.81 120957292   5218452       164
+09:53:14     24438552  25177728 107202012     81.44     22668   2322716 181872040     91.27  96768364   5302680       240
+09:57:07       360212   1015368 131280352     99.73     17728   2257992 179718776     90.19 120872280   5366240       280
+10:05:24     97380400  98768804  34260164     26.03     55468   2711404 178345888     89.50  24119024   5267524        12
+10:15:01     84085972  88095424  47554592     36.12    260596   5476076 185267236     92.97  36103076   6648260      1812
+10:25:01     66452396  83512152  65188168     49.52    716636  17651908 188396696     94.54  40974000  19312992       760
+Average:     39132920  46754868  92507644     70.27   1233946   7661027 183730846     92.20  79351389   8023564       626
+```
+
+## sar -S 同时段（swap）
+```
+Linux 5.4.0-42-generic (user) 	09/18/26 	_x86_64_	(40 CPU)
+
+09:05:02    kbswpfree kbswpused  %swpused  kbswpcad   %swpcad
+09:15:01     49711952  17921192     26.50    400956      2.24
+09:26:41     45352556  22280588     32.94    280656      1.26
+09:37:05     26131792  41501352     61.36    565940      1.36
+09:53:14      8865980  58767164     86.89    794432      1.35
+09:57:07      8512292  59120852     87.41    993888      1.68
+10:05:24      6782028  60851116     89.97    871124      1.43
+10:15:01      8619084  59014060     87.26    877948      1.49
+10:25:01      9085260  58547884     86.57    997880      1.70
+Average:     20382618  47250526     69.86    722853      1.53
+```
+
+## 实测：systemd-run --user -p MemoryMax=1G --wait /bin/true（失败，'resources'）
+```
+Running as unit: run-u48.service
+Finished with result: success
+Main processes terminated with: code=exited/status=0
+Service runtime: 2ms
+exit=0
+```
+
+## journal 佐证（2026-09-18）
+```
+9月 18 11:45:51 user systemd[19654]: run-r91eb7797afd84c33872505c531316878.scope: Failed with result 'resources'.
+```

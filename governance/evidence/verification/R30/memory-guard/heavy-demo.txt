@@ -1,0 +1,11 @@
+=== heavy.sh 正常运行（注入值 + nice） ===
+heavy.sh: slot=1/2 avail=82.8GB  max_memory=8GB -> bash -c echo "FACTORLAB_MAX_MEMORY=$FACTORLAB_MAX_MEMORY FACTORLAB_MIN_AVAILABLE_MEMORY=$FACTORLAB_MIN_AVAILABLE_MEMORY OMP_NUM_THREADS=$OMP_NUM_THREADS POLARS_MAX_THREADS=$POLARS_MAX_THREADS nice=$(ps -o ni= -p $$ | tr -d " ")"
+FACTORLAB_MAX_MEMORY=8GB FACTORLAB_MIN_AVAILABLE_MEMORY=6GB OMP_NUM_THREADS=8 POLARS_MAX_THREADS=8 nice=10
+
+=== heavy.sh 拒绝演示（fake MemAvailable=3GB） ===
+heavy.sh: 可用内存不足 8GB（当前 3.0GB）——拒绝启动重任务。
+  等待内存释放；占用线索见 ~/.local/state/memguard/memlog.tsv（memguard 10s 采样）。
+exit=3
+
+=== memguard --once --dry-run（真实 /proc/meminfo） ===
+{"time": 1789703574, "available": 88873005056, "swap_free": 50832076800, "level": "ok", "action": "none", "victims": [], "executed": false, "dry_run": true}

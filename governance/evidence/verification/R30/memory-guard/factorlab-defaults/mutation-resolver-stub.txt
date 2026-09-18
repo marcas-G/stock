@@ -1,0 +1,131 @@
+..FFFFF............................FF..                                  [100%]
+=================================== FAILURES ===================================
+___________________ test_cli_resolve_defaults_when_env_unset ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbbf15c8180>
+
+    def test_cli_resolve_defaults_when_env_unset(monkeypatch):
+        monkeypatch.setattr(settings, "max_memory", None)
+        monkeypatch.setattr(settings, "min_available_memory", None)
+        max_rss, min_avail = resolve_cli_guardrails(total_memory=100 * GB)
+>       assert max_rss == 12 * GB                # min(16GB, 12%)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert None == (12 * 1073741824)
+
+platform/tests/test_memory_guard.py:254: AssertionError
+_____________________ test_cli_resolve_explicit_values_win _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbbf15c8640>
+
+    def test_cli_resolve_explicit_values_win(monkeypatch):
+        monkeypatch.setattr(settings, "max_memory", "8GB")
+        monkeypatch.setattr(settings, "min_available_memory", "2GB")
+>       assert resolve_cli_guardrails(total_memory=100 * GB) == (8 * GB, 2 * GB)
+E       assert (None, None) == (8589934592, 2147483648)
+E         
+E         At index 0 diff: None != 8589934592
+E         Use -v to get more diff
+
+platform/tests/test_memory_guard.py:261: AssertionError
+______________________ test_cli_resolve_off_none_disables ______________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbbf1592f90>
+
+    def test_cli_resolve_off_none_disables(monkeypatch):
+        monkeypatch.setattr(settings, "max_memory", "off")
+        monkeypatch.setattr(settings, "min_available_memory", "none")
+        assert resolve_cli_guardrails(total_memory=100 * GB) == (None, None)
+        # 单边关闭：另一边仍取默认（独立语义）
+        monkeypatch.setattr(settings, "min_available_memory", None)
+>       assert resolve_cli_guardrails(total_memory=100 * GB) == (None, 6 * GB)
+E       assert (None, None) == (None, 6442450944)
+E         
+E         At index 1 diff: None != 6442450944
+E         Use -v to get more diff
+
+platform/tests/test_memory_guard.py:270: AssertionError
+_____________________ test_cli_resolve_invalid_fails_loud ______________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbbf171a7a0>
+
+    def test_cli_resolve_invalid_fails_loud(monkeypatch):
+        monkeypatch.setattr(settings, "max_memory", "8XB")
+>       with pytest.raises(ValueError, match="内存"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+platform/tests/test_memory_guard.py:275: Failed
+__________ test_cli_guardrails_context_enables_watchdog_then_restores __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbbf171b350>
+
+    def test_cli_guardrails_context_enables_watchdog_then_restores(monkeypatch):
+        monkeypatch.setattr(settings, "max_memory", None)
+        monkeypatch.setattr(settings, "min_available_memory", None)
+        with cli_memory_guardrails(total_memory=100 * GB) as (max_rss, min_avail):
+>           assert (max_rss, min_avail) == (12 * GB, 6 * GB)
+E           assert (None, None) == (12884901888, 6442450944)
+E             
+E             At index 0 diff: None != 12884901888
+E             Use -v to get more diff
+
+platform/tests/test_memory_guard.py:283: AssertionError
+_______________ test_run_cli_memory_abort_exit1_clean_no_summary _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2607/test_run_cli_memory_abort_exit0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbbf0862510>
+
+    def test_run_cli_memory_abort_exit1_clean_no_summary(tmp_path, monkeypatch):
+        """R05-C1：人为极小 FACTORLAB_MAX_MEMORY → MemoryLimitExceeded 被 CLI 捕获
+        （ValueError 路径）→ exit 1 + 明确文案；不落任何可加载半成品。"""
+        build_db(tmp_path, n_days=9)
+        spec_path = _mem_spec(tmp_path)
+        monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+        monkeypatch.setattr("factorlab.config.settings.max_memory", "1KB")
+        monkeypatch.setattr("factorlab.app.memory.apply_address_space_limit",
+                            lambda b, **kw: None)   # 本测试只验软护栏（不真 setrlimit）
+        out_dir = tmp_path / "results" / "memdemo"
+        result = runner.invoke(app, ["run", str(spec_path), "--output-dir", str(out_dir)])
+>       assert result.exit_code == 1
+E       assert 0 == 1
+E        +  where 0 = <Result okay>.exit_code
+
+platform/tests/test_cli_run.py:788: AssertionError
+________ test_run_cli_default_guardrail_aborts_when_host_available_low _________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2607/test_run_cli_default_guardrail0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbbe377d6a0>
+
+    def test_run_cli_default_guardrail_aborts_when_host_available_low(tmp_path, monkeypatch):
+        """R30：env 未设时 CLI run 默认 FACTORLAB_MIN_AVAILABLE_MEMORY=6GB——
+        主机可用内存 1GB 时干净 exit 1（安全预检真的接线到看门狗，不是纸面默认）。"""
+        build_db(tmp_path, n_days=9)
+        spec_path = _mem_spec(tmp_path)
+        monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+        monkeypatch.setattr("factorlab.config.settings.max_memory", None)
+        monkeypatch.setattr("factorlab.config.settings.min_available_memory", None)
+        monkeypatch.setattr("factorlab.app.memory._default_available_reader",
+                            lambda: 1 * 1024 ** 3)
+        out_dir = tmp_path / "results" / "memdemo"
+        result = runner.invoke(app, ["run", str(spec_path), "--output-dir", str(out_dir)])
+>       assert result.exit_code == 1, result.output
+E       AssertionError: 提示: 十分位组 [0, 1, 3, 4, 5, 6, 8, 9]（0=最小 
+E         signal）全期无有效收益——信号重并列/离散时分位跳档，spread/单调性不可用；建议降低
+E         分组数或改用其他评估口径
+E         提示: 档位 ['D1', 'D2', 'D4', 'D5', 'D6', 'D7', 'D9', 'D10'] 
+E         全期无股票——universe 过小或 --groups 过大
+E         memdemo: n_weeks=8 ic_mean=1.0 spread=nan freq=daily
+E         
+E       assert 0 == 1
+E        +  where 0 = <Result okay>.exit_code
+
+platform/tests/test_cli_run.py:809: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tests/test_memory_guard.py::test_cli_resolve_defaults_when_env_unset
+FAILED platform/tests/test_memory_guard.py::test_cli_resolve_explicit_values_win
+FAILED platform/tests/test_memory_guard.py::test_cli_resolve_off_none_disables
+FAILED platform/tests/test_memory_guard.py::test_cli_resolve_invalid_fails_loud
+FAILED platform/tests/test_memory_guard.py::test_cli_guardrails_context_enables_watchdog_then_restores
+FAILED platform/tests/test_cli_run.py::test_run_cli_memory_abort_exit1_clean_no_summary
+FAILED platform/tests/test_cli_run.py::test_run_cli_default_guardrail_aborts_when_host_available_low
+7 failed, 32 passed, 38 deselected in 16.01s

@@ -1,0 +1,12 @@
+=== 改前 system.server_settings（2026-09-18 11:55:51） ===
+   ┌─name────────────────────┬─value───────┬─changed─┐
+1. │ max_server_memory_usage │ 51539607552 │       1 │
+   └─────────────────────────┴─────────────┴─────────┘
+
+=== 改前 config.xml 行 ===
+12:    <!-- 内存护栏：机器 125GB，vllm/yolo 等其它任务在用；server 上限 12GiB，单查询 8GiB -->
+13:    <max_server_memory_usage>51539607552</max_server_memory_usage>
+14:    <max_memory_usage_for_all_queries>25769803776</max_memory_usage_for_all_queries>
+
+=== 改前活跃查询（system.processes） ===
+1

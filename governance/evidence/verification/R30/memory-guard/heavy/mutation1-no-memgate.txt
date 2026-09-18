@@ -1,0 +1,19 @@
+..F....                                                                  [100%]
+=================================== FAILURES ===================================
+____________________ test_refuses_when_available_below_8gb _____________________
+
+env = {'CONDA_SHLVL': '1', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=...6:', 'LD_LIBRARY_PATH': '/home/gaolei/cuda-12.2/lib64:', 'CONDA_EXE': '/data/students/gaolei/anaconda3/bin/conda', ...}
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2602/test_refuses_when_available_be0')
+
+    def test_refuses_when_available_below_8gb(env, tmp_path):
+        env["HEAVY_MEMINFO_FILE"] = str(_meminfo(3))
+        marker = tmp_path / "ran"
+        r = _run(["bash", "-c", f"touch {marker}"], env)
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['bash', '/data/students/gaolei/stock/governance/ops/heavy.sh', 'bash', '-c', 'touch /tmp/pytest... avail=3.0GB  max_memory=8GB -> bash -c touch /tmp/pytest-of-gaolei/pytest-2602/test_refuses_when_available_be0/ran\n').returncode
+
+governance/ops/tests/test_heavy_sh.py:64: AssertionError
+=========================== short test summary info ============================
+FAILED governance/ops/tests/test_heavy_sh.py::test_refuses_when_available_below_8gb
+1 failed, 6 passed in 5.38s

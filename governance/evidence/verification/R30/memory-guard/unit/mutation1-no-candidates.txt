@@ -1,0 +1,346 @@
+..........FFFFFFFFFFF.........FF..F.F.FFFF........                       [100%]
+=================================== FAILURES ===================================
+___________________ test_select_candidates_only_target_user ____________________
+
+    def test_select_candidates_only_target_user():
+        procs = [P(1, 5 * GB, "python heavy.py", user="someone_else"),
+                 P(2, 5 * GB, "python heavy.py")]
+        got = mg.select_candidates(procs, target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [2]
+E       assert [] == [2]
+E         
+E         Right contains one more item: 2
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:72: AssertionError
+_______________ test_select_candidates_requires_rss_at_least_2gb _______________
+
+    def test_select_candidates_requires_rss_at_least_2gb():
+        procs = [P(1, 2 * GB - 1, "python a.py"), P(2, 2 * GB, "python b.py")]
+        got = mg.select_candidates(procs, target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [2]
+E       assert [] == [2]
+E         
+E         Right contains one more item: 2
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:79: AssertionError
+_______ test_select_candidates_matches_heavy_cmd_patterns[python run.py] _______
+
+cmd = 'python run.py'
+
+    @pytest.mark.parametrize("cmd", [
+        "python run.py", "pytest -q", "vllm serve model", "run_pipeline all",
+        "factorlab run spec.yaml", "convert parquet", "ch_ingest daily",
+        "polars scan", "jupyter-lab",
+    ])
+    def test_select_candidates_matches_heavy_cmd_patterns(cmd):
+        got = mg.select_candidates([P(7, 3 * GB, cmd)], target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [7]
+E       assert [] == [7]
+E         
+E         Right contains one more item: 7
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:90: AssertionError
+_________ test_select_candidates_matches_heavy_cmd_patterns[pytest -q] _________
+
+cmd = 'pytest -q'
+
+    @pytest.mark.parametrize("cmd", [
+        "python run.py", "pytest -q", "vllm serve model", "run_pipeline all",
+        "factorlab run spec.yaml", "convert parquet", "ch_ingest daily",
+        "polars scan", "jupyter-lab",
+    ])
+    def test_select_candidates_matches_heavy_cmd_patterns(cmd):
+        got = mg.select_candidates([P(7, 3 * GB, cmd)], target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [7]
+E       assert [] == [7]
+E         
+E         Right contains one more item: 7
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:90: AssertionError
+_____ test_select_candidates_matches_heavy_cmd_patterns[vllm serve model] ______
+
+cmd = 'vllm serve model'
+
+    @pytest.mark.parametrize("cmd", [
+        "python run.py", "pytest -q", "vllm serve model", "run_pipeline all",
+        "factorlab run spec.yaml", "convert parquet", "ch_ingest daily",
+        "polars scan", "jupyter-lab",
+    ])
+    def test_select_candidates_matches_heavy_cmd_patterns(cmd):
+        got = mg.select_candidates([P(7, 3 * GB, cmd)], target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [7]
+E       assert [] == [7]
+E         
+E         Right contains one more item: 7
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:90: AssertionError
+_____ test_select_candidates_matches_heavy_cmd_patterns[run_pipeline all] ______
+
+cmd = 'run_pipeline all'
+
+    @pytest.mark.parametrize("cmd", [
+        "python run.py", "pytest -q", "vllm serve model", "run_pipeline all",
+        "factorlab run spec.yaml", "convert parquet", "ch_ingest daily",
+        "polars scan", "jupyter-lab",
+    ])
+    def test_select_candidates_matches_heavy_cmd_patterns(cmd):
+        got = mg.select_candidates([P(7, 3 * GB, cmd)], target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [7]
+E       assert [] == [7]
+E         
+E         Right contains one more item: 7
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:90: AssertionError
+__ test_select_candidates_matches_heavy_cmd_patterns[factorlab run spec.yaml] __
+
+cmd = 'factorlab run spec.yaml'
+
+    @pytest.mark.parametrize("cmd", [
+        "python run.py", "pytest -q", "vllm serve model", "run_pipeline all",
+        "factorlab run spec.yaml", "convert parquet", "ch_ingest daily",
+        "polars scan", "jupyter-lab",
+    ])
+    def test_select_candidates_matches_heavy_cmd_patterns(cmd):
+        got = mg.select_candidates([P(7, 3 * GB, cmd)], target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [7]
+E       assert [] == [7]
+E         
+E         Right contains one more item: 7
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:90: AssertionError
+______ test_select_candidates_matches_heavy_cmd_patterns[convert parquet] ______
+
+cmd = 'convert parquet'
+
+    @pytest.mark.parametrize("cmd", [
+        "python run.py", "pytest -q", "vllm serve model", "run_pipeline all",
+        "factorlab run spec.yaml", "convert parquet", "ch_ingest daily",
+        "polars scan", "jupyter-lab",
+    ])
+    def test_select_candidates_matches_heavy_cmd_patterns(cmd):
+        got = mg.select_candidates([P(7, 3 * GB, cmd)], target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [7]
+E       assert [] == [7]
+E         
+E         Right contains one more item: 7
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:90: AssertionError
+______ test_select_candidates_matches_heavy_cmd_patterns[ch_ingest daily] ______
+
+cmd = 'ch_ingest daily'
+
+    @pytest.mark.parametrize("cmd", [
+        "python run.py", "pytest -q", "vllm serve model", "run_pipeline all",
+        "factorlab run spec.yaml", "convert parquet", "ch_ingest daily",
+        "polars scan", "jupyter-lab",
+    ])
+    def test_select_candidates_matches_heavy_cmd_patterns(cmd):
+        got = mg.select_candidates([P(7, 3 * GB, cmd)], target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [7]
+E       assert [] == [7]
+E         
+E         Right contains one more item: 7
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:90: AssertionError
+________ test_select_candidates_matches_heavy_cmd_patterns[polars scan] ________
+
+cmd = 'polars scan'
+
+    @pytest.mark.parametrize("cmd", [
+        "python run.py", "pytest -q", "vllm serve model", "run_pipeline all",
+        "factorlab run spec.yaml", "convert parquet", "ch_ingest daily",
+        "polars scan", "jupyter-lab",
+    ])
+    def test_select_candidates_matches_heavy_cmd_patterns(cmd):
+        got = mg.select_candidates([P(7, 3 * GB, cmd)], target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [7]
+E       assert [] == [7]
+E         
+E         Right contains one more item: 7
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:90: AssertionError
+________ test_select_candidates_matches_heavy_cmd_patterns[jupyter-lab] ________
+
+cmd = 'jupyter-lab'
+
+    @pytest.mark.parametrize("cmd", [
+        "python run.py", "pytest -q", "vllm serve model", "run_pipeline all",
+        "factorlab run spec.yaml", "convert parquet", "ch_ingest daily",
+        "polars scan", "jupyter-lab",
+    ])
+    def test_select_candidates_matches_heavy_cmd_patterns(cmd):
+        got = mg.select_candidates([P(7, 3 * GB, cmd)], target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [7]
+E       assert [] == [7]
+E         
+E         Right contains one more item: 7
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:90: AssertionError
+____________ test_llama_server_protected_below_38gb_candidate_above ____________
+
+    def test_llama_server_protected_below_38gb_candidate_above():
+        small = P(10, 37 * GB, "llama-server -m model.gguf")
+        big = P(11, 39 * GB, "llama-server -m model.gguf")
+        got = mg.select_candidates([small, big], target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [11]
+E       assert [] == [11]
+E         
+E         Right contains one more item: 11
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:116: AssertionError
+______________________ test_candidates_sorted_by_rss_desc ______________________
+
+    def test_candidates_sorted_by_rss_desc():
+        procs = [P(1, 3 * GB, "python a"), P(2, 8 * GB, "python b"),
+                 P(3, 5 * GB, "python c")]
+        got = mg.select_candidates(procs, target_user="gaolei",
+                                   thresholds=mg.DEFAULT_THRESHOLDS)
+>       assert [p.pid for p in got] == [2, 3, 1]
+E       assert [] == [2, 3, 1]
+E         
+E         Right contains 3 more items, first extra item: 2
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:125: AssertionError
+__________________ test_decide_term_selects_victims_rss_desc ___________________
+
+    def test_decide_term_selects_victims_rss_desc():
+        d = mg.decide(4 * GB, _procs(), thresholds=mg.DEFAULT_THRESHOLDS,
+                      last_action_ts=None, now=1000.0, target_user="gaolei")
+>       assert d.level == "term" and d.action == "terminate" and d.victims == (1, 2)
+E       AssertionError: assert ('term' == 'term'
+E         
+E           term and 'none' == 'terminate'
+E         
+E         - terminate
+E         + none)
+
+governance/ops/tests/test_memguard.py:149: AssertionError
+_____________________ test_decide_cooldown_blocks_for_30s ______________________
+
+    def test_decide_cooldown_blocks_for_30s():
+        kw = dict(thresholds=mg.DEFAULT_THRESHOLDS, target_user="gaolei")
+        cooling = mg.decide(1 * GB, _procs(), last_action_ts=990.0, now=1000.0, **kw)
+>       assert cooling.action == "cooldown" and cooling.victims == ()
+E       AssertionError: assert ('none' == 'cooldown'
+E         
+E         - cooldown
+E         + none)
+
+governance/ops/tests/test_memguard.py:162: AssertionError
+_______________________ test_step_dry_run_never_signals ________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2613/test_step_dry_run_never_signal0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x7fcd54499e80>
+
+    def test_step_dry_run_never_signals(tmp_path, caplog):
+        rig = _Rig(tmp_path, avail=1 * GB, procs=[P(1, 5 * GB, "python a")], dry_run=True)
+        with caplog.at_level(logging.WARNING, logger="memguard"):
+            res = rig.step()
+        assert rig.signals == []                       # 一个信号都没发
+>       assert res.decision.action == "terminate"      # 决策仍意图终止（可审计）
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 'none' == 'terminate'
+E         
+E         - terminate
+E         + none
+
+governance/ops/tests/test_memguard.py:209: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  memguard:memguard.py:324 memguard 内存紧张但无候选: level=kill avail=1.0GB top5: [pid=1 rss=5.0GB python]
+_______________ test_step_sends_sigterm_then_sigkill_after_grace _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2613/test_step_sends_sigterm_then_s0')
+
+    def test_step_sends_sigterm_then_sigkill_after_grace(tmp_path):
+        rig = _Rig(tmp_path, avail=1 * GB,
+                   procs=[P(42, 5 * GB, "python a")])
+        rig.alive[42] = True                           # TERM 后仍活着 → 升级 KILL
+        res = rig.step()
+>       assert rig.signals == [(signal.SIGTERM, 42), (signal.SIGKILL, 42)]
+E       assert [] == [(<Signals.SI...KILL: 9>, 42)]
+E         
+E         Right contains 2 more items, first extra item: (<Signals.SIGTERM: 15>, 42)
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:219: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  memguard:memguard.py:324 memguard 内存紧张但无候选: level=kill avail=1.0GB top5: [pid=42 rss=5.0GB python]
+____________________ test_step_no_sigkill_when_process_dead ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2613/test_step_no_sigkill_when_proc0')
+
+    def test_step_no_sigkill_when_process_dead(tmp_path):
+        rig = _Rig(tmp_path, avail=1 * GB, procs=[P(42, 5 * GB, "python a")])
+        rig.alive[42] = False
+        rig.step()
+>       assert rig.signals == [(signal.SIGTERM, 42)]
+E       assert [] == [(<Signals.SIGTERM: 15>, 42)]
+E         
+E         Right contains one more item: (<Signals.SIGTERM: 15>, 42)
+E         Use -v to get more diff
+
+governance/ops/tests/test_memguard.py:228: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  memguard:memguard.py:324 memguard 内存紧张但无候选: level=kill avail=1.0GB top5: [pid=42 rss=5.0GB python]
+______________________ test_step_action_sets_30s_cooldown ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2613/test_step_action_sets_30s_cool0')
+
+    def test_step_action_sets_30s_cooldown(tmp_path):
+        rig = _Rig(tmp_path, avail=1 * GB, procs=[P(42, 5 * GB, "python a")])
+        rig.alive[42] = False
+        rig.step()
+>       assert rig.g.last_action_ts == 1000.0
+E       assert None == 1000.0
+E        +  where None = <memguard.MemGuard object at 0x7fcd543308a0>.last_action_ts
+E        +    where <memguard.MemGuard object at 0x7fcd543308a0> = <test_memguard._Rig object at 0x7fcd54330fc0>.g
+
+governance/ops/tests/test_memguard.py:235: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  memguard:memguard.py:324 memguard 内存紧张但无候选: level=kill avail=1.0GB top5: [pid=42 rss=5.0GB python]
+=========================== short test summary info ============================
+FAILED governance/ops/tests/test_memguard.py::test_select_candidates_only_target_user
+FAILED governance/ops/tests/test_memguard.py::test_select_candidates_requires_rss_at_least_2gb
+FAILED governance/ops/tests/test_memguard.py::test_select_candidates_matches_heavy_cmd_patterns[python run.py]
+FAILED governance/ops/tests/test_memguard.py::test_select_candidates_matches_heavy_cmd_patterns[pytest -q]
+FAILED governance/ops/tests/test_memguard.py::test_select_candidates_matches_heavy_cmd_patterns[vllm serve model]
+FAILED governance/ops/tests/test_memguard.py::test_select_candidates_matches_heavy_cmd_patterns[run_pipeline all]
+FAILED governance/ops/tests/test_memguard.py::test_select_candidates_matches_heavy_cmd_patterns[factorlab run spec.yaml]
+FAILED governance/ops/tests/test_memguard.py::test_select_candidates_matches_heavy_cmd_patterns[convert parquet]
+FAILED governance/ops/tests/test_memguard.py::test_select_candidates_matches_heavy_cmd_patterns[ch_ingest daily]
+FAILED governance/ops/tests/test_memguard.py::test_select_candidates_matches_heavy_cmd_patterns[polars scan]
+FAILED governance/ops/tests/test_memguard.py::test_select_candidates_matches_heavy_cmd_patterns[jupyter-lab]
+FAILED governance/ops/tests/test_memguard.py::test_llama_server_protected_below_38gb_candidate_above
+FAILED governance/ops/tests/test_memguard.py::test_candidates_sorted_by_rss_desc
+FAILED governance/ops/tests/test_memguard.py::test_decide_term_selects_victims_rss_desc
+FAILED governance/ops/tests/test_memguard.py::test_decide_cooldown_blocks_for_30s
+FAILED governance/ops/tests/test_memguard.py::test_step_dry_run_never_signals
+FAILED governance/ops/tests/test_memguard.py::test_step_sends_sigterm_then_sigkill_after_grace
+FAILED governance/ops/tests/test_memguard.py::test_step_no_sigkill_when_process_dead
+FAILED governance/ops/tests/test_memguard.py::test_step_action_sets_30s_cooldown
+19 failed, 31 passed in 0.79s

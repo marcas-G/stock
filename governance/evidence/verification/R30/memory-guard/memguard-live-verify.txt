@@ -1,0 +1,46 @@
+=== systemctl --user status memguard.service ===
+● memguard.service - memguard host memory guard (R30; kill only heavy procs of gaolei)
+   Loaded: loaded (/home/gaolei/.config/systemd/user/memguard.service; enabled; vendor preset: enabled)
+   Active: active (running) since Fri 2026-09-18 11:52:22 CST; 29s ago
+ Main PID: 23576 (python)
+   CGroup: /user.slice/user-1010.slice/user@1010.service/memguard.service
+           └─23576 /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/governance/ops/memguard.py --interval 2 --memlog-interval 10
+
+9月 18 11:52:22 user systemd[19654]: Started memguard host memory guard (R30; kill only heavy procs of gaolei).
+9月 18 11:52:22 user python[23576]: 2026-09-18 11:52:22,550 INFO memguard memguard 启动: user=gaolei interval=2.0s dry_run=False state=/home/gaolei/.local/state/memguard thresholds(warn=10.0GB term=5.0GB kill=2.5GB candidate>=2.0GB)
+
+=== journalctl --user -u memguard -n 8 ===
+-- Logs begin at Sun 2026-04-19 18:07:25 CST, end at Fri 2026-09-18 11:52:22 CST. --
+9月 18 11:52:22 user systemd[19654]: memguard.service: Failed to add inotify watch descriptor for control group /user.slice/user-1010.slice/user@1010.service/memguard.service: No space left on device
+9月 18 11:52:22 user systemd[19654]: Started memguard host memory guard (R30; kill only heavy procs of gaolei).
+9月 18 11:52:22 user python[23576]: 2026-09-18 11:52:22,550 INFO memguard memguard 启动: user=gaolei interval=2.0s dry_run=False state=/home/gaolei/.local/state/memguard thresholds(warn=10.0GB term=5.0GB kill=2.5GB candidate>=2.0GB)
+
+=== ~/.local/state/memguard/memlog.tsv (10s 取证采样) ===
+time	avail	swap_free	load1	top5
+1789703542	88868708352	50831552512	5.14	5981:30.9GB 35369:1.2GB 35893:1.1GB 32813:999.4MB 34374:821.7MB
+1789703553	88877490176	50831552512	5.03	5981:30.9GB 35369:1.2GB 35893:1.1GB 32813:999.4MB 34374:822.0MB
+1789703563	88914882560	50831552512	5.12	5981:30.9GB 35369:1.2GB 35893:1.0GB 32813:999.4MB 34374:822.2MB
+
+=== install-method ===
+systemd-user
+
+=== 复核（2026-09-18 12:00:50；heartbeat 变更后 restart） ===
+● memguard.service - memguard host memory guard (R30; kill only heavy procs of gaolei)
+   Loaded: loaded (/home/gaolei/.config/systemd/user/memguard.service; enabled; vendor preset: enabled)
+   Active: active (running) since Fri 2026-09-18 11:59:04 CST; 1min 45s ago
+ Main PID: 32840 (python)
+   CGroup: /user.slice/user-1010.slice/user@1010.service/memguard.service
+           └─32840 /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/governance/ops/memguard.py --interval 2 --memlog-interval 10
+
+$ journalctl --user -u memguard --since '3 min ago' | tail -6
+9月 18 11:59:04 user systemd[19654]: Stopped memguard host memory guard (R30; kill only heavy procs of gaolei).
+9月 18 11:59:04 user systemd[19654]: memguard.service: Failed to add inotify watch descriptor for control group /user.slice/user-1010.slice/user@1010.service/memguard.service: No space left on device
+9月 18 11:59:04 user systemd[19654]: Started memguard host memory guard (R30; kill only heavy procs of gaolei).
+9月 18 11:59:04 user python[32840]: 2026-09-18 11:59:04,717 INFO memguard memguard 启动: user=gaolei interval=2.0s dry_run=False state=/home/gaolei/.local/state/memguard thresholds(warn=10.0GB term=5.0GB kill=2.5GB candidate>=2.0GB)
+9月 18 11:59:04 user python[32840]: 2026-09-18 11:59:04,871 INFO memguard memguard heartbeat: level=ok avail=82.2GB swap_free=48.0GB steps=1
+9月 18 12:00:06 user python[32840]: 2026-09-18 12:00:06,268 INFO memguard memguard heartbeat: level=ok avail=82.1GB swap_free=48.0GB steps=30
+
+$ wc -l ~/.local/state/memguard/memlog.tsv && tail -2 ~/.local/state/memguard/memlog.tsv
+50 /home/gaolei/.local/state/memguard/memlog.tsv
+1789704029	88240795648	51493203968	12.42	5981:30.9GB 35369:1.2GB 35893:1.0GB 32813:999.4MB 4259:918.0MB
+1789704040	85338095616	51493203968	11.44	5981:30.9GB 8201:3.2GB 35369:1.2GB 35893:1.0GB 32813:999.4MB

@@ -1,0 +1,11 @@
+Created symlink /home/gaolei/.config/systemd/user/default.target.wants/memguard.service → /home/gaolei/.config/systemd/user/memguard.service.
+memguard 安装路径: systemd-user
+● memguard.service - memguard host memory guard (R30; kill only heavy procs of gaolei)
+   Loaded: loaded (/home/gaolei/.config/systemd/user/memguard.service; enabled; vendor preset: enabled)
+   Active: active (running) since Fri 2026-09-18 11:52:22 CST; 2s ago
+ Main PID: 23576 (python)
+   CGroup: /user.slice/user-1010.slice/user@1010.service/memguard.service
+           └─23576 /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/governance/ops/memguard.py --interval 2 --memlog-interval 10
+
+9月 18 11:52:22 user systemd[19654]: Started memguard host memory guard (R30; kill only heavy procs of gaolei).
+9月 18 11:52:22 user python[23576]: 2026-09-18 11:52:22,550 INFO memguard memguard 启动: user=gaolei interval=2.0s dry_run=False state=/home/gaolei/.local/state/memguard thresholds(warn=10.0GB term=5.0GB kill=2.5GB candidate>=2.0GB)

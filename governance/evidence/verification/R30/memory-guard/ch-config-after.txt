@@ -1,0 +1,15 @@
+=== 改后 status（2026-09-18 11:56:39） ===
+26.3.22.7	10
+
+=== 改后 system.server_settings ===
+   ┌─name────────────────────┬─value───────┬─changed─┐
+1. │ max_server_memory_usage │ 30064771072 │       1 │
+   └─────────────────────────┴─────────────┴─────────┘
+
+=== 期望值换算 ===
+max_server_memory_usage = 30064771072 = 28GiB
+max_memory_usage_for_all_queries = 12884901888 = 12GiB
+
+=== 真实查询可用性（factorlab 表） ===
+17
+18230232

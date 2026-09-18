@@ -1,0 +1,12 @@
+>           assert md.is_file(), f"缺档案 {s['md']}"
+E           AssertionError: 缺档案 knowledge/dossiers/factors/momentum_20d/turnrank_top2.md
+E           assert False
+E            +  where False = is_file()
+E            +    where is_file = PosixPath('/data/students/gaolei/stock/knowledge/dossiers/factors/momentum_20d/turnrank_top2.md').is_file
+
+research/tools/factor_lib/tests/test_index.py:37: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches
+1 failed, 60 passed in 12.20s
+Makefile:21: recipe for target 'test-research' failed
+make: *** [test-research] Error 1
