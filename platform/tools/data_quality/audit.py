@@ -44,6 +44,11 @@ OK = "OK"
 SUSPECT = "SUSPECT"
 SKIPPED = "SKIPPED"
 
+# ── 抽样结果类型（F2：只有 DEVIATION 是「跨源不一致」升级证据）──────────
+DEVIATION = "DEVIATION"          # 有真实偏差行（deviations > 0）
+NO_OVERLAP = "NO_OVERLAP"        # 本地/远端无可比对交集（不是数据错误）
+FETCH_FAILED = "FETCH_FAILED"    # 腾讯接口失败/限流（降级 SUSPECT，不升级）
+
 PASS = aggregate.PASS
 DEGRADED = aggregate.DEGRADED
 FAIL = aggregate.FAIL
@@ -52,6 +57,9 @@ FAIL = aggregate.FAIL
 TENCENT_DAILY_URL = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
 TENCENT_COUNT = 320
 TENCENT_TIMEOUT_S = 10.0
+# F1：对拍口径必须与本地 raw **同口径**——raw 是不复权交易所价，腾讯必须取
+# 不复权（响应键 "day"）；qfq 会在除权/送转日返回复权序列 → 必然误报。
+TENCENT_ADJUST = ""
 _TENCENT_MARKET = {"SH": "sh", "SZ": "sz", "BJ": "bj"}
 
 # ── 阈值（初值；calibration 只改值不改结构）────────────────────────────
@@ -79,13 +87,18 @@ class Completeness:
 
 @dataclass(frozen=True)
 class SampleCheck:
-    """腾讯抽样对拍结果（偏差 → SUSPECT，不 FAIL）。"""
+    """腾讯抽样对拍结果（偏差 → SUSPECT，不 FAIL）。
+
+    ``kind``：OK / DEVIATION / NO_OVERLAP / FETCH_FAILED / SKIPPED——只有
+    DEVIATION 是 SYSTEMATIC_ISSUE 的「跨源不一致」升级证据（F2）。
+    """
 
     status: str
     checked: int
     deviations: int
     max_deviation: float
     detail: str
+    kind: str = OK
 
 
 @dataclass(frozen=True)
@@ -171,14 +184,19 @@ def check_reconcile(expected: int | None, actual: int) -> tuple[bool, str]:
 
 # ── 腾讯抽样（fake transport 可注入）────────────────────────────────────
 def tencent_param(symbol: str, start: str, end: str,
-                  count: int = TENCENT_COUNT) -> str:
-    """腾讯日线 param：``<market><code>,day,<start>,<end>,<count>,qfq``。"""
+                  count: int = TENCENT_COUNT, adjust: str = TENCENT_ADJUST) -> str:
+    """腾讯日线 param：``<market><code>,day,<start>,<end>,<count>[,<adjust>]``。
+
+    ``adjust=""``（默认，F1）= 不复权——与本地 raw（交易所价）同口径；
+    传入 ``"qfq"`` 才请求前复权（响应键变 ``qfqday``）。
+    """
     code, _, suffix = symbol.partition(".")
     market = _TENCENT_MARKET.get(suffix.upper())
     if market is None or not code:
         raise ValueError(
             f"腾讯抽样不支持 symbol={symbol!r}（需 <code>.<SH|SZ|BJ> canonical 形态）")
-    return f"{market}{code},day,{start},{end},{count},qfq"
+    param = f"{market}{code},day,{start},{end},{count}"
+    return f"{param},{adjust}" if adjust else param
 
 
 def sample_window(partition: str) -> tuple[str, str]:
@@ -199,20 +217,23 @@ def http_get_text(url: str, params: dict) -> str:
 
 def fetch_tencent_daily(symbol: str, start: str, end: str, *,
                         transport: Transport | None = None,
-                        count: int = TENCENT_COUNT) -> pl.DataFrame:
-    """拉取腾讯日线（qfq）→ [code, trade_date, open, high, low, close]。
+                        count: int = TENCENT_COUNT,
+                        adjust: str = TENCENT_ADJUST) -> pl.DataFrame:
+    """拉取腾讯日线（默认**不复权**，F1）→ [code, trade_date, open, high, low, close]。
 
-    JSON 行序：``data.<code>.qfqday`` = [[date, open, close, high, low, volume], ...]
-    （腾讯接口列序为 open/close/high/low/volume——按接口语义解析，不猜）。
+    JSON 行序：``data.<code>.day`` = [[date, open, close, high, low, volume], ...]
+    （腾讯接口列序为 open/close/high/low/volume——按接口语义解析，不猜）；
+    复权口径请求时响应键为 ``qfqday``（parser 两键兼容）。
     """
     tp = transport or http_get_text
-    param = tencent_param(symbol, start, end, count)
+    param = tencent_param(symbol, start, end, count, adjust)
     text = tp(TENCENT_DAILY_URL, {"param": param})
     try:
         payload = json.loads(text)
         # 真实响应键 = <market><code>（如 sh600519，2026-09-19 实测）
         node = payload["data"][param.split(",", 1)[0]]
-        rows = node.get("qfqday") or node["day"]
+        rows = (node.get("qfqday") if adjust else node.get("day")) \
+            or node.get("day") or node["qfqday"]
     except (ValueError, KeyError, TypeError) as exc:
         raise ValueError(f"腾讯日线响应无法解析（symbol={symbol}）：{exc}") from exc
     parsed = []
@@ -236,8 +257,8 @@ def compare_ohlc(local: pl.DataFrame, remote: pl.DataFrame, *,
     """
     sym_col = next((c for c in validators._SYM_ALIASES if c in local.columns), None)
     if sym_col is None or local.height == 0 or remote.height == 0:
-        return (SampleCheck(SUSPECT, 0, 0, 0.0, "抽样无可比对行（本地/远端为空）"),
-                [])
+        return (SampleCheck(SUSPECT, 0, 0, 0.0, "抽样无可比对行（本地/远端为空）",
+                            kind=NO_OVERLAP), [])
     day = pl.lit(partition).str.to_date(strict=False)
     left = (local.filter(pl.col("trade_date") == day)
             .select([pl.col(sym_col).cast(pl.String).alias("code"),
@@ -246,8 +267,8 @@ def compare_ohlc(local: pl.DataFrame, remote: pl.DataFrame, *,
                        suffix="_remote")
     if joined.height == 0:
         return (SampleCheck(SUSPECT, 0, 0, 0.0,
-                            f"抽样无交集：本地 {left.height} 行 / 远端 {remote.height} 行"),
-                [])
+                            f"抽样无交集：本地 {left.height} 行 / 远端 {remote.height} 行",
+                            kind=NO_OVERLAP), [])
     worst = 0.0
     deviations = 0
     results: list[RuleResult] = []
@@ -270,9 +291,10 @@ def compare_ohlc(local: pl.DataFrame, remote: pl.DataFrame, *,
                 f"腾讯抽样偏差：{field} 本地={row[field]!r} 腾讯={row[f'{field}_remote']!r}"
                 f"（相对偏差 {dev:.4f} > {tol}）"))
     status = SUSPECT if deviations else OK
+    kind = DEVIATION if deviations else OK
     detail = (f"抽样 {joined.height} 行（{joined['code'].n_unique()} 只），"
               f"偏差 {deviations} 行，最大相对偏差 {worst:.4%}")
-    check = SampleCheck(status, joined.height, deviations, worst, detail)
+    check = SampleCheck(status, joined.height, deviations, worst, detail, kind)
     return check, results
 
 
@@ -307,16 +329,18 @@ def detect_audit_systemic(drift: DriftCheck, sample: SampleCheck, *,
     evidence = []
     if drift.unit_suspect:
         evidence.append("单位变化")
-    if sample.status == SUSPECT:
+    if sample.kind == DEVIATION:
+        # F2：只有真实偏差（deviations > 0）才是「跨源不一致」证据；
+        # FETCH_FAILED / NO_OVERLAP 只是审计能力受限，绝不升级 SYSTEMATIC_ISSUE。
         evidence.append("跨源不一致")
     if schema_changed:
         evidence.append("schema metadata 变化")
     if not evidence:
         return None
-    count = sample.deviations if sample.status == SUSPECT else 0
+    count = sample.deviations if sample.kind == DEVIATION else 0
     return SystemicDetail(
         rule=SYSTEMATIC_CROSS_EVIDENCE, subject=drift.subject,
-        count=max(count, 1), share=drift.ratio,
+        count=count, share=drift.ratio,
         detail=(f"分布漂移（{drift.detail}）+ {'、'.join(evidence)}"
                 f" → 升级 SYSTEMATIC_ISSUE（设计 §2）"))
 
@@ -362,7 +386,6 @@ def audit_post_ingest(
     baseline: pl.DataFrame | None = None,
     sample_symbols: Sequence[str] | None = None,
     transport: Transport | None = None,
-    policy=None,
     schema_changed: bool = False,
 ) -> AuditMetrics:
     """对 canonical 写入结果做 post-ingest 审计（只读；不重跑行级校验）。
@@ -383,7 +406,8 @@ def audit_post_ingest(
         reconcile_actual if reconcile_actual is not None else actual)
 
     results: list[RuleResult] = list(pk_results)
-    sample = SampleCheck(SKIPPED, 0, 0, 0.0, "未配置抽样源（raw/symbols/transport）")
+    sample = SampleCheck(SKIPPED, 0, 0, 0.0, "未配置抽样源（raw/symbols/transport）",
+                         kind=SKIPPED)
     if raw is not None and sample_symbols and transport is not None:
         start, end = sample_window(partition)
         frames = []
@@ -398,14 +422,16 @@ def audit_post_ingest(
             sample, sample_results = compare_ohlc(raw, remote, partition=partition)
             results.extend(sample_results)
         else:
-            sample = SampleCheck(SUSPECT, 0, 0, 0.0,
-                                 f"腾讯抽样全部失败（降级 SUSPECT 不 FAIL）：{failures}")
+            sample = SampleCheck(
+                SUSPECT, 0, 0, 0.0,
+                f"腾讯抽样全部失败（降级 SUSPECT 不 FAIL）：{failures}",
+                kind=FETCH_FAILED)
 
     drift = detect_drift(canonical, baseline) if baseline is not None else \
         DriftCheck(OK, "close_mean", 1.0, False, "无基线，跳过漂移")
     if drift.status == SUSPECT:
-        results.append(RuleResult(rules.UNIT_SUSPECT, rules.WARN,
-                                  f"{partition}", drift.detail))
+        rule_id = rules.UNIT_SUSPECT if drift.unit_suspect else rules.DRIFT_SUSPECT
+        results.append(RuleResult(rule_id, rules.WARN, f"{partition}", drift.detail))
 
     systemic = detect_audit_systemic(drift, sample, schema_changed=schema_changed)
     suspect = (sample.status == SUSPECT or drift.status == SUSPECT

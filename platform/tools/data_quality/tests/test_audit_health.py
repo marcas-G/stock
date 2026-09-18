@@ -75,10 +75,11 @@ def _tencent_payload(symbol="600519.SH", day=PART, close=10.0):
     dates = [d.isoformat() for d in
              [D.fromisoformat(day) - dt.timedelta(days=i) for i in range(5, 0, -1)]
              + [D.fromisoformat(day)]]
-    # 真实腾讯响应：data 键 = <market><code>（如 sh600519）；列序 date,open,close,high,low,volume
+    # 真实腾讯响应：data 键 = <market><code>（如 sh600519）；不复权 = "day"
+    # 列序 date,open,close,high,low,volume
     rows = [[d, "10.0", f"{close}", f"{close + 0.2}", "9.8", "1000"]
             for d in dates]
-    return {"code": 0, "data": {f"{market}{code}": {"qfqday": rows}}}
+    return {"code": 0, "data": {f"{market}{code}": {"day": rows}}}
 
 
 # ── completeness.status 独立于 coverage ─────────────────────────────────
@@ -116,12 +117,39 @@ def test_tencent_sampling_fake_transport_asserts_url_and_params():
     assert calls, "必须真的发起请求（fake transport 被调用）"
     url, params = calls[0]
     assert url == audit.TENCENT_DAILY_URL
-    assert params["param"] == "sh600519,day,2026-09-01,2026-09-18,320,qfq", (
-        "腾讯日线参数必须逐字（市场前缀/起止/条数/复权口径）")
+    assert params["param"] == "sh600519,day,2026-09-01,2026-09-18,320", (
+        "腾讯日线参数必须逐字（市场前缀/起止/条数；**不复权**——F1："
+        "对拍 raw 必须同口径，qfq 会在除权日误报）")
+    assert "qfq" not in params["param"]
     assert df.columns == ["code", "trade_date", "open", "high", "low", "close"]
     assert df["trade_date"].max() == D.fromisoformat(PART)
     assert df.height == 6
     assert df.filter(pl.col("trade_date") == D.fromisoformat(PART))["close"][0] == 10.0
+
+
+def test_tencent_sample_unadjusted_matches_raw_across_ca():
+    """F1：raw（不复权）vs 腾讯 day（不复权）在除权/送转日前后逐值一致。
+
+    10 送 10 → 价格 20→10；qfq 远端会在除权日返回复权序列而本地 raw 仍是
+    交易所价 → 必然误报。不复权口径下两侧同源，抽样必须 OK。
+    """
+    raw = _frame([
+        _row(code="600519.SH", day="2026-09-16", open=20.0, high=20.5,
+             low=19.9, close=20.0),
+        _row(code="600519.SH", day=PART, open=10.0, high=10.3, low=9.9,
+             close=10.0),
+    ])
+    payload = {"code": 0, "data": {"sh600519": {"day": [
+        ["2026-09-16", "20.0", "20.0", "20.5", "19.9", "1000"],
+        [PART, "10.0", "10.0", "10.3", "9.9", "1000"],
+    ]}}}
+    calls: list = []
+    m = audit.audit_post_ingest(
+        raw, partition=PART, expected_count=2, raw=raw,
+        sample_symbols=["600519.SH"], transport=_fake_transport(payload, calls))
+    assert calls and "qfq" not in calls[0][1]["param"]
+    assert m.sample.status == audit.OK and m.sample.deviations == 0
+    assert m.suspect is False
 
 
 def test_tencent_sample_deviation_is_suspect_not_fail():
@@ -131,20 +159,47 @@ def test_tencent_sample_deviation_is_suspect_not_fail():
     m = audit.audit_post_ingest(
         _frame(_rows(5)), partition=PART, expected_count=5,
         raw=raw, sample_symbols=["600519.SH"],
-        transport=_fake_transport(_tencent_payload("600519.SH"), []), policy=policy)
+        transport=_fake_transport(_tencent_payload("600519.SH"), []))
     assert m.sample.status == audit.OK and m.sample.deviations == 0
     assert m.suspect is False
 
     m2 = audit.audit_post_ingest(
         _frame(_rows(5)), partition=PART, expected_count=5,
         raw=raw, sample_symbols=["600519.SH"],
-        transport=_fake_transport(_tencent_payload("600519.SH", close=11.0), []),
-        policy=policy)
+        transport=_fake_transport(_tencent_payload("600519.SH", close=11.0), []))
     assert m2.sample.status == audit.SUSPECT and m2.sample.deviations == 1
     assert m2.suspect is True
     # 偏差只产 WARN；FINAL 门不得因此 FAIL（设计 §2：跨源偏差 ≠ 数据错误）
     assert all(r.level in (rules.WARN, rules.INFO) for r in m2.results)
     assert audit.decide_final("PASS", m2, policy) != audit.FAIL
+
+
+def test_sample_fetch_failure_is_suspect_never_systemic_evidence():
+    """F2：抽样失败/无交集只 SUSPECT，绝不升级 SYSTEMATIC_ISSUE（不是数据错误）。"""
+    baseline = _frame(_rows(50, day=PREV, close=10.0))
+    current = _frame(_rows(50, day=PART, close=13.5))
+    raw = _frame([_row()])
+
+    def failing(url, params):
+        raise OSError("network down / rate limited")
+
+    m = audit.audit_post_ingest(current, partition=PART, expected_count=50,
+                                raw=raw, baseline=baseline,
+                                sample_symbols=["600519.SH"], transport=failing)
+    assert m.drift.status == audit.SUSPECT
+    assert m.sample.status == audit.SUSPECT and m.sample.kind == audit.FETCH_FAILED
+    assert m.sample.deviations == 0
+    assert m.systemic is None, "抽样失败不是「跨源不一致」证据（F2）"
+    assert audit.decide_final("PASS", m, _policy()) != audit.FAIL
+
+    # 无交集（NO_OVERLAP）同样不升级
+    m2 = audit.audit_post_ingest(
+        current, partition=PART, expected_count=50, baseline=baseline,
+        raw=_frame([_row(code="000001.SZ")]), sample_symbols=["600519.SH"],
+        transport=_fake_transport(_tencent_payload("600519.SH"), []))
+    assert m2.sample.kind == audit.NO_OVERLAP and m2.sample.deviations == 0
+    assert m2.systemic is None
+    assert audit.decide_final("PASS", m2, _policy()) != audit.FAIL
 
 
 # ── 漂移检测：只产 WARN/SUSPECT ──────────────────────────────────────────
@@ -178,7 +233,23 @@ def test_audit_drift_alone_stays_warn_suspect():
     assert m2.drift.status == audit.SUSPECT
     assert m2.systemic is None, "分布突变单独不得升级 SYSTEMATIC_ISSUE"
     assert all(r.level == rules.WARN for r in m2.results)
+    assert [r.rule_id for r in m2.results] == [rules.DRIFT_SUSPECT]
     assert audit.decide_final("PASS", m2, _policy()) != audit.FAIL
+
+
+def test_drift_rule_name_generic_vs_unit():
+    """F7：通用漂移 = DRIFT_SUSPECT；仅单位突变用 UNIT_SUSPECT。"""
+    baseline = _frame(_rows(50, day=PREV, close=10.0))
+    m = audit.audit_post_ingest(_frame(_rows(50, day=PART, close=13.5)),
+                                partition=PART, expected_count=50,
+                                baseline=baseline)
+    assert [r.rule_id for r in m.results] == [rules.DRIFT_SUSPECT]
+    assert rules.RULE_LEVELS[rules.DRIFT_SUSPECT] == rules.WARN
+
+    m2 = audit.audit_post_ingest(_frame(_rows(50, day=PART, close=1000.0)),
+                                 partition=PART, expected_count=50,
+                                 baseline=baseline)
+    assert [r.rule_id for r in m2.results] == [rules.UNIT_SUSPECT]
 
 
 def test_drift_plus_cross_source_evidence_escalates_systemic_fail():
@@ -190,8 +261,7 @@ def test_drift_plus_cross_source_evidence_escalates_systemic_fail():
     m = audit.audit_post_ingest(
         current, partition=PART, expected_count=50, raw=raw, baseline=baseline,
         sample_symbols=["600519.SH"],
-        transport=_fake_transport(_tencent_payload("600519.SH", close=11.0), []),
-        policy=policy)
+        transport=_fake_transport(_tencent_payload("600519.SH", close=11.0), []))
     assert m.drift.status == audit.SUSPECT and m.sample.status == audit.SUSPECT
     assert m.systemic is not None, "漂移 + 跨源不一致 = SYSTEMATIC_ISSUE（§2 升级条件）"
     assert "SYSTEMATIC" in m.systemic.rule

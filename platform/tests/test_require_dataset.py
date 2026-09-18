@@ -129,7 +129,7 @@ def test_strict_pass_only_scenario_forbids_opt_in(tmp_path):
         require_dataset(DATASET, PART, root=tmp_path, strict=True,
                         accept_quality=("PASS", "DEGRADED"),
                         override_reason="验收场景不允许")
-    _write(tmp_path, _doc(), partition="2026-09-17")
+    _write(tmp_path, _doc(partition="2026-09-17"))
     gate = require_dataset(DATASET, "2026-09-17", root=tmp_path, strict=True)
     assert gate.health_status == "PASS"
 
@@ -156,12 +156,26 @@ def test_unknown_legacy_only(tmp_path):
     assert gate.manifest_path is not None and gate.manifest_path.is_file()
 
     # UNKNOWN 但非 LEGACY（VERIFIED）→ 语义不成立，仍拒
-    _write(tmp_path, _doc(status="UNKNOWN", verification="VERIFIED"),
-           partition="2026-09-17")
+    _write(tmp_path, _doc(status="UNKNOWN", verification="VERIFIED",
+                          partition="2026-09-17"))
     with pytest.raises(DatasetQualityError):
         require_dataset(DATASET, "2026-09-17", root=tmp_path,
                         accept_quality=("PASS", "UNKNOWN"),
                         override_reason="x")
+
+
+def test_health_artifact_identity_must_match_request(tmp_path):
+    """F8：health doc 的 dataset_id / partition 必须与请求一致（防错读他人分区）。"""
+    doc = _doc()
+    doc["dataset_id"] = "other_daily"
+    _write(tmp_path, doc)
+    with pytest.raises(DatasetQualityError, match="dataset_id"):
+        require_dataset(DATASET, PART, root=tmp_path)
+
+    doc2 = _doc(partition="2026-09-17")
+    _write(tmp_path, doc2, partition=PART)     # 文件名 PART，doc 却声明另一分区
+    with pytest.raises(DatasetQualityError, match="partition"):
+        require_dataset(DATASET, PART, root=tmp_path)
 
 
 def test_missing_health_artifact_rejected_with_guidance(tmp_path):
@@ -194,8 +208,8 @@ def test_completeness_status_independent_of_coverage(tmp_path):
         require_dataset(DATASET, PART, root=tmp_path)
     assert "INCOMPLETE" in str(ei.value) or "completeness" in str(ei.value)
 
-    _write(tmp_path, _doc(completeness="UNKNOWN", coverage=0.9999),
-           partition="2026-09-17")
+    _write(tmp_path, _doc(completeness="UNKNOWN", coverage=0.9999,
+                          partition="2026-09-17"))
     with pytest.raises(DatasetQualityError):
         require_dataset(DATASET, "2026-09-17", root=tmp_path)
 

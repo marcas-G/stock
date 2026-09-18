@@ -203,6 +203,20 @@ def require_dataset(
                       f"health artifact 结构非法（{path}）",
                       guidance="重发 health（data_quality/health.py publish）")
 
+    # F8：artifact 自述身份必须与请求一致（防错读/改名污染——拒绝而非猜测）
+    if doc.get("dataset_id") != dataset:
+        raise _reject(
+            dataset, as_of, str(doc.get("health_status")),
+            f"health artifact dataset_id={doc.get('dataset_id')!r} 与请求 "
+            f"dataset={dataset!r} 不一致（错读保护）",
+            guidance="检查 health 落点/请求参数；重发对应 dataset 的 health")
+    if doc.get("partition") != as_of:
+        raise _reject(
+            dataset, as_of, str(doc.get("health_status")),
+            f"health artifact partition={doc.get('partition')!r} 与请求 "
+            f"as_of={as_of!r} 不一致（错读保护）",
+            guidance="检查 health 落点/请求分区；重发对应 partition 的 health")
+
     status = doc["health_status"]
     verification = doc.get("verification_state")
     if status not in HEALTH_STATUSES or verification not in VERIFICATION_STATES:
