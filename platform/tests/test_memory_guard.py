@@ -15,7 +15,8 @@ from factorlab.app.memory import (MINUTE_BYTES_PER_CODE_DAY, MinuteChunkSizeWarn
                                   MemoryLimitExceeded, MemoryWatchdog, apply_address_space_limit,
                                   apply_hard_memory_limit_from_settings, cli_default_max_memory,
                                   cli_memory_guardrails, format_bytes,
-                                  guard_minute_chunk_days, memory_watchdog_from_settings,
+                                  guard_minute_chunk_days, guard_minute_chunk_workers,
+                                  memory_watchdog_from_settings,
                                   parse_memory, resolve_cli_guardrails)
 from factorlab.config import settings
 
@@ -234,6 +235,34 @@ def test_guard_small_universe_allows_whole_window():
 def test_guard_uses_calibrated_per_code_day_constant():
     # 常数必须是 R04-P1 实测校准量级（~64KB/(code·日)：5207×117×64KB≈39GB）
     assert 32 * 1024 <= MINUTE_BYTES_PER_CODE_DAY <= 128 * 1024
+
+
+# ---------------- R09-PERF-P4 F1：chunk 并行预算按 chunk_days 校准 ----------------
+# 评审 F1（需修复）：固定 `N × 3.6GB/chunk` 只对 10 日/块校准成立，默认
+# 20 日/块低估 ~2×（实测 8GB 护栏 + chunk20 + N=2 放行后峰值 10.37GB、看门狗
+# 8.3GB 中止）。修复：单 chunk 估值按生效 chunk_days 线性比例（R04-P1 20 日/块
+# 6.95GB 校准）；下限 = 校准块长 10 日（更小块固定开销不降，保守不出更松的门）。
+
+def test_guard_chunk_workers_default_20_n2_refused_under_8gb():
+    # 默认 20 日/块：单 chunk 估值 3.6GB×20/10 = 7.2GB → N=2 = 14.4GB > 8GB
+    with pytest.raises(MemoryLimitExceeded, match="chunk_days=20"):
+        guard_minute_chunk_workers(2, max_rss=8 * GB, chunk_days=20)
+
+
+def test_guard_chunk_workers_chunk10_n2_allowed_under_8gb():
+    # chunk10 = 实测量程校准点：N=2 = 7.2GB ≤ 8GB → 放行（现有配方不回退）
+    guard_minute_chunk_workers(2, max_rss=8 * GB, chunk_days=10)
+
+
+def test_guard_chunk_workers_small_chunk_keeps_calibration_floor():
+    # chunk_days < 10 不把估值降到校准以下（固定开销）：N=3 仍拒 8GB
+    with pytest.raises(MemoryLimitExceeded):
+        guard_minute_chunk_workers(3, max_rss=8 * GB, chunk_days=1)
+
+
+def test_guard_chunk_workers_n1_zero_behavior():
+    # N=1（默认）永远 no-op：即使 1 字节预算、巨大 chunk 也不拒绝
+    guard_minute_chunk_workers(1, max_rss=1, chunk_days=10_000)
 
 
 # ---------------- R30：CLI `factorlab run` 护栏默认化（env 未设 → 安全默认） ----------------

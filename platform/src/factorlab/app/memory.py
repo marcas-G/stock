@@ -15,7 +15,8 @@
 - `guard_minute_chunk_days`：分钟链显式巨大 chunk / 未分块长窗的静态估算门
   （校准自 R04-P1 实测；默认自动 20 日/块路径只告警不拒绝）。
 - `guard_minute_chunk_workers`：分钟链 chunk 并行（R09-PERF-P4）的并发前内存
-  预算门（N × 3.6GB/chunk 实测上界 vs FACTORLAB_MAX_MEMORY）。
+  预算门（`N × 单 chunk 估值`，估值按生效 chunk_days 从 10 日/块实测上界线性
+  外推——R09 复评 F1，见 `minute_chunk_worker_peak_bytes`）。
 
 **默认行为**：API 直调时 `FACTORLAB_MAX_MEMORY` 与
 `FACTORLAB_MIN_AVAILABLE_MEMORY` 都未设 → 整个护栏不启用（零线程、零采样、行为
@@ -402,27 +403,53 @@ def guard_minute_chunk_days(n_codes: int, n_days: int, chunk_days: int, *,
 # ---- R09-PERF-P4：分钟链 chunk 并行内存预算门 ----
 
 # 每 chunk worker 峰值实测（R09-PERF P2/P3 bench 同窗 58 交易日全市场，
-# `before/after/after-p3/timings.md`：进程峰值 RSS 3.0–3.6GB）——取上界 3.6GB
-# 保守估算；并行 N 个 chunk 的预算 = N × 本常量（不叠加主进程基线，保守方向
-# 是少放行而非多放行）。
+# `before/after/after-p3/timings.md`：进程峰值 RSS 3.0–3.6GB **@ 10 日/块**）——
+# 取上界 3.6GB 保守估算。**R09 复评 F1**：该值只对校准块长 10 日成立，默认
+# 20 日/块按固定值低估 ~2×（实测 8GB 护栏 + chunk20 + N=2 放行后峰值 10.37GB、
+# 看门狗 8.3GB 中止——干净但标准护栏配方不成立）。R04-P1 校准 20 日/块峰值
+# 6.95GB（`R23/perf/p1-minute-before-chunk20.log`：6945132 kB）与 10 日线性
+# 外推 7.2GB 同量级（外推在上侧，保守），故估值按 chunk_days 线性比例；下限 =
+# 校准块长 10 日（更小块固定开销不随之下降，不出更松的门）。并行 N 个 chunk 的
+# 预算 = N × 单 chunk 估值（不叠加主进程基线，保守方向是少放行而非多放行）。
 MINUTE_CHUNK_WORKER_PEAK_BYTES = int(3.6 * 1024 ** 3)
+MINUTE_CHUNK_WORKER_CALIBRATION_DAYS = 10
 
 
-def guard_minute_chunk_workers(n_workers: int, *, max_rss: int | None) -> None:
-    """分钟链 `--chunk-workers N` 并发前内存预算门（R09-PERF-P4）。
+def minute_chunk_worker_peak_bytes(chunk_days: int) -> int:
+    """单 chunk worker 峰值估算：`3.6GB × max(chunk_days, 10) / 10`。
+
+    R09 复评 F1：固定 3.6GB/chunk 只按 10 日/块实测校准；默认 20 日/块按
+    比例修正为 7.2GB（R04-P1 20 日/块实测 6.95GB 的保守上界）。下限 10 日
+    = 校准块长——更小块的单 worker 固定开销（CH 查询缓冲/线程客户端/注入窗）
+    不随块长缩到 0，不收更松的口径。
+    """
+    days = max(int(chunk_days), MINUTE_CHUNK_WORKER_CALIBRATION_DAYS)
+    return (MINUTE_CHUNK_WORKER_PEAK_BYTES * days
+            // MINUTE_CHUNK_WORKER_CALIBRATION_DAYS)
+
+
+def guard_minute_chunk_workers(n_workers: int, *, max_rss: int | None,
+                               chunk_days: int) -> None:
+    """分钟链 `--chunk-workers N` 并发前内存预算门（R09-PERF-P4 + F1 校准）。
 
     - `N <= 1`（默认）→ no-op（零行为变化）；
-    - 估算 = `N × MINUTE_CHUNK_WORKER_PEAK_BYTES`（P2/P3 实测 3.0–3.6GB/chunk）；
+    - `chunk_days` = **生效块长**（`ctx.chunk_days or MINUTE_DEFAULT_CHUNK_DAYS`），
+      必须由调用方在 chunk_days 解析之后传入——固定 10 日校准常量会让默认
+      20 日/块低估 ~2×（F1 根因）；
+    - 单 chunk 估值见 `minute_chunk_worker_peak_bytes`，估算 = `N × 单 chunk`；
     - 显式护栏 `FACTORLAB_MAX_MEMORY`（= 看门狗 max_rss）且估算超预算 →
       `MemoryLimitExceeded`（读盘前拒绝；CLI exit 1 干净中止）；
     - 未设预算且估算 > 8GB → 响亮告警（N 是显式 opt-in；宿主 memguard 兜底）。
     """
     if n_workers <= 1:
         return
-    est = n_workers * MINUTE_CHUNK_WORKER_PEAK_BYTES
-    detail = (f"chunk_workers={n_workers} 预估峰值 {format_bytes(est)}"
-              f"（{n_workers} × {format_bytes(MINUTE_CHUNK_WORKER_PEAK_BYTES)}/"
-              f"chunk，R09-PERF P2/P3 bench 同窗实测 3.0–3.6GB）")
+    per_chunk = minute_chunk_worker_peak_bytes(chunk_days)
+    est = n_workers * per_chunk
+    detail = (f"chunk_workers={n_workers} × chunk_days={chunk_days} "
+              f"预估峰值 {format_bytes(est)}（单 chunk "
+              f"{format_bytes(per_chunk)} = 3.6GB × max(chunk_days, 10)/10；"
+              f"R09-PERF P2/P3 10 日/块实测 3.0–3.6GB，R04-P1 20 日/块 "
+              f"6.95GB 校准）")
     if max_rss is not None:
         if est > max_rss:
             raise MemoryLimitExceeded(

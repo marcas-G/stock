@@ -196,4 +196,15 @@ class ClickHouseRead(ReadPort):
         return set(cached)
 
     def close(self) -> None:
+        """协议兼容 no-op——客户端生命周期与句柄实例无关（R09 复评 F3）。
+
+        客户端是**线程级单例**（`get_client()`，R09-PERF-P4）：chunk 并行
+        worker 线程各持一个实例，线程随 `ThreadPoolExecutor.shutdown` 退出时
+        由解释器回收；主线程实例跨 run 复用（省每 run 重连），随进程退出回收。
+        `run_factor*` 的 `finally: rd.close()` 关闭的是**句柄**（schema 缓存等
+        实例态），CPython 引用计数下句柄释放即回收缓存；显式关闭线程客户端会
+        把「同线程后续 run 复用」变成未定义行为，且触达不到其他线程的
+        thread-local 实例，故不做。若未来引入持久连接/临时库清理需求，在此
+        实现当前线程客户端释放并补测试锁定。
+        """
         pass

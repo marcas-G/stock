@@ -25,7 +25,8 @@ class RunContext:
     （None=关闭，零行为变化；--profile/FACTORLAB_PROFILE=1 时由 CLI 装配）。
     chunk_workers：R09-PERF-P4 分钟链 chunk 并行 worker 数（1=现行为顺序执行；
     >=2 按 chunk 并行「读+折日」，有序合并；仅 interface=bars_1m 链生效，日频链
-    忽略；并发前按 N×3.6GB 对 FACTORLAB_MAX_MEMORY 做预算门）。"""
+    忽略；并发前按 chunk_days 校准的单 chunk 估值（3.6GB × max(chunk_days, 10)/10，
+    R09 复评 F1）对 FACTORLAB_MAX_MEMORY 做预算门）。"""
 
     db_path: Path = settings.platform_db  # duckdb 后端只读库路径（测试/历史库）
     data_backend: str | None = None  # 读路径后端 "duckdb"|"ch"（None → settings.data_backend）

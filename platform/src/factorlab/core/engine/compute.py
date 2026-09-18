@@ -4,6 +4,7 @@ import ast
 import datetime
 import json
 import re
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -372,9 +373,22 @@ def compute_formula(
         result = None
         if scope == "bars_1m":
             from factorlab.core.engine import minute_fold
-            result = minute_fold.try_fused(
-                df, formula, date=date, asset=asset, outputs=outputs,
-                extra_codes=extra_codes)
+            try:
+                result = minute_fold.try_fused(
+                    df, formula, date=date, asset=asset, outputs=outputs,
+                    extra_codes=extra_codes)
+            except FactorDSLError:
+                raise          # 公式/数据错误由旧路径同报，不降级掩盖
+            except Exception as exc:  # noqa: BLE001
+                # R09 复评 F5：分析期「不支持 → None」已回退；执行期异常
+                # （优化实现内部边界）同样回退旧 codegen——优化失败只回退
+                # 性能，不拖死 run；响亮告警留痕（不静默）。
+                warnings.warn(
+                    f"分钟折日融合路径执行期异常（{type(exc).__name__}: "
+                    f"{exc}）——已回退旧 codegen 路径（结果口径不变，仅性能"
+                    f"回退；详见 interface.md 分钟链一节）",
+                    RuntimeWarning, stacklevel=2)
+                result = None
         if result is None:
             result = codegen_exec(
                 df.lazy(),

@@ -1096,6 +1096,29 @@ def test_minute_chunk_workers_over_budget_refused_before_read(ch_db, tmp_path,
     assert wd.running is False               # 看门狗已停（无悬挂线程）
 
 
+def test_minute_chunk_workers_default_chunk20_n2_refused_under_8gb(
+        ch_db, tmp_path, monkeypatch):
+    """R09 复评 F1：默认 20 日/块（chunk_days=None）× N=2 在 8GB 护栏下必须
+    读盘前拒绝——固定 3.6GB/chunk 只按 10 日块校准，默认块长低估 2×
+    （实测放行后峰值 10.37GB、看门狗 8.3GB 中止）。"""
+    import factorlab.app.run as run_mod
+    _seed_wide(ch_db)
+    wd = MemoryWatchdog(max_rss=8 * 1024 ** 3, sample_interval=999,
+                        rss_reader=lambda: 512 * 1024,
+                        available_reader=lambda: 100 * 1024 ** 3)
+    monkeypatch.setattr(run_mod, "memory_watchdog_from_settings",
+                        lambda *a, **k: wd)
+    calls = _spy_bars_calls(monkeypatch)
+    spec = _spec(tmp_path, "budget20", "signal = day_last(close)",
+                 sample=_WIDE_SAMPLE)
+    out = tmp_path / "refused20"
+    with pytest.raises(MemoryLimitExceeded, match="chunk_days=20"):
+        run_factor_minute(spec, _ctx(out, chunk_workers=2))
+    assert calls == []                       # 拒绝发生在读盘前
+    assert not (out / "summary.json").exists()
+    assert wd.running is False
+
+
 def test_minute_chunk_workers_failure_propagates_no_artifacts(ch_db, tmp_path,
                                                               monkeypatch):
     """错误语义：任一 chunk 失败 → 整体失败（异常原样传播），且无半成品产物。"""

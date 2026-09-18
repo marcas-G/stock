@@ -192,6 +192,24 @@ def test_plan_missing_grid_columns_falls_back():
                                   columns=["date", "code", "close"]) is None
 
 
+def test_fused_execution_error_falls_back_to_legacy(monkeypatch):
+    """R09 复评 F5（观察项落地）：融合路径**执行期**异常 → RuntimeWarning +
+    完整回退旧 codegen，结果与旧路径逐 cell 相等——优化路径失败不得拖死 run
+    （分析期不支持已由 `try_fused→None` 回退覆盖，此处锁执行期兜底）。"""
+    from factorlab.core.engine import minute_fold
+    df = _grid()
+
+    def _boom(*a, **k):
+        raise RuntimeError("fused boom（F5 注入）")
+
+    monkeypatch.setattr(minute_fold, "try_fused", _boom)
+    with pytest.warns(RuntimeWarning, match="回退"):
+        fallback = _run(df, _AM_PM_VOL, outputs=["signal"])
+    with _legacy_mode():
+        legacy = _run(df, _AM_PM_VOL, outputs=["signal"])
+    _assert_bit_equal(fallback, legacy, ["signal"])
+
+
 # ---------------- 数值硬门：bit-exact（4 因子 + 手算 + 嵌套 + CSE） ----------------
 
 @pytest.mark.parametrize("name", ["am_pm_vol", "vol_asym"])

@@ -842,10 +842,19 @@ def _run_factor_minute(spec, ctx: RunContext,
     minute_uncovered = _minute_uncovered_summary(uncovered_mode, None)
     prof = getattr(ctx, "profiler", None)   # R09-M3 分段计时（None=关闭）
     # R09-PERF-P4：chunk 并行 opt-in（默认 1=现行为）。并发前内存预算门：
-    # N × 3.6GB/chunk（P2/P3 实测上界）超 FACTORLAB_MAX_MEMORY → 打开 DB 前拒绝。
+    # N × 单 chunk 估值（按生效 chunk_days 校准——R04-P1：10 日/块实测上界
+    # 3.6GB，20 日/块实测 6.95GB；F1 修复：先解析 chunk_days 再进预算门，
+    # 修掉默认 20 日/块按 10 日常量低估 2×）超 FACTORLAB_MAX_MEMORY →
+    # 打开 DB 前拒绝。
     chunk_workers = max(1, int(getattr(ctx, "chunk_workers", 1) or 1))
+    # R04-P1（2026-09-16）：默认自动分块——ctx.chunk_days is None 时按
+    # MINUTE_DEFAULT_CHUNK_DAYS（20 交易日/块）切；显式 ctx.chunk_days 优先。
+    # （提前到预算门前解析：块长是预算门的校准输入；数值语义不变。）
+    chunk_days = (ctx.chunk_days if ctx.chunk_days is not None
+                  else MINUTE_DEFAULT_CHUNK_DAYS)
     guard_minute_chunk_workers(chunk_workers,
-                               max_rss=None if wd is None else wd.max_rss)
+                               max_rss=None if wd is None else wd.max_rss,
+                               chunk_days=chunk_days)
     signal_artifact: SignalArtifact | None = None
     signal_frames: dict[str, pl.DataFrame] | None = None
     try:
@@ -875,12 +884,10 @@ def _run_factor_minute(spec, ctx: RunContext,
                                      n=_ADV20_LEFT_DAYS)
         warm_start = tail["warm_start"].min() if tail.height else start_d
         # R04-P1（2026-09-16）：默认自动分块——ctx.chunk_days is None 时按
-        # MINUTE_DEFAULT_CHUNK_DAYS（20 交易日/块）切；显式 ctx.chunk_days 优先。
-        # 分钟窗不跨日（chunk_calendar warmup=0），分块 == 整段逐值一致
-        # （test_minute_default_auto_chunk_* 锁默认路径，test_minute_chunked_equals_whole
-        # 锁显式 chunk_days=2 路径）。
-        chunk_days = (ctx.chunk_days if ctx.chunk_days is not None
-                      else MINUTE_DEFAULT_CHUNK_DAYS)
+        # MINUTE_DEFAULT_CHUNK_DAYS（20 交易日/块）切（已在上方预算门前解析，
+        # 见 F1）。分钟窗不跨日（chunk_calendar warmup=0），分块 == 整段逐值
+        # 一致（test_minute_default_auto_chunk_* 锁默认路径，
+        # test_minute_chunked_equals_whole 锁显式 chunk_days=2 路径）。
         # R05-C1 长窗防护：显式巨大 chunk 估算超阈值 → fail fast；偏高 → 告警
         # （默认自动路径绝不拒绝——20 日/块是实测安全点，运行时看门狗兜底）
         guard_minute_chunk_days(len(codes), cal.len(), chunk_days,

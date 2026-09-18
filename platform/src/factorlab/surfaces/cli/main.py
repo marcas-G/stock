@@ -278,7 +278,8 @@ def execute_run(
     展示/错误码）。
 
     R09-PERF-P4：`chunk_workers`（缺省 1=顺序）分钟链 chunk 并行度——仅
-    interface=bars_1m 生效（日频链忽略）；并发前按 N×3.6GB 对内存预算做门。
+    interface=bars_1m 生效（日频链忽略）；并发前按 chunk_days 校准的单 chunk
+    估值（3.6GB × max(chunk_days, 10)/10，R09 复评 F1）对内存预算做门。
     """
     from factorlab.app.run import run_factor, run_factor_minute
     from factorlab.app.context import RunContext
@@ -364,8 +365,9 @@ def run_factor_cli(
         1, "--chunk-workers", min=1,
         help="R09-PERF-P4 分钟链 chunk 并行 worker 数（默认 1=顺序现行为；"
              "N>=2 按 chunk 并行「读+折日」后有序合并，数值与 N=1 逐值一致；"
-             "并发前按 N×3.6GB/chunk 对 FACTORLAB_MAX_MEMORY 做预算门，超限拒绝；"
-             "仅 interface: bars_1m 生效）"),
+             "并发前按 chunk_days 校准的单 chunk 估值（3.6GB×max(chunk_days,"
+             "10)/10；默认 20 日块 7.2GB/chunk）对 FACTORLAB_MAX_MEMORY 做"
+             "预算门，超限拒绝；仅 interface: bars_1m 生效）"),
 ) -> None:
     """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
     --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
