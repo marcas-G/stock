@@ -87,7 +87,7 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 |------|------|
 | `factorlab version` | 打印包版本 |
 | `factorlab lint <spec.yaml>` | 校验 Spec、AST 白名单与引擎同序语义门（未知算子/负位移/未来下标，含池公式），失败时以非 0 退出 |
-| `factorlab run <spec.yaml> [--universe U] [--max-memory M] [--output-dir DIR] [--no-float32] [--backtest/--no-backtest] [--groups N] [--eval-frequency daily\|weekly] [--set k=v ...] [--chunk-days N] [--warmup-days N]` | 计算因子并评估（daily 逐日默认 / weekly 对照）+ 分层回测（默认），落盘 `runs/platform/<name>/`（缺省 results_dir；`--set` 生成 `runs/platform/<name>_<k><v>.../` 参数变体；`--chunk-days` 日期分块，见 §运行-分块计算） |
+| `factorlab run <spec.yaml> [--universe U] [--max-memory M] [--output-dir DIR] [--no-float32] [--backtest/--no-backtest] [--groups N] [--eval-frequency daily\|weekly] [--set k=v ...] [--chunk-days N] [--warmup-days N] [--profile]` | 计算因子并评估（daily 逐日默认 / weekly 对照）+ 分层回测（默认），落盘 `runs/platform/<name>/`（缺省 results_dir；`--set` 生成 `runs/platform/<name>_<k><v>.../` 参数变体；`--chunk-days` 日期分块，见 §运行-分块计算；`--profile` 分段计时，见下） |
 | `factorlab list` | 列出已保存因子与最近运行摘要（扫描 `results_dir/*/summary.json`，按运行时间倒序） |
 | `factorlab show <name>` | 查看单因子完整摘要（spec 原文/评估/分层回测） |
 | `factorlab corr <name1> <name2> ... [--against reference\|all\|<names>]` | 因子两两相关性（≥2 个）：周度横截面秩相关均值 + 全局 Pearson；任一因子无 results 报错（数据源 `<results_dir>/<name>/panel.parquet`（默认 `runs/platform/`） 的 signal，按 date+code inner join；join 后超 2000 万行每周降采样 5000 只）。`--against reference`（D10）= 与参考库 `research/factor/_reference.yaml` daily 组成员的并集矩阵（names 可省略=库内自相关矩阵；只读库清单，不扫全库、不跨 scales）；`--against all`= 显式扫全库；`--against a,b`= 显式名单 |
@@ -138,6 +138,16 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   （R01-ENG-I1，见下方已知限制）。
 - `--warmup-days N`：TS 窗口预热天数（`N >= 0`；缺省按公式自动提取窗口最大值
   + 20 安全垫）。
+- `--profile`（R09-M3）：分段计时开关（env `FACTORLAB_PROFILE=1` 等效；缺省
+  关闭 = 零行为变化）。开启后 stderr 输出各段墙钟/峰值 RSS 人读摘要，并把
+  `summary.json` 的 `runtime.profile`（append-only 新键）更新为同一报告：
+  `{"version": 1, "clock": "wall_ms", "rss_unit": "mb", "total_wall_ms": N,
+  "segments": {"<段>": {"wall_ms": 正整数, "rss_peak_mb": N, "rss_delta_mb": N,
+  "calls": N}}}`。段：`read_data`（label 前信号侧；分钟链含折日装载/拼装）、
+  `fold`（分钟折日 `compute_minute_factor_panel`，`read_data` 子段；日频无）、
+  `label`、`evaluate`、`layered_backtest`（`--no-backtest` 时无）、`persist`
+  （artifact/panel/weekly 落盘；summary.json 自身重写不计入）。实现
+  `app/profile.py`（段边界采样 + 20Hz 采样线程，峰值按段窗口归属）。
 - **分钟面分派（W5）**：`interface: bars_1m` 的 spec（字段与口径见 §2）由 run
   分派 `run_factor_minute`（engine.minute，B7.1）——折日面板与日频同列契约，
   下方评估/分层回测同一路径零改动（`weekly.parquet` + `evaluation`

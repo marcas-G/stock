@@ -22,6 +22,7 @@ import polars as pl
 
 from factorlab.core.domain.frames import SignalArtifact  # noqa: F401  (类型语义文档)
 from factorlab.app.context import RunContext
+from factorlab.app.profile import attach_profile, span as profile_span
 from factorlab.core.engine.compute import FactorResult
 from factorlab.core.engine.forward import FORWARD_COLUMNS
 from factorlab.core.eval.alignment import align_weekly
@@ -137,22 +138,26 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
     if freq not in _FREQUENCIES:
         raise ValueError(f"未知评估频率 {freq!r}（应为 {'|'.join(_FREQUENCIES)}）")
 
+    prof = getattr(ctx, "profiler", None)   # R09-M3 分段计时（None=关闭）
     if freq == "daily":
         eval_panel = result.panel
     else:
-        eval_panel = align_weekly(result.panel)
+        with profile_span(prof, "evaluate"):
+            eval_panel = align_weekly(result.panel)
     outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
     notes: list[str] = []
     dead: dict | None = None
     if outputs == ["signal"]:
-        evaluation = _evaluate_frame(eval_panel, spec, freq)
-        evaluation["frequency"] = freq
-        # E2（R30 Task 6）：IC 衰减 append（不改变主指标；缺标签 horizon → null）
-        evaluation["ic_decay"] = ic_decay(eval_panel)
+        with profile_span(prof, "evaluate"):
+            evaluation = _evaluate_frame(eval_panel, spec, freq)
+            evaluation["frequency"] = freq
+            # E2（R30 Task 6）：IC 衰减 append（不改变主指标；缺标签 horizon → null）
+            evaluation["ic_decay"] = ic_decay(eval_panel)
         _mark_degenerate_deciles(evaluation, notes)
         dead = _mark_dead_signal(evaluation, result.panel, "signal", notes)
         if backtest:
-            bt = _backtest_frame(eval_panel, spec, freq, groups=groups)
+            with profile_span(prof, "layered_backtest"):
+                bt = _backtest_frame(eval_panel, spec, freq, groups=groups)
             evaluation["layered_backtest"] = bt
             if bt.get("empty_groups"):
                 notes.append(f"档位 {bt['empty_groups']} 全期无股票——universe 过小或 --groups 过大")
@@ -166,14 +171,16 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
             p = eval_panel.select(["date", "code", o, *fwd_cols, *mv_cols])
             if o != "signal":  # 字面 signal 输出：列名已就绪，rename 会自撞
                 p = p.rename({o: "signal"})
-            ev_o = _evaluate_frame(p, spec, freq, weekly=p)
-            ev_o["ic_decay"] = ic_decay(p)   # E2：逐输出 append
+            with profile_span(prof, "evaluate"):
+                ev_o = _evaluate_frame(p, spec, freq, weekly=p)
+                ev_o["ic_decay"] = ic_decay(p)   # E2：逐输出 append
             _mark_degenerate_deciles(ev_o, notes, prefix=f"输出 {o} ")
             dead_o = _mark_dead_signal(ev_o, result.panel, o, notes, prefix=f"输出 {o} ")
             if dead is None and dead_o is not None:
                 dead = dead_o
             if backtest:
-                bt = _backtest_frame(p, spec, freq, groups=groups)
+                with profile_span(prof, "layered_backtest"):
+                    bt = _backtest_frame(p, spec, freq, groups=groups)
                 ev_o["layered_backtest"] = bt
                 if bt.get("empty_groups"):
                     notes.append(f"输出 {o} 档位 {bt['empty_groups']} 全期无股票"
@@ -197,9 +204,20 @@ def publish_run(result: FactorResult, outcome: EvaluationOutcome,
     """
     from factorlab.adapters import results_fs
     result.summary["evaluation"] = outcome.evaluation
-    # R12：走 results 单点（布局 + **原子**写）——原先直写，崩在中途会留半截 summary.json
-    results_fs.write_run_outputs(Path(ctx.output_dir), weekly=outcome.eval_panel,
-                                 summary=result.summary)
+    # R09-M3：profile 关闭时路径逐字节不变；开启时 persist 段含 weekly/summary
+    # 落盘，随后 attach 报告并原子重写 summary.json（重写自身不计入 persist）。
+    prof = getattr(ctx, "profiler", None)
+    if prof is None:
+        # R12：走 results 单点（布局 + **原子**写）——原先直写，崩在中途会留半截 summary.json
+        results_fs.write_run_outputs(Path(ctx.output_dir), weekly=outcome.eval_panel,
+                                     summary=result.summary)
+    else:
+        with profile_span(prof, "persist"):
+            results_fs.write_run_outputs(Path(ctx.output_dir),
+                                         weekly=outcome.eval_panel,
+                                         summary=result.summary)
+        attach_profile(result.summary, prof)
+        results_fs.write_summary(Path(ctx.output_dir), result.summary)
     if outcome.dead_signal is not None:
         rep = outcome.dead_signal
         invalid_rows = rep["null_rows"] + rep["nonfinite_rows"]

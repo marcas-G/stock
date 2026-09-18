@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # "drop" = 该 (code, date) 从分钟宇宙显式剔除 + 响亮告警 + run summary
     # minute_uncovered 审计（不静默；结果口径不可与完整覆盖混比）
     minute_uncovered: str = "fail"  # "fail" | "drop"（FACTORLAB_MINUTE_UNCOVERED）
+    # R09-M3 分段计时：FACTORLAB_PROFILE=1（或 CLI --profile）→ run 链输出各段
+    # 墙钟+峰值 RSS 到 stderr 并写 summary.runtime.profile；缺省 False=零行为变化
+    # （见 app/profile.py 与 interface.md §1）
+    profile: bool = False  # FACTORLAB_PROFILE
 
 
 settings = Settings()

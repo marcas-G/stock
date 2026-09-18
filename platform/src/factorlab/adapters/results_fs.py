@@ -41,6 +41,18 @@ def read_weekly(results_dir: Path, name: str) -> pl.DataFrame:
     return pl.read_parquet(p)
 
 
+def write_summary(out_dir: Path, summary: dict) -> None:
+    """仅重写 summary.json（原子；与 write_run_outputs 同一序列化协议）。
+
+    用途：R09-M3 分段计时等尾部追加字段（profile）——weekly/panel 不动。
+    """
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    from factorlab.adapters.atomicio import atomic_write_text
+    atomic_write_text(out / SUMMARY_NAME,
+                      json.dumps(summary, ensure_ascii=False, indent=2, default=str))
+
+
 def write_run_outputs(out_dir: Path, *, weekly: pl.DataFrame, summary: dict) -> None:
     """发布单点（R12）：weekly.parquet + summary.json **原子**落盘。
 
@@ -52,10 +64,9 @@ def write_run_outputs(out_dir: Path, *, weekly: pl.DataFrame, summary: dict) -> 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     # R13：原子写协议单点在 adapters/atomicio（并修掉 mkstemp → 产物 0600 的回归）
-    from factorlab.adapters.atomicio import atomic_write_parquet, atomic_write_text
+    from factorlab.adapters.atomicio import atomic_write_parquet
     atomic_write_parquet(weekly, out / WEEKLY_NAME)
-    atomic_write_text(out / SUMMARY_NAME,
-                      json.dumps(summary, ensure_ascii=False, indent=2, default=str))
+    write_summary(out, summary)
 
 
 def read_summary(path: Path) -> dict:

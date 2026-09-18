@@ -23,6 +23,7 @@ from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.app.context import RunContext
 from factorlab.app.memory import (MemoryWatchdog, guard_minute_chunk_days,
                                   memory_watchdog_from_settings)
+from factorlab.app.profile import attach_profile, span as profile_span
 from factorlab.config import settings
 from factorlab.core.engine.compute import (_WARMUP_SAFETY_PAD, _build_legacy_panel, _canonicalize_artifact_codes, _chunk_keep, _formula_columns, _pool_cond_frame, _ts_window_days, compute_formula, FactorResult, fill_suspension_values, label_lookahead_end, prepare_formula_pipeline, reject_cumulative_chunking)
 from factorlab.core.eval.metrics import signal_invalid_ratio
@@ -418,6 +419,19 @@ def _ensure_assembly() -> None:
     ensure_assembly()
 
 
+def _sync_profile(ctx: RunContext, prof, summary: dict) -> None:
+    """R09-M3：attach `runtime.profile` 后同步重写 summary.json（仅开启时）。
+
+    artifact 落盘的墙钟已由 persist 段累积；summary.json 自身重写不计入
+    persist（递归：摘要包含写自身耗时），重写仅保证盘上摘要与返回对象一致。
+    """
+    if prof is None:
+        return
+    from factorlab.adapters import results_fs
+    attach_profile(summary, prof)
+    results_fs.write_summary(ctx.output_dir, summary)
+
+
 def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
     """M6-03 装配链路：两条独立 runtime——
 
@@ -465,6 +479,7 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
     # signal artifact 仍取单列，不受影响）
     mv_cols = (spec.weighting_mv_col,) if spec.weighting_mv_col else ()
     keep_cols = [*_chunk_keep(outputs), *(c for c in mv_cols if c not in _chunk_keep(outputs))]
+    prof = getattr(ctx, "profiler", None)   # R09-M3 分段计时（None=关闭）
     signal_artifact: SignalArtifact | None = None
     signal_frames: dict[str, pl.DataFrame] | None = None
     try:
@@ -536,18 +551,20 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
                     & (cal <= label_end))
             signal_uf, label_uf = _resolve_pair_universe_frames(
                 rd, spec, codes, signal_cal, label_cal)
-            sig = _compute_signal(rd, ctx, spec, formula, codes, signal_uf,
-                                  load_start.isoformat() if load_start else None,
-                                  chunk_end.isoformat() if chunk_end else None,
-                                  signal_cal, base_adj, pit_base_adj=pit_base_adj,
-                                  outputs=outputs, pool=pool, extra_cols=mv_cols)
-            lab = _compute_labels(rd, ctx, spec, codes, label_uf,
-                                  (load_start if pool is not None else chunk_start).isoformat()
-                                  if (load_start if pool is not None else chunk_start) else None,
-                                  label_end.isoformat() if label_end else None,
-                                  label_cal,
-                                  pool=pool, base_adj=base_adj,
-                                  pit_base_adj=pit_base_adj)
+            with profile_span(prof, "read_data"):
+                sig = _compute_signal(rd, ctx, spec, formula, codes, signal_uf,
+                                      load_start.isoformat() if load_start else None,
+                                      chunk_end.isoformat() if chunk_end else None,
+                                      signal_cal, base_adj, pit_base_adj=pit_base_adj,
+                                      outputs=outputs, pool=pool, extra_cols=mv_cols)
+            with profile_span(prof, "label"):
+                lab = _compute_labels(rd, ctx, spec, codes, label_uf,
+                                      (load_start if pool is not None else chunk_start).isoformat()
+                                      if (load_start if pool is not None else chunk_start) else None,
+                                      label_end.isoformat() if label_end else None,
+                                      label_cal,
+                                      pool=pool, base_adj=base_adj,
+                                      pit_base_adj=pit_base_adj)
             if ctx.chunk_days is not None:
                 # 双边裁剪 [chunk_start, chunk_end]：right-lookahead rows 不得
                 # 进入任何输出（signal/label/panel）；每块算完即裁剪到对齐输出列
@@ -556,48 +573,49 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
                 lab = lab.filter((pl.col("date") >= chunk_start) & (pl.col("date") <= chunk_end))
             sig_parts.append(sig.select([c for c in keep_cols if c in sig.columns]))
             lab_parts.append(lab)
-        signal_df = pl.concat(sig_parts)
-        labels_df = pl.concat(lab_parts)
-        if pool is not None and signal_df.height == 0:
-            # M4（G2）：整体空池 fail fast——不产出空 artifact 静默成功。
-            # 部分日无成员是合法语义（成员逐日动态），只有全样本零成员才报错。
-            raise ValueError(
-                "池公式无成员——全样本没有 (date, code) 同时满足 骨架 ∧ 池条件"
-                "（公式/阈值可能过严；空池不产出空 artifact，fail fast）")
-        if ctx.chunk_days is not None:
-            del sig_parts, lab_parts, signal_cal, label_cal, base_adj, pit_base_adj  # 立即释放块级引用（评估阶段省内存）
-        # M7-05：artifact boundary canonicalization——内部 symbol（"000001"）→
-        # canonical ts_code（"000001.SZ"，stock_basic reference data，一次 mapping）。
-        # Signal/Label/panel 正式 artifact 的 code 必须为 canonical research
-        # identifier（M7/M8 消费方 canonical guard 的唯一合法输入）。
-        from factorlab.adapters.read.universe import resolve_canonical_code_map
-        canonical_map = resolve_canonical_code_map(rd, codes)
-        signal_df = _canonicalize_artifact_codes(signal_df, canonical_map)
-        labels_df = _canonicalize_artifact_codes(labels_df, canonical_map)
-        codes = canonical_map["code"].to_list()   # summary.codes 同 namespace
-        # M6-01 domain contract 接线
-        adjustment = getattr(spec, "adjustment", None) or ctx.adjustment
-        meta = SignalMeta(name=spec.name, frequency="1d",
-                          timing=DEFAULT_EOD_SIGNAL_TIMING, adjustment=adjustment)
-        if outputs == ["signal"]:
-            # legacy 单输出：SignalArtifact 单列 signal（契约不变）
-            signal_artifact = SignalArtifact(
-                frame=signal_df.select(["date", "code", "signal"]), meta=meta)
-            signal_frames = None
-        else:
-            # M2（G1）：多输出无单列 signal artifact——逐输出 frame 独立落盘
-            # （不写 signal.parquet，绝不提供"signal = 某输出"的隐式别名）
-            signal_artifact = None
-            signal_frames = {o: signal_df.select(["date", "code", o])
-                             for o in outputs}
-        label_artifact = LabelArtifact(
-            frame=labels_df.select(["date", "code", *FORWARD_COLUMNS]))
-        # legacy panel：Signal/Label key 对齐已证明 → 位置化附加 label 值列
-        # （M6-07C2B：不做 hash join——1,155 万行 × 2 侧的 join 峰值分配在
-        # 无页面文件机器上撞 commit 空间 → 0xC0000005；多输出下对齐由
-        # _build_legacy_panel 键 equals 直验）
-        panel = _build_legacy_panel(signal_df, labels_df, signal_artifact, label_artifact,
-                                    outputs, extra_cols=mv_cols)
+        with profile_span(prof, "read_data"):
+            signal_df = pl.concat(sig_parts)
+            labels_df = pl.concat(lab_parts)
+            if pool is not None and signal_df.height == 0:
+                # M4（G2）：整体空池 fail fast——不产出空 artifact 静默成功。
+                # 部分日无成员是合法语义（成员逐日动态），只有全样本零成员才报错。
+                raise ValueError(
+                    "池公式无成员——全样本没有 (date, code) 同时满足 骨架 ∧ 池条件"
+                    "（公式/阈值可能过严；空池不产出空 artifact，fail fast）")
+            if ctx.chunk_days is not None:
+                del sig_parts, lab_parts, signal_cal, label_cal, base_adj, pit_base_adj  # 立即释放块级引用（评估阶段省内存）
+            # M7-05：artifact boundary canonicalization——内部 symbol（"000001"）→
+            # canonical ts_code（"000001.SZ"，stock_basic reference data，一次 mapping）。
+            # Signal/Label/panel 正式 artifact 的 code 必须为 canonical research
+            # identifier（M7/M8 消费方 canonical guard 的唯一合法输入）。
+            from factorlab.adapters.read.universe import resolve_canonical_code_map
+            canonical_map = resolve_canonical_code_map(rd, codes)
+            signal_df = _canonicalize_artifact_codes(signal_df, canonical_map)
+            labels_df = _canonicalize_artifact_codes(labels_df, canonical_map)
+            codes = canonical_map["code"].to_list()   # summary.codes 同 namespace
+            # M6-01 domain contract 接线
+            adjustment = getattr(spec, "adjustment", None) or ctx.adjustment
+            meta = SignalMeta(name=spec.name, frequency="1d",
+                              timing=DEFAULT_EOD_SIGNAL_TIMING, adjustment=adjustment)
+            if outputs == ["signal"]:
+                # legacy 单输出：SignalArtifact 单列 signal（契约不变）
+                signal_artifact = SignalArtifact(
+                    frame=signal_df.select(["date", "code", "signal"]), meta=meta)
+                signal_frames = None
+            else:
+                # M2（G1）：多输出无单列 signal artifact——逐输出 frame 独立落盘
+                # （不写 signal.parquet，绝不提供"signal = 某输出"的隐式别名）
+                signal_artifact = None
+                signal_frames = {o: signal_df.select(["date", "code", o])
+                                 for o in outputs}
+            label_artifact = LabelArtifact(
+                frame=labels_df.select(["date", "code", *FORWARD_COLUMNS]))
+            # legacy panel：Signal/Label key 对齐已证明 → 位置化附加 label 值列
+            # （M6-07C2B：不做 hash join——1,155 万行 × 2 侧的 join 峰值分配在
+            # 无页面文件机器上撞 commit 空间 → 0xC0000005；多输出下对齐由
+            # _build_legacy_panel 键 equals 直验）
+            panel = _build_legacy_panel(signal_df, labels_df, signal_artifact, label_artifact,
+                                        outputs, extra_cols=mv_cols)
     finally:
         rd.close()
 
@@ -629,8 +647,10 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
             "float32": ctx.float32,
             "spec_yaml": yaml.safe_dump(spec.model_dump(), allow_unicode=True),
         }
-        summary = write_factor_artifacts(ctx.output_dir, signal_artifact, label_artifact,
-                                         panel, summary)
+        with profile_span(prof, "persist"):
+            summary = write_factor_artifacts(ctx.output_dir, signal_artifact, label_artifact,
+                                             panel, summary)
+        _sync_profile(ctx, prof, summary)
         return FactorResult(spec=spec, signal_artifact=signal_artifact,
                             label_artifact=label_artifact, panel=panel, summary=summary)
     # M2（G1）多输出分支：per-output signal__<output>.parquet × N → labels → panel
@@ -658,8 +678,10 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
         "float32": ctx.float32,
         "spec_yaml": yaml.safe_dump(spec.model_dump(), allow_unicode=True),
     }
-    summary = write_multi_output_factor_artifacts(ctx.output_dir, signal_frames, meta,
-                                                  label_artifact, panel, summary)
+    with profile_span(prof, "persist"):
+        summary = write_multi_output_factor_artifacts(ctx.output_dir, signal_frames, meta,
+                                                      label_artifact, panel, summary)
+    _sync_profile(ctx, prof, summary)
     return FactorResult(spec=spec, signal_artifact=None, label_artifact=label_artifact,
                         panel=panel, summary=summary, signals=signal_frames)
 
@@ -816,6 +838,7 @@ def _run_factor_minute(spec, ctx: RunContext,
     formula, _pool = prepare_formula_pipeline(spec)   # 展开链（DB 前；池已门拒）
     outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
     minute_uncovered = _minute_uncovered_summary(uncovered_mode, None)
+    prof = getattr(ctx, "profiler", None)   # R09-M3 分段计时（None=关闭）
     signal_artifact: SignalArtifact | None = None
     signal_frames: dict[str, pl.DataFrame] | None = None
     try:
@@ -860,85 +883,91 @@ def _run_factor_minute(spec, ctx: RunContext,
         bar_cols = _bars_needed_cols(formula)
         parts = []
         uncovered_parts: list[pl.DataFrame] = []   # R03-I6 drop 剔除累计
-        for cs, ce in chunks:
-            # R05-C1：chunk 边界协作检查（看门狗线程记录/现场采样超限 → 干净中止）
-            if wd is not None:
-                wd.check()
-            inj = _build_daily_injections(rd, codes, warm_start.isoformat(),
-                                          ce.isoformat(), float32=ctx.float32)
-            bars = load_bars_1m_codes(rd, codes, date_start=cs.isoformat(),
-                                      date_end=ce.isoformat(), cols=bar_cols)
-            if bars.height == 0:
-                raise ValueError(
-                    f"分钟段 {cs}..{ce} 无数据"
-                    f"（覆盖见 governance/workspace/data-map.md；更新：make data-update）")
-            if "trade_date" in bars.columns and "date" not in bars.columns:
-                bars = bars.rename({"trade_date": "date"})
-            # 块内成员日 = 池成员 ∧ 日线在（停牌日两边都缺 → 不进期望键）
-            expected = uf.filter(pl.col("in_universe")).join(
-                inj.filter((pl.col("date") >= cs) & (pl.col("date") <= ce))
-                .select(["date", "code"]).unique(),
-                on=["date", "code"], how="inner")
-            missing_day = expected.join(
-                bars.select(["date", "code"]).unique(),
-                on=["date", "code"], how="anti")
-            if missing_day.height:
-                if uncovered_mode == "drop":
-                    # R03-I6：显式剔除该 (code, date)（该日不参与分钟宇宙），
-                    # 汇总到整段后响亮告警 + summary 审计——不静默
-                    uncovered_parts.append(missing_day)
-                    expected = expected.join(missing_day, on=["date", "code"],
-                                             how="anti")
-                else:
+        # R09-M3：read_data = label 前信号侧总段（装载/注入/成员过滤 + 折日 +
+        # 拼装）；fold 为其内嵌子段（折日墙钟 <= read_data，逐 chunk 累积）。
+        with profile_span(prof, "read_data"):
+            for cs, ce in chunks:
+                # R05-C1：chunk 边界协作检查（看门狗线程记录/现场采样超限 → 干净中止）
+                if wd is not None:
+                    wd.check()
+                inj = _build_daily_injections(rd, codes, warm_start.isoformat(),
+                                              ce.isoformat(), float32=ctx.float32)
+                bars = load_bars_1m_codes(rd, codes, date_start=cs.isoformat(),
+                                          date_end=ce.isoformat(), cols=bar_cols)
+                if bars.height == 0:
                     raise ValueError(
-                        f"bars_1m 整日缺失：{missing_day.height} 个 (code, date) 日线"
-                        f"在而分钟无行（数据不一致，fail fast）——样本 "
-                        f"{missing_day.head(3).to_dicts()}")
-            bars = bars.join(expected, on=["date", "code"], how="inner")
-            parts.append(compute_minute_factor_panel(bars, formula,
-                                                     outputs=outputs, daily=inj))
-            del bars, inj, expected
-        signal_df = pl.concat(parts).sort(["date", "code"])
-        del parts
-        if signal_df.height == 0:
-            raise ValueError("分钟段无数据（覆盖见 governance/workspace/data-map.md；更新：make data-update）")
+                        f"分钟段 {cs}..{ce} 无数据"
+                        f"（覆盖见 governance/workspace/data-map.md；更新：make data-update）")
+                if "trade_date" in bars.columns and "date" not in bars.columns:
+                    bars = bars.rename({"trade_date": "date"})
+                # 块内成员日 = 池成员 ∧ 日线在（停牌日两边都缺 → 不进期望键）
+                expected = uf.filter(pl.col("in_universe")).join(
+                    inj.filter((pl.col("date") >= cs) & (pl.col("date") <= ce))
+                    .select(["date", "code"]).unique(),
+                    on=["date", "code"], how="inner")
+                missing_day = expected.join(
+                    bars.select(["date", "code"]).unique(),
+                    on=["date", "code"], how="anti")
+                if missing_day.height:
+                    if uncovered_mode == "drop":
+                        # R03-I6：显式剔除该 (code, date)（该日不参与分钟宇宙），
+                        # 汇总到整段后响亮告警 + summary 审计——不静默
+                        uncovered_parts.append(missing_day)
+                        expected = expected.join(missing_day, on=["date", "code"],
+                                                 how="anti")
+                    else:
+                        raise ValueError(
+                            f"bars_1m 整日缺失：{missing_day.height} 个 (code, date) 日线"
+                            f"在而分钟无行（数据不一致，fail fast）——样本 "
+                            f"{missing_day.head(3).to_dicts()}")
+                bars = bars.join(expected, on=["date", "code"], how="inner")
+                with profile_span(prof, "fold"):
+                    parts.append(compute_minute_factor_panel(bars, formula,
+                                                             outputs=outputs, daily=inj))
+                del bars, inj, expected
+            signal_df = pl.concat(parts).sort(["date", "code"])
+            del parts
+            if signal_df.height == 0:
+                raise ValueError("分钟段无数据（覆盖见 governance/workspace/data-map.md；更新：make data-update）")
         # R05-C1：label 全窗装载（大步骤）前协作检查
         if wd is not None:
             wd.check()
         # label：单趟整段全窗（与日频链同一 _compute_labels/同一 uf——行位 shift
         # 语义要求同骨架）；键集过滤对齐在 canonicalize 之后做
-        labels_full = _compute_labels(rd, ctx, spec, codes, uf,
-                                      cal[0].isoformat(), cal[-1].isoformat(),
-                                      cal)
-        from factorlab.adapters.read.universe import resolve_canonical_code_map
-        canonical_map = resolve_canonical_code_map(rd, codes)
-        signal_df = _canonicalize_artifact_codes(signal_df, canonical_map)
-        labels_full = _canonicalize_artifact_codes(labels_full, canonical_map)
-        codes = canonical_map["code"].to_list()
-        # R03-I6：drop 剔除集 canonical 化后统一告警 + 审计（无缺口时保持 0 值）
-        uncovered = (pl.concat(uncovered_parts).select(["date", "code"]).unique()
-                     if uncovered_parts else None)
-        if uncovered is not None:
-            uncovered = _canonicalize_artifact_codes(uncovered, canonical_map)
-            _warn_minute_uncovered(uncovered)
-        minute_uncovered = _minute_uncovered_summary(uncovered_mode, uncovered)
-        labels_df = signal_df.select(["date", "code"]).join(labels_full,
-                                                            on=["date", "code"],
-                                                            how="left")
-        meta = SignalMeta(name=spec.name, frequency="1d",
-                          timing=DEFAULT_EOD_SIGNAL_TIMING, adjustment="raw")
-        if outputs == ["signal"]:
-            signal_artifact = SignalArtifact(
-                frame=signal_df.select(["date", "code", "signal"]), meta=meta)
-            signal_frames = None
-        else:
-            signal_artifact = None
-            signal_frames = {o: signal_df.select(["date", "code", o])
-                             for o in outputs}
-        label_artifact = LabelArtifact(frame=labels_df.select(
-            ["date", "code", *FORWARD_COLUMNS]))
-        panel = _build_legacy_panel(signal_df, labels_df, signal_artifact,
-                                    label_artifact, outputs)
+        with profile_span(prof, "label"):
+            labels_full = _compute_labels(rd, ctx, spec, codes, uf,
+                                          cal[0].isoformat(), cal[-1].isoformat(),
+                                          cal)
+        with profile_span(prof, "read_data"):
+            from factorlab.adapters.read.universe import resolve_canonical_code_map
+            canonical_map = resolve_canonical_code_map(rd, codes)
+            signal_df = _canonicalize_artifact_codes(signal_df, canonical_map)
+            labels_full = _canonicalize_artifact_codes(labels_full, canonical_map)
+            codes = canonical_map["code"].to_list()
+            # R03-I6：drop 剔除集 canonical 化后统一告警 + 审计（无缺口时保持 0 值）
+            uncovered = (pl.concat(uncovered_parts).select(["date", "code"]).unique()
+                         if uncovered_parts else None)
+            if uncovered is not None:
+                uncovered = _canonicalize_artifact_codes(uncovered, canonical_map)
+                _warn_minute_uncovered(uncovered)
+            minute_uncovered = _minute_uncovered_summary(uncovered_mode, uncovered)
+            labels_df = signal_df.select(["date", "code"]).join(labels_full,
+                                                                on=["date", "code"],
+                                                                how="left")
+            meta = SignalMeta(name=spec.name, frequency="1d",
+                              timing=DEFAULT_EOD_SIGNAL_TIMING, adjustment="raw")
+            if outputs == ["signal"]:
+                signal_artifact = SignalArtifact(
+                    frame=signal_df.select(["date", "code", "signal"]), meta=meta)
+                signal_frames = None
+            else:
+                signal_artifact = None
+                signal_frames = {o: signal_df.select(["date", "code", o])
+                                 for o in outputs}
+            label_artifact = LabelArtifact(frame=labels_df.select(
+                ["date", "code", *FORWARD_COLUMNS]))
+            panel = _build_legacy_panel(signal_df, labels_df, signal_artifact,
+                                        label_artifact, outputs)
     finally:
         rd.close()
 
@@ -972,8 +1001,10 @@ def _run_factor_minute(spec, ctx: RunContext,
             "spec_yaml": yaml.safe_dump(spec.model_dump(), allow_unicode=True),
         }
         from factorlab.adapters.parquet_artifacts import write_factor_artifacts
-        summary = write_factor_artifacts(ctx.output_dir, signal_artifact,
-                                         label_artifact, panel, summary)
+        with profile_span(prof, "persist"):
+            summary = write_factor_artifacts(ctx.output_dir, signal_artifact,
+                                             label_artifact, panel, summary)
+        _sync_profile(ctx, prof, summary)
         return FactorResult(spec=spec, signal_artifact=signal_artifact,
                             label_artifact=label_artifact, panel=panel,
                             summary=summary)
@@ -1004,9 +1035,11 @@ def _run_factor_minute(spec, ctx: RunContext,
         "spec_yaml": yaml.safe_dump(spec.model_dump(), allow_unicode=True),
     }
     from factorlab.adapters.parquet_artifacts import write_multi_output_factor_artifacts
-    summary = write_multi_output_factor_artifacts(ctx.output_dir, signal_frames,
-                                                  meta, label_artifact, panel,
-                                                  summary)
+    with profile_span(prof, "persist"):
+        summary = write_multi_output_factor_artifacts(ctx.output_dir, signal_frames,
+                                                      meta, label_artifact, panel,
+                                                      summary)
+    _sync_profile(ctx, prof, summary)
     return FactorResult(spec=spec, signal_artifact=None,
                         label_artifact=label_artifact, panel=panel,
                         summary=summary, signals=signal_frames)

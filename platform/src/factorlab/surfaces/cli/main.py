@@ -263,18 +263,23 @@ def execute_run(
     chunk_days: int | None = None,
     warmup_days: int | None = None,
     eval_frequency: str | None = None,
+    profile: bool = False,
 ) -> dict:
     """`factorlab run` 的计算主体（CLI 与 research.factor 门面共用，不打印）。
 
     R31 Task 4：从 `run_factor_cli` 抽出——消除"门面复刻 run 装配"的业务漂移风险
     （研究门面 `factor run` 经 import 本函数复用同一条链，含内存护栏与评估装配）。
 
-    返回 `{"spec", "variant", "ctx", "result", "outcome"}`；错误原样抛出
-    （ValueError/FileNotFoundError/FactorDSLError，调用方各自映射展示/错误码）。
+    R09-M3：`profile=True`（或 env `FACTORLAB_PROFILE=1`）时启用分段计时
+    （app/profile.py）——summary.runtime.profile 落盘 + 各段墙钟/RSS；缺省关闭
+    （零行为变化）。返回 `{"spec", "variant", "ctx", "result", "outcome"}`；
+    错误原样抛出（ValueError/FileNotFoundError/FactorDSLError，调用方各自映射
+    展示/错误码）。
     """
     from factorlab.app.run import run_factor, run_factor_minute
     from factorlab.app.context import RunContext
     from factorlab.app.evaluate import evaluate_run, publish_run
+    from factorlab.app.profile import Profiler, profile_enabled
 
     overrides = {}
     for kv in set_params or []:
@@ -291,6 +296,9 @@ def execute_run(
     if overrides:
         spec.params = {**spec.params, **overrides}
         variant = spec.name + "_" + "_".join(f"{k}{v}" for k, v in overrides.items())
+    profiler = Profiler() if (profile or profile_enabled()) else None
+    if profiler is not None:
+        profiler.start()
     ctx = RunContext(
         db_path=settings.platform_db,
         output_dir=output_dir or (settings.results_dir / variant),
@@ -299,6 +307,7 @@ def execute_run(
         chunk_days=chunk_days,
         warmup_days=warmup_days,
         max_memory=max_memory,
+        profiler=profiler,
     )
     # R05-C1：显式 FACTORLAB_MAX_MEMORY 时先落进程级 RLIMIT_AS 硬上限
     # （软看门狗在 run_* 内自动启用；未设 = 不动进程资源）。
@@ -310,12 +319,16 @@ def execute_run(
     # W5 分派：分钟面 spec（interface: bars_1m）走分钟链 run_factor_minute（折日
     # 面板与日频同列契约，下方评估/分层回测零改动复用）；日频 spec 走原 run_factor。
     run_impl = run_factor_minute if spec.interface == "bars_1m" else run_factor
-    with cli_memory_guardrails():
-        result = run_impl(spec, ctx)
-        # 评估装配单点（WS5）：app.evaluate.evaluate_run + publish_run
-        outcome = evaluate_run(result, spec, ctx, groups=groups, backtest=backtest,
-                               frequency=eval_frequency)
-        publish_run(result, outcome, ctx)
+    try:
+        with cli_memory_guardrails():
+            result = run_impl(spec, ctx)
+            # 评估装配单点（WS5）：app.evaluate.evaluate_run + publish_run
+            outcome = evaluate_run(result, spec, ctx, groups=groups, backtest=backtest,
+                                   frequency=eval_frequency)
+            publish_run(result, outcome, ctx)
+    finally:
+        if profiler is not None:
+            profiler.stop()
     return {"spec": spec, "variant": variant, "ctx": ctx,
             "result": result, "outcome": outcome}
 
@@ -337,17 +350,22 @@ def run_factor_cli(
     eval_frequency: str | None = typer.Option(
         None, "--eval-frequency",
         help="评估频率覆盖：daily（逐日默认）| weekly（周频对照）；缺省取 spec.evaluation_frequency"),
+    profile: bool = typer.Option(
+        False, "--profile",
+        help="R09-M3 分段计时：输出各段（读数据/折日/label/评估/分层回测/落盘）"
+             "墙钟+峰值 RSS 到 stderr，并写 summary.runtime.profile（默认关闭；"
+             "env FACTORLAB_PROFILE=1 等效）"),
 ) -> None:
     """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
     --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
     --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。--eval-frequency 覆盖 spec 评估频率
-    （daily 默认逐日口径；weekly 为旧口径可选对照）。"""
+    （daily 默认逐日口径；weekly 为旧口径可选对照）。--profile 输出分段计时。"""
     try:
         out = execute_run(spec_path, universe=universe, max_memory=max_memory,
                           output_dir=output_dir, float32=float32,
                           backtest=backtest, groups=groups, set_params=set_params,
                           chunk_days=chunk_days, warmup_days=warmup_days,
-                          eval_frequency=eval_frequency)
+                          eval_frequency=eval_frequency, profile=profile)
     except (ValueError, FileNotFoundError, FactorDSLError) as exc:
         # ValueError 含 pydantic 的 ValidationError（spec 字段非法，如 cost_rate 越界）——
         # 用户写错 YAML 不该看到裸 traceback（`lint` 子命令同款处理）。
@@ -356,6 +374,11 @@ def run_factor_cli(
     variant = out["variant"]
     evaluation = out["outcome"].evaluation
     outputs = out["outcome"].outputs
+    # R09-M3：人读分段摘要走 stderr（stdout 仍是既有评估行，零污染）
+    report = (out["result"].summary.get("runtime") or {}).get("profile")
+    if report is not None:
+        from factorlab.app.profile import render_profile_summary
+        typer.echo(render_profile_summary(report), err=True)
     for note in out["outcome"].notes:
         console.print(f"提示: {note}")
     if outputs == ["signal"]:

@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from factorlab.app.profile import Profiler
 from factorlab.config import settings
 
 
@@ -20,7 +21,8 @@ class RunContext:
     """运行上下文。universe_override：6 位代码（如 600519）、universe 引用名或 yaml 文件路径。
     adjustment：复权视图口径兜底（raw|qfq|hfq|pit_qfq；spec.adjustment 声明时以 spec 为准）。
     chunk_days：日期分块（交易日/块；None=单块整段跑）。warmup_days：TS 窗口预热天数
-    （None=按公式自动提取窗口最大值 + 20 安全垫）。"""
+    （None=按公式自动提取窗口最大值 + 20 安全垫）。profiler：R09-M3 分段计时器
+    （None=关闭，零行为变化；--profile/FACTORLAB_PROFILE=1 时由 CLI 装配）。"""
 
     db_path: Path = settings.platform_db  # duckdb 后端只读库路径（测试/历史库）
     data_backend: str | None = None  # 读路径后端 "duckdb"|"ch"（None → settings.data_backend）
@@ -31,3 +33,4 @@ class RunContext:
     chunk_days: int | None = None
     warmup_days: int | None = None
     max_memory: str | None = None  # duckdb 读连接内存上限（None → settings.default_max_memory）
+    profiler: Profiler | None = None  # R09-M3 分段计时（None=关闭）
