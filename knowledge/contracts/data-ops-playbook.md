@@ -17,7 +17,8 @@ make data-update        # = FACTORLAB_MAX_MEMORY=8GB python platform/tools/pan_u
 
 阶段链（类别一整链；`build`/`publish` 共用阶段标记）：`sync`（差集下载 + manual 分类）
 → `build`（daily: import_daily→ingest_daily→derive_stk_limit→adj_backfill；minutes:
-convert→ingest_bars；fund_flow: ingest_moneyflow；financials: parse_xlsx→ingest_fundamentals）
+convert→ingest_bars；fund_flow: parse_fund_flow→ingest_moneyflow（produce fact 后灌
+moneyflow + moneyflow_sector + concept_members）；financials: parse_xlsx→ingest_fundamentals）
 → `publish`（同 build，幂等跳过）→ `verify`（`ch_ingest/reconcile.py` 全库对账）。
 退出码：0 成功 / 1 运行失败 / 2 配置或用法错误；`manual_required` 不算错。
 
@@ -60,11 +61,11 @@ convert→ingest_bars；fund_flow: ingest_moneyflow；financials: parse_xlsx→i
 ### 0.6 对账与消费
 
 - `verify` / `make reconcile`：`platform/tools/ch_ingest/reconcile.py` 全库对账
-  （daily 层 + 派生表；rc=0 全一致）。
-- `moneyflow`/`fundamentals` 自动对账尚未纳入（pending #30③）：当前以源帧 vs CH
-  行数/样本核对（T10：1,113,668 / 5,556 行）。
+  （daily 层 + 派生表 + moneyflow/moneyflow_sector/concept_members/fundamentals；rc=0 全一致）。
+- 资金流四表均自动对账（源帧 vs CH 行数/日期/键/格式；R30 项 2 实测见
+  `governance/evidence/verification/R30/moneyflow-sector/`）。
 - 消费：`FACTORLAB_DATA_BACKEND=ch factorlab run <spec>`（`moneyflow` 18 列可直接进
-  公式，见 interface.md §8）。
+  公式；板块/成分两表经通用 `open_read` 查询，见 interface.md §8）。
 
 ### 0.7 现行故障排查速查
 

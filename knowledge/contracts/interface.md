@@ -3225,7 +3225,7 @@ params 替换 + run --set 变体，n_weeks > 50）），真实 results 目录 We
 |---|---|---|---|---|
 | 日K | `日K线数据---复权因子-经典技术指标--bs点缠论划线/`（全量 `19910101至*` + 增量 `YYYY-MM-DD至*` + `退市股/`） | `data/raw/daily/` | `ashare_ingest/import_daily.py` | `data/fact/daily_fact/daily_fact.parquet` → CH `daily` 层 5 表 + `stk_limit` + `adj_detail/adj_event`（`ch_ingest` 脚本） |
 | 分钟 | `A股分钟线/<年>/<月>/<YYYYMMDD>.zip` | `data/raw/minutes/` | `converters/convert_minutes_to_parquet.py`（7z 魔数兼容） | `data/fact/bars_1m/` → CH `bars_1m`（月分区） |
-| 日线资金 | `日线资金--每日沪深京个股日线数据和资金流数据/<年>/<MM>.zip` | `data/raw/fund_flow/` | `pan_update/parse_fund_flow.py`（`zj.xls` GBK TSV） | CH **`moneyflow`**（`ch_ingest/ingest_moneyflow.py`，TRUNCATE+INSERT 幂等） |
+| 日线资金 | `日线资金--每日沪深京个股日线数据和资金流数据/<年>/<MM>.zip` | `data/raw/fund_flow/` | `pan_update/parse_fund_flow.py`（`zj.xls` 个股 + `hyzj/gnzj.xls` 板块 GBK TSV → fact；`gn_detail.csv` 概念成分快照 → fact） | CH **`moneyflow`**（个股，脚本内 zip→CH）+ **`moneyflow_sector` / `concept_members`**（板块/成分，fact→CH）（`ch_ingest/ingest_moneyflow.py`，TRUNCATE+INSERT 幂等） |
 | 财报 | `财报报表---有史以来--每周更新/`（周更 `*更新简化个股基本面数据.xlsx`；大件 `*_financial.parquet`/zip 超直链 → 转存回退，`--no-transfer` 时 manual） | `data/raw/financial/` | `pan_update/parse_fundamentals_xlsx.py`（openpyxl 快照） | `data/fact/fundamentals/fundamentals_snapshot.parquet`（旧版留 `.prev`）→ CH **`fundamentals`**（`ingest_fundamentals.py`，全量替换） |
 
 超限大文件（`sync` 取链 HTTP 400 `download file size limit`）：默认 `--transfer`
@@ -3290,11 +3290,35 @@ pending-items A5）。
   op_profit, invest_income, op_cashflow, total_cashflow, inventory, total_profit,
   net_profit, undist_profit`（金额=元）。PIT 历史待多期快照累积/人工
   `*_financial.parquet`（默认转存回退可自动补齐）。
+- **moneyflow_sector（R30 项 2）**：行业/概念**板块**资金流。列：
+  `trade_date, board_type('industry'|'concept'), board_code('BK####'), board_name`
+  + 与 `moneyflow` **同套 18 项**资金指标（同名列/同单位：金额=元、占比=百分数、
+  缺失=NULL）。来源 `hyzj.xls`（行业）/`gnzj.xls`（概念），与个股同分享树；
+  解析侧对「增仓占比排名」变体（20260903/0904/0908/0909）与个股串档
+  （20260422）**显式跳过并 warning**（不入库）。覆盖：**2026-02-04 起**
+  （147 日 / 77,524 行 / 558 板块；industry 18,480 + concept 59,044）。
+  平台读面为通用 `open_read`（`Rd.query_rows/query_df`，无专用 load 函数）：
+   ```python
+   from factorlab.app.bootstrap import open_read
+   rd = open_read("ch")   # 生产 FACTORLAB_DATA_BACKEND=ch
+   rd.query_rows("SELECT trade_date, board_code, board_name, main_net_inflow "
+                 "FROM moneyflow_sector WHERE board_type='concept' "
+                 "AND trade_date=(SELECT max(trade_date) FROM moneyflow_sector) "
+                 "ORDER BY main_net_inflow DESC LIMIT 5")
+   ```
+- **concept_members（R30 项 2）**：概念成分**每日快照**（PIT 成员；列
+  `trade_date, board_code, board_name, ts_code`）。`ts_code` 带后缀
+  （200/201→SZ、900→SH 的 B 股亦覆盖）；`board_name` 可为空串（源 BK1753
+  20260728 实测），板块改名逐日如实。来源 `gn_detail.csv`（utf-8-sig）。
+  覆盖：**2026-05-19 起**（87 日 / 7,281,555 行 / 964 板块；每日
+  81,219..85,972 行）。判定"某日某概念成分"须按 `trade_date` 取当日快照
+  （非长表 PIT 区间）。
 - **index_daily**：CH 仍为空表（R29 裁决；`idx_ret` 恒 NULL）；网盘指数目录的
   `截止_*_指数…_日线.zip`（100MB）超直链上限，补数路径待人工核对（pending #25）。
-- **对账**：`make reconcile` 覆盖 daily 层；`moneyflow`/`fundamentals` 自动对账
-  尚未纳入（T10 残余③，pending #30），当前以源帧 vs CH 行数/样本核对
-  （1,113,668 / 5,556 行，002281 9/16 精确，见 `R30/task10/`）。
+- **对账**：`make reconcile` 覆盖 daily 层 + `moneyflow`/`moneyflow_sector`/
+  `concept_members`/`fundamentals`（源帧 vs CH 行数/日期/天数/关键列/键/BK 码格式/
+  每日行数分布，失败 exit≠0；R30 项 2 实测全库一致：moneyflow_sector 77,524 /
+  concept_members 7,281,555，见 `governance/evidence/verification/R30/moneyflow-sector/`）。
 
 ### 旧平台（M3b，teajoin）——已退役（2026-09-17，Plan P T11）
 
