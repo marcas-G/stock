@@ -31,6 +31,7 @@ from factorlab.core.eval.layered import (WEEKS_PER_YEAR, degenerate_decile_group
                                          layered_backtest)
 from factorlab.core.eval.metrics import DeadSignalError, dead_signal_report
 from factorlab.adapters.ic_kernel import evaluate_factor_daily, evaluate_factor_weekly
+from factorlab.adapters.read.health import DatasetGate, require_dataset
 from factorlab.core.spec import FactorSpec
 
 # D9：daily 评估固定 1 日 forward（D11）；日频年化系数（250+ 交易日惯例 252）
@@ -47,6 +48,7 @@ class EvaluationOutcome:
     frequency: str = "daily"
     notes: list[str] = field(default_factory=list)   # 展示层提示（CLI 打印）
     dead_signal: dict | None = None   # D5：死信号明细（非 None → publish 落盘后非零失败）
+    dataset_gate: DatasetGate | None = None   # Plan DQ-M1 T7：读取门结论（五字段来源）
 
 
 def _mark_degenerate_deciles(evaluation: dict, notes: list[str], prefix: str = "") -> None:
@@ -126,13 +128,33 @@ def _backtest_frame(frame: pl.DataFrame, spec: FactorSpec, frequency: str, *,
 
 def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
                  groups: int = 10, backtest: bool = True,
-                 frequency: str | None = None) -> EvaluationOutcome:
+                 frequency: str | None = None,
+                 dataset: str | None = None,
+                 accept_quality: tuple[str, ...] = ("PASS",),
+                 max_staleness: str = "1d",
+                 dq_root=None,
+                 override_reason: str | None = None,
+                 strict: bool = False) -> EvaluationOutcome:
     """评估装配：频率分支 → 单输出顶层 / 多输出逐输出 → 可选分层回测。
 
     - `frequency` 显式给出时覆盖 spec.evaluation_frequency（CLI --eval-frequency）；
       缺省取 spec 字段（daily 默认）。
     - daily：评估面板 = result.panel（**禁止 align_weekly**）；weekly：先对齐一次。
+    - Plan DQ-M1 T7 读取门：`dataset` 给出时在入口调用
+      `require_dataset`（只读 health JSON；默认 fail-closed，as_of = 面板最新日，
+      DEGRADED/UNKNOWN 须显式 opt-in + override_reason，自动写 manifest）。
+      未给出 = 不过门（存量调用零行为变化；产物五字段仅在过门时追加）。
     """
+    gate: DatasetGate | None = None
+    if dataset is not None:
+        as_of = result.panel["date"].max()
+        if as_of is None:
+            raise ValueError("读取门需要面板日期（result.panel 为空）")
+        gate = require_dataset(
+            dataset, as_of.isoformat(), accept_quality=accept_quality,
+            max_staleness=max_staleness, root=dq_root,
+            override_reason=override_reason, strict=strict)
+
     freq = frequency if frequency is not None else getattr(
         spec, "evaluation_frequency", "daily")
     if freq not in _FREQUENCIES:
@@ -188,7 +210,7 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
             evaluation["outputs"][o] = ev_o
     return EvaluationOutcome(evaluation=evaluation, eval_panel=eval_panel,
                              outputs=outputs, frequency=freq, notes=notes,
-                             dead_signal=dead)
+                             dead_signal=dead, dataset_gate=gate)
 
 
 def publish_run(result: FactorResult, outcome: EvaluationOutcome,
@@ -204,6 +226,9 @@ def publish_run(result: FactorResult, outcome: EvaluationOutcome,
     """
     from factorlab.adapters import results_fs
     result.summary["evaluation"] = outcome.evaluation
+    if outcome.dataset_gate is not None:
+        # Plan DQ-M1 T7（设计 §7）：factor summary 追加数据版本五字段
+        result.summary["data_quality"] = outcome.dataset_gate.summary_fields()
     # R09-M3：profile 关闭时路径逐字节不变；开启时 persist 段含 weekly/summary
     # 落盘，随后 attach 报告并原子重写 summary.json（重写自身不计入 persist）。
     prof = getattr(ctx, "profiler", None)

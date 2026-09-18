@@ -44,6 +44,7 @@ from enum import Enum
 import polars as pl
 
 from factorlab.ports.read import ReadPort
+from factorlab.adapters.read.health import record_gate_usage, require_dataset
 from factorlab.adapters.read.market_open import (load_adj_detail_window,
                                              load_adj_event_window)
 from factorlab.adapters.read.minute_window import load_execution_window
@@ -271,6 +272,12 @@ def run_backtest(
     *,
     marks: MarksPolicy = MarksPolicy.OPEN_BASED,
     decision_range: tuple | None = None,
+    dataset: str | None = None,
+    accept_quality: tuple[str, ...] = ("PASS",),
+    max_staleness: str = "1d",
+    dq_root=None,
+    override_reason: str | None = None,
+    strict: bool = False,
 ) -> BacktestResult:
     """按 target.decision_dates 顺序编排完整 execution pipeline。
 
@@ -278,6 +285,12 @@ def run_backtest(
     schedule 只解析范围内 decisions（范围外 trailing unresolved 不影响本 run）。
 
     rd 为读句柄（duckdb|ch，经 data/backend.open_read 打开）。
+
+    Plan DQ-M1 T7 读取门：`dataset` 给出时在入口调用 `require_dataset`
+    （只读 health JSON；as_of = 决策窗口末端，freshness/max_staleness 独立），
+    并把五字段（dataset_version/quality_status/quarantined_rows/coverage/
+    cleaning_policy_version）记录为 usage sidecar（manifest 区）。未给出 =
+    不过门（存量调用零行为变化）。
 
     Raises:
         TypeError / ValueError / NotImplementedError / ExecutionDataQualityError
@@ -329,6 +342,15 @@ def run_backtest(
             frame=target.frame.filter(
                 pl.col("decision_date").is_in(all_dates)),
             decision_dates=tuple(all_dates), meta=target.meta)
+
+    # ---- Plan DQ-M1 T7 读取门（决策窗口所需 dataset/freshness；只读 health）----
+    if dataset is not None:
+        as_of = max(all_dates).isoformat()
+        gate = require_dataset(
+            dataset, as_of, accept_quality=accept_quality,
+            max_staleness=max_staleness, root=dq_root,
+            override_reason=override_reason, strict=strict)
+        record_gate_usage(gate, root=dq_root, suffix="backtest")
 
     # ---- schedule（scoped target——construct_order_batch 要求全局一致）----
     schedule = resolve_execution_schedule(scoped_target, rd)
