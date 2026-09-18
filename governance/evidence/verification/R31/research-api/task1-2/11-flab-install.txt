@@ -1,0 +1,9 @@
+# bash governance/ops/install_flab.sh（真装到 ~/.local/bin）
+flab 已安装: /home/gaolei/.local/bin/flab
+# EXIT=0
+# 生成脚本:
+#!/usr/bin/env bash
+# flab —— FactorLab 研究员入口（由 governance/ops/install_flab.sh 生成，勿手改）
+exec env FACTORLAB_DATA_BACKEND=ch "/data/students/gaolei/stock/platform/.venv/bin/factorlab" research "$@"
+# PATH 含 ~/.local/bin ?
+yes

@@ -1,0 +1,16 @@
+
+==================================== ERRORS ====================================
+________________ ERROR collecting tests/test_research_guard.py _________________
+ImportError while importing test module '/data/students/gaolei/stock/platform/tests/test_research_guard.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_research_guard.py:26: in <module>
+    from factorlab.research import _guard
+E   ImportError: cannot import name '_guard' from 'factorlab.research' (/data/students/gaolei/stock/platform/src/factorlab/research/__init__.py)
+=========================== short test summary info ============================
+ERROR tests/test_research_guard.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.18s

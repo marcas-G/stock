@@ -1,0 +1,5 @@
+# 平台全量（Task 2 后）: cd platform && .venv/bin/python -m pytest -q  (2026-09-18)
+# EXIT=0
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3247 passed, 11 skipped, 35 warnings in 798.81s (0:13:18)

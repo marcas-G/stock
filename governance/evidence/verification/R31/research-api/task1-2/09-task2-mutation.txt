@@ -1,0 +1,202 @@
+=== MUTATION A: guard 不 flock（默认取槽） ===
+FFF.....F..                                                              [100%]
+=================================== FAILURES ===================================
+___________________ test_two_slots_then_busy_and_slot_files ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2636/test_two_slots_then_busy_and_s0')
+capsys = <_pytest.capture.CaptureFixture object at 0x7f0be8700980>
+
+    def test_two_slots_then_busy_and_slot_files(tmp_path, capsys):
+        env1, slot1 = guard_heavy(["factor", "run"])
+        env2, slot2 = guard_heavy(["strategy", "run"])
+        assert slot1.name == "heavy.1.lock" and slot1.parent == tmp_path
+>       assert slot2.name == "heavy.2.lock"
+E       AssertionError: assert 'heavy.1.lock' == 'heavy.2.lock'
+E         
+E         - heavy.2.lock
+E         ?       ^
+E         + heavy.1.lock
+E         ?       ^
+
+tests/test_research_guard.py:60: AssertionError
+----------------------------- Captured stderr call -----------------------------
+[guard] slot=1/2 argv=factor run
+[guard] slot=1/2 argv=strategy run
+________________________ test_release_allows_reacquire _________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2636/test_release_allows_reacquire0')
+
+    def test_release_allows_reacquire(tmp_path):
+        guard_heavy(["a"])
+        guard_heavy(["b"])
+>       with pytest.raises(GuardError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE GuardError
+
+tests/test_research_guard.py:78: Failed
+----------------------------- Captured stderr call -----------------------------
+[guard] slot=1/2 argv=a
+[guard] slot=1/2 argv=b
+[guard] slot=1/2 argv=c
+_____________________ test_wait_blocks_until_slot_released _____________________
+
+    def test_wait_blocks_until_slot_released():
+        guard_heavy(["a"])
+        guard_heavy(["b"])
+        result: dict[str, object] = {}
+    
+        def worker() -> None:
+            try:
+                result["env"], result["slot"] = guard_heavy(["factor", "run"], wait=True)
+            except BaseException as exc:  # noqa: BLE001 —— 测试线程序列化异常
+                result["exc"] = exc
+    
+        thread = threading.Thread(target=worker)
+        thread.start()
+        thread.join(timeout=0.5)
+>       assert thread.is_alive(), "wait=True 应在槽满时阻塞"
+E       AssertionError: wait=True 应在槽满时阻塞
+E       assert False
+E        +  where False = is_alive()
+E        +    where is_alive = <Thread(Thread-1 (worker), stopped 139684920424192)>.is_alive
+
+tests/test_research_guard.py:99: AssertionError
+----------------------------- Captured stderr call -----------------------------
+[guard] slot=1/2 argv=a
+[guard] slot=1/2 argv=b
+[guard] slot=1/2 argv=factor run
+_______________________ test_cross_process_flock_is_real _______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2636/test_cross_process_flock_is_re0')
+
+    def test_cross_process_flock_is_real(tmp_path):
+        """真 OS flock：子进程持两槽 → 本进程 BUSY（杀"进程内计数器"存根）。"""
+        script = (
+            "import fcntl, sys\n"
+            "fds = []\n"
+            f"for i in (1, 2):\n"
+            f"    fd = open(r'{tmp_path}/heavy.%d.lock' % i, 'a+')\n"
+            "    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)\n"
+            "    fds.append(fd)\n"
+            "print('HOLDING', flush=True)\n"
+            "sys.stdin.readline()\n"
+        )
+        proc = subprocess.Popen([sys.executable, "-c", script],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                text=True)
+        try:
+            assert proc.stdout.readline().strip() == "HOLDING"
+>           with pytest.raises(GuardError) as ei:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE GuardError
+
+tests/test_research_guard.py:174: Failed
+----------------------------- Captured stderr call -----------------------------
+[guard] slot=1/2 argv=factor run
+=========================== short test summary info ============================
+FAILED tests/test_research_guard.py::test_two_slots_then_busy_and_slot_files
+FAILED tests/test_research_guard.py::test_release_allows_reacquire - Failed: ...
+FAILED tests/test_research_guard.py::test_wait_blocks_until_slot_released - A...
+FAILED tests/test_research_guard.py::test_cross_process_flock_is_real - Faile...
+4 failed, 7 passed in 3.09s
+
+=== MUTATION B: 内存预检恒通过 ===
+...F.......                                                              [100%]
+=================================== FAILURES ===================================
+_________________ test_memory_guard_rejects_and_releases_slot __________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9efd2e9ae0>
+
+    def test_memory_guard_rejects_and_releases_slot(monkeypatch):
+        mem = SimpleNamespace(available=4 * 1024**3)
+        monkeypatch.setattr(_guard.psutil, "virtual_memory", lambda: mem)
+>       with pytest.raises(GuardError) as ei:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE GuardError
+
+tests/test_research_guard.py:111: Failed
+----------------------------- Captured stderr call -----------------------------
+[guard] slot=1/2 argv=factor run
+=========================== short test summary info ============================
+FAILED tests/test_research_guard.py::test_memory_guard_rejects_and_releases_slot
+1 failed, 10 passed in 4.43s
+
+=== MUTATION C: env 注入错误线程数 ===
+F.F.F......                                                              [100%]
+=================================== FAILURES ===================================
+___________________ test_two_slots_then_busy_and_slot_files ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2638/test_two_slots_then_busy_and_s0')
+capsys = <_pytest.capture.CaptureFixture object at 0x7f6a18738980>
+
+    def test_two_slots_then_busy_and_slot_files(tmp_path, capsys):
+        env1, slot1 = guard_heavy(["factor", "run"])
+        env2, slot2 = guard_heavy(["strategy", "run"])
+        assert slot1.name == "heavy.1.lock" and slot1.parent == tmp_path
+        assert slot2.name == "heavy.2.lock"
+>       assert env1 == EXPECTED_ENV and env2 == EXPECTED_ENV
+E       AssertionError: assert ({'FACTORLAB_M...THREADS': '8'} == {'FACTORLAB_M...THREADS': '8'}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'OMP_NUM_THREADS': '4'} != {'OMP_NUM_THREADS': '8'}
+E         Use -v to get more diff)
+
+tests/test_research_guard.py:61: AssertionError
+----------------------------- Captured stderr call -----------------------------
+[guard] slot=1/2 argv=factor run
+[guard] slot=2/2 argv=strategy run
+_____________________ test_wait_blocks_until_slot_released _____________________
+
+    def test_wait_blocks_until_slot_released():
+        guard_heavy(["a"])
+        guard_heavy(["b"])
+        result: dict[str, object] = {}
+    
+        def worker() -> None:
+            try:
+                result["env"], result["slot"] = guard_heavy(["factor", "run"], wait=True)
+            except BaseException as exc:  # noqa: BLE001 —— 测试线程序列化异常
+                result["exc"] = exc
+    
+        thread = threading.Thread(target=worker)
+        thread.start()
+        thread.join(timeout=0.5)
+        assert thread.is_alive(), "wait=True 应在槽满时阻塞"
+        release_slots()
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+        assert "exc" not in result, result.get("exc")
+>       assert result["env"] == EXPECTED_ENV
+E       AssertionError: assert {'FACTORLAB_M...THREADS': '8'} == {'FACTORLAB_M...THREADS': '8'}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'OMP_NUM_THREADS': '4'} != {'OMP_NUM_THREADS': '8'}
+E         Use -v to get more diff
+
+tests/test_research_guard.py:104: AssertionError
+----------------------------- Captured stderr call -----------------------------
+[guard] slot=1/2 argv=a
+[guard] slot=2/2 argv=b
+[guard] slot=1/2 argv=factor run
+_________________________ test_env_injection_defaults __________________________
+
+    def test_env_injection_defaults():
+        env, _slot = guard_heavy(["a"])
+>       assert env == EXPECTED_ENV
+E       AssertionError: assert {'FACTORLAB_M...THREADS': '8'} == {'FACTORLAB_M...THREADS': '8'}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'OMP_NUM_THREADS': '4'} != {'OMP_NUM_THREADS': '8'}
+E         Use -v to get more diff
+
+tests/test_research_guard.py:124: AssertionError
+----------------------------- Captured stderr call -----------------------------
+[guard] slot=1/2 argv=a
+=========================== short test summary info ============================
+FAILED tests/test_research_guard.py::test_two_slots_then_busy_and_slot_files
+FAILED tests/test_research_guard.py::test_wait_blocks_until_slot_released - A...
+FAILED tests/test_research_guard.py::test_env_injection_defaults - AssertionE...
+3 failed, 8 passed in 3.92s

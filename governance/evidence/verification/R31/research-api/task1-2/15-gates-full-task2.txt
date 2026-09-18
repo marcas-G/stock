@@ -1,0 +1,23 @@
+# make gates（=bash governance/ops/gates.sh，Task 2 后）
+# EXIT=2 —— 预存红：仅 dataiface BAD 8 处，全部来自未跟踪在途文件
+#   platform/tools/lob_fact/pipeline/event_daily.py（mtime 09:23，会话前存在，??）
+#   platform/tools/lob_fact/pipeline/panel_batch.py（同上）
+# 本任务相关门（结构/G-BOUNDARY/G-IMPORTS/G-LINT）全绿，摘录:
+[G-BOUNDARY] platform/ 不得 import research/
+[G-IMPORTS] 全仓 factorlab.* 导入可解析（含负向自检）
+    ✓ G-IMPORTS 通过（扫描 463 个文件）
+[G-LINT] 全库因子 spec lint（单进程批跑；挖矿在途 spec 一并计入）
+    ✓ factorlab → platform/src ✓
+结构门：有失败（见上）
+# dataiface BAD 行（预存，非本任务）:
+  [BAD] platform/tools/lob_fact/pipeline/event_daily.py:138: 字符串常量含 'year=' ('/tick_daily_event/year=')
+  [BAD] platform/tools/lob_fact/pipeline/event_daily.py:142: 字符串常量含 'year=' ('/year=')
+  [BAD] platform/tools/lob_fact/pipeline/event_daily.py:151: 未登记的直读 read_parquet(_input_path(lob_root, 'lob_events', day)) —— 应走平台单点；确有理由则登记进 governance/ops/check_dataiface.py
+  [BAD] platform/tools/lob_fact/pipeline/event_daily.py:153: 未登记的直读 read_parquet(_input_path(lob_root, 'lob_sweep_meta', day)) —— 应走平台单点；确有理由则登记进 governance/ops/check_dataiface.py
+  [BAD] platform/tools/lob_fact/pipeline/panel_batch.py:147: 未登记的直读 read_parquet(_read_day_table(lob_root, 'lob_events', day)) —— 应走平台单点；确有理由则登记进 governance/ops/check_dataiface.py
+  [BAD] platform/tools/lob_fact/pipeline/panel_batch.py:148: 未登记的直读 read_parquet(_read_day_table(lob_root, 'lob_sweep_meta', day)) —— 应走平台单点；确有理由则登记进 governance/ops/check_dataiface.py
+  [BAD] platform/tools/lob_fact/pipeline/panel_batch.py:149: 未登记的直读 read_parquet(_read_day_table(lob_root, 'lob_checkpoints', day)) —— 应走平台单点；确有理由则登记进 governance/ops/check_dataiface.py
+  [BAD] platform/tools/lob_fact/pipeline/panel_batch.py:52: 字符串常量含 'year=' ('/year=')
+  [BAD] platform/tools/lob_fact/pipeline/panel_batch.py:74: 未登记的直读 read_parquet(_read_day_table(lob_root, 'lob_events', day)) —— 应走平台单点；确有理由则登记进 governance/ops/check_dataiface.py
+  [BAD] platform/tools/lob_fact/pipeline/panel_batch.py:75: 未登记的直读 read_parquet(_read_day_table(lob_root, 'lob_sweep_meta', day)) —— 应走平台单点；确有理由则登记进 governance/ops/check_dataiface.py
+  [BAD] platform/tools/lob_fact/pipeline/panel_batch.py:76: 未登记的直读 read_parquet(_read_day_table(lob_root, 'lob_checkpoints', day)) —— 应走平台单点；确有理由则登记进 governance/ops/check_dataiface.py
