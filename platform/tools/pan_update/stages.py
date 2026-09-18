@@ -2,6 +2,10 @@
 
 设计：knowledge/design/workspace/2026-09-16-pan-data-update-design.md §3/§5/§8
 - ``STAGE_CHAINS``：类别 → 命令序列（daily/minutes/fund_flow/financials 由 T5-T8 填实）。
+  daily 链在 import_daily（raw → daily_fact）与 ingest_daily 之间插入
+  ``data_quality/pipeline.py clean``（Plan DQ-M1 §5：CLEAN STAGING → PRE-INGEST GATE
+  → CANONICAL INGEST）；clean 非零退出（PRE-INGEST FAIL）→ 阶段失败上抛，ingest 不执行、
+  stage 标记不落。M1 只 clean 最新分区（增量硬门；全史体检是 T8 的只审不改职责）。
 - ``run_category_stage``：同一 (类别, 阶段) 成功才落标记（值为 ISO 时间）；
   失败即停、标记不动，重跑从链头整链重放（链内每步须幂等，设计 §3/§8）。
 - ``run_cmd``：子进程输出逐行喂给 log；非零退出抛 ``StageError(stage, cmd, rc, tail)``，
@@ -34,6 +38,8 @@ _TOOLS = config.repo_root() / "platform" / "tools"
 STAGE_CHAINS: dict[str, list[list[str]]] = {
     "daily": [
         [str(_VENV_PYTHON), str(_TOOLS / "ashare_ingest" / "import_daily.py")],
+        [str(_VENV_PYTHON), str(_TOOLS / "data_quality" / "pipeline.py"),
+         "clean", "--partition", "latest"],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_daily.py")],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "derive_stk_limit.py")],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "adj_backfill.py")],
