@@ -250,28 +250,28 @@ def _parse_param_value(value: str) -> int | float | bool | str:
     return value
 
 
-@app.command("run")
-def run_factor_cli(
+def execute_run(
     spec_path: Path,
+    *,
     universe: str | None = None,
     max_memory: str = "4GB",
     output_dir: Path | None = None,
     float32: bool = True,
     backtest: bool = True,
-    groups: int = typer.Option(10, min=2),
-    set_params: list[str] = typer.Option(None, "--set", help="覆盖 spec.params（k=v，可多次，生成 name_kv 变体）"),
-    chunk_days: int | None = typer.Option(None, "--chunk-days", min=1,
-                                          help="日期分块（交易日/块；缺省：分钟链 20 交易日/块自动分块，日频单块整段跑；显式超大块按内存估算告警/拒绝，见 interface.md §1）"),
-    warmup_days: int | None = typer.Option(None, "--warmup-days", min=0,
-                                           help="TS 窗口预热天数（缺省=按公式自动提取窗口+20）"),
-    eval_frequency: str | None = typer.Option(
-        None, "--eval-frequency",
-        help="评估频率覆盖：daily（逐日默认）| weekly（周频对照）；缺省取 spec.evaluation_frequency"),
-) -> None:
-    """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
-    --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
-    --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。--eval-frequency 覆盖 spec 评估频率
-    （daily 默认逐日口径；weekly 为旧口径可选对照）。"""
+    groups: int = 10,
+    set_params: list[str] | None = None,
+    chunk_days: int | None = None,
+    warmup_days: int | None = None,
+    eval_frequency: str | None = None,
+) -> dict:
+    """`factorlab run` 的计算主体（CLI 与 research.factor 门面共用，不打印）。
+
+    R31 Task 4：从 `run_factor_cli` 抽出——消除"门面复刻 run 装配"的业务漂移风险
+    （研究门面 `factor run` 经 import 本函数复用同一条链，含内存护栏与评估装配）。
+
+    返回 `{"spec", "variant", "ctx", "result", "outcome"}`；错误原样抛出
+    （ValueError/FileNotFoundError/FactorDSLError，调用方各自映射展示/错误码）。
+    """
     from factorlab.app.run import run_factor, run_factor_minute
     from factorlab.app.context import RunContext
     from factorlab.app.evaluate import evaluate_run, publish_run
@@ -280,19 +280,13 @@ def run_factor_cli(
     for kv in set_params or []:
         key, _, value = kv.partition("=")
         if not key or not value:
-            raise typer.BadParameter(f"--set 格式应为 k=v: {kv}")
+            raise ValueError(f"--set 格式应为 k=v: {kv}")
         if not re.fullmatch(r"[A-Za-z0-9_.-]+", value):
-            raise typer.BadParameter(f"--set 值含非法字符（仅字母数字_.-）: {value}")
+            raise ValueError(f"--set 值含非法字符（仅字母数字_.-）: {value}")
         overrides[key] = _parse_param_value(value)
     if eval_frequency is not None and eval_frequency not in ("daily", "weekly"):
-        raise typer.BadParameter(f"--eval-frequency 应为 daily|weekly: {eval_frequency}")
-    try:
-        spec = load_spec(spec_path)
-    except (FileNotFoundError, ValueError) as exc:
-        # ValueError 含 pydantic 的 ValidationError（spec 字段非法，如 cost_rate 越界）——
-        # 用户写错 YAML 不该看到裸 traceback（`lint` 子命令同款处理）。
-        console.print(f"错误: {exc}")
-        raise typer.Exit(code=1) from exc
+        raise ValueError(f"--eval-frequency 应为 daily|weekly: {eval_frequency}")
+    spec = load_spec(spec_path)
     variant = spec.name
     if overrides:
         spec.params = {**spec.params, **overrides}
@@ -316,20 +310,54 @@ def run_factor_cli(
     # W5 分派：分钟面 spec（interface: bars_1m）走分钟链 run_factor_minute（折日
     # 面板与日频同列契约，下方评估/分层回测零改动复用）；日频 spec 走原 run_factor。
     run_impl = run_factor_minute if spec.interface == "bars_1m" else run_factor
+    with cli_memory_guardrails():
+        result = run_impl(spec, ctx)
+        # 评估装配单点（WS5）：app.evaluate.evaluate_run + publish_run
+        outcome = evaluate_run(result, spec, ctx, groups=groups, backtest=backtest,
+                               frequency=eval_frequency)
+        publish_run(result, outcome, ctx)
+    return {"spec": spec, "variant": variant, "ctx": ctx,
+            "result": result, "outcome": outcome}
+
+
+@app.command("run")
+def run_factor_cli(
+    spec_path: Path,
+    universe: str | None = None,
+    max_memory: str = "4GB",
+    output_dir: Path | None = None,
+    float32: bool = True,
+    backtest: bool = True,
+    groups: int = typer.Option(10, min=2),
+    set_params: list[str] = typer.Option(None, "--set", help="覆盖 spec.params（k=v，可多次，生成 name_kv 变体）"),
+    chunk_days: int | None = typer.Option(None, "--chunk-days", min=1,
+                                          help="日期分块（交易日/块；缺省：分钟链 20 交易日/块自动分块，日频单块整段跑；显式超大块按内存估算告警/拒绝，见 interface.md §1）"),
+    warmup_days: int | None = typer.Option(None, "--warmup-days", min=0,
+                                           help="TS 窗口预热天数（缺省=按公式自动提取窗口+20）"),
+    eval_frequency: str | None = typer.Option(
+        None, "--eval-frequency",
+        help="评估频率覆盖：daily（逐日默认）| weekly（周频对照）；缺省取 spec.evaluation_frequency"),
+) -> None:
+    """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
+    --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
+    --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。--eval-frequency 覆盖 spec 评估频率
+    （daily 默认逐日口径；weekly 为旧口径可选对照）。"""
     try:
-        with cli_memory_guardrails():
-            result = run_impl(spec, ctx)
-            # 评估装配单点（WS5）：app.evaluate.evaluate_run + publish_run（此前为本函数内联）
-            outcome = evaluate_run(result, spec, ctx, groups=groups, backtest=backtest,
-                                   frequency=eval_frequency)
-            for note in outcome.notes:
-                console.print(f"提示: {note}")
-            publish_run(result, outcome, ctx)
+        out = execute_run(spec_path, universe=universe, max_memory=max_memory,
+                          output_dir=output_dir, float32=float32,
+                          backtest=backtest, groups=groups, set_params=set_params,
+                          chunk_days=chunk_days, warmup_days=warmup_days,
+                          eval_frequency=eval_frequency)
     except (ValueError, FileNotFoundError, FactorDSLError) as exc:
+        # ValueError 含 pydantic 的 ValidationError（spec 字段非法，如 cost_rate 越界）——
+        # 用户写错 YAML 不该看到裸 traceback（`lint` 子命令同款处理）。
         console.print(f"错误: {exc}")
         raise typer.Exit(code=1) from exc
-    evaluation = outcome.evaluation
-    outputs = outcome.outputs
+    variant = out["variant"]
+    evaluation = out["outcome"].evaluation
+    outputs = out["outcome"].outputs
+    for note in out["outcome"].notes:
+        console.print(f"提示: {note}")
     if outputs == ["signal"]:
         ic = evaluation.get("ic", {})
         console.print(f"{variant}: n_weeks={evaluation.get('n_weeks')} "
@@ -356,13 +384,15 @@ def _run_at(summary: dict, summary_path: Path) -> tuple[str, float]:
     return datetime.datetime.fromtimestamp(mtime).isoformat(timespec="seconds"), mtime
 
 
-@app.command("list")
-def list_factors() -> None:
-    """列出已保存因子与最近运行摘要（results_dir/*/summary.json）。"""
-    results_dir = settings.results_dir
+def collect_result_rows(results_dir: Path | None = None) -> list[dict]:
+    """已保存因子的列表行（`list` 命令与 research.factor 门面共用；新运行在前）。
+
+    R31 Task 4：从 `list_factors` 抽出（门面 `factor list` 不重写摘要汇总）。
+    返回行含 `_sort`（排序键）；展示与 JSON 消费方各自决定是否剔除。
+    """
+    results_dir = Path(results_dir) if results_dir is not None else settings.results_dir
     if not results_dir.is_dir():
-        console.print("暂无因子结果（先运行 factorlab run）")
-        return
+        return []
     rows = []
     # R12：布局经 results 单点（不再 glob 布局字面量）
     from factorlab.adapters import results_fs
@@ -409,10 +439,17 @@ def list_factors() -> None:
             "run_at": run_at,
             "_sort": sort_key,
         })
+    return sorted(rows, key=lambda r: r["_sort"], reverse=True)
+
+
+@app.command("list")
+def list_factors() -> None:
+    """列出已保存因子与最近运行摘要（results_dir/*/summary.json）。"""
+    rows = collect_result_rows()
     if not rows:
         console.print("暂无因子结果（先运行 factorlab run）")
         return
-    for row in sorted(rows, key=lambda r: r["_sort"], reverse=True):
+    for row in rows:
         dcs = row["dir_consistent"]
         console.print(f"{row['name']} | {row['category']} | dir={row['direction']} "
                       f"| dir_consistent={dcs if dcs is not None else '—'} "

@@ -128,6 +128,32 @@ def data_cmd(ctx: typer.Context) -> None:
     raise typer.Exit(code=registry.dispatch([f"data.{argv[0]}", *argv[1:]]))
 
 
+# factor 组的二级命令（ref/op）→ registry 名映射
+_FACTOR_SUBGROUPS = ("ref", "op")
+
+
+@research_app.command(
+    "factor",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def factor_cmd(ctx: typer.Context) -> None:
+    """factor 组：lint/run/list/show/export/corr/resic/svd/ref/op/catalog/admit。"""
+    argv = list(ctx.args)
+    if not argv:
+        raise typer.Exit(code=envelope.emit(envelope.fail(
+            "factor", "USAGE", "缺少 factor 子命令",
+            hint="factorlab research describe --json 查看命令目录")))
+    if argv[0] in _FACTOR_SUBGROUPS:
+        if len(argv) < 2:
+            raise typer.Exit(code=envelope.emit(envelope.fail(
+                "factor", "USAGE", f"缺少 factor {argv[0]} 子命令",
+                hint="factorlab research describe --json 查看命令目录")))
+        name, rest = f"factor.{argv[0]}.{argv[1]}", argv[2:]
+    else:
+        name, rest = f"factor.{argv[0]}", argv[1:]
+    raise typer.Exit(code=registry.dispatch([name, *rest]))
+
+
 @research_app.callback(invoke_without_command=True)
 def _research_main(ctx: typer.Context) -> None:
     """裸调用 `factorlab research` → USAGE 信封（与单 JSON 契约一致）。"""

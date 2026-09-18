@@ -23,16 +23,23 @@ _KINDS = ("str", "int", "float", "bool", "path", "list[str]")
 
 @dataclass(frozen=True)
 class ParamSpec:
-    """单个参数（describe 展示 + dispatch 解析共用）。"""
+    """单个参数（describe 展示 + dispatch 解析共用）。
+
+    `positional=True`：按声明序生成 argparse 位置参数（spec §3 的
+    `flab factor run <spec.yaml>` / `lint <spec...>` 等命令面带法）；
+    list[str] 位置参数 = `nargs="*"`。
+    """
 
     name: str
     kind: str = "str"
     required: bool = False
     help: str = ""
+    positional: bool = False
 
     def to_doc(self) -> dict[str, Any]:
         return {"name": self.name, "kind": self.kind,
-                "required": self.required, "help": self.help}
+                "required": self.required, "help": self.help,
+                "positional": self.positional}
 
 
 @dataclass(frozen=True)
@@ -86,10 +93,35 @@ def _kind_default(kind: str) -> Any:
 
 
 def build_parser(spec: CommandSpec) -> argparse.ArgumentParser:
-    """由 CommandSpec 生成 argparse（flag 用连字符，Namespace 属性用下划线）。"""
+    """由 CommandSpec 生成 argparse（位置参数按声明序；flags 用连字符）。
+
+    Namespace 属性一律用下划线名；位置参数（spec §3 的命令面写法
+    `<spec.yaml>`/`<name>`/`<spec...>`）在选项之前生成。
+    """
     parser = argparse.ArgumentParser(
         prog=f"factorlab research {spec.name}", add_help=False)
     for param in spec.params:
+        if not param.positional:
+            continue
+        if param.kind not in _KINDS:
+            raise ValueError(f"未知参数类型 {param.kind}: {spec.name}.{param.name}")
+        kwargs: dict[str, Any] = {"help": param.help}
+        if param.kind == "list[str]":
+            kwargs["nargs"] = "*"
+            kwargs["default"] = spec.defaults.get(param.name, [])
+        else:
+            if not param.required:  # required 位置参数不给 default → argparse 必填
+                kwargs["default"] = spec.defaults.get(param.name, _kind_default(param.kind))
+            if param.kind == "int":
+                kwargs["type"] = int
+            elif param.kind == "float":
+                kwargs["type"] = float
+            elif param.kind == "path":
+                kwargs["type"] = Path
+        parser.add_argument(param.name, **kwargs)
+    for param in spec.params:
+        if param.positional:
+            continue
         if param.kind not in _KINDS:
             raise ValueError(f"未知参数类型 {param.kind}: {spec.name}.{param.name}")
         flag = "--" + param.name.replace("_", "-")
