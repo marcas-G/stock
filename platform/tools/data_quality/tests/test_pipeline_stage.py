@@ -164,6 +164,18 @@ def test_warn_info_reach_summary_not_lost(tmp_path):
     assert summary["rules"].get(rules.MISSING_VALUE) == 1
 
 
+def test_summary_reports_deduped_rows_for_explained_completeness(tmp_path):
+    """F5：summary 必须给「确定性 dedup 删了几行」——full_table 完整性账本需要。"""
+    raw = _raw([_good(code="600519.SH"), _good(code="600519.SH")])
+    res = pipeline.run_clean_stage(raw, run_tag=TAG, root=tmp_path,
+                                   expected_count=2)
+    assert res.clean_rows == 1 and res.quarantined_rows == 0
+    summary = json.loads((_stage_dir(tmp_path) / "summary.json")
+                         .read_text(encoding="utf-8"))
+    assert summary["deduped_rows"] == 1, "raw = clean + quarantine + dedup 的账本"
+    assert summary["quarantined_rows"] == 0
+
+
 def test_multi_date_scope_time_distribution_not_systemic(tmp_path):
     """I3：全表清洗后时间集中按范围内日期分布——120 错均摊 3 日（>N_time）不判 systemic。"""
     rows = [_good(code=f"{i:06d}.SZ", day=d) for i, d in

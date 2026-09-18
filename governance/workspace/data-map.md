@@ -28,6 +28,10 @@
 | A10 | 指数基准 | `data/ref/000905.SH.parquet`（中证 500） | 20K（20,649B） | **退役**：`platform/tools/ashare_ingest/import_index.py`（腾讯 kline）已于 2026-09-17（T11）删除 | 外部（腾讯 kline，已退役） | universe_stages benchmark | **冻结、不维护**（T11 裁决）：网盘指数目录只有 `截止_2026-09-16_指数…_日线.zip`（100MB，超直链上限不可核对内容、文件名不含 000905/中证500）→ 不满足覆盖判定；需要时浏览器下载该 zip 人工核对替换；sha256 `02775ff2…` |
 | A11 | 未解包归档 | `data/raw/20260817.7z` | 5.3G | quark 网盘（单日全码包） | 外部 | universe_stages `ticks_root`（**需先解包**，见 pending-items #3） | 解包后排期（**先 `df` 复核余量**——2026-09-15 实测 338G 可用；见 pending-items #3） |
 | A12 | 预留面板区 | `data/panel/` | 空 | —（公约预留给未来跨源大面板） | — | — | 新面板落位时更新本表 |
+| A13 | DQ clean staging（全表清洗候选） | `data/staging/<dataset>/<run_tag>/daily_fact.parquet`（+ `summary.json`/`_SUCCESS`） | 436M/日（M3 定保留窗） | `platform/tools/data_quality/pipeline.py clean`（Plan DQ-M1） | A5（raw daily_fact） | `ch_ingest/ingest_daily.py --source`（canonical 写入来源）、`data_quality/health.py publish`（审计） | 每 run_tag 重写（幂等，原子 + `_SUCCESS`）；**PRE-INGEST FAIL 不落完成标记、不触发 ingest** |
+| A14 | DQ quarantine（行级隔离证据） | `data/quarantine/<dataset>/<run_tag>/rows.parquet`（+ `index.json`/`_SUCCESS`） | 随隔离行增长（M3 定保留窗） | 同上（`repair.write_quarantine`） | A5/A13（被隔离行=证据，禁止 source precedence） | 审计/calibration（T8；无自动回灌） | 每 run_tag 重写；重跑无隔离行时**整目录清理**（防陈旧证据误导） |
+| A15 | Health artifact（research-ready 发布契约） | `data/health/<dataset>/<partition>.json`（+ `summary.json` 数据集汇总） | ~1K/分区 | `platform/tools/data_quality/health.py publish`（post-ingest audit + FINAL 门；T6/F5） | A13（clean 计数）+ CH canonical（分区帧/全表 count）+ A5 raw（sha256/抽样） | 读取门 `factorlab/adapters/read/health.py::require_dataset`（evaluate/backtest/CLI 入口） | 每个分区原子重写（§6 键集；quality/completeness 为 full_table 口径；health_status × verification_state 双枚举） |
+| A16 | Experiment manifest / DQ usage | `data/manifest/<dataset>/<partition>.json`（opt-in 五字段）；`<partition>.backtest.json`（回测 usage 五字段） | ~1K/次 | `require_dataset`（DEGRADED/UNKNOWN opt-in）、`record_gate_usage`（backtest 产物记录） | A15 | 实验审计（dataset_version/quality_status/quarantined_rows/coverage/cleaning_policy_version） | 每次过门/回测原子重写（同分区最新一次为准） |
 
 ## B. 外部数据服务（不占工作区磁盘）
 

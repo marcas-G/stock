@@ -9,6 +9,10 @@
 
 契约：
 - ``publish_health`` 产物键集与 §6 完全一致（多/少都算违约；测试逐键断言）；
+- **scope=full_table（F5）**：``quality.*`` 与 ``completeness.*`` 为清洗链全表口径——
+  分母 = raw 全表行数、actual = clean 行数、``coverage=actual/expected``、
+  ``error_rate=error_count/expected``；``status=COMPLETE`` 当且仅当差额被
+  quarantine+dedup 清洗账完全解释；分区级 PK/抽样/漂移仍按 partition 审查；
 - ``health_status ∈ {PASS, DEGRADED, FAIL, UNKNOWN}``；
   ``verification_state ∈ {VERIFIED, LEGACY_UNVERIFIED, KNOWN_ISSUE}``；
   ``completeness.status ∈ {COMPLETE, INCOMPLETE, UNKNOWN}``；
@@ -342,21 +346,22 @@ def main(argv: list[str] | None = None) -> int:
         col = next(c for c in sym_col if c in raw_part.columns)
         symbols = sorted(raw_part[col].unique().to_list())[:max(args.sample, 0)]
 
-    # 分区帧（PK/漂移/抽样）+ 全表计数（reconcile）；completeness 分区腿用
-    # clean staging 的分区行数（§6 示例为分区口径），reconcile 用全表口径。
+    # F5：health quality/completeness 统一 **full_table** 口径——
+    # expected = raw 全表行数；actual = clean 行数；差额须被确定性清洗账
+    # （quarantine + dedup）解释；error_rate 分母同为 raw 全表。分区帧仍用于
+    # PK/漂移/抽样，canonical 全表 count 用于 reconcile（clean vs canonical）。
+    raw_full = int(pl.scan_parquet(str(raw_path)).select(pl.len())
+                   .collect().item())
+    clean_rows = int(summary["clean_rows"])
+    explained = (int(summary.get("quarantined_rows", 0))
+                 + int(summary.get("deduped_rows", 0)))
     canonical, canonical_full = _read_canonical(partition, args.dataset)
-    staged_path = summary_path.parent / "daily_fact.parquet"
-    if not staged_path.is_file():
-        print(f"错误：clean staging parquet 不存在：{staged_path}", file=sys.stderr)
-        return 2
-    staged_part_rows = _scan_raw(staged_path, day=partition).height
     metrics = audit.audit_post_ingest(
-        canonical, partition=partition, expected_count=staged_part_rows,
-        reconcile_expected=int(summary["clean_rows"]),
-        reconcile_actual=canonical_full,
+        canonical, partition=partition, expected_count=raw_full,
+        actual_count=clean_rows, explained_drops=explained,
+        reconcile_expected=clean_rows, reconcile_actual=canonical_full,
         raw=raw_part, baseline=baseline, sample_symbols=symbols,
-        transport=None if args.no_sample else audit.http_get_text,
-        policy=policy)
+        transport=None if args.no_sample else audit.http_get_text)
     final = audit.decide_final(summary["decision"], metrics, policy)
     quality = quality_block(summary.get("quality", {}), metrics, final)
     counts = merge_rules(summary.get("rules", {}),

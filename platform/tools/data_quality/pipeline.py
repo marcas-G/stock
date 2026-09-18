@@ -112,6 +112,9 @@ def run_clean_stage(
     df = _sort_rows(raw)
     results = validators.validate_daily(df, calendar, listing, limits)
     clean, quarantined, repair_log = repair.repair(df, results)
+    # F5：full_table 完整性账本——raw = clean + quarantine + dedup（删除行数）
+    deduped = sum(int(e.get("count", 0)) for e in repair_log
+                  if e.get("action") == "dedup_identical")
     metrics = aggregate.aggregate(results, expected, actual)
     systemic = aggregate.detect_systemic(metrics, df, policy)
     decision = aggregate.decide_pre_ingest(metrics, systemic, policy)
@@ -123,8 +126,8 @@ def run_clean_stage(
         f"rows={actual} clean={clean.height} quarantined={quarantined.height}")
 
     summary = _summary(dataset, run_tag, health_partition, decision, metrics,
-                       systemic, clean.height, quarantined.height, policy,
-                       dry_run, date_range)
+                       systemic, clean.height, quarantined.height, deduped,
+                       policy, dry_run, date_range)
     staging_dir: Path | None = None
     staging_path: Path | None = None
     quarantine_dir: Path | None = None
@@ -197,8 +200,8 @@ def _clear_quarantine(data_root: Path, dataset: str, run_tag: str) -> None:
 
 def _summary(dataset: str, run_tag: str, partition: str, decision: str,
              metrics: Metrics, systemic: SystemicDetail | None, clean_rows: int,
-             quarantined_rows: int, policy: DqPolicy, dry_run: bool,
-             date_range: dict | None) -> dict:
+             quarantined_rows: int, deduped_rows: int, policy: DqPolicy,
+             dry_run: bool, date_range: dict | None) -> dict:
     systematic = systemic is not None
     return {
         "dataset": dataset,
@@ -209,6 +212,7 @@ def _summary(dataset: str, run_tag: str, partition: str, decision: str,
         "decision": decision,
         "clean_rows": clean_rows,
         "quarantined_rows": quarantined_rows,
+        "deduped_rows": deduped_rows,
         "quality": {
             "fatal_count": metrics.fatal_count,
             "error_count": metrics.error_count,

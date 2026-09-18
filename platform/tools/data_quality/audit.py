@@ -130,22 +130,29 @@ class AuditMetrics:
 
 # ── completeness ─────────────────────────────────────────────────────────
 def check_completeness(expected_count: int | None,
-                       actual_count: int) -> Completeness:
+                       actual_count: int,
+                       explained_drops: int = 0) -> Completeness:
     """独立完整性判定：``expected_count`` 缺省 = UNKNOWN（不得用 actual 自洽）。
 
-    ``status = COMPLETE`` 当且仅当 expected 已知且 actual == expected；
-    多出的行（actual > expected）同样是 INCOMPLETE（不是"超量就通过"）。
+    ``status = COMPLETE`` 当且仅当 expected 已知且
+    ``actual + explained_drops == expected``——``explained_drops`` 是**确定性
+    清洗账**（quarantine + dedup 删除行数；full_table 口径专用）。未解释差额
+    （少或多）一律 INCOMPLETE（不是"超量就通过"，也不是"有 quarantine 就不完整"）。
     """
     if not isinstance(actual_count, int) or isinstance(actual_count, bool) \
             or actual_count < 0:
         raise ValueError(f"actual_count 必须为非负整数：{actual_count!r}")
+    if not isinstance(explained_drops, int) or isinstance(explained_drops, bool) \
+            or explained_drops < 0:
+        raise ValueError(f"explained_drops 必须为非负整数：{explained_drops!r}")
     if expected_count is None:
         return Completeness(UNKNOWN, None, actual_count, None)
     if not isinstance(expected_count, int) or isinstance(expected_count, bool) \
             or expected_count <= 0:
         raise ValueError(f"expected_count 必须为正整数或 None：{expected_count!r}")
     coverage = actual_count / expected_count
-    status = COMPLETE if actual_count == expected_count else INCOMPLETE
+    status = (COMPLETE if actual_count + explained_drops == expected_count
+              else INCOMPLETE)
     return Completeness(status, expected_count, actual_count, coverage)
 
 
@@ -380,6 +387,7 @@ def audit_post_ingest(
     partition: str,
     expected_count: int | None,
     actual_count: int | None = None,
+    explained_drops: int = 0,
     reconcile_expected: int | None = None,
     reconcile_actual: int | None = None,
     raw: pl.DataFrame | None = None,
@@ -392,6 +400,7 @@ def audit_post_ingest(
 
     - ``expected_count``：独立完整性分母（None = UNKNOWN）；``actual_count``
       缺省 = ``canonical.height``（分区帧）；全表口径可显式传入；
+      ``explained_drops`` = 确定性清洗账（quarantine + dedup 行数；full_table）；
     - ``reconcile_expected`` / ``reconcile_actual``：独立对账（clean staging
       全表口径 vs canonical 全表计数；actual 缺省 = actual_count）；
     - ``raw``：抽样对拍源（raw/clean 行）；``sample_symbols`` + ``transport``
@@ -399,7 +408,8 @@ def audit_post_ingest(
     - ``baseline``：漂移基线（上一窗口行）。
     """
     actual = actual_count if actual_count is not None else canonical.height
-    completeness = check_completeness(expected_count, actual)
+    completeness = check_completeness(expected_count, actual,
+                                      explained_drops=explained_drops)
     pk_duplicates, pk_results = check_pk(canonical)
     reconcile_ok, reconcile_detail = check_reconcile(
         reconcile_expected,
