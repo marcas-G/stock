@@ -1,0 +1,7 @@
++ platform/.venv/bin/python governance/evidence/verification/R32/final-fix/probe_stage_env_backend.py
+cli._stage_env() backend = 'ch' | arena = '2'
+child> $ /data/students/gaolei/stock/platform/.venv/bin/python -c 'import os; print('"'"'FACTORLAB_DATA_BACKEND='"'"' + repr(os.environ.get('"'"'FACTORLAB_DATA_BACKEND'"'"')))'
+child> FACTORLAB_DATA_BACKEND='ch'
+显式覆盖 -> 'duckdb'
+checks = {'default_ch': True, 'child_sees_ch': True, 'explicit_not_overwritten': True}
+N1 PROBE OK

@@ -1,0 +1,4 @@
++ POLARS_MAX_THREADS=1
++ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests/test_cli.py -q -k 'stage_env_defaults_backend_ch or stage_env_respects_explicit_backend'
+..                                                                       [100%]
+2 passed, 49 deselected in 0.39s

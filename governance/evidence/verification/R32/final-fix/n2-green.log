@@ -1,0 +1,4 @@
++ POLARS_MAX_THREADS=1
++ platform/.venv/bin/python -m pytest platform/tests/test_require_dataset.py platform/tests/test_cli_run.py platform/tests/test_research_quality_optin.py -q -k 'quality or resolve_accept'
+.................                                                        [100%]
+17 passed, 49 deselected in 3.59s

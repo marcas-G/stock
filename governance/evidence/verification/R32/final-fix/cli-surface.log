@@ -1,0 +1,29 @@
++ platform/.venv/bin/factorlab run --help
++ grep -A 2 'accept-quality\|override-reason'
+ --accept-quality/--override-reason 读取门 opt-in（N2：DEGRADED/LEGACY          
+ 显式接受）。                                                                   
+                                                                                
+--
+│ --accept-quality                      <str>               读取门             │
+│                                                           opt-in：逗号分隔   │
+│                                                           health_status（默… │
+--
+│                                                           --override-reason… │
+│                                                           不可               │
+│                                                           opt-in；DEGRADED/… │
+--
+│ --override-reason                     <str>               非 PASS 读取门     │
+│                                                           opt-in             │
+│                                                           的原因（写入       │
+--
+│                                                           --accept-quality   │
+│                                                           配对）             │
+│ --help                                                    Show this message  │
++ platform/.venv/bin/factorlab research describe --json --command factor.run
++ python3 -c 'import json,sys; d=json.load(sys.stdin)["data"]; print("factor.run params:", [p["name"] for p in d["params"]]); print("defaults:", {k: d["defaults"][k] for k in ("accept_quality","override_reason")})'
+factor.run params: ['spec_path', 'universe', 'max_memory', 'output_dir', 'no_backtest', 'groups', 'set', 'chunk_days', 'chunk_workers', 'warmup_days', 'eval_frequency', 'wait', 'no_float32', 'accept_quality', 'override_reason', 'json', 'pretty']
+defaults: {'accept_quality': None, 'override_reason': None}
++ platform/.venv/bin/factorlab research describe --json --command strategy.run
++ python3 -c 'import json,sys; d=json.load(sys.stdin)["data"]; print("strategy.run params:", [p["name"] for p in d["params"]]); print("defaults:", {k: d["defaults"][k] for k in ("accept_quality","override_reason")})'
+strategy.run params: ['doc_path', 'signal', 'dry_run', 'out_dir', 'wait', 'accept_quality', 'override_reason', 'json', 'pretty']
+defaults: {'accept_quality': None, 'override_reason': None}

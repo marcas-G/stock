@@ -1,0 +1,85 @@
++ git stash push -m n1-red2 -- platform/tools/pan_update/cli.py
+保存工作目录和索引状态 On restructure/monorepo: n1-red2
++ POLARS_MAX_THREADS=1
++ platform/.venv/bin/python -m pytest platform/tools/pan_update/tests/test_cli.py -q -k 'stage_env_defaults_backend_ch or stage_env_respects_explicit_backend'
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+______________________ test_stage_env_defaults_backend_ch ______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3018/test_stage_env_defaults_backen0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f845859ac40>
+cookie_ok = None
+
+    def test_stage_env_defaults_backend_ch(tmp_path, monkeypatch, cookie_ok):
+        """N1（R32 终审修复）：裸 `make data-update` 不导出 FACTORLAB_DATA_BACKEND →
+        阶段子进程缺省必须得到生产 ch 后端（health/ingest 依赖），不得由此必败。"""
+        monkeypatch.setattr(resource, "setrlimit", lambda *a: None)
+        assert "FACTORLAB_DATA_BACKEND" not in os.environ
+        runner = FakeRunner()
+        rc = _run(["build", "--categories", "daily"], tmp_path, runner=runner)
+        assert rc == 0
+        assert runner.envs, "runner 应被调用"
+>       assert runner.envs[0].get("FACTORLAB_DATA_BACKEND") == "ch"
+E       AssertionError: assert None == 'ch'
+E        +  where None = <built-in method get of dict object at 0x7f84584a7c00>('FACTORLAB_DATA_BACKEND')
+E        +    where <built-in method get of dict object at 0x7f84584a7c00> = {'MALLOC_ARENA_MAX': '2'}.get
+
+platform/tools/pan_update/tests/test_cli.py:517: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[daily] 阶段 build：执行完成
+=========================== short test summary info ============================
+FAILED platform/tools/pan_update/tests/test_cli.py::test_stage_env_defaults_backend_ch
+1 failed, 1 passed, 49 deselected in 0.88s
++ rc=1
++ git stash pop
+位于分支 restructure/monorepo
+您的分支领先 'origin/restructure/monorepo' 共 470 个提交。
+  （使用 "git push" 来发布您的本地提交）
+
+尚未暂存以备提交的变更：
+  （使用 "git add <文件>..." 更新要提交的内容）
+  （使用 "git checkout -- <文件>..." 丢弃工作区的改动）
+
+	修改：     governance/evidence/reviews/README.md
+	修改：     governance/evidence/reviews/findings.md
+	修改：     governance/evidence/reviews/r06-2026-09-16-post-migration-review/report.md
+	修改：     governance/evidence/reviews/r07-2026-09-16-gap-audit/report.md
+	修改：     governance/workspace/pending-items.md
+	修改：     knowledge/dossiers/factors/intraday_campaign.md
+	修改：     platform/src/factorlab/adapters/read/health.py
+	修改：     platform/src/factorlab/research/factor.py
+	修改：     platform/src/factorlab/research/strategy.py
+	修改：     platform/src/factorlab/surfaces/cli/main.py
+	修改：     platform/tests/test_cli_run.py
+	修改：     platform/tests/test_require_dataset.py
+	修改：     platform/tools/pan_update/cli.py
+	修改：     platform/tools/pan_update/tests/test_cli.py
+	修改：     research/factor/_families.yaml
+
+未跟踪的文件:
+  （使用 "git add <文件>..." 以包含要提交的内容）
+
+	governance/evidence/reviews/r07-2026-09-16-gap-audit/improvement-plan.md
+	governance/evidence/reviews/r08-2026-09-16-metrics-audit/
+	governance/evidence/verification/R32/final-fix/
+	knowledge/design/platform/plans/2026-09-18-data-quality-pipeline-m1.md
+	knowledge/design/research/plans/2026-09-17-ths-simulated-api.md
+	knowledge/design/research/specs/2026-09-17-paper-trading-options-survey.md
+	knowledge/design/research/specs/2026-09-17-ths-simulated-api-design.md
+	platform/tests/test_research_quality_optin.py
+	research/factor/intraday/amihud_max.yaml
+	research/factor/intraday/parkinson_ratio.yaml
+	research/factor/intraday/sign_flips.yaml
+	research/factor/intraday/turnover_cv.yaml
+	research/factor/intraday/updown_breadth.yaml
+	research/factor/intraday/vol_persist.yaml
+	research/factor/vol_run_energy/symrun_r30_flip.yaml
+	research/factor/vol_run_energy/symrun_r30_streak.yaml
+	research/factor/volatility/max_effect_20d_extcnt.yaml
+	research/factor/volatility/max_effect_20d_high.yaml
+	research/factor/volatility/max_effect_20d_zmax.yaml
+	research/tools/factor_lib/gen_minute_pool.py
+
+修改尚未加入提交（使用 "git add" 和/或 "git commit -a"）
+丢弃了 refs/stash@{0} (7bdd13e657e9d903d0c0be7939e8708e946223d4)
++ exit 1

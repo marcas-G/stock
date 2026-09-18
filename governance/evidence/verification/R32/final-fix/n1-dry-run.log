@@ -1,0 +1,2 @@
++ platform/.venv/bin/python platform/tools/pan_update/cli.py build --categories daily --dry-run
+[daily] 将执行 build 链 6 步（--dry-run 不执行）

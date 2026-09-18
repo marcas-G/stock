@@ -1,0 +1,99 @@
++ git stash push -m pre-existing-reg152 -- platform/src/factorlab/adapters/read/health.py platform/src/factorlab/surfaces/cli/main.py platform/src/factorlab/research/factor.py platform/src/factorlab/research/strategy.py
+保存工作目录和索引状态 On restructure/monorepo: pre-existing-reg152
++ cd platform
++ POLARS_MAX_THREADS=1
++ .venv/bin/python -m pytest tests/test_regression_152.py::test_sample_value_regression -q
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________________________ test_sample_value_regression _________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3025/test_sample_value_regression0')
+
+    @pytest.mark.skipif(not BASELINE.is_dir(), reason="R22 基线档不存在")
+    def test_sample_value_regression(tmp_path):
+        if not _ch_available():
+            pytest.skip("ClickHouse 不可达（ch 腿跳过）")
+        env = _dq_fake_health_env(tmp_path)
+        for name, rel in SPECS.items():
+            base = json.loads((BASELINE / f"{name}.json").read_text(encoding="utf-8"))
+            # R30 D9：R22 基线为周频口径产物（n_weeks=178 等）——显式 weekly 对照锁定
+            # "weekly 路径零变更"回归；daily 为平台新默认，不用于本值级基线对拍。
+            # R30 Task 11（D7）：产物写 tmp_path——旧实现直接写 runs/platform/<name>，
+            # 每次全量测试都把主产物覆盖成 weekly（脏产物源），污染 D7 口径。
+            # R30 eval-v2-fix（2026-09-17）：D8 补灌 + pan 数据更新（daily 重灌 21:13）
+            # 两次按 D7 同批刷新基线；漂移归因数据面（同批 `platform/src` 自 14:05 全绿
+            # 后零提交）——证据 `R30/eval-v2-fix/30..32-*`。5d 目标不触发 D3 采样。
+            out = tmp_path / name
+            r = subprocess.run(
+                [str(FACTORLAB), "run", "--eval-frequency", "weekly",
+                 "--output-dir", str(out), str(BASELINE_SPECS / rel)],
+                cwd=str(PLATFORM), env=env, capture_output=True, text=True, timeout=3600)
+            assert r.returncode == 0, f"{name} run 失败:\n{r.stdout}\n{r.stderr}"
+            got = json.loads((out / "summary.json").read_text(encoding="utf-8"))
+            assert got["evaluation"]["n_weeks"] == base["evaluation"]["n_weeks"], name
+            for k in IC_KEYS:
+                a = got["evaluation"]["ic"][k]
+                b = base["evaluation"]["ic"][k]
+>               assert abs(a - b) <= 1e-9, f"{name}.ic.{k}: {a!r} != {b!r}"
+E               AssertionError: reversal_20d.ic.mean: -0.040132795234204814 != -0.040133558743973084
+E               assert 7.635097682701097e-07 <= 1e-09
+E                +  where 7.635097682701097e-07 = abs((-0.040132795234204814 - -0.040133558743973084))
+
+tests/test_regression_152.py:123: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_regression_152.py::test_sample_value_regression - Assertion...
+1 failed in 78.67s (0:01:18)
++ rc=1
++ cd ..
++ git stash pop
+位于分支 restructure/monorepo
+您的分支领先 'origin/restructure/monorepo' 共 470 个提交。
+  （使用 "git push" 来发布您的本地提交）
+
+尚未暂存以备提交的变更：
+  （使用 "git add <文件>..." 更新要提交的内容）
+  （使用 "git checkout -- <文件>..." 丢弃工作区的改动）
+
+	修改：     governance/evidence/reviews/README.md
+	修改：     governance/evidence/reviews/findings.md
+	修改：     governance/evidence/reviews/r06-2026-09-16-post-migration-review/report.md
+	修改：     governance/evidence/reviews/r07-2026-09-16-gap-audit/report.md
+	修改：     governance/workspace/pending-items.md
+	修改：     knowledge/dossiers/factors/intraday_campaign.md
+	修改：     platform/src/factorlab/adapters/read/health.py
+	修改：     platform/src/factorlab/research/factor.py
+	修改：     platform/src/factorlab/research/strategy.py
+	修改：     platform/src/factorlab/surfaces/cli/main.py
+	修改：     platform/tests/test_cli_run.py
+	修改：     platform/tests/test_require_dataset.py
+	修改：     platform/tools/pan_update/cli.py
+	修改：     platform/tools/pan_update/tests/test_cli.py
+	修改：     research/factor/_families.yaml
+
+未跟踪的文件:
+  （使用 "git add <文件>..." 以包含要提交的内容）
+
+	governance/evidence/reviews/r07-2026-09-16-gap-audit/improvement-plan.md
+	governance/evidence/reviews/r08-2026-09-16-metrics-audit/
+	governance/evidence/verification/R32/final-fix/
+	knowledge/design/platform/plans/2026-09-18-data-quality-pipeline-m1.md
+	knowledge/design/research/plans/2026-09-17-ths-simulated-api.md
+	knowledge/design/research/specs/2026-09-17-paper-trading-options-survey.md
+	knowledge/design/research/specs/2026-09-17-ths-simulated-api-design.md
+	platform/tests/test_research_quality_optin.py
+	research/factor/intraday/amihud_max.yaml
+	research/factor/intraday/parkinson_ratio.yaml
+	research/factor/intraday/sign_flips.yaml
+	research/factor/intraday/turnover_cv.yaml
+	research/factor/intraday/updown_breadth.yaml
+	research/factor/intraday/vol_persist.yaml
+	research/factor/vol_run_energy/symrun_r30_flip.yaml
+	research/factor/vol_run_energy/symrun_r30_streak.yaml
+	research/factor/volatility/max_effect_20d_extcnt.yaml
+	research/factor/volatility/max_effect_20d_high.yaml
+	research/factor/volatility/max_effect_20d_zmax.yaml
+	research/tools/factor_lib/gen_minute_pool.py
+
+修改尚未加入提交（使用 "git add" 和/或 "git commit -a"）
+丢弃了 refs/stash@{0} (c69506dc9a53484491abd480b498c7b520ec1986)
++ exit 1

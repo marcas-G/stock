@@ -1,0 +1,19 @@
++ POLARS_MAX_THREADS=1
++ platform/.venv/bin/python -m pytest platform/tests/test_cli_run.py -v -k quality
+============================= test session starts ==============================
+platform linux -- Python 3.13.13, pytest-9.1.1, pluggy-1.6.0 -- /data/students/gaolei/stock/platform/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /data/students/gaolei/stock/platform
+configfile: pyproject.toml
+plugins: cov-7.1.0, anyio-4.14.2
+collecting ... collected 42 items / 35 deselected / 7 selected
+
+platform/tests/test_cli_run.py::test_run_quality_default_rejects_degraded_friendly PASSED [ 14%]
+platform/tests/test_cli_run.py::test_run_quality_stale_pass_rejects_with_freshness PASSED [ 28%]
+platform/tests/test_cli_run.py::test_run_quality_opt_in_degraded_runs_and_writes_manifest PASSED [ 42%]
+platform/tests/test_cli_run.py::test_run_quality_opt_in_missing_reason_exit2 PASSED [ 57%]
+platform/tests/test_cli_run.py::test_run_quality_fail_flag_rejected_exit2 PASSED [ 71%]
+platform/tests/test_cli_run.py::test_run_quality_unknown_non_legacy_rejected PASSED [ 85%]
+platform/tests/test_cli_run.py::test_run_quality_legacy_unknown_opt_in_writes_manifest PASSED [100%]
+
+======================= 7 passed, 35 deselected in 3.40s =======================

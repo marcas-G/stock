@@ -1,0 +1,400 @@
++ git stash push -m n2-red -- platform/src/factorlab/adapters/read/health.py platform/src/factorlab/surfaces/cli/main.py platform/src/factorlab/research/factor.py platform/src/factorlab/research/strategy.py
+保存工作目录和索引状态 On restructure/monorepo: n2-red
++ POLARS_MAX_THREADS=1
++ platform/.venv/bin/python -m pytest platform/tests/test_require_dataset.py platform/tests/test_cli_run.py platform/tests/test_research_quality_optin.py -q -k 'quality or resolve_accept'
+FFFFFFFFFFFFFFFFF                                                        [100%]
+=================================== FAILURES ===================================
+__________________ test_resolve_accept_quality_cli_semantics ___________________
+
+    def test_resolve_accept_quality_cli_semantics():
+        """入口参数归一/校验（CLI exit 2 / 门面 USAGE 共用）：默认空=PASS-only；
+        非空必须给 override_reason；FAIL/未知状态拒绝。"""
+>       from factorlab.adapters.read.health import (parse_accept_quality,
+                                                    resolve_accept_quality)
+E       ImportError: cannot import name 'parse_accept_quality' from 'factorlab.adapters.read.health' (/data/students/gaolei/stock/platform/src/factorlab/adapters/read/health.py)
+
+platform/tests/test_require_dataset.py:374: ImportError
+________ test_quality_error_exposes_dataset_partition_status_freshness _________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_quality_error_exposes_dat0')
+
+    def test_quality_error_exposes_dataset_partition_status_freshness(tmp_path):
+        """拒绝异常必须带结构化上下文（CLI 友好报错按字段渲染，不靠解析文案）。"""
+        _write(tmp_path, _doc(status="DEGRADED"))
+        with pytest.raises(DatasetQualityError) as ei:
+            require_dataset(DATASET, PART, root=tmp_path)
+        exc = ei.value
+>       assert exc.dataset == DATASET
+               ^^^^^^^^^^^
+E       AttributeError: 'DatasetQualityError' object has no attribute 'dataset'
+
+platform/tests/test_require_dataset.py:395: AttributeError
+______________ test_run_quality_default_rejects_degraded_friendly ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_run_quality_default_rejec0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2cd0e7b0>
+
+    def test_run_quality_default_rejects_degraded_friendly(tmp_path, monkeypatch):
+        """默认 fail-closed：DEGRADED 拒绝 exit 1；友好报错含 dataset/partition/
+        status/freshness 与所需旗标提示（无裸 traceback）。"""
+        _use_real_gate(tmp_path, monkeypatch, _quality_doc(status="DEGRADED"))
+        result, out_dir = _run_quality_cli(tmp_path, monkeypatch)
+        assert result.exit_code == 1, result.output
+        out = result.output
+>       assert "dataset=ashare_daily" in out and f"partition={_QUALITY_PARTITION}" in out
+E       AssertionError: assert ('dataset=ashare_daily' in '')
+
+platform/tests/test_cli_run.py:1032: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2026-09-19 04:02:32.991 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-19 04:02:33.044 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+______________ test_run_quality_stale_pass_rejects_with_freshness ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_run_quality_stale_pass_re0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2bdb7f00>
+
+    def test_run_quality_stale_pass_rejects_with_freshness(tmp_path, monkeypatch):
+        _use_real_gate(tmp_path, monkeypatch,
+                       _quality_doc(status="PASS", latest="2023-12-01"))
+        result, _ = _run_quality_cli(tmp_path, monkeypatch)
+        assert result.exit_code == 1
+>       assert "freshness" in result.output and "陈旧" in result.output
+E       AssertionError: assert ('freshness' in '')
+E        +  where '' = <Result DatasetQualityError('读取门拒绝：dataset=ashare_daily partition=2024-01-12 status=PASS——数据陈旧：freshness.latest_trade_date=2023-12-01 距 as_of 为 42d > max_staleness=1d；指引：刷新数据到 as_of 后重发 health；或不要求该新鲜度（放宽 max_staleness 会被审计）')>.output
+
+platform/tests/test_cli_run.py:1045: AssertionError
+__________ test_run_quality_opt_in_degraded_runs_and_writes_manifest ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_run_quality_opt_in_degrad0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2a49c9e0>
+
+    def test_run_quality_opt_in_degraded_runs_and_writes_manifest(tmp_path, monkeypatch):
+        """`--accept-quality PASS,DEGRADED` + reason：DEGRADED 可运行；Experiment
+        Manifest 五字段 + reason 齐；summary 追加五字段。"""
+        root = _use_real_gate(tmp_path, monkeypatch, _quality_doc(status="DEGRADED"))
+        reason = "探索性研究：接受 DEGRADED 分区"
+        result, out_dir = _run_quality_cli(
+            tmp_path, monkeypatch,
+            "--accept-quality", "PASS,DEGRADED", "--override-reason", reason)
+>       assert result.exit_code == 0, result.output
+E       AssertionError: Usage: root run [OPTIONS] {spec_path}
+E         Try 'root run --help' for help.
+E         ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+E         │ No such option: --accept-quality                                             │
+E         ╰──────────────────────────────────────────────────────────────────────────────╯
+E         
+E       assert 2 == 0
+E        +  where 2 = <Result SystemExit(2)>.exit_code
+
+platform/tests/test_cli_run.py:1056: AssertionError
+_________________ test_run_quality_opt_in_missing_reason_exit2 _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_run_quality_opt_in_missin0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2a447850>
+
+    def test_run_quality_opt_in_missing_reason_exit2(tmp_path, monkeypatch):
+        _use_real_gate(tmp_path, monkeypatch, _quality_doc(status="DEGRADED"))
+        result, out_dir = _run_quality_cli(tmp_path, monkeypatch,
+                                           "--accept-quality", "PASS,DEGRADED")
+        assert result.exit_code == 2
+>       assert "--override-reason" in result.output
+E       assert '--override-reason' in "Usage: root run [OPTIONS] {spec_path}\nTry 'root run --help' for help.\n╭─ Error ────────────────────────────────────...                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n"
+E        +  where "Usage: root run [OPTIONS] {spec_path}\nTry 'root run --help' for help.\n╭─ Error ────────────────────────────────────...                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n" = <Result SystemExit(2)>.output
+
+platform/tests/test_cli_run.py:1074: AssertionError
+__________________ test_run_quality_fail_flag_rejected_exit2 ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_run_quality_fail_flag_rej0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2c904d50>
+
+    def test_run_quality_fail_flag_rejected_exit2(tmp_path, monkeypatch):
+        """FAIL 不可 opt-in（设计 §7）——用法层直接拒绝，不进入计算。"""
+        _use_real_gate(tmp_path, monkeypatch, _quality_doc(status="FAIL"))
+        result, _ = _run_quality_cli(tmp_path, monkeypatch,
+                                     "--accept-quality", "PASS,FAIL",
+                                     "--override-reason", "x")
+        assert result.exit_code == 2
+>       assert "FAIL" in result.output and "opt-in" in result.output
+E       assert ('FAIL' in "Usage: root run [OPTIONS] {spec_path}\nTry 'root run --help' for help.\n╭─ Error ────────────────────────────────────...                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n")
+E        +  where "Usage: root run [OPTIONS] {spec_path}\nTry 'root run --help' for help.\n╭─ Error ────────────────────────────────────...                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n" = <Result SystemExit(2)>.output
+
+platform/tests/test_cli_run.py:1085: AssertionError
+_________________ test_run_quality_unknown_non_legacy_rejected _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_run_quality_unknown_non_l0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2c93a300>
+
+    def test_run_quality_unknown_non_legacy_rejected(tmp_path, monkeypatch):
+        """UNKNOWN 仅 LEGACY 过渡可 opt-in；VERIFIED 的 UNKNOWN 仍拒（exit 1）。"""
+        _use_real_gate(tmp_path, monkeypatch,
+                       _quality_doc(status="UNKNOWN", verification="VERIFIED"))
+        result, _ = _run_quality_cli(tmp_path, monkeypatch,
+                                     "--accept-quality", "PASS,UNKNOWN",
+                                     "--override-reason", "过渡")
+>       assert result.exit_code == 1
+E       assert 2 == 1
+E        +  where 2 = <Result SystemExit(2)>.exit_code
+
+platform/tests/test_cli_run.py:1095: AssertionError
+____________ test_run_quality_legacy_unknown_opt_in_writes_manifest ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_run_quality_legacy_unknow0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2c93ad50>
+
+    def test_run_quality_legacy_unknown_opt_in_writes_manifest(tmp_path, monkeypatch):
+        """LEGACY 存量过渡（§8）：显式 opt-in 可读 + 自动写 Experiment Manifest。"""
+        root = _use_real_gate(tmp_path, monkeypatch,
+                              _quality_doc(status="UNKNOWN",
+                                           verification="LEGACY_UNVERIFIED"))
+        reason = "存量过渡（LEGACY）"
+        result, _ = _run_quality_cli(tmp_path, monkeypatch,
+                                     "--accept-quality", "PASS,UNKNOWN",
+                                     "--override-reason", reason)
+>       assert result.exit_code == 0, result.output
+E       AssertionError: Usage: root run [OPTIONS] {spec_path}
+E         Try 'root run --help' for help.
+E         ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+E         │ No such option: --accept-quality                                             │
+E         ╰──────────────────────────────────────────────────────────────────────────────╯
+E         
+E       assert 2 == 0
+E        +  where 2 = <Result SystemExit(2)>.exit_code
+
+platform/tests/test_cli_run.py:1108: AssertionError
+___________________ test_factor_run_forwards_quality_opt_in ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_factor_run_forwards_quali0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2c867af0>
+
+    def test_factor_run_forwards_quality_opt_in(tmp_path, monkeypatch):
+        captured = _factor_run_harness(tmp_path, monkeypatch)
+        spec_path = tmp_path / "dummy.yaml"
+        spec_path.write_text("name: dummy\n", encoding="utf-8")
+        env = F.factor_run(_factor_args(spec_path, accept_quality="pass,degraded",
+                                        override_reason="探索性研究"))
+        assert env.ok, env.error
+>       assert captured["accept_quality"] == ("PASS", "DEGRADED")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'accept_quality'
+
+platform/tests/test_research_quality_optin.py:85: KeyError
+_________________ test_factor_run_quality_default_is_pass_only _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_factor_run_quality_defaul0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2c86c830>
+
+    def test_factor_run_quality_default_is_pass_only(tmp_path, monkeypatch):
+        captured = _factor_run_harness(tmp_path, monkeypatch)
+        spec_path = tmp_path / "dummy.yaml"
+        spec_path.write_text("name: dummy\n", encoding="utf-8")
+        env = F.factor_run(_factor_args(spec_path))
+        assert env.ok, env.error
+>       assert captured["accept_quality"] == ("PASS",)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'accept_quality'
+
+platform/tests/test_research_quality_optin.py:95: KeyError
+_______________ test_factor_run_quality_missing_reason_is_usage ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_factor_run_quality_missin0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2c94aa90>
+
+    def test_factor_run_quality_missing_reason_is_usage(tmp_path, monkeypatch):
+        captured = _factor_run_harness(tmp_path, monkeypatch)
+        spec_path = tmp_path / "dummy.yaml"
+        spec_path.write_text("name: dummy\n", encoding="utf-8")
+        env = F.factor_run(_factor_args(spec_path, accept_quality="PASS,DEGRADED"))
+>       assert env.ok is False and env.error["code"] == "USAGE"
+E       AssertionError: assert (True is False)
+E        +  where True = Envelope(ok=True, schema_version=1, command='factor.run', data={'name': 'demo', 'evaluation': {'version': None, 'frequ...g': '/tmp/pytest-of-gaolei/pytest-3020/test_factor_run_quality_missin0/results/demo/run.log'}, warnings=(), error=None).ok
+
+platform/tests/test_research_quality_optin.py:104: AssertionError
+__________________ test_factor_run_quality_fail_flag_is_usage __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_factor_run_quality_fail_f0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2a43fc50>
+
+    def test_factor_run_quality_fail_flag_is_usage(tmp_path, monkeypatch):
+        captured = _factor_run_harness(tmp_path, monkeypatch)
+        spec_path = tmp_path / "dummy.yaml"
+        spec_path.write_text("name: dummy\n", encoding="utf-8")
+        env = F.factor_run(_factor_args(spec_path, accept_quality="PASS,FAIL",
+                                        override_reason="x"))
+>       assert env.ok is False and env.error["code"] == "USAGE"
+E       AssertionError: assert (True is False)
+E        +  where True = Envelope(ok=True, schema_version=1, command='factor.run', data={'name': 'demo', 'evaluation': {'version': None, 'frequ...g': '/tmp/pytest-of-gaolei/pytest-3020/test_factor_run_quality_fail_f0/results/demo/run.log'}, warnings=(), error=None).ok
+
+platform/tests/test_research_quality_optin.py:116: AssertionError
+_____________ test_factor_run_quality_reject_maps_to_data_envelope _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_factor_run_quality_reject0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2a43fdd0>
+
+    def test_factor_run_quality_reject_maps_to_data_envelope(tmp_path, monkeypatch):
+        import factorlab.surfaces.cli.main as cli_main
+        _guard_ok(monkeypatch, F, tmp_path)
+    
+        def boom(*_a, **_k):
+            raise DatasetQualityError(
+                "读取门拒绝：dataset=ashare_daily partition=2024-01-12 status=DEGRADED"
+                "——不在 accept_quality=('PASS',)（默认 fail-closed）",
+                dataset="ashare_daily", partition="2024-01-12", status="DEGRADED",
+                freshness={"latest_trade_date": "2024-01-12"})
+    
+        monkeypatch.setattr(cli_main, "execute_run", boom)
+        spec_path = tmp_path / "dummy.yaml"
+        spec_path.write_text("name: dummy\n", encoding="utf-8")
+>       env = F.factor_run(_factor_args(spec_path, accept_quality="PASS,DEGRADED",
+                                        override_reason="探索"))
+
+platform/tests/test_research_quality_optin.py:135: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/src/factorlab/research/factor.py:232: in factor_run
+    out = execute_run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+_a = (PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_factor_run_quality_reject0/dummy.yaml'),)
+_k = {'universe': None, 'max_memory': '4GB', 'output_dir': None, 'float32': True, ...}
+
+    def boom(*_a, **_k):
+>       raise DatasetQualityError(
+            "读取门拒绝：dataset=ashare_daily partition=2024-01-12 status=DEGRADED"
+            "——不在 accept_quality=('PASS',)（默认 fail-closed）",
+            dataset="ashare_daily", partition="2024-01-12", status="DEGRADED",
+            freshness={"latest_trade_date": "2024-01-12"})
+E       TypeError: DatasetQualityError() takes no keyword arguments
+
+platform/tests/test_research_quality_optin.py:126: TypeError
+__________________ test_strategy_run_forwards_quality_opt_in ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_strategy_run_forwards_qua0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2c8fbb70>
+
+    def test_strategy_run_forwards_quality_opt_in(tmp_path, monkeypatch):
+        doc_path, captured = _strategy_run_harness(tmp_path, monkeypatch)
+        env = S.strategy_run(_strategy_args(doc_path, accept_quality="PASS,DEGRADED",
+                                            override_reason="探索性研究"))
+        assert env.ok, env.error
+>       assert captured["accept_quality"] == ("PASS", "DEGRADED")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'accept_quality'
+
+platform/tests/test_research_quality_optin.py:187: KeyError
+______________ test_strategy_run_quality_missing_reason_is_usage _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_strategy_run_quality_miss0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2c8fac50>
+
+    def test_strategy_run_quality_missing_reason_is_usage(tmp_path, monkeypatch):
+        doc_path, captured = _strategy_run_harness(tmp_path, monkeypatch)
+        env = S.strategy_run(_strategy_args(doc_path, accept_quality="PASS,DEGRADED"))
+>       assert env.ok is False and env.error["code"] == "USAGE"
+E       AssertionError: assert (True is False)
+E        +  where True = Envelope(ok=True, schema_version=1, command='strategy.run', data={'name': 'ws7_doc', 'signal': 'ws7_doc_chain', 'decis...uet', 'log': '/tmp/pytest-of-gaolei/pytest-3020/test_strategy_run_quality_miss0/out/run.log'}, warnings=(), error=None).ok
+
+platform/tests/test_research_quality_optin.py:194: AssertionError
+____________ test_strategy_run_quality_reject_maps_to_data_envelope ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_strategy_run_quality_reje0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcb2c802f30>
+
+    def test_strategy_run_quality_reject_maps_to_data_envelope(tmp_path, monkeypatch):
+        doc_path, _captured = _strategy_run_harness(tmp_path, monkeypatch)
+    
+        def boom(*_a, **_k):
+            raise DatasetQualityError(
+                "读取门拒绝：dataset=ashare_daily partition=2024-01-12 status=FAIL",
+                dataset="ashare_daily", partition="2024-01-12", status="FAIL")
+    
+        monkeypatch.setattr(S, "run_strategy", boom)
+>       env = S.strategy_run(_strategy_args(doc_path, accept_quality="PASS,DEGRADED",
+                                            override_reason="探索"))
+
+platform/tests/test_research_quality_optin.py:208: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/src/factorlab/research/strategy.py:287: in strategy_run
+    res = run_strategy(doc, rd, results_dir=results_dir,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+_a = (StrategyDoc(strategy=StrategySpec(name='ws7_doc', signal_name='ws7_doc_chain', direction=1, selection=SelectionSpec(m...e='signal_gate'), rules=RulesSpec(stop_loss=None, take_profit=None, max_hold=None)), <object object at 0x7fcbba33fcf0>)
+_k = {'results_dir': PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_strategy_run_quality_reje0/results'), 'out_dir': PosixPath('/tmp/pytest-of-gaolei/pytest-3020/test_strategy_run_quality_reje0/results/strategies/ws7_doc')}
+
+    def boom(*_a, **_k):
+>       raise DatasetQualityError(
+            "读取门拒绝：dataset=ashare_daily partition=2024-01-12 status=FAIL",
+            dataset="ashare_daily", partition="2024-01-12", status="FAIL")
+E       TypeError: DatasetQualityError() takes no keyword arguments
+
+platform/tests/test_research_quality_optin.py:203: TypeError
+=========================== short test summary info ============================
+FAILED platform/tests/test_require_dataset.py::test_resolve_accept_quality_cli_semantics
+FAILED platform/tests/test_require_dataset.py::test_quality_error_exposes_dataset_partition_status_freshness
+FAILED platform/tests/test_cli_run.py::test_run_quality_default_rejects_degraded_friendly
+FAILED platform/tests/test_cli_run.py::test_run_quality_stale_pass_rejects_with_freshness
+FAILED platform/tests/test_cli_run.py::test_run_quality_opt_in_degraded_runs_and_writes_manifest
+FAILED platform/tests/test_cli_run.py::test_run_quality_opt_in_missing_reason_exit2
+FAILED platform/tests/test_cli_run.py::test_run_quality_fail_flag_rejected_exit2
+FAILED platform/tests/test_cli_run.py::test_run_quality_unknown_non_legacy_rejected
+FAILED platform/tests/test_cli_run.py::test_run_quality_legacy_unknown_opt_in_writes_manifest
+FAILED platform/tests/test_research_quality_optin.py::test_factor_run_forwards_quality_opt_in
+FAILED platform/tests/test_research_quality_optin.py::test_factor_run_quality_default_is_pass_only
+FAILED platform/tests/test_research_quality_optin.py::test_factor_run_quality_missing_reason_is_usage
+FAILED platform/tests/test_research_quality_optin.py::test_factor_run_quality_fail_flag_is_usage
+FAILED platform/tests/test_research_quality_optin.py::test_factor_run_quality_reject_maps_to_data_envelope
+FAILED platform/tests/test_research_quality_optin.py::test_strategy_run_forwards_quality_opt_in
+FAILED platform/tests/test_research_quality_optin.py::test_strategy_run_quality_missing_reason_is_usage
+FAILED platform/tests/test_research_quality_optin.py::test_strategy_run_quality_reject_maps_to_data_envelope
+17 failed, 49 deselected in 3.76s
++ rc=1
++ git stash pop
+位于分支 restructure/monorepo
+您的分支领先 'origin/restructure/monorepo' 共 470 个提交。
+  （使用 "git push" 来发布您的本地提交）
+
+尚未暂存以备提交的变更：
+  （使用 "git add <文件>..." 更新要提交的内容）
+  （使用 "git checkout -- <文件>..." 丢弃工作区的改动）
+
+	修改：     governance/evidence/reviews/README.md
+	修改：     governance/evidence/reviews/findings.md
+	修改：     governance/evidence/reviews/r06-2026-09-16-post-migration-review/report.md
+	修改：     governance/evidence/reviews/r07-2026-09-16-gap-audit/report.md
+	修改：     governance/workspace/pending-items.md
+	修改：     knowledge/dossiers/factors/intraday_campaign.md
+	修改：     platform/src/factorlab/adapters/read/health.py
+	修改：     platform/src/factorlab/research/factor.py
+	修改：     platform/src/factorlab/research/strategy.py
+	修改：     platform/src/factorlab/surfaces/cli/main.py
+	修改：     platform/tests/test_cli_run.py
+	修改：     platform/tests/test_require_dataset.py
+	修改：     platform/tools/pan_update/cli.py
+	修改：     platform/tools/pan_update/tests/test_cli.py
+	修改：     research/factor/_families.yaml
+
+未跟踪的文件:
+  （使用 "git add <文件>..." 以包含要提交的内容）
+
+	governance/evidence/reviews/r07-2026-09-16-gap-audit/improvement-plan.md
+	governance/evidence/reviews/r08-2026-09-16-metrics-audit/
+	governance/evidence/verification/R32/final-fix/
+	knowledge/design/platform/plans/2026-09-18-data-quality-pipeline-m1.md
+	knowledge/design/research/plans/2026-09-17-ths-simulated-api.md
+	knowledge/design/research/specs/2026-09-17-paper-trading-options-survey.md
+	knowledge/design/research/specs/2026-09-17-ths-simulated-api-design.md
+	platform/tests/test_research_quality_optin.py
+	research/factor/intraday/amihud_max.yaml
+	research/factor/intraday/parkinson_ratio.yaml
+	research/factor/intraday/sign_flips.yaml
+	research/factor/intraday/turnover_cv.yaml
+	research/factor/intraday/updown_breadth.yaml
+	research/factor/intraday/vol_persist.yaml
+	research/factor/vol_run_energy/symrun_r30_flip.yaml
+	research/factor/vol_run_energy/symrun_r30_streak.yaml
+	research/factor/volatility/max_effect_20d_extcnt.yaml
+	research/factor/volatility/max_effect_20d_high.yaml
+	research/factor/volatility/max_effect_20d_zmax.yaml
+	research/tools/factor_lib/gen_minute_pool.py
+
+修改尚未加入提交（使用 "git add" 和/或 "git commit -a"）
+丢弃了 refs/stash@{0} (cac3a6a9454df9c39829e3d3fbf5cc0560300e8e)
++ exit 1
