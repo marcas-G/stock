@@ -1,0 +1,19 @@
+
+==================================== ERRORS ====================================
+___________ ERROR collecting tests/test_research_strategy_report.py ____________
+ImportError while importing test module '/data/students/gaolei/stock/platform/tests/test_research_strategy_report.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_research_strategy_report.py:31: in <module>
+    from factorlab.research import envelope, registry
+src/factorlab/research/__init__.py:28: in <module>
+    from factorlab.research import strategy as _strategy  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   ImportError: cannot import name 'strategy' from partially initialized module 'factorlab.research' (most likely due to a circular import) (/data/students/gaolei/stock/platform/src/factorlab/research/__init__.py)
+=========================== short test summary info ============================
+ERROR tests/test_research_strategy_report.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.26s

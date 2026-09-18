@@ -1,0 +1,1 @@
+{"ok": true, "schema_version": 1, "command": "report.url", "data": {"name": "max_effect_20d_high", "base": "http://127.0.0.1:8000", "path": "/factor/max_effect_20d_high", "url": "http://127.0.0.1:8000/factor/max_effect_20d_high"}, "artifacts": {"summary": "/data/students/gaolei/stock/runs/platform/max_effect_20d_high/summary.json"}, "warnings": [], "error": null}

@@ -1,0 +1,1 @@
+{"ok": true, "schema_version": 1, "command": "strategy.lint", "data": {"n_pass": 1, "results": [{"path": "research/strategy/low_lottery_top30_weekly.yaml", "name": "low_lottery_top30_weekly", "ok": true}]}, "artifacts": {}, "warnings": [], "error": null}

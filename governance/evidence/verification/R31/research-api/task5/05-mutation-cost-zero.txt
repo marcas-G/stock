@@ -1,0 +1,51 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_______________ test_strategy_cost_real_cost_net_report[duckdb] ________________
+
+env = <conftest._EnvDuck object at 0x7f8d693ec050>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2690/test_strategy_cost_real_cost_n0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8c28a27bb0>
+
+    def test_strategy_cost_real_cost_net_report(env, tmp_path, monkeypatch):
+        e_run, _doc, _results = _run_ok(env, tmp_path, monkeypatch)
+        e = S.strategy_cost(_args(name="ws7_doc", cost_rate=0.001,
+                                  periods_per_year=None))
+        assert e.ok, e.error
+        report = e.data["report"]
+        assert report["layer"] == "strategy"       # 真实 cost_net_report 输出
+>       assert report["cost_rate"] == pytest.approx(0.001)
+E       assert 0.0 == 0.001 ± 1.0e-09
+E         
+E         comparison failed
+E         Obtained: 0.0
+E         Expected: 0.001 ± 1.0e-09
+
+tests/test_research_strategy_report.py:439: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2026-09-18 15:25:49.711 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 15:25:49.743 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+_________________ test_strategy_cost_real_cost_net_report[ch] __________________
+
+env = <conftest._EnvCh object at 0x7f8c289aa3c0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2690/test_strategy_cost_real_cost_n1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8c288d9f30>
+
+    def test_strategy_cost_real_cost_net_report(env, tmp_path, monkeypatch):
+        e_run, _doc, _results = _run_ok(env, tmp_path, monkeypatch)
+        e = S.strategy_cost(_args(name="ws7_doc", cost_rate=0.001,
+                                  periods_per_year=None))
+        assert e.ok, e.error
+        report = e.data["report"]
+        assert report["layer"] == "strategy"       # 真实 cost_net_report 输出
+>       assert report["cost_rate"] == pytest.approx(0.001)
+E       assert 0.0 == 0.001 ± 1.0e-09
+E         
+E         comparison failed
+E         Obtained: 0.0
+E         Expected: 0.001 ± 1.0e-09
+
+tests/test_research_strategy_report.py:439: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_strategy_report.py::test_strategy_cost_real_cost_net_report[duckdb]
+FAILED tests/test_research_strategy_report.py::test_strategy_cost_real_cost_net_report[ch]
+2 failed in 3.91s

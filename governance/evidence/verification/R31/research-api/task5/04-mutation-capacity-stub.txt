@@ -1,0 +1,67 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+___________ test_strategy_capacity_real_amount_and_turnover[duckdb] ____________
+
+env = <conftest._EnvDuck object at 0x7f2c61dd8050>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2689/test_strategy_capacity_real_am0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2b25503bb0>
+
+    def test_strategy_capacity_real_amount_and_turnover(env, tmp_path, monkeypatch):
+        _e, _doc, results = _run_ok(env, tmp_path, monkeypatch)
+        from factorlab.adapters.strategy_artifacts import load_strategy_artifacts
+        target = load_strategy_artifacts(Path(results) / "strategies" / "ws7_doc").target
+        codes = sorted(target.frame["code"].unique().to_list())
+        series = _expected_turnover(target, codes)
+        mean_turnover = sum(series) / len(series)
+    
+        e = S.strategy_capacity(_args(name="ws7_doc", participation_rate=0.1))
+        assert e.ok, e.error
+        assert e.data["one_side_turnover"] == pytest.approx(mean_turnover)
+        assert e.data["participation_rate"] == pytest.approx(0.1)
+        assert e.data["formula"] == (
+            "capacity = avg_amount × participation_rate / one_side_turnover")
+        assert e.data["layer"] == "strategy"
+        # 真 daily amount 读数（duckdb 读面千元→元 ×1000；ch 面原生元）
+        assert len(e.data["per_code"]) == len(codes)
+        seen_amounts = []
+        for row in e.data["per_code"]:
+>           assert row["avg_amount"] in (pytest.approx(1e6), pytest.approx(1e9))
+E           assert 123.0 in (1000000.0 ± 1, 1000000000.0 ± 1.0e+03)
+
+tests/test_research_strategy_report.py:415: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2026-09-18 15:25:25.703 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 15:25:25.729 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+_____________ test_strategy_capacity_real_amount_and_turnover[ch] ______________
+
+env = <conftest._EnvCh object at 0x7f2b25753cb0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2689/test_strategy_capacity_real_am1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2b245b9480>
+
+    def test_strategy_capacity_real_amount_and_turnover(env, tmp_path, monkeypatch):
+        _e, _doc, results = _run_ok(env, tmp_path, monkeypatch)
+        from factorlab.adapters.strategy_artifacts import load_strategy_artifacts
+        target = load_strategy_artifacts(Path(results) / "strategies" / "ws7_doc").target
+        codes = sorted(target.frame["code"].unique().to_list())
+        series = _expected_turnover(target, codes)
+        mean_turnover = sum(series) / len(series)
+    
+        e = S.strategy_capacity(_args(name="ws7_doc", participation_rate=0.1))
+        assert e.ok, e.error
+        assert e.data["one_side_turnover"] == pytest.approx(mean_turnover)
+        assert e.data["participation_rate"] == pytest.approx(0.1)
+        assert e.data["formula"] == (
+            "capacity = avg_amount × participation_rate / one_side_turnover")
+        assert e.data["layer"] == "strategy"
+        # 真 daily amount 读数（duckdb 读面千元→元 ×1000；ch 面原生元）
+        assert len(e.data["per_code"]) == len(codes)
+        seen_amounts = []
+        for row in e.data["per_code"]:
+>           assert row["avg_amount"] in (pytest.approx(1e6), pytest.approx(1e9))
+E           assert 123.0 in (1000000.0 ± 1, 1000000000.0 ± 1.0e+03)
+
+tests/test_research_strategy_report.py:415: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_strategy_report.py::test_strategy_capacity_real_amount_and_turnover[duckdb]
+FAILED tests/test_research_strategy_report.py::test_strategy_capacity_real_amount_and_turnover[ch]
+2 failed in 4.08s

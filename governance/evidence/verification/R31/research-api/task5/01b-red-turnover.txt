@@ -1,0 +1,119 @@
+FFFFF                                                                    [100%]
+=================================== FAILURES ===================================
+______________ test_first_period_is_buy_in_and_unchanged_is_zero _______________
+
+    def test_first_period_is_buy_in_and_unchanged_is_zero():
+>       from factorlab.app.strategy.turnover import target_one_side_turnover
+
+tests/test_strategy_turnover.py:46: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    """策略运行装配（app）：YAML 文档 → 一键链（M7 组合 → M8 回测 → 持久化）+ 策略侧报告。
+    
+    契约（Plan S Task 2）：`run_strategy(doc, rd, results_dir=None)`。
+    E3/E4（评估指标 v2 §2b，**策略层**，不进因子评估 summary）：
+    `cost_net_report`（成本后净值）/ `capacity_proxy`（容量代理）。
+    """
+    
+    from factorlab.app.strategy.capacity import capacity_proxy
+    from factorlab.app.strategy.cost_net import cost_net_report
+    from factorlab.app.strategy.run import StrategyRunResult, run_strategy
+>   from factorlab.app.strategy.turnover import target_one_side_turnover
+E   ModuleNotFoundError: No module named 'factorlab.app.strategy.turnover'
+
+src/factorlab/app/strategy/__init__.py:11: ModuleNotFoundError
+_______________________ test_member_rotation_is_half_l1 ________________________
+
+    def test_member_rotation_is_half_l1():
+>       from factorlab.app.strategy.turnover import target_one_side_turnover
+
+tests/test_strategy_turnover.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    """策略运行装配（app）：YAML 文档 → 一键链（M7 组合 → M8 回测 → 持久化）+ 策略侧报告。
+    
+    契约（Plan S Task 2）：`run_strategy(doc, rd, results_dir=None)`。
+    E3/E4（评估指标 v2 §2b，**策略层**，不进因子评估 summary）：
+    `cost_net_report`（成本后净值）/ `capacity_proxy`（容量代理）。
+    """
+    
+    from factorlab.app.strategy.capacity import capacity_proxy
+    from factorlab.app.strategy.cost_net import cost_net_report
+    from factorlab.app.strategy.run import StrategyRunResult, run_strategy
+>   from factorlab.app.strategy.turnover import target_one_side_turnover
+E   ModuleNotFoundError: No module named 'factorlab.app.strategy.turnover'
+
+src/factorlab/app/strategy/__init__.py:11: ModuleNotFoundError
+___________________ test_weight_change_follows_real_ranking ____________________
+
+    def test_weight_change_follows_real_ranking():
+>       from factorlab.app.strategy.turnover import target_one_side_turnover
+
+tests/test_strategy_turnover.py:71: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    """策略运行装配（app）：YAML 文档 → 一键链（M7 组合 → M8 回测 → 持久化）+ 策略侧报告。
+    
+    契约（Plan S Task 2）：`run_strategy(doc, rd, results_dir=None)`。
+    E3/E4（评估指标 v2 §2b，**策略层**，不进因子评估 summary）：
+    `cost_net_report`（成本后净值）/ `capacity_proxy`（容量代理）。
+    """
+    
+    from factorlab.app.strategy.capacity import capacity_proxy
+    from factorlab.app.strategy.cost_net import cost_net_report
+    from factorlab.app.strategy.run import StrategyRunResult, run_strategy
+>   from factorlab.app.strategy.turnover import target_one_side_turnover
+E   ModuleNotFoundError: No module named 'factorlab.app.strategy.turnover'
+
+src/factorlab/app/strategy/__init__.py:11: ModuleNotFoundError
+________________________ test_all_cash_day_is_full_exit ________________________
+
+    def test_all_cash_day_is_full_exit():
+>       from factorlab.app.strategy.turnover import target_one_side_turnover
+
+tests/test_strategy_turnover.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    """策略运行装配（app）：YAML 文档 → 一键链（M7 组合 → M8 回测 → 持久化）+ 策略侧报告。
+    
+    契约（Plan S Task 2）：`run_strategy(doc, rd, results_dir=None)`。
+    E3/E4（评估指标 v2 §2b，**策略层**，不进因子评估 summary）：
+    `cost_net_report`（成本后净值）/ `capacity_proxy`（容量代理）。
+    """
+    
+    from factorlab.app.strategy.capacity import capacity_proxy
+    from factorlab.app.strategy.cost_net import cost_net_report
+    from factorlab.app.strategy.run import StrategyRunResult, run_strategy
+>   from factorlab.app.strategy.turnover import target_one_side_turnover
+E   ModuleNotFoundError: No module named 'factorlab.app.strategy.turnover'
+
+src/factorlab/app/strategy/__init__.py:11: ModuleNotFoundError
+___________________________ test_rejects_non_target ____________________________
+
+    def test_rejects_non_target():
+>       from factorlab.app.strategy.turnover import target_one_side_turnover
+
+tests/test_strategy_turnover.py:94: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    """策略运行装配（app）：YAML 文档 → 一键链（M7 组合 → M8 回测 → 持久化）+ 策略侧报告。
+    
+    契约（Plan S Task 2）：`run_strategy(doc, rd, results_dir=None)`。
+    E3/E4（评估指标 v2 §2b，**策略层**，不进因子评估 summary）：
+    `cost_net_report`（成本后净值）/ `capacity_proxy`（容量代理）。
+    """
+    
+    from factorlab.app.strategy.capacity import capacity_proxy
+    from factorlab.app.strategy.cost_net import cost_net_report
+    from factorlab.app.strategy.run import StrategyRunResult, run_strategy
+>   from factorlab.app.strategy.turnover import target_one_side_turnover
+E   ModuleNotFoundError: No module named 'factorlab.app.strategy.turnover'
+
+src/factorlab/app/strategy/__init__.py:11: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/test_strategy_turnover.py::test_first_period_is_buy_in_and_unchanged_is_zero
+FAILED tests/test_strategy_turnover.py::test_member_rotation_is_half_l1 - Mod...
+FAILED tests/test_strategy_turnover.py::test_weight_change_follows_real_ranking
+FAILED tests/test_strategy_turnover.py::test_all_cash_day_is_full_exit - Modu...
+FAILED tests/test_strategy_turnover.py::test_rejects_non_target - ModuleNotFo...
+5 failed in 0.68s

@@ -1,0 +1,37 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_report_url_does_not_start_server _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2691/test_report_url_does_not_start0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f95bd7502b0>
+
+    def test_report_url_does_not_start_server(tmp_path, monkeypatch):
+        results = tmp_path / "results"
+        monkeypatch.setattr(settings, "results_dir", results)
+        _write_summary(results, "alpha")
+        import uvicorn
+    
+        def explode(*a, **kw):
+            raise AssertionError("report url 不得启动服务")
+    
+        monkeypatch.setattr(uvicorn, "run", explode)
+    
+        e = R.report_url(_args(name="alpha", base="http://127.0.0.1:8000"))
+        assert e.ok, e.error
+        assert e.data["url"] == "http://127.0.0.1:8000/factor/alpha"
+        assert e.data["path"] == "/factor/alpha"
+        assert Path(e.artifacts["summary"]).exists()
+    
+        custom = R.report_url(_args(name="alpha", base="http://0.0.0.0:9999"))
+>       assert custom.data["url"] == "http://0.0.0.0:9999/factor/alpha"
+E       AssertionError: assert 'http://127.0.../factor/alpha' == 'http://0.0.0.../factor/alpha'
+E         
+E         - http://0.0.0.0:9999/factor/alpha
+E         ?        ^      ^^^^^
+E         + http://127.0.0.1:8000/factor/alpha
+E         ?        ^^^     +++ ^^
+
+tests/test_research_strategy_report.py:504: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_strategy_report.py::test_report_url_does_not_start_server
+1 failed in 1.65s
