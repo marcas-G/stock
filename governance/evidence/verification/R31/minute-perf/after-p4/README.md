@@ -10,7 +10,8 @@
   bench 的 evaluation 主指标全等（仅分层组收益 ~1e-16 跨进程归约噪声）。
 - 证据：本目录（`timings.md`、`n2/`、`n3/`、`chunk_workers_parity.json`、
   `zero_change_vs_p3.txt`、`gates_p4.txt`）+ `../spike/`（CH 查询设置 spike、
-  `mutation-p4.txt`）。
+  `mutation-p4.txt`）。**原始 parquet 不入库**（信号/标签/面板 ~100MB；按文末
+  复现命令可重建），与 after/after-p3 同口径；运行锁文件亦不入证据库。
 
 ## 1. CH 读面调优（spike 实证 → 保持默认 + 旋钮）
 
