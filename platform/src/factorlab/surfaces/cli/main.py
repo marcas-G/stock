@@ -9,6 +9,7 @@ from rich.console import Console
 from factorlab import __version__
 from factorlab.adapters.catalog import catalog_json, render_catalog_markdown
 from factorlab.config import settings
+from factorlab.research.cli import research_app
 from factorlab.core.factor.errors import FactorDSLError
 from factorlab.core.factor.ast_gate import validate_formula
 from factorlab.core.eval.layered import degenerate_decile_groups
@@ -22,6 +23,8 @@ app = typer.Typer(no_args_is_help=True)
 console = Console()
 op_app = typer.Typer(no_args_is_help=True)
 app.add_typer(op_app, name="op")
+# R31：研究员统一门面（flab 短入口的落点；命令注册单点在 factorlab.research.registry）
+app.add_typer(research_app, name="research")
 
 
 @app.callback()
