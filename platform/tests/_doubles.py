@@ -25,7 +25,8 @@ class MemoryRead:
         self._tables = {k: set(v) for k, v in (tables or {}).items()}
         self.closed = False
 
-    def query_df(self, sql: str, params: Any = None) -> pl.DataFrame:
+    def query_df(self, sql: str, params: Any = None,
+                 settings: dict[str, Any] | None = None) -> pl.DataFrame:
         return pl.DataFrame({"x": [1]})
 
     def query_rows(self, sql: str, params: Any = None) -> list[tuple]:

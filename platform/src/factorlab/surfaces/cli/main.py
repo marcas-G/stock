@@ -264,6 +264,7 @@ def execute_run(
     warmup_days: int | None = None,
     eval_frequency: str | None = None,
     profile: bool = False,
+    chunk_workers: int = 1,
 ) -> dict:
     """`factorlab run` 的计算主体（CLI 与 research.factor 门面共用，不打印）。
 
@@ -275,6 +276,9 @@ def execute_run(
     （零行为变化）。返回 `{"spec", "variant", "ctx", "result", "outcome"}`；
     错误原样抛出（ValueError/FileNotFoundError/FactorDSLError，调用方各自映射
     展示/错误码）。
+
+    R09-PERF-P4：`chunk_workers`（缺省 1=顺序）分钟链 chunk 并行度——仅
+    interface=bars_1m 生效（日频链忽略）；并发前按 N×3.6GB 对内存预算做门。
     """
     from factorlab.app.run import run_factor, run_factor_minute
     from factorlab.app.context import RunContext
@@ -308,6 +312,7 @@ def execute_run(
         warmup_days=warmup_days,
         max_memory=max_memory,
         profiler=profiler,
+        chunk_workers=chunk_workers,
     )
     # R05-C1：显式 FACTORLAB_MAX_MEMORY 时先落进程级 RLIMIT_AS 硬上限
     # （软看门狗在 run_* 内自动启用；未设 = 不动进程资源）。
@@ -355,17 +360,25 @@ def run_factor_cli(
         help="R09-M3 分段计时：输出各段（读数据/折日/label/评估/分层回测/落盘）"
              "墙钟+峰值 RSS 到 stderr，并写 summary.runtime.profile（默认关闭；"
              "env FACTORLAB_PROFILE=1 等效）"),
+    chunk_workers: int = typer.Option(
+        1, "--chunk-workers", min=1,
+        help="R09-PERF-P4 分钟链 chunk 并行 worker 数（默认 1=顺序现行为；"
+             "N>=2 按 chunk 并行「读+折日」后有序合并，数值与 N=1 逐值一致；"
+             "并发前按 N×3.6GB/chunk 对 FACTORLAB_MAX_MEMORY 做预算门，超限拒绝；"
+             "仅 interface: bars_1m 生效）"),
 ) -> None:
     """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
     --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
     --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。--eval-frequency 覆盖 spec 评估频率
-    （daily 默认逐日口径；weekly 为旧口径可选对照）。--profile 输出分段计时。"""
+    （daily 默认逐日口径；weekly 为旧口径可选对照）。--profile 输出分段计时。
+    --chunk-workers 分钟链 chunk 并行度（默认 1，见 --help）。"""
     try:
         out = execute_run(spec_path, universe=universe, max_memory=max_memory,
                           output_dir=output_dir, float32=float32,
                           backtest=backtest, groups=groups, set_params=set_params,
                           chunk_days=chunk_days, warmup_days=warmup_days,
-                          eval_frequency=eval_frequency, profile=profile)
+                          eval_frequency=eval_frequency, profile=profile,
+                          chunk_workers=chunk_workers)
     except (ValueError, FileNotFoundError, FactorDSLError) as exc:
         # ValueError 含 pydantic 的 ValidationError（spec 字段非法，如 cost_rate 越界）——
         # 用户写错 YAML 不该看到裸 traceback（`lint` 子命令同款处理）。

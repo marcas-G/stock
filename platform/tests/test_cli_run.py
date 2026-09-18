@@ -386,8 +386,37 @@ formula: |
 def test_run_help_chunk_options():
     result = runner.invoke(app, ["run", "--help"])
     assert result.exit_code == 0
-    for opt in ("--chunk-days", "--warmup-days"):
+    for opt in ("--chunk-days", "--warmup-days", "--chunk-workers"):
         assert opt in result.stdout
+
+
+def test_run_chunk_workers_wired(tmp_path, monkeypatch):
+    """R09-PERF-P4：--chunk-workers 透传到 execute_run（缺省 1=现行为）。"""
+    import factorlab.surfaces.cli.main as cli_main
+    from types import SimpleNamespace
+    spec_path = tmp_path / "dummy.yaml"
+    spec_path.write_text("name: dummy\n", encoding="utf-8")
+    outcome = SimpleNamespace(
+        evaluation={"n_weeks": 1, "ic": {"mean": 0.0},
+                    "decile_returns": {"spread": {"ret": 0.0}},
+                    "frequency": "daily"},
+        outputs=["signal"], notes=[])
+    fake_out = {"spec": object(), "variant": "v", "ctx": object(),
+                "result": SimpleNamespace(summary={}), "outcome": outcome}
+    captured: dict = {}
+
+    def fake_execute_run(spec_path_arg, **kw):
+        captured.update(kw)
+        return fake_out
+
+    monkeypatch.setattr(cli_main, "execute_run", fake_execute_run)
+    r1 = runner.invoke(app, ["run", str(spec_path), "--chunk-workers", "3"])
+    assert r1.exit_code == 0, r1.output
+    assert captured["chunk_workers"] == 3
+    captured.clear()
+    r2 = runner.invoke(app, ["run", str(spec_path)])
+    assert r2.exit_code == 0, r2.output
+    assert captured["chunk_workers"] == 1          # 默认顺序路径零变化
 
 
 def test_run_chunked_end_to_end(tmp_path, monkeypatch):

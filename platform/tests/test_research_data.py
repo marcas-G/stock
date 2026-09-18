@@ -71,7 +71,7 @@ class SpyRead:
     def backend(self):
         return self.inner.backend
 
-    def query_df(self, sql, params=None):
+    def query_df(self, sql, params=None, settings=None):
         self.queries.append((sql, params))
         return self.inner.query_df(sql, params)
 

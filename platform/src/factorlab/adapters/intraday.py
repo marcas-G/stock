@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import polars as pl
 
+from factorlab.adapters.ch_read import bars_read_settings
 from factorlab.core.factio.schema import (BARS_1M_COLS,
                                           TICK_ORDERS_COLS,
                                           TICK_SNAP_COLS,
@@ -167,6 +168,10 @@ def _codes_ch(rd: ReadPort, codes: list[str], date_start: str | None,
     """ch 编译函数（批读）：6 位 code 子集一次 symbol→ts_code 映射（未知 → 整批
     ValueError 防静默丢 code），带后缀子集原样 → 单条 SQL（code IN + trade_date
     闭区间）→ 与单 code 同款 decode。排序 (code, datetime)。
+
+    R09-PERF-P4：查询设置经 `ch_read.bars_read_settings()`（env
+    `FACTORLAB_CH_MAX_THREADS`/`FACTORLAB_CH_MAX_BLOCK_SIZE`）单查询注入；
+    未设 = {} 默认路径零行为变化。
     """
     db = settings.ch_database
     out_cols = cols if cols is not None else _DEFAULT_COLS["bars_1m"]
@@ -182,7 +187,8 @@ def _codes_ch(rd: ReadPort, codes: list[str], date_start: str | None,
         f"SELECT {select} FROM {db}.bars_1m "
         f"WHERE code IN ({ph2}) "
         f"AND trade_date >= toDate(%(start)s) AND trade_date <= toDate(%(end)s) "
-        f"ORDER BY code, datetime", params)
+        f"ORDER BY code, datetime", params,
+        settings=bars_read_settings())
     return _decode(df)
 
 

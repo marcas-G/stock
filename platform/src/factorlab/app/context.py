@@ -22,7 +22,10 @@ class RunContext:
     adjustment：复权视图口径兜底（raw|qfq|hfq|pit_qfq；spec.adjustment 声明时以 spec 为准）。
     chunk_days：日期分块（交易日/块；None=单块整段跑）。warmup_days：TS 窗口预热天数
     （None=按公式自动提取窗口最大值 + 20 安全垫）。profiler：R09-M3 分段计时器
-    （None=关闭，零行为变化；--profile/FACTORLAB_PROFILE=1 时由 CLI 装配）。"""
+    （None=关闭，零行为变化；--profile/FACTORLAB_PROFILE=1 时由 CLI 装配）。
+    chunk_workers：R09-PERF-P4 分钟链 chunk 并行 worker 数（1=现行为顺序执行；
+    >=2 按 chunk 并行「读+折日」，有序合并；仅 interface=bars_1m 链生效，日频链
+    忽略；并发前按 N×3.6GB 对 FACTORLAB_MAX_MEMORY 做预算门）。"""
 
     db_path: Path = settings.platform_db  # duckdb 后端只读库路径（测试/历史库）
     data_backend: str | None = None  # 读路径后端 "duckdb"|"ch"（None → settings.data_backend）
@@ -34,3 +37,4 @@ class RunContext:
     warmup_days: int | None = None
     max_memory: str | None = None  # duckdb 读连接内存上限（None → settings.default_max_memory）
     profiler: Profiler | None = None  # R09-M3 分段计时（None=关闭）
+    chunk_workers: int = 1  # R09-PERF-P4 分钟链 chunk 并行（1=顺序，>=2 opt-in）

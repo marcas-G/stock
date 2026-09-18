@@ -13,9 +13,13 @@ import polars as pl
 
 @runtime_checkable
 class ReadPort(Protocol):
+    """读句柄契约。`settings` 为 R09-PERF-P4 单查询读调优旋钮（ch 腿实现；
+    duckdb 腿无此概念、忽略——分钟批读只走 ch）。"""
+
     backend: str
 
-    def query_df(self, sql: str, params: Any = None) -> pl.DataFrame: ...
+    def query_df(self, sql: str, params: Any = None,
+                 settings: dict[str, Any] | None = None) -> pl.DataFrame: ...
 
     def query_rows(self, sql: str, params: Any = None) -> list[tuple]: ...
 

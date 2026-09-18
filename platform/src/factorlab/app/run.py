@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,7 @@ from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMe
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.app.context import RunContext
 from factorlab.app.memory import (MemoryWatchdog, guard_minute_chunk_days,
+                                  guard_minute_chunk_workers,
                                   memory_watchdog_from_settings)
 from factorlab.app.profile import attach_profile, span as profile_span
 from factorlab.config import settings
@@ -839,6 +841,11 @@ def _run_factor_minute(spec, ctx: RunContext,
     outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
     minute_uncovered = _minute_uncovered_summary(uncovered_mode, None)
     prof = getattr(ctx, "profiler", None)   # R09-M3 分段计时（None=关闭）
+    # R09-PERF-P4：chunk 并行 opt-in（默认 1=现行为）。并发前内存预算门：
+    # N × 3.6GB/chunk（P2/P3 实测上界）超 FACTORLAB_MAX_MEMORY → 打开 DB 前拒绝。
+    chunk_workers = max(1, int(getattr(ctx, "chunk_workers", 1) or 1))
+    guard_minute_chunk_workers(chunk_workers,
+                               max_rss=None if wd is None else wd.max_rss)
     signal_artifact: SignalArtifact | None = None
     signal_frames: dict[str, pl.DataFrame] | None = None
     try:
@@ -883,48 +890,82 @@ def _run_factor_minute(spec, ctx: RunContext,
         bar_cols = _bars_needed_cols(formula)
         parts = []
         uncovered_parts: list[pl.DataFrame] = []   # R03-I6 drop 剔除累计
+
+        def _process_chunk(cs: datetime.date, ce: datetime.date):
+            """单 chunk「注入/批读/成员过滤 → 折日」；返回 (part, drop 剔除)。
+            R09-PERF-P4 从循环体原样抽出——N=1 顺序路径逐行等价。"""
+            inj = _build_daily_injections(rd, codes, warm_start.isoformat(),
+                                          ce.isoformat(), float32=ctx.float32)
+            bars = load_bars_1m_codes(rd, codes, date_start=cs.isoformat(),
+                                      date_end=ce.isoformat(), cols=bar_cols)
+            if bars.height == 0:
+                raise ValueError(
+                    f"分钟段 {cs}..{ce} 无数据"
+                    f"（覆盖见 governance/workspace/data-map.md；更新：make data-update）")
+            if "trade_date" in bars.columns and "date" not in bars.columns:
+                bars = bars.rename({"trade_date": "date"})
+            # 块内成员日 = 池成员 ∧ 日线在（停牌日两边都缺 → 不进期望键）
+            expected = uf.filter(pl.col("in_universe")).join(
+                inj.filter((pl.col("date") >= cs) & (pl.col("date") <= ce))
+                .select(["date", "code"]).unique(),
+                on=["date", "code"], how="inner")
+            missing_day = expected.join(
+                bars.select(["date", "code"]).unique(),
+                on=["date", "code"], how="anti")
+            dropped = None
+            if missing_day.height:
+                if uncovered_mode == "drop":
+                    # R03-I6：显式剔除该 (code, date)（该日不参与分钟宇宙），
+                    # 汇总到整段后响亮告警 + summary 审计——不静默
+                    dropped = missing_day
+                    expected = expected.join(missing_day, on=["date", "code"],
+                                             how="anti")
+                else:
+                    raise ValueError(
+                        f"bars_1m 整日缺失：{missing_day.height} 个 (code, date) 日线"
+                        f"在而分钟无行（数据不一致，fail fast）——样本 "
+                        f"{missing_day.head(3).to_dicts()}")
+            bars = bars.join(expected, on=["date", "code"], how="inner")
+            with profile_span(prof, "fold"):
+                part = compute_minute_factor_panel(bars, formula,
+                                                   outputs=outputs, daily=inj)
+            del bars, inj, expected
+            return part, dropped
+
         # R09-M3：read_data = label 前信号侧总段（装载/注入/成员过滤 + 折日 +
         # 拼装）；fold 为其内嵌子段（折日墙钟 <= read_data，逐 chunk 累积）。
         with profile_span(prof, "read_data"):
-            for cs, ce in chunks:
-                # R05-C1：chunk 边界协作检查（看门狗线程记录/现场采样超限 → 干净中止）
-                if wd is not None:
-                    wd.check()
-                inj = _build_daily_injections(rd, codes, warm_start.isoformat(),
-                                              ce.isoformat(), float32=ctx.float32)
-                bars = load_bars_1m_codes(rd, codes, date_start=cs.isoformat(),
-                                          date_end=ce.isoformat(), cols=bar_cols)
-                if bars.height == 0:
-                    raise ValueError(
-                        f"分钟段 {cs}..{ce} 无数据"
-                        f"（覆盖见 governance/workspace/data-map.md；更新：make data-update）")
-                if "trade_date" in bars.columns and "date" not in bars.columns:
-                    bars = bars.rename({"trade_date": "date"})
-                # 块内成员日 = 池成员 ∧ 日线在（停牌日两边都缺 → 不进期望键）
-                expected = uf.filter(pl.col("in_universe")).join(
-                    inj.filter((pl.col("date") >= cs) & (pl.col("date") <= ce))
-                    .select(["date", "code"]).unique(),
-                    on=["date", "code"], how="inner")
-                missing_day = expected.join(
-                    bars.select(["date", "code"]).unique(),
-                    on=["date", "code"], how="anti")
-                if missing_day.height:
-                    if uncovered_mode == "drop":
-                        # R03-I6：显式剔除该 (code, date)（该日不参与分钟宇宙），
-                        # 汇总到整段后响亮告警 + summary 审计——不静默
-                        uncovered_parts.append(missing_day)
-                        expected = expected.join(missing_day, on=["date", "code"],
-                                                 how="anti")
-                    else:
-                        raise ValueError(
-                            f"bars_1m 整日缺失：{missing_day.height} 个 (code, date) 日线"
-                            f"在而分钟无行（数据不一致，fail fast）——样本 "
-                            f"{missing_day.head(3).to_dicts()}")
-                bars = bars.join(expected, on=["date", "code"], how="inner")
-                with profile_span(prof, "fold"):
-                    parts.append(compute_minute_factor_panel(bars, formula,
-                                                             outputs=outputs, daily=inj))
-                del bars, inj, expected
+            if chunk_workers <= 1:
+                for cs, ce in chunks:
+                    # R05-C1：chunk 边界协作检查（看门狗线程记录/现场采样超限 → 干净中止）
+                    if wd is not None:
+                        wd.check()
+                    part, dropped = _process_chunk(cs, ce)
+                    parts.append(part)
+                    if dropped is not None:
+                        uncovered_parts.append(dropped)
+            else:
+                # 有序消费：合并顺序 = chunk 顺序（date 区间互斥，最终还按
+                # (date, code) 排序——逐值与 N=1 严格一致）；任一 chunk 失败 →
+                # cancel 未启动任务并原样传播；看门狗只在主线程协作检查。
+                executor = ThreadPoolExecutor(max_workers=chunk_workers)
+                futures = [executor.submit(_process_chunk, cs, ce)
+                           for cs, ce in chunks]
+                try:
+                    for fut in futures:
+                        if wd is not None:
+                            wd.check()
+                        part, dropped = fut.result()
+                        parts.append(part)
+                        if dropped is not None:
+                            uncovered_parts.append(dropped)
+                except BaseException:
+                    for fut in futures:
+                        fut.cancel()
+                    executor.shutdown(wait=True)
+                    raise
+                else:
+                    executor.shutdown(wait=True)
             signal_df = pl.concat(parts).sort(["date", "code"])
             del parts
             if signal_df.height == 0:

@@ -922,3 +922,182 @@ def test_minute_default_auto_chunk_never_rejected(ch_db, tmp_path, monkeypatch):
         result = run_factor_minute(spec, _ctx(out))
     assert (out / "summary.json").is_file()
     assert result.signal_artifact.frame.height > 0
+
+
+# ================================================================
+# R09-PERF-P4：分钟链 chunk 并行（--chunk-workers，默认 1=现行为）
+#   数值硬门：N=1 vs N=2 合成 CH 上逐值严格相等（含 drop 审计）；
+#   并发真实性（barrier 证明真的同刻在算）、默认路径不建池（零行为）、
+#   预算超限在读盘前拒绝、任一 chunk 失败整体失败且无半成品。
+# ================================================================
+
+
+def test_minute_chunk_workers_two_equals_one_exact(ch_db, tmp_path, monkeypatch):
+    """R09-PERF-P4 数值硬门：N=2 与 N=1 在合成 CH 网格上 signal/labels/panel
+    逐值严格相等（pl.DataFrame.equals 逐 bit/逐 null）；读盘次数相同（5 块）。"""
+    _seed_wide(ch_db)
+    spec = _spec(tmp_path, "cw2", "signal = day_last(close) / eod_close - 1",
+                 sample=_WIDE_SAMPLE)
+    import factorlab.app.run as run_mod
+    lock = __import__("threading").Lock()
+    calls: list = []
+    real = run_mod.load_bars_1m_codes
+
+    def spy(rd, codes, *, date_start=None, date_end=None, cols=None):
+        with lock:
+            calls.append((date_start, date_end))
+        return real(rd, codes, date_start=date_start, date_end=date_end, cols=cols)
+
+    monkeypatch.setattr(run_mod, "load_bars_1m_codes", spy)
+    one = run_factor_minute(spec, _ctx(tmp_path / "w1", chunk_days=5,
+                                       chunk_workers=1))
+    calls_one = list(calls)
+    calls.clear()
+    two = run_factor_minute(spec, _ctx(tmp_path / "w2", chunk_days=5,
+                                       chunk_workers=2))
+    calls_two = list(calls)
+    assert len(calls_one) == len(calls_two) == 5
+    assert sorted(calls_one) == sorted(calls_two)   # 并行下调用顺序可乱，集合相同
+    assert one.signal_artifact.frame.equals(two.signal_artifact.frame)
+    assert one.label_artifact.frame.equals(two.label_artifact.frame)
+    assert one.panel.equals(two.panel)
+    assert one.summary["panel_rows"] == two.summary["panel_rows"] == 50
+    assert one.summary["minute_uncovered"] == two.summary["minute_uncovered"]
+
+
+def test_minute_chunk_workers_actually_overlap(ch_db, tmp_path, monkeypatch):
+    """并发真实性（非存根）：workers=2 时至少两个 chunk 的折日同刻在算
+    （前两个调用在 barrier 会合；串行实现最多 1 个 active → 断言失败）。"""
+    import threading
+    import factorlab.app.run as run_mod
+    _seed_wide(ch_db)
+    real = run_mod.compute_minute_factor_panel
+    lock = threading.Lock()
+    state = {"active": 0, "max_active": 0, "n": 0}
+    barrier = threading.Barrier(2, timeout=10)
+
+    def spy(bars, formula, *, outputs=None, daily=None):
+        with lock:
+            state["n"] += 1
+            n = state["n"]
+            state["active"] += 1
+            state["max_active"] = max(state["max_active"], state["active"])
+        try:
+            if n <= 2:
+                try:
+                    barrier.wait()
+                except threading.BrokenBarrierError:
+                    pass
+            return real(bars, formula, outputs=outputs, daily=daily)
+        finally:
+            with lock:
+                state["active"] -= 1
+
+    monkeypatch.setattr(run_mod, "compute_minute_factor_panel", spy)
+    spec = _spec(tmp_path, "overlap", "signal = day_last(close)",
+                 sample=_WIDE_SAMPLE)
+    res = run_factor_minute(spec, _ctx(tmp_path / "out", chunk_days=1,
+                                       chunk_workers=2))
+    assert state["n"] == 25
+    assert state["max_active"] >= 2, "workers=2 未观察到并发折日（实现是串行？）"
+    assert res.signal_artifact.frame.height == 50
+
+
+def test_minute_chunk_workers_default_path_never_builds_pool(ch_db, tmp_path,
+                                                             monkeypatch):
+    """默认 chunk_workers=1 零行为：即使把 ThreadPoolExecutor 换成炸弹
+    （构造即抛），默认路径也必须正常跑完（不建池、顺序执行）。"""
+    import factorlab.app.run as run_mod
+
+    class _BoomPool:
+        def __init__(self, *a, **k):
+            raise AssertionError("chunk_workers=1 不得构建线程池")
+
+    monkeypatch.setattr(run_mod, "ThreadPoolExecutor", _BoomPool)
+    _seed_wide(ch_db)
+    spec = _spec(tmp_path, "seq", "signal = day_last(close)",
+                 sample=_WIDE_SAMPLE)
+    out = tmp_path / "out"
+    for ctx in (_ctx(out / "none"), _ctx(out / "one", chunk_days=5,
+                                         chunk_workers=1)):
+        res = run_factor_minute(spec, ctx)
+        assert res.signal_artifact.frame.height == 50
+        assert (ctx.output_dir / "summary.json").is_file()
+
+
+def test_minute_chunk_workers_over_budget_refused_before_read(ch_db, tmp_path,
+                                                              monkeypatch):
+    """R09-PERF-P4 内存预算：8GB 护栏 × workers=2 允许、workers=3（10.8GB 估算）
+    在读盘前拒绝（MemoryLimitExceeded；零批读、零产物）。"""
+    import factorlab.app.run as run_mod
+    _seed_wide(ch_db)
+    wd = MemoryWatchdog(max_rss=8 * 1024 ** 3, sample_interval=999,
+                        rss_reader=lambda: 512 * 1024,
+                        available_reader=lambda: 100 * 1024 ** 3)
+    monkeypatch.setattr(run_mod, "memory_watchdog_from_settings",
+                        lambda *a, **k: wd)
+    calls = _spy_bars_calls(monkeypatch)
+    spec = _spec(tmp_path, "budget", "signal = day_last(close)",
+                 sample=_WIDE_SAMPLE)
+    allowed = run_factor_minute(spec, _ctx(tmp_path / "ok", chunk_days=5,
+                                           chunk_workers=2))
+    assert allowed.signal_artifact.frame.height == 50
+    calls.clear()
+    out3 = tmp_path / "refused"
+    with pytest.raises(MemoryLimitExceeded,
+                       match="FACTORLAB_MAX_MEMORY.*chunk_workers=3"):
+        run_factor_minute(spec, _ctx(out3, chunk_days=5, chunk_workers=3))
+    assert calls == []                       # 拒绝发生在读盘前
+    assert not (out3 / "summary.json").exists()
+    assert wd.running is False               # 看门狗已停（无悬挂线程）
+
+
+def test_minute_chunk_workers_failure_propagates_no_artifacts(ch_db, tmp_path,
+                                                              monkeypatch):
+    """错误语义：任一 chunk 失败 → 整体失败（异常原样传播），且无半成品产物。"""
+    import threading
+    import factorlab.app.run as run_mod
+    _seed_wide(ch_db)
+    real = run_mod.compute_minute_factor_panel
+    lock = threading.Lock()
+    count = {"n": 0}
+
+    def spy(bars, formula, *, outputs=None, daily=None):
+        with lock:
+            count["n"] += 1
+            n = count["n"]
+        if n == 2:
+            raise ValueError("chunk boom（P4 失败传播）")
+        return real(bars, formula, outputs=outputs, daily=daily)
+
+    monkeypatch.setattr(run_mod, "compute_minute_factor_panel", spy)
+    spec = _spec(tmp_path, "fail", "signal = day_last(close)",
+                 sample=_WIDE_SAMPLE)
+    out = tmp_path / "out"
+    with pytest.raises(ValueError, match="chunk boom"):
+        run_factor_minute(spec, _ctx(out, chunk_days=5, chunk_workers=2))
+    assert not (out / "summary.json").exists()
+    assert not (out / "signal.parquet").exists()
+
+
+def test_minute_chunk_workers_drop_mode_audit_equals_one(ch_db, tmp_path,
+                                                         monkeypatch):
+    """R03-I6 口径不变：drop 模式跨块剔除集审计在 N=2 与 N=1 严格相等
+    （signal/labels/panel/审计字段逐值一致）。"""
+    from factorlab.app.run import MinuteUncoveredWarning
+    _seed_wide(ch_db, bars_uncovered={("000001", _WIDE_SAMPLE[21]),
+                                      ("600519", _WIDE_SAMPLE[22])})
+    monkeypatch.setattr(settings, "minute_uncovered", "drop")
+    spec = _spec(tmp_path, "cwdrop", "signal = day_last(close)",
+                 sample=_WIDE_SAMPLE)
+    with pytest.warns(MinuteUncoveredWarning):
+        one = run_factor_minute(spec, _ctx(tmp_path / "w1", chunk_days=5,
+                                           chunk_workers=1))
+    with pytest.warns(MinuteUncoveredWarning):
+        two = run_factor_minute(spec, _ctx(tmp_path / "w2", chunk_days=5,
+                                           chunk_workers=2))
+    assert one.signal_artifact.frame.equals(two.signal_artifact.frame)
+    assert one.label_artifact.frame.equals(two.label_artifact.frame)
+    assert one.panel.equals(two.panel)
+    assert one.summary["minute_uncovered"] == two.summary["minute_uncovered"]
+    assert one.summary["minute_uncovered"]["dropped_code_days"] == 2

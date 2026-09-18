@@ -27,7 +27,7 @@ class FakeRd:
             return [(v, f"{v}.SZ") for v in (params or {}).values()]
         return []
 
-    def query_df(self, sql, params=None):
+    def query_df(self, sql, params=None, settings=None):
         self.calls.append((sql, params))
         return self._frame
 

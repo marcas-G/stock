@@ -14,6 +14,8 @@
   触发 MemoryError 也不拖垮主机）。非 POSIX/失败 → warning 降级。
 - `guard_minute_chunk_days`：分钟链显式巨大 chunk / 未分块长窗的静态估算门
   （校准自 R04-P1 实测；默认自动 20 日/块路径只告警不拒绝）。
+- `guard_minute_chunk_workers`：分钟链 chunk 并行（R09-PERF-P4）的并发前内存
+  预算门（N × 3.6GB/chunk 实测上界 vs FACTORLAB_MAX_MEMORY）。
 
 **默认行为**：API 直调时 `FACTORLAB_MAX_MEMORY` 与
 `FACTORLAB_MIN_AVAILABLE_MEMORY` 都未设 → 整个护栏不启用（零线程、零采样、行为
@@ -395,3 +397,44 @@ def guard_minute_chunk_days(n_codes: int, n_days: int, chunk_days: int, *,
         f"--chunk-days {recommended}（分钟链默认 20）；运行期内存看门狗"
         f"（FACTORLAB_MAX_MEMORY）兜底。详见 knowledge/contracts/interface.md §1。",
         MinuteChunkSizeWarning, stacklevel=2)
+
+
+# ---- R09-PERF-P4：分钟链 chunk 并行内存预算门 ----
+
+# 每 chunk worker 峰值实测（R09-PERF P2/P3 bench 同窗 58 交易日全市场，
+# `before/after/after-p3/timings.md`：进程峰值 RSS 3.0–3.6GB）——取上界 3.6GB
+# 保守估算；并行 N 个 chunk 的预算 = N × 本常量（不叠加主进程基线，保守方向
+# 是少放行而非多放行）。
+MINUTE_CHUNK_WORKER_PEAK_BYTES = int(3.6 * 1024 ** 3)
+
+
+def guard_minute_chunk_workers(n_workers: int, *, max_rss: int | None) -> None:
+    """分钟链 `--chunk-workers N` 并发前内存预算门（R09-PERF-P4）。
+
+    - `N <= 1`（默认）→ no-op（零行为变化）；
+    - 估算 = `N × MINUTE_CHUNK_WORKER_PEAK_BYTES`（P2/P3 实测 3.0–3.6GB/chunk）；
+    - 显式护栏 `FACTORLAB_MAX_MEMORY`（= 看门狗 max_rss）且估算超预算 →
+      `MemoryLimitExceeded`（读盘前拒绝；CLI exit 1 干净中止）；
+    - 未设预算且估算 > 8GB → 响亮告警（N 是显式 opt-in；宿主 memguard 兜底）。
+    """
+    if n_workers <= 1:
+        return
+    est = n_workers * MINUTE_CHUNK_WORKER_PEAK_BYTES
+    detail = (f"chunk_workers={n_workers} 预估峰值 {format_bytes(est)}"
+              f"（{n_workers} × {format_bytes(MINUTE_CHUNK_WORKER_PEAK_BYTES)}/"
+              f"chunk，R09-PERF P2/P3 bench 同窗实测 3.0–3.6GB）")
+    if max_rss is not None:
+        if est > max_rss:
+            raise MemoryLimitExceeded(
+                f"分钟链 chunk 并行被拒绝：超过 FACTORLAB_MAX_MEMORY="
+                f"{format_bytes(max_rss)} 预算——{detail}。请减小 --chunk-workers"
+                f"（或 --chunk-days）后重试，或调大 FACTORLAB_MAX_MEMORY；"
+                f"看门狗仍会按 chunk 边界协作检查。")
+        return
+    if est > MINUTE_PEAK_WARN_BYTES:
+        warnings.warn(
+            f"{detail}，超过建议上限 {format_bytes(MINUTE_PEAK_WARN_BYTES)}，"
+            f"且未设 FACTORLAB_MAX_MEMORY 预算护栏——N 为显式 opt-in，宿主级"
+            f"memguard（R30）兜底；建议显式设置预算或减小 workers。"
+            f"详见 knowledge/contracts/interface.md §1。",
+            MinuteChunkSizeWarning, stacklevel=2)

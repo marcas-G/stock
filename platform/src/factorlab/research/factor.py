@@ -60,6 +60,8 @@ _RUN_PARAMS = (
     registry.ParamSpec("set", kind="list[str]",
                        help="覆盖 spec.params（k=v，可多次，生成 name_kv 变体）"),
     registry.ParamSpec("chunk_days", kind="int", help="日期分块（交易日/块）"),
+    registry.ParamSpec("chunk_workers", kind="int",
+                       help="分钟链 chunk 并行 worker 数（默认 1；N>=2 预算门）"),
     registry.ParamSpec("warmup_days", kind="int", help="TS 窗口预热天数"),
     registry.ParamSpec("eval_frequency", kind="str", help="评估频率 daily|weekly"),
     registry.ParamSpec("wait", kind="bool", help="heavy 闸满时阻塞等槽（缺省立即 BUSY）"),
@@ -240,6 +242,7 @@ def factor_run(args: Any) -> envelope.Envelope:
                 chunk_days=getattr(args, "chunk_days", None),
                 warmup_days=getattr(args, "warmup_days", None),
                 eval_frequency=getattr(args, "eval_frequency", None),
+                chunk_workers=getattr(args, "chunk_workers", None) or 1,
             )
     except GuardError as exc:
         return envelope.fail("factor.run", exc.code, exc.message,
@@ -544,7 +547,7 @@ def _run_args(spec_path: Path, **over: Any) -> argparse.Namespace:
     base = dict(spec_path=spec_path, universe=None, max_memory="4GB", output_dir=None,
                 no_backtest=False, groups=10, set=None, chunk_days=None,
                 warmup_days=None, eval_frequency=None, wait=False,
-                no_float32=False, pretty=False)
+                chunk_workers=None, no_float32=False, pretty=False)
     base.update(over)
     return argparse.Namespace(**base)
 
@@ -846,7 +849,7 @@ def _reg_all() -> None:
         defaults={"universe": None, "max_memory": "4GB", "output_dir": None,
                   "no_backtest": False, "groups": 10, "set": None,
                   "chunk_days": None, "warmup_days": None, "eval_frequency": None,
-                  "wait": False, "no_float32": False},
+                  "wait": False, "chunk_workers": None, "no_float32": False},
         description="计算+评估+分层回测（过 heavy 闸；返回 IC/十分位/换手/覆盖/ic_decay）",
         examples=("flab factor run research/factor/momentum_20d/turnrank_top2.yaml",
                   "flab factor run <spec> --no-backtest --wait"),

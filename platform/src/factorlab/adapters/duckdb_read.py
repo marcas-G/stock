@@ -30,7 +30,8 @@ class ReadPort:
 
     backend: str = ""
 
-    def query_df(self, sql: str, params: Any = None) -> pl.DataFrame:
+    def query_df(self, sql: str, params: Any = None,
+                 settings: dict[str, Any] | None = None) -> pl.DataFrame:
         raise NotImplementedError
 
     def query_rows(self, sql: str, params: Any = None) -> list[tuple]:
@@ -73,7 +74,9 @@ class DuckDBRead(ReadPort):
             self._owns = False
         self.con = con
 
-    def query_df(self, sql: str, params: Any = None) -> pl.DataFrame:
+    def query_df(self, sql: str, params: Any = None,
+                 settings: dict[str, Any] | None = None) -> pl.DataFrame:
+        """`settings`（R09-PERF-P4 ch 腿读调优）在 duckdb 腿无此概念——忽略。"""
         return self.con.execute(sql, params).pl()
 
     def query_rows(self, sql: str, params: Any = None) -> list[tuple]:
