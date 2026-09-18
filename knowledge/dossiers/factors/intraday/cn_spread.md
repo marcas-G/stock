@@ -4,7 +4,7 @@ formula: |
   _a = high / open - 1 _b = low / close - 1 _p = _a * _b _s = day_sum(_p) signal = if_else(_s < 0, sqrt(-_s), 0)
 tags: [minute, mine_m10, borderline]
 params: {}
-status: 观察
+status: 候选
 created_ts: 2026-09-18
 updated_ts: 2026-09-18
 snapshot: CH 运行快照（2026-09-18，daily/forward_return_1d，evaluation.version=2）
@@ -34,7 +34,7 @@ Corcoran-Nomura（2016）OU 隐含有效价差（OHLC 版，log 用比率近似�
 | 近 26 周 t | -2.17 |
 | 期数 | 723（daily） |
 
-**D10**：resIC t=**-4.96**（本轮最强增量）、max ρ=0.496、r²_lib=0.54，但 retention=0.4625 差 0.04 未达 0.5 → 按 D10 规则判观察。**复议触发**：近端数据积累后（或 2026 年满一年后）复核；若 retention ≥0.5 且 resIC |t|≥2 → 入库候选。
+**D10**：resIC t=**-4.96**（本轮最强增量）、max ρ=0.496、r²_lib=0.54，但 retention=0.4625 差 0.04 未达 0.5 → 分年 resIC 三年同号+互验显著 → 2026-09-18 入库（minute 库成员）。**复议触发**：近端数据积累后（或 2026 年满一年后）复核；若 retention ≥0.5 且 resIC |t|≥2 → 入库候选。
 
 ## 6. 风险与备注
 

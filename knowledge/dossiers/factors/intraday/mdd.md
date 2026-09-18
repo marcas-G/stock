@@ -34,7 +34,7 @@ snapshot: CH 运行快照（2026-09-18，daily/forward_return_1d，evaluation.ve
 | 近 26 周 t | 0.80 |
 | 期数 | 723（daily） |
 
-**D10**：resIC t=+3.61（有增量）、max ρ=0.796、r²_lib=0.76、retention=0.33 → 观察（信息大半被尾盘族+cn_spread 维度吸收；与 cn_spread ρ=-0.52 同族异面）。
+**D10**：resIC t=+3.61（有增量）、max ρ=0.796、r²_lib=0.76、retention=0.33 → 观察。补充检验：分年 resIC 三年同号（6.16/2.55/2.86），但对"17 员+jump_ratio+cn_spread"互验后 t 降至 2.52（被同族吸收最多）→ 维持观察，不入库。
 
 ## 6. 风险与备注
 

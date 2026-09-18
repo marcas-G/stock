@@ -4,7 +4,7 @@ formula: |
   _r = close / im_delay(close, 1) - 1 _r2 = _r * _r _ab = abs(_r) * abs(im_delay(_r, 1)) _bv = 1.5708 * day_sum(_ab) _rv = day_sum(_r2) signal = if_else(_rv > 0, if_else(1 - _bv / _rv > 0, 1 - _bv / _rv, 0), None)
 tags: [minute, mine_m9]
 params: {}
-status: 观察
+status: 候选
 created_ts: 2026-09-18
 updated_ts: 2026-09-18
 snapshot: CH 运行快照（2026-09-18，daily/forward_return_1d，evaluation.version=2）
@@ -36,7 +36,7 @@ snapshot: CH 运行快照（2026-09-18，daily/forward_return_1d，evaluation.ve
 | 近 26 周 t | -0.64 |
 | 期数 | 723（daily） |
 
-**D10**：resIC t=4.47、retention=0.29、max ρ=0.47——对 17 员库有真实增量但留存不足+近端弱（rec_t=-0.64），按 D10 规则判观察；系本轮唯一未被吸收的高阶矩信息
+**D10**：resIC t=4.47、retention=0.29、max ρ=0.47——对 17 员库有真实增量但留存不足+近端弱（rec_t=-0.64），分年 resIC 三年同号+互验 t=-6.70 → 2026-09-18 入库（minute 库成员）；系本轮唯一未被吸收的高阶矩信息
 
 ## 6. 风险与备注
 

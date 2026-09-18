@@ -184,3 +184,15 @@ scales:
       added: "2026-09-18"
       entry_corr_max: 0.2381
       entry_resic_t: -3.2737
+    - name: intraday_jump_ratio
+      style: 日内跳占比（双幂变比）
+      reason: "跳占比高→次日强（dir=+1 数据驱动：事件驱动延续而非过反应；|t|=9.91）。对 17 员库分年 resIC 三年同号（2023 t=9.68/2024 t=4.51/2025 t=4.71），互验 17+2 后 t=7.32，max ρ=0.47"
+      added: "2026-09-18"
+      entry_corr_max: 0.4748
+      entry_resic_t: 4.4682
+    - name: intraday_cn_spread
+      style: OHLC 隐含有效价差
+      reason: "Corcoran-Nomura OU 隐含价差（比率近似）：价差宽=流动性差→次日弱（dir=-1；|t|=11.98）。分年 resIC 三年同号（-9.22/-2.52/-5.85），互验 17+2 后 t=-6.70，max ρ=0.496；weekly-resic retention 0.46 边界，按 daily 口径增量检验入库"
+      added: "2026-09-18"
+      entry_corr_max: 0.496
+      entry_resic_t: -4.9626
