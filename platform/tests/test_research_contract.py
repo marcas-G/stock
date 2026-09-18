@@ -252,6 +252,16 @@ def test_cli_research_describe_single_json():
     assert desc["examples"] and desc["output_schema"]
 
 
+def test_cli_research_version_accepts_json_flag():
+    result = runner.invoke(app, ["research", "version", "--json"])
+    assert result.exit_code == 0
+    assert len(result.stdout.strip().splitlines()) == 1
+    doc = json.loads(result.stdout)
+    assert doc["ok"] is True
+    assert doc["command"] == "version"
+    assert doc["data"]["version"]
+
+
 def test_cli_research_describe_single_command():
     result = runner.invoke(
         app, ["research", "describe", "--json", "--command", "describe"])

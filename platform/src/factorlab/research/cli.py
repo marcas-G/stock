@@ -72,10 +72,13 @@ registry.register(
 registry.register(
     registry.CommandSpec(
         name="version",
-        params=(registry.ParamSpec("pretty", kind="bool", help="缩进 JSON（人读）"),),
-        defaults={"pretty": False},
+        params=(
+            registry.ParamSpec("json", kind="bool", help="输出单个 JSON 信封（默认）"),
+            registry.ParamSpec("pretty", kind="bool", help="缩进 JSON（人读）"),
+        ),
+        defaults={"json": True, "pretty": False},
         description="版本",
-        examples=("factorlab research version",),
+        examples=("factorlab research version", "factorlab research version --pretty"),
         output_schema={
             "type": "object",
             "required": ["version"],
@@ -108,10 +111,12 @@ def describe_cmd(
 
 @research_app.command("version")
 def version_cmd(
+    json_out: bool = typer.Option(True, "--json/--no-json",
+                                  help="输出单个 JSON 信封（当前即默认口径）"),
     pretty: bool = typer.Option(False, "--pretty", help="缩进 JSON（人读）"),
 ) -> None:
     """版本。"""
-    _dispatch_typer("version", argparse.Namespace(pretty=pretty), pretty)
+    _dispatch_typer("version", argparse.Namespace(json=json_out, pretty=pretty), pretty)
 
 
 @research_app.command(
