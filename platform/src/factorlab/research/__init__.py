@@ -28,6 +28,10 @@ from factorlab.research import factor as _factor  # noqa: F401
 from factorlab.research import strategy as _strategy  # noqa: F401
 # import 副作用：注册 report 组全部命令（list/show/url/serve）
 from factorlab.research import report as _report  # noqa: F401
+# import 副作用：注册 study 一条链（run/list）
+from factorlab.research import study as _study  # noqa: F401
+# import 副作用：注册通用 health（连通/内存/磁盘/护栏/新鲜度）
+from factorlab.research import health as _health  # noqa: F401
 
 __all__ = [
     "COMMANDS",

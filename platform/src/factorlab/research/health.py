@@ -1,0 +1,164 @@
+"""R31 Task 6：通用命令 `health`（spec §3：CH 连通·内存·磁盘·护栏·数据新鲜度）。
+
+只装配：连通性经 `app.bootstrap.open_read` 真查询（SELECT 1）；内存走 psutil；
+磁盘走 `shutil.disk_usage`；护栏真探 flock 槽（非硬编码）；新鲜度经
+`trading_calendar` + `daily.max(trade_date)`（与 `data.status` 同口径）。
+后端不可达 → `DATA`（错误码稳定，不裸 traceback）。
+"""
+
+from __future__ import annotations
+
+import argparse
+import fcntl
+import os
+import shutil
+import time
+from pathlib import Path
+from typing import Any
+
+import psutil
+
+from factorlab.adapters.read.calendar import trading_calendar
+from factorlab.config import settings
+from factorlab.research import _guard, envelope, registry
+from factorlab.research.data_meta import (
+    iso_date,
+    read_handle,
+    table_ref,
+)
+
+_PRETTY = registry.ParamSpec("pretty", kind="bool", help="缩进 JSON（人读）")
+_JSON = registry.ParamSpec("json", kind="bool",
+                           help="输出单个 JSON 信封（默认口径，恒开）")
+_DATA_HINT = ("后端不可达：ch 腿查 ClickHouse 服务（127.0.0.1:8123）；"
+              "本机 duckdb 腿设 FACTORLAB_DATA_BACKEND=duckdb；"
+              "缺表先 `flab data tables`")
+
+
+def _probe(rd: Any) -> dict[str, Any]:
+    started = time.perf_counter()
+    rd.query_rows("SELECT 1")
+    return {"ok": True, "probe": "SELECT 1",
+            "latency_ms": round((time.perf_counter() - started) * 1000, 2)}
+
+
+def _memory() -> dict[str, Any]:
+    vm = psutil.virtual_memory()
+    minimum = _guard.MIN_AVAILABLE_BYTES
+    return {"total_gb": round(vm.total / 1024**3, 2),
+            "available_gb": round(vm.available / 1024**3, 2),
+            "min_available_gb": minimum / 1024**3,
+            "ok": vm.available >= minimum}
+
+
+def _disk() -> dict[str, Any]:
+    target = Path(settings.results_dir)
+    while not target.exists() and target != target.parent:
+        target = target.parent
+    usage = shutil.disk_usage(target)
+    free_gb = usage.free / 1024**3
+    return {"path": str(target), "free_gb": round(free_gb, 2),
+            "total_gb": round(usage.total / 1024**3, 2),
+            "ok": free_gb >= 1.0}
+
+
+def _guard_slots() -> dict[str, Any]:
+    """真探 heavy 闸槽位（非阻塞 flock 后立即释放；探测不留占用）。"""
+    directory = _guard.lock_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    free = 0
+    for index in range(1, _guard.SLOT_COUNT + 1):
+        fd = os.open(directory / f"heavy.{index}.lock", os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                continue
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            free += 1
+        finally:
+            os.close(fd)
+    return {"slots_total": _guard.SLOT_COUNT, "slots_free": free,
+            "lock_dir": str(directory)}
+
+
+def _freshness(rd: Any) -> dict[str, Any]:
+    if "daily" not in rd.tables():
+        return {"table": "daily", "max_date": None, "latest_open": None,
+                "behind_trading_days": None, "ok": False}
+    value = rd.query_rows(
+        f"SELECT max(trade_date) AS mx FROM {table_ref(rd, 'daily')}")[0][0]
+    max_date = iso_date(value)
+    calendar = [d.isoformat() for d in trading_calendar(rd).to_list()]
+    latest_open = calendar[-1] if calendar else None
+    behind = sum(1 for d in calendar if max_date is not None and d > max_date)
+    return {"table": "daily", "max_date": max_date, "latest_open": latest_open,
+            "behind_trading_days": behind,
+            "ok": max_date is not None and behind == 0}
+
+
+def health(args: argparse.Namespace) -> envelope.Envelope:
+    """一览：连通/内存/磁盘/护栏/新鲜度；后端不可达 → DATA。"""
+    try:
+        with read_handle() as rd:
+            backend = rd.backend
+            connectivity = _probe(rd)
+            database = (settings.ch_database if backend == "ch"
+                        else str(settings.platform_db))
+            freshness = _freshness(rd)
+    except Exception as exc:  # noqa: BLE001 —— 统一 DATA 信封
+        return envelope.fail("health", "DATA", f"{type(exc).__name__}: {exc}",
+                             hint=_DATA_HINT)
+
+    memory = _memory()
+    disk = _disk()
+    guard = _guard_slots()
+    warnings: list[str] = []
+    if not memory["ok"]:
+        warnings.append("可用内存低于 8GB——重任务会被 heavy 闸拒绝（MEMORY_GUARD）")
+    if guard["slots_free"] == 0:
+        warnings.append("heavy 闸 2/2 占用——重命令将 BUSY（可加 --wait）")
+    if not freshness["ok"]:
+        warnings.append("daily 新鲜度落后或为空——先 `flab data status` 核对")
+    return envelope.ok(
+        "health",
+        {"backend": backend, "database": database, "connectivity": connectivity,
+         "memory": memory, "disk": disk, "guard": guard, "freshness": freshness},
+        warnings=tuple(warnings))
+
+
+registry.register(
+    registry.CommandSpec(
+        name="health",
+        params=(_JSON, _PRETTY),
+        defaults={"json": True, "pretty": False},
+        description="健康一览：CH 连通/内存/磁盘/heavy 闸槽位/数据新鲜度",
+        examples=("flab health", "flab health --pretty"),
+        output_schema={"type": "object", "properties": {
+            "backend": {"type": "string"}, "database": {"type": "string"},
+            "connectivity": {"type": "object", "properties": {
+                "ok": {"type": "boolean"}, "probe": {"type": "string"},
+                "latency_ms": {"type": "number"}}},
+            "memory": {"type": "object", "properties": {
+                "total_gb": {"type": "number"},
+                "available_gb": {"type": "number"},
+                "min_available_gb": {"type": "number"},
+                "ok": {"type": "boolean"}}},
+            "disk": {"type": "object", "properties": {
+                "path": {"type": "string"}, "free_gb": {"type": "number"},
+                "total_gb": {"type": "number"}, "ok": {"type": "boolean"}}},
+            "guard": {"type": "object", "properties": {
+                "slots_total": {"type": "integer"},
+                "slots_free": {"type": "integer"},
+                "lock_dir": {"type": "string"}}},
+            "freshness": {"type": "object", "properties": {
+                "table": {"type": "string"}, "max_date": {"type": "string"},
+                "latest_open": {"type": "string"},
+                "behind_trading_days": {"type": "integer"},
+                "ok": {"type": "boolean"}}},
+        }},
+    ),
+    health,
+)
+
+__all__ = ["health"]

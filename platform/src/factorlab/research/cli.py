@@ -182,6 +182,31 @@ def report_cmd(ctx: typer.Context) -> None:
     raise typer.Exit(code=registry.dispatch([f"report.{argv[0]}", *argv[1:]]))
 
 
+@research_app.command(
+    "study",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def study_cmd(ctx: typer.Context) -> None:
+    """study 组：run（一条链）/list（历史记录）。"""
+    argv = list(ctx.args)
+    if not argv:
+        raise typer.Exit(code=envelope.emit(envelope.fail(
+            "study", "USAGE", "缺少 study 子命令",
+            hint="factorlab research describe --json 查看命令目录")))
+    raise typer.Exit(code=registry.dispatch([f"study.{argv[0]}", *argv[1:]]))
+
+
+@research_app.command("health")
+def health_cmd(
+    json_out: bool = typer.Option(True, "--json/--no-json",
+                                  help="输出单个 JSON 信封（当前即默认口径）"),
+    pretty: bool = typer.Option(False, "--pretty", help="缩进 JSON（人读）"),
+) -> None:
+    """健康一览：CH 连通/内存/磁盘/heavy 闸槽位/数据新鲜度。"""
+    _dispatch_typer("health", argparse.Namespace(json=json_out, pretty=pretty),
+                    pretty)
+
+
 @research_app.callback(invoke_without_command=True)
 def _research_main(ctx: typer.Context) -> None:
     """裸调用 `factorlab research` → USAGE 信封（与单 JSON 契约一致）。"""
