@@ -1,0 +1,143 @@
+{
+  "window": "2024-01-02..2024-01-12",
+  "codes": 4852,
+  "cols": "trade_date, code, minute_index, close, volume",
+  "reps": 2,
+  "ch_version": "26.3.22.7",
+  "server_defaults": {
+    "max_threads": 40,
+    "max_block_size": 65409
+  },
+  "variants": {
+    "baseline": {
+      "settings": {},
+      "times_s": [
+        3.513,
+        3.253
+      ],
+      "rows": 10478400,
+      "min_s": 3.253,
+      "median_s": 3.513,
+      "speedup_vs_baseline": 1.0
+    },
+    "mt2": {
+      "settings": {
+        "max_threads": 2
+      },
+      "times_s": [
+        3.119,
+        3.272
+      ],
+      "rows": 10478400,
+      "min_s": 3.119,
+      "median_s": 3.272,
+      "speedup_vs_baseline": 1.043
+    },
+    "mt4": {
+      "settings": {
+        "max_threads": 4
+      },
+      "times_s": [
+        3.361,
+        3.229
+      ],
+      "rows": 10478400,
+      "min_s": 3.229,
+      "median_s": 3.361,
+      "speedup_vs_baseline": 1.007
+    },
+    "mt8": {
+      "settings": {
+        "max_threads": 8
+      },
+      "times_s": [
+        3.316,
+        3.15
+      ],
+      "rows": 10478400,
+      "min_s": 3.15,
+      "median_s": 3.316,
+      "speedup_vs_baseline": 1.033
+    },
+    "mt16": {
+      "settings": {
+        "max_threads": 16
+      },
+      "times_s": [
+        3.253,
+        3.295
+      ],
+      "rows": 10478400,
+      "min_s": 3.253,
+      "median_s": 3.295,
+      "speedup_vs_baseline": 1.0
+    },
+    "bs128k": {
+      "settings": {
+        "max_block_size": 131072
+      },
+      "times_s": [
+        3.628,
+        3.416
+      ],
+      "rows": 10478400,
+      "min_s": 3.416,
+      "median_s": 3.628,
+      "speedup_vs_baseline": 0.952
+    },
+    "bs512k": {
+      "settings": {
+        "max_block_size": 524288
+      },
+      "times_s": [
+        3.384,
+        3.254
+      ],
+      "rows": 10478400,
+      "min_s": 3.254,
+      "median_s": 3.384,
+      "speedup_vs_baseline": 1.0
+    },
+    "bs1m": {
+      "settings": {
+        "max_block_size": 1048576
+      },
+      "times_s": [
+        3.451,
+        3.35
+      ],
+      "rows": 10478400,
+      "min_s": 3.35,
+      "median_s": 3.451,
+      "speedup_vs_baseline": 0.971
+    },
+    "mt8_bs512k": {
+      "settings": {
+        "max_threads": 8,
+        "max_block_size": 524288
+      },
+      "times_s": [
+        3.309,
+        3.279
+      ],
+      "rows": 10478400,
+      "min_s": 3.279,
+      "median_s": 3.309,
+      "speedup_vs_baseline": 0.992
+    },
+    "mt16_bs1m": {
+      "settings": {
+        "max_threads": 16,
+        "max_block_size": 1048576
+      },
+      "times_s": [
+        3.462,
+        3.296
+      ],
+      "rows": 10478400,
+      "min_s": 3.296,
+      "median_s": 3.462,
+      "speedup_vs_baseline": 0.987
+    }
+  }
+}

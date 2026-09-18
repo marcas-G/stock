@@ -268,3 +268,43 @@ at_minute 静态范围门存根化（1 failed）；恢复后 67 passed。
   max|Δ|=0）在全部 7 因子达成。
 - 条件 filter 重写在 58 日窗收益为噪声级；其价值主要在结构（免全组 null
   扫描）与大窗/昂贵参数形态，未在本窗做外推。
+
+---
+
+## R09-PERF-P4（P4）：CH 读旋钮 + 分钟链 chunk 并行（2026-09-19）
+
+实现（平台提交 `730f1c8 feat(engine): R09-PERF-P4 分钟链读调优 + chunk 并行
+（--chunk-workers）`；范围仅 bars_1m——**tick/LOB/lob_fact/tick_fact/
+convert_tick 未触碰**）。自包含证据/数字见 [`after-p4/README.md`](after-p4/README.md)。
+
+- **CH 读面**：单查询旋钮 `FACTORLAB_CH_MAX_THREADS`/`FACTORLAB_CH_MAX_BLOCK_SIZE`
+  （未设 = 服务器默认，零行为变化）。spike（真 CH 同窗 10 变体，见
+  [`spike/ch_read_spike.json`](spike/ch_read_spike.json)）：max_threads 2..16 /
+  max_block_size 128k..1M 全在 3.1–3.6s 噪声带 → **平台默认不变**。
+- **chunk 并行**：`--chunk-workers N`（默认 1=现行为顺序；N≥2 并行「读+折日」
+  有序合并，N=1 不建池）；预算门 N×3.6GB/chunk vs `FACTORLAB_MAX_MEMORY`
+  （打开 DB 前拒绝）；失败传播/覆盖审计/看门狗语义不变。并发读依赖 CH 客户端
+  线程级单例（同 session 并发查询被 clickhouse-connect 禁止）。
+
+### 总表（总墙钟 秒；同窗 2024-01-02..03-29、chunk 10、8GB 护栏）
+
+| 因子 | before | P2 | P3 | P4-N1 | P4-N2 |
+|---|---|---|---|---|---|
+| am_pm_vol | 55.6 | 46.7 | 46.3 | 48.6 | **35.1** |
+| vol_asym | 52.2 | 53.0 | 48.1 | 49.8 | **36.0** |
+| autocorr_micro | 63.4 | 53.2 | 50.3 | 53.7 | **39.5** |
+| vol_price_corr | 101.2 | 63.1 | 58.3 | 60.7 | **42.1** |
+
+- **N=2 加速 1.36–1.44×**（read_data 1.40–1.50×），峰值 RSS ≤6.2GB < 8GB 护栏；
+  **N=3 在 8GB 护栏下被预算门拒绝**（4 因子 rc=1，打开 DB 前，零批读零产物）。
+- **N=1 vs N=2 真数据逐 frame bit-exact**（4 因子 signal/labels/panel
+  `equals=True`、n_bit_diff=0、null 掩码/审计一致）：
+  [`after-p4/chunk_workers_parity.json`](after-p4/chunk_workers_parity.json)。
+- **N=1 零变化旁证**：P4-N1 vs P3 bench evaluation 主指标（IC/换手/覆盖/期数/
+  版本/频率/目标）全等，仅分层组收益 1e-16..7e-15 跨进程归约噪声：
+  [`after-p4/zero_change_vs_p3.txt`](after-p4/zero_change_vs_p3.txt)。
+- 门：平台全量 `3489 passed, 15 skipped`；`make lint-factors` 233/0；
+  `make gates` 14 BAD 全为 `lob_fact` 预存红（`after-p4/gates_p4.txt`）；
+  突变 5 杀（[`spike/mutation-p4.txt`](spike/mutation-p4.txt)）。
+- 限制：fold 段在 N≥2 是并发 worker 折日墙钟之和（Profiler 线程锁累加，
+  大于 elapsed；收益以 read_data/总墙钟为准）；N 曲线受 8GB 护栏约束只有 1/2。

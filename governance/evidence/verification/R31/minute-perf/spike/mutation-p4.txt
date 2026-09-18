@@ -1,0 +1,23 @@
+===== M1: workers 预算门存根化（guard 恒 return）
+=========================== short test summary info ============================
+FAILED tests/test_minute_engine.py::test_minute_chunk_workers_over_budget_refused_before_read
+1 failed in 3.15s
+===== M2: chunk 并行分支关闭（workers 恒走顺序路径）
+=========================== short test summary info ============================
+FAILED tests/test_minute_engine.py::test_minute_chunk_workers_actually_overlap
+1 failed in 14.82s
+===== M3: bars 批读查询设置不注入（settings= 丢弃）
+=========================== short test summary info ============================
+FAILED tests/test_ch_read_tuning.py::test_bars_read_settings_startup_on_batch_read_sql
+1 failed in 0.68s
+===== M4: CH 客户端回退进程级共享（线程级单例被破坏）
+=========================== short test summary info ============================
+FAILED tests/test_ch_read_tuning.py::test_get_client_thread_local_and_concurrent_queries
+1 failed in 0.76s
+===== M5: 每 chunk 峰值估算常量清零（预算门失效）
+=========================== short test summary info ============================
+FAILED tests/test_minute_engine.py::test_minute_chunk_workers_over_budget_refused_before_read
+1 failed in 3.18s
+===== 恢复后回归
+....................................................                     [100%]
+52 passed in 23.72s

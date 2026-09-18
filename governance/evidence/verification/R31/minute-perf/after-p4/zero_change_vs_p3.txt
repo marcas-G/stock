@@ -1,0 +1,12 @@
+# R09-PERF-P4 零变化旁证：after-p4（N=1）vs after-p3 bench evaluation 对比
+# 命令：platform/.venv/bin/python - << 'PY' … 见 after-p4/README.md 复现节
+# 口径：同窗 2024-01-02..2024-03-29、chunk 10、8GB 护栏、同 env；P3 树 aa9f351，P4 树 730f1c8
+
+am_pm_vol: ic/turnover/coverage/n_weeks/version/frequency/target equal=True; decile_groups float diffs=8 max_rel=7.60e-16
+vol_asym: ic/turnover/coverage/n_weeks/version/frequency/target equal=True; decile_groups float diffs=7 max_rel=7.36e-15
+autocorr_micro: ic/turnover/coverage/n_weeks/version/frequency/target equal=True; decile_groups float diffs=6 max_rel=1.60e-15
+vol_price_corr: ic/turnover/coverage/n_weeks/version/frequency/target equal=True; decile_groups float diffs=8 max_rel=2.72e-16
+
+# 结论：主指标（IC/换手/覆盖/期数/口径版本/频率/目标）逐值全等；仅分层组收益
+# 在 ~1e-16..1e-15 相对量级（跨进程 f64 归约次序噪声）。P4 树内 N=1 vs N=2
+# 逐 frame bit-exact（chunk_workers_parity.json），N=1 路径行为等价（循环体原样抽取）。

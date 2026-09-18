@@ -1,0 +1,5 @@
+heavy.sh: slot=1/2 avail=69.6GB  max_memory=8GB oom_score_adj=700 -> /data/students/gaolei/stock/platform/.venv/bin/factorlab run governance/evidence/verification/R31/minute-perf/after-p4/n3/specs/vol_price_corr__2024-01-02_2024-03-29.yaml --chunk-days 10 --chunk-workers 3 --profile --output-dir governance/evidence/verification/R31/minute-perf/after-p4/n3/runs/vol_price_corr
+错误: 分钟链 chunk 并行被拒绝：超过 FACTORLAB_MAX_MEMORY=8.0GB 
+预算——chunk_workers=3 预估峰值 10.8GB（3 × 3.6GB/chunk，R09-PERF P2/P3 bench 
+同窗实测 3.0–3.6GB）。请减小 --chunk-workers（或 --chunk-days）后重试，或调大 
+FACTORLAB_MAX_MEMORY；看门狗仍会按 chunk 边界协作检查。

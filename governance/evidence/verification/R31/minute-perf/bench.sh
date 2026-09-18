@@ -16,6 +16,7 @@
 #   BENCH_START/END 窗口（默认 2024-01-02 / 2024-03-29；BENCH_FULL=1 用 spec 原窗）
 #   BENCH_TIMEOUT_S 单因子超时秒数（默认 1500 = 25min）
 #   BENCH_CHUNK_DAYS 分块交易日（默认 10，R09 同口径）
+#   BENCH_CHUNK_WORKERS 分钟链 chunk 并行度（默认 1=现行为；R09-PERF-P4）
 #   BENCH_SKIP_DONE=1 已有 summary.json 的因子跳过（断点续跑）
 #   BENCH_FACTORS   空格分隔的 spec 短名（默认 am_pm_vol vol_asym autocorr_micro
 #                   vol_price_corr；文件须在 research/factor/intraday/<名>.yaml）
@@ -40,6 +41,7 @@ START="${BENCH_START:-2024-01-02}"
 END="${BENCH_END:-2024-03-29}"
 TIMEOUT_S="${BENCH_TIMEOUT_S:-1500}"
 CHUNK_DAYS="${BENCH_CHUNK_DAYS:-10}"
+WORKERS="${BENCH_CHUNK_WORKERS:-1}"
 FACTORS="${BENCH_FACTORS:-am_pm_vol vol_asym autocorr_micro vol_price_corr}"
 FULL="${BENCH_FULL:-0}"
 SKIP_DONE="${BENCH_SKIP_DONE:-0}"
@@ -64,7 +66,7 @@ git_status="$(git -C "$ROOT" status --porcelain | wc -l)"
     echo "commit=$(git -C "$ROOT" rev-parse HEAD)"
     echo "dirty_files=$git_status"
     echo "window=$([ "$FULL" = "1" ] && echo "spec" || echo "$START..$END")"
-    echo "chunk_days=$CHUNK_DAYS timeout_s=$TIMEOUT_S"
+    echo "chunk_days=$CHUNK_DAYS timeout_s=$TIMEOUT_S chunk_workers=$WORKERS"
     echo "backend=$FACTORLAB_DATA_BACKEND max_memory=$FACTORLAB_MAX_MEMORY"
     echo "st_degrade=$FACTORLAB_ST_DEGRADE minute_uncovered=$FACTORLAB_MINUTE_UNCOVERED"
     echo "host=$(hostname) cores=$(nproc) mem_gb=$(awk '/MemTotal/{printf "%.0f", $2/1024/1024}' /proc/meminfo)"
@@ -101,7 +103,8 @@ PYEOF
     /usr/bin/time -v -o "$run_dir/time.txt" \
         timeout --signal=TERM --kill-after=60 "$TIMEOUT_S" \
         "$HEAVY" "$FACTORLAB" run "$spec" \
-        --chunk-days "$CHUNK_DAYS" --profile --output-dir "$run_dir" \
+        --chunk-days "$CHUNK_DAYS" --chunk-workers "$WORKERS" \
+        --profile --output-dir "$run_dir" \
         > "$run_dir/run.log" 2>&1
     local rc=$?
     echo "$rc" > "$run_dir/exit_code"
@@ -141,13 +144,22 @@ def max_rss_mb(time_txt: Path):
 def main():
     env = (out / "env.txt").read_text(encoding="utf-8").strip() if (
         out / "env.txt").is_file() else "(no env.txt)"
-    _phase = ("after（R09-PERF-I1 融合）" if out.name == "after"
-              else "after（R09-PERF-I2 条件取值/单次 agg）"
-              if out.name == "after-p3" else "before")
+    _wm = re.search(r"^chunk_workers=(\d+)$", env, re.M)
+    _workers = _wm.group(1) if _wm else None
+    if "after-p4" in str(out):
+        _phase = ("after-P4（R09-PERF-P4 chunk_workers=" + (_workers or "?")
+                  + "）")
+    elif out.name == "after":
+        _phase = "after（R09-PERF-I1 融合）"
+    elif out.name == "after-p3":
+        _phase = "after（R09-PERF-I2 条件取值/单次 agg）"
+    else:
+        _phase = "before"
     lines = [
         f"# R09 分钟链性能{_phase}——M3 分段计时实测",
         "",
-        f"- 运行口径：`--chunk-days {chunk_days} --profile`，单因子超时 "
+        f"- 运行口径：`--chunk-days {chunk_days} "
+        f"--chunk-workers {_workers or 1} --profile`，单因子超时 "
         f"{timeout_s}s（{timeout_s / 60:.0f}min）；env：`FACTORLAB_DATA_BACKEND=ch "
         f"FACTORLAB_MAX_MEMORY=8GB FACTORLAB_ST_DEGRADE=allow "
         f"FACTORLAB_MINUTE_UNCOVERED=drop`；经 `governance/ops/heavy.sh` 闸。",

@@ -1,0 +1,23 @@
+	Command being timed: "timeout --signal=TERM --kill-after=60 1500 /data/students/gaolei/stock/governance/ops/heavy.sh /data/students/gaolei/stock/platform/.venv/bin/factorlab run governance/evidence/verification/R31/minute-perf/after-p4/n2/specs/vol_asym__2024-01-02_2024-03-29.yaml --chunk-days 10 --chunk-workers 2 --profile --output-dir governance/evidence/verification/R31/minute-perf/after-p4/n2/runs/vol_asym"
+	User time (seconds): 107.79
+	System time (seconds): 30.15
+	Percent of CPU this job got: 355%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:38.78
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 5782520
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 8258311
+	Voluntary context switches: 124641
+	Involuntary context switches: 3270
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 22424
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

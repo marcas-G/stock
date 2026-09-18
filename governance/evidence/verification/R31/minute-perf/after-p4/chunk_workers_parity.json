@@ -1,0 +1,395 @@
+{
+  "window": "2024-01-02..2024-03-29",
+  "chunk_days": 10,
+  "tree_commit": "6f7dbdc666a992587c5d77988f4d95e9e32ccdec",
+  "factors": {
+    "am_pm_vol": {
+      "wall_s_w1": 46.7,
+      "minute_uncovered_w1": {
+        "mode": "drop",
+        "dropped_code_days": 0,
+        "dropped_codes": 0,
+        "dropped_dates": 0,
+        "date_min": null,
+        "date_max": null,
+        "sample": []
+      },
+      "panel_rows_w1": 281338,
+      "wall_s_w2": 31.4,
+      "minute_uncovered_w2": {
+        "mode": "drop",
+        "dropped_code_days": 0,
+        "dropped_codes": 0,
+        "dropped_dates": 0,
+        "date_min": null,
+        "date_max": null,
+        "sample": []
+      },
+      "panel_rows_w2": 281338,
+      "signal": {
+        "rows": 281338,
+        "equals_bit_exact": true,
+        "keys_equal": true,
+        "signal": {
+          "dtype": "Float64",
+          "n_cells": 281337,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "labels": {
+        "rows": 281338,
+        "equals_bit_exact": true,
+        "keys_equal": true,
+        "forward_return_1d": {
+          "dtype": "Float32",
+          "n_cells": 276468,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_5d": {
+          "dtype": "Float32",
+          "n_cells": 257026,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_20d": {
+          "dtype": "Float32",
+          "n_cells": 184281,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "panel": {
+        "rows": 281338,
+        "equals_bit_exact": true,
+        "keys_equal": true,
+        "signal": {
+          "dtype": "Float64",
+          "n_cells": 281337,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_1d": {
+          "dtype": "Float32",
+          "n_cells": 276468,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_5d": {
+          "dtype": "Float32",
+          "n_cells": 257026,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_20d": {
+          "dtype": "Float32",
+          "n_cells": 184281,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "audit_equal": true,
+      "speedup": 1.49
+    },
+    "vol_asym": {
+      "wall_s_w1": 47.5,
+      "minute_uncovered_w1": {
+        "mode": "drop",
+        "dropped_code_days": 0,
+        "dropped_codes": 0,
+        "dropped_dates": 0,
+        "date_min": null,
+        "date_max": null,
+        "sample": []
+      },
+      "panel_rows_w1": 281338,
+      "wall_s_w2": 33.5,
+      "minute_uncovered_w2": {
+        "mode": "drop",
+        "dropped_code_days": 0,
+        "dropped_codes": 0,
+        "dropped_dates": 0,
+        "date_min": null,
+        "date_max": null,
+        "sample": []
+      },
+      "panel_rows_w2": 281338,
+      "signal": {
+        "rows": 281338,
+        "equals_bit_exact": true,
+        "keys_equal": true,
+        "signal": {
+          "dtype": "Float32",
+          "n_cells": 280481,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "labels": {
+        "rows": 281338,
+        "equals_bit_exact": true,
+        "keys_equal": true,
+        "forward_return_1d": {
+          "dtype": "Float32",
+          "n_cells": 276468,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_5d": {
+          "dtype": "Float32",
+          "n_cells": 257026,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_20d": {
+          "dtype": "Float32",
+          "n_cells": 184281,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "panel": {
+        "rows": 281338,
+        "equals_bit_exact": true,
+        "keys_equal": true,
+        "signal": {
+          "dtype": "Float32",
+          "n_cells": 280481,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_1d": {
+          "dtype": "Float32",
+          "n_cells": 276468,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_5d": {
+          "dtype": "Float32",
+          "n_cells": 257026,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_20d": {
+          "dtype": "Float32",
+          "n_cells": 184281,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "audit_equal": true,
+      "speedup": 1.42
+    },
+    "autocorr_micro": {
+      "wall_s_w1": 50.8,
+      "minute_uncovered_w1": {
+        "mode": "drop",
+        "dropped_code_days": 0,
+        "dropped_codes": 0,
+        "dropped_dates": 0,
+        "date_min": null,
+        "date_max": null,
+        "sample": []
+      },
+      "panel_rows_w1": 281338,
+      "wall_s_w2": 34.9,
+      "minute_uncovered_w2": {
+        "mode": "drop",
+        "dropped_code_days": 0,
+        "dropped_codes": 0,
+        "dropped_dates": 0,
+        "date_min": null,
+        "date_max": null,
+        "sample": []
+      },
+      "panel_rows_w2": 281338,
+      "signal": {
+        "rows": 281338,
+        "equals_bit_exact": true,
+        "keys_equal": true,
+        "signal": {
+          "dtype": "Float32",
+          "n_cells": 280671,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "labels": {
+        "rows": 281338,
+        "equals_bit_exact": true,
+        "keys_equal": true,
+        "forward_return_1d": {
+          "dtype": "Float32",
+          "n_cells": 276468,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_5d": {
+          "dtype": "Float32",
+          "n_cells": 257026,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_20d": {
+          "dtype": "Float32",
+          "n_cells": 184281,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "panel": {
+        "rows": 281338,
+        "equals_bit_exact": true,
+        "keys_equal": true,
+        "signal": {
+          "dtype": "Float32",
+          "n_cells": 280671,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_1d": {
+          "dtype": "Float32",
+          "n_cells": 276468,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_5d": {
+          "dtype": "Float32",
+          "n_cells": 257026,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_20d": {
+          "dtype": "Float32",
+          "n_cells": 184281,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "audit_equal": true,
+      "speedup": 1.46
+    },
+    "vol_price_corr": {
+      "wall_s_w1": 57.3,
+      "minute_uncovered_w1": {
+        "mode": "drop",
+        "dropped_code_days": 0,
+        "dropped_codes": 0,
+        "dropped_dates": 0,
+        "date_min": null,
+        "date_max": null,
+        "sample": []
+      },
+      "panel_rows_w1": 281338,
+      "wall_s_w2": 40.9,
+      "minute_uncovered_w2": {
+        "mode": "drop",
+        "dropped_code_days": 0,
+        "dropped_codes": 0,
+        "dropped_dates": 0,
+        "date_min": null,
+        "date_max": null,
+        "sample": []
+      },
+      "panel_rows_w2": 281338,
+      "signal": {
+        "rows": 281338,
+        "equals_bit_exact": true,
+        "keys_equal": true,
+        "signal": {
+          "dtype": "Float64",
+          "n_cells": 280671,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "labels": {
+        "rows": 281338,
+        "equals_bit_exact": true,
+        "keys_equal": true,
+        "forward_return_1d": {
+          "dtype": "Float32",
+          "n_cells": 276468,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_5d": {
+          "dtype": "Float32",
+          "n_cells": 257026,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_20d": {
+          "dtype": "Float32",
+          "n_cells": 184281,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "panel": {
+        "rows": 281338,
+        "equals_bit_exact": true,
+        "keys_equal": true,
+        "signal": {
+          "dtype": "Float64",
+          "n_cells": 280671,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_1d": {
+          "dtype": "Float32",
+          "n_cells": 276468,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_5d": {
+          "dtype": "Float32",
+          "n_cells": 257026,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        },
+        "forward_return_20d": {
+          "dtype": "Float32",
+          "n_cells": 184281,
+          "n_bit_diff": 0,
+          "max_abs_delta": 0.0,
+          "null_mask_equal": true
+        }
+      },
+      "audit_equal": true,
+      "speedup": 1.4
+    }
+  }
+}

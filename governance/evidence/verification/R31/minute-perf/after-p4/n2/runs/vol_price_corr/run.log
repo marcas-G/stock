@@ -1,0 +1,16 @@
+heavy.sh: slot=1/2 avail=71.2GB  max_memory=8GB oom_score_adj=700 -> /data/students/gaolei/stock/platform/.venv/bin/factorlab run governance/evidence/verification/R31/minute-perf/after-p4/n2/specs/vol_price_corr__2024-01-02_2024-03-29.yaml --chunk-days 10 --chunk-workers 2 --profile --output-dir governance/evidence/verification/R31/minute-perf/after-p4/n2/runs/vol_price_corr
+2026-09-19 00:10:51.571 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-19 00:10:51.605 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-19 00:10:52.713 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-19 00:10:52.756 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-19 00:10:54.268 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-19 00:10:54.308 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+[profile] total=42061ms (clock=wall_ms, rss=mb)
+  read_data            38349ms  peak=6179MB (+5720MB)  calls=2
+  fold                 39818ms  peak=6179MB (+2646MB)  calls=6
+  label                  695ms  peak=3968MB (+0MB)  calls=1
+  evaluate               580ms  peak=1833MB (+0MB)  calls=1
+  layered_backtest       127ms  peak=1375MB (+13MB)  calls=1
+  persist                125ms  peak=2058MB (+24MB)  calls=2
+intraday_vol_price_corr: n_weeks=57 ic_mean=0.00964743864021422 
+spread=-0.0038920612193935494 freq=daily
