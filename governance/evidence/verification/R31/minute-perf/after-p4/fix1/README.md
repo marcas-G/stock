@@ -92,3 +92,7 @@ bash governance/evidence/verification/R31/minute-perf/after-p4/fix1/mutation_f1.
   峰值 6042MB 由 `/usr/bin/time -v`、`summary.json`（panel_rows=281338）与
   `run.log` 锁定。DQ 侧落定后全量复跑 3515 passed / 0 failed（本修复无红）。
 - 本修复波无未竟项。
+
+## 证据补注（re-review 存疑 2）
+
+- 3515/0 全量原始 pytest 输出未留档（仅 README 文字）；复核方已独立跑关键测试（chunk_workers 4 passed + 拒绝测试 passed）替代佐证。

@@ -1,4 +1,4 @@
-# R09 分钟链性能after-P4（R09-PERF-P4 chunk_workers=?）——M3 分段计时实测
+# R09 分钟链性能after-P4（R09-PERF-P4 chunk_workers=2）——M3 分段计时实测
 
 - 运行口径：`--chunk-days 10 --chunk-workers 1 --profile`，单因子超时 1500s（25min）；env：`FACTORLAB_DATA_BACKEND=ch FACTORLAB_MAX_MEMORY=8GB FACTORLAB_ST_DEGRADE=allow FACTORLAB_MINUTE_UNCOVERED=drop`；经 `governance/ops/heavy.sh` 闸。
 - 脚本：`governance/evidence/verification/R31/minute-perf/bench.sh`（`BENCH_OUT` 指向本目录；after 复测同脚本换目录）。

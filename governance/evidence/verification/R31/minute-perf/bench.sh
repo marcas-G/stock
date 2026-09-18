@@ -144,7 +144,7 @@ def max_rss_mb(time_txt: Path):
 def main():
     env = (out / "env.txt").read_text(encoding="utf-8").strip() if (
         out / "env.txt").is_file() else "(no env.txt)"
-    _wm = re.search(r"^chunk_workers=(\d+)$", env, re.M)
+    _wm = re.search(r"chunk_workers=(\d+)", env)
     _workers = _wm.group(1) if _wm else None
     if "after-p4" in str(out):
         _phase = ("after-P4（R09-PERF-P4 chunk_workers=" + (_workers or "?")
