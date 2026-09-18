@@ -87,7 +87,7 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 |------|------|
 | `factorlab version` | 打印包版本 |
 | `factorlab lint <spec.yaml>` | 校验 Spec、AST 白名单与引擎同序语义门（未知算子/负位移/未来下标，含池公式），失败时以非 0 退出 |
-| `factorlab run <spec.yaml> [--universe U] [--max-memory M] [--output-dir DIR] [--no-float32] [--backtest/--no-backtest] [--groups N] [--eval-frequency daily\|weekly] [--set k=v ...] [--chunk-days N] [--warmup-days N] [--profile]` | 计算因子并评估（daily 逐日默认 / weekly 对照）+ 分层回测（默认），落盘 `runs/platform/<name>/`（缺省 results_dir；`--set` 生成 `runs/platform/<name>_<k><v>.../` 参数变体；`--chunk-days` 日期分块，见 §运行-分块计算；`--profile` 分段计时，见下） |
+| `factorlab run <spec.yaml> [--universe U] [--max-memory M] [--output-dir DIR] [--no-float32] [--backtest/--no-backtest] [--groups N] [--eval-frequency daily\|weekly] [--set k=v ...] [--chunk-days N] [--warmup-days N] [--chunk-workers N] [--profile] [--no-read-cache]` | 计算因子并评估（daily 逐日默认 / weekly 对照）+ 分层回测（默认），落盘 `runs/platform/<name>/`（缺省 results_dir；`--set` 生成 `runs/platform/<name>_<k><v>.../` 参数变体；`--chunk-days` 日期分块，见 §运行-分块计算；`--profile` 分段计时，见下） |
 | `factorlab list` | 列出已保存因子与最近运行摘要（扫描 `results_dir/*/summary.json`，按运行时间倒序） |
 | `factorlab show <name>` | 查看单因子完整摘要（spec 原文/评估/分层回测） |
 | `factorlab corr <name1> <name2> ... [--against reference\|all\|<names>]` | 因子两两相关性（≥2 个）：周度横截面秩相关均值 + 全局 Pearson；任一因子无 results 报错（数据源 `<results_dir>/<name>/panel.parquet`（默认 `runs/platform/`） 的 signal，按 date+code inner join；join 后超 2000 万行每周降采样 5000 只）。`--against reference`（D10）= 与参考库 `research/factor/_reference.yaml` daily 组成员的并集矩阵（names 可省略=库内自相关矩阵；只读库清单，不扫全库、不跨 scales）；`--against all`= 显式扫全库；`--against a,b`= 显式名单 |
@@ -144,7 +144,12 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   `{"version": 1, "clock": "wall_ms", "rss_unit": "mb", "total_wall_ms": N,
   "segments": {"<段>": {"wall_ms": 正整数, "rss_peak_mb": N, "rss_delta_mb": N,
   "calls": N}}}`。段：`read_data`（label 前信号侧；分钟链含折日装载/拼装）、
-  `fold`（分钟折日 `compute_minute_factor_panel`，`read_data` 子段；日频无）、
+  `bars_read`（R31 分钟链 bars_1m 批读总段——直读或经缓存；跨 chunk 累加，
+  `read_data` 子段；日频无）、`fold`（分钟折日
+  `compute_minute_factor_panel`，`read_data` 子段；日频无）、
+  `cache_lookup`/`cache_hit`/`cache_miss`/`cache_fallback`（R31 bars 读缓存
+  子段：指纹+manifest 探测 / 命中读盘 / 未命中直读+落缓存 / 坏条目回退直读；
+  缓存关闭时无）、
   `label`、`evaluate`、`layered_backtest`（`--no-backtest` 时无）、`persist`
   （artifact/panel/weekly 落盘；summary.json 自身重写不计入）。实现
   `app/profile.py`（段边界采样 + 20Hz 采样线程，峰值按段窗口归属）。
@@ -180,6 +185,38 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   旋钮相对默认在噪声带（3.1–3.6s），平台不设默认值；全局 `join_use_nulls=1`
   恒在（调用方不可覆盖）。并行读（`--chunk-workers`）要求 CH 客户端线程级
   单例（clickhouse-connect 同 session 并发查询被禁）。
+- **bars_1m 批读 Arrow 流读取（R31）**：分钟批读改
+  `clickhouse-connect.query_arrow_stream` + 逐批 `pl.from_arrow` +
+  `pl.concat(rechunk=False)`（`adapters/ch_read.query_arrow_stream_df`；
+  `load_bars_1m_codes` 经句柄能力探测优先走流，测试桩/无该能力句柄回退
+  `query_df`）。dtype（UInt16/Date/DateTime64(3)/Float32/Float64 等）、null
+  形态、行序与 `query_df` 逐 bit 一致；真 CH 同窗实测 3.8–4.0s vs
+  `query_arrow` 整表 4.9–7.7s（证据 `R31/minute-perf/read-cache/parity.json`）。
+  空结果流（0 个 RecordBatch）回退 `query_arrow` 取投影 schema（空窗仍返回同
+  投影空 frame）；部分批次失败异常原样抛出（不返回半量）。
+- **bars_1m 读磁盘缓存（R31；默认开，仅分钟链）**：`load_bars_1m_codes`
+  按 chunk 缓存**解码后** frame（datetime naive ms/code 6 位，与直读出口逐
+  bit 一致；行序 = SQL `ORDER BY code, datetime` 原序）。缓存键 =
+  `sha256(v1|codes 排序集|date_start|date_end|columns 排序集|源指纹)`；源指纹 =
+  `system.parts`（当前库 `table='bars_1m' AND active` 的 Σrows +
+  max(modification_time)）拼接 `max(datetime)` 再 sha256——**历史回填/月分区
+  替换/新数据都会改变指纹 → 旧键不再命中**（进程内按 300s memo，避免逐 chunk
+  重查 max(datetime)）。目录 `~/.cache/factorlab/bars_1m/`
+  （`FACTORLAB_READ_CACHE_DIR` 覆盖）；`manifest.json` 单点登记
+  key/file/sha256/size/fingerprint/created_at/last_access/hits；上限
+  `FACTORLAB_READ_CACHE_MAX_GB`（默认 30）按 `last_access` **LRU 淘汰**，期限
+  `FACTORLAB_READ_CACHE_TTL_DAYS`（默认 7）按 `created_at` 过期清理。数据文件
+  为 Arrow IPC（lz4），经平台原子写单点（同目录 tmp + fsync + `os.replace` +
+  目录 fsync，失败不留目标/不更新 manifest）；读命中先 size+sha256 校验，
+  损坏/半成品/文件缺失/元数据损坏 → **回退直读**（清坏条目，不 fail）。
+  开关：`FACTORLAB_READ_CACHE=0`（默认开）或 CLI `--no-read-cache`
+  （`RunContext.read_cache=False`）完全关闭（不建目录、不查指纹）；命中/
+  未命中/回退写 stderr（run.log，前缀 `[read-cache]`）并计入 `--profile`
+  段（见上；缓存关闭时无 cache 段）。并发（`--chunk-workers`）下同键双读
+  双写语义安全（原子替换幂等）。实现
+  `adapters/read/chunk_cache.py`；两连跑证据
+  `governance/evidence/verification/R31/minute-perf/read-cache/`（读段
+  `bars_read` 12.8→7.0s，`read_data` 40.7→31.4s，bit-exact max|Δ|=0）。
 - 落盘：`panel.parquet`（run_factor 日频面板）、`weekly.parquet`（评估输入面板——
   daily 模式为日频面板 / weekly 模式为周频对齐面板；文件名保留历史布局）、
   `summary.json`（run_factor 摘要 + `evaluation` 字段——频率分支评估
