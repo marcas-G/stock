@@ -46,9 +46,12 @@ CH 26.3 服务器默认 `max_threads=40`/`max_block_size=65409`；**所有变体
   bars_1m 链生效）：N≥2 时按 chunk 并行「注入/批读/成员过滤 + 折日」，
   **按 chunk 顺序合并**（分钟窗不跨日 → 与 N=1 逐 cell 一致）；N=1 完全走
   原顺序循环（不建线程池——测试用「构造即抛」的 ThreadPoolExecutor 锁死）。
-- **预算门**（打开 DB 前）：估算 `N × 3.6GB/chunk`（P2/P3 实测峰值上界
-  3.0–3.6GB/进程）> `FACTORLAB_MAX_MEMORY` → `MemoryLimitExceeded` 干净拒绝
-  （CLI exit 1；零读盘零产物）；未设预算且估算 >8GB → 响亮告警。
+- **预算门**（打开 DB 前）：估算 `N × 单 chunk 估值`，单 chunk =
+  `3.6GB × max(chunk_days, 10)/10`（10 日块 = 实测上界 3.0–3.6GB；R09 复评
+  F1 按生效 `ctx.chunk_days` 校准——默认 20 日块估值 7.2GB/chunk，R04-P1
+  实测 6.95GB 的保守上界）> `FACTORLAB_MAX_MEMORY` → `MemoryLimitExceeded`
+  干净拒绝（CLI exit 1；零读盘零产物）；未设预算且估算 >8GB → 响亮告警。
+  F1 修复的真实复验见 [`fix1/`](fix1/)（默认 chunk20+N=2 在 8GB 护栏下拒绝）。
 - 错误/审计语义：任一 chunk 失败 → 取消未启动任务、异常原样传播、整体失败；
   `FACTORLAB_MINUTE_UNCOVERED=drop` 剔除集跨块累计与 summary 审计不变；
   看门狗只在主线程 chunk 边界协作检查。

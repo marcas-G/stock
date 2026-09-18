@@ -282,9 +282,12 @@ convert_tick 未触碰**）。自包含证据/数字见 [`after-p4/README.md`](a
   [`spike/ch_read_spike.json`](spike/ch_read_spike.json)）：max_threads 2..16 /
   max_block_size 128k..1M 全在 3.1–3.6s 噪声带 → **平台默认不变**。
 - **chunk 并行**：`--chunk-workers N`（默认 1=现行为顺序；N≥2 并行「读+折日」
-  有序合并，N=1 不建池）；预算门 N×3.6GB/chunk vs `FACTORLAB_MAX_MEMORY`
-  （打开 DB 前拒绝）；失败传播/覆盖审计/看门狗语义不变。并发读依赖 CH 客户端
-  线程级单例（同 session 并发查询被 clickhouse-connect 禁止）。
+  有序合并，N=1 不建池）；预算门 N×单 chunk 估值（`3.6GB × max(chunk_days,
+  10)/10`，按生效块长校准——R09 复评 F1）vs `FACTORLAB_MAX_MEMORY`（打开 DB
+  前拒绝）；失败传播/覆盖审计/看门狗语义不变。并发读依赖 CH 客户端线程级单例
+  （同 session 并发查询被 clickhouse-connect 禁止）。**F1 修复验证见
+  [`after-p4/fix1/`](after-p4/fix1/)**（默认 chunk20+N=2 在 8GB 护栏下读盘前
+  拒绝）。
 
 ### 总表（总墙钟 秒；同窗 2024-01-02..03-29、chunk 10、8GB 护栏）
 

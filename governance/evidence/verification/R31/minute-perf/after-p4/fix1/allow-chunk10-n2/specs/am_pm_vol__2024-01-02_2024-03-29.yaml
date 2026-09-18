@@ -1,0 +1,15 @@
+name: intraday_am_pm_vol
+category: custom
+direction: -1
+interface: bars_1m
+adjustment: raw
+universe:
+  ref: bars1m_2023_2025
+date:
+  start: '2024-01-02'
+  end: '2024-03-29'
+formula: '_am = day_sum(if_else(minute_index <= 120, volume, 0))
+
+  signal = _am / day_sum(volume)
+
+  '

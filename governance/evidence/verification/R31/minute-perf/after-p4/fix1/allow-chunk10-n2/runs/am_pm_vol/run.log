@@ -1,0 +1,69 @@
+heavy.sh: slot=1/2 avail=108.0GB  max_memory=8GB oom_score_adj=700 -> /data/students/gaolei/stock/platform/.venv/bin/factorlab run governance/evidence/verification/R31/minute-perf/after-p4/fix1/allow-chunk10-n2/specs/am_pm_vol__2024-01-02_2024-03-29.yaml --chunk-days 10 --chunk-workers 2 --profile --output-dir governance/evidence/verification/R31/minute-perf/after-p4/fix1/allow-chunk10-n2/runs/am_pm_vol
+2026-09-19 01:32:14.673 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-19 01:32:14.677 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-19 01:32:14.732 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-19 01:32:14.738 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-19 01:32:15.112 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-19 01:32:15.149 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /data/students/gaolei/stock/platform/src/factorlab/surfaces/cli/main.py:380  │
+│ in run_factor_cli                                                            │
+│                                                                              │
+│   377 │   （daily 默认逐日口径；weekly 为旧口径可选对照）。--profile         │
+│       输出分段计时。                                                         │
+│   378 │   --chunk-workers 分钟链 chunk 并行度（默认 1，见 --help）。"""      │
+│   379 │   try:                                                               │
+│ ❱ 380 │   │   out = execute_run(spec_path, universe=universe,                │
+│       max_memory=max_memory,                                                 │
+│   381 │   │   │   │   │   │     output_dir=output_dir, float32=float32,      │
+│   382 │   │   │   │   │   │     backtest=backtest, groups=groups,            │
+│       set_params=set_params,                                                 │
+│   383 │   │   │   │   │   │     chunk_days=chunk_days,                       │
+│       warmup_days=warmup_days,                                               │
+│                                                                              │
+│ /data/students/gaolei/stock/platform/src/factorlab/surfaces/cli/main.py:335  │
+│ in execute_run                                                               │
+│                                                                              │
+│   332 │   │   with cli_memory_guardrails():                                  │
+│   333 │   │   │   result = run_impl(spec, ctx)                               │
+│   334 │   │   │   # 评估装配单点（WS5）：app.evaluate.evaluate_run +         │
+│       publish_run                                                            │
+│ ❱ 335 │   │   │   outcome = evaluate_run(result, spec, ctx, groups=groups,   │
+│       backtest=backtest,                                                     │
+│   336 │   │   │   │   │   │   │   │      frequency=eval_frequency,           │
+│       dataset=dataset)                                                       │
+│   337 │   │   │   publish_run(result, outcome, ctx)                          │
+│   338 │   finally:                                                           │
+│                                                                              │
+│ /data/students/gaolei/stock/platform/src/factorlab/app/evaluate.py:153 in    │
+│ evaluate_run                                                                 │
+│                                                                              │
+│   150 │   │   as_of = result.panel["date"].max()                             │
+│   151 │   │   if as_of is None:                                              │
+│   152 │   │   │   raise ValueError("读取门需要面板日期（result.panel         │
+│       为空）")                                                               │
+│ ❱ 153 │   │   gate = require_dataset(                                        │
+│   154 │   │   │   dataset, as_of.isoformat(), accept_quality=accept_quality, │
+│   155 │   │   │   max_staleness=max_staleness, root=dq_root,                 │
+│   156 │   │   │   override_reason=override_reason, strict=strict)            │
+│                                                                              │
+│ /data/students/gaolei/stock/platform/src/factorlab/adapters/read/health.py:1 │
+│ 90 in require_dataset                                                        │
+│                                                                              │
+│   187 │                                                                      │
+│   188 │   path = health_artifact_path(dataset, as_of, root=root)             │
+│   189 │   if not path.is_file():                                             │
+│ ❱ 190 │   │   raise _reject(                                                 │
+│   191 │   │   │   dataset, as_of, "MISSING",                                 │
+│   192 │   │   │   f"health artifact 不存在（{path}）——canonical 已写入 ≠     │
+│       research-ready",                                                       │
+│   193 │   │   │   guidance="先跑 post-ingest audit + health                  │
+│       发布（data_quality/health.py "                                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+DatasetQualityError: 读取门拒绝：dataset=ashare_daily partition=2024-03-29 
+status=MISSING——health artifact 
+不存在（/data/students/gaolei/stock/data/health/ashare_daily/2024-03-29.json）——
+canonical 已写入 ≠ research-ready；指引：先跑 post-ingest audit + health 
+发布（data_quality/health.py publish）；存量无 health 分区按过渡条款视为 
+LEGACY_UNVERIFIED/UNKNOWN（设计 §8）：默认拒绝；确需过渡使用请显式声明 
+accept_quality 含 UNKNOWN + override_reason
