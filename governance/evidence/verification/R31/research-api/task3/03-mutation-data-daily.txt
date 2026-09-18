@@ -1,0 +1,326 @@
+FFFFFFFFFFFF..FF                                                         [100%]
+=================================== FAILURES ===================================
+______________ test_data_daily_reads_values_via_readport[duckdb] _______________
+
+env = <conftest._EnvDuck object at 0x7f8e4ceec050>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d10645350>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_data_daily_reads_values_v0')
+
+    def test_data_daily_reads_values_via_readport(env, monkeypatch, tmp_path):
+        env.seed(_basic_seed())
+        spy = patch_read(monkeypatch, env.rd)
+        out = data_daily(_args(codes=["000001"], start="2024-01-02", end="2024-01-03",
+                               view="raw", cols=None, inline=True, artifacts_dir=tmp_path))
+        assert out.ok, out.error
+        assert out.command == "data.daily"
+        rows = out.data["rows"]
+>       assert [r["close"] for r in rows] == [10.5, 11.0]  # 种子值，硬编码必败
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert [1.0, 2.0] == [10.5, 11.0]
+E         
+E         At index 0 diff: 1.0 != 10.5
+E         Use -v to get more diff
+
+tests/test_research_data.py:310: AssertionError
+________________ test_data_daily_reads_values_via_readport[ch] _________________
+
+env = <conftest._EnvCh object at 0x7f8d107fa900>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d10646190>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_data_daily_reads_values_v1')
+
+    def test_data_daily_reads_values_via_readport(env, monkeypatch, tmp_path):
+        env.seed(_basic_seed())
+        spy = patch_read(monkeypatch, env.rd)
+        out = data_daily(_args(codes=["000001"], start="2024-01-02", end="2024-01-03",
+                               view="raw", cols=None, inline=True, artifacts_dir=tmp_path))
+        assert out.ok, out.error
+        assert out.command == "data.daily"
+        rows = out.data["rows"]
+>       assert [r["close"] for r in rows] == [10.5, 11.0]  # 种子值，硬编码必败
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert [1.0, 2.0] == [10.5, 11.0]
+E         
+E         At index 0 diff: 1.0 != 10.5
+E         Use -v to get more diff
+
+tests/test_research_data.py:310: AssertionError
+_______________ test_data_daily_qfq_view_scales_with_adj[duckdb] _______________
+
+env = <conftest._EnvDuck object at 0x7f8d1082f610>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d106b16d0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_data_daily_qfq_view_scale0')
+
+    def test_data_daily_qfq_view_scales_with_adj(env, monkeypatch, tmp_path):
+        env.seed(_basic_seed())
+        patch_read(monkeypatch, env.rd)
+        out = data_daily(_args(codes=["000001"], start="2024-01-02", end="2024-01-03",
+                               view="qfq", cols=["close"], inline=True,
+                               artifacts_dir=tmp_path))
+        assert out.ok, out.error
+        rows = out.data["rows"]
+        # 固定 base=qfq 基准 = 期末 adj（1.5）：0102 × 1.0/1.5，0103 × 1.5/1.5（=raw）
+>       assert [r["close"] for r in rows] == pytest.approx([10.5 / 1.5, 11.0], rel=1e-6)
+E       assert [1.0, 2.0] == approx([7.0 ±....0 ± 1.1e-05])
+E         
+E         comparison failed. Mismatched elements: 2 / 2:
+E         Max absolute difference: 9.0
+E         Max relative difference: 6.0
+E         Index | Obtained | Expected      
+E         0     | 1.0      | 7.0 ± 7.0e-06 
+E         1     | 2.0      | 11.0 ± 1.1e-05
+
+tests/test_research_data.py:324: AssertionError
+_________________ test_data_daily_qfq_view_scales_with_adj[ch] _________________
+
+env = <conftest._EnvCh object at 0x7f8d1082fd90>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d10168050>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_data_daily_qfq_view_scale1')
+
+    def test_data_daily_qfq_view_scales_with_adj(env, monkeypatch, tmp_path):
+        env.seed(_basic_seed())
+        patch_read(monkeypatch, env.rd)
+        out = data_daily(_args(codes=["000001"], start="2024-01-02", end="2024-01-03",
+                               view="qfq", cols=["close"], inline=True,
+                               artifacts_dir=tmp_path))
+        assert out.ok, out.error
+        rows = out.data["rows"]
+        # 固定 base=qfq 基准 = 期末 adj（1.5）：0102 × 1.0/1.5，0103 × 1.5/1.5（=raw）
+>       assert [r["close"] for r in rows] == pytest.approx([10.5 / 1.5, 11.0], rel=1e-6)
+E       assert [1.0, 2.0] == approx([7.0 ±....0 ± 1.1e-05])
+E         
+E         comparison failed. Mismatched elements: 2 / 2:
+E         Max absolute difference: 9.0
+E         Max relative difference: 6.0
+E         Index | Obtained | Expected      
+E         0     | 1.0      | 7.0 ± 7.0e-06 
+E         1     | 2.0      | 11.0 ± 1.1e-05
+
+tests/test_research_data.py:324: AssertionError
+_________________ test_data_daily_hfq_view_multiplies[duckdb] __________________
+
+env = <conftest._EnvDuck object at 0x7f8d1082f610>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d10168160>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_data_daily_hfq_view_multi0')
+
+    def test_data_daily_hfq_view_multiplies(env, monkeypatch, tmp_path):
+        env.seed(_basic_seed())
+        patch_read(monkeypatch, env.rd)
+        out = data_daily(_args(codes=["000001"], start="2024-01-02", end="2024-01-03",
+                               view="hfq", cols=["close"], inline=True,
+                               artifacts_dir=tmp_path))
+        assert out.ok, out.error
+>       assert [r["close"] for r in out.data["rows"]] == pytest.approx([10.5, 16.5], rel=1e-6)
+E       assert [1.0, 2.0] == approx([10.5 ....5 ± 1.6e-05])
+E         
+E         comparison failed. Mismatched elements: 2 / 2:
+E         Max absolute difference: 14.5
+E         Max relative difference: 9.5
+E         Index | Obtained | Expected      
+E         0     | 1.0      | 10.5 ± 1.0e-05
+E         1     | 2.0      | 16.5 ± 1.6e-05
+
+tests/test_research_data.py:335: AssertionError
+___________________ test_data_daily_hfq_view_multiplies[ch] ____________________
+
+env = <conftest._EnvCh object at 0x7f8d1082f890>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d1067de50>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_data_daily_hfq_view_multi1')
+
+    def test_data_daily_hfq_view_multiplies(env, monkeypatch, tmp_path):
+        env.seed(_basic_seed())
+        patch_read(monkeypatch, env.rd)
+        out = data_daily(_args(codes=["000001"], start="2024-01-02", end="2024-01-03",
+                               view="hfq", cols=["close"], inline=True,
+                               artifacts_dir=tmp_path))
+        assert out.ok, out.error
+>       assert [r["close"] for r in out.data["rows"]] == pytest.approx([10.5, 16.5], rel=1e-6)
+E       assert [1.0, 2.0] == approx([10.5 ....5 ± 1.6e-05])
+E         
+E         comparison failed. Mismatched elements: 2 / 2:
+E         Max absolute difference: 14.5
+E         Max relative difference: 9.5
+E         Index | Obtained | Expected      
+E         0     | 1.0      | 10.5 ± 1.0e-05
+E         1     | 2.0      | 16.5 ± 1.6e-05
+
+tests/test_research_data.py:335: AssertionError
+________________ test_data_daily_invalid_view_is_usage[duckdb] _________________
+
+env = <conftest._EnvDuck object at 0x7f8d10647490>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d1067df50>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_data_daily_invalid_view_i0')
+
+    def test_data_daily_invalid_view_is_usage(env, monkeypatch, tmp_path):
+        env.seed(_basic_seed())
+        patch_read(monkeypatch, env.rd)
+        out = data_daily(_args(codes=["000001"], start=None, end=None, view="nope",
+                               cols=None, inline=True, artifacts_dir=tmp_path))
+>       assert out.ok is False
+E       AssertionError: assert True is False
+E        +  where True = Envelope(ok=True, schema_version=1, command='data.daily', data={'n_rows': 2, 'schema': {}, 'rows': [{'date': 'x', 'code': 'y', 'close': 1.0}, {'date': 'x', 'code': 'y', 'close': 2.0}]}, artifacts={}, warnings=(), error=None).ok
+
+tests/test_research_data.py:343: AssertionError
+__________________ test_data_daily_invalid_view_is_usage[ch] ___________________
+
+env = <conftest._EnvCh object at 0x7f8d10647a80>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d106c59a0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_data_daily_invalid_view_i1')
+
+    def test_data_daily_invalid_view_is_usage(env, monkeypatch, tmp_path):
+        env.seed(_basic_seed())
+        patch_read(monkeypatch, env.rd)
+        out = data_daily(_args(codes=["000001"], start=None, end=None, view="nope",
+                               cols=None, inline=True, artifacts_dir=tmp_path))
+>       assert out.ok is False
+E       AssertionError: assert True is False
+E        +  where True = Envelope(ok=True, schema_version=1, command='data.daily', data={'n_rows': 2, 'schema': {}, 'rows': [{'date': 'x', 'code': 'y', 'close': 1.0}, {'date': 'x', 'code': 'y', 'close': 2.0}]}, artifacts={}, warnings=(), error=None).ok
+
+tests/test_research_data.py:343: AssertionError
+______________ test_data_daily_large_result_lands_parquet[duckdb] ______________
+
+env = <conftest._EnvDuck object at 0x7f8d0bf58180>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d106c5e50>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_data_daily_large_result_l0')
+
+    def test_data_daily_large_result_lands_parquet(env, monkeypatch, tmp_path):
+        n = 250
+        dates = [(datetime.date(2024, 1, 1) + datetime.timedelta(days=i)).strftime("%Y%m%d")
+                 for i in range(n)]
+        env.seed({"stock_basic": _stock_basic(),
+                  "daily": (_DAILY_COLS,
+                            [("000001.SZ", d, 1.0, 2.0, 0.5, 1.5, 1.0, 0.5, 0.5, 10.0, 100.0)
+                             for d in dates]),
+                  "adj_factor": ([("ts_code", "str"), ("trade_date", "date"),
+                                  ("adj_factor", "f64")],
+                                 [("000001.SZ", d, 1.0) for d in dates])})
+        spy = patch_read(monkeypatch, env.rd)
+        out = data_daily(_args(codes=["000001"], start="2024-01-01", end=None,
+                               view="raw", cols=None, inline=False, artifacts_dir=tmp_path))
+        assert out.ok, out.error
+>       path = Path(out.data["path"])
+                    ^^^^^^^^^^^^^^^^
+E       KeyError: 'path'
+
+tests/test_research_data.py:362: KeyError
+________________ test_data_daily_large_result_lands_parquet[ch] ________________
+
+env = <conftest._EnvCh object at 0x7f8d0bf58510>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d1015d2b0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_data_daily_large_result_l1')
+
+    def test_data_daily_large_result_lands_parquet(env, monkeypatch, tmp_path):
+        n = 250
+        dates = [(datetime.date(2024, 1, 1) + datetime.timedelta(days=i)).strftime("%Y%m%d")
+                 for i in range(n)]
+        env.seed({"stock_basic": _stock_basic(),
+                  "daily": (_DAILY_COLS,
+                            [("000001.SZ", d, 1.0, 2.0, 0.5, 1.5, 1.0, 0.5, 0.5, 10.0, 100.0)
+                             for d in dates]),
+                  "adj_factor": ([("ts_code", "str"), ("trade_date", "date"),
+                                  ("adj_factor", "f64")],
+                                 [("000001.SZ", d, 1.0) for d in dates])})
+        spy = patch_read(monkeypatch, env.rd)
+        out = data_daily(_args(codes=["000001"], start="2024-01-01", end=None,
+                               view="raw", cols=None, inline=False, artifacts_dir=tmp_path))
+        assert out.ok, out.error
+>       path = Path(out.data["path"])
+                    ^^^^^^^^^^^^^^^^
+E       KeyError: 'path'
+
+tests/test_research_data.py:362: KeyError
+_____________ test_data_daily_missing_table_is_data_error[duckdb] ______________
+
+env = <conftest._EnvDuck object at 0x7f8d106b2330>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d1015dd30>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_data_daily_missing_table_0')
+
+    def test_data_daily_missing_table_is_data_error(env, monkeypatch, tmp_path):
+        env.seed({"stock_basic": _stock_basic()})
+        patch_read(monkeypatch, env.rd)
+        out = data_daily(_args(codes=["000001"], start=None, end=None, view="raw",
+                               cols=None, inline=True, artifacts_dir=tmp_path))
+>       assert out.ok is False
+E       AssertionError: assert True is False
+E        +  where True = Envelope(ok=True, schema_version=1, command='data.daily', data={'n_rows': 2, 'schema': {}, 'rows': [{'date': 'x', 'code': 'y', 'close': 1.0}, {'date': 'x', 'code': 'y', 'close': 2.0}]}, artifacts={}, warnings=(), error=None).ok
+
+tests/test_research_data.py:377: AssertionError
+_______________ test_data_daily_missing_table_is_data_error[ch] ________________
+
+env = <conftest._EnvCh object at 0x7f8d106b20f0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d106807a0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_data_daily_missing_table_1')
+
+    def test_data_daily_missing_table_is_data_error(env, monkeypatch, tmp_path):
+        env.seed({"stock_basic": _stock_basic()})
+        patch_read(monkeypatch, env.rd)
+        out = data_daily(_args(codes=["000001"], start=None, end=None, view="raw",
+                               cols=None, inline=True, artifacts_dir=tmp_path))
+>       assert out.ok is False
+E       AssertionError: assert True is False
+E        +  where True = Envelope(ok=True, schema_version=1, command='data.daily', data={'n_rows': 2, 'schema': {}, 'rows': [{'date': 'x', 'code': 'y', 'close': 1.0}, {'date': 'x', 'code': 'y', 'close': 2.0}]}, artifacts={}, warnings=(), error=None).ok
+
+tests/test_research_data.py:377: AssertionError
+_________________ test_dispatch_data_daily_single_json[duckdb] _________________
+
+env = <conftest._EnvDuck object at 0x7f8d101698c0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d10121860>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_dispatch_data_daily_singl0')
+capsys = <_pytest.capture.CaptureFixture object at 0x7f8d107fb380>
+
+    def test_dispatch_data_daily_single_json(env, monkeypatch, tmp_path, capsys):
+        env.seed(_basic_seed())
+        patch_read(monkeypatch, env.rd)
+        code = registry.dispatch(["data.daily", "--codes", "000001", "--view", "raw",
+                                  "--inline"])
+        assert code == 0
+        captured = capsys.readouterr()
+        assert len(captured.out.strip().splitlines()) == 1
+        doc = json.loads(captured.out)
+        assert doc["ok"] is True and doc["command"] == "data.daily"
+>       assert [r["close"] for r in doc["data"]["rows"]] == [10.5, 11.0]
+E       assert [1.0, 2.0] == [10.5, 11.0]
+E         
+E         At index 0 diff: 1.0 != 10.5
+E         Use -v to get more diff
+
+tests/test_research_data.py:643: AssertionError
+___________________ test_dispatch_data_daily_single_json[ch] ___________________
+
+env = <conftest._EnvCh object at 0x7f8d10169bf0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8d10121bd0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2652/test_dispatch_data_daily_singl1')
+capsys = <_pytest.capture.CaptureFixture object at 0x7f8d0be29a90>
+
+    def test_dispatch_data_daily_single_json(env, monkeypatch, tmp_path, capsys):
+        env.seed(_basic_seed())
+        patch_read(monkeypatch, env.rd)
+        code = registry.dispatch(["data.daily", "--codes", "000001", "--view", "raw",
+                                  "--inline"])
+        assert code == 0
+        captured = capsys.readouterr()
+        assert len(captured.out.strip().splitlines()) == 1
+        doc = json.loads(captured.out)
+        assert doc["ok"] is True and doc["command"] == "data.daily"
+>       assert [r["close"] for r in doc["data"]["rows"]] == [10.5, 11.0]
+E       assert [1.0, 2.0] == [10.5, 11.0]
+E         
+E         At index 0 diff: 1.0 != 10.5
+E         Use -v to get more diff
+
+tests/test_research_data.py:643: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_data.py::test_data_daily_reads_values_via_readport[duckdb]
+FAILED tests/test_research_data.py::test_data_daily_reads_values_via_readport[ch]
+FAILED tests/test_research_data.py::test_data_daily_qfq_view_scales_with_adj[duckdb]
+FAILED tests/test_research_data.py::test_data_daily_qfq_view_scales_with_adj[ch]
+FAILED tests/test_research_data.py::test_data_daily_hfq_view_multiplies[duckdb]
+FAILED tests/test_research_data.py::test_data_daily_hfq_view_multiplies[ch]
+FAILED tests/test_research_data.py::test_data_daily_invalid_view_is_usage[duckdb]
+FAILED tests/test_research_data.py::test_data_daily_invalid_view_is_usage[ch]
+FAILED tests/test_research_data.py::test_data_daily_large_result_lands_parquet[duckdb]
+FAILED tests/test_research_data.py::test_data_daily_large_result_lands_parquet[ch]
+FAILED tests/test_research_data.py::test_data_daily_missing_table_is_data_error[duckdb]
+FAILED tests/test_research_data.py::test_data_daily_missing_table_is_data_error[ch]
+FAILED tests/test_research_data.py::test_dispatch_data_daily_single_json[duckdb]
+FAILED tests/test_research_data.py::test_dispatch_data_daily_single_json[ch]
+14 failed, 2 passed, 51 deselected in 3.78s

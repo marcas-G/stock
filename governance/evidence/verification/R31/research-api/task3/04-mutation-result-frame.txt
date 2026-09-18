@@ -1,0 +1,42 @@
+.FF.F.                                                                   [100%]
+=================================== FAILURES ===================================
+_______ test_result_frame_large_defaults_to_parquet_with_head_and_schema _______
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2654/test_result_frame_large_defaul0')
+
+    def test_result_frame_large_defaults_to_parquet_with_head_and_schema(tmp_path):
+        env = result_frame(_frame(201), command="data.daily", artifacts_dir=tmp_path)
+        assert env.ok
+>       path = Path(env.data["path"])
+                    ^^^^^^^^^^^^^^^^
+E       KeyError: 'path'
+
+tests/test_research_data.py:168: KeyError
+___________ test_result_frame_limit_truncates_before_inline_decision ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2654/test_result_frame_limit_trunca0')
+
+    def test_result_frame_limit_truncates_before_inline_decision(tmp_path):
+        env = result_frame(_frame(250), command="data.daily", artifacts_dir=tmp_path,
+                           limit=10)
+>       assert env.data["n_rows"] == 10
+E       assert 250 == 10
+
+tests/test_research_data.py:183: AssertionError
+________________ test_result_frame_out_overrides_artifact_path _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2654/test_result_frame_out_override0')
+
+    def test_result_frame_out_overrides_artifact_path(tmp_path):
+        out = tmp_path / "custom" / "mine.parquet"
+        env = result_frame(_frame(3), command="data.daily", artifacts_dir=tmp_path, out=out)
+>       assert Path(env.data["path"]) == out
+                    ^^^^^^^^^^^^^^^^
+E       KeyError: 'path'
+
+tests/test_research_data.py:200: KeyError
+=========================== short test summary info ============================
+FAILED tests/test_research_data.py::test_result_frame_large_defaults_to_parquet_with_head_and_schema
+FAILED tests/test_research_data.py::test_result_frame_limit_truncates_before_inline_decision
+FAILED tests/test_research_data.py::test_result_frame_out_overrides_artifact_path
+3 failed, 3 passed, 61 deselected in 1.54s

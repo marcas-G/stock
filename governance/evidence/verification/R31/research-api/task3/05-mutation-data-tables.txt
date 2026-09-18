@@ -1,0 +1,69 @@
+FFF.                                                                     [100%]
+=================================== FAILURES ===================================
+____________________ test_data_tables_lists_readport_tables ____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8edf284e90>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2656/test_data_tables_lists_readpor0')
+
+    def test_data_tables_lists_readport_tables(monkeypatch, tmp_path):
+        rd = MemoryRead({"daily": {"ts_code", "trade_date"},
+                         "trade_cal": {"cal_date", "is_open"}})
+        monkeypatch.setattr(bootstrap, "open_read", lambda *a, **k: rd)
+        env = data_tables(_args(inline=True, artifacts_dir=tmp_path))
+        assert env.ok, env.error
+>       assert [r["table"] for r in env.data["rows"]] == ["daily", "trade_cal"]
+E       AssertionError: assert ['daily'] == ['daily', 'trade_cal']
+E         
+E         Right contains one more item: 'trade_cal'
+E         Use -v to get more diff
+
+tests/test_research_data.py:222: AssertionError
+_____________ test_data_tables_env_counts_rows_and_columns[duckdb] _____________
+
+env = <conftest._EnvDuck object at 0x7f90100dc050>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8edf285cd0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2656/test_data_tables_env_counts_ro0')
+
+    def test_data_tables_env_counts_rows_and_columns(env, monkeypatch, tmp_path):
+        env.seed({"daily": (_DAILY_COLS, [("000001.SZ", "20240102", *([1.0] * 9)),
+                                          ("000001.SZ", "20240103", *([1.0] * 9))]),
+                  "trade_cal": ([("cal_date", "date"), ("is_open", "u8")],
+                                [("20240102", 1), ("20240103", 1)])})
+        patch_read(monkeypatch, env.rd)
+        out = data_tables(_args(inline=True, artifacts_dir=tmp_path))
+        assert out.ok, out.error
+        rows = {r["table"]: r for r in out.data["rows"]}
+        assert rows["daily"]["n_rows"] == 2
+        assert rows["daily"]["n_cols"] == 11
+>       assert rows["trade_cal"]["n_rows"] == 2
+               ^^^^^^^^^^^^^^^^^
+E       KeyError: 'trade_cal'
+
+tests/test_research_data.py:241: KeyError
+_______________ test_data_tables_env_counts_rows_and_columns[ch] _______________
+
+env = <conftest._EnvCh object at 0x7f8edf225400>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f8edf0f5250>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2656/test_data_tables_env_counts_ro1')
+
+    def test_data_tables_env_counts_rows_and_columns(env, monkeypatch, tmp_path):
+        env.seed({"daily": (_DAILY_COLS, [("000001.SZ", "20240102", *([1.0] * 9)),
+                                          ("000001.SZ", "20240103", *([1.0] * 9))]),
+                  "trade_cal": ([("cal_date", "date"), ("is_open", "u8")],
+                                [("20240102", 1), ("20240103", 1)])})
+        patch_read(monkeypatch, env.rd)
+        out = data_tables(_args(inline=True, artifacts_dir=tmp_path))
+        assert out.ok, out.error
+        rows = {r["table"]: r for r in out.data["rows"]}
+        assert rows["daily"]["n_rows"] == 2
+        assert rows["daily"]["n_cols"] == 11
+>       assert rows["trade_cal"]["n_rows"] == 2
+               ^^^^^^^^^^^^^^^^^
+E       KeyError: 'trade_cal'
+
+tests/test_research_data.py:241: KeyError
+=========================== short test summary info ============================
+FAILED tests/test_research_data.py::test_data_tables_lists_readport_tables - ...
+FAILED tests/test_research_data.py::test_data_tables_env_counts_rows_and_columns[duckdb]
+FAILED tests/test_research_data.py::test_data_tables_env_counts_rows_and_columns[ch]
+3 failed, 1 passed, 63 deselected in 1.82s
