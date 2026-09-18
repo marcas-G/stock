@@ -1,0 +1,18 @@
+name: e2e_probe_strategy
+signal: max_effect_20d_high
+direction: -1
+regime: {mode: signal_gate}
+portfolio:
+  top_k: 30
+  weighting: equal_weight
+  gross_exposure: 1.0
+  rebalance_frequency: weekly
+execution:
+  timing: NEXT_OPEN
+  initial_cash: 10000000.0
+  cost_model: {commission_rate: 0.00025, minimum_commission: 5.0,
+               stamp_tax_sell_rate: 0.0005, transfer_fee_rate: 0.00001,
+               slippage_bps: 5.0}
+rules: {stop_loss: null, take_profit: null, max_hold: null}
+date: {start: "2026-06-01", end: "2026-07-31"}
+universe_override: null

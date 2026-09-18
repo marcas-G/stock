@@ -1,0 +1,12 @@
+# 预存红证明：make gates 的全部 BAD 行 = 未跟踪在途 lob_fact 文件（非本任务改动）
+
+$ git status --porcelain platform/tools/lob_fact/pipeline/event_daily.py platform/tools/lob_fact/pipeline/panel_batch.py
+?? platform/tools/lob_fact/pipeline/event_daily.py
+?? platform/tools/lob_fact/pipeline/panel_batch.py
+
+$ grep -c 'BAD' 15-gates.txt (按文件分组)
+      6 platform/tools/lob_fact/pipeline/event_daily.py
+      8 platform/tools/lob_fact/pipeline/panel_batch.py
+
+$ git ls-files platform/tools/lob_fact/pipeline/ | grep -E 'event_daily|panel_batch'  (tracked=空)
+（无——确为未跟踪在途文件）

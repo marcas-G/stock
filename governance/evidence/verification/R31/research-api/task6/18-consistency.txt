@@ -1,0 +1,7 @@
+[PASS] registry == describe 命令集
+[PASS] describe exit_codes == EXIT_CODES
+[PASS] CLI help 覆盖 registry 顶层组
+[PASS] 手册命令 ⊂ registry（无漂移）
+[PASS] 手册 ≥10 条常用命令
+[PASS] 手册覆盖 7 个关键命令
+  registry=49 条 | describe=49 条 | help 顶层组=8 | 手册命令=45 条

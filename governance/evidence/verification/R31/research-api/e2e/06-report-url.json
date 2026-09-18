@@ -1,0 +1,1 @@
+{"ok": true, "schema_version": 1, "command": "report.url", "data": {"name": "e2e_research_api_probe", "base": "http://127.0.0.1:8000", "path": "/factor/e2e_research_api_probe", "url": "http://127.0.0.1:8000/factor/e2e_research_api_probe"}, "artifacts": {"summary": "/data/students/gaolei/stock/runs/platform/e2e_research_api_probe/summary.json"}, "warnings": [], "error": null}

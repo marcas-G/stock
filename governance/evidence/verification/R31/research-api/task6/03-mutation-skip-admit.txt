@@ -1,0 +1,183 @@
+F.FF..FFF.FF.....                                                        [100%]
+=================================== FAILURES ===================================
+_______________________ test_study_run_chain_order_full ________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe91854bce0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_chain_order_ful0')
+results_dir = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_chain_order_ful0/runs/platform')
+
+    def test_study_run_chain_order_full(monkeypatch, tmp_path, results_dir):
+        chain = _Chain(monkeypatch, tmp_path)
+        spec = tmp_path / "cand.yaml"
+        doc = tmp_path / "strat.yaml"
+    
+        e = ST.study_run(_args(factor_yaml=spec, strategy=doc))
+    
+        assert e.ok, e.error
+>       assert chain.order() == ["run", "admit", "strategy", "report"]
+E       AssertionError: assert ['run', 'strategy', 'report'] == ['run', 'admi...gy', 'report']
+E         
+E         At index 1 diff: 'strategy' != 'admit'
+E         Right contains one more item: 'report'
+E         Use -v to get more diff
+
+tests/test_research_study.py:131: AssertionError
+________________ test_study_run_without_strategy_still_reports _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe91858ee70>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_without_strateg0')
+results_dir = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_without_strateg0/runs/platform')
+
+    def test_study_run_without_strategy_still_reports(monkeypatch, tmp_path,
+                                                      results_dir):
+        chain = _Chain(monkeypatch, tmp_path)
+        e = ST.study_run(_args(factor_yaml=tmp_path / "cand.yaml"))
+        assert e.ok, e.error
+>       assert chain.order() == ["run", "admit", "report"]
+E       AssertionError: assert ['run', 'report'] == ['run', 'admit', 'report']
+E         
+E         At index 1 diff: 'report' != 'admit'
+E         Right contains one more item: 'report'
+E         Use -v to get more diff
+
+tests/test_research_study.py:164: AssertionError
+___________ test_study_run_redundant_verdict_is_warning_not_failure ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe9185f4af0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_redundant_verdi0')
+results_dir = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_redundant_verdi0/runs/platform')
+
+    def test_study_run_redundant_verdict_is_warning_not_failure(monkeypatch,
+                                                                tmp_path,
+                                                                results_dir):
+        chain = _Chain(monkeypatch, tmp_path)
+        chain._admit = lambda args: envelope.ok(
+            "factor.admit", {"name": "cand", "verdict": "冗余", "corr_max": 0.9,
+                             "r2_lib": 0.85})
+        monkeypatch.setattr(ST, "factor_admit", chain._admit)
+    
+        e = ST.study_run(_args(factor_yaml=tmp_path / "cand.yaml",
+                               strategy=tmp_path / "strat.yaml"))
+        assert e.ok, e.error
+>       assert e.data["verdict"] == "冗余"
+E       AssertionError: assert None == '冗余'
+
+tests/test_research_study.py:181: AssertionError
+____________ test_study_run_strategy_failure_keeps_prior_artifacts _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe9185af050>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_strategy_failur0')
+results_dir = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_strategy_failur0/runs/platform')
+
+    def test_study_run_strategy_failure_keeps_prior_artifacts(monkeypatch, tmp_path,
+                                                              results_dir):
+        chain = _Chain(monkeypatch, tmp_path,
+                       strategy_fail=envelope.fail("strategy.run", "STRATEGY_FAILED",
+                                                   "执行闸拦截", hint="hint-strategy"))
+        e = ST.study_run(_args(factor_yaml=tmp_path / "cand.yaml",
+                               strategy=tmp_path / "strat.yaml"))
+        assert e.ok is False
+        assert e.error["code"] == "STRATEGY_FAILED"
+        assert envelope.exit_code(e) == EXIT_CODES["STRATEGY_FAILED"] == 7
+>       assert chain.order() == ["run", "admit", "strategy"]   # report 不执行
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert ['run', 'strategy'] == ['run', 'admit', 'strategy']
+E         
+E         At index 1 diff: 'strategy' != 'admit'
+E         Right contains one more item: 'strategy'
+E         Use -v to get more diff
+
+tests/test_research_study.py:216: AssertionError
+_______________ test_study_run_admit_failure_keeps_run_artifacts _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe9184cc5f0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_admit_failure_k0')
+results_dir = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_admit_failure_k0/runs/platform')
+
+    def test_study_run_admit_failure_keeps_run_artifacts(monkeypatch, tmp_path,
+                                                         results_dir):
+        chain = _Chain(monkeypatch, tmp_path,
+                       admit_fail=envelope.fail("factor.admit", "NOT_FOUND",
+                                                "参考库缺失", hint="hint-admit"))
+        e = ST.study_run(_args(factor_yaml=tmp_path / "cand.yaml"))
+>       assert e.ok is False
+E       AssertionError: assert True is False
+E        +  where True = Envelope(ok=True, schema_version=1, command='study.run', data={'factor': 'cand', 'verdict': None, 'strategy': None, 'r.../test_study_run_admit_failure_k0/runs/research/study/20260918-161521-292465-cand/study.json'}, warnings=(), error=None).ok
+
+tests/test_research_study.py:229: AssertionError
+___________________ test_study_run_report_failure_propagates ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe9184ccaa0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_report_failure_0')
+results_dir = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_report_failure_0/runs/platform')
+
+    def test_study_run_report_failure_propagates(monkeypatch, tmp_path, results_dir):
+        chain = _Chain(monkeypatch, tmp_path,
+                       report_fail=envelope.fail("report.url", "NOT_FOUND", "报告缺失"))
+        e = ST.study_run(_args(factor_yaml=tmp_path / "cand.yaml"))
+        assert e.ok is False
+        assert e.error["code"] == "NOT_FOUND"
+>       assert chain.order() == ["run", "admit", "report"]
+E       AssertionError: assert ['run', 'report'] == ['run', 'admit', 'report']
+E         
+E         At index 1 diff: 'report' != 'admit'
+E         Right contains one more item: 'report'
+E         Use -v to get more diff
+
+tests/test_research_study.py:242: AssertionError
+_____________ test_study_run_minute_against_maps_to_minute_scales ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe9184bc750>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_minute_against_0')
+results_dir = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_run_minute_against_0/runs/platform')
+
+    def test_study_run_minute_against_maps_to_minute_scales(monkeypatch, tmp_path,
+                                                            results_dir):
+        chain = _Chain(monkeypatch, tmp_path)
+        e = ST.study_run(_args(factor_yaml=tmp_path / "cand.yaml", against="minute"))
+        assert e.ok, e.error
+>       assert chain.calls[1] == ("admit", str(tmp_path / "cand.yaml"), "minute")
+E       AssertionError: assert ('report', 'cand') == ('admit', '/t...ml', 'minute')
+E         
+E         At index 0 diff: 'report' != 'admit'
+E         Right contains one more item: 'minute'
+E         Use -v to get more diff
+
+tests/test_research_study.py:262: AssertionError
+______________________ test_study_list_records_and_orders ______________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe9185db520>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_list_records_and_or0')
+results_dir = PosixPath('/tmp/pytest-of-gaolei/pytest-2710/test_study_list_records_and_or0/runs/platform')
+
+    def test_study_list_records_and_orders(monkeypatch, tmp_path, results_dir):
+        chain = _Chain(monkeypatch, tmp_path)
+        spec, doc = tmp_path / "cand.yaml", tmp_path / "strat.yaml"
+        ok_env = ST.study_run(_args(factor_yaml=spec, strategy=doc))
+        assert ok_env.ok, ok_env.error
+    
+        monkeypatch.setattr(ST, "factor_run", lambda args: envelope.fail(
+            "factor.run", "RUN_FAILED", "炸了"))
+        bad_env = ST.study_run(_args(factor_yaml=spec))
+        assert bad_env.ok is False
+    
+        e = ST.study_list(_args())
+        assert e.ok, e.error
+        assert e.data["n"] == 2
+        newest, older = e.data["studies"]
+        assert newest["ok"] is False and newest["error_code"] == "RUN_FAILED"
+        assert older["ok"] is True and older["factor"] == "cand"
+>       assert older["verdict"] == "可加入"
+E       AssertionError: assert None == '可加入'
+
+tests/test_research_study.py:286: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_study.py::test_study_run_chain_order_full - Assert...
+FAILED tests/test_research_study.py::test_study_run_without_strategy_still_reports
+FAILED tests/test_research_study.py::test_study_run_redundant_verdict_is_warning_not_failure
+FAILED tests/test_research_study.py::test_study_run_strategy_failure_keeps_prior_artifacts
+FAILED tests/test_research_study.py::test_study_run_admit_failure_keeps_run_artifacts
+FAILED tests/test_research_study.py::test_study_run_report_failure_propagates
+FAILED tests/test_research_study.py::test_study_run_minute_against_maps_to_minute_scales
+FAILED tests/test_research_study.py::test_study_list_records_and_orders - Ass...
+8 failed, 9 passed in 1.81s

@@ -1,0 +1,21 @@
+                                                                                
+ Usage: factorlab research [OPTIONS] COMMAND [ARGS]...                          
+                                                                                
+ 研究员统一门面（flab）：数据/因子/策略/报告/study，统一 JSON 契约              
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ describe  自描述：命令目录/单命令 schema/错误码表（registry 单点）。         │
+│ version   版本。                                                             │
+│ data      data 组：全库读取（子命令经 registry 单点，`describe --json`       │
+│           查看）。                                                           │
+│ factor    factor                                                             │
+│           组：lint/run/list/show/export/corr/resic/svd/ref/op/catalog/admit… │
+│ strategy  strategy 组：lint/run/list/show/export/capacity/cost。             │
+│ report    report 组：list/show/url/serve。                                   │
+│ study     study 组：run（一条链）/list（历史记录）。                         │
+│ health    健康一览：CH 连通/内存/磁盘/heavy 闸槽位/数据新鲜度。              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+

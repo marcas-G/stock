@@ -1,0 +1,6 @@
+[guard] slot=1/2 argv=factor run governance/evidence/verification/R31/research-api/e2e/e2e_factor.yaml
+2026-09-18 16:16:27.752 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 16:16:27.785 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+[guard] slot=1/2 argv=strategy run governance/evidence/verification/R31/research-api/e2e/e2e_strategy.yaml
+/data/students/gaolei/stock/platform/src/factorlab/app/memory.py:347: RuntimeWarning: RLIMIT_AS 设置失败（not allowed to raise maximum limit）——内存硬上限降级；psutil 软看门狗仍生效
+  return apply_address_space_limit(limit)

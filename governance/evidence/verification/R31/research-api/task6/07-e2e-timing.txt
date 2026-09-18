@@ -1,0 +1,17 @@
+start=16:16:47
+  command=health ok=True
+PASS 01-health exit=0 单 JSON
+  command=data.daily ok=True
+PASS 02-data-daily exit=0 单 JSON
+  command=factor.run ok=True
+PASS 03-factor-run exit=0 单 JSON
+  command=factor.admit ok=True
+PASS 04-factor-admit exit=0 单 JSON
+  command=strategy.run ok=True
+PASS 05-strategy-run exit=0 单 JSON
+  command=report.url ok=True
+PASS 06-report-url exit=0 单 JSON
+E2E: 6/6 PASS
+overall_exit=0
+elapsed_seconds=32
+end=16:17:19

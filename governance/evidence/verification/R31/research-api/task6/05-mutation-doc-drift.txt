@@ -1,0 +1,15 @@
+....F...                                                                 [100%]
+=================================== FAILURES ===================================
+________________ test_handbook_flab_commands_exist_in_registry _________________
+
+    def test_handbook_flab_commands_exist_in_registry():
+        text = HANDBOOK.read_text(encoding="utf-8")
+        resolved, unresolved = _flab_commands(text)
+>       assert not unresolved, f"手册中命令不在 registry（文档漂移）: {unresolved}"
+E       AssertionError: 手册中命令不在 registry（文档漂移）: ['flab factor ghost']
+E       assert not ['flab factor ghost']
+
+tests/test_doc_paths_exist.py:114: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_doc_paths_exist.py::test_handbook_flab_commands_exist_in_registry
+1 failed, 7 passed in 1.86s

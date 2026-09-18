@@ -1,0 +1,27 @@
+
+==================================== ERRORS ====================================
+________________ ERROR collecting tests/test_research_study.py _________________
+ImportError while importing test module '/tmp/opencode/r31-red/platform/tests/test_research_study.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_research_study.py:27: in <module>
+    from factorlab.research import study as ST
+E   ImportError: cannot import name 'study' from 'factorlab.research' (/tmp/opencode/r31-red/platform/src/factorlab/research/__init__.py)
+________________ ERROR collecting tests/test_research_health.py ________________
+ImportError while importing test module '/tmp/opencode/r31-red/platform/tests/test_research_health.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_research_health.py:25: in <module>
+    from factorlab.research import health as H
+E   ImportError: cannot import name 'health' from 'factorlab.research' (/tmp/opencode/r31-red/platform/src/factorlab/research/__init__.py)
+=========================== short test summary info ============================
+ERROR tests/test_research_study.py
+ERROR tests/test_research_health.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.37s

@@ -1,0 +1,50 @@
+..FF....                                                                 [100%]
+=================================== FAILURES ===================================
+________________ test_health_guard_probe_sees_held_slot[duckdb] ________________
+
+env = <conftest._EnvDuck object at 0x7fc8546e1a90>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2711/test_health_guard_probe_sees_h0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fc854714dd0>
+
+    def test_health_guard_probe_sees_held_slot(env, tmp_path, monkeypatch):
+        locks = tmp_path / "locks"
+        locks.mkdir()
+        fd = os.open(locks / "heavy.1.lock", os.O_RDWR | os.O_CREAT, 0o600)
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        monkeypatch.setenv("FACTORLAB_HEAVY_LOCK_DIR", str(locks))
+        _seed(env)
+        _point_open_read(monkeypatch, env)
+        try:
+            e = H.health(_args())
+            assert e.ok, e.error
+>           assert e.data["guard"]["slots_free"] == 1  # 硬编码 2 必败
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           assert 2 == 1
+
+tests/test_research_health.py:104: AssertionError
+__________________ test_health_guard_probe_sees_held_slot[ch] __________________
+
+env = <conftest._EnvCh object at 0x7fc8546e11d0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2711/test_health_guard_probe_sees_h1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fc8546e5150>
+
+    def test_health_guard_probe_sees_held_slot(env, tmp_path, monkeypatch):
+        locks = tmp_path / "locks"
+        locks.mkdir()
+        fd = os.open(locks / "heavy.1.lock", os.O_RDWR | os.O_CREAT, 0o600)
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        monkeypatch.setenv("FACTORLAB_HEAVY_LOCK_DIR", str(locks))
+        _seed(env)
+        _point_open_read(monkeypatch, env)
+        try:
+            e = H.health(_args())
+            assert e.ok, e.error
+>           assert e.data["guard"]["slots_free"] == 1  # 硬编码 2 必败
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           assert 2 == 1
+
+tests/test_research_health.py:104: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_health.py::test_health_guard_probe_sees_held_slot[duckdb]
+FAILED tests/test_research_health.py::test_health_guard_probe_sees_held_slot[ch]
+2 failed, 6 passed in 2.65s
