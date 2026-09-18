@@ -1,0 +1,17 @@
+diff --git a/governance/ops/gates.sh b/governance/ops/gates.sh
+index 082092c..fdecbd6 100644
+--- a/governance/ops/gates.sh
++++ b/governance/ops/gates.sh
+@@ -37,8 +37,10 @@ structure() {
+   done
+ 
+   echo "[G-BOUNDARY] platform/ 不得 import research/"
+-  n=$(grep -rn "research\.\|from research\|import research" "$PLATFORM/src" "$PLATFORM/tests" "$PLATFORM/tools" --include=*.py --exclude-dir=notes 2>/dev/null | grep -v "['\"]" | wc -l)   # 排除字符串字面量（门自匹配）；notes/ 为历史诊断豁免
+-  [ "$n" = "0" ] && ok "无 platform→research 依赖" || { bad "发现 $n 处 platform→research 引用"; grep -rn "research\." "$PLATFORM/src" "$PLATFORM/tools" --include=*.py --exclude-dir=notes | grep -v "['\"]" | head -3 | sed 's/^/      /'; }
++  # R31：判据目标 = 仓库根 `research/` 树；平台自己的门面包 `factorlab.research`
++  # 是 platform/src 内容（R31 研究员 API），不属本门对象——排除避免误伤。
++  n=$(grep -rn "research\.\|from research\|import research" "$PLATFORM/src" "$PLATFORM/tests" "$PLATFORM/tools" --include=*.py --exclude-dir=notes 2>/dev/null | grep -v "['\"]" | grep -v "factorlab\.research" | wc -l)   # 排除字符串字面量（门自匹配）；notes/ 为历史诊断豁免
++  [ "$n" = "0" ] && ok "无 platform→research 依赖" || { bad "发现 $n 处 platform→research 引用"; grep -rn "research\." "$PLATFORM/src" "$PLATFORM/tools" --include=*.py --exclude-dir=notes | grep -v "['\"]" | grep -v "factorlab\.research" | head -3 | sed 's/^/      /'; }
+ 
+   echo "[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）"
+   # 豁免：验证证据 / 平台与研究 spec 与笔记 / 门自身 / **三份带冻结横幅的历史文档** /

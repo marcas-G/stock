@@ -1,0 +1,8 @@
+# bash governance/ops/gates.sh --structure（Task 1 后，含 G-BOUNDARY 门精度修正）
+[G-BOUNDARY] platform/ 不得 import research/
+    ✓ 无 platform→research 依赖
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+[G-IMPORTS] 全仓 factorlab.* 导入可解析（含负向自检）
+    ✓ 自检通过（能抓到迁移遗漏）
+    ✓ G-IMPORTS 通过（扫描 461 个文件）
+# 结构门：全绿 EXIT=0
