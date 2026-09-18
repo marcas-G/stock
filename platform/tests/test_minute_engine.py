@@ -1003,6 +1003,50 @@ def test_minute_chunk_workers_actually_overlap(ch_db, tmp_path, monkeypatch):
     assert res.signal_artifact.frame.height == 50
 
 
+def test_minute_chunk_workers_three_actually_overlap(ch_db, tmp_path,
+                                                     monkeypatch):
+    """N=3 并发真实性（16GB 预算放行）：三个 chunk 的折日同刻在算
+    （barrier(3)；实现若把 workers 钳到 2 或串行化 → barrier 超时、
+    max_active<3 断言失败）。"""
+    import threading
+    import factorlab.app.run as run_mod
+    _seed_wide(ch_db)
+    wd = MemoryWatchdog(max_rss=16 * 1024 ** 3, sample_interval=999,
+                        rss_reader=lambda: 512 * 1024,
+                        available_reader=lambda: 100 * 1024 ** 3)
+    monkeypatch.setattr(run_mod, "memory_watchdog_from_settings",
+                        lambda *a, **k: wd)
+    real = run_mod.compute_minute_factor_panel
+    lock = threading.Lock()
+    state = {"active": 0, "max_active": 0, "n": 0}
+    barrier = threading.Barrier(3, timeout=15)
+
+    def spy(bars, formula, *, outputs=None, daily=None):
+        with lock:
+            state["n"] += 1
+            n = state["n"]
+            state["active"] += 1
+            state["max_active"] = max(state["max_active"], state["active"])
+        try:
+            if n <= 3:
+                try:
+                    barrier.wait()
+                except threading.BrokenBarrierError:
+                    pass
+            return real(bars, formula, outputs=outputs, daily=daily)
+        finally:
+            with lock:
+                state["active"] -= 1
+
+    monkeypatch.setattr(run_mod, "compute_minute_factor_panel", spy)
+    spec = _spec(tmp_path, "overlap3", "signal = day_last(close)",
+                 sample=_WIDE_SAMPLE)
+    res = run_factor_minute(spec, _ctx(tmp_path / "out", chunk_days=1,
+                                       chunk_workers=3))
+    assert state["n"] == 25
+    assert state["max_active"] >= 3, "workers=3 未观察到三路并发折日"
+
+
 def test_minute_chunk_workers_default_path_never_builds_pool(ch_db, tmp_path,
                                                              monkeypatch):
     """默认 chunk_workers=1 零行为：即使把 ThreadPoolExecutor 换成炸弹
