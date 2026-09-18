@@ -1,0 +1,227 @@
+........................................................................ [ 10%]
+........................................................................ [ 21%]
+........................................................................ [ 32%]
+..............................................................F...F..... [ 43%]
+........................................................................ [ 54%]
+FF...................................................................... [ 64%]
+........................................................................ [ 75%]
+........................................................................ [ 86%]
+........................................................................ [ 97%]
+.................                                                        [100%]
+=================================== FAILURES ===================================
+________________________ test_event_day_stats_synthetic ________________________
+
+    def test_event_day_stats_synthetic():
+        out = ED.event_day_stats(_mk_events(), _mk_sweeps()).sort('code')
+        assert out['code'].to_list() == ['AAA.SZ', 'BBB.SZ']
+        a = out[0]
+>       assert (a['n_add'], a['n_cancel'], a['n_trade']) == (3, 2, 3)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tools/lob_fact/tests/test_event_daily.py:77: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = shape: (1,)
+Series: 'n_add' [bool]
+[
+	true
+]
+
+    def __bool__(self) -> NoReturn:
+        msg = (
+            "the truth value of a Series is ambiguous"
+            "\n\n"
+            "Here are some things you might want to try:\n"
+            "- instead of `if s`, use `if not s.is_empty()`\n"
+            "- instead of `s1 and s2`, use `s1 & s2`\n"
+            "- instead of `s1 or s2`, use `s1 | s2`\n"
+            "- instead of `s in [y, z]`, use `s.is_in([y, z])`\n"
+        )
+>       raise TypeError(msg)
+E       TypeError: the truth value of a Series is ambiguous
+E       
+E       Here are some things you might want to try:
+E       - instead of `if s`, use `if not s.is_empty()`
+E       - instead of `s1 and s2`, use `s1 & s2`
+E       - instead of `s1 or s2`, use `s1 | s2`
+E       - instead of `s in [y, z]`, use `s.is_in([y, z])`
+
+platform/.venv/lib/python3.13/site-packages/polars/series/series.py:752: TypeError
+_______________________ test_real_trade_gap_independent ________________________
+
+real_day = shape: (293, 26)
+┌───────────┬────────┬──────────┬─────────┬───┬─────────────┬─────────────┬────────────┬───────────┐
+...21   ┆ 0.052191  │
+└───────────┴────────┴──────────┴─────────┴───┴─────────────┴─────────────┴────────────┴───────────┘
+
+    def test_real_trade_gap_independent(real_day):
+        import numpy as np
+        ev = _load(DAY, 'lob_events')
+        for code in CODES:
+>           ts = (ev.filter((pl.col('code') == code) & (pl.col('kind') == 'trade'))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  .sort('seq')['time_ms'].to_numpy())
+
+platform/tools/lob_fact/tests/test_event_daily.py:164: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/.venv/lib/python3.13/site-packages/polars/dataframe/frame.py:5563: in filter
+    ._collect_eager(optimizations=QueryOptFlags._eager())
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/.venv/lib/python3.13/site-packages/polars/lazyframe/frame.py:2240: in _collect_eager
+    return _eager_engine().collect(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = InMemoryEngine(), lf = <LazyFrame at 0x7F450553F610>
+optimizations = <polars.lazyframe.opt_flags.QueryOptFlags object at 0x7f4507bed5e0>
+background = False, post_opt_callback = None
+
+    def collect(
+        self,
+        lf: LazyFrame,
+        *,
+        optimizations: QueryOptFlags,
+        background: bool = False,
+        post_opt_callback: PostOptCallback | None = None,
+    ) -> DataFrame | InProcessQuery:
+        callback = self._post_opt_callback(
+            background=background, eager=optimizations._pyoptflags.eager
+        )
+        optimizations = self._with_monitoring(optimizations)
+    
+        ldf = lf._ldf.with_optimizations(optimizations._pyoptflags)
+        if background:
+            issue_unstable_warning("background mode is considered unstable.")
+            return InProcessQuery(ldf.collect_concurrently())
+    
+        if post_opt_callback is not None:
+            callback = post_opt_callback
+>       return wrap_df(ldf.collect(self.name, callback))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       polars.exceptions.ColumnNotFoundError: unable to find column "000155.SZ"; valid columns: ["code", "trade_date", "time_ms", "seq", "kind", "phase", "side", "price_x10000", "prev_vol", "new_vol", "qty", "id", "otype"]
+
+platform/.venv/lib/python3.13/site-packages/polars/lazyframe/engine.py:435: ColumnNotFoundError
+_____________________________ test_day_agg_values ______________________________
+
+    def test_day_agg_values():
+>       agg = PB.day_agg(_mk_panel()).sort('code')
+              ^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tools/lob_fact/tests/test_panel_batch.py:106: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tools/lob_fact/pipeline/panel_batch.py:131: in day_agg
+    return panel.sort(key + ['time_ms']).group_by(key).agg(exprs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/.venv/lib/python3.13/site-packages/polars/dataframe/group_by.py:381: in agg
+    ._collect_eager(optimizations=QueryOptFlags.none())
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/.venv/lib/python3.13/site-packages/polars/lazyframe/frame.py:2240: in _collect_eager
+    return _eager_engine().collect(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = InMemoryEngine(), lf = <LazyFrame at 0x7F44AFB67200>
+optimizations = <polars.lazyframe.opt_flags.QueryOptFlags object at 0x7f44afb66a30>
+background = False, post_opt_callback = None
+
+    def collect(
+        self,
+        lf: LazyFrame,
+        *,
+        optimizations: QueryOptFlags,
+        background: bool = False,
+        post_opt_callback: PostOptCallback | None = None,
+    ) -> DataFrame | InProcessQuery:
+        callback = self._post_opt_callback(
+            background=background, eager=optimizations._pyoptflags.eager
+        )
+        optimizations = self._with_monitoring(optimizations)
+    
+        ldf = lf._ldf.with_optimizations(optimizations._pyoptflags)
+        if background:
+            issue_unstable_warning("background mode is considered unstable.")
+            return InProcessQuery(ldf.collect_concurrently())
+    
+        if post_opt_callback is not None:
+            callback = post_opt_callback
+>       return wrap_df(ldf.collect(self.name, callback))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       polars.exceptions.ColumnNotFoundError: unable to find column "obi1"; valid columns: ["code", "trade_date", "grid", "time_ms", "obi5", "cancel_rate", "n_add"]
+E       
+E       Did you mean "obi5"?
+E       
+E       Resolved plan until failure:
+E       
+E       	---> FAILED HERE RESOLVING 'group_by' <---
+E       DF ["code", "trade_date", "grid", "time_ms", ...]; PROJECT */7 COLUMNS
+E       
+E       This error occurred with the following context stack:
+E       	[1] 'group_by'
+
+platform/.venv/lib/python3.13/site-packages/polars/lazyframe/engine.py:435: ColumnNotFoundError
+__________________________ test_day_agg_last30_window __________________________
+
+    def test_day_agg_last30_window():
+        """60 样本时 last30 只看最后 30 行。"""
+        rows = [dict(code='AAA', trade_date=date(2025, 8, 12), grid='1m',
+                     time_ms=C.OPEN + 60_000 * (i + 1), obi5=float(i),
+                     cancel_rate=0.0, n_add=1) for i in range(60)]
+>       agg = PB.day_agg(pl.DataFrame(rows))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tools/lob_fact/tests/test_panel_batch.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tools/lob_fact/pipeline/panel_batch.py:131: in day_agg
+    return panel.sort(key + ['time_ms']).group_by(key).agg(exprs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/.venv/lib/python3.13/site-packages/polars/dataframe/group_by.py:381: in agg
+    ._collect_eager(optimizations=QueryOptFlags.none())
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/.venv/lib/python3.13/site-packages/polars/lazyframe/frame.py:2240: in _collect_eager
+    return _eager_engine().collect(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = InMemoryEngine(), lf = <LazyFrame at 0x7F450418A030>
+optimizations = <polars.lazyframe.opt_flags.QueryOptFlags object at 0x7f44afb03c00>
+background = False, post_opt_callback = None
+
+    def collect(
+        self,
+        lf: LazyFrame,
+        *,
+        optimizations: QueryOptFlags,
+        background: bool = False,
+        post_opt_callback: PostOptCallback | None = None,
+    ) -> DataFrame | InProcessQuery:
+        callback = self._post_opt_callback(
+            background=background, eager=optimizations._pyoptflags.eager
+        )
+        optimizations = self._with_monitoring(optimizations)
+    
+        ldf = lf._ldf.with_optimizations(optimizations._pyoptflags)
+        if background:
+            issue_unstable_warning("background mode is considered unstable.")
+            return InProcessQuery(ldf.collect_concurrently())
+    
+        if post_opt_callback is not None:
+            callback = post_opt_callback
+>       return wrap_df(ldf.collect(self.name, callback))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       polars.exceptions.ColumnNotFoundError: unable to find column "obi1"; valid columns: ["code", "trade_date", "grid", "time_ms", "obi5", "cancel_rate", "n_add"]
+E       
+E       Did you mean "obi5"?
+E       
+E       Resolved plan until failure:
+E       
+E       	---> FAILED HERE RESOLVING 'group_by' <---
+E       DF ["code", "trade_date", "grid", "time_ms", ...]; PROJECT */7 COLUMNS
+E       
+E       This error occurred with the following context stack:
+E       	[1] 'group_by'
+
+platform/.venv/lib/python3.13/site-packages/polars/lazyframe/engine.py:435: ColumnNotFoundError
+=========================== short test summary info ============================
+FAILED platform/tools/lob_fact/tests/test_event_daily.py::test_event_day_stats_synthetic
+FAILED platform/tools/lob_fact/tests/test_event_daily.py::test_real_trade_gap_independent
+FAILED platform/tools/lob_fact/tests/test_panel_batch.py::test_day_agg_values
+FAILED platform/tools/lob_fact/tests/test_panel_batch.py::test_day_agg_last30_window
+4 failed, 661 passed in 110.15s (0:01:50)
+TOOLS_EXIT=1

@@ -1,0 +1,34 @@
+# R30 项2 幂等：二跑入前后行数 + 二跑 reconcile（TRUNCATE+INSERT 全量重算）
+
+## 一跑后（01-parse-ingest.txt 之后）
+$ platform/.venv/bin/python -c '<counts>'
+moneyflow 1119242
+moneyflow_sector 77524
+concept_members 7281555
+
+## 二跑 ingest
+$ FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/ch_ingest/ingest_moneyflow.py
+
+  moneyflow 源：1,119,242 rows / 203 days / root=/data/students/gaolei/stock/data/raw/fund_flow
+  moneyflow_sector 源：77,524 rows / 147 days / fact=/data/students/gaolei/stock/data/fact/moneyflow_sector/moneyflow_sector.parquet
+  concept_members 源：7,281,555 rows / 87 days / fact=/data/students/gaolei/stock/data/fact/concept_members/concept_members.parquet
+  moneyflow: 灌入 1,119,242 rows
+  moneyflow_sector: 灌入 77,524 rows
+  concept_members: 灌入 7,281,555 rows
+
+## 二跑后（行数应与一跑完全一致，不翻倍）
+$ platform/.venv/bin/python -c '<counts>'
+moneyflow 1119242
+moneyflow_sector 77524
+concept_members 7281555
+
+## 二跑后两表独立 reconcile（exit 0 = 一致）
+$ platform/.venv/bin/python platform/tools/ch_ingest/reconcile.py moneyflow_sector
+
+moneyflow_sector:
+  moneyflow_sector CH=      77,524 源=      77,524  日期 2026-02-04..2026-09-17 / 2026-02-04..2026-09-17  天=147/147  main_net_inflow 空值=0/0  类型异常=0  BK码异常=0  名称空=0/0  行业/概念=18480/18480 + 59044/59044  一致
+全库一致
+$ platform/.venv/bin/python platform/tools/ch_ingest/reconcile.py concept_members
+concept_members:
+  concept_members CH=   7,281,555 源=   7,281,555  日期 2026-05-19..2026-09-17 / 2026-05-19..2026-09-17  天=87/87  键 uniq=7,281,555  BK码异常=0  ts_code 异常=0  名称空=59/59  每日行数=81219..85972 / 81219..85972  一致
+全库一致

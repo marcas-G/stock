@@ -1,0 +1,25 @@
+            return InProcessQuery(ldf.collect_concurrently())
+    
+        if post_opt_callback is not None:
+            callback = post_opt_callback
+>       return wrap_df(ldf.collect(self.name, callback))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       polars.exceptions.ColumnNotFoundError: unable to find column "obi1"; valid columns: ["code", "trade_date", "grid", "time_ms", "obi5", "cancel_rate", "n_add"]
+E       
+E       Did you mean "obi5"?
+E       
+E       Resolved plan until failure:
+E       
+E       	---> FAILED HERE RESOLVING 'group_by' <---
+E       DF ["code", "trade_date", "grid", "time_ms", ...]; PROJECT */7 COLUMNS
+E       
+E       This error occurred with the following context stack:
+E       	[1] 'group_by'
+
+platform/.venv/lib/python3.13/site-packages/polars/lazyframe/engine.py:435: ColumnNotFoundError
+=========================== short test summary info ============================
+FAILED platform/tools/lob_fact/tests/test_panel_batch.py::test_day_agg_values
+FAILED platform/tools/lob_fact/tests/test_panel_batch.py::test_day_agg_last30_window
+2 failed, 657 passed in 97.52s (0:01:37)
+Makefile:21: recipe for target 'test-research' failed
+make: *** [test-research] Error 1

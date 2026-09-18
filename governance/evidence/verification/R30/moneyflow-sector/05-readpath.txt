@@ -1,0 +1,16 @@
+open_read backend: ClickHouseRead
+tables: ['moneyflow_sector', 'moneyflow', 'concept_members']
+
+[sector] 最新交易日概念板块主力净流入 Top5:
+   (datetime.date(2026, 9, 17), 'BK1182', '智谱AI概念', 2740000000.0)
+   (datetime.date(2026, 9, 17), 'BK1127', 'AI芯片', 2700000000.0)
+   (datetime.date(2026, 9, 17), 'BK0601', '海工装备', 2450000000.0)
+   (datetime.date(2026, 9, 17), 'BK0902', 'MiniLED', 2440000000.0)
+   (datetime.date(2026, 9, 17), 'BK0825', '新零售', 2390000000.0)
+
+[members] 2026-09-17 成分股数 Top5 概念:
+   ('BK0596', '融资融券', 3870)
+   ('BK0804', '深股通', 1879)
+   ('BK0707', '沪股通', 1643)
+   ('BK0683', '央国企改革', 1447)
+   ('BK0742', '创业板综', 1362)

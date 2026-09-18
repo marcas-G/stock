@@ -1,0 +1,8 @@
+tests/test_dead_signal.py: 1 warning
+tests/test_plugin_partition_prefix.py: 1 warning
+tests/test_plugin_run_path.py: 1 warning
+  /data/students/gaolei/stock/platform/src/factorlab/app/memory.py:274: RuntimeWarning: RLIMIT_AS 设置失败（not allowed to raise maximum limit）——内存硬上限降级；psutil 软看门狗仍生效
+    return apply_address_space_limit(limit)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3207 passed, 11 skipped, 58 warnings in 810.64s (0:13:30)

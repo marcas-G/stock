@@ -1,0 +1,443 @@
+# R30 项2 突变检验：把解析/对账换成硬编码存根 → 相关测试必败（CLAUDE.md 完成标准第 3 条）
+
+## 变异 A: lib/moneyflow.py parse_zj_sector 立即 return 空帧（硬编码存根）
+## 变异 B: reconcile.py _check_moneyflow_sector/_check_concept_members 立即 return True（恒真存根）
+
+$ pytest platform/tools/pan_update/tests/test_fund_flow_parse.py platform/tools/ch_ingest/tests/test_reconcile.py -q
+..................FF..FFFFFF..........FF...F............FFFFFFFF         [100%]
+=================================== FAILURES ===================================
+_________________ test_parse_zj_sector_industry_fixture_values _________________
+
+    def test_parse_zj_sector_industry_fixture_values():
+        df = pf.parse_zj_sector(_gbk(HYZJ_FIXTURE), D, "industry")
+>       assert df.height == 3
+E       assert 0 == 3
+E        +  where 0 = shape: (0, 22)\n┌───────────┬───────────┬───────────┬───────────┬───┬──────────┬───────────┬───────────┬───────────┐\n│ ...═════╪═══════════╡\n└───────────┴───────────┴───────────┴───────────┴───┴──────────┴───────────┴───────────┴───────────┘.height
+
+platform/tools/pan_update/tests/test_fund_flow_parse.py:216: AssertionError
+_________________ test_parse_zj_sector_concept_fixture_values __________________
+
+    def test_parse_zj_sector_concept_fixture_values():
+        df = pf.parse_zj_sector(_gbk(GNZJ_FIXTURE), D, "concept")
+>       assert df.height == 3
+E       assert 0 == 3
+E        +  where 0 = shape: (0, 22)\n┌───────────┬───────────┬───────────┬───────────┬───┬──────────┬───────────┬───────────┬───────────┐\n│ ...═════╪═══════════╡\n└───────────┴───────────┴───────────┴───────────┴───┴──────────┴───────────┴───────────┴───────────┘.height
+
+platform/tools/pan_update/tests/test_fund_flow_parse.py:235: AssertionError
+________________ test_parse_zj_sector_empty_seq_header_accepted ________________
+
+    def test_parse_zj_sector_empty_seq_header_accepted():
+        """20260615 实测：hyzj/gnzj 表头首列「序」为空（`\\t代码\\t…`，23 字段无尾空列）——必须容忍。"""
+        df = pf.parse_zj_sector(_gbk(HYZJ_EMPTY_SEQ_FIXTURE), datetime.date(2026, 6, 15),
+                                "industry")
+>       assert df.height == 2
+E       assert 0 == 2
+E        +  where 0 = shape: (0, 22)\n┌───────────┬───────────┬───────────┬───────────┬───┬──────────┬───────────┬───────────┬───────────┐\n│ ...═════╪═══════════╡\n└───────────┴───────────┴───────────┴───────────┴───┴──────────┴───────────┴───────────┴───────────┘.height
+
+platform/tools/pan_update/tests/test_fund_flow_parse.py:259: AssertionError
+_________________ test_parse_zj_sector_alt_header_unsupported __________________
+
+    def test_parse_zj_sector_alt_header_unsupported():
+        """20260903/0904/0908/0909 实测：源换成增仓占比排名表——非资金流格式，显式不支持。"""
+>       with pytest.raises(pf.UnsupportedSectorFormat):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE UnsupportedSectorFormat
+
+platform/tools/pan_update/tests/test_fund_flow_parse.py:267: Failed
+_________________ test_parse_zj_sector_stock_only_unsupported __________________
+
+    def test_parse_zj_sector_stock_only_unsupported():
+        """20260422 实测：gnzj/hyzj 文件内容是个股行（上游串档）——整文件跳过而非入库。"""
+>       with pytest.raises(pf.UnsupportedSectorFormat):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE UnsupportedSectorFormat
+
+platform/tools/pan_update/tests/test_fund_flow_parse.py:273: Failed
+_________________ test_parse_zj_sector_header_mismatch_raises __________________
+
+    def test_parse_zj_sector_header_mismatch_raises():
+        bad = _gbk(HYZJ_FIXTURE).replace("主力净流入", "主力流入")
+>       with pytest.raises(ValueError, match="表头"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+platform/tools/pan_update/tests/test_fund_flow_parse.py:279: Failed
+____________________ test_parse_zj_sector_short_row_raises _____________________
+
+    def test_parse_zj_sector_short_row_raises():
+        short = HDR + '1\t= "BK0465"\t化学制药\n'
+>       with pytest.raises(ValueError, match="列数"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+platform/tools/pan_update/tests/test_fund_flow_parse.py:285: Failed
+________________ test_parse_zj_sector_missing_markers_and_zero _________________
+
+    def test_parse_zj_sector_missing_markers_and_zero():
+        row = ('1\t= "BK0001"\t测试板块\t10.0\t0.0\t-\t—\t0\t-0\t-\t—\t'
+               '-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t\n')
+        df = pf.parse_zj_sector(HDR + row, D, "industry")
+>       r = df.row(0, named=True)
+            ^^^^^^^^^^^^^^^^^^^^^
+
+platform/tools/pan_update/tests/test_fund_flow_parse.py:293: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = shape: (0, 22)
+┌───────────┬───────────┬───────────┬───────────┬───┬──────────┬───────────┬───────────┬───────────┐
+│ ...═════╪═══════════╡
+└───────────┴───────────┴───────────┴───────────┴───┴──────────┴───────────┴───────────┴───────────┘
+index = 0, by_predicate = None, named = True
+
+    def row(
+        self,
+        index: int | None = None,
+        *,
+        by_predicate: Expr | None = None,
+        named: bool = False,
+    ) -> tuple[Any, ...] | dict[str, Any]:
+        """
+        Get the values of a single row, either by index or by predicate.
+    
+        Parameters
+        ----------
+        index
+            Row index.
+        by_predicate
+            Select the row according to a given expression/predicate.
+        named
+            Return a dictionary instead of a tuple. The dictionary is a mapping of
+            column name to row value. This is more expensive than returning a regular
+            tuple, but allows for accessing values by column name.
+    
+        Returns
+        -------
+        tuple (default) or dictionary of row values
+    
+        Notes
+        -----
+        The `index` and `by_predicate` params are mutually exclusive. Additionally,
+        to ensure clarity, the `by_predicate` parameter must be supplied by keyword.
+    
+        When using `by_predicate` it is an error condition if anything other than
+        one row is returned; more than one row raises `TooManyRowsReturnedError`, and
+        zero rows will raise `NoRowsReturnedError` (both inherit from `RowsError`).
+    
+        Warnings
+        --------
+        You should NEVER use this method to iterate over a DataFrame; if you require
+        row-iteration you should strongly prefer use of `iter_rows()` instead.
+    
+        See Also
+        --------
+        iter_rows : Row iterator over frame data (does not materialise all rows).
+        rows : Materialise all frame data as a list of rows (potentially expensive).
+        item: Return dataframe element as a scalar.
+    
+        Examples
+        --------
+        Specify an index to return the row at the given index as a tuple.
+    
+        >>> df = pl.DataFrame(
+        ...     {
+        ...         "foo": [1, 2, 3],
+        ...         "bar": [6, 7, 8],
+        ...         "ham": ["a", "b", "c"],
+        ...     }
+        ... )
+        >>> df.row(2)
+        (3, 8, 'c')
+    
+        Specify `named=True` to get a dictionary instead with a mapping of column
+        names to row values.
+    
+        >>> df.row(2, named=True)
+        {'foo': 3, 'bar': 8, 'ham': 'c'}
+    
+        Use `by_predicate` to return the row that matches the given predicate.
+    
+        >>> df.row(by_predicate=(pl.col("ham") == "b"))
+        (2, 7, 'b')
+        """
+        if index is None and by_predicate is None:
+            if self.height == 1:
+                index = 0
+            else:
+                msg = (
+                    'can only call `.row()` without "index" or "by_predicate" values '
+                    f"if the DataFrame has a single row; shape={self.shape!r}"
+                )
+                raise ValueError(msg)
+        elif index is not None and by_predicate is not None:
+            msg = "cannot set both 'index' and 'by_predicate'; mutually exclusive"
+            raise ValueError(msg)
+        elif isinstance(index, pl.Expr):
+            msg = "expressions should be passed to the `by_predicate` parameter"
+            raise TypeError(msg)
+    
+        if index is not None:
+>           row = self._df.row_tuple(index)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+E           polars.exceptions.OutOfBoundsError: index 0 is out of bounds for sequence of length 0
+
+platform/.venv/lib/python3.13/site-packages/polars/dataframe/frame.py:11910: OutOfBoundsError
+_______________ test_load_sector_frames_day_zip_overrides_month ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_load_sector_frames_day_zi0')
+
+    def test_load_sector_frames_day_zip_overrides_month(tmp_path):
+        _zip(tmp_path / "2026" / "07.zip", {
+            "07/20260714/hyzj.xls": HYZJ_FIXTURE.read_bytes(),
+            "07/20260714/gnzj.xls": GNZJ_FIXTURE.read_bytes(),
+            "07/20260715/hyzj.xls": HYZJ_FIXTURE.read_bytes(),
+            "07/20260715/gnzj.xls": GNZJ_FIXTURE.read_bytes(),
+        })
+        day_text = _gbk(HYZJ_FIXTURE).replace("49.4亿", "77.7亿", 1)
+        _zip(tmp_path / "2026" / "07" / "20260715.zip",
+             {"20260715/hyzj.xls": day_text.encode("gbk")})
+        df = pf.load_sector_frames(tmp_path)
+>       assert df.height == 12                                    # 2 天 × (3 行业 + 3 概念)
+        ^^^^^^^^^^^^^^^^^^^^^^
+E       assert 0 == 12
+E        +  where 0 = shape: (0, 22)\n┌───────────┬───────────┬───────────┬───────────┬───┬──────────┬───────────┬───────────┬───────────┐\n│ ...═════╪═══════════╡\n└───────────┴───────────┴───────────┴───────────┴───┴──────────┴───────────┴───────────┴───────────┘.height
+
+platform/tools/pan_update/tests/test_fund_flow_parse.py:387: AssertionError
+_______________ test_load_sector_frames_logs_skipped_unsupported _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_load_sector_frames_logs_s0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x7fa819c19010>
+
+    def test_load_sector_frames_logs_skipped_unsupported(tmp_path, caplog):
+        """不支持的两类源文件（增仓排名变体 / 串档个股行）跳过并 warning，不静默。"""
+        _zip(tmp_path / "2026" / "07.zip", {
+            "07/20260714/hyzj.xls": HYZJ_ALT_FIXTURE.read_bytes(),
+            "07/20260714/gnzj.xls": GNZJ_STOCK_FIXTURE.read_bytes(),
+            "07/20260715/hyzj.xls": HYZJ_FIXTURE.read_bytes(),
+            "07/20260715/gnzj.xls": GNZJ_FIXTURE.read_bytes(),
+        })
+        with caplog.at_level(logging.WARNING, logger="lib.moneyflow"):
+            df = pf.load_sector_frames(tmp_path)
+>       assert df.height == 6
+E       assert 0 == 6
+E        +  where 0 = shape: (0, 22)\n┌───────────┬───────────┬───────────┬───────────┬───┬──────────┬───────────┬───────────┬───────────┐\n│ ...═════╪═══════════╡\n└───────────┴───────────┴───────────┴───────────┴───┴──────────┴───────────┴───────────┴───────────┘.height
+
+platform/tools/pan_update/tests/test_fund_flow_parse.py:405: AssertionError
+___________________ test_main_writes_sector_and_member_facts ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_main_writes_sector_and_me0')
+
+    def test_main_writes_sector_and_member_facts(tmp_path):
+        _seed_fund_flow_root(tmp_path)
+        s_out = tmp_path / "moneyflow_sector.parquet"
+        c_out = tmp_path / "concept_members.parquet"
+>       rc = pf.main(["--root", str(tmp_path), "--sector-fact", str(s_out),
+                      "--concept-fact", str(c_out)])
+
+platform/tools/pan_update/tests/test_fund_flow_parse.py:453: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+argv = ['--root', '/tmp/pytest-of-gaolei/pytest-2591/test_main_writes_sector_and_me0', '--sector-fact', '/tmp/pytest-of-gaole...arquet', '--concept-fact', '/tmp/pytest-of-gaolei/pytest-2591/test_main_writes_sector_and_me0/concept_members.parquet']
+
+    def main(argv: list[str] | None = None) -> int:
+        ap = argparse.ArgumentParser(description=__doc__)
+        ap.add_argument("--root", type=Path, default=None,
+                        help=f"资金流原始根（缺省 {DEFAULT_RAW}）")
+        ap.add_argument("--sector-fact", type=Path, default=None,
+                        help=f"板块资金 fact（缺省 {DEFAULT_SECTOR_FACT}）")
+        ap.add_argument("--concept-fact", type=Path, default=None,
+                        help=f"概念成分 fact（缺省 {DEFAULT_CONCEPT_FACT}）")
+        args = ap.parse_args(argv)
+        root = Path(args.root) if args.root is not None else DEFAULT_RAW
+        if not root.is_dir():
+            raise FileNotFoundError(f"资金流原始目录不存在：{root}")
+        sector = load_sector_frames(root)
+        members = load_concept_frames(root)
+        if sector.height == 0:
+>           raise ValueError("moneyflow_sector: 空源拒绝写 fact（拒绝下游清表）")
+E           ValueError: moneyflow_sector: 空源拒绝写 fact（拒绝下游清表）
+
+platform/tools/pan_update/parse_fund_flow.py:69: ValueError
+_______________________ test_moneyflow_sector_consistent _______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_moneyflow_sector_consiste0')
+
+    def test_moneyflow_sector_consistent(tmp_path):
+        df = _sector_df()
+        fact = _write_sector_fact(tmp_path)
+        fake = _FakeCH([_sector_agg(df)])
+        assert RC._check_moneyflow_sector(fake, "factorlab_test", fact) is True
+>       assert any("factorlab_test.moneyflow_sector" in q for q in fake.queries)
+E       assert False
+E        +  where False = any(<generator object test_moneyflow_sector_consistent.<locals>.<genexpr> at 0x7fa81890f510>)
+
+platform/tools/ch_ingest/tests/test_reconcile.py:286: AssertionError
+_________________ test_moneyflow_sector_gap_and_empty_detected _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_moneyflow_sector_gap_and_0')
+
+    def test_moneyflow_sector_gap_and_empty_detected(tmp_path):
+        df = _sector_df()
+        fact = _write_sector_fact(tmp_path)
+>       assert RC._check_moneyflow_sector(
+            _FakeCH([_sector_agg(df.head(5))]), "factorlab_test", fact) is False
+E       AssertionError: assert True is False
+E        +  where True = <function _check_moneyflow_sector at 0x7fa819c47240>(<test_reconcile._FakeCH object at 0x7fa81890f5f0>, 'factorlab_test', PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_moneyflow_sector_gap_and_0/moneyflow_sector.parquet'))
+E        +    where <function _check_moneyflow_sector at 0x7fa819c47240> = RC._check_moneyflow_sector
+E        +    and   <test_reconcile._FakeCH object at 0x7fa81890f5f0> = _FakeCH([(0, None, None, 0, 0, 0, ...)])
+
+platform/tools/ch_ingest/tests/test_reconcile.py:292: AssertionError
+___________________ test_moneyflow_sector_key_drift_detected ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_moneyflow_sector_key_drif0')
+
+    def test_moneyflow_sector_key_drift_detected(tmp_path):
+        """行数/日期不变：bad board_type / 非 BK 码 / 空名称 / 键重复 / 分型漂移 → 判红。"""
+        fact = _write_sector_fact(tmp_path)
+        base = list(_sector_agg(_sector_df()))
+        for idx in (5, 6):
+            bad = base.copy()
+            bad[idx] = 1
+>           assert RC._check_moneyflow_sector(
+                _FakeCH([tuple(bad)]), "factorlab_test", fact) is False
+E           AssertionError: assert True is False
+E            +  where True = <function _check_moneyflow_sector at 0x7fa819c47240>(<test_reconcile._FakeCH object at 0x7fa8188bc7d0>, 'factorlab_test', PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_moneyflow_sector_key_drif0/moneyflow_sector.parquet'))
+E            +    where <function _check_moneyflow_sector at 0x7fa819c47240> = RC._check_moneyflow_sector
+E            +    and   <test_reconcile._FakeCH object at 0x7fa8188bc7d0> = _FakeCH([(0, None, None, 0, 0, 1, ...)])
+
+platform/tools/ch_ingest/tests/test_reconcile.py:306: AssertionError
+_______________________ test_concept_members_consistent ________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_concept_members_consisten0')
+
+    def test_concept_members_consistent(tmp_path):
+        df = _members_df()
+        fact = _write_members_fact(tmp_path)
+        fake = _FakeCH([_members_agg(df)])
+        assert RC._check_concept_members(fake, "factorlab_test", fact) is True
+>       assert any("factorlab_test.concept_members" in q for q in fake.queries)
+E       assert False
+E        +  where False = any(<generator object test_concept_members_consistent.<locals>.<genexpr> at 0x7fa8188c1b10>)
+
+platform/tools/ch_ingest/tests/test_reconcile.py:323: AssertionError
+_____________ test_concept_members_missing_day_and_empty_detected ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_concept_members_missing_d0')
+
+    def test_concept_members_missing_day_and_empty_detected(tmp_path):
+        df = _members_df()
+        fact = _write_members_fact(tmp_path)
+>       assert RC._check_concept_members(
+            _FakeCH([_members_agg(df.filter(pl.col("ts_code") != "000009.SZ"))]),
+            "factorlab_test", fact) is False
+E       AssertionError: assert True is False
+E        +  where True = <function _check_concept_members at 0x7fa819c472e0>(<test_reconcile._FakeCH object at 0x7fa8188d1020>, 'factorlab_test', PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_concept_members_missing_d0/concept_members.parquet'))
+E        +    where <function _check_concept_members at 0x7fa819c472e0> = RC._check_concept_members
+E        +    and   <test_reconcile._FakeCH object at 0x7fa8188d1020> = _FakeCH([(7, datetime.date(2026, 7, 15), datetime.date(2026, 7, 15), 1, 7, 0, ...)])
+
+platform/tools/ch_ingest/tests/test_reconcile.py:329: AssertionError
+___________________ test_concept_members_key_drift_detected ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_concept_members_key_drift0')
+
+    def test_concept_members_key_drift_detected(tmp_path):
+        fact = _write_members_fact(tmp_path)
+        base = list(_members_agg(_members_df()))
+        for idx in (5, 6):                # 非 BK 码 / 非法 ts_code
+            bad = base.copy()
+            bad[idx] = 1
+>           assert RC._check_concept_members(
+                _FakeCH([tuple(bad)]), "factorlab_test", fact) is False
+E           AssertionError: assert True is False
+E            +  where True = <function _check_concept_members at 0x7fa819c472e0>(<test_reconcile._FakeCH object at 0x7fa8188d01b0>, 'factorlab_test', PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_concept_members_key_drift0/concept_members.parquet'))
+E            +    where <function _check_concept_members at 0x7fa819c472e0> = RC._check_concept_members
+E            +    and   <test_reconcile._FakeCH object at 0x7fa8188d01b0> = _FakeCH([(8, datetime.date(2026, 7, 15), datetime.date(2026, 7, 15), 1, 8, 1, ...)])
+
+platform/tools/ch_ingest/tests/test_reconcile.py:343: AssertionError
+____________________ test_main_moneyflow_sector_exit_codes _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_main_moneyflow_sector_exi0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fa819e03bd0>
+capsys = <_pytest.capture.CaptureFixture object at 0x7fa819d86210>
+
+    def test_main_moneyflow_sector_exit_codes(tmp_path, monkeypatch, capsys):
+        fact = tmp_path / "moneyflow_sector.parquet"
+        df = _sector_df()
+        df.write_parquet(fact)
+        _wire_main(monkeypatch, _FakeCH([_sector_agg(df)]), src=fact,
+                   which="moneyflow_sector")
+        with pytest.raises(SystemExit) as ex:
+            RC.main()
+        assert ex.value.code == 0
+        assert "moneyflow_sector" in capsys.readouterr().out
+    
+        _wire_main(monkeypatch, _FakeCH([_sector_agg(df.head(5))]), src=fact,
+                   which="moneyflow_sector")
+        with pytest.raises(SystemExit) as ex:
+            RC.main()
+>       assert ex.value.code == 1
+E       assert 0 == 1
+E        +  where 0 = SystemExit(0).code
+E        +    where SystemExit(0) = <ExceptionInfo SystemExit(0) tblen=2>.value
+
+platform/tools/ch_ingest/tests/test_reconcile.py:370: AssertionError
+----------------------------- Captured stdout call -----------------------------
+moneyflow_sector:
+全库一致
+_____________________ test_main_concept_members_exit_codes _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2591/test_main_concept_members_exit0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fa819e02580>
+capsys = <_pytest.capture.CaptureFixture object at 0x7fa819cacf50>
+
+    def test_main_concept_members_exit_codes(tmp_path, monkeypatch, capsys):
+        fact = tmp_path / "concept_members.parquet"
+        df = _members_df()
+        df.write_parquet(fact)
+        _wire_main(monkeypatch, _FakeCH([_members_agg(df)]), src=fact,
+                   which="concept_members")
+        with pytest.raises(SystemExit) as ex:
+            RC.main()
+        assert ex.value.code == 0
+        assert "concept_members" in capsys.readouterr().out
+    
+        _wire_main(monkeypatch, _FakeCH([(0, None, None, 0, 0, 0, 0, 0, 0, 0)]),
+                   src=fact, which="concept_members")
+        with pytest.raises(SystemExit) as ex:
+            RC.main()
+>       assert ex.value.code == 1
+E       assert 0 == 1
+E        +  where 0 = SystemExit(0).code
+E        +    where SystemExit(0) = <ExceptionInfo SystemExit(0) tblen=2>.value
+
+platform/tools/ch_ingest/tests/test_reconcile.py:388: AssertionError
+----------------------------- Captured stdout call -----------------------------
+concept_members:
+全库一致
+=========================== short test summary info ============================
+FAILED platform/tools/pan_update/tests/test_fund_flow_parse.py::test_parse_zj_sector_industry_fixture_values
+FAILED platform/tools/pan_update/tests/test_fund_flow_parse.py::test_parse_zj_sector_concept_fixture_values
+FAILED platform/tools/pan_update/tests/test_fund_flow_parse.py::test_parse_zj_sector_empty_seq_header_accepted
+FAILED platform/tools/pan_update/tests/test_fund_flow_parse.py::test_parse_zj_sector_alt_header_unsupported
+FAILED platform/tools/pan_update/tests/test_fund_flow_parse.py::test_parse_zj_sector_stock_only_unsupported
+FAILED platform/tools/pan_update/tests/test_fund_flow_parse.py::test_parse_zj_sector_header_mismatch_raises
+FAILED platform/tools/pan_update/tests/test_fund_flow_parse.py::test_parse_zj_sector_short_row_raises
+FAILED platform/tools/pan_update/tests/test_fund_flow_parse.py::test_parse_zj_sector_missing_markers_and_zero
+FAILED platform/tools/pan_update/tests/test_fund_flow_parse.py::test_load_sector_frames_day_zip_overrides_month
+FAILED platform/tools/pan_update/tests/test_fund_flow_parse.py::test_load_sector_frames_logs_skipped_unsupported
+FAILED platform/tools/pan_update/tests/test_fund_flow_parse.py::test_main_writes_sector_and_member_facts
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_moneyflow_sector_consistent
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_moneyflow_sector_gap_and_empty_detected
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_moneyflow_sector_key_drift_detected
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_concept_members_consistent
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_concept_members_missing_day_and_empty_detected
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_concept_members_key_drift_detected
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_main_moneyflow_sector_exit_codes
+FAILED platform/tools/ch_ingest/tests/test_reconcile.py::test_main_concept_members_exit_codes
+19 failed, 45 passed in 1.68s
+MUTATED_EXIT=1
+
+## 还原后
+$ pytest ... -q
+................................................................         [100%]
+64 passed in 1.02s
+RESTORED_EXIT=0

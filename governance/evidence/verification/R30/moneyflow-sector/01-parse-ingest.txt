@@ -1,0 +1,24 @@
+# R30 项2 解析（raw→fact）+ 灌入（fact→CH）全量回填
+$ FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/pan_update/parse_fund_flow.py
+$ FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/ch_ingest/ingest_moneyflow.py
+
+跳过不支持的板块资金源 04/20260422/hyzj.xls（2026-04-22）：文件无板块行（疑似上游串档个股行）
+跳过不支持的板块资金源 20260903/hyzj.xls（2026-09-03）：非资金流表头（增仓占比排名变体）：('序', '代码', '名称', '最新', '涨幅%', '今日增仓占比')
+跳过不支持的板块资金源 20260904/hyzj.xls（2026-09-04）：非资金流表头（增仓占比排名变体）：('序', '代码', '名称', '最新', '涨幅%', '今日增仓占比')
+跳过不支持的板块资金源 20260908/hyzj.xls（2026-09-08）：非资金流表头（增仓占比排名变体）：('序', '代码', '名称', '最新', '涨幅%', '今日增仓占比')
+跳过不支持的板块资金源 20260909/hyzj.xls（2026-09-09）：非资金流表头（增仓占比排名变体）：('序', '代码', '名称', '最新', '涨幅%', '今日增仓占比')
+跳过不支持的板块资金源 04/20260422/gnzj.xls（2026-04-22）：文件无板块行（疑似上游串档个股行）
+跳过不支持的板块资金源 20260903/gnzj.xls（2026-09-03）：非资金流表头（增仓占比排名变体）：('序', '代码', '名称', '最新', '涨幅%', '今日增仓占比')
+跳过不支持的板块资金源 20260904/gnzj.xls（2026-09-04）：非资金流表头（增仓占比排名变体）：('序', '代码', '名称', '最新', '涨幅%', '今日增仓占比')
+跳过不支持的板块资金源 20260908/gnzj.xls（2026-09-08）：非资金流表头（增仓占比排名变体）：('序', '代码', '名称', '最新', '涨幅%', '今日增仓占比')
+跳过不支持的板块资金源 20260909/gnzj.xls（2026-09-09）：非资金流表头（增仓占比排名变体）：('序', '代码', '名称', '最新', '涨幅%', '今日增仓占比')
+  moneyflow_sector 源：77,524 rows / 147 days / 558 boards
+  concept_members  源：7,281,555 rows / 87 days / 964 boards
+  fact: /data/students/gaolei/stock/data/fact/moneyflow_sector/moneyflow_sector.parquet
+  fact: /data/students/gaolei/stock/data/fact/concept_members/concept_members.parquet
+  moneyflow 源：1,119,242 rows / 203 days / root=/data/students/gaolei/stock/data/raw/fund_flow
+  moneyflow_sector 源：77,524 rows / 147 days / fact=/data/students/gaolei/stock/data/fact/moneyflow_sector/moneyflow_sector.parquet
+  concept_members 源：7,281,555 rows / 87 days / fact=/data/students/gaolei/stock/data/fact/concept_members/concept_members.parquet
+  moneyflow: 灌入 1,119,242 rows
+  moneyflow_sector: 灌入 77,524 rows
+  concept_members: 灌入 7,281,555 rows
