@@ -1,0 +1,15 @@
+dq_policy_version: daily-v1
+partition_gate:
+  pass:
+    max_error_rate: 0.0001        # PASS 上界
+    min_coverage: 0.999
+  fail:
+    min_error_rate: 0.01          # FAIL 下界（之间 = DEGRADED）
+    max_missing_coverage: 0.01
+systemic:
+  field_share: 0.80
+  field_count: 50
+  group_ratio: 10.0
+  group_count: 50
+  time_share: 0.80
+  time_count: 100
