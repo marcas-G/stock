@@ -84,7 +84,7 @@ M5 开关恒开、M6 LRU→FIFO。还原后 `test_read_cache.py`+`test_ch_arrow_
 
 ## ⑤ 门
 
-- **平台全量**（提交 2 `6f6eb2f` 同树实测）：`3549 passed, 16 skipped, 1 failed`
+- **平台全量**（最终树 fresh 实测，含 `77a2680`）：`3551 passed, 15 skipped, 1 failed`
   ——`tests/test_regression_152.py::test_sample_value_regression` 为**数据锚
   预存红**（reversal_20d IC mean 漂移 7.6e-7 > 1e-9；已回退本改动源码在纯净树
   复跑同样失败；与本优化无关）。
