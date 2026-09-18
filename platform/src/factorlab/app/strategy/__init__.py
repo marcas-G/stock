@@ -8,6 +8,7 @@ E3/E4（评估指标 v2 §2b，**策略层**，不进因子评估 summary）：
 from factorlab.app.strategy.capacity import capacity_proxy
 from factorlab.app.strategy.cost_net import cost_net_report
 from factorlab.app.strategy.run import StrategyRunResult, run_strategy
+from factorlab.app.strategy.turnover import target_one_side_turnover
 
 __all__ = ["StrategyRunResult", "run_strategy", "capacity_proxy",
-           "cost_net_report"]
+           "cost_net_report", "target_one_side_turnover"]

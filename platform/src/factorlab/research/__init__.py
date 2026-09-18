@@ -24,6 +24,10 @@ from factorlab.research.cli import research_app
 from factorlab.research import data as _data  # noqa: F401
 # import 副作用：注册 factor 组全部命令（lint/run/.../admit/op/catalog）
 from factorlab.research import factor as _factor  # noqa: F401
+# import 副作用：注册 strategy 组全部命令（lint/run/list/show/export/capacity/cost）
+from factorlab.research import strategy as _strategy  # noqa: F401
+# import 副作用：注册 report 组全部命令（list/show/url/serve）
+from factorlab.research import report as _report  # noqa: F401
 
 __all__ = [
     "COMMANDS",

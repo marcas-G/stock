@@ -154,6 +154,34 @@ def factor_cmd(ctx: typer.Context) -> None:
     raise typer.Exit(code=registry.dispatch([name, *rest]))
 
 
+@research_app.command(
+    "strategy",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def strategy_cmd(ctx: typer.Context) -> None:
+    """strategy 组：lint/run/list/show/export/capacity/cost。"""
+    argv = list(ctx.args)
+    if not argv:
+        raise typer.Exit(code=envelope.emit(envelope.fail(
+            "strategy", "USAGE", "缺少 strategy 子命令",
+            hint="factorlab research describe --json 查看命令目录")))
+    raise typer.Exit(code=registry.dispatch([f"strategy.{argv[0]}", *argv[1:]]))
+
+
+@research_app.command(
+    "report",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def report_cmd(ctx: typer.Context) -> None:
+    """report 组：list/show/url/serve。"""
+    argv = list(ctx.args)
+    if not argv:
+        raise typer.Exit(code=envelope.emit(envelope.fail(
+            "report", "USAGE", "缺少 report 子命令",
+            hint="factorlab research describe --json 查看命令目录")))
+    raise typer.Exit(code=registry.dispatch([f"report.{argv[0]}", *argv[1:]]))
+
+
 @research_app.callback(invoke_without_command=True)
 def _research_main(ctx: typer.Context) -> None:
     """裸调用 `factorlab research` → USAGE 信封（与单 JSON 契约一致）。"""
