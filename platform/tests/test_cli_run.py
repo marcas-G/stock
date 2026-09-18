@@ -789,3 +789,57 @@ def test_run_cli_memory_abort_exit1_clean_no_summary(tmp_path, monkeypatch):
     assert "FACTORLAB_MAX_MEMORY" in result.output
     assert not (out_dir / "summary.json").exists()
     assert not (out_dir / "signal.parquet").exists()
+
+
+# ---------- R30：CLI run 护栏默认化（env 未设 → 6GB 预检 + min(16GB,12%) RSS） ----------
+
+
+def test_run_cli_default_guardrail_aborts_when_host_available_low(tmp_path, monkeypatch):
+    """R30：env 未设时 CLI run 默认 FACTORLAB_MIN_AVAILABLE_MEMORY=6GB——
+    主机可用内存 1GB 时干净 exit 1（安全预检真的接线到看门狗，不是纸面默认）。"""
+    build_db(tmp_path, n_days=9)
+    spec_path = _mem_spec(tmp_path)
+    monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+    monkeypatch.setattr("factorlab.config.settings.max_memory", None)
+    monkeypatch.setattr("factorlab.config.settings.min_available_memory", None)
+    monkeypatch.setattr("factorlab.app.memory._default_available_reader",
+                        lambda: 1 * 1024 ** 3)
+    out_dir = tmp_path / "results" / "memdemo"
+    result = runner.invoke(app, ["run", str(spec_path), "--output-dir", str(out_dir)])
+    assert result.exit_code == 1, result.output
+    assert "FACTORLAB_MIN_AVAILABLE_MEMORY" in result.output
+    assert not (out_dir / "summary.json").exists()
+
+
+def test_run_cli_default_guardrails_restored_after_run(tmp_path, monkeypatch):
+    """R30：默认化只作用于 CLI run 进程内；run 结束 settings 复原 →
+    同进程后续 API 直调语义不变（零行为变化）。"""
+    build_db(tmp_path, n_days=9)
+    spec_path = _mem_spec(tmp_path)
+    monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+    monkeypatch.setattr("factorlab.config.settings.max_memory", None)
+    monkeypatch.setattr("factorlab.config.settings.min_available_memory", None)
+    out_dir = tmp_path / "results" / "memdemo"
+    result = runner.invoke(app, ["run", str(spec_path), "--output-dir", str(out_dir)])
+    assert result.exit_code == 0, result.output
+    assert (out_dir / "summary.json").is_file()
+    from factorlab.config import settings
+    assert settings.max_memory is None
+    assert settings.min_available_memory is None
+
+
+def test_run_cli_default_guardrail_does_not_apply_hard_rlimit(tmp_path, monkeypatch):
+    """R30：RLIMIT_AS 硬上限只跟"显式设置"绑定——默认化不落进程级 rlimit
+    （避免默认值把宿主 pytest/小 run 的虚拟地址空间锁死）。"""
+    build_db(tmp_path, n_days=9)
+    spec_path = _mem_spec(tmp_path)
+    monkeypatch.setattr("factorlab.config.settings.platform_db", tmp_path / "q.duckdb")
+    monkeypatch.setattr("factorlab.config.settings.max_memory", None)
+    monkeypatch.setattr("factorlab.config.settings.min_available_memory", None)
+    calls = []
+    monkeypatch.setattr("factorlab.app.memory.apply_address_space_limit",
+                        lambda b, **kw: calls.append(b) or b)
+    out_dir = tmp_path / "results" / "memdemo"
+    result = runner.invoke(app, ["run", str(spec_path), "--output-dir", str(out_dir)])
+    assert result.exit_code == 0, result.output
+    assert calls == []

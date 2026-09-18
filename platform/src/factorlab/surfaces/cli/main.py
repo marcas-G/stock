@@ -304,20 +304,24 @@ def run_factor_cli(
         max_memory=max_memory,
     )
     # R05-C1：显式 FACTORLAB_MAX_MEMORY 时先落进程级 RLIMIT_AS 硬上限
-    # （软看门狗在 run_* 内自动启用；未设 = 不动进程资源）
-    from factorlab.app.memory import apply_hard_memory_limit_from_settings
+    # （软看门狗在 run_* 内自动启用；未设 = 不动进程资源）。
+    # R30：硬上限只跟"显式设置"绑定；CLI 默认化（env 未设 → 6GB 预检 +
+    # min(16GB,12%) RSS）在下方上下文内生效，退出即恢复（API 直调语义不变）。
+    from factorlab.app.memory import (apply_hard_memory_limit_from_settings,
+                                      cli_memory_guardrails)
     apply_hard_memory_limit_from_settings()
     # W5 分派：分钟面 spec（interface: bars_1m）走分钟链 run_factor_minute（折日
     # 面板与日频同列契约，下方评估/分层回测零改动复用）；日频 spec 走原 run_factor。
     run_impl = run_factor_minute if spec.interface == "bars_1m" else run_factor
     try:
-        result = run_impl(spec, ctx)
-        # 评估装配单点（WS5）：app.evaluate.evaluate_run + publish_run（此前为本函数内联）
-        outcome = evaluate_run(result, spec, ctx, groups=groups, backtest=backtest,
-                               frequency=eval_frequency)
-        for note in outcome.notes:
-            console.print(f"提示: {note}")
-        publish_run(result, outcome, ctx)
+        with cli_memory_guardrails():
+            result = run_impl(spec, ctx)
+            # 评估装配单点（WS5）：app.evaluate.evaluate_run + publish_run（此前为本函数内联）
+            outcome = evaluate_run(result, spec, ctx, groups=groups, backtest=backtest,
+                                   frequency=eval_frequency)
+            for note in outcome.notes:
+                console.print(f"提示: {note}")
+            publish_run(result, outcome, ctx)
     except (ValueError, FileNotFoundError, FactorDSLError) as exc:
         console.print(f"错误: {exc}")
         raise typer.Exit(code=1) from exc

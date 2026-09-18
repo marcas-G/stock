@@ -27,9 +27,12 @@ class Settings(BaseSettings):
     plugin_dir: Path = Path.home() / ".factorlab" / "plugins"
     default_max_memory: str = "4GB"  # DuckDB 连接 memory_limit（--max-memory 缺省）
     # R05-C1（P0 事故：3 年分钟链触发主机内存耗尽）：**进程级**内存护栏——
-    # 与 default_max_memory（DuckDB 连接上限）不同，二者都未设 = 护栏不启用
+    # 与 default_max_memory（DuckDB 连接上限）不同，二者都未设 = API 直调不启用
     # （零行为变化）。支持 "8GB"/"512MB"/纯字节数；显式 max_memory 时 CLI 同时
-    # 落 RLIMIT_AS 硬上限。推荐值/语义见 knowledge/contracts/interface.md §1 内存护栏。
+    # 落 RLIMIT_AS 硬上限。R30 起 CLI `factorlab run` 在 env 未设时**默认化**
+    # （见下方 CLI_GUARDRAIL_* 常量与 app/memory.resolve_cli_guardrails）：
+    # min_available=6GB 安全预检 + max_memory=min(16GB, 12% 物理内存)；
+    # 显式 "off"/"none" 关闭。推荐值/语义见 knowledge/contracts/interface.md §1。
     max_memory: str | None = None  # FACTORLAB_MAX_MEMORY：进程 RSS 上限
     min_available_memory: str | None = None  # FACTORLAB_MIN_AVAILABLE_MEMORY：系统可用内存下限
     default_chunk_size: int = 1000
@@ -51,3 +54,11 @@ class Settings(BaseSettings):
 settings = Settings()
 # 注：不得在此处创建目录（import 副作用）——`plugin_dir` 的创建移到装配点
 # `app.bootstrap.ensure_assembly()`（2026-09-15 R2，G-NOSIDE 门）。
+
+# ---- R30：CLI `factorlab run` 护栏默认值（仅 CLI 生效；API 直调语义不变）----
+# env 未设 → CLI run 默认：min_available=6GB 安全预检 +
+# max_memory=min(cap, fraction × 物理内存)。显式 "off"/"none" 关闭。
+# 解析/接线见 app/memory.resolve_cli_guardrails / cli_memory_guardrails。
+CLI_GUARDRAIL_DEFAULT_MIN_AVAILABLE = "6GB"
+CLI_GUARDRAIL_DEFAULT_MAX_MEMORY_CAP = 16 * 1024 ** 3      # 16GB
+CLI_GUARDRAIL_DEFAULT_MAX_MEMORY_FRACTION = 0.12           # 12% 物理内存

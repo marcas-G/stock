@@ -13,9 +13,10 @@ import pytest
 
 from factorlab.app.memory import (MINUTE_BYTES_PER_CODE_DAY, MinuteChunkSizeWarning,
                                   MemoryLimitExceeded, MemoryWatchdog, apply_address_space_limit,
-                                  apply_hard_memory_limit_from_settings, format_bytes,
+                                  apply_hard_memory_limit_from_settings, cli_default_max_memory,
+                                  cli_memory_guardrails, format_bytes,
                                   guard_minute_chunk_days, memory_watchdog_from_settings,
-                                  parse_memory)
+                                  parse_memory, resolve_cli_guardrails)
 from factorlab.config import settings
 
 GB = 1024 ** 3
@@ -233,3 +234,56 @@ def test_guard_small_universe_allows_whole_window():
 def test_guard_uses_calibrated_per_code_day_constant():
     # 常数必须是 R04-P1 实测校准量级（~64KB/(code·日)：5207×117×64KB≈39GB）
     assert 32 * 1024 <= MINUTE_BYTES_PER_CODE_DAY <= 128 * 1024
+
+
+# ---------------- R30：CLI `factorlab run` 护栏默认化（env 未设 → 安全默认） ----------------
+# 规格（R30 任务书 3）：CLI run 在 env 未设时默认
+# FACTORLAB_MIN_AVAILABLE_MEMORY=6GB + FACTORLAB_MAX_MEMORY=min(16GB, 12% 物理内存)；
+# 显式 off/none 关闭；API 直调语义不变（run_factor 不经过默认化）。
+
+def test_cli_default_max_memory_formula():
+    assert cli_default_max_memory(100 * GB) == 12 * GB            # 12% < 16GB
+    assert cli_default_max_memory(200 * GB) == 16 * GB            # 12% > 16GB → 封顶
+    assert cli_default_max_memory(16 * GB) == int(16 * GB * 0.12)  # 小主机按比例
+
+
+def test_cli_resolve_defaults_when_env_unset(monkeypatch):
+    monkeypatch.setattr(settings, "max_memory", None)
+    monkeypatch.setattr(settings, "min_available_memory", None)
+    max_rss, min_avail = resolve_cli_guardrails(total_memory=100 * GB)
+    assert max_rss == 12 * GB                # min(16GB, 12%)
+    assert min_avail == 6 * GB               # 安全预检
+
+
+def test_cli_resolve_explicit_values_win(monkeypatch):
+    monkeypatch.setattr(settings, "max_memory", "8GB")
+    monkeypatch.setattr(settings, "min_available_memory", "2GB")
+    assert resolve_cli_guardrails(total_memory=100 * GB) == (8 * GB, 2 * GB)
+
+
+def test_cli_resolve_off_none_disables(monkeypatch):
+    monkeypatch.setattr(settings, "max_memory", "off")
+    monkeypatch.setattr(settings, "min_available_memory", "none")
+    assert resolve_cli_guardrails(total_memory=100 * GB) == (None, None)
+    # 单边关闭：另一边仍取默认（独立语义）
+    monkeypatch.setattr(settings, "min_available_memory", None)
+    assert resolve_cli_guardrails(total_memory=100 * GB) == (None, 6 * GB)
+
+
+def test_cli_resolve_invalid_fails_loud(monkeypatch):
+    monkeypatch.setattr(settings, "max_memory", "8XB")
+    with pytest.raises(ValueError, match="内存"):
+        resolve_cli_guardrails(total_memory=100 * GB)
+
+
+def test_cli_guardrails_context_enables_watchdog_then_restores(monkeypatch):
+    monkeypatch.setattr(settings, "max_memory", None)
+    monkeypatch.setattr(settings, "min_available_memory", None)
+    with cli_memory_guardrails(total_memory=100 * GB) as (max_rss, min_avail):
+        assert (max_rss, min_avail) == (12 * GB, 6 * GB)
+        wd = memory_watchdog_from_settings()     # 默认化真的接到看门狗工厂
+        assert wd is not None
+        assert wd.max_rss == 12 * GB and wd.min_available == 6 * GB
+    # 退出后恢复：API 直调语义不变（不启用）
+    assert settings.max_memory is None and settings.min_available_memory is None
+    assert memory_watchdog_from_settings() is None

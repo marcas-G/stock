@@ -15,10 +15,14 @@
 - `guard_minute_chunk_days`：分钟链显式巨大 chunk / 未分块长窗的静态估算门
   （校准自 R04-P1 实测；默认自动 20 日/块路径只告警不拒绝）。
 
-**默认行为**：`FACTORLAB_MAX_MEMORY` 与 `FACTORLAB_MIN_AVAILABLE_MEMORY` 都
-未设 → 整个护栏不启用（零线程、零采样、行为与现状一致——避免误杀 CI/小 run）。
-推荐生产值（16GB 机 + LLM 并发）：`FACTORLAB_MAX_MEMORY=8GB`、
-`FACTORLAB_MIN_AVAILABLE_MEMORY=2GB`；语义见 `knowledge/contracts/interface.md` §1 内存护栏。
+**默认行为**：API 直调时 `FACTORLAB_MAX_MEMORY` 与
+`FACTORLAB_MIN_AVAILABLE_MEMORY` 都未设 → 整个护栏不启用（零线程、零采样、行为
+与现状一致——避免误杀 CI/小 run）。R30 起 CLI `factorlab run` 在 env 未设时
+默认化（6GB 预检 + `min(16GB, 12% 物理内存)` RSS；见 `resolve_cli_guardrails`），
+重任务经 `governance/ops/heavy.sh` 启动（8GB + nice）；宿主级守护见根 AGENTS.md
+「重任务运行协议」。推荐生产值（16GB 机 + LLM 并发）：
+`FACTORLAB_MAX_MEMORY=8GB`、`FACTORLAB_MIN_AVAILABLE_MEMORY=2GB`；语义见
+`knowledge/contracts/interface.md` §1 内存护栏。
 """
 from __future__ import annotations
 
@@ -26,8 +30,9 @@ import os
 import re
 import threading
 import warnings
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Iterator
 
 import psutil
 
@@ -36,7 +41,9 @@ try:  # pragma: no cover - Windows/非 POSIX 降级路径由测试 monkeypatch �
 except ImportError:
     resource = None  # type: ignore[assignment]
 
-from factorlab.config import settings
+from factorlab.config import (CLI_GUARDRAIL_DEFAULT_MAX_MEMORY_CAP,
+                              CLI_GUARDRAIL_DEFAULT_MAX_MEMORY_FRACTION,
+                              CLI_GUARDRAIL_DEFAULT_MIN_AVAILABLE, settings)
 
 DEFAULT_SAMPLE_INTERVAL_S = 5.0
 
@@ -213,13 +220,79 @@ def _default_available_reader() -> int:
 
 def memory_watchdog_from_settings(settings_obj=None) -> MemoryWatchdog | None:
     """settings（env `FACTORLAB_MAX_MEMORY`/`FACTORLAB_MIN_AVAILABLE_MEMORY`）
-    → 看门狗；二者都未设 → None（默认不启用，零行为变化）。非法值 fail loud。"""
+    → 看门狗；二者都未设 → None（默认不启用，零行为变化）。非法值 fail loud。
+
+    注意：R30 起 CLI `factorlab run` 会在调用本工厂前经 `cli_memory_guardrails`
+    临时默认化 settings（API 直调不受影响）——见下。
+    """
     s = settings_obj if settings_obj is not None else settings
     max_rss = parse_memory(getattr(s, "max_memory", None))
     min_avail = parse_memory(getattr(s, "min_available_memory", None))
     if max_rss is None and min_avail is None:
         return None
     return MemoryWatchdog(max_rss=max_rss, min_available=min_avail)
+
+
+# ---- R30：CLI `factorlab run` 护栏默认化（API 直调语义不变） ----
+
+_DISABLED_MEMORY_SPECS = {"off", "none"}
+
+
+def cli_default_max_memory(total_bytes: int) -> int:
+    """默认进程 RSS 上限：`min(16GB, 12% 物理内存)`（config CLI_GUARDRAIL_*）。"""
+    return min(CLI_GUARDRAIL_DEFAULT_MAX_MEMORY_CAP,
+               int(total_bytes * CLI_GUARDRAIL_DEFAULT_MAX_MEMORY_FRACTION))
+
+
+def _cli_guardrail_value(raw, default: int | None) -> int | None:
+    """env 原值 → 字节：未设/空白取 default；显式 off/none → None（关闭）；
+    其余走 parse_memory（非法 fail loud）。"""
+    if raw is None:
+        return default
+    if isinstance(raw, str):
+        s = raw.strip().lower()
+        if not s:
+            return default
+        if s in _DISABLED_MEMORY_SPECS:
+            return None
+    return parse_memory(raw)
+
+
+def resolve_cli_guardrails(settings_obj=None, *, total_memory: int | None = None
+                           ) -> tuple[int | None, int | None]:
+    """CLI `factorlab run` 有效护栏阈值 `(max_rss, min_available)`（bytes）。
+
+    - 未设 → `FACTORLAB_MIN_AVAILABLE_MEMORY=6GB`（安全预检）+
+      `FACTORLAB_MAX_MEMORY=min(16GB, 12% 物理内存)`；
+    - 显式设置 → 解析原值；显式 `off`/`none` → 该项关闭（空白按未设）；
+    - 非法值 → ValueError fail loud（不静默取默认）。"""
+    s = settings_obj if settings_obj is not None else settings
+    if total_memory is None:
+        total_memory = psutil.virtual_memory().total
+    max_rss = _cli_guardrail_value(getattr(s, "max_memory", None),
+                                   cli_default_max_memory(total_memory))
+    min_avail = _cli_guardrail_value(getattr(s, "min_available_memory", None),
+                                     parse_memory(CLI_GUARDRAIL_DEFAULT_MIN_AVAILABLE))
+    return max_rss, min_avail
+
+
+@contextmanager
+def cli_memory_guardrails(settings_obj=None, *, total_memory: int | None = None
+                          ) -> Iterator[tuple[int | None, int | None]]:
+    """CLI 入口的护栏默认化上下文：临时把有效阈值写进 settings（供
+    `memory_watchdog_from_settings`/`apply_hard_memory_limit_from_settings` 读取），
+    退出时**原样恢复**——API 直调与同进程后续调用语义不变。
+
+    RLIMIT_AS 硬上限仍只由显式 `FACTORLAB_MAX_MEMORY` 触发（CLI 在进入本上下文
+    前调用 hard-limit 应用函数），默认化只加软看门狗。"""
+    s = settings_obj if settings_obj is not None else settings
+    max_rss, min_avail = resolve_cli_guardrails(s, total_memory=total_memory)
+    saved = (getattr(s, "max_memory", None), getattr(s, "min_available_memory", None))
+    try:
+        s.max_memory, s.min_available_memory = max_rss, min_avail
+        yield max_rss, min_avail
+    finally:
+        s.max_memory, s.min_available_memory = saved
 
 
 # ---- RLIMIT_AS 硬护栏（POSIX） ----
