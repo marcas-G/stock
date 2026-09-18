@@ -47,10 +47,12 @@ bash governance/evidence/verification/R31/minute-perf/after-p4/fix1/mutation_f1.
 - 绿（修复后）：
   - 定向 `tests/test_memory_guard.py test_minute_fold.py test_minute_engine.py
     test_ch_read_tuning.py test_cli_run.py`：**171 passed**（含 F5 新测试）。
-  - 平台全量 `pytest -q`：**3514 passed, 15 skipped, 1 failed**；唯一失败
-    `test_regression_152.py::test_sample_value_regression` 为**并发在途
-    DQ-M1 读取门**（dirty `main.py` 缺省 `dataset="ashare_daily"`，
-    2024-03-29/2026-07-31 health 分区 MISSING），与本改动路径无关。
+  - 平台全量 `pytest -q`（修复提交态，工作树含并发在途改动）：
+    **3515 passed, 15 skipped, 0 failed**（16m10s）。
+  - 中间一轮全量曾在 `test_regression_152.py::test_sample_value_regression`
+    1 红——为并发在途 DQ-M1 读取门（dirty `main.py` 缺省
+    `dataset="ashare_daily"`，health 分区 MISSING），DQ 侧落定后复跑清零；
+    与本改动路径无关。
 - 突变 `mutation_f1.txt`（3 处，全部被杀）：
   - 门恒放行 → 3 条 F1 测试失败；
   - 估值恒定 3.6GB（忽略 chunk_days）→ chunk20 单测 + 引擎测试失败；
@@ -66,9 +68,9 @@ bash governance/evidence/verification/R31/minute-perf/after-p4/fix1/mutation_f1.
 - **allow-chunk10-n2/**（chunk10 + N=2）：预算门放行，折日全窗完成并落
   compute 产物（`summary.json` 无 `evaluation` 键——评估段被拒），外部峰值
   RSS **6042MB（≈5.9GiB）< 8GB**——与 P4 基线 N=2 同因子 6222MB 同量级；
-  rc=1 发生在 **evaluate 读取门**（同一并发在途 DQ-M1：`dataset=ashare_daily
-  partition=2024-03-29 MISSING`，`run.log` 末段），非内存/预算门问题；
-  parquet 按证据库惯例不入库（可复现）。
+  rc=1 发生在 **evaluate 读取门**（当时并发在途 DQ-M1：`dataset=ashare_daily
+  partition=2024-03-29 MISSING`，`run.log` 末段；DQ 侧复跑已 0 红），非内存/
+  预算门问题；parquet 按证据库惯例不入库（可复现）。
 
 ## 4. F2 / F3 / F5 处置
 
@@ -85,8 +87,8 @@ bash governance/evidence/verification/R31/minute-perf/after-p4/fix1/mutation_f1.
 
 ## 5. 未竟 / 残余
 
-- allow 复验因并发在途 DQ 读取门在 evaluate 段 rc=1（计算/折日已全部完成，
-  `summary.json` 为 compute 标记、无 `evaluation`）；内存门放行 + 折日完成 +
-  峰值 6042MB 已由 `/usr/bin/time -v`、`summary.json`（panel_rows=281338）与
-  `run.log` 锁定。
-- 全量 1 红同为该在途读取门；待 DQ-M1 落定后复跑应为 0 红。
+- allow 复验（01:32）在 evaluate 段 rc=1 系**当时**在途 DQ 读取门；计算/折日已
+  全部完成，`summary.json` 为 compute 标记（无 `evaluation`），内存门放行 +
+  峰值 6042MB 由 `/usr/bin/time -v`、`summary.json`（panel_rows=281338）与
+  `run.log` 锁定。DQ 侧落定后全量复跑 3515 passed / 0 failed（本修复无红）。
+- 本修复波无未竟项。
