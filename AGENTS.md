@@ -8,6 +8,9 @@
 - **用户级**（仓外 `~/.claude/skills/`）：`factorlab-dsl`（spec/DSL）、`factorlab-data`、
   `factorlab-ch-pipeline`、`factorlab-backtest`、`factorlab-evaluate`、`quark-share-download`。
 - **仓内**：`.claude/skills/factor-mine/` —— 挖因子循环（种子→假设审核→变异→实现→审核→入库）。
+- **研究员入口 = `flab`**（R31）= `factorlab research`：固定 ch 后端、单 JSON、重命令自动过 heavy 闸；
+  自描述 `flab describe --json`；一页手册 `knowledge/handbooks/research-agent-manual.md`。
+  文档防漂移门：手册/registry 示例中的 flab 命令必须存在（`platform/tests/test_doc_paths_exist.py`）。
 - 新增技能放对应位置并在此登记。
 
 ## 通用工作流（任何树）
