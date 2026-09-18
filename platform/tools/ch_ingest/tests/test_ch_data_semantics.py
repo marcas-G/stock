@@ -161,10 +161,21 @@ def test_stk_limit_ex_date_band_uses_adjusted_pre_close(ch):
     assert bad == 0, f"{bad} 个 2025 创业板除权日 stk_limit 未按除权参考价派生"
 
 
-# ── I7 reconcile 覆盖派生表 ────────────────────────────────────────────
+# ── I7 reconcile 覆盖派生表（收口：daily 层按 clean staging 账本，--source）──
 def test_reconcile_daily_covers_derived_tables():
-    r = subprocess.run([sys.executable, str(TOOL / "reconcile.py"), "daily"],
-                       capture_output=True, text=True, cwd=str(TOOL), timeout=600)
+    """I1 收口：ingest 消费 clean staging 后，daily 层对账须传 --source（期望=clean），
+    rc=0 且输出 explained delta（raw−clean = quarantine + deduped，不判红）。"""
+    from factorlab.core.factio import paths
+
+    staged = sorted((paths.DATA_ROOT / "staging" / "ashare_daily").glob(
+        "*/daily_fact.parquet"))
+    cmd = [sys.executable, str(TOOL / "reconcile.py"), "daily"]
+    if staged:
+        cmd += ["--source", str(staged[-1])]
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(TOOL), timeout=600)
     assert r.returncode == 0, r.stdout + r.stderr
+    if staged:
+        assert "explained delta" in r.stdout, (
+            f"clean staging 口径必须输出 explained delta：\n{r.stdout}")
     for t in ("stk_limit", "adj_detail", "adj_event"):
         assert t in r.stdout, f"reconcile 未覆盖派生表 {t}：\n{r.stdout}"

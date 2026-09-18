@@ -25,18 +25,26 @@ R21 TOOLS-I7 扩展（旧版只对 5 张 daily 表行数）：
 
 用法：python reconcile.py                  # 全表对账
       python reconcile.py daily            # daily 层 5 表 + 派生表
+      python reconcile.py daily --source data/staging/ashare_daily/<run_tag>/daily_fact.parquet
+                                            # daily 层按 clean staging 账本对账（I1 收口）
       python reconcile.py moneyflow        # 个股资金流表
       python reconcile.py moneyflow_sector # 板块资金流表
       python reconcile.py concept_members  # 概念成分快照表
       python reconcile.py fundamentals     # 财报快照表
       python reconcile.py bars             # bars_1m
       python reconcile.py tick             # tick 3 表
-退出码 0=全一致，1=有差异。
+退出码 0=全一致，1=有差异，2=用法/输入错误。
 
-口径（Plan DQ-M1 I1）：ingest 消费 clean staging（--source）时，期望 CH 行数 = raw 源行数 − quarantine_count（data/staging/ashare_daily/<run_tag>/summary.json）——被隔离/dedup 的行不入 canonical，因此 daily 层行数与 raw 源存在**已知且应有**的差额。
+口径（Plan DQ-M1 I1 + 收口裁定）：ingest 消费 clean staging（--source）时，期望 CH 行数 = raw 源行数 − quarantine_count（data/staging/ashare_daily/<run_tag>/summary.json）
+——daily 层（daily/adj_factor/daily_basic/trade_cal/stock_basic）期望行数/日期/代码按
+**--source 指向的 clean 文件**计算，`raw − clean = quarantine + deduped` 的 explained
+delta 计入输出注释（不判红）。``--source`` 缺省 = raw ``daily_fact.parquet``（向后兼容）；
+派生表（adj_detail/adj_event/delisted_adj）保持 raw 口径不动（adj_backfill 仍读 raw）。
 """
 from __future__ import annotations
 
+import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -58,6 +66,7 @@ DAILY_SRC = str(paths.daily_fact_path())   # R8：取 factio.paths（原硬编�
 # I1 口径说明：ingest 走 clean staging（--source）时 CH 行数 = raw − quarantine_count。
 QUARANTINE_NOTE = ("ingest 消费 clean staging（--source）时，期望 CH 行数 = raw 源行数 − "
                    "quarantine_count（data/staging/ashare_daily/<run_tag>/summary.json）")
+STAGED_FACT_NAME = "daily_fact.parquet"
 MONEYFLOW_SRC = paths.RAW_ROOT / "fund_flow"
 MONEYFLOW_SECTOR_FACT = paths.FACT_ROOT / MF.SECTOR_FACT_RELPATH
 CONCEPT_MEMBERS_FACT = paths.FACT_ROOT / MF.CONCEPT_FACT_RELPATH
@@ -88,43 +97,99 @@ def _source_event_count() -> int:
     return int(lf.select(cond.sum().alias("n")).collect().item())
 
 
-def _source_date_range() -> tuple:
-    r = (pl.scan_parquet(DAILY_SRC)
+def _source_date_range(src: str | Path | None = None) -> tuple:
+    path = Path(src) if src is not None else Path(DAILY_SRC)
+    r = (pl.scan_parquet(str(path))
          .select(pl.col("trade_date").min().alias("dmin"),
                  pl.col("trade_date").max().alias("dmax"))
          .collect().row(0))
     return r[0], r[1]
 
 
-def _reconcile(client, db, table: str, src_rows: int | None) -> tuple[int, int, str]:
+def resolve_daily_source(source: str | Path | None) -> Path:
+    """daily 层期望的来源 parquet：``--source`` 缺省 = raw ``DAILY_SRC``（向后兼容）。"""
+    return Path(source) if source else Path(DAILY_SRC)
+
+
+def _src_rows(path: Path) -> int:
+    return int(pq.ParquetFile(str(path)).metadata.num_rows)
+
+
+def _src_distinct(path: Path, column: str) -> int:
+    return int(pl.scan_parquet(str(path))
+               .select(pl.col(column).n_unique()).collect().item())
+
+
+def _clean_ledger(src: Path) -> dict | None:
+    """clean staging 账本（sibling ``summary.json``）：quarantine/deduped/raw 期望数。
+
+    仅认 ``<run_tag>/daily_fact.parquet`` + 同目录 ``summary.json`` 的 clean 布局；
+    缺失/损坏 → None（不猜）。
+    """
+    summary = src.parent / "summary.json"
+    if src.name != STAGED_FACT_NAME or not summary.is_file():
+        return None
+    try:
+        doc = json.loads(summary.read_text(encoding="utf-8"))
+        quarantined = int(doc["quarantined_rows"])
+        deduped = int(doc["deduped_rows"])
+        raw = (doc.get("completeness") or {}).get("expected_count")
+    except (ValueError, KeyError, TypeError, OSError):
+        return None
+    return {"quarantined": quarantined, "deduped": deduped,
+            "raw": int(raw) if raw is not None else None}
+
+
+def _explained_delta(clean_path: Path) -> str | None:
+    """``raw − clean = quarantine + deduped`` 注释（账实不符时点明差额）。"""
+    ledger = _clean_ledger(clean_path)
+    if ledger is None:
+        return None
+    clean = _src_rows(clean_path)
+    raw = ledger["raw"]
+    if raw is None and Path(DAILY_SRC).is_file():
+        raw = _src_rows(Path(DAILY_SRC))
+    q, d = ledger["quarantined"], ledger["deduped"]
+    if raw is None:
+        return f"explained ledger: quarantine {q:,} + deduped {d:,}（raw 不可读）"
+    delta = raw - clean
+    tail = "" if delta == q + d else f"（账实不符：差额 {delta - q - d:+,}）"
+    return (f"explained delta: raw {raw:,} − clean {clean:,} = {delta:,}"
+            f" = quarantine {q:,} + deduped {d:,}{tail}")
+
+
+def _reconcile(client, db, table: str, src_rows: int | None, *,
+               daily_src: str | Path | None = None) -> tuple[int, int, str]:
+    src_path = resolve_daily_source(daily_src)
     ch = client.command(f"SELECT count() FROM {db}.{table}")
     if src_rows is None:
         if table == "trade_cal":
             # trade_cal 行数 = daily 源 distinct trade_date
-            src_rows = (
-                pl.scan_parquet(DAILY_SRC)
-                .select(pl.col("trade_date").unique().count())
-                .collect()
-                .item()
-            )
+            src_rows = _src_distinct(src_path, "trade_date")
         elif table == "stock_basic":
-            src_rows = (
-                pl.scan_parquet(DAILY_SRC)
-                .select(pl.col("code").unique().count())
-                .collect()
-                .item()
-            )
+            src_rows = _src_distinct(src_path, "code")
         else:
-            src_rows = pq.ParquetFile(DAILY_SRC).metadata.num_rows
-    note = "一致" if ch == src_rows else f"不一致 (差 {ch - src_rows:+,})"
-    if ch != src_rows and table == "daily":
-        note += f"（{QUARANTINE_NOTE}）"
+            src_rows = _src_rows(src_path)
+    if ch == src_rows:
+        note = "一致"
+        if table == "daily" and daily_src is not None:
+            delta = _explained_delta(src_path)
+            if delta:
+                note += f"（{delta}）"
+    else:
+        note = f"不一致 (差 {ch - src_rows:+,})"
+        if table == "daily":
+            note += f"（{QUARANTINE_NOTE}）"
+            if daily_src is not None:
+                delta = _explained_delta(src_path)
+                if delta:
+                    note += f"；{delta}"
     print(f"  {table:12s} CH={ch:>16,} 源={src_rows:>16,}  {note}", flush=True)
     return ch, src_rows, note
 
 
-def _check_daily_invariants(client, db) -> bool:
-    """daily 派生列恒等式 + 日期范围（与 parquet 一致）。"""
+def _check_daily_invariants(client, db, *, daily_src: str | Path | None = None) -> bool:
+    """daily 派生列恒等式 + 日期范围（与 daily 层有效来源一致）。"""
     ok = True
     checks = [
         ("pre_close/change 恒等式",
@@ -144,7 +209,7 @@ def _check_daily_invariants(client, db) -> bool:
             ok = False
         print(f"  不变量 {name:22s} 违规={bad:,}  {'OK' if not bad else 'FAIL'}",
               flush=True)
-    dmin, dmax = _source_date_range()
+    dmin, dmax = _source_date_range(daily_src)
     cmin, cmax = client.query(
         f"SELECT min(trade_date), max(trade_date) FROM {db}.daily").result_rows[0]
     same = (cmin == dmin and cmax == dmax)
@@ -360,26 +425,40 @@ def _check_fundamentals(client, db, path: Path | None = None) -> bool:
     return good
 
 
-def main():
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    ap = argparse.ArgumentParser(prog="reconcile", description=__doc__)
+    ap.add_argument("which", nargs="?", default="all",
+                    help="all|daily|moneyflow|moneyflow_sector|concept_members|"
+                         "fundamentals|bars|tick（缺省 all）")
+    ap.add_argument("--source", default=None,
+                    help="daily 层来源 parquet（缺省 raw daily_fact；传 clean staging "
+                         "时 daily 层按 clean 账本对账，派生表仍锚 raw）")
+    return ap.parse_args(argv)
+
+
+def main(argv: list[str] | None = None):
     from ingest_common import discover_tasks
 
+    args = _parse_args(sys.argv[1:] if argv is None else argv)
+    daily_src = Path(args.source) if args.source else None
+    if daily_src is not None and not daily_src.is_file():
+        print(f"错误：--source parquet 不存在：{daily_src}", file=sys.stderr)
+        sys.exit(2)
+    which = args.which
     client = connect()
     db = load_config()["ch"]["database"]
-    which = sys.argv[1] if len(sys.argv) > 1 else "all"
     ok = True
-    fact_rows = None
 
     if which in ("all", "daily"):
-        print("daily 层:", flush=True)
+        print(f"daily 层（源={resolve_daily_source(daily_src)}）:", flush=True)
         for table, rows, note in DAILY_TABLES:
-            ch, src, note = _reconcile(client, db, table, rows)
-            if table == "daily":
-                fact_rows = src
+            ch, src, note = _reconcile(client, db, table, rows, daily_src=daily_src)
             ok &= ch == src
         print("daily 不变量:", flush=True)
-        ok &= _check_daily_invariants(client, db)
+        ok &= _check_daily_invariants(client, db, daily_src=daily_src)
         print("派生表:", flush=True)
-        ok &= _check_derived_tables(client, db, fact_rows)
+        # 收口裁定 3：adj_detail/adj_event/delisted_adj 保持 raw 口径不动
+        ok &= _check_derived_tables(client, db, _src_rows(Path(DAILY_SRC)))
         print("退市股 adj 补灌:", flush=True)
         ok &= _check_delisted_adj(client, db)
 

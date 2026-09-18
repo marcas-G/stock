@@ -255,8 +255,15 @@ def _run_stages(cats: list[str], state: dict, deps, *, verb: str, dry_run: bool)
         st.save_state_atomic(deps["state_path"], state)
 
 
-def _run_verify(deps, *, dry_run: bool) -> int:
+def _run_verify(cats: list[str], deps, *, dry_run: bool) -> int:
+    """reconcile 全量；daily 类别且有当天 staged clean → 传 ``--source``（I1 收口）。
+
+    staged 缺失/未查 daily → 保持 raw 口径（向后兼容）。
+    """
     cmd = [str(VENV_PYTHON), str(RECONCILE)]
+    staged = deps.get("staging_path")
+    if "daily" in cats and staged is not None and Path(staged).is_file():
+        cmd += ["--source", str(staged)]
     log = stages.open_log("verify", datetime.date.today(), log_dir=deps["log_dir"])
     log(f"$ {shlex.join(cmd)}")
     print(f"$ {shlex.join(cmd)}", flush=True)
@@ -279,17 +286,17 @@ def _dispatch(args, cats, state, deps) -> int:
         _run_stages(cats, state, deps, verb=verb, dry_run=args.dry_run)
         return 0
     if verb == "verify":
-        return _run_verify(deps, dry_run=args.dry_run)
+        return _run_verify(cats, deps, dry_run=args.dry_run)
     # all
     rc, n_dl, n_ad, manual, failed = _run_sync(
         cats, state, deps, dry_run=args.dry_run, prune=args.prune,
         workers=args.workers)
     _run_stages(cats, state, deps, verb="build", dry_run=args.dry_run)
     if args.dry_run:
-        _run_verify(deps, dry_run=True)
+        _run_verify(cats, deps, dry_run=True)
     else:
         _run_stages(cats, state, deps, verb="publish", dry_run=False)
-        rc = max(rc, _run_verify(deps, dry_run=False))
+        rc = max(rc, _run_verify(cats, deps, dry_run=False))
     _print_summary(n_dl, n_ad, manual, failed)
     return rc
 
@@ -321,12 +328,13 @@ def main(argv: list[str] | None = None, *, listdir: Callable | None = None,
          verify_runner: Callable[[list[str]], int] | None = None,
          state_path: Path | None = None, lock_path: Path | None = None,
          log_dir: Path | None = None, raw_root: Path | None = None,
-         transfer_client=None) -> int:
+         transfer_client=None, staging_path: Path | None = None) -> int:
     """CLI 入口；返回进程退出码（0 成功 / 1 运行失败 / 2 用法或配置错误）。
 
     注入面（测试/装配用，生产留 None）：listdir、transport、runner、verify_runner、
     state_path、lock_path、log_dir、raw_root、transfer_client（转存回退客户端；
-    缺省且 --transfer 开启时装配生产 ``transfer.DriveTransfer``）。
+    缺省且 --transfer 开启时装配生产 ``transfer.DriveTransfer``）、staging_path
+    （当天 clean staging 文件；verify 的 daily 类别据此传 reconcile ``--source``）。
     """
     raw_argv = list(argv) if argv is not None else list(sys.argv[1:])
     _wire_cookie_env()
@@ -355,6 +363,8 @@ def main(argv: list[str] | None = None, *, listdir: Callable | None = None,
         "log_dir": Path(log_dir) if log_dir is not None else stages.LOG_DIR,
         "raw_root": Path(raw_root) if raw_root is not None else RAW_ROOT,
         "transfer": transfer_client,
+        "staging_path": (Path(staging_path) if staging_path is not None
+                         else stages._DAILY_STAGING),
     }
     if args.command in ("sync", "all"):
         if not args.transfer:

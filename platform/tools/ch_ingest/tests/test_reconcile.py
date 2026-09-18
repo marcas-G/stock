@@ -9,6 +9,7 @@ CH 侧用 fake（记录 SQL + 返回按真实语义预置的聚合行），不�
 from __future__ import annotations
 
 import datetime
+import json
 import sys
 import zipfile
 from pathlib import Path
@@ -412,3 +413,77 @@ def test_non_daily_reconcile_note_has_no_quarantine_hint(capsys):
     """其它表不套用 clean staging 口径（说明只对 daily 表追加）。"""
     _ch, _src, note = RC._reconcile(_FakeCountCH(5), "dbtest", "moneyflow", 6)
     assert "quarantine_count" not in note
+
+
+# ── 收口：--source clean staging 账本（期望=clean；explained delta 入注释）────
+def _clean_staging(tmp_path: Path, *, quarantined: int = 2, deduped: int = 1,
+                   raw: int = 11) -> Path:
+    """8 行 / 2 日 / 4 码的 clean staging 目录（daily_fact + summary 账本）。"""
+    root = tmp_path / "staging" / "ashare_daily" / "20260919"
+    root.mkdir(parents=True)
+    days = (datetime.date(2026, 9, 16), datetime.date(2026, 9, 17))
+    rows = [{"code": f"{i:06d}.SZ", "trade_date": d} for d in days for i in range(4)]
+    pl.DataFrame(rows, schema={"code": pl.String, "trade_date": pl.Date}).write_parquet(
+        root / "daily_fact.parquet")
+    (root / "summary.json").write_text(json.dumps({
+        "dataset": "ashare_daily", "run_tag": "20260919", "scope": "full_table",
+        "clean_rows": 8, "quarantined_rows": quarantined, "deduped_rows": deduped,
+        "completeness": {"expected_count": raw, "actual_count": 8,
+                         "coverage": 8 / raw},
+    }), encoding="utf-8")
+    return root / "daily_fact.parquet"
+
+
+class _SeqCountCH:
+    """按调用顺序返回预置计数；记录 SQL（daily 5 表顺序断言）。"""
+
+    def __init__(self, counts: list[int]):
+        self._counts = list(counts)
+        self.queries: list[str] = []
+
+    def command(self, sql: str) -> int:
+        self.queries.append(sql)
+        assert self._counts, f"多出未预置查询：{sql}"
+        return self._counts.pop(0)
+
+
+def test_clean_source_expectations_and_explained_delta(tmp_path, capsys):
+    """--source=clean staging：期望行数/日期/代码按 clean 计算 → 一致；
+    raw−clean 差额以 explained delta（quarantine + deduped）注释输出。"""
+    src = _clean_staging(tmp_path, quarantined=2, deduped=1, raw=11)
+    ch = _SeqCountCH([8, 8, 8, 2, 4])
+    results = {table: RC._reconcile(ch, "dbtest", table, src_rows, daily_src=src)
+               for table, src_rows, _ in RC.DAILY_TABLES}
+    assert all(c == s for c, s, _ in results.values()), results
+    assert any("dbtest.daily" in q for q in ch.queries)
+    note = results["daily"][2]
+    assert "explained delta" in note, note
+    assert "raw 11" in note and "clean 8" in note
+    assert "quarantine 2" in note and "deduped 1" in note
+    assert "不一致" not in capsys.readouterr().out
+
+
+def test_source_flag_defaults_to_raw_and_parses():
+    assert RC.resolve_daily_source(None) == Path(RC.DAILY_SRC), "缺省必须向后兼容 raw"
+    assert RC.resolve_daily_source("/tmp/x.parquet") == Path("/tmp/x.parquet")
+    a = RC._parse_args([])
+    assert (a.which, a.source) == ("all", None)
+    b = RC._parse_args(["daily", "--source", "/tmp/x.parquet"])
+    assert (b.which, b.source) == ("daily", "/tmp/x.parquet")
+
+
+def test_reconcile_cli_missing_source_exits_2(tmp_path, capsys):
+    with pytest.raises(SystemExit) as ex:
+        RC.main(["daily", "--source", str(tmp_path / "nope.parquet")])
+    assert ex.value.code == 2
+    err = capsys.readouterr().err
+    assert "--source" in err and "nope.parquet" in err
+
+
+def test_clean_source_without_summary_ledger_still_green(tmp_path, capsys):
+    """--source 传 clean 文件但账本缺失：期望仍按文件行数（不判红），注释说明缺账本。"""
+    src = _clean_staging(tmp_path)
+    (src.parent / "summary.json").unlink()
+    ch, s, note = RC._reconcile(_FakeCountCH(8), "dbtest", "daily", None,
+                                daily_src=src)
+    assert (ch, s) == (8, 8) and "不一致" not in note

@@ -154,7 +154,7 @@ def _cookie_env_guard():
 
 def _run(argv, tmp_path, *, tree=None, transport=None, runner=None,
          verify_runner=None, categories=None, raw_root=None, events=None,
-         transfer_client=None):
+         transfer_client=None, staging_path=None):
     events = events if events is not None else []
     argv = list(argv)
     if categories is not None:
@@ -174,6 +174,8 @@ def _run(argv, tmp_path, *, tree=None, transport=None, runner=None,
         log_dir=tmp_path / "logs",
         raw_root=raw_root if raw_root is not None else tmp_path / "raw",
         transfer_client=transfer_client,
+        staging_path=(staging_path if staging_path is not None
+                      else tmp_path / "no-staging" / "daily_fact.parquet"),
     )
 
 
@@ -539,6 +541,36 @@ def test_verify_calls_full_reconcile_and_propagates_rc(tmp_path):
     assert seen == [[str(VENV), str(RECONCILE)]], "全量 reconcile（不带表名参数）"
     assert RECONCILE.is_file()
     assert _run(["verify"], tmp_path, verify_runner=lambda cmd: 0) == 0
+
+
+def test_verify_passes_clean_staging_source_for_daily(tmp_path, cookie_ok):
+    """收口：daily 在类别内且当天 staged clean 存在 → reconcile 带 --source（clean 账本）。"""
+    staged = (tmp_path / "data" / "staging" / "ashare_daily" / "20260919"
+              / "daily_fact.parquet")
+    staged.parent.mkdir(parents=True)
+    staged.write_bytes(b"stub")
+    seen = []
+
+    def vr(cmd):
+        seen.append(list(cmd))
+        return 0
+
+    assert _run(["verify"], tmp_path, categories="daily", verify_runner=vr,
+                staging_path=staged) == 0
+    assert seen == [[str(VENV), str(RECONCILE), "--source", str(staged)]]
+
+
+def test_verify_without_staged_clean_keeps_raw_fallback(tmp_path, cookie_ok):
+    """staged 缺失（或未查 daily）→ 不带 --source，保持 raw 口径向后兼容。"""
+    seen = []
+    assert _run(["verify"], tmp_path, categories="minutes",
+                verify_runner=lambda cmd: (seen.append(list(cmd)), 0)[1]) == 0
+    assert seen == [[str(VENV), str(RECONCILE)]], "非 daily 类别不得改写 reconcile 口径"
+
+    seen.clear()
+    assert _run(["verify"], tmp_path, categories="daily",
+                verify_runner=lambda cmd: (seen.append(list(cmd)), 0)[1]) == 0
+    assert seen == [[str(VENV), str(RECONCILE)]], "staged 不存在 → 回退 raw"
 
 
 # ---------------------------------------------------------------
