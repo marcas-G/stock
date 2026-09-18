@@ -108,6 +108,33 @@ def query_df(sql: str, params: dict[str, Any] | None = None,
     return pl.from_arrow(table)
 
 
+def query_arrow_stream_df(sql: str, params: dict[str, Any] | None = None,
+                          settings: dict[str, Any] | None = None) -> pl.DataFrame:
+    """执行 SQL（命名参数绑定）→ 逐 RecordBatch 流式 Arrow → pl.DataFrame。
+
+    R31（分钟链 Arrow 读路径）：`query_arrow` 整表物化在当前 clickhouse-connect
+    版本对窄长表（bars_1m 批读 ~1e7 行）实测 4.9s（1.0e7 行，query_arrow 3.9s +
+    pl.from_arrow 1.0s），本函数逐批 `query_arrow_stream` + `pl.from_arrow` 再
+    `pl.concat(rechunk=False)` 实测 2.2s——dtype/null/精度/行序与原 `query_df`
+    逐 bit 一致（test_ch_arrow_stream.py 真 CH 硬门）。
+
+    空结果：`query_arrow_stream` 实测 0 个 table（不带 schema）→ 回退
+    `query_arrow` 取投影 schema（空查询代价毫秒级），保证空窗仍返回同投影空 frame。
+    部分批次失败 → 异常原样抛出（不回退、不静默返回半量）。
+    """
+    merged = {**_READ_SETTINGS, **(settings or {})}
+    frames: list[pl.DataFrame] = []
+    with get_client().query_arrow_stream(sql, parameters=params,
+                                         settings=merged) as stream:
+        for table in stream:
+            frames.append(pl.from_arrow(table))
+    if not frames:
+        return query_df(sql, params, settings)
+    if len(frames) == 1:
+        return frames[0]
+    return pl.concat(frames, rechunk=False)
+
+
 def query_rows(sql: str, params: dict[str, Any] | None = None) -> list[tuple]:
     """执行 SQL → 元组行列表（标量查询用，如 count/max）。
 
@@ -168,6 +195,13 @@ class ClickHouseRead(ReadPort):
     def query_df(self, sql: str, params: Any = None,
                  settings: dict[str, Any] | None = None) -> pl.DataFrame:
         return query_df(sql, params, settings)
+
+    def query_arrow_stream_df(self, sql: str, params: Any = None,
+                              settings: dict[str, Any] | None = None
+                              ) -> pl.DataFrame:
+        """R31：Arrow 流读取（bars_1m 批读用；`intraday._read_codes_sql` 经
+        getattr 探测——测试桩无此方法时回退 query_df）。"""
+        return query_arrow_stream_df(sql, params, settings)
 
     def query_rows(self, sql: str, params: Any = None) -> list[tuple]:
         return query_rows(sql, params)

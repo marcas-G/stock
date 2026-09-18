@@ -439,10 +439,11 @@ def test_codes_ch_profile_segments(monkeypatch, tmp_path):
                        profiler=prof)
     seg = prof.report()["segments"]
     assert seg["cache_miss"]["calls"] == 1 and seg["cache_lookup"]["calls"] == 1
+    assert seg["bars_read"]["calls"] == 1       # 读段父段（before→after 口径）
     intraday._codes_ch(rd, ["000001.SZ"], "2024-01-02", "2024-01-12", cols=_COLS,
                        profiler=prof)
     seg = prof.report()["segments"]
-    assert seg["cache_hit"]["calls"] == 1
+    assert seg["cache_hit"]["calls"] == 1 and seg["bars_read"]["calls"] == 2
     cc.reset_chunk_cache()
 
 

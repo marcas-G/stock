@@ -333,12 +333,25 @@ class ChunkCache:
 
     # ---- 公开 API ----
 
-    def load(self, key: str, *, now: float | None = None) -> CacheLookup:
-        """命中返回解码后 frame（逐文件 sha256+size 校验）；任何损坏 → fallback。"""
+    def probe(self, key: str, *, now: float | None = None
+              ) -> tuple[dict | None, str, str]:
+        """manifest 探测（不含数据文件读取）：过期即清。
+
+        返回 (entry|None, status, reason)：entry 非空 = "命中候选"（status
+        "hit"），数据读取由调用方 `fetch` 完成（profile 段把 manifest 探测与
+        读盘分开）；miss/fallback 语义见 load。
+        """
         now = time.time() if now is None else now
-        entry, status, reason = self._probe(key, now)
-        if entry is None:
-            return CacheLookup(None, status, reason)
+        return self._probe(key, now)
+
+    def fetch(self, key: str, entry: dict, *, now: float | None = None
+              ) -> tuple[pl.DataFrame | None, str]:
+        """读命中候选的数据（size+sha256 校验后 `pl.read_ipc`）。
+
+        成功 → (frame, "")；任何损坏/缺失 → 清坏条目并返回 (None, reason)
+        （调用方回退直读；不 fail）。
+        """
+        now = time.time() if now is None else now
         path = self._entry_path(entry)
         try:
             if not path.is_file():
@@ -350,9 +363,18 @@ class ChunkCache:
             frame = pl.read_ipc(path)
         except Exception as exc:  # noqa: BLE001 —— 任何坏条目都回退直读
             self._drop(key, reason=str(exc))
-            return CacheLookup(None, "fallback",
-                               f"{type(exc).__name__}: {exc}")
+            return None, f"{type(exc).__name__}: {exc}"
         self._touch(key, now)
+        return frame, ""
+
+    def load(self, key: str, *, now: float | None = None) -> CacheLookup:
+        """probe+fetch 一步（单测/简单调用方）；语义同两段组合。"""
+        entry, status, reason = self.probe(key, now=now)
+        if entry is None:
+            return CacheLookup(None, status, reason)
+        frame, err = self.fetch(key, entry, now=now)
+        if frame is None:
+            return CacheLookup(None, "fallback", err)
         return CacheLookup(frame, "hit", "")
 
     def store(self, key: str, frame: pl.DataFrame, fingerprint: str, *,

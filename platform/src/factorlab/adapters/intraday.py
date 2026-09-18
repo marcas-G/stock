@@ -205,29 +205,32 @@ def _codes_ch(rd: ReadPort, codes: list[str], date_start: str | None,
     if unknown:
         raise ValueError(f"未知列: {unknown}（bars_1m 可用列: {_TABLE_COLS['bars_1m']}）")
     ts_codes = _resolve_ts_codes(rd, codes)
-    cache = chunk_cache.get_chunk_cache(enabled=read_cache)
-    if cache is None:
-        return _decode(_read_codes_sql(rd, db, ts_codes, date_start, date_end,
-                                       out_cols))
-    with _span(profiler, "cache_lookup"):
-        fingerprint = chunk_cache.bars_source_fingerprint(rd)
-        key = chunk_cache.chunk_cache_key(
-            codes=ts_codes, date_start=date_start, date_end=date_end,
-            columns=out_cols, fingerprint=fingerprint)
-        lookup = cache.load(key)
-    if lookup.frame is not None:
-        _emit_cache_event("hit", rows=lookup.frame.height, cols=len(out_cols),
-                          key=key[:12])
-        with _span(profiler, "cache_hit"):
-            return lookup.frame.select(out_cols)
-    status = lookup.status
-    _emit_cache_event(status, reason=lookup.reason or "-", key=key[:12])
-    span_name = "cache_fallback" if status == "fallback" else "cache_miss"
-    with _span(profiler, span_name):
-        df = _decode(_read_codes_sql(rd, db, ts_codes, date_start, date_end,
-                                     out_cols))
-        cache.store(key, df, fingerprint)
-    return df
+    with _span(profiler, "bars_read"):
+        cache = chunk_cache.get_chunk_cache(enabled=read_cache)
+        if cache is None:
+            return _decode(_read_codes_sql(rd, db, ts_codes, date_start,
+                                           date_end, out_cols))
+        with _span(profiler, "cache_lookup"):
+            fingerprint = chunk_cache.bars_source_fingerprint(rd)
+            key = chunk_cache.chunk_cache_key(
+                codes=ts_codes, date_start=date_start, date_end=date_end,
+                columns=out_cols, fingerprint=fingerprint)
+            entry, status, reason = cache.probe(key)
+        if entry is not None:
+            with _span(profiler, "cache_hit"):
+                frame, err = cache.fetch(key, entry)
+            if frame is not None:
+                _emit_cache_event("hit", rows=frame.height, cols=len(out_cols),
+                                  key=key[:12])
+                return frame.select(out_cols)
+            status, reason = "fallback", err
+        _emit_cache_event(status, reason=reason or "-", key=key[:12])
+        span_name = "cache_fallback" if status == "fallback" else "cache_miss"
+        with _span(profiler, span_name):
+            df = _decode(_read_codes_sql(rd, db, ts_codes, date_start, date_end,
+                                         out_cols))
+            cache.store(key, df, fingerprint)
+        return df
 
 
 def _read_codes_sql(rd: ReadPort, db: str, ts_codes: list[str],

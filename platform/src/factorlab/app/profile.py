@@ -10,9 +10,11 @@
     装载/注入/成员过滤 + 折日 + 拼装/canonical/panel）；
   - `fold`：分钟折日 `compute_minute_factor_panel`（`read_data` 的子段；
     日频链无）；
-  - `cache_lookup`/`cache_hit`/`cache_miss`/`cache_fallback`：R31 分钟链
-    bars_1m 读缓存子段（指纹+manifest 探测 / 命中读盘 / 未命中直读+落缓存 /
-    坏条目回退直读；缓存关闭时无这些段）；
+  - `bars_read`：分钟链 bars_1m 批读（含直读或经缓存；`read_data` 的子段，
+    跨 chunk 累加）——"读段 before→after"直接对比口径；
+  - `cache_lookup`/`cache_hit`/`cache_miss`/`cache_fallback`：R31 bars_1m 读
+    缓存子段（指纹+manifest 探测 / 命中读盘（sha256 校验+IPC）/ 未命中直读+
+    落缓存 / 坏条目回退直读；缓存关闭时无这些段）；
   - `label`：`_compute_labels`；
   - `evaluate`：评估 kernel + ic_decay（weekly 模式含 align_weekly）；
   - `layered_backtest`：分层回测（`--no-backtest` 时无此段）；
@@ -46,7 +48,7 @@ import psutil
 PROFILE_VERSION = 1
 #: 报告的展示/排序顺序（未列出的段追加在后）
 #: R31：cache_lookup/hit/miss/fallback 为分钟链 bars 读缓存子段（read_data 内）。
-SEGMENT_ORDER = ("read_data", "fold", "cache_lookup", "cache_hit",
+SEGMENT_ORDER = ("read_data", "bars_read", "fold", "cache_lookup", "cache_hit",
                  "cache_miss", "cache_fallback", "label", "evaluate",
                  "layered_backtest", "persist")
 DEFAULT_SAMPLE_INTERVAL_S = 0.05
