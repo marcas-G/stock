@@ -1,0 +1,14 @@
+heavy.sh: slot=1/2 avail=74.2GB  max_memory=8GB oom_score_adj=700 -> /data/students/gaolei/stock/platform/.venv/bin/factorlab run governance/evidence/verification/R31/minute-perf/after/specs/autocorr_micro__2024-01-02_2024-03-29.yaml --chunk-days 10 --profile --output-dir governance/evidence/verification/R31/minute-perf/after/runs/autocorr_micro
+2026-09-18 21:49:18.043 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 21:49:18.086 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-18 21:49:19.406 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 21:49:19.436 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+[profile] total=53192ms (clock=wall_ms, rss=mb)
+  read_data            49624ms  peak=3140MB (+2697MB)  calls=2
+  fold                 23020ms  peak=3140MB (+985MB)  calls=6
+  label                  643ms  peak=2721MB (+0MB)  calls=1
+  evaluate               597ms  peak=1270MB (+0MB)  calls=1
+  layered_backtest       121ms  peak=1031MB (+6MB)  calls=1
+  persist                125ms  peak=1423MB (+31MB)  calls=2
+intraday_autocorr_micro: n_weeks=57 ic_mean=-0.029503109127479738 
+spread=0.0002710270963962177 freq=daily

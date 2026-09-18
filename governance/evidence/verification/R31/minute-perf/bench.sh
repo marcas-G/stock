@@ -141,8 +141,9 @@ def max_rss_mb(time_txt: Path):
 def main():
     env = (out / "env.txt").read_text(encoding="utf-8").strip() if (
         out / "env.txt").is_file() else "(no env.txt)"
+    _phase = "after（R09-PERF-I1 融合）" if out.name == "after" else "before"
     lines = [
-        "# R09 分钟链性能基线（before）——M3 分段计时实测",
+        f"# R09 分钟链性能{_phase}——M3 分段计时实测",
         "",
         f"- 运行口径：`--chunk-days {chunk_days} --profile`，单因子超时 "
         f"{timeout_s}s（{timeout_s / 60:.0f}min）；env：`FACTORLAB_DATA_BACKEND=ch "

@@ -1,0 +1,45 @@
+2026-09-18 20:44:52.648 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 20:44:52.686 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-18 20:44:52.731 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 20:44:52.763 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-18 20:44:52.788 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 20:44:52.823 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-18 20:44:52.871 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 20:44:52.943 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-18 20:44:53.048 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 20:44:53.096 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+== A. codegen 返回帧列（assignment 中间列是否保留） ==
+  columns: ['date', 'code', 'minute_index', 'close', 'volume', 'signal']
+  schema: {'date': 'Date', 'code': 'String', 'minute_index': 'Int64', 'close': 'Float64', 'volume': 'Float64', 'signal': 'Float64'}
+
+== B. 赋值的依赖倒序（DAG 是否自动排序） ==
+  FAIL ColumnNotFoundError unable to find column "__b"; valid columns: ["date", "code", "minute_index", "close", "volume"]
+
+Resolved plan until failure:
+
+	---> FAILED HERE RESOLVING 'select' <---
+DF ["date", "code", "minute_ind
+
+== C. 用户公式 import alias（im_delay as imd）当前路径 ==
+  OK rows: 10 [40.6, 40.6, 40.6, 40.6, 40.6, 40.6, 40.6, 40.6, 40.6, 40.6]
+
+== D. codegen 对重复 im_* 子表达式是否自动 CSE（看 explain） ==
+  OK cols: ['date', 'code', 'minute_index', 'close', 'volume', 'a', 'b', 'signal']
+
+== E. 直接 polars 表达式 vs codegen：复杂形态 bit 对拍 ==
+  day_sum((r-mr)*(v-mv)) codegen vs 直接表达式 bit: False
+  codegen num[:3]: [-0.5344847620462023, -0.5344847620462023]
+  直接 num[:3]:   [-0.5344847620462009, -0.5344847620462009]
+
+== F. catalog kind（元素级白名单来源） ==
+  if_else    kind=None returns='scalar'
+  abs        kind=None returns=None
+  sqrt       kind=None returns='scalar'
+  log        kind=None returns='scalar'
+  exp        kind=None returns='scalar'
+  sign       kind=None returns='scalar'
+  floor      kind=None returns='scalar'
+  im_delay   kind=None returns='scalar'
+  day_sum    kind=None returns='scalar'
+  cs_rank    kind=None returns='scalar'
+  ts_mean    kind=None returns='scalar'

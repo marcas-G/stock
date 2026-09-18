@@ -1,0 +1,15 @@
+===== M1: day_sum 聚合错值（.sum()+1）
+FAILED tests/test_minute_fold.py::test_fused_cse_repeated_im_computed_once - ...
+FAILED tests/test_minute_fold.py::test_fused_im_rolling_inside_day_sum_bit_exact
+7 failed, 10 passed in 4.07s
+===== M2: 融合路径存根化（try_fused -> None）
+FAILED tests/test_minute_fold.py::test_fused_path_not_stub - AssertionError: ...
+FAILED tests/test_minute_fold.py::test_fused_shuffled_input_bit_exact_and_deterministic
+2 failed, 15 passed in 3.01s
+===== M3: CSE 关闭（重复 im_* 不再共享）
+=========================== short test summary info ============================
+FAILED tests/test_minute_fold.py::test_fused_cse_repeated_im_computed_once - ...
+1 failed, 16 passed in 3.90s
+===== 恢复后回归
+.................                                                        [100%]
+17 passed in 3.94s

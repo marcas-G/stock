@@ -1,0 +1,52 @@
+polars 1.44.1
+
+== ①a group_by.agg 上下文支持性 ==
+  OK   sum(col)                     rows=15 dtype=Float64 nulls=0
+  OK   mean(col)                    rows=15 dtype=Float64 nulls=0
+  OK   min(col)                     rows=15 dtype=Float64 nulls=0
+  OK   max(col)                     rows=15 dtype=Float64 nulls=0
+  OK   first(col)                   rows=15 dtype=Float64 nulls=0
+  OK   last(col)                    rows=15 dtype=Float64 nulls=0
+  OK   arith                        rows=15 dtype=Float64 nulls=0
+  OK   compare+cond                 rows=15 dtype=Float64 nulls=0
+  OK   shift(col) [List]            rows=15 dtype=List(Float64) nulls=0
+  OK   arith+shift                  rows=15 dtype=Float64 nulls=0
+  OK   filter                       rows=15 dtype=Float64 nulls=0
+  OK   when(nested agg in cond)     rows=15 dtype=Float64 nulls=0
+  OK   sort_by.first                rows=15 dtype=Float64 nulls=0
+  OK   sort_by.last                 rows=15 dtype=Float64 nulls=0
+  OK   arg_min get                  rows=15 dtype=Float64 nulls=0
+
+== ①b maintain_order + first/last 是否跟随物理序 ==
+  maintain_order=True first/last mi: [{'mif': 0, 'mil': 239}]
+  sort_by 口径 == maintain_order 口径: True
+  when(max).max agg == over 版 day_last/day_first（bit）: True True
+
+== ①c sum/mean: over vs group_by.agg bit 相等（同物理序） ==
+  x: sum=True mean=True max=True min=True
+  y: sum=True mean=True max=True min=True
+
+== ①d day_last/&day_first 旧式（when.max.over）vs agg sort_by ==
+  last: True  first: True
+
+== ③ 预排序 + over 去 order_by：滚动/位移 bit-exact ==
+  rolling_mean    bit=True nullmask=True
+  rolling_sum     bit=True nullmask=True
+  rolling_max     bit=True nullmask=True
+  rolling_min     bit=True nullmask=True
+  rolling_std     bit=True nullmask=True
+  rolling_median  bit=True nullmask=True
+  shift           bit=True nullmask=True
+
+== ② over 多表达式复用 / 预排序无 order_by 计时（大帧） ==
+  frame rows=2880000
+  A over+order_by im4: 0.41s
+  B over no-order im4: 0.32s
+  C over no-order day4: 0.14s
+  D over+order_by day4 (旧): 0.16s
+  E group_by.agg day4: 0.09s
+  F group_by.agg day4+join: 0.13s
+
+== explain 计划：over+order_by 是否共享排序 ==
+  A 计划节点 Sort occurrences=0, group_by=0, lines=2
+  B 计划节点 Sort occurrences=0, group_by=0, lines=2

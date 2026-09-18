@@ -20,9 +20,14 @@
 ```bash
 # 从仓库根；before 证据即本目录（默认输出 before/）
 bash governance/evidence/verification/R31/minute-perf/bench.sh
-# after 复测（P2/P3 落地后同窗同口径）：
+# after 复测（P2 落地后同窗同口径）：
 BENCH_OUT=governance/evidence/verification/R31/minute-perf/after \
   bash governance/evidence/verification/R31/minute-perf/bench.sh
+# 数值硬门（旧/新同一次读盘逐 cell 对拍 + f64 oracle）：
+governance/ops/heavy.sh platform/.venv/bin/python \
+  governance/evidence/verification/R31/minute-perf/verify_fold_parity.py
+# polars/codegen 能力 spike 与突变检验：
+platform/.venv/bin/python governance/evidence/verification/R31/minute-perf/spike/spike_polars.py
 ```
 
 口径：`--chunk-days 10 --profile`，25min/因子超时；env `FACTORLAB_DATA_BACKEND=ch
@@ -75,3 +80,86 @@ FACTORLAB_MAX_MEMORY=8GB FACTORLAB_ST_DEGRADE=allow FACTORLAB_MINUTE_UNCOVERED=d
   分段）、`time.txt`（外部峰值 RSS）、`exit_code`；完整产物按上节命令可复现。
 - bench 运行期树上有挖矿/reviewer 在途改动（`env.txt` `dirty_files=20`），
   与性能路径无关；基线树为 `df0c3b0`（M3 仅计时，无优化）。
+
+---
+
+## R09-PERF-I1（P2）：分钟折日物化共享（2026-09-18）
+
+实现（平台 `core/engine/minute_fold.py`，`compute_formula(scope="bars_1m")`
+codegen 前接管；提交 `2b4daae feat(engine): 分钟折日物化共享融合路径
+（R09-PERF-I1）`）：
+
+- **聚合检测/调度**：AST 收集全部 day_*（含嵌在算术/变量链中的），按依赖分
+  pass；每 pass 用同链 codegen 把聚合参数物化一次 → 组内 over 广播
+  （sum/mean/max/min 单 over；day_first/day_last 同旧实现双 over）→ 结果列供
+  后续 pass/最终输出复用；最终公式死赋值剪枝。
+- **im_\* 共享**：保留 over 路径，但 bars 预排序一次（已物理有序零代价，
+  `struct.is_sorted` 探测）、经 `seq_*` 物理序变体去 order_by、重复子表达式
+  CSE 临时列只算一次。
+- **完整回退**：分析期不支持形态（跨层/未知调用、非简单赋值、保留前缀
+  `factorlab_fold_`/`factorlab_cse_` 名字冲突、缺网格列、依赖环）→ build_plan
+  返回 None，逐字节回退既有 codegen 路径；spike 依据
+  [`spike/README.md`](spike/README.md)（含 polars 能力 / 嵌套 over 归约敏感 /
+  突变检验）。契约注记：`knowledge/contracts/interface.md` 分钟链一节。
+
+### after 复测（commit `48858f2`；`after/timings.md` + `after/env.txt`）
+
+产物同 before 口径（保留 `summary.json` 含 `runtime.profile`、`run.log`、
+`time.txt`、`exit_code`；原始 parquet ~50MB 不入库，按上方命令可复现）。
+
+| 因子 | before fold | after fold | 倍率 | before 总墙钟 | after 总墙钟 | 峰值 RSS |
+|---|---|---|---|---|---|---|
+| am_pm_vol | 18.19s | 14.11s | 1.29× | 55.6s | 46.7s | 3.4GB |
+| vol_asym | 20.45s | 21.70s | 0.94× | 52.2s | 53.0s | 3.2GB |
+| autocorr_micro | 31.24s | 23.02s | 1.36× | 63.4s | 53.2s | 3.1GB |
+| vol_price_corr | 64.66s | **27.29s** | **2.37×** | 101.2s | 63.1s | 3.6GB |
+
+- **目标达成**：R09 最病态 vol_price_corr fold 64.7s→27.3s（≥2×）；总墙钟
+  101.2s→63.1s（1.60×）；read 段不变（P4 范畴），RSS 无回退。
+- vol_asym +1.2s（-6%）：融合预排序检查/额外 codegen 开销；同量级噪声带
+  （同步长跑 read 段自身波动 ±3s）。autocorr 收益来自旧路径把 `im_delay`
+  内联进 `day_sum` 的嵌套归约被物化共享替代。
+
+### 数值硬门（同一次读盘旧/新逐 cell 对拍；`after/fold_parity.json`）
+
+`verify_fold_parity.py`：同一 chunk 打桩跑旧路径（`try_fused→None`）与融合
+路径 + f64 oracle（bars f32 精确上转后融合计算），整段 281338 行对齐比较：
+
+| 因子 | 输出 dtype | bit-exact | max\|Δ\| | 旧 vs f64 oracle | 新 vs f64 oracle | null 掩码 |
+|---|---|---|---|---|---|---|
+| am_pm_vol | f64 | **True**（0/281337 差异） | 0 | 0 | 0 | 一致 |
+| vol_asym | f32 | **True**（0/280481 差异） | 0 | 0.742 | 0.742 | 一致 |
+| autocorr_micro | f32 | False | 3.28e-07 | 1.237e-05 | 1.237e-05 | 一致 |
+| vol_price_corr | f64 | False | 2.42e-06 | 5.071e-05 | 5.091e-05 | 一致 |
+
+- 纯逐行参数形态（am_pm_vol/vol_asym）**逐 cell bit-exact**；
+- 旧路径将 im_delay/day_mean 内联进 day_* 聚合的**嵌套 over** 形态
+  （autocorr/vol_price）：新旧差 ≤ 3.3e-7 / 2.4e-6，且**小于旧路径自身对
+  f64 oracle 的 f32 舍入量级**（1.2e-5 / 5.1e-5）——差异为 f32 归约计划
+  敏感的末位舍入（spike ③ 定位），非语义/错值；null 掩码严格一致。
+
+### 门结果（2026-09-18，改动树）
+
+- **新测试**（TDD 红→绿）：`platform/tests/test_minute_fold.py` 17 条——plan
+  分 pass/回退、4 因子对拍（2 bit-exact + 2 ulp）、手算竖例、乱序确定性、
+  嵌套 day 双 pass、非存根锁（≥2 次 codegen + `factorlab_fold_arg_` 临时列）、
+  CSE 只算一次、多输出。
+- **现有分钟测试**：`test_minute_ops/gate/engine/coverage/read_minute_window`
+  77 passed（含并发在途 `im_cummax` 新增测试）。
+- **平台全量**（融合首版 join 广播）：`3447 passed, 15 skipped, 1 failed`
+  ——`test_catalog.py::test_markdown_docs_file_committed_and_fresh` 为**预存红**
+  （并发挖掘在途 `im_cummax` 未同步 `knowledge/contracts/catalog.md`，diff 仅
+  3 行 op 清单；本改动不触注册面）。最终版 over 广播实现的全量复跑见提交/门记录。
+- **make gates**：预存红（在途 lob_fact 工具链）不受本改动影响。
+- **突变检验**：`spike/mutation.txt`——聚合错值 7 failed、优化器存根 2 failed、
+  CSE 关闭 1 failed；恢复 17 passed。
+
+### 与计划的偏差 / 限制
+
+- **bit-exact 范围**：嵌套 over 参数形态仅达 ulp 级（任务书允许"证明仅 ulp 级
+  且记录"）；要逐 bit 复现须保留旧路径"逐 day_sum 重算嵌套表达式"的病态计划，
+  与优化目标冲突（spike ③ 有归约敏感定位 + f64 oracle 尺度对照）。
+- **vol_asym 轻微回归**（-1.2s/6%，噪声带）与 am_pm_vol 的融合收益有限：
+  简单两聚合形态旧路径已接近最优；融合主力收益在病态共享形态。
+- after 在 `commit 48858f2`（挖掘/reviewer 在途提交推进了树，dirty_files=22；
+  minute 链功能无相关改动），before 在 `df0c3b0`；bench 同窗同口径可比。

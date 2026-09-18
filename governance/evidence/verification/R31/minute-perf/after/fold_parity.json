@@ -1,0 +1,82 @@
+{
+  "window": "2024-01-02..2024-03-29",
+  "chunk_days": 10,
+  "factors": {
+    "am_pm_vol": {
+      "rows": 281338,
+      "signal": {
+        "dtype": "Float64",
+        "bit_exact": true,
+        "n_cells": 281337,
+        "n_bit_diff": 0,
+        "max_abs_delta": 0.0,
+        "max_rel_delta": 0.0,
+        "null_mask_equal": true
+      },
+      "f32_rounding_scale": {
+        "signal": {
+          "legacy_vs_f64_oracle_max_abs": 0.0,
+          "fused_vs_f64_oracle_max_abs": 0.0
+        }
+      },
+      "wall_s_with_three_compute": 79.8
+    },
+    "vol_asym": {
+      "rows": 281338,
+      "signal": {
+        "dtype": "Float32",
+        "bit_exact": true,
+        "n_cells": 280481,
+        "n_bit_diff": 0,
+        "max_abs_delta": 0.0,
+        "max_rel_delta": 0.0,
+        "null_mask_equal": true
+      },
+      "f32_rounding_scale": {
+        "signal": {
+          "legacy_vs_f64_oracle_max_abs": 0.7418895641021663,
+          "fused_vs_f64_oracle_max_abs": 0.7418895641021663
+        }
+      },
+      "wall_s_with_three_compute": 86.2
+    },
+    "autocorr_micro": {
+      "rows": 281338,
+      "signal": {
+        "dtype": "Float32",
+        "bit_exact": false,
+        "n_cells": 280671,
+        "n_bit_diff": 121839,
+        "max_abs_delta": 3.2782554626464844e-07,
+        "max_rel_delta": 1.1333333896413873,
+        "null_mask_equal": true
+      },
+      "f32_rounding_scale": {
+        "signal": {
+          "legacy_vs_f64_oracle_max_abs": 1.2369065367001664e-05,
+          "fused_vs_f64_oracle_max_abs": 1.2369065367001664e-05
+        }
+      },
+      "wall_s_with_three_compute": 101.4
+    },
+    "vol_price_corr": {
+      "rows": 281338,
+      "signal": {
+        "dtype": "Float64",
+        "bit_exact": false,
+        "n_cells": 280671,
+        "n_bit_diff": 264892,
+        "max_abs_delta": 2.4165795663444456e-06,
+        "max_rel_delta": 3.1034615434515045e-06,
+        "null_mask_equal": true
+      },
+      "f32_rounding_scale": {
+        "signal": {
+          "legacy_vs_f64_oracle_max_abs": 5.070832310920259e-05,
+          "fused_vs_f64_oracle_max_abs": 5.090551759540096e-05
+        }
+      },
+      "wall_s_with_three_compute": 137.7
+    }
+  }
+}
