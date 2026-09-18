@@ -462,6 +462,19 @@ def test_codes_ch_column_set_reorder_is_hit_with_requested_order(monkeypatch,
     cc.reset_chunk_cache()
 
 
+def test_codes_ch_unknown_col_fails_before_cache(monkeypatch, tmp_path):
+    """缺列（白名单外）在指纹/缓存之前 fail loud——不查 CH、不建目录、不落缓存。"""
+    from factorlab.adapters import intraday
+    _enable_cache(monkeypatch, tmp_path)
+    rd = _BarsRead()
+    with pytest.raises(ValueError, match="bogus"):
+        intraday._codes_ch(rd, ["000001.SZ"], "2024-01-02", "2024-01-12",
+                           cols=["code", "bogus"])
+    assert rd.rows_calls == [] and rd.df_calls == []
+    assert not (tmp_path / "rc").exists()
+    cc.reset_chunk_cache()
+
+
 def test_codes_ch_empty_frame_cached(monkeypatch, tmp_path):
     from factorlab.adapters import intraday
     _enable_cache(monkeypatch, tmp_path)
