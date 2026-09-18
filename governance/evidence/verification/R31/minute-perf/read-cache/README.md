@@ -84,7 +84,9 @@ M5 开关恒开、M6 LRU→FIFO。还原后 `test_read_cache.py`+`test_ch_arrow_
 
 ## ⑤ 门
 
-- **平台全量**（最终树 fresh 实测，含 `77a2680`）：`3551 passed, 15 skipped, 1 failed`
+- **平台全量**（最终树 fresh 实测，含 `77a2680`；运行期树上有并发 DQ-M1
+  终审修复的未提交改动 `health.py`/`main.py`/`test_cli_run.py` 等——本改动
+  路径测试全部通过，唯一红为下列预存数据锚）：`3551 passed, 15 skipped, 1 failed`
   ——`tests/test_regression_152.py::test_sample_value_regression` 为**数据锚
   预存红**（reversal_20d IC mean 漂移 7.6e-7 > 1e-9；已回退本改动源码在纯净树
   复跑同样失败；与本优化无关）。
