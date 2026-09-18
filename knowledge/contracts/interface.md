@@ -148,14 +148,34 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
   `label`、`evaluate`、`layered_backtest`（`--no-backtest` 时无）、`persist`
   （artifact/panel/weekly 落盘；summary.json 自身重写不计入）。实现
   `app/profile.py`（段边界采样 + 20Hz 采样线程，峰值按段窗口归属）。
+- `--chunk-workers N`（R09-PERF-P4）：分钟链 chunk 并行度（`N >= 1`，默认 1 =
+  现行为顺序执行；仅 `interface: bars_1m` 生效，日频链忽略）。`N >= 2` 时按
+  chunk 并行「注入/批读/成员过滤 + 折日」，按 chunk 顺序合并——分钟窗不跨日，
+  数值与 N=1 逐 cell 严格一致（真 CH 4 因子 bit-exact 对拍：`after-p4/
+  chunk_workers_parity.json`）。**并发前内存预算门**：估算 `N × 3.6GB/chunk`
+  （P2/P3 同窗实测每 chunk/进程峰值上界 RSS 3.0–3.6GB）超过
+  `FACTORLAB_MAX_MEMORY` → 打开 DB 前 `MemoryLimitExceeded` 干净拒绝（示例：
+  8GB 护栏下 N=3 拒绝、N=2 放行——实测 N=2 峰值 RSS ≤6.2GB）；未设预算且估算
+  >8GB 时响亮告警（N 为显式 opt-in，宿主 memguard 兜底）。任一 chunk 失败 →
+  整体失败（取消未启动任务、异常原样传播、无半成品）；R03-I6 覆盖审计（drop
+  剔除集跨块累计）与看门狗 chunk 边界协作检查语义不变。**barrier 测试证明
+  N≥2 真的并发折日**（非顺序伪并行）。
 - **分钟面分派（W5）**：`interface: bars_1m` 的 spec（字段与口径见 §2）由 run
   分派 `run_factor_minute`（engine.minute，B7.1）——折日面板与日频同列契约，
   下方评估/分层回测同一路径零改动（`weekly.parquet` + `evaluation`
   照常落盘）。分钟面**仅 ClickHouse 后端**：设置 `FACTORLAB_DATA_BACKEND=ch`
   （并指向含 bars_1m 的 `FACTORLAB_CH_DATABASE`）。`--warmup-days` 对分钟链
   忽略（日内窗无预热；注入列 adv20 左窗由引擎独立预取 20 交易日）；`--chunk-days`
-  缺省按 20 交易日/块自动分块（R04-P1，内存语义见上一条），分块结果 == 整段
-  严格相等。
+   缺省按 20 交易日/块自动分块（R04-P1，内存语义见上一条），分块结果 == 整段
+   严格相等。
+- **bars_1m 批读 CH 查询调优（R09-PERF-P4）**：分钟批读查询设置可经 env
+  `FACTORLAB_CH_MAX_THREADS` / `FACTORLAB_CH_MAX_BLOCK_SIZE`（正整数）单查询
+  注入 `max_threads`/`max_block_size`（`adapters/ch_read.bars_read_settings`）；
+  未设 = 服务器默认（零行为变化），非法值 fail loud。spike（真 CH 同窗单查询
+  10 变体，`governance/evidence/verification/R31/minute-perf/spike/`）显示两
+  旋钮相对默认在噪声带（3.1–3.6s），平台不设默认值；全局 `join_use_nulls=1`
+  恒在（调用方不可覆盖）。并行读（`--chunk-workers`）要求 CH 客户端线程级
+  单例（clickhouse-connect 同 session 并发查询被禁）。
 - 落盘：`panel.parquet`（run_factor 日频面板）、`weekly.parquet`（评估输入面板——
   daily 模式为日频面板 / weekly 模式为周频对齐面板；文件名保留历史布局）、
   `summary.json`（run_factor 摘要 + `evaluation` 字段——频率分支评估
