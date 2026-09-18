@@ -1,0 +1,32 @@
+== date ==
+2026年 09月 18日 星期五 12:39:51 CST
+
+== systemctl --user status memguard ==
+● memguard.service - memguard host memory guard (R30; kill only heavy procs of gaolei)
+   Loaded: loaded (/home/gaolei/.config/systemd/user/memguard.service; enabled; vendor preset: enabled)
+   Active: active (running) since Fri 2026-09-18 12:39:44 CST; 7s ago
+ Main PID: 14258 (python)
+   CGroup: /user.slice/user-1010.slice/user@1010.service/memguard.service
+           └─14258 /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/governance/ops/memguard.py --interval 2 --memlog-interval 10
+
+9月 18 12:39:44 user systemd[19654]: Started memguard host memory guard (R30; kill only heavy procs of gaolei).
+9月 18 12:39:44 user python[14258]: 2026-09-18 12:39:44,732 INFO memguard memguard 启动: user=gaolei interval=2.0s dry_run=False state=/home/gaolei/.local/state/memguard thresholds(warn=10.0GB term=5.0GB kill=2.5GB candidate>=2.0GB swap_term=<10.0GB free & <15.0GB avail, swap_kill=<6.0GB free & <8.0GB avail)
+9月 18 12:39:44 user python[14258]: 2026-09-18 12:39:44,898 INFO memguard memguard heartbeat: level=ok source=ok avail=82.1GB swap_used=16.3GB swap_free=48.2GB steps=1
+
+== journalctl --user -u memguard (last 8) ==
+9月 18 12:37:59 user python[32840]: 2026-09-18 12:37:59,983 INFO memguard memguard heartbeat: level=ok avail=82.1GB swap_free=48.2GB steps=1102
+9月 18 12:39:01 user python[32840]: 2026-09-18 12:39:01,233 INFO memguard memguard heartbeat: level=ok avail=82.1GB swap_free=48.2GB steps=1131
+9月 18 12:39:44 user systemd[19654]: Stopping memguard host memory guard (R30; kill only heavy procs of gaolei)...
+9月 18 12:39:44 user systemd[19654]: Stopped memguard host memory guard (R30; kill only heavy procs of gaolei).
+9月 18 12:39:44 user systemd[19654]: memguard.service: Failed to add inotify watch descriptor for control group /user.slice/user-1010.slice/user@1010.service/memguard.service: No space left on device
+9月 18 12:39:44 user systemd[19654]: Started memguard host memory guard (R30; kill only heavy procs of gaolei).
+9月 18 12:39:44 user python[14258]: 2026-09-18 12:39:44,732 INFO memguard memguard 启动: user=gaolei interval=2.0s dry_run=False state=/home/gaolei/.local/state/memguard thresholds(warn=10.0GB term=5.0GB kill=2.5GB candidate>=2.0GB swap_term=<10.0GB free & <15.0GB avail, swap_kill=<6.0GB free & <8.0GB avail)
+9月 18 12:39:44 user python[14258]: 2026-09-18 12:39:44,898 INFO memguard memguard heartbeat: level=ok source=ok avail=82.1GB swap_used=16.3GB swap_free=48.2GB steps=1
+
+== memguard --once --dry-run (CLI source 字段) ==
+{"time": 1789706392, "available": 88134201344, "swap_free": 51805409280, "level": "ok", "source": "ok", "action": "none", "victims": [], "executed": false, "dry_run": true}
+
+== ~/.local/state/memguard/memlog.tsv (tail 3) ==
+1789706372	88187871232	51803049984	4.55	5981:30.9GB 35369:1.2GB 35893:1.1GB 32813:999.3MB 39866:959.7MB
+1789706383	88194658304	51804360704	4.56	5981:30.9GB 35369:1.2GB 35893:1.1GB 32813:999.3MB 39866:959.6MB
+1789706384	88179605504	51804622848	4.56	5981:30.9GB 35369:1.2GB 35893:1.1GB 32813:999.3MB 39866:959.7MB

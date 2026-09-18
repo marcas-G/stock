@@ -1,0 +1,36 @@
+.......FF....                                                            [100%]
+=================================== FAILURES ===================================
+______________ test_default_oom_score_adj_700_visible_in_command _______________
+
+env = {'CONDA_SHLVL': '1', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=...6:', 'LD_LIBRARY_PATH': '/home/gaolei/cuda-12.2/lib64:', 'CONDA_EXE': '/data/students/gaolei/anaconda3/bin/conda', ...}
+
+    def test_default_oom_score_adj_700_visible_in_command(env):
+        """真实 /proc/self：heavy.sh 先写自身 oom_score_adj=700，exec 后命令继承。"""
+        r = _run(["bash", "-c", "cat /proc/self/oom_score_adj"], env)
+        assert r.returncode == 0, r.stderr
+>       assert r.stdout.strip() == "700"
+E       AssertionError: assert '0' == '700'
+E         
+E         - 700
+E         + 0
+
+governance/ops/tests/test_heavy_sh.py:117: AssertionError
+_____________________ test_oom_score_adj_override_via_env ______________________
+
+env = {'CONDA_SHLVL': '1', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=...6:', 'LD_LIBRARY_PATH': '/home/gaolei/cuda-12.2/lib64:', 'CONDA_EXE': '/data/students/gaolei/anaconda3/bin/conda', ...}
+
+    def test_oom_score_adj_override_via_env(env):
+        env["HEAVY_OOM_SCORE_ADJ"] = "300"
+        r = _run(["bash", "-c", "cat /proc/self/oom_score_adj"], env)
+        assert r.returncode == 0, r.stderr
+>       assert r.stdout.strip() == "300"
+E       AssertionError: assert '0' == '300'
+E         
+E         - 300
+E         + 0
+
+governance/ops/tests/test_heavy_sh.py:124: AssertionError
+=========================== short test summary info ============================
+FAILED governance/ops/tests/test_heavy_sh.py::test_default_oom_score_adj_700_visible_in_command
+FAILED governance/ops/tests/test_heavy_sh.py::test_oom_score_adj_override_via_env
+2 failed, 11 passed in 5.48s

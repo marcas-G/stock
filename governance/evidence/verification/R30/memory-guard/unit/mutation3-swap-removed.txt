@@ -1,0 +1,237 @@
+.........................................F..FFFF.F.FF.F........F.....    [100%]
+=================================== FAILURES ===================================
+______ test_level_for_swap_boundaries_and_first_trigger[14.99-9.99-term] _______
+
+avail_gb = 14.99, swap_free_gb = 9.99, expected = 'term'
+
+    @pytest.mark.parametrize("avail_gb,swap_free_gb,expected", [
+        (20, 50, "ok"), (14.99, 50, "ok"), (10, 50, "ok"),
+        (14.99, 9.99, "term"),      # swap 前置：avail 仍 >10GB（原判 ok）
+        (15, 9.99, "ok"),           # avail 边界：不严格小于 15 → 不触发
+        (14.99, 10, "ok"),          # swap 边界：不严格小于 10 → 不触发
+        (8, 5.99, "term"),          # kill 的 avail 边界不满足 → 退到 term
+        (8, 9.99, "term"),
+        (7.99, 5.99, "kill"),       # swap kill 前置：avail 仍在 warn 区间
+        (7.99, 6, "term"),          # kill 的 swap 边界不满足 → term
+        (7.99, 50, "warn"),         # swap 健康 → 原 avail 判定不受影响
+        (4.99, 4, "kill"),          # 原判 term + swap kill → 取更严重者
+        (2.49, 50, "kill"),         # 原 avail kill 仍生效
+    ])
+    def test_level_for_swap_boundaries_and_first_trigger(avail_gb, swap_free_gb, expected):
+        level, _ = mg.classify(int(avail_gb * GB), int(swap_free_gb * GB),
+                               mg.DEFAULT_THRESHOLDS)
+>       assert level == expected
+E       AssertionError: assert 'ok' == 'term'
+E         
+E         - term
+E         + ok
+
+governance/ops/tests/test_memguard.py:203: AssertionError
+________ test_level_for_swap_boundaries_and_first_trigger[8-5.99-term] _________
+
+avail_gb = 8, swap_free_gb = 5.99, expected = 'term'
+
+    @pytest.mark.parametrize("avail_gb,swap_free_gb,expected", [
+        (20, 50, "ok"), (14.99, 50, "ok"), (10, 50, "ok"),
+        (14.99, 9.99, "term"),      # swap 前置：avail 仍 >10GB（原判 ok）
+        (15, 9.99, "ok"),           # avail 边界：不严格小于 15 → 不触发
+        (14.99, 10, "ok"),          # swap 边界：不严格小于 10 → 不触发
+        (8, 5.99, "term"),          # kill 的 avail 边界不满足 → 退到 term
+        (8, 9.99, "term"),
+        (7.99, 5.99, "kill"),       # swap kill 前置：avail 仍在 warn 区间
+        (7.99, 6, "term"),          # kill 的 swap 边界不满足 → term
+        (7.99, 50, "warn"),         # swap 健康 → 原 avail 判定不受影响
+        (4.99, 4, "kill"),          # 原判 term + swap kill → 取更严重者
+        (2.49, 50, "kill"),         # 原 avail kill 仍生效
+    ])
+    def test_level_for_swap_boundaries_and_first_trigger(avail_gb, swap_free_gb, expected):
+        level, _ = mg.classify(int(avail_gb * GB), int(swap_free_gb * GB),
+                               mg.DEFAULT_THRESHOLDS)
+>       assert level == expected
+E       AssertionError: assert 'warn' == 'term'
+E         
+E         - term
+E         + warn
+
+governance/ops/tests/test_memguard.py:203: AssertionError
+________ test_level_for_swap_boundaries_and_first_trigger[8-9.99-term] _________
+
+avail_gb = 8, swap_free_gb = 9.99, expected = 'term'
+
+    @pytest.mark.parametrize("avail_gb,swap_free_gb,expected", [
+        (20, 50, "ok"), (14.99, 50, "ok"), (10, 50, "ok"),
+        (14.99, 9.99, "term"),      # swap 前置：avail 仍 >10GB（原判 ok）
+        (15, 9.99, "ok"),           # avail 边界：不严格小于 15 → 不触发
+        (14.99, 10, "ok"),          # swap 边界：不严格小于 10 → 不触发
+        (8, 5.99, "term"),          # kill 的 avail 边界不满足 → 退到 term
+        (8, 9.99, "term"),
+        (7.99, 5.99, "kill"),       # swap kill 前置：avail 仍在 warn 区间
+        (7.99, 6, "term"),          # kill 的 swap 边界不满足 → term
+        (7.99, 50, "warn"),         # swap 健康 → 原 avail 判定不受影响
+        (4.99, 4, "kill"),          # 原判 term + swap kill → 取更严重者
+        (2.49, 50, "kill"),         # 原 avail kill 仍生效
+    ])
+    def test_level_for_swap_boundaries_and_first_trigger(avail_gb, swap_free_gb, expected):
+        level, _ = mg.classify(int(avail_gb * GB), int(swap_free_gb * GB),
+                               mg.DEFAULT_THRESHOLDS)
+>       assert level == expected
+E       AssertionError: assert 'warn' == 'term'
+E         
+E         - term
+E         + warn
+
+governance/ops/tests/test_memguard.py:203: AssertionError
+_______ test_level_for_swap_boundaries_and_first_trigger[7.99-5.99-kill] _______
+
+avail_gb = 7.99, swap_free_gb = 5.99, expected = 'kill'
+
+    @pytest.mark.parametrize("avail_gb,swap_free_gb,expected", [
+        (20, 50, "ok"), (14.99, 50, "ok"), (10, 50, "ok"),
+        (14.99, 9.99, "term"),      # swap 前置：avail 仍 >10GB（原判 ok）
+        (15, 9.99, "ok"),           # avail 边界：不严格小于 15 → 不触发
+        (14.99, 10, "ok"),          # swap 边界：不严格小于 10 → 不触发
+        (8, 5.99, "term"),          # kill 的 avail 边界不满足 → 退到 term
+        (8, 9.99, "term"),
+        (7.99, 5.99, "kill"),       # swap kill 前置：avail 仍在 warn 区间
+        (7.99, 6, "term"),          # kill 的 swap 边界不满足 → term
+        (7.99, 50, "warn"),         # swap 健康 → 原 avail 判定不受影响
+        (4.99, 4, "kill"),          # 原判 term + swap kill → 取更严重者
+        (2.49, 50, "kill"),         # 原 avail kill 仍生效
+    ])
+    def test_level_for_swap_boundaries_and_first_trigger(avail_gb, swap_free_gb, expected):
+        level, _ = mg.classify(int(avail_gb * GB), int(swap_free_gb * GB),
+                               mg.DEFAULT_THRESHOLDS)
+>       assert level == expected
+E       AssertionError: assert 'warn' == 'kill'
+E         
+E         - kill
+E         + warn
+
+governance/ops/tests/test_memguard.py:203: AssertionError
+________ test_level_for_swap_boundaries_and_first_trigger[7.99-6-term] _________
+
+avail_gb = 7.99, swap_free_gb = 6, expected = 'term'
+
+    @pytest.mark.parametrize("avail_gb,swap_free_gb,expected", [
+        (20, 50, "ok"), (14.99, 50, "ok"), (10, 50, "ok"),
+        (14.99, 9.99, "term"),      # swap 前置：avail 仍 >10GB（原判 ok）
+        (15, 9.99, "ok"),           # avail 边界：不严格小于 15 → 不触发
+        (14.99, 10, "ok"),          # swap 边界：不严格小于 10 → 不触发
+        (8, 5.99, "term"),          # kill 的 avail 边界不满足 → 退到 term
+        (8, 9.99, "term"),
+        (7.99, 5.99, "kill"),       # swap kill 前置：avail 仍在 warn 区间
+        (7.99, 6, "term"),          # kill 的 swap 边界不满足 → term
+        (7.99, 50, "warn"),         # swap 健康 → 原 avail 判定不受影响
+        (4.99, 4, "kill"),          # 原判 term + swap kill → 取更严重者
+        (2.49, 50, "kill"),         # 原 avail kill 仍生效
+    ])
+    def test_level_for_swap_boundaries_and_first_trigger(avail_gb, swap_free_gb, expected):
+        level, _ = mg.classify(int(avail_gb * GB), int(swap_free_gb * GB),
+                               mg.DEFAULT_THRESHOLDS)
+>       assert level == expected
+E       AssertionError: assert 'warn' == 'term'
+E         
+E         - term
+E         + warn
+
+governance/ops/tests/test_memguard.py:203: AssertionError
+________ test_level_for_swap_boundaries_and_first_trigger[4.99-4-kill] _________
+
+avail_gb = 4.99, swap_free_gb = 4, expected = 'kill'
+
+    @pytest.mark.parametrize("avail_gb,swap_free_gb,expected", [
+        (20, 50, "ok"), (14.99, 50, "ok"), (10, 50, "ok"),
+        (14.99, 9.99, "term"),      # swap 前置：avail 仍 >10GB（原判 ok）
+        (15, 9.99, "ok"),           # avail 边界：不严格小于 15 → 不触发
+        (14.99, 10, "ok"),          # swap 边界：不严格小于 10 → 不触发
+        (8, 5.99, "term"),          # kill 的 avail 边界不满足 → 退到 term
+        (8, 9.99, "term"),
+        (7.99, 5.99, "kill"),       # swap kill 前置：avail 仍在 warn 区间
+        (7.99, 6, "term"),          # kill 的 swap 边界不满足 → term
+        (7.99, 50, "warn"),         # swap 健康 → 原 avail 判定不受影响
+        (4.99, 4, "kill"),          # 原判 term + swap kill → 取更严重者
+        (2.49, 50, "kill"),         # 原 avail kill 仍生效
+    ])
+    def test_level_for_swap_boundaries_and_first_trigger(avail_gb, swap_free_gb, expected):
+        level, _ = mg.classify(int(avail_gb * GB), int(swap_free_gb * GB),
+                               mg.DEFAULT_THRESHOLDS)
+>       assert level == expected
+E       AssertionError: assert 'term' == 'kill'
+E         
+E         - kill
+E         + term
+
+governance/ops/tests/test_memguard.py:203: AssertionError
+________________ test_decide_swap_term_upgrades_before_avail_ok ________________
+
+    def test_decide_swap_term_upgrades_before_avail_ok():
+        d = mg.decide(14 * GB, _procs(), swap_free=9 * GB,
+                      thresholds=mg.DEFAULT_THRESHOLDS,
+                      last_action_ts=None, now=1000.0, target_user="gaolei")
+>       assert d.level == "term" and d.action == "terminate" and d.victims == (1, 2)
+E       AssertionError: assert ('ok' == 'term'
+E         
+E         - term
+E         + ok)
+
+governance/ops/tests/test_memguard.py:210: AssertionError
+__________________ test_decide_swap_kill_upgrades_avail_term ___________________
+
+    def test_decide_swap_kill_upgrades_avail_term():
+        d = mg.decide(7 * GB, _procs(), swap_free=5 * GB,
+                      thresholds=mg.DEFAULT_THRESHOLDS,
+                      last_action_ts=None, now=1000.0, target_user="gaolei")
+>       assert d.level == "kill" and d.action == "terminate"
+E       AssertionError: assert ('warn' == 'kill'
+E         
+E         - kill
+E         + warn)
+
+governance/ops/tests/test_memguard.py:218: AssertionError
+________________ test_decide_both_same_level_flags_both_sources ________________
+
+    def test_decide_both_same_level_flags_both_sources():
+        d = mg.decide(4 * GB, _procs(), swap_free=9 * GB,
+                      thresholds=mg.DEFAULT_THRESHOLDS,
+                      last_action_ts=None, now=1000.0, target_user="gaolei")
+>       assert d.level == "term" and d.source == "avail+swap"
+E       AssertionError: assert ('term' == 'term'
+E         
+E           term and 'avail' == 'avail+swap'
+E         
+E         - avail+swap
+E         + avail)
+
+governance/ops/tests/test_memguard.py:233: AssertionError
+_____________ test_heartbeat_source_swap_when_swap_pressure_early ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2626/test_heartbeat_source_swap_whe0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x7f31bd4e9a30>
+
+    def test_heartbeat_source_swap_when_swap_pressure_early(tmp_path, caplog):
+        """R30.1：swap 前置条触发时，心跳 level/source 标注来源=swap。"""
+        rig = _Rig(tmp_path, avail=14 * GB, swap_total=64 * GB, swap_free=9 * GB)
+        with caplog.at_level(logging.INFO, logger="memguard"):
+            res = rig.step()
+        msg = next(r.getMessage() for r in caplog.records if "heartbeat" in r.getMessage())
+>       assert res.decision.level == "term" and res.decision.source == "swap"
+E       AssertionError: assert ('ok' == 'term'
+E         
+E         - term
+E         + ok)
+
+governance/ops/tests/test_memguard.py:364: AssertionError
+------------------------------ Captured log call -------------------------------
+INFO     memguard:memguard.py:391 memguard heartbeat: level=ok source=ok avail=14.0GB swap_used=55.0GB swap_free=9.0GB steps=1
+=========================== short test summary info ============================
+FAILED governance/ops/tests/test_memguard.py::test_level_for_swap_boundaries_and_first_trigger[14.99-9.99-term]
+FAILED governance/ops/tests/test_memguard.py::test_level_for_swap_boundaries_and_first_trigger[8-5.99-term]
+FAILED governance/ops/tests/test_memguard.py::test_level_for_swap_boundaries_and_first_trigger[8-9.99-term]
+FAILED governance/ops/tests/test_memguard.py::test_level_for_swap_boundaries_and_first_trigger[7.99-5.99-kill]
+FAILED governance/ops/tests/test_memguard.py::test_level_for_swap_boundaries_and_first_trigger[7.99-6-term]
+FAILED governance/ops/tests/test_memguard.py::test_level_for_swap_boundaries_and_first_trigger[4.99-4-kill]
+FAILED governance/ops/tests/test_memguard.py::test_decide_swap_term_upgrades_before_avail_ok
+FAILED governance/ops/tests/test_memguard.py::test_decide_swap_kill_upgrades_avail_term
+FAILED governance/ops/tests/test_memguard.py::test_decide_both_same_level_flags_both_sources
+FAILED governance/ops/tests/test_memguard.py::test_heartbeat_source_swap_when_swap_pressure_early
+10 failed, 59 passed in 0.35s

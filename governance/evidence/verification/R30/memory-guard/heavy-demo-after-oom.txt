@@ -1,0 +1,5 @@
+$ governance/ops/heavy.sh bash -c '... oom_score_adj ...'
+heavy.sh: slot=1/2 avail=82.1GB  max_memory=8GB oom_score_adj=700 -> bash -c echo "child_oom_score_adj=$(cat /proc/self/oom_score_adj) FACTORLAB_MAX_MEMORY=$FACTORLAB_MAX_MEMORY"; sleep 0.2; cat /proc/self/oom_score_adj
+child_oom_score_adj=700 FACTORLAB_MAX_MEMORY=8GB
+700
+exit=0
