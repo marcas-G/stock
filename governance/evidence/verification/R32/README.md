@@ -7,7 +7,8 @@
 | 任务 | commit | 内容 | 证据 |
 |---|---|---|---|
 | T8 | `1053e4b` | `data_quality/historical_audit.py` + tests + 存量打标 | `historical-audit/` |
-| T9 | 本次提交 | 真跑 + 反例注入 + 拒绝矩阵 | `m1-e2e/` |
+| T9 | `c8fb4fb` | 真跑 + 反例注入 + 拒绝矩阵 | `m1-e2e/` |
+| 收口 | `db5d9ef` | reconcile `--source` clean 账本 + verify 传参（唯一硬缺口） | `verify-final.txt` |
 
 ## T8：daily 全史体检（只审不改）+ 存量打标
 
@@ -48,10 +49,13 @@
 - 首次运行发现接线缺口：阶段链 `health.py publish` 未显式设
   `FACTORLAB_DATA_BACKEND`，默认 duckdb 库不存在 → FileNotFoundError（已在真跑
   命令中以 `FACTORLAB_DATA_BACKEND=ch` 显式修复；是否在 stages 默认注入待裁定）。
-- `verify`：非 daily 全绿；daily 层三项行数差 = −16,090（= quarantine，I1 口径
-  已内建说明），`trade_cal` 差 −18 = 18 个「全行隔离日」（1991–1993，27 行）。
-  reconcile 目前按 raw 口径判红，**未消费 clean staging**，故 `rc=1`。见
-  `m1-e2e/verify.log` 与本目录「待裁定」。
+- `verify`（收口后终态）：`verify --categories daily` → reconcile 带
+  `--source data/staging/ashare_daily/20260919/daily_fact.parquet`，daily 层按 clean
+  账本对齐（`daily/adj_factor/daily_basic=18,214,142`、`trade_cal=8,773`、
+  `stock_basic=5,879`），`daily` 行注出
+  `explained delta: raw 18,230,232 − clean 18,214,142 = 16,090 = quarantine 16,090
+  + deduped 0`；派生表/其它类别仍 raw/canonical 口径 → **rc=0「全库一致」**。
+  见 `verify-final.txt`（此前 raw 口径红灯留存 `m1-e2e/verify.log`）。
 
 ### 反例注入（独立临时 STOCK_ROOT，生产 CH 前后计数一致）
 
@@ -69,9 +73,10 @@
 
 ## 待裁定 / 遗留（交控制者）
 
-1. **verify 绿**：reconcile 的 daily 层期望仍按 raw 源行数；I1 之后应为 clean
-   staging 口径（raw − quarantine − dedup），`trade_cal` 期望应按 canonical
-   distinct 日期。`ch_ingest/reconcile.py` 不在 T9 精确 add 范围，未改。
+0. ~~**verify 绿**~~ **已收口（`db5d9ef`）**：reconcile 增 `--source`（缺省 raw 向后
+   兼容），daily 层期望按 clean 账本；`pan_update` verify 对 daily 类别传当天 staged
+   clean；终态证据 `verify-final.txt`（rc=0）。
+1. ~~（原 verify 红）~~ 见上。
 2. **阶段链 backend**：`stages.py` 是否给 health（或整链）默认注入
    `FACTORLAB_DATA_BACKEND=ch`，避免 `make data-update` 裸跑在 health 步骤必败。
 3. **18 个全行隔离日**（1991–1993）从 canonical/`trade_cal` 消失；建议 M3
