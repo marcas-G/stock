@@ -1,0 +1,10 @@
+heavy.sh: slot=2/2 avail=64.5GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python governance/evidence/verification/R31/minute-perf/read-cache/verify_read_cache_parity.py
+window=2024-01-02..2024-01-12 codes=4852 cols=11
+[fingerprint] adf66d69dd0629e5f074c9aadb352a60f4ce7779123569d52dd3ac8302fe6917 in 1.738s
+[direct vs stream] equals=True query_arrow=7.72s stream=3.97s max|d|={'open': 0.0, 'high': 0.0, 'low': 0.0, 'close': 0.0, 'amount': 0.0, 'volume': 0.0}
+[read-cache] miss key=bd12ce09ed6c reason=no_manifest
+[read-cache] hit cols=11 key=bd12ce09ed6c rows=10478400
+[loader] direct=4.01s cold=6.57s warm=1.85s off=4.14s equals(direct,warm)=True
+[loader] max|d| direct-vs-cold {'open': 0.0, 'high': 0.0, 'low': 0.0, 'close': 0.0, 'amount': 0.0, 'volume': 0.0} | direct-vs-warm {'open': 0.0, 'high': 0.0, 'low': 0.0, 'close': 0.0, 'amount': 0.0, 'volume': 0.0}
+[cache] entries=1 size=170MB hits=1
+written /data/students/gaolei/stock/governance/evidence/verification/R31/minute-perf/read-cache/parity.json

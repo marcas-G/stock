@@ -1,0 +1,99 @@
+{
+  "window": "2024-01-02..2024-01-12",
+  "codes": 4852,
+  "cols": [
+    "datetime",
+    "trade_date",
+    "code",
+    "minute_index",
+    "session_type",
+    "open",
+    "high",
+    "low",
+    "close",
+    "amount",
+    "volume"
+  ],
+  "root": "/data/students/gaolei/stock",
+  "fingerprint": {
+    "sha256": "adf66d69dd0629e5f074c9aadb352a60f4ce7779123569d52dd3ac8302fe6917",
+    "wall_s": 1.738
+  },
+  "direct_vs_stream": {
+    "rows_a": 10478400,
+    "rows_b": 10478400,
+    "schema_equal": true,
+    "equals": true,
+    "null_mask_equal": true,
+    "max_abs_delta": {
+      "open": 0.0,
+      "high": 0.0,
+      "low": 0.0,
+      "close": 0.0,
+      "amount": 0.0,
+      "volume": 0.0
+    },
+    "wall_query_arrow_s": 7.718,
+    "wall_stream_s": 3.969
+  },
+  "loader": {
+    "direct_vs_first": {
+      "rows_a": 10478400,
+      "rows_b": 10478400,
+      "schema_equal": true,
+      "equals": true,
+      "null_mask_equal": true,
+      "max_abs_delta": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "amount": 0.0,
+        "volume": 0.0
+      }
+    },
+    "direct_vs_second": {
+      "rows_a": 10478400,
+      "rows_b": 10478400,
+      "schema_equal": true,
+      "equals": true,
+      "null_mask_equal": true,
+      "max_abs_delta": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "amount": 0.0,
+        "volume": 0.0
+      }
+    },
+    "direct_vs_off": {
+      "rows_a": 10478400,
+      "rows_b": 10478400,
+      "schema_equal": true,
+      "equals": true,
+      "null_mask_equal": true,
+      "max_abs_delta": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "amount": 0.0,
+        "volume": 0.0
+      }
+    },
+    "wall_s": {
+      "direct": 4.009,
+      "cold": 6.57,
+      "warm": 1.846,
+      "off": 4.135
+    }
+  },
+  "cache_manifest": {
+    "entries": 1,
+    "file": "bd12ce09ed6c6d76c7c09088e26f1fe441790a6470cd9c918fb1826a5d81c544.arrow",
+    "size": 169743715,
+    "hits": 1,
+    "fingerprint": "adf66d69dd0629e5…"
+  }
+}

@@ -1,0 +1,6 @@
+heavy.sh: slot=2/2 avail=64.9GB  max_memory=8GB oom_score_adj=700 -> /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/governance/evidence/verification/R31/minute-perf/read-cache/bench_driver.py /data/students/gaolei/stock/governance/evidence/verification/R31/minute-perf/read-cache/am_pm_vol__2024-01-02_2024-03-29.yaml /data/students/gaolei/stock/governance/evidence/verification/R31/minute-perf/read-cache/bench-off-1
+2026-09-19 03:14:10.661 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-19 03:14:10.698 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-19 03:14:11.068 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-19 03:14:11.098 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+{"spec": "/data/students/gaolei/stock/governance/evidence/verification/R31/minute-perf/read-cache/am_pm_vol__2024-01-02_2024-03-29.yaml", "read_cache": "0", "read_cache_dir": "/tmp/opencode/r31-read-cache-bench", "total_wall_ms": 44506, "segments": {"read_data": 40694, "bars_read": 12774, "fold": 17392, "label": 690, "evaluate": 616, "layered_backtest": 136, "persist": 131}, "panel_rows": 281323, "signal_rows": 281323}

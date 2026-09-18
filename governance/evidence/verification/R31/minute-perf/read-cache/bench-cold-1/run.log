@@ -1,0 +1,12 @@
+heavy.sh: slot=2/2 avail=65.9GB  max_memory=8GB oom_score_adj=700 -> /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/governance/evidence/verification/R31/minute-perf/read-cache/bench_driver.py /data/students/gaolei/stock/governance/evidence/verification/R31/minute-perf/read-cache/am_pm_vol__2024-01-02_2024-03-29.yaml /data/students/gaolei/stock/governance/evidence/verification/R31/minute-perf/read-cache/bench-cold-1
+[read-cache] miss key=4dc0540a0311 reason=no_manifest
+2026-09-19 03:15:00.244 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-19 03:15:00.280 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+2026-09-19 03:15:00.552 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-19 03:15:00.582 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+[read-cache] miss key=935f0bb865eb reason=no_entry
+[read-cache] miss key=29aa6690e919 reason=no_entry
+[read-cache] miss key=0b225e43b438 reason=no_entry
+[read-cache] miss key=a8db92a319e9 reason=no_entry
+[read-cache] miss key=4124225efeb1 reason=no_entry
+{"spec": "/data/students/gaolei/stock/governance/evidence/verification/R31/minute-perf/read-cache/am_pm_vol__2024-01-02_2024-03-29.yaml", "read_cache": "1", "read_cache_dir": "/tmp/opencode/r31-read-cache-bench", "total_wall_ms": 47097, "segments": {"read_data": 43376, "bars_read": 15972, "fold": 16664, "cache_lookup": 1869, "cache_miss": 14096, "label": 704, "evaluate": 599, "layered_backtest": 143, "persist": 124}, "panel_rows": 281323, "signal_rows": 281323}

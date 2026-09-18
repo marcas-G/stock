@@ -312,3 +312,31 @@ convert_tick 未触碰**）。自包含证据/数字见 [`after-p4/README.md`](a
   突变 6 杀（[`spike/mutation-p4.txt`](spike/mutation-p4.txt)）。
 - 限制：fold 段在 N≥2 是并发 worker 折日墙钟之和（Profiler 线程锁累加，
   大于 elapsed；收益以 read_data/总墙钟为准）；N 曲线受 8GB 护栏约束只有 1/2。
+
+---
+
+## R31 读路径优化（缓存 + Arrow 流；2026-09-19）
+
+实现（平台提交 `c53762c feat(read): bars chunk 磁盘缓存（指纹失效/原子/回退）`
++ `6f6eb2f perf(read): Arrow 流读取`；范围仅 bars_1m——tick/LOB/lob_fact/
+tick_fact/convert_tick 未触碰）。设计与复现详见
+[`read-cache/README.md`](read-cache/README.md)：
+
+- **① chunk 磁盘缓存**：键 = sha256(codes 集|窗口|columns 集|源指纹)；源指纹 =
+  `system.parts`(active Σrows+max(mtime)) + `max(datetime)`——回填/新数据自动
+  失效；目录 `~/.cache/factorlab/bars_1m`（env 可覆盖）、默认上限 30GB LRU /
+  TTL 7d；Arrow IPC(lz4) 原子写（平台 atomicio）+ 读时 sha256 校验，损坏回退
+  直读；`FACTORLAB_READ_CACHE=0` / `--no-read-cache` 关闭；命中/未命中/回退
+  写 run.log + `--profile` 段（含新 `bars_read` 总段）。
+- **② Arrow 流读取**：`query_arrow_stream` + 逐批 `pl.from_arrow` +
+  `pl.concat(rechunk=False)`（1.048e7 行实测 3.97s vs query_arrow 7.72s）。
+- **bit-exact 硬门**（真 CH 2024-01-02..01-12 × 4852 code × 11 列）：
+  直读 vs 流 / 直读 vs 冷 / 直读 vs 热 / 直读 vs 关开关全部 `equals=True`、
+  max|Δ|=0、null 掩码一致（`read-cache/parity.json`）。
+- **同窗两连跑**（am_pm_vol，chunk 10）：读段 `bars_read` 12.1–12.8s →
+  7.0–7.8s（1.6–1.8×；缓存覆盖段 2.2–2.4×）；`read_data` 38.6–40.7 →
+  31.4–32.6s；冷首次 +6%（一次性落盘）。相对 P4-N1（read_data 44.9s）：
+  Arrow 流 1.10–1.16×、热缓存 1.38–1.43×。
+- 突变 6/6 杀（`read-cache/mutation.txt`）；平台全量 3549 passed / 1 数据锚
+  预存红；`make gates` 预存红全在在途工具树（本路径零 BAD，
+  `read-cache/gates_read_cache.txt`）。

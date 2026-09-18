@@ -1,0 +1,24 @@
+== R31 读缓存突变（基线 6 处；期望全部 KILLED） ==
+start=2026-09-19T03:18:51+08:00 commit=c53762c680e14eb4c52517bba04fb41d7dc7993d
+---- [M1-fingerprint-const] pytest tests/test_read_cache.py::test_fingerprint_sensitive_to_parts_rows_mtime_and_maxdt tests/test_read_cache.py::test_codes_ch_fingerprint_change_invalidates
+[M1-fingerprint-const] KILLED
+    FAILED tests/test_read_cache.py::test_fingerprint_sensitive_to_parts_rows_mtime_and_maxdt
+---- [M2-key-ignores-fingerprint] pytest tests/test_read_cache.py::test_key_stable_and_sensitive_to_every_input tests/test_read_cache.py::test_codes_ch_fingerprint_change_invalidates
+[M2-key-ignores-fingerprint] KILLED
+    FAILED tests/test_read_cache.py::test_key_stable_and_sensitive_to_every_input
+---- [M3-always-hit] pytest tests/test_read_cache.py::test_load_unknown_key_is_miss tests/test_read_cache.py::test_codes_ch_fingerprint_change_invalidates
+[M3-always-hit] KILLED
+    FAILED tests/test_read_cache.py::test_codes_ch_fingerprint_change_invalidates
+---- [M4-corrupt-raises] pytest tests/test_read_cache.py::test_corrupted_file_falls_back_and_drops_entry tests/test_read_cache.py::test_codes_ch_corrupt_falls_back_direct_and_recovers
+[M4-corrupt-raises] KILLED
+    FAILED tests/test_read_cache.py::test_corrupted_file_falls_back_and_drops_entry
+---- [M5-switch-ignored] pytest tests/test_read_cache.py::test_switch_off_returns_none_and_creates_nothing tests/test_read_cache.py::test_codes_ch_cache_off_by_flag_and_env
+[M5-switch-ignored] KILLED
+    FAILED tests/test_read_cache.py::test_switch_off_returns_none_and_creates_nothing
+---- [M6-lru-to-fifo] pytest tests/test_read_cache.py::test_lru_eviction_keeps_recently_accessed
+[M6-lru-to-fifo] KILLED
+    FAILED tests/test_read_cache.py::test_lru_eviction_keeps_recently_accessed - ...
+== 还原后复跑全量 read_cache ==
+.................................                                        [100%]
+33 passed in 3.84s
+end=2026-09-19T03:19:20+08:00

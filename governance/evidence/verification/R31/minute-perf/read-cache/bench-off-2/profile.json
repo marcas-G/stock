@@ -1,0 +1,17 @@
+{
+  "spec": "/data/students/gaolei/stock/governance/evidence/verification/R31/minute-perf/read-cache/am_pm_vol__2024-01-02_2024-03-29.yaml",
+  "read_cache": "0",
+  "read_cache_dir": "/tmp/opencode/r31-read-cache-bench",
+  "total_wall_ms": 42151,
+  "segments": {
+    "read_data": 38573,
+    "bars_read": 12090,
+    "fold": 16020,
+    "label": 622,
+    "evaluate": 571,
+    "layered_backtest": 123,
+    "persist": 125
+  },
+  "panel_rows": 281323,
+  "signal_rows": 281323
+}
