@@ -29,7 +29,11 @@ from pathlib import Path
 
 import polars as pl
 
-from data_quality import aggregate, audit, rules
+_TOOLS = Path(__file__).resolve().parents[1]
+if str(_TOOLS) not in sys.path:      # 脚本直启（阶段链）时补 tools/ 再导入
+    sys.path.insert(0, str(_TOOLS))
+
+from data_quality import audit, rules  # noqa: E402
 
 HEALTH_STATUSES = ("PASS", "DEGRADED", "FAIL", "UNKNOWN")
 VERIFICATION_STATES = ("VERIFIED", "LEGACY_UNVERIFIED", "KNOWN_ISSUE")
@@ -226,8 +230,14 @@ def quality_block(base_quality: dict, metrics: audit.AuditMetrics,
 
 
 # ── CLI（阶段链末步）────────────────────────────────────────────────────
-def _read_canonical(partition: str, dataset: str = DEFAULT_DATASET) -> pl.DataFrame:
-    """读 canonical 分区（生产 ch / 历史 duckdb）。表名 = dataset 去掉 ``ashare_``。"""
+def _read_canonical(partition: str,
+                    dataset: str = DEFAULT_DATASET) -> tuple[pl.DataFrame, int]:
+    """读 canonical 分区帧 + 全表计数（生产 ch / 历史 duckdb）。
+
+    返回 ``(partition_frame, full_table_count)``：分区帧供 PK/抽样/漂移，
+    全表计数供 reconcile（clean staging 全表口径）；不整表拉取（内存安全）。
+    表名 = dataset 去掉 ``ashare_`` 前缀。
+    """
     table = dataset.split("_", 1)[-1] if dataset.startswith("ashare_") else dataset
     from factorlab.app.bootstrap import open_read
 
@@ -242,9 +252,41 @@ def _read_canonical(partition: str, dataset: str = DEFAULT_DATASET) -> pl.DataFr
         frame = rd.query_df(
             f"SELECT ts_code AS code, trade_date, open, high, low, close "
             f"FROM {table} WHERE {pred}")
+        full = int(rd.query_rows(f"SELECT count() FROM {table}")[0][0])
     finally:
         rd.close()
-    return frame
+    return frame, full
+
+
+def _day_literal(dtype: pl.DataType, text: str) -> pl.Expr:
+    """按 raw trade_date dtype 生成字面量（Date 生产口径；String 兼容旧件）。"""
+    if dtype == pl.Date:
+        return pl.lit(str(text)).str.to_date(strict=False)
+    if dtype == pl.String:
+        return pl.lit(str(text))
+    raise ValueError(
+        f"raw trade_date dtype={dtype} 不支持（需 Date/String）——"
+        f"health audit 不做类型猜测")
+
+
+def _scan_raw(raw_path, *, day: str | None = None,
+              start: str | None = None, end_exclusive: str | None = None
+              ) -> pl.DataFrame:
+    """懒扫描 + 过滤后 collect（raw 436MB 级——**不整表拉取**）。"""
+    lf = pl.scan_parquet(str(raw_path))
+    dtype = lf.collect_schema()["trade_date"]
+    expr: pl.Expr | None = None
+    if day is not None:
+        expr = pl.col("trade_date") == _day_literal(dtype, day)
+    if start is not None:
+        lo = pl.col("trade_date") >= _day_literal(dtype, start)
+        expr = lo if expr is None else (expr & lo)
+    if end_exclusive is not None:
+        hi = pl.col("trade_date") < _day_literal(dtype, end_exclusive)
+        expr = hi if expr is None else (expr & hi)
+    if expr is not None:
+        lf = lf.filter(expr)
+    return lf.collect()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -291,23 +333,27 @@ def main(argv: list[str] | None = None) -> int:
         from data_quality.pipeline import _resolve_raw
 
         raw_path = _resolve_raw(None)
-    raw = pl.scan_parquet(str(raw_path)).collect()
-    day = pl.lit(partition).str.to_date(strict=False)
-    raw_part = raw.filter(pl.col("trade_date") == day)
-    start, end = audit.sample_window(partition)
-    baseline = raw.filter((pl.col("trade_date") >= pl.lit(start).str.to_date(strict=False))
-                          & (pl.col("trade_date") < day))
+    raw_part = _scan_raw(raw_path, day=partition)      # 不整表 collect
+    start, _ = audit.sample_window(partition)
+    baseline = _scan_raw(raw_path, start=start, end_exclusive=partition)
     symbols = []
     if not args.no_sample and raw_part.height:
         sym_col = audit.validators._SYM_ALIASES
         col = next(c for c in sym_col if c in raw_part.columns)
         symbols = sorted(raw_part[col].unique().to_list())[:max(args.sample, 0)]
 
-    canonical = _read_canonical(partition, args.dataset)
+    # 分区帧（PK/漂移/抽样）+ 全表计数（reconcile）；completeness 分区腿用
+    # clean staging 的分区行数（§6 示例为分区口径），reconcile 用全表口径。
+    canonical, canonical_full = _read_canonical(partition, args.dataset)
+    staged_path = summary_path.parent / "daily_fact.parquet"
+    if not staged_path.is_file():
+        print(f"错误：clean staging parquet 不存在：{staged_path}", file=sys.stderr)
+        return 2
+    staged_part_rows = _scan_raw(staged_path, day=partition).height
     metrics = audit.audit_post_ingest(
-        canonical, partition=partition,
-        expected_count=int(summary["clean_rows"]),
+        canonical, partition=partition, expected_count=staged_part_rows,
         reconcile_expected=int(summary["clean_rows"]),
+        reconcile_actual=canonical_full,
         raw=raw_part, baseline=baseline, sample_symbols=symbols,
         transport=None if args.no_sample else audit.http_get_text,
         policy=policy)

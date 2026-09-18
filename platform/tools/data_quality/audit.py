@@ -206,11 +206,12 @@ def fetch_tencent_daily(symbol: str, start: str, end: str, *,
     （腾讯接口列序为 open/close/high/low/volume——按接口语义解析，不猜）。
     """
     tp = transport or http_get_text
-    params = {"param": tencent_param(symbol, start, end, count)}
-    text = tp(TENCENT_DAILY_URL, params)
+    param = tencent_param(symbol, start, end, count)
+    text = tp(TENCENT_DAILY_URL, {"param": param})
     try:
         payload = json.loads(text)
-        node = payload["data"][symbol.split(".")[0]]
+        # 真实响应键 = <market><code>（如 sh600519，2026-09-19 实测）
+        node = payload["data"][param.split(",", 1)[0]]
         rows = node.get("qfqday") or node["day"]
     except (ValueError, KeyError, TypeError) as exc:
         raise ValueError(f"腾讯日线响应无法解析（symbol={symbol}）：{exc}") from exc
@@ -354,7 +355,9 @@ def audit_post_ingest(
     *,
     partition: str,
     expected_count: int | None,
+    actual_count: int | None = None,
     reconcile_expected: int | None = None,
+    reconcile_actual: int | None = None,
     raw: pl.DataFrame | None = None,
     baseline: pl.DataFrame | None = None,
     sample_symbols: Sequence[str] | None = None,
@@ -364,16 +367,20 @@ def audit_post_ingest(
 ) -> AuditMetrics:
     """对 canonical 写入结果做 post-ingest 审计（只读；不重跑行级校验）。
 
-    - ``expected_count``：独立完整性分母（None = UNKNOWN）；
-    - ``reconcile_expected``：独立对账行数（clean staging 口径）；
+    - ``expected_count``：独立完整性分母（None = UNKNOWN）；``actual_count``
+      缺省 = ``canonical.height``（分区帧）；全表口径可显式传入；
+    - ``reconcile_expected`` / ``reconcile_actual``：独立对账（clean staging
+      全表口径 vs canonical 全表计数；actual 缺省 = actual_count）；
     - ``raw``：抽样对拍源（raw/clean 行）；``sample_symbols`` + ``transport``
       齐备才抽样（fake transport 断言 URL/参数；接口失败降级 SUSPECT）；
     - ``baseline``：漂移基线（上一窗口行）。
     """
-    actual = canonical.height
+    actual = actual_count if actual_count is not None else canonical.height
     completeness = check_completeness(expected_count, actual)
     pk_duplicates, pk_results = check_pk(canonical)
-    reconcile_ok, reconcile_detail = check_reconcile(reconcile_expected, actual)
+    reconcile_ok, reconcile_detail = check_reconcile(
+        reconcile_expected,
+        reconcile_actual if reconcile_actual is not None else actual)
 
     results: list[RuleResult] = list(pk_results)
     sample = SampleCheck(SKIPPED, 0, 0, 0.0, "未配置抽样源（raw/symbols/transport）")

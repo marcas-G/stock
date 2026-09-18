@@ -70,14 +70,15 @@ def _fake_transport(payload: dict, calls: list):
 
 
 def _tencent_payload(symbol="600519.SH", day=PART, close=10.0):
-    code = symbol.split(".")[0]
+    code, suffix = symbol.split(".")
+    market = {"SH": "sh", "SZ": "sz", "BJ": "bj"}[suffix]
     dates = [d.isoformat() for d in
              [D.fromisoformat(day) - dt.timedelta(days=i) for i in range(5, 0, -1)]
              + [D.fromisoformat(day)]]
-    # 腾讯接口列序：date, open, close, high, low, volume
+    # 真实腾讯响应：data 键 = <market><code>（如 sh600519）；列序 date,open,close,high,low,volume
     rows = [[d, "10.0", f"{close}", f"{close + 0.2}", "9.8", "1000"]
             for d in dates]
-    return {"code": 0, "data": {code: {"qfqday": rows}}}
+    return {"code": 0, "data": {f"{market}{code}": {"qfqday": rows}}}
 
 
 # ── completeness.status 独立于 coverage ─────────────────────────────────
@@ -223,6 +224,17 @@ def test_audit_pk_conflict_and_reconcile_drive_final_gate():
     assert mismatch.pk_duplicates == 0
     assert mismatch.completeness.status == audit.INCOMPLETE
     assert audit.decide_final("PASS", mismatch, policy) == audit.FAIL
+
+
+def test_audit_full_table_reconcile_split_from_partition_completeness():
+    """completeness=分区腿（canonical 帧），reconcile=独立全表计数腿（CLI 生产口径）。"""
+    frame = _frame(_rows(10))
+    m = audit.audit_post_ingest(frame, partition=PART, expected_count=10,
+                                reconcile_expected=100, reconcile_actual=90)
+    assert m.completeness.status == audit.COMPLETE, "分区完整性看 canonical 帧行数"
+    assert m.completeness.actual_count == 10
+    assert m.reconcile_ok is False
+    assert "100" in m.reconcile_detail and "90" in m.reconcile_detail
 
 
 def test_final_gate_reuses_pre_ingest_decision_and_worst_case():
