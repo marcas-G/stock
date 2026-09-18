@@ -109,6 +109,11 @@ bit 对拍共同锁定。
 
 ## 5. 测试/门（2026-09-19，`730f1c8`）
 
+- **树时序注记**：bench/parity 运行于工作树 `29380e8` + 未提交 P4 改动
+  （`env.txt` `dirty_files=40`，含并发在途 DQ/汇报改动）；随后 P4 平台改动
+  提交为 `730f1c8`，其间仅「预算门调用位置前移到打开 DB 前 + bars 读设置
+  import 提到模块级」——**N=1/N=2 数值路径零变更**（拒绝路径只会更早）。
+
 - 新增测试 19 条（TDD 红→绿）：`test_ch_read_tuning.py` 11（env 解析/非法
   fail loud/真注入 query settings/线程级客户端并发真 CH）+ `test_minute_engine.py`
   6（N=1/2 逐值、barrier 并发真实性、默认不建池、预算拒绝在读盘前、失败传播
