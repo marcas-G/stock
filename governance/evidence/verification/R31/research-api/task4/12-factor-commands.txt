@@ -1,0 +1,1 @@
+17 ['factor.lint', 'factor.run', 'factor.list', 'factor.show', 'factor.export', 'factor.corr', 'factor.resic', 'factor.svd', 'factor.ref.list', 'factor.ref.add', 'factor.ref.remove', 'factor.admit', 'factor.op.list', 'factor.op.doc', 'factor.op.add', 'factor.op.remove', 'factor.catalog']

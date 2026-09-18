@@ -1,0 +1,32 @@
+F..                                                                      [100%]
+=================================== FAILURES ===================================
+_______________ test_factor_ref_add_backup_comment_and_roundtrip _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2681/test_factor_ref_add_backup_com0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ff87c457820>
+
+    def test_factor_ref_add_backup_comment_and_roundtrip(tmp_path, monkeypatch):
+        from factorlab.app.analysis.reference import load_reference
+        from factorlab.research import registry
+        ref = tmp_path / "_reference.yaml"
+        ref.write_text(_REF_YAML, encoding="utf-8")
+        monkeypatch.setenv("FACTORLAB_REFERENCE", str(ref))
+        ns = registry.build_parser(registry.COMMANDS["factor.ref.add"]).parse_args([
+            "new_f", "--style", "新风格", "--reason", "入选理由",
+            "--added", "2026-09-18", "--entry-corr-max", "0.31",
+            "--entry-resic-t", "2.4"])
+        env = F.factor_ref_add(ns)
+        assert env.ok, env.error
+        assert env.data["name"] == "new_f" and env.data["scales"] == "daily"
+    
+        backup = Path(env.data["backup"])
+        assert backup.exists() and backup.read_text(encoding="utf-8") == _REF_YAML
+        text = ref.read_text(encoding="utf-8")
+>       assert "# 参考库头注释" in text          # 注释保留（整库 dump 会丢）
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert '# 参考库头注释' in 'updated: "2024-01-01"\nscales:\n  daily:\n    - name: base_a\n      style: "风格A"\n      reason: "理由A"\n      added: "...entry_resic_t: 2.4\n  minute:\n    - name: min_x\n      style: "风格M"\n      reason: "理由M"\n      added: "2024-01-01"\n'
+
+tests/test_research_factor.py:654: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_factor.py::test_factor_ref_add_backup_comment_and_roundtrip
+1 failed, 2 passed, 35 deselected in 1.72s

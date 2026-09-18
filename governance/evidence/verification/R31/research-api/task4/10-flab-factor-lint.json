@@ -1,0 +1,1 @@
+{"ok": true, "schema_version": 1, "command": "factor.lint", "data": {"n_pass": 1, "results": [{"path": "research/factor/momentum_20d/turnrank_top2.yaml", "name": "momentum_20d_turnrank_top2", "ok": true}]}, "artifacts": {}, "warnings": [], "error": null}

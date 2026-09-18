@@ -1,0 +1,140 @@
+FFFF....                                                                 [100%]
+=================================== FAILURES ===================================
+______ test_factor_run_passes_guard_injects_env_and_writes_new_artifacts _______
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2678/test_factor_run_passes_guard_i0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe62d6df820>
+
+    def test_factor_run_passes_guard_injects_env_and_writes_new_artifacts(
+            tmp_path, monkeypatch):
+        from test_run_factor import build_db
+        build_db(tmp_path, n_days=9)
+        spec_path = tmp_path / "demo.yaml"
+        spec_path.write_text(_SPEC, encoding="utf-8")
+        monkeypatch.setattr(settings, "platform_db", tmp_path / "q.duckdb")
+        monkeypatch.setattr(settings, "results_dir", tmp_path / "results")
+        monkeypatch.setattr(settings, "max_memory", None)
+        monkeypatch.setattr(settings, "min_available_memory", None)
+        monkeypatch.setattr("factorlab.app.memory.apply_address_space_limit",
+                            lambda b, **kw: None)
+    
+        calls: list = []
+    
+        def fake_guard(argv, *, wait=False):
+            calls.append(("guard", list(argv), wait))
+            return ({"FACTORLAB_MAX_MEMORY": "8GB",
+                     "FACTORLAB_MIN_AVAILABLE_MEMORY": "6GB",
+                     "OMP_NUM_THREADS": "8", "POLARS_MAX_THREADS": "8"},
+                    tmp_path / "heavy.1.lock")
+    
+        monkeypatch.setattr(F, "guard_heavy", fake_guard)
+        monkeypatch.setattr(F, "release_slots", lambda: calls.append(("release",)))
+    
+        # spy：证明闸 env 真注入到 run 执行期（不是"只返回不动"）
+        from factorlab.app import run as app_run
+        real_run = app_run.run_factor
+        seen: dict = {}
+    
+        def spy(spec, ctx):
+            seen["max_memory"] = settings.max_memory
+            seen["min_available"] = settings.min_available_memory
+            seen["omp"] = os.environ.get("OMP_NUM_THREADS")
+            return real_run(spec, ctx)
+    
+        monkeypatch.setattr(app_run, "run_factor", spy)
+    
+        t0 = time.time()
+        env = F.factor_run(_run_args(spec_path))
+    
+        assert env.ok, env.error
+>       assert calls[0][0] == "guard"
+E       AssertionError: assert 'release' == 'guard'
+E         
+E         - guard
+E         + release
+
+tests/test_research_factor.py:238: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2026-09-18 15:00:55.124 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-18 15:00:55.149 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+______________ test_factor_run_guard_error_maps_to_envelope[BUSY] ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2678/test_factor_run_guard_error_ma0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe62d6df6f0>
+code = 'BUSY'
+
+    @pytest.mark.parametrize("code", ["BUSY", "MEMORY_GUARD"])
+    def test_factor_run_guard_error_maps_to_envelope(tmp_path, monkeypatch, code):
+        def fake_guard(argv, *, wait=False):
+            raise GuardError(code, f"{code} 测试", hint="hint-x")
+    
+        monkeypatch.setattr(F, "guard_heavy", fake_guard)
+        env = F.factor_run(_run_args(tmp_path / "x.yaml"))
+        assert env.ok is False
+>       assert env.error["code"] == code
+E       AssertionError: assert 'NOT_FOUND' == 'BUSY'
+E         
+E         - BUSY
+E         + NOT_FOUND
+
+tests/test_research_factor.py:272: AssertionError
+__________ test_factor_run_guard_error_maps_to_envelope[MEMORY_GUARD] __________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2678/test_factor_run_guard_error_ma1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe622b231d0>
+code = 'MEMORY_GUARD'
+
+    @pytest.mark.parametrize("code", ["BUSY", "MEMORY_GUARD"])
+    def test_factor_run_guard_error_maps_to_envelope(tmp_path, monkeypatch, code):
+        def fake_guard(argv, *, wait=False):
+            raise GuardError(code, f"{code} 测试", hint="hint-x")
+    
+        monkeypatch.setattr(F, "guard_heavy", fake_guard)
+        env = F.factor_run(_run_args(tmp_path / "x.yaml"))
+        assert env.ok is False
+>       assert env.error["code"] == code
+E       AssertionError: assert 'NOT_FOUND' == 'MEMORY_GUARD'
+E         
+E         - MEMORY_GUARD
+E         + NOT_FOUND
+
+tests/test_research_factor.py:272: AssertionError
+____________ test_factor_run_real_guard_acquires_and_releases_slot _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2678/test_factor_run_real_guard_acq0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe622b64c00>
+
+    def test_factor_run_real_guard_acquires_and_releases_slot(tmp_path, monkeypatch):
+        """真闸（非 mock）：槽文件落 `FACTORLAB_HEAVY_LOCK_DIR`，跑完释放。"""
+        from test_run_factor import build_db
+        from factorlab.research import _guard
+        build_db(tmp_path, n_days=9)
+        spec_path = tmp_path / "demo.yaml"
+        spec_path.write_text(_SPEC, encoding="utf-8")
+        monkeypatch.setattr(settings, "platform_db", tmp_path / "q.duckdb")
+        monkeypatch.setattr(settings, "results_dir", tmp_path / "results")
+        monkeypatch.setattr(settings, "max_memory", None)
+        monkeypatch.setattr(settings, "min_available_memory", None)
+        lock_dir = tmp_path / "locks"
+        monkeypatch.setenv("FACTORLAB_HEAVY_LOCK_DIR", str(lock_dir))
+        monkeypatch.setenv("FACTORLAB_GUARD_NICE", "0")
+        monkeypatch.setattr(_guard.psutil, "virtual_memory",
+                            lambda: SimpleNamespace(available=64 * 1024**3,
+                                                    total=64 * 1024**3))
+        monkeypatch.setattr("factorlab.app.memory.apply_address_space_limit",
+                            lambda b, **kw: None)
+    
+        env = F.factor_run(_run_args(spec_path))
+        assert env.ok, env.error
+>       assert (lock_dir / "heavy.1.lock").exists()
+E       AssertionError: assert False
+E        +  where False = exists()
+E        +    where exists = (PosixPath('/tmp/pytest-of-gaolei/pytest-2678/test_factor_run_real_guard_acq0/locks') / 'heavy.1.lock').exists
+
+tests/test_research_factor.py:299: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_factor.py::test_factor_run_passes_guard_injects_env_and_writes_new_artifacts
+FAILED tests/test_research_factor.py::test_factor_run_guard_error_maps_to_envelope[BUSY]
+FAILED tests/test_research_factor.py::test_factor_run_guard_error_maps_to_envelope[MEMORY_GUARD]
+FAILED tests/test_research_factor.py::test_factor_run_real_guard_acquires_and_releases_slot
+4 failed, 4 passed, 30 deselected in 2.70s

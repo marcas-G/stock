@@ -1,0 +1,9 @@
+......................................                                   [100%]
+=============================== warnings summary ===============================
+tests/test_research_factor.py::test_factor_svd_reference_default_and_all
+tests/test_research_factor.py::test_factor_svd_reference_default_and_all
+  /data/students/gaolei/stock/platform/src/factorlab/app/analysis/correlation.py:102: DeprecationWarning: the argument `columns` for `DataFrame.pivot` is deprecated. It was renamed to `on` in version 1.0.0.
+    joined = long.pivot(index=["date", "code"], columns="factor",
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+38 passed, 2 warnings in 3.31s

@@ -1,0 +1,37 @@
+platform/.venv/bin/python -m pytest platform/tools -q
+........................................................................ [ 10%]
+........................................................................ [ 21%]
+........................................................................ [ 32%]
+........................................................................ [ 43%]
+........................................................................ [ 54%]
+........................................................................ [ 64%]
+........................................................................ [ 75%]
+........................................................................ [ 86%]
+........................................................................ [ 97%]
+.................                                                        [100%]
+665 passed in 99.66s (0:01:39)
+platform/.venv/bin/python -m pytest research/tools -q
+.F...........................................................            [100%]
+=================================== FAILURES ===================================
+_______________ test_every_yaml_has_mirror_doc_and_name_matches ________________
+
+    def test_every_yaml_has_mirror_doc_and_name_matches():
+        """yaml ↔ md 一一镜像；档案 front-matter 的 xname 必须等于 spec.name。"""
+        specs = BI.load_specs()
+        # 原集 ≥152（只增不删——挖矿循环持续新增因子并逐轮归档；低于 152 说明有删除，
+        # 必须显式确认。R04 后 `_` 前缀目录/文件为元数据，不计入）
+        assert len(specs) >= 152, f"因子数少于原集 152（{len(specs)}）——有删除？"
+        for s in specs:
+            md = ROOT / s["md"]
+>           assert md.is_file(), f"缺档案 {s['md']}"
+E           AssertionError: 缺档案 knowledge/dossiers/factors/momentum_20d/turnrank_top2.md
+E           assert False
+E            +  where False = is_file()
+E            +    where is_file = PosixPath('/data/students/gaolei/stock/knowledge/dossiers/factors/momentum_20d/turnrank_top2.md').is_file
+
+research/tools/factor_lib/tests/test_index.py:37: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches
+1 failed, 60 passed in 11.29s
+Makefile:21: recipe for target 'test-research' failed
+make: *** [test-research] Error 1

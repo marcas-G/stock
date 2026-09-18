@@ -1,0 +1,50 @@
+.FF..                                                                    [100%]
+=================================== FAILURES ===================================
+_________________ test_factor_admit_near_relative_is_redundant _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2679/test_factor_admit_near_relativ0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fdecd683820>
+
+    def test_factor_admit_near_relative_is_redundant(tmp_path, monkeypatch):
+        vs = _basis(4)
+        rng = np.random.default_rng(3)
+        cand = _tile(0.93 * vs[0] + 0.368 * vs[3])   # corr≈0.93 → r2_lib 高、残差无增量
+        fwd = 0.5 * _tile(vs[0]) + rng.uniform(-0.02, 0.02, size=(WEEKS, N))
+        spec = _admit_setup(tmp_path, monkeypatch, cand_signal=cand, fwd=fwd, vs=vs)
+    
+        env = F.factor_admit(_admit_args(spec))
+        assert env.ok, env.error
+        assert env.data["r2_lib"] >= 0.8
+        assert env.data["corr_max"] < 0.95
+>       assert env.data["verdict"] == "冗余"
+E       AssertionError: assert '可加入' == '冗余'
+E         
+E         - 冗余
+E         + 可加入
+
+tests/test_research_factor.py:553: AssertionError
+________________ test_factor_admit_near_duplicate_is_duplicate _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2679/test_factor_admit_near_duplica0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fdecd52d130>
+
+    def test_factor_admit_near_duplicate_is_duplicate(tmp_path, monkeypatch):
+        vs = _basis(4)
+        cand = _tile(vs[0]) + 1e-6 * _tile(vs[3])    # corr≈1 → 重复
+        fwd = 0.5 * _tile(vs[0])
+        spec = _admit_setup(tmp_path, monkeypatch, cand_signal=cand, fwd=fwd, vs=vs)
+    
+        env = F.factor_admit(_admit_args(spec))
+        assert env.ok, env.error
+        assert env.data["corr_max"] >= 0.95
+>       assert env.data["verdict"] == "重复"
+E       AssertionError: assert '可加入' == '重复'
+E         
+E         - 重复
+E         + 可加入
+
+tests/test_research_factor.py:565: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_factor.py::test_factor_admit_near_relative_is_redundant
+FAILED tests/test_research_factor.py::test_factor_admit_near_duplicate_is_duplicate
+2 failed, 3 passed, 33 deselected in 2.08s

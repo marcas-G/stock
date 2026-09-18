@@ -1,0 +1,57 @@
+FFF.                                                                     [100%]
+=================================== FAILURES ===================================
+___________ test_factor_show_reads_summary_and_missing_is_not_found ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2680/test_factor_show_reads_summary0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f08aded3820>
+
+    def test_factor_show_reads_summary_and_missing_is_not_found(tmp_path, monkeypatch):
+        rd = tmp_path / "results"
+        monkeypatch.setattr(settings, "results_dir", rd)
+        _write_summary(rd, "alpha")
+        env = F.factor_show(_args(name="alpha"))
+        assert env.ok
+        assert env.data["name"] == "alpha"
+        assert env.data["summary"]["evaluation"]["ic"]["mean"] == pytest.approx(0.05)
+    
+        missing = F.factor_show(_args(name="ghost"))
+>       assert missing.ok is False
+E       AssertionError: assert True is False
+E        +  where True = Envelope(ok=True, schema_version=1, command='factor.show', data={'name': 'ghost', 'summary': {'evaluation': {'ic': {'mean': 0.05}}}}, artifacts={}, warnings=(), error=None).ok
+
+tests/test_research_factor.py:354: AssertionError
+________________ test_factor_show_corrupt_summary_is_data_error ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2680/test_factor_show_corrupt_summa0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f08ade642b0>
+
+    def test_factor_show_corrupt_summary_is_data_error(tmp_path, monkeypatch):
+        rd = tmp_path / "results"
+        monkeypatch.setattr(settings, "results_dir", rd)
+        broken = rd / "broken"
+        broken.mkdir(parents=True)
+        (broken / "summary.json").write_text("{not json", encoding="utf-8")
+        env = F.factor_show(_args(name="broken"))
+>       assert env.ok is False
+E       AssertionError: assert True is False
+E        +  where True = Envelope(ok=True, schema_version=1, command='factor.show', data={'name': 'broken', 'summary': {'evaluation': {'ic': {'mean': 0.05}}}}, artifacts={}, warnings=(), error=None).ok
+
+tests/test_research_factor.py:367: AssertionError
+______________ test_cli_research_factor_show_missing_exit_code_9 _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-2680/test_cli_research_factor_show_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f08add7ae70>
+
+    def test_cli_research_factor_show_missing_exit_code_9(tmp_path, monkeypatch):
+        monkeypatch.setattr(settings, "results_dir", tmp_path / "results")
+        result = runner.invoke(cli_app, ["research", "factor", "show", "ghost", "--json"])
+>       assert result.exit_code == EXIT_CODES["NOT_FOUND"] == 9
+E       assert 0 == 9
+E        +  where 0 = <Result okay>.exit_code
+
+tests/test_research_factor.py:822: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_factor.py::test_factor_show_reads_summary_and_missing_is_not_found
+FAILED tests/test_research_factor.py::test_factor_show_corrupt_summary_is_data_error
+FAILED tests/test_research_factor.py::test_cli_research_factor_show_missing_exit_code_9
+3 failed, 1 passed, 34 deselected in 1.58s
