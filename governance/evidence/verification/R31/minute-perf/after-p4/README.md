@@ -118,14 +118,14 @@ bit 对拍共同锁定。
   提交为 `730f1c8`，其间仅「预算门调用位置前移到打开 DB 前 + bars 读设置
   import 提到模块级」——**N=1/N=2 数值路径零变更**（拒绝路径只会更早）。
 
-- 新增测试 19 条（TDD 红→绿）：`test_ch_read_tuning.py` 11（env 解析/非法
+- 新增测试 20 条（TDD 红→绿）：`test_ch_read_tuning.py` 11（env 解析/非法
   fail loud/真注入 query settings/线程级客户端并发真 CH）+ `test_minute_engine.py`
-  6（N=1/2 逐值、barrier 并发真实性、默认不建池、预算拒绝在读盘前、失败传播
-  无半成品、drop 审计）+ `test_cli_run.py` 2（help/透传）。
-- **突变 5 杀**（`../spike/mutation-p4.txt`）：预算门存根 / 并行走顺序 /
-  settings 不注入 / 全局客户端回退 / 峰值常量清零 → 全部被对应测试打死；
-  恢复后 52 passed。
-- **平台全量**：`3489 passed, 15 skipped`（0 failed）。
+  7（N=1/2 逐值、barrier N=2/N=3 并发真实性、默认不建池、预算拒绝在读盘前、
+  失败传播无半成品、drop 审计）+ `test_cli_run.py` 2（help/透传）。
+- **突变 6 杀**（`../spike/mutation-p4.txt`）：预算门存根 / 并行走顺序 /
+  settings 不注入 / 全局客户端回退 / 峰值常量清零 / workers 钳到 2（N=3 假并发）
+  → 全部被对应测试打死；恢复后 53 passed。
+- **平台全量**：`3490 passed, 15 skipped`（0 failed）。
 - `make lint-factors`：233 通过 / 0 失败。
 - **`make gates`**：快照（tree `6729370`，2026-09-19 00:22，`gates_p4.txt`）
   17 处 `[BAD]`——14 处在在途 `platform/tools/lob_fact/pipeline/*`（P1-P3 同款

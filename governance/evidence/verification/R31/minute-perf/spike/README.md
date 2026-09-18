@@ -76,5 +76,6 @@ order_by=O)` 与预排序后 `.over(P)` 逐 bit 一致（含 null 掩码）—�
   `max_block_size` 128k..1M 相对默认全在 3.1–3.6s 噪声带（服务器默认
   mt=40/bs=65409）→ 平台默认不变，仅提供 env 旋钮（见
   [`../after-p4/README.md`](../after-p4/README.md) §1）。
-- `mutation_p4.sh` + `mutation-p4.txt`：5 处突变（预算门存根 / 并行走顺序 /
-  settings 不注入 / 全局客户端回退 / 峰值常量清零）全部被杀；恢复后 52 passed。
+- `mutation_p4.sh` + `mutation-p4.txt`：6 处突变（预算门存根 / 并行走顺序 /
+  settings 不注入 / 全局客户端回退 / 峰值常量清零 / workers 钳到 2）全部被杀；
+  恢复后 53 passed。

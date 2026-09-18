@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# R09-PERF-P4 突变检验：5 处「预算门存根 / 并行分支关 / 设置不注入 / 全局客户端
-# 回退 / 估算常量清零」必须被测试打死；每处突变后自动恢复（trap EXIT）。
+# R09-PERF-P4 突变检验：6 处「预算门存根 / 并行分支关 / 设置不注入 / 全局客户端
+# 回退 / 估算常量清零 / workers 钳到 2」必须被测试打死；每处突变后自动恢复（trap EXIT）。
 #
 # 用法（仓库根）：bash governance/evidence/verification/R31/minute-perf/spike/mutation_p4.sh
 # 输出即 spike/mutation-p4.txt 的来源。
@@ -98,6 +98,19 @@ assert s.count(old) == 1
 p.write_text(s.replace(old, new))
 EOF
 run "tests/test_minute_engine.py::test_minute_chunk_workers_over_budget_refused_before_read"
+restore_files
+
+echo "===== M6: workers 静默钳到 2（N=3 假并发）"
+"$PY" - "$RUN" <<'EOF'
+import sys
+from pathlib import Path
+p = Path(sys.argv[1]); s = p.read_text()
+old = "executor = ThreadPoolExecutor(max_workers=chunk_workers)"
+new = "executor = ThreadPoolExecutor(max_workers=min(chunk_workers, 2))"
+assert s.count(old) == 1
+p.write_text(s.replace(old, new))
+EOF
+run "tests/test_minute_engine.py::test_minute_chunk_workers_three_actually_overlap"
 restore_files
 
 echo "===== 恢复后回归"
