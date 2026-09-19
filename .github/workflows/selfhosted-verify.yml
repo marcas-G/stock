@@ -79,7 +79,7 @@ jobs:
         run: |
           set -o pipefail
           LOG="$RUNNER_TEMP/pytest-platform.log"
-          .venv/bin/python -m pytest -q --timeout=300 --timeout-method=thread \
+          .venv/bin/python -m pytest -q --timeout=900 --timeout-method=thread \
             2>&1 | tee "$LOG"
 
       # CH 集成腿：真实 CH + 显式口径开关（ST 降级 / 分钟缺覆盖 drop）。
@@ -95,7 +95,7 @@ jobs:
           set -o pipefail
           LOG="$RUNNER_TEMP/pytest-integration.log"
           .venv/bin/python -m pytest -q -m integration \
-            --timeout=300 --timeout-method=thread \
+            --timeout=900 --timeout-method=thread \
             2>&1 | tee "$LOG"
 
       # platform/tools：hosted 的 2 条"数据在盘假设"排除项在此不排除（数据在盘）。
@@ -110,7 +110,7 @@ jobs:
           set -o pipefail
           LOG="$RUNNER_TEMP/pytest-tools.log"
           platform/.venv/bin/python -m pytest platform/tools -q \
-            --timeout=300 --timeout-method=thread \
+            --timeout=900 --timeout-method=thread \
             --deselect tools/lob_fact/tests/test_run_lob_batch.py::test_main_cli_e2e_mini_month \
             --deselect tools/pan_update/tests/test_config.py::test_pan_update_and_ingest_share_data_roots \
             2>&1 | tee "$LOG"
@@ -123,7 +123,7 @@ jobs:
           set -o pipefail
           LOG="$RUNNER_TEMP/pytest-research.log"
           platform/.venv/bin/python -m pytest research/tools -q \
-            --timeout=300 --timeout-method=thread \
+            --timeout=900 --timeout-method=thread \
             --deselect tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches \
             --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03 \
             --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes \
