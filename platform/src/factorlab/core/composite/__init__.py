@@ -8,6 +8,8 @@ Plan CX-C1 的契约冻结（spec §3/§4/§5/§9）：
 
 from __future__ import annotations
 
+from factorlab.core.composite.provenance import (build_provenance, cache_key,
+                                                  params_hash)
 from factorlab.core.composite.spec import (
     CompositeAlignment,
     CompositeImplementation,
@@ -23,7 +25,10 @@ __all__ = [
     "CompositeImplementation",
     "CompositeOutput",
     "CompositeSpec",
+    "build_provenance",
+    "cache_key",
     "definition_hash",
     "load_composite_spec",
+    "params_hash",
     "parse_member_ref",
 ]
