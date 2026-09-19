@@ -30,6 +30,11 @@ TOOL_ROOTS = [REPO / "platform" / "tools", REPO / "research" / "tools"]
 
 # 研究侧合同门排除的诊断/历史目录（与 R4 起沿用的豁免面一致）
 SKIP_PARTS = ("/tests/", "/notes/", "/diag/", "__pycache__", "/.venv/")
+# 暂停树（用户 2026-09-19：tick 全线暂停处理，暂不考虑）。
+# lob_fact 的 14 处门红（`year=` 字面量 + 未登记直读）随暂停整体豁免出扫描面；
+# 登记：governance/workspace/pending-items.md #23、governance/evidence/reviews/STATUS.md §二#12。
+# 恢复条件：用户重启 tick 方向 → 移除本豁免，并按原方案一次修完（factio.partitions 单点 + G-READ 登记）。
+PAUSED_TREES = ("platform/tools/lob_fact",)
 # ^ R19：补 `/.venv/`（与 check_imports.py 对齐）。原先不含 → 一旦某工具 `pip install -e .`
 #   就地建 venv，pip/setuptools 自带的 `_vendor/typing_extensions.py`、`setuptools/msvc.py`
 #   会触发 G-CONTRACT 4 处 + G-MARK 1 处**强制判红**（实测见 governance/evidence/verification/R19/ 与 pending #19）。
@@ -186,10 +191,18 @@ def _rel(p: Path) -> str:
         return str(p)
 
 
+def _is_paused(p: Path) -> bool:
+    """暂停树判定（tick 全线暂停豁免；见 PAUSED_TREES 注释）。"""
+    rel = _rel(p)
+    return any(rel == t or rel.startswith(t + "/") for t in PAUSED_TREES)
+
+
 def _py_files(root: Path):
     for p in sorted(root.rglob("*.py")):
         s = str(p)
         if any(part in s for part in SKIP_PARTS):
+            continue
+        if _is_paused(p):
             continue
         yield p
 
@@ -363,6 +376,8 @@ def check_g_read() -> list[str]:
             else:
                 seen.add(key)
     for key in sorted(set(G_READ_ALLOWED) - seen):
+        if any(key[0] == t or key[0].startswith(t + "/") for t in PAUSED_TREES):
+            continue          # 暂停树登记不参与"白名单不腐"校验（tick 暂停，pending #23）
         bad.append(f"白名单失效：{key[0]}::{key[1]}::{key[2]} 已不存在 —— 更新登记")
     return bad
 
@@ -446,6 +461,10 @@ def main() -> int:
         return selftest()
 
     fail = 0
+    paused = [t for t in PAUSED_TREES if (REPO / t).is_dir()]
+    if paused:
+        print(f"  ⏸ 暂停豁免：{', '.join(paused)}（tick 全线暂停，pending-items #23；"
+              f"恢复时移除本豁免并一次修完）")
 
     print("[G-CONTRACT/工具树分区字面量] ENFORCED：`year=` 只许经 core.factio.partitions")
     bad = check_contract_tools()

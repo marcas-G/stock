@@ -9,7 +9,7 @@
     labels 取 daily 口径）→ write_composite_artifact（T3 writer）→ summary 落盘。
 
 落点（design §14）：`<results_dir>/composites/<name>/`；I/O 全走 adapters 单点
-（atomicio / results_fs / panel_store），本模块不静态 import research（G-BOUNDARY）。
+（atomicio / results_fs / panel_store），本模块不静态导入研究树（G-BOUNDARY）。
 
 失败语义（fail fast，文案含指引）：缺成员/交集为空/NaN 输出等 → ValueError 子类，
 **先于任何产物落盘**（不写半成品目录）；cache 命中要求 artifact 完整（T3 load_cached）。
@@ -57,7 +57,7 @@ class CompositeRunResult:
 
 
 def _find_impl_root(spec_path: Path, entrypoint: str) -> Path:
-    """从 spec 向上定位实现模块白名单根（plugin 模式；不静态 import research）。
+    """从 spec 向上定位实现模块白名单根（plugin 模式；不静态导入研究树）。
 
     entrypoint `pkg.mod:func` → 在 spec 的各级父目录下找 `pkg/mod.py` 或
     `pkg/mod/__init__.py`；找到的目录即 load_impl 的 root（逃逸校验由 runtime 执行）。

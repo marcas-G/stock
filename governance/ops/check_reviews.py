@@ -330,7 +330,18 @@ def _evidence_ok(text: str, repo: Path, index: _Index) -> bool:
 
 
 def _split_cells(line: str) -> list[str]:
-    return [c.strip() for c in line.strip().strip("|").split("|")]
+    """按**未转义**的 `|` 切列；单元格内 `\\|` 转义还原为 `|`。
+
+    R35 发现：裸 `split("|")` 会被单元格内的转义竖线（如 `Δ\\|...`）错位，
+    导致该行复查状态解析错误与 `--closure` 漏报。
+    """
+    body = line.strip()
+    if body.startswith("|"):
+        body = body[1:]
+    if body.endswith("|"):
+        body = body[:-1]
+    cells = re.split(r"(?<!\\)\|", body)
+    return [c.strip().replace("\\|", "|") for c in cells]
 
 
 def parse_rows(lines: list[str]) -> list[dict]:

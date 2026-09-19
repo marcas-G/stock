@@ -2,7 +2,7 @@
 
 断言来源：knowledge/design/platform/specs/2026-09-19-composite-alpha-aggregation-design.md
 - §7 硬边界：compute 只能消费 Runner 给的输入——成员名/句柄不得传入；
-- §14 实现入口按路径动态加载（importlib，不静态 import research），白名单根下校验、禁逃逸；
+- §14 实现入口按路径动态加载（importlib，不静态导入研究树），白名单根下校验、禁逃逸；
 - §15 `len(y)==N`、numeric、无 ±inf、NaN → FAIL；
 - §17 C1 验收⑦：成员名不传入 compute()。
 

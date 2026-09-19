@@ -2,7 +2,7 @@
 
 design §7/§14/§15 冻结：
 - 实现入口**按路径动态加载**（`module.path:function`，importlib）——白名单根下
-  解析 + 逃逸校验；platform 侧绝不静态 import research（G-BOUNDARY）；
+  解析 + 逃逸校验；platform 侧绝不静态导入研究树（G-BOUNDARY）；
 - `call_compute` 只传 `X/params`：成员名/rd/db 句柄不进 compute（§7 硬边界，
   验收⑦）——签名必须可接收 `(X, params)` 两个位置参数；
 - `validate_output`：`len(y)==N`、numeric、无 ±inf、**NaN → FAIL**（不静默 drop）。
