@@ -82,7 +82,7 @@ jobs:
           #   catalog（platform/scripts/gen_op_catalog.py）并过全量回归。
           platform/.venv/bin/python -m pip install -e "./platform[dev]" \
             "httpx==0.28.1" "polars==1.44.1" \
-            "typer==0.27.2" "rich==15.0.0" "click==8.5.0"
+            "typer==0.27.2" "rich==15.0.0" "click==8.5.0" "pytest-timeout==2.4.0"
 
       # 平台全量（无 CH）。
       # 排除项（仅此 1 条）：tests/test_factio.py::test_paths_roots_exist_or_skip 的
@@ -93,7 +93,7 @@ jobs:
         working-directory: platform
         run: |
           set -o pipefail
-          .venv/bin/python -m pytest -q \
+          .venv/bin/python -m pytest -q --timeout=180 --timeout-method=thread \
             --deselect tests/test_factio.py::test_paths_roots_exist_or_skip \
             2>&1 | tee "$RUNNER_TEMP/pytest-platform.log"
 
@@ -141,7 +141,7 @@ jobs:
           #   catalog（platform/scripts/gen_op_catalog.py）并过全量回归。
           platform/.venv/bin/python -m pip install -e "./platform[dev]" \
             "httpx==0.28.1" "polars==1.44.1" \
-            "typer==0.27.2" "rich==15.0.0" "click==8.5.0"
+            "typer==0.27.2" "rich==15.0.0" "click==8.5.0" "pytest-timeout==2.4.0"
 
       # 排除项（仅此 5 条，两类）：
       # (a) test_root_exists_on_disk（4 参数化）：lob_fact 配置根"存在性在盘"断言——
@@ -155,7 +155,7 @@ jobs:
       - name: platform/tools 测试（精确排除 5 条数据在盘假设）
         run: |
           set -o pipefail
-          platform/.venv/bin/python -m pytest platform/tools -q \
+          platform/.venv/bin/python -m pytest platform/tools -q --timeout=180 --timeout-method=thread \
             --deselect tools/lob_fact/tests/test_config_paths.py::test_root_exists_on_disk \
             --deselect tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables \
             2>&1 | tee "$RUNNER_TEMP/pytest-tools.log"
@@ -175,7 +175,7 @@ jobs:
       - name: research/tools 测试（精确排除 3 条在途/预存红）
         run: |
           set -o pipefail
-          platform/.venv/bin/python -m pytest research/tools -q \
+          platform/.venv/bin/python -m pytest research/tools -q --timeout=180 --timeout-method=thread \
             --deselect tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches \
             --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03 \
             --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes \
@@ -228,7 +228,7 @@ jobs:
           #   catalog（platform/scripts/gen_op_catalog.py）并过全量回归。
           platform/.venv/bin/python -m pip install -e "./platform[dev]" \
             "httpx==0.28.1" "polars==1.44.1" \
-            "typer==0.27.2" "rich==15.0.0" "click==8.5.0"
+            "typer==0.27.2" "rich==15.0.0" "click==8.5.0" "pytest-timeout==2.4.0"
 
       # 说明：不含 `make gates` 全量——G-DATAIFACE 的 ENFORCED 项在 lob_fact 在途
       # 修复落地前为红（本机预存），G-BOUNDARY 亦被在途注释文本命中；本 job 只收
