@@ -1,0 +1,824 @@
+{
+  "days": [
+    "1991-01-19",
+    "1991-02-02",
+    "1991-02-09",
+    "1991-02-23",
+    "1991-03-02",
+    "1991-03-09",
+    "1991-03-16",
+    "1991-03-23",
+    "1991-03-30",
+    "1991-04-13",
+    "1991-04-20",
+    "1991-05-04",
+    "1991-05-25",
+    "1991-06-01",
+    "1991-11-17",
+    "1992-04-18",
+    "1993-07-03",
+    "1993-08-21"
+  ],
+  "params": {
+    "tol": 0.01,
+    "med_match_tol": 0.1,
+    "margin_max_gap_pct": 2.0,
+    "legacy_min_hist": 100
+  },
+  "summary": {
+    "恢复（规则误判）": 3,
+    "保持隔离（数据确坏）": 4,
+    "历史制度例外（标记）": 11
+  },
+  "row_verdicts": {
+    "LEGACY_UNIT": 19,
+    "MARGIN": 4,
+    "CORRUPT": 4
+  },
+  "per_day": {
+    "1991-01-19": {
+      "conclusion": "历史制度例外（标记）",
+      "evidence": "充分",
+      "reason": "全行匹配代码级早期单位约定（金额单位因子≠1，价格序列连续）；属历史制度例外而非随机损坏",
+      "n_rows": 1,
+      "rows": [
+        {
+          "date": "1991-01-19",
+          "code": "000004.SZ",
+          "open": 15.38,
+          "high": 15.38,
+          "low": 15.38,
+          "close": 15.38,
+          "volume": 100.0,
+          "amount": 8000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 80.0,
+          "dev_pct": 420.15604681404415,
+          "gap_pct": 415.00598694459813,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 5.201560468140442,
+          "code_med_ratio": 4.971923551481883,
+          "n_code_hist": 743
+        }
+      ],
+      "rule_fix_candidates": [
+        "保留 VWAP 规则；将匹配代码级单位约定的早期行标记为历史单位例外（UNIT_SUSPECT/LEGACY_UNIT），不自动改写金额。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-02-02": {
+      "conclusion": "历史制度例外（标记）",
+      "evidence": "充分",
+      "reason": "全行匹配代码级早期单位约定（金额单位因子≠1，价格序列连续）；属历史制度例外而非随机损坏",
+      "n_rows": 2,
+      "rows": [
+        {
+          "date": "1991-02-02",
+          "code": "000002.SZ",
+          "open": 14.59,
+          "high": 14.59,
+          "low": 14.59,
+          "close": 14.59,
+          "volume": 1300.0,
+          "amount": 95000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 73.07692307692308,
+          "dev_pct": 400.8699319871356,
+          "gap_pct": 395.9108237496392,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 5.008699319871356,
+          "code_med_ratio": 4.9784343719485555,
+          "n_code_hist": 764
+        },
+        {
+          "date": "1991-02-02",
+          "code": "000004.SZ",
+          "open": 14.66,
+          "high": 14.66,
+          "low": 14.66,
+          "close": 14.66,
+          "volume": 1800.0,
+          "amount": 132000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 73.33333333333333,
+          "dev_pct": 400.2273760800364,
+          "gap_pct": 395.2746297822142,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 5.002273760800364,
+          "code_med_ratio": 4.971923551481883,
+          "n_code_hist": 743
+        }
+      ],
+      "rule_fix_candidates": [
+        "保留 VWAP 规则；将匹配代码级单位约定的早期行标记为历史单位例外（UNIT_SUSPECT/LEGACY_UNIT），不自动改写金额。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-02-09": {
+      "conclusion": "历史制度例外（标记）",
+      "evidence": "充分",
+      "reason": "全行匹配代码级早期单位约定（金额单位因子≠1，价格序列连续）；属历史制度例外而非随机损坏",
+      "n_rows": 2,
+      "rows": [
+        {
+          "date": "1991-02-09",
+          "code": "000002.SZ",
+          "open": 15.01,
+          "high": 15.01,
+          "low": 15.01,
+          "close": 15.01,
+          "volume": 13600.0,
+          "amount": 1021000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 75.07352941176471,
+          "dev_pct": 400.15675823960504,
+          "gap_pct": 395.2047111283218,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 5.00156758239605,
+          "code_med_ratio": 4.9784343719485555,
+          "n_code_hist": 764
+        },
+        {
+          "date": "1991-02-09",
+          "code": "000004.SZ",
+          "open": 14.8,
+          "high": 14.8,
+          "low": 14.8,
+          "close": 14.8,
+          "volume": 2400.0,
+          "amount": 178000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 74.16666666666667,
+          "dev_pct": 401.12612612612617,
+          "gap_pct": 396.1644813129962,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 5.011261261261262,
+          "code_med_ratio": 4.971923551481883,
+          "n_code_hist": 743
+        }
+      ],
+      "rule_fix_candidates": [
+        "保留 VWAP 规则；将匹配代码级单位约定的早期行标记为历史单位例外（UNIT_SUSPECT/LEGACY_UNIT），不自动改写金额。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-02-23": {
+      "conclusion": "历史制度例外（标记）",
+      "evidence": "充分",
+      "reason": "全行匹配代码级早期单位约定（金额单位因子≠1，价格序列连续）；属历史制度例外而非随机损坏",
+      "n_rows": 2,
+      "rows": [
+        {
+          "date": "1991-02-23",
+          "code": "000002.SZ",
+          "open": 15.41,
+          "high": 15.41,
+          "low": 15.41,
+          "close": 15.41,
+          "volume": 12700.0,
+          "amount": 978000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 77.00787401574803,
+          "dev_pct": 399.72663215929936,
+          "gap_pct": 394.7788437220786,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 4.997266321592994,
+          "code_med_ratio": 4.9784343719485555,
+          "n_code_hist": 764
+        },
+        {
+          "date": "1991-02-23",
+          "code": "000004.SZ",
+          "open": 14.45,
+          "high": 14.45,
+          "low": 14.45,
+          "close": 14.45,
+          "volume": 600.0,
+          "amount": 43000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 71.66666666666667,
+          "dev_pct": 395.9630911188005,
+          "gap_pct": 391.05256546415893,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 4.959630911188005,
+          "code_med_ratio": 4.971923551481883,
+          "n_code_hist": 743
+        }
+      ],
+      "rule_fix_candidates": [
+        "保留 VWAP 规则；将匹配代码级单位约定的早期行标记为历史单位例外（UNIT_SUSPECT/LEGACY_UNIT），不自动改写金额。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-03-02": {
+      "conclusion": "历史制度例外（标记）",
+      "evidence": "充分",
+      "reason": "全行匹配代码级早期单位约定（金额单位因子≠1，价格序列连续）；属历史制度例外而非随机损坏",
+      "n_rows": 1,
+      "rows": [
+        {
+          "date": "1991-03-02",
+          "code": "000002.SZ",
+          "open": 14.03,
+          "high": 14.03,
+          "low": 14.03,
+          "close": 14.03,
+          "volume": 1800.0,
+          "amount": 126000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 70.0,
+          "dev_pct": 398.93086243763366,
+          "gap_pct": 393.9909529085482,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 4.989308624376337,
+          "code_med_ratio": 4.9784343719485555,
+          "n_code_hist": 764
+        }
+      ],
+      "rule_fix_candidates": [
+        "保留 VWAP 规则；将匹配代码级单位约定的早期行标记为历史单位例外（UNIT_SUSPECT/LEGACY_UNIT），不自动改写金额。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-03-09": {
+      "conclusion": "历史制度例外（标记）",
+      "evidence": "充分",
+      "reason": "全行匹配代码级早期单位约定（金额单位因子≠1，价格序列连续）；属历史制度例外而非随机损坏",
+      "n_rows": 1,
+      "rows": [
+        {
+          "date": "1991-03-09",
+          "code": "000002.SZ",
+          "open": 14.51,
+          "high": 14.51,
+          "low": 14.51,
+          "close": 14.51,
+          "volume": 400.0,
+          "amount": 29000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 72.5,
+          "dev_pct": 399.6554100620262,
+          "gap_pct": 394.70832679408534,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 4.996554100620262,
+          "code_med_ratio": 4.9784343719485555,
+          "n_code_hist": 764
+        }
+      ],
+      "rule_fix_candidates": [
+        "保留 VWAP 规则；将匹配代码级单位约定的早期行标记为历史单位例外（UNIT_SUSPECT/LEGACY_UNIT），不自动改写金额。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-03-16": {
+      "conclusion": "历史制度例外（标记）",
+      "evidence": "推断",
+      "reason": "全行匹配代码级早期单位约定（金额单位因子≠1，价格序列连续）；属历史制度例外而非随机损坏",
+      "n_rows": 2,
+      "rows": [
+        {
+          "date": "1991-03-16",
+          "code": "000002.SZ",
+          "open": 14.09,
+          "high": 14.09,
+          "low": 14.09,
+          "close": 14.09,
+          "volume": 800.0,
+          "amount": 56000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 70.0,
+          "dev_pct": 396.80624556423,
+          "gap_pct": 391.88737184577224,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 4.9680624556423,
+          "code_med_ratio": 4.9784343719485555,
+          "n_code_hist": 764
+        },
+        {
+          "date": "1991-03-16",
+          "code": "000004.SZ",
+          "open": 13.19,
+          "high": 13.19,
+          "low": 13.19,
+          "close": 13.19,
+          "volume": 100.0,
+          "amount": 6000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 60.0,
+          "dev_pct": 354.8900682335103,
+          "gap_pct": 350.38620617179237,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 4.548900682335103,
+          "code_med_ratio": 4.971923551481883,
+          "n_code_hist": 743
+        }
+      ],
+      "rule_fix_candidates": [
+        "保留 VWAP 规则；将匹配代码级单位约定的早期行标记为历史单位例外（UNIT_SUSPECT/LEGACY_UNIT），不自动改写金额。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-03-23": {
+      "conclusion": "历史制度例外（标记）",
+      "evidence": "推断",
+      "reason": "全行匹配代码级早期单位约定（金额单位因子≠1，价格序列连续）；属历史制度例外而非随机损坏",
+      "n_rows": 2,
+      "rows": [
+        {
+          "date": "1991-03-23",
+          "code": "000002.SZ",
+          "open": 13.67,
+          "high": 13.67,
+          "low": 13.67,
+          "close": 13.67,
+          "volume": 200.0,
+          "amount": 14000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 70.0,
+          "dev_pct": 412.0702267739576,
+          "gap_pct": 407.00022452867086,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 5.120702267739576,
+          "code_med_ratio": 4.9784343719485555,
+          "n_code_hist": 764
+        },
+        {
+          "date": "1991-03-23",
+          "code": "000004.SZ",
+          "open": 12.8,
+          "high": 12.8,
+          "low": 12.8,
+          "close": 12.8,
+          "volume": 100.0,
+          "amount": 6000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 60.0,
+          "dev_pct": 368.75,
+          "gap_pct": 364.1089108910891,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 4.6875,
+          "code_med_ratio": 4.971923551481883,
+          "n_code_hist": 743
+        }
+      ],
+      "rule_fix_candidates": [
+        "保留 VWAP 规则；将匹配代码级单位约定的早期行标记为历史单位例外（UNIT_SUSPECT/LEGACY_UNIT），不自动改写金额。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-03-30": {
+      "conclusion": "历史制度例外（标记）",
+      "evidence": "充分",
+      "reason": "全行匹配代码级早期单位约定（金额单位因子≠1，价格序列连续）；属历史制度例外而非随机损坏",
+      "n_rows": 2,
+      "rows": [
+        {
+          "date": "1991-03-30",
+          "code": "000002.SZ",
+          "open": 13.25,
+          "high": 13.25,
+          "low": 13.25,
+          "close": 13.25,
+          "volume": 1300.0,
+          "amount": 86000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 66.15384615384616,
+          "dev_pct": 399.27431059506534,
+          "gap_pct": 394.33100058917364,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 4.9927431059506535,
+          "code_med_ratio": 4.9784343719485555,
+          "n_code_hist": 764
+        },
+        {
+          "date": "1991-03-30",
+          "code": "000004.SZ",
+          "open": 12.44,
+          "high": 12.44,
+          "low": 12.44,
+          "close": 12.44,
+          "volume": 400.0,
+          "amount": 25000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 62.5,
+          "dev_pct": 402.411575562701,
+          "gap_pct": 397.43720352742673,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 5.02411575562701,
+          "code_med_ratio": 4.971923551481883,
+          "n_code_hist": 743
+        }
+      ],
+      "rule_fix_candidates": [
+        "保留 VWAP 规则；将匹配代码级单位约定的早期行标记为历史单位例外（UNIT_SUSPECT/LEGACY_UNIT），不自动改写金额。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-04-13": {
+      "conclusion": "保持隔离（数据确坏）",
+      "evidence": "充分",
+      "reason": "至少一行无法归因于单位约定或容差边际（ratio 背离代码约定 >10% 或超容差 >2pp）；不得整体恢复",
+      "n_rows": 2,
+      "rows": [
+        {
+          "date": "1991-04-13",
+          "code": "000001.SZ",
+          "open": 46.84,
+          "high": 46.84,
+          "low": 46.84,
+          "close": 46.84,
+          "volume": 500.0,
+          "amount": 23000.0,
+          "adj_factor": 1.0922288642186164,
+          "fq_factor": 1.1,
+          "vwap": 46.0,
+          "dev_pct": -1.7933390264731064,
+          "gap_pct": -0.801352551993032,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 0.9820666097352689,
+          "code_med_ratio": 0.9999862613413241,
+          "n_code_hist": 688
+        },
+        {
+          "date": "1991-04-13",
+          "code": "000002.SZ",
+          "open": 12.49,
+          "high": 12.49,
+          "low": 12.49,
+          "close": 12.49,
+          "volume": 1000.0,
+          "amount": 6000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 6.0,
+          "dev_pct": -51.961569255404314,
+          "gap_pct": -51.47633258121649,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 0.4803843074459568,
+          "code_med_ratio": 4.9784343719485555,
+          "n_code_hist": 764
+        }
+      ],
+      "rule_fix_candidates": [
+        "不放宽 VWAP 容差（偏离 >2pp 或非单一日价）；如要恢复须先有权威价源核对 amount/volume 单位。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-04-20": {
+      "conclusion": "恢复（规则误判）",
+      "evidence": "推断",
+      "reason": "非单位约定行，但 VWAP 仅超容差带 ≤2pp（早期价格记载精度/金额按整数价取整），判定为规则容差误判",
+      "n_rows": 1,
+      "rows": [
+        {
+          "date": "1991-04-20",
+          "code": "000001.SZ",
+          "open": 45.46,
+          "high": 45.46,
+          "low": 45.46,
+          "close": 45.46,
+          "volume": 500.0,
+          "amount": 23000.0,
+          "adj_factor": 1.0921689397272327,
+          "fq_factor": 1.1,
+          "vwap": 46.0,
+          "dev_pct": 1.187857457105146,
+          "gap_pct": 0.18599748228232396,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 1.0118785745710515,
+          "code_med_ratio": 0.9999862613413241,
+          "n_code_hist": 688
+        }
+      ],
+      "rule_fix_candidates": [
+        "规则修正候选：pre-1995 单一日价/窄幅行 VWAP 容差 1%→2%（仅覆盖超容差带 ≤1.2pp 的行），需 Task 2 决策并 bump dq_policy。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-05-04": {
+      "conclusion": "保持隔离（数据确坏）",
+      "evidence": "充分",
+      "reason": "至少一行无法归因于单位约定或容差边际（ratio 背离代码约定 >10% 或超容差 >2pp）；不得整体恢复",
+      "n_rows": 2,
+      "rows": [
+        {
+          "date": "1991-05-04",
+          "code": "000001.SZ",
+          "open": 43.02,
+          "high": 43.02,
+          "low": 43.02,
+          "close": 43.02,
+          "volume": 200.0,
+          "amount": 9000.0,
+          "adj_factor": 1.5392840539284052,
+          "fq_factor": 1.54,
+          "vwap": 45.0,
+          "dev_pct": 4.602510460251041,
+          "gap_pct": 3.566842039852515,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 1.0460251046025104,
+          "code_med_ratio": 0.9999862613413241,
+          "n_code_hist": 688
+        },
+        {
+          "date": "1991-05-04",
+          "code": "000002.SZ",
+          "open": 11.47,
+          "high": 11.47,
+          "low": 11.47,
+          "close": 11.47,
+          "volume": 1500.0,
+          "amount": 86000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 57.333333333333336,
+          "dev_pct": 399.8546934030805,
+          "gap_pct": 394.90563703275285,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 4.998546934030805,
+          "code_med_ratio": 4.9784343719485555,
+          "n_code_hist": 764
+        }
+      ],
+      "rule_fix_candidates": [
+        "不放宽 VWAP 容差（偏离 >2pp 或非单一日价）；如要恢复须先有权威价源核对 amount/volume 单位。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-05-25": {
+      "conclusion": "历史制度例外（标记）",
+      "evidence": "充分",
+      "reason": "全行匹配代码级早期单位约定（金额单位因子≠1，价格序列连续）；属历史制度例外而非随机损坏",
+      "n_rows": 2,
+      "rows": [
+        {
+          "date": "1991-05-25",
+          "code": "000002.SZ",
+          "open": 11.35,
+          "high": 11.35,
+          "low": 11.35,
+          "close": 11.35,
+          "volume": 6400.0,
+          "amount": 363000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 56.71875,
+          "dev_pct": 399.72466960352426,
+          "gap_pct": 394.7769005975488,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 4.997246696035242,
+          "code_med_ratio": 4.9784343719485555,
+          "n_code_hist": 764
+        },
+        {
+          "date": "1991-05-25",
+          "code": "000004.SZ",
+          "open": 10.15,
+          "high": 10.15,
+          "low": 10.15,
+          "close": 10.15,
+          "volume": 100.0,
+          "amount": 5000.0,
+          "adj_factor": 1.0,
+          "fq_factor": 1.0,
+          "vwap": 50.0,
+          "dev_pct": 392.6108374384237,
+          "gap_pct": 387.7335024142808,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 4.926108374384237,
+          "code_med_ratio": 4.971923551481883,
+          "n_code_hist": 743
+        }
+      ],
+      "rule_fix_candidates": [
+        "保留 VWAP 规则；将匹配代码级单位约定的早期行标记为历史单位例外（UNIT_SUSPECT/LEGACY_UNIT），不自动改写金额。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-06-01": {
+      "conclusion": "恢复（规则误判）",
+      "evidence": "推断",
+      "reason": "非单位约定行，但 VWAP 仅超容差带 ≤2pp（早期价格记载精度/金额按整数价取整），判定为规则容差误判",
+      "n_rows": 1,
+      "rows": [
+        {
+          "date": "1991-06-01",
+          "code": "000001.SZ",
+          "open": 38.53,
+          "high": 38.53,
+          "low": 38.53,
+          "close": 38.53,
+          "volume": 1000.0,
+          "amount": 38000.0,
+          "adj_factor": 1.539320010381521,
+          "fq_factor": 1.54,
+          "vwap": 38.0,
+          "dev_pct": -1.3755515182974354,
+          "gap_pct": -0.37934496797720335,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 0.9862444848170256,
+          "code_med_ratio": 0.9999862613413241,
+          "n_code_hist": 688
+        }
+      ],
+      "rule_fix_candidates": [
+        "规则修正候选：pre-1995 单一日价/窄幅行 VWAP 容差 1%→2%（仅覆盖超容差带 ≤1.2pp 的行），需 Task 2 决策并 bump dq_policy。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1991-11-17": {
+      "conclusion": "保持隔离（数据确坏）",
+      "evidence": "充分",
+      "reason": "至少一行无法归因于单位约定或容差边际（ratio 背离代码约定 >10% 或超容差 >2pp）；不得整体恢复",
+      "n_rows": 1,
+      "rows": [
+        {
+          "date": "1991-11-17",
+          "code": "000004.SZ",
+          "open": 16.95,
+          "high": 17.2,
+          "low": 16.95,
+          "close": 17.1,
+          "volume": 17600.0,
+          "amount": 622000.0,
+          "adj_factor": 1.1497076023391812,
+          "fq_factor": 1.15,
+          "vwap": 35.34090909090909,
+          "dev_pct": 106.67198298777248,
+          "gap_pct": 103.43604127854647,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 2.0667198298777247,
+          "code_med_ratio": 4.971923551481883,
+          "n_code_hist": 743
+        }
+      ],
+      "rule_fix_candidates": [
+        "不放宽 VWAP 容差（偏离 >2pp 或非单一日价）；如要恢复须先有权威价源核对 amount/volume 单位。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1992-04-18": {
+      "conclusion": "历史制度例外（标记）",
+      "evidence": "充分",
+      "reason": "全行匹配代码级早期单位约定（金额单位因子≠1，价格序列连续）；属历史制度例外而非随机损坏",
+      "n_rows": 1,
+      "rows": [
+        {
+          "date": "1992-04-18",
+          "code": "000002.SZ",
+          "open": 15.5,
+          "high": 15.6,
+          "low": 14.55,
+          "close": 15.0,
+          "volume": 152100.0,
+          "amount": 11423000.0,
+          "adj_factor": 2.013333333333333,
+          "fq_factor": 2.16,
+          "vwap": 75.10190664036818,
+          "dev_pct": 400.6793776024546,
+          "gap_pct": 376.65591927118675,
+          "in_range": false,
+          "factor_candidates": [
+            5.0
+          ],
+          "ratio": 5.006793776024546,
+          "code_med_ratio": 4.9784343719485555,
+          "n_code_hist": 764
+        }
+      ],
+      "rule_fix_candidates": [
+        "保留 VWAP 规则；将匹配代码级单位约定的早期行标记为历史单位例外（UNIT_SUSPECT/LEGACY_UNIT），不自动改写金额。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1993-07-03": {
+      "conclusion": "恢复（规则误判）",
+      "evidence": "推断",
+      "reason": "非单位约定行，但 VWAP 仅超容差带 ≤2pp（早期价格记载精度/金额按整数价取整），判定为规则容差误判",
+      "n_rows": 1,
+      "rows": [
+        {
+          "date": "1993-07-03",
+          "code": "000012.SZ",
+          "open": 15.5,
+          "high": 16.2,
+          "low": 15.5,
+          "close": 16.2,
+          "volume": 1800.0,
+          "amount": 27500.0,
+          "adj_factor": 1.5592592592592593,
+          "fq_factor": 1.8,
+          "vwap": 15.277777777777779,
+          "dev_pct": -5.6927297668038275,
+          "gap_pct": -0.4380724810832327,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 0.9430727023319617,
+          "code_med_ratio": 1.0,
+          "n_code_hist": 478
+        }
+      ],
+      "rule_fix_candidates": [
+        "规则修正候选：pre-1995 单一日价/窄幅行 VWAP 容差 1%→2%（仅覆盖超容差带 ≤1.2pp 的行），需 Task 2 决策并 bump dq_policy。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    },
+    "1993-08-21": {
+      "conclusion": "保持隔离（数据确坏）",
+      "evidence": "充分",
+      "reason": "至少一行无法归因于单位约定或容差边际（ratio 背离代码约定 >10% 或超容差 >2pp）；不得整体恢复",
+      "n_rows": 1,
+      "rows": [
+        {
+          "date": "1993-08-21",
+          "code": "000012.SZ",
+          "open": 15.2,
+          "high": 15.2,
+          "low": 15.2,
+          "close": 15.2,
+          "volume": 1000.0,
+          "amount": 14600.0,
+          "adj_factor": 1.543421052631579,
+          "fq_factor": 1.8,
+          "vwap": 14.6,
+          "dev_pct": -3.9473684210526327,
+          "gap_pct": -2.9771398192450853,
+          "in_range": false,
+          "factor_candidates": [],
+          "ratio": 0.9605263157894737,
+          "code_med_ratio": 1.0,
+          "n_code_hist": 478
+        }
+      ],
+      "rule_fix_candidates": [
+        "不放宽 VWAP 容差（偏离 >2pp 或非单一日价）；如要恢复须先有权威价源核对 amount/volume 单位。",
+        "trade_cal 不得从 canonical daily 派生：全隔离日从日历消失的根因是派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。"
+      ]
+    }
+  }
+}
