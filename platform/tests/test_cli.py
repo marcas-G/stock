@@ -5,6 +5,7 @@ import yaml
 from factorlab import __version__
 from factorlab.surfaces.cli.main import app
 from factorlab.core.ops import registry
+from _text import strip_ansi
 
 
 runner = CliRunner()
@@ -13,7 +14,7 @@ runner = CliRunner()
 def test_version_command_prints_package_version():
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert __version__ in result.stdout
+    assert __version__ in strip_ansi(result.stdout)
 
 
 def test_lint_valid_spec(tmp_path):
@@ -27,7 +28,7 @@ def test_lint_valid_spec(tmp_path):
     }, allow_unicode=True), encoding="utf-8")
     result = runner.invoke(app, ["lint", str(spec)])
     assert result.exit_code == 0
-    assert "OK" in result.stdout
+    assert "OK" in strip_ansi(result.stdout)
 
 
 def test_lint_rejects_forbidden_import(tmp_path):
@@ -41,7 +42,7 @@ def test_lint_rejects_forbidden_import(tmp_path):
     }, allow_unicode=True), encoding="utf-8")
     result = runner.invoke(app, ["lint", str(spec)])
     assert result.exit_code != 0
-    assert "禁止导入" in result.stdout
+    assert "禁止导入" in strip_ansi(result.stdout)
 
 
 def test_op_list_empty(monkeypatch, tmp_path):
@@ -95,8 +96,8 @@ def test_op_doc_prints_registered_operator(tmp_path):
         assert runner.invoke(app, ["op", "add", str(plugin_path)]).exit_code == 0
         result = runner.invoke(app, ["op", "doc", "doc_dummy"])
         assert result.exit_code == 0
-        assert "doc_dummy" in result.stdout
-        assert "0.2.0" in result.stdout
+        assert "doc_dummy" in strip_ansi(result.stdout)
+        assert "0.2.0" in strip_ansi(result.stdout)
     finally:
         settings.plugin_dir = original
 
@@ -105,7 +106,7 @@ def test_m1_cli_help_lists_commands():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     for command in ("version", "lint", "op"):
-        assert command in result.stdout
+        assert command in strip_ansi(result.stdout)
 
 
 def test_corr_command_outputs_matrix(tmp_path, monkeypatch):
@@ -128,8 +129,8 @@ def test_corr_command_outputs_matrix(tmp_path, monkeypatch):
                         types.SimpleNamespace(results_dir=tmp_path))
     result = runner.invoke(app, ["corr", "a", "b"])
     assert result.exit_code == 0
-    assert "rank_corr" in result.stdout
-    assert "a" in result.stdout and "b" in result.stdout
+    assert "rank_corr" in strip_ansi(result.stdout)
+    assert "a" in strip_ansi(result.stdout) and "b" in strip_ansi(result.stdout)
 
 
 def test_corr_missing_factor(tmp_path, monkeypatch):
@@ -141,7 +142,7 @@ def test_corr_missing_factor(tmp_path, monkeypatch):
                         types.SimpleNamespace(results_dir=tmp_path))
     result = runner.invoke(app, ["corr", "a", "b"])
     assert result.exit_code != 0
-    assert "无结果" in result.stdout
+    assert "无结果" in strip_ansi(result.stdout)
 
 
 def test_svd_command_outputs_spectrum(tmp_path, monkeypatch):
@@ -164,5 +165,5 @@ def test_svd_command_outputs_spectrum(tmp_path, monkeypatch):
                         types.SimpleNamespace(results_dir=tmp_path))
     result = runner.invoke(app, ["svd", "a", "b"])
     assert result.exit_code == 0
-    assert "奇异值" in result.stdout
-    assert "PC1" in result.stdout
+    assert "奇异值" in strip_ansi(result.stdout)
+    assert "PC1" in strip_ansi(result.stdout)

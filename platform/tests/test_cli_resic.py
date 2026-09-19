@@ -10,6 +10,8 @@ import types
 import numpy as np
 import polars as pl
 import pytest
+
+from _text import strip_ansi
 from typer.testing import CliRunner
 
 from factorlab.surfaces.cli.main import app
@@ -81,13 +83,13 @@ def test_resic_mutual_output_structure_and_numbers(_results_dir):
     result = CliRunner().invoke(app, ["resic", *names])
     assert result.exit_code == 0
     # 组回归行：确定性 fwd 噪声 → R² 数值随真实 lstsq 计算（命令不存在/硬编码必败）
-    assert "组联合回归（fwd~a b c, 3 周）" in result.stdout
-    assert "R² =" in result.stdout
-    assert "正交化残差 IC" in result.stdout
+    assert "组联合回归（fwd~a b c, 3 周）" in strip_ansi(result.stdout)
+    assert "R² =" in strip_ansi(result.stdout)
+    assert "正交化残差 IC" in strip_ansi(result.stdout)
     for col in ("因子", "resIC", "t值", "有效周", "被基准解释R²"):
-        assert col in result.stdout
+        assert col in strip_ansi(result.stdout)
     for name in names:
-        assert name in result.stdout
+        assert name in strip_ansi(result.stdout)
 
 
 def test_resic_target_mode_scope_and_exact_r2(_results_dir):
@@ -101,11 +103,11 @@ def test_resic_target_mode_scope_and_exact_r2(_results_dir):
         _write_panel(_results_dir, n_, _dates(), m, fwd)
     result = CliRunner().invoke(app, ["resic", "a", "b", "--target", "c"])
     assert result.exit_code == 0
-    assert "基准组回归（fwd~a b, 3 周）" in result.stdout
-    assert "R² = 1.0000" in result.stdout  # 真实 lstsq 结果（c 不入组回归）
-    assert "基准: a, b" in result.stdout   # target 行注明基准组
+    assert "基准组回归（fwd~a b, 3 周）" in strip_ansi(result.stdout)
+    assert "R² = 1.0000" in strip_ansi(result.stdout)  # 真实 lstsq 结果（c 不入组回归）
+    assert "基准: a, b" in strip_ansi(result.stdout)   # target 行注明基准组
     # 因子行只列 target c（组内互评模式才逐因子一行）
-    rows = [ln for ln in result.stdout.splitlines() if "  " in ln
+    rows = [ln for ln in strip_ansi(result.stdout).splitlines() if "  " in ln
             and "因子" not in ln and "残差" not in ln]
     assert len(rows) == 1 and rows[0].strip().startswith("c")
 
@@ -114,14 +116,14 @@ def test_resic_single_factor_without_target_exits_1(_results_dir):
     _write_panel(_results_dir, "a", _dates(), _tile(_basis(1)[0]), 0.1 * _tile(_basis(1)[0]))
     result = CliRunner().invoke(app, ["resic", "a"])
     assert result.exit_code == 1
-    assert "--target" in result.stdout
+    assert "--target" in strip_ansi(result.stdout)
 
 
 def test_resic_missing_panel_exits_1(_results_dir):
     _write_panel(_results_dir, "a", _dates(), _tile(_basis(1)[0]), 0.1 * _tile(_basis(1)[0]))
     result = CliRunner().invoke(app, ["resic", "a", "ghost"])
     assert result.exit_code == 1
-    assert "无结果" in result.stdout
+    assert "无结果" in strip_ansi(result.stdout)
 
 
 def test_resic_no_common_weeks_exits_1(_results_dir):
@@ -131,7 +133,7 @@ def test_resic_no_common_weeks_exits_1(_results_dir):
     _write_panel(_results_dir, "p2", later, v, 0.1 * v)
     result = CliRunner().invoke(app, ["resic", "p1", "p2"])
     assert result.exit_code == 1
-    assert "公共周" in result.stdout
+    assert "公共周" in strip_ansi(result.stdout)
 
 
 def test_resic_target_inside_base_exits_1(_results_dir):
@@ -140,11 +142,12 @@ def test_resic_target_inside_base_exits_1(_results_dir):
         _write_panel(_results_dir, n_, _dates(), v, 0.1 * v)
     result = CliRunner().invoke(app, ["resic", "a", "b", "--target", "a"])
     assert result.exit_code == 1
-    assert "排除" in result.stdout
+    assert "排除" in strip_ansi(result.stdout)
 
 
 def test_resic_help_lists_command_and_options():
-    assert "resic" in CliRunner().invoke(app, ["--help"]).stdout
+    assert "resic" in strip_ansi(CliRunner().invoke(app, ["--help"]).stdout)
     help_out = CliRunner().invoke(app, ["resic", "--help"])
     assert help_out.exit_code == 0
-    assert "--target" in help_out.stdout and "--min-stocks" in help_out.stdout
+    plain = strip_ansi(help_out.stdout)
+    assert "--target" in plain and "--min-stocks" in plain

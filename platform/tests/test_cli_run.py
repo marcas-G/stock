@@ -4,6 +4,8 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+
+from _text import strip_ansi
 import yaml
 from typer.testing import CliRunner
 
@@ -18,7 +20,7 @@ def test_run_help():
     assert result.exit_code == 0
     for opt in ("--universe", "--max-memory", "--output-dir", "--backtest", "--no-backtest",
                 "--groups", "--set", "--eval-frequency"):
-        assert opt in result.stdout
+        assert opt in strip_ansi(result.stdout)
 
 
 def test_run_end_to_end(tmp_path, monkeypatch):
@@ -55,7 +57,7 @@ formula: |
     assert pl.read_parquet(out_dir / "weekly.parquet").height == pl.read_parquet(
         out_dir / "panel.parquet").height
     # 评估信息回显到 stdout
-    assert "n_weeks=" in result.stdout and "freq=daily" in result.stdout
+    assert "n_weeks=" in strip_ansi(result.stdout) and "freq=daily" in strip_ansi(result.stdout)
 
 
 def test_run_universe_override(tmp_path, monkeypatch):
@@ -325,7 +327,7 @@ formula: |
     assert summary["signal_null_ratio"] == pytest.approx(4 / 18, abs=1e-4)  # 2 只 × 头部 2 天 null
     assert yaml.safe_load(summary["spec_yaml"])["params"] == {"win": 2}  # values 合并进 spec.params
     # 变体名回显到 stdout；默认变体目录未受影响
-    assert "demo_win2" in result.stdout
+    assert "demo_win2" in strip_ansi(result.stdout)
     assert (default_dir / "summary.json").exists()
 
 
@@ -360,7 +362,7 @@ formula: |
     params = yaml.safe_load(summary["spec_yaml"])["params"]
     assert params["win"] == 100 and params["gain"] == 2.5  # int/float 解析
     assert params["fast"] is True and params["tag"] == "abc"  # bool/str 解析
-    assert "demo_win100_gain2.5_fastTrue_tagabc" in result.stdout
+    assert "demo_win100_gain2.5_fastTrue_tagabc" in strip_ansi(result.stdout)
 
 
 def test_run_set_bad_format_rejected(tmp_path, monkeypatch):
@@ -388,9 +390,9 @@ def test_run_help_chunk_options():
     result = runner.invoke(app, ["run", "--help"])
     assert result.exit_code == 0
     for opt in ("--chunk-days", "--warmup-days", "--chunk-workers"):
-        assert opt in result.stdout
+        assert opt in strip_ansi(result.stdout)
     # R31 读缓存开关（默认开；--no-read-cache 关）
-    assert "--no-read-cache" in result.stdout
+    assert "--no-read-cache" in strip_ansi(result.stdout)
 
 
 def test_run_no_read_cache_wired(tmp_path, monkeypatch):
@@ -742,7 +744,7 @@ formula: |
     assert summary["adjustment"] == "raw"
     assert "evaluation" in summary          # 评估/分层链对分钟折日面板零改动复用（daily 默认）
     assert summary["evaluation"]["frequency"] == "daily"
-    assert "n_weeks=" in result.stdout
+    assert "n_weeks=" in strip_ansi(result.stdout)
     panel = pl.read_parquet(out_dir / "panel.parquet")
     assert panel.height == 12               # 2 code × 6 交易日（无停牌）
     assert panel["signal"].null_count() == 0

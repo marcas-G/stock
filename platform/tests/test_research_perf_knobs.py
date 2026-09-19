@@ -23,6 +23,8 @@ from types import SimpleNamespace
 
 import polars as pl
 import pytest
+
+from _text import strip_ansi
 from typer.testing import CliRunner
 
 from factorlab.config import settings
@@ -258,13 +260,13 @@ def test_cli_factor_run_help_lists_perf_knobs():
     result = runner.invoke(cli_app, ["research", "factor", "run", "--help"])
     assert result.exit_code == 0, result.output
     for flag in PERF_FLAGS:
-        assert flag in result.stdout, f"帮助缺 {flag}: {result.stdout}"
+        assert flag in strip_ansi(result.stdout), f"帮助缺 {flag}: {result.stdout}"
 
 
 def test_cli_group_help_still_available():
     result = runner.invoke(cli_app, ["research", "factor", "--help"])
     assert result.exit_code == 0, result.output
-    assert "factor" in result.stdout
+    assert "factor" in strip_ansi(result.stdout)
 
 
 def test_describe_factor_run_doc_contains_perf_knobs():
