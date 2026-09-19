@@ -6,8 +6,9 @@ name: Selfhosted Verify (CH/全量)
 # 本机出网阻断 github.com：本 workflow 不使用任何 marketplace action（含
 # actions/checkout——改 git 直取）；远端动作下载若需要，请先在外部网络验证。
 #
-# 与 hosted CI 的分工：hosted 跑"干净 checkout 可绿"的离线门子集（ci.yml gates job）。
-# 本 workflow 的独有价值 = **宿主数据面**：
+# 与 hosted CI 的分工：hosted 跑"干净 checkout 可绿"的离线门子集（ci.yml gates job；
+# R37 起 hosted 无研究产物区，产物门显式 SKIP）。本 workflow 的独有价值 = **宿主数据面 +
+# 研究产物区（QUANTRESEARCH_ROOT）**：产物门（lint-factors/索引/档案快照/tidy）在此跑全量。
 #   - 去掉 hosted 的"数据在盘假设"排除项（本机真实有数据）；
 #   - CH 集成腿 = `-m integration` +（ch / ST 显式降级 / 分钟缺覆盖 drop）三开关，
 #     2026-09-19 实测 14 passed / 11 skipped / ~5min。**注意：平台单测口径≠CH 全量**
@@ -128,6 +129,24 @@ jobs:
             --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03 \
             --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes \
             2>&1 | tee "$LOG"
+
+      # R37：产物门对研究产物区（hosted 无该目录、ci.yml 守卫 SKIP；本机在盘跑全量）：
+      # lint-factors / 三索引 byte-equality + 成对门 / 档案 snapshot / 目录公约报告。
+      # 注：test_index 的档案时效门（宽限）在上面 research/tools 步仍按既有在途
+      # deselect（2 个 momentum_20d 在途 spec，与 R37 迁移无关）；档案补齐后删 deselect。
+      # research_tidy 当前预存 1 条遗留（产物区 results 根下的 bw.log，非迁移引入）——
+      # 报告口径：退出非零只发 ::warning 不 fake 绿，整改后升级为硬门。
+      - name: 研究产物门（QUANTRESEARCH_ROOT：lint/索引/档案快照/tidy）
+        env:
+          QUANTRESEARCH_ROOT: /data/students/gaolei/quantresearch
+        run: |
+          set -o pipefail
+          make lint-factors
+          make index-check
+          platform/.venv/bin/python governance/evidence/verification/R21/EVID/annotate_factor_archives.py --check
+          if ! platform/.venv/bin/python governance/ops/research_tidy.py; then
+            echo "::warning::research_tidy 报告遗留（R37 预存：产物区 results 根下裸日志；整改后升级硬门）"
+          fi
 
       - name: governance/ops 测试
         run: |

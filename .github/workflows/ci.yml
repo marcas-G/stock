@@ -1,8 +1,14 @@
-# stock 单仓单树 CI（R31 ci-bootstrap）
+# stock 单仓单树 CI（R31 ci-bootstrap；R37 hosted/self-hosted 拆分）
 #
 # 环境事实：GitHub-hosted runner（ubuntu-latest）**无 ClickHouse、无本地 data/ 大数据、
-# 无 runs/ 产物**。本 workflow 只跑在此环境下确定性全绿的检查子集；依赖 CH/大数据的
-# 集成测试按各自 skip 机制自动跳过（skip，不假通过）。
+# 无 runs/ 产物、无研究产物区（QUANTRESEARCH_ROOT）**。本 workflow 只跑在此环境下
+# 确定性全绿的检查子集；依赖 CH/大数据的集成测试按各自 skip 机制自动跳过（skip，不假通过）。
+#
+# R37 Phase 2：研究产物（factor/strategy/composites/dossiers/index）已迁出主仓到
+# quantresearch/（本机 `/data/students/gaolei/quantresearch`，env `QUANTRESEARCH_ROOT`）。
+# hosted 无该目录 → 产物依赖步骤**显式 SKIP**（lint-factors/索引一致/档案快照/档案时效），
+# 产物门全量改由 `selfhosted-verify.yml` 对产物区跑；工具/平台测试照常（读产物区的
+# 测试以 root 缺失 skip，见各 test 的 skipif）。
 #
 # 本地逐条复现证据（无 CH 模拟：FACTORLAB_DATA_BACKEND=duckdb、FACTORLAB_CH_PORT=1、
 # FACTORLAB_STOCK_ROOT=<checkout>；worktree+工作树叠加 + 按本文件步骤现建 venv）：
@@ -53,6 +59,9 @@ env:
   # lob_fact 批算派发低水位（默认 ~15.3GB；GitHub runner 不可达）→ CI 调低，
   # 使 test_run_lob_batch 的 CLI e2e 用例可在 runner 上真实执行（R31-ci-fix）。
   LOB_BATCH_LOW_WATER_KB: "1048576"
+  # R37：hosted 无研究产物区——显式指向不存在路径，使产物门/产物测试确定性地
+  # SKIP（不依赖缺省绝对路径的偶然性；self-hosted 显式指真实产物区）。
+  QUANTRESEARCH_ROOT: /home/runner/quantresearch-absent
 
 jobs:
   platform:
@@ -243,11 +252,21 @@ jobs:
       #   - G-REVIEWS（check_reviews.py）：台账引用 runs/platform/... 产物，runs/ 不入库，
       #     干净 checkout 路径不可解析 → 本机绿是假象；待门对"未入库产物路径"降级后再入；
       #   - G-BOUNDARY：被 platform/src 在途注释文本命中（3 处，Plan CX 在途）。
-      - name: 因子 spec 全库 lint（G-LINT）
-        run: platform/.venv/bin/factorlab lint --all
-
-      - name: 索引一致（G-INDEX：因子 + 策略 + composite）
+      # R37：产物门只在研究产物区在盘时跑（hosted 无该目录 → SKIP，self-hosted 跑全量）。
+      - name: 因子 spec 全库 lint（G-LINT；产物区缺失则 SKIP）
         run: |
+          if [ -d "$QUANTRESEARCH_ROOT/factor" ]; then
+            platform/.venv/bin/factorlab lint --all
+          else
+            echo "SKIP: 研究产物区不存在（$QUANTRESEARCH_ROOT）——hosted 只跑工具，产物门见 selfhosted-verify.yml"
+          fi
+
+      - name: 索引一致（G-INDEX：因子 + 策略 + composite；产物区缺失则 SKIP）
+        run: |
+          if [ ! -d "$QUANTRESEARCH_ROOT/factor" ]; then
+            echo "SKIP: 研究产物区不存在（$QUANTRESEARCH_ROOT）——产物门见 selfhosted-verify.yml"
+            exit 0
+          fi
           set -o pipefail
           { platform/.venv/bin/python research/tools/factor_lib/build_index.py --check; \
             platform/.venv/bin/python research/tools/factor_lib/build_strategy_index.py --check; \
