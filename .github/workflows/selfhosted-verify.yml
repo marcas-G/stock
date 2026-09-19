@@ -70,10 +70,11 @@ jobs:
       # 唯一排除：lob_fact tick e2e（tick 全线暂停 2026-09-19，见 issue #15；
       # 恢复 tick 时连同门豁免一并移除本 deselect）。
       - name: 平台全量 pytest（CH）
+        working-directory: platform
         run: |
           set -o pipefail
           LOG="$RUNNER_TEMP/pytest-platform.log"
-          governance/ops/heavy.sh platform/.venv/bin/python -m pytest -q \
+          ../governance/ops/heavy.sh .venv/bin/python -m pytest -q \
             --timeout=300 --timeout-method=thread \
             --deselect tools/lob_fact/tests/test_run_lob_batch.py::test_main_cli_e2e_mini_month \
             2>&1 | tee "$LOG"
