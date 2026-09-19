@@ -69,6 +69,12 @@ governance/evidence/reviews/
   CH 集成 = `cd platform && FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow
   FACTORLAB_MINUTE_UNCOVERED=drop .venv/bin/python -m pytest -q -m integration`（14 passed /
   11 skipped / ~5min；11 skip 为需 tick 用例）。**给整包强加 ch 是错误口径**（大量红 + 数小时）。
+  **首跑全绿（2026-09-20）**：run `35455396087`，约 27min——平台 3834 passed / CH 集成
+  14 passed+11 skipped / platform/tools 877 passed（排除 2 条：tick 挂死 + pan_update 同根
+  守卫）/ research/tools+governance 同 hosted 口径。排障发现：heavy.sh 环境注入会污染测试
+  （injected `FACTORLAB_MAX_MEMORY` 破 env 断言、`POLARS_MAX_THREADS=8` 破 cash bridge 精确
+  相等校验 → 后者已立 R36-CI-I1 / issue #20）；故 CI 腿不加 heavy.sh/线程 env，内存由
+  memguard 兜底。
 
 ## 流程
 
