@@ -6,10 +6,15 @@ name: Selfhosted Verify (CH/全量)
 # 本机出网阻断 github.com：本 workflow 不使用任何 marketplace action（含
 # actions/checkout——改 git 直取）；远端动作下载若需要，请先在外部网络验证。
 #
-# 与 hosted CI 的分工：hosted 跑"干净 checkout 可绿"的离线门子集（ci.yml gates job）；
-# 本 workflow 的独有价值 = **宿主数据面**（真 CH + 在盘 parquet）。故不跑 `make gates`
-# 全量：其中 G-REVIEWS 校验台账引用的 runs/... 产物路径、G-DATAIFACE 含在途红——
-# 均为本机态门，干净 checkout 必红（见 ci.yml gates job 注释；门降级后再收编）。
+# 与 hosted CI 的分工：hosted 跑"干净 checkout 可绿"的离线门子集（ci.yml gates job）。
+# 本 workflow 的独有价值 = **宿主数据面**：
+#   - 去掉 hosted 的"数据在盘假设"排除项（本机真实有数据）；
+#   - CH 集成腿 = `-m integration` +（ch / ST 显式降级 / 分钟缺覆盖 drop）三开关，
+#     2026-09-19 实测 14 passed / 11 skipped / ~5min。**注意：平台单测口径≠CH 全量**
+#     ——单测默认后端（duckdb/无库）会 skip CH 腿；给整包强加 ch 是错误口径
+#     （大量红 + 单测数小时），不要那样跑。
+#   - 不跑 `make gates` 全量：其中 G-REVIEWS 校验台账引用的 runs/... 产物路径、
+#     G-DATAIFACE 含在途红——均为本机态门，干净 checkout 必红（见 ci.yml gates job 注释）。
 on:
   workflow_dispatch:
   repository_dispatch:
@@ -25,7 +30,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  FACTORLAB_DATA_BACKEND: ch
   POLARS_MAX_THREADS: "8"
   OMP_NUM_THREADS: "8"
 
@@ -54,8 +58,8 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git log --oneline -1
 
-      # 钉版与 hosted CI（.github/workflows/ci.yml）保持一致：httpx/polars 为
-      # 不钉则红项；用 uv 建 venv（宿主已装 uv + cpython 3.13，无需再下载解释器）。
+      # 钉版与 hosted CI（.github/workflows/ci.yml）保持一致；pytest-timeout 也在此装
+      #（pyproject 未声明，不装则 --timeout 参数报错）。用 uv：宿主已装 uv + cpython 3.13。
       - name: 环境（uv venv + editable 安装）
         run: |
           set -euo pipefail
@@ -66,20 +70,37 @@ jobs:
             "httpx==0.28.1" "polars==1.44.1" "typer==0.27.2" "rich==15.0.0" \
             "click==8.5.0" "pytest-timeout==2.4.0"
 
-      # 平台全量：宿主有 CH，hosted CI 的"数据在盘假设"排除项在此**不必排除**。
-      # 唯一排除：lob_fact tick e2e（tick 全线暂停 2026-09-19，见 issue #15；
-      # 恢复 tick 时连同门豁免一并移除本 deselect）。
-      - name: 平台全量 pytest（CH）
+      # 平台全量（含 testpaths 限定的 platform/tests）：hosted 因数据不在盘排除的
+      # test_factio 一条在此**不排除**（本机 data/fact 在盘）。rootdir=platform。
+      - name: 平台全量 pytest（默认后端，~8min）
         working-directory: platform
         run: |
           set -o pipefail
           LOG="$RUNNER_TEMP/pytest-platform.log"
           ../governance/ops/heavy.sh .venv/bin/python -m pytest -q \
             --timeout=300 --timeout-method=thread \
-            --deselect tools/lob_fact/tests/test_run_lob_batch.py::test_main_cli_e2e_mini_month \
             2>&1 | tee "$LOG"
 
-      - name: platform/tools 测试（CH + 在盘数据）
+      # CH 集成腿：真实 CH + 显式口径开关（ST 降级 / 分钟缺覆盖 drop）。
+      # 2026-09-19 实测：14 passed / 11 skipped / ~5min（11 skip 为需 tick 的用例，
+      # tick 全线暂停中；恢复 tick 后 skip 应收敛）。
+      - name: CH 集成（-m integration，~5min）
+        working-directory: platform
+        env:
+          FACTORLAB_DATA_BACKEND: ch
+          FACTORLAB_ST_DEGRADE: allow
+          FACTORLAB_MINUTE_UNCOVERED: drop
+        run: |
+          set -o pipefail
+          LOG="$RUNNER_TEMP/pytest-integration.log"
+          ../governance/ops/heavy.sh .venv/bin/python -m pytest -q -m integration \
+            --timeout=300 --timeout-method=thread \
+            2>&1 | tee "$LOG"
+
+      # platform/tools：hosted 的 2 条"数据在盘假设"排除项在此不排除（数据在盘）。
+      # 唯一排除：lob_fact tick e2e（tick 全线暂停 2026-09-19，见 issue #15；
+      # 恢复 tick 时连同门豁免一并移除本 deselect）。
+      - name: platform/tools 测试（在盘数据）
         run: |
           set -o pipefail
           LOG="$RUNNER_TEMP/pytest-tools.log"

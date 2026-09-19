@@ -65,6 +65,10 @@ governance/evidence/reviews/
   配套 workflow `.github/workflows/selfhosted-verify.yml`（手动 dispatch / 夜间 03:00 /
   repository_dispatch；**故意不挂 `pull_request`**——公开仓 + 自托管的分叉 PR 是任意代码执行
   风险面，GitHub 官方建议自托管仅配私有仓；**建议后续把仓库转私有**）。
+  自查口径（2026-09-19 实测）：平台单测 = **默认后端**（无 CH，~8min，CH 腿自动 skip）；
+  CH 集成 = `cd platform && FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow
+  FACTORLAB_MINUTE_UNCOVERED=drop .venv/bin/python -m pytest -q -m integration`（14 passed /
+  11 skipped / ~5min；11 skip 为需 tick 用例）。**给整包强加 ch 是错误口径**（大量红 + 数小时）。
 
 ## 流程
 
