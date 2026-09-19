@@ -12,7 +12,8 @@ import math
 import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, StrictInt, field_validator
+from pydantic import (BaseModel, ConfigDict, StrictInt, field_validator,
+                      model_validator)
 
 _NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 
@@ -45,9 +46,14 @@ def _validate_strict_int(value: int, field: str, minimum: int = 1) -> int:
 
 
 class SelectionSpec(BaseModel):
-    """证券选择契约（M7 v1：top_k）。
+    """证券选择契约（M7 v1：top_k；C4b：top_k_buffered）。
 
-    - k：strict int >= 1（bool 拒绝）
+    - top_k：`k`（strict int >= 1）；每日独立选择 Top-K。
+    - top_k_buffered：`enter_k`/`retain_k`（strict int >= 1，`retain_k >= enter_k`）
+      ——顺序式构造（同一 run 内按 decision date 顺序维护前一 target 持仓）：
+      当前持仓在当日 `retain_k` 名次内则保留（缓冲带）；空位从 `enter_k` 名次内
+      候选按 (signal, code_asc) 确定性补入；目标仓位数 = enter_k（use_available
+      时受当日可用数上限约束）。`k` 与 enter/retain 互斥（不静默忽略）。
     - tie_breaker：code_asc（cutoff 处相同 signal 按 code 升序——输入行序
       不影响 Top-K 结果）
     - null_policy：drop（signal null 不进入 candidate ranking）
@@ -56,30 +62,61 @@ class SelectionSpec(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    method: Literal["top_k"] = "top_k"
-    k: StrictInt          # strict int：拒绝 "30"/1.5/True/False（bool subclass of int 显式拦截）
+    method: Literal["top_k", "top_k_buffered"] = "top_k"
+    k: StrictInt | None = None            # strict：拒绝 "30"/1.5/True/False（bool subclass of int 显式拦截）
+    enter_k: StrictInt | None = None      # C4b buffered：补入名次上限
+    retain_k: StrictInt | None = None     # C4b buffered：保留名次上限（>= enter_k）
     tie_breaker: Literal["code_asc"] = "code_asc"
     null_policy: Literal["drop"] = "drop"
     on_insufficient: Literal["use_available", "all_cash"] = "use_available"
 
-    @field_validator("k")
+    @field_validator("k", "enter_k", "retain_k")
     @classmethod
-    def _k_valid(cls, v: int) -> int:
-        return _validate_strict_int(v, "k", minimum=1)
+    def _positive_int(cls, v: int | None, info) -> int | None:
+        if v is None:
+            return None
+        return _validate_strict_int(v, info.field_name, minimum=1)
+
+    @model_validator(mode="after")
+    def _method_params(self) -> "SelectionSpec":
+        if self.method == "top_k":
+            if self.k is None:
+                raise ValueError("selection.method=top_k 必须提供 k")
+            if self.enter_k is not None or self.retain_k is not None:
+                raise ValueError(
+                    "selection.method=top_k 不接受 enter_k/retain_k"
+                    "（buffered 参数）——请改用 method=top_k_buffered")
+        else:
+            if self.k is not None:
+                raise ValueError(
+                    "selection.method=top_k_buffered 不接受 k——请用 "
+                    "enter_k/retain_k（k 与 buffered 参数互斥）")
+            if self.enter_k is None or self.retain_k is None:
+                raise ValueError(
+                    "selection.method=top_k_buffered 必须提供 enter_k 和 retain_k")
+            if self.retain_k < self.enter_k:
+                raise ValueError(
+                    f"selection.method=top_k_buffered 要求 retain_k >= enter_k"
+                    f"（收到 enter_k={self.enter_k} > retain_k={self.retain_k}）")
+        return self
 
 
 class WeightingSpec(BaseModel):
-    """权重契约（M7 v1：equal_weight；C4 §19.2：score_weighted）。
+    """权重契约（M7 v1：equal_weight；C4 §19.2：score_weighted；C4b：market_cap_weighted）。
 
     - equal_weight：gross_exposure / selected_count
     - score_weighted（long-only）：Top-K 后取有符号分 s = signal × direction，
       s' = max(s, 0)，w_i = gross_exposure × s'_i / Σs'；Σs'==0 → 当日 all-cash
       （显式，不 fallback 等权）。single-name cap 本期不做（V2 不引入）。
+    - market_cap_weighted：Top-K 内 w_i ∝ PIT total_mv（按 (date, code) 对齐的
+      市值面板，app 层从读句柄取），w_i = gross_exposure × mv_i / Σmv；long-only。
+      缺 mv（无行/total_mv 非 finite 或 <= 0）→ 显式 ValueError（fail fast，
+      不静默剔除/回退等权——缺市值不得伪装成零权重）。
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    method: Literal["equal_weight", "score_weighted"] = "equal_weight"
+    method: Literal["equal_weight", "score_weighted", "market_cap_weighted"] = "equal_weight"
 
 
 class StrategySpec(BaseModel):

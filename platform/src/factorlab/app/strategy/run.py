@@ -6,7 +6,8 @@
                                    # composite → results_dir/composites/<name>
       → 按 doc.date 过滤 signal frame
       → 按 doc.universe_override 过滤 signal frame（R07-STRAT-I6：canonical 子集）
-      → construct_target_portfolio（M7：StrategySpec）
+      → _load_market_cap（仅 market_cap_weighted：读句柄取 PIT total_mv）
+      → construct_target_portfolio（M7：StrategySpec + market_cap 面板）
       → build_rebalance_schedule
       → write_strategy_artifacts(out_dir)
       → run_backtest(target, doc.execution, rd)（M8：ExecutionSpec）
@@ -28,6 +29,7 @@ from pathlib import Path
 import polars as pl
 
 from factorlab.adapters.parquet_artifacts import load_signal_artifact
+from factorlab.adapters.read.source import load_daily
 from factorlab.adapters.strategy_artifacts import write_strategy_artifacts
 from factorlab.app.backtest import run_backtest, save_backtest_result
 from factorlab.app.composite.artifact import read_composite_artifact
@@ -132,6 +134,45 @@ def _load_signal(doc: StrategyDoc, root: Path) -> SignalArtifact:
     return _load_composite_signal(doc, root)
 
 
+def _load_market_cap(signal: SignalArtifact, doc: StrategyDoc,
+                     rd: ReadPort) -> pl.DataFrame | None:
+    """PIT total_mv 面板（date/code/total_mv）——仅 market_cap_weighted 时取数。
+
+    - 读路径 = `adapters.read.source.load_daily(cols=["total_mv"])`（平台读面单点，
+      内部 LEFT JOIN daily_basic；duckdb/ch 双腿同口径）；DQ 读取门由其上层负责，
+      这里只做 join；非 mv 加权直接返回 None（不产生任何读）。
+    - `load_daily` 输出的 code 为 6 位（去后缀）→ 用窗口内 canonical codes 的
+      前缀映射还原；同前缀多 canonical（歧义）→ fail fast（拒绝静默错 join）。
+    - `float32=False`：市值量级大，权重保持 Float64 精度。
+    - 选中股缺 mv 行 → M7 constructor fail fast（点名 date/code，不静默剔除）。
+    """
+    if doc.strategy.weighting.method != "market_cap_weighted":
+        return None
+    frame = signal.frame
+    codes = sorted(frame["code"].unique().to_list())
+    by_prefix: dict[str, list[str]] = {}
+    for c in codes:
+        by_prefix.setdefault(c.split(".")[0], []).append(c)
+    ambiguous = {p: cs for p, cs in by_prefix.items() if len(cs) > 1}
+    if ambiguous:
+        raise ValueError(
+            f"策略 {doc.strategy.name}: 信号 codes 存在 6 位前缀歧义 {ambiguous}"
+            f"——无法把 total_mv 面板还原为 canonical code（拒绝静默错 join）")
+    prefix_to_code = {p: cs[0] for p, cs in by_prefix.items()}
+    mv = load_daily(rd, codes,
+                    date_start=frame["date"].min().isoformat(),
+                    date_end=frame["date"].max().isoformat(),
+                    cols=["total_mv"], float32=False).collect()
+    unknown = sorted(set(mv["code"].unique().to_list()) - set(prefix_to_code))
+    if unknown:
+        raise ValueError(
+            f"策略 {doc.strategy.name}: total_mv 面板含窗口外/未知 code {unknown}"
+            f"——前缀映射不完整（拒绝静默丢弃）")
+    mv = mv.with_columns(pl.col("code").replace_strict(
+        prefix_to_code, return_dtype=pl.String))
+    return mv.select(["date", "code", "total_mv"])
+
+
 def run_strategy(doc: StrategyDoc, rd: ReadPort,
                  results_dir: Path | None = None,
                  out_dir: Path | None = None,
@@ -150,6 +191,9 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
     - out_dir：策略产物目录显式覆盖（缺省 `results_dir/"strategies"/<name>`）；
     - `doc.universe_override` 非 null → 组合前先按 canonical ts_code 过滤信号帧
       （空交集 fail fast；null = 零行为变化，见 `_filter_to_universe`）；
+    - `weighting.method=market_cap_weighted` → 组合前从读句柄取 PIT total_mv
+      （`_load_market_cap`，daily_basic），join 到 (date, code) 交 M7；缺市值由
+      M7 fail fast（显式报错，不静默剔除/回退等权）;
     - target_transform：可选 M7 → M8 之间的目标组合变换钩子（研究侧 L5 规则
       V1 注入点，如 max_hold；须返回 TargetPortfolio 且保持 decision_dates/
       gross_exposure 契约——写盘交叉校验会复验）。
@@ -166,7 +210,8 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
     signal = _load_signal(doc, root)
     filtered = _filter_to_window(signal, doc)
     filtered = _filter_to_universe(filtered, doc)
-    target = construct_target_portfolio(filtered, doc.strategy)
+    mv_panel = _load_market_cap(filtered, doc, rd)
+    target = construct_target_portfolio(filtered, doc.strategy, market_cap=mv_panel)
     if target_transform is not None:
         target = target_transform(target)
         if not isinstance(target, TargetPortfolio):

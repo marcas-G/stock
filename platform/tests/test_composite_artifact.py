@@ -234,6 +234,64 @@ def test_write_input_binding_follows_declared_member_order(tmp_path):
     assert doc["input_binding"]["x2"]["member"] == "zeta"
 
 
+# ================================================================
+# C4b T3：显式元数据——frequency="1d" / adjustment=null（显式写入）+ name 目录校验
+# ================================================================
+
+def test_write_records_frequency_and_adjustment_explicitly(tmp_path):
+    """writer 落 artifact.json 必须带 frequency="1d" 与显式 null adjustment
+    （消费侧 `_load_composite_signal` 不再依赖缺省推断）。"""
+    out, *_ = setup_artifact(tmp_path)
+    doc = json.loads((out / "artifact.json").read_text(encoding="utf-8"))
+    assert doc["frequency"] == "1d"
+    assert "adjustment" in doc, "adjustment 必须显式存在（None → JSON null）"
+    assert doc["adjustment"] is None
+
+
+def test_read_roundtrip_exposes_frequency_and_adjustment(tmp_path):
+    out, *_ = setup_artifact(tmp_path)
+    _frame2, meta2, _prov2 = read_composite_artifact(out)
+    assert meta2["frequency"] == "1d"
+    assert meta2["adjustment"] is None
+
+
+@pytest.mark.parametrize("bad", [{"frequency": "5d"}, {"adjustment": "qfq"},
+                                 {"frequency": "1d", "adjustment": "hfq"}])
+def test_write_rejects_conflicting_frequency_or_adjustment(bad, tmp_path):
+    """调用方声明非合同值（非 1d frequency / 非 null adjustment）→ fail fast，
+    不静默覆盖为合同值（防 provenance 语义漂移）。"""
+    spec = make_spec(["zeta"])
+    refs = [make_ref(1, "zeta", "h-zeta")]
+    prov = build_provenance(spec, make_impl(), spec.params, refs, spec.alignment, None)
+    out = tmp_path / "out"
+    meta = {"name": spec.name, "definition_hash": "abc", **bad}
+    with pytest.raises(ValueError):
+        write_composite_artifact(out, make_frame(), meta, prov)
+    assert not (out / "artifact.json").exists()
+
+
+def test_read_rejects_name_directory_mismatch(tmp_path):
+    """目录/内容错配：artifact.json 顶层 name != 目录名 → 拒绝加载（点名两者）。"""
+    out, *_ = setup_artifact(tmp_path)
+    doc = json.loads((out / "artifact.json").read_text(encoding="utf-8"))
+    doc["name"] = "other_composite"
+    (out / "artifact.json").write_text(json.dumps(doc), encoding="utf-8")
+    with pytest.raises(ValueError) as ei:
+        read_composite_artifact(out)
+    msg = str(ei.value)
+    assert "other_composite" in msg and "composite_001" in msg
+
+
+def test_read_rejects_missing_top_level_name(tmp_path):
+    out, *_ = setup_artifact(tmp_path)
+    doc = json.loads((out / "artifact.json").read_text(encoding="utf-8"))
+    del doc["name"]
+    (out / "artifact.json").write_text(json.dumps(doc), encoding="utf-8")
+    with pytest.raises(ValueError) as ei:
+        read_composite_artifact(out)
+    assert "name" in str(ei.value)
+
+
 def test_write_recomputes_cache_key_from_disk_facts(tmp_path):
     root = tmp_path / "runs"
     out = root / "composites" / "composite_001"

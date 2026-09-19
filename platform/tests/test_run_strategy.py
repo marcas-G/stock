@@ -68,7 +68,9 @@ def _opens(code, d):
     return _CLOSES[code][_DATES.index(d)] - 1.0
 
 
-def _tables(adj_events=()):
+def _tables(adj_events=(), mv=None):
+    """mv: None → daily_basic total_mv 恒 100.0；否则 dict[(date, code)] → value
+    （键缺席 = 该 (date, code) 无 mv 行；value None = 行在但 null）。"""
     daily, adj, dbasic = [], [], []
     for i, d in enumerate(_DATES):
         ds = d.strftime("%Y%m%d")
@@ -77,7 +79,10 @@ def _tables(adj_events=()):
             daily.append((code, ds, c - 1.0, c - 0.5, c - 1.5, c,
                           c - 1.0, 1.0, 0.01, 1000.0, 1e6))
             adj.append((code, ds, 1.0))
-            dbasic.append((ds, code, 100.0))
+            if mv is None:
+                dbasic.append((ds, code, 100.0))
+            elif (d, code) in mv:
+                dbasic.append((ds, code, mv[(d, code)]))
     limits = [(c, d.strftime("%Y%m%d"), round(_opens(c, d) * 1.1, 4),
                round(_opens(c, d) * 0.9, 4))
               for d in _DATES for c in _CLOSES]
@@ -121,13 +126,13 @@ formula: |
 def _doc_yaml(*, start="2024-01-02", end="2024-01-05", name="ws7_doc",
               direction=1, top_k=2, freq="daily", cash=1_000_000.0,
               commission=0.0, override="null", signal=_SIGNAL_NAME,
-              signal_kind=None):
+              signal_kind=None, weighting="equal_weight"):
     kind_line = f"signal_kind: {signal_kind}\n" if signal_kind else ""
     return f"""\
 name: {name}
 signal: {signal}
 {kind_line}direction: {direction}
-portfolio: {{top_k: {top_k}, weighting: equal_weight, gross_exposure: 1.0,
+portfolio: {{top_k: {top_k}, weighting: {weighting}, gross_exposure: 1.0,
              rebalance_frequency: {freq}}}
 execution:
   timing: NEXT_OPEN
@@ -247,9 +252,9 @@ def test_constructor_and_backtest_receive_exact_specs(env, tmp_path, monkeypatch
     seen: dict = {"ctor": [], "bt": []}
     real_ctor, real_bt = R.construct_target_portfolio, R.run_backtest
 
-    def spy_ctor(signal, spec):
-        seen["ctor"].append((signal.meta.name, spec))
-        return real_ctor(signal, spec)
+    def spy_ctor(signal, spec, **kw):
+        seen["ctor"].append((signal.meta.name, spec, kw))
+        return real_ctor(signal, spec, **kw)
 
     def spy_bt(target, spec, rd, **kw):
         seen["bt"].append((target, spec, rd))
@@ -261,8 +266,9 @@ def test_constructor_and_backtest_receive_exact_specs(env, tmp_path, monkeypatch
 
     assert len(seen["ctor"]) == 1, "construct_target_portfolio 必须被真实调用一次"
     assert len(seen["bt"]) == 1, "run_backtest 必须被真实调用一次"
-    sig_name, spec = seen["ctor"][0]
+    sig_name, spec, ctor_kw = seen["ctor"][0]
     assert sig_name == _SIGNAL_NAME
+    assert ctor_kw.get("market_cap") is None, "equal_weight 路径不得注入市值面板"
     assert (spec.direction, spec.selection.k, spec.gross_exposure,
             spec.rebalance_frequency) == (1, 2, 1.0, "daily")
     assert spec.name == "ws7_doc"
@@ -373,9 +379,9 @@ def test_universe_override_filters_signal_before_construction(env, tmp_path, mon
     seen: dict = {}
     real_ctor = R.construct_target_portfolio
 
-    def spy_ctor(signal, spec):
+    def spy_ctor(signal, spec, **kw):
         seen["codes"] = sorted(signal.frame["code"].unique().to_list())
-        return real_ctor(signal, spec)
+        return real_ctor(signal, spec, **kw)
 
     monkeypatch.setattr(R, "construct_target_portfolio", spy_ctor)
     res = run_strategy(doc, env.rd, dataset=None, results_dir=results)
@@ -567,6 +573,95 @@ def test_run_strategy_composite_name_directory_mismatch_rejected(env, tmp_path):
         run_strategy(doc, env.rd, dataset=None, results_dir=results)
     msg = str(ei.value)
     assert "other_cx" in msg and "cx_demo" in msg
+
+
+# ================================================================
+# 2d. market_cap_weighted（Plan CX-C4b）：app 层从读句柄取 PIT total_mv
+#   （daily_basic）→ (date, code) join 到 M7 选中 Top-K → w ∝ mv；缺值显式报错。
+# ================================================================
+
+_MV_BY_DAY = {
+    (_D1, _A): 10.0, (_D1, _B): 20.0, (_D1, _C): 40.0,
+    (_D2, _A): 40.0, (_D2, _B): 20.0, (_D2, _C): 10.0,
+    (_D3, _A): 25.0, (_D3, _B): 50.0, (_D3, _C): 25.0,
+    (_D4, _A): 15.0, (_D4, _B): 45.0, (_D4, _C): 30.0,
+}
+
+
+def _seed_and_run_factor_with_mv(env, tmp_path, results, mv):
+    env.seed(_tables(mv=mv))
+    from factorlab.core.spec import load_spec
+    run_factor(load_spec(_factor_spec(tmp_path)),
+               RunContext(data_backend=env.backend,
+                          output_dir=results / _SIGNAL_NAME,
+                          db_path=getattr(env, "path", None)))
+
+
+def test_run_strategy_market_cap_weighted_end_to_end(env, tmp_path):
+    """signal=close 选 Top-2；mv 逐日变化 → 权重 = gross×mv_i/Σmv 手算一致。
+
+    选择：D1 {A,C} / D2 {A,C} / D3 {A,C} / D4 {A,B}；mv 每日异值。
+    若 join 错位（如取错日期/拿错 code）或权重未按 mv 归一 → 逐值断言必红。
+    """
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    _seed_and_run_factor_with_mv(env, tmp_path, results, _MV_BY_DAY)
+    doc = _load_doc(tmp_path, weighting="market_cap_weighted", name="ws7_mv")
+    res = run_strategy(doc, env.rd, dataset=None, results_dir=results)
+
+    assert res.out_dir == results / "strategies" / "ws7_mv"
+    assert res.decision_count == 4
+    got = {(r["decision_date"], r["code"]): r["target_weight"]
+           for r in res.target.frame.sort(["decision_date", "code"]).iter_rows(
+               named=True)}
+    expected = {
+        (_D1, _A): 0.2, (_D1, _C): 0.8,
+        (_D2, _A): 0.8, (_D2, _C): 0.2,
+        (_D3, _A): 0.5, (_D3, _C): 0.5,
+        (_D4, _A): 0.25, (_D4, _B): 0.75,
+    }
+    assert set(got) == set(expected)
+    for key, want in expected.items():
+        assert got[key] == pytest.approx(want), f"{key}: {got[key]} != {want}"
+    # 禁止行为：未选中日/未选中 code 不得出现（D4 的 C 掉出）
+    assert (_D4, _C) not in got
+
+    # 往返：落盘 target 与返回一致
+    bundle = load_strategy_artifacts(res.out_dir)
+    assert bundle.target.frame.equals(res.target.frame)
+
+
+def test_run_strategy_market_cap_missing_selected_mv_fails(env, tmp_path):
+    """选中股当日无 mv 行 → 显式 ValueError（点名 date+code），策略产物不落盘。"""
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    mv = dict(_MV_BY_DAY)
+    del mv[(_D1, _C)]      # D1 选中 {A, C}，C 缺市值
+    _seed_and_run_factor_with_mv(env, tmp_path, results, mv)
+    doc = _load_doc(tmp_path, weighting="market_cap_weighted", name="ws7_mv")
+    with pytest.raises(ValueError) as ei:
+        run_strategy(doc, env.rd, dataset=None, results_dir=results)
+    msg = str(ei.value)
+    assert _C in msg and str(_D1) in msg and "market_cap" in msg
+    assert not (results / "strategies" / "ws7_mv").exists()
+
+
+def test_run_strategy_equal_weight_never_reads_market_cap(env, tmp_path, monkeypatch):
+    """禁止行为：非 market_cap_weighted 不得取市值数据（每日多读一表即门红）。"""
+    import factorlab.app.strategy.run as R
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    _seed_and_run_factor(env, tmp_path, results)
+
+    def boom(*args, **kwargs):
+        raise AssertionError("equal_weight 路径不得调用 load_daily 取市值")
+
+    monkeypatch.setattr(R, "load_daily", boom)
+    res = run_strategy(_load_doc(tmp_path), env.rd, dataset=None, results_dir=results)
+    assert res.decision_count == 4
 
 
 # ================================================================

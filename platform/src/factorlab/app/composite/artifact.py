@@ -11,7 +11,10 @@
   则必须一致，否则 FAIL——绝不写「provenance 与 panel 不一致」的目录）；
 - `artifact.json.provenance.cache_key` 由 writer 依据磁盘事实复算（definition_hash/
   implementation.source_hash/params_hash/member hashes），保证缓存判定自洽；
-- `input_binding` 顺序 = provenance.members 顺序（x1..xK ↔ 声明列序，禁止 sort）。
+- `input_binding` 顺序 = provenance.members 顺序（x1..xK ↔ 声明列序，禁止 sort）；
+- C4b 显式元数据：writer 恒写 `frequency="1d"` / `adjustment=null`（调用方声明
+  非合同值 → fail fast，不静默覆盖）；reader 校验顶层 `name` == 目录名（目录/
+  内容错配 → 拒绝加载）。
 """
 
 from __future__ import annotations
@@ -111,6 +114,18 @@ def write_composite_artifact(out_dir: Path, frame: pl.DataFrame, meta: dict,
     meta = dict(meta)
     name, definition_hash = _require_meta(meta)
     _validate_panel(frame)
+    # C4b T3：频率/复权为显式合同（C1 产出 = 日频 EOD 信号，无复权基）——
+    # 调用方声明非合同值 → fail fast，不静默覆盖（防 provenance 语义漂移）。
+    declared_frequency = meta.get("frequency")
+    if declared_frequency is not None and declared_frequency != "1d":
+        raise ValueError(
+            f"composite frequency 合同为 '1d'（收到 {declared_frequency!r}）——"
+            f"C1 产出为日频 EOD 信号；支持其他频率需先扩 SignalMeta 契约")
+    declared_adjustment = meta.get("adjustment")
+    if declared_adjustment is not None:
+        raise ValueError(
+            f"composite adjustment 合同为 null（收到 {declared_adjustment!r}）——"
+            f"合成信号不携带复权基，显式 null 写入（不静默声明）")
     if not isinstance(provenance, dict) or not provenance:
         raise ValueError("provenance 必须为非空 dict（build_provenance 输出）")
     binding = _binding_from_provenance(provenance)
@@ -131,6 +146,8 @@ def write_composite_artifact(out_dir: Path, frame: pl.DataFrame, meta: dict,
         "name": name,
         "signal_kind": "composite",
         "output": "signal",
+        "frequency": "1d",
+        "adjustment": None,
         "definition_hash": definition_hash,
         "output_hash": output_hash,
         "composite": {"name": name, "definition_hash": definition_hash},
@@ -160,6 +177,13 @@ def read_composite_artifact(out_dir: Path) -> tuple[pl.DataFrame, dict, dict]:
             f"composite output 名必须为 'signal'，实际 {doc.get('output')!r}: {artifact_path}")
     if not isinstance(doc.get("definition_hash"), str) or not doc["definition_hash"]:
         raise ValueError(f"composite artifact 缺 definition_hash: {artifact_path}")
+    # C4b T3：顶层 name 必须与目录名一致（目录/内容错配 → 拒绝加载，防同名错读）
+    dir_name = out.name
+    artifact_name = doc.get("name")
+    if artifact_name != dir_name:
+        raise ValueError(
+            f"composite artifact 顶层 name {artifact_name!r} 与目录名 {dir_name!r} "
+            f"不一致（目录/内容错配，拒绝加载）: {artifact_path}")
     if not provenance_path.is_file():
         raise ValueError(f"composite {PROVENANCE_NAME} 不存在: {provenance_path}")
     prov = _read_json(provenance_path)

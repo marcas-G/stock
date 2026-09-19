@@ -55,11 +55,68 @@ def test_weighting_score_weighted_valid():
     assert _spec().weighting.method == "equal_weight"
 
 
-@pytest.mark.parametrize("bad", ["rank_weighted", "market_cap_weighted",
+def test_weighting_market_cap_weighted_valid():
+    """C4b：weighting.method 扩容 market_cap_weighted（PIT total_mv join）。"""
+    s = _spec(weighting={"method": "market_cap_weighted"})
+    assert s.weighting.method == "market_cap_weighted"
+    assert _spec().weighting.method == "equal_weight"
+
+
+@pytest.mark.parametrize("bad", ["rank_weighted", "mv_weighted",
                                  "equal_weighted", "", "SCORE_WEIGHTED"])
 def test_weighting_unknown_method_fails(bad):
     with pytest.raises(ValidationError):
         _spec(weighting={"method": bad})
+
+
+# ---------------- C4b：top_k_buffered ----------------
+
+def test_selection_top_k_buffered_valid():
+    s = _spec(selection={"method": "top_k_buffered", "enter_k": 5, "retain_k": 10})
+    assert s.selection.method == "top_k_buffered"
+    assert s.selection.enter_k == 5
+    assert s.selection.retain_k == 10
+    assert s.selection.k is None
+    assert _spec().selection.enter_k is None
+    assert _spec().selection.retain_k is None
+
+
+def test_selection_buffered_retain_k_ge_enter_k():
+    s = _spec(selection={"method": "top_k_buffered", "enter_k": 5, "retain_k": 5})
+    assert s.selection.retain_k == 5
+    with pytest.raises(ValidationError, match="retain_k"):
+        _spec(selection={"method": "top_k_buffered", "enter_k": 5, "retain_k": 4})
+
+
+def test_selection_buffered_requires_enter_and_retain():
+    with pytest.raises(ValidationError, match="retain_k"):
+        _spec(selection={"method": "top_k_buffered", "enter_k": 5})
+    with pytest.raises(ValidationError, match="enter_k"):
+        _spec(selection={"method": "top_k_buffered", "retain_k": 10})
+
+
+def test_selection_buffered_rejects_k():
+    with pytest.raises(ValidationError, match="enter_k|retain_k|不接受 k"):
+        _spec(selection={"method": "top_k_buffered", "k": 5,
+                         "enter_k": 5, "retain_k": 10})
+
+
+def test_selection_top_k_rejects_buffered_params():
+    with pytest.raises(ValidationError, match="enter_k|retain_k"):
+        _spec(selection={"method": "top_k", "k": 5, "enter_k": 5, "retain_k": 10})
+
+
+def test_selection_top_k_requires_k():
+    with pytest.raises(ValidationError, match="必须提供 k"):
+        _spec(selection={"method": "top_k"})
+
+
+@pytest.mark.parametrize("bad", [0, -1, 1.5, "5", True, False])
+def test_selection_buffered_bad_params(bad):
+    with pytest.raises(ValidationError):
+        _spec(selection={"method": "top_k_buffered", "enter_k": bad, "retain_k": 10})
+    with pytest.raises(ValidationError):
+        _spec(selection={"method": "top_k_buffered", "enter_k": 5, "retain_k": bad})
 
 
 def test_weighting_unknown_param_fails():
