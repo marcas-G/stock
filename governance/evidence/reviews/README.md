@@ -53,6 +53,11 @@ governance/evidence/reviews/
   标签 `kind:*/severity:*/status:*/round:*/paused`；里程碑 `R08 / Plan DQ / Plan T / Plan 开放算子 / Plan 分钟执行 / Plan CX / 治理`。
 - **V1 限制**：同步器目前只做"创建 + 幂等查重"；`verified → 评论+关单`、`reopened → 重开` 待 V2
   （在此之前：状态以本地台账为准，GitHub 侧手动关单或等 V2）。
+- **本机推送通道（2026-09-19 实测）**：本服务器出网**阻断 `github.com:443`**（git https 报
+  `Empty reply from server`；`api.github.com` 正常）。git 一律走 **SSH-over-443**：
+  `~/.ssh/config` 已配 `Host github.com → HostName ssh.github.com / Port 443`，
+  key `~/.ssh/id_ecdsa_github`（账号 key 名 `gaolei-gpu-server`，OpenSSH 8.2 不支持 ed25519 故用 ECDSA）；
+  `origin` 已切 `git@github.com:marcas-G/stock.git`。**本机不要再用 https 推拉**。
 
 ## 流程
 
