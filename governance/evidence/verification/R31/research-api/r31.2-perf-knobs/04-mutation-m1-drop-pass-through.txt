@@ -1,0 +1,60 @@
+# mutation: m1-drop-pass-through
+# file: platform/src/factorlab/research/factor.py
+# tests: tests/test_research_perf_knobs.py
+# exit=1 → KILLED
+
+.FFF.............                                                        [100%]
+=================================== FAILURES ===================================
+______________ test_factor_run_forwards_profile_and_no_read_cache ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3041/test_factor_run_forwards_profi0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbf2b391f30>
+
+    def test_factor_run_forwards_profile_and_no_read_cache(tmp_path, monkeypatch):
+        captured = _fake_execute_run(tmp_path, monkeypatch)
+        env = F.factor_run(F._run_args(_spec_file(tmp_path), profile=True,
+                                       no_read_cache=True))
+        assert env.ok, env.error
+>       assert captured["profile"] is True
+               ^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'profile'
+
+tests/test_research_perf_knobs.py:92: KeyError
+_________________ test_factor_run_defaults_keep_zero_behavior __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3041/test_factor_run_defaults_keep_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbf2b3e6e70>
+
+    def test_factor_run_defaults_keep_zero_behavior(tmp_path, monkeypatch):
+        """registry/CLI 缺省：profile=False 不启用；缓存 None=env 默认开。"""
+        captured = _fake_execute_run(tmp_path, monkeypatch)
+        parser = registry.build_parser(registry.COMMANDS["factor.run"])
+        ns = parser.parse_args([str(_spec_file(tmp_path))])
+        env = F.factor_run(ns)
+        assert env.ok, env.error
+>       assert captured["profile"] is False
+               ^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'profile'
+
+tests/test_research_perf_knobs.py:104: KeyError
+_________________ test_factor_run_python_surface_defaults_none _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3041/test_factor_run_python_surface0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbf2b3838a0>
+
+    def test_factor_run_python_surface_defaults_none(tmp_path, monkeypatch):
+        """Python 面：新字段 None 或缺失（老 Namespace）→ None=不传，不炸。"""
+        captured = _fake_execute_run(tmp_path, monkeypatch)
+        args = F._run_args(_spec_file(tmp_path))
+        env = F.factor_run(args)
+        assert env.ok, env.error
+>       assert captured["profile"] is None and captured["read_cache"] is None
+               ^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'profile'
+
+tests/test_research_perf_knobs.py:115: KeyError
+=========================== short test summary info ============================
+FAILED tests/test_research_perf_knobs.py::test_factor_run_forwards_profile_and_no_read_cache
+FAILED tests/test_research_perf_knobs.py::test_factor_run_defaults_keep_zero_behavior
+FAILED tests/test_research_perf_knobs.py::test_factor_run_python_surface_defaults_none
+3 failed, 14 passed in 7.26s

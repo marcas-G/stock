@@ -1,0 +1,175 @@
+# mutation: m2-health-hardcode-zero
+# file: platform/src/factorlab/research/health.py
+# tests: tests/test_research_perf_knobs.py
+# exit=1 → KILLED
+
+......FF..FFFF...                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_health_read_cache_reads_manifest_values[duckdb] _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3042/test_health_read_cache_reads_m0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd8f1323350>
+env = <conftest._EnvDuck object at 0x7fd8f1673a10>
+
+    def test_health_read_cache_reads_manifest_values(tmp_path, monkeypatch, env):
+        root = tmp_path / "rc"
+        _manifest(root, {"k1": _entry(4096, hits=2), "k2": _entry(1024, hits=1)},
+                  events={"hits": 9, "misses": 4, "fallbacks": 2})
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        _health_env(env, tmp_path, monkeypatch)
+    
+        e = H.health(_health_args())
+        assert e.ok, e.error
+        rc = e.data["read_cache"]
+>       assert rc == {"dir": str(root), "entries": 2, "size_bytes": 5120,
+                      "hits": 9, "misses": 4, "fallbacks": 2}
+E       AssertionError: assert {'dir': '/tmp...hits': 0, ...} == {'dir': '/tmp...hits': 9, ...}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'entries': 0} != {'entries': 2}
+E         {'fallbacks': 0} != {'fallbacks': 2}
+E         {'hits': 0} != {'hits': 9}
+E         {'misses': 0} != {'misses': 4}
+E         {'size_bytes': 0} != {'size_bytes': 5120}
+E         Use -v to get more diff
+
+tests/test_research_perf_knobs.py:199: AssertionError
+_______________ test_health_read_cache_reads_manifest_values[ch] _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3042/test_health_read_cache_reads_m1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd8f1316a80>
+env = <conftest._EnvCh object at 0x7fd8f1380830>
+
+    def test_health_read_cache_reads_manifest_values(tmp_path, monkeypatch, env):
+        root = tmp_path / "rc"
+        _manifest(root, {"k1": _entry(4096, hits=2), "k2": _entry(1024, hits=1)},
+                  events={"hits": 9, "misses": 4, "fallbacks": 2})
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        _health_env(env, tmp_path, monkeypatch)
+    
+        e = H.health(_health_args())
+        assert e.ok, e.error
+        rc = e.data["read_cache"]
+>       assert rc == {"dir": str(root), "entries": 2, "size_bytes": 5120,
+                      "hits": 9, "misses": 4, "fallbacks": 2}
+E       AssertionError: assert {'dir': '/tmp...hits': 0, ...} == {'dir': '/tmp...hits': 9, ...}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'entries': 0} != {'entries': 2}
+E         {'fallbacks': 0} != {'fallbacks': 2}
+E         {'hits': 0} != {'hits': 9}
+E         {'misses': 0} != {'misses': 4}
+E         {'size_bytes': 0} != {'size_bytes': 5120}
+E         Use -v to get more diff
+
+tests/test_research_perf_knobs.py:199: AssertionError
+____ test_health_read_cache_corrupt_manifest_degrades_with_warning[duckdb] _____
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3042/test_health_read_cache_corrupt0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd8f13adc50>
+env = <conftest._EnvDuck object at 0x7fd8f130ead0>
+
+    def test_health_read_cache_corrupt_manifest_degrades_with_warning(
+            tmp_path, monkeypatch, env):
+        root = tmp_path / "rc"
+        root.mkdir()
+        (root / "manifest.json").write_text("{broken json", encoding="utf-8")
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        _health_env(env, tmp_path, monkeypatch)
+    
+        e = H.health(_health_args())
+        assert e.ok, "坏 manifest 不得 fail health"
+        assert e.data["read_cache"] == {
+            "dir": str(root), "entries": 0, "size_bytes": 0,
+            "hits": 0, "misses": 0, "fallbacks": 0}
+>       assert any("读缓存" in w for w in e.warnings)
+E       assert False
+E        +  where False = any(<generator object test_health_read_cache_corrupt_manifest_degrades_with_warning.<locals>.<genexpr> at 0x7fd8f12a0d40>)
+
+tests/test_research_perf_knobs.py:230: AssertionError
+______ test_health_read_cache_corrupt_manifest_degrades_with_warning[ch] _______
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3042/test_health_read_cache_corrupt1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd8f1337450>
+env = <conftest._EnvCh object at 0x7fd8f1394690>
+
+    def test_health_read_cache_corrupt_manifest_degrades_with_warning(
+            tmp_path, monkeypatch, env):
+        root = tmp_path / "rc"
+        root.mkdir()
+        (root / "manifest.json").write_text("{broken json", encoding="utf-8")
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        _health_env(env, tmp_path, monkeypatch)
+    
+        e = H.health(_health_args())
+        assert e.ok, "坏 manifest 不得 fail health"
+        assert e.data["read_cache"] == {
+            "dir": str(root), "entries": 0, "size_bytes": 0,
+            "hits": 0, "misses": 0, "fallbacks": 0}
+>       assert any("读缓存" in w for w in e.warnings)
+E       assert False
+E        +  where False = any(<generator object test_health_read_cache_corrupt_manifest_degrades_with_warning.<locals>.<genexpr> at 0x7fd8f1114520>)
+
+tests/test_research_perf_knobs.py:230: AssertionError
+__________ test_health_read_cache_reflects_real_cache_events[duckdb] ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3042/test_health_read_cache_reflect0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd8f1368d10>
+env = <conftest._EnvDuck object at 0x7fd8f13989d0>
+
+    def test_health_read_cache_reflects_real_cache_events(tmp_path, monkeypatch, env):
+        """真 ChunkCache 事件流（store→hit→坏文件 fallback→miss）落 manifest。"""
+        from factorlab.adapters.read import chunk_cache as cc
+    
+        root = tmp_path / "rc"
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        cache = cc.ChunkCache(root, max_bytes=10 ** 9, ttl_seconds=86400)
+        cache.store("k1", pl.DataFrame({"x": [1.0]}), "fp")
+        assert cache.load("k1").status == "hit"
+        entry = json.loads((root / "manifest.json").read_text())["entries"]["k1"]
+        (root / entry["file"]).write_bytes(b"corrupt")
+        assert cache.load("k1").status == "fallback"
+        assert cache.load("k1").status == "miss"
+    
+        _health_env(env, tmp_path, monkeypatch)
+        rc = H.health(_health_args()).data["read_cache"]
+>       assert rc["hits"] == 1 and rc["fallbacks"] == 1 and rc["misses"] == 1
+E       assert (0 == 1)
+
+tests/test_research_perf_knobs.py:249: AssertionError
+____________ test_health_read_cache_reflects_real_cache_events[ch] _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3042/test_health_read_cache_reflect1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd8f1368410>
+env = <conftest._EnvCh object at 0x7fd8f1399220>
+
+    def test_health_read_cache_reflects_real_cache_events(tmp_path, monkeypatch, env):
+        """真 ChunkCache 事件流（store→hit→坏文件 fallback→miss）落 manifest。"""
+        from factorlab.adapters.read import chunk_cache as cc
+    
+        root = tmp_path / "rc"
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        cache = cc.ChunkCache(root, max_bytes=10 ** 9, ttl_seconds=86400)
+        cache.store("k1", pl.DataFrame({"x": [1.0]}), "fp")
+        assert cache.load("k1").status == "hit"
+        entry = json.loads((root / "manifest.json").read_text())["entries"]["k1"]
+        (root / entry["file"]).write_bytes(b"corrupt")
+        assert cache.load("k1").status == "fallback"
+        assert cache.load("k1").status == "miss"
+    
+        _health_env(env, tmp_path, monkeypatch)
+        rc = H.health(_health_args()).data["read_cache"]
+>       assert rc["hits"] == 1 and rc["fallbacks"] == 1 and rc["misses"] == 1
+E       assert (0 == 1)
+
+tests/test_research_perf_knobs.py:249: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_reads_manifest_values[duckdb]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_reads_manifest_values[ch]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_corrupt_manifest_degrades_with_warning[duckdb]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_corrupt_manifest_degrades_with_warning[ch]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_reflects_real_cache_events[duckdb]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_reflects_real_cache_events[ch]
+6 failed, 11 passed in 6.10s

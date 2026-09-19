@@ -1,0 +1,53 @@
+usage: factorlab research factor.run [--universe UNIVERSE]
+                                     [--max-memory MAX_MEMORY]
+                                     [--output-dir OUTPUT_DIR] [--no-backtest]
+                                     [--groups GROUPS] [--set [SET ...]]
+                                     [--chunk-days CHUNK_DAYS]
+                                     [--chunk-workers CHUNK_WORKERS]
+                                     [--profile] [--no-read-cache]
+                                     [--warmup-days WARMUP_DAYS]
+                                     [--eval-frequency EVAL_FREQUENCY]
+                                     [--wait] [--no-float32]
+                                     [--accept-quality ACCEPT_QUALITY]
+                                     [--override-reason OVERRIDE_REASON]
+                                     [--json] [--pretty]
+                                     spec_path
+
+计算+评估+分层回测（过 heavy 闸；返回 IC/十分位/换手/覆盖/ic_decay）
+
+positional arguments:
+  spec_path             因子 spec YAML 路径
+
+options:
+  --universe UNIVERSE   宇宙覆盖（6 位代码/池名/路径；缺省 spec/默认池）
+  --max-memory MAX_MEMORY
+                        DuckDB 连接内存上限（缺省 4GB）
+  --output-dir OUTPUT_DIR
+                        产物目录（缺省 results_dir/<变体>）
+  --no-backtest         关闭分层回测（快速评估）
+  --groups GROUPS       分层档数（>=2，缺省 10）
+  --set [SET ...]       覆盖 spec.params（k=v，可多次，生成 name_kv 变体）
+  --chunk-days CHUNK_DAYS
+                        日期分块（交易日/块）
+  --chunk-workers CHUNK_WORKERS
+                        分钟链 chunk 并行 worker 数（默认 1；N>=2 预算门）
+  --profile             R09-M3 分段计时（写 stderr + summary.runtime.profile；默认关，env
+                        FACTORLAB_PROFILE=1 等效）
+  --no-read-cache       R31 关闭分钟链 bars_1m chunk 磁盘缓存（默认开；仅 interface: bars_1m
+                        生效）
+  --warmup-days WARMUP_DAYS
+                        TS 窗口预热天数
+  --eval-frequency EVAL_FREQUENCY
+                        评估频率 daily|weekly
+  --wait                heavy 闸满时阻塞等槽（缺省立即 BUSY）
+  --no-float32          关闭 float32 面板
+  --accept-quality ACCEPT_QUALITY
+                        读取门 opt-in：逗号分隔 health_status（默认空=仅 PASS；非空必须同时给
+                        --override-reason；FAIL 不可 opt-in）
+  --override-reason OVERRIDE_REASON
+                        非 PASS 读取门 opt-in 原因（写入 Experiment Manifest）
+  --json                输出单个 JSON 信封（默认口径，恒开）
+  --pretty              缩进 JSON（人读）
+
+示例：flab factor run research/factor/momentum_20d/turnrank_top2.yaml；flab factor
+run <spec> --no-backtest --wait

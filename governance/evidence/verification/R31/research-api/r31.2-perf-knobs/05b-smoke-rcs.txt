@@ -1,0 +1,5 @@
+# R31.2 CLI 冒烟 rc 汇总（flab 真入口）
+
+flab factor run --help rc=0
+flab health --json rc=0
+flab describe --command factor.run --json rc=0

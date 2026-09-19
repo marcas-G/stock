@@ -1,0 +1,22 @@
+# mutation: m4-gate-catches-handbook-drift
+# file: knowledge/handbooks/research-agent-manual.md
+# tests: tests/test_doc_paths_exist.py
+# exit=1 → KILLED
+
+........F..                                                              [100%]
+=================================== FAILURES ===================================
+____________ test_handbook_perf_flags_exist_in_their_command_params ____________
+
+    def test_handbook_perf_flags_exist_in_their_command_params():
+        text = HANDBOOK.read_text(encoding="utf-8")
+        seen, bad = _perf_flag_drift(text)
+        assert seen == set(_PERF_FLAGS), (
+            f"手册未完整说明性能开关（出现: {sorted(seen)}）")
+>       assert not bad, f"手册性能开关在对应命令 registry 缺失（漂移）: {bad}"
+E       AssertionError: 手册性能开关在对应命令 registry 缺失（漂移）: ['factor.lint: --profile']
+E       assert not ['factor.lint: --profile']
+
+tests/test_doc_paths_exist.py:194: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_doc_paths_exist.py::test_handbook_perf_flags_exist_in_their_command_params
+1 failed, 10 passed in 4.67s

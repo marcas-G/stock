@@ -1,0 +1,526 @@
+FFFFF.FFFFFFFFF.FFF........F.F                                           [100%]
+=================================== FAILURES ===================================
+_________________ test_factor_run_registry_exposes_perf_knobs __________________
+
+    def test_factor_run_registry_exposes_perf_knobs():
+        spec = registry.COMMANDS["factor.run"]
+        names = {p.name for p in spec.params}
+>       assert {"profile", "no_read_cache", "chunk_workers"} <= names
+E       AssertionError: assert {'chunk_worke...e', 'profile'} <= {'accept_qual..., 'json', ...}
+E         
+E         Extra items in the left set:
+E         'profile'
+E         'no_read_cache'
+
+tests/test_research_perf_knobs.py:78: AssertionError
+______________ test_factor_run_forwards_profile_and_no_read_cache ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_factor_run_forwards_profi0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f5a8c719cd0>
+
+    def test_factor_run_forwards_profile_and_no_read_cache(tmp_path, monkeypatch):
+        captured = _fake_execute_run(tmp_path, monkeypatch)
+>       env = F.factor_run(F._run_args(_spec_file(tmp_path), profile=True,
+                                       no_read_cache=True))
+
+tests/test_research_perf_knobs.py:89: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = Namespace(spec_path=PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_factor_run_forwards_profi0/demo.yaml'), universe...kers=None, no_float32=False, pretty=False, accept_quality=None, override_reason=None, profile=True, no_read_cache=True)
+
+    def factor_run(args: Any) -> envelope.Envelope:
+        """计算+评估+分层回测：过 heavy 闸（BUSY/MEMORY_GUARD）→ 新产物 + 摘要。"""
+        from factorlab.app.memory import MemoryLimitExceeded
+        from factorlab.core.eval.metrics import DeadSignalError
+        from factorlab.core.factor.errors import FactorDSLError
+        from factorlab.surfaces.cli.main import execute_run
+    
+        _ensure()
+        # N2：入口参数校验先于重链（缺 reason / FAIL / 未知状态 → USAGE，不占闸）
+        override_reason = getattr(args, "override_reason", None)
+        try:
+            quality = resolve_accept_quality(
+                parse_accept_quality(getattr(args, "accept_quality", None)),
+                override_reason)
+        except ValueError as exc:
+            return envelope.fail(
+                "factor.run", "USAGE", str(exc),
+                hint="例：flab factor run <spec> --accept-quality PASS,DEGRADED "
+                     "--override-reason '探索性研究'")
+        spec_path = Path(args.spec_path)
+        argv = ["factor", "run", str(spec_path)]
+        try:
+            with _guard_env(argv, wait=bool(getattr(args, "wait", False))):
+                out = execute_run(
+                    spec_path,
+                    universe=getattr(args, "universe", None),
+                    max_memory=getattr(args, "max_memory", "4GB"),
+                    output_dir=(Path(args.output_dir)
+                                if getattr(args, "output_dir", None) else None),
+                    float32=not bool(getattr(args, "no_float32", False)),
+                    backtest=not bool(getattr(args, "no_backtest", False)),
+                    groups=getattr(args, "groups", 10),
+                    set_params=getattr(args, "set", None),
+                    chunk_days=getattr(args, "chunk_days", None),
+                    warmup_days=getattr(args, "warmup_days", None),
+                    eval_frequency=getattr(args, "eval_frequency", None),
+                    chunk_workers=getattr(args, "chunk_workers", None) or 1,
+                    # Plan DQ-M1 F3：真实入口 fail-closed 读取门（ashare_daily）
+                    # N2：DEGRADED/LEGACY opt-in 透传（自动写 Experiment Manifest）
+                    dataset="ashare_daily",
+                    accept_quality=quality,
+                    override_reason=override_reason,
+                )
+        except GuardError as exc:
+            return envelope.fail("factor.run", exc.code, exc.message,
+                                 hint=exc.hint, log=exc.log)
+        except DeadSignalError as exc:
+            return envelope.fail("factor.run", "DEAD_SIGNAL", str(exc),
+                                 hint="评估摘要已落盘（dead_signal=true）供审计；先修取数列/数据面")
+        except MemoryLimitExceeded as exc:
+            return envelope.fail("factor.run", "MEMORY_GUARD", str(exc),
+                                 hint="减小 chunk/宇宙，或调大 FACTORLAB_MAX_MEMORY")
+        except FileNotFoundError as exc:
+            return envelope.fail("factor.run", "NOT_FOUND", f"spec 不存在: {exc}",
+                                 hint="检查路径；命令目录见 `flab describe --json`")
+        except FactorDSLError as exc:
+            return envelope.fail("factor.run", "LINT", f"spec 校验失败: {exc}",
+                                 hint="先 `flab factor lint <spec>`")
+        except DatasetQualityError as exc:
+            return envelope.fail(
+                "factor.run", "DATA", f"读取门拒绝: {exc}",
+                hint="如需探索性读取非 PASS 分区：--accept-quality PASS,DEGRADED "
+                     "--override-reason <原因>（FAIL 不可 opt-in；DEGRADED/LEGACY "
+                     "opt-in 自动写 Experiment Manifest）")
+        except (ValueError, OSError) as exc:
+            return envelope.fail("factor.run", "RUN_FAILED", f"{type(exc).__name__}: {exc}",
+                                 hint="核对 spec/数据面；日志见 artifacts.log")
+    
+        outcome = out["outcome"]
+        run_dir = Path(out["ctx"].output_dir)
+        summary_path = run_dir / _results_fs().SUMMARY_NAME
+        log_path = run_dir / "run.log"
+        stamp = datetime.datetime.now().isoformat(timespec="seconds")
+        log_lines = [
+            f"flab factor run spec={spec_path} variant={out['variant']}",
+            f"run_dir={run_dir} summary={summary_path}",
+>           f"frequency={outcome.frequency} outputs={outcome.outputs}",
+                         ^^^^^^^^^^^^^^^^^
+            *[f"note: {note}" for note in outcome.notes],
+        ]
+E       AttributeError: 'types.SimpleNamespace' object has no attribute 'frequency'
+
+src/factorlab/research/factor.py:305: AttributeError
+_________________ test_factor_run_defaults_keep_zero_behavior __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_factor_run_defaults_keep_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f594ed52b10>
+
+    def test_factor_run_defaults_keep_zero_behavior(tmp_path, monkeypatch):
+        captured = _fake_execute_run(tmp_path, monkeypatch)
+>       env = F.factor_run(F._run_args(_spec_file(tmp_path)))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_research_perf_knobs.py:99: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = Namespace(spec_path=PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_factor_run_defaults_keep_0/demo.yaml'), universe...quency=None, wait=False, chunk_workers=None, no_float32=False, pretty=False, accept_quality=None, override_reason=None)
+
+    def factor_run(args: Any) -> envelope.Envelope:
+        """计算+评估+分层回测：过 heavy 闸（BUSY/MEMORY_GUARD）→ 新产物 + 摘要。"""
+        from factorlab.app.memory import MemoryLimitExceeded
+        from factorlab.core.eval.metrics import DeadSignalError
+        from factorlab.core.factor.errors import FactorDSLError
+        from factorlab.surfaces.cli.main import execute_run
+    
+        _ensure()
+        # N2：入口参数校验先于重链（缺 reason / FAIL / 未知状态 → USAGE，不占闸）
+        override_reason = getattr(args, "override_reason", None)
+        try:
+            quality = resolve_accept_quality(
+                parse_accept_quality(getattr(args, "accept_quality", None)),
+                override_reason)
+        except ValueError as exc:
+            return envelope.fail(
+                "factor.run", "USAGE", str(exc),
+                hint="例：flab factor run <spec> --accept-quality PASS,DEGRADED "
+                     "--override-reason '探索性研究'")
+        spec_path = Path(args.spec_path)
+        argv = ["factor", "run", str(spec_path)]
+        try:
+            with _guard_env(argv, wait=bool(getattr(args, "wait", False))):
+                out = execute_run(
+                    spec_path,
+                    universe=getattr(args, "universe", None),
+                    max_memory=getattr(args, "max_memory", "4GB"),
+                    output_dir=(Path(args.output_dir)
+                                if getattr(args, "output_dir", None) else None),
+                    float32=not bool(getattr(args, "no_float32", False)),
+                    backtest=not bool(getattr(args, "no_backtest", False)),
+                    groups=getattr(args, "groups", 10),
+                    set_params=getattr(args, "set", None),
+                    chunk_days=getattr(args, "chunk_days", None),
+                    warmup_days=getattr(args, "warmup_days", None),
+                    eval_frequency=getattr(args, "eval_frequency", None),
+                    chunk_workers=getattr(args, "chunk_workers", None) or 1,
+                    # Plan DQ-M1 F3：真实入口 fail-closed 读取门（ashare_daily）
+                    # N2：DEGRADED/LEGACY opt-in 透传（自动写 Experiment Manifest）
+                    dataset="ashare_daily",
+                    accept_quality=quality,
+                    override_reason=override_reason,
+                )
+        except GuardError as exc:
+            return envelope.fail("factor.run", exc.code, exc.message,
+                                 hint=exc.hint, log=exc.log)
+        except DeadSignalError as exc:
+            return envelope.fail("factor.run", "DEAD_SIGNAL", str(exc),
+                                 hint="评估摘要已落盘（dead_signal=true）供审计；先修取数列/数据面")
+        except MemoryLimitExceeded as exc:
+            return envelope.fail("factor.run", "MEMORY_GUARD", str(exc),
+                                 hint="减小 chunk/宇宙，或调大 FACTORLAB_MAX_MEMORY")
+        except FileNotFoundError as exc:
+            return envelope.fail("factor.run", "NOT_FOUND", f"spec 不存在: {exc}",
+                                 hint="检查路径；命令目录见 `flab describe --json`")
+        except FactorDSLError as exc:
+            return envelope.fail("factor.run", "LINT", f"spec 校验失败: {exc}",
+                                 hint="先 `flab factor lint <spec>`")
+        except DatasetQualityError as exc:
+            return envelope.fail(
+                "factor.run", "DATA", f"读取门拒绝: {exc}",
+                hint="如需探索性读取非 PASS 分区：--accept-quality PASS,DEGRADED "
+                     "--override-reason <原因>（FAIL 不可 opt-in；DEGRADED/LEGACY "
+                     "opt-in 自动写 Experiment Manifest）")
+        except (ValueError, OSError) as exc:
+            return envelope.fail("factor.run", "RUN_FAILED", f"{type(exc).__name__}: {exc}",
+                                 hint="核对 spec/数据面；日志见 artifacts.log")
+    
+        outcome = out["outcome"]
+        run_dir = Path(out["ctx"].output_dir)
+        summary_path = run_dir / _results_fs().SUMMARY_NAME
+        log_path = run_dir / "run.log"
+        stamp = datetime.datetime.now().isoformat(timespec="seconds")
+        log_lines = [
+            f"flab factor run spec={spec_path} variant={out['variant']}",
+            f"run_dir={run_dir} summary={summary_path}",
+>           f"frequency={outcome.frequency} outputs={outcome.outputs}",
+                         ^^^^^^^^^^^^^^^^^
+            *[f"note: {note}" for note in outcome.notes],
+        ]
+E       AttributeError: 'types.SimpleNamespace' object has no attribute 'frequency'
+
+src/factorlab/research/factor.py:305: AttributeError
+____________ test_factor_run_python_surface_none_when_fields_absent ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_factor_run_python_surface0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f594eedff00>
+
+    def test_factor_run_python_surface_none_when_fields_absent(tmp_path, monkeypatch):
+        """Python 面老 Namespace（无新字段）→ None=不传，不 AttributeError。"""
+        captured = _fake_execute_run(tmp_path, monkeypatch)
+        args = F._run_args(_spec_file(tmp_path))
+>       delattr(args, "profile")
+E       AttributeError: 'Namespace' object has no attribute 'profile'
+
+tests/test_research_perf_knobs.py:109: AttributeError
+_______________ test_study_run_registry_and_forwards_perf_knobs ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_study_run_registry_and_fo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f594ec90160>
+
+    def test_study_run_registry_and_forwards_perf_knobs(tmp_path, monkeypatch):
+        names = {p.name for p in registry.COMMANDS["study.run"].params}
+>       assert {"profile", "no_read_cache"} <= names
+E       AssertionError: assert {'no_read_cache', 'profile'} <= {'against', '...trategy', ...}
+E         
+E         Extra items in the left set:
+E         'profile'
+E         'no_read_cache'
+
+tests/test_research_perf_knobs.py:136: AssertionError
+_____________ test_health_read_cache_reads_manifest_values[duckdb] _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_health_read_cache_reads_m0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f594ec81550>
+env = <conftest._EnvDuck object at 0x7f5a8f6c02f0>
+
+    def test_health_read_cache_reads_manifest_values(tmp_path, monkeypatch, env):
+        root = tmp_path / "rc"
+        _manifest(root, {"k1": _entry(4096, hits=2), "k2": _entry(1024, hits=1)},
+                  events={"hits": 9, "misses": 4, "fallbacks": 2})
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        _health_env(env, tmp_path, monkeypatch)
+    
+        e = H.health(_health_args())
+        assert e.ok, e.error
+>       rc = e.data["read_cache"]
+             ^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'read_cache'
+
+tests/test_research_perf_knobs.py:192: KeyError
+_______________ test_health_read_cache_reads_manifest_values[ch] _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_health_read_cache_reads_m1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f594ec89310>
+env = <conftest._EnvCh object at 0x7f594ec95550>
+
+    def test_health_read_cache_reads_manifest_values(tmp_path, monkeypatch, env):
+        root = tmp_path / "rc"
+        _manifest(root, {"k1": _entry(4096, hits=2), "k2": _entry(1024, hits=1)},
+                  events={"hits": 9, "misses": 4, "fallbacks": 2})
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        _health_env(env, tmp_path, monkeypatch)
+    
+        e = H.health(_health_args())
+        assert e.ok, e.error
+>       rc = e.data["read_cache"]
+             ^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'read_cache'
+
+tests/test_research_perf_knobs.py:192: KeyError
+______________ test_health_read_cache_missing_dir_is_zero[duckdb] ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_health_read_cache_missing0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f594ec885f0>
+env = <conftest._EnvDuck object at 0x7f594ecbda90>
+
+    def test_health_read_cache_missing_dir_is_zero(tmp_path, monkeypatch, env):
+        root = tmp_path / "nope"
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        _health_env(env, tmp_path, monkeypatch)
+    
+        e = H.health(_health_args())
+        assert e.ok, e.error
+>       assert e.data["read_cache"] == {
+               ^^^^^^^^^^^^^^^^^^^^
+            "dir": str(root), "entries": 0, "size_bytes": 0,
+            "hits": 0, "misses": 0, "fallbacks": 0}
+E       KeyError: 'read_cache'
+
+tests/test_research_perf_knobs.py:205: KeyError
+________________ test_health_read_cache_missing_dir_is_zero[ch] ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_health_read_cache_missing1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f594eccf690>
+env = <conftest._EnvCh object at 0x7f594ed2bc50>
+
+    def test_health_read_cache_missing_dir_is_zero(tmp_path, monkeypatch, env):
+        root = tmp_path / "nope"
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        _health_env(env, tmp_path, monkeypatch)
+    
+        e = H.health(_health_args())
+        assert e.ok, e.error
+>       assert e.data["read_cache"] == {
+               ^^^^^^^^^^^^^^^^^^^^
+            "dir": str(root), "entries": 0, "size_bytes": 0,
+            "hits": 0, "misses": 0, "fallbacks": 0}
+E       KeyError: 'read_cache'
+
+tests/test_research_perf_knobs.py:205: KeyError
+____ test_health_read_cache_corrupt_manifest_degrades_with_warning[duckdb] _____
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_health_read_cache_corrupt0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f594eccea50>
+env = <conftest._EnvDuck object at 0x7f594ed2b250>
+
+    def test_health_read_cache_corrupt_manifest_degrades_with_warning(
+            tmp_path, monkeypatch, env):
+        root = tmp_path / "rc"
+        root.mkdir()
+        (root / "manifest.json").write_text("{broken json", encoding="utf-8")
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        _health_env(env, tmp_path, monkeypatch)
+    
+        e = H.health(_health_args())
+        assert e.ok, "坏 manifest 不得 fail health"
+>       assert e.data["read_cache"] == {
+               ^^^^^^^^^^^^^^^^^^^^
+            "dir": str(root), "entries": 0, "size_bytes": 0,
+            "hits": 0, "misses": 0, "fallbacks": 0}
+E       KeyError: 'read_cache'
+
+tests/test_research_perf_knobs.py:221: KeyError
+______ test_health_read_cache_corrupt_manifest_degrades_with_warning[ch] _______
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_health_read_cache_corrupt1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f594eaf1cc0>
+env = <conftest._EnvCh object at 0x7f594ecbc7d0>
+
+    def test_health_read_cache_corrupt_manifest_degrades_with_warning(
+            tmp_path, monkeypatch, env):
+        root = tmp_path / "rc"
+        root.mkdir()
+        (root / "manifest.json").write_text("{broken json", encoding="utf-8")
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        _health_env(env, tmp_path, monkeypatch)
+    
+        e = H.health(_health_args())
+        assert e.ok, "坏 manifest 不得 fail health"
+>       assert e.data["read_cache"] == {
+               ^^^^^^^^^^^^^^^^^^^^
+            "dir": str(root), "entries": 0, "size_bytes": 0,
+            "hits": 0, "misses": 0, "fallbacks": 0}
+E       KeyError: 'read_cache'
+
+tests/test_research_perf_knobs.py:221: KeyError
+__________ test_health_read_cache_reflects_real_cache_events[duckdb] ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_health_read_cache_reflect0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f594ed39a90>
+env = <conftest._EnvDuck object at 0x7f594ec72060>
+
+    def test_health_read_cache_reflects_real_cache_events(tmp_path, monkeypatch, env):
+        """真 ChunkCache 事件流（store→hit→坏文件 fallback→miss）落 manifest。"""
+        from factorlab.adapters.read import chunk_cache as cc
+    
+        root = tmp_path / "rc"
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        cache = cc.ChunkCache(root, max_bytes=10 ** 9, ttl_seconds=86400)
+        cache.store("k1", pl.DataFrame({"x": [1.0]}), "fp")
+        assert cache.load("k1").status == "hit"
+        entry = json.loads((root / "manifest.json").read_text())["entries"]["k1"]
+        (root / entry["file"]).write_bytes(b"corrupt")
+        assert cache.load("k1").status == "fallback"
+        assert cache.load("k1").status == "miss"
+    
+        _health_env(env, tmp_path, monkeypatch)
+>       rc = H.health(_health_args()).data["read_cache"]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'read_cache'
+
+tests/test_research_perf_knobs.py:242: KeyError
+____________ test_health_read_cache_reflects_real_cache_events[ch] _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_health_read_cache_reflect1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f594ead8050>
+env = <conftest._EnvCh object at 0x7f594ec71940>
+
+    def test_health_read_cache_reflects_real_cache_events(tmp_path, monkeypatch, env):
+        """真 ChunkCache 事件流（store→hit→坏文件 fallback→miss）落 manifest。"""
+        from factorlab.adapters.read import chunk_cache as cc
+    
+        root = tmp_path / "rc"
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        cache = cc.ChunkCache(root, max_bytes=10 ** 9, ttl_seconds=86400)
+        cache.store("k1", pl.DataFrame({"x": [1.0]}), "fp")
+        assert cache.load("k1").status == "hit"
+        entry = json.loads((root / "manifest.json").read_text())["entries"]["k1"]
+        (root / entry["file"]).write_bytes(b"corrupt")
+        assert cache.load("k1").status == "fallback"
+        assert cache.load("k1").status == "miss"
+    
+        _health_env(env, tmp_path, monkeypatch)
+>       rc = H.health(_health_args()).data["read_cache"]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'read_cache'
+
+tests/test_research_perf_knobs.py:242: KeyError
+__________________ test_cli_factor_run_help_lists_perf_knobs ___________________
+
+    def test_cli_factor_run_help_lists_perf_knobs():
+        result = runner.invoke(cli_app, ["research", "factor", "run", "--help"])
+        assert result.exit_code == 0, result.output
+        for flag in PERF_FLAGS:
+>           assert flag in result.stdout, f"帮助缺 {flag}: {result.stdout}"
+E           AssertionError: 帮助缺 --profile:                                                                                 
+E              Usage: root research factor [OPTIONS]                                          
+E                                                                                             
+E              factor 组：lint/run/list/show/export/corr/resic/svd/ref/op/catalog/admit。     
+E                                                                                             
+E             ╭─ Options ────────────────────────────────────────────────────────────────────╮
+E             │ --help          Show this message and exit.                                  │
+E             ╰──────────────────────────────────────────────────────────────────────────────╯
+E             
+E             
+E           assert '--profile' in '                                                                                \n Usage: root research factor [OPTIO...                               │\n╰──────────────────────────────────────────────────────────────────────────────╯\n\n'
+E            +  where '                                                                                \n Usage: root research factor [OPTIO...                               │\n╰──────────────────────────────────────────────────────────────────────────────╯\n\n' = <Result okay>.stdout
+
+tests/test_research_perf_knobs.py:255: AssertionError
+_______________ test_describe_factor_run_doc_contains_perf_knobs _______________
+
+    def test_describe_factor_run_doc_contains_perf_knobs():
+        doc = registry.COMMANDS["factor.run"].to_doc()
+        names = {p["name"] for p in doc["params"]}
+>       assert {"profile", "no_read_cache", "chunk_workers"} <= names
+E       AssertionError: assert {'chunk_worke...e', 'profile'} <= {'accept_qual..., 'json', ...}
+E         
+E         Extra items in the left set:
+E         'profile'
+E         'no_read_cache'
+
+tests/test_research_perf_knobs.py:267: AssertionError
+_________________ test_manifest_events_count_hit_fallback_miss _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_manifest_events_count_hit0')
+
+    def test_manifest_events_count_hit_fallback_miss(tmp_path):
+        """R31.2：manifest 级事件计数（health read_cache 段数据源）。"""
+        cache = _cache(tmp_path)
+        cache.store("k1", _frame(), "fp-1")
+        assert cache.load("k1").status == "hit"
+>       events = json.loads((cache.root / "manifest.json").read_text())["events"]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'events'
+
+tests/test_read_cache.py:274: KeyError
+__________ test_manifest_stats_zero_missing_degraded_corrupt_and_real __________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3033/test_manifest_stats_zero_missi0')
+
+    def test_manifest_stats_zero_missing_degraded_corrupt_and_real(tmp_path):
+>       from factorlab.adapters.read.chunk_cache import manifest_stats
+E       ImportError: cannot import name 'manifest_stats' from 'factorlab.adapters.read.chunk_cache' (/data/students/gaolei/stock/platform/src/factorlab/adapters/read/chunk_cache.py)
+
+tests/test_read_cache.py:291: ImportError
+____________ test_handbook_perf_flags_exist_in_their_command_params ____________
+
+    def test_handbook_perf_flags_exist_in_their_command_params():
+        text = HANDBOOK.read_text(encoding="utf-8")
+        seen, bad = _perf_flag_drift(text)
+>       assert seen == set(_PERF_FLAGS), (
+            f"手册未完整说明性能开关（出现: {sorted(seen)}）")
+E       AssertionError: 手册未完整说明性能开关（出现: []）
+E       assert set() == {'--chunk-wor..., '--profile'}
+E         
+E         Extra items in the right set:
+E         '--chunk-workers'
+E         '--profile'
+E         '--no-read-cache'
+E         Use -v to get more diff
+
+tests/test_doc_paths_exist.py:192: AssertionError
+_________________ test_describe_factor_run_contains_perf_knobs _________________
+
+    def test_describe_factor_run_contains_perf_knobs():
+        import factorlab.research  # noqa: F401
+        from factorlab.research import COMMANDS
+        names = {p.name for p in COMMANDS["factor.run"].params}
+>       assert {"profile", "no_read_cache", "chunk_workers"} <= names
+E       AssertionError: assert {'chunk_worke...e', 'profile'} <= {'accept_qual..., 'json', ...}
+E         
+E         Extra items in the left set:
+E         'profile'
+E         'no_read_cache'
+
+tests/test_doc_paths_exist.py:210: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_perf_knobs.py::test_factor_run_registry_exposes_perf_knobs
+FAILED tests/test_research_perf_knobs.py::test_factor_run_forwards_profile_and_no_read_cache
+FAILED tests/test_research_perf_knobs.py::test_factor_run_defaults_keep_zero_behavior
+FAILED tests/test_research_perf_knobs.py::test_factor_run_python_surface_none_when_fields_absent
+FAILED tests/test_research_perf_knobs.py::test_study_run_registry_and_forwards_perf_knobs
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_reads_manifest_values[duckdb]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_reads_manifest_values[ch]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_missing_dir_is_zero[duckdb]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_missing_dir_is_zero[ch]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_corrupt_manifest_degrades_with_warning[duckdb]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_corrupt_manifest_degrades_with_warning[ch]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_reflects_real_cache_events[duckdb]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_reflects_real_cache_events[ch]
+FAILED tests/test_research_perf_knobs.py::test_cli_factor_run_help_lists_perf_knobs
+FAILED tests/test_research_perf_knobs.py::test_describe_factor_run_doc_contains_perf_knobs
+FAILED tests/test_read_cache.py::test_manifest_events_count_hit_fallback_miss
+FAILED tests/test_read_cache.py::test_manifest_stats_zero_missing_degraded_corrupt_and_real
+FAILED tests/test_doc_paths_exist.py::test_handbook_perf_flags_exist_in_their_command_params
+FAILED tests/test_doc_paths_exist.py::test_describe_factor_run_contains_perf_knobs
+19 failed, 11 passed in 19.36s

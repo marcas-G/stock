@@ -1,0 +1,78 @@
+# mutation: m3-events-not-persisted
+# file: platform/src/factorlab/adapters/read/chunk_cache.py
+# tests: tests/test_read_cache.py tests/test_research_perf_knobs.py
+# exit=1 → KILLED
+
+...............F........................FF...                            [100%]
+=================================== FAILURES ===================================
+_________________ test_manifest_events_count_hit_fallback_miss _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3043/test_manifest_events_count_hit0')
+
+    def test_manifest_events_count_hit_fallback_miss(tmp_path):
+        """R31.2：manifest 级事件计数（health read_cache 段数据源）。"""
+        cache = _cache(tmp_path)
+        cache.store("k1", _frame(), "fp-1")
+        assert cache.load("k1").status == "hit"
+>       events = json.loads((cache.root / "manifest.json").read_text())["events"]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'events'
+
+tests/test_read_cache.py:274: KeyError
+__________ test_health_read_cache_reflects_real_cache_events[duckdb] ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3043/test_health_read_cache_reflect0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f4434afb070>
+env = <conftest._EnvDuck object at 0x7f4441dffa80>
+
+    def test_health_read_cache_reflects_real_cache_events(tmp_path, monkeypatch, env):
+        """真 ChunkCache 事件流（store→hit→坏文件 fallback→miss）落 manifest。"""
+        from factorlab.adapters.read import chunk_cache as cc
+    
+        root = tmp_path / "rc"
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        cache = cc.ChunkCache(root, max_bytes=10 ** 9, ttl_seconds=86400)
+        cache.store("k1", pl.DataFrame({"x": [1.0]}), "fp")
+        assert cache.load("k1").status == "hit"
+        entry = json.loads((root / "manifest.json").read_text())["entries"]["k1"]
+        (root / entry["file"]).write_bytes(b"corrupt")
+        assert cache.load("k1").status == "fallback"
+        assert cache.load("k1").status == "miss"
+    
+        _health_env(env, tmp_path, monkeypatch)
+        rc = H.health(_health_args()).data["read_cache"]
+>       assert rc["hits"] == 1 and rc["fallbacks"] == 1 and rc["misses"] == 1
+E       assert (0 == 1)
+
+tests/test_research_perf_knobs.py:249: AssertionError
+____________ test_health_read_cache_reflects_real_cache_events[ch] _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3043/test_health_read_cache_reflect1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f4434b49da0>
+env = <conftest._EnvCh object at 0x7f4441dff820>
+
+    def test_health_read_cache_reflects_real_cache_events(tmp_path, monkeypatch, env):
+        """真 ChunkCache 事件流（store→hit→坏文件 fallback→miss）落 manifest。"""
+        from factorlab.adapters.read import chunk_cache as cc
+    
+        root = tmp_path / "rc"
+        monkeypatch.setenv("FACTORLAB_READ_CACHE_DIR", str(root))
+        cache = cc.ChunkCache(root, max_bytes=10 ** 9, ttl_seconds=86400)
+        cache.store("k1", pl.DataFrame({"x": [1.0]}), "fp")
+        assert cache.load("k1").status == "hit"
+        entry = json.loads((root / "manifest.json").read_text())["entries"]["k1"]
+        (root / entry["file"]).write_bytes(b"corrupt")
+        assert cache.load("k1").status == "fallback"
+        assert cache.load("k1").status == "miss"
+    
+        _health_env(env, tmp_path, monkeypatch)
+        rc = H.health(_health_args()).data["read_cache"]
+>       assert rc["hits"] == 1 and rc["fallbacks"] == 1 and rc["misses"] == 1
+E       assert (0 == 1)
+
+tests/test_research_perf_knobs.py:249: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_read_cache.py::test_manifest_events_count_hit_fallback_miss
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_reflects_real_cache_events[duckdb]
+FAILED tests/test_research_perf_knobs.py::test_health_read_cache_reflects_real_cache_events[ch]
+3 failed, 42 passed in 7.80s
