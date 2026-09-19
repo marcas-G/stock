@@ -1,0 +1,58 @@
+{
+  "raw": "data/fact/daily_fact/daily_fact.parquet",
+  "delisted": "data/fact/daily_fact/delisted_codes.parquet",
+  "row_total": 1251010,
+  "total_hits": 3753030,
+  "classes": {
+    "EXPECTED_MISSING": 312912,
+    "SOURCE_LIMITATION": 3440118,
+    "TRUE_ERROR": 0,
+    "LEGACY_SCHEMA": 0
+  },
+  "by_field": {
+    "amount": {
+      "EXPECTED_MISSING": 104304,
+      "SOURCE_LIMITATION": 1146706,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "float_shares": {
+      "EXPECTED_MISSING": 104304,
+      "SOURCE_LIMITATION": 1146706,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "adj_factor": {
+      "EXPECTED_MISSING": 104304,
+      "SOURCE_LIMITATION": 1146706,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    }
+  },
+  "code_split": {
+    "full": 315,
+    "partial": 13
+  },
+  "code_rows": {
+    "full_rows": 1246656,
+    "full_traded": 1146550,
+    "partial_rows": 4354,
+    "partial_traded": 156
+  },
+  "rules": {
+    "expected_when_volume_zero": true,
+    "legacy_field_first_dates": {
+      "amount": "1990-12-19",
+      "float_shares": "1990-12-19",
+      "adj_factor": "1990-12-19"
+    }
+  },
+  "extras": {
+    "float_shares_zero": 51,
+    "float_shares_zero_codes": [
+      "688287.SH"
+    ],
+    "adj_nonpositive": 8235,
+    "volume_null": 0
+  }
+}

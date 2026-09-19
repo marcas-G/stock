@@ -1,0 +1,2 @@
+heavy.sh: slot=1/2 avail=25.7GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python platform/tools/data_quality/classify_missing.py --raw data/fact/daily_fact/daily_fact.parquet --delisted data/fact/daily_fact/delisted_codes.parquet --report-dir governance/evidence/verification/R33
+[classify-missing] rows=1251010 hits=3753030 {'EXPECTED_MISSING': 312912, 'SOURCE_LIMITATION': 3440118, 'TRUE_ERROR': 0, 'LEGACY_SCHEMA': 0} full=315 partial=13 -> governance/evidence/verification/R33
