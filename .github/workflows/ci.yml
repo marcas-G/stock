@@ -87,8 +87,26 @@ jobs:
       - name: 平台全量 pytest（精确排除 1 条数据在盘假设）
         working-directory: platform
         run: |
+          set -o pipefail
           .venv/bin/python -m pytest -q \
-            --deselect tests/test_factio.py::test_paths_roots_exist_or_skip
+            --deselect tests/test_factio.py::test_paths_roots_exist_or_skip \
+            2>&1 | tee "$RUNNER_TEMP/pytest-platform.log"
+
+      # 失败时把 pytest 的 FAILED 行以 ::error 注记发布——公开 annotations API 可读，
+      # 便于无仓库 admin 权限时定位失败用例（日志下载 API 需 admin）。
+      - name: 失败注记（platform）
+        if: failure()
+        run: |
+          log="$RUNNER_TEMP/pytest-platform.log"
+          if [ -f "$log" ]; then
+            grep -E '^(FAILED|ERROR)' "$log" | head -25 | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+            echo "::error::—— pytest 尾部 15 行 ——"
+            tail -15 "$log" | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+          fi
 
   research:
     name: tools/research/governance 测试（无 CH）
@@ -130,9 +148,11 @@ jobs:
       # 注：本段 rootdir=platform/（最近的 pyproject），--deselect 用其相对 nodeid `tools/...`。
       - name: platform/tools 测试（精确排除 5 条数据在盘假设）
         run: |
+          set -o pipefail
           platform/.venv/bin/python -m pytest platform/tools -q \
             --deselect tools/lob_fact/tests/test_config_paths.py::test_root_exists_on_disk \
-            --deselect tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables
+            --deselect tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables \
+            2>&1 | tee "$RUNNER_TEMP/pytest-tools.log"
 
       # 排除项（仅此 2 条，均为 test_run_strategy_cli.py 的 @pytest.mark.integration）：
       # 本机有 CH 时它们真跑，并被 DQ health 门拒绝（2025-03 历史分区 status=UNKNOWN——
@@ -148,13 +168,31 @@ jobs:
       # 恢复门；其余 4 项 test_index 断言（索引一致/族规则/族内唯一/变体组）保留。
       - name: research/tools 测试（精确排除 3 条在途/预存红）
         run: |
+          set -o pipefail
           platform/.venv/bin/python -m pytest research/tools -q \
             --deselect tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches \
             --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03 \
-            --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes
+            --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes \
+            2>&1 | tee "$RUNNER_TEMP/pytest-research.log"
 
       - name: governance/ops 测试
-        run: platform/.venv/bin/python -m pytest governance/ops -q
+        run: |
+          set -o pipefail
+          platform/.venv/bin/python -m pytest governance/ops -q 2>&1 | tee "$RUNNER_TEMP/pytest-gov.log"
+
+      - name: 失败注记（research）
+        if: failure()
+        run: |
+          for log in "$RUNNER_TEMP/pytest-tools.log" "$RUNNER_TEMP/pytest-research.log" "$RUNNER_TEMP/pytest-gov.log"; do
+            [ -f "$log" ] || continue
+            echo "::error::—— $(basename "$log") FAILED ——"
+            grep -E '^(FAILED|ERROR)' "$log" | head -25 | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+            tail -10 "$log" | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+          done
 
   gates:
     name: 离线门（lint/索引/拓扑/导入）
@@ -197,8 +235,19 @@ jobs:
 
       - name: 索引一致（G-INDEX：因子 + 策略）
         run: |
-          platform/.venv/bin/python research/tools/factor_lib/build_index.py --check
-          platform/.venv/bin/python research/tools/factor_lib/build_strategy_index.py --check
+          set -o pipefail
+          { platform/.venv/bin/python research/tools/factor_lib/build_index.py --check; \
+            platform/.venv/bin/python research/tools/factor_lib/build_strategy_index.py --check; } \
+            2>&1 | tee "$RUNNER_TEMP/gate-index.log"
+
+      - name: 失败注记（gates）
+        if: failure()
+        run: |
+          log="$RUNNER_TEMP/gate-index.log"
+          if [ -f "$log" ]; then
+            echo "::error::—— G-INDEX 失败输出 ——"
+            cat "$log" | while IFS= read -r l; do echo "::error::$l"; done
+          fi
 
       # 临时排除 1 条（与 research job 同源同理由，见其上注释）：test_index 的
       # test_every_yaml_has_mirror_doc_and_name_matches 因在途 2 档案超 72h 宽限转红；
