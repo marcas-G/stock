@@ -1,0 +1,10 @@
+===== 2026-09-20 02:45:27 make gates (post-commit) =====
+  ✓ 0 处违规（登记 46 个理由明确的直读点；新增未登记即失败）
+数据接口门：ENFORCED 全绿
+  ✓ 负向自检：分区字面量 3 / 标记直构 3 / 直读 3 / 漏 import 1 处违规被抓到；docstring、writekit API、print 文案、登记过的 manifest 读均不误伤
+
+结构门：全绿
+数据接口门：ENFORCED 判定（AST）+ REPORT 未竟计数（见 governance/ops/check_dataiface.py）
+gates rc=0
+===== stale tracked paths check =====
+0
