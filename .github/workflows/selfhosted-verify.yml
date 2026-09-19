@@ -64,6 +64,7 @@ jobs:
       - name: 环境（uv venv + editable 安装）
         run: |
           set -euo pipefail
+          rm -f "$RUNNER_TEMP"/pytest-*.log
           UV=/home/gaolei/.local/bin/uv
           [ -x platform/.venv/bin/python ] || "$UV" venv --python 3.13 --seed platform/.venv
           "$UV" pip install -q --python platform/.venv/bin/python \
@@ -98,8 +99,12 @@ jobs:
             2>&1 | tee "$LOG"
 
       # platform/tools：hosted 的 2 条"数据在盘假设"排除项在此不排除（数据在盘）。
-      # 唯一排除：lob_fact tick e2e（tick 全线暂停 2026-09-19，见 issue #15；
-      # 恢复 tick 时连同门豁免一并移除本 deselect）。
+      # 排除项（仅此 2 条）：
+      # - lob_fact tick e2e：tick 全线暂停 2026-09-19（issue #15；恢复 tick 时删除）；
+      # - pan_update 同根守卫：断言 pan_update.repo_root() == factio.paths.STOCK_ROOT；
+      #   本 workflow **刻意不设** FACTORLAB_STOCK_ROOT（数据测试要用宿主真实数据根，
+      #   见文件头），checkout≠宿主根 → 该"同根"断言在 CI 语义下不成立。hosted CI 是
+      #   设 FACTORLAB_STOCK_ROOT=checkout 来过的，两处口径不同、各自精确排除。
       - name: platform/tools 测试（在盘数据）
         run: |
           set -o pipefail
@@ -107,6 +112,7 @@ jobs:
           platform/.venv/bin/python -m pytest platform/tools -q \
             --timeout=300 --timeout-method=thread \
             --deselect tools/lob_fact/tests/test_run_lob_batch.py::test_main_cli_e2e_mini_month \
+            --deselect tools/pan_update/tests/test_config.py::test_pan_update_and_ingest_share_data_roots \
             2>&1 | tee "$LOG"
 
       # research/tools 排除项与 hosted CI 完全一致（2 条 strategies 预存红 = DQ
@@ -134,6 +140,7 @@ jobs:
         run: |
           for log in "$RUNNER_TEMP"/pytest-*.log; do
             [ -f "$log" ] || continue
+            grep -qE '^(FAILED|ERROR)' "$log" || continue
             echo "::error::—— $(basename "$log") FAILED ——"
             grep -E '^(FAILED|ERROR)' "$log" | head -25 | while IFS= read -r l; do
               echo "::error::$l"
