@@ -475,6 +475,13 @@ LOW_WATER_KB = 16_000_000   # MemAvailable 低水位 (~15.3GB): 低于不派发�
                             # "在飞 × 新增"会过冲 → 随 worker 数上调; 冻结测试见
                             # tests/test_run_lob_batch.py::test_resource_gates_...)
 
+
+def _low_water_kb() -> int:
+    """派发低水位读数：`LOB_BATCH_LOW_WATER_KB` 可覆盖（CI/低内存宿主用），
+    未设 = 冻结常量 `LOW_WATER_KB`（生产默认语义零变化）。"""
+    env = os.environ.get("LOB_BATCH_LOW_WATER_KB")
+    return int(env) if env else LOW_WATER_KB
+
 _TICK_COLS = {
     'orders': ['code', 'time_ms', 'order_type', 'bs', 'price_x10000',
                'volume', 'exch_order_no'],
@@ -864,7 +871,7 @@ def main(argv=None):
     # 每 date 的记账/打印/审计在 `on_result` ✓。
     def _mem_gate() -> bool:
         avail = _mem_avail_kb()
-        return True if avail is None else avail >= LOW_WATER_KB
+        return True if avail is None else avail >= _low_water_kb()
 
     tasks = [Task(key=d, payload=None) for d in todo]        # todo 已按日期序
     try:
