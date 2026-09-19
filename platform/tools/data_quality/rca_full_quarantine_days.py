@@ -15,12 +15,12 @@
 
 单行判定（基于 raw 自身证据）
 -----------------------------
-- ``LEGACY_UNIT``：行 ratio(=vwap/close) 与**该代码 1993 前成交行中位 ratio**
-  一致（默认 ±10%），且中位 ratio 显著偏离 1（代码级金额/成交量单位约定，
-  如 000002/000004 早期 ratio≈5）→ 历史制度例外；
-- ``MARGIN``：非单位约定行，且 VWAP 超出 [low*(1-tol), high*(1+tol)] 的幅度
-  ≤2pp（早期单一日价 O=H=L=C 的金额取整）→ 恢复候选；
-- ``CORRUPT``：其余（含 ratio 偏离代码约定 >10%、超容差 >2pp）→ 确坏。
+- ``LEGACY_UNIT``：行 ratio(=vwap/close) 与**该代码 ``<1994-01-01`` 成交行
+  中位 ratio** 一致（默认 ±10%），且中位 ratio 显著偏离 1（代码级金额/成交量
+  单位约定，如 000002/000004 早期 ratio≈5）→ 历史制度例外；
+- ``MARGIN``：非单位约定行，且 VWAP 落在 **pre-1995 候选 ``tol=2%`` 带**内
+  （以现行 1% 带衡量的超带幅度 ≤ 上界 ~0.99pp / 下界 ~1.01pp）→ 恢复候选；
+- ``CORRUPT``：其余（含 ratio 偏离代码约定 >10%、超 2% 带）→ 确坏。
 
 CLI
 ---
@@ -45,6 +45,8 @@ if str(_TOOLS) not in sys.path:
 
 import polars as pl  # noqa: E402
 
+from data_quality import health  # noqa: E402
+
 DAYS_18: tuple[str, ...] = (
     "1991-01-19", "1991-02-02", "1991-02-09", "1991-02-23", "1991-03-02",
     "1991-03-09", "1991-03-16", "1991-03-23", "1991-03-30", "1991-04-13",
@@ -52,7 +54,7 @@ DAYS_18: tuple[str, ...] = (
     "1992-04-18", "1993-07-03", "1993-08-21",
 )
 VWAP_TOL = 0.01
-MARGIN_MAX_GAP_PCT = 2.0
+RESTORE_TOL = 0.02
 MED_MATCH_TOL = 0.10
 LEGACY_MIN_HIST = 100
 DEFAULT_FACTORS: tuple[float, ...] = (0.01, 0.1, 0.2, 1.0, 5.0, 10.0, 100.0)
@@ -73,10 +75,11 @@ _CALENDAR_FIX = ("trade_cal 不得从 canonical daily 派生：全隔离日从�
                  "派生链而非规则；应换权威日历源或按 raw 日期域保留交易日。")
 _RULE_FIX_LEGACY = ("保留 VWAP 规则；将匹配代码级单位约定的早期行标记为历史单位例外"
                     "（UNIT_SUSPECT/LEGACY_UNIT），不自动改写金额。")
-_RULE_FIX_RESTORE = ("规则修正候选：pre-1995 单一日价/窄幅行 VWAP 容差 1%→2%"
-                     "（仅覆盖超容差带 ≤1.2pp 的行），需 Task 2 决策并 bump dq_policy。")
-_RULE_FIX_KEEP = ("不放宽 VWAP 容差（偏离 >2pp 或非单一日价）；如要恢复须先有权威价源"
-                  "核对 amount/volume 单位。")
+_RULE_FIX_RESTORE = ("规则修正候选：pre-1995 直接采用 tol=2% 的 VWAP 容差带（对价格"
+                     "的覆盖上界按带边相对量度 0.02/1.02≈1.96pp）；本批 4 行（以现行 "
+                     "1% 带衡量超带 ≤0.80pp）均被覆盖；需 Task 2 决策并 bump dq_policy。")
+_RULE_FIX_KEEP = ("不放宽 VWAP 容差（超 2% 带或非单位约定行）；如要恢复须先有权威"
+                  "价源核对 amount/volume 单位。")
 
 
 def weekday_cn(d: str | dt.date | dt.datetime) -> str:
@@ -106,7 +109,7 @@ def vwap_analysis(*, open: float | None, high: float | None, low: float | None,
                   amount: float | None, tol: float = VWAP_TOL) -> dict[str, Any]:
     """复算 VWAP=amount/volume 并与当期 OHLC 比较（纯函数，不修数据）。"""
     vwap = None
-    if volume is not None and amount is not None and volume > 0:
+    if (volume is not None and amount is not None and volume > 0 and amount > 0):
         vwap = amount / volume
     dev_pct = None
     if vwap is not None and close:
@@ -178,7 +181,7 @@ def build_row_fact(*, date: str, code: str, open: float | None,
 
 
 def classify_row(fact: RowFact, *, med_match_tol: float = MED_MATCH_TOL,
-                 margin_max_gap_pct: float = MARGIN_MAX_GAP_PCT,
+                 restore_tol: float = RESTORE_TOL,
                  legacy_min_hist: int = LEGACY_MIN_HIST) -> str:
     """单行判定：CLEAN / LEGACY_UNIT / MARGIN / CORRUPT。"""
     if fact.in_range:
@@ -189,7 +192,7 @@ def classify_row(fact: RowFact, *, med_match_tol: float = MED_MATCH_TOL,
         rel = fact.ratio / fact.code_med_ratio - 1.0
         if abs(rel) <= med_match_tol:
             return ROW_LEGACY_UNIT
-    if fact.gap_pct is not None and abs(fact.gap_pct) <= margin_max_gap_pct:
+    if _pct_gap(fact.vwap, fact.low, fact.high, restore_tol)[1]:
         return ROW_MARGIN
     return ROW_CORRUPT
 
@@ -213,14 +216,13 @@ class DayRCA:
 
 def classify_day(facts: Sequence[RowFact], *,
                  med_match_tol: float = MED_MATCH_TOL,
-                 margin_max_gap_pct: float = MARGIN_MAX_GAP_PCT,
+                 restore_tol: float = RESTORE_TOL,
                  legacy_min_hist: int = LEGACY_MIN_HIST) -> DayRCA:
     """单日三选一（输入行全部来自该日 raw）。"""
     if not facts:
         raise ValueError("classify_day 需要至少一行 raw 事实")
     verdicts = {f"{f.code}": classify_row(
-        f, med_match_tol=med_match_tol,
-        margin_max_gap_pct=margin_max_gap_pct,
+        f, med_match_tol=med_match_tol, restore_tol=restore_tol,
         legacy_min_hist=legacy_min_hist) for f in facts}
     kinds = set(verdicts.values())
 
@@ -238,8 +240,8 @@ def classify_day(facts: Sequence[RowFact], *,
         return DayRCA(
             date=facts[0].date, n_rows=len(facts), conclusion=RESTORE,
             evidence="推断",
-            reason=("非单位约定行，但 VWAP 仅超容差带 ≤2pp（早期价格记载精度/"
-                    "金额按整数价取整），判定为规则容差误判"),
+            reason=("非单位约定行，但 VWAP 落在 pre-1995 tol=2% 候选带内"
+                    "（早期价格记载精度/金额按整数价取整），判定为规则容差误判"),
             row_verdicts=verdicts,
             rule_fix_candidates=(_RULE_FIX_RESTORE, _CALENDAR_FIX))
 
@@ -253,7 +255,7 @@ def classify_day(facts: Sequence[RowFact], *,
         date=facts[0].date, n_rows=len(facts), conclusion=KEEP_QUARANTINE,
         evidence=evidence,
         reason=("至少一行无法归因于单位约定或容差边际（ratio 背离代码约定 >10%"
-                " 或超容差 >2pp）；不得整体恢复"),
+                " 或超 2% 带）；不得整体恢复"),
         row_verdicts=verdicts,
         rule_fix_candidates=(_RULE_FIX_KEEP, _CALENDAR_FIX))
 
@@ -274,7 +276,7 @@ def regime_note(date: str) -> str:
         1991: "1991：深市处于 6 交易日/周时期（raw 内 47 个周六有行情）；"
               "1996 前无涨跌停、T+0；早期金额/成交量存在代码级单位约定"
               "（000002/000004 成交行 ratio≈5，000001≈1）。",
-        1992: "1992：周六交易已不常规（raw 全年仅 6 个周末日）；"
+        1992: "1992：周六交易已不常规（raw 全年仅 5 个周末日）；"
               "1992-05-21 全面放开价格限制、T+0（制度切换年）。",
         1993: "1993：周末行情仅 9 日且多为单行（本日如是），推断为偶发/异常记载；"
               "T+0、无涨跌停制度延续。",
@@ -329,13 +331,13 @@ def load_rows(raw: str | Path, days: Iterable[str] = DAYS_18) -> pl.DataFrame:
 
 def code_history_stats(raw: str | Path,
                        codes: Iterable[str]) -> dict[str, tuple[float, int]]:
-    """代码 1993 前成交行的 ratio 中位数与样本数（单位约定背景）。"""
+    """代码 ``trade_date < 1994-01-01`` 成交行的 ratio 中位数与样本数（单位约定背景）。"""
     codes = list(codes)
     hist = (pl.scan_parquet(str(raw))
             .filter(pl.col("code").is_in(codes)
                     & (pl.col("trade_date") < dt.date.fromisoformat(HIST_CUTOFF))
                     & (pl.col("volume") > 0)
-                    & pl.col("amount").is_not_null())
+                    & (pl.col("amount") > 0))
             .select(["code", "close", "volume", "amount"])
             .collect())
     hist = hist.with_columns(
@@ -368,7 +370,7 @@ def build_day_facts(df: pl.DataFrame, stats: dict[str, tuple[float, int]],
 def run_analysis(raw: str | Path, *, days: Iterable[str] = DAYS_18,
                  tol: float = VWAP_TOL,
                  med_match_tol: float = MED_MATCH_TOL,
-                 margin_max_gap_pct: float = MARGIN_MAX_GAP_PCT,
+                 restore_tol: float = RESTORE_TOL,
                  legacy_min_hist: int = LEGACY_MIN_HIST,
                  ) -> tuple[dict[str, list[RowFact]], dict[str, DayRCA]]:
     """读 raw → 逐日事实与结论（纯计算，不写盘）。"""
@@ -377,7 +379,7 @@ def run_analysis(raw: str | Path, *, days: Iterable[str] = DAYS_18,
     facts = build_day_facts(df, stats, tol=tol)
     results = {
         date: classify_day(rows, med_match_tol=med_match_tol,
-                           margin_max_gap_pct=margin_max_gap_pct,
+                           restore_tol=restore_tol,
                            legacy_min_hist=legacy_min_hist)
         for date, rows in facts.items()
     }
@@ -421,11 +423,12 @@ def rule_fix_summary(verdict_counts: dict[str, int]) -> str:
         "2. **早期单位约定标记（11 日/19 行）**：匹配代码级 ratio 中位数的行（如 "
         "000002/000004 早期因子≈5）保留 VWAP 隔离结论，但标记为 `LEGACY_UNIT`/"
         "`UNIT_SUSPECT`，不计入系统性 ERROR；**不自动改写金额**（无权威单位源）。",
-        "3. **容差边际例外（3 日/4 行，恢复候选）**：pre-1995 单一日价/窄幅行超容差带"
-        " ≤1.2pp，建议 VWAP 容差 1%→2% 的**窄口径**例外（需 Task 2 bump dq_policy）；"
-        "超出该口径的行不放宽。",
-        "4. **不得恢复（4 日/4 行）**：显著坏行（ratio 背离代码约定 >10% 或超容差带 "
-        ">2pp），保持隔离。",
+        "3. **容差边际例外（3 日/4 行，恢复候选）**：pre-1995 **直接采用 tol=2%** 的 "
+        "VWAP 容差带（对价格的覆盖上界按带边相对量度 0.02/1.02≈1.96pp；本批 4 行以"
+        "现行 1% 带衡量超带 ≤0.80pp，均被覆盖；需 Task 2 决策并 bump dq_policy）；"
+        "超出该带的行不放宽。",
+        "4. **不得恢复（4 日/4 行）**：显著坏行（ratio 背离代码约定 >10% 或落在 "
+        "tol=2% 带外），保持隔离。",
         "5. **M3 研究项**：若能从权威源确认早期金额单位（因子 5/100/0.01 等），再评估"
         "确定性单位归一化（属历史修复，非本阶段）。",
     ])
@@ -437,7 +440,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--report-dir", default="governance/evidence/verification/R33")
     parser.add_argument("--tol", type=float, default=VWAP_TOL)
     parser.add_argument("--med-match-tol", type=float, default=MED_MATCH_TOL)
-    parser.add_argument("--margin-max-gap-pct", type=float, default=MARGIN_MAX_GAP_PCT)
+    parser.add_argument("--restore-tol", type=float, default=RESTORE_TOL,
+                        help="pre-1995 恢复候选带（直接 tol=2%，非 1%+边际）")
     parser.add_argument("--legacy-min-hist", type=int, default=LEGACY_MIN_HIST)
     parser.add_argument("--days", nargs="*", default=list(DAYS_18))
     args = parser.parse_args(argv)
@@ -445,7 +449,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     facts, results = run_analysis(
         args.raw, days=args.days, tol=args.tol,
         med_match_tol=args.med_match_tol,
-        margin_max_gap_pct=args.margin_max_gap_pct,
+        restore_tol=args.restore_tol,
         legacy_min_hist=args.legacy_min_hist)
 
     out_dir = Path(args.report_dir)
@@ -463,8 +467,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     md = [
         "# 18 个全隔离日 RCA（Plan DQ-M1.5 T1，只读）",
         "",
-        f"- 输入：`{args.raw}` ｜ 容差 tol={args.tol} ｜ 单位匹配 tol={args.med_match_tol}"
-        f" ｜ 边际阈值 {args.margin_max_gap_pct}pp ｜ 单位约定最小样本 {args.legacy_min_hist}",
+        f"- 输入：`{args.raw}` ｜ 现行容差 tol={args.tol} ｜ 单位匹配 tol={args.med_match_tol}"
+        f" ｜ 恢复候选带 tol={args.restore_tol}（覆盖上界 0.02/1.02≈1.96pp）"
+        f" ｜ 单位约定最小样本 {args.legacy_min_hist}",
         f"- 结论分布：" + "，".join(f"{k} {v} 日" for k, v in buckets.items()),
         f"- 逐行判定：单位约定 {verdicts.get(ROW_LEGACY_UNIT, 0)} ｜ 容差边际 "
         f"{verdicts.get(ROW_MARGIN, 0)} ｜ 确坏 {verdicts.get(ROW_CORRUPT, 0)}",
@@ -472,6 +477,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "## 汇总",
         "",
         summary_table(facts, results),
+        "",
+        "> 证据等级口径：`充分` = ratio 拟合充分（行 ratio vs 代码级中位 ratio 的"
+        "实测），**机制来源（单位约定/取整的制度原因）一律为 `推断`**；"
+        "`未知` 表示本地无证据。",
         "",
         rule_fix_summary(verdicts),
         "",
@@ -481,10 +490,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     ]
     (out_dir / "rca-18-days.md").write_text("\n".join(md) + "\n", encoding="utf-8")
 
+    raw_sha256 = health.sha256_file(args.raw)
     payload = {
         "days": args.days,
+        "raw": {"path": str(args.raw), "sha256": raw_sha256},
         "params": {"tol": args.tol, "med_match_tol": args.med_match_tol,
-                   "margin_max_gap_pct": args.margin_max_gap_pct,
+                   "restore_tol": args.restore_tol,
                    "legacy_min_hist": args.legacy_min_hist},
         "summary": buckets,
         "row_verdicts": verdicts,

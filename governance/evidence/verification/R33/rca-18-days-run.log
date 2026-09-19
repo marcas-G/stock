@@ -1,2 +1,2 @@
-heavy.sh: slot=1/2 avail=22.9GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python platform/tools/data_quality/rca_full_quarantine_days.py --raw data/fact/daily_fact/daily_fact.parquet --report-dir governance/evidence/verification/R33
+heavy.sh: slot=1/2 avail=17.9GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python platform/tools/data_quality/rca_full_quarantine_days.py --raw data/fact/daily_fact/daily_fact.parquet --report-dir governance/evidence/verification/R33
 [rca-18-days] 18 日；恢复（规则误判）=3，保持隔离（数据确坏）=4，历史制度例外（标记）=11 -> governance/evidence/verification/R33

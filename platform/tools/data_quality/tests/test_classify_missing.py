@@ -123,6 +123,72 @@ def test_full_code_gap_vs_partial_split():
     assert got == {"full": 1, "partial": 1}
 
 
+# ── 残余类 SPORADIC_GAP（F6）────────────────────────────────────────────
+def test_terminal_tail_dates_picks_last_contiguous_run():
+    """末端尾段=抵达最新日期的连续缺列段（交易日相邻，跳空 ≤5 天）；早期孤立单日不算。"""
+    dates = [D(1991, 1, 29), D(1991, 2, 1), D(1991, 4, 1),
+             D(2026, 7, 9), D(2026, 7, 10), D(2026, 7, 13)]
+    tail = cm.terminal_tail_dates(dates, max_gap_days=5)
+    assert tail == {D(2026, 7, 9), D(2026, 7, 10), D(2026, 7, 13)}
+    assert D(1991, 1, 29) not in tail
+
+
+def test_sporadic_gap_only_for_traded_rows_outside_tail():
+    """SPORADIC_GAP：部分缺列码、volume>0、且不在退市尾段。"""
+    tail = {D(2026, 6, 25)}
+    assert cm.is_sporadic_gap(
+        {"trade_date": D(1991, 1, 29), "volume": 1500.0},
+        terminal_tail=tail, partial_code=True) is True
+    assert cm.is_sporadic_gap(
+        {"trade_date": D(2026, 6, 25), "volume": 100.0},
+        terminal_tail=tail, partial_code=True) is False
+    assert cm.is_sporadic_gap(
+        {"trade_date": D(1991, 1, 29), "volume": 0.0},
+        terminal_tail=tail, partial_code=True) is False
+    assert cm.is_sporadic_gap(
+        {"trade_date": D(1991, 1, 29), "volume": 100.0},
+        terminal_tail=tail, partial_code=False) is False
+
+
+def test_resolve_row_class_priority():
+    """行级类=字段类的最高优先（TRUE_ERROR > LEGACY > SOURCE > EXPECTED）。"""
+    assert cm.resolve_row_class(
+        {"amount": cm.EXPECTED_MISSING, "adj_factor": cm.SOURCE_LIMITATION}
+    ) == cm.SOURCE_LIMITATION
+    assert cm.resolve_row_class(
+        {"amount": cm.TRUE_ERROR, "adj_factor": cm.SOURCE_LIMITATION}
+    ) == cm.TRUE_ERROR
+    assert cm.resolve_row_class(
+        {"amount": cm.LEGACY_SCHEMA, "adj_factor": cm.TRUE_ERROR}
+    ) == cm.TRUE_ERROR
+    assert cm.resolve_row_class({"amount": cm.EXPECTED_MISSING}) == cm.EXPECTED_MISSING
+
+
+def test_iter_row_hits_yields_row_and_field_level():
+    """逐行产出：行级类 + 字段类（命中展开由调用方按字段累计）。"""
+    import polars as pl
+
+    df = pl.DataFrame({
+        "trade_date": [D(2026, 6, 25), D(2026, 6, 25)],
+        "code": ["000004.SZ", "600519.SH"],
+        "volume": [0.0, 1000.0],
+        "close": [10.0, 10.0],
+        "amount": [None, None],
+        "float_shares": [None, None],
+        "adj_factor": [None, None],
+    })
+    rows = list(cm.iter_row_hits(df, delisted={"000004.SZ"}, rules=_rules()))
+    assert len(rows) == 2
+    by_code = {r["code"]: r for r in rows}
+    assert by_code["000004.SZ"]["klass"] == cm.EXPECTED_MISSING
+    assert by_code["000004.SZ"]["classes"] == {
+        "amount": cm.EXPECTED_MISSING, "float_shares": cm.EXPECTED_MISSING,
+        "adj_factor": cm.EXPECTED_MISSING}
+    assert by_code["600519.SH"]["klass"] == cm.TRUE_ERROR
+    assert by_code["600519.SH"]["year"] == 2026
+    assert by_code["600519.SH"]["market"] == "SH"
+
+
 def test_module_has_no_parquet_writes():
     """只读红线：分群模块源码不得出现 parquet 写入。"""
     src = Path(cm.__file__).read_text(encoding="utf-8")

@@ -150,6 +150,29 @@ def test_day_margin_narrow_range_also_restores():
     assert out.conclusion == rca.RESTORE
 
 
+def test_margin_criterion_uses_two_percent_band_not_one_plus_margin():
+    """恢复候选判据 = 直接 tol=2% 带：1.02 倍收 / 1.021 倍拒（与 1.96pp 上界一致）。"""
+    at_bound = _fact(open=100.0, high=100.0, low=100.0, close=100.0,
+                     volume=1000.0, amount=102000.0, code_med_ratio=1.0,
+                     n_code_hist=500)
+    assert rca.classify_row(at_bound) == rca.ROW_MARGIN
+    beyond = _fact(open=100.0, high=100.0, low=100.0, close=100.0,
+                   volume=1000.0, amount=102100.0, code_med_ratio=1.0,
+                   n_code_hist=500)
+    assert rca.classify_row(beyond) == rca.ROW_CORRUPT
+
+
+def test_restore_rule_text_states_coverage_upper_bound():
+    """F4：修候选文本须写明 0.02/1.02≈1.96pp 覆盖上界（不再出现 1.2pp）。"""
+    f = _fact(date="1991-04-20", code="000001.SZ", open=45.46, high=45.46,
+              low=45.46, close=45.46, volume=500.0, amount=23000.0,
+              code_med_ratio=1.0, n_code_hist=688)
+    out = rca.classify_day([f])
+    joined = " ".join(out.rule_fix_candidates)
+    assert "1.96pp" in joined
+    assert "1.2pp" not in joined
+
+
 def test_day_mixed_legacy_and_corrupt_is_keep():
     """一行单位约定 + 一行确坏 → 保持隔离（不得整体恢复）。"""
     legacy = _fact()

@@ -1,5 +1,8 @@
 {
-  "raw": "data/fact/daily_fact/daily_fact.parquet",
+  "raw": {
+    "path": "data/fact/daily_fact/daily_fact.parquet",
+    "sha256": "903ab1603b582c2500c6d3c26f417eccb6453b709dfa644e9e05bb2d6a82e323"
+  },
   "delisted": "data/fact/daily_fact/delisted_codes.parquet",
   "row_total": 1251010,
   "total_hits": 3753030,
@@ -29,6 +32,490 @@
       "LEGACY_SCHEMA": 0
     }
   },
+  "by_year": {
+    "1991": {
+      "EXPECTED_MISSING": 714,
+      "SOURCE_LIMITATION": 2109,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1992": {
+      "EXPECTED_MISSING": 513,
+      "SOURCE_LIMITATION": 4488,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1993": {
+      "EXPECTED_MISSING": 981,
+      "SOURCE_LIMITATION": 14220,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1994": {
+      "EXPECTED_MISSING": 315,
+      "SOURCE_LIMITATION": 34821,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1995": {
+      "EXPECTED_MISSING": 579,
+      "SOURCE_LIMITATION": 38796,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1996": {
+      "EXPECTED_MISSING": 249,
+      "SOURCE_LIMITATION": 52389,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1997": {
+      "EXPECTED_MISSING": 1047,
+      "SOURCE_LIMITATION": 85605,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1998": {
+      "EXPECTED_MISSING": 1479,
+      "SOURCE_LIMITATION": 101616,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1999": {
+      "EXPECTED_MISSING": 1869,
+      "SOURCE_LIMITATION": 107124,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2000": {
+      "EXPECTED_MISSING": 3741,
+      "SOURCE_LIMITATION": 118119,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2001": {
+      "EXPECTED_MISSING": 6054,
+      "SOURCE_LIMITATION": 127698,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2002": {
+      "EXPECTED_MISSING": 6111,
+      "SOURCE_LIMITATION": 126414,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2003": {
+      "EXPECTED_MISSING": 4071,
+      "SOURCE_LIMITATION": 130560,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2004": {
+      "EXPECTED_MISSING": 6471,
+      "SOURCE_LIMITATION": 130026,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2005": {
+      "EXPECTED_MISSING": 8853,
+      "SOURCE_LIMITATION": 122670,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2006": {
+      "EXPECTED_MISSING": 22050,
+      "SOURCE_LIMITATION": 99762,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2007": {
+      "EXPECTED_MISSING": 21177,
+      "SOURCE_LIMITATION": 99063,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2008": {
+      "EXPECTED_MISSING": 15222,
+      "SOURCE_LIMITATION": 104928,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2009": {
+      "EXPECTED_MISSING": 11763,
+      "SOURCE_LIMITATION": 106437,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2010": {
+      "EXPECTED_MISSING": 10950,
+      "SOURCE_LIMITATION": 115341,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2011": {
+      "EXPECTED_MISSING": 12033,
+      "SOURCE_LIMITATION": 130665,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2012": {
+      "EXPECTED_MISSING": 10422,
+      "SOURCE_LIMITATION": 141228,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2013": {
+      "EXPECTED_MISSING": 11241,
+      "SOURCE_LIMITATION": 138651,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2014": {
+      "EXPECTED_MISSING": 21897,
+      "SOURCE_LIMITATION": 135405,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2016": {
+      "EXPECTED_MISSING": 23271,
+      "SOURCE_LIMITATION": 136797,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2017": {
+      "EXPECTED_MISSING": 28194,
+      "SOURCE_LIMITATION": 133104,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2018": {
+      "EXPECTED_MISSING": 23076,
+      "SOURCE_LIMITATION": 136857,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2019": {
+      "EXPECTED_MISSING": 7962,
+      "SOURCE_LIMITATION": 147933,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2026": {
+      "EXPECTED_MISSING": 0,
+      "SOURCE_LIMITATION": 912,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1990": {
+      "EXPECTED_MISSING": 54,
+      "SOURCE_LIMITATION": 27,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2015": {
+      "EXPECTED_MISSING": 35997,
+      "SOURCE_LIMITATION": 121326,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2020": {
+      "EXPECTED_MISSING": 9672,
+      "SOURCE_LIMITATION": 137727,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2021": {
+      "EXPECTED_MISSING": 4662,
+      "SOURCE_LIMITATION": 127797,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2022": {
+      "EXPECTED_MISSING": 9,
+      "SOURCE_LIMITATION": 104778,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2023": {
+      "EXPECTED_MISSING": 213,
+      "SOURCE_LIMITATION": 74001,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2024": {
+      "EXPECTED_MISSING": 0,
+      "SOURCE_LIMITATION": 39168,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2025": {
+      "EXPECTED_MISSING": 0,
+      "SOURCE_LIMITATION": 11556,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    }
+  },
+  "by_year_rows": {
+    "1991": {
+      "EXPECTED_MISSING": 238,
+      "SOURCE_LIMITATION": 703,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1992": {
+      "EXPECTED_MISSING": 171,
+      "SOURCE_LIMITATION": 1496,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1993": {
+      "EXPECTED_MISSING": 327,
+      "SOURCE_LIMITATION": 4740,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1994": {
+      "EXPECTED_MISSING": 105,
+      "SOURCE_LIMITATION": 11607,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1995": {
+      "EXPECTED_MISSING": 193,
+      "SOURCE_LIMITATION": 12932,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1996": {
+      "EXPECTED_MISSING": 83,
+      "SOURCE_LIMITATION": 17463,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1997": {
+      "EXPECTED_MISSING": 349,
+      "SOURCE_LIMITATION": 28535,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1998": {
+      "EXPECTED_MISSING": 493,
+      "SOURCE_LIMITATION": 33872,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1999": {
+      "EXPECTED_MISSING": 623,
+      "SOURCE_LIMITATION": 35708,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2000": {
+      "EXPECTED_MISSING": 1247,
+      "SOURCE_LIMITATION": 39373,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2001": {
+      "EXPECTED_MISSING": 2018,
+      "SOURCE_LIMITATION": 42566,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2002": {
+      "EXPECTED_MISSING": 2037,
+      "SOURCE_LIMITATION": 42138,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2003": {
+      "EXPECTED_MISSING": 1357,
+      "SOURCE_LIMITATION": 43520,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2004": {
+      "EXPECTED_MISSING": 2157,
+      "SOURCE_LIMITATION": 43342,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2005": {
+      "EXPECTED_MISSING": 2951,
+      "SOURCE_LIMITATION": 40890,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2006": {
+      "EXPECTED_MISSING": 7350,
+      "SOURCE_LIMITATION": 33254,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2007": {
+      "EXPECTED_MISSING": 7059,
+      "SOURCE_LIMITATION": 33021,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2008": {
+      "EXPECTED_MISSING": 5074,
+      "SOURCE_LIMITATION": 34976,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2009": {
+      "EXPECTED_MISSING": 3921,
+      "SOURCE_LIMITATION": 35479,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2010": {
+      "EXPECTED_MISSING": 3650,
+      "SOURCE_LIMITATION": 38447,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2011": {
+      "EXPECTED_MISSING": 4011,
+      "SOURCE_LIMITATION": 43555,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2012": {
+      "EXPECTED_MISSING": 3474,
+      "SOURCE_LIMITATION": 47076,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2013": {
+      "EXPECTED_MISSING": 3747,
+      "SOURCE_LIMITATION": 46217,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2014": {
+      "EXPECTED_MISSING": 7299,
+      "SOURCE_LIMITATION": 45135,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2016": {
+      "EXPECTED_MISSING": 7757,
+      "SOURCE_LIMITATION": 45599,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2017": {
+      "EXPECTED_MISSING": 9398,
+      "SOURCE_LIMITATION": 44368,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2018": {
+      "EXPECTED_MISSING": 7692,
+      "SOURCE_LIMITATION": 45619,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2019": {
+      "EXPECTED_MISSING": 2654,
+      "SOURCE_LIMITATION": 49311,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2026": {
+      "EXPECTED_MISSING": 0,
+      "SOURCE_LIMITATION": 304,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "1990": {
+      "EXPECTED_MISSING": 18,
+      "SOURCE_LIMITATION": 9,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2015": {
+      "EXPECTED_MISSING": 11999,
+      "SOURCE_LIMITATION": 40442,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2020": {
+      "EXPECTED_MISSING": 3224,
+      "SOURCE_LIMITATION": 45909,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2021": {
+      "EXPECTED_MISSING": 1554,
+      "SOURCE_LIMITATION": 42599,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2022": {
+      "EXPECTED_MISSING": 3,
+      "SOURCE_LIMITATION": 34926,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2023": {
+      "EXPECTED_MISSING": 71,
+      "SOURCE_LIMITATION": 24667,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2024": {
+      "EXPECTED_MISSING": 0,
+      "SOURCE_LIMITATION": 13056,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "2025": {
+      "EXPECTED_MISSING": 0,
+      "SOURCE_LIMITATION": 3852,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    }
+  },
+  "by_market": {
+    "SZ": {
+      "EXPECTED_MISSING": 178551,
+      "SOURCE_LIMITATION": 1742181,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "SH": {
+      "EXPECTED_MISSING": 134361,
+      "SOURCE_LIMITATION": 1697937,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    }
+  },
+  "by_market_rows": {
+    "SZ": {
+      "EXPECTED_MISSING": 59517,
+      "SOURCE_LIMITATION": 580727,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    },
+    "SH": {
+      "EXPECTED_MISSING": 44787,
+      "SOURCE_LIMITATION": 565979,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    }
+  },
+  "by_delist": {
+    "true": {
+      "EXPECTED_MISSING": 104304,
+      "SOURCE_LIMITATION": 1146706,
+      "TRUE_ERROR": 0,
+      "LEGACY_SCHEMA": 0
+    }
+  },
   "code_split": {
     "full": 315,
     "partial": 13
@@ -38,6 +525,48 @@
     "full_traded": 1146550,
     "partial_rows": 4354,
     "partial_traded": 156
+  },
+  "sporadic_gap": {
+    "rows": 21,
+    "hits": 63,
+    "by_code": {
+      "000004.SZ": [
+        9,
+        [
+          "1991-01-29",
+          "1991-02-01",
+          "1991-04-01",
+          "1991-05-02",
+          "1991-06-06",
+          "1991-10-09",
+          "1992-02-25",
+          "1992-05-05",
+          "1993-08-09"
+        ]
+      ],
+      "600608.SH": [
+        11,
+        [
+          "1992-03-27",
+          "1992-03-30",
+          "1992-03-31",
+          "1992-04-01",
+          "1992-04-02",
+          "1992-04-03",
+          "1992-04-06",
+          "1992-04-07",
+          "1992-04-08",
+          "1992-04-09",
+          "1993-01-04"
+        ]
+      ],
+      "600636.SH": [
+        1,
+        [
+          "1994-04-07"
+        ]
+      ]
+    }
   },
   "rules": {
     "expected_when_volume_zero": true,
