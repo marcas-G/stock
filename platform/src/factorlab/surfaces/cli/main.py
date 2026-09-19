@@ -473,6 +473,39 @@ def run_factor_cli(
                           f"freq={ev_o.get('frequency')}")
 
 
+@app.command("compose")
+def compose(
+    spec_path: Path,
+    results_dir: Path | None = typer.Option(
+        None, "--results-dir",
+        help="结果根目录（缺省 settings.results_dir，如 runs/platform）"),
+    out_dir: Path | None = typer.Option(
+        None, "--out-dir",
+        help="产物目录（缺省 <results-dir>/composites/<name>）"),
+) -> None:
+    """运行 Composite spec：成员 artifact×K → X → Python compute → 评估 → 落盘。
+
+    薄壳（Plan CX-C1 §14）：全链在 app.composite.runner；本命令只做参数透传与
+    ValueError/FileNotFoundError → 友好文案 + exit 1（缺成员/交集为空/NaN 输出等）。
+    """
+    from factorlab.app.composite.runner import run_composite
+
+    try:
+        result = run_composite(spec_path, results_dir=results_dir, out_dir=out_dir)
+    except (ValueError, FileNotFoundError) as exc:
+        console.print(f"错误: {exc}")
+        raise typer.Exit(code=1) from exc
+    evaluation = result.summary.get("evaluation")
+    ic = evaluation.get("ic") if isinstance(evaluation, dict) else None
+    incremental = (evaluation.get("incremental_vs_best_member")
+                   if isinstance(evaluation, dict) else None)
+    console.print(
+        f"{result.name}: rows={result.frame.height} cached={result.cached} "
+        f"ic_mean={ic.get('mean') if isinstance(ic, dict) else None} "
+        f"delta_vs_best={incremental.get('delta') if isinstance(incremental, dict) else None} "
+        f"out={result.out_dir}")
+
+
 def _run_at(summary: dict, summary_path: Path) -> tuple[str, float]:
     """summary 运行时间的 (展示值, 排序键)：timestamp 字段优先；
     缺失/不可解析时回退 summary.json 文件 mtime（M4a run 落盘无 timestamp）。"""
