@@ -49,6 +49,10 @@ _ART_HINT = ("先 `flab strategy run <doc.yaml>` 产策略产物；"
              "命令目录 `flab describe --json`")
 _FACTOR_HINT = ("信号产物缺失先 `flab factor run <signal 的 spec.yaml>`；"
                 "命令目录 `flab describe --json`")
+# Plan CX-C4 T3（T1 遗留）：composite 产物命令为 `factorlab compose`（C1 CLI 单点；
+# flab 门面无 composite 组）——预检 hint 按 signal_kind 分派，不误指 factor。
+_COMPOSITE_HINT = ("composite 信号产物缺失先 `factorlab compose <composite 的 spec.yaml>`；"
+                   "命令目录 `flab describe --json`")
 _EXPORT_FORMATS = {"parquet": ".parquet", "csv": ".csv", "json": ".json"}
 _EXPORT_KINDS = {
     "nav": "nav/nav_series.parquet",
@@ -282,16 +286,28 @@ def strategy_run(args: Any) -> envelope.Envelope:
             {"name": doc.strategy.name, "dry_run": True, "doc": _jsonify(_doc_view(doc))},
             warnings=("dry-run：未过闸、未开读句柄、未落盘",))
 
-    # 信号产物预检（先于占闸；缺失 → NOT_FOUND + 因子命令提示）
+    # 信号产物预检（先于占闸；缺失 → NOT_FOUND + 按 signal_kind 的生成命令提示）
+    # factor：<results>/<name>/summary.json；composite：<results>/composites/<name>/
+    # artifact.json（C1 writer 的完成标记；run_composite 的 summary 是其后的派生件，
+    # 预检必须与 loader 真实前置一致——否则可加载产物被误报 NOT_FOUND）。
     from factorlab.adapters import results_fs
+    from factorlab.app.composite.resolver import (COMPOSITE_ARTIFACT_NAME,
+                                                  COMPOSITES_DIRNAME)
     results_dir = Path(settings.results_dir)
     signal_name = doc.strategy.signal_name
-    summary_path = results_fs.summary_path(results_dir, signal_name)
-    if not summary_path.is_file():
+    if doc.signal_kind == "composite":
+        signal_dir = results_dir / COMPOSITES_DIRNAME / signal_name
+        marker = signal_dir / COMPOSITE_ARTIFACT_NAME
+        hint = _COMPOSITE_HINT
+    else:
+        signal_dir = results_dir / signal_name
+        marker = results_fs.summary_path(results_dir, signal_name)
+        hint = _FACTOR_HINT
+    if not marker.is_file():
         return envelope.fail(
             "strategy.run", "NOT_FOUND",
-            f"信号产物缺失: {signal_name}（{summary_path.parent}）",
-            hint=_FACTOR_HINT)
+            f"信号产物缺失: {signal_name}（{signal_dir}）",
+            hint=hint)
 
     out_dir = (Path(args.out_dir) if getattr(args, "out_dir", None)
                else results_dir / "strategies" / doc.strategy.name)

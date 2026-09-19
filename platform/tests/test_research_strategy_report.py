@@ -250,6 +250,56 @@ def test_strategy_run_signal_override_uses_named_artifact(env, tmp_path,
     assert e.data["signal"] == "ws7_doc_chain"  # 覆盖在解析产物前生效
 
 
+def test_strategy_run_missing_composite_signal_dispatches_precheck(
+        env, tmp_path, monkeypatch):
+    """Plan CX-C4 T3：composite 引用预检按 kind 分派到 composites/<name>/ 布局。
+
+    修复 T1 遗留（`research/strategy.py` 入口预检固定按 factor 布局查 summary →
+    composite 误报）。禁止行为门：预检失败不得占 heavy 闸（与 factor 同语义）。
+    """
+    from test_run_strategy import _doc_yaml
+    doc_path, results = _setup(
+        env, tmp_path, monkeypatch, run=False,
+        doc_text=_doc_yaml(signal="composites/cx_demo", name="ws7_cx"))
+    calls = _mock_guard(monkeypatch, tmp_path)
+
+    e = S.strategy_run(_run_args(doc_path))
+    assert e.ok is False
+    assert e.error["code"] == "NOT_FOUND"
+    assert "cx_demo" in e.error["message"]
+    assert str(Path(results) / "composites" / "cx_demo") in e.error["message"]
+    hint = e.error["hint"] or ""
+    assert "factorlab compose" in hint, f"composite 预检 hint 应指向 compose: {hint!r}"
+    assert "flab factor run" not in hint, "composite 引用不得提示 factor 命令"
+    assert calls == [], "缺 composite 产物不得先占闸"
+    assert not (Path(results) / "strategies" / "ws7_cx").exists()
+    _strict_json(e)
+
+
+def test_strategy_run_composite_precheck_passes_with_artifact(
+        env, tmp_path, monkeypatch):
+    """composite 产物就位 → 入口预检放行并跑完整链（真产物，非 dry-run）。"""
+    from test_run_strategy import _composite_panel, _doc_yaml, _write_composite
+    doc_path, results = _setup(
+        env, tmp_path, monkeypatch, run=False,
+        doc_text=_doc_yaml(signal="composites/cx_demo", name="ws7_cx"))
+    _write_composite(results, "cx_demo", _composite_panel())
+    calls = _mock_guard(monkeypatch, tmp_path)
+
+    e = S.strategy_run(_run_args(doc_path))
+    assert e.ok, e.error
+    assert calls and calls[0][0] == "guard", "预检通过后必须占闸"
+    assert e.data["name"] == "ws7_cx"
+    assert e.data["signal"] == "cx_demo"
+    out = Path(results) / "strategies" / "ws7_cx"
+    assert (out / "strategy_manifest.json").is_file()
+    assert (out / "nav" / "nav_series.parquet").is_file()
+    # 禁止行为：composite 预检不得因 factor 目录同名 summary 而放行
+    # （本用例无 <results>/cx_demo/summary.json，若误走 factor 分支必 NOT_FOUND）
+    assert not (Path(results) / "cx_demo").exists()
+    _strict_json(e)
+
+
 def test_strategy_run_dry_run_has_no_side_effects(env, tmp_path, monkeypatch):
     doc_path, results = _setup(env, tmp_path, monkeypatch)
     calls = _mock_guard(monkeypatch, tmp_path)
