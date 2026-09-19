@@ -1,0 +1,26 @@
+[ashare_daily] run_tag=probeA scope=full_table gate_scope=delta watermark=2026-09-17 delta_rows=600 partition=2026-09-19: decision=PASS rows=800 clean=650 quarantined=150 (full_table error=150)
+[pipeline] 2026-09-19 decision=PASS clean=650 quarantined=150 staging=/tmp/opencode/m15c-probe/A/staging/ashare_daily/probeA/daily_fact.parquet
+[ashare_daily] run_tag=probeB scope=full_table gate_scope=delta watermark=2026-09-17 delta_rows=300 partition=2026-09-18: decision=FAIL rows=500 clean=290 quarantined=210 (full_table error=210)
+[pipeline] 2026-09-18 decision=FAIL clean=290 quarantined=210 staging=/tmp/opencode/m15c-probe/B/staging/ashare_daily/probeB/daily_fact.parquet
+[ashare_daily] run_tag=probeC scope=full_table gate_scope=delta watermark=None delta_rows=800 partition=2026-09-19: decision=FAIL rows=800 clean=650 quarantined=150 (full_table error=150)
+[pipeline] 2026-09-19 decision=FAIL clean=650 quarantined=150 staging=/tmp/opencode/m15c-probe/C/staging/ashare_daily/probeC/daily_fact.parquet
+{
+  "A_delta_clean": {
+    "rc": 0,
+    "decision": "PASS",
+    "watermark": "2026-09-17",
+    "delta_rows": 600,
+    "full_table_error": 150,
+    "expect": "rc=0 / PASS / delta=600 新增行；旧残余 150 只进 backlog 披露"
+  },
+  "B_delta_systemic": {
+    "rc": 1,
+    "expect": "rc=1 / FAIL（field=amount 集中，检测器未动）"
+  },
+  "C_no_history": {
+    "rc": 1,
+    "expect": "rc=1 / FAIL（delta=全量，首跑等价）"
+  }
+}
+PROBE PASS
+probe_rc=0

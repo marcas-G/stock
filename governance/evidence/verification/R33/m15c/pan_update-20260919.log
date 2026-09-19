@@ -1,0 +1,316 @@
+[daily] [daily] 阶段 build 开始（6 步）
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ashare_ingest/import_daily.py
+[daily] tasks: 11450 (full/incr/delisted: 5564/5550/336)
+[daily]   清理旧分片 11445 个
+[daily]   parsed 500/11450
+[daily]   parsed 1000/11450
+[daily]   parsed 1500/11450
+[daily]   parsed 2000/11450
+[daily]   parsed 2500/11450
+[daily]   parsed 3000/11450
+[daily]   parsed 3500/11450
+[daily]   parsed 4000/11450
+[daily]   parsed 4500/11450
+[daily]   parsed 5000/11450
+[daily]   parsed 5500/11450
+[daily]   parsed 6000/11450
+[daily]   parsed 6500/11450
+[daily]   parsed 7000/11450
+[daily]   parsed 7500/11450
+[daily]   parsed 8000/11450
+[daily]   parsed 8500/11450
+[daily]   parsed 9000/11450
+[daily]   parsed 9500/11450
+[daily]   parsed 10000/11450
+[daily]   parsed 10500/11450
+[daily]   parsed 11000/11450
+[daily] parsed 11450/11450 files, errors: 0
+[daily]   merged 1000/5879 codes
+[daily]   merged 2000/5879 codes
+[daily]   merged 3000/5879 codes
+[daily]   merged 4000/5879 codes
+[daily]   merged 5000/5879 codes
+[daily] unique rows: 18230232, codes: 5879
+[daily] OHLC invalid rows: 0
+[daily] wrote /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet (457.6 MB)
+[daily] date range: 1990-12-19 .. 2026-09-17
+[daily] sidecar: /data/students/gaolei/stock/data/fact/daily_fact/delisted_codes.parquet (331 退市代码，329 个有交易日)
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/data_quality/pipeline.py clean --partition latest --run-tag 20260919
+[daily] [ashare_daily] run_tag=20260919 scope=full_table partition=2026-09-17: decision=DEGRADED rows=18230232 clean=18214142 quarantined=16090
+[daily] [pipeline] 2026-09-17 decision=DEGRADED clean=18214142 quarantined=16090 staging=/data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/ingest_daily.py --source /data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet
+[daily] 读取 /data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet ...
+[daily]   18,214,142 rows / 5,879 codes / 8,773 trade dates
+[daily]   delist sidecar: 331 codes
+[daily]   delist_date: 329 codes（其中 sidecar 命中另计）
+[daily] TRUNCATE + 灌 daily
+[daily]   daily: 18,214,142 rows
+[daily] TRUNCATE + 灌 adj_factor
+[daily]   delisted-adj sidecar: 83,967 rows / 180 codes
+[daily]   adj_factor NULL 行: 1,174,395（sidecar 前 1,251,061）
+[daily]   adj_factor: 18,214,142 rows
+[daily] TRUNCATE + 灌 daily_basic
+[daily]   daily_basic: 18,214,142 rows
+[daily] TRUNCATE + 灌 trade_cal
+[daily]   trade_cal: 8,773 rows
+[daily] TRUNCATE + 灌 stock_basic
+[daily]   stock_basic: 5,879 rows
+[daily] daily 层灌入完成
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/derive_stk_limit.py
+[daily] 派生灌入 stk_limit（pre_close 非空行）...
+[daily] stk_limit rows: 17,950,797
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/adj_backfill.py
+[daily] [adj_detail] table ready (0s)
+[daily] [adj_event] table ready (0s)
+[daily]   batch 20/46 | detail 8,000,000 | event 23,396 | 33s since last
+[daily]   batch 40/46 | detail 16,000,000 | event 48,704 | 32s since last
+[daily]   batch 46/46 | detail 18,230,232 | event 57,426 | 11s since last
+[daily] [adj_detail] rows in CH: 18,230,232
+[daily] [adj_event] rows in CH: 57,426
+[daily] [adj_event] uniq (ts_code, trade_date): 57,426
+[daily] DONE in 75s (parquet rows: 18,230,232)
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/data_quality/health.py publish --partition latest --run-tag 20260919
+[daily] Traceback (most recent call last):
+[daily]   File "/data/students/gaolei/stock/platform/src/factorlab/adapters/duckdb_read.py", line 67, in __init__
+[daily]     con = duckdb.connect(str(self.path), read_only=True)
+[daily] _duckdb.IOException: IO Error: Cannot open database "/data/students/gaolei/stock/data/factorlab.duckdb" in read-only mode: database does not exist
+[daily] 
+[daily] The above exception was the direct cause of the following exception:
+[daily] 
+[daily] Traceback (most recent call last):
+[daily]   File "/data/students/gaolei/stock/platform/tools/data_quality/health.py", line 445, in <module>
+[daily]     raise SystemExit(main())
+[daily]                      ~~~~^^
+[daily]   File "/data/students/gaolei/stock/platform/tools/data_quality/health.py", line 407, in main
+[daily]     canonical, canonical_full = _read_canonical(partition, args.dataset)
+[daily]                                 ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+[daily]   File "/data/students/gaolei/stock/platform/tools/data_quality/health.py", line 297, in _read_canonical
+[daily]     rd = open_read()
+[daily]   File "/data/students/gaolei/stock/platform/src/factorlab/app/bootstrap.py", line 58, in open_read
+[daily]     return DuckDBRead(db_path or settings.platform_db, max_memory=max_memory)
+[daily]   File "/data/students/gaolei/stock/platform/src/factorlab/adapters/duckdb_read.py", line 69, in __init__
+[daily]     raise FileNotFoundError(f"平台库不存在: {self.path}") from exc
+[daily] FileNotFoundError: 平台库不存在: data/factorlab.duckdb
+[daily] [daily] 阶段 build 开始（6 步）
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ashare_ingest/import_daily.py
+[daily] tasks: 11450 (full/incr/delisted: 5564/5550/336)
+[daily]   清理旧分片 11445 个
+[daily]   parsed 500/11450
+[daily]   parsed 1000/11450
+[daily]   parsed 1500/11450
+[daily]   parsed 2000/11450
+[daily]   parsed 2500/11450
+[daily]   parsed 3000/11450
+[daily]   parsed 3500/11450
+[daily]   parsed 4000/11450
+[daily]   parsed 4500/11450
+[daily]   parsed 5000/11450
+[daily]   parsed 5500/11450
+[daily]   parsed 6000/11450
+[daily]   parsed 6500/11450
+[daily]   parsed 7000/11450
+[daily]   parsed 7500/11450
+[daily]   parsed 8000/11450
+[daily]   parsed 8500/11450
+[daily]   parsed 9000/11450
+[daily]   parsed 9500/11450
+[daily]   parsed 10000/11450
+[daily]   parsed 10500/11450
+[daily]   parsed 11000/11450
+[daily] parsed 11450/11450 files, errors: 0
+[daily]   merged 1000/5879 codes
+[daily]   merged 2000/5879 codes
+[daily]   merged 3000/5879 codes
+[daily]   merged 4000/5879 codes
+[daily]   merged 5000/5879 codes
+[daily] unique rows: 18230232, codes: 5879
+[daily] OHLC invalid rows: 0
+[daily] wrote /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet (457.6 MB)
+[daily] date range: 1990-12-19 .. 2026-09-17
+[daily] sidecar: /data/students/gaolei/stock/data/fact/daily_fact/delisted_codes.parquet (331 退市代码，329 个有交易日)
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/data_quality/pipeline.py clean --partition latest --run-tag 20260919
+[daily] [ashare_daily] run_tag=20260919 scope=full_table partition=2026-09-17: decision=DEGRADED rows=18230232 clean=18214142 quarantined=16090
+[daily] [pipeline] 2026-09-17 decision=DEGRADED clean=18214142 quarantined=16090 staging=/data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/ingest_daily.py --source /data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet
+[daily] 读取 /data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet ...
+[daily]   18,214,142 rows / 5,879 codes / 8,773 trade dates
+[daily]   delist sidecar: 331 codes
+[daily]   delist_date: 329 codes（其中 sidecar 命中另计）
+[daily] TRUNCATE + 灌 daily
+[daily]   daily: 18,214,142 rows
+[daily] TRUNCATE + 灌 adj_factor
+[daily]   delisted-adj sidecar: 83,967 rows / 180 codes
+[daily]   adj_factor NULL 行: 1,174,395（sidecar 前 1,251,061）
+[daily]   adj_factor: 18,214,142 rows
+[daily] TRUNCATE + 灌 daily_basic
+[daily]   daily_basic: 18,214,142 rows
+[daily] TRUNCATE + 灌 trade_cal
+[daily]   trade_cal: 8,773 rows
+[daily] TRUNCATE + 灌 stock_basic
+[daily]   stock_basic: 5,879 rows
+[daily] daily 层灌入完成
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/derive_stk_limit.py
+[daily] 派生灌入 stk_limit（pre_close 非空行）...
+[daily] stk_limit rows: 17,950,797
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/adj_backfill.py
+[daily] [adj_detail] table ready (0s)
+[daily] [adj_event] table ready (0s)
+[daily]   batch 20/46 | detail 8,000,000 | event 23,396 | 33s since last
+[daily]   batch 40/46 | detail 16,000,000 | event 48,704 | 32s since last
+[daily]   batch 46/46 | detail 18,230,232 | event 57,426 | 10s since last
+[daily] [adj_detail] rows in CH: 18,230,232
+[daily] [adj_event] rows in CH: 57,426
+[daily] [adj_event] uniq (ts_code, trade_date): 57,426
+[daily] DONE in 75s (parquet rows: 18,230,232)
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/data_quality/health.py publish --partition latest --run-tag 20260919
+[daily] [health] 2026-09-17 health_status=DEGRADED completeness=COMPLETE pk_duplicates=0 sample=SUSPECT drift=OK -> /data/students/gaolei/stock/data/health/ashare_daily/2026-09-17.json
+[daily] [daily] 阶段 build 完成（1317.2s）
+[verify] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py
+[verify] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py --source /data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet
+[verify] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py --source /data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet
+[daily] [daily] 阶段 build 已标记，跳过
+[minutes] [minutes] 阶段 build 已标记，跳过
+[fund_flow] [fund_flow] 阶段 build 已标记，跳过
+[financials] [financials] 阶段 build 已标记，跳过
+[daily] [daily] 阶段 build 已标记，跳过
+[minutes] [minutes] 阶段 build 已标记，跳过
+[fund_flow] [fund_flow] 阶段 build 已标记，跳过
+[financials] [financials] 阶段 build 已标记，跳过
+[verify] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py --source /data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet
+[daily] [daily] 阶段 build 已标记，跳过
+[minutes] [minutes] 阶段 build 已标记，跳过
+[fund_flow] [fund_flow] 阶段 build 已标记，跳过
+[financials] [financials] 阶段 build 已标记，跳过
+[daily] [daily] 阶段 build 已标记，跳过
+[minutes] [minutes] 阶段 build 已标记，跳过
+[fund_flow] [fund_flow] 阶段 build 已标记，跳过
+[financials] [financials] 阶段 build 已标记，跳过
+[verify] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py --source /data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet
+[daily] [daily] 阶段 build 开始（6 步）
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ashare_ingest/import_daily.py
+[daily] tasks: 11450 (full/incr/delisted: 5564/5550/336)
+[daily]   清理旧分片 11445 个
+[daily]   parsed 500/11450
+[daily]   parsed 1000/11450
+[daily]   parsed 1500/11450
+[daily]   parsed 2000/11450
+[daily]   parsed 2500/11450
+[daily]   parsed 3000/11450
+[daily]   parsed 3500/11450
+[daily]   parsed 4000/11450
+[daily]   parsed 4500/11450
+[daily]   parsed 5000/11450
+[daily]   parsed 5500/11450
+[daily]   parsed 6000/11450
+[daily]   parsed 6500/11450
+[daily]   parsed 7000/11450
+[daily]   parsed 7500/11450
+[daily]   parsed 8000/11450
+[daily]   parsed 8500/11450
+[daily]   parsed 9000/11450
+[daily]   parsed 9500/11450
+[daily]   parsed 10000/11450
+[daily]   parsed 10500/11450
+[daily]   parsed 11000/11450
+[daily] parsed 11450/11450 files, errors: 0
+[daily]   merged 1000/5879 codes
+[daily]   merged 2000/5879 codes
+[daily]   merged 3000/5879 codes
+[daily]   merged 4000/5879 codes
+[daily]   merged 5000/5879 codes
+[daily] unique rows: 18230232, codes: 5879
+[daily] OHLC invalid rows: 0
+[daily] wrote /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet (457.6 MB)
+[daily] date range: 1990-12-19 .. 2026-09-17
+[daily] sidecar: /data/students/gaolei/stock/data/fact/daily_fact/delisted_codes.parquet (331 退市代码，329 个有交易日)
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/data_quality/pipeline.py clean --partition latest --run-tag 20260919
+[daily] Traceback (most recent call last):
+[daily]   File "/data/students/gaolei/stock/platform/tools/data_quality/pipeline.py", line 462, in <module>
+[daily]     raise SystemExit(main())
+[daily]                      ~~~~^^
+[daily]   File "/data/students/gaolei/stock/platform/tools/data_quality/pipeline.py", line 448, in main
+[daily]     res = run_clean_stage(
+[daily]         df, run_tag=args.run_tag or _default_run_tag(), dataset=args.dataset,
+[daily]         partition=args.partition, root=args.root, dry_run=args.dry_run,
+[daily]         log=lambda line: print(line, flush=True))
+[daily]   File "/data/students/gaolei/stock/platform/tools/data_quality/pipeline.py", line 123, in run_clean_stage
+[daily]     clean, quarantined, repair_log = repair.repair(df, results)
+[daily]                                      ~~~~~~~~~~~~~^^^^^^^^^^^^^
+[daily]   File "/data/students/gaolei/stock/platform/tools/data_quality/repair.py", line 124, in repair
+[daily]     clean_keys = set(clean["_key"].to_list())
+[daily] MemoryError
+[daily] [daily] 阶段 build 开始（6 步）
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ashare_ingest/import_daily.py
+[daily] tasks: 11450 (full/incr/delisted: 5564/5550/336)
+[daily]   清理旧分片 11445 个
+[daily]   parsed 500/11450
+[daily]   parsed 1000/11450
+[daily]   parsed 1500/11450
+[daily]   parsed 2000/11450
+[daily]   parsed 2500/11450
+[daily]   parsed 3000/11450
+[daily]   parsed 3500/11450
+[daily]   parsed 4000/11450
+[daily]   parsed 4500/11450
+[daily]   parsed 5000/11450
+[daily]   parsed 5500/11450
+[daily]   parsed 6000/11450
+[daily]   parsed 6500/11450
+[daily]   parsed 7000/11450
+[daily]   parsed 7500/11450
+[daily]   parsed 8000/11450
+[daily]   parsed 8500/11450
+[daily]   parsed 9000/11450
+[daily]   parsed 9500/11450
+[daily]   parsed 10000/11450
+[daily]   parsed 10500/11450
+[daily]   parsed 11000/11450
+[daily] parsed 11450/11450 files, errors: 0
+[daily]   merged 1000/5879 codes
+[daily]   merged 2000/5879 codes
+[daily]   merged 3000/5879 codes
+[daily]   merged 4000/5879 codes
+[daily]   merged 5000/5879 codes
+[daily] unique rows: 18230232, codes: 5879
+[daily] OHLC invalid rows: 0
+[daily] wrote /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet (457.6 MB)
+[daily] date range: 1990-12-19 .. 2026-09-17
+[daily] sidecar: /data/students/gaolei/stock/data/fact/daily_fact/delisted_codes.parquet (331 退市代码，329 个有交易日)
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/data_quality/pipeline.py clean --partition latest --run-tag 20260919
+[daily] [ashare_daily] run_tag=20260919 scope=full_table gate_scope=delta watermark=2026-09-17 delta_rows=0 partition=2026-09-17: decision=PASS rows=18230232 clean=18226404 quarantined=3828 (full_table error=3828)
+[daily] [pipeline] 2026-09-17 decision=PASS clean=18226404 quarantined=3828 staging=/data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/ingest_daily.py --source /data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet --calendar-source /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet
+[daily] 读取 /data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet ...
+[daily]   18,226,404 rows / 5,879 codes / 8,789 trade dates
+[daily]   delist sidecar: 331 codes
+[daily]   delist_date: 329 codes（其中 sidecar 命中另计）
+[daily] TRUNCATE + 灌 daily
+[daily]   daily: 18,226,404 rows
+[daily] TRUNCATE + 灌 adj_factor
+[daily]   delisted-adj sidecar: 83,967 rows / 180 codes
+[daily]   adj_factor NULL 行: 1,182,579（sidecar 前 1,259,245）
+[daily]   adj_factor: 18,226,404 rows
+[daily] TRUNCATE + 灌 daily_basic
+[daily]   daily_basic: 18,226,404 rows
+[daily] TRUNCATE + 灌 trade_cal（日期域源=/data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet）
+[daily]   trade_cal: 8,791 rows
+[daily] TRUNCATE + 灌 stock_basic
+[daily]   stock_basic: 5,879 rows
+[daily] daily 层灌入完成
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/derive_stk_limit.py
+[daily] 派生灌入 stk_limit（pre_close 非空行）...
+[daily] stk_limit rows: 17,958,979
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/adj_backfill.py
+[daily] [adj_detail] table ready (0s)
+[daily] [adj_event] table ready (0s)
+[daily]   batch 20/46 | detail 8,000,000 | event 23,396 | 29s since last
+[daily]   batch 40/46 | detail 16,000,000 | event 48,704 | 28s since last
+[daily]   batch 46/46 | detail 18,230,232 | event 57,426 | 9s since last
+[daily] [adj_detail] rows in CH: 18,230,232
+[daily] [adj_event] rows in CH: 57,426
+[daily] [adj_event] uniq (ts_code, trade_date): 57,426
+[daily] DONE in 67s (parquet rows: 18,230,232)
+[daily] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/data_quality/health.py publish --partition latest --run-tag 20260919
+[daily] [health] 2026-09-17 health_status=PASS note=no_new_data backlog_error=3828 -> /data/students/gaolei/stock/data/health/ashare_daily/2026-09-17.json
+[daily] [daily] 阶段 build 完成（1173.7s）
+[verify] $ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py --source /data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet

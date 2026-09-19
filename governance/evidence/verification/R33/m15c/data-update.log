@@ -1,0 +1,63 @@
+heavy.sh: slot=1/2 avail=55.6GB  max_memory=8GB oom_score_adj=700 -> make data-update
+FACTORLAB_MAX_MEMORY=8GB platform/.venv/bin/python platform/tools/pan_update/cli.py all
+  [stoken refreshed 16:24:35]
+[daily] to_fetch=1 downloaded=0 adopted=0 unchanged=374 manual=0 failed=1
+[minutes] to_fetch=1 downloaded=0 adopted=0 unchanged=5645 manual=0 failed=1
+[fund_flow] to_fetch=1 downloaded=0 adopted=0 unchanged=45 manual=0 failed=1
+[financials] to_fetch=4 downloaded=0 adopted=0 unchanged=0 manual=0 failed=4
+[daily] 阶段 build：已标记，跳过
+[minutes] 阶段 build：已标记，跳过
+[fund_flow] 阶段 build：已标记，跳过
+[financials] 阶段 build：已标记，跳过
+[daily] 阶段 publish：已标记，跳过
+[minutes] 阶段 publish：已标记，跳过
+[fund_flow] 阶段 publish：已标记，跳过
+[financials] 阶段 publish：已标记，跳过
+$ /data/students/gaolei/stock/platform/.venv/bin/python /data/students/gaolei/stock/platform/tools/ch_ingest/reconcile.py --source /data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet
+daily 层（源=/data/students/gaolei/stock/data/staging/ashare_daily/20260919/daily_fact.parquet）:
+  daily        CH=      18,226,404 源=      18,214,142  不一致 (差 +12,262)（ingest 消费 clean staging（--source）时，期望 CH 行数 = raw 源行数 − quarantine_count（data/staging/ashare_daily/<run_tag>/summary.json））；explained delta: raw 18,230,232 − clean 18,214,142 = 16,090 = quarantine 16,090 + deduped 0
+  adj_factor   CH=      18,226,404 源=      18,214,142  不一致 (差 +12,262)
+  daily_basic  CH=      18,226,404 源=      18,214,142  不一致 (差 +12,262)
+  trade_cal    CH=           8,791 源=           8,791  一致（日期域=raw daily /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet，含 clean 全隔离日）
+  stock_basic  CH=           5,879 源=           5,879  一致
+daily 不变量:
+  不变量 pre_close/change 恒等式   违规=0  OK
+  不变量 pct_chg 恒等式            违规=0  OK
+  不变量 pre_close NULL 仅组内首行   违规=0  OK
+  daily 日期范围 CH=1990-12-19..2026-09-17 源=1990-12-19..2026-09-17  一致
+派生表:
+  stk_limit    CH=      17,958,979 期望=      17,958,979  日期 1996-12-16..2026-09-17  band违例=0 早于1996-12-16=0 悬空=0  一致
+  adj_detail   CH=      18,230,232 源=      18,230,232  uniq=      18,230,232  日期 1990-12-19..2026-09-17  一致
+  adj_event    CH=          57,426 源=          57,426  uniq=          57,426  一致
+退市股 adj 补灌:
+  delisted_adj sidecar=  83,967 行 /  180 码  CH 缺行或空值=0  重复键=0  一致
+moneyflow:
+  moneyflow    CH=   1,119,242 源=   1,119,242  日期 2025-11-20..2026-09-17 / 2025-11-20..2026-09-17  天=203/203  main_net_inflow 空值=8794/8794  键异常=0  一致
+moneyflow_sector:
+  moneyflow_sector CH=      77,524 源=      77,524  日期 2026-02-04..2026-09-17 / 2026-02-04..2026-09-17  天=147/147  main_net_inflow 空值=0/0  类型异常=0  BK码异常=0  名称空=0/0  行业/概念=18480/18480 + 59044/59044  一致
+concept_members:
+  concept_members CH=   7,281,555 源=   7,281,555  日期 2026-05-19..2026-09-17 / 2026-05-19..2026-09-17  天=87/87  键 uniq=7,281,555  BK码异常=0  ts_code 异常=0  名称空=59/59  每日行数=81219..85972 / 81219..85972  一致
+fundamentals:
+  fundamentals CH=       5,556 源=       5,556  日期 2026-07-16..2026-09-03 / 2026-07-16..2026-09-03  天=38/38  total_shares 空值=0/0  键异常=0  一致
+bars_1m:
+  bars_1m: 全部 81 分区一致
+tick_trades:
+  tick_trades: 全部 13 分区一致
+tick_orders:
+  tick_orders: 全部 13 分区一致
+tick_snapshots:
+  tick_snapshots: 全部 13 分区一致
+存在差异
+  reconcile：存在差异（rc=1）
+failed（7 项）：
+  [daily] 2026-09-01至2026-09-18A股日k线.zip：download error: 重取链后仍失败：HTTP Error 412: Precondition Failed（原错误：HTTP Error 412: Precondition Failed）
+  [minutes] 20260918.zip：download error: 重取链后仍失败：HTTP Error 412: Precondition Failed（原错误：HTTP Error 412: Precondition Failed）
+  [fund_flow] 20260918.zip：download error: 重取链后仍失败：HTTP Error 412: Precondition Failed（原错误：HTTP Error 412: Precondition Failed）
+  [financials] 2026-09-18更新简化个股基本面数据.xlsx：download error: 重取链后仍失败：HTTP Error 403: Forbidden（原错误：HTTP Error 403: Forbidden）
+  [financials] 个股财务数据_2026-09-18_更新.zip：transfer: 自取直链下载失败：'个股财务数据_2026-09-18_更新.zip' HTTP Error 403: Forbidden
+  [financials] 财务季报年报_2026-09-18_更新.zip：transfer: 自取直链下载失败：'财务季报年报_2026-09-18_更新.zip' HTTP Error 403: Forbidden
+  [financials] 2026-09-18_financial.parquet：transfer: 自取直链下载失败：'2026-09-18_financial.parquet' HTTP Error 403: Forbidden
+总结：downloaded=0 adopted=0 manual=0 failed=7
+Makefile:45: recipe for target 'data-update' failed
+make: *** [data-update] Error 1
+rc=2
