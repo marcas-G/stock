@@ -177,6 +177,106 @@ def test_missing_top_k_rejected(tmp_path):
     assert "top_k" in str(ei.value)
 
 
+# ---------------- C4b：portfolio 双形态（top_k / top_k_buffered）----------------
+
+_BUFFERED_YAML = """\
+name: buffered_doc
+signal: some_factor
+direction: 1
+portfolio:
+  method: top_k_buffered
+  enter_k: 3
+  retain_k: 6
+  weighting: equal_weight
+  gross_exposure: 0.8
+  rebalance_frequency: weekly
+execution: {timing: NEXT_OPEN}
+date: {start: "2025-03-01", end: "2025-03-31"}
+"""
+
+
+def test_buffered_portfolio_yaml_roundtrip(tmp_path):
+    """buffered 形态逐字段映射：method/enter_k/retain_k → SelectionSpec；k=None。"""
+    doc = _load(tmp_path, _BUFFERED_YAML)
+    s = doc.strategy
+    assert s.selection.method == "top_k_buffered"
+    assert s.selection.k is None
+    assert s.selection.enter_k == 3
+    assert s.selection.retain_k == 6
+    assert s.gross_exposure == pytest.approx(0.8)
+    assert s.rebalance_frequency == "weekly"
+    assert s.weighting.method == "equal_weight"
+
+
+def test_top_k_portfolio_yaml_still_default_and_unchanged(tmp_path):
+    """既有 top_k 形态零行为变化：method 缺省 top_k、top_k→k。"""
+    doc = _load(tmp_path, _FULL_YAML)
+    s = doc.strategy.selection
+    assert s.method == "top_k"
+    assert s.k == 30
+    assert s.enter_k is None and s.retain_k is None
+
+
+def test_buffered_yaml_accepts_market_cap_weighting(tmp_path):
+    """C4b weighting 组合：buffered 选择 + market_cap_weighted 同样走 YAML。"""
+    doc = _load(tmp_path, _BUFFERED_YAML.replace(
+        "weighting: equal_weight", "weighting: market_cap_weighted"))
+    assert doc.strategy.weighting.method == "market_cap_weighted"
+
+
+def test_buffered_method_with_top_k_key_rejected(tmp_path):
+    """互斥：method=top_k_buffered 与 top_k 混用 → 点名报错（不静默取一方）。"""
+    bad = _BUFFERED_YAML.replace("  enter_k: 3", "  enter_k: 3\n  top_k: 2")
+    with pytest.raises(ValueError) as ei:
+        _load(tmp_path, bad)
+    assert "top_k" in str(ei.value)
+
+
+def test_top_k_method_with_enter_retain_rejected(tmp_path):
+    """互斥：top_k 形态带 enter_k/retain_k → 点名报错。"""
+    bad = _FULL_YAML.replace("  top_k: 30",
+                             "  top_k: 30\n  enter_k: 3\n  retain_k: 6")
+    with pytest.raises(ValueError) as ei:
+        _load(tmp_path, bad)
+    msg = str(ei.value)
+    assert "enter_k" in msg or "retain_k" in msg
+
+
+def test_buffered_missing_retain_k_rejected(tmp_path):
+    bad = _BUFFERED_YAML.replace("  retain_k: 6\n", "")
+    with pytest.raises(ValueError) as ei:
+        _load(tmp_path, bad)
+    assert "retain_k" in str(ei.value)
+
+
+def test_buffered_missing_enter_k_rejected(tmp_path):
+    bad = _BUFFERED_YAML.replace("  enter_k: 3\n", "")
+    with pytest.raises(ValueError) as ei:
+        _load(tmp_path, bad)
+    assert "enter_k" in str(ei.value)
+
+
+def test_buffered_retain_lt_enter_rejected(tmp_path):
+    bad = _BUFFERED_YAML.replace("  retain_k: 6", "  retain_k: 2")
+    with pytest.raises(ValueError) as ei:
+        _load(tmp_path, bad)
+    assert "retain_k" in str(ei.value)
+
+
+@pytest.mark.parametrize("bad", ['"3"', "true", "1.5", "0", "-1"])
+def test_buffered_bad_enter_k_rejected(tmp_path, bad):
+    text = _BUFFERED_YAML.replace("  enter_k: 3", f"  enter_k: {bad}")
+    with pytest.raises(ValueError):
+        _load(tmp_path, text)
+
+
+def test_unknown_portfolio_method_rejected(tmp_path):
+    bad = _BUFFERED_YAML.replace("method: top_k_buffered", "method: top_k_window")
+    with pytest.raises(ValueError) as ei:
+        _load(tmp_path, bad)
+    assert "method" in str(ei.value)
+
+
 # ---------------- NEXT_WINDOW + minute_window（2026-09-15 分钟执行接口）----------------
 
 _MINUTE_WINDOW = """

@@ -20,14 +20,14 @@ from pydantic import ValidationError
 
 from factorlab.core.domain.timing import ExecutionTiming
 from factorlab.core.execution.spec import ExecutionSpec
-from factorlab.core.strategy.doc import (DateRange, RegimeSpec, RulesSpec,
-                                         StrategyDoc, parse_signal_ref)
-from factorlab.core.strategy.spec import (SelectionSpec, StrategySpec,
-                                          WeightingSpec)
+from factorlab.core.strategy.doc import (DateRange, PortfolioSpec, RegimeSpec,
+                                         RulesSpec, StrategyDoc, parse_signal_ref)
+from factorlab.core.strategy.spec import StrategySpec, WeightingSpec
 
 _TOP_LEVEL_KEYS = {"name", "signal", "signal_kind", "direction", "portfolio",
                    "execution", "rules", "regime", "date", "universe_override"}
-_PORTFOLIO_KEYS = {"top_k", "weighting", "gross_exposure", "rebalance_frequency"}
+_PORTFOLIO_KEYS = {"method", "top_k", "enter_k", "retain_k", "weighting",
+                   "gross_exposure", "rebalance_frequency"}
 
 
 def _fail(path: Any, message: str) -> NoReturn:
@@ -66,15 +66,17 @@ def _build_strategy(raw: dict, path: Any, signal_name: str) -> StrategySpec:
     weighting = portfolio.get("weighting", "equal_weight")
     if not isinstance(weighting, str):
         _fail(path, f"portfolio.weighting 必须为字符串（收到 {weighting!r}）")
+    # C4b：portfolio 双形态（top_k / top_k_buffered）——选择参数校验单一来源
+    # 仍是 SelectionSpec（PortfolioSpec.to_selection），本函数只做映射。
+    pspec = _validated(PortfolioSpec, portfolio, "portfolio", path)
     return _validated(StrategySpec, {
         "name": _required(raw, "name", "根", path),
         "signal_name": signal_name,
         "direction": _required(raw, "direction", "根", path),
-        "selection": SelectionSpec(k=_required(portfolio, "top_k", "portfolio",
-                                               path)),
+        "selection": pspec.to_selection(),
         "weighting": WeightingSpec(method=weighting),
-        "gross_exposure": portfolio.get("gross_exposure", 1.0),
-        "rebalance_frequency": portfolio.get("rebalance_frequency", "daily"),
+        "gross_exposure": pspec.gross_exposure,
+        "rebalance_frequency": pspec.rebalance_frequency,
     }, "strategy（L4）", path)
 
 

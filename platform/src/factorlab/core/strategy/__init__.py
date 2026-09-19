@@ -4,7 +4,8 @@
 core 计算入口在此；artifact 侧（持久化）在 `factorlab.adapters.strategy_artifacts`。
 """
 from factorlab.core.strategy.constructor import construct_target_portfolio
-from factorlab.core.strategy.doc import DateRange, RegimeSpec, RulesSpec, StrategyDoc
+from factorlab.core.strategy.doc import (DateRange, PortfolioSpec, RegimeSpec,
+                                         RulesSpec, StrategyDoc)
 from factorlab.core.strategy.schedule import RebalanceSchedule, build_rebalance_schedule
 from factorlab.core.strategy.spec import SelectionSpec, StrategySpec, WeightingSpec
 from factorlab.core.strategy.spec_io import load_strategy_doc, strategy_doc_from_mapping
@@ -17,6 +18,7 @@ __all__ = [
     "build_rebalance_schedule",
     "construct_target_portfolio",
     "DateRange",
+    "PortfolioSpec",
     "RegimeSpec",
     "RulesSpec",
     "StrategyDoc",

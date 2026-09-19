@@ -51,7 +51,11 @@ def _print_doc(doc) -> None:
     print(f"  L1 universe  = {universe}")
     print(f"  L2 regime    = {doc.regime.mode}")
     print(f"  L3 signal    = {s.signal_name}（direction={s.direction}）")
-    print(f"  L4 portfolio = top_k={s.selection.k} weighting={s.weighting.method} "
+    sel = s.selection
+    selection_desc = (f"top_k={sel.k}" if sel.method == "top_k"
+                      else f"method=top_k_buffered enter_k={sel.enter_k} "
+                           f"retain_k={sel.retain_k}")
+    print(f"  L4 portfolio = {selection_desc} weighting={s.weighting.method} "
           f"gross_exposure={s.gross_exposure} rebalance={s.rebalance_frequency}")
     print(f"  L5 execution = timing={e.execution_timing.name} "
           f"initial_cash={e.initial_cash} minute_window={mw}")

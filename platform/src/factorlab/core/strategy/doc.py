@@ -19,13 +19,13 @@ YAML 读入在 `spec_io.py`（与 `core/spec.py::load_spec` 同模式）；本�
 from __future__ import annotations
 
 import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import (BaseModel, ConfigDict, StrictInt, field_validator,
                       model_validator)
 
 from factorlab.core.execution.spec import ExecutionSpec
-from factorlab.core.strategy.spec import StrategySpec
+from factorlab.core.strategy.spec import SelectionSpec, StrategySpec
 
 
 class DateRange(BaseModel):
@@ -96,6 +96,50 @@ class RulesSpec(BaseModel):
 
 
 _V1_UNSUPPORTED_RULES = ("stop_loss", "take_profit")
+
+
+class PortfolioSpec(BaseModel):
+    """YAML `portfolio:` 块契约（L4 选择/加权声明面；Plan CX-C4b 收口）。
+
+    双形态（`method` 显式声明，缺省 top_k——既有 YAML 零行为变化）：
+
+    ```yaml
+    portfolio: {top_k: 30, weighting: equal_weight}          # top_k（既有权名）
+    portfolio: {method: top_k_buffered, enter_k: 3, retain_k: 6}  # buffered
+    ```
+
+    - 互斥/缺失/值域：**校验单一来源 = `SelectionSpec`**（本模型 `to_selection()`
+      原样透传三者，PortfolioSpec 不复制规则）——`top_k` 与
+      `enter_k/retain_k` 混用、buffered 缺参、`retain_k < enter_k`、
+      strict int/>=1 均由 SelectionSpec 报错（点名）。
+    - `weighting`/`gross_exposure`/`rebalance_frequency` 保持原值透传（`Any`），
+      校验归 `WeightingSpec`/`StrategySpec`——避免双重口径（如 bool→float 的
+      静默强转）改变既有错误语义。
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    method: Literal["top_k", "top_k_buffered"] = "top_k"
+    top_k: StrictInt | None = None
+    enter_k: StrictInt | None = None
+    retain_k: StrictInt | None = None
+    weighting: str = "equal_weight"
+    gross_exposure: Any = 1.0
+    rebalance_frequency: Any = "daily"
+
+    def to_selection(self) -> SelectionSpec:
+        """→ SelectionSpec（唯一校验/映射出口；错误消息与 L4 契约逐字一致）。"""
+        return SelectionSpec(method=self.method, k=self.top_k,
+                             enter_k=self.enter_k, retain_k=self.retain_k)
+
+    @model_validator(mode="after")
+    def _selection_contract(self) -> "PortfolioSpec":
+        try:
+            self.to_selection()
+        except ValueError as exc:
+            raise ValueError(f"portfolio 选择参数非法: {exc}") from exc
+        return self
+
 
 # Plan CX-C4 T1（design §19.1）：signal 引用前缀 → kind。仅 composites/ 有语义；
 # factor 信号保持既有裸名形态（不引入 factors/ 前缀，regex 契约不破）。

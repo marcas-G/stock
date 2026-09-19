@@ -80,6 +80,25 @@ def test_dry_run_prints_six_layers_without_touching_data(monkeypatch, tmp_path, 
         assert token in out, f"dry-run 输出缺少 {token!r}:\n{out}"
 
 
+_BUFFERED_SPEC = _SPEC.replace(
+    "  top_k: 30",
+    "  method: top_k_buffered\n  enter_k: 3\n  retain_k: 6")
+
+
+def test_dry_run_prints_buffered_selection_params(monkeypatch, tmp_path, capsys):
+    """C4b：buffered 形态打印 enter_k/retain_k（不得显示 k=None）。"""
+    import factorlab.app.bootstrap as bootstrap
+
+    monkeypatch.setattr(bootstrap, "open_read", lambda *a, **k: (_ for _ in ()).throw(
+        AssertionError("--dry-run 不得打开读句柄")))
+    rc = cli.main([str(_spec_file(tmp_path, _BUFFERED_SPEC)), "--dry-run"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "top_k_buffered" in out
+    assert "enter_k=3" in out and "retain_k=6" in out
+    assert "k=None" not in out
+
+
 def test_missing_argument_nonzero_and_readable(capsys):
     with pytest.raises(SystemExit) as ei:
         cli.main([])

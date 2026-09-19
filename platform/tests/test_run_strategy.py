@@ -126,13 +126,19 @@ formula: |
 def _doc_yaml(*, start="2024-01-02", end="2024-01-05", name="ws7_doc",
               direction=1, top_k=2, freq="daily", cash=1_000_000.0,
               commission=0.0, override="null", signal=_SIGNAL_NAME,
-              signal_kind=None, weighting="equal_weight"):
+              signal_kind=None, weighting="equal_weight",
+              selection="top_k", enter_k=None, retain_k=None):
     kind_line = f"signal_kind: {signal_kind}\n" if signal_kind else ""
+    if selection == "top_k_buffered":
+        sel = (f"method: top_k_buffered, enter_k: {enter_k}, "
+               f"retain_k: {retain_k}")
+    else:
+        sel = f"top_k: {top_k}"
     return f"""\
 name: {name}
 signal: {signal}
 {kind_line}direction: {direction}
-portfolio: {{top_k: {top_k}, weighting: {weighting}, gross_exposure: 1.0,
+portfolio: {{{sel}, weighting: {weighting}, gross_exposure: 1.0,
              rebalance_frequency: {freq}}}
 execution:
   timing: NEXT_OPEN
@@ -419,6 +425,44 @@ def test_universe_override_null_is_zero_behavior_change(env, tmp_path):
     # 未过滤：d1 截面 top-2 = {A, C}（31 > 30 > 21）
     rows = res.target.frame.filter(pl.col("decision_date") == _D1)
     assert sorted(rows["code"].to_list()) == [_A, _C]
+
+
+# ================================================================
+# 2b2. top_k_buffered YAML 全链（C4b 收口）：策略 YAML 双形态入口
+# ================================================================
+
+def test_run_strategy_buffered_yaml_end_to_end(env, tmp_path):
+    """YAML `method: top_k_buffered` → SelectionSpec → run_strategy 全链。
+
+    close 信号：同参 top_k 在 D4 换仓 {A,B}；buffered（enter_k=2, retain_k=3）
+    保留 C（rank3 在缓冲带内）→ 若 YAML 未接入 buffered 或退化为 top_k，断言必红。
+    """
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    _seed_and_run_factor(env, tmp_path, results)
+    doc = _load_doc(tmp_path, selection="top_k_buffered", enter_k=2, retain_k=3,
+                    name="ws7_buf")
+    assert doc.strategy.selection.method == "top_k_buffered"
+    assert (doc.strategy.selection.enter_k,
+            doc.strategy.selection.retain_k) == (2, 3)
+
+    res = run_strategy(doc, env.rd, dataset=None, results_dir=results)
+    assert res.out_dir == results / "strategies" / "ws7_buf"
+    assert res.decision_count == 4
+    per_day = {d: set(res.target.frame.filter(
+        pl.col("decision_date") == d)["code"].to_list())
+        for d in res.target.decision_dates}
+    assert per_day[_D1] == {_A, _C}
+    assert per_day[_D4] == {_A, _C}, "C rank3<=retain_k=3 → 缓冲保留"
+    assert load_strategy_artifacts(res.out_dir).spec.selection.retain_k == 3
+
+    # 同参对照：top_k 形态（YAML 缺省）在 D4 换仓 {A, B}
+    topk_res = run_strategy(_load_doc(tmp_path, name="ws7_topk"),
+                            env.rd, dataset=None, results_dir=results)
+    d4_topk = set(topk_res.target.frame.filter(
+        pl.col("decision_date") == _D4)["code"].to_list())
+    assert d4_topk == {_A, _B}
 
 
 # ================================================================
