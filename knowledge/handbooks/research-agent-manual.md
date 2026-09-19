@@ -12,13 +12,13 @@
 1. `flab health` —— 连通/内存/磁盘/闸槽/新鲜度一览；任何异常先看它。
 2. `flab data daily --codes 600000.SH --start 2026-09-01 --end 2026-09-10` —— 日K（`--view qfq|hfq|pit_qfq` 复权）。
 3. `flab data tables` / `flab data status` —— 表清单（行数）× 新鲜度+交易日缺口。
-4. `flab factor lint research/factor/<族>/<名>.yaml` —— 秒级静态校验（写完 spec 先跑）。
-5. `flab factor run research/factor/<族>/<名>.yaml` —— 计算+评估+分层回测（过闸；返回 IC/十分位/换手/覆盖）。
-6. `flab factor admit research/factor/<族>/<名>.yaml` —— 一键入库检验：lint→(缺产物则 run)→参考库 corr+resic→`verdict: 可加入|冗余|重复`。
+4. `flab factor lint $QUANTRESEARCH_ROOT/factor/<族>/<名>.yaml` —— 秒级静态校验（写完 spec 先跑）。
+5. `flab factor run $QUANTRESEARCH_ROOT/factor/<族>/<名>.yaml` —— 计算+评估+分层回测（过闸；返回 IC/十分位/换手/覆盖）。
+6. `flab factor admit $QUANTRESEARCH_ROOT/factor/<族>/<名>.yaml` —— 一键入库检验：lint→(缺产物则 run)→参考库 corr+resic→`verdict: 可加入|冗余|重复`。
 7. `flab factor resic <name> --against reference` / `flab factor corr <a> <b>` —— 增量信息 / 两两相关。
-8. `flab strategy run research/strategy/<名>.yaml` —— 信号→组合→执行回测→持久化（过闸）。
+8. `flab strategy run $QUANTRESEARCH_ROOT/strategy/<名>.yaml` —— 信号→组合→执行回测→持久化（过闸）。
 9. `flab report url <因子名>` —— 报告静态 URL（不启服务）；`flab report serve` 启只读 Web。
-10. `flab study run <factor.yaml> --strategy research/strategy/<名>.yaml` —— 一条链：因子 run → admit → 策略回测（该因子）→ 报告 URL，返回全部产物路径。
+10. `flab study run <factor.yaml> --strategy $QUANTRESEARCH_ROOT/strategy/<名>.yaml` —— 一条链：因子 run → admit → 策略回测（该因子）→ 报告 URL，返回全部产物路径。
 
 ## 其余命令（按组，`flab describe --json` 看全量）
 

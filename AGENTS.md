@@ -25,14 +25,19 @@
 
 ## 挖因子循环（skill: `.claude/skills/factor-mine/`）
 
+> **研究产物区（R37）**：spec/档案/索引/结果不在主仓——根 = `QUANTRESEARCH_ROOT`
+> （缺省 `/data/students/gaolei/quantresearch`；平台侧 `settings.research_root`，
+> 工具侧 `research/tools/factor_lib/quantresearch_paths.py`）。主仓只留工具。
+
 1. **假设**：写清经济逻辑与预期方向（`docs(factors)` 档案的「假设」节）。
-2. **实现**：`research/factor/<族>/<短名>.yaml`。自定义处理函数优先写在 `formula` 里的 `def`
+2. **实现**：`$QUANTRESEARCH_ROOT/factor/<族>/<短名>.yaml`。自定义处理函数优先写在 `formula` 里的 `def`
    （零注册、本因子专用）；稳定后再提升为 `ts_`/`cs_` 前缀的插件算子（`factorlab op add`）。
 3. **自检**：`platform/.venv/bin/factorlab lint <spec>`（秒级）。全库 lint 必须全过
    （`make lint-factors` 现测；2026-09-16 快照 167 条，数量随挖矿增长，不在此写死）。
 4. **跑**：`FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/factorlab run <spec>`；看 IC/分层/换手。
-5. **归档**：同族同名档案 `knowledge/dossiers/factors/<族>/<短名>.md` + `make index`
-   重生成索引；缺档门有 72h 提交时效宽限，超期红（`research/tools/factor_lib/dossier_freshness.py`）。
+5. **归档**：同族同名档案 `$QUANTRESEARCH_ROOT/dossiers/factors/<族>/<短名>.md` + `make index`
+   重生成索引；缺档门有 72h 时效宽限（git 仓内按提交时间，产物区按 yaml mtime），
+   超期红（`research/tools/factor_lib/dossier_freshness.py`）。
 6. **记账**：把结论（含负结论）写进档案；未决项进 `governance/workspace/pending-items.md`。
 
 ## 研究侧补充

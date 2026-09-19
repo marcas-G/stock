@@ -69,7 +69,7 @@
 | # | 项目 | 分支/角色 | 权威内容 |
 |---|---|---|---|
 | C1 | `platform/`（仓库内） | 平台树 | src/factorlab、tests、（契约 4 篇 → `knowledge/contracts/`、设计 → `knowledge/design/platform/`，R24） |
-| C2 | `research/`（仓库内） | 研究树 | factor/（170 tracked / 196 on-disk yaml（在途挖矿），15 族；2026-09-16 实测）、tools/（剩余研究工具：strategies/factor_lib）——档案/索引/playbook R24 迁 `knowledge/dossiers/`；数据生产线工具集 R27 归位 `platform/tools/` |
+| C2 | `research/`（仓库内） | 研究工具树 | tools/（剩余研究工具：`strategies/`、`factor_lib/`）。**R37 Phase 2 起研究产物迁出主仓** → 产物区 `quantresearch/`（env `QUANTRESEARCH_ROOT`；factor/strategy/composites/dossiers/index，非 git 仓，公约见其 `CONVENTIONS.md`）。R24 档案/索引曾迁 `knowledge/dossiers|index`、playbook 在 `knowledge/handbooks/`；数据生产线工具集 R27 归位 `platform/tools/` |
 | C3 | `platform/src/factorlab/core/eval/kernel.py`（R30 Task 15 起；原 `platform/kernels/quant_core`→原 `projects/quant_core_shim`） | 仓库内（评估内核**单一实现**；独立 quant-core dist 已删除） | 单因子评估内核（daily/weekly 频率分支由 `adapters/ic_kernel.py` 桥接；P-6 端口保留于 `ports/eval_kernel.py`） |
 | C4 | `_archive/2026-09-16-ashare-alpha3/`（原 `projects/ashare_alpha3`；**R19/R20 收编完成**） | 本地归档（无 git；2026-10-16 到期） | 数据侧已完成 → `platform/tools/ashare_ingest/`；股票池段已完成 → `platform/tools/universe_stages/`（R20）；R24 Task 11 归档 |
 

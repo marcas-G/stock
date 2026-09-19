@@ -5,8 +5,8 @@
 ## 输入材料（由调度者提供）
 
 1. 变异点记录：种子因子 <seed>、变异假设清单（保留/精确化/变异）、新因子名 <name>。
-2. 新因子实现：`research/factor/<族>/<name>.yaml` 全文。
-3. 种子因子实现：`research/factor/<族>/<seed>.yaml` 全文（对照物）。
+2. 新因子实现：`$QUANTRESEARCH_ROOT/factor/<族>/<name>.yaml` 全文。
+3. 种子因子实现：`$QUANTRESEARCH_ROOT/factor/<族>/<seed>.yaml` 全文（对照物）。
 4. 平台事实：数据字段（knowledge/contracts/interface.md §数据字段）、DSL 语义与防未来（§DSL 语义）、
    评估方向语义（direction）。
 

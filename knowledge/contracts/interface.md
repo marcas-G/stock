@@ -90,10 +90,10 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 | `factorlab run <spec.yaml> [--universe U] [--max-memory M] [--output-dir DIR] [--no-float32] [--backtest/--no-backtest] [--groups N] [--eval-frequency daily\|weekly] [--set k=v ...] [--chunk-days N] [--warmup-days N] [--chunk-workers N] [--profile] [--no-read-cache]` | 计算因子并评估（daily 逐日默认 / weekly 对照）+ 分层回测（默认），落盘 `runs/platform/<name>/`（缺省 results_dir；`--set` 生成 `runs/platform/<name>_<k><v>.../` 参数变体；`--chunk-days` 日期分块，见 §运行-分块计算；`--profile` 分段计时，见下） |
 | `factorlab list` | 列出已保存因子与最近运行摘要（扫描 `results_dir/*/summary.json`，按运行时间倒序） |
 | `factorlab show <name>` | 查看单因子完整摘要（spec 原文/评估/分层回测） |
-| `factorlab corr <name1> <name2> ... [--against reference\|all\|<names>]` | 因子两两相关性（≥2 个）：周度横截面秩相关均值 + 全局 Pearson；任一因子无 results 报错（数据源 `<results_dir>/<name>/panel.parquet`（默认 `runs/platform/`） 的 signal，按 date+code inner join；join 后超 2000 万行每周降采样 5000 只）。`--against reference`（D10）= 与参考库 `research/factor/_reference.yaml` daily 组成员的并集矩阵（names 可省略=库内自相关矩阵；只读库清单，不扫全库、不跨 scales）；`--against all`= 显式扫全库；`--against a,b`= 显式名单 |
+| `factorlab corr <name1> <name2> ... [--against reference\|all\|<names>]` | 因子两两相关性（≥2 个）：周度横截面秩相关均值 + 全局 Pearson；任一因子无 results 报错（数据源 `<results_dir>/<name>/panel.parquet`（默认 `runs/platform/`） 的 signal，按 date+code inner join；join 后超 2000 万行每周降采样 5000 只）。`--against reference`（D10）= 与参考库 `$QUANTRESEARCH_ROOT/factor/_reference.yaml` daily 组成员的并集矩阵（names 可省略=库内自相关矩阵；只读库清单，不扫全库、不跨 scales）；`--against all`= 显式扫全库；`--against a,b`= 显式名单 |
 | `factorlab svd [name1 ...] [--weeks 15] [--all]` | 因子库 SVD 分解：奇异值谱 + 主成分载荷（因子结构/有效维度分析）；缺省 names = **参考库 daily 组**（D10，读 `_reference.yaml`）；`--all` = 全部有 panel 因子（排除验证目录，D10 前旧默认，显式 opt-in）；抽样 weeks 个交易周（concat+pivot 单次操作，规避多 join 段错误） |
 | `factorlab resic <name1> <name2> ... [--target 名] [--min-stocks 30] [--against reference\|all\|<names>]` | 横截面联合诊断：组内互评（默认，≥2 因子）或 `--target` 显式候选（可不在 names 中，基准应排除 target）。输出整组联合回归 R²（fwd ~ 整组逐周 OLS 均值）与每因子正交化残差 IC（resIC = 候选对基准逐周 OLS 残差 vs fwd 的周频 rankIC 均值/t 值 + 被基准解释 R²）。数据源 = results 多 run 单输出 panel 按周频对齐汇聚；每周样本 < max(min_stocks, 基准数+2) 剔除；错误路径 Exit 1（含"无结果"/"公共周"/多输出 panel 文案）。`--against`（D10）= 库外候选对参考库的**增量信息评估**（候选取 names 或 `--target`；输出 `corr_max/corr_mean/r2_lib/resIC/retention/verdict`，见 §D10）——候选 ∈ 基准报错。近共线因子建议先跑 corr/svd |
-| `factorlab ref list [--scales daily\|minute]` | 参考库成员清单（D10；读 `research/factor/_reference.yaml`）：按 scales 组打印 name/style/加入日期/entry corr_max/resic_t/理由；文件缺失/格式错 Exit 1 |
+| `factorlab ref list [--scales daily\|minute]` | 参考库成员清单（D10；读 `$QUANTRESEARCH_ROOT/factor/_reference.yaml`）：按 scales 组打印 name/style/加入日期/entry corr_max/resic_t/理由；文件缺失/格式错 Exit 1 |
 | `factorlab op list [--catalog]` | 列出已注册算子；`--catalog` 列**分类表全集**（含未注册库函数：name/partition/window/source/returns） |
 | `factorlab op doc <name>` | 查看算子名称、类别、版本与 docstring；未注册但在分类表 → 回退打印分类元数据（partition/window/source/returns） |
 | `factorlab op add <plugin.py> [--force]` | 校验并注册用户插件；同名冲突（含内建算子名）在插件 import/副作用执行前拒绝，需 `--force` |
@@ -1087,7 +1087,7 @@ t 推断仍以主 `ic`（D3 不重叠采样）为准；主口径仍固定 1 日 
 §3b。**择优最小独立集**——库级分析（corr/svd/resic）默认对参考库而非全库（近亲变异
 会人为抬相关性），解决"库外新因子 vs 库内现状"的增量判断。
 
-- 登记：`research/factor/_reference.yaml`（`_` 前缀=非因子/非族既有约定；
+- 登记：`$QUANTRESEARCH_ROOT/factor/_reference.yaml`（`_` 前缀=非因子/非族既有约定；
   `FACTORLAB_REFERENCE` 可覆盖路径）。顶层 `scales` 映射**按信号来源**分组：
   `daily`（日线原生信号）/ `minute`（分钟聚合信号）——两类语义不同、**不混用对照**；
   `--target`（holding horizon）是评估参数，**不按 target 分库**（因子评估固定 1 日

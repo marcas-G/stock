@@ -10,8 +10,11 @@
 
 - **`platform/`** 只收平台改动：`platform/src/factorlab/`、`platform/tests/`、`platform/scripts/`（契约 4 篇 R24 起在 `knowledge/contracts/`，设计/计划在 `knowledge/design/platform/`）。
   提交前缀用平台语义：`feat(engine)` / `fix(adapters)` / `docs(interface)` / `refactor(core)`。
-- **`research/`** 只收研究内容：`research/factor/`、`research/tools/`（剩余：`strategies/`、`factor_lib/`）、`research/strategy/`（档案 R24 起在 `knowledge/dossiers/`）。
-  提交前缀用研究语义：`feat(factor)` / `feat(tools)` / `docs(factors)`。
+- **`research/`** 只收研究工具：`research/tools/`（`strategies/`、`factor_lib/`）。
+  **R37 起研究产物（spec/策略/合成分/档案/索引）已迁出主仓** → 产物区根
+  `QUANTRESEARCH_ROOT`（缺省 `/data/students/gaolei/quantresearch`；见
+  `governance/workspace/directory-conventions.md` §7）。提交前缀用研究语义：
+  `feat(factor)` / `feat(tools)` / `docs(factors)`（产物区非 git 仓，主仓提交只含工具）。
 - **`knowledge/`** 只收文档与知识（契约/设计/档案/手册/索引）；**`governance/`** 收门与脚本、工作区约定（`workspace/`）、验证与评审证据（`evidence/`）。
   R24 起根 `docs/` 已迁入上述两处（映射见 `governance/workspace/migration-r04.md`）。
 - 一次改动同时涉及多棵树 → **分目录分别提交**（一个提交只描述一棵树的改动）。
@@ -43,7 +46,8 @@
 
 **文档**：
 - 平台 API/CLI/DSL 变更 → `knowledge/contracts/interface.md`；设计与里程碑 → `knowledge/design/platform/{plans,specs}`。
-- 因子新增/改名 → `knowledge/dossiers/factors/<族>/<名>.md` 同名档案 + 重生成 `knowledge/index/factors.md`（有 byte-equality 门）。
+- 因子新增/改名 → `$QUANTRESEARCH_ROOT/dossiers/factors/<族>/<名>.md` 同名档案 + 重生成
+  `$QUANTRESEARCH_ROOT/index/factors.md`（`make index` / `make index-check` 有 byte-equality 门）。
 - 文档与实现冲突时改文档；实现中发现的设计缺口写进对应 spec 或 `governance/workspace/pending-items.md`。
 
 ## 架构分层（平台包）

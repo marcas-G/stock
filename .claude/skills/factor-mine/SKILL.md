@@ -15,7 +15,7 @@ description: 挖因子循环。随机选一个已入库因子为种子，分析�
 
 ## 前置检查
 
-1. 因子库非空：`ls knowledge/dossiers/factors/*/*.md`（家族子目录；模板在 `knowledge/dossiers/factors/_template.md`），空则报错并停止。
+1. 因子库非空：`ls $QR/dossiers/factors/*/*.md`（家族子目录；模板在 `$QR/dossiers/factors/_template.md`），空则报错并停止。
 2. 平台数据可用：`FACTORLAB_DATA_BACKEND=ch $FLAB list` 不报错。平台 duckdb 库（`data/factorlab.duckdb`）不存在，**当前唯一可用读后端是 ClickHouse**（`FACTORLAB_DATA_BACKEND=ch`）；CH 无 `stock_st` 表时 `exclude_st` 默认 fail fast，显式降级开关与挖矿口径见 `knowledge/contracts/interface.md` §4.2（`FACTORLAB_ST_DEGRADE=allow`）。
 3. 每轮开工前向用户播报：`第 k/N 轮：种子=<seed>`，然后继续（不等待）。
 
@@ -27,6 +27,8 @@ description: 挖因子循环。随机选一个已入库因子为种子，分析�
 ```bash
 # 平台 venv 的 console script（Linux；Windows 路径为历史残留，2026-09-12 清理）
 FLAB=/data/students/gaolei/stock/platform/.venv/bin/factorlab
+# 研究产物区根（R37 Phase 2：spec/档案/索引已迁出主仓；本 skill 内所有 QR 均指它）
+QR=${QUANTRESEARCH_ROOT:-/data/students/gaolei/quantresearch}
 ```
 
 前置检查用：`$FLAB list`。
@@ -37,9 +39,11 @@ FLAB=/data/students/gaolei/stock/platform/.venv/bin/factorlab
 
 ```bash
 python - <<'EOF'
-import random, pathlib
+import os, random, pathlib
+qr = pathlib.Path(os.environ.get("QUANTRESEARCH_ROOT",
+                                 "/data/students/gaolei/quantresearch"))
 files = [f"{p.parent.name}/{p.stem}"
-         for p in pathlib.Path('knowledge/dossiers/factors').glob('*/*.md')
+         for p in (qr / "dossiers/factors").glob('*/*.md')
          if p.name != '_template.md' and f"{p.parent.name}/{p.stem}" not in USED]
 print(random.choice(files))
 EOF
@@ -47,9 +51,9 @@ EOF
 
 - 同一批连续轮次内种子互不重复（`USED` 为已用种子列表，逐轮累加；
   执行时把占位符替换成 Python 集合字面量，如 `USED = {'momentum_20d/reversal_20d'}`；
-  种子 = `族/stem`——glob 已适配 `knowledge/dossiers/factors/<族>/` 子目录布局）；
+  种子 = `族/stem`——glob 已适配 `$QR/dossiers/factors/<族>/` 子目录布局）；
   所有种子都轮过一遍后循环回来（忽略 USED）。
-- 读 `knowledge/dossiers/factors/<族>/<stem>.md` 全文 + `research/factor/<族>/<stem>.yaml`（族见 `research/factor/_families.yaml`、索引见 `knowledge/index/factors.md`）。
+- 读 `$QR/dossiers/factors/<族>/<stem>.md` 全文 + `$QR/factor/<族>/<stem>.yaml`（族见 `$QR/factor/_families.yaml`、索引见 `$QR/index/factors.md`）。
 
 ### 2. 假设分析（用 assumption-review.md 模板）
 
@@ -92,25 +96,25 @@ assumption-review.md §0。
 
 ### 5. 实现
 
-- 写 `research/factor/<族>/<name>.yaml`（族见 `research/factor/_families.yaml`），结构变异 = 新 spec（**不用 `--set`**；
+- 写 `$QR/factor/<族>/<name>.yaml`（族见 `$QR/factor/_families.yaml`），结构变异 = 新 spec（**不用 `--set`**；
   `--set` 仅用于同结构参数扫描）。
 - 语义↔代码映射表：每条变异语义 → 公式行（写在变异点记录里）。
 - 沿用平台自由代码公式（def/参数化，见 `knowledge/contracts/interface.md` §formula 与
-  `research/factor/vol_run_energy/vol_run_energy.yaml` 范例）。direction 语义要与变异后假设一致。
+  `$QR/factor/vol_run_energy/vol_run_energy.yaml` 范例）。direction 语义要与变异后假设一致。
 
 ### 6. 代码审核（独立 subagent）
 
 按 `.claude/skills/factor-mine/code-review.md` 提示词 dispatch 一个
-general-purpose subagent，输入：变异点记录 + `research/factor/<族>/<name>.yaml` +
-`research/factor/<族>/<seed>.yaml`。审核不通过则修复后重审（修复后必须再次审核）。
+general-purpose subagent，输入：变异点记录 + `$QR/factor/<族>/<name>.yaml` +
+`$QR/factor/<族>/<seed>.yaml`。审核不通过则修复后重审（修复后必须再次审核）。
 
 ### 7. 运行
 
 ```bash
-FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
+FACTORLAB_DATA_BACKEND=ch $FLAB run $QR/factor/<族>/<name>.yaml
 # 报 "exclude_st 需要 stock_st 表" 时：CH 无 stock_st（挖矿口径，见
 # knowledge/contracts/interface.md §4.2）——加 FACTORLAB_ST_DEGRADE=allow 显式降级重跑：
-# FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow $FLAB run research/factor/<族>/<name>.yaml
+# FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow $FLAB run $QR/factor/<族>/<name>.yaml
 ```
 
 - 失败：读报错修复重跑（DSL 错误、内存限制、空面板等）。
@@ -119,7 +123,7 @@ FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
 ### 8. 入库
 
 0. **冗余/增量检查（D10，入库前强制）**：候选按 scale（daily|minute）对照参考库
-   `research/factor/_reference.yaml`（`factorlab ref list`）与同批全部候选：
+   `$QR/factor/_reference.yaml`（`factorlab ref list`）与同批全部候选：
    - `factorlab corr <候选们>`：任一对 |ρ|≥0.9 → 冗余，同族只留最强一只入库；
      |ρ|≥0.7 不得同时入库；跨 scales 不混用对照。
    - `factorlab resic`（组内互评或 `--target <候选> --against <库成员名单>`）：
@@ -129,22 +133,24 @@ FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
      （name/style/reason/added/entry_corr_max/entry_resic_t），空 scale 首只即种子
      （两项 null）。
 1. 对照 `knowledge/handbooks/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
-2. 复制 `knowledge/dossiers/factors/_template.md` → `knowledge/dossiers/factors/<族>/<stem>.md`，逐节填写：
+2. 复制 `$QR/dossiers/factors/_template.md` → `$QR/dossiers/factors/<族>/<stem>.md`，逐节填写：
    验证数据快照自 `runs/platform/<name>/summary.json`（注明快照日期）；
    状态按判定（候选/观察中/无效）；§2 逻辑写变异后的假设表达。
-3. 种子档案 `knowledge/dossiers/factors/<族>/<stem>.md` §5 迭代历史加一行（日期/新因子/变异点/结果/结论）。
+3. 种子档案 `$QR/dossiers/factors/<族>/<stem>.md` §5 迭代历史加一行（日期/新因子/变异点/结果/结论）。
 4. 互链：新档案 §6 备注链接 `[<seed>.md](<seed>.md)`；种子档案对应行注明新档案。
-5. **提交前跑门子集（R07-MIG-I1/I2 纪律）**：`bash governance/ops/gates.sh --structure`
-   （G-LEGACY 旧坐标 / G-INDEX 索引 / G-ANNOTATE snapshot；**untracked 档案也扫**）——
-   红了先修再提交：档案 §4 快照指针一律 `runs/platform/<name>/summary.json`（不要旧结果根
-   坐标 `results/…` 或迁移前平台落点）、跑 `build_index.py` 重生索引、缺 snapshot
-   用 R21 脚本补齐。**门未绿不得 commit**（R07 审计：门红复发根因即挖矿提交前没跑门）。
-6. `git add research/factor/<族>/<stem>.yaml knowledge/dossiers/factors/<族>/<stem>.md`（并重生成索引：`/data/students/gaolei/stock/platform/.venv/bin/python research/tools/factor_lib/build_index.py`）
-   → `git commit -m "feat(factor): <name> — <变异点一句话>"`。
-7. **轮末收尾（R31 起）**：跑 `make index`（一次重生 `factors.md` + `strategies.md`）；
-   确认本轮每个新 yaml 的同名档案已落盘——"yaml↔md 镜像"门对缺档只有 **72h
-   提交时效宽限**（`research/tools/factor_lib/dossier_freshness.py`），超期或
-   git 无法判定即红。
+5. **入库前跑门（R07-MIG-I1/I2 纪律；R37 起对产物区）**：
+   `platform/.venv/bin/python research/tools/factor_lib/build_index.py`（重生索引）+
+   `make index-check` + `bash governance/ops/gates.sh --structure --topo`
+   （G-INDEX 索引 / G-ANNOTATE snapshot / G-LINT）——红了先修：档案 §4 快照指针一律
+   `runs/platform/<name>/summary.json`（不要旧结果根坐标 `results/…`）、缺 snapshot
+   用 R21 脚本补齐（脚本按 `QUANTRESEARCH_ROOT` 解析档案根）。**门未绿不得宣布入库完成**。
+6. **产物区不是 git 仓（R37）**：spec/档案/索引不再随主仓提交（历史提交在 stock git
+   历史里）；工具/平台改动才提交主仓（按目录分权）。
+   `git commit -m "feat(factor): <name> — <变异点一句话>"` 适用于**修改了主仓工具**的场景。
+7. **轮末收尾（R31 起；R37 适配）**：跑 `make index`（一次重生 `factors.md` + `strategies.md`
+   + composites）；确认本轮每个新 yaml 的同名档案已落盘——"yaml↔md 镜像"门对缺档有 **72h
+   宽限**（`research/tools/factor_lib/dossier_freshness.py`：git 仓内按提交时间，产物区
+   按 yaml mtime），超期即红。
 
 ## 全局规则
 
@@ -169,5 +175,5 @@ FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
 
 - `assumption-review.md` — §2/§3 假设分析与审核工作模板（本 skill 目录内）
 - `code-review.md` — §6 subagent 代码审核提示词（本 skill 目录内）
-- `knowledge/dossiers/factors/_template.md` — 入库档案模板
+- `$QR/dossiers/factors/_template.md` — 入库档案模板
 - `knowledge/handbooks/factor-mining-playbook.md` — 评估阈值与方法论

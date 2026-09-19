@@ -7,9 +7,9 @@
 
 | 路径 | 内容 |
 |---|---|
-| `factor/<族>/<短名>.yaml` | **167 个因子 spec**（15 族，2026-09-16 现测快照；数量随挖矿增长；族规则 `factor/_families.yaml`；索引 `../knowledge/index/factors.md`，`build_index.py --check` 门校准）|
-| `../knowledge/dossiers/factors/<族>/<短名>.md` | 因子档案（与 yaml **同族同短名**镜像；`xname` == spec.name）。R24 起档案单点迁 `knowledge/dossiers/`。**R21 起验证数字标 `snapshot: 历史快照`**（产物未入库、当前不可复跑，口径见 `../knowledge/dossiers/factors/README.md`）|
-| `../knowledge/dossiers/strategies/` | 策略档案（含结论：崩底反弹已实现、死等股灾已证伪）|
+| **研究产物区**（R37：`$QUANTRESEARCH_ROOT`，缺省 `/data/students/gaolei/quantresearch`） | `factor/`（因子 spec）· `strategy/`（策略 spec）· `composites/`（合成分）· `dossiers/`（档案）· `index/`（索引）——**不在本仓**，公约见产物区 `CONVENTIONS.md` |
+| `$QUANTRESEARCH_ROOT/dossiers/factors/<族>/<短名>.md` | 因子档案（与 yaml **同族同短名**镜像；`xname` == spec.name）。**R21 起验证数字标 `snapshot: 历史快照`**（产物未入库、不可复跑时如实标注，口径见产物区 `dossiers/factors/README.md`）|
+| `$QUANTRESEARCH_ROOT/dossiers/strategies/` | 策略档案（含结论：崩底反弹已实现、死等股灾已证伪）|
 | `../knowledge/handbooks/factor-mining-playbook.md` | 挖因子 playbook |
 | `../knowledge/design/research/` | **研究独有**的 spec/plan（平台 spec 在 `../knowledge/design/platform/`，单副本）|
 | `../platform/tools/lib/` | 数据生产线共享库（R27 归位）：`tickdata`（读单点薄封装）· `writekit`（标记·锁·state·原子写·流式月写入器）· `tickkit`（转换小件）· `monthflow`（月分片写入骨架）|
@@ -21,7 +21,7 @@
 | `../platform/tools/ashare_ingest/` | **数据侧**（R19 收编）：A5 日线事实 / A10 指数 / 基本面的生产与对账 |
 | `../platform/tools/universe_stages/` | 股票池分层（R20 收编）：按因子值多级构建股票池（layer1-3 + 10/11/20/30/40）|
 | `tools/strategies/` | 策略回测脚本（crash_bottom / wait_crash）——留研究（策略 = 成果）|
-| `tools/factor_lib/` | 因子库工具：`plan_rename`（族改名计划）/`build_index`（索引生成 + `--check` 门）——留研究（写死研究树因子库/档案路径）|
+| `tools/factor_lib/` | 因子库工具：索引生成器（factor/strategy/composite，`--check` 门）+ `dossier_freshness` + `quantresearch_paths`（产物区根单点）——R37 起全部对 `QUANTRESEARCH_ROOT` 读写 |
 | `platform/tools/*/tests/` + `tools/*/tests/` | 各工具测试（**单解释器现测**，2026-09-16）：`platform/tools` **337**（`lob_fact` 192（金样 pins）· `ch_ingest` 37 · `universe_stages` 30 · `lib` 28 · `ashare_ingest` 25 · `converters` 11 · `quark_download` 9 · `1m_features` 5）；`research/tools` **60 collected = 58 passed / 2 skipped**（`strategies` 47 · `factor_lib` 13）。原始输出 `../governance/evidence/verification/R24/12-acceptance/test-research.txt` |
 
 ## 共享核与解释器（重要）
@@ -52,4 +52,5 @@ FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python platform/tools/1m_features/r
 - 列/算子活目录：`../knowledge/contracts/catalog.md`
 - 数据运维：`../knowledge/contracts/data-ops-playbook.md`
 - 工作区数据地图与约定：`../governance/workspace/data-map.md`、`../governance/workspace/directory-conventions.md`
-- 因子索引：`../knowledge/index/factors.md`（自动生成，`build_index.py --check` 门）
+- 因子索引：`$QUANTRESEARCH_ROOT/index/factors.md`（自动生成，`build_index.py --check` / `make index-check` 门）
+- 路径单点：平台 `../platform/src/factorlab/config.py`（`settings.research_root`）· 工具 `tools/factor_lib/quantresearch_paths.py`（env `QUANTRESEARCH_ROOT`）

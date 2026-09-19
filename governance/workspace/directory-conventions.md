@@ -17,8 +17,11 @@
 `platform/`、`research/`、`knowledge/`、`governance/`、`runs/`、`data/`、`_archive/`。
 （`projects/` 已于 R24 Task 11 归档并从根移除 → `_archive/2026-09-16-ashare-alpha3/`。）
 
-- 三层归属（R24 起）：平台代码 → `platform/`；研究内容 → `research/`；
+- 三层归属（R24 起）：平台代码 → `platform/`；研究**工具** → `research/`；
   **文档与知识 → `knowledge/`**、**治理与证据 → `governance/`**（两者入口 README 见目录内）。
+- **研究产物区（R37 Phase 2，2026-09-20）**：spec/策略/合成分/档案/索引迁出主仓到
+  `quantresearch/`（env `QUANTRESEARCH_ROOT`，缺省 `/data/students/gaolei/quantresearch`；
+  非 git 仓，公约见其 `CONVENTIONS.md` 与本文件 §7）——主仓只留工具。
 - 新数据 → **必须**入 `data/` 对应类别（五类判据见 §2）；不确定归属的临时物 → `_archive/`（先归档再想）。
 - **禁止在根目录新建条目**；脚本、日志、图片、中间产物一律不进根（工作区级门与脚本进
   `governance/ops/`，运行产物进 gitignore 的 `runs/`）。
@@ -48,8 +51,8 @@
 | 载体 | 角色 | 内容 |
 |---|---|---|
 | `platform/`（仓库内） | **平台树**（唯一副本） | `src/factorlab/`（五层 + config 叶；评估内核在 `core/eval/kernel.py`，R30 Task 15 起）、`tools/`（数据生产线工具集：lob_fact / converters / 1m_features / ch_ingest / quark_download / ashare_ingest / universe_stages + `lib/` + `_env.py`；R27 归位）、`tests/`、`scripts/`（gen_op_catalog）、`docs/`（R24 起仅 3 行指针壳）；契约/设计在 `knowledge/` |
-| `research/`（仓库内） | **研究树**（唯一副本） | `tools/`（剩余研究工具：`strategies/`、`factor_lib/`；数据生产线工具集 R27 归位 `platform/tools/`）、`factor/<族>/`（152 spec+）、`docs/`（R24 起仅 3 行指针壳；档案/索引在 `knowledge/`） |
-| `knowledge/`（仓库内） | **文档与知识树**（R24 起） | `contracts/`（平台契约 4 篇）、`design/{platform,research,workspace}/`、`dossiers/`（factor/strategy 档案 + playbook + manual）、`handbooks/`、`index/`（生成物） |
+| `research/`（仓库内） | **研究工具树**（唯一副本；R37 起不含产物） | `tools/`（`strategies/`、`factor_lib/`：索引生成器/档案时效/产物区路径单点）、`docs/`（R24 起仅 3 行指针壳）；产物（spec/档案/索引）在 `quantresearch/`（§7） |
+| `knowledge/`（仓库内） | **文档与知识树**（R24 起；R37 起不含档案/索引） | `contracts/`（平台契约 4 篇）、`design/{platform,research,workspace}/`、`handbooks/`（含 playbook/manual）；档案与机器索引在产物区（§7） |
 | `governance/`（仓库内） | **治理与证据树**（R24 起） | `ops/`（gates.sh 与 check_* 脚本）、`workspace/`（本文件、data-map、pending-items…）、`evidence/{verification,reviews}/` |
 | `runs/` | 本地运行产物（gitignore） | `runs/platform/<名>/`（`factorlab run` 产物；`FACTORLAB_RESULTS_DIR` 指向此） |
 
@@ -83,13 +86,34 @@
 - 跨工具引用用**相对定位**（如 `extract_sz_cancels.py` 相对定位 `../converters`），禁止
   写死工作区绝对前缀。
 - 平台侧用 `FACTORLAB_*` 环境变量（`config.py` 默认相对路径），不写绝对路径。
+- **研究产物区根单点（R37）**：env `QUANTRESEARCH_ROOT`（缺省 `/data/students/gaolei/
+  quantresearch`）。平台侧唯一入口 `factorlab.config.settings.research_root`；工具侧
+  `research/tools/factor_lib/quantresearch_paths.py`（不依赖 factorlab）。脚本/测试禁止
+  再写主仓 `research/factor`、`knowledge/dossiers`、`knowledge/index` 产物路径字面量。
 - 新增绝对路径前先问：能否从已有单点派生？不能才写，并在此登记理由。
 
 ## 6. 文档纪律
 
-- 新文档入 `knowledge/`（契约 → `contracts/`、设计/计划 → `design/<树>/`、档案 → `dossiers/`、
-  长文手册 → `handbooks/`）；**工作区治理与证据入 `governance/`**（约定 → `workspace/`、
+- 新文档入 `knowledge/`（契约 → `contracts/`、设计/计划 → `design/<树>/`、
+  长文手册 → `handbooks/`）；**研究档案 → 产物区 `quantresearch/dossiers/`**（R37）；
+  **工作区治理与证据入 `governance/`**（约定 → `workspace/`、
   证据 → `evidence/verification/<轮次>/`）。平台/研究树内 `docs/` R24 后仅留指针壳。
 - **历史文档（已完成的战役备忘、spec/plan/verification/reviews）保持原文不改**——它们记录当时事实；
   路径变化只加旧→新映射表（`README` 内），新文档一律用新路径。
 - 数据地图 `data-map.md` 是数据归属的唯一权威：搬移/新增数据必须同步更新。
+
+## 7. 研究产物区（R37 Phase 2，2026-09-20）
+
+- **根单点**：env `QUANTRESEARCH_ROOT`（缺省 `/data/students/gaolei/quantresearch`）。
+  **非 git 仓**（产物历史保留在 stock git 历史；公约/检查器在主仓 `governance/ops/research_tidy.py`）。
+- **布局（旧→新映射）**：`factor/` ← `research/factor/`；`strategy/` ← `research/strategy/`；
+  `composites/` ← `research/composites/`（entrypoint 相对产物区根，如
+  `composites.implementations.<name>:compute`）；`dossiers/` ← `knowledge/dossiers/`；
+  `index/` ← `knowledge/index/`（生成物，禁手改）。`lab/`、`scratch/`、`results/`、
+  `data/cache/`、`_archive/` 见产物区 `CONVENTIONS.md`。
+- **门**：`make lint-factors`（spec 全库 lint）· `make index` / `make index-check`
+  （三索引 byte-equality + spec↔档案成对）· 档案 snapshot（R21 脚本）与 yaml↔md
+  镜像时效（72h 宽限；产物区按 mtime）· `research_tidy.py`（目录公约报告）·
+  `bash governance/ops/gates.sh`（G-INDEX/G-LINT/G-ANNOTATE 对产物区）。GitHub-hosted
+  CI 无产物区 → 产物门显式 SKIP；`selfhosted-verify.yml` 对产物区跑全量。
+- 产物区里的研究内容改动不产生主仓提交；主仓提交只含工具/平台/文档。

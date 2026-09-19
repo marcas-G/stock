@@ -21,7 +21,7 @@ export FACTORLAB_DATA_BACKEND=ch      # 当前唯一可用读后端（duckdb 平
 
 ## 1. 写 spec（5-10 分钟）
 
-- 位置：`research/factor/<族>/<名>.yaml`；命名 `<类别>_<逻辑>_<窗口>`（如 `momentum_20d`）；
+- 位置：`$QUANTRESEARCH_ROOT/factor/<族>/<名>.yaml`；命名 `<类别>_<逻辑>_<窗口>`（如 `momentum_20d`）；
 - 方向写进 spec：`direction: 1`（越大越好）/ `-1`（越小越好）；
 
 最小模板（可直接改）：
@@ -48,7 +48,7 @@ formula: |
 ## 2. 秒级自检（不连库）
 
 ```bash
-$FLAB lint /data/students/gaolei/stock/research/factor/<族>/<名>.yaml
+$FLAB lint $QUANTRESEARCH_ROOT/factor/<族>/<名>.yaml
 # OK <name>   ← 通过；非 0 退出 = 语法/算子/未来函数问题，按报错修
 ```
 
@@ -56,7 +56,7 @@ $FLAB lint /data/students/gaolei/stock/research/factor/<族>/<名>.yaml
 
 ```bash
 cd /data/students/gaolei/stock/platform
-FACTORLAB_DATA_BACKEND=ch .venv/bin/factorlab run ../research/factor/<族>/<名>.yaml
+FACTORLAB_DATA_BACKEND=ch .venv/bin/factorlab run "$QUANTRESEARCH_ROOT/factor/<族>/<名>.yaml"
 # 快速版（不做分层回测）：加 --no-backtest；参数变体：--set k=v（results 独立目录）
 ```
 
@@ -70,17 +70,18 @@ FACTORLAB_DATA_BACKEND=ch .venv/bin/factorlab run ../research/factor/<族>/<名>
 
 **a) 研究入库**（每个因子必须有档案，负结论也入库）：
 
-- 档案：`knowledge/dossiers/factors/<族>/<stem>.md`（模板 `knowledge/dossiers/factors/_template.md`）；
+- 档案：`$QUANTRESEARCH_ROOT/dossiers/factors/<族>/<stem>.md`（模板 `$QUANTRESEARCH_ROOT/dossiers/factors/_template.md`）；
   与 spec 同族同短名并行；改 yaml 必须同步档案「实现全文」节；
   参数变体（`--set`）记入主档案「迭代历史」，不单独建档案；
-- 索引：`python3 research/tools/factor_lib/build_index.py`（`--check` 用于门）；产物 `knowledge/index/factors.md`；
+- 索引：`platform/.venv/bin/python research/tools/factor_lib/build_index.py`（`--check` 用于门）；产物 `$QUANTRESEARCH_ROOT/index/factors.md`；
 - 常驻门：`make gates`（含索引一致、档案注解、结构/契约门）。
 
 **b) git 提交**（纪律见根 `AGENTS.md`）：
 
-- 信息：`<type>(<scope>): <做了什么>`（如 `feat(research): 新因子 xxx_20d`）；
-- **一次提交只动一棵树**：spec+档案在 `research/`；索引 `knowledge/index/factors.md` 在 `knowledge/`，分开提交；
-- 提交前 `make gates` 全绿；破坏性操作先备份。
+- **R37 起 spec/档案/索引在研究产物区，不是 git 仓**——无主仓提交；改工具/平台才提交主仓；
+- 信息：`<type>(<scope>): <做了什么>`（如 `feat(tools): 索引生成器支持产物区根`）；
+- **一次提交只动一棵树**（platform / research / knowledge / governance 分权）；
+- 提交前 `make gates` 全绿（预存红除外，须注明）；破坏性操作先备份。
 
 ## 5. 常见坑（快查）
 
