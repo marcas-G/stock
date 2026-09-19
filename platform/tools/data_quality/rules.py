@@ -17,14 +17,18 @@ Produces
 """
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 # ── policy 版本 ───────────────────────────────────────────────────────────
-POLICY_VERSION = "daily-v1"
+# daily-v2（Plan DQ-M1.5 T2，2026-09-19 控制者裁定）：早市 VWAP 容差、单位约定
+# 例外 registry、ADJ 字段级置 NULL。v1 文件保留作历史，加载器拒绝旧版本。
+POLICY_VERSION = "daily-v2"
 DEFAULT_POLICY_PATH = Path(__file__).with_name(f"dq_policy.{POLICY_VERSION}.yaml")
 
 # ── §1 严重度（排序秩 = 优先级，越小越严重）──────────────────────────────
@@ -55,7 +59,10 @@ OHLC_INVALID = "OHLC_INVALID"
 VWAP_OUT_OF_RANGE = "VWAP_OUT_OF_RANGE"
 # ⑤ 收益跳变与复权/公司行为
 ADJ_FACTOR_CA_MISMATCH = "ADJ_FACTOR_CA_MISMATCH"
-ADJ_NEGATIVE = "ADJ_NEGATIVE"
+# v2 字段级语义：adj_factor/fq_factor <= 0 → 该字段置 NULL + flag（行保留）
+ADJ_NULLED = "ADJ_NULLED"
+# v2 历史制度例外：登记（code 集合 × era）的早期单位约定行，VWAP 降级 WARN + flag
+HISTORIC_UNIT_EXCEPTION = "HISTORIC_UNIT_EXCEPTION"
 # ⑥ 证券状态与市场规则一致性
 LIMIT_BREACH = "LIMIT_BREACH"
 LIMIT_FIRST_DAY_EXEMPT = "LIMIT_FIRST_DAY_EXEMPT"   # 首日上市例外（正常特殊状态）
@@ -87,7 +94,8 @@ RULE_LEVELS: dict[str, str] = {
     OHLC_INVALID: ERROR,
     VWAP_OUT_OF_RANGE: ERROR,
     ADJ_FACTOR_CA_MISMATCH: WARN,
-    ADJ_NEGATIVE: ERROR,
+    ADJ_NULLED: WARN,
+    HISTORIC_UNIT_EXCEPTION: WARN,
     LIMIT_BREACH: WARN,
     LIMIT_FIRST_DAY_EXEMPT: INFO,
     CROSS_SOURCE_DEVIATION: WARN,
@@ -115,7 +123,8 @@ RULE_FIELDS: dict[str, str | None] = {
     OHLC_INVALID: None,               # 多列（open/high/low/close）关系
     VWAP_OUT_OF_RANGE: "amount",      # VWAP = amount/volume
     ADJ_FACTOR_CA_MISMATCH: "fq_factor",
-    ADJ_NEGATIVE: None,               # adj_factor / fq_factor 均可
+    ADJ_NULLED: None,                 # adj_factor / fq_factor 均可（detail 点名）
+    HISTORIC_UNIT_EXCEPTION: "amount",   # VWAP = amount/volume（单位约定）
     LIMIT_BREACH: None,
     LIMIT_FIRST_DAY_EXEMPT: None,
     CROSS_SOURCE_DEVIATION: None,
@@ -129,21 +138,45 @@ RULE_FIELDS: dict[str, str | None] = {
 
 @dataclass(frozen=True)
 class RuleResult:
-    """单条规则命中：级别 + 规则 + 定位键 + 原因。"""
+    """单条规则命中：级别 + 规则 + 定位键 + 原因（+ 可选字段级定位）。
+
+    ``field``：字段级处置类规则（ADJ_NULLED）指名要置 NULL 的列；行级规则为 None。
+    """
 
     rule_id: str
     level: str
     key: str
     detail: str = ""
+    field: str | None = None
+
+
+@dataclass(frozen=True)
+class HistoricUnitException:
+    """历史单位约定例外 registry 条目（daily-v2）：code 集合 × era × 单位因子。
+
+    ``before``（ISO date）为**开区间上界**：命中条件为 ``trade_date < before``。
+    ``match_tol``：``vwap / factor`` 相对 ``[low, high]`` 的放宽比例（用于把
+    整数价取整行也纳入该代码的既有单位约定，同时排除真坏行）。
+    """
+
+    codes: tuple[str, ...]
+    before: str
+    factor: float
+    match_tol: float
 
 
 @dataclass(frozen=True)
 class DqPolicy:
-    """dq_policy.daily-v1 的结构化视图（字段名与 spec §3.2 完全一致）。"""
+    """dq_policy.daily-v2 的结构化视图（daily 面字段为 v2 扩展）。"""
 
     dq_policy_version: str
     partition_gate: dict[str, dict[str, float]]
     systemic: dict[str, float]
+    vwap_default_tol: float
+    vwap_pre_1995_tol: float
+    vwap_pre_1995_cutoff: str
+    field_invalidity_null: tuple[str, ...]
+    historic_unit_exceptions: tuple[HistoricUnitException, ...]
 
 
 def sort_results(results: list[RuleResult]) -> list[RuleResult]:
@@ -166,6 +199,8 @@ _NUMERIC_FIELDS: tuple[str, ...] = (
     "systemic.group_count",
     "systemic.time_share",
     "systemic.time_count",
+    "vwap.default_tol",
+    "vwap.pre_1995_tol",
 )
 
 _PASS_KEYS = ("max_error_rate", "min_coverage")
@@ -183,12 +218,25 @@ def _dig(raw: Any, dotted: str) -> Any:
     return node
 
 
-def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
-    """加载并校验 dq_policy YAML。
+def _iso_date(value: Any) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    try:
+        dt.date.fromisoformat(value)
+        return True
+    except ValueError:
+        return False
 
-    - 缺字段/非数值 → ``ValueError``，消息逐个点名 dotted path；
+
+def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
+    """加载并校验 dq_policy YAML（daily-v2 结构）。
+
+    - 缺字段/非数值/非法结构 → ``ValueError``，消息逐个点名 dotted path；
     - ``dq_policy_version`` ≠ ``POLICY_VERSION`` → ``ValueError``（旧版拒绝，
-      M1 不做兼容映射——加载规则必须显式）。
+      不做兼容映射——加载规则必须显式）；
+    - v2 扩展：``vwap``（早市容差与截止日）、``field_invalidity``（字段级置
+      NULL 白名单）、``historic_unit_exceptions``（code 集合 × era registry，
+      条目逐字段校验，不允许空 codes/非法日期/非数值因子）。
     """
     p = Path(path)
     raw = yaml.safe_load(p.read_text(encoding="utf-8"))
@@ -196,14 +244,56 @@ def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
         raise ValueError(f"dq_policy 必须是 YAML mapping：{p}")
 
     problems: list[str] = []
-    if "dq_policy_version" not in raw:
+    version = raw.get("dq_policy_version")
+    if version is None:
         problems.append("dq_policy_version")
+    elif version != POLICY_VERSION:
+        raise ValueError(
+            f"不支持的 dq_policy_version: {version!r}（{p}）；"
+            f"本版本仅接受 {POLICY_VERSION!r}，旧版本不做兼容映射")
     for dotted in _NUMERIC_FIELDS:
         v = _dig(raw, dotted)
         if v is _MISSING:
             problems.append(dotted)
         elif isinstance(v, bool) or not isinstance(v, (int, float)):
             problems.append(f"{dotted}（值 {v!r} 非数值）")
+
+    cutoff = _dig(raw, "vwap.pre_1995_cutoff")
+    if cutoff is _MISSING:
+        problems.append("vwap.pre_1995_cutoff")
+    elif not _iso_date(cutoff):
+        problems.append(f"vwap.pre_1995_cutoff（值 {cutoff!r} 非 ISO 日期）")
+
+    null_fields = _dig(raw, "field_invalidity.null_on_nonpositive")
+    if null_fields is _MISSING:
+        problems.append("field_invalidity.null_on_nonpositive")
+    elif (not isinstance(null_fields, list) or not null_fields
+          or any(not isinstance(c, str) or not c for c in null_fields)):
+        problems.append(
+            "field_invalidity.null_on_nonpositive（须为非空字符串列表）")
+
+    registry = _dig(raw, "historic_unit_exceptions")
+    if registry is _MISSING:
+        problems.append("historic_unit_exceptions")
+    elif not isinstance(registry, list):
+        problems.append("historic_unit_exceptions（须为列表，可为空）")
+    else:
+        for i, entry in enumerate(registry):
+            base = f"historic_unit_exceptions[{i}]"
+            if not isinstance(entry, dict):
+                problems.append(f"{base}（须为 mapping）")
+                continue
+            codes = entry.get("codes")
+            if (not isinstance(codes, list) or not codes
+                    or any(not isinstance(c, str) or not c for c in codes)):
+                problems.append(f"{base}.codes（须为非空字符串列表）")
+            if not _iso_date(entry.get("before")):
+                problems.append(f"{base}.before（须为 ISO 日期）")
+            for key in ("factor", "match_tol"):
+                v = entry.get(key)
+                if isinstance(v, bool) or not isinstance(v, (int, float)):
+                    problems.append(f"{base}.{key}（值 {v!r} 非数值）")
+
     if problems:
         raise ValueError(f"dq_policy 缺少/非法字段（{p}）：{', '.join(problems)}")
 
@@ -215,6 +305,12 @@ def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
 
     gate_raw = raw["partition_gate"]
     systemic_raw = raw["systemic"]
+    vwap_raw = raw["vwap"]
+    exceptions = tuple(
+        HistoricUnitException(
+            codes=tuple(entry["codes"]), before=str(entry["before"]),
+            factor=float(entry["factor"]), match_tol=float(entry["match_tol"]))
+        for entry in registry)
     return DqPolicy(
         dq_policy_version=version,
         partition_gate={
@@ -222,4 +318,15 @@ def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
             "fail": {k: gate_raw["fail"][k] for k in _FAIL_KEYS},
         },
         systemic={k: systemic_raw[k] for k in _SYSTEMIC_KEYS},
+        vwap_default_tol=float(vwap_raw["default_tol"]),
+        vwap_pre_1995_tol=float(vwap_raw["pre_1995_tol"]),
+        vwap_pre_1995_cutoff=str(vwap_raw["pre_1995_cutoff"]),
+        field_invalidity_null=tuple(null_fields),
+        historic_unit_exceptions=exceptions,
     )
+
+
+@lru_cache(maxsize=1)
+def default_policy() -> DqPolicy:
+    """惰性缓存的 shipped policy（validators 缺省口径，只读一次 YAML）。"""
+    return load_policy(DEFAULT_POLICY_PATH)

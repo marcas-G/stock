@@ -109,7 +109,7 @@ def _field_of(rule_id: str, detail: str | None) -> str:
         return field
     m = _FIELD_RE.match(detail or "")
     if m and rule_id in (rules.MISSING_VALUE, rules.NONFINITE_VALUE,
-                         rules.ADJ_NEGATIVE, rules.PRICE_NONPOSITIVE):
+                         rules.ADJ_NULLED, rules.PRICE_NONPOSITIVE):
         return m.group(1)
     return MULTI_FIELD
 
@@ -189,13 +189,15 @@ def build_impact(*, totals_by_rule: dict[str, int], probes: dict[str, int],
     categories = [
         {
             "id": "ADJ_NEGATIVE",
-            "title": "复权因子负值（复权序列负价）",
-            "rule_ids": [rules.ADJ_NEGATIVE],
-            "rows": rows(rules.ADJ_NEGATIVE),
-            "affected_partitions": parts(rules.ADJ_NEGATIVE),
-            "impact": ("负因子整键在增量 clean 被行级隔离（不无痕改写），复权价序列"
-                       "断裂会污染 lookback 类因子与回测；canonical 行数相对 raw 减少"),
-            "next": "M3 定向往修：评估「置 NULL 不丢行」；核对 vendor 后复权价异常范围",
+            "title": "复权因子非正（复权序列负价）",
+            "rule_ids": [rules.ADJ_NULLED],
+            "rows": rows(rules.ADJ_NULLED),
+            "affected_partitions": parts(rules.ADJ_NULLED),
+            "impact": ("v2 字段级语义（ADJ_NULLED）：adj_factor<=0 的字段在 clean "
+                       "置 NULL、OHLCV 不动、整行保留（不再整行隔离）；下游复权按"
+                       "既有缺失语义（NULL）处理，复权价序列断点仍在，"
+                       "lookback 类因子需按缺失语义消费"),
+            "next": "M3 定向往修：核对 vendor 后复权价异常范围与单位来源",
             "status": "measured",
         },
         {

@@ -103,7 +103,7 @@ def test_issue_counts_by_date_field_rule(tmp_path):
     issues = _issues(res)
     assert issues[(DAY1.isoformat(), rules.OHLC_INVALID, rules.ERROR,
                    historical_audit.MULTI_FIELD)] == 1
-    assert issues[(DAY1.isoformat(), rules.ADJ_NEGATIVE, rules.ERROR,
+    assert issues[(DAY1.isoformat(), rules.ADJ_NULLED, rules.WARN,
                    "adj_factor")] == 1
     assert issues[(DAY2.isoformat(), rules.MISSING_VALUE, rules.WARN,
                    "amount")] == 1
@@ -120,7 +120,9 @@ def test_issue_counts_by_date_field_rule(tmp_path):
 
     p1 = res.summary["per_partition"][DAY1.isoformat()]
     p2 = res.summary["per_partition"][DAY2.isoformat()]
-    assert (p1["rows"], p1["error_count"], p1["quarantine_count"]) == (5, 2, 2)
+    assert (p1["rows"], p1["error_count"], p1["warning_count"],
+            p1["quarantine_count"]) == (5, 1, 1, 1), (
+        "v2：ADJ_NULLED 是 WARN（行保留），DAY1 仅 OHLC_INVALID 隔离")
     assert (p2["rows"], p2["warning_count"], p2["error_count"]) == (4, 2, 1), (
         "DAY2 WARN = MISSING_VALUE(amount) + ADJ_FACTOR_CA_MISMATCH(000004 fq 变化)")
     assert res.summary["top_error_dates"][0]["trade_date"] in (
@@ -221,6 +223,9 @@ def test_impact_analysis_measured_and_has_high_impact_categories(tmp_path):
     imp = {c["id"]: c for c in res.impact["categories"]}
     assert imp["ADJ_NEGATIVE"]["rows"] == 1
     assert imp["ADJ_NEGATIVE"]["affected_partitions"] == 1
+    assert "ADJ_NULLED" in imp["ADJ_NEGATIVE"]["impact"] and \
+        "置 NULL" in imp["ADJ_NEGATIVE"]["impact"], (
+        "v2：ADJ 类影响说明必须写明字段级置 NULL（行保留）语义")
     assert imp["delisted_adj"]["delisted_codes"] == 1
     assert imp["delisted_adj"]["rows_adj_missing"] >= 1
     assert imp["circ_mv"]["float_shares_missing_rows"] == 1

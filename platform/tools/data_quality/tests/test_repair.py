@@ -198,6 +198,49 @@ def test_error_quarantined_while_warn_and_info_rows_kept():
     assert [(e["rule_id"], e["count"]) for e in qlog] == [(rules.PRICE_NONPOSITIVE, 1)]
 
 
+# ── v2 字段级置 NULL（ADJ_NULLED）：行保留、字段置 NULL、隔离行不动 ──────
+def test_adj_nulled_field_nulled_row_kept_ohlcv_untouched():
+    df = _frame([_row(adj_factor=-1.0, close=10.2, high=10.5, low=9.8,
+                      volume=1000.0, amount=10200.0)])
+    res = validators.validate_daily(df, _cal(), None, None)
+    assert any(r.rule_id == rules.ADJ_NULLED and r.field == "adj_factor"
+               for r in res), "validator 必须先产出字段级 flag"
+
+    clean, q, log = repair.repair(df, res)
+    assert q.height == 0, "字段级 invalid 不再整行 quarantine"
+    assert clean.height == 1
+    assert clean["adj_factor"].to_list() == [None], "该字段必须置 NULL"
+    assert (clean["close"][0], clean["high"][0], clean["low"][0],
+            clean["volume"][0], clean["amount"][0]) == (10.2, 10.5, 9.8,
+                                                        1000.0, 10200.0), (
+        "OHLCV 不得被字段级处置改动")
+    e = _finds(log, "null_field")[0]
+    assert (e["rule_id"], e["field"], e["count"]) == (rules.ADJ_NULLED,
+                                                      "adj_factor", 1)
+    assert e["keys"] == [f"{SYM}|2026-09-18"]
+
+
+def test_adj_nulled_keeps_quarantined_row_untouched():
+    """同时触发 ERROR 的行进 quarantine：原始形态是证据，不得被置 NULL。"""
+    df = _frame([_row(adj_factor=-1.0, close=-1.0, low=-1.0)])
+    res = validators.validate_daily(df, _cal(), None, None)
+    assert any(r.rule_id == rules.PRICE_NONPOSITIVE for r in res)
+
+    clean, q, log = repair.repair(df, res)
+    assert clean.height == 0 and q.height == 1
+    assert q["adj_factor"].to_list() == [-1.0], "隔离行保持原始形态"
+    assert _finds(log, "null_field") == []
+
+
+def test_adj_nulled_idempotent_after_repair():
+    df = _frame([_row(adj_factor=-1.0)])
+    res = validators.validate_daily(df, _cal(), None, None)
+    clean, _, _ = repair.repair(df, res)
+    res2 = validators.validate_daily(clean, _cal(), None, None)
+    assert not any(r.rule_id == rules.ADJ_NULLED for r in res2), (
+        "NULL 是缺失语义，重复清洗不得再报字段 invalid")
+
+
 def test_frame_level_fatal_does_not_isolate_rows():
     """schema FATAL 的 key 是字段名（不可定位到行）→ 交分区门，不误隔离行。"""
     df = _frame([_row()])

@@ -66,12 +66,16 @@ def _limits(rows=None):
                                       "up_limit": pl.Float64, "down_limit": pl.Float64})
 
 
-def _run(df, *, calendar=None, listing=None, limits=None):
+_UNSET = object()
+
+
+def _run(df, *, calendar=_UNSET, listing=_UNSET, limits=_UNSET):
+    """缺省走 2026 日历/上市/涨跌停 fixture；显式 ``None`` = 关闭该项检查。"""
     return validators.validate_daily(
         df,
-        calendar if calendar is not None else _cal(),
-        listing if listing is not None else _listing(),
-        limits if limits is not None else _limits(),
+        _cal() if calendar is _UNSET else calendar,
+        _listing() if listing is _UNSET else listing,
+        _limits() if limits is _UNSET else limits,
     )
 
 
@@ -256,10 +260,116 @@ def test_adj_factor_ca_mismatch_warn_both_directions():
                  rules.WARN, n=1)
 
 
-def test_adj_negative_error():
-    hits = _assert_hits(_run(_frame([_row(fq_factor=-1.0)])),
-                        rules.ADJ_NEGATIVE, rules.ERROR, n=1)
-    assert "fq_factor" in hits[0].detail
+def test_adj_nonpositive_warn_field_flag_not_error():
+    """v2 字段级语义：adj/fq <= 0 → ADJ_NULLED（WARN + field），不再是整行 ERROR。"""
+    hits = _assert_hits(_run(_frame([_row(adj_factor=-1.0)])),
+                        rules.ADJ_NULLED, rules.WARN, n=1)
+    assert hits[0].field == "adj_factor"
+    assert "adj_factor" in hits[0].detail
+
+    zero = _assert_hits(_run(_frame([_row(adj_factor=0.0)])),
+                        rules.ADJ_NULLED, rules.WARN, n=1)
+    assert zero[0].field == "adj_factor"
+
+    fq = _assert_hits(_run(_frame([_row(fq_factor=-1.0)])),
+                      rules.ADJ_NULLED, rules.WARN, n=1)
+    assert fq[0].field == "fq_factor"
+    _assert_absent(_run(_frame([_row(adj_factor=-1.0)])), rules.VWAP_OUT_OF_RANGE)
+
+
+# ── v2：早市 VWAP 容差（<1995-01-01 用 2%）──────────────────────────────
+PRE_1995 = D(1994, 1, 5)
+POST_1995 = D(1995, 1, 5)
+
+
+def _vwap_row(day, vwap, close=10.0):
+    """构造 low=high=close 的窄行：vwap=amount/volume 由入参决定。"""
+    return _row(trade_date=day, open=close, high=close, low=close, close=close,
+                volume=100.0, amount=vwap * 100.0)
+
+
+def test_vwap_pre1995_tolerance_two_percent_boundary():
+    """<1995：2% 带（含带边）通过；超带即 ERROR。>=1995 保持 1%（2% 越界）。"""
+    res = _run(_frame([_vwap_row(PRE_1995, 10.2)]), calendar=None)
+    _assert_absent(res, rules.VWAP_OUT_OF_RANGE)
+
+    res = _run(_frame([_vwap_row(PRE_1995, 10.2001)]), calendar=None)
+    _assert_hits(res, rules.VWAP_OUT_OF_RANGE, rules.ERROR, n=1)
+
+    res = _run(_frame([_vwap_row(POST_1995, 10.2)]), calendar=None)
+    _assert_hits(res, rules.VWAP_OUT_OF_RANGE, rules.ERROR, n=1)
+
+    _assert_absent(_run(_frame([_vwap_row(POST_1995, 10.1)]), calendar=None),
+                   rules.VWAP_OUT_OF_RANGE)
+
+
+def test_vwap_cutoff_and_tol_come_from_policy():
+    """容差/截止日取 policy（不硬编码）：改 policy 即改行为。"""
+    import dataclasses
+    pol = dataclasses.replace(rules.default_policy(),
+                              vwap_pre_1995_cutoff="1996-01-01")
+    res = validators.validate_daily(
+        _frame([_vwap_row(POST_1995, 10.2)]), None, None, None, pol)
+    _assert_absent(res, rules.VWAP_OUT_OF_RANGE)
+
+
+# ── v2：历史制度例外 registry（code 集合 × era，factor≈5）────────────────
+def test_historic_unit_exception_registered_code_and_era_downgraded():
+    """登记代码×年代的 factor 5 行 → HISTORIC_UNIT_EXCEPTION（WARN），无 ERROR。"""
+    row = _row(symbol="000002.SZ", trade_date=D(1991, 2, 2), open=14.59,
+               high=14.59, low=14.59, close=14.59, volume=1300.0,
+               amount=95000.0)
+    res = _run(_frame([row]), calendar=None)
+    hits = _assert_hits(res, rules.HISTORIC_UNIT_EXCEPTION, rules.WARN, n=1)
+    assert "factor" in hits[0].detail and "5" in hits[0].detail
+    _assert_absent(res, rules.VWAP_OUT_OF_RANGE)
+    assert all(r.level == rules.WARN for r in res), "例外行不得触发任何 ERROR"
+
+
+def test_historic_unit_exception_covers_integer_rounded_amount_row():
+    """金额按整数价取整（k=5 略越 2% 带但落在代码约定 ±10%）→ 仍为登记例外。"""
+    row = _row(symbol="000004.SZ", trade_date=D(1991, 3, 16), open=13.19,
+               high=13.19, low=13.19, close=13.19, volume=100.0,
+               amount=6000.0)
+    _assert_hits(_run(_frame([row]), calendar=None),
+                 rules.HISTORIC_UNIT_EXCEPTION, rules.WARN, n=1)
+
+
+def test_historic_unit_exception_not_generalized_unregistered_code():
+    """未登记代码同样数值 → 不得降级，仍是 VWAP ERROR。"""
+    row = _row(symbol="000003.SZ", trade_date=D(1991, 2, 2), open=14.59,
+               high=14.59, low=14.59, close=14.59, volume=1300.0,
+               amount=95000.0)
+    res = _run(_frame([row]), calendar=None)
+    _assert_hits(res, rules.VWAP_OUT_OF_RANGE, rules.ERROR, n=1)
+    _assert_absent(res, rules.HISTORIC_UNIT_EXCEPTION)
+
+
+def test_historic_unit_exception_not_generalized_out_of_era():
+    """登记代码但年代之外 → 不得降级（era 开区间）。"""
+    row = _row(symbol="000002.SZ", trade_date=D(1994, 1, 3), open=15.0,
+               high=15.0, low=15.0, close=15.0, volume=1000.0,
+               amount=75000.0)
+    res = _run(_frame([row]), calendar=None)
+    _assert_hits(res, rules.VWAP_OUT_OF_RANGE, rules.ERROR, n=1)
+    _assert_absent(res, rules.HISTORIC_UNIT_EXCEPTION)
+
+
+def test_historic_unit_exception_rejects_corrupt_row_of_registered_code():
+    """登记代码内的真坏行（ratio 背离约定 >10%）→ 保持 VWAP ERROR（不得洗白）。"""
+    row = _row(symbol="000002.SZ", trade_date=D(1991, 4, 13), open=12.49,
+               high=12.49, low=12.49, close=12.49, volume=1000.0,
+               amount=6000.0)
+    res = _run(_frame([row]), calendar=None)
+    _assert_hits(res, rules.VWAP_OUT_OF_RANGE, rules.ERROR, n=1)
+    _assert_absent(res, rules.HISTORIC_UNIT_EXCEPTION)
+
+    bad = _row(symbol="000004.SZ", trade_date=D(1991, 11, 17), open=17.10,
+               high=17.20, low=16.95, close=17.10, volume=17600.0,
+               amount=622000.0)
+    res = _run(_frame([bad]), calendar=None)
+    _assert_hits(res, rules.VWAP_OUT_OF_RANGE, rules.ERROR, n=1)
+    _assert_absent(res, rules.HISTORIC_UNIT_EXCEPTION)
 
 
 # ── ⑥ 证券状态与市场规则 ─────────────────────────────────────────────────

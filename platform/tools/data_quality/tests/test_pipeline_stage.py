@@ -176,6 +176,51 @@ def test_summary_reports_deduped_rows_for_explained_completeness(tmp_path):
     assert summary["quarantined_rows"] == 0
 
 
+def test_clean_stage_adj_nulled_row_retained_and_counted(tmp_path):
+    """v2：adj<=0 行不再隔离——字段置 NULL、整行入 canonical，flag 计数入 quality。"""
+    raw = _raw([_good(code="600519.SH"), _good(code="000001.SZ"),
+                _good(code="000002.SZ")])
+    raw = raw.with_columns(
+        pl.when(pl.col("code") == "000002.SZ").then(-2.0).otherwise(1.0)
+        .alias("adj_factor"))
+    res = pipeline.run_clean_stage(raw, run_tag=TAG, root=tmp_path,
+                                   expected_count=3)
+
+    assert res.decision == pipeline.PASS, "字段级 invalid 是 WARN，不得判 FAIL"
+    assert res.clean_rows == 3 and res.quarantined_rows == 0
+    assert res.metrics.rules.get(rules.ADJ_NULLED) == 1
+
+    staged = pl.read_parquet(_staged_fact(tmp_path))
+    assert staged.height == 3
+    row = staged.filter(pl.col("code") == "000002.SZ")
+    assert row["adj_factor"][0] is None, "坏 adj 字段置 NULL"
+    assert row["close"][0] == 10.2, "OHLCV 不动"
+    assert staged.filter(pl.col("code") == "600519.SH")["adj_factor"][0] == 1.0
+
+    summary = json.loads((_stage_dir(tmp_path) / "summary.json")
+                         .read_text(encoding="utf-8"))
+    assert summary["rules"].get(rules.ADJ_NULLED) == 1, "flag 计数入 quality/rules"
+    assert summary["quality"]["warning_count"] == 1
+    assert summary["quality"]["error_count"] == 0
+
+
+def test_clean_stage_uses_passed_policy_for_validation(tmp_path):
+    """policy 必须贯穿到 validators：同一行在默认 1% 与自定义 2% 带下判定不同。"""
+    import dataclasses
+    row = _good(day=DAY3, open=10.0, high=10.0, low=10.0, close=10.0,
+                volume=100.0, amount=1015.0)          # vwap=10.15 → +1.5%
+    raw = _raw([row])
+    default = pipeline.run_clean_stage(raw, run_tag="default", root=tmp_path,
+                                       expected_count=1)
+    assert default.metrics.error_count == 1, "默认 1% 带 → VWAP ERROR"
+
+    custom = dataclasses.replace(rules.default_policy(), vwap_default_tol=0.02)
+    res = pipeline.run_clean_stage(raw, run_tag=TAG, root=tmp_path,
+                                   expected_count=1, policy=custom)
+    assert res.metrics.error_count == 0, "policy 传入后 2% 带应放行（不得走 shipped 默认）"
+    assert res.clean_rows == 1
+
+
 def test_multi_date_scope_time_distribution_not_systemic(tmp_path):
     """I3：全表清洗后时间集中按范围内日期分布——120 错均摊 3 日（>N_time）不判 systemic。"""
     rows = [_good(code=f"{i:06d}.SZ", day=d) for i, d in

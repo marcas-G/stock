@@ -114,6 +114,29 @@ def repair(
                             "reason": by_rule[rid][0].detail, "count": n,
                             "keys": keys})
 
+    # ── 3.5) v2 字段级 invalid：ADJ_NULLED → 该字段置 NULL（行保留）───────
+    # 仅作用于 clean（非 blocking）行；quarantine 行是证据，保持原始形态。
+    if has_key and "_key" in clean.columns:
+        by_field: dict[str, set[str]] = {}
+        for r in results:
+            if r.rule_id == rules.ADJ_NULLED and r.field and r.key:
+                by_field.setdefault(r.field, set()).add(r.key)
+        clean_keys = set(clean["_key"].to_list())
+        exprs, nulled = [], {}
+        for field in sorted(by_field):
+            keys = sorted(by_field[field] & clean_keys)
+            if not keys or field not in clean.columns:
+                continue
+            exprs.append(pl.when(pl.col("_key").is_in(keys))
+                         .then(pl.lit(None, dtype=clean.schema[field]))
+                         .otherwise(pl.col(field)).alias(field))
+            nulled[field] = keys
+        if exprs:
+            clean = clean.with_columns(exprs)
+        for field, keys in sorted(nulled.items()):
+            log.append({"action": "null_field", "rule_id": rules.ADJ_NULLED,
+                        "field": field, "count": len(keys), "keys": keys})
+
     if "_key" in clean.columns:
         clean = clean.drop("_key")
     if "_key" in q_frame.columns:

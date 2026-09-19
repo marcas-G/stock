@@ -110,7 +110,7 @@ def run_clean_stage(
     expected = actual if expected_count is None else expected_count
 
     df = _sort_rows(raw)
-    results = validators.validate_daily(df, calendar, listing, limits)
+    results = validators.validate_daily(df, calendar, listing, limits, policy)
     clean, quarantined, repair_log = repair.repair(df, results)
     # F5：full_table 完整性账本——raw = clean + quarantine + dedup（删除行数）
     deduped = sum(int(e.get("count", 0)) for e in repair_log

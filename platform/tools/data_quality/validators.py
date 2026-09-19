@@ -41,7 +41,6 @@ _PRICE_COLS = ("open", "high", "low", "close")
 _CORE_NUMERIC = ("open", "high", "low", "close", "amount")   # + volume 列另取
 _FACTOR_COLS = ("adj_factor", "fq_factor")
 _CA_COLS = ("div_cash", "div_bonus", "div_transfer", "rights_num")
-_VWAP_TOL = 0.01        # VWAP 落在 [low,high] 的容差（设计 §4④「附近」）
 _LIMIT_TOL = 1e-4       # 涨跌停价分位舍入噪声容差
 
 
@@ -50,8 +49,15 @@ def validate_daily(
     calendar: pl.DataFrame | Any | None = None,
     listing: pl.DataFrame | None = None,
     limits: pl.DataFrame | None = None,
+    policy: rules.DqPolicy | None = None,
 ) -> list[RuleResult]:
-    """daily 行级校验（纯函数：不修改输入，返回稳定排序的 RuleResult 列表）。"""
+    """daily 行级校验（纯函数：不修改输入，返回稳定排序的 RuleResult 列表）。
+
+    ``policy``（daily-v2）：VWAP 早市容差 / 历史单位约定 registry / 字段级置 NULL
+    白名单；缺省 = shipped ``rules.default_policy()``。容差与 registry 一律取自
+    policy（不硬编码，改 policy 即改行为）。
+    """
+    policy = policy or rules.default_policy()
     cols = set(df.columns)
 
     # ── schema：必需列缺失 → FATAL，提前返回（分区门据此 FAIL）──────────
@@ -204,13 +210,43 @@ def validate_daily(
                               f"OHLC 矛盾: O={row['_open']} H={row['_high']} "
                               f"L={row['_low']} C={row['_close']}"))
 
-    # ④ VWAP=Amount/Volume 越 [low,high]（容差；0 量不校验）→ ERROR
+    # ④ VWAP=Amount/Volume 越 [low,high]（容差按年代：<pre_1995_cutoff 用
+    #    pre_1995_tol，否则 default_tol；0 量不校验）→ ERROR。
+    #    v2 例外：登记（code 集合 × era）且 vwap/factor 落代码约定的行降级
+    #    HISTORIC_UNIT_EXCEPTION（WARN，行保留）——不得泛化到未登记代码/年代。
     V, A = F[vol_col], F["amount"]
     vwap = A / V
-    vwap_bad = (_finite(vol_col) & _finite("amount") & _finite("low") & _finite("high")
-                & (V > 0) & (A > 0)
-                & ((vwap < L * (1 - _VWAP_TOL)) | (vwap > H * (1 + _VWAP_TOL))))
-    for row in work.filter(vwap_bad).select(
+    cutoff = pl.lit(policy.vwap_pre_1995_cutoff).str.to_date(strict=False)
+    tol = pl.when(pl.col("_date") < cutoff).then(policy.vwap_pre_1995_tol) \
+        .otherwise(policy.vwap_default_tol)
+    vwap_ready = (_finite(vol_col) & _finite("amount") & _finite("low")
+                  & _finite("high") & (V > 0) & (A > 0))
+    vwap_bad = vwap_ready & ((vwap < L * (1 - tol)) | (vwap > H * (1 + tol)))
+
+    hist_idx = pl.lit(-1, dtype=pl.Int64)
+    for i, reg in enumerate(policy.historic_unit_exceptions):
+        before = pl.lit(reg.before).str.to_date(strict=False)
+        scaled = vwap / reg.factor
+        plausible = ((scaled >= L * (1 - reg.match_tol))
+                     & (scaled <= H * (1 + reg.match_tol)))
+        cond = (pl.col("_sym").is_in(list(reg.codes))
+                & pl.col("_date").is_not_null() & (pl.col("_date") < before)
+                & plausible)
+        hist_idx = pl.when(cond).then(pl.lit(i, dtype=pl.Int64)) \
+            .otherwise(hist_idx)
+    work = work.with_columns(hist_idx.alias("_hist_idx"))
+    downgraded = vwap_bad & (pl.col("_hist_idx") >= 0)
+    for row in work.filter(downgraded).select(
+            ["_key", "_low", "_high", f"_{vol_col}", "_amount", "_hist_idx"]
+    ).iter_rows(named=True):
+        v = row[f"_{vol_col}"]
+        px = row["_amount"] / v if v else float("nan")
+        reg = policy.historic_unit_exceptions[row["_hist_idx"]]
+        out.append(RuleResult(
+            rules.HISTORIC_UNIT_EXCEPTION, rules.WARN, row["_key"],
+            f"历史制度例外（registry: codes={list(reg.codes)} < {reg.before}，"
+            f"factor={reg.factor:g}）：VWAP={px:.4f} 按单位约定保留入 canonical"))
+    for row in work.filter(vwap_bad & ~downgraded).select(
             ["_key", "_low", "_high", f"_{vol_col}", "_amount"]
     ).iter_rows(named=True):
         v = row[f"_{vol_col}"]
@@ -218,12 +254,17 @@ def validate_daily(
         out.append(RuleResult(rules.VWAP_OUT_OF_RANGE, rules.ERROR, row["_key"],
                               f"VWAP={px:.4f} 越界 [{row['_low']}, {row['_high']}]"))
 
-    # ⑤ 复权因子 < 0（复权序列负价）→ ERROR
-    for c in [x for x in _FACTOR_COLS if x in cols]:
-        bad = work.filter(F[c].is_not_null() & (F[c] < 0))
+    # ⑤ 字段级 invalid：policy 白名单内复权因子 <= 0 → 置 NULL + flag（WARN），
+    #    OHLCV 不动、整行保留（v2，M1.5；不再整行 quarantine）
+    for c in policy.field_invalidity_null:
+        if c not in cols or f"_{c}" not in work.columns:
+            continue
+        bad = work.filter(F[c].is_not_null() & (F[c] <= 0))
         for row in bad.select(["_key", f"_{c}"]).iter_rows(named=True):
-            out.append(RuleResult(rules.ADJ_NEGATIVE, rules.ERROR, row["_key"],
-                                  f"{c} < 0（复权序列负价）: {row[f'_{c}']}"))
+            out.append(RuleResult(
+                rules.ADJ_NULLED, rules.WARN, row["_key"],
+                f"{c} <= 0（字段级 invalid）：{row[f'_{c}']}；该字段置 NULL，"
+                f"行保留", field=c))
 
     # ⑤ 复权因子变化日与 CA 不符 → WARN（双向；fq_factor 才是事件检测源，
     #    adj_factor 逐日漂移，见 import_daily docstring 语义勘误）

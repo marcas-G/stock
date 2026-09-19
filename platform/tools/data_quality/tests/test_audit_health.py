@@ -327,6 +327,7 @@ def test_final_gate_reuses_pre_ingest_decision_and_worst_case():
 
 # ── health artifact：键集与 §6 完全一致 + 原子写 + raw sha ───────────────
 SPEC_KEYS = {"dataset_id", "partition", "data_version", "dq_policy_version",
+             "repair_policy_version",
              "health_status", "verification_state", "completeness", "quality",
              "freshness", "rules", "validated_at", "raw_lineage"}
 QUALITY_KEYS = {"fatal_count", "error_count", "warning_count",
@@ -374,6 +375,24 @@ def test_health_doc_keys_exactly_match_spec_section6(tmp_path):
     doc2 = json.loads(p2.read_text(encoding="utf-8"))
     assert (doc2["health_status"], doc2["verification_state"]) == (
         "UNKNOWN", "LEGACY_UNVERIFIED")
+
+
+def test_health_doc_records_repair_policy_version(tmp_path):
+    """M1.5 留痕：raw_lineage 之外必须记录 repair_policy_version（缺省=policy 版本）。"""
+    p = _publish(tmp_path)
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    assert doc["repair_policy_version"] == rules.POLICY_VERSION == "daily-v2"
+    assert doc["dq_policy_version"] == "daily-v2"
+
+    p2 = _publish(tmp_path, partition="2026-09-17",
+                  repair_policy_version="repair-v9")
+    doc2 = json.loads(p2.read_text(encoding="utf-8"))
+    assert doc2["repair_policy_version"] == "repair-v9", "显式值优先（可追溯）"
+
+
+def test_health_doc_rejects_empty_repair_policy_version(tmp_path):
+    with pytest.raises(ValueError, match="repair_policy_version"):
+        _publish(tmp_path, repair_policy_version="")
 
 
 def test_publish_health_rejects_unknown_enum_values(tmp_path):

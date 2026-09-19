@@ -43,8 +43,9 @@ HEALTH_STATUSES = ("PASS", "DEGRADED", "FAIL", "UNKNOWN")
 VERIFICATION_STATES = ("VERIFIED", "LEGACY_UNVERIFIED", "KNOWN_ISSUE")
 COMPLETENESS_STATUSES = ("COMPLETE", "INCOMPLETE", "UNKNOWN")
 
-# spec §6 冻结键集（逐字段）
+# spec §6 冻结键集（逐字段；M1.5 增 repair_policy_version —— 修复语义版本留痕）
 TOP_KEYS = ("dataset_id", "partition", "data_version", "dq_policy_version",
+            "repair_policy_version",
             "health_status", "verification_state", "completeness", "quality",
             "freshness", "rules", "validated_at", "raw_lineage")
 COMPLETENESS_KEYS = ("status", "expected_count", "actual_count", "coverage")
@@ -82,17 +83,27 @@ def build_health_doc(*, dataset_id: str, partition: str, data_version: str,
                      dq_policy_version: str, health_status: str,
                      verification_state: str, completeness: dict,
                      quality: dict, rules_counts: dict,
+                     repair_policy_version: str | None = None,
                      latest_trade_date: str | None = None,
                      validated_at: str | None = None,
                      source_version: str | None = None,
                      raw_sha256: str | None = None) -> dict:
-    """构造 §6 文档（键集/枚举校验；多键少键都 ValueError）。"""
+    """构造 §6 文档（键集/枚举校验；多键少键都 ValueError）。
+
+    ``repair_policy_version``：修复/清洗语义版本留痕（M1.5 T2）；缺省 =
+    ``dq_policy_version``（同一版本线），显式空串拒绝。
+    """
     if health_status not in HEALTH_STATUSES:
         raise ValueError(
             f"health_status 必须 ∈ {HEALTH_STATUSES}（收到 {health_status!r}）")
     if verification_state not in VERIFICATION_STATES:
         raise ValueError(
             f"verification_state 必须 ∈ {VERIFICATION_STATES}（收到 {verification_state!r}）")
+    if repair_policy_version is None:
+        repair_policy_version = dq_policy_version
+    if not isinstance(repair_policy_version, str) or not repair_policy_version:
+        raise ValueError(
+            f"repair_policy_version 必须为非空字符串（收到 {repair_policy_version!r}）")
     if set(completeness) != set(COMPLETENESS_KEYS):
         raise ValueError(
             f"completeness 键集必须为 {COMPLETENESS_KEYS}（收到 {sorted(completeness)}）")
@@ -111,6 +122,7 @@ def build_health_doc(*, dataset_id: str, partition: str, data_version: str,
         "partition": partition,
         "data_version": data_version,
         "dq_policy_version": dq_policy_version,
+        "repair_policy_version": repair_policy_version,
         "health_status": health_status,
         "verification_state": verification_state,
         "completeness": {k: completeness[k] for k in COMPLETENESS_KEYS},
@@ -139,7 +151,8 @@ def _atomic_write_json(path: Path, doc: dict) -> None:
 def publish_health(*, dataset_id: str, partition: str, data_version: str,
                    dq_policy_version: str, health_status: str,
                    verification_state: str, completeness: dict, quality: dict,
-                   rules_counts: dict, latest_trade_date: str | None = None,
+                   rules_counts: dict, repair_policy_version: str | None = None,
+                   latest_trade_date: str | None = None,
                    raw_path: str | Path | None = None,
                    raw_sha256: str | None = None,
                    source_version: str | None = None,
@@ -158,6 +171,7 @@ def publish_health(*, dataset_id: str, partition: str, data_version: str,
         dq_policy_version=dq_policy_version, health_status=health_status,
         verification_state=verification_state, completeness=completeness,
         quality=quality, rules_counts=rules_counts,
+        repair_policy_version=repair_policy_version,
         latest_trade_date=latest_trade_date, validated_at=validated_at,
         source_version=source_version, raw_sha256=raw_sha256)
     path = _resolve_root(root) / "health" / dataset_id / f"{partition}.json"
@@ -418,6 +432,7 @@ def main(argv: list[str] | None = None) -> int:
     path = publish_health(
         dataset_id=args.dataset, partition=partition,
         data_version=f"v{run_tag}_01", dq_policy_version=policy.dq_policy_version,
+        repair_policy_version=policy.dq_policy_version,
         health_status=final, verification_state="VERIFIED",
         completeness={"status": metrics.completeness.status,
                       "expected_count": metrics.completeness.expected_count,

@@ -84,8 +84,12 @@ FAIL
 
 ### 3.2 `dq_policy`（字段必须存在；数值先给初值，后续 calibration 只改值不改结构）
 
+> **M1.5 daily-v2（2026-09-19 控制者裁定）**：早市 VWAP 容差、历史单位约定例外
+> registry、ADJ 字段级处置入 policy；加载器对 daily-v1 **明确拒绝不映射**
+> （v1 文件保留作历史）。结构变更如下（语义见 §4④/§4⑤）。
+
 ```yaml
-dq_policy_version: daily-v1
+dq_policy_version: daily-v2
 partition_gate:
   pass:
     max_error_rate: 0.0001        # PASS 上界
@@ -100,6 +104,17 @@ systemic:
   group_count: 50
   time_share: 0.80
   time_count: 100
+vwap:
+  default_tol: 0.01
+  pre_1995_tol: 0.02
+  pre_1995_cutoff: "1995-01-01"
+field_invalidity:
+  null_on_nonpositive: ["adj_factor", "fq_factor"]
+historic_unit_exceptions:                 # 不得泛化到未登记代码/年代
+  - codes: ["000002.SZ", "000004.SZ"]
+    before: "1994-01-01"                  # 开区间：trade_date < before
+    factor: 5.0
+    match_tol: 0.10
 ```
 
 ## 4. 规则目录（8 类；本期 1-7，tick 后置）
@@ -125,11 +140,23 @@ systemic:
 ### ④ OHLC 与内部一致性
 - `Low ≤ Open,Close ≤ High`、`Low ≤ High`；
 - `volume>0 且 amount>0` → `VWAP=Amount/Volume` 落在当期价格范围附近；
+  **v2 容差带**：`trade_date >= vwap.pre_1995_cutoff`（1995-01-01）用
+  `default_tol=1%`；`trade_date < cutoff` 用 `pre_1995_tol=2%`（覆盖上界
+  `0.02/1.02≈1.96pp`；R33 证据：1991-04-20 / 1991-06-01 / 1993-07-03 整日与
+  1991-04-13 边际行属规则误判，恢复）；
+- **v2 历史制度例外 registry**：命中 `historic_unit_exceptions`（code 集合 ×
+  era，`trade_date < before`）且 `vwap/factor` 落在 `[low,high]×(1±match_tol)`
+  的行 → 降级 `HISTORIC_UNIT_EXCEPTION`（WARN + flag，**行保留入 canonical**）；
+  未登记代码/年代、或背离代码约定（真坏行）仍为 `VWAP_OUT_OF_RANGE` ERROR；
 - 日线 ↔ 分钟聚合：`high≈max / low≈min / volume≈sum / amount≈sum`（容差，不要求浮点相等）。
 
 ### ⑤ 收益跳变与复权/公司行为
 - 禁止"|return|>x 直接删"；先查除权除息/送转/拆并/配股；
-- **raw 与复权分开存**；复权因子变化日与 CA 日期一致；复权序列负价/断点/**lookahead 回写**检查。
+- **raw 与复权分开存**；复权因子变化日与 CA 日期一致；复权序列负价/断点/**lookahead 回写**检查；
+- **v2 字段级语义（ADJ_NULLED）**：`adj_factor`/`fq_factor` ≤ 0 → 该**字段**置
+  NULL + flag `ADJ_NULLED`（WARN，计数入 health quality/rules），OHLCV 不动、
+  **整行保留**（不再因单个 adj 字段坏掉整行 quarantine；`adj=NULL` 与既有缺失
+  语义一致，下游按缺失消费）。
 
 ### ⑥ 证券状态与市场规则一致性
 - **ST 必须 PIT**；上市/退市/停牌/复牌与行情匹配；
@@ -168,8 +195,9 @@ FETCH → RAW STAGING → STRUCTURAL VALIDATION → RECORD VALIDATION
   "dataset_id": "ashare_daily",
   "partition": "2026-09-18",
 
-  "data_version": "v20260918_01",
-  "dq_policy_version": "daily-v1",
+  "data_version": "v20260919_01",
+  "dq_policy_version": "daily-v2",
+  "repair_policy_version": "daily-v2",
 
   "health_status": "PASS | DEGRADED | FAIL | UNKNOWN",
   "verification_state": "VERIFIED | LEGACY_UNVERIFIED | KNOWN_ISSUE",
@@ -201,6 +229,10 @@ FETCH → RAW STAGING → STRUCTURAL VALIDATION → RECORD VALIDATION
 > 行数、`coverage = actual/expected`、`error_rate = error_count/expected`（fatal/warning/
 > quarantine 同为全表计数）；`completeness.status = COMPLETE` 当且仅当差额被确定性清洗账
 > （quarantine + dedup）完全解释。分区级 PK / 腾讯抽样 / 漂移仍按 `partition` 审查。
+>
+> **repair_policy_version 注记（2026-09-19 M1.5 T2）**：修复/清洗语义版本留痕，与
+> `dq_policy_version` 并列（缺省同值）；语义变更（字段级处置/容差/例外）必须 bump
+> 此版本，健康档案可据此判断消费的数据是哪一版修复规则的产物。
 
 **两个枚举是不同维度，不得互相映射**：
 - `health_status`：该 partition 按某版 policy 检查后的质量（PASS/DEGRADED/FAIL/UNKNOWN）；
@@ -248,7 +280,8 @@ require_dataset(
 - **三状态**：`VERIFIED / LEGACY_UNVERIFIED / KNOWN_ISSUE`（与 health 双维度，见 §6）。
 - **定向往修**：circ_mv、退市 adj、跨频系统偏差等；**不首轮全史重跑**。
 - **修复留痕**：`source_version / repair_policy_version / repair_reason / old_hash / new_hash /
-  affected_partitions`；下游 `FeatureFrame/Alpha/Backtest Artifact` 失效或标记重算。
+  affected_partitions`；health artifact 同步记录 `repair_policy_version`（§6，M1.5 T2）。下游
+  `FeatureFrame/Alpha/Backtest Artifact` 失效或标记重算。
 - **过渡条款**：存量无 health 分区 → `verification_state=LEGACY_UNVERIFIED, health_status=UNKNOWN`；
   读取默认拒；任务可显式声明接受（自动写 manifest + override_reason）。M1 先跑 **daily 全史体检**打标。
 

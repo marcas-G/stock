@@ -14,9 +14,9 @@ import pytest
 
 from data_quality import rules
 
-# spec §3.2 冻结初值（逐字）
+# spec §3.2 冻结初值（daily-v2：M1.5 语义变更，2026-09-19 控制者裁定）
 FULL = """\
-dq_policy_version: daily-v1
+dq_policy_version: daily-v2
 partition_gate:
   pass:
     max_error_rate: 0.0001
@@ -31,6 +31,17 @@ systemic:
   group_count: 50
   time_share: 0.80
   time_count: 100
+vwap:
+  default_tol: 0.01
+  pre_1995_tol: 0.02
+  pre_1995_cutoff: "1995-01-01"
+field_invalidity:
+  null_on_nonpositive: ["adj_factor", "fq_factor"]
+historic_unit_exceptions:
+  - codes: ["000002.SZ", "000004.SZ"]
+    before: "1994-01-01"
+    factor: 5.0
+    match_tol: 0.10
 """
 
 
@@ -42,7 +53,7 @@ def _write_policy(tmp_path: Path, body: str) -> Path:
 
 def test_load_policy_shipped_yaml_matches_spec_values():
     p = rules.load_policy()
-    assert p.dq_policy_version == rules.POLICY_VERSION == "daily-v1"
+    assert p.dq_policy_version == rules.POLICY_VERSION == "daily-v2"
     assert p.partition_gate == {
         "pass": {"max_error_rate": 0.0001, "min_coverage": 0.999},
         "fail": {"min_error_rate": 0.01, "max_missing_coverage": 0.01},
@@ -51,12 +62,19 @@ def test_load_policy_shipped_yaml_matches_spec_values():
         "field_share": 0.80, "field_count": 50, "group_ratio": 10.0,
         "group_count": 50, "time_share": 0.80, "time_count": 100,
     }
+    assert (p.vwap_default_tol, p.vwap_pre_1995_tol,
+            p.vwap_pre_1995_cutoff) == (0.01, 0.02, "1995-01-01")
+    assert p.field_invalidity_null == ("adj_factor", "fq_factor")
+    assert len(p.historic_unit_exceptions) == 1
+    reg = p.historic_unit_exceptions[0]
+    assert reg.codes == ("000002.SZ", "000004.SZ")
+    assert (reg.before, reg.factor, reg.match_tol) == ("1994-01-01", 5.0, 0.10)
 
 
 def test_load_policy_reads_values_from_given_path(tmp_path):
-    body = FULL.replace("max_error_rate: 0.0001", "max_error_rate: 0.002")
+    body = FULL.replace("  default_tol: 0.01", "  default_tol: 0.02")
     p = rules.load_policy(_write_policy(tmp_path, body))
-    assert p.partition_gate["pass"]["max_error_rate"] == 0.002
+    assert p.vwap_default_tol == 0.02
 
 
 def test_missing_nested_field_raises_naming_it(tmp_path):
@@ -66,19 +84,43 @@ def test_missing_nested_field_raises_naming_it(tmp_path):
     assert "partition_gate.fail.max_missing_coverage" in str(ei.value)
 
 
+def test_missing_vwap_field_raises_naming_it(tmp_path):
+    body = FULL.replace("  default_tol: 0.01\n", "")
+    with pytest.raises(ValueError) as ei:
+        rules.load_policy(_write_policy(tmp_path, body))
+    assert "vwap.default_tol" in str(ei.value)
+
+
+def test_vwap_cutoff_must_be_iso_date(tmp_path):
+    body = FULL.replace('pre_1995_cutoff: "1995-01-01"',
+                        'pre_1995_cutoff: "not-a-date"')
+    with pytest.raises(ValueError) as ei:
+        rules.load_policy(_write_policy(tmp_path, body))
+    assert "vwap.pre_1995_cutoff" in str(ei.value)
+
+
 def test_missing_version_raises_naming_it(tmp_path):
-    body = FULL.replace("dq_policy_version: daily-v1\n", "")
+    body = FULL.replace("dq_policy_version: daily-v2\n", "")
     with pytest.raises(ValueError) as ei:
         rules.load_policy(_write_policy(tmp_path, body))
     assert "dq_policy_version" in str(ei.value)
 
 
 def test_unknown_version_rejected_not_mapped(tmp_path):
-    body = FULL.replace("daily-v1", "daily-v0")
+    body = FULL.replace("daily-v2", "daily-v0")
     with pytest.raises(ValueError) as ei:
         rules.load_policy(_write_policy(tmp_path, body))
     msg = str(ei.value)
-    assert "daily-v0" in msg and "daily-v1" in msg
+    assert "daily-v0" in msg and "daily-v2" in msg
+
+
+def test_v1_policy_file_rejected_by_v2_loader():
+    """v1 文件保留作历史；v2 加载器对旧版本明确拒绝（不兼容映射）。"""
+    v1 = Path(rules.__file__).with_name("dq_policy.daily-v1.yaml")
+    assert v1.is_file(), "daily-v1 文件必须保留（历史可追溯）"
+    with pytest.raises(ValueError) as ei:
+        rules.load_policy(v1)
+    assert "daily-v1" in str(ei.value) and "daily-v2" in str(ei.value)
 
 
 def test_non_numeric_threshold_rejected_naming_it(tmp_path):
@@ -86,6 +128,28 @@ def test_non_numeric_threshold_rejected_naming_it(tmp_path):
     with pytest.raises(ValueError) as ei:
         rules.load_policy(_write_policy(tmp_path, body))
     assert "partition_gate.pass.max_error_rate" in str(ei.value)
+
+
+def test_registry_entry_missing_codes_rejected(tmp_path):
+    body = FULL.replace('codes: ["000002.SZ", "000004.SZ"]', "codes: []")
+    with pytest.raises(ValueError) as ei:
+        rules.load_policy(_write_policy(tmp_path, body))
+    assert "historic_unit_exceptions[0].codes" in str(ei.value)
+
+
+def test_registry_entry_bad_match_tol_rejected(tmp_path):
+    body = FULL.replace("    match_tol: 0.10", "    match_tol: wide")
+    with pytest.raises(ValueError) as ei:
+        rules.load_policy(_write_policy(tmp_path, body))
+    assert "historic_unit_exceptions[0].match_tol" in str(ei.value)
+
+
+def test_field_invalidity_requires_nonempty_string_list(tmp_path):
+    body = FULL.replace('null_on_nonpositive: ["adj_factor", "fq_factor"]',
+                        'null_on_nonpositive: []')
+    with pytest.raises(ValueError) as ei:
+        rules.load_policy(_write_policy(tmp_path, body))
+    assert "field_invalidity.null_on_nonpositive" in str(ei.value)
 
 
 # §4 规则目录（daily 子集）→ §1 级别（逐条来自设计文档，不由实现推导）
@@ -108,9 +172,11 @@ CATALOG = {
     # ④ OHLC 与内部一致性
     "OHLC_INVALID": rules.ERROR,
     "VWAP_OUT_OF_RANGE": rules.ERROR,
-    # ⑤ 收益跳变与复权/公司行为
+    # ⑤ 收益跳变与复权/公司行为（v2：字段级 invalid → NULL + flag，行保留）
     "ADJ_FACTOR_CA_MISMATCH": rules.WARN,
-    "ADJ_NEGATIVE": rules.ERROR,
+    "ADJ_NULLED": rules.WARN,
+    # v2：登记代码×年代的早期单位约定例外（VWAP 降级 WARN + flag）
+    "HISTORIC_UNIT_EXCEPTION": rules.WARN,
     # ⑥ 证券状态与市场规则
     "LIMIT_BREACH": rules.WARN,
     "LIMIT_FIRST_DAY_EXEMPT": rules.INFO,
