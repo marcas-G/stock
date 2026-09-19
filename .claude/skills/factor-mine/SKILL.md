@@ -141,6 +141,10 @@ FACTORLAB_DATA_BACKEND=ch $FLAB run research/factor/<族>/<name>.yaml
    用 R21 脚本补齐。**门未绿不得 commit**（R07 审计：门红复发根因即挖矿提交前没跑门）。
 6. `git add research/factor/<族>/<stem>.yaml knowledge/dossiers/factors/<族>/<stem>.md`（并重生成索引：`/data/students/gaolei/stock/platform/.venv/bin/python research/tools/factor_lib/build_index.py`）
    → `git commit -m "feat(factor): <name> — <变异点一句话>"`。
+7. **轮末收尾（R31 起）**：跑 `make index`（一次重生 `factors.md` + `strategies.md`）；
+   确认本轮每个新 yaml 的同名档案已落盘——"yaml↔md 镜像"门对缺档只有 **72h
+   提交时效宽限**（`research/tools/factor_lib/dossier_freshness.py`），超期或
+   git 无法判定即红。
 
 ## 全局规则
 

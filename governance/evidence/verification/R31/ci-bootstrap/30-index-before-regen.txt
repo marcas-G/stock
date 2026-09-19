@@ -1,0 +1,20 @@
+
+    def test_index_matches_generator(tmp_path):
+        """门：knowledge/index/factors.md 必须与生成器输出逐字节一致（防手改/陈旧）。"""
+        assert BI.OUT.is_file(), "索引不存在——先跑 build_index.py"
+>       assert BI.OUT.read_text(encoding="utf-8") == BI.render()
+E       AssertionError: assert '# 因子索引（自动生成，...dardize() |\n' == '# 因子索引（自动生成，...dardize() |\n'
+E         
+E         Skipping 89 identical leading characters in diff, use -v to show
+E           。
+E         - > 共 **239 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+E         ?         ^
+E         + > 共 **233 个因子** · **15 族** · 变体组 **5** 组（同公式多假设，非重复）。
+E         ?         ^...
+E         
+E         ...Full output truncated (401 lines hidden), use '-vv' to show
+
+research/tools/factor_lib/tests/test_index.py:31: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/factor_lib/tests/test_index.py::test_index_matches_generator
+1 failed, 4 passed in 2.25s

@@ -1,0 +1,10 @@
+.PENDING 档案缺失（yaml 提交 < 72h 宽限）: knowledge/dossiers/factors/intraday/amihud_max.md ← research/factor/intraday/amihud_max.yaml
+PENDING 档案缺失（yaml 提交 < 72h 宽限）: knowledge/dossiers/factors/intraday/parkinson_ratio.md ← research/factor/intraday/parkinson_ratio.yaml
+PENDING 档案缺失（yaml 提交 < 72h 宽限）: knowledge/dossiers/factors/intraday/sign_flips.md ← research/factor/intraday/sign_flips.yaml
+PENDING 档案缺失（yaml 提交 < 72h 宽限）: knowledge/dossiers/factors/intraday/turnover_cv.md ← research/factor/intraday/turnover_cv.yaml
+PENDING 档案缺失（yaml 提交 < 72h 宽限）: knowledge/dossiers/factors/intraday/updown_breadth.md ← research/factor/intraday/updown_breadth.yaml
+PENDING 档案缺失（yaml 提交 < 72h 宽限）: knowledge/dossiers/factors/intraday/vol_persist.md ← research/factor/intraday/vol_persist.yaml
+PENDING 档案缺失（yaml 提交 < 72h 宽限）: knowledge/dossiers/factors/momentum_20d/turnrank_top2.md ← research/factor/momentum_20d/turnrank_top2.yaml
+PENDING 档案缺失（yaml 提交 < 72h 宽限）: knowledge/dossiers/factors/momentum_20d/turnrank_top5.md ← research/factor/momentum_20d/turnrank_top5.yaml
+....
+5 passed in 1.80s
