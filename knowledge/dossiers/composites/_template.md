@@ -6,12 +6,12 @@
 > 并行存放；两者必须一致，改 spec 后同步本档案。索引 `knowledge/index/composites.md`
 > 由 `research/tools/factor_lib/build_composite_index.py` 生成（spec ↔ 档案成对，缺一即红）。
 
-<!-- 元信息块（自包含、标签化）。status 取值：探索中 / 候选 / 观察中 / 已废弃 -->
+<!-- 元信息块（自包含、标签化）。status 取值：draft / 探索中 / 候选 / 观察中 / 已废弃 -->
 ---
 name: <合成分名>                        <!-- 与 research/composites/specs/<name>.yaml 的 name 一致 -->
 spec: research/composites/specs/<name>.yaml
 window: "<YYYY-MM-DD> ~ <YYYY-MM-DD>"   <!-- 样本窗口（成员交集口径） -->
-status: 探索中
+status: draft
 snapshot: <历史快照说明>                 <!-- 可选：验证数字无 in-tree 产物/当前不可复跑时保留；重跑留证后删本行 -->
 ---
 

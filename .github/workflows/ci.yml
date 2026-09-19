@@ -233,11 +233,12 @@ jobs:
       - name: 因子 spec 全库 lint（G-LINT）
         run: platform/.venv/bin/factorlab lint --all
 
-      - name: 索引一致（G-INDEX：因子 + 策略）
+      - name: 索引一致（G-INDEX：因子 + 策略 + composite）
         run: |
           set -o pipefail
           { platform/.venv/bin/python research/tools/factor_lib/build_index.py --check; \
-            platform/.venv/bin/python research/tools/factor_lib/build_strategy_index.py --check; } \
+            platform/.venv/bin/python research/tools/factor_lib/build_strategy_index.py --check; \
+            platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py --check; } \
             2>&1 | tee "$RUNNER_TEMP/gate-index.log"
 
       - name: 失败注记（gates）

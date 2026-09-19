@@ -79,6 +79,26 @@ def test_real_index_matches_generator():
     assert BC.main(["--check"]) == 0
 
 
+def test_real_repo_every_spec_has_dossier():
+    """防复发（C3 终审）：真实仓全量 spec ↔ 档案成对，C1/C2 示例一个不能少。
+
+    A 流落库 5 例（linear_rank/linear_weighted/ridge/pls/pca）曾缺档案导致
+    `--check`/`make index`/G-INDEX 红——本条把"真实仓成对"钉死为常驻断言。
+    """
+    specs, errors = BC.load_specs()
+    registered, _legacy, derrors = BC.load_dossiers()
+    assert not errors, errors
+    assert not derrors, derrors
+    spec_stems = {s["stem"] for s in specs}
+    registered_stems = {d["stem"] for d in registered}
+    assert not (spec_stems - registered_stems), (
+        f"真实仓 spec 缺档案: {sorted(spec_stems - registered_stems)}")
+    assert not (registered_stems - spec_stems), (
+        f"真实仓档案缺 spec: {sorted(registered_stems - spec_stems)}")
+    for name in ("cx_demo", "linear_rank", "linear_weighted", "ridge", "pls", "pca"):
+        assert name in spec_stems, f"C1/C2 示例 spec 丢失: {name}"
+
+
 def test_real_index_includes_cx_demo_in_member_order():
     text = BC.OUT.read_text(encoding="utf-8")
     assert "`cx_demo`" in text
