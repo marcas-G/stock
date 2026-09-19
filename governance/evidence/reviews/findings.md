@@ -320,6 +320,16 @@
   （全 NaN 信号通过静默评估 = 把 bug 变成错误结论）。复现 spec：
   `research/factor/intraday/_oos2026/vol_run_energy_symrun_oos2026.yaml`（原版写法触发）。
 
+> 以下为 R31 上表化条目（2026-09-20 补录：原 bullet 格式同步器不可见，GitHub issue 化）。
+
+| ID | 级 | 问题 | 关键位置 | 状态 | 修复说明（团队填） | 复查 |
+|---|---|---|---|---|---|---|
+| R31-API-I1 | I | **`flab factor resic` 判定口径错配（功能缺口，影响入库判定）**：无 horizon/`--fwd-col` 参数，固定 weekly 栅格 + forward_return_5d；minute 库成员全为 daily/1d 口径（evaluation v2 / D11）→ retention 系统性偏低，真实增量因子被误挡（jump_ratio weekly-retention 0.29、cn_spread 0.46 判"观察"，逐日 1d 分年 resIC 三年同号 \|t\|=6~10）；临时替代=研究侧逐日残差检验【实测】 | `platform/src/factorlab/research/factor.py`；`platform/src/factorlab/research/cli.py`；证据 `governance/evidence/verification/R31/research-api/`；档案 `knowledge/dossiers/factors/intraday_campaign.md` | open |  |  |
+| R31-API-P1 | M | **`flab factor admit` 默认 `--scales daily`**，minute 候选必须显式 `--scales minute`；且 admit 内部 resic 受 R31-API-I1 影响，verdict 对 minute 因子不可直接采信（需配合分年逐日增检复核，流程已固化在档案）【实测】 | `platform/src/factorlab/research/factor.py`；`knowledge/dossiers/factors/intraday_campaign.md` | open |  |  |
+| R31-STAT-I1 | I | **D10 固定 t 阈值未做多重性定标（判据级缺陷）**：99 试验联合 max-T 校准（B=300）临界值 \|t\|≈3.45，旧阈值 2.5~3 的放行在 FWER 下不成立；原 t 排名与条件信息排名几乎不相关（abs_auction_premium 原始 3.2/条件 7.4；auction_range 8.6/-0.6）；参考库 29 员后向归约仅 20 员有独立信息（9 员换皮）；"分钟文法饱和"旧结论系 weekly-resIC 判据错配【实测】 | `knowledge/design/platform/specs/2026-09-16-factorlab-eval-metrics-v2-design.md`；证据 `governance/evidence/verification/R31/research-api/`（仓外 quantresearch 全量证据） | open |  |  |
+| R31-DQ-I1 | I | **health artifact 从未发布过 PASS（阻塞级）**：health 分区（ashare_daily）全部 health_status=UNKNOWN（LEGACY），UNKNOWN 完整性检查独立于 accept_quality opt-in → research 侧无合规通路；后果=所有新 `flab factor run` 评估段 rc=8。请求：a) 跑健康发布链（全历史或 ≥2023-01）；b) 或给 UNKNOWN-LEGACY 提供 research opt-in 通道；c) `flab data status --pretty` USAGE 报错【实测】 | `platform/tools/data_quality/health.py`；`knowledge/contracts/interface.md`（读取门契约） | open |  |  |
+| R31-CODEGEN-I1 | C | **CH 表达式 codegen：对中间变量再次做窗口算子会静默产出全 NaN 信号**（数据腐蚀级）：如 `signal = -ts_rank(_rl, 120) * _energy * 2.0` 组件全正常但整体全 NaN 无告警；提升为独立中间行即恢复。请求：a) 修 codegen 嵌套窗口处理；b) 编译后加"全 NaN 即报错"产出守卫（静默全 NaN 通过评估=把 bug 变成错误结论）【实测】 | `platform/src/factorlab/core/engine/compute.py`；复现 spec `research/factor/intraday/_oos2026/vol_run_energy_symrun_oos2026.yaml` | open |  |  |
+
 ## R36 自托管 CI 首跑发现（2026-09-19，selfhosted CI）
 
 > 背景：上线自托管 runner（`gpu-server-1`）跑"宿主数据面"验证（平台全量 + CH 集成 +
