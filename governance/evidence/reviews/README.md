@@ -53,6 +53,10 @@ governance/evidence/reviews/
   标签 `kind:*/severity:*/status:*/round:*/paused`；里程碑 `R08 / Plan DQ / Plan T / Plan 开放算子 / Plan 分钟执行 / Plan CX / 治理`。
 - **V1 限制**：同步器目前只做"创建 + 幂等查重"；`verified → 评论+关单`、`reopened → 重开` 待 V2
   （在此之前：状态以本地台账为准，GitHub 侧手动关单或等 V2）。
+- **并发双建（2026-09-20 已发生一次，见 closed #21）**：`findings.md` 推送会触发
+  workflow 自动同步；若此时本地再跑 `sync_review_issues.py --apply`，两通道在
+  「查重→创建」窗口赛跑会各建一条。约定：**推送后等 workflow 跑完**，本地先 dry-run
+  看"已存在"，确需手动再 `--apply`。发现双建：保留编号小的一条，另一条评论+`duplicate` 关单。
 - **本机推送通道（2026-09-19 实测）**：本服务器出网**阻断 `github.com:443`**（git https 报
   `Empty reply from server`；`api.github.com` 正常）。git 一律走 **SSH-over-443**：
   `~/.ssh/config` 已配 `Host github.com → HostName ssh.github.com / Port 443`，
