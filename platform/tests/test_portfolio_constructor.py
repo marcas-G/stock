@@ -47,6 +47,8 @@ def _spec(**over):
             "weighting": {"method": "equal_weight"}}
     if "k" in over:   # k 快捷方式 → 合并进 selection
         base["selection"] = {**base["selection"], "k": over.pop("k")}
+    if "method" in over:   # weighting.method 快捷方式
+        base["weighting"] = {**base["weighting"], "method": over.pop("method")}
     if "gross" in over:   # gross 快捷方式 → gross_exposure
         over["gross_exposure"] = over.pop("gross")
     base.update(over)
@@ -390,3 +392,132 @@ def test_scheduled_all_null_explicit_all_cash():
     # 该周最后 available date = 2024-01-05（Fri）——全 null → 0 rows（explicit all cash）
     assert datetime.date(2024, 1, 5) in tp.decision_dates
     assert tp.frame.height == 0
+
+
+# ================================================================
+# C4 T2（§19.2）：score_weighted——Top-K 后 s'=max(signal×direction,0)，
+# w=gross×s'/Σs'；Σs'==0 → 当日 all-cash（不 fallback 等权）；long-only。
+# ================================================================
+
+def _score_signal(signals, codes=("000001.SZ", "000002.SZ", "600000.SH")):
+    f = pl.DataFrame({
+        "date": pl.Series([D1] * len(codes), dtype=pl.Date),
+        "code": pl.Series(list(codes), dtype=pl.String),
+        "signal": pl.Series(list(signals), dtype=pl.Float64)})
+    return _signal(frame=f)
+
+
+def test_score_weighted_hand_computed():
+    """s=[2,1,-1]、top2 → w=[gross×2/3, gross×1/3]；负分第三只不建行。"""
+    tp = construct_target_portfolio(_score_signal([2.0, 1.0, -1.0]),
+                                    _spec(k=2, gross=0.9, method="score_weighted"))
+    out = tp.frame.sort(["decision_date", "code"])
+    assert out["code"].to_list() == ["000001.SZ", "000002.SZ"]
+    assert out["target_weight"].to_list() == [pytest.approx(0.6),
+                                              pytest.approx(0.3)]
+    assert "600000.SH" not in out["code"].to_list()
+    assert tp.frame.height == 2
+    assert tp.meta.gross_exposure == 0.9
+
+
+def test_score_weighted_selected_nonpositive_no_zero_row():
+    """k=3 全选 s=[3,2,-1]：Σs' 只算正部（5）→ w=[3/5,2/5]，0 权重不建行。"""
+    tp = construct_target_portfolio(_score_signal([3.0, 2.0, -1.0]),
+                                    _spec(k=3, method="score_weighted"))
+    out = tp.frame.sort(["decision_date", "code"])
+    assert out["code"].to_list() == ["000001.SZ", "000002.SZ"]
+    assert out["target_weight"].to_list() == [pytest.approx(0.6),
+                                              pytest.approx(0.4)]
+    assert (out["target_weight"] > 0).all()
+
+
+def test_score_weighted_all_negative_all_cash():
+    """全负分：Σs'==0 → 当日 all-cash（decision_date 在、0 rows，不 fallback 等权）。"""
+    tp = construct_target_portfolio(_score_signal([-1.0, -2.0, -3.0]),
+                                    _spec(k=2, method="score_weighted"))
+    assert tp.frame.height == 0
+    assert D1 in tp.decision_dates
+    assert tp.frame.columns == ["decision_date", "code", "target_weight"]
+
+
+def test_score_weighted_all_zero_all_cash():
+    """全零分：Σs'==0 → all-cash（0 不是 null，选择照常，加权显式空仓）。"""
+    tp = construct_target_portfolio(_score_signal([0.0, 0.0, 0.0]),
+                                    _spec(k=2, method="score_weighted"))
+    assert tp.frame.height == 0
+    assert D1 in tp.decision_dates
+
+
+def test_score_weighted_direction_flip_symmetry():
+    """direction=-1 时 s=signal×(-1)：镜像选股 + 镜像权重。"""
+    f = pl.DataFrame({
+        "date": pl.Series([D1] * 4, dtype=pl.Date),
+        "code": pl.Series(["000001.SZ", "000002.SZ", "600000.SH", "600001.SH"],
+                          dtype=pl.String),
+        "signal": pl.Series([2.0, 1.0, -2.0, -1.0], dtype=pl.Float64)})
+    up = construct_target_portfolio(_signal(frame=f),
+                                    _spec(k=2, method="score_weighted"))
+    dn = construct_target_portfolio(_signal(frame=f),
+                                    _spec(k=2, direction=-1, method="score_weighted"))
+    up_out, dn_out = (x.frame.sort(["decision_date", "code"]) for x in (up, dn))
+    assert up_out["code"].to_list() == ["000001.SZ", "000002.SZ"]
+    assert dn_out["code"].to_list() == ["600000.SH", "600001.SH"]
+    assert up_out["target_weight"].to_list() == [pytest.approx(2 / 3),
+                                                 pytest.approx(1 / 3)]
+    assert dn_out["target_weight"].to_list() == [pytest.approx(2 / 3),
+                                                 pytest.approx(1 / 3)]
+
+
+def test_score_weighted_differs_from_equal_weight_same_selection():
+    """同一输入：选择集一致（tie/null 语义不变），仅权重公式不同。"""
+    sa = _score_signal([2.0, 1.0, -1.0])
+    eq = construct_target_portfolio(sa, _spec(k=2, method="equal_weight"))
+    sw = construct_target_portfolio(sa, _spec(k=2, method="score_weighted"))
+    eq_out = eq.frame.sort(["decision_date", "code"])
+    sw_out = sw.frame.sort(["decision_date", "code"])
+    assert eq_out["code"].to_list() == sw_out["code"].to_list()
+    assert eq_out["target_weight"].to_list() == [0.5, 0.5]
+    assert sw_out["target_weight"].to_list() == [pytest.approx(2 / 3),
+                                                 pytest.approx(1 / 3)]
+
+
+def test_score_weighted_null_dropped_not_zero_filled():
+    """null 沿用既有 drop（不进入 ranking，也不补偿为 0 权重行）。"""
+    tp = construct_target_portfolio(_score_signal([None, 2.0, 1.0]),
+                                    _spec(k=2, method="score_weighted"))
+    out = tp.frame.sort(["decision_date", "code"])
+    assert out["code"].to_list() == ["000002.SZ", "600000.SH"]
+    assert out["target_weight"].to_list() == [pytest.approx(2 / 3),
+                                              pytest.approx(1 / 3)]
+
+
+def test_score_weighted_tie_uses_code_asc():
+    """exact tie 沿用既有 code_asc cutoff（不引入新 tie 规则）。"""
+    f = pl.DataFrame({
+        "date": pl.Series([D1] * 3, dtype=pl.Date),
+        "code": pl.Series(["000001.SZ", "000002.SZ", "600000.SH"], dtype=pl.String),
+        "signal": pl.Series([10.0, 10.0, 20.0], dtype=pl.Float64)})
+    tp = construct_target_portfolio(_signal(frame=f),
+                                    _spec(k=2, method="score_weighted"))
+    out = tp.frame.sort(["decision_date", "code"])
+    assert out["code"].to_list() == ["000001.SZ", "600000.SH"]
+    assert out["target_weight"].to_list() == [pytest.approx(1 / 3),
+                                              pytest.approx(2 / 3)]
+
+
+def test_score_weighted_one_day_all_cash_other_days_kept():
+    """逐日独立：全负日 all-cash，其余日照常加权。"""
+    f = pl.DataFrame({
+        "date": pl.Series([D1, D1, D1, D2, D2, D2], dtype=pl.Date),
+        "code": pl.Series(["000001.SZ", "000002.SZ", "600000.SH"] * 2,
+                          dtype=pl.String),
+        "signal": pl.Series([2.0, 1.0, -1.0, -1.0, -2.0, -3.0],
+                            dtype=pl.Float64)})
+    tp = construct_target_portfolio(_signal(frame=f),
+                                    _spec(k=2, method="score_weighted"))
+    assert tp.decision_dates == (D1, D2)
+    assert set(tp.frame["decision_date"].unique().to_list()) == {D1}
+    d1 = tp.frame.sort(["decision_date", "code"])
+    assert d1["code"].to_list() == ["000001.SZ", "000002.SZ"]
+    assert d1["target_weight"].to_list() == [pytest.approx(2 / 3),
+                                             pytest.approx(1 / 3)]

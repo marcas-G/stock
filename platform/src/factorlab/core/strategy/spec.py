@@ -69,11 +69,17 @@ class SelectionSpec(BaseModel):
 
 
 class WeightingSpec(BaseModel):
-    """权重契约（M7 v1：equal_weight only）。"""
+    """权重契约（M7 v1：equal_weight；C4 §19.2：score_weighted）。
+
+    - equal_weight：gross_exposure / selected_count
+    - score_weighted（long-only）：Top-K 后取有符号分 s = signal × direction，
+      s' = max(s, 0)，w_i = gross_exposure × s'_i / Σs'；Σs'==0 → 当日 all-cash
+      （显式，不 fallback 等权）。single-name cap 本期不做（V2 不引入）。
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    method: Literal["equal_weight"] = "equal_weight"
+    method: Literal["equal_weight", "score_weighted"] = "equal_weight"
 
 
 class StrategySpec(BaseModel):

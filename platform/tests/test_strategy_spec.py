@@ -48,6 +48,25 @@ def test_gross_partial():
     assert _spec(gross_exposure=0.5).gross_exposure == 0.5
 
 
+def test_weighting_score_weighted_valid():
+    """C4 §19.2：weighting.method 扩容 score_weighted（默认仍 equal_weight）。"""
+    s = _spec(weighting={"method": "score_weighted"})
+    assert s.weighting.method == "score_weighted"
+    assert _spec().weighting.method == "equal_weight"
+
+
+@pytest.mark.parametrize("bad", ["rank_weighted", "market_cap_weighted",
+                                 "equal_weighted", "", "SCORE_WEIGHTED"])
+def test_weighting_unknown_method_fails(bad):
+    with pytest.raises(ValidationError):
+        _spec(weighting={"method": bad})
+
+
+def test_weighting_unknown_param_fails():
+    with pytest.raises(ValidationError):
+        _spec(weighting={"method": "score_weighted", "single_name_cap": 0.1})
+
+
 # ---------------- 非法输入 ----------------
 
 @pytest.mark.parametrize("bad", [0, 2, True, "1"])

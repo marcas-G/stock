@@ -1,9 +1,9 @@
-"""M7-02：construct_target_portfolio——SignalArtifact → Top-K Equal-Weight TargetPortfolio。
+"""M7-02：construct_target_portfolio——SignalArtifact → Top-K TargetPortfolio。
 
 Strategy Runtime 边界：**只接受 SignalArtifact**（LabelArtifact/DataFrame/
 FactorResult/panel 全部拒绝——无 DataFrame shortcut）。
 
-流程（M7-02 daily v1）：
+流程（M7-02 daily v1；C4 §19.2 扩 score_weighted）：
 
     SignalArtifact(date, code, signal)
         │
@@ -14,6 +14,8 @@ FactorResult/panel 全部拒绝——无 DataFrame shortcut）。
         ├── code_asc exact tie break
         ├── top_k / insufficient（use_available / all_cash）
         └── equal_weight（gross_exposure / M）
+            | score_weighted（w = gross × s' / Σs'，s' = max(signal×direction, 0)；
+              Σs'==0 → 当日显式 all-cash；long-only，无 single-name cap）
         ▼
     TargetPortfolio
 
@@ -68,6 +70,9 @@ def construct_target_portfolio(
     - null → drop；NaN/±Inf → fail fast（non-finite 无策略语义）
     - exact tie（signal 数值相同）→ code ASC（输入行序不影响）
     - equal_weight = gross_exposure / selected_count（无 residual correction）
+    - score_weighted（C4 §19.2，long-only）：Top-K 后 s' = max(signal×direction, 0)，
+      w_i = gross_exposure × s'_i / Σs'；s'==0 的名字不建行（sparse 语义）；
+      Σs'==0 → 该日显式 all-cash（不 fallback 等权）。single-name cap 本期不做。
     - 输出 sparse positions（0 weight 不创建 row；all-cash 日 0 rows 但
       decision_date 存在）；按 (decision_date, code) 稳定排序
     - 不改动输入 SignalArtifact（pure）
@@ -121,6 +126,7 @@ def construct_target_portfolio(
     gross = spec.gross_exposure
     use_available = spec.selection.on_insufficient == "use_available"
     desc = spec.direction == 1
+    score_weighted = spec.weighting.method == "score_weighted"
 
     work = (df.select(["date", "code", "signal"])
               .filter(pl.col("signal").is_not_null()))
@@ -133,10 +139,24 @@ def construct_target_portfolio(
         m = min(n, k)
         ranked = day.sort(by=["signal", "code"], descending=[desc, False])
         sel = ranked.head(m)
+        if score_weighted:
+            # C4 §19.2：Top-K 后取有符号正部；0 权重不建行（sparse）
+            positive = []
+            for v in sel["signal"].to_list():
+                s = v * spec.direction
+                positive.append(s if s > 0 else 0.0)
+            total = sum(positive)
+            if total == 0.0:
+                continue   # Σs'==0 → 该日显式 all-cash（不 fallback 等权）
+            codes = [c for c, s in zip(sel["code"].to_list(), positive) if s > 0]
+            weights = [gross * s / total for s in positive if s > 0]
+        else:
+            codes = sel["code"].to_list()
+            weights = [gross / m] * m
         parts.append(pl.DataFrame({
-            "decision_date": pl.Series([d] * m, dtype=pl.Date),
-            "code": sel["code"].to_list(),
-            "target_weight": pl.Series([gross / m] * m, dtype=pl.Float64),
+            "decision_date": pl.Series([d] * len(codes), dtype=pl.Date),
+            "code": codes,
+            "target_weight": pl.Series(weights, dtype=pl.Float64),
         }))
     frame = (pl.concat(parts).sort(["decision_date", "code"])
              if parts else pl.DataFrame(schema=_EMPTY_SCHEMA))
