@@ -170,6 +170,18 @@ def _read_cache_disabled(monkeypatch):
 
 
 # ================================================================
+# CI 稳定性（R31-ci-fix）：CLI `--help` 文本断言与终端宽度耦合
+#   无 TTY（CI runner）时 click/rich 按 COLUMNS/默认宽度渲染，窄宽度会把
+#   `--universe`/`--chunk-days`/`--port`/`--target` 等长选项折行，导致
+#   test_cli_*_help 误红（本地 COLUMNS=40 可复现）。固定一个足够宽的宽度，
+#   使断言在任何 CI/终端环境下确定；真实终端宽度的帮助渲染不受影响。
+# ================================================================
+@pytest.fixture(autouse=True)
+def _stable_help_width(monkeypatch):
+    monkeypatch.setenv("COLUMNS", "200")
+
+
+# ================================================================
 # Plan DQ-M1 F3：真实入口读取门假 health（平台测试专用）
 #   CLI（execute_run）/ research 门面（factor）/ run_strategy 默认
 #   dataset="ashare_daily"（fail-closed）——平台测试是**合成 tmp 库/历史窗口**，

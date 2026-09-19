@@ -16,3 +16,4 @@ families:
   volatility:          [low_vol, low_downside, max_effect]
   size:                [small_cap]
   misc:                []          # 无前缀可归属的单例（closing_strength 等）
+  intraday:            [intraday]  # 分钟面（bars_1m，折日 EOD 信号）
