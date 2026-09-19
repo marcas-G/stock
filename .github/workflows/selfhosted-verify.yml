@@ -1,0 +1,119 @@
+name: Selfhosted Verify (CH/全量)
+
+# 自托管 runner：gpu-server-1（标签 factorlab；宿主有 ClickHouse + 在盘数据）。
+# 触发只有手动 + 夜间：**不挂 pull_request**——公开仓 + 自托管 runner 的分叉 PR
+# 是任意代码执行风险面（GitHub 官方安全建议：自托管 runner 仅配私有仓）。
+# 本机出网阻断 github.com：本 workflow 不使用任何 marketplace action（含
+# actions/checkout——改 git 直取）；远端动作下载若需要，请先在外部网络验证。
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [selfhosted-verify]
+  schedule:
+    - cron: "0 19 * * *"   # UTC 19:00 = 北京 03:00（避开白天挖矿重任务）
+
+permissions:
+  contents: read
+
+concurrency:
+  group: selfhosted-verify
+  cancel-in-progress: false
+
+env:
+  FACTORLAB_DATA_BACKEND: ch
+  POLARS_MAX_THREADS: "8"
+  OMP_NUM_THREADS: "8"
+
+jobs:
+  full-verify:
+    name: 全量验证（CH + 在盘数据）
+    runs-on: [self-hosted, factorlab]
+    timeout-minutes: 120
+    steps:
+      # 不用 actions/checkout：github.com 在本机被阻断；git 走 SSH-over-443
+      #（~/.ssh/config → ssh.github.com:443），且 runner 与仓库同机。
+      - name: 同步代码（git 直取）
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          [ -d .git ] || git init -q
+          if git remote get-url origin >/dev/null 2>&1; then
+            git remote set-url origin git@github.com:marcas-G/stock.git
+          else
+            git remote add origin git@github.com:marcas-G/stock.git
+          fi
+          git fetch -q --depth=1 origin "$GITHUB_SHA"
+          git checkout -q -f FETCH_HEAD
+          git clean -qfd
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git log --oneline -1
+
+      # 钉版与 hosted CI（.github/workflows/ci.yml）保持一致：httpx/polars 为
+      # 不钉则红项；用 uv 建 venv（宿主已装 uv + cpython 3.13，无需再下载解释器）。
+      - name: 环境（uv venv + editable 安装）
+        run: |
+          set -euo pipefail
+          UV=/home/gaolei/.local/bin/uv
+          [ -x platform/.venv/bin/python ] || "$UV" venv --python 3.13 --seed platform/.venv
+          "$UV" pip install -q --python platform/.venv/bin/python \
+            -e "./platform[dev]" \
+            "httpx==0.28.1" "polars==1.44.1" "typer==0.27.2" "rich==15.0.0" \
+            "click==8.5.0" "pytest-timeout==2.4.0"
+
+      - name: 常驻门 make gates
+        run: make gates
+
+      # 平台全量：宿主有 CH，hosted CI 的"数据在盘假设"排除项在此**不必排除**。
+      # 唯一排除：lob_fact tick e2e（tick 全线暂停 2026-09-19，见 issue #15；
+      # 恢复 tick 时连同门豁免一并移除本 deselect）。
+      - name: 平台全量 pytest（CH）
+        run: |
+          set -o pipefail
+          LOG="$RUNNER_TEMP/pytest-platform.log"
+          governance/ops/heavy.sh platform/.venv/bin/python -m pytest -q \
+            --timeout=300 --timeout-method=thread \
+            --deselect tools/lob_fact/tests/test_run_lob_batch.py::test_main_cli_e2e_mini_month \
+            2>&1 | tee "$LOG"
+
+      - name: platform/tools 测试（CH + 在盘数据）
+        run: |
+          set -o pipefail
+          LOG="$RUNNER_TEMP/pytest-tools.log"
+          governance/ops/heavy.sh platform/.venv/bin/python -m pytest platform/tools -q \
+            --timeout=300 --timeout-method=thread \
+            --deselect tools/lob_fact/tests/test_run_lob_batch.py::test_main_cli_e2e_mini_month \
+            2>&1 | tee "$LOG"
+
+      # research/tools 排除项与 hosted CI 完全一致（2 条 strategies 预存红 = DQ
+      # health 门对 2025-03 历史分区 UNKNOWN 的拒单；1 条档案时效门 72h 宽限，
+      # 挖矿在途 2 spec 档案补齐后应删）。**不得扩大排除范围**。
+      - name: research/tools 测试（排除 3 条在途/预存红）
+        run: |
+          set -o pipefail
+          LOG="$RUNNER_TEMP/pytest-research.log"
+          governance/ops/heavy.sh platform/.venv/bin/python -m pytest research/tools -q \
+            --timeout=300 --timeout-method=thread \
+            --deselect tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches \
+            --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03 \
+            --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes \
+            2>&1 | tee "$LOG"
+
+      - name: governance/ops 测试
+        run: |
+          set -o pipefail
+          platform/.venv/bin/python -m pytest governance/ops -q --timeout=300 \
+            2>&1 | tee "$RUNNER_TEMP/pytest-gov.log"
+
+      - name: 失败注记（annotations）
+        if: failure()
+        run: |
+          for log in "$RUNNER_TEMP"/pytest-*.log; do
+            [ -f "$log" ] || continue
+            echo "::error::—— $(basename "$log") FAILED ——"
+            grep -E '^(FAILED|ERROR)' "$log" | head -25 | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+            tail -10 "$log" | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+          done

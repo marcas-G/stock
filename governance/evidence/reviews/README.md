@@ -58,6 +58,13 @@ governance/evidence/reviews/
   `~/.ssh/config` 已配 `Host github.com → HostName ssh.github.com / Port 443`，
   key `~/.ssh/id_ecdsa_github`（账号 key 名 `gaolei-gpu-server`，OpenSSH 8.2 不支持 ed25519 故用 ECDSA）；
   `origin` 已切 `git@github.com:marcas-G/stock.git`。**本机不要再用 https 推拉**。
+- **自托管 runner（2026-09-19）**：`gpu-server-1`（标签 `self-hosted,Linux,X64,factorlab,ch`），
+  宿主直连 CH + 在盘数据；systemd **user** 服务 `actions-runner.service`
+  （目录 `/data/students/gaolei/actions-runner`，日志 `journalctl --user -u actions-runner`，
+  已 `--disableupdate`——本机下不了 runner 升级包，升级走 API asset 手动换版）。
+  配套 workflow `.github/workflows/selfhosted-verify.yml`（手动 dispatch / 夜间 03:00 /
+  repository_dispatch；**故意不挂 `pull_request`**——公开仓 + 自托管的分叉 PR 是任意代码执行
+  风险面，GitHub 官方建议自托管仅配私有仓；**建议后续把仓库转私有**）。
 
 ## 流程
 
