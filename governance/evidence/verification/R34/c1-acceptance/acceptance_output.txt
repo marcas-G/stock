@@ -1,0 +1,50 @@
+# repo        = /data/students/gaolei/stock
+# sandbox     = /tmp/cx-c1-acceptance-001g2y5k
+# sample spec = research/composites/specs/cx_demo.yaml
+# backend     = 生产链 run_composite（compose CLI 同入口）
+# run A: out=/tmp/cx-c1-acceptance-001g2y5k/runs/composites/cx_demo rows=8 cached=False cache_key=559fd99571454545...
+
+[1] 手算一致：y = 0.5*x1 - 0.5*x2（逐值）
+    date        code        x1     x2   expected    actual   match
+    2024-01-02  000001.SZ    0.0    5.0     -2.50     -2.50   OK
+    2024-01-02  000002.SZ    1.0    7.0     -3.00     -3.00   OK
+    2024-01-02  000003.SZ    2.0    9.0     -3.50     -3.50   OK
+    2024-01-03  000002.SZ   11.0   27.0     -8.00     -8.00   OK
+    2024-01-03  000003.SZ   12.0   29.0     -8.50     -8.50   OK
+    2024-01-04  000001.SZ   20.0   45.0    -12.50    -12.50   OK
+    2024-01-04  000002.SZ   21.0   47.0    -13.00    -13.00   OK
+    2024-01-04  000003.SZ   22.0   49.0    -13.50    -13.50   OK
+[1] PASS 手算一致（8 行逐值）
+
+[5] coverage 不一致 → intersection 正确（审计计数）
+    intersection_rows=8
+    member=cx_demo_x1 rows=9 valid=9 kept=8 dropped_missing_value=0 dropped_uncovered=1
+    member=cx_demo_x2 rows=8 valid=8 kept=8 dropped_missing_value=0 dropped_uncovered=0
+[5] PASS 交集=8 行，x1 掉 1 行（覆盖不足）、x2 掉 0 行
+
+[2] member 顺序变 → definition_hash 变
+    原序 ['cx_demo_x1', 'cx_demo_x2'] → hash=3cfc4bf2c0ffd57334a084b723934677dbdfb8f55ca642e9b773697c19e6610b
+    换序 ['cx_demo_x2', 'cx_demo_x1'] → hash=8674515dbf73e00c5fc089fcb8f1ba01adf757c4478034e664c27805825989e7
+    e2e 换序 run: cached=False definition_hash=d6dfe38f9126ce19...
+[2] PASS 顺序敏感（hash 变 + 列序语义翻转 y→−y）
+
+[3] 成员 artifact 变 → cache 失效重算
+    不变重跑: cached=True cache_key=559fd99571454545...
+    成员改后: cached=False old_key=559fd99571454545... new_key=389c2029c3793b40...
+[3] PASS member hash 变 → cache miss + 重算（signal 变）
+
+[4] 缺 member → FAIL（无产物落盘）
+    MemberResolutionError: 成员 'cx_demo_missing' 解析失败（解析目录 /tmp/cx-c1-acceptance-001g2y5k/runs/cx_demo_missing）: factor artifact 目录不存在
+[4] PASS 缺成员 fail fast，无 artifact
+
+[6] output NaN → FAIL（无产物落盘）
+    ValueError: compute 输出含 8 个 NaN——C1 冻结 NaN → run FAIL（不静默 drop）
+[6] PASS NaN fail fast，无 artifact
+
+[7] 成员名不传入 compute()（spy：kwargs/params/X 内容）
+    spy call: shape=[8, 2] params={'w': 0.5} kwargs=[]
+[7] PASS compute 仅收到匿名 X/params（无成员名/无句柄关键字）
+
+# ============================================================
+# C1 验收 7/7 PASS（sandbox 保留供复核）
+# sandbox = /tmp/cx-c1-acceptance-001g2y5k

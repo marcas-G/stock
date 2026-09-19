@@ -1,0 +1,15 @@
+$ POLARS_MAX_THREADS=1 platform/.venv/bin/factorlab compose research/composites/specs/cx_demo.yaml --results-dir /tmp/c1-cli-evidence/runs
+cx_demo: rows=8 cached=False ic_mean=-1.0 delta_vs_best=-2.0 
+out=/tmp/c1-cli-evidence/runs/composites/cx_demo
+exit=0
+
+$ # 第二次（同 spec 同成员 → cache 命中，不重算）
+cx_demo: rows=8 cached=True ic_mean=-1.0 delta_vs_best=-2.0 
+out=/tmp/c1-cli-evidence/runs/composites/cx_demo
+exit=0
+
+$ ls /tmp/c1-cli-evidence/runs/composites/cx_demo
+artifact.json
+panel.parquet
+provenance.json
+summary.json
