@@ -1,0 +1,61 @@
+== C4b TDD RED 复现（源码回退到 HEAD，测试保留新断言；随后 git stash pop 恢复） ==
+
+--- spec + constructor ---
+FAILED platform/tests/test_strategy_spec.py::test_selection_top_k_buffered_valid
+FAILED platform/tests/test_strategy_spec.py::test_selection_buffered_retain_k_ge_enter_k
+FAILED platform/tests/test_strategy_spec.py::test_selection_buffered_requires_enter_and_retain
+FAILED platform/tests/test_strategy_spec.py::test_selection_top_k_requires_k
+FAILED platform/tests/test_portfolio_constructor.py::test_buffered_turnover_lower_than_top_k_same_params
+FAILED platform/tests/test_portfolio_constructor.py::test_buffered_member_stability_and_fill_from_enter_rank
+FAILED platform/tests/test_portfolio_constructor.py::test_buffered_null_holding_dropped_and_filled
+FAILED platform/tests/test_portfolio_constructor.py::test_buffered_determinism_same_input_and_shuffled_rows
+FAILED platform/tests/test_portfolio_constructor.py::test_buffered_all_cash_day_resets_holdings
+FAILED platform/tests/test_portfolio_constructor.py::test_buffered_insufficient_all_cash_resets_holdings
+FAILED platform/tests/test_portfolio_constructor.py::test_buffered_use_available_caps_target_count
+FAILED platform/tests/test_portfolio_constructor.py::test_buffered_equal_weight_and_sparse_output
+FAILED platform/tests/test_portfolio_constructor.py::test_buffered_tie_code_asc_deterministic
+FAILED platform/tests/test_portfolio_constructor.py::test_buffered_score_weighted_combination
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_weighted_hand_computed
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_weighted_selection_still_signal_driven
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_weighted_join_by_date
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_weighted_direction_minus_one
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_weighted_missing_selected_row_fails
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_weighted_invalid_selected_mv_fails[None]
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_weighted_invalid_selected_mv_fails[0.0]
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_weighted_invalid_selected_mv_fails[-5.0]
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_weighted_invalid_selected_mv_fails[nan]
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_weighted_invalid_selected_mv_fails[inf]
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_weighted_non_selected_invalid_mv_ignored
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_panel_rejected_for_other_methods
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_panel_schema_and_duplicates_validated
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_panel_column_order_agnostic
+FAILED platform/tests/test_portfolio_constructor.py::test_market_cap_weighted_buffered_combination
+30 failed, 102 passed in 3.20s
+
+--- composite artifact ---
+E       Failed: DID NOT RAISE ValueError
+
+platform/tests/test_composite_artifact.py:290: Failed
+=========================== short test summary info ============================
+FAILED platform/tests/test_composite_artifact.py::test_write_records_frequency_and_adjustment_explicitly
+FAILED platform/tests/test_composite_artifact.py::test_read_roundtrip_exposes_frequency_and_adjustment
+FAILED platform/tests/test_composite_artifact.py::test_write_rejects_conflicting_frequency_or_adjustment[bad0]
+FAILED platform/tests/test_composite_artifact.py::test_write_rejects_conflicting_frequency_or_adjustment[bad1]
+FAILED platform/tests/test_composite_artifact.py::test_write_rejects_conflicting_frequency_or_adjustment[bad2]
+FAILED platform/tests/test_composite_artifact.py::test_read_rejects_name_directory_mismatch
+FAILED platform/tests/test_composite_artifact.py::test_read_rejects_missing_top_level_name
+7 failed, 18 passed in 1.91s
+
+--- run_strategy ---
+>       monkeypatch.setattr(R, "load_daily", boom)
+E       AttributeError: <module 'factorlab.app.strategy.run' from '/data/students/gaolei/stock/platform/src/factorlab/app/strategy/run.py'> has no attribute 'load_daily'
+
+platform/tests/test_run_strategy.py:662: AttributeError
+=========================== short test summary info ============================
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_market_cap_weighted_end_to_end[duckdb]
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_market_cap_weighted_end_to_end[ch]
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_market_cap_missing_selected_mv_fails[duckdb]
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_market_cap_missing_selected_mv_fails[ch]
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_equal_weight_never_reads_market_cap[duckdb]
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_equal_weight_never_reads_market_cap[ch]
+6 failed, 36 passed in 25.22s

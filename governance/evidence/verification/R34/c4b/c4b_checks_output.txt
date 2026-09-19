@@ -1,0 +1,44 @@
+[1] buffered 换手对照（60 决策日 × 12 codes；k=3, enter_k=3, retain_k=6）
+    top_k    : 成员变化 118，单边换手/日 0.3333
+    buffered : 成员变化 0，单边换手/日 0.0000
+    确定性：两次同输入逐帧一致 ✓
+[2] market_cap_weighted 手算（gross=0.8，Σmv=1000.0）
+    000001.SZ: mv= 100.0  w=0.080000  手算=0.080000  ✓
+    000002.SZ: mv= 300.0  w=0.240000  手算=0.240000  ✓
+    000003.SZ: mv= 600.0  w=0.480000  手算=0.480000  ✓
+    缺值路径报错原文: market_cap_weighted: 2024-01-02 选中股 000002.SZ 无有效 PIT total_mv（缺行/null/non-finite/<=0；实际 None）——不静默剔除、不回退等权；请检查 daily_basic 市值数据面
+[3] artifact 元数据往返
+    name='cx_c4b' frequency='1d' adjustment=None
+    read_composite_artifact 读回 frequency/adjustment ✓
+    name 目录错配拒绝原文: composite artifact 顶层 name 'other_name' 与目录名 'cx_c4b' 不一致（目录/内容错配，拒绝加载）: /tmp/c4b_evidence_htdz7kte/runs/composites/cx_c4b/artifact.json
+
+[summary]
+{
+  "buffered": {
+    "days": 60,
+    "codes": 12,
+    "k": 3,
+    "enter_k": 3,
+    "retain_k": 6,
+    "topk_member_changes": 118,
+    "buffered_member_changes": 0,
+    "topk_one_side_turnover_per_day": 0.3333333333333333,
+    "buffered_one_side_turnover_per_day": 0.0
+  },
+  "market_cap": {
+    "expected": {
+      "000001.SZ": 0.08,
+      "000002.SZ": 0.24,
+      "000003.SZ": 0.48
+    },
+    "got": {
+      "000001.SZ": 0.08,
+      "000002.SZ": 0.24,
+      "000003.SZ": 0.48
+    }
+  },
+  "artifact": {
+    "frequency": "1d",
+    "name_check": "rejected"
+  }
+}

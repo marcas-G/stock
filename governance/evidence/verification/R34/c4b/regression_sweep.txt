@@ -1,0 +1,68 @@
+== 平台策略/composite 相关回归 sweep（2026-09-19 C4b；POLARS_MAX_THREADS=1） ==
+
+cmd: pytest test_strategy_doc test_strategy_artifacts test_research_strategy_report test_strategy_turnover test_strategy_capacity test_strategy_cost_net test_canonical_artifact_handoff test_execution_signal_chain test_rebalance_schedule test_cli_lint_strategy test_architecture test_dataiface_clean test_composite_* -q
+
+........................................................................ [ 17%]
+........................................................................ [ 35%]
+...........................................FF........................... [ 53%]
+........................................................................ [ 71%]
+..............sss....................................................... [ 88%]
+.............................................                            [100%]
+=================================== FAILURES ===================================
+____________________ test_real_run_factor_to_strategy_chain ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3312/test_real_run_factor_to_strate0')
+
+    def test_real_run_factor_to_strategy_chain(tmp_path):
+        """核心 Gate：run_factor → construct_target_portfolio → schedule → persistence。"""
+>       mod, td = _platform_db(tmp_path)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_canonical_artifact_handoff.py:175: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_canonical_artifact_handoff.py:147: in _platform_db
+    spec_loader.loader.exec_module(mod)
+<frozen importlib._bootstrap_external>:1019: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1156: in get_code
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <_frozen_importlib_external.SourceFileLoader object at 0x7f3c8c18be30>
+path = '/data/students/gaolei/stock/tests/test_run_factor.py'
+
+>   ???
+E   FileNotFoundError: [Errno 2] No such file or directory: '/data/students/gaolei/stock/tests/test_run_factor.py'
+
+<frozen importlib._bootstrap_external>:1214: FileNotFoundError
+________________________ test_summary_counts_unchanged _________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3312/test_summary_counts_unchanged0')
+
+    def test_summary_counts_unchanged(tmp_path):
+>       mod, td = _platform_db(tmp_path)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_canonical_artifact_handoff.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_canonical_artifact_handoff.py:147: in _platform_db
+    spec_loader.loader.exec_module(mod)
+<frozen importlib._bootstrap_external>:1019: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1156: in get_code
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <_frozen_importlib_external.SourceFileLoader object at 0x7f3c827b6090>
+path = '/data/students/gaolei/stock/tests/test_run_factor.py'
+
+>   ???
+E   FileNotFoundError: [Errno 2] No such file or directory: '/data/students/gaolei/stock/tests/test_run_factor.py'
+
+<frozen importlib._bootstrap_external>:1214: FileNotFoundError
+=========================== short test summary info ============================
+FAILED platform/tests/test_canonical_artifact_handoff.py::test_real_run_factor_to_strategy_chain
+FAILED platform/tests/test_canonical_artifact_handoff.py::test_summary_counts_unchanged
+2 failed, 400 passed, 3 skipped in 173.66s (0:02:53)
+
+说明: test_canonical_artifact_handoff 两条失败为存量（引用重构前路径 stock/tests/test_run_factor.py，文件自 R8 归位后不存在；与本计划无关，git log 未见本文件改动）

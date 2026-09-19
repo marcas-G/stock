@@ -1,0 +1,13 @@
+== mutation check：buffered 持有状态改为选择集（tuple(selected)）——测试必须变红 ==
+E       assert {'000001.SZ', '000002.SZ'} == {'000001.SZ', '000003.SZ'}
+E         
+E         Extra items in the left set:
+E         '000002.SZ'
+E         Extra items in the right set:
+E         '000003.SZ'
+E         Use -v to get more diff
+
+platform/tests/test_portfolio_constructor.py:734: AssertionError
+=========================== short test summary info ============================
+FAILED platform/tests/test_portfolio_constructor.py::test_buffered_score_weighted_zero_score_row_not_held
+1 failed in 1.67s
