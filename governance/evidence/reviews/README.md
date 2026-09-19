@@ -53,6 +53,32 @@ governance/evidence/reviews/
   标签 `kind:*/severity:*/status:*/round:*/paused`；里程碑 `R08 / Plan DQ / Plan T / Plan 开放算子 / Plan 分钟执行 / Plan CX / 治理`。
 - **V1 限制**：同步器目前只做"创建 + 幂等查重"；`verified → 评论+关单`、`reopened → 重开` 待 V2
   （在此之前：状态以本地台账为准，GitHub 侧手动关单或等 V2）。
+- **并发双建（2026-09-20 已发生一次，见 closed #21）**：`findings.md` 推送会触发
+  workflow 自动同步；若此时本地再跑 `sync_review_issues.py --apply`，两通道在
+  「查重→创建」窗口赛跑会各建一条。约定：**推送后等 workflow 跑完**，本地先 dry-run
+  看"已存在"，确需手动再 `--apply`。发现双建：保留编号小的一条，另一条评论+`duplicate` 关单。
+- **本机推送通道（2026-09-19 实测）**：本服务器出网**阻断 `github.com:443`**（git https 报
+  `Empty reply from server`；`api.github.com` 正常）。git 一律走 **SSH-over-443**：
+  `~/.ssh/config` 已配 `Host github.com → HostName ssh.github.com / Port 443`，
+  key `~/.ssh/id_ecdsa_github`（账号 key 名 `gaolei-gpu-server`，OpenSSH 8.2 不支持 ed25519 故用 ECDSA）；
+  `origin` 已切 `git@github.com:marcas-G/stock.git`。**本机不要再用 https 推拉**。
+- **自托管 runner（2026-09-19）**：`gpu-server-1`（标签 `self-hosted,Linux,X64,factorlab,ch`），
+  宿主直连 CH + 在盘数据；systemd **user** 服务 `actions-runner.service`
+  （目录 `/data/students/gaolei/actions-runner`，日志 `journalctl --user -u actions-runner`，
+  已 `--disableupdate`——本机下不了 runner 升级包，升级走 API asset 手动换版）。
+  配套 workflow `.github/workflows/selfhosted-verify.yml`（手动 dispatch / 夜间 03:00 /
+  repository_dispatch；**故意不挂 `pull_request`**——公开仓 + 自托管的分叉 PR 是任意代码执行
+  风险面，GitHub 官方建议自托管仅配私有仓；**建议后续把仓库转私有**）。
+  自查口径（2026-09-19 实测）：平台单测 = **默认后端**（无 CH，~8min，CH 腿自动 skip）；
+  CH 集成 = `cd platform && FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow
+  FACTORLAB_MINUTE_UNCOVERED=drop .venv/bin/python -m pytest -q -m integration`（14 passed /
+  11 skipped / ~5min；11 skip 为需 tick 用例）。**给整包强加 ch 是错误口径**（大量红 + 数小时）。
+  **首跑全绿（2026-09-20）**：run `35455396087`，约 27min——平台 3834 passed / CH 集成
+  14 passed+11 skipped / platform/tools 877 passed（排除 2 条：tick 挂死 + pan_update 同根
+  守卫）/ research/tools+governance 同 hosted 口径。排障发现：heavy.sh 环境注入会污染测试
+  （injected `FACTORLAB_MAX_MEMORY` 破 env 断言、`POLARS_MAX_THREADS=8` 破 cash bridge 精确
+  相等校验 → 后者已立 R36-CI-I1 / issue #20）；故 CI 腿不加 heavy.sh/线程 env，内存由
+  memguard 兜底。
 
 ## 流程
 

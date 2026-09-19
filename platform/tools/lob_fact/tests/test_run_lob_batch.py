@@ -830,6 +830,16 @@ def test_resource_gates_frozen_for_doubled_budget():
     assert R.AUDIT_S == 30 and R.STALL_S == 2400     # 审计采样 / STALL 看门狗冻结
 
 
+def test_mem_gate_low_water_env_override(monkeypatch):
+    """CI（低内存 runner）用 LOB_BATCH_LOW_WATER_KB 覆盖**派发水位读数**；
+    冻结常量 `LOW_WATER_KB` 不变（生产默认语义零变化）。"""
+    monkeypatch.delenv("LOB_BATCH_LOW_WATER_KB", raising=False)
+    assert R._low_water_kb() == R.LOW_WATER_KB
+    monkeypatch.setenv("LOB_BATCH_LOW_WATER_KB", "1048576")
+    assert R._low_water_kb() == 1048576
+    assert R.LOW_WATER_KB == 16_000_000              # 常量不受 env 影响
+
+
 # ---------- W5 收口补测: main() CLI 端到端 (完成标准 "用户能从入口触发" ) ----------
 # Web 断言源 = 规格 §3.4 批算 (断点/月门/SUCCESS/parity) + W5 验收行 "断点续跑全完成"。
 # 与 test_process_date_e2e_synthetic 的分工: 彼测 worker 单层 (直接调 process_date),
