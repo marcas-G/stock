@@ -1,0 +1,17 @@
+name: cx_demo_score_weighted
+signal: composites/cx_demo
+direction: 1
+portfolio:
+  top_k: 5
+  weighting: score_weighted
+  gross_exposure: 1.0
+  rebalance_frequency: daily
+execution:
+  timing: NEXT_OPEN
+  initial_cash: 10000000.0
+  cost_model: {commission_rate: 0.00025, minimum_commission: 5.0,
+               stamp_tax_sell_rate: 0.0005, transfer_fee_rate: 0.00001,
+               slippage_bps: 5.0}
+rules: {stop_loss: null, take_profit: null, max_hold: null}
+date: {start: "2026-09-01", end: "2026-09-16"}
+universe_override: null

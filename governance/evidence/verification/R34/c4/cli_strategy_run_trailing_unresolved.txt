@@ -1,0 +1,3 @@
+heavy.sh: slot=1/2 avail=55.6GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/factorlab research strategy run governance/evidence/verification/R34/c4/fixtures/cx_demo_trailing_probe.yaml --accept-quality PASS,DEGRADED,UNKNOWN --override-reason R34 C4 trailing probe
+[guard] slot=1/2 argv=strategy run governance/evidence/verification/R34/c4/fixtures/cx_demo_trailing_probe.yaml
+{"ok": false, "schema_version": 1, "command": "strategy.run", "data": null, "artifacts": {}, "warnings": [], "error": {"code": "STRATEGY_FAILED", "message": "ValueError: decision date 2026-09-17 后无下一开放日（trailing unresolved——不 drop）", "hint": "核对策略窗口/信号日期域/universe_override", "log": null}}

@@ -1,0 +1,16 @@
+name: cx_demo_x2
+category: custom
+direction: 1
+universe:
+  codes: ["600519.SH", "600036.SH", "601318.SH", "600030.SH", "601166.SH",
+          "600887.SH", "601888.SH", "600276.SH", "000001.SZ", "000002.SZ",
+          "000333.SZ", "000651.SZ", "000858.SZ", "002415.SZ", "002594.SZ"]
+date:
+  start: "2026-08-03"
+  end: "2026-09-17"
+process:
+  - winsorize(quantile=0.99)
+  - standardize()
+formula: |
+  from polars_ta.prefix.wq import ts_std_dev
+  signal = ts_std_dev(pct_chg, 5)

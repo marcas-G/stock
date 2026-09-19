@@ -1,0 +1,2 @@
+heavy.sh: slot=2/2 avail=50.7GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/factorlab research strategy run research/strategy/cx_demo_score_weighted.yaml --signal ghost_cx
+{"ok": false, "schema_version": 1, "command": "strategy.run", "data": null, "artifacts": {}, "warnings": [], "error": {"code": "NOT_FOUND", "message": "信号产物缺失: ghost_cx（/data/students/gaolei/stock/runs/platform/composites/ghost_cx）", "hint": "composite 信号产物缺失先 `factorlab compose <composite 的 spec.yaml>`；命令目录 `flab describe --json`", "log": null}}

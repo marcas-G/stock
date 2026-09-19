@@ -1,0 +1,5 @@
+heavy.sh: slot=1/2 avail=55.5GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/factorlab run governance/evidence/verification/R34/c4/fixtures/cx_demo_x2.yaml
+2026-09-19 19:08:01.093 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-19 19:08:01.125 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+cx_demo_x2: n_weeks=29 ic_mean=-0.05826048036898234 spread=0.0005684906038744696
+freq=daily

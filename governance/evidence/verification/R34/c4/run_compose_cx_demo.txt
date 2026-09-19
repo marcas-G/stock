@@ -1,0 +1,4 @@
+heavy.sh: slot=1/2 avail=55.5GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/factorlab compose research/composites/specs/cx_demo.yaml
+cx_demo: rows=435 cached=False ic_mean=0.019515306122449 
+delta_vs_best=0.06913265306122451 
+out=/data/students/gaolei/stock/runs/platform/composites/cx_demo

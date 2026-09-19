@@ -1,0 +1,53 @@
+heavy.sh: slot=1/2 avail=55.6GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python governance/evidence/verification/R34/c4/run_e2e.py
+# doc score_weighted: signal=cx_demo kind=composite weighting=score_weighted window=2026-09-01~2026-09-16
+# doc equal_weight: signal=cx_demo kind=composite weighting=equal_weight window=2026-09-01~2026-09-16
+
+[1] score_weighted 真跑（CH 执行数据）
+    out=/data/students/gaolei/stock/runs/platform/strategies/cx_demo_score_weighted
+    decisions=12 events=12 fills=77 target_rows=60
+    nav=9992409.30 -> 9425050.40 ret=-5.6779% mean_turnover=0.3946
+[1] PASS
+
+[2] equal_weight 同参对照
+    | 指标 | score_weighted | equal_weight |
+    |---|---|---|
+    | 决策数 | 12 | 12 |
+    | 执行事件 | 12 | 12 |
+    | 成交笔数 | 77 | 68 |
+    | 目标持仓行 | 60 | 60 |
+    | 末 NAV | 9425050.40 | 9485896.89 |
+    | 区间收益 | -5.6779% | -5.0689% |
+    | 最大回撤 | -5.6981% | -5.1151% |
+    | 费用合计 | 65678.86 | 54000.91 |
+    | 平均单边换手 | 0.3946 | 0.3250 |
+[2] PASS（同窗口/同 top_k/同成本；加权口径不同 → 结果不同）
+
+[3] composite 信号进入 M7：target 权重 = 分数独立复算
+    抽日 2026-09-01（top_k=5 gross=1.0）：
+      code        s=signal  s'=max(s,0)  w_expected  w_actual
+      002415.SZ  +0.720810  +0.720810  0.257217  0.257217
+      600030.SH  +0.698266  +0.698266  0.249172  0.249172
+      000001.SZ  +0.504137  +0.504137  0.179898  0.179898
+      600036.SH  +0.450402  +0.450402  0.160723  0.160723
+      601318.SH  +0.428727  +0.428727  0.152989  0.152989
+      600519.SH  +0.389742  +0.389742  --  --
+      000333.SZ  +0.275583  +0.275583  --  --
+      600887.SH  +0.267201  +0.267201  --  --
+      000858.SZ  +0.241805  +0.241805  --  --
+      601888.SH  +0.077919  +0.077919  --  --
+      000002.SZ  +0.068581  +0.068581  --  --
+      000651.SZ  +0.034703  +0.034703  --  --
+      600276.SH  -0.851737  +0.000000  --  --
+      601166.SH  -1.220891  +0.000000  --  --
+      002594.SZ  -2.085250  +0.000000  --  --
+    Σs'=2.802343（正部归一基数）；逐日 12 天全部逐值一致
+[3] PASS（真 composite panel，非硬编码/非同名 factor）
+
+[4] all-cash 边界（Σs'==0 → 0 行，不 fallback 等权）
+    universe=['000651.SZ'] direction=-1 top_k=1 weighting=score_weighted
+    score_weighted: rows=0 decisions=12 fills=0 nav=10000000.00->10000000.00
+    equal_weight 对照: rows=12 decisions=12 fills=1 nav=9992406.52->9829488.52
+[4] PASS（score_weighted 显式 all-cash；equal_weight 同参持有）
+
+# ============================================================
+# T3 E2E 4/4 PASS（指标落 e2e_metrics.json）

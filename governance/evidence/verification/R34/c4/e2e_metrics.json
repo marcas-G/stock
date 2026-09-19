@@ -1,0 +1,62 @@
+{
+  "score_weighted": {
+    "name": "cx_demo_score_weighted",
+    "decision_count": 12,
+    "execution_events": 12,
+    "fills": 77,
+    "target_rows": 60,
+    "nav_first": 9992409.295452071,
+    "nav_last": 9425050.403385136,
+    "total_return": -0.05677898845928597,
+    "max_drawdown": -0.05698076097777849,
+    "total_fees": 65678.85661236501,
+    "mean_turnover": 0.3945853103920168
+  },
+  "equal_weight": {
+    "name": "cx_demo_equal_weight",
+    "decision_count": 12,
+    "execution_events": 12,
+    "fills": 68,
+    "target_rows": 60,
+    "nav_first": 9992405.150463179,
+    "nav_last": 9485896.890982786,
+    "total_return": -0.05068932372672197,
+    "max_drawdown": -0.051150849215349736,
+    "total_fees": 54000.908605180004,
+    "mean_turnover": 0.325
+  },
+  "allcash_score_weighted": {
+    "name": "cx_demo_allcash",
+    "decision_count": 12,
+    "execution_events": 12,
+    "fills": 0,
+    "target_rows": 0,
+    "nav_first": 10000000.0,
+    "nav_last": 10000000.0,
+    "total_return": 0.0,
+    "max_drawdown": 0.0,
+    "total_fees": 0.0,
+    "mean_turnover": 0.0
+  },
+  "allcash_equal_weight": {
+    "name": "cx_demo_allcash_equal",
+    "decision_count": 12,
+    "execution_events": 12,
+    "fills": 1,
+    "target_rows": 12,
+    "nav_first": 9992406.51565666,
+    "nav_last": 9829488.51565666,
+    "total_return": -0.016304180553976755,
+    "max_drawdown": -0.0251343943596557,
+    "total_fees": 2698.57247193,
+    "mean_turnover": 0.041666666666666664
+  },
+  "composite": {
+    "rows": 435,
+    "definition_hash": "080c56fc40fec51db1560e2fb996d03f92cca1a17ebcb1c977f12025797325aa",
+    "input_binding": [
+      "x1",
+      "x2"
+    ]
+  }
+}
