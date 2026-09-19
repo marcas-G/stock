@@ -31,6 +31,12 @@ GOLDEN_1 = f'{LOB_ROOT}panel_1m/year=2025/month=08/20250812.parquet'
 GOLDEN_2 = f'{LOB_ROOT}panel_1m/year=2026/month=08/20260803.parquet'
 
 
+def _require_lob_data():
+    """数据在盘守卫：CI 干净 checkout 无 data/ → skip（非失败）。"""
+    if not os.path.isdir(LOB_ROOT):
+        pytest.skip(f"lob_fact 数据不在盘: {LOB_ROOT}（CI 干净 checkout 无 data/）")
+
+
 # ---------- chunk_codes ----------
 
 def test_chunk_codes_partitions():
@@ -58,6 +64,7 @@ def _compare(mine, g):
 
 
 def _fold_golden(path, day):
+    _require_lob_data()
     golden = pl.read_parquet(path)
     for code in golden['code'].unique():
         g = golden.filter(pl.col('code') == code).sort('time_ms')
@@ -81,6 +88,7 @@ def test_fold_missing_code_raises():
 
 def test_fold_is_not_stub():
     """反存根：两 code 面板必须不同（硬编码存根会同值）。"""
+    _require_lob_data()
     a = PB.fold_code_day('000021.SZ', date(2025, 8, 12), LOB_ROOT)
     b = PB.fold_code_day('000155.SZ', date(2025, 8, 12), LOB_ROOT)
     assert a.height == b.height

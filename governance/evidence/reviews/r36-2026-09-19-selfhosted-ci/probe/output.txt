@@ -1,0 +1,13 @@
+## A) 干净环境（无 POLARS_MAX_THREADS）
+.                                                                                                                                                                                                [100%]
+1 passed in 3.40s
+
+## B) POLARS_MAX_THREADS=8（= heavy.sh 默认注入）
+2026-09-19 23:52:06.953 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+======================================================================================= short test summary info ========================================================================================
+FAILED tests/test_run_strategy.py::test_run_strategy_records_data_quality_five_fields_in_manifest[ch] - ValueError: artifact cash bridge 破坏：post.cash != pre.cash + Σ delta
+1 failed in 3.08s
+
+## C) 同 B，插桩打印 cash bridge 精确差值（-p probe_diff）
+[PROBE-BAD] pre=70.5442530000746 post=775.7201355000889 delta=705.175882500027(float) pre+delta=775.7201355001016 post-diff=-1.2732925824820995e-11
+1 failed in 3.11s

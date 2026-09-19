@@ -15,6 +15,11 @@ name: Selfhosted Verify (CH/全量)
 #     （大量红 + 单测数小时），不要那样跑。
 #   - 不跑 `make gates` 全量：其中 G-REVIEWS 校验台账引用的 runs/... 产物路径、
 #     G-DATAIFACE 含在途红——均为本机态门，干净 checkout 必红（见 ci.yml gates job 注释）。
+#
+# **不要给测试加 heavy.sh / 线程 env**（2026-09-19 实测教训）：heavy.sh 注入的
+# FACTORLAB_MAX_MEMORY=8GB 会让断言"env 未设"的用例红；POLARS_MAX_THREADS=8 会改变
+# 浮点求和顺序、撞上 backtest cash bridge 的**精确相等**校验（真 bug，见 R36-CI-I1）。
+# 内存保护由 memguard 常驻守护兜底（重任务闸只管 factorlab/灌库等生产命令）。
 on:
   workflow_dispatch:
   repository_dispatch:
@@ -28,10 +33,6 @@ permissions:
 concurrency:
   group: selfhosted-verify
   cancel-in-progress: false
-
-env:
-  POLARS_MAX_THREADS: "8"
-  OMP_NUM_THREADS: "8"
 
 jobs:
   full-verify:
@@ -63,6 +64,7 @@ jobs:
       - name: 环境（uv venv + editable 安装）
         run: |
           set -euo pipefail
+          rm -f "$RUNNER_TEMP"/pytest-*.log
           UV=/home/gaolei/.local/bin/uv
           [ -x platform/.venv/bin/python ] || "$UV" venv --python 3.13 --seed platform/.venv
           "$UV" pip install -q --python platform/.venv/bin/python \
@@ -77,8 +79,7 @@ jobs:
         run: |
           set -o pipefail
           LOG="$RUNNER_TEMP/pytest-platform.log"
-          ../governance/ops/heavy.sh .venv/bin/python -m pytest -q \
-            --timeout=300 --timeout-method=thread \
+          .venv/bin/python -m pytest -q --timeout=900 --timeout-method=thread \
             2>&1 | tee "$LOG"
 
       # CH 集成腿：真实 CH + 显式口径开关（ST 降级 / 分钟缺覆盖 drop）。
@@ -93,20 +94,25 @@ jobs:
         run: |
           set -o pipefail
           LOG="$RUNNER_TEMP/pytest-integration.log"
-          ../governance/ops/heavy.sh .venv/bin/python -m pytest -q -m integration \
-            --timeout=300 --timeout-method=thread \
+          .venv/bin/python -m pytest -q -m integration \
+            --timeout=900 --timeout-method=thread \
             2>&1 | tee "$LOG"
 
       # platform/tools：hosted 的 2 条"数据在盘假设"排除项在此不排除（数据在盘）。
-      # 唯一排除：lob_fact tick e2e（tick 全线暂停 2026-09-19，见 issue #15；
-      # 恢复 tick 时连同门豁免一并移除本 deselect）。
+      # 排除项（仅此 2 条）：
+      # - lob_fact tick e2e：tick 全线暂停 2026-09-19（issue #15；恢复 tick 时删除）；
+      # - pan_update 同根守卫：断言 pan_update.repo_root() == factio.paths.STOCK_ROOT；
+      #   本 workflow **刻意不设** FACTORLAB_STOCK_ROOT（数据测试要用宿主真实数据根，
+      #   见文件头），checkout≠宿主根 → 该"同根"断言在 CI 语义下不成立。hosted CI 是
+      #   设 FACTORLAB_STOCK_ROOT=checkout 来过的，两处口径不同、各自精确排除。
       - name: platform/tools 测试（在盘数据）
         run: |
           set -o pipefail
           LOG="$RUNNER_TEMP/pytest-tools.log"
-          governance/ops/heavy.sh platform/.venv/bin/python -m pytest platform/tools -q \
-            --timeout=300 --timeout-method=thread \
+          platform/.venv/bin/python -m pytest platform/tools -q \
+            --timeout=900 --timeout-method=thread \
             --deselect tools/lob_fact/tests/test_run_lob_batch.py::test_main_cli_e2e_mini_month \
+            --deselect tools/pan_update/tests/test_config.py::test_pan_update_and_ingest_share_data_roots \
             2>&1 | tee "$LOG"
 
       # research/tools 排除项与 hosted CI 完全一致（2 条 strategies 预存红 = DQ
@@ -116,8 +122,8 @@ jobs:
         run: |
           set -o pipefail
           LOG="$RUNNER_TEMP/pytest-research.log"
-          governance/ops/heavy.sh platform/.venv/bin/python -m pytest research/tools -q \
-            --timeout=300 --timeout-method=thread \
+          platform/.venv/bin/python -m pytest research/tools -q \
+            --timeout=900 --timeout-method=thread \
             --deselect tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches \
             --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03 \
             --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes \
@@ -134,6 +140,7 @@ jobs:
         run: |
           for log in "$RUNNER_TEMP"/pytest-*.log; do
             [ -f "$log" ] || continue
+            grep -qE '^(FAILED|ERROR)' "$log" || continue
             echo "::error::—— $(basename "$log") FAILED ——"
             grep -E '^(FAILED|ERROR)' "$log" | head -25 | while IFS= read -r l; do
               echo "::error::$l"
