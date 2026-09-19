@@ -1,13 +1,14 @@
 """Plan S Task 4：策略索引生成与 --check 门（spec ↔ 档案成对 · 字节级一致）。
 
-设计规格：plan.md Task 4——`research/strategy/*.yaml` + `knowledge/dossiers/strategies/*.md`
-→ `knowledge/index/strategies.md`；spec 缺档案 / 档案缺 spec → 门红并列出名字；
+设计规格：plan.md Task 4——`<research_root>/strategy/*.yaml`
++ `<research_root>/dossiers/strategies/*.md` → `<research_root>/index/strategies.md`；
+spec 缺档案 / 档案缺 spec → 门红并列出名字；
 档案 front matter 必须含 spec 路径与回测窗口字段；`--check` 手改即红。
 
 front matter 约定（`_` 前缀 = 元数据豁免，如 `_template.md`）：
     ---
     name: <策略名>
-    spec: research/strategy/<name>.yaml
+    spec: strategy/<name>.yaml
     window: "<start> ~ <end>"
     status: draft
     ---
@@ -17,6 +18,8 @@ from __future__ import annotations
 
 import pathlib
 import sys
+
+import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 import build_strategy_index as BI  # noqa: E402
@@ -35,7 +38,7 @@ def _dossier(name="test_strat", *, spec=None, window='"2025-03-01 ~ 2025-03-31"'
              include_window=True, include_spec=True):
     lines = ["---", f"name: {name}"]
     if include_spec:
-        lines.append(f"spec: {spec or f'research/strategy/{name}.yaml'}")
+        lines.append(f"spec: {spec or f'strategy/{name}.yaml'}")
     if include_window:
         lines.append(f"window: {window}")
     lines += ["status: draft", "---", "", f"# {name}", ""]
@@ -61,6 +64,9 @@ def _main(argv, strategy, docs, out):
 
 # ---------------- 真实树：索引与生成器逐字节一致 ----------------
 
+@pytest.mark.skipif(
+    not BI.STRATEGY.is_dir(),
+    reason=f"研究产物区不存在：{BI.STRATEGY}（QUANTRESEARCH_ROOT 未挂载）")
 def test_real_index_matches_generator():
     assert BI.OUT.is_file(), "策略索引不存在——先跑 build_strategy_index.py"
     assert BI.OUT.read_text(encoding="utf-8") == BI.render()
@@ -75,8 +81,8 @@ def test_render_registered_strategy_row(tmp_path):
     text = BI.render(strategy_dir=s, docs_dir=d)
     for token in ("`test_strat`", "`max_effect_20d_high`", "-1", "weekly",
                   "2025-03-01 ~ 2025-03-31",
-                  "../../knowledge/dossiers/strategies/test_strat.md",
-                  "../../research/strategy/test_strat.yaml"):
+                  "../../dossiers/strategies/test_strat.md",
+                  "../../strategy/test_strat.yaml"):
         assert token in text, f"索引缺少 {token!r}:\n{text}"
 
 

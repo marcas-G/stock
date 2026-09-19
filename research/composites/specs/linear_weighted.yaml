@@ -1,7 +1,0 @@
-name: linear_weighted
-members: [cx_demo_x1, cx_demo_x2]
-implementation:
-  entrypoint: research.composites.implementations.linear_rank:linear
-params: {weights: [0.7, 0.3]}
-alignment: {join: intersection, missing_policy: reject}
-output: {name: signal}

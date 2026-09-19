@@ -5,7 +5,7 @@
 
     FACTORLAB_DATA_BACKEND=ch FACTORLAB_MAX_MEMORY=8GB \
       platform/.venv/bin/python research/tools/strategies/run_strategy.py \
-      research/strategy/<name>.yaml [--dry-run] [--results-dir DIR] [--out-dir DIR]
+      "$QUANTRESEARCH_ROOT/strategy/<name>.yaml" [--dry-run] [--results-dir DIR] [--out-dir DIR]
 
 - `--dry-run`：只打印六层解析结果（**不触数据面**，秒级自检）；
 - 正常：`open_read` → `run_strategy`（信号→组合→回测→持久化）→ 打印

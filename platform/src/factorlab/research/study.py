@@ -237,8 +237,8 @@ _register(
     defaults={"strategy": None, "against": "reference", "skip_admit": False,
               "profile": False, "no_read_cache": False, "wait": False},
     description="一条链：因子 run →（admit）→ 策略回测 → 报告 URL（过 heavy 闸）",
-    examples=("flab study run research/factor/volatility/max_effect_20d_high.yaml",
-              "flab study run <factor.yaml> --strategy research/strategy/low_lottery_top30_weekly.yaml",
+    examples=("flab study run $QUANTRESEARCH_ROOT/factor/volatility/max_effect_20d_high.yaml",
+              "flab study run <factor.yaml> --strategy $QUANTRESEARCH_ROOT/strategy/low_lottery_top30_weekly.yaml",
               "flab study run <factor.yaml> --skip-admit"),
     output_schema={"type": "object", "properties": {
         "factor": {"type": "string"}, "verdict": {"type": "string"},

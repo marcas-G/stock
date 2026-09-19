@@ -24,9 +24,15 @@ ROOT = BI.ROOT
 FACTOR = BI.FACTOR
 DOCS = BI.DOCS
 
+# R37：本文件全部断言依赖真实研究产物区（QUANTRESEARCH_ROOT）；GitHub-hosted
+# 干净 checkout 无该目录 → 整文件 skip（self-hosted 跑全量）。
+pytestmark = pytest.mark.skipif(
+    not FACTOR.is_dir(),
+    reason=f"研究产物区不存在：{FACTOR}（QUANTRESEARCH_ROOT 未挂载）")
+
 
 def test_index_matches_generator(tmp_path):
-    """门：knowledge/index/factors.md 必须与生成器输出逐字节一致（防手改/陈旧）。"""
+    """门：`<research_root>/index/factors.md` 必须与生成器输出逐字节一致（防手改/陈旧）。"""
     assert BI.OUT.is_file(), "索引不存在——先跑 build_index.py"
     assert BI.OUT.read_text(encoding="utf-8") == BI.render()
 

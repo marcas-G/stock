@@ -28,12 +28,18 @@ import pytest
 
 from factorlab.adapters.parquet_artifacts import write_factor_artifacts
 from factorlab.app.composite.runner import run_composite
+from factorlab.config import settings
 from factorlab.core.composite import load_composite_spec, parse_member_ref
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 
-ROOT = Path(__file__).resolve().parents[2]
-SPECS = ROOT / "research" / "composites" / "specs"
-IMPLEMENTATIONS = ROOT / "research" / "composites" / "implementations"
+# R37：真实示例 spec/实现随研究产物区迁出主仓（QUANTRESEARCH_ROOT）。
+SPECS = Path(settings.research_root) / "composites" / "specs"
+IMPLEMENTATIONS = Path(settings.research_root) / "composites" / "implementations"
+
+# hosted 干净 checkout 无产物区 → 本文件全部用例 skip（self-hosted 真跑）。
+pytestmark = pytest.mark.skipif(
+    not (SPECS.is_dir() and IMPLEMENTATIONS.is_dir()),
+    reason=f"研究产物区不存在：{SPECS}（QUANTRESEARCH_ROOT 未挂载）")
 
 D1, D2 = datetime.date(2024, 1, 2), datetime.date(2024, 1, 3)
 CODES = ["000001.SZ", "000002.SZ", "000003.SZ"]
@@ -132,7 +138,7 @@ def test_linear_weighted_real_spec_numpy_matrix_op(tmp_path):
     assert len(set(got.tolist())) > 1                     # 非常量（硬编码必败）
     assert result.frame["date"].to_list() == [d for d, _ in INDEX]
     impl = result.provenance["implementation"]
-    assert impl["entrypoint"] == "research.composites.implementations.linear_rank:linear"
+    assert impl["entrypoint"] == "composites.implementations.linear_rank:linear"
     assert impl["source_hash"] == _source_hash("linear_rank")
 
 
@@ -150,7 +156,7 @@ def test_linear_rank_real_spec_polars_transform(tmp_path):
     assert got == pytest.approx(expected, abs=1e-12)
     assert len(set(np.round(got, 12).tolist())) > 1       # 非常量（硬编码必败）
     impl = result.provenance["implementation"]
-    assert impl["entrypoint"] == ("research.composites.implementations."
+    assert impl["entrypoint"] == ("composites.implementations."
                                   "linear_rank:rank_average")
     assert impl["source_hash"] == _source_hash("linear_rank")
 
@@ -173,7 +179,7 @@ def test_ridge_real_spec_scipy_fit(tmp_path):
     assert np.allclose(got, expected, atol=1e-10)
     assert not np.allclose(got, 0.0)                       # 存根（全零）必败
     impl = result.provenance["implementation"]
-    assert impl["entrypoint"] == "research.composites.implementations.ridge_pls_pca:ridge"
+    assert impl["entrypoint"] == "composites.implementations.ridge_pls_pca:ridge"
     assert impl["source_hash"] == _source_hash("ridge_pls_pca")
 
 
@@ -194,7 +200,7 @@ def test_pca_real_spec_sklearn_fit(tmp_path):
     assert np.allclose(got, expected, atol=1e-8) or np.allclose(got, -expected, atol=1e-8)
     assert not np.allclose(got, 0.0)                       # 存根（全零）必败
     impl = result.provenance["implementation"]
-    assert impl["entrypoint"] == "research.composites.implementations.ridge_pls_pca:pca"
+    assert impl["entrypoint"] == "composites.implementations.ridge_pls_pca:pca"
     assert impl["source_hash"] == _source_hash("ridge_pls_pca")
 
 
@@ -214,5 +220,5 @@ def test_pls_real_spec_sklearn_fit(tmp_path):
     assert not np.allclose(got, 0.0)                       # 存根（全零）必败
     assert sklearn.__version__
     impl = result.provenance["implementation"]
-    assert impl["entrypoint"] == "research.composites.implementations.ridge_pls_pca:pls"
+    assert impl["entrypoint"] == "composites.implementations.ridge_pls_pca:pls"
     assert impl["source_hash"] == _source_hash("ridge_pls_pca")

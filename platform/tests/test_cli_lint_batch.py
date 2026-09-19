@@ -2,7 +2,7 @@
 
 断言源 = `governance/evidence/reviews/r04-efficiency-2026-09-16/report.md` §2 P1：
 - 多路径一次 CLI 调用校验全部 spec（单进程），失败聚合、任一失败 exit 1 + 汇总；
-- `--all` 扫描 `research/factor/**/*.yaml`（跳过 `_` 前缀；不硬编码在途文件清单）；
+- `--all` 扫描 `$QUANTRESEARCH_ROOT/factor/**/*.yaml`（跳过 `_` 前缀；不硬编码在途文件清单）；
 - 单路径行为/退出码语义不变（`OK <name>` / exit 1，无批跑汇总行）；
 - 空参数给出 `--all` 指引且非零退出（不静默当成功）。
 """
@@ -60,13 +60,21 @@ def test_lint_batch_reports_failing_spec_and_exits_1(tmp_path):
     assert "1 通过 / 1 失败" in r.output
 
 
+def _sandbox_root(tmp_path, monkeypatch):
+    """R37：研究产物区根 = settings.research_root（env QUANTRESEARCH_ROOT 单点）。"""
+    from factorlab.config import settings
+    root = tmp_path / "qr"
+    monkeypatch.setattr(settings, "research_root", root)
+    return root
+
+
 def test_lint_all_scans_tree_skips_underscore(tmp_path, monkeypatch):
-    _write(tmp_path / "research/factor/fam/a.yaml", _GOOD.format(name="scan_a"))
-    _write(tmp_path / "research/factor/fam/nested/b.yaml", _GOOD.format(name="scan_b"))
+    root = _sandbox_root(tmp_path, monkeypatch)
+    _write(root / "factor/fam/a.yaml", _GOOD.format(name="scan_a"))
+    _write(root / "factor/fam/nested/b.yaml", _GOOD.format(name="scan_b"))
     # `_` 前缀（文件或目录）是元数据，不是 spec；内容非法也必须被跳过而不是报错
-    _write(tmp_path / "research/factor/_families.yaml", "not: [valid")
-    _write(tmp_path / "research/factor/fam/_pools/pool.yaml", "not: [valid either")
-    monkeypatch.chdir(tmp_path)
+    _write(root / "factor/_families.yaml", "not: [valid")
+    _write(root / "factor/fam/_pools/pool.yaml", "not: [valid either")
     r = runner.invoke(app, ["lint", "--all"])
     assert r.exit_code == 0, r.output
     assert "2 通过 / 0 失败" in r.output
@@ -74,9 +82,9 @@ def test_lint_all_scans_tree_skips_underscore(tmp_path, monkeypatch):
 
 
 def test_lint_all_reports_inflight_failure(tmp_path, monkeypatch):
-    _write(tmp_path / "research/factor/fam/a.yaml", _GOOD.format(name="scan_a"))
-    _write(tmp_path / "research/factor/fam/bad.yaml", _BAD.format(name="scan_bad"))
-    monkeypatch.chdir(tmp_path)
+    root = _sandbox_root(tmp_path, monkeypatch)
+    _write(root / "factor/fam/a.yaml", _GOOD.format(name="scan_a"))
+    _write(root / "factor/fam/bad.yaml", _BAD.format(name="scan_bad"))
     r = runner.invoke(app, ["lint", "--all"])
     assert r.exit_code == 1, r.output
     assert "bad.yaml" in r.output
@@ -91,10 +99,10 @@ def test_lint_no_args_guides_and_fails(tmp_path, monkeypatch):
 
 
 def test_lint_all_without_factor_tree_fails_clearly(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
+    _sandbox_root(tmp_path, monkeypatch)  # 根存在但无 factor/（或可换成任意缺失路径）
     r = runner.invoke(app, ["lint", "--all"])
     assert r.exit_code != 0
-    assert "research/factor" in r.output
+    assert "QUANTRESEARCH_ROOT" in r.output
 
 
 def test_lint_single_path_output_unchanged(tmp_path):

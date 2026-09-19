@@ -91,23 +91,23 @@ def _lint_one(spec_path: Path, *, force_strategy: bool = False) -> str:
 
 
 def _factor_spec_paths() -> list[Path]:
-    """`--all` 的 spec 集合：cwd 向上定位 `research/factor/`，rglob *.yaml 跳过 `_` 前缀。
+    """`--all` 的 spec 集合：`settings.research_root/factor/`，rglob *.yaml 跳过 `_` 前缀。
 
-    路径单点：与 `research/tools/factor_lib/build_index.py` 同布局（元数据 `_*.yaml`
-    不是 spec）；glob 而非硬编码清单——挖矿在途新增因子自动纳入。
+    路径单点（R37）：研究产物区根 = `QUANTRESEARCH_ROOT`（platform 侧经
+    `settings.research_root`）——与 `research/tools/factor_lib/build_index.py`
+    同布局（元数据 `_*.yaml` 不是 spec）；glob 而非硬编码清单——挖矿在途新增因子
+    自动纳入。根不存在（如干净 CI checkout）→ 空列表，调用方给指引。
     """
-    here = Path.cwd().resolve()
-    for base in (here, *here.parents):
-        factor_root = base / "research" / "factor"
-        if factor_root.is_dir():
-            out = []
-            for p in sorted(factor_root.rglob("*.yaml")):
-                rel = p.relative_to(factor_root)
-                if any(part.startswith("_") for part in rel.parts):
-                    continue  # `_families.yaml` / `_pools/` 等元数据，不是 spec
-                out.append(p)
-            return out
-    return []
+    factor_root = Path(settings.research_root) / "factor"
+    if not factor_root.is_dir():
+        return []
+    out = []
+    for p in sorted(factor_root.rglob("*.yaml")):
+        rel = p.relative_to(factor_root)
+        if any(part.startswith("_") for part in rel.parts):
+            continue  # `_families.yaml` / `_pools/` 等元数据，不是 spec
+        out.append(p)
+    return out
 
 
 @app.command()
@@ -115,7 +115,7 @@ def lint(
     spec_paths: list[Path] = typer.Argument(
         None, help="一个或多个因子 spec 或策略文档 YAML 路径"),
     all_specs: bool = typer.Option(False, "--all",
-                                   help="扫描 research/factor/**/*.yaml 全库单进程批跑"),
+                                   help="扫描 $QUANTRESEARCH_ROOT/factor/**/*.yaml 全库单进程批跑"),
     strategy: bool = typer.Option(
         False, "--strategy",
         help="强制按策略文档校验给定 YAML（策略文档也可被自动识别；与 --all 互斥）"),
@@ -138,8 +138,9 @@ def lint(
     if all_specs:
         discovered = _factor_spec_paths()
         if not discovered:
-            console.print("未找到 research/factor/**/*.yaml（从当前目录向上）"
-                          "——请在仓库根运行，或直接给出 spec 路径")
+            console.print(
+                f"未找到 {settings.research_root}/factor/**/*.yaml"
+                "——核对 QUANTRESEARCH_ROOT，或直接给出 spec 路径")
             raise typer.Exit(code=1)
         paths = sorted(set(paths) | set(discovered))
     if not paths:
@@ -711,7 +712,7 @@ app.add_typer(ref_app, name="ref")
 @ref_app.command("list")
 def ref_list(scales: str | None = typer.Option(
         None, "--scales", help="只看某组（daily|minute）；缺省打印全部组")) -> None:
-    """参考库成员清单（D10；读 `research/factor/_reference.yaml`）。
+    """参考库成员清单（D10；读 `$QUANTRESEARCH_ROOT/factor/_reference.yaml`）。
 
     用法: factorlab ref list [--scales daily]
     """
@@ -746,7 +747,7 @@ def corr_factors(names: list[str] = typer.Argument(None),
     """因子两两相关性：周度横截面秩相关均值 + 全局 Pearson。
 
     用法: factorlab corr <name1> <name2> [<name3>...] [--against reference]
-    `--against reference`：names 与参考库（`research/factor/_reference.yaml` daily 组）
+    `--against reference`：names 与参考库（`$QUANTRESEARCH_ROOT/factor/_reference.yaml` daily 组）
     的并集自成矩阵（names 可省略=库内自相关矩阵）——只读库清单，不扫全库、不跨 scales。
     """
     if against is None and len(names or []) < 2:

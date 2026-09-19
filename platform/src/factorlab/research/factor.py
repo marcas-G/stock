@@ -170,7 +170,7 @@ def factor_lint(args: Any) -> envelope.Envelope:
         paths = sorted(set(paths) | set(_factor_spec_paths()))
     if not paths:
         return envelope.fail("factor.lint", "USAGE", "请给出至少一个 spec 路径，或用 --all 全库批跑",
-                             hint="flab factor lint research/factor/<族>/<短名>.yaml")
+                             hint="flab factor lint $QUANTRESEARCH_ROOT/factor/<族>/<短名>.yaml")
     results, failures = _lint_paths(paths)
     if failures:
         first_path, first_err = failures[0]
@@ -474,7 +474,7 @@ def factor_svd(args: Any) -> envelope.Envelope:
             except (FileNotFoundError, ValueError) as exc:
                 return envelope.fail(
                     "factor.svd", "NOT_FOUND", f"参考库不可用（{exc}）",
-                    hint="用 --all 扫全库，或修 `research/factor/_reference.yaml`")
+                    hint="用 --all 扫全库，或修 `$QUANTRESEARCH_ROOT/factor/_reference.yaml`")
             source = "参考库 daily"
     if len(names) < 2:
         return envelope.fail("factor.svd", "USAGE", "至少需要 2 个因子",
@@ -554,7 +554,7 @@ def factor_admit(args: Any) -> envelope.Envelope:
         base = [b for b in reference_names(scales) if b != name]
     except FileNotFoundError as exc:
         return envelope.fail("factor.admit", "NOT_FOUND", f"参考库不可用（{exc}）",
-                             hint="检查 `research/factor/_reference.yaml` 或 FACTORLAB_REFERENCE")
+                             hint="检查 `$QUANTRESEARCH_ROOT/factor/_reference.yaml` 或 FACTORLAB_REFERENCE")
     except ValueError as exc:
         return envelope.fail("factor.admit", "DATA", f"参考库非法: {exc}")
     if not base:
@@ -610,7 +610,7 @@ def factor_ref_list(args: Any) -> envelope.Envelope:
         ref = load_reference()
     except FileNotFoundError as exc:
         return envelope.fail("factor.ref.list", "NOT_FOUND", f"参考库不存在: {exc}",
-                             hint="检查 `research/factor/_reference.yaml`")
+                             hint="检查 `$QUANTRESEARCH_ROOT/factor/_reference.yaml`")
     except ValueError as exc:
         return envelope.fail("factor.ref.list", "DATA", f"参考库非法: {exc}")
     groups = list(ref)
@@ -706,7 +706,7 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
     path = _reference_path()
     if not path.is_file():
         return envelope.fail("factor.ref.add", "NOT_FOUND", f"参考库不存在: {path}",
-                             hint="先建 `research/factor/_reference.yaml`（scales: daily/minute）")
+                             hint="先建 `$QUANTRESEARCH_ROOT/factor/_reference.yaml`（scales: daily/minute）")
     scales = getattr(args, "scales", None) or "daily"
     if scales not in REFERENCE_SCALES:
         return envelope.fail("factor.ref.add", "LINT",
@@ -875,12 +875,12 @@ def _reg_all() -> None:
         "factor.lint", handler=factor_lint,
         params=(registry.ParamSpec("spec_paths", kind="list[str]", positional=True,
                                    help="一个或多个因子 spec YAML 路径"),
-                registry.ParamSpec("all", kind="bool", help="扫描 research/factor/**/*.yaml 全库批跑"),
+                registry.ParamSpec("all", kind="bool", help="扫描 $QUANTRESEARCH_ROOT/factor/**/*.yaml 全库批跑"),
                 registry.ParamSpec("strategy", kind="bool", help="强制按策略文档校验"),
                 _JSON, _PRETTY),
         defaults={"spec_paths": [], "all": False, "strategy": False},
         description="静态校验（秒级，不连库；错误码 LINT）",
-        examples=("flab factor lint research/factor/momentum_20d/turnrank_top2.yaml",
+        examples=("flab factor lint $QUANTRESEARCH_ROOT/factor/momentum_20d/turnrank_top2.yaml",
                   "flab factor lint --all"),
         output_schema={"type": "object", "properties": {
             "n_pass": {"type": "integer"},
@@ -895,7 +895,7 @@ def _reg_all() -> None:
                   "profile": False, "no_read_cache": False,
                   "accept_quality": None, "override_reason": None},
         description="计算+评估+分层回测（过 heavy 闸；返回 IC/十分位/换手/覆盖/ic_decay）",
-        examples=("flab factor run research/factor/momentum_20d/turnrank_top2.yaml",
+        examples=("flab factor run $QUANTRESEARCH_ROOT/factor/momentum_20d/turnrank_top2.yaml",
                   "flab factor run <spec> --no-backtest --wait"),
         output_schema={"type": "object", "properties": {
             "name": {"type": "string"},
@@ -989,7 +989,7 @@ def _reg_all() -> None:
         params=(registry.ParamSpec("scales", kind="str", help="只看 daily|minute"),
                 _JSON, _PRETTY),
         defaults={"scales": None},
-        description="参考库成员清单（D10；读 research/factor/_reference.yaml）",
+        description="参考库成员清单（D10；读 $QUANTRESEARCH_ROOT/factor/_reference.yaml）",
         examples=("flab factor ref list", "flab factor ref list --scales minute"),
         output_schema={"type": "object", "properties": {
             "path": {"type": "string"}, "scales": {"type": "object"}}},
@@ -1036,7 +1036,7 @@ def _reg_all() -> None:
                 _JSON, _PRETTY),
         defaults={"scales": "daily", "wait": False},
         description="一键入库检验：lint→（缺产物则 run）→参考库 corr+resic→verdict",
-        examples=("flab factor admit research/factor/volatility/max_effect_20d.yaml",),
+        examples=("flab factor admit $QUANTRESEARCH_ROOT/factor/volatility/max_effect_20d.yaml",),
         output_schema={"type": "object", "properties": {
             "verdict": {"type": "string", "enum": ["可加入", "冗余", "重复"]},
             "corr_max": {"type": "number"}, "r2_lib": {"type": "number"},

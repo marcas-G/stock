@@ -201,7 +201,7 @@ def strategy_lint(args: Any) -> envelope.Envelope:
     if not paths:
         return envelope.fail(
             "strategy.lint", "USAGE", "请给出至少一个策略 YAML 路径",
-            hint="flab strategy lint research/strategy/<name>.yaml")
+            hint="flab strategy lint $QUANTRESEARCH_ROOT/strategy/<name>.yaml")
     results: list[dict] = []
     failures: list[tuple[Path, str, str]] = []
     for path in paths:
@@ -592,7 +592,7 @@ def _reg_all() -> None:
                 _JSON, _PRETTY),
         defaults={"doc_paths": []},
         description="策略 YAML 静态校验（六层声明；不连库；错误码 LINT）",
-        examples=("flab strategy lint research/strategy/low_lottery_top30_weekly.yaml",),
+        examples=("flab strategy lint $QUANTRESEARCH_ROOT/strategy/low_lottery_top30_weekly.yaml",),
         output_schema={"type": "object", "properties": {
             "n_pass": {"type": "integer"}, "results": {"type": "array"}}},
     )
@@ -619,7 +619,7 @@ def _reg_all() -> None:
         defaults={"signal": None, "dry_run": False, "out_dir": None, "wait": False,
                   "accept_quality": None, "override_reason": None},
         description="策略回测：信号→M7 组合→M8 回测→持久化（过 heavy 闸）",
-        examples=("flab strategy run research/strategy/low_lottery_top30_weekly.yaml",
+        examples=("flab strategy run $QUANTRESEARCH_ROOT/strategy/low_lottery_top30_weekly.yaml",
                   "flab strategy run <doc> --dry-run",
                   "flab strategy run <doc> --signal max_effect_20d_high --wait"),
         output_schema={"type": "object", "properties": {

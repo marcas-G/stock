@@ -1,13 +1,15 @@
 #!/usr/bin/env python
-"""策略索引生成器（Plan S Task 4）：`research/strategy/**` + `knowledge/dossiers/strategies/**`
-→ `knowledge/index/strategies.md`。
+"""策略索引生成器（Plan S Task 4）：`<research_root>/strategy/**`
++ `<research_root>/dossiers/strategies/**` → `<research_root>/index/strategies.md`。
+
+R37 Phase 2：研究产物区根 = `QUANTRESEARCH_ROOT`（解析单点见 `quantresearch_paths.py`）。
 
 产物纪律（与因子索引同款）：生成物与生成器输出**逐字节一致**，
 不一致即门红（`--check`；测试 `tests/test_strategy_index.py` 常驻）。
 
 成对门（不是静默跳过）：
-- 每个 `research/strategy/<stem>.yaml` 必须有 `knowledge/dossiers/strategies/<stem>.md` 档案；
-- 每个带 front matter 的档案必须声明 `spec`（= `research/strategy/<stem>.yaml`）
+- 每个 `strategy/<stem>.yaml` 必须有 `dossiers/strategies/<stem>.md` 档案；
+- 每个带 front matter 的档案必须声明 `spec`（= `strategy/<stem>.yaml`）
   与 `window`（回测窗口），且 spec 存在；
 - 缺任一 → 非零退出并列出名字。
 
@@ -15,7 +17,7 @@ front matter 约定（`_` 前缀文件 = 元数据豁免，如 `_template.md`）
 
     ---
     name: <策略名>
-    spec: research/strategy/<name>.yaml
+    spec: strategy/<name>.yaml
     window: "<start> ~ <end>"
     status: draft
     ---
@@ -30,10 +32,10 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[3]        # stock/
-STRATEGY = ROOT / "research" / "strategy"
-DOCS = ROOT / "knowledge" / "dossiers" / "strategies"
-OUT = ROOT / "knowledge" / "index" / "strategies.md"
+from quantresearch_paths import DOCS_STRATEGIES, INDEX, ROOT, STRATEGY
+
+DOCS = DOCS_STRATEGIES
+OUT = INDEX / "strategies.md"
 
 _REQUIRED_FRONT = ("spec", "window")
 
@@ -86,7 +88,7 @@ def load_specs(strategy_dir: Path = STRATEGY) -> tuple[list[dict], list[str]]:
         rows.append({
             "name": name,
             "stem": f.stem,
-            "yaml": f"research/strategy/{f.name}",
+            "yaml": f"strategy/{f.name}",
             "signal": data.get("signal", "—"),
             "direction": data.get("direction", "—"),
             "rebalance": portfolio.get("rebalance_frequency", "daily"),
@@ -111,7 +113,7 @@ def load_dossiers(docs_dir: Path = DOCS):
             continue
         if fm is None:
             legacy.append({"stem": f.stem,
-                           "md": f"knowledge/dossiers/strategies/{f.name}"})
+                           "md": f"dossiers/strategies/{f.name}"})
             continue
         missing = [k for k in _REQUIRED_FRONT if not fm.get(k)]
         if missing:
@@ -119,7 +121,7 @@ def load_dossiers(docs_dir: Path = DOCS):
                           f"（模板约定：{' + '.join(_REQUIRED_FRONT)}）")
             continue
         declared = str(fm["spec"])
-        expected = f"research/strategy/{f.stem}.yaml"
+        expected = f"strategy/{f.stem}.yaml"
         if declared != expected:
             errors.append(f"{f.name}: front matter spec={declared!r} ≠ 约定 {expected!r}")
             continue
@@ -129,7 +131,7 @@ def load_dossiers(docs_dir: Path = DOCS):
             continue
         registered.append({
             "stem": f.stem,
-            "md": f"knowledge/dossiers/strategies/{f.name}",
+            "md": f"dossiers/strategies/{f.name}",
             "spec": declared,
             "window": fm["window"],
             "status": fm.get("status", "—"),
@@ -146,7 +148,7 @@ def _pair(specs: list[dict], registered: list[dict], legacy: list[dict]) -> list
             hint = ("（同名档案无 front matter——历史档案不参与配对）"
                     if s["stem"] in legacy_stems else "")
             errors.append(f"{s['stem']}: spec 缺档案 "
-                          f"knowledge/dossiers/strategies/{s['stem']}.md{hint}")
+                          f"dossiers/strategies/{s['stem']}.md{hint}")
     spec_stems = {s["stem"] for s in specs}
     for d in registered:
         if d["stem"] not in spec_stems:

@@ -6,6 +6,10 @@
 选择**如实标注**而非伪造产物——见 `knowledge/dossiers/factors/README.md` 与
 `docs/verification/R21/EVID/C1-not-reproducible.txt`。
 
+R37 Phase 2：档案已随研究产物区迁出主仓——扫描面 = `QUANTRESEARCH_ROOT` 下的
+`dossiers/factors/`（env 优先，缺省本机产物区）；root 不存在 → SKIP(0)（GitHub-hosted
+干净 checkout 不假绿也不红）。
+
 约定：只在 front matter 闭合 `---` 前插入一行 `snapshot:`，不动正文；幂等（已有即跳过）。
 
 用法：
@@ -14,11 +18,19 @@
 """
 from __future__ import annotations
 
+import os
 import pathlib
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[5]          # stock/（R24 迁 governance/evidence 后深度 +1）
-DOCS = ROOT / "knowledge" / "dossiers" / "factors"
+DEFAULT_ROOT = "/data/students/gaolei/quantresearch"
+
+
+def _research_root() -> pathlib.Path:
+    env = os.environ.get("QUANTRESEARCH_ROOT")
+    return pathlib.Path(env) if env else pathlib.Path(DEFAULT_ROOT)
+
+
+DOCS = _research_root() / "dossiers" / "factors"
 MARK = "snapshot: 历史快照（验证数字不可复跑；R21 标注，见 ../README.md）"
 
 
@@ -41,6 +53,9 @@ def _has_mark(text: str) -> bool:
 
 
 def main() -> int:
+    if not DOCS.is_dir():
+        print(f"SKIP: 因子档案根不存在：{DOCS}（QUANTRESEARCH_ROOT 未挂载）")
+        return 0
     files = sorted(DOCS.glob("*/*.md"))
     check = "--check" in sys.argv
     changed = 0
@@ -56,7 +71,7 @@ def main() -> int:
         if missing:
             print(f"缺 snapshot 标注：{len(missing)} 份")
             for f in missing:
-                print("  -", f.relative_to(ROOT))
+                print("  -", f.relative_to(DOCS))
             return 1
         print(f"snapshot 标注齐备：{len(files)} 份 ✓")
         return 0

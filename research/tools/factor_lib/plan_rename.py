@@ -11,9 +11,9 @@ import sys
 
 import yaml
 
-ROOT = pathlib.Path(__file__).resolve().parents[3]        # stock/
-FACTOR = ROOT / "research" / "factor"
-DOCS = ROOT / "research" / "docs" / "factors"
+from quantresearch_paths import DOCS_FACTORS, FACTOR, ROOT
+
+DOCS = DOCS_FACTORS
 
 
 def load_families() -> list[tuple[str, tuple[str, ...]]]:
@@ -50,7 +50,7 @@ def plan() -> list[dict]:
             "family": fam,
             "stem": stem,
             "yaml_old": f.relative_to(ROOT).as_posix(),
-            "yaml_new": (pathlib.Path("research/factor") / fam / f"{stem}.yaml").as_posix(),
+            "yaml_new": (pathlib.Path("factor") / fam / f"{stem}.yaml").as_posix(),
             "md_old": (DOCS / f"{name}.md").relative_to(ROOT).as_posix(),
             "md_new": (DOCS / fam / f"{stem}.md").relative_to(ROOT).as_posix(),
         })
@@ -60,7 +60,7 @@ def plan() -> list[dict]:
     for r in rows:
         if seen[(r["_fam"], r["_stem"])] > 1:
             r["stem"] = r["name"]
-            r["yaml_new"] = (pathlib.Path("research/factor") / r["_fam"] / f'{r["name"]}.yaml').as_posix()
+            r["yaml_new"] = (pathlib.Path("factor") / r["_fam"] / f'{r["name"]}.yaml').as_posix()
             r["md_new"] = (DOCS / r["_fam"] / f'{r["name"]}.md').relative_to(ROOT).as_posix()
     for r in rows:
         r.pop("_fam", None); r.pop("_stem", None)

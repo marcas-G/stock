@@ -54,7 +54,11 @@ def _ch_available() -> bool:
 
 
 def test_specs_lint_all():
-    root = REPO / "research/factor"
+    # R37：研究产物区在主仓外（QUANTRESEARCH_ROOT）；GitHub-hosted 无该目录 → skip。
+    from factorlab.config import settings
+    root = Path(settings.research_root) / "factor"
+    if not root.is_dir():
+        pytest.skip(f"研究产物区不存在：{root}（QUANTRESEARCH_ROOT 未挂载）")
     specs = sorted(root.glob("*/*.yaml"))
     # 原集 ≥152（只增不删——挖矿循环持续新增因子，硬等号会误伤正常增长；
     # 低于 152 说明有删除，必须显式确认）

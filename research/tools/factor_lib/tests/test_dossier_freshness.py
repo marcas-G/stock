@@ -50,8 +50,8 @@ def _spec(name: str = "amihud_max", family: str = "intraday") -> dict:
         "name": name,
         "family": family,
         "stem": name,
-        "yaml": f"research/factor/{family}/{name}.yaml",
-        "md": f"knowledge/dossiers/factors/{family}/{name}.md",
+        "yaml": f"factor/{family}/{name}.yaml",
+        "md": f"dossiers/factors/{family}/{name}.md",
     }
 
 
@@ -95,15 +95,59 @@ def test_last_commit_ts_reads_real_git_history(tmp_path):
         capture_output=True, text=True, check=True).stdout)
     assert DF.last_commit_ts(repo, spec["yaml"]) == expected
     # 未提交的 yaml 无历史 → None
-    other = repo / "research/factor/intraday/wip.yaml"
+    other = repo / "factor/intraday/wip.yaml"
     other.write_text("name: wip\n", encoding="utf-8")
-    assert DF.last_commit_ts(repo, "research/factor/intraday/wip.yaml") is None
+    assert DF.last_commit_ts(repo, "factor/intraday/wip.yaml") is None
 
 
 def test_last_commit_ts_non_repo_raises(tmp_path):
     (tmp_path / "not_a_repo").mkdir()
     with pytest.raises(RuntimeError):
-        DF.last_commit_ts(tmp_path / "not_a_repo", "research/factor/x.yaml")
+        DF.last_commit_ts(tmp_path / "not_a_repo", "factor/x.yaml")
+
+
+# ---- R37：研究产物区不是 git 仓库 → 以 yaml mtime 判时效（不抛错） ----
+
+def test_resolve_ts_outside_git_uses_mtime(tmp_path):
+    root = tmp_path / "qr"
+    p = root / "factor" / "intraday" / "x.yaml"
+    p.parent.mkdir(parents=True)
+    p.write_text("name: x\n", encoding="utf-8")
+    ts = DF.resolve_ts(root, "factor/intraday/x.yaml")
+    assert ts == int(p.stat().st_mtime)
+
+
+def test_resolve_ts_inside_git_uses_commit_time(tmp_path):
+    repo = _init_repo(tmp_path)
+    spec = _spec()
+    p = repo / spec["yaml"]
+    p.parent.mkdir(parents=True)
+    p.write_text("name: amihud_max\n", encoding="utf-8")
+    _git(repo, "add", spec["yaml"])
+    _git(repo, "commit", "-q", "-m", "add", date="2026-09-10T00:00:00+08:00")
+    expected = DF.last_commit_ts(repo, spec["yaml"])
+    assert expected is not None
+    assert DF.resolve_ts(repo, spec["yaml"]) == expected
+
+
+def test_resolve_ts_missing_file_returns_none(tmp_path):
+    root = tmp_path / "qr"
+    root.mkdir()
+    assert DF.resolve_ts(root, "factor/fam/nope.yaml") is None
+
+
+def test_mirror_gate_mtime_fallback_pending_then_stale(tmp_path):
+    """非 git 产物区：新 spec（mtime < 72h）放行 PENDING；旧 spec 门红 STALE。"""
+    spec = _spec()
+    root = _tree(tmp_path, spec, doc=False)
+    yaml_path = root / spec["yaml"]
+    mtime = yaml_path.stat().st_mtime
+    pending = DF.require_mirror_docs([spec], root=root, now=mtime + 71 * HOUR,
+                                     commit_ts_fn=DF.resolve_ts)
+    assert [v.state for v in pending] == [DF.PENDING]
+    with pytest.raises(AssertionError, match="amihud_max"):
+        DF.require_mirror_docs([spec], root=root, now=mtime + 73 * HOUR,
+                               commit_ts_fn=DF.resolve_ts)
 
 
 def test_last_commit_ts_shallow_clone_raises(tmp_path):

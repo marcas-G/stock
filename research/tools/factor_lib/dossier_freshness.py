@@ -7,13 +7,14 @@
 - **STALE**：yaml 提交已超宽限仍缺档案（或 git 无法判定，如非仓库/浅克隆）
   ——门照旧失败，防止"缺档过期不管"。
 
-判定完全基于**真实 git 提交时间**（`git log -1 --format=%ct -- <yaml>`）：
+判定基于**真实 git 提交时间**（`git log -1 --format=%ct -- <yaml>`）：
 - yaml 未提交 / 无历史 → `commit_ts is None` → PENDING（新因子在途）；
 - 档案已存在 → OK，**不触发 git 查询**（既有档案路径零变更、零开销）；
-- 非 git 仓库 / 浅克隆（提交历史不在）→ RuntimeError（无法判定 → 门失败）。
+- git 仓库内且浅克隆（提交历史不在）→ RuntimeError（无法判定 → 门失败）。
 
-CI 注意：必须 `fetch-depth: 0`（完整历史）——浅克隆下旧 yaml 的提交时间不可得，
-本模块会显式拒绝判定而不是静默当"未提交"放行。
+R37 Phase 2：研究产物区（`QUANTRESEARCH_ROOT`）**不在 git 仓内**——`resolve_ts`
+对非仓库根改用 yaml 的 **mtime** 判时效（同样 72h 宽限；产物区没有"提交时间"这回事，
+但"新写的 spec 允许档案在途"语义保留）。仓库内仍走 git（CI `fetch-depth: 0` 纪律不变）。
 """
 from __future__ import annotations
 
@@ -28,10 +29,12 @@ OK = "OK"
 PENDING = "PENDING"
 STALE = "STALE"
 
-#: 提交时间查询函数签名：(repo_root, rel_path) -> epoch 秒 | None（无历史）
+#: 时间戳查询函数签名：(root, rel_path) -> epoch 秒 | None（无历史/文件不存在）
 CommitTsFn = Callable[[Path, str], "int | None"]
 #: 进程内浅克隆判定 memo（key = repo_root 字符串）
 _SHALLOW_MEMO: dict[str, bool] = {}
+#: 进程内"是否 git 仓库"判定 memo（key = root 字符串；R37：每 spec 一次探测太贵）
+_GIT_REPO_MEMO: dict[str, bool] = {}
 
 
 def _is_shallow(repo_root: Path | str, git: str) -> bool:
@@ -67,6 +70,31 @@ def last_commit_ts(repo_root: Path | str, rel_path: str, *,
     return int(out) if out else None
 
 
+def is_git_repo(root: Path | str, *, git: str = "git") -> bool:
+    """root 是否在 git 仓库内（`rev-parse --git-dir` 成功即真）；进程内 memo。"""
+    key = str(root)
+    if key not in _GIT_REPO_MEMO:
+        r = subprocess.run([git, "-C", key, "rev-parse", "--git-dir"],
+                           capture_output=True, text=True)
+        _GIT_REPO_MEMO[key] = r.returncode == 0
+    return _GIT_REPO_MEMO[key]
+
+
+def file_mtime_ts(root: Path | str, rel_path: str) -> int | None:
+    """文件 mtime（epoch 秒）；文件不存在 → None（视为 PENDING 在途）。"""
+    try:
+        return int((Path(root) / rel_path).stat().st_mtime)
+    except OSError:
+        return None
+
+
+def resolve_ts(root: Path | str, rel_path: str, *, git: str = "git") -> int | None:
+    """R37：git 仓库内 → 最近提交时间；非仓库（研究产物区）→ 文件 mtime。"""
+    if is_git_repo(root, git=git):
+        return last_commit_ts(root, rel_path, git=git)
+    return file_mtime_ts(root, rel_path)
+
+
 @dataclass(frozen=True)
 class MirrorVerdict:
     """单 spec 的镜像门判定结果。"""
@@ -92,7 +120,7 @@ def assess(*, doc_exists: bool, commit_ts: int | None, now: float,
 
 def assess_spec(spec: dict, *, root: Path | str, now: float | None = None,
                 grace_hours: float = GRACE_HOURS,
-                commit_ts_fn: CommitTsFn = last_commit_ts) -> MirrorVerdict:
+                commit_ts_fn: CommitTsFn = resolve_ts) -> MirrorVerdict:
     """单个 spec（`build_index.load_specs` 形状）的镜像门判定。
 
     spec 需含 `name` / `yaml` / `md`（相对 root 的 POSIX 路径）。
@@ -111,7 +139,7 @@ def assess_spec(spec: dict, *, root: Path | str, now: float | None = None,
 def require_mirror_docs(specs: list[dict], *, root: Path | str,
                         now: float | None = None,
                         grace_hours: float = GRACE_HOURS,
-                        commit_ts_fn: CommitTsFn = last_commit_ts
+                        commit_ts_fn: CommitTsFn = resolve_ts
                         ) -> list[MirrorVerdict]:
     """逐 spec 判定；STALE → AssertionError（门红），返回 PENDING 列表。
 

@@ -104,8 +104,16 @@ def test_initial_reference_library_per_spec():
     """spec §3b/plan Task 14 + D10 挖矿入库：种子=momentum_20d_turnrank_top2 居 daily 首位；
     minute 库可空可非空（2026-09-17 首批 12 只已按 D10 冗余/增量检查工序入库，见
     `_reference.yaml` minute 节）；各 scales 每项含 style/reason/added。
-    跨 scales 禁止行为（spec §3b「两类不混用对照」）：同名不得跨库登记。"""
-    ref = load_reference(default_reference_path())
+    跨 scales 禁止行为（spec §3b「两类不混用对照」）：同名不得跨库登记。
+
+    R37：真实参考库在研究产物区（`settings.research_root`）；GitHub-hosted 无该目录 → skip。
+    """
+    from factorlab.config import settings
+
+    ref_path = default_reference_path()
+    if not ref_path.is_file():
+        pytest.skip(f"研究产物区参考库不存在：{ref_path}（QUANTRESEARCH_ROOT 未挂载）")
+    ref = load_reference(ref_path)
     daily, minute = ref["daily"], ref["minute"]
     assert daily, "daily 库不得为空（至少含种子）"
     assert daily[0].name == "momentum_20d_turnrank_top2", "种子应在 daily 首位"

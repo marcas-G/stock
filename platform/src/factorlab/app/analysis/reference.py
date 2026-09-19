@@ -1,4 +1,4 @@
-"""参考库（Reference Library，D10）：`research/factor/_reference.yaml` 加载器。
+"""参考库（Reference Library，D10）：`<research_root>/factor/_reference.yaml` 加载器。
 
 权威定义：`knowledge/design/platform/specs/2026-09-16-factorlab-eval-metrics-v2-design.md`
 §3b——库级分析（corr/svd/resic）默认对**择优最小库**（不拿全局因子对照）；库按
@@ -33,13 +33,16 @@ class ReferenceEntry:
 
 
 def default_reference_path() -> Path:
-    """参考库路径：`FACTORLAB_REFERENCE` 覆盖优先，否则仓库根 `research/factor/_reference.yaml`。"""
+    """参考库路径：`FACTORLAB_REFERENCE` 覆盖优先，否则 `settings.research_root/factor/_reference.yaml`。
+
+    R37 Phase 2：研究产物区已迁出主仓——不再从仓库根硬定位 `research/factor/`。
+    """
     env = os.environ.get(ENV_OVERRIDE)
     if env:
         return Path(env)
-    # app/analysis/reference.py → parents[5] = stock/（与 config._REPO_ROOT 同根）
-    return (Path(__file__).resolve().parents[5]
-            / "research" / "factor" / "_reference.yaml")
+    from factorlab.config import settings
+
+    return Path(settings.research_root) / "factor" / "_reference.yaml"
 
 
 def load_reference(path: Path | None = None) -> dict[str, list[ReferenceEntry]]:

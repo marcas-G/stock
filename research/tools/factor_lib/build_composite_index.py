@@ -1,13 +1,16 @@
 #!/usr/bin/env python
-"""合成分索引生成器（Plan CX-C3）：`research/composites/specs/*.yaml`
-+ `knowledge/dossiers/composites/*.md` → `knowledge/index/composites.md`。
+"""合成分索引生成器（Plan CX-C3）：`<research_root>/composites/specs/*.yaml`
++ `<research_root>/dossiers/composites/*.md` → `<research_root>/index/composites.md`。
+
+R37 Phase 2：研究产物区根 = `QUANTRESEARCH_ROOT`（解析单点见 `quantresearch_paths.py`；
+合成分 spec/实现随迁，entrypoint 改为产物区内相对模块路径 `composites.implementations.*`）。
 
 产物纪律（与因子/策略索引同款）：生成物与生成器输出**逐字节一致**，
 不一致即门红（`--check`；测试 `tests/test_composite_index.py` 常驻）。
 
 成对门（不是静默跳过）：
-- 每个 `research/composites/specs/<stem>.yaml` 必须有 `knowledge/dossiers/composites/<stem>.md` 档案；
-- 每个带 front matter 的档案必须声明 `spec`（= `research/composites/specs/<stem>.yaml`）
+- 每个 `composites/specs/<stem>.yaml` 必须有 `dossiers/composites/<stem>.md` 档案；
+- 每个带 front matter 的档案必须声明 `spec`（= `composites/specs/<stem>.yaml`）
   与 `window`（样本窗口），且 spec 存在；
 - 缺任一 → 非零退出并列出名字。
 
@@ -18,7 +21,7 @@ front matter 约定（`_` 前缀文件 = 元数据豁免，如 `_template.md`）
 
     ---
     name: <合成分名>
-    spec: research/composites/specs/<name>.yaml
+    spec: composites/specs/<name>.yaml
     window: "<start> ~ <end>"
     status: draft
     ---
@@ -36,10 +39,11 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[3]        # stock/
-COMPOSITE = ROOT / "research" / "composites" / "specs"
-DOCS = ROOT / "knowledge" / "dossiers" / "composites"
-OUT = ROOT / "knowledge" / "index" / "composites.md"
+from quantresearch_paths import COMPOSITE_SPECS, DOCS_COMPOSITES, INDEX, ROOT
+
+COMPOSITE = COMPOSITE_SPECS
+DOCS = DOCS_COMPOSITES
+OUT = INDEX / "composites.md"
 
 _REQUIRED_FRONT = ("spec", "window")
 
@@ -98,7 +102,7 @@ def load_specs(composite_dir: Path = COMPOSITE) -> tuple[list[dict], list[str]]:
         rows.append({
             "name": name,
             "stem": f.stem,
-            "yaml": f"research/composites/specs/{f.name}",
+            "yaml": f"composites/specs/{f.name}",
             "members": list(members),
             "entrypoint": entrypoint,
             "params": data.get("params") or {},
@@ -121,7 +125,7 @@ def load_dossiers(docs_dir: Path = DOCS):
             continue
         if fm is None:
             legacy.append({"stem": f.stem,
-                           "md": f"knowledge/dossiers/composites/{f.name}"})
+                           "md": f"dossiers/composites/{f.name}"})
             continue
         missing = [k for k in _REQUIRED_FRONT if not fm.get(k)]
         if missing:
@@ -129,7 +133,7 @@ def load_dossiers(docs_dir: Path = DOCS):
                           f"（模板约定：{' + '.join(_REQUIRED_FRONT)}）")
             continue
         declared = str(fm["spec"])
-        expected = f"research/composites/specs/{f.stem}.yaml"
+        expected = f"composites/specs/{f.stem}.yaml"
         if declared != expected:
             errors.append(f"{f.name}: front matter spec={declared!r} ≠ 约定 {expected!r}")
             continue
@@ -139,7 +143,7 @@ def load_dossiers(docs_dir: Path = DOCS):
             continue
         registered.append({
             "stem": f.stem,
-            "md": f"knowledge/dossiers/composites/{f.name}",
+            "md": f"dossiers/composites/{f.name}",
             "spec": declared,
             "window": fm["window"],
             "status": fm.get("status", "—"),
@@ -156,7 +160,7 @@ def _pair(specs: list[dict], registered: list[dict], legacy: list[dict]) -> list
             hint = ("（同名档案无 front matter——历史档案不参与配对）"
                     if s["stem"] in legacy_stems else "")
             errors.append(f"{s['stem']}: spec 缺档案 "
-                          f"knowledge/dossiers/composites/{s['stem']}.md{hint}")
+                          f"dossiers/composites/{s['stem']}.md{hint}")
     spec_stems = {s["stem"] for s in specs}
     for d in registered:
         if d["stem"] not in spec_stems:

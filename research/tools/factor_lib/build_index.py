@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-"""因子索引生成器（R5）：`research/factor/**` → `knowledge/index/factors.md`。
+"""因子索引生成器（R5）：`<research_root>/factor/**` → `<research_root>/index/factors.md`。
+
+R37 Phase 2：研究产物区根 = `QUANTRESEARCH_ROOT`（缺省 `/data/students/gaolei/quantresearch`；
+解析单点见 `quantresearch_paths.py`）——索引输入/输出都在产物区内，工具仓零产物。
 
 产物纪律（沿用 `knowledge/contracts/catalog.md` 的范式）：**生成物与生成器输出逐字节一致**，
 不一致即门红（`--check` 模式；测试 `tests/test_index.py` 常驻）。
@@ -13,16 +16,15 @@
 from __future__ import annotations
 
 import collections
-import pathlib
 import re
 import sys
 
 import yaml
 
-ROOT = pathlib.Path(__file__).resolve().parents[3]        # stock/
-FACTOR = ROOT / "research" / "factor"
-DOCS = ROOT / "knowledge" / "dossiers" / "factors"
-OUT = ROOT / "knowledge" / "index" / "factors.md"
+from quantresearch_paths import DOCS_FACTORS, FACTOR, INDEX, ROOT
+
+DOCS = DOCS_FACTORS
+OUT = INDEX / "factors.md"
 
 
 def _norm_formula(text: str) -> str:
@@ -101,7 +103,7 @@ def render() -> str:
     lines.append("| 族 | 文件数 | 目录 |")
     lines.append("|---|---|---|")
     for fam in sorted(by_fam):
-        lines.append(f"| {fam} | {len(by_fam[fam])} | `research/factor/{fam}/` |")
+        lines.append(f"| {fam} | {len(by_fam[fam])} | `factor/{fam}/` |")
     lines.append("")
     for fam in sorted(by_fam):
         lines.append(f"## 族：{fam}")

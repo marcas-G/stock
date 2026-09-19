@@ -116,6 +116,15 @@ WHITELIST = [
      "Plan P T11 退役：旧 teajoin 源生产模块已删除（git 历史可查）"),
     (re.compile(r"tests/test_(?:rebuild|refresh|fetcher|e2e_data|platform_db|sparsity|stock_basic_migration|verify)\.py"),
      "Plan P T11 退役：随旧源删除的测试（git 历史可查）"),
+    # R37 Phase 2：研究产物区迁出主仓（QUANTRESEARCH_ROOT = quantresearch/）；
+    # 台账 append-only 的历史坐标（档案/spec）不再仓内解析——活文档/活脚本已改读
+    # 产物区根（R37/migrate-products 证据）。命中逐条打印，不静默。
+    (re.compile(r"^knowledge/dossiers/"),
+     "R37 研究产物迁出主仓：quantresearch/dossiers/（历史台账引用不追改）"),
+    (re.compile(r"^research/(?:factor|strategy|composites)/"),
+     "R37 研究产物迁出主仓：quantresearch/{factor,strategy,composites}/（历史台账引用不追改）"),
+    (re.compile(r"^research/docs/(?:factors|strategies)/"),
+     "R37 研究产物迁出主仓：历史坐标 research/docs/{factors,strategies}（R24 映射目标已在产物区）"),
 ]
 # R06-LEDGER-I2：历史「修复说明」中引用不精确 token 的精确豁免（R06-M1 类）。
 # 键 = (finding ID, 裸 token)；仅在登记行豁免，同 token 出现在别处仍 RED；

@@ -1,10 +1,10 @@
 """Plan CX-C3：合成分索引生成与 `--check` 门（spec ↔ 档案成对 · 字节级一致）。
 
 设计规格：`knowledge/design/platform/specs/2026-09-19-composite-alpha-aggregation-design.md`
-§14（档案/索引落点：`knowledge/dossiers/composites/<name>.md`、`knowledge/index/composites.md`）
+§14（档案/索引落点：`<research_root>/dossiers/composites/<name>.md`、`<research_root>/index/composites.md`）
 + §17 C3（治理）；计划 `knowledge/design/platform/plans/2026-09-19-composite-alpha-aggregation-c2c3c4b.md`
-Workstream B——扫描 `research/composites/specs/*.yaml` + `knowledge/dossiers/composites/*.md`
-→ 生成 `knowledge/index/composites.md`；spec 缺档案 / 档案缺 spec → 门红并列出名字；
+Workstream B——扫描 `<research_root>/composites/specs/*.yaml` + `<research_root>/dossiers/composites/*.md`
+→ 生成 `<research_root>/index/composites.md`；spec 缺档案 / 档案缺 spec → 门红并列出名字；
 档案 front matter 必须含 `spec` 路径与样本窗口 `window`；`--check` 手改即红。
 
 成员顺序契约（design §3）：spec `members` 声明顺序 = 矩阵列顺序——
@@ -14,7 +14,7 @@ front matter 约定（`_` 前缀 = 元数据豁免，如 `_template.md`）：
 
     ---
     name: <合成分名>
-    spec: research/composites/specs/<name>.yaml
+    spec: composites/specs/<name>.yaml
     window: "<start> ~ <end>"
     status: draft
     ---
@@ -27,16 +27,22 @@ from __future__ import annotations
 import pathlib
 import sys
 
+import pytest
+
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 import build_composite_index as BC  # noqa: E402
 
 ROOT = BC.ROOT
+# R37：真实树断言依赖研究产物区（QUANTRESEARCH_ROOT）；hosted 无该目录 → skip。
+_REAL = pytest.mark.skipif(
+    not BC.COMPOSITE.is_dir(),
+    reason=f"研究产物区不存在：{BC.COMPOSITE}（QUANTRESEARCH_ROOT 未挂载）")
 
 _SPEC = """\
 name: test_cx
 members: [zeta_alpha, alpha_beta]
 implementation:
-  entrypoint: research.composites.implementations.test_cx:compute
+  entrypoint: composites.implementations.test_cx:compute
 params: {w1: 0.5, w2: 0.5}
 alignment: {join: intersection, missing_policy: reject}
 output: {name: signal}
@@ -47,7 +53,7 @@ def _dossier(name="test_cx", *, spec=None, window='"2025-01-01 ~ 2025-03-31"',
              include_window=True, include_spec=True):
     lines = ["---", f"name: {name}"]
     if include_spec:
-        lines.append(f"spec: {spec or f'research/composites/specs/{name}.yaml'}")
+        lines.append(f"spec: {spec or f'composites/specs/{name}.yaml'}")
     if include_window:
         lines.append(f"window: {window}")
     lines += ["status: draft", "---", "", f"# {name} 合成分档案", ""]
@@ -73,12 +79,14 @@ def _main(argv, composite, docs, out):
 
 # ---------------- 真实树：索引与生成器逐字节一致 ----------------
 
+@_REAL
 def test_real_index_matches_generator():
     assert BC.OUT.is_file(), "合成分索引不存在——先跑 build_composite_index.py"
     assert BC.OUT.read_text(encoding="utf-8") == BC.render()
     assert BC.main(["--check"]) == 0
 
 
+@_REAL
 def test_real_repo_every_spec_has_dossier():
     """防复发（C3 终审）：真实仓全量 spec ↔ 档案成对，C1/C2 示例一个不能少。
 
@@ -99,12 +107,13 @@ def test_real_repo_every_spec_has_dossier():
         assert name in spec_stems, f"C1/C2 示例 spec 丢失: {name}"
 
 
+@_REAL
 def test_real_index_includes_cx_demo_in_member_order():
     text = BC.OUT.read_text(encoding="utf-8")
     assert "`cx_demo`" in text
     assert "`cx_demo_x1` → `cx_demo_x2`" in text, "成员顺序必须与 spec 声明一致"
-    assert "../../research/composites/specs/cx_demo.yaml" in text
-    assert "../../knowledge/dossiers/composites/cx_demo.md" in text
+    assert "../../composites/specs/cx_demo.yaml" in text
+    assert "../../dossiers/composites/cx_demo.md" in text
 
 
 # ---------------- 生成内容：成员列序 + 方法/参数/窗口 + 链接 ----------------
@@ -113,10 +122,10 @@ def test_render_row_preserves_member_order_and_fields(tmp_path):
     s, d = _fixture(tmp_path, {"test_cx": _SPEC}, {"test_cx": _dossier()})
     text = BC.render(composite_dir=s, docs_dir=d)
     for token in ("`test_cx`", "`zeta_alpha` → `alpha_beta`",
-                  "research.composites.implementations.test_cx:compute",
+                  "composites.implementations.test_cx:compute",
                   "w1=0.5, w2=0.5", "2025-01-01 ~ 2025-03-31", "draft",
-                  "../../knowledge/dossiers/composites/test_cx.md",
-                  "../../research/composites/specs/test_cx.yaml"):
+                  "../../dossiers/composites/test_cx.md",
+                  "../../composites/specs/test_cx.yaml"):
         assert token in text, f"索引缺少 {token!r}:\n{text}"
 
 
@@ -191,24 +200,26 @@ def test_legacy_doc_listed_not_silent(tmp_path):
 
 # ---------------- 真实档案/模板：design 要求的字段齐备 ----------------
 
+@_REAL
 def test_template_has_required_sections():
-    text = (ROOT / "knowledge" / "dossiers" / "composites" / "_template.md").read_text(
+    text = (ROOT / "dossiers" / "composites" / "_template.md").read_text(
         encoding="utf-8")
     for token in ("成员与版本", "artifact_hash", "方法与参数", "样本窗口", "评估",
                   "incremental_vs_best_member", "baselines", "稳定性", "复现命令"):
         assert token in text, f"模板缺 design 要求字段 {token!r}"
 
 
+@_REAL
 def test_cx_demo_dossier_fields_complete():
-    text = (ROOT / "knowledge" / "dossiers" / "composites" / "cx_demo.md").read_text(
+    text = (ROOT / "dossiers" / "composites" / "cx_demo.md").read_text(
         encoding="utf-8")
-    for token in ("spec: research/composites/specs/cx_demo.yaml",
+    for token in ("spec: composites/specs/cx_demo.yaml",
                   '"2026-09-01 ~ 2026-09-16"',
                   "cx_demo_x1", "cx_demo_x2",
                   "651a6a65d12799fb3f015a5b525f46bca8d92152860998aa14d84b74c91aa490",
                   "fefc8f1d509bde713b7d379edcdc3efe26046d9f4ac17d1cb5bed1d5e4181458",
                   "incremental_vs_best_member",
                   "equal_raw_average", "equal_rank_average",
-                  "factorlab compose research/composites/specs/cx_demo.yaml"):
+                  "factorlab compose $QUANTRESEARCH_ROOT/composites/specs/cx_demo.yaml"):
         assert token in text, f"cx_demo 档案缺 {token!r}"
     assert "fixtures" in text and "非因子库" in text, "成员为证据 fixtures 必须如实标注"

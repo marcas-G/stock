@@ -1,7 +1,0 @@
-name: pls
-members: [cx_demo_x1, cx_demo_x2]
-implementation:
-  entrypoint: research.composites.implementations.ridge_pls_pca:pls
-params: {n_components: 1}
-alignment: {join: intersection, missing_policy: reject}
-output: {name: signal}

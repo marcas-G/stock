@@ -1,11 +1,23 @@
+import os
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 运行产物单点（R24）：仓库根 `runs/platform/<name>/`。从包位置派生（非硬编码绝对
 # 前缀，可随仓库搬迁）；修复历史 cwd 分裂（R24 前产物落点随调用目录漂移，仓库根/平台
 # 目录各写一处）。`FACTORLAB_RESULTS_DIR` 覆盖语义不变（相对 cwd 解释）。
 _REPO_ROOT = Path(__file__).resolve().parents[3]  # platform/src/factorlab/config.py → stock/
+
+# 研究产物区根单点（R37 Phase 2）：研究 spec/策略/档案/索引已迁出主仓到
+# `quantresearch/`；env `QUANTRESEARCH_ROOT`（不带 FACTORLAB_ 前缀——跨平台与
+# research/tools 共用；工具侧同款解析见 research/tools/factor_lib/quantresearch_paths.py）。
+QUANTRESEARCH_ROOT_ENV = "QUANTRESEARCH_ROOT"
+DEFAULT_QUANTRESEARCH_ROOT = Path("/data/students/gaolei/quantresearch")
+
+
+def default_research_root() -> Path:
+    return Path(os.environ.get(QUANTRESEARCH_ROOT_ENV) or DEFAULT_QUANTRESEARCH_ROOT)
 
 
 class Settings(BaseSettings):
@@ -38,6 +50,9 @@ class Settings(BaseSettings):
     default_chunk_size: int = 1000
     use_float32: bool = True
     results_dir: Path = _REPO_ROOT / "runs" / "platform"  # FACTORLAB_RESULTS_DIR 可覆盖；run --output-dir 缺省根目录
+    # R37：研究产物区根（factor/strategy/composites/dossiers/index 的父目录）；
+    # `QUANTRESEARCH_ROOT` env 优先（FACTORLAB_RESEARCH_ROOT 亦可覆盖，pydantic 前缀）。
+    research_root: Path = Field(default_factory=default_research_root)
     universes_dir: Path = Path.home() / ".factorlab" / "universes"
     default_universe: str | None = None
     # ST 显式降级（R03-I1）：exclude_st=true 且库中无 stock_st 表时——
