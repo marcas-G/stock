@@ -104,7 +104,7 @@ def _load_composite_signal(doc: StrategyDoc, root: Path) -> SignalArtifact:
         raise ValueError(
             f"策略 {doc.strategy.name}: composite 信号 {name!r} 加载失败"
             f"（解析目录 {comp_dir}）: {exc}——composite 产物由 "
-            f"`flab composite run <spec.yaml>`（或 run_composite）生成于 "
+            f"`factorlab compose <spec.yaml>`（或 run_composite）生成于 "
             f"<results_dir>/{COMPOSITES_DIRNAME}/<name>/；请确认 "
             f"signal: composites/<name> 与产物存在") from exc
     artifact_name = meta.get("name")
