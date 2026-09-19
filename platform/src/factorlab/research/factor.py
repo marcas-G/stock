@@ -66,6 +66,12 @@ _RUN_PARAMS = (
     registry.ParamSpec("chunk_days", kind="int", help="日期分块（交易日/块）"),
     registry.ParamSpec("chunk_workers", kind="int",
                        help="分钟链 chunk 并行 worker 数（默认 1；N>=2 预算门）"),
+    registry.ParamSpec("profile", kind="bool",
+                       help="R09-M3 分段计时（写 stderr + summary.runtime.profile；"
+                            "默认关，env FACTORLAB_PROFILE=1 等效）"),
+    registry.ParamSpec("no_read_cache", kind="bool",
+                       help="R31 关闭分钟链 bars_1m chunk 磁盘缓存（默认开；"
+                            "仅 interface: bars_1m 生效）"),
     registry.ParamSpec("warmup_days", kind="int", help="TS 窗口预热天数"),
     registry.ParamSpec("eval_frequency", kind="str", help="评估频率 daily|weekly"),
     registry.ParamSpec("wait", kind="bool", help="heavy 闸满时阻塞等槽（缺省立即 BUSY）"),
@@ -262,7 +268,10 @@ def factor_run(args: Any) -> envelope.Envelope:
                 chunk_days=getattr(args, "chunk_days", None),
                 warmup_days=getattr(args, "warmup_days", None),
                 eval_frequency=getattr(args, "eval_frequency", None),
+                profile=getattr(args, "profile", None),          # R31.2 透传
                 chunk_workers=getattr(args, "chunk_workers", None) or 1,
+                # R31.2：--no-read-cache → False 强制关；缺省/None → env 默认开
+                read_cache=False if getattr(args, "no_read_cache", None) else None,
                 # Plan DQ-M1 F3：真实入口 fail-closed 读取门（ashare_daily）
                 # N2：DEGRADED/LEGACY opt-in 透传（自动写 Experiment Manifest）
                 dataset="ashare_daily",
@@ -579,6 +588,7 @@ def _run_args(spec_path: Path, **over: Any) -> argparse.Namespace:
                 no_backtest=False, groups=10, set=None, chunk_days=None,
                 warmup_days=None, eval_frequency=None, wait=False,
                 chunk_workers=None, no_float32=False, pretty=False,
+                profile=None, no_read_cache=None,
                 accept_quality=None, override_reason=None)
     base.update(over)
     return argparse.Namespace(**base)
@@ -882,6 +892,7 @@ def _reg_all() -> None:
                   "no_backtest": False, "groups": 10, "set": None,
                   "chunk_days": None, "warmup_days": None, "eval_frequency": None,
                   "wait": False, "chunk_workers": None, "no_float32": False,
+                  "profile": False, "no_read_cache": False,
                   "accept_quality": None, "override_reason": None},
         description="计算+评估+分层回测（过 heavy 闸；返回 IC/十分位/换手/覆盖/ic_decay）",
         examples=("flab factor run research/factor/momentum_20d/turnrank_top2.yaml",

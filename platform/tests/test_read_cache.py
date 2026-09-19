@@ -266,6 +266,50 @@ def test_lru_eviction_keeps_recently_accessed(tmp_path):
     assert cache2.load("c", now=4.0).status == "hit"
 
 
+def test_manifest_events_count_hit_fallback_miss(tmp_path):
+    """R31.2：manifest 级事件计数（health read_cache 段数据源）。"""
+    cache = _cache(tmp_path)
+    cache.store("k1", _frame(), "fp-1")
+    assert cache.load("k1").status == "hit"
+    events = json.loads((cache.root / "manifest.json").read_text())["events"]
+    assert events["hits"] == 1 and events["misses"] == 0
+
+    e = json.loads((cache.root / "manifest.json").read_text())["entries"]["k1"]
+    (cache.root / e["file"]).write_bytes(b"corrupt")
+    assert cache.load("k1").status == "fallback"
+    events = json.loads((cache.root / "manifest.json").read_text())["events"]
+    assert events["fallbacks"] == 1
+
+    assert cache.load("k1").status == "miss"       # 坏条目已清 → no_entry
+    events = json.loads((cache.root / "manifest.json").read_text())["events"]
+    assert events["misses"] == 1
+    # 旧计数保留（累计口径，非当前条目聚合）
+    assert events["hits"] == 1 and events["fallbacks"] == 1
+
+
+def test_manifest_stats_zero_missing_degraded_corrupt_and_real(tmp_path):
+    from factorlab.adapters.read.chunk_cache import manifest_stats
+
+    missing = tmp_path / "nope"
+    assert manifest_stats(missing) == {
+        "dir": str(missing), "entries": 0, "size_bytes": 0,
+        "hits": 0, "misses": 0, "fallbacks": 0}
+
+    cache = _cache(tmp_path)
+    cache.store("k1", _frame(), "fp-1", now=1000.0)
+    assert cache.load("k1", now=1001.0).status == "hit"
+    stats = manifest_stats(cache.root)
+    assert stats["entries"] == 1 and stats["size_bytes"] > 0
+    assert stats["hits"] == 1 and stats["misses"] == 0
+    assert "degraded" not in stats
+
+    (cache.root / "manifest.json").write_text("{broken")
+    degraded = manifest_stats(cache.root)
+    assert degraded["entries"] == 0 and degraded["size_bytes"] == 0
+    assert degraded["hits"] == degraded["misses"] == degraded["fallbacks"] == 0
+    assert "degraded" in degraded
+
+
 def test_put_is_atomic_on_write_failure(tmp_path, monkeypatch):
     """write_ipc 失败（半成品已落 tmp）→ 目标文件不出现、manifest 不更新。"""
     cache = _cache(tmp_path)

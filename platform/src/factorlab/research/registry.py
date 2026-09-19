@@ -145,6 +145,15 @@ def build_parser(spec: CommandSpec) -> argparse.ArgumentParser:
     return parser
 
 
+def format_help(spec: CommandSpec) -> str:
+    """命令参数帮助（`flab <cmd> --help` 透传；registry 单点生成，不手写漂移）。"""
+    parser = build_parser(spec)
+    parser.description = spec.description
+    if spec.examples:
+        parser.epilog = "示例：" + "；".join(spec.examples)
+    return parser.format_help()
+
+
 def dispatch(argv: Sequence[str]) -> int:
     """通用入口：解析 argv → handler → 单 JSON 信封 → 退出码。"""
     argv = list(argv)
@@ -159,6 +168,9 @@ def dispatch(argv: Sequence[str]) -> int:
         return envelope.emit(envelope.fail(
             name, "USAGE", f"未知命令: {name}",
             hint="factorlab research describe --json 查看命令目录"))
+    if any(arg in ("-h", "--help") for arg in rest):
+        print(format_help(spec), end="")
+        return 0
     try:
         args = build_parser(spec).parse_args(rest)
     except SystemExit:

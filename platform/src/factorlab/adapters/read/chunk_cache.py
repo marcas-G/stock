@@ -18,7 +18,9 @@
 - **容量/期限**：`FACTORLAB_READ_CACHE_MAX_GB`（默认 30）按条目 sha 后大小 LRU
   淘汰（`last_access` 最旧先出）；`FACTORLAB_READ_CACHE_TTL_DAYS`（默认 7）按
   `created_at` 过期即 miss 并清理。manifest 单点（`manifest.json`，含
-  key/file/sha256/size/fingerprint/created_at/last_access/hits）。
+  key/file/sha256/size/fingerprint/created_at/last_access/hits + R31.2 顶层
+  `events: {hits, misses, fallbacks}` 累计计数，`manifest_stats` 供 `flab health`
+  读缓存段；旧 manifest 无 `events` → 计数按 0/回退口径读）。
 - **原子写**：data 文件经 `adapters.atomicio.atomic_write`（同目录 tmp + fsync +
   `os.replace` + 目录 fsync；复用平台原子写单点）落 `{key}.arrow`（Arrow IPC,
   lz4）；manifest 同样原子替换。写失败不留目标文件、不更新 manifest。
@@ -56,13 +58,15 @@ from factorlab.adapters.atomicio import atomic_write, atomic_write_text
 
 __all__ = [
     "CacheLookup", "ChunkCache", "ReadCacheConfig", "bars_source_fingerprint",
-    "chunk_cache_key", "get_chunk_cache", "read_cache_config",
+    "chunk_cache_key", "get_chunk_cache", "manifest_stats", "read_cache_config",
     "reset_chunk_cache", "reset_fingerprint_cache",
 ]
 
 MANIFEST_VERSION = 1
 MANIFEST_NAME = "manifest.json"
 LOCK_NAME = "manifest.lock"
+#: manifest 顶层事件计数键（R31.2；health 读缓存段消费）
+_EVENT_KEYS = ("hits", "misses", "fallbacks")
 ENABLED_ENV = "FACTORLAB_READ_CACHE"
 DIR_ENV = "FACTORLAB_READ_CACHE_DIR"
 MAX_GB_ENV = "FACTORLAB_READ_CACHE_MAX_GB"
@@ -161,6 +165,57 @@ def chunk_cache_key(*, codes: list[str], date_start: str, date_end: str,
 def _sha256_file(path: Path) -> str:
     with open(path, "rb") as fh:
         return hashlib.file_digest(fh, "sha256").hexdigest()
+
+
+def _events(manifest: dict) -> dict[str, int]:
+    """manifest 顶层事件计数（R31.2；缺失/半成品 → 零值起点，就地规范化）。"""
+    events = manifest.get("events")
+    if not isinstance(events, dict):
+        events = {}
+        manifest["events"] = events
+    for key in _EVENT_KEYS:
+        try:
+            events[key] = int(events.get(key, 0) or 0)
+        except (TypeError, ValueError):
+            events[key] = 0
+    return events
+
+
+def manifest_stats(root: str | Path | None = None) -> dict[str, Any]:
+    """只读 manifest 摘要（`flab health` 读缓存段数据源）。
+
+    返回 `{dir, entries, size_bytes, hits, misses, fallbacks}`；目录/manifest
+    不存在 → 全零（dir 照报）；损坏 manifest → 零值 + `degraded` 原因（不抛，
+    调用方降级上报）。`hits/misses/fallbacks` 为 manifest 顶层 events 累计；
+    旧 manifest 无 events 时 hits 回退 Σentry hits（misses/fallbacks 为 0）。
+    """
+    base = Path(root) if root is not None else read_cache_config().root
+    out: dict[str, Any] = {
+        "dir": str(base), "entries": 0, "size_bytes": 0,
+        "hits": 0, "misses": 0, "fallbacks": 0}
+    path = base / MANIFEST_NAME
+    if not path.is_file():
+        return out
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        entries = data["entries"]
+        if not isinstance(entries, dict):
+            raise TypeError("entries 不是对象")
+        events = data.get("events")
+        if not isinstance(events, dict):
+            events = {}
+        hits = events.get("hits")
+        if hits is None:  # 旧 manifest：回退条目级 hits 聚合
+            hits = sum(int(e.get("hits", 0) or 0) for e in entries.values())
+        out.update(
+            entries=len(entries),
+            size_bytes=sum(int(e["size"]) for e in entries.values()),
+            hits=int(hits or 0),
+            misses=int(events.get("misses", 0) or 0),
+            fallbacks=int(events.get("fallbacks", 0) or 0))
+    except Exception as exc:  # noqa: BLE001 —— 损坏一律降级零值 + degraded
+        out["degraded"] = f"{type(exc).__name__}: {exc}"
+    return out
 
 
 def reset_fingerprint_cache() -> None:
@@ -277,9 +332,12 @@ class ChunkCache:
                 return None, "fallback", f"manifest_unreadable: {exc}"
             entry = manifest["entries"].get(key)
             if entry is None:
+                _events(manifest)["misses"] += 1
+                self._write_manifest(manifest)
                 return None, "miss", "no_entry"
             if now - float(entry["created_at"]) > self.ttl_seconds:
                 self._remove_entry(manifest, key)
+                _events(manifest)["misses"] += 1
                 self._write_manifest(manifest)
                 return None, "miss", "expired"
             return dict(entry), "hit", ""
@@ -293,6 +351,7 @@ class ChunkCache:
                     return
                 entry["last_access"] = now
                 entry["hits"] = int(entry.get("hits", 0)) + 1
+                _events(manifest)["hits"] += 1
                 self._write_manifest(manifest)
             except _ManifestError:
                 self._quarantine_manifest()
@@ -306,6 +365,7 @@ class ChunkCache:
                 return
             if key in manifest["entries"]:
                 self._remove_entry(manifest, key)
+                _events(manifest)["fallbacks"] += 1
                 self._write_manifest(manifest)
 
     def _evict(self, manifest: dict, now: float) -> None:

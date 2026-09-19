@@ -97,8 +97,23 @@ def _freshness(rd: Any) -> dict[str, Any]:
             "ok": max_date is not None and behind == 0}
 
 
+_RC_KEYS = ("dir", "entries", "size_bytes", "hits", "misses", "fallbacks")
+
+
+def _read_cache() -> tuple[dict[str, Any], str | None]:
+    """R31.2 读缓存状态段（`chunk_cache.manifest_stats`）。
+
+    目录/manifest 不存在 → 全零；损坏 manifest → 零值 + 原因（调用方 warning，
+    不 fail）。键序/集合固定 `{dir, entries, size_bytes, hits, misses,
+    fallbacks}`。
+    """
+    from factorlab.adapters.read.chunk_cache import manifest_stats
+    stats = manifest_stats()
+    return ({key: stats[key] for key in _RC_KEYS}, stats.get("degraded"))
+
+
 def health(args: argparse.Namespace) -> envelope.Envelope:
-    """一览：连通/内存/磁盘/护栏/新鲜度；后端不可达 → DATA。"""
+    """一览：连通/内存/磁盘/护栏/新鲜度/读缓存；后端不可达 → DATA。"""
     try:
         with read_handle() as rd:
             backend = rd.backend
@@ -113,6 +128,7 @@ def health(args: argparse.Namespace) -> envelope.Envelope:
     memory = _memory()
     disk = _disk()
     guard = _guard_slots()
+    read_cache, cache_degraded = _read_cache()
     warnings: list[str] = []
     if not memory["ok"]:
         warnings.append("可用内存低于 8GB——重任务会被 heavy 闸拒绝（MEMORY_GUARD）")
@@ -120,10 +136,14 @@ def health(args: argparse.Namespace) -> envelope.Envelope:
         warnings.append("heavy 闸 2/2 占用——重命令将 BUSY（可加 --wait）")
     if not freshness["ok"]:
         warnings.append("daily 新鲜度落后或为空——先 `flab data status` 核对")
+    if cache_degraded:
+        warnings.append(
+            f"读缓存 manifest 损坏（按零值上报，重跑自动重建）: {cache_degraded}")
     return envelope.ok(
         "health",
         {"backend": backend, "database": database, "connectivity": connectivity,
-         "memory": memory, "disk": disk, "guard": guard, "freshness": freshness},
+         "memory": memory, "disk": disk, "guard": guard, "freshness": freshness,
+         "read_cache": read_cache},
         warnings=tuple(warnings))
 
 
@@ -132,7 +152,7 @@ registry.register(
         name="health",
         params=(_JSON, _PRETTY),
         defaults={"json": True, "pretty": False},
-        description="健康一览：CH 连通/内存/磁盘/heavy 闸槽位/数据新鲜度",
+        description="健康一览：CH 连通/内存/磁盘/heavy 闸槽位/数据新鲜度/读缓存",
         examples=("flab health", "flab health --pretty"),
         output_schema={"type": "object", "properties": {
             "backend": {"type": "string"}, "database": {"type": "string"},
@@ -156,6 +176,16 @@ registry.register(
                 "latest_open": {"type": "string"},
                 "behind_trading_days": {"type": "integer"},
                 "ok": {"type": "boolean"}}},
+            "read_cache": {
+                "type": "object",
+                "description": "bars_1m chunk 磁盘缓存 manifest 状态"
+                               "（R31.2；损坏时零值 + warnings）",
+                "properties": {
+                    "dir": {"type": "string"}, "entries": {"type": "integer"},
+                    "size_bytes": {"type": "integer"},
+                    "hits": {"type": "integer"},
+                    "misses": {"type": "integer"},
+                    "fallbacks": {"type": "integer"}}},
         }},
     ),
     health,

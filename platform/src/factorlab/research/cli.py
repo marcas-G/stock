@@ -94,6 +94,27 @@ def _dispatch_typer(name: str, args: argparse.Namespace, pretty: bool) -> None:
     raise typer.Exit(code=envelope.emit(env, pretty=pretty))
 
 
+def _maybe_group_help(ctx: typer.Context, argv: list[str]) -> None:
+    """组级裸 `--help`（组命令 add_help_option=False；叶子命令参数帮助走
+    `registry.dispatch` 的 `--help` 透传）。"""
+    if argv in (["--help"], ["-h"]):
+        typer.echo(ctx.get_help())
+        raise typer.Exit(code=0)
+
+
+def _maybe_subgroup_help(argv: list[str]) -> None:
+    """`flab factor ref|op --help`：列出该二级组命令（叶子参数 help 透传）。"""
+    if (len(argv) == 2 and argv[0] in _FACTOR_SUBGROUPS
+            and argv[1] in ("-h", "--help")):
+        prefix = f"factor.{argv[0]}."
+        names = sorted(n[len(prefix):] for n in registry.COMMANDS
+                       if n.startswith(prefix))
+        typer.echo(f"factor {argv[0]} 子命令：{', '.join(names)}")
+        typer.echo(f"用法：flab factor {argv[0]} <子命令> [参数]"
+                   f"（`flab factor {argv[0]} <子命令> --help` 看参数）")
+        raise typer.Exit(code=0)
+
+
 @research_app.command("describe")
 def describe_cmd(
     command: str | None = typer.Option(None, "--command",
@@ -122,10 +143,12 @@ def version_cmd(
 @research_app.command(
     "data",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    add_help_option=False,
 )
 def data_cmd(ctx: typer.Context) -> None:
     """data 组：全库读取（子命令经 registry 单点，`describe --json` 查看）。"""
     argv = list(ctx.args)
+    _maybe_group_help(ctx, argv)
     if not argv:
         raise typer.Exit(code=envelope.emit(envelope.fail(
             "data", "USAGE", "缺少 data 子命令",
@@ -140,10 +163,13 @@ _FACTOR_SUBGROUPS = ("ref", "op")
 @research_app.command(
     "factor",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    add_help_option=False,
 )
 def factor_cmd(ctx: typer.Context) -> None:
     """factor 组：lint/run/list/show/export/corr/resic/svd/ref/op/catalog/admit。"""
     argv = list(ctx.args)
+    _maybe_group_help(ctx, argv)
+    _maybe_subgroup_help(argv)
     if not argv:
         raise typer.Exit(code=envelope.emit(envelope.fail(
             "factor", "USAGE", "缺少 factor 子命令",
@@ -162,10 +188,12 @@ def factor_cmd(ctx: typer.Context) -> None:
 @research_app.command(
     "strategy",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    add_help_option=False,
 )
 def strategy_cmd(ctx: typer.Context) -> None:
     """strategy 组：lint/run/list/show/export/capacity/cost。"""
     argv = list(ctx.args)
+    _maybe_group_help(ctx, argv)
     if not argv:
         raise typer.Exit(code=envelope.emit(envelope.fail(
             "strategy", "USAGE", "缺少 strategy 子命令",
@@ -176,10 +204,12 @@ def strategy_cmd(ctx: typer.Context) -> None:
 @research_app.command(
     "report",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    add_help_option=False,
 )
 def report_cmd(ctx: typer.Context) -> None:
     """report 组：list/show/url/serve。"""
     argv = list(ctx.args)
+    _maybe_group_help(ctx, argv)
     if not argv:
         raise typer.Exit(code=envelope.emit(envelope.fail(
             "report", "USAGE", "缺少 report 子命令",
@@ -190,10 +220,12 @@ def report_cmd(ctx: typer.Context) -> None:
 @research_app.command(
     "study",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    add_help_option=False,
 )
 def study_cmd(ctx: typer.Context) -> None:
     """study 组：run（一条链）/list（历史记录）。"""
     argv = list(ctx.args)
+    _maybe_group_help(ctx, argv)
     if not argv:
         raise typer.Exit(code=envelope.emit(envelope.fail(
             "study", "USAGE", "缺少 study 子命令",

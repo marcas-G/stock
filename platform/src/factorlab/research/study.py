@@ -135,7 +135,11 @@ def study_run(args: argparse.Namespace) -> envelope.Envelope:
             artifacts=artifacts, warnings=tuple(warnings))
 
     # step 1：因子计算+评估（过闸在 factor 组内；失败码原样传播）
-    run_env = factor_run(_factor_run_args(spec_path, wait=wait))
+    # R31.2：性能开关（profile/no_read_cache）同步透传到 factor run
+    run_env = factor_run(_factor_run_args(
+        spec_path, wait=wait,
+        profile=getattr(args, "profile", None),
+        no_read_cache=getattr(args, "no_read_cache", None)))
     if not run_env.ok:
         error_env = run_env
         return finish()
@@ -223,11 +227,15 @@ _register(
                                help="参考库对照：reference|daily|minute（缺省 reference）"),
             registry.ParamSpec("skip_admit", kind="bool",
                                help="跳过 admit 冗余检验（只 run→报告）"),
+            registry.ParamSpec("profile", kind="bool",
+                               help="R09-M3 分段计时透传（见 `flab factor run --help`）"),
+            registry.ParamSpec("no_read_cache", kind="bool",
+                               help="R31 关闭分钟链读缓存透传（见 `flab factor run --help`）"),
             registry.ParamSpec("wait", kind="bool",
                                help="heavy 闸满时阻塞等槽（缺省立即 BUSY）"),
             _JSON, _PRETTY),
     defaults={"strategy": None, "against": "reference", "skip_admit": False,
-              "wait": False},
+              "profile": False, "no_read_cache": False, "wait": False},
     description="一条链：因子 run →（admit）→ 策略回测 → 报告 URL（过 heavy 闸）",
     examples=("flab study run research/factor/volatility/max_effect_20d_high.yaml",
               "flab study run <factor.yaml> --strategy research/strategy/low_lottery_top30_weekly.yaml",

@@ -153,3 +153,58 @@ def test_research_cli_help_lists_every_registry_top_group():
     tops = {name.split(".")[0] for name in COMMANDS}
     missing = sorted(t for t in tops if t not in result.output)
     assert not missing, f"research --help 缺: {missing}（describe/help 漂移）"
+
+
+# ================================================================
+# R31.2：手册性能开关 ∈ 对应命令 registry 参数（防漂移）+ describe 可见
+# ================================================================
+
+_PERF_FLAGS = ("--profile", "--no-read-cache", "--chunk-workers")
+
+
+def _perf_flag_drift(text: str) -> tuple[set[str], list[str]]:
+    """文本 → (出现的性能 flag 集合, 漂移列表)。
+
+    逐行：行内每个 `flab <cmd...>` 必须支持该行出现的性能 flag
+    （registry 参数名 `_`→`-` 映射）；无命令的行不判定。
+    """
+    import factorlab.research  # noqa: F401 —— 触发组注册
+    from factorlab.research import COMMANDS
+
+    seen: set[str] = set()
+    bad: list[str] = []
+    for line in text.splitlines():
+        flags = {f for f in _PERF_FLAGS if re.search(rf"{re.escape(f)}\b", line)}
+        if not flags:
+            continue
+        seen |= flags
+        resolved, _unresolved = _flab_commands(line)
+        for cmd in sorted(resolved):
+            allowed = {"--" + p.name.replace("_", "-")
+                       for p in COMMANDS[cmd].params}
+            bad.extend(f"{cmd}: {f}" for f in sorted(flags - allowed))
+    return seen, bad
+
+
+def test_handbook_perf_flags_exist_in_their_command_params():
+    text = HANDBOOK.read_text(encoding="utf-8")
+    seen, bad = _perf_flag_drift(text)
+    assert seen == set(_PERF_FLAGS), (
+        f"手册未完整说明性能开关（出现: {sorted(seen)}）")
+    assert not bad, f"手册性能开关在对应命令 registry 缺失（漂移）: {bad}"
+
+
+def test_perf_flag_checker_can_fail():
+    """负向自检：不支持该 flag 的命令必须被检出（防永真检查器）。"""
+    seen, bad = _perf_flag_drift("`flab factor lint a.yaml --profile`")
+    assert seen == {"--profile"} and bad == ["factor.lint: --profile"]
+    seen2, bad2 = _perf_flag_drift(
+        "`flab factor run a.yaml --chunk-workers 2`（顺序）")
+    assert seen2 == {"--chunk-workers"} and bad2 == []
+
+
+def test_describe_factor_run_contains_perf_knobs():
+    import factorlab.research  # noqa: F401
+    from factorlab.research import COMMANDS
+    names = {p.name for p in COMMANDS["factor.run"].params}
+    assert {"profile", "no_read_cache", "chunk_workers"} <= names
