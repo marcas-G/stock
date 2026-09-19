@@ -1,0 +1,16 @@
+# Plan CX-C3 证据：字节门负向演示（手改索引 → --check 红；重生成 → 恢复绿）
+
+$ echo "手改一行（字节门负向演示）" >> knowledge/index/composites.md
+$ tail -1 knowledge/index/composites.md
+手改一行（字节门负向演示）
+
+$ platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py --check
+索引与生成器输出不一致（doc 陈旧或手改）——重跑 build_composite_index.py
+exit=1
+
+$ platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py
+已生成 knowledge/index/composites.md（10 行）
+exit=0
+$ platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py --check
+合成分索引一致 ✓
+exit=0

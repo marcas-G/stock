@@ -1,0 +1,48 @@
+== stock gates ==
+[G-COPY] 三方内容不互串 · 契约文档单副本
+    ✓ platform/ 顶层无 factor 目录（tools/ 为数据生产线）
+    ✓ platform/tools 存在（数据生产线工具集）
+    ✓ research/ 顶层无平台 src|tests
+    ✓ knowledge/contracts/interface.md 单副本
+    ✓ knowledge/contracts/catalog.md 单副本
+    ✓ knowledge/contracts/data-ops-playbook.md 单副本
+    ✓ knowledge/contracts/teajoin-guide.md 单副本
+[G-BOUNDARY] platform/ 不得 import research/
+    ✗ 发现 4 处 platform→research 引用
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+    ✓ 活文件零残留（tracked+untracked；豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）
+    ✓ 已迁路径活引用零残留（R06-M9+R07：docs/*、runs 旧路径、工具旧路径、emb、裸 results/；tracked+untracked）
+[G-PATHS] pyproject / pytest 路径自洽
+    ✓ platform pythonpath=src
+    ✓ platform/src/factorlab 存在
+    ✓ research 有 testpaths
+    ✓ 根无 pyproject.toml
+[G-IMPORTS] 全仓 factorlab.* 导入可解析（含负向自检）
+    ✓ 自检通过（能抓到迁移遗漏）
+    ✗ 导入解析失败
+      G-IMPORTS 失败：3 处
+        ✗ platform/tests/test_composite_runner.py:34 factorlab.app.composite.runtime 中不存在 'environment_lock_hash'（已迁走/改名？）
+        ✗ platform/tests/test_composite_runtime.py:28 factorlab.app.composite.runtime 中不存在 'collect_environment'（已迁走/改名？）
+        ✗ platform/tests/test_composite_runtime.py:28 factorlab.app.composite.runtime 中不存在 'environment_lock_hash'（已迁走/改名？）
+[G-INDEX] 因子索引与生成器一致
+    ✓ 索引一致 ✓
+[G-INDEX] 策略索引与生成器一致 · spec↔档案成对
+    ✓ 策略索引一致 ✓
+[G-INDEX] composite 索引与生成器一致 · spec↔档案成对
+    ✓ 合成分索引一致 ✓
+[G-ANNOTATE] 因子档案 snapshot 标注齐备（R21 约定）
+    ✓ snapshot 标注齐备：231 份 ✓
+[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）
+    ✓ 114 行 finding（fixed-claimed 11）：ID 唯一、状态合法、引用路径可解析、统计自洽；闭环：复查列 102/114、fixed-claimed 未复查 10（R07 8、R09 2）、报告/复查列-台账状态告警 10；实计 R01 13C/50I、R02 2C/9I、R03 0C/8I、R05 1C/3I、R06 0C/8I、R07 0C/8I、R08 0C/2I、R09 0C/2I
+    · 统计声明 5 条：核对通过 4、豁免 1（R01 首行统计为 2026-09-15 评审初始口径（EVID C1/C2、STRAT-C3 等后续登记未计入）；append-only 不改统计行；R04-Q7 实计 13C+50I）
+    · 路径豁免：polars_ta（vendor）/ platform/results（已迁 runs/platform）/ projects/ashare_alpha3（已归档 _archive/）/ .venv（环境）/ /tmp（临时 probe）；历史不精确引用豁免命中 10 处（R06-M1 类）
+    ✓ 负向自检通过（重复 ID/非法状态/死路径/空修复说明/统计不符）
+[G-LINT] 全库因子 spec lint（单进程批跑；挖矿在途 spec 一并计入）
+    ✓ factor lint: 239 通过 / 0 失败
+[G-VENV] 平台 editable 落位断言
+    ✓ factorlab → platform/src ✓
+    ✓ quant_core 独立包已删除（内核并入 factorlab）✓
+
+结构门：有失败（见上）
+数据接口门：ENFORCED 判定（AST）+ REPORT 未竟计数（见 governance/ops/check_dataiface.py）
+exit=1

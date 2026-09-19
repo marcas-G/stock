@@ -1,0 +1,37 @@
+# Plan CX-C3 证据：成对门负向演示（spec↔档案缺一即红，点名并恢复绿）
+
+# (a) spec 缺档案
+$ cat > research/composites/specs/ghost_pairing_demo.yaml <<EOF
+name: ghost_pairing_demo
+members: [cx_demo_x1]
+implementation:
+  entrypoint: research.composites.implementations.cx_demo:compute
+params: {}
+alignment: {join: intersection, missing_policy: reject}
+output: {name: signal}
+EOF
+$ platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py --check
+合成分索引成对门失败：
+ghost_pairing_demo: spec 缺档案 knowledge/dossiers/composites/ghost_pairing_demo.md
+exit=1
+
+$ rm research/composites/specs/ghost_pairing_demo.yaml
+$ platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py --check
+合成分索引一致 ✓
+exit=0
+
+# (b) 档案缺 spec
+$ cat > knowledge/dossiers/composites/ghost_orphan.md <<EOF
+$ platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py --check
+合成分索引成对门失败：
+ghost_orphan: 档案缺 spec research/composites/specs/ghost_orphan.yaml
+exit=1
+
+$ rm knowledge/dossiers/composites/ghost_orphan.md
+$ platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py --check
+合成分索引一致 ✓
+exit=0
+
+# 残留检查（不得留临时文件）
+$ git status --short research/composites/specs/ knowledge/dossiers/composites/
+?? knowledge/dossiers/composites/

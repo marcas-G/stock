@@ -1,0 +1,7 @@
+platform/.venv/bin/python research/tools/factor_lib/build_index.py
+已生成 knowledge/index/factors.md（402 行）
+platform/.venv/bin/python research/tools/factor_lib/build_strategy_index.py
+已生成 knowledge/index/strategies.md（16 行）
+platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py
+已生成 knowledge/index/composites.md（10 行）
+exit=0
