@@ -1,0 +1,21 @@
+===== 2026-09-20 02:05:18 post-migration product gates =====
+--- make index-check
+platform/.venv/bin/python research/tools/factor_lib/build_index.py --check
+索引一致 ✓
+platform/.venv/bin/python research/tools/factor_lib/build_strategy_index.py --check
+策略索引一致 ✓
+platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py --check
+合成分索引一致 ✓
+rc=0
+--- make lint-factors
+platform/.venv/bin/factorlab lint --all
+factor lint: 245 通过 / 0 失败
+rc=0
+--- annotate --check
+snapshot 标注齐备：231 份 ✓
+rc=0
+--- research_tidy
+[ERROR] /data/students/gaolei/quantresearch/results/bw.log: results/ 根下裸文件：bw.log（应归入 campaign 目录）
+[WARNING] /data/students/gaolei/quantresearch/lab/__pycache__: __pycache__ 存在（可再生缓存，建议删除）
+root=/data/students/gaolei/quantresearch errors=1 warnings=1
+rc=1

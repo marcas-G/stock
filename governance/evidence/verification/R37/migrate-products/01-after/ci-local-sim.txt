@@ -1,0 +1,14 @@
+QUANTRESEARCH_ROOT=/tmp/opencode/absent-qr
+--- G-LINT guard
+SKIP: 研究产物区不存在（/tmp/opencode/absent-qr）
+--- G-INDEX guard
+SKIP: 研究产物区不存在
+--- G-ANNOTATE
+SKIP: 因子档案根不存在：/tmp/opencode/absent-qr/dossiers/factors（QUANTRESEARCH_ROOT 未挂载）
+rc=0
+--- test_index + dossier (hosted: real-tree skip, mechanism tests run)
+ssss..................                                                   [100%]
+18 passed, 4 skipped, 1 deselected in 1.35s
+--- platform product tests (hosted: skip)
+sssssss                                                                                                                                                                                          [100%]
+7 skipped in 1.71s

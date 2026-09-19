@@ -1,0 +1,7 @@
+# R37 Phase 2 迁移映射（旧坐标 → 产物区相对路径）
+research/factor/          -> factor/
+research/strategy/        -> strategy/
+research/composites/      -> composites/        (entrypoint: research.composites.* -> composites.*)
+knowledge/dossiers/       -> dossiers/
+knowledge/index/          -> index/
+# 根：QUANTRESEARCH_ROOT（缺省 /data/students/gaolei/quantresearch）

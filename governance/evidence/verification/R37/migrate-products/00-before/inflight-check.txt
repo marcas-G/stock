@@ -1,0 +1,14 @@
+== date 2026-09-20 02:04:55 +0800
+== in-flight: files mtime < 5min
+== lsof open files in scope
+== destination state
+总用量 56
+drwxrwxr-x   6 gaolei gaolei  4096 9月  20 01:38 .
+drwxrwxr-x 108 gaolei gaolei 12288 9月  20 01:44 ..
+-rw-rw-r--   1 gaolei gaolei  2515 9月  20 01:38 CONVENTIONS.md
+drwxrwxr-x   3 gaolei gaolei  4096 9月  20 01:28 data
+drwxrwxr-x   3 gaolei gaolei  4096 9月  20 01:58 lab
+-rw-rw-r--   1 gaolei gaolei  8886 9月  20 01:39 README.md
+-rw-rw-r--   1 gaolei gaolei  7721 9月  20 01:29 REPORT.md
+drwxrwxr-x  13 gaolei gaolei  4096 9月  20 01:39 results
+drwxrwxr-x   2 gaolei gaolei  4096 9月  20 02:01 scratch

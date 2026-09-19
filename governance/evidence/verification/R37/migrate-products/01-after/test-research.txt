@@ -1,0 +1,148 @@
+===== 2026-09-20 02:42:27 make test-research (full output) =====
+platform/.venv/bin/python -m pytest platform/tools -q
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 40%]
+........................................................................ [ 49%]
+........................................................................ [ 57%]
+........................................................................ [ 65%]
+........................................................................ [ 73%]
+........................................................................ [ 81%]
+........................................................................ [ 90%]
+........................................................................ [ 98%]
+...............                                                          [100%]
+879 passed in 106.26s (0:01:46)
+platform/.venv/bin/python -m pytest research/tools -q
+.................................F..............................FF...... [ 74%]
+.........................                                                [100%]
+=================================== FAILURES ===================================
+_______________ test_every_yaml_has_mirror_doc_and_name_matches ________________
+
+    def test_every_yaml_has_mirror_doc_and_name_matches():
+        """yaml ↔ md 一一镜像；档案 front-matter 的 xname 必须等于 spec.name。
+    
+        缺档案时效门（R31 ③）：yaml 提交 < 72h / 无历史 → PENDING（警告放行）；
+        超期或 git 无法判定 → `dossier_freshness` 抛错 = 门红。
+        """
+        specs = BI.load_specs()
+        # 原集 ≥152（只增不删——挖矿循环持续新增因子并逐轮归档；低于 152 说明有删除，
+        # 必须显式确认。R04 后 `_` 前缀目录/文件为元数据，不计入）
+        assert len(specs) >= 152, f"因子数少于原集 152（{len(specs)}）——有删除？"
+>       pending = DF.require_mirror_docs(specs, root=ROOT)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+research/tools/factor_lib/tests/test_index.py:50: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+specs = [{'name': 'crash_bottom_leader_adv20', 'family': 'crash_bottom_leader', 'stem': 'adv20', 'direction': 1, ...}, {'name'.....}, {'name': 'crash_bottom_leader_timed', 'family': 'crash_bottom_leader', 'stem': 'timed', 'direction': 1, ...}, ...]
+root = PosixPath('/data/students/gaolei/quantresearch'), now = None
+grace_hours = 72.0, commit_ts_fn = <function resolve_ts at 0x7f249e1af380>
+
+    def require_mirror_docs(specs: list[dict], *, root: Path | str,
+                            now: float | None = None,
+                            grace_hours: float = GRACE_HOURS,
+                            commit_ts_fn: CommitTsFn = resolve_ts
+                            ) -> list[MirrorVerdict]:
+        """逐 spec 判定；STALE → AssertionError（门红），返回 PENDING 列表。
+    
+        PENDING 由调用方打印警告；git 无法判定（RuntimeError）原样上抛 = 门失败。
+        """
+        pending: list[MirrorVerdict] = []
+        stale: list[MirrorVerdict] = []
+        for s in specs:
+            v = assess_spec(s, root=root, now=now, grace_hours=grace_hours,
+                            commit_ts_fn=commit_ts_fn)
+            if v.state == PENDING:
+                pending.append(v)
+            elif v.state == STALE:
+                stale.append(v)
+        if stale:
+            detail = "；".join(
+                f"{v.spec_name}: {v.yaml} 最近提交 {time.strftime('%Y-%m-%d %H:%M', time.localtime(v.commit_ts))}"
+                for v in stale)
+>           raise AssertionError(
+                f"缺档案超 {grace_hours:g}h 宽限（STALE）: {detail}")
+E           AssertionError: 缺档案超 72h 宽限（STALE）: momentum_20d_turnrank_top2: factor/momentum_20d/turnrank_top2.yaml 最近提交 2026-09-16 18:27；momentum_20d_turnrank_top5: factor/momentum_20d/turnrank_top5.yaml 最近提交 2026-09-16 18:25
+
+research/tools/factor_lib/dossier_freshness.py:161: AssertionError
+______________________ test_real_run_clean_window_2025_03 ______________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f241e9c7df0>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3442/test_real_run_clean_window_2020')
+capsys = <_pytest.capture.CaptureFixture object at 0x7f241e72e990>
+
+    @pytest.mark.integration
+    def test_real_run_clean_window_2025_03(monkeypatch, tmp_path, capsys):
+        """真 CH + 真 SignalArtifact 一例：打印 NAV/决策数/成交事件，产物可回读。
+    
+        前置缺失（信号产物/CH）→ skip（不假通过）；运行失败必须非零并报原错误。
+        """
+        signal_dir = _RESULTS_DIR / "max_effect_20d_high"
+        if not (signal_dir / "signal.parquet").is_file():
+            pytest.skip(f"真实信号产物不存在: {signal_dir}（先跑 factorlab run）")
+        from factorlab.config import settings
+        try:
+            from factorlab.adapters import ch_read
+            ch_read.get_client().query("SELECT 1")
+        except Exception as exc:                       # noqa: BLE001
+            pytest.skip(f"ClickHouse 不可达: {exc}")
+        monkeypatch.setattr(settings, "data_backend", "ch")
+    
+        out_dir = tmp_path / "out"
+        rc = cli.main([str(_spec_file(tmp_path)),
+                       "--results-dir", str(_RESULTS_DIR),
+                       "--out-dir", str(out_dir)])
+        out = capsys.readouterr()
+>       assert rc == 0, f"真跑失败:\n{out.err}"
+E       AssertionError: 真跑失败:
+E         错误：读取门拒绝：dataset=ashare_daily partition=2025-03-31 status=UNKNOWN——不在 accept_quality=('PASS',)（默认 fail-closed）；指引：DEGRADED 需显式 opt-in（accept_quality 含 DEGRADED + override_reason，自动写 manifest）；或修复数据重发 health
+E         
+E       assert 1 == 0
+
+research/tools/strategies/tests/test_run_strategy_cli.py:240: AssertionError
+____________ test_real_run_max_hold_excludes_stale_and_renormalizes ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f241e71e250>
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3442/test_real_run_max_hold_exclude0')
+
+    @pytest.mark.integration
+    def test_real_run_max_hold_excludes_stale_and_renormalizes(monkeypatch, tmp_path):
+        """真数据端到端：max_hold=5 时连续持有 3 期的 code 在 3/21 被换出，剩余再归一。
+    
+        同窗口两次真跑（无规则 vs max_hold=5）对照 target 帧——规则必须真实生效
+        （两帧不等且超限 code 缺席），不是静默忽略。
+        """
+        import polars as pl
+        signal_dir = _RESULTS_DIR / "max_effect_20d_high"
+        if not (signal_dir / "signal.parquet").is_file():
+            pytest.skip(f"真实信号产物不存在: {signal_dir}（先跑 factorlab run）")
+        from factorlab.config import settings
+        try:
+            from factorlab.adapters import ch_read
+            ch_read.get_client().query("SELECT 1")
+        except Exception as exc:                       # noqa: BLE001
+            pytest.skip(f"ClickHouse 不可达: {exc}")
+        monkeypatch.setattr(settings, "data_backend", "ch")
+        from factorlab.adapters.strategy_artifacts import load_strategy_artifacts
+    
+        out_a = tmp_path / "a"
+>       assert cli.main([str(_spec_file(tmp_path, _SPEC)),
+                         "--results-dir", str(_RESULTS_DIR),
+                         "--out-dir", str(out_a)]) == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = <function main at 0x7f241e9aa0c0>(['/tmp/pytest-of-gaolei/pytest-3442/test_real_run_max_hold_exclude0/low_lottery_top30_weekly.yaml', '--results-dir', '...udents/gaolei/stock/runs/platform', '--out-dir', '/tmp/pytest-of-gaolei/pytest-3442/test_real_run_max_hold_exclude0/a'])
+E        +    where <function main at 0x7f241e9aa0c0> = cli.main
+
+research/tools/strategies/tests/test_run_strategy_cli.py:268: AssertionError
+----------------------------- Captured stderr call -----------------------------
+错误：读取门拒绝：dataset=ashare_daily partition=2025-03-31 status=UNKNOWN——不在 accept_quality=('PASS',)（默认 fail-closed）；指引：DEGRADED 需显式 opt-in（accept_quality 含 DEGRADED + override_reason，自动写 manifest）；或修复数据重发 health
+=========================== short test summary info ============================
+FAILED research/tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches
+FAILED research/tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03
+FAILED research/tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes
+3 failed, 94 passed in 5.86s
+Makefile:27: recipe for target 'test-research' failed
+make: *** [test-research] Error 1
+make rc=2

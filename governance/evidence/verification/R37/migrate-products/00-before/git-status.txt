@@ -1,0 +1,23 @@
+ M knowledge/dossiers/factors/intraday_campaign.md
+ M knowledge/index/factors.md
+ M research/factor/_reference.yaml
+?? governance/evidence/verification/R37/migrate-products/
+?? research/factor/intraday/_oos2026/
+?? research/factor/intraday/amihud_drift.yaml
+?? research/factor/intraday/amihud_max.yaml
+?? research/factor/intraday/gallais_noise.yaml
+?? research/factor/intraday/kyle_lambda.yaml
+?? research/factor/intraday/parkinson_ratio.yaml
+?? research/factor/intraday/sign_flips.yaml
+?? research/factor/intraday/tail_amihud.yaml
+?? research/factor/intraday/turnover_cv.yaml
+?? research/factor/intraday/updown_breadth.yaml
+?? research/factor/intraday/vol_persist.yaml
+?? research/factor/intraday/volofvol.yaml
+?? research/factor/intraday/volume_autocorr.yaml
+?? research/factor/vol_run_energy/symrun_r30_flip.yaml
+?? research/factor/vol_run_energy/symrun_r30_streak.yaml
+?? research/factor/volatility/max_effect_20d_extcnt.yaml
+?? research/factor/volatility/max_effect_20d_high.yaml
+?? research/factor/volatility/max_effect_20d_zmax.yaml
+?? research/tools/factor_lib/gen_minute_pool.py

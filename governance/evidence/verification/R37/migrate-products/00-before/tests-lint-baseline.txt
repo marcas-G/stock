@@ -1,0 +1,33 @@
+===== 2026-09-20 01:44:50 baseline research tests =====
+--- pytest factor_lib tests
+    
+        PENDING 由调用方打印警告；git 无法判定（RuntimeError）原样上抛 = 门失败。
+        """
+        pending: list[MirrorVerdict] = []
+        stale: list[MirrorVerdict] = []
+        for s in specs:
+            v = assess_spec(s, root=root, now=now, grace_hours=grace_hours,
+                            commit_ts_fn=commit_ts_fn)
+            if v.state == PENDING:
+                pending.append(v)
+            elif v.state == STALE:
+                stale.append(v)
+        if stale:
+            detail = "；".join(
+                f"{v.spec_name}: {v.yaml} 最近提交 {time.strftime('%Y-%m-%d %H:%M', time.localtime(v.commit_ts))}"
+                for v in stale)
+>           raise AssertionError(
+                f"缺档案超 {grace_hours:g}h 宽限（STALE）: {detail}")
+E           AssertionError: 缺档案超 72h 宽限（STALE）: momentum_20d_turnrank_top2: research/factor/momentum_20d/turnrank_top2.yaml 最近提交 2026-09-16 19:06；momentum_20d_turnrank_top5: research/factor/momentum_20d/turnrank_top5.yaml 最近提交 2026-09-16 19:06
+
+research/tools/factor_lib/dossier_freshness.py:133: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/factor_lib/tests/test_index.py::test_index_matches_generator
+FAILED research/tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches
+2 failed, 39 passed in 6.82s
+--- lint --all
+/data/students/gaolei/stock/platform/.venv/bin/python: No module named factorlab.__main__; 'factorlab' is a package and cannot be directly executed
+lint rc=0
+===== 2026-09-20 01:45:00 lint --all baseline =====
+factor lint: 245 通过 / 0 失败
+rc=0

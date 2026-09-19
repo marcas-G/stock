@@ -1,0 +1,15 @@
+===== 2026-09-20 02:05:26 post-migration tests =====
+--- research/tools/factor_lib/tests
+>           raise AssertionError(
+                f"缺档案超 {grace_hours:g}h 宽限（STALE）: {detail}")
+E           AssertionError: 缺档案超 72h 宽限（STALE）: momentum_20d_turnrank_top2: factor/momentum_20d/turnrank_top2.yaml 最近提交 2026-09-16 18:27；momentum_20d_turnrank_top5: factor/momentum_20d/turnrank_top5.yaml 最近提交 2026-09-16 18:25
+
+research/tools/factor_lib/dossier_freshness.py:161: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches
+1 failed, 47 passed in 1.97s
+--- platform product-dependent tests
+    joined = long.pivot(index=["date", "code"], columns="factor",
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+28 passed, 2 warnings in 2.45s

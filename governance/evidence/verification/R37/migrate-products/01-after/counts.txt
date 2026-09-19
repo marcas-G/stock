@@ -1,0 +1,1 @@
+factor=272 strategy=3 dossiers=247 index=3 composites=9
