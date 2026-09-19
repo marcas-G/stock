@@ -1,0 +1,7 @@
+# R31 ci-bootstrap：job research / research/tools
+# 等价命令: python -m pytest research/tools -q --deselect tools/factor_lib/...::test_every_yaml_has_mirror_doc_and_name_matches --deselect tools/strategies/...（2 条预存红）
+# env: FACTORLAB_DATA_BACKEND=duckdb FACTORLAB_CH_HOST=127.0.0.1 FACTORLAB_CH_PORT=1 FACTORLAB_STOCK_ROOT=<checkout>
+# 快照: main HEAD=5d716f7c5a68 / 工作树 30 项（sha256 f3eb727a） / worktree git HEAD=703af57 / 2026-09-19T11:21Z
+# ---- raw output ----
+........................................................................ [100%]
+72 passed, 3 deselected in 2.72s

@@ -1,0 +1,8 @@
+# R31 ci-bootstrap：job research / governance/ops
+# 等价命令: python -m pytest governance/ops -q
+# env: FACTORLAB_DATA_BACKEND=duckdb FACTORLAB_CH_HOST=127.0.0.1 FACTORLAB_CH_PORT=1 FACTORLAB_STOCK_ROOT=<checkout>
+# 快照: main HEAD=5d716f7c5a68 / 工作树 30 项（sha256 f3eb727a） / worktree git HEAD=703af57 / 2026-09-19T11:21Z
+# ---- raw output ----
+........................................................................ [ 73%]
+..........................                                               [100%]
+98 passed in 5.98s

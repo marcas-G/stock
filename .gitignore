@@ -12,6 +12,7 @@
 !/knowledge/
 !/governance/
 !/.claude/
+!/.github/
 
 # 平台/研究运行时数据与产物（防御性显式声明）
 data/

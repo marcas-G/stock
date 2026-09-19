@@ -1,0 +1,6 @@
+main_HEAD=5d716f7c5a6815adda4a51c172b873e1a27da44d
+main_status_files=30
+main_status_sha256=f3eb727a0c3c624f24cf69e7c87542cc1ea61f50f33d6cb15174f4fb92eb3834
+worktree_git_HEAD=703af57aff0df1b46943f9d2b727fa72511d4043
+snapshot_utc=2026-09-19T11:21:17Z
+sim_checkout=/tmp/opencode/r31ci/stock (git worktree @ 703af57); overlay=当前工作树(含未提交 30 项)

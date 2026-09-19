@@ -1,0 +1,65 @@
+# R31 ci-bootstrap：workflow 语法/结构校验
+# actionlint 不可用: True（用 PyYAML safe_load + 逐 job 命令本地复现替代）
+# PyYAML 6.0: safe_load OK
+triggers: ['push', 'pull_request', 'workflow_dispatch']
+branches: {'push': {'branches': ['restructure/monorepo']}, 'pull_request': {'branches': ['restructure/monorepo']}}
+concurrency: {'group': 'ci-${{ github.ref }}', 'cancel-in-progress': True}
+permissions: {'contents': 'read'}
+env: {'FACTORLAB_DATA_BACKEND': 'duckdb', 'FACTORLAB_CH_HOST': '127.0.0.1', 'FACTORLAB_CH_PORT': '1', 'FACTORLAB_STOCK_ROOT': '<expr>', 'PIP_DISABLE_PIP_VERSION_CHECK': '1'}
+
+## job platform: runs-on=ubuntu-latest timeout=60m steps=4
+  - uses: actions/checkout@v4  name=Checkout（fetch-depth: 0：档案时效门需 git 历史）
+  - uses: actions/setup-python@v5  name=Setup Python 3.13 + pip 缓存
+  - run: 建 platform/.venv + editable 安装
+      python -m venv platform/.venv
+      platform/.venv/bin/python -m pip install -e "./platform[dev]" \
+        "httpx==0.28.1" "polars==1.44.1"
+  - run: 平台全量 pytest（精确排除 1 条数据在盘假设）
+      .venv/bin/python -m pytest -q \
+        --deselect tests/test_factio.py::test_paths_roots_exist_or_skip
+
+## job research: runs-on=ubuntu-latest timeout=60m steps=6
+  - uses: actions/checkout@v4  name=Checkout（fetch-depth: 0）
+  - uses: actions/setup-python@v5  name=Setup Python 3.13 + pip 缓存
+  - run: 建 platform/.venv + editable 安装
+      python -m venv platform/.venv
+      platform/.venv/bin/python -m pip install -e "./platform[dev]" \
+        "httpx==0.28.1" "polars==1.44.1"
+  - run: platform/tools 测试（精确排除 5 条数据在盘假设）
+      platform/.venv/bin/python -m pytest platform/tools -q \
+        --deselect tools/lob_fact/tests/test_config_paths.py::test_root_exists_on_disk \
+        --deselect tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables
+  - run: research/tools 测试（精确排除 3 条在途/预存红）
+      platform/.venv/bin/python -m pytest research/tools -q \
+        --deselect tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches \
+        --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03 \
+        --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes
+  - run: governance/ops 测试
+      platform/.venv/bin/python -m pytest governance/ops -q
+
+## job gates: runs-on=ubuntu-latest timeout=30m steps=10
+  - uses: actions/checkout@v4  name=Checkout（fetch-depth: 0：档案时效门需 git 历史）
+  - uses: actions/setup-python@v5  name=Setup Python 3.13 + pip 缓存
+  - run: 建 platform/.venv + editable 安装
+      python -m venv platform/.venv
+      platform/.venv/bin/python -m pip install -e "./platform[dev]" \
+        "httpx==0.28.1" "polars==1.44.1"
+  - run: 因子 spec 全库 lint（G-LINT）
+      platform/.venv/bin/factorlab lint --all
+  - run: 索引一致（G-INDEX：因子 + 策略）
+      platform/.venv/bin/python research/tools/factor_lib/build_index.py --check
+      platform/.venv/bin/python research/tools/factor_lib/build_strategy_index.py --check
+  - run: 档案镜像 + 时效机制（R31 ③；临时排除 STALE 在途 1 条）
+      platform/.venv/bin/python -m pytest research/tools/factor_lib/tests/test_index.py \
+        research/tools/factor_lib/tests/test_dossier_freshness.py -q \
+        --deselect tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches
+  - run: 档案 snapshot 标注（G-ANNOTATE）
+      platform/.venv/bin/python governance/evidence/verification/R21/EVID/annotate_factor_archives.py --check
+  - run: 导入解析（G-IMPORTS）+ 负向自检
+      platform/.venv/bin/python governance/ops/check_imports.py --selftest
+      platform/.venv/bin/python governance/ops/check_imports.py
+  - run: 工具拓扑（G-TOPO）+ 负向自检
+      platform/.venv/bin/python governance/ops/check_tool_layering.py
+      platform/.venv/bin/python governance/ops/check_tool_layering.py --selftest
+  - run: editable 落位断言（G-VENV）
+      platform/.venv/bin/python -c "import pathlib, factorlab; p = pathlib.Path(factorlab.__file__).resolve(); exp = pathlib.Path('platform/src/factorlab').resolve(); assert p.parent == exp, f'factorlab 落位 {p}（应为 {exp}）'; print('factorlab →', p)"

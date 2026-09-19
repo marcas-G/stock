@@ -1,0 +1,227 @@
+# stock 单仓单树 CI（R31 ci-bootstrap）
+#
+# 环境事实：GitHub-hosted runner（ubuntu-latest）**无 ClickHouse、无本地 data/ 大数据、
+# 无 runs/ 产物**。本 workflow 只跑在此环境下确定性全绿的检查子集；依赖 CH/大数据的
+# 集成测试按各自 skip 机制自动跳过（skip，不假通过）。
+#
+# 本地逐条复现证据（无 CH 模拟：FACTORLAB_DATA_BACKEND=duckdb、FACTORLAB_CH_PORT=1、
+# FACTORLAB_STOCK_ROOT=<checkout>；worktree+工作树叠加 + 按本文件步骤现建 venv）：
+# governance/evidence/verification/R31/ci-bootstrap/ci/README.md
+#   - platform：2712 passed / 1054 skipped / 1 deselected / 0 failed
+#   - platform/tools：872 passed / 1 skipped / 5 deselected；research/tools：72 passed /
+#     3 deselected；governance/ops：98 passed
+#   - 离线门：factor lint 239 通过/0 失败、两索引一致、test_index+dossier 18 passed/
+#     1 deselected、G-IMPORTS/G-TOPO/G-ANNOTATE/G-VENV 全 exit 0
+# 排除项（9 条，全部精确 deselect + 理由/恢复条件见 ci/README.md §3；不得扩大）：
+#   - 数据"在盘"强假设 3 组（test_factio 1、lob_fact 4 参数、ch_ingest reconcile 1）；
+#   - test_index 档案时效 1（在途挖矿 turnrank_top2/top5 超 72h，档案补齐后删除）；
+#   - strategies 预存红 2（有 CH 时 DQ 门拒；无 CH 自 skip，已留证）。
+# 未收进：G-REVIEWS（引用不入库的 runs/ 产物，干净 checkout 必红）/G-BOUNDARY/G-DATAIFACE
+# （当前红，见 gates job 注释）；全量门恢复后改跑 `bash governance/ops/gates.sh`。
+name: CI
+
+on:
+  push:
+    branches: [restructure/monorepo]
+  pull_request:
+    branches: [restructure/monorepo]
+  workflow_dispatch:
+
+# 同 ref 新跑取消旧跑（省 runner 额度）
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # 对齐本机"无 CH"口径：CH 指向不可达端口 → CH 腿集成测试确定性 skip（非假通过）。
+  # duckdb 后端为平台测试默认；platform/data/factorlab.duckdb 不在库内（gitignored），
+  # 依赖真实平台的用例按 real_db_path fixture skip。
+  FACTORLAB_DATA_BACKEND: duckdb
+  FACTORLAB_CH_HOST: 127.0.0.1
+  FACTORLAB_CH_PORT: "1"
+  # 数据根单点（factorlab.core.factio.paths）默认值硬编码开发机绝对路径；
+  # 官方覆盖入口 = FACTORLAB_STOCK_ROOT。CI 指向本 checkout（本机语义等价）。
+  FACTORLAB_STOCK_ROOT: ${{ github.workspace }}
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  platform:
+    name: platform pytest（无 CH）
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: "Checkout（fetch-depth: 0：档案时效门需 git 历史）"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 3.13 + pip 缓存
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: platform/pyproject.toml
+
+      # 仓库约定布局 = platform/.venv（pan_update 接线测试断言其存在；
+      # Makefile/gates.sh 同口径）。CI 里现场建 venv，不用 runner 系统解释器跑测试。
+      - name: 建 platform/.venv + editable 安装
+        run: |
+          python -m venv platform/.venv
+          # 钉版说明（仅 2 个，均为不钉则当前红/collect error）：
+          # - httpx==0.28.1：starlette 1.6 TestClient 运行时依赖（test_web/test_e2e_web），
+          #   pyproject 未声明、uv.lock 未覆盖（pending-items #18② 已知欠账）；
+          # - polars==1.44.1：与平台 venv/已提交 _generated_polars_methods.py 版本头一致；
+          #   uv.lock 解析为 1.44.2（R29 残余①「锁环境三门未回归」），升级须先重生成
+          #   catalog（platform/scripts/gen_op_catalog.py）并过全量回归。
+          platform/.venv/bin/python -m pip install -e "./platform[dev]" \
+            "httpx==0.28.1" "polars==1.44.1"
+
+      # 平台全量（无 CH）。
+      # 排除项（仅此 1 条）：tests/test_factio.py::test_paths_roots_exist_or_skip 的
+      # skip 守卫只看 STOCK_ROOT 存在性；CI 里 STOCK_ROOT=本 checkout（存在），
+      # 但 data/fact 等大数据目录不入库 → 必红。这是测试对"开发机数据在盘"的
+      # 强假设（无第二层守卫），非实现缺陷；本地已实测确认，精确排除、不许扩大。
+      - name: 平台全量 pytest（精确排除 1 条数据在盘假设）
+        working-directory: platform
+        run: |
+          .venv/bin/python -m pytest -q \
+            --deselect tests/test_factio.py::test_paths_roots_exist_or_skip
+
+  research:
+    name: tools/research/governance 测试（无 CH）
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: "Checkout（fetch-depth: 0）"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 3.13 + pip 缓存
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: platform/pyproject.toml
+
+      - name: 建 platform/.venv + editable 安装
+        run: |
+          python -m venv platform/.venv
+          # 钉版说明（仅 2 个，均为不钉则当前红/collect error）：
+          # - httpx==0.28.1：starlette 1.6 TestClient 运行时依赖（test_web/test_e2e_web），
+          #   pyproject 未声明、uv.lock 未覆盖（pending-items #18② 已知欠账）；
+          # - polars==1.44.1：与平台 venv/已提交 _generated_polars_methods.py 版本头一致；
+          #   uv.lock 解析为 1.44.2（R29 残余①「锁环境三门未回归」），升级须先重生成
+          #   catalog（platform/scripts/gen_op_catalog.py）并过全量回归。
+          platform/.venv/bin/python -m pip install -e "./platform[dev]" \
+            "httpx==0.28.1" "polars==1.44.1"
+
+      # 排除项（仅此 5 条，两类）：
+      # (a) test_root_exists_on_disk（4 参数化）：lob_fact 配置根"存在性在盘"断言——
+      #     skip 守卫只看 STOCK_ROOT 存在性，CI 里 STOCK_ROOT=checkout（存在）但
+      #     data/raw|fact|calib 不入库 → 必红。同上，属数据在盘假设；
+      # (b) test_reconcile_daily_covers_derived_tables：真跑 reconcile 子进程，读
+      #     paths.DATA_ROOT 下的 daily_fact parquet / clean staging——本地数据不在盘
+      #     即红（无 skip 守卫、也不属于有 ch fixture 的 CH 腿）。
+      # (a)+(b) 共 5 条，均已本地逐条复现；不得扩大排除范围。
+      # 注：本段 rootdir=platform/（最近的 pyproject），--deselect 用其相对 nodeid `tools/...`。
+      - name: platform/tools 测试（精确排除 5 条数据在盘假设）
+        run: |
+          platform/.venv/bin/python -m pytest platform/tools -q \
+            --deselect tools/lob_fact/tests/test_config_paths.py::test_root_exists_on_disk \
+            --deselect tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables
+
+      # 排除项（仅此 2 条，均为 test_run_strategy_cli.py 的 @pytest.mark.integration）：
+      # 本机有 CH 时它们真跑，并被 DQ health 门拒绝（2025-03 历史分区 status=UNKNOWN——
+      # Plan DQ-M1.5 门控与策略集成测试口径交接的**预存红**，见 R31 ci-bootstrap README
+      # 「预存红」节）。无 CH 环境下这 2 条会因 _ch_available 自 skip；显式 deselect
+      # 是为了环境漂移（未来给 CI 接 CH）时也不把预存红带进 CI。不得扩大排除范围。
+      # 注：本段 rootdir=research/（最近的 pyproject），--deselect 用其相对 nodeid `tools/...`。
+      # 排除项（仅此 1 条 + 上面 2 条 strategies 预存红）：
+      # test_index.py::test_every_yaml_has_mirror_doc_and_name_matches 含「缺档案 72h
+      # 宽限」门——在途挖矿 2 个 spec（momentum_20d/turnrank_top2|top5，2026-09-16
+      # 19:06 提交）档案未补齐，2026-09-19 19:06 后转 STALE（本机 main 同步红，门在
+      # 正常工作；不可由本 CI 任务修，属挖矿在途）。**档案补齐后应立即删除本 deselect**
+      # 恢复门；其余 4 项 test_index 断言（索引一致/族规则/族内唯一/变体组）保留。
+      - name: research/tools 测试（精确排除 3 条在途/预存红）
+        run: |
+          platform/.venv/bin/python -m pytest research/tools -q \
+            --deselect tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches \
+            --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03 \
+            --deselect tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes
+
+      - name: governance/ops 测试
+        run: platform/.venv/bin/python -m pytest governance/ops -q
+
+  gates:
+    name: 离线门（lint/索引/拓扑/导入）
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: "Checkout（fetch-depth: 0：档案时效门需 git 历史）"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 3.13 + pip 缓存
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: platform/pyproject.toml
+
+      - name: 建 platform/.venv + editable 安装
+        run: |
+          python -m venv platform/.venv
+          # 钉版说明（仅 2 个，均为不钉则当前红/collect error）：
+          # - httpx==0.28.1：starlette 1.6 TestClient 运行时依赖（test_web/test_e2e_web），
+          #   pyproject 未声明、uv.lock 未覆盖（pending-items #18② 已知欠账）；
+          # - polars==1.44.1：与平台 venv/已提交 _generated_polars_methods.py 版本头一致；
+          #   uv.lock 解析为 1.44.2（R29 残余①「锁环境三门未回归」），升级须先重生成
+          #   catalog（platform/scripts/gen_op_catalog.py）并过全量回归。
+          platform/.venv/bin/python -m pip install -e "./platform[dev]" \
+            "httpx==0.28.1" "polars==1.44.1"
+
+      # 说明：不含 `make gates` 全量——G-DATAIFACE 的 ENFORCED 项在 lob_fact 在途
+      # 修复落地前为红（本机预存），G-BOUNDARY 亦被在途注释文本命中；本 job 只收
+      # 无外部依赖、当前确定性绿的门。全量门恢复后应改跑 `bash governance/ops/gates.sh`。
+      # 另两处不入门的原因（CI 干净 checkout 必然/当前为红，非门坏）：
+      #   - G-REVIEWS（check_reviews.py）：台账引用 runs/platform/... 产物，runs/ 不入库，
+      #     干净 checkout 路径不可解析 → 本机绿是假象；待门对"未入库产物路径"降级后再入；
+      #   - G-BOUNDARY：被 platform/src 在途注释文本命中（3 处，Plan CX 在途）。
+      - name: 因子 spec 全库 lint（G-LINT）
+        run: platform/.venv/bin/factorlab lint --all
+
+      - name: 索引一致（G-INDEX：因子 + 策略）
+        run: |
+          platform/.venv/bin/python research/tools/factor_lib/build_index.py --check
+          platform/.venv/bin/python research/tools/factor_lib/build_strategy_index.py --check
+
+      # 临时排除 1 条（与 research job 同源同理由，见其上注释）：test_index 的
+      # test_every_yaml_has_mirror_doc_and_name_matches 因在途 2 档案超 72h 宽限转红；
+      # 档案补齐后删除本 deselect。dossier_freshness 的机制单测（注入时钟）保留。
+      - name: "档案镜像 + 时效机制（R31 ③；临时排除 STALE 在途 1 条）"
+        run: |
+          platform/.venv/bin/python -m pytest research/tools/factor_lib/tests/test_index.py \
+            research/tools/factor_lib/tests/test_dossier_freshness.py -q \
+            --deselect tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches
+
+      - name: 档案 snapshot 标注（G-ANNOTATE）
+        run: platform/.venv/bin/python governance/evidence/verification/R21/EVID/annotate_factor_archives.py --check
+
+      - name: 导入解析（G-IMPORTS）+ 负向自检
+        run: |
+          platform/.venv/bin/python governance/ops/check_imports.py --selftest
+          platform/.venv/bin/python governance/ops/check_imports.py
+
+      - name: 工具拓扑（G-TOPO）+ 负向自检
+        run: |
+          platform/.venv/bin/python governance/ops/check_tool_layering.py
+          platform/.venv/bin/python governance/ops/check_tool_layering.py --selftest
+
+      - name: editable 落位断言（G-VENV）
+        run: |
+          platform/.venv/bin/python -c "import pathlib, factorlab; p = pathlib.Path(factorlab.__file__).resolve(); exp = pathlib.Path('platform/src/factorlab').resolve(); assert p.parent == exp, f'factorlab 落位 {p}（应为 {exp}）'; print('factorlab →', p)"

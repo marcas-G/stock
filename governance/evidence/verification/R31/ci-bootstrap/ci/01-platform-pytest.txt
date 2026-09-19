@@ -1,0 +1,81 @@
+# R31 ci-bootstrap：job platform（.github/workflows/ci.yml）
+# 等价命令: cd platform && .venv/bin/python -m pytest -q --deselect tests/test_factio.py::test_paths_roots_exist_or_skip
+# env: FACTORLAB_DATA_BACKEND=duckdb FACTORLAB_CH_HOST=127.0.0.1 FACTORLAB_CH_PORT=1 FACTORLAB_STOCK_ROOT=<checkout>
+# 快照: main HEAD=5d716f7c5a68 / 工作树 30 项（sha256 f3eb727a） / worktree git HEAD=703af57 / 2026-09-19T11:21Z
+# ---- raw output ----
+....................ss.................................................. [  1%]
+.....ssssssssssss........................ssssss...........s...ssssssssss [  3%]
+ssssssssssssssssssssssssssssss.......................................... [  5%]
+....................................................ss.................. [  7%]
+........................................................................ [  9%]
+..........ssssssssssssssssssssssssssssssssssssssssssssssssssssssss...... [ 11%]
+........................................................................ [ 13%]
+.....ssssssssssssss..................................................... [ 15%]
+......sss....s...........s..ssssssssssssssss.ss......................... [ 17%]
+........................................................................ [ 19%]
+..................s........................ssssss....................... [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 24%]
+........................................................ssss............ [ 26%]
+................................sssssssssss............................. [ 28%]
+............................................................ss.......... [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 36%]
+......................................ssssssssssssssssssssssssssssssssss [ 38%]
+s....................................................................... [ 40%]
+.........................s.............................................. [ 42%]
+.................................................ssssssssssssssssss...ss [ 43%]
+ssssssssss..sssssss.............................................sss..... [ 45%]
+............ssssssssssssssssssssssssssssssss...sssssssssssssssssssssssss [ 47%]
+sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss.ssssss.. [ 49%]
+.........ssssss.................................................ss.sssss [ 51%]
+ssss......ssssssssss..ssssssssssssssssssss.............................. [ 53%]
+......................................s................................. [ 55%]
+........................................................................ [ 57%]
+...................................sssssssssssssssssssssssssssssssssssss [ 59%]
+sssssssssss...ss..................................ssssssssss............ [ 61%]
+.......................ssss....sssssssssssssssssssssssssssssssssssssssss [ 63%]
+sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss..... [ 65%]
+..................ssssssssssssssssssssssss.ssssssssssss................. [ 66%]
+........................................................................ [ 68%]
+.......................................ss..ssssssss.............ss...... [ 70%]
+.....sssssssssssss...................................................... [ 72%]
+...........................s............................................ [ 74%]
+ssssssssssssssssssssssssssssssssssssssssssssssssssssss.ss.ss............ [ 76%]
+.....................................ssss..ss......ssssssss...........ss [ 78%]
+..ssssssss.ssssssssssssssss..............................sssssssssssssss [ 80%]
+sssss.ssssss..ssssssssssssssssssssssssss...ssssssssssssssssssssssssssss. [ 82%]
+ssssssssssss...ssssssssssssssssssssssssssssssssssss..................... [ 84%]
+..................ssssssssssssssssssssssssssssssssssssssssssssssssss.... [ 86%]
+ssssssssssssssssssssssssssssssssssssssssssssss.......................... [ 87%]
+........................................................................ [ 89%]
+........................................................................ [ 91%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+..............ssssssssssssssssssss........ssssssssssssssssssssssssssssss [ 97%]
+ssssssssssssssssss...................................................... [ 99%]
+......................                                                   [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /tmp/opencode/r31ci/stock/platform/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+.venv/lib/python3.13/site-packages/starlette/testclient.py:53
+  /tmp/opencode/r31ci/stock/platform/.venv/lib/python3.13/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+tests/test_batch_flock.py: 26 warnings
+  /home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/popen_fork.py:67: DeprecationWarning: This process (pid=22224) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/test_cli.py: 1 warning
+tests/test_correlation.py: 3 warnings
+tests/test_reference_library.py: 2 warnings
+tests/test_research_factor.py: 2 warnings
+tests/test_web.py: 2 warnings
+  /tmp/opencode/r31ci/stock/platform/src/factorlab/app/analysis/correlation.py:102: DeprecationWarning: the argument `columns` for `DataFrame.pivot` is deprecated. It was renamed to `on` in version 1.0.0.
+    joined = long.pivot(index=["date", "code"], columns="factor",
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2712 passed, 1054 skipped, 1 deselected, 38 warnings in 167.48s (0:02:47)
