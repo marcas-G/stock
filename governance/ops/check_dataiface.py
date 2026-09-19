@@ -61,16 +61,23 @@ G_READ_ALLOWED = {
         "cancels_manifest —— 自产回执清单，非事实表",
     ("platform/tools/lob_fact/pipeline/run_lob_batch.py", "_month_codes", "mf"):
         "conversion_manifest —— tick 转换回执清单",
-    ("platform/tools/ch_ingest/ingest_daily.py", "main", "DAILY_SRC"):
-        "daily_fact 是灌入的**输入源**（生产者视角），路径已取 factio.paths 单点",
+    ("platform/tools/ch_ingest/ingest_daily.py", "main", "src"):
+        "daily_fact 是灌入的**输入源**（生产者视角）；src 经 resolve_source 解析"
+        "（缺省 factio.paths 单点；Plan DQ-M1 I1 起可为 clean staging 显式传入）",
+    ("platform/tools/ch_ingest/ingest_daily.py", "main", "cal_src"):
+        "Plan DQ-M1.5 T2：trade_cal 日期域源经 resolve_calendar_source 解析"
+        "（缺省 raw daily_fact；显式 --calendar-source 传入）——只取 trade_date 列，"
+        "非事实库分区消费",
     ("platform/tools/ch_ingest/ingest_fundamentals.py", "load_fact", "path"):
         "fundamentals fact 是灌入的**输入源**（生产者视角，T8），路径已取 factio.paths 单点",
-    ("platform/tools/ch_ingest/reconcile.py", "_reconcile", "DAILY_SRC"):
-        "同上：对账取源行数",
     ("platform/tools/ch_ingest/reconcile.py", "_source_event_count", "DAILY_SRC"):
         "R21 I7：派生表 adj_event 对账的源事件谓词复算（只扫事件 4 列）",
-    ("platform/tools/ch_ingest/reconcile.py", "_source_date_range", "DAILY_SRC"):
-        "R21 I7：daily/adj_detail 日期范围对账（只扫 trade_date 一列）",
+    ("platform/tools/ch_ingest/reconcile.py", "_source_date_range", "str(path)"):
+        "R21 I7：daily/adj_detail 日期范围对账（只扫 trade_date 一列）；path 经 "
+        "resolve_daily_source（--source 覆盖或 raw DAILY_SRC 单点）",
+    ("platform/tools/ch_ingest/reconcile.py", "_src_distinct", "str(path)"):
+        "R21 I7/T2：源 distinct 计数（trade_cal 日期域/stock_basic 代码）；path 经 "
+        "resolve_daily_source（--source 覆盖或 raw DAILY_SRC 单点）",
     ("platform/tools/ch_ingest/ingest_daily.py", "load_delisted_sidecar", "p"):
         "R21 delist_date：A5 伴生 sidecar（自产元数据，非事实表分区）",
     ("platform/tools/1m_features/panel_io.py", "_load_daily_slice", "daily_path"):
@@ -134,6 +141,34 @@ G_READ_ALLOWED = {
     ("platform/tools/ch_ingest/ingest_moneyflow.py", "_load_fact", "path"):
         "项 2：moneyflow_sector/concept_members fact 是灌入的**输入源**（生产者视角，"
         "与 fundamentals load_fact 同款），路径取 factio.paths.FACT_ROOT 单点",
+    # ── Plan DQ（M1/M1.5）：数据质量流水线只读输入的直读登记 ──────────────────────
+    # 均为**清洗/审计/体检工具读显式传入的输入源或自产 sidecar**（生产者/审计者视角），
+    # 不指向事实库年/月分区、不绕过数据面单点；路径来源=factio.paths 或 CLI `--raw`
+    # （与 ingest_daily DAILY_SRC 同款理由）。
+    ("platform/tools/data_quality/pipeline.py", "main", "raw"):
+        "clean 链输入源（--raw，缺省 factio.paths.daily_fact；Plan DQ-M1 T5）",
+    ("platform/tools/data_quality/health.py", "_scan_raw", "str(raw_path)"):
+        "post-ingest 审计读 raw 单日/基线窗口（不整表拉取；Plan DQ-M1 T6）",
+    ("platform/tools/data_quality/health.py", "main", "str(raw_path)"):
+        "full_table 口径 raw 全表行数计数（F5；只 select count）",
+    ("platform/tools/data_quality/historical_audit.py", "audit_history", "str(raw_path)"):
+        "daily 全史体检只读输入（分块扫描 + 谓词下推；Plan DQ-M1 T8，只审不改）",
+    ("platform/tools/data_quality/historical_audit.py", "_load_delisted", "p"):
+        "退市目录 sidecar（自产元数据，非事实表分区）——与 ch_ingest delist sidecar 同款",
+    ("platform/tools/data_quality/rca_full_quarantine_days.py", "load_rows", "str(raw)"):
+        "Plan DQ-M1.5 T1：18 日 RCA 只读取 raw 行（谓词下推；只审不改）",
+    ("platform/tools/data_quality/rca_full_quarantine_days.py", "code_history_stats", "str(raw)"):
+        "Plan DQ-M1.5 T1：RCA 复算代码级成交行 ratio 历史（只读，只取 7 列）",
+    ("platform/tools/data_quality/classify_missing.py", "scan_missing", "str(raw)"):
+        "Plan DQ-M1.5 T3：1.25M 命中分群只读扫描（谓词下推；只审不改）",
+    ("platform/tools/data_quality/classify_missing.py", "scan_per_code", "str(raw)"):
+        "Plan DQ-M1.5 T3：逐码分流统计（只读，只取命中行）",
+    ("platform/tools/data_quality/classify_missing.py", "field_first_dates", "str(raw)"):
+        "Plan DQ-M1.5 T3：字段首次可用日复算（只读三列）",
+    ("platform/tools/data_quality/classify_missing.py", "read_delisted", "str(path)"):
+        "退市目录 sidecar（自产元数据）——T3 分类判据输入",
+    ("platform/tools/data_quality/classify_missing.py", "main", "str(args.raw)"):
+        "Plan DQ-M1.5 T3：CLI 显式 `--raw` 输入（只读报告，不落 parquet/CH）",
 }
 _READ_CALLS = {"read_parquet", "scan_parquet", "ParquetFile"}
 # 硬规则：目标表达式里出现事实库名或分区标记 → 任何理由都不豁免（必须走平台单点）

@@ -1,0 +1,7 @@
+$ POLARS_MAX_THREADS=1 platform/.venv/bin/python -m pytest platform/tests/test_require_dataset.py platform/tests/test_cli_run.py -q
+..........................................................               [100%]
+58 passed in 14.24s
+
+$ python3 governance/ops/check_dataiface.py --selftest
+  ✓ 负向自检：分区字面量 3 / 标记直构 3 / 直读 3 / 漏 import 1 处违规被抓到；docstring、writekit API、print 文案、登记过的 manifest 读均不误伤
+rc=0

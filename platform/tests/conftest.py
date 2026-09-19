@@ -171,7 +171,7 @@ def _read_cache_disabled(monkeypatch):
 
 # ================================================================
 # Plan DQ-M1 F3：真实入口读取门假 health（平台测试专用）
-#   CLI（execute_run）/ research.factor / run_strategy 默认
+#   CLI（execute_run）/ research 门面（factor）/ run_strategy 默认
 #   dataset="ashare_daily"（fail-closed）——平台测试是**合成 tmp 库/历史窗口**，
 #   没有 data/health 产物；统一注入假 PASS gate + 把 backtest usage sidecar
 #   重定向到 tmp（防写入生产 data/manifest/）。真实门的拒绝矩阵由
