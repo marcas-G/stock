@@ -33,6 +33,13 @@
 - report/study/通用：`flab report list`、`flab report show`、`flab study list`、
   `flab version`、`flab describe`。
 
+## 性能开关（分钟链）
+
+- `flab factor run <spec> --chunk-workers 2` —— chunk 并行（默认 1=顺序；8GB 护栏下上限 2，超预算闸前拒绝）。
+- `flab factor run <spec> --profile` —— 分段计时（read_data/bars_read/fold/label/evaluate/persist 墙钟+峰值 RSS）→ stderr 与 `summary.runtime.profile`。
+- 读缓存：分钟链 bars_1m 同窗第二次起命中（免 CH 重读）；数据回填/新数据自动失效（源指纹）；`flab factor run <spec> --no-read-cache` 关闭。
+- 缓存状态：`flab health` 的 `read_cache` 段（dir/entries/size_bytes/hits/misses/fallbacks）。
+
 ## 错误处理
 
 - 错误信封 `{"ok": false, "error": {code, message, hint, log}}`；先用 `hint` 修，再看 `log`。
