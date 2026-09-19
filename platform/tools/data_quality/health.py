@@ -43,9 +43,9 @@ HEALTH_STATUSES = ("PASS", "DEGRADED", "FAIL", "UNKNOWN")
 VERIFICATION_STATES = ("VERIFIED", "LEGACY_UNVERIFIED", "KNOWN_ISSUE")
 COMPLETENESS_STATUSES = ("COMPLETE", "INCOMPLETE", "UNKNOWN")
 
-# spec §6 冻结键集（逐字段；M1.5 增 repair_policy_version —— 修复语义版本留痕）
+# spec §6 冻结键集（逐字段；M1.5 增 repair_policy_version；M1.5c 增 quality_backlog/note）
 TOP_KEYS = ("dataset_id", "partition", "data_version", "dq_policy_version",
-            "repair_policy_version",
+            "repair_policy_version", "quality_backlog", "note",
             "health_status", "verification_state", "completeness", "quality",
             "freshness", "rules", "validated_at", "raw_lineage")
 COMPLETENESS_KEYS = ("status", "expected_count", "actual_count", "coverage")
@@ -54,8 +54,50 @@ QUALITY_KEYS = ("fatal_count", "error_count", "warning_count",
                 "systemic_detail")
 FRESHNESS_KEYS = ("latest_trade_date",)
 RAW_LINEAGE_KEYS = ("source_version", "raw_sha256")
+# M1.5c：全表口径披露块（不参与门判定）
+BACKLOG_KEYS = ("scope", "expected_count", "actual_count", "fatal_count",
+                "error_count", "warning_count", "quarantine_count",
+                "error_rate", "systemic_detail", "top_classes")
+NOTE_NO_NEW_DATA = "no_new_data"
 
 DEFAULT_DATASET = "ashare_daily"
+
+
+def _default_backlog() -> dict:
+    """无全表账本可披露时（LEGACY 打标/旧件）的空 backlog（键集不破）。"""
+    return {"scope": "full_table", "expected_count": None, "actual_count": None,
+            "fatal_count": 0, "error_count": 0, "warning_count": 0,
+            "quarantine_count": 0, "error_rate": None, "systemic_detail": None,
+            "top_classes": []}
+
+
+def last_published_trade_date(root: str | Path, dataset: str = DEFAULT_DATASET,
+                              ) -> str | None:
+    """上次链发布水位：health/<dataset>/*.json 中 ``verification_state=VERIFIED``
+    档案的 ``freshness.latest_trade_date`` 最大值（无 → None；坏文件跳过）。
+
+    设计 §3.3：门判 `delta = trade_date > 该水位`；LEGACY 打标不算发布；
+    已链发布的档案（含 FAIL）都推进水位，避免失败重跑死锁在历史残余上。
+    """
+    d = Path(root) / "health" / dataset
+    best: str | None = None
+    if not d.is_dir():
+        return None
+    for p in sorted(d.glob("*.json")):
+        if p.name == "summary.json":
+            continue
+        try:
+            doc = json.loads(p.read_text(encoding="utf-8"))
+            if doc.get("verification_state") != "VERIFIED":
+                continue
+            latest = (doc.get("freshness") or {}).get("latest_trade_date")
+            if not isinstance(latest, str) or not latest:
+                continue
+        except (ValueError, KeyError, TypeError, OSError):
+            continue
+        if best is None or latest > best:
+            best = latest
+    return best
 
 
 def _default_run_tag() -> str:
@@ -84,6 +126,8 @@ def build_health_doc(*, dataset_id: str, partition: str, data_version: str,
                      verification_state: str, completeness: dict,
                      quality: dict, rules_counts: dict,
                      repair_policy_version: str | None = None,
+                     quality_backlog: dict | None = None,
+                     note: str | None = None,
                      latest_trade_date: str | None = None,
                      validated_at: str | None = None,
                      source_version: str | None = None,
@@ -92,6 +136,8 @@ def build_health_doc(*, dataset_id: str, partition: str, data_version: str,
 
     ``repair_policy_version``：修复/清洗语义版本留痕（M1.5 T2）；缺省 =
     ``dq_policy_version``（同一版本线），显式空串拒绝。
+    ``quality_backlog``：全表口径披露（M1.5c §3.3；**不参与门判定**），缺省 = 空块；
+    ``note``：`no_new_data` 等注记（None 或非空字符串）。
     """
     if health_status not in HEALTH_STATUSES:
         raise ValueError(
@@ -104,6 +150,14 @@ def build_health_doc(*, dataset_id: str, partition: str, data_version: str,
     if not isinstance(repair_policy_version, str) or not repair_policy_version:
         raise ValueError(
             f"repair_policy_version 必须为非空字符串（收到 {repair_policy_version!r}）")
+    if quality_backlog is None:
+        quality_backlog = _default_backlog()
+    if set(quality_backlog) != set(BACKLOG_KEYS):
+        raise ValueError(
+            f"quality_backlog 键集必须为 {BACKLOG_KEYS}"
+            f"（收到 {sorted(quality_backlog)}）")
+    if note is not None and (not isinstance(note, str) or not note):
+        raise ValueError(f"note 必须为 None 或非空字符串（收到 {note!r}）")
     if set(completeness) != set(COMPLETENESS_KEYS):
         raise ValueError(
             f"completeness 键集必须为 {COMPLETENESS_KEYS}（收到 {sorted(completeness)}）")
@@ -123,6 +177,8 @@ def build_health_doc(*, dataset_id: str, partition: str, data_version: str,
         "data_version": data_version,
         "dq_policy_version": dq_policy_version,
         "repair_policy_version": repair_policy_version,
+        "quality_backlog": {k: quality_backlog[k] for k in BACKLOG_KEYS},
+        "note": note,
         "health_status": health_status,
         "verification_state": verification_state,
         "completeness": {k: completeness[k] for k in COMPLETENESS_KEYS},
@@ -152,6 +208,7 @@ def publish_health(*, dataset_id: str, partition: str, data_version: str,
                    dq_policy_version: str, health_status: str,
                    verification_state: str, completeness: dict, quality: dict,
                    rules_counts: dict, repair_policy_version: str | None = None,
+                   quality_backlog: dict | None = None, note: str | None = None,
                    latest_trade_date: str | None = None,
                    raw_path: str | Path | None = None,
                    raw_sha256: str | None = None,
@@ -172,6 +229,7 @@ def publish_health(*, dataset_id: str, partition: str, data_version: str,
         verification_state=verification_state, completeness=completeness,
         quality=quality, rules_counts=rules_counts,
         repair_policy_version=repair_policy_version,
+        quality_backlog=quality_backlog, note=note,
         latest_trade_date=latest_trade_date, validated_at=validated_at,
         source_version=source_version, raw_sha256=raw_sha256)
     path = _resolve_root(root) / "health" / dataset_id / f"{partition}.json"
@@ -262,13 +320,47 @@ def merge_rules(*counts_maps: dict) -> dict:
     return dict(sorted(out.items()))
 
 
-def quality_block(base_quality: dict, metrics: audit.AuditMetrics,
+def _backlog_block(summary: dict, top_n: int = 10) -> dict:
+    """全表口径披露块（M1.5c §3.3；**不参与门判定**）。
+
+    来源 = clean staging summary 的 full_table 计数/规则（backlog 在 clean 阶段
+    已算好；health 只组装，不重跑校验）；top_classes = 命中数 top-N 规则类。
+    """
+    q = summary.get("quality") or {}
+    top = sorted((summary.get("rules") or {}).items(),
+                 key=lambda kv: (-int(kv[1]), str(kv[0])))[:top_n]
+    return {
+        "scope": "full_table",
+        "expected_count": (summary.get("completeness") or {}).get("expected_count"),
+        "actual_count": summary.get("clean_rows"),
+        "fatal_count": int(q.get("fatal_count", 0)),
+        "error_count": int(q.get("error_count", 0)),
+        "warning_count": int(q.get("warning_count", 0)),
+        "quarantine_count": int(q.get("quarantine_count", 0)),
+        "error_rate": q.get("error_rate"),
+        "systemic_detail": q.get("systemic_detail"),
+        "top_classes": [{"rule_id": str(k), "count": int(v)} for k, v in top],
+    }
+
+
+def quality_block(base_quality: dict, metrics: audit.AuditMetrics | None,
                   final_decision: str) -> dict:
-    """health quality 块 = PRE 清洗计数（全表口径）+ post-ingest 审计结果。
+    """health quality 块 = delta 口径 PRE 清洗计数 + post-ingest 审计结果。
 
     审计发现的 ERROR（PK 等）计入 error_count；WARN/SUSPECT 计入 warning_count；
     ``error_rate`` 以 audit.completeness 的独立分母计算（无分母沿用 base）。
+    ``metrics=None``（无新数据路径）→ 只披露 base（delta）计数。
     """
+    if metrics is None:
+        return {
+            "fatal_count": int(base_quality.get("fatal_count", 0)),
+            "error_count": int(base_quality.get("error_count", 0)),
+            "warning_count": int(base_quality.get("warning_count", 0)),
+            "quarantine_count": int(base_quality.get("quarantine_count", 0)),
+            "error_rate": float(base_quality.get("error_rate", 0.0)),
+            "systematic_issue": bool(base_quality.get("systematic_issue")),
+            "systemic_detail": base_quality.get("systemic_detail"),
+        }
     extra_error = sum(1 for r in metrics.results if r.level == rules.ERROR)
     extra_warn = sum(1 for r in metrics.results if r.level == rules.WARN)
     error_count = int(base_quality.get("error_count", 0)) + extra_error
@@ -297,6 +389,10 @@ def quality_block(base_quality: dict, metrics: audit.AuditMetrics,
 
 
 # ── CLI（阶段链末步）────────────────────────────────────────────────────
+def _table_name(dataset: str) -> str:
+    return dataset.split("_", 1)[-1] if dataset.startswith("ashare_") else dataset
+
+
 def _read_canonical(partition: str,
                     dataset: str = DEFAULT_DATASET) -> tuple[pl.DataFrame, int]:
     """读 canonical 分区帧 + 全表计数（生产 ch / 历史 duckdb）。
@@ -305,7 +401,7 @@ def _read_canonical(partition: str,
     全表计数供 reconcile（clean staging 全表口径）；不整表拉取（内存安全）。
     表名 = dataset 去掉 ``ashare_`` 前缀。
     """
-    table = dataset.split("_", 1)[-1] if dataset.startswith("ashare_") else dataset
+    table = _table_name(dataset)
     from factorlab.app.bootstrap import open_read
 
     rd = open_read()
@@ -323,6 +419,29 @@ def _read_canonical(partition: str,
     finally:
         rd.close()
     return frame, full
+
+
+def _read_canonical_delta(watermark: str | None, dataset: str = DEFAULT_DATASET,
+                          full_count: int | None = None) -> int:
+    """canonical 中 ``trade_date > watermark`` 的行数（M1.5c §3.3 delta 腿）。
+
+    ``watermark=None``（首跑/旧件）→ 返回全表计数 ``full_count``（delta=全量）。
+    """
+    if watermark is None:
+        if full_count is None:
+            raise ValueError("watermark=None 时必须给 full_count（全表计数）")
+        return int(full_count)
+    table = _table_name(dataset)
+    from factorlab.app.bootstrap import open_read
+
+    rd = open_read()
+    try:
+        pred = (f"trade_date > toDate('{watermark}')" if rd.backend == "ch"
+                else f"trade_date > DATE '{watermark}'")
+        return int(rd.query_rows(
+            f"SELECT count() FROM {table} WHERE {pred}")[0][0])
+    finally:
+        rd.close()
 
 
 def _day_literal(dtype: pl.DataType, text: str) -> pl.Expr:
@@ -409,41 +528,72 @@ def main(argv: list[str] | None = None) -> int:
         col = next(c for c in sym_col if c in raw_part.columns)
         symbols = sorted(raw_part[col].unique().to_list())[:max(args.sample, 0)]
 
-    # F5：health quality/completeness 统一 **full_table** 口径——
-    # expected = raw 全表行数；actual = clean 行数；差额须被确定性清洗账
-    # （quarantine + dedup）解释；error_rate 分母同为 raw 全表。分区帧仍用于
-    # PK/漂移/抽样，canonical 全表 count 用于 reconcile（clean vs canonical）。
-    raw_full = int(pl.scan_parquet(str(raw_path)).select(pl.len())
-                   .collect().item())
-    clean_rows = int(summary["clean_rows"])
-    explained = (int(summary.get("quarantined_rows", 0))
-                 + int(summary.get("deduped_rows", 0)))
-    canonical, canonical_full = _read_canonical(partition, args.dataset)
-    metrics = audit.audit_post_ingest(
-        canonical, partition=partition, expected_count=raw_full,
-        actual_count=clean_rows, explained_drops=explained,
-        reconcile_expected=clean_rows, reconcile_actual=canonical_full,
-        raw=raw_part, baseline=baseline, sample_symbols=symbols,
-        transport=None if args.no_sample else audit.http_get_text)
-    final = audit.decide_final(summary["decision"], metrics, policy)
-    quality = quality_block(summary.get("quality", {}), metrics, final)
-    counts = merge_rules(summary.get("rules", {}),
-                         _rule_counts(metrics.results))
+    # M1.5c §3.3：门（FINAL）判 **delta**（trade_date > 上次链发布水位）；全表口径
+    # 只作 `quality_backlog` 披露（不参与判定）。旧 staging summary（无 delta 键）
+    # 退化为全表口径（向后兼容；watermark=None 即 delta=全量）。
+    delta = summary.get("delta")
+    watermark = summary.get("watermark")
+    if delta is None:
+        raw_full = int(pl.scan_parquet(str(raw_path)).select(pl.len())
+                       .collect().item())
+        delta = {"rows": raw_full, "clean_rows": int(summary["clean_rows"]),
+                 "quarantined_rows": int(summary.get("quarantined_rows", 0)),
+                 "deduped_rows": int(summary.get("deduped_rows", 0)),
+                 "quality": summary.get("quality", {}),
+                 "rules": summary.get("rules", {})}
+        watermark = None
+
+    metrics: audit.AuditMetrics | None
+    if int(delta["rows"]) == 0:
+        # 无新数据：PASS + note（backlog 照常披露；不跑 post-ingest 审计）
+        final = audit.PASS
+        note = NOTE_NO_NEW_DATA
+        metrics = None
+        completeness_doc = {"status": "COMPLETE", "expected_count": 0,
+                            "actual_count": 0, "coverage": 1.0}
+        quality = quality_block(delta.get("quality", {}), None, final)
+        counts = {str(k): int(v) for k, v in delta.get("rules", {}).items()}
+    else:
+        canonical, canonical_full = _read_canonical(partition, args.dataset)
+        delta_canonical = _read_canonical_delta(watermark, args.dataset,
+                                                canonical_full)
+        metrics = audit.audit_post_ingest(
+            canonical, partition=partition,
+            expected_count=int(delta["rows"]), actual_count=delta_canonical,
+            explained_drops=(int(delta.get("quarantined_rows", 0))
+                             + int(delta.get("deduped_rows", 0))),
+            reconcile_expected=int(delta["clean_rows"]),
+            reconcile_actual=delta_canonical,
+            raw=raw_part, baseline=baseline, sample_symbols=symbols,
+            transport=None if args.no_sample else audit.http_get_text)
+        final = audit.decide_final(summary["decision"], metrics, policy)
+        note = None
+        completeness_doc = {"status": metrics.completeness.status,
+                            "expected_count": metrics.completeness.expected_count,
+                            "actual_count": metrics.completeness.actual_count,
+                            "coverage": metrics.completeness.coverage}
+        quality = quality_block(delta.get("quality", {}), metrics, final)
+        counts = merge_rules(delta.get("rules", {}),
+                             _rule_counts(metrics.results))
+
+    backlog = _backlog_block(summary)
     path = publish_health(
         dataset_id=args.dataset, partition=partition,
         data_version=f"v{run_tag}_01", dq_policy_version=policy.dq_policy_version,
         repair_policy_version=policy.dq_policy_version,
         health_status=final, verification_state="VERIFIED",
-        completeness={"status": metrics.completeness.status,
-                      "expected_count": metrics.completeness.expected_count,
-                      "actual_count": metrics.completeness.actual_count,
-                      "coverage": metrics.completeness.coverage},
+        completeness=completeness_doc,
         quality=quality, rules_counts=counts, latest_trade_date=partition,
+        quality_backlog=backlog, note=note,
         raw_path=raw_path, source_version=run_tag, root=root,
         dry_run=args.dry_run)
-    print(f"[health] {partition} health_status={final} "
-          f"completeness={metrics.completeness.status} "
-          f"pk_duplicates={metrics.pk_duplicates} "
+    if metrics is None:
+        print(f"[health] {partition} health_status={final} note={note} "
+              f"backlog_error={backlog['error_count']} -> {path}", flush=True)
+    else:
+        print(f"[health] {partition} health_status={final} "
+              f"completeness={metrics.completeness.status} "
+              f"pk_duplicates={metrics.pk_duplicates} "
           f"sample={metrics.sample.status} drift={metrics.drift.status} "
           f"-> {path}", flush=True)
     return 1 if final == audit.FAIL else 0

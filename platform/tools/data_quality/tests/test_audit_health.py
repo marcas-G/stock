@@ -327,7 +327,7 @@ def test_final_gate_reuses_pre_ingest_decision_and_worst_case():
 
 # ── health artifact：键集与 §6 完全一致 + 原子写 + raw sha ───────────────
 SPEC_KEYS = {"dataset_id", "partition", "data_version", "dq_policy_version",
-             "repair_policy_version",
+             "repair_policy_version", "quality_backlog", "note",
              "health_status", "verification_state", "completeness", "quality",
              "freshness", "rules", "validated_at", "raw_lineage"}
 QUALITY_KEYS = {"fatal_count", "error_count", "warning_count",

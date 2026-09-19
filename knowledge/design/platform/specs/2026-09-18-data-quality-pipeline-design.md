@@ -117,6 +117,22 @@ historic_unit_exceptions:                 # 不得泛化到未登记代码/年�
     match_tol: 0.10
 ```
 
+## 3.3 门控作用域（v2.1，2026-09-19 用户批准）
+
+**背景**：I1 修复后 clean 改为全表，若门在全表口径判系统性，历史制度性残余（BJ 1,115 真坏 +
+前 1996 残余 2,658 + 1996+ 55）会阻断每日新数据与默认读取——历史毛病不应拦住今天的数据。
+
+**冻结语义**：
+- **门（PRE-INGEST + FINAL）判定作用域 = 本轮更新增量**：`delta = {rows | trade_date > 上次成功发布的
+  freshness.latest_trade_date}`；无发布历史时 delta = 全部行（首跑等价全表）。
+- delta 上计算：`error_rate / coverage / completeness / systemic(field,group,time)` → 门结果
+  （PASS/DEGRADED/FAIL）。**阈值与检测器逻辑不变；delta 内出现系统性照旧 FAIL 阻断**（不弱化）。
+- **全表口径**改为披露项：写入 health 顶层新块 **`quality_backlog`**（`scope: full_table`、counts、
+  error_rate、systemic_detail、top_classes），**不参与门判定**；health 其它键集沿用 §6 + 本块。
+- **无新数据**（delta 空）：`health_status = PASS`（附 `note: no_new_data`），`quality_backlog` 照常披露。
+- 读取门只看 `health_status` + `completeness.status` + `freshness`（不变）。
+- 历史残余处置仍归 M3（BJ 用 minutes 重建；前 1996 残余逐码分类后处置）。
+
 ## 4. 规则目录（8 类；本期 1-7，tick 后置）
 
 ### ① 主键与重复
@@ -201,6 +217,7 @@ FETCH → RAW STAGING → STRUCTURAL VALIDATION → RECORD VALIDATION
 
   "health_status": "PASS | DEGRADED | FAIL | UNKNOWN",
   "verification_state": "VERIFIED | LEGACY_UNVERIFIED | KNOWN_ISSUE",
+  "note": null,
 
   "completeness": {
     "status": "COMPLETE | INCOMPLETE | UNKNOWN",
@@ -215,6 +232,15 @@ FETCH → RAW STAGING → STRUCTURAL VALIDATION → RECORD VALIDATION
     "systemic_detail": null
   },
 
+  "quality_backlog": {
+    "scope": "full_table",
+    "expected_count": 18230232, "actual_count": 18226404,
+    "fatal_count": 0, "error_count": 3828, "warning_count": 1307072,
+    "quarantine_count": 3828, "error_rate": 0.00021,
+    "systemic_detail": "字段集中：…（历史残余，不参与门判定）",
+    "top_classes": [{"rule_id": "VWAP_OUT_OF_RANGE", "count": 3828}]
+  },
+
   "freshness": {"latest_trade_date": "2026-09-18"},
 
   "rules": {"OHLC_INVALID": 0, "PK_CONFLICT": 1, "UNIT_SUSPECT": 0},
@@ -224,11 +250,20 @@ FETCH → RAW STAGING → STRUCTURAL VALIDATION → RECORD VALIDATION
 }
 ```
 
-> **scope 注记（2026-09-19 修复轮 1 F5）**：M1 的 `quality.*` 与 `completeness.*` 为
-> **full_table** 口径（清洗链全表范围）：`expected_count` = raw 全表行数、`actual_count` = clean
-> 行数、`coverage = actual/expected`、`error_rate = error_count/expected`（fatal/warning/
-> quarantine 同为全表计数）；`completeness.status = COMPLETE` 当且仅当差额被确定性清洗账
-> （quarantine + dedup）完全解释。分区级 PK / 腾讯抽样 / 漂移仍按 `partition` 审查。
+> **门作用域注记（2026-09-19 M1.5c §3.3，用户批准）**：`quality.*` 与
+> `completeness.*` 为 **delta**（`trade_date > 上次成功发布 freshness`，首跑=全量）口径，
+> 门的 PASS/DEGRADED/FAIL 只由 delta 决定；`rules` 同为 delta 命中。全表口径移到顶层
+> **`quality_backlog`**（`scope: full_table`，键集 = `scope/expected_count/actual_count/
+> fatal_count/error_count/warning_count/quarantine_count/error_rate/systemic_detail/
+> top_classes`），**只披露、不参与判定**；无新数据（delta 空）→ `health_status=PASS` +
+> `note: "no_new_data"`，backlog 照常披露。读取门三腿（health_status + completeness.status +
+> freshness）不变。
+>
+> **scope 注记（2026-09-19 修复轮 1 F5；M1.5c 起由 delta 口径取代）**：M1 曾以
+> **full_table** 作为 `quality.*`/`completeness.*` 判定口径（expected = raw 全表、actual =
+> clean 行数、差额须被 quarantine + dedup 完全解释）；M1.5c 后该职责整体由
+> `quality_backlog` 承接，判定口径改为 delta（见上）。分区级 PK / 腾讯抽样 / 漂移仍按
+> `partition` 审查。
 >
 > **repair_policy_version 注记（2026-09-19 M1.5 T2）**：修复/清洗语义版本留痕，与
 > `dq_policy_version` 并列（缺省同值）；语义变更（字段级处置/容差/例外）必须 bump

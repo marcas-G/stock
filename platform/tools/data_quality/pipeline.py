@@ -44,7 +44,7 @@ _TOOLS = Path(__file__).resolve().parents[1]
 if str(_TOOLS) not in sys.path:
     sys.path.insert(0, str(_TOOLS))
 
-from data_quality import aggregate, repair, rules, validators  # noqa: E402
+from data_quality import aggregate, health as dq_health, repair, rules, validators  # noqa: E402
 from data_quality.aggregate import Metrics, SystemicDetail  # noqa: E402
 from data_quality.rules import DqPolicy  # noqa: E402
 
@@ -59,10 +59,15 @@ STAGED_FACT_NAME = "daily_fact.parquet"
 
 @dataclass(frozen=True)
 class CleanStageResult:
-    """全表 clean 阶段结果（阶段链/编排/测试的返回契约）。"""
+    """全表 clean 阶段结果（阶段链/编排/测试的返回契约）。
+
+    M1.5c：``decision`` = **delta**（本轮更新增量）门判定；``metrics``/``systemic``
+    同为 delta 口径；全表口径以 ``watermark``（水位）与 staging summary 的
+    full_table 计数披露（health `quality_backlog` 源）。
+    """
 
     dataset: str
-    scope: str                 # 恒 "full_table"（健康标记注明清洗范围）
+    scope: str                 # 恒 "full_table"（清洗范围）
     run_tag: str               # staging/quarantine 目录粒度（日期戳）
     partition: str             # health partition = 清洗范围内最新交易日
     decision: str
@@ -74,6 +79,8 @@ class CleanStageResult:
     staging_path: Path | None  # <staging_dir>/daily_fact.parquet（喂 ingest --source）
     quarantine_dir: Path | None
     dry_run: bool
+    watermark: str | None = None   # 上次链发布 freshness（None = 首跑，delta=全量）
+    delta_rows: int = 0            # 门作用域行数（trade_date > watermark）
 
     @property
     def ok(self) -> bool:
@@ -106,6 +113,8 @@ def run_clean_stage(
     """
     policy = policy or rules.load_policy()
     log = log or (lambda line: None)
+    base = _resolve_root(root)
+    watermark = dq_health.last_published_trade_date(base, dataset)
     actual = raw.height
     expected = actual if expected_count is None else expected_count
 
@@ -115,25 +124,46 @@ def run_clean_stage(
     # F5：full_table 完整性账本——raw = clean + quarantine + dedup（删除行数）
     deduped = sum(int(e.get("count", 0)) for e in repair_log
                   if e.get("action") == "dedup_identical")
-    metrics = aggregate.aggregate(results, expected, actual)
-    systemic = aggregate.detect_systemic(metrics, df, policy)
+    # ── M1.5c §3.3：门（PRE-INGEST）判 delta；全表口径只作 backlog 披露 ─────
+    wd = dt.date.fromisoformat(watermark) if watermark else None
+    delta_df, delta_results = _delta_scope(df, results, wd)
+    delta_rows = delta_df.height if wd is not None else actual
+    delta_expected = delta_rows if expected_count is None else expected_count
+    if delta_rows == 0:
+        metrics = _empty_metrics()          # 无新数据：0 行门（error_rate 0/coverage 1）
+        systemic = None
+    else:
+        metrics = aggregate.aggregate(delta_results, delta_expected, delta_rows)
+        systemic = aggregate.detect_systemic(metrics, delta_df, policy)
     decision = aggregate.decide_pre_ingest(metrics, systemic, policy)
+    full_metrics = aggregate.aggregate(results, expected, actual)
+    full_systemic = aggregate.detect_systemic(full_metrics, df, policy)
+    delta_clean = _delta_count(clean, wd)
+    delta_quarantined = _delta_count(quarantined, wd)
+    delta_deduped = _delta_dedup_count(repair_log, wd)
     health_partition = _health_partition(clean, partition)
     date_range = _date_range(clean)
 
     log(f"[{dataset}] run_tag={run_tag} scope={SCOPE_FULL_TABLE} "
+        f"gate_scope=delta watermark={watermark} delta_rows={delta_rows} "
         f"partition={health_partition}: decision={decision} "
-        f"rows={actual} clean={clean.height} quarantined={quarantined.height}")
+        f"rows={actual} clean={clean.height} quarantined={quarantined.height} "
+        f"(full_table error={full_metrics.error_count})")
 
-    summary = _summary(dataset, run_tag, health_partition, decision, metrics,
-                       systemic, clean.height, quarantined.height, deduped,
-                       policy, dry_run, date_range)
+    summary = _summary(
+        dataset, run_tag, health_partition, decision, full_metrics,
+        full_systemic, clean.height, quarantined.height, deduped,
+        policy, dry_run, date_range, watermark=watermark,
+        delta={"rows": delta_rows, "clean_rows": delta_clean,
+               "quarantined_rows": delta_quarantined,
+               "deduped_rows": delta_deduped,
+               "quality": _quality_block(metrics, systemic),
+               "rules": metrics.rules})
     staging_dir: Path | None = None
     staging_path: Path | None = None
     quarantine_dir: Path | None = None
 
     if not dry_run:
-        base = _resolve_root(root)
         if quarantined.height:
             quarantine_dir = repair.write_quarantine(
                 dataset, run_tag, quarantined,
@@ -149,7 +179,8 @@ def run_clean_stage(
         partition=health_partition, decision=decision, metrics=metrics,
         systemic=systemic, clean_rows=clean.height,
         quarantined_rows=quarantined.height, staging_dir=staging_dir,
-        staging_path=staging_path, quarantine_dir=quarantine_dir, dry_run=dry_run)
+        staging_path=staging_path, quarantine_dir=quarantine_dir, dry_run=dry_run,
+        watermark=watermark, delta_rows=delta_rows)
 
     if not dry_run and result.ok and ingest is not None:
         ingest(result)
@@ -201,38 +232,120 @@ def _clear_quarantine(data_root: Path, dataset: str, run_tag: str) -> None:
 def _summary(dataset: str, run_tag: str, partition: str, decision: str,
              metrics: Metrics, systemic: SystemicDetail | None, clean_rows: int,
              quarantined_rows: int, deduped_rows: int, policy: DqPolicy,
-             dry_run: bool, date_range: dict | None) -> dict:
-    systematic = systemic is not None
+             dry_run: bool, date_range: dict | None, *,
+             watermark: str | None = None, delta: dict | None = None) -> dict:
     return {
         "dataset": dataset,
         "run_tag": str(run_tag),
-        "scope": SCOPE_FULL_TABLE,
+        "scope": SCOPE_FULL_TABLE,          # 清洗范围（backlog 披露口径）
+        "gate_scope": "delta",              # M1.5c：门作用域
+        "watermark": watermark,             # 上次链发布 freshness（null=首跑）
         "partition": partition,
         "dq_policy_version": policy.dq_policy_version,
         "decision": decision,
         "clean_rows": clean_rows,
         "quarantined_rows": quarantined_rows,
         "deduped_rows": deduped_rows,
-        "quality": {
-            "fatal_count": metrics.fatal_count,
-            "error_count": metrics.error_count,
-            "warning_count": metrics.warning_count,
-            "info_count": metrics.info_count,
-            "quarantine_count": metrics.quarantine_count,
-            "error_rate": metrics.error_rate,
-            "systematic_issue": systematic,
-            "systemic_detail": (systemic.detail if systematic else None),
-            "unresolved_partition_error": metrics.unresolved_partition_error,
-        },
+        "quality": _quality_block(metrics, systemic),   # full_table（披露）
         "completeness": {
             "expected_count": metrics.expected_count,
             "actual_count": metrics.actual_count,
             "coverage": metrics.coverage,
         },
+        "delta": delta or {},               # 门作用域计数/质量/规则
         "date_range": date_range,
-        "rules": metrics.rules,
+        "rules": metrics.rules,             # full_table（top_classes 源）
         "dry_run": dry_run,
     }
+
+
+def _quality_block(metrics: Metrics, systemic: SystemicDetail | None) -> dict:
+    return {
+        "fatal_count": metrics.fatal_count,
+        "error_count": metrics.error_count,
+        "warning_count": metrics.warning_count,
+        "info_count": metrics.info_count,
+        "quarantine_count": metrics.quarantine_count,
+        "error_rate": metrics.error_rate,
+        "systematic_issue": systemic is not None,
+        "systemic_detail": (systemic.detail if systemic else None),
+        "unresolved_partition_error": metrics.unresolved_partition_error,
+    }
+
+
+# ── M1.5c：delta 作用域 helpers ───────────────────────────────────────────
+def _empty_metrics() -> Metrics:
+    """delta 空（无新数据）的零计数指标：error_rate 0 / coverage 1 → PASS 腿。"""
+    return Metrics(
+        expected_count=0, actual_count=0, fatal_count=0, error_count=0,
+        warning_count=0, info_count=0, quarantine_count=0, error_rate=0.0,
+        coverage=1.0, unresolved_partition_error=False, rules={},
+        errors_by_field={}, errors_by_group={}, errors_by_date={})
+
+
+def _delta_scope(df: pl.DataFrame, results: list,
+                 wd: dt.date | None) -> tuple[pl.DataFrame, list]:
+    """把校验结果缩到 delta（``trade_date > wd``）；``wd=None`` → 全量。
+
+    行级结果按 ``symbol|date`` 键过滤；帧级（无 ``|``，schema FATAL）与日期不可
+    解析的结果一律保留（不可定位到旧时代 → 保守计入）。
+    """
+    if wd is None:
+        return df, results
+    date_expr = validators._date_expr(df.schema["trade_date"])
+    sym_col = next((c for c in validators._SYM_ALIASES if c in df.columns), None)
+    if date_expr is None or sym_col is None:
+        return df, results
+    delta_df = df.filter(date_expr > pl.lit(wd))
+    keys = set(delta_df.select(
+        (pl.col(sym_col).cast(pl.String, strict=False) + pl.lit("|")
+         + date_expr.cast(pl.String)).alias("_k"))["_k"].to_list())
+    out = []
+    for r in results:
+        if "|" not in r.key or r.key in keys:
+            out.append(r)
+            continue
+        _, _, day = r.key.partition("|")
+        try:
+            key_day = dt.date.fromisoformat(day)
+        except ValueError:
+            out.append(r)                      # 不可解析日期 → 保守计入
+            continue
+        if key_day > wd:
+            out.append(r)
+    return delta_df, out
+
+
+def _delta_count(frame: pl.DataFrame, wd: dt.date | None) -> int:
+    """frame（clean/quarantine）中 ``trade_date > wd`` 的行数；None → 全量。
+
+    quarantine 行保持原始形态（trade_date 可能是 String）→ 经 validators 的
+    日期表达式归一；不可解析 → 保守计全量。
+    """
+    if wd is None or frame.height == 0 or "trade_date" not in frame.columns:
+        return frame.height
+    expr = validators._date_expr(frame.schema["trade_date"])
+    if expr is None:
+        return frame.height
+    return frame.filter(expr > pl.lit(wd)).height
+
+
+def _delta_dedup_count(repair_log: list[dict], wd: dt.date | None) -> int:
+    if wd is None:
+        return sum(int(e.get("count", 0)) for e in repair_log
+                   if e.get("action") == "dedup_identical")
+    n = 0
+    for e in repair_log:
+        if e.get("action") != "dedup_identical":
+            continue
+        for key in e.get("keys", []):
+            _, _, day = key.partition("|")
+            try:
+                if dt.date.fromisoformat(day) > wd:
+                    n += 1
+            except ValueError:
+                n += 1
+    return n
 
 
 def _health_partition(clean: pl.DataFrame, partition: str) -> str:
