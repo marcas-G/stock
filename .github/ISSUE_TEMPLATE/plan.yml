@@ -1,0 +1,31 @@
+name: Plan（方案/实施项）
+description: 方案级待办（多任务实施、验收锚点明确的）
+title: "[plan] "
+labels: ["kind:plan", "status:open"]
+body:
+  - type: input
+    id: pid
+    attributes:
+      label: 方案 ID
+      placeholder: PLAN-DQ-M2
+    validations:
+      required: true
+  - type: textarea
+    id: authority
+    attributes:
+      label: 权威文档
+      description: spec / plan 路径（knowledge/design/…）
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 范围与验收锚点
+      description: 做什么 / 不做什么 / 怎么算完成（可测）
+    validations:
+      required: true
+  - type: textarea
+    id: deps
+    attributes:
+      label: 依赖与前置
+      description: 阻塞项、触发条件、关联 issue

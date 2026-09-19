@@ -1,0 +1,34 @@
+name: Sync Review Issues
+
+# findings.md 或同步器变更时，自动把"未闭环 finding + 方案待办"同步为 GitHub Issues。
+# 幂等：issue 正文含 <!-- finding:ID --> / <!-- plan:ID -->，只建缺的。
+# 凭据：用仓库内置 GITHUB_TOKEN（issues:write），无需额外 secret。
+
+on:
+  push:
+    branches: [restructure/monorepo]
+    paths:
+      - "governance/evidence/reviews/findings.md"
+      - "governance/ops/sync_review_issues.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: sync-review-issues
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Sync review ledger → issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python governance/ops/sync_review_issues.py --apply

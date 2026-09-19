@@ -1,0 +1,39 @@
+name: Finding（评审发现）
+description: 评审发现 / Bug 登记（通常由 sync_review_issues 自动创建；手工登记用本表）
+title: "[finding] "
+labels: ["kind:finding", "status:open"]
+body:
+  - type: input
+    id: fid
+    attributes:
+      label: 台账 ID
+      description: 形如 R08-MET-I1（与 findings.md 对齐；自动同步项请勿手改标题前缀）
+      placeholder: R08-MET-I1
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 严重度
+      options: ["C（Critical）", "I（Important）", "M（Minor）"]
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题与复现
+      description: 现象 / 复现命令 / 实测 vs 期望
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 证据
+      description: governance/evidence/… 路径或原始输出（命令 + 输出）
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: 关键位置
+      placeholder: path/file.py:line

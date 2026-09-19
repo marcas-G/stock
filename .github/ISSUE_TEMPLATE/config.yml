@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 评审约定与总状态（README / STATUS）
+    url: https://github.com/marcas-G/stock/blob/restructure/monorepo/governance/evidence/reviews/README.md
+    about: 流程 / 状态词表 / GitHub 同步器说明；总状态见同目录 STATUS.md
+  - name: 数据地图与运维
+    url: https://github.com/marcas-G/stock/blob/restructure/monorepo/governance/workspace/data-map.md
+    about: 数据资产、生产者与刷新链
