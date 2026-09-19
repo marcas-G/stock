@@ -9,7 +9,7 @@ help:
 	@echo "make test-research   工具/研究/ops 测试（单解释器：平台 venv 3.13）"
 	@echo "make gates           全套常驻门（结构/契约/标记/旧路径/索引/文档路径/台账口径）"
 	@echo "make lint-factors    全库因子 spec lint（单进程批跑；任一失败非零退出）"
-	@echo "make index           重生成 knowledge/index/factors.md + knowledge/index/strategies.md"
+	@echo "make index           重生成 knowledge/index/{factors,strategies,composites}.md"
 	@echo "make reconcile       CH 灌入对账（14 表含 moneyflow/fundamentals；依赖 ClickHouse 在线）"
 	@echo "make data-update     夸克网盘数据更新全链（sync→build→verify→R22 基线指纹化自动刷新；8GB 内存护栏）"
 	@echo "make check-r22-baseline  R22 基线数据指纹检查（只报告漂移，零写入）"
@@ -34,6 +34,7 @@ lint-factors:
 index:
 	$(PLATFORM_PY) research/tools/factor_lib/build_index.py
 	$(PLATFORM_PY) research/tools/factor_lib/build_strategy_index.py
+	$(PLATFORM_PY) research/tools/factor_lib/build_composite_index.py
 
 # CH 灌入对账（R4d：唯一对账入口；终评 I3 扩 moneyflow/fundamentals）。
 # 需 ClickHouse 在线 + 平台 venv（clickhouse_connect）；源侧 zip/parquet 由脚本自行解析。

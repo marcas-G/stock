@@ -145,6 +145,9 @@ structure() {
   echo "[G-INDEX] 策略索引与生成器一致 · spec↔档案成对"
   if out=$("$PLATFORM/.venv/bin/python" research/tools/factor_lib/build_strategy_index.py --check 2>&1); then ok "$out"; else bad "策略索引不一致：$out"; fi
 
+  echo "[G-INDEX] composite 索引与生成器一致 · spec↔档案成对"
+  if out=$("$PLATFORM/.venv/bin/python" research/tools/factor_lib/build_composite_index.py --check 2>&1); then ok "$out"; else bad "composite 索引不一致：$out"; fi
+
   echo "[G-ANNOTATE] 因子档案 snapshot 标注齐备（R21 约定）"
   # 脚本原位在 R21/EVID（证据即工具）；只做只读 --check，不写档案。
   # R06-M5：改平台 venv 解释器（原系统 python3=anaconda 3.10，与单解释器声明不符）。
