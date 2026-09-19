@@ -1,5 +1,7 @@
 # Composite 聚合层 C2/C3/C4b 并行实施计划
 
+> **实施状态（2026-09-19 收口）**：**三路全部完成并复查可收口**（9 commits，248e08f..6c9ad13）——A：environment lock_hash + 生态示例（linear 真跑；ridge/pls/pca 待装库）；B：composite 档案/索引/门（三态演示 + 防复发测试 + CI 接入）；C：top_k_buffered（换手 0.333→0）/ market_cap_weighted / artifact 元数据 / **YAML 入口**。证据 `R34/{c2,c3,c4b}/`；台账 `.superpowers/sdd/2026-09-19-composite-alpha-aggregation-c2c3c4b/progress.md`。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Spec:** `knowledge/design/platform/specs/2026-09-19-composite-alpha-aggregation-design.md`（§17 C2/C3 + §19/C4b 残留）
