@@ -5,6 +5,7 @@
 
     StrategyDoc
     ├── strategy: StrategySpec      L4 组合（M7 契约，原样）
+    ├── signal_kind                 L4 信号来源种类（Plan CX-C4 T1：factor|composite）
     ├── execution: ExecutionSpec    L5 执行（M8 契约，原样）
     ├── date: DateRange             回测窗口（decision 过滤）
     ├── universe_override           L1 可选 codes 覆盖（null = 随因子）
@@ -96,6 +97,44 @@ class RulesSpec(BaseModel):
 
 _V1_UNSUPPORTED_RULES = ("stop_loss", "take_profit")
 
+# Plan CX-C4 T1（design §19.1）：signal 引用前缀 → kind。仅 composites/ 有语义；
+# factor 信号保持既有裸名形态（不引入 factors/ 前缀，regex 契约不破）。
+_SIGNAL_PREFIXES = {"composites": "composite"}
+
+
+def parse_signal_ref(signal: str, signal_kind: str | None = None) -> tuple[str, str]:
+    """YAML `signal` 引用 → `(kind, basename)`（Plan CX-C4 T1；design §19.1）。
+
+    - `composites/<name>` 前缀自动识别 kind=composite；裸名缺省 factor；
+    - 显式 `signal_kind`（factor|composite）覆盖缺省 kind——与前缀蕴含冲突 →
+      ValueError（不静默取一方）；
+    - 返回 basename：`StrategySpec.signal_name` 契约
+      （^[A-Za-z_][A-Za-z0-9_]{0,63}$）不因前缀而破坏。
+    """
+    if not isinstance(signal, str) or not signal:
+        raise ValueError(f"signal 必须为非空字符串（收到 {signal!r}）")
+    if signal_kind is not None and not isinstance(signal_kind, str):
+        raise ValueError(
+            f"signal_kind 必须为 'factor' 或 'composite'（收到 {signal_kind!r}）")
+    derived: str | None = None
+    name = signal
+    if "/" in signal:
+        prefix, _, rest = signal.partition("/")
+        if prefix not in _SIGNAL_PREFIXES:
+            raise ValueError(
+                f"signal {signal!r} 前缀 {prefix!r} 不支持（仅支持 "
+                f"'composites/<name>' 前缀；factor 信号直接用裸名）")
+        if not rest or "/" in rest:
+            raise ValueError(
+                f"signal {signal!r} 非法：前缀 'composites/' 后须为单个 name"
+                f"（composites/<name>）")
+        derived, name = _SIGNAL_PREFIXES[prefix], rest
+    if signal_kind is not None and derived is not None and signal_kind != derived:
+        raise ValueError(
+            f"signal {signal!r} 前缀蕴含 kind={derived!r}，与显式 "
+            f"signal_kind={signal_kind!r} 冲突——请统一二者（或删去 signal_kind）")
+    return (signal_kind if signal_kind is not None else (derived or "factor")), name
+
 
 class StrategyDoc(BaseModel):
     """策略文档（YAML 的唯一内存契约）：六层映射的聚合根。
@@ -107,6 +146,7 @@ class StrategyDoc(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     strategy: StrategySpec
+    signal_kind: Literal["factor", "composite"] = "factor"
     execution: ExecutionSpec
     date: DateRange
     universe_override: list[str] | None = None

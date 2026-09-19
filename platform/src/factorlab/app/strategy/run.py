@@ -2,7 +2,8 @@
 
 链（全部复用既有入口单点，不发明新语义）：
 
-    load_signal_artifact(results_dir / signal_name)
+    _load_signal(doc, root)        # Plan CX-C4 T1：factor → results_dir/<name>；
+                                   # composite → results_dir/composites/<name>
       → 按 doc.date 过滤 signal frame
       → 按 doc.universe_override 过滤 signal frame（R07-STRAT-I6：canonical 子集）
       → construct_target_portfolio（M7：StrategySpec）
@@ -13,6 +14,8 @@
 
 默认目录：results 根 = `settings.results_dir`（可显式覆写）；`out_dir` =
 `results_dir / "strategies" / doc.strategy.name`（与因子结果目录隔离）。
+composite 信号（design §19.1）：读 C1 `composites/<name>/{panel.parquet,
+artifact.json}`，包成 `SignalArtifact` 交 M7——Portfolio 不感知来源。
 错误透传：CA Gate / `ExecutionDataQualityError` / fail-fast ValueError 原样抛
 ——不吞、不自动重试。空窗口（过滤后无任何 signal 行）显式报错，不静默空跑。
 """
@@ -27,9 +30,11 @@ import polars as pl
 from factorlab.adapters.parquet_artifacts import load_signal_artifact
 from factorlab.adapters.strategy_artifacts import write_strategy_artifacts
 from factorlab.app.backtest import run_backtest, save_backtest_result
+from factorlab.app.composite.artifact import read_composite_artifact
+from factorlab.app.composite.resolver import COMPOSITES_DIRNAME
 from factorlab.config import settings
 from factorlab.core.domain.backtest import BacktestResult, NavSeries
-from factorlab.core.domain.frames import SignalArtifact
+from factorlab.core.domain.frames import SignalArtifact, SignalMeta
 from factorlab.core.domain.portfolio import TargetPortfolio
 from factorlab.core.strategy import (StrategyDoc, build_rebalance_schedule,
                                      construct_target_portfolio)
@@ -54,8 +59,8 @@ def _filter_to_window(signal: SignalArtifact, doc: StrategyDoc) -> SignalArtifac
     if frame.height == 0:
         raise ValueError(
             f"策略 {doc.strategy.name}: date 窗口 {doc.date.start}~{doc.date.end} "
-            f"在因子 {signal.meta.name!r} 的 SignalArtifact 中无任何信号行"
-            f"（检查窗口与因子日期域；不静默空跑）")
+            f"在信号 {signal.meta.name!r}（{doc.signal_kind}）的 SignalArtifact 中"
+            f"无任何信号行（检查窗口与信号日期域；不静默空跑）")
     return SignalArtifact(frame=frame, meta=signal.meta)
 
 
@@ -83,6 +88,50 @@ def _filter_to_universe(signal: SignalArtifact, doc: StrategyDoc) -> SignalArtif
     return SignalArtifact(frame=frame, meta=signal.meta)
 
 
+def _load_composite_signal(doc: StrategyDoc, root: Path) -> SignalArtifact:
+    """读 C1 composite 产物（`<root>/composites/<name>/`）→ `SignalArtifact`。
+
+    design §19.1：composite artifact 的 meta 不含 `frequency`——C1 产出为日频
+    EOD 信号（M7 frequency 契约 "1d"），包装处显式补齐（timing 用 SignalMeta
+    默认 EOD，与 C1 语义一致）。产物名与引用名不一致（目录/内容错配，对齐
+    resolver 的 name 契约）→ 拒绝消费。
+    """
+    name = doc.strategy.signal_name
+    comp_dir = root / COMPOSITES_DIRNAME / name
+    try:
+        frame, meta, _prov = read_composite_artifact(comp_dir)
+    except (ValueError, OSError) as exc:
+        raise ValueError(
+            f"策略 {doc.strategy.name}: composite 信号 {name!r} 加载失败"
+            f"（解析目录 {comp_dir}）: {exc}——composite 产物由 "
+            f"`flab composite run <spec.yaml>`（或 run_composite）生成于 "
+            f"<results_dir>/{COMPOSITES_DIRNAME}/<name>/；请确认 "
+            f"signal: composites/<name> 与产物存在") from exc
+    artifact_name = meta.get("name")
+    if isinstance(artifact_name, str) and artifact_name and artifact_name != name:
+        raise ValueError(
+            f"策略 {doc.strategy.name}: composite 产物名 {artifact_name!r} 与引用名 "
+            f"{name!r} 不一致（解析目录 {comp_dir}）——目录/内容错配，拒绝消费")
+    return SignalArtifact(
+        frame=frame,
+        meta=SignalMeta(name=name,
+                        frequency=meta.get("frequency") or "1d",
+                        adjustment=meta.get("adjustment")),
+    )
+
+
+def _load_signal(doc: StrategyDoc, root: Path) -> SignalArtifact:
+    """按 `doc.signal_kind` 加载信号：factor（扁平目录，零回归）/ composite。
+
+    factor 分支逐字保持既有调用（`load_signal_artifact(root / <name>)`）；
+    composite 读 C1 产物并统一包成 `SignalArtifact` 交 M7——Portfolio 不感知
+    来源（design §19.1）。
+    """
+    if doc.signal_kind == "factor":
+        return load_signal_artifact(root / doc.strategy.signal_name)
+    return _load_composite_signal(doc, root)
+
+
 def run_strategy(doc: StrategyDoc, rd: ReadPort,
                  results_dir: Path | None = None,
                  out_dir: Path | None = None,
@@ -95,8 +144,9 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
                  strict: bool = False) -> StrategyRunResult:
     """执行策略文档：读信号 → 窗口过滤 → M7 组合 → 落盘 → M8 回测 → 落盘。
 
-    - results_dir：results 根（缺省 settings.results_dir）——信号按
-      `results_dir/<signal_name>` 读取；
+    - results_dir：results 根（缺省 settings.results_dir）——factor 信号按
+      `results_dir/<signal_name>` 读取；composite 信号（doc.signal_kind=
+      "composite"）按 `results_dir/composites/<signal_name>/` 读取；
     - out_dir：策略产物目录显式覆盖（缺省 `results_dir/"strategies"/<name>`）；
     - `doc.universe_override` 非 null → 组合前先按 canonical ts_code 过滤信号帧
       （空交集 fail fast；null = 零行为变化，见 `_filter_to_universe`）；
@@ -113,7 +163,7 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
             f"dict/YAML 路径不自动转换，请先 load_strategy_doc")
     root = Path(results_dir) if results_dir is not None else Path(
         settings.results_dir)
-    signal = load_signal_artifact(root / doc.strategy.signal_name)
+    signal = _load_signal(doc, root)
     filtered = _filter_to_window(signal, doc)
     filtered = _filter_to_universe(filtered, doc)
     target = construct_target_portfolio(filtered, doc.strategy)

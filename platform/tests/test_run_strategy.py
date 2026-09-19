@@ -23,11 +23,16 @@ import pytest
 from factorlab.adapters.parquet_artifacts import load_signal_artifact
 from factorlab.adapters.strategy_artifacts import load_strategy_artifacts
 from factorlab.app.backtest import load_backtest_result, run_backtest
+from factorlab.app.composite.artifact import read_composite_artifact, write_composite_artifact
+from factorlab.app.composite.resolver import MemberRef
+from factorlab.app.composite.runtime import LoadedImpl
 from factorlab.app.context import RunContext
 from factorlab.app.run import run_factor
 from factorlab.config import settings
+from factorlab.core.composite import CompositeSpec, definition_hash
+from factorlab.core.composite.provenance import build_provenance
 from factorlab.core.domain.execution import ExecutionDataQualityError
-from factorlab.core.domain.frames import SignalArtifact
+from factorlab.core.domain.frames import SignalArtifact, SignalMeta
 from factorlab.core.strategy import construct_target_portfolio, load_strategy_doc
 
 # Plan DQ-M1 F3：run_strategy 真实入口默认 dataset="ashare_daily"（读取门
@@ -115,11 +120,13 @@ formula: |
 
 def _doc_yaml(*, start="2024-01-02", end="2024-01-05", name="ws7_doc",
               direction=1, top_k=2, freq="daily", cash=1_000_000.0,
-              commission=0.0, override="null"):
+              commission=0.0, override="null", signal=_SIGNAL_NAME,
+              signal_kind=None):
+    kind_line = f"signal_kind: {signal_kind}\n" if signal_kind else ""
     return f"""\
 name: {name}
-signal: {_SIGNAL_NAME}
-direction: {direction}
+signal: {signal}
+{kind_line}direction: {direction}
 portfolio: {{top_k: {top_k}, weighting: equal_weight, gross_exposure: 1.0,
              rebalance_frequency: {freq}}}
 execution:
@@ -406,6 +413,160 @@ def test_universe_override_null_is_zero_behavior_change(env, tmp_path):
     # 未过滤：d1 截面 top-2 = {A, C}（31 > 30 > 21）
     rows = res.target.frame.filter(pl.col("decision_date") == _D1)
     assert sorted(rows["code"].to_list()) == [_A, _C]
+
+
+# ================================================================
+# 2c. composite 信号引用（Plan CX-C4 T1；design §19.1）
+#   signal: composites/<name> → 读 C1 产物（read_composite_artifact）→
+#   包 SignalArtifact 交 M7；factor 路径（load_signal_artifact）完全不走。
+# ================================================================
+
+def _composite_panel():
+    """C1 形态 panel [date, code, signal]：signal=-close（与 factor 用例区分）。"""
+    rows = [{"date": d, "code": c, "signal": -_CLOSES[c][i]}
+            for i, d in enumerate(_DATES) for c in (_A, _B, _C)]
+    return pl.DataFrame(rows)
+
+
+def _write_composite(results, name, frame, artifact_name=None):
+    """真实走 C1 writer（build_provenance + write_composite_artifact）落产物。"""
+    spec = CompositeSpec.model_validate({
+        "name": name,
+        "members": ["base_factor"],
+        "implementation": {"entrypoint": "research.composites.impls.w_sum:compute"},
+        "params": {"w": 1.0},
+    })
+    impl = LoadedImpl(compute=lambda X, params: X[:, 0], source_hash="impl-src-hash",
+                      entrypoint="research.composites.impls.w_sum:compute",
+                      path=results / "nonexistent_impl.py", git_commit=None)
+    ref = MemberRef(position=1, member="base_factor", kind="factor",
+                    name="base_factor", artifact_dir=results / "base_factor",
+                    artifact_hash="member-hash-1", frame=frame, value_col="signal",
+                    meta={})
+    meta = {"name": artifact_name or name,
+            "definition_hash": definition_hash(spec, ["member-hash-1"])}
+    prov = build_provenance(spec, impl, spec.params, [ref], spec.alignment,
+                            output_hash=None)
+    write_composite_artifact(results / "composites" / name, frame, meta, prov)
+
+
+def test_run_strategy_composite_signal_end_to_end(env, tmp_path, monkeypatch):
+    """signal: composites/<name> → 真读 C1 产物跑完整链（组合→落盘→回测）。
+
+    禁止行为门：composite 引用不得调用 factor loader（load_signal_artifact）；
+    d1 选择 {B, C}（signal=-close）——若消费的是硬编码/同名 factor（close →
+    {A, C}）必红。
+    """
+    import factorlab.app.strategy.run as R
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    env.seed(_tables())
+    _write_composite(results, "cx_demo", _composite_panel())
+    doc = _load_doc(tmp_path, signal="composites/cx_demo", name="ws7_cx")
+
+    seen = {"composite": 0}
+    real_read = R.read_composite_artifact
+
+    def spy_read(path):
+        seen["composite"] += 1
+        return real_read(path)
+
+    monkeypatch.setattr(R, "read_composite_artifact", spy_read)
+    monkeypatch.setattr(R, "load_signal_artifact", lambda p: pytest.fail(
+        f"composite 引用不得走 factor loader: {p}"))
+
+    res = run_strategy(doc, env.rd, dataset=None, results_dir=results)
+
+    assert doc.signal_kind == "composite"
+    assert seen["composite"] >= 1, "read_composite_artifact 必须被真实调用"
+    assert res.out_dir == results / "strategies" / "ws7_cx"
+    assert res.signal_name == "cx_demo"
+    assert res.decision_count == 4
+    assert res.target.decision_dates == (_D1, _D2, _D3, _D4)
+    # d1：-21 > -30 > -31 → Top-2 = {B, C}（factor close 口径为 {A, C}）
+    rows = res.target.frame.filter(pl.col("decision_date") == _D1)
+    assert set(rows["code"].to_list()) == {_B, _C}
+
+    # 手工链：独立读回 composite panel → 同策略参数
+    frame, _meta, _prov = read_composite_artifact(results / "composites" / "cx_demo")
+    fsig = SignalArtifact(frame=frame.filter(
+        (pl.col("date") >= doc.date.start) & (pl.col("date") <= doc.date.end)),
+        meta=SignalMeta(name="cx_demo"))
+    manual_target = construct_target_portfolio(fsig, doc.strategy)
+    manual_bt = run_backtest(manual_target, doc.execution, env.rd)
+    assert res.target.frame.equals(manual_target.frame)
+    assert res.backtest.nav_series.frame.equals(manual_bt.nav_series.frame)
+
+    bundle = load_strategy_artifacts(res.out_dir)
+    assert bundle.spec.signal_name == "cx_demo"
+    assert bundle.target.frame.equals(res.target.frame)
+
+
+def test_run_strategy_explicit_composite_kind_with_bare_signal(env, tmp_path):
+    """显式 signal_kind: composite 覆盖缺省 factor（裸名 signal）。"""
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    env.seed(_tables())
+    _write_composite(results, "cx_demo", _composite_panel())
+    doc = _load_doc(tmp_path, signal="cx_demo", signal_kind="composite",
+                    name="ws7_cx")
+    res = run_strategy(doc, env.rd, dataset=None, results_dir=results)
+    assert doc.signal_kind == "composite"
+    assert res.signal_name == "cx_demo"
+    assert res.decision_count == 4
+
+
+def test_run_strategy_composite_missing_artifact_named_error(env, tmp_path):
+    """产物缺失 → 点名（引用名 + 解析路径 + run_composite 指引），不静默空跑。"""
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    env.seed(_tables())
+    doc = _load_doc(tmp_path, signal="composites/absent_cx", name="ws7_cx")
+    with pytest.raises(ValueError) as ei:
+        run_strategy(doc, env.rd, dataset=None, results_dir=results)
+    msg = str(ei.value)
+    assert "absent_cx" in msg
+    assert str(results / "composites" / "absent_cx") in msg
+    assert "run_composite" in msg
+    assert not (results / "strategies" / "ws7_cx").exists()
+
+
+def test_run_strategy_composite_kind_mismatch_rejected(env, tmp_path):
+    """目录内 artifact.json signal_kind != composite → 点名报错（不误当因子/面板）。"""
+    import json
+
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    env.seed(_tables())
+    d = results / "composites" / "cx_demo"
+    d.mkdir(parents=True)
+    (d / "artifact.json").write_text(
+        json.dumps({"signal_kind": "factor"}), encoding="utf-8")
+    doc = _load_doc(tmp_path, signal="composites/cx_demo", name="ws7_cx")
+    with pytest.raises(ValueError) as ei:
+        run_strategy(doc, env.rd, dataset=None, results_dir=results)
+    msg = str(ei.value)
+    assert str(d) in msg
+    assert "signal_kind" in msg and "composite" in msg
+
+
+def test_run_strategy_composite_name_directory_mismatch_rejected(env, tmp_path):
+    """产物名与引用目录名不一致（目录/内容错配）→ 拒绝消费。"""
+    from factorlab.app.strategy import run_strategy
+
+    results = _results_dir(tmp_path)
+    env.seed(_tables())
+    _write_composite(results, "cx_demo", _composite_panel(),
+                     artifact_name="other_cx")
+    doc = _load_doc(tmp_path, signal="composites/cx_demo", name="ws7_cx")
+    with pytest.raises(ValueError) as ei:
+        run_strategy(doc, env.rd, dataset=None, results_dir=results)
+    msg = str(ei.value)
+    assert "other_cx" in msg and "cx_demo" in msg
 
 
 # ================================================================

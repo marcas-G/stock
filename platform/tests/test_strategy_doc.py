@@ -281,6 +281,77 @@ def test_regime_requires_mapping(tmp_path):
         _load(tmp_path, bad)
 
 
+# ---------------- composite 信号引用（Plan CX-C4 T1；design §19.1）----------------
+
+_SIGNAL_LINE = "signal: max_effect_20d_high\n"
+
+
+def test_signal_kind_defaults_to_factor(tmp_path):
+    """缺省 signal_kind=factor（既有裸名 signal 零行为变化）。"""
+    doc = _load(tmp_path, _FULL_YAML)
+    assert doc.signal_kind == "factor"
+    assert doc.strategy.signal_name == "max_effect_20d_high"
+
+
+def test_composite_prefix_autodetected_basename_only(tmp_path):
+    """`signal: composites/<name>` → kind=composite；signal_name 仍只存 basename。"""
+    doc = _load(tmp_path, _FULL_YAML.replace(
+        _SIGNAL_LINE, "signal: composites/cx_demo\n"))
+    assert doc.signal_kind == "composite"
+    assert doc.strategy.signal_name == "cx_demo"
+
+
+def test_explicit_composite_kind_with_bare_name(tmp_path):
+    """显式 signal_kind 覆盖：裸名 signal + signal_kind=composite。"""
+    doc = _load(tmp_path, _FULL_YAML.replace(
+        _SIGNAL_LINE, "signal: cx_demo\nsignal_kind: composite\n"))
+    assert doc.signal_kind == "composite"
+    assert doc.strategy.signal_name == "cx_demo"
+
+
+def test_explicit_kind_matching_prefix_accepted(tmp_path):
+    doc = _load(tmp_path, _FULL_YAML.replace(
+        _SIGNAL_LINE, "signal: composites/cx_demo\nsignal_kind: composite\n"))
+    assert doc.signal_kind == "composite"
+    assert doc.strategy.signal_name == "cx_demo"
+
+
+def test_explicit_factor_kind_conflicting_with_prefix_rejected(tmp_path):
+    """前缀蕴含 composite 与显式 factor 冲突 → 明确报错（不静默取一方）。"""
+    text = _FULL_YAML.replace(
+        _SIGNAL_LINE, "signal: composites/cx_demo\nsignal_kind: factor\n")
+    with pytest.raises(ValueError) as ei:
+        _load(tmp_path, text)
+    msg = str(ei.value)
+    assert "composites/cx_demo" in msg
+    assert "factor" in msg and "composite" in msg
+
+
+def test_unknown_signal_kind_rejected(tmp_path):
+    text = _FULL_YAML.replace(
+        _SIGNAL_LINE, "signal: cx_demo\nsignal_kind: hybrid\n")
+    with pytest.raises(ValueError) as ei:
+        _load(tmp_path, text)
+    msg = str(ei.value)
+    assert "signal_kind" in msg and "factor" in msg and "composite" in msg
+
+
+def test_unsupported_signal_prefix_rejected(tmp_path):
+    """仅 composites/ 前缀有语义；factors/ 等未知前缀报错并给出指引。"""
+    text = _FULL_YAML.replace(
+        _SIGNAL_LINE, "signal: factors/max_effect_20d_high\n")
+    with pytest.raises(ValueError) as ei:
+        _load(tmp_path, text)
+    assert "composites/<name>" in str(ei.value)
+
+
+def test_composite_prefix_without_name_rejected(tmp_path):
+    text = _FULL_YAML.replace(_SIGNAL_LINE, "signal: composites/\n")
+    with pytest.raises(ValueError) as ei:
+        _load(tmp_path, text)
+    assert "composites/<name>" in str(ei.value)
+
+
 # ---------------- 文件 / 语法错误 ----------------
 
 def test_missing_file_error_contains_path(tmp_path):

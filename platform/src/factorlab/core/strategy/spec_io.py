@@ -21,12 +21,12 @@ from pydantic import ValidationError
 from factorlab.core.domain.timing import ExecutionTiming
 from factorlab.core.execution.spec import ExecutionSpec
 from factorlab.core.strategy.doc import (DateRange, RegimeSpec, RulesSpec,
-                                         StrategyDoc)
+                                         StrategyDoc, parse_signal_ref)
 from factorlab.core.strategy.spec import (SelectionSpec, StrategySpec,
                                           WeightingSpec)
 
-_TOP_LEVEL_KEYS = {"name", "signal", "direction", "portfolio", "execution",
-                   "rules", "regime", "date", "universe_override"}
+_TOP_LEVEL_KEYS = {"name", "signal", "signal_kind", "direction", "portfolio",
+                   "execution", "rules", "regime", "date", "universe_override"}
 _PORTFOLIO_KEYS = {"top_k", "weighting", "gross_exposure", "rebalance_frequency"}
 
 
@@ -59,7 +59,7 @@ def _validated(model, value: Any, what: str, path: Any):
         raise ValueError(f"策略 spec {path}: {what} 非法: {exc}") from exc
 
 
-def _build_strategy(raw: dict, path: Any) -> StrategySpec:
+def _build_strategy(raw: dict, path: Any, signal_name: str) -> StrategySpec:
     portfolio = _mapping(_required(raw, "portfolio", "根", path),
                          "portfolio", path)
     _unknown_keys(portfolio, _PORTFOLIO_KEYS, "portfolio", path)
@@ -68,7 +68,7 @@ def _build_strategy(raw: dict, path: Any) -> StrategySpec:
         _fail(path, f"portfolio.weighting 必须为字符串（收到 {weighting!r}）")
     return _validated(StrategySpec, {
         "name": _required(raw, "name", "根", path),
-        "signal_name": _required(raw, "signal", "根", path),
+        "signal_name": signal_name,
         "direction": _required(raw, "direction", "根", path),
         "selection": SelectionSpec(k=_required(portfolio, "top_k", "portfolio",
                                                path)),
@@ -108,12 +108,19 @@ def strategy_doc_from_mapping(raw: Any, path: Any = "<mapping>") -> StrategyDoc:
     """dict（YAML safe_load 结果）→ StrategyDoc，未知键/缺字段/类型全部 fail fast。"""
     raw = _mapping(raw, "根", path)
     _unknown_keys(raw, _TOP_LEVEL_KEYS, "根", path)
+    signal_ref = _required(raw, "signal", "根", path)
+    try:
+        signal_kind, signal_name = parse_signal_ref(signal_ref,
+                                                    raw.get("signal_kind"))
+    except ValueError as exc:
+        _fail(path, str(exc))
     regime = _validated(RegimeSpec, raw.get("regime", {}), "regime", path)
     rules = _validated(RulesSpec, raw.get("rules", {}), "rules", path)
     date = _validated(DateRange, _required(raw, "date", "根", path), "date", path)
     try:
         return StrategyDoc(
-            strategy=_build_strategy(raw, path),
+            strategy=_build_strategy(raw, path, signal_name),
+            signal_kind=signal_kind,
             execution=_build_execution(raw, path),
             date=date,
             universe_override=raw.get("universe_override"),
