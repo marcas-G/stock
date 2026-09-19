@@ -1,0 +1,3 @@
+heavy.sh: slot=1/2 avail=51.0GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python platform/tools/data_quality/pipeline.py clean --raw data/fact/daily_fact/daily_fact.parquet --root data --run-tag 20260919b --partition latest
+[ashare_daily] run_tag=20260919b scope=full_table partition=2026-09-17: decision=FAIL rows=18230232 clean=18223564 quarantined=6668
+[pipeline] 2026-09-17 decision=FAIL clean=18223564 quarantined=6668 staging=data/staging/ashare_daily/20260919b/daily_fact.parquet
