@@ -46,6 +46,10 @@ env:
   # 官方覆盖入口 = FACTORLAB_STOCK_ROOT。CI 指向本 checkout（本机语义等价）。
   FACTORLAB_STOCK_ROOT: ${{ github.workspace }}
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  # CLI --help 文本断言（test_cli_*_help）依赖足够终端宽度：无 TTY 时
+  # click/rich 在**导入期**按 COLUMNS/默认宽度创建 Console，测试内 setenv 太晚；
+  # 在进程环境固定宽宽度（200）保证渲染确定，选项名不折行/不截断。
+  COLUMNS: "200"
 
 jobs:
   platform:
@@ -77,7 +81,8 @@ jobs:
           #   uv.lock 解析为 1.44.2（R29 残余①「锁环境三门未回归」），升级须先重生成
           #   catalog（platform/scripts/gen_op_catalog.py）并过全量回归。
           platform/.venv/bin/python -m pip install -e "./platform[dev]" \
-            "httpx==0.28.1" "polars==1.44.1"
+            "httpx==0.28.1" "polars==1.44.1" \
+            "typer==0.27.2" "rich==15.0.0" "click==8.5.0"
 
       # 平台全量（无 CH）。
       # 排除项（仅此 1 条）：tests/test_factio.py::test_paths_roots_exist_or_skip 的
@@ -135,7 +140,8 @@ jobs:
           #   uv.lock 解析为 1.44.2（R29 残余①「锁环境三门未回归」），升级须先重生成
           #   catalog（platform/scripts/gen_op_catalog.py）并过全量回归。
           platform/.venv/bin/python -m pip install -e "./platform[dev]" \
-            "httpx==0.28.1" "polars==1.44.1"
+            "httpx==0.28.1" "polars==1.44.1" \
+            "typer==0.27.2" "rich==15.0.0" "click==8.5.0"
 
       # 排除项（仅此 5 条，两类）：
       # (a) test_root_exists_on_disk（4 参数化）：lob_fact 配置根"存在性在盘"断言——
@@ -221,7 +227,8 @@ jobs:
           #   uv.lock 解析为 1.44.2（R29 残余①「锁环境三门未回归」），升级须先重生成
           #   catalog（platform/scripts/gen_op_catalog.py）并过全量回归。
           platform/.venv/bin/python -m pip install -e "./platform[dev]" \
-            "httpx==0.28.1" "polars==1.44.1"
+            "httpx==0.28.1" "polars==1.44.1" \
+            "typer==0.27.2" "rich==15.0.0" "click==8.5.0"
 
       # 说明：不含 `make gates` 全量——G-DATAIFACE 的 ENFORCED 项在 lob_fact 在途
       # 修复落地前为红（本机预存），G-BOUNDARY 亦被在途注释文本命中；本 job 只收

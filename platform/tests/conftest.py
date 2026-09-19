@@ -171,14 +171,13 @@ def _read_cache_disabled(monkeypatch):
 
 # ================================================================
 # CI 稳定性（R31-ci-fix）：CLI `--help` 文本断言与终端宽度耦合
-#   无 TTY（CI runner）时 click/rich 按 COLUMNS/默认宽度渲染，窄宽度会把
-#   `--universe`/`--chunk-days`/`--port`/`--target` 等长选项折行，导致
-#   test_cli_*_help 误红（本地 COLUMNS=40 可复现）。固定一个足够宽的宽度，
-#   使断言在任何 CI/终端环境下确定；真实终端宽度的帮助渲染不受影响。
+#   无 TTY（CI runner）时 click/rich 在**导入期**按 COLUMNS/默认宽度创建
+#   Console（测试内 monkeypatch 太晚）——窄宽度会把 `--universe`/`--chunk-days`
+#   等长选项折行，导致 test_cli_*_help 误红（本机 COLUMNS=40 可复现）。
+#   在 conftest 导入期（早于任何 CLI 模块导入）落默认宽度 200；显式设置的
+#   COLUMNS 仍被尊重（便于复现宽度相关缺陷）。
 # ================================================================
-@pytest.fixture(autouse=True)
-def _stable_help_width(monkeypatch):
-    monkeypatch.setenv("COLUMNS", "200")
+os.environ.setdefault("COLUMNS", "200")
 
 
 # ================================================================
