@@ -1,0 +1,32 @@
+$ git show 5919337 -- knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md
+commit 5919337d7213c01f6241c22ba5a4d51737734259
+Author: marcas-G <2639833758@qq.com>
+Date:   Wed Sep 16 19:01:59 2026 +0800
+
+    fix(workspace): R07-MIG-I1 门回绿 — extcnt 旧坐标/索引重生/extsum snapshot
+    
+    - extcnt.md:85 `platform/results/` → `runs/platform/`（G-LEGACY 活引用）
+    - 重生成 knowledge/index/factors.md（含在途 spec；--check 一致）
+    - extsum.md 补 snapshot front matter（R21 脚本；唯一缺标注且 tracked）
+    
+    背景：R07 缺口审计（governance/evidence/reviews/findings.md R07-MIG-I1），
+    审计 HEAD 639bf3f 下 make gates exit 2（G-LEGACY+G-INDEX+G-ANNOTATE 三红）。
+    证据：governance/evidence/verification/R24/17-r07-fixes/00,02,03
+
+diff --git a/knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md b/knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md
+index 31d3099..de4b90e 100644
+--- a/knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md
++++ b/knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md
+@@ -82,7 +82,7 @@ formula: |
+ 
+ ## 4. 验证结果
+ 
+-> 数据快照自 `platform/results/max_effect_20d_extcnt/summary.json`（2026-09-16 运行；无 exclude_st 版）。
++> 数据快照自 `runs/platform/max_effect_20d_extcnt/summary.json`（2026-09-16 运行；无 exclude_st 版）。
+ 
+ ### 样本
+ 
+
+$ platform/.venv/bin/python research/tools/factor_lib/build_index.py --check
+索引一致 ✓
+EXIT=0

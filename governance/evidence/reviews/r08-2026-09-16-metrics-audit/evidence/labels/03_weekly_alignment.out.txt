@@ -1,0 +1,427 @@
+{
+  "runs": [
+    {
+      "run": "low_vol_20d",
+      "panel_rows": 4419466,
+      "weekly_rows": 934236,
+      "n_iso_weeks_panel": 183,
+      "n_iso_weeks_weekly": 183,
+      "dates_set_equal": true,
+      "weeks_with_n_dates_ne_1": 0,
+      "weeks_with_n_rows_lt_1": 0,
+      "n_dates_per_week_distribution": {
+        "1": 183
+      },
+      "weeks_weekly_date_ne_global_week_end": 0,
+      "code_weeks_with_ne1_weekly_rows": 0,
+      "n_code_week_groups_panel": 934236,
+      "weekly_vs_panel_last_obs": {
+        "signal": {
+          "missing_last_obs_row": 30243,
+          "null_mismatch": 13,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_5d": {
+          "missing_last_obs_row": 16575,
+          "null_mismatch": 0,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_20d": {
+          "missing_last_obs_row": 32594,
+          "null_mismatch": 0,
+          "max_abs_diff": 0.0
+        },
+        "close": {
+          "missing_last_obs_row": 9291,
+          "null_mismatch": 13,
+          "max_abs_diff": 0.0
+        }
+      },
+      "relabel_distance_days": {
+        "n": 934236,
+        "n_zero": 934115,
+        "n_gt0": 121,
+        "max": 4,
+        "dist": {
+          "0": 934115,
+          "1": 38,
+          "2": 32,
+          "3": 23,
+          "4": 28
+        }
+      }
+    },
+    {
+      "run": "momentum_20d",
+      "panel_rows": 4419466,
+      "weekly_rows": 934236,
+      "n_iso_weeks_panel": 183,
+      "n_iso_weeks_weekly": 183,
+      "dates_set_equal": true,
+      "weeks_with_n_dates_ne_1": 0,
+      "weeks_with_n_rows_lt_1": 0,
+      "n_dates_per_week_distribution": {
+        "1": 183
+      },
+      "weeks_weekly_date_ne_global_week_end": 0,
+      "code_weeks_with_ne1_weekly_rows": 0,
+      "n_code_week_groups_panel": 934236,
+      "weekly_vs_panel_last_obs": {
+        "signal": {
+          "missing_last_obs_row": 30243,
+          "null_mismatch": 13,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_5d": {
+          "missing_last_obs_row": 16575,
+          "null_mismatch": 0,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_20d": {
+          "missing_last_obs_row": 32594,
+          "null_mismatch": 0,
+          "max_abs_diff": 0.0
+        },
+        "close": {
+          "missing_last_obs_row": 9291,
+          "null_mismatch": 13,
+          "max_abs_diff": 0.0
+        }
+      },
+      "relabel_distance_days": {
+        "n": 934236,
+        "n_zero": 934115,
+        "n_gt0": 121,
+        "max": 4,
+        "dist": {
+          "0": 934115,
+          "1": 38,
+          "2": 32,
+          "3": 23,
+          "4": 28
+        }
+      }
+    },
+    {
+      "run": "intraday_am_pm_vol",
+      "panel_rows": 3509643,
+      "weekly_rows": 746875,
+      "n_iso_weeks_panel": 154,
+      "n_iso_weeks_weekly": 154,
+      "dates_set_equal": true,
+      "weeks_with_n_dates_ne_1": 0,
+      "weeks_with_n_rows_lt_1": 0,
+      "n_dates_per_week_distribution": {
+        "1": 154
+      },
+      "weeks_weekly_date_ne_global_week_end": 0,
+      "code_weeks_with_ne1_weekly_rows": 0,
+      "n_code_week_groups_panel": 746875,
+      "weekly_vs_panel_last_obs": {
+        "signal": {
+          "missing_last_obs_row": 366,
+          "null_mismatch": 366,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_5d": {
+          "missing_last_obs_row": 10514,
+          "null_mismatch": 164,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_20d": {
+          "missing_last_obs_row": 25273,
+          "null_mismatch": 340,
+          "max_abs_diff": 0.0
+        }
+      },
+      "relabel_distance_days": {
+        "n": 746875,
+        "n_zero": 746509,
+        "n_gt0": 366,
+        "max": 4,
+        "dist": {
+          "0": 746509,
+          "1": 180,
+          "2": 61,
+          "3": 61,
+          "4": 64
+        }
+      }
+    },
+    {
+      "run": "intraday_close_auction_premium",
+      "panel_rows": 3509643,
+      "weekly_rows": 746875,
+      "n_iso_weeks_panel": 154,
+      "n_iso_weeks_weekly": 154,
+      "dates_set_equal": true,
+      "weeks_with_n_dates_ne_1": 0,
+      "weeks_with_n_rows_lt_1": 0,
+      "n_dates_per_week_distribution": {
+        "1": 154
+      },
+      "weeks_weekly_date_ne_global_week_end": 0,
+      "code_weeks_with_ne1_weekly_rows": 0,
+      "n_code_week_groups_panel": 746875,
+      "weekly_vs_panel_last_obs": {
+        "signal": {
+          "missing_last_obs_row": 366,
+          "null_mismatch": 366,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_5d": {
+          "missing_last_obs_row": 10514,
+          "null_mismatch": 164,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_20d": {
+          "missing_last_obs_row": 25273,
+          "null_mismatch": 340,
+          "max_abs_diff": 0.0
+        }
+      },
+      "relabel_distance_days": {
+        "n": 746875,
+        "n_zero": 746509,
+        "n_gt0": 366,
+        "max": 4,
+        "dist": {
+          "0": 746509,
+          "1": 180,
+          "2": 61,
+          "3": 61,
+          "4": 64
+        }
+      }
+    },
+    {
+      "run": "intraday_high_time",
+      "panel_rows": 609076,
+      "weekly_rows": 130169,
+      "n_iso_weeks_panel": 25,
+      "n_iso_weeks_weekly": 25,
+      "dates_set_equal": false,
+      "weeks_with_n_dates_ne_1": 11,
+      "weeks_with_n_rows_lt_1": 0,
+      "n_dates_per_week_distribution": {
+        "1": 14,
+        "2": 9,
+        "3": 1,
+        "4": 1
+      },
+      "weeks_weekly_date_ne_global_week_end": 0,
+      "code_weeks_with_ne1_weekly_rows": 0,
+      "n_code_week_groups_panel": 130169,
+      "weekly_vs_panel_last_obs": {
+        "signal": {
+          "missing_last_obs_row": 0,
+          "null_mismatch": 0,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_5d": {
+          "missing_last_obs_row": 5245,
+          "null_mismatch": 0,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_20d": {
+          "missing_last_obs_row": 26061,
+          "null_mismatch": 0,
+          "max_abs_diff": 0.0
+        }
+      },
+      "relabel_distance_days": {
+        "n": 130169,
+        "n_zero": 130169,
+        "n_gt0": 0,
+        "max": 0,
+        "dist": {
+          "0": 130169
+        }
+      }
+    },
+    {
+      "run": "intraday_morning_ret",
+      "panel_rows": 3509643,
+      "weekly_rows": 746875,
+      "n_iso_weeks_panel": 154,
+      "n_iso_weeks_weekly": 154,
+      "dates_set_equal": true,
+      "weeks_with_n_dates_ne_1": 0,
+      "weeks_with_n_rows_lt_1": 0,
+      "n_dates_per_week_distribution": {
+        "1": 154
+      },
+      "weeks_weekly_date_ne_global_week_end": 0,
+      "code_weeks_with_ne1_weekly_rows": 0,
+      "n_code_week_groups_panel": 746875,
+      "weekly_vs_panel_last_obs": {
+        "signal": {
+          "missing_last_obs_row": 366,
+          "null_mismatch": 366,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_5d": {
+          "missing_last_obs_row": 10514,
+          "null_mismatch": 164,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_20d": {
+          "missing_last_obs_row": 25273,
+          "null_mismatch": 340,
+          "max_abs_diff": 0.0
+        }
+      },
+      "relabel_distance_days": {
+        "n": 746875,
+        "n_zero": 746509,
+        "n_gt0": 366,
+        "max": 4,
+        "dist": {
+          "0": 746509,
+          "1": 180,
+          "2": 61,
+          "3": 61,
+          "4": 64
+        }
+      }
+    },
+    {
+      "run": "intraday_open_minute_mom",
+      "panel_rows": 3509643,
+      "weekly_rows": 746875,
+      "n_iso_weeks_panel": 154,
+      "n_iso_weeks_weekly": 154,
+      "dates_set_equal": true,
+      "weeks_with_n_dates_ne_1": 0,
+      "weeks_with_n_rows_lt_1": 0,
+      "n_dates_per_week_distribution": {
+        "1": 154
+      },
+      "weeks_weekly_date_ne_global_week_end": 0,
+      "code_weeks_with_ne1_weekly_rows": 0,
+      "n_code_week_groups_panel": 746875,
+      "weekly_vs_panel_last_obs": {
+        "signal": {
+          "missing_last_obs_row": 366,
+          "null_mismatch": 366,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_5d": {
+          "missing_last_obs_row": 10514,
+          "null_mismatch": 164,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_20d": {
+          "missing_last_obs_row": 25273,
+          "null_mismatch": 340,
+          "max_abs_diff": 0.0
+        }
+      },
+      "relabel_distance_days": {
+        "n": 746875,
+        "n_zero": 746509,
+        "n_gt0": 366,
+        "max": 4,
+        "dist": {
+          "0": 746509,
+          "1": 180,
+          "2": 61,
+          "3": 61,
+          "4": 64
+        }
+      }
+    },
+    {
+      "run": "intraday_path_efficiency",
+      "panel_rows": 3509643,
+      "weekly_rows": 746875,
+      "n_iso_weeks_panel": 154,
+      "n_iso_weeks_weekly": 154,
+      "dates_set_equal": true,
+      "weeks_with_n_dates_ne_1": 0,
+      "weeks_with_n_rows_lt_1": 0,
+      "n_dates_per_week_distribution": {
+        "1": 154
+      },
+      "weeks_weekly_date_ne_global_week_end": 0,
+      "code_weeks_with_ne1_weekly_rows": 0,
+      "n_code_week_groups_panel": 746875,
+      "weekly_vs_panel_last_obs": {
+        "signal": {
+          "missing_last_obs_row": 366,
+          "null_mismatch": 366,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_5d": {
+          "missing_last_obs_row": 10514,
+          "null_mismatch": 164,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_20d": {
+          "missing_last_obs_row": 25273,
+          "null_mismatch": 340,
+          "max_abs_diff": 0.0
+        }
+      },
+      "relabel_distance_days": {
+        "n": 746875,
+        "n_zero": 746509,
+        "n_gt0": 366,
+        "max": 4,
+        "dist": {
+          "0": 746509,
+          "1": 180,
+          "2": 61,
+          "3": 61,
+          "4": 64
+        }
+      }
+    },
+    {
+      "run": "intraday_vol_herfindahl",
+      "panel_rows": 3509643,
+      "weekly_rows": 746875,
+      "n_iso_weeks_panel": 154,
+      "n_iso_weeks_weekly": 154,
+      "dates_set_equal": true,
+      "weeks_with_n_dates_ne_1": 0,
+      "weeks_with_n_rows_lt_1": 0,
+      "n_dates_per_week_distribution": {
+        "1": 154
+      },
+      "weeks_weekly_date_ne_global_week_end": 0,
+      "code_weeks_with_ne1_weekly_rows": 0,
+      "n_code_week_groups_panel": 746875,
+      "weekly_vs_panel_last_obs": {
+        "signal": {
+          "missing_last_obs_row": 366,
+          "null_mismatch": 366,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_5d": {
+          "missing_last_obs_row": 10514,
+          "null_mismatch": 164,
+          "max_abs_diff": 0.0
+        },
+        "forward_return_20d": {
+          "missing_last_obs_row": 25273,
+          "null_mismatch": 340,
+          "max_abs_diff": 0.0
+        }
+      },
+      "relabel_distance_days": {
+        "n": 746875,
+        "n_zero": 746509,
+        "n_gt0": 366,
+        "max": 4,
+        "dist": {
+          "0": 746509,
+          "1": 180,
+          "2": 61,
+          "3": 61,
+          "4": 64
+        }
+      }
+    }
+  ]
+}

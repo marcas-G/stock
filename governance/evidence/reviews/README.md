@@ -21,11 +21,17 @@ governance/evidence/reviews/
 
 ## 方案批次与执行序（2026-09-16 整理）
 
+> **总入口：`STATUS.md`**（评审轮次 R01-R09 × 全部方案族 × 完成度 × 待办分派；本表保留为简版）。
+
 | 序 | 方案 | 状态 | 执行入口 |
 |---|---|---|---|
 | 1 | **工具迁移**（8 工具+lib → `platform/tools/`；T1/T2 合并单解释器） | ✅ 已实施（R24 批次） | `r04-efficiency-2026-09-16/tools-migration-plan.md` |
 | 2 | **策略配置化 Plan S**（六层 + YAML + L5） | ✅ 已实施并验收（R27 实现 / R28 验收；R06 复核） | `knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md` |
 | 3 | **目录重整 R24**（契约/档案/治理/证据单点化） | ✅ 已实施（验收 `governance/evidence/verification/R24/`） | `r04-efficiency-2026-09-16/structure-plan.md` |
+| 4 | **缺口整改 Plan G**（R07：门回绿/判据加固/契约同步/数据三件/口子收口） | 待执行 | `r07-2026-09-16-gap-audit/improvement-plan.md` |
+| 5 | **评估指标 v2**（口径修订 + 增强） | **已拍板**（D1=B；D2/D4/D5/D6 批；D3 本质；D7 垃圾不保存；D8 补灌；**D9 逐日默认+周频可选**；**D10 参考库 daily/minute**；**D11 因子侧纯净：forward 固定 1d、E3/E4 归策略层**；**D12 去 Rust 叙事+Task13 合并单一实现**；E 顺序 E4→E3→E2→E1）；待执行 | `knowledge/design/platform/{specs,plans}/2026-09-16-factorlab-eval-metrics-v2*` |
+| 6 | **同花顺模拟炒股接入 Plan T**（网页接口：盘后算单→次日开盘模拟下单→台账对账；参考 `Cfu4536/ths_simulated_API`） | 立项（设计+计划就绪，待执行） | `knowledge/design/research/{specs,plans}/2026-09-17-ths-simulated-api*` |
+| 7 | **数据质量与清洗流水线 Plan DQ**（FATAL/ERROR/WARN + 分区门 PASS/DEGRADED/FAIL + health 双维度 + 读取 fail-closed + 全史体检只审不改） | **M1 终审通过；M1.5 完成（acceptance ①②③ PASS + M1.5c 解阻断）**：18 日 RCA（3 恢复/4 隔离/11 例外）、adj 字段级（8,235 回补）、1.25M 分群（SOURCE 1.15M/EXPECTED 104k）；门控作用域=更新增量 + `quality_backlog` 披露；`make data-update`（daily）**rc=0**、health PASS、verify rc=0；**残余 3,828 挂 M3，Quark cookie 待刷新（外部）**；证据 R32/R33 | `knowledge/design/platform/{specs,plans}/2026-09-18-data-quality-pipeline*` |
 | — | open-operators Plan 1（开放算子底座） | ✅ 已实施（R22） | `knowledge/design/workspace/2026-09-15-open-operators/`；Plan 2/3 计划未写 |
 | — | minute-execution（分钟级执行） | ✅ 已实施（R22） | `knowledge/design/workspace/2026-09-15-minute-execution/` |
 | — | R04 快速项 P1-P5 | ✅ 已实施（R23） | `r04-efficiency-2026-09-16/report.md` |
@@ -35,6 +41,18 @@ governance/evidence/reviews/
 - R06 复查结论：迁移面无 C、R24/R27/R28 声明全部实证通过；**门红（G-INDEX/G-ANNOTATE）与台账/门问题**
   见 `r06-2026-09-16-post-migration-review/report.md` §2/§6；
 - `make test-research` 已为**单解释器单腿**（平台 venv 3.13）。
+
+## GitHub 追踪（2026-09-19 起）
+
+- **对外追踪面 = GitHub Issues**（`marcas-G/stock`）：团队在 issue 里回填修复说明、走 PR（`Fixes #N`）；
+  本地 `findings.md` 仍为**证据原件**（append-only，不因迁 GitHub 删改历史）。
+- **同步命令**：`platform/.venv/bin/python governance/ops/sync_review_issues.py --apply`
+  （缺省 dry-run；幂等靠 issue 正文标记 `<!-- finding:ID -->` / `<!-- plan:ID -->`；
+  token 从 `GH_TOKEN` 或 `~/.config/factorlab/github_token`（0600）读取，绝不入库）。
+- **现状（seed）**：12 个 issue（#5-#16）＝ R08 finding×2 + 方案待办×10；
+  标签 `kind:*/severity:*/status:*/round:*/paused`；里程碑 `R08 / Plan DQ / Plan T / Plan 开放算子 / Plan 分钟执行 / Plan CX / 治理`。
+- **V1 限制**：同步器目前只做"创建 + 幂等查重"；`verified → 评论+关单`、`reopened → 重开` 待 V2
+  （在此之前：状态以本地台账为准，GitHub 侧手动关单或等 V2）。
 
 ## 流程
 
@@ -77,3 +95,4 @@ make test-research                                            # 工具/研究测
 - probe 大多需 `cd platform` 后用 `.venv/bin/python` 运行；涉及 CH 的只读且限流；m8 的 probe
   会自建 `/tmp` 中间产物。
 - 数据类修复（重灌）请在「修复说明」里写清影响行数、重灌命令与对账结果。
+| 8 | **Composite / Alpha 聚合层 Plan CX**（多因子→截面分数→组合/回测） | **C1+C4+C2+C3+C4b 已交付并复查可收口**（compose/引用/score_weighted/top_k_buffered/market_cap_weighted/档案索引门/环境 hash；linear 真跑、Ridge·PLS·PCA 待装库；170+479+338 级测试；证据 R34；残余 D10 verdict/装库） | `knowledge/design/platform/{specs,plans}/2026-09-19-composite-alpha-aggregation*` |

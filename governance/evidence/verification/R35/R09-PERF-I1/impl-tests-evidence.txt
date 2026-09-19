@@ -1,0 +1,35 @@
+== importers of minute_fold ==
+platform/src/factorlab/core/ops/minute_ops.py:175:# （engine/minute_fold.py）先把面板预排序为 (code, date, minute_index)，再经本族
+platform/src/factorlab/core/ops/minute_ops.py:228:# 融合路径（minute_fold）用：公开名 → 物理序变体名；名单同源防漂移
+platform/src/factorlab/core/engine/compute.py:372:        # （行为/数值不变，见 engine/minute_fold.py）。
+platform/src/factorlab/core/engine/compute.py:375:            from factorlab.core.engine import minute_fold
+platform/src/factorlab/core/engine/compute.py:377:                result = minute_fold.try_fused(
+
+== test_minute_fold.py test list ==
+141:def test_plan_vol_price_corr_two_passes_and_node_partition():
+156:def test_plan_simple_factors_single_pass():
+166:def test_plan_fallback_on_cross_layer_or_unknown_call():
+178:def test_plan_fallback_on_temp_name_collision():
+188:def test_plan_missing_grid_columns_falls_back():
+195:def test_fused_execution_error_falls_back_to_legacy(monkeypatch):
+216:def test_fused_bit_exact_row_level_args(name):
+227:def test_fused_ulp_vs_legacy_nested_window_args(name):
+239:def test_fused_hand_computed_am_pm_vol():
+249:def test_fused_path_not_stub(monkeypatch):
+267:def test_fused_cse_repeated_im_computed_once():
+284:def test_fused_nested_day_two_pass_bit_exact():
+309:def test_fused_im_rolling_inside_day_sum_bit_exact():
+321:def test_fused_day_first_last_null_and_degenerate_bit_exact():
+337:def test_fused_shuffled_input_bit_exact_and_deterministic():
+346:def test_fused_multi_output_and_isinstance_panel():
+356:def test_plan_condition_shape_extracts_filter_and_drops_ifelse_column():
+371:def test_plan_condition_ifexp_and_two_arg_forms_extracted():
+381:def test_plan_at_minute_fused_as_condition_node():
+393:def test_plan_first_last_single_agg_no_double_over():
+408:def test_fused_condition_shape_bit_exact_vs_legacy(formula):
+419:def test_plan_compound_condition_materializes_cond_column():
+434:def test_fused_at_minute_bit_exact_vs_legacy(formula):
+443:def test_at_minute_equals_day_max_if_else_bit_exact():
+452:def test_fused_hand_computed_condition_and_at_minute():
+468:def test_fused_condition_shuffled_input_bit_exact():
+478:def test_fused_condition_path_not_stub(monkeypatch):

@@ -1,0 +1,12 @@
+== after-p3 factor details ==
+am_pm_vol: p3_vs_head bit_exact=True n_bit_diff=0 max_abs=0.0
+   fold_s legacy=14.13 fused=13.06 head=12.83
+vol_asym: p3_vs_head bit_exact=True n_bit_diff=0 max_abs=0.0
+   fold_s legacy=16.04 fused=16.87 head=17.19
+autocorr_micro: p3_vs_head bit_exact=True n_bit_diff=0 max_abs=0.0
+   fold_s legacy=24.82 fused=19.63 head=19.23
+vol_price_corr: p3_vs_head bit_exact=True n_bit_diff=0 max_abs=0.0
+   fold_s legacy=52.49 fused=22.07 head=21.17
+lunch_jump: p3_vs_head bit_exact=True n_bit_diff=0 max_abs=0.0
+   fold_s legacy=20.69 fused=16.23 head=16.37
+   at_minute_vs_day_max_ifelse: {'rows': 281338, 'signal': {'dtype': 'Float32', 'bit_exact': True, 'n_cells': 281338, 'n_bit_diff': 0, 'max_abs_delta': 0.0, 'max_rel_delta': 0.0, 'null_mask_equal': True}}

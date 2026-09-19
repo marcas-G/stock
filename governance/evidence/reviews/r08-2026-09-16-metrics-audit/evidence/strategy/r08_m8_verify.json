@@ -1,0 +1,529 @@
+{
+  "strategy": "low_lottery_top30_weekly",
+  "summary": {
+    "checks": 81,
+    "fails": 0,
+    "warns": 0
+  },
+  "nav_first": 9992407.370042782,
+  "nav_last": 10214807.424781848,
+  "return_pct": 2.225690431775429,
+  "max_drawdown_pct": -0.3140464760266082,
+  "fees_total": 18290.516718155,
+  "slippage_total": 20141.0585,
+  "drags_per_event": [
+    [
+      "2025-03-10",
+      4994.2970000000005,
+      2598.33295722
+    ],
+    [
+      "2025-03-17",
+      4459.9185,
+      4595.179035084999
+    ],
+    [
+      "2025-03-24",
+      4137.3865,
+      4289.157365170001
+    ],
+    [
+      "2025-03-31",
+      3458.588,
+      3580.178614725
+    ],
+    [
+      "2025-04-01",
+      3090.8685,
+      3227.6687459550003
+    ]
+  ],
+  "results": [
+    {
+      "check": "A.sha256[artifacts/execution_artifact.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "recorded=822ef3481b1a… actual=822ef3481b1a…"
+    },
+    {
+      "check": "A.schema[artifacts/execution_artifact.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "rows=5 cols=True"
+    },
+    {
+      "check": "A.sha256[artifacts/orders.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "recorded=446d2bdf5825… actual=446d2bdf5825…"
+    },
+    {
+      "check": "A.schema[artifacts/orders.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "rows=177 cols=True"
+    },
+    {
+      "check": "A.sha256[artifacts/assessment.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "recorded=9c70deedc0f3… actual=9c70deedc0f3…"
+    },
+    {
+      "check": "A.schema[artifacts/assessment.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "rows=177 cols=True"
+    },
+    {
+      "check": "A.sha256[artifacts/fills.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "recorded=267247bef5be… actual=267247bef5be…"
+    },
+    {
+      "check": "A.schema[artifacts/fills.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "rows=176 cols=True"
+    },
+    {
+      "check": "A.sha256[artifacts/accounting.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "recorded=29c35c973eba… actual=29c35c973eba…"
+    },
+    {
+      "check": "A.schema[artifacts/accounting.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "rows=5 cols=True"
+    },
+    {
+      "check": "A.sha256[artifacts/valuation.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "recorded=8f20dd66c4eb… actual=8f20dd66c4eb…"
+    },
+    {
+      "check": "A.schema[artifacts/valuation.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "rows=150 cols=True"
+    },
+    {
+      "check": "A.sha256[artifacts/state.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "recorded=9a72895331c8… actual=9a72895331c8…"
+    },
+    {
+      "check": "A.schema[artifacts/state.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "rows=10 cols=True"
+    },
+    {
+      "check": "A.sha256[artifacts/positions.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "recorded=947f327c3308… actual=947f327c3308…"
+    },
+    {
+      "check": "A.schema[artifacts/positions.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "rows=270 cols=True"
+    },
+    {
+      "check": "A.sha256[state/final_state.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "recorded=31009533d8d9… actual=31009533d8d9…"
+    },
+    {
+      "check": "A.schema[state/final_state.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "rows=31 cols=True"
+    },
+    {
+      "check": "A.sha256[nav/nav_series.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "recorded=b78d98af0ed1… actual=b78d98af0ed1…"
+    },
+    {
+      "check": "A.schema[nav/nav_series.parquet]",
+      "ok": true,
+      "hard": true,
+      "detail": "rows=5 cols=True"
+    },
+    {
+      "check": "A.date_range",
+      "ok": true,
+      "hard": true,
+      "detail": "nav 2025-03-10~2025-04-01 vs manifest 2025-03-10~2025-04-01"
+    },
+    {
+      "check": "A.strategy_manifest.sha256[target_portfolio]",
+      "ok": true,
+      "hard": true,
+      "detail": "rows recorded=150 actual=150"
+    },
+    {
+      "check": "A.strategy_manifest.sha256[rebalance_schedule]",
+      "ok": true,
+      "hard": true,
+      "detail": "rows recorded=5 actual=5"
+    },
+    {
+      "check": "B.nav_identity[2025-03-10]",
+      "ok": true,
+      "hard": true,
+      "detail": "nav=9992407.370043 cash+mv=9992407.370043"
+    },
+    {
+      "check": "B.nav_identity[2025-03-17]",
+      "ok": true,
+      "hard": true,
+      "detail": "nav=10213607.272508 cash+mv=10213607.272508"
+    },
+    {
+      "check": "B.nav_identity[2025-03-24]",
+      "ok": true,
+      "hard": true,
+      "detail": "nav=10246987.728643 cash+mv=10246987.728643"
+    },
+    {
+      "check": "B.nav_identity[2025-03-31]",
+      "ok": true,
+      "hard": true,
+      "detail": "nav=10245082.962028 cash+mv=10245082.962028"
+    },
+    {
+      "check": "B.nav_identity[2025-04-01]",
+      "ok": true,
+      "hard": true,
+      "detail": "nav=10214807.424782 cash+mv=10214807.424782"
+    },
+    {
+      "check": "B.val_sum[2025-03-10]",
+      "ok": true,
+      "hard": true,
+      "detail": "ΣMV=9988594.000000 nav.MV=9988594.000000"
+    },
+    {
+      "check": "B.val_row_mv[2025-03-10]",
+      "ok": true,
+      "hard": true,
+      "detail": "MV != qty*mark 行数=0"
+    },
+    {
+      "check": "B.val_sum[2025-03-17]",
+      "ok": true,
+      "hard": true,
+      "detail": "ΣMV=10212366.000000 nav.MV=10212366.000000"
+    },
+    {
+      "check": "B.val_row_mv[2025-03-17]",
+      "ok": true,
+      "hard": true,
+      "detail": "MV != qty*mark 行数=0"
+    },
+    {
+      "check": "B.val_sum[2025-03-24]",
+      "ok": true,
+      "hard": true,
+      "detail": "ΣMV=10246882.000000 nav.MV=10246882.000000"
+    },
+    {
+      "check": "B.val_row_mv[2025-03-24]",
+      "ok": true,
+      "hard": true,
+      "detail": "MV != qty*mark 行数=0"
+    },
+    {
+      "check": "B.val_sum[2025-03-31]",
+      "ok": true,
+      "hard": true,
+      "detail": "ΣMV=10236186.000000 nav.MV=10236186.000000"
+    },
+    {
+      "check": "B.val_row_mv[2025-03-31]",
+      "ok": true,
+      "hard": true,
+      "detail": "MV != qty*mark 行数=0"
+    },
+    {
+      "check": "B.val_sum[2025-04-01]",
+      "ok": true,
+      "hard": true,
+      "detail": "ΣMV=10214520.000000 nav.MV=10214520.000000"
+    },
+    {
+      "check": "B.val_row_mv[2025-04-01]",
+      "ok": true,
+      "hard": true,
+      "detail": "MV != qty*mark 行数=0"
+    },
+    {
+      "check": "B.exec_artifact_vs_nav",
+      "ok": true,
+      "hard": true,
+      "detail": "execution_artifact.nav_nav/nav_market_value == nav_series 逐值"
+    },
+    {
+      "check": "C.fill_cost_formula",
+      "ok": true,
+      "hard": true,
+      "detail": "逐笔 max|Δ价|=0.00e+00 max|Δ费/额|=0.00e+00 (176 笔)"
+    },
+    {
+      "check": "C.accounting_agg[event 0]",
+      "ok": true,
+      "hard": true,
+      "detail": "worst net_cash_delta Δ=1.86e-09; total==comm+stamp+transfer"
+    },
+    {
+      "check": "C.cash_bridge[event 0]",
+      "ok": true,
+      "hard": true,
+      "detail": "pre=10000000.000000 after=3813.370043 net=-9996186.629957"
+    },
+    {
+      "check": "C.accounting_agg[event 1]",
+      "ok": true,
+      "hard": true,
+      "detail": "worst net_cash_delta Δ=1.05e-10; total==comm+stamp+transfer"
+    },
+    {
+      "check": "C.cash_bridge[event 1]",
+      "ok": true,
+      "hard": true,
+      "detail": "pre=3813.370043 after=1241.272508 net=-2572.097535"
+    },
+    {
+      "check": "C.accounting_agg[event 2]",
+      "ok": true,
+      "hard": true,
+      "detail": "worst buy_gross Δ=9.31e-10; total==comm+stamp+transfer"
+    },
+    {
+      "check": "C.cash_bridge[event 2]",
+      "ok": true,
+      "hard": true,
+      "detail": "pre=1241.272508 after=105.728643 net=-1135.543865"
+    },
+    {
+      "check": "C.accounting_agg[event 3]",
+      "ok": true,
+      "hard": true,
+      "detail": "worst buy_gross Δ=4.66e-10; total==comm+stamp+transfer"
+    },
+    {
+      "check": "C.cash_bridge[event 3]",
+      "ok": true,
+      "hard": true,
+      "detail": "pre=105.728643 after=8896.962028 net=8791.233385"
+    },
+    {
+      "check": "C.accounting_agg[event 4]",
+      "ok": true,
+      "hard": true,
+      "detail": "worst buy_gross Δ=4.66e-10; total==comm+stamp+transfer"
+    },
+    {
+      "check": "C.cash_bridge[event 4]",
+      "ok": true,
+      "hard": true,
+      "detail": "pre=8896.962028 after=287.424782 net=-8609.537246"
+    },
+    {
+      "check": "C.initial_cash",
+      "ok": true,
+      "hard": true,
+      "detail": "10000000.0 == spec 10000000.0"
+    },
+    {
+      "check": "C.exec_artifact_vs_accounting",
+      "ok": true,
+      "hard": true,
+      "detail": "execution_artifact.pre/post_cash == accounting cash_before/after 逐值"
+    },
+    {
+      "check": "D.slippage_side",
+      "ok": true,
+      "hard": true,
+      "detail": "sell 越界=0 buy 越界=0（5bps 确定性滑点）"
+    },
+    {
+      "check": "E.orders_vs_assessment",
+      "ok": true,
+      "hard": true,
+      "detail": "orders(177) 与 assessment(177) 逐行一致=True"
+    },
+    {
+      "check": "E.orders_unique_code",
+      "ok": true,
+      "hard": true,
+      "detail": "每事件每 code 至多 1 行"
+    },
+    {
+      "check": "E.fills_subset_orders",
+      "ok": true,
+      "hard": true,
+      "detail": "fills 行均在 orders 中且 side 一致"
+    },
+    {
+      "check": "E.filled_le_order",
+      "ok": true,
+      "hard": true,
+      "detail": "超额成交=[]"
+    },
+    {
+      "check": "E.sell_full_fill",
+      "ok": true,
+      "hard": true,
+      "detail": "部分卖出=[]"
+    },
+    {
+      "check": "E.zero_fill_orders",
+      "ok": true,
+      "hard": false,
+      "detail": "有单无成交=[(3, '600908.SH', 'buy', 100)]（funding 投影缩到 0 → 不产 fill 行，与 orders.py 迭代缩量语义一致）"
+    },
+    {
+      "check": "E.funding[event 0]",
+      "ok": true,
+      "hard": true,
+      "detail": "buy_req=9996186.63 <= cash+ sells=10000000.00; cash_after=3813.37 >= 0"
+    },
+    {
+      "check": "E.funding[event 1]",
+      "ok": true,
+      "hard": true,
+      "detail": "buy_req=4460095.73 <= cash+ sells=4461337.00; cash_after=1241.27 >= 0"
+    },
+    {
+      "check": "E.funding[event 2]",
+      "ok": true,
+      "hard": true,
+      "detail": "buy_req=4136934.39 <= cash+ sells=4137040.12; cash_after=105.73 >= 0"
+    },
+    {
+      "check": "E.funding[event 3]",
+      "ok": true,
+      "hard": true,
+      "detail": "buy_req=3453329.91 <= cash+ sells=3462226.87; cash_after=8896.96 >= 0"
+    },
+    {
+      "check": "E.funding[event 4]",
+      "ok": true,
+      "hard": true,
+      "detail": "buy_req=3094412.00 <= cash+ sells=3094699.43; cash_after=287.42 >= 0"
+    },
+    {
+      "check": "F.replay_positions",
+      "ok": true,
+      "hard": true,
+      "detail": "5 事件 PRE/POST 持仓逐值一致 + 隔夜 release + sell<=PRE sellable"
+    },
+    {
+      "check": "F.final_state_positions",
+      "ok": true,
+      "hard": true,
+      "detail": "final_state(2025-04-02) == replay after overnight"
+    },
+    {
+      "check": "F.final_state_cash",
+      "ok": true,
+      "hard": true,
+      "detail": "287.4247818482854 == last post cash 287.4247818482854"
+    },
+    {
+      "check": "F2.direction",
+      "ok": true,
+      "hard": true,
+      "detail": "全部订单方向与 target 份额一致（无 open 证据跳过 []）"
+    },
+    {
+      "check": "G.nav_decomposition",
+      "ok": true,
+      "hard": true,
+      "detail": "逐事件 post=pre-slip-fees + 跨事件 nav=prev+MtM-slip-fees 全部成立"
+    },
+    {
+      "check": "H.schedule",
+      "ok": true,
+      "hard": true,
+      "detail": "persisted=[datetime.date(2025, 3, 7), datetime.date(2025, 3, 14), datetime.date(2025, 3, 21), datetime.date(2025, 3, 28), datetime.date(2025, 3, 31)] recomputed=[datetime.date(2025, 3, 7), datetime.date(2025, 3, 14), datetime.date(2025, 3, 21), datetime.date(2025, 3, 28), datetime.date(2025, 3, 31)]"
+    },
+    {
+      "check": "H.target_portfolio",
+      "ok": true,
+      "hard": true,
+      "detail": "rows=150 vs 150；code/weight 逐值一致=True"
+    },
+    {
+      "check": "H.target_weight_sum",
+      "ok": true,
+      "hard": true,
+      "detail": "每日 sum(weight)=1 且 n=30（5 个 decision）"
+    },
+    {
+      "check": "I.nav_first",
+      "ok": true,
+      "hard": true,
+      "detail": "artifact=9992407.37 dossier=9992407.37"
+    },
+    {
+      "check": "I.nav_last",
+      "ok": true,
+      "hard": true,
+      "detail": "artifact=10214807.42 dossier=10214807.42"
+    },
+    {
+      "check": "I.return_pct",
+      "ok": true,
+      "hard": true,
+      "detail": "artifact=2.2257 dossier=2.2257"
+    },
+    {
+      "check": "I.max_drawdown_pct",
+      "ok": true,
+      "hard": true,
+      "detail": "artifact=-0.314 dossier=-0.314"
+    },
+    {
+      "check": "I.fees_total",
+      "ok": true,
+      "hard": true,
+      "detail": "artifact=18290.52 dossier=18290.52"
+    },
+    {
+      "check": "I.fills",
+      "ok": true,
+      "hard": true,
+      "detail": "artifact=176 dossier=176"
+    },
+    {
+      "check": "I.events",
+      "ok": true,
+      "hard": true,
+      "detail": "artifact=5 dossier=5"
+    },
+    {
+      "check": "I.decisions",
+      "ok": true,
+      "hard": true,
+      "detail": "artifact=5 dossier=5"
+    },
+    {
+      "check": "I.target_rows",
+      "ok": true,
+      "hard": true,
+      "detail": "artifact=150 dossier=150"
+    }
+  ]
+}

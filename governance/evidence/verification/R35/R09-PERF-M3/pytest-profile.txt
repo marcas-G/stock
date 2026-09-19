@@ -1,0 +1,4 @@
+$ pytest -q tests/test_profile_timing.py
+.........                                                                                                                                                                                        [100%]
+9 passed in 4.34s
+EXIT=0

@@ -1,0 +1,3 @@
+summary.evaluation.coverage: {'pct_valid': 1.0, 'total_rows': 896750, 'valid_rows': 896750}
+recomputed from weekly.parquet: {'pct_valid': 0.9599, 'total_rows': 934236, 'valid_rows': 896750}
+total_rows delta: 37486 | pct_valid delta: -0.040100000000000025

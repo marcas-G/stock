@@ -235,14 +235,28 @@
 
 | ID | 级 | 问题 | 位置 | 状态 | 修复说明（团队填） | 复查（reviewer） |
 |---|---|---|---|---|---|---|
-| R07-MIG-I1 | I | **门红复发**：G-LEGACY（`extcnt.md:85` 旧坐标 tracked）+ G-INDEX（新因子 `max_effect_20d_extsum` 未重生）+ G-ANNOTATE（缺 snapshot）；`make gates` exit 2——与 R06-MIG-I1 同类，挖矿在途未收口【实测】 | `governance/ops/gates.sh`；`knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md:85` | fixed-claimed | 5919337 + ad43a87（循环 2）；extcnt.md 旧坐标修正；重生成因子索引；补 extsum/turnrank_top10 snapshot（annotate 循环至绿）；`make gates --structure` 的 G-LEGACY(tracked)/G-INDEX/G-ANNOTATE 全绿；证据 governance/evidence/verification/R24/17-r07-fixes/mig/ | |
-| R07-MIG-I2 | I | **档案模板根因**：`_template.md:75` 仍写旧结果根占位引用（results 根 + `<name>` 目录 + summary 文件名）→ 存量旧坐标 164 行/158 文件持续增长（含迁移后新写 5 处）【实测】 | `knowledge/dossiers/factors/_template.md:75` | fixed-claimed | 79bbc79（workspace）+ 458030b（research）；模板 `_template.md` 旧结果根/路径修正；tracked 干净档案 156 份 163 处机械替换（具体指针口径修前 164 行/156 文件 → 修后 0）；`_mine_round_*` 引用改 runs/platform/_mine_rounds/；残余为 README 明示不改写的历史尾行与行级豁免；证据 17-r07-fixes/mig/ | |
-| R07-GATE-I3 | I | **G-LEGACY 判据盲区**：untracked 不扫（真实存活漏网）/ 裸 `results/` 无 pattern / 模式表缺 `research/tools/lib/` / 3 README 整文件豁免可掩盖任意行【实测】 | `governance/ops/gates.sh:57-93` | fixed-claimed | 83bf9a2 + ffa78ef（skill 纪律）；G-LEGACY 重写为 tracked+untracked 双扫（ls-files -o + grep）、裸 results/ 单条 PCRE 负向后顾排除 platform/results/runs/results/test_results、补已迁 lib 与档案目录模式、全文豁免改行级；TDD：注入修前 0 捕获 → 修后 A/B 均捕获、误报探针 0；证据 17-r07-fixes/mig/05-06 | |
-| R07-DATA-I4 | I | **`daily_basic.circ_mv` 全空**（`float_shares` 16.87M 行可派生未派生）→ 10 spec×4 族 CH 静默全 null；README/DDL「无数据源」失真【实测】 | `platform/tools/ch_ingest/ingest_daily.py:172-175` | fixed-claimed | 18e8531；ingest_daily 派生 circ_mv=close×float_shares（同 total_mv 口径，NaN→NULL）；DDL/README/interface 同步；CH 单表重灌 18,124,805 行、circ_mv 非空 0→16,873,795、reconcile exit 0、抽样逐值 rel=0；下游探针 signal_null_ratio 1.0→0.0；证据 17-r07-fixes/data-i4/ | |
-| R07-CONTRACT-I5 | I | **契约缺 NEXT_WINDOW**：interface.md 0 处（:2277 仍 "NEXT_OPEN only"），与代码/测试/R22 E2E 矛盾【实测】 | `knowledge/contracts/interface.md:2277` | fixed-claimed | 73f30f6；interface.md §6 新增「R22 Minute-Window Execution」小节（NEXT_WINDOW 枚举/配置/窗口成交语义/WINDOW_END_BASED/schema v2/验收），修正 4 处 NEXT_OPEN-only 误导表述；test_doc_paths_exist 通过；证据 17-r07-fixes/data-i4/06-next-window-contract.diff | |
-| R07-STRAT-I6 | I | **策略面口子**：`factorlab lint --strategy` 不存在（exit 2）；`universe_override` YAML 接了不消费（只 dry-run 打印）【实测】 | `research/tools/strategies/run_strategy.py:44`；CLI | fixed-claimed | 56f5f9e（platform）+ 9e1fdaf（research）；`factorlab lint` 自动识别策略文档走 load_strategy_doc 严格校验（未知键/NEXT_WINDOW/V1 rules，exit≠0）；universe_override 运行链消费（canonical 精确匹配、空交集 fail fast、null 零变化）；测试 test_cli_lint_strategy.py（7）+ override 双腿 3；证据 17-r07-fixes/strategy/ | |
-| R07-LINT-I7 | I | **lint 不校验库函数 arity/形态**：`ts_cum_count(close,5)` lint OK → 运行 TypeError（"lint OK ≠ 运行"一类）【实测】 | lint 静态管线（`core/engine/semantics.py` 系） | fixed-claimed | 16fbc84；生成器记录 arity（必需位置参数/上限），OpMeta 增 min_args/max_args，semantics._check_arity 静态校验越界/缺参 → SemanticError；`ts_cum_count(close,5)` lint exit 1（对照运行期 TypeError）；make lint-factors 173/173；证据 17-r07-fixes/lint/ | |
-| R07-DATA-I8 | I | **CA Gate 多年连续回测硬阻断**（R03-I8 复核）：真实事件最小复现拦截；分段重基后不可算连续 Sharpe/回撤——"多年回测"无连续产物【实测】 | `knowledge/contracts/interface.md` §6 | fixed-claimed | 377432c（platform）+ b87ddd2（契约/设计）；CA 处理落地：load_adj_detail_window + apply_corporate_actions（现金分红入账/送转 Decimal 精确缩放 floor/配股 V1 不参与+warning/多事件复合），backtest 在 snapshot 后 orders 前应用；4 年 53 决策 4 事件单 run 连续 NAV/Sharpe/Drawdown 产出，手算对拍与存根必败锁定；残余 fail-closed（停牌持仓/缺明细/缩股/负值/缺表）已文档化；证据 17-r07-fixes/ca/ | |
+| R07-MIG-I1 | I | **门红复发**：G-LEGACY（`extcnt.md:85` 旧坐标 tracked）+ G-INDEX（新因子 `max_effect_20d_extsum` 未重生）+ G-ANNOTATE（缺 snapshot）；`make gates` exit 2——与 R06-MIG-I1 同类，挖矿在途未收口【实测】 | `governance/ops/gates.sh`；`knowledge/dossiers/factors/volatility/max_effect_20d_extcnt.md:85` | verified | 5919337 + ad43a87（循环 2）；extcnt.md 旧坐标修正；重生成因子索引；补 extsum/turnrank_top10 snapshot（annotate 循环至绿）；`make gates --structure` 的 G-LEGACY(tracked)/G-INDEX/G-ANNOTATE 全绿；证据 governance/evidence/verification/R24/17-r07-fixes/mig/ | verified（R35 复查：与声称一致；证据 governance/evidence/verification/R35/R07-MIG-I1/） |
+| R07-MIG-I2 | I | **档案模板根因**：`_template.md:75` 仍写旧结果根占位引用（results 根 + `<name>` 目录 + summary 文件名）→ 存量旧坐标 164 行/158 文件持续增长（含迁移后新写 5 处）【实测】 | `knowledge/dossiers/factors/_template.md:75` | verified | 79bbc79（workspace）+ 458030b（research）；模板 `_template.md` 旧结果根/路径修正；tracked 干净档案 156 份 163 处机械替换（具体指针口径修前 164 行/156 文件 → 修后 0）；`_mine_round_*` 引用改 runs/platform/_mine_rounds/；残余为 README 明示不改写的历史尾行与行级豁免；证据 17-r07-fixes/mig/ | verified（R35 复查：与声称一致；证据 governance/evidence/verification/R35/R07-MIG-I2/） |
+| R07-GATE-I3 | I | **G-LEGACY 判据盲区**：untracked 不扫（真实存活漏网）/ 裸 `results/` 无 pattern / 模式表缺 `research/tools/lib/` / 3 README 整文件豁免可掩盖任意行【实测】 | `governance/ops/gates.sh:57-93` | verified | 83bf9a2 + ffa78ef（skill 纪律）；G-LEGACY 重写为 tracked+untracked 双扫（ls-files -o + grep）、裸 results/ 单条 PCRE 负向后顾排除 platform/results/runs/results/test_results、补已迁 lib 与档案目录模式、全文豁免改行级；TDD：注入修前 0 捕获 → 修后 A/B 均捕获、误报探针 0；证据 17-r07-fixes/mig/05-06 | verified（R35 复查：与声称一致；证据 governance/evidence/verification/R35/R07-GATE-I3/） |
+| R07-DATA-I4 | I | **`daily_basic.circ_mv` 全空**（`float_shares` 16.87M 行可派生未派生）→ 10 spec×4 族 CH 静默全 null；README/DDL「无数据源」失真【实测】 | `platform/tools/ch_ingest/ingest_daily.py:172-175` | verified | 18e8531；ingest_daily 派生 circ_mv=close×float_shares（同 total_mv 口径，NaN→NULL）；DDL/README/interface 同步；CH 单表重灌 18,124,805 行、circ_mv 非空 0→16,873,795、reconcile exit 0、抽样逐值 rel=0；下游探针 signal_null_ratio 1.0→0.0；证据 17-r07-fixes/data-i4/ | verified（R35 复查：与声称一致；证据 governance/evidence/verification/R35/R07-DATA-I4/） |
+| R07-CONTRACT-I5 | I | **契约缺 NEXT_WINDOW**：interface.md 0 处（:2277 仍 "NEXT_OPEN only"），与代码/测试/R22 E2E 矛盾【实测】 | `knowledge/contracts/interface.md:2277` | verified | 73f30f6；interface.md §6 新增「R22 Minute-Window Execution」小节（NEXT_WINDOW 枚举/配置/窗口成交语义/WINDOW_END_BASED/schema v2/验收），修正 4 处 NEXT_OPEN-only 误导表述；test_doc_paths_exist 通过；证据 17-r07-fixes/data-i4/06-next-window-contract.diff | verified（R35 复查：与声称一致；证据 governance/evidence/verification/R35/R07-CONTRACT-I5/） |
+| R07-STRAT-I6 | I | **策略面口子**：`factorlab lint --strategy` 不存在（exit 2）；`universe_override` YAML 接了不消费（只 dry-run 打印）【实测】 | `research/tools/strategies/run_strategy.py:44`；CLI | verified | 56f5f9e（platform）+ 9e1fdaf（research）；`factorlab lint` 自动识别策略文档走 load_strategy_doc 严格校验（未知键/NEXT_WINDOW/V1 rules，exit≠0）；universe_override 运行链消费（canonical 精确匹配、空交集 fail fast、null 零变化）；测试 test_cli_lint_strategy.py（7）+ override 双腿 3；证据 17-r07-fixes/strategy/ | verified（R35 复查：与声称一致；证据 governance/evidence/verification/R35/R07-STRAT-I6/） |
+| R07-LINT-I7 | I | **lint 不校验库函数 arity/形态**：`ts_cum_count(close,5)` lint OK → 运行 TypeError（"lint OK ≠ 运行"一类）【实测】 | lint 静态管线（`core/engine/semantics.py` 系） | verified | 16fbc84；生成器记录 arity（必需位置参数/上限），OpMeta 增 min_args/max_args，semantics._check_arity 静态校验越界/缺参 → SemanticError；`ts_cum_count(close,5)` lint exit 1（对照运行期 TypeError）；make lint-factors 173/173；证据 17-r07-fixes/lint/ | verified（R35 复查：与声称一致；证据 governance/evidence/verification/R35/R07-LINT-I7/） |
+| R07-DATA-I8 | I | **CA Gate 多年连续回测硬阻断**（R03-I8 复核）：真实事件最小复现拦截；分段重基后不可算连续 Sharpe/回撤——"多年回测"无连续产物【实测】 | `knowledge/contracts/interface.md` §6 | verified | 377432c（platform）+ b87ddd2（契约/设计）；CA 处理落地：load_adj_detail_window + apply_corporate_actions（现金分红入账/送转 Decimal 精确缩放 floor/配股 V1 不参与+warning/多事件复合），backtest 在 snapshot 后 orders 前应用；4 年 53 决策 4 事件单 run 连续 NAV/Sharpe/Drawdown 产出，手算对拍与存根必败锁定；残余 fail-closed（停牌持仓/缺明细/缩股/负值/缺表）已文档化；证据 17-r07-fixes/ca/ | verified（R35 复查：与声称一致；证据 governance/evidence/verification/R35/R07-DATA-I8/） |
+
+---
+
+## R08 指标全量核对发现（2026-09-16，metrics audit）
+
+- 报告：`r08-2026-09-16-metrics-audit/report.md`（口径走查 + 三路独立复算 + 业界对照）
+- 复核结论：**数值层全部通过**（IC/decile/turnover 逐值、分层 178/178、M8 恒等式 81/81、标签 bit-exact）
+- 证据：`r08-2026-09-16-metrics-audit/evidence/{recompute,strategy,labels}/`（40+ 文件）
+- 未登记项（已立项 v2 口径/增强）只在报告：D2-D6、E1-E4、playbook 矛盾等
+
+| ID | 级 | 问题 | 位置 | 状态 | 修复说明（团队填） | 复查（reviewer） |
+|---|---|---|---|---|---|---|
+| R08-MET-I1 | I | **历史产物与现行口径不一致（无版本字段）**：`max_effect_20d_high` summary coverage 为 R03-I2 修复前口径（1.0/896750 vs 复算 0.9599/934236）；`intraday_high_time` weekly 每周多日期（R05-I4 前产物，n_weeks=27 vs 154）；`summary.evaluation` 无 `version`【实测】 | `runs/platform/max_effect_20d_high/summary.json`；`runs/platform/intraday_high_time/weekly.parquet`；口径修复提交 `3c67c0d`/`29d1e07` | open |  | 复查注记（open，R35 实测）：R30 Task11 已处置（39 重跑/16 删/17 在途例外）；`intraday_high_time` 已 v2/daily；`max_effect_20d_high` 仍 v1 旧口径（在途例外）。待团队回填修复说明（证据 governance/evidence/verification/R35/R08-MET-I1/）。 |
+| R08-DATA-I2 | I | **131 只退市股 `adj_factor` 全 NULL → 全历史标签为 null**（含退市前整段）；4.42M 行中 134 只 code 全历史 signal null（43,941 行=0.99%）→ 评估样本系统性缺尾部风险段【实测】 | CH `adj_factor` × `daily`（2023-2026 退市 47/48/30/9 只）；`platform/tools/ch_ingest/adj_backfill.py` | open |  | 复查注记（open，R35 实测）：R30 Task12 已落地（sidecar 83,967 行/180 码；工具+19 测试；CH 抽 5 码非空且一致；面板窗 NULL 41,984→157）。待团队回填修复说明（证据 governance/evidence/verification/R35/R08-DATA-I2/）。 |
 
 ---
 
@@ -254,9 +268,9 @@
 
 | ID | 级 | 问题 | 位置 | 状态 | 修复说明（团队填） | 复查（reviewer） |
 |---|---|---|---|---|---|---|
-| R09-PERF-I1 | I | **分钟折日逐算子逐组逐行物化**：`minute_ops.py` 所有 `im_*`/`day_*` 内联 `.over(["code","date"], order_by=...)`，多算子串联不共享分组；含 `im_delay` 序列再产品叠加（平方/乘滞后）的形态直接 ≥15min **超时**（vol_asym/autocorr_micro/vol_price_corr）【实测】 | `platform/src/factorlab/core/ops/minute_ops.py:76-135`；`core/engine/minute.py:compute_minute_factor_panel` | fixed-claimed | `core/engine/minute_fold.py` 融合路径（commit `2b4daae`）：day_* 聚合参数物化一次 + 组内 over 广播（死赋值剪枝）；im_* 预排序/`seq_*` 去 order_by/CSE；不支持形态完整回退旧路径。after 同窗（`governance/evidence/verification/R31/minute-perf/`）：vol_price_corr fold 64.7s→27.3s（**2.37×**）、autocorr 1.36×、am_pm_vol 1.29×；真数据 4 因子逐 cell 对拍：纯逐行参数 bit-exact，旧路径嵌套 over 形态 per-factor（autocorr ≤3.3e-7、vol_price_corr ≤2.5e-6，f32 ulp；旧路径自身 vs f64 oracle 达 1.2e-5）；平台全量 3447 passed（1 预存红：并发在途 `im_cummax` 未同步 catalog.md） | |
-| R09-PERF-I2 | I | **条件取值 `day_max(if_else(minute_index==k,x,None))` 全组扫描物化**：列内近全 null 仍整组 max 扫描；`day_first/day_last` 亦双 over【实测】 | `platform/src/factorlab/core/ops/minute_ops.py:102-135` | fixed-claimed | 融合路径条件重写（commit `7760357`）：`day_max/day_min(if_else(cond,x,None))` 条件外提 → `x.filter(cond).max/min` 单次 agg（简单 `minute_index` 比较内联、复合条件物化条件列）；新算子 `at_minute(x,k)`（k int 0..239 静态门+运行时双防线；语义=当日 k 行值广播全组、缺失→null；catalog/interface 同步）；`day_first/day_last` 单次 `sort_by().first/last`。真数据对拍（`governance/evidence/verification/R31/minute-perf/after-p3/`）：P3 vs P2 全 7 因子逐 cell max\|Δ\|=0；条件因子 lunch_jump/close_auction_premium bit-exact、open_minute_mom f32 ulp；`at_minute` vs `day_max(if_else)` 0/281338 差异；同进程 fold：close_auction_premium 17.8→11.9s（1.50×）、lunch_jump 20.7→16.2s、open_minute_mom 14.6→12.3s；after-p3 bench 四基线 fold 13.7/18.7/21.1/23.2s（before 18.2/20.4/31.2/64.7s）；平台全量 3470 passed、15 skipped（catalog 预存红清零） | |
-| R09-PERF-M3 | M | **无逐阶段计时/剖析开关**：`factorlab run` 不输出折日/label/评估/分层分段墙钟与 RSS，慢在哪一步只能外部掐表【实测】 | `platform/src/factorlab/app/run.py`（分钟链 `_run_factor_minute`） | fixed-claimed | `app/profile.py` 分段计时（`--profile` / env `FACTORLAB_PROFILE=1`；stderr 人读摘要 + `summary.runtime.profile` append-only）——段 read_data/fold/label/evaluate/layered_backtest/persist，20Hz + 段边界采样；日频/分钟链与评估装配同接入。提交 `df0c3b0 feat(engine): run --profile 分段计时（R09-M3）`；测试 `tests/test_profile_timing.py` 9 条（含"不调 evaluate/backtest 无对应段"禁止行为与折日断线变异检出）；证据 `governance/evidence/verification/R31/minute-perf/before/timings.md`（before 4 因子逐段基线）与同目录 after/after-p3/after-p4 全程复用 | |
+| R09-PERF-I1 | I | **分钟折日逐算子逐组逐行物化**：`minute_ops.py` 所有 `im_*`/`day_*` 内联 `.over(["code","date"], order_by=...)`，多算子串联不共享分组；含 `im_delay` 序列再产品叠加（平方/乘滞后）的形态直接 ≥15min **超时**（vol_asym/autocorr_micro/vol_price_corr）【实测】 | `platform/src/factorlab/core/ops/minute_ops.py:76-135`；`core/engine/minute.py:compute_minute_factor_panel` | verified | `core/engine/minute_fold.py` 融合路径（commit `2b4daae`）：day_* 聚合参数物化一次 + 组内 over 广播（死赋值剪枝）；im_* 预排序/`seq_*` 去 order_by/CSE；不支持形态完整回退旧路径。after 同窗（`governance/evidence/verification/R31/minute-perf/`）：vol_price_corr fold 64.7s→27.3s（**2.37×**）、autocorr 1.36×、am_pm_vol 1.29×；真数据 4 因子逐 cell 对拍：纯逐行参数 bit-exact，旧路径嵌套 over 形态 per-factor（autocorr ≤3.3e-7、vol_price_corr ≤2.5e-6，f32 ulp；旧路径自身 vs f64 oracle 达 1.2e-5）；平台全量 3447 passed（1 预存红：并发在途 `im_cummax` 未同步 catalog.md） | verified（R35 复查：与声称一致；证据 governance/evidence/verification/R35/R09-PERF-I1/） |
+| R09-PERF-I2 | I | **条件取值 `day_max(if_else(minute_index==k,x,None))` 全组扫描物化**：列内近全 null 仍整组 max 扫描；`day_first/day_last` 亦双 over【实测】 | `platform/src/factorlab/core/ops/minute_ops.py:102-135` | verified | 融合路径条件重写（commit `7760357`）：`day_max/day_min(if_else(cond,x,None))` 条件外提 → `x.filter(cond).max/min` 单次 agg（简单 `minute_index` 比较内联、复合条件物化条件列）；新算子 `at_minute(x,k)`（k int 0..239 静态门+运行时双防线；语义=当日 k 行值广播全组、缺失→null；catalog/interface 同步）；`day_first/day_last` 单次 `sort_by().first/last`。真数据对拍（`governance/evidence/verification/R31/minute-perf/after-p3/`）：P3 vs P2 全 7 因子逐 cell max\|Δ\|=0；条件因子 lunch_jump/close_auction_premium bit-exact、open_minute_mom f32 ulp；`at_minute` vs `day_max(if_else)` 0/281338 差异；同进程 fold：close_auction_premium 17.8→11.9s（1.50×）、lunch_jump 20.7→16.2s、open_minute_mom 14.6→12.3s；after-p3 bench 四基线 fold 13.7/18.7/21.1/23.2s（before 18.2/20.4/31.2/64.7s）；平台全量 3470 passed、15 skipped（catalog 预存红清零） | verified（R35 复查：与声称一致；证据 governance/evidence/verification/R35/R09-PERF-I2/） |
+| R09-PERF-M3 | M | **无逐阶段计时/剖析开关**：`factorlab run` 不输出折日/label/评估/分层分段墙钟与 RSS，慢在哪一步只能外部掐表【实测】 | `platform/src/factorlab/app/run.py`（分钟链 `_run_factor_minute`） | verified | `app/profile.py` 分段计时（`--profile` / env `FACTORLAB_PROFILE=1`；stderr 人读摘要 + `summary.runtime.profile` append-only）——段 read_data/fold/label/evaluate/layered_backtest/persist，20Hz + 段边界采样；日频/分钟链与评估装配同接入。提交 `df0c3b0 feat(engine): run --profile 分段计时（R09-M3）`；测试 `tests/test_profile_timing.py` 9 条（含"不调 evaluate/backtest 无对应段"禁止行为与折日断线变异检出）；证据 `governance/evidence/verification/R31/minute-perf/before/timings.md`（before 4 因子逐段基线）与同目录 after/after-p3/after-p4 全程复用 | verified（R35 复查：与声称一致；证据 governance/evidence/verification/R35/R09-PERF-M3/） |
 
 - **§2.5 分块策略（chunk 并行）备注（R09-PERF-P4，2026-09-19）**：
   `--chunk-workers N`（默认 1=现行为；N≥2 按 chunk 并行「读+折日」有序合并）
@@ -266,3 +280,33 @@
   1.36–1.44×、峰值 RSS ≤6.2GB < 8GB；N=3 在 8GB 护栏下拒绝；N=1 vs N=2
   真数据 4 因子逐 frame bit-exact。提交 `730f1c8`；证据
   `governance/evidence/verification/R31/minute-perf/after-p4/`。
+
+## R31 flab 使用发现（2026-09-18，研究员视角）
+
+- **R31-API-I1（功能缺口，影响入库判定，open）**：`flab factor resic` 无 horizon/
+  `--fwd-col` 参数，固定 weekly 栅格 + `forward_return_5d`。minute 库成员全部是
+  daily/forward_return_1d 口径（evaluation v2 / D11），resic 判定口径错配：
+  retention 系统性偏低，把真实增量因子误挡在门外（实测 jump_ratio weekly-retention
+  0.29/cn_spread 0.46 均"观察"，但逐日 1d 口径分年 resIC 三年同号 |t|=6~10）。
+  建议：加 `--fwd-col/--horizon` 参数或按候选因子 evaluation.target 自适应。
+  临时替代：研究侧脚本按日残差检验（本次已用，证据见 jump_ratio/cn_spread 档案）。
+- **R31-API-P1（体验，open）**：`flab factor admit` 默认 `--scales daily`，minute
+  候选必须显式传 `--scales minute`，且 admit 内部 resic 同样受 I1 影响——admit 的
+  verdict 对 minute 因子不可直接采信，需配合分年逐日增检复核（已在 intraday_campaign.md 固化流程）。
+
+- **R31-STAT-I1（判据级缺陷，重要，2026-09-19）**：D10 的固定 t 阈值未做多重性定标。
+  quantresearch 全历史重审计（99 试验联合 max-T 校准，B=300）：联合临界值 |t|≈3.45，
+  旧阈值 2.5~3 的放行在 FWER 意义下不成立；且**原始 t 排名与条件信息排名几乎不相关**
+  （abs_auction_premium 原始 t=3.2 但条件 t=7.4；auction_range 原始 t=8.6 条件 t=-0.6）。
+  现行 29 员参考库经后向归约仅 20 员携带独有信息（9 员为换皮）。
+  "分钟文法饱和"的旧结论系 weekly-resIC 判据错配所致，条件口径下发现率 λ̂≈0.5/试验，未饱和。
+  方法与全量证据：`/data/students/gaolei/quantresearch/{README.md,REPORT.md,results/*}`。
+
+- **R31-DQ-I1（阻塞级，open，2026-09-19）**：读取门（Plan DQ-M1 T7）已上线，但
+  health artifact **从未发布过 PASS**——`data/health/ashare_daily/` 全部 8790 分区
+  health_status=UNKNOWN（data_version=LEGACY，completeness=UNKNOWN），且 UNKNOWN 的
+  完整性检查独立于 accept_quality opt-in（"不靠 coverage 推"），research 侧无合规通路。
+  后果：所有新 `flab factor run` 在评估段 rc=8（面板产物可生成，评估 summary 缺失）。
+  请求：a) 平台跑数据健康发布链（health.py publish 全历史或至少 2023-01→2026-09），
+  b) 或为 UNKNOWN-LEGACY 提供 research opt-in 通道（含 manifest），
+  c) 顺带：`flab data status --pretty` 报 USAGE 错（与全 CLI 的 pretty 约定不一致）。

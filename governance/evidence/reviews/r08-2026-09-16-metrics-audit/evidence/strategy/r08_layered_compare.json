@@ -1,0 +1,582 @@
+{
+  "low_vol_20d": {
+    "factor": "low_vol_20d",
+    "direction": 1,
+    "periods": {
+      "recomputed": 178,
+      "summary": 178
+    },
+    "rank_selfcheck_mismatches": 0,
+    "per_label": {
+      "long_short": {
+        "f64_net_max_abs_diff": 9.999999999732445e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 1e-06,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D1": {
+        "f64_net_max_abs_diff": 5.699999998665106e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D2": {
+        "f64_net_max_abs_diff": 6.000000001282757e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D3": {
+        "f64_net_max_abs_diff": 1.429999999968956e-06,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D4": {
+        "f64_net_max_abs_diff": 9.89999999978508e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D5": {
+        "f64_net_max_abs_diff": 5.800000000277805e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D6": {
+        "f64_net_max_abs_diff": 2.9999999995311555e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D7": {
+        "f64_net_max_abs_diff": 9.300000001211117e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 1e-06,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D8": {
+        "f64_net_max_abs_diff": 4.700000000301685e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D9": {
+        "f64_net_max_abs_diff": 7.500000001048335e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D10": {
+        "f64_net_max_abs_diff": 4.900000000196414e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 1e-06,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      }
+    },
+    "f64_vs_summary_max": {
+      "long_short": 1e-06,
+      "D1": 5.699999998665106e-07,
+      "D2": 6.000000001282757e-07,
+      "D3": 1.429999999968956e-06,
+      "D4": 9.89999999978508e-07,
+      "D5": 5.800000000277805e-07,
+      "D6": 2.9999999995311555e-07,
+      "D7": 1e-06,
+      "D8": 4.700000000301685e-07,
+      "D9": 7.500000001048335e-07,
+      "D10": 1e-06
+    },
+    "f32_exact": {
+      "long_short": true,
+      "D1": true,
+      "D2": true,
+      "D3": true,
+      "D4": true,
+      "D5": true,
+      "D6": true,
+      "D7": true,
+      "D8": true,
+      "D9": true,
+      "D10": true
+    },
+    "cost_appendix": {
+      "cost_rate": 0.0007,
+      "note": "summary 仅持久化 cost_rate=0.0 的口径（run 未请求成本字段）→ 成本后指标为功能缺口：SUMMARY 无 cost_rate>0 字段可比对",
+      "long_short_cost0": {
+        "annual_return": 0.11104,
+        "annual_vol": 0.327512,
+        "sharpe": 0.339041,
+        "max_drawdown": -1.308024,
+        "win_rate": 0.5
+      },
+      "long_short_cost7": {
+        "annual_return": 0.112288,
+        "annual_vol": 0.327466,
+        "sharpe": 0.3429,
+        "max_drawdown": -1.302314,
+        "win_rate": 0.505618
+      },
+      "delta_annual_return": 0.001248,
+      "delta_sharpe": 0.003859
+    },
+    "ok": true,
+    "mismatches": []
+  },
+  "max_effect_20d_high": {
+    "factor": "max_effect_20d_high",
+    "direction": -1,
+    "periods": {
+      "recomputed": 178,
+      "summary": 178
+    },
+    "rank_selfcheck_mismatches": 0,
+    "per_label": {
+      "long_short": {
+        "f64_net_max_abs_diff": 1.620000000035482e-06,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 1e-06,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D1": {
+        "f64_net_max_abs_diff": 6.999999999646178e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D2": {
+        "f64_net_max_abs_diff": 8.90000000142166e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D3": {
+        "f64_net_max_abs_diff": 2.480000000026905e-06,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D4": {
+        "f64_net_max_abs_diff": 4.2000000000097515e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D5": {
+        "f64_net_max_abs_diff": 6.399999998851769e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D6": {
+        "f64_net_max_abs_diff": 5.799999998057359e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D7": {
+        "f64_net_max_abs_diff": 5.999999999062311e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D8": {
+        "f64_net_max_abs_diff": 2.9000000001389026e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D9": {
+        "f64_net_max_abs_diff": 4.3999999999044803e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      },
+      "D10": {
+        "f64_net_max_abs_diff": 9.200000001818864e-07,
+        "f32_net_max_abs_diff": 0.0,
+        "f32_net_exact_matches": "178/178",
+        "turnover_max_abs_diff": 0.0,
+        "turnover_exact_matches": "178/178",
+        "f64_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        },
+        "f32_summary_field_diffs": {
+          "annual_return": 0.0,
+          "annual_vol": 0.0,
+          "sharpe": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0
+        }
+      }
+    },
+    "f64_vs_summary_max": {
+      "long_short": 1.620000000035482e-06,
+      "D1": 6.999999999646178e-07,
+      "D2": 8.90000000142166e-07,
+      "D3": 2.480000000026905e-06,
+      "D4": 4.2000000000097515e-07,
+      "D5": 6.399999998851769e-07,
+      "D6": 5.799999998057359e-07,
+      "D7": 5.999999999062311e-07,
+      "D8": 2.9000000001389026e-07,
+      "D9": 4.3999999999044803e-07,
+      "D10": 9.200000001818864e-07
+    },
+    "f32_exact": {
+      "long_short": true,
+      "D1": true,
+      "D2": true,
+      "D3": true,
+      "D4": true,
+      "D5": true,
+      "D6": true,
+      "D7": true,
+      "D8": true,
+      "D9": true,
+      "D10": true
+    },
+    "cost_appendix": {
+      "cost_rate": 0.0007,
+      "note": "summary 仅持久化 cost_rate=0.0 的口径（run 未请求成本字段）→ 成本后指标为功能缺口：SUMMARY 无 cost_rate>0 字段可比对",
+      "long_short_cost0": {
+        "annual_return": 0.070234,
+        "annual_vol": 0.286239,
+        "sharpe": 0.24537,
+        "max_drawdown": -1.345193,
+        "win_rate": 0.483146
+      },
+      "long_short_cost7": {
+        "annual_return": 0.067981,
+        "annual_vol": 0.286211,
+        "sharpe": 0.237522,
+        "max_drawdown": -1.350312,
+        "win_rate": 0.483146
+      },
+      "delta_annual_return": -0.002253,
+      "delta_sharpe": -0.007848
+    },
+    "ok": true,
+    "mismatches": []
+  }
+}

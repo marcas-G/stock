@@ -1,0 +1,22 @@
+==============================================================================
+[low_vol_20d] direction=1 periods=178/178 overall=PASS
+  PASS: f32 精确复现逐值相等；f64 真值差落在 f32 噪声界内
+  label         f32 exact   f64 netmax   f64 summax   turnover
+  long_short      178/178    1.000e-06    1.000e-06    178/178
+  D1              178/178    5.700e-07    0.000e+00    178/178
+  D10             178/178    4.900e-07    1.000e-06    178/178
+  cost appendix (rate=0.0007, 独立 f64): long_short annual 0.11104 -> 0.112288 (Δ+0.001248) | sharpe 0.339041 -> 0.3429 (Δ+0.003859)
+  NOTE: 平台组均值/净值在 Float32 中计算（forward_return_5d 为 f32）；f64 真值与 summary 的差=精度伪差，非口径不一致
+  GAP : summary 未持久化 cost_rate>0 的成本后字段（功能缺口）
+==============================================================================
+[max_effect_20d_high] direction=-1 periods=178/178 overall=PASS
+  PASS: f32 精确复现逐值相等；f64 真值差落在 f32 噪声界内
+  label         f32 exact   f64 netmax   f64 summax   turnover
+  long_short      178/178    1.620e-06    1.000e-06    178/178
+  D1              178/178    7.000e-07    0.000e+00    178/178
+  D10             178/178    9.200e-07    0.000e+00    178/178
+  cost appendix (rate=0.0007, 独立 f64): long_short annual 0.070234 -> 0.067981 (Δ-0.002253) | sharpe 0.24537 -> 0.237522 (Δ-0.007848)
+  NOTE: 平台组均值/净值在 Float32 中计算（forward_return_5d 为 f32）；f64 真值与 summary 的差=精度伪差，非口径不一致
+  GAP : summary 未持久化 cost_rate>0 的成本后字段（功能缺口）
+
+JSON 明细 -> r08_layered_compare.json

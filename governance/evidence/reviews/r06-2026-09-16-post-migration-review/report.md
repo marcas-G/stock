@@ -72,3 +72,29 @@
 3. **台账制度落地**：逐行回填复查列（或裁决"reviewer 复查后置 verified"的执行方式），消除 93/93 fixed-claimed 假象（I1）；
 4. **门加固**：`check_reviews` 增加"修复说明含 commit/路径 token 且路径存在"判据（I2/I3）；
 5. **测试与清理**：策略集成测试改新结果根（I5）；删死符号（I6）；G-LEGACY 扩覆盖清单（M9）。
+
+## §7 R06 修复复查与台账回填（reviewer，2026-09-16 收口）
+
+**修复复查（全部独立复跑，非看代码）**：
+
+| 项 | 复核命令/方法 | 结果 |
+|---|---|---|
+| 门终态 | `make gates`（HEAD `82673a2` 后） | **exit 0 全绿** |
+| 平台全量 | `FACTORLAB_MAX_MEMORY=8GB pytest -q`（reviewer 亲跑） | **3151 passed / 13 skipped / 0 failed（816s）**，与团队声称一致 |
+| LEDGER-I2/I3 门加固 | 重跑 9 场景对抗注入（`gate_adversarial.py`） | **9/9 RED**（m5 空证据 / m7 裸文本死路径已抓到） |
+| MIG-I1 | gates 绿 + 索引/快照门 | verified |
+| SKILL-I2 | factor-mine 技能零 `results/` 写点 | verified |
+| MIG-I3 | 根 `results/` 已清除 | verified |
+| TEST-I5 | 策略集成用例不再 skip（10 passed，读 `settings.results_dir`） | verified |
+| TOOLS-I6 | `_REPO_ROOT` 已删除 | verified |
+| R02-C1/C2 定点 | `test_minute_gate.py + test_pit_staleness.py` | 41 passed |
+| R05 定点 | `test_op_classification/test_spec_strict/test_eval_alignment` + `op list --catalog`(528) | 44 passed / 528 条 |
+
+**台账回填（92 行存量 + R06 8 行）**：
+- R01 63 行 → R02 §1 判定（7 条 reopened/partial 注明"→ R22 批次闭环"）；
+- R02 12 行 / R03 13 行 → R22/R23 批次验收 + R06 全量/门 + 证据 token 门；
+- R05 5 行 → R23 证据 + R06 定点复跑（R05-C1 状态列同步修正为 verified）；
+- R06 8 行 → 本轮对抗复查；
+- 终态：**101/101 行 `verified`、复查列覆盖 101/101**；`check_reviews --closure` 仅余 8 条**非致命**告警
+  （R02 历史报告散文称 partial vs 台账已回填 verified 的口径差，属历史文本不改写）；
+- 备份：`evidence/ledger/findings_pre_backfill.md`；门输出 `evidence/ledger/final-gates-after-backfill.txt`。

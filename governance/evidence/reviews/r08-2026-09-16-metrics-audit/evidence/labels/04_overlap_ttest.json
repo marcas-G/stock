@@ -1,0 +1,83 @@
+{
+  "weekly_rows": 934236,
+  "summary_target": "forward_return_5d",
+  "summary_ic_existing": {
+    "mean": 0.07007485259689888,
+    "std": 0.22826811089508384,
+    "t_stat": 4.095688789051659,
+    "ir": 0.30698485356593047,
+    "n_weeks": 178,
+    "recent_26w_mean": 0.08433017578054552,
+    "recent_26w_t": 1.7062795668691169,
+    "sign_consistent": 0.601123595505618
+  },
+  "overlap_correction_fields_in_summary": [],
+  "overlap_correction_fields_in_ic": [],
+  "forward_return_5d": {
+    "n_ic_weeks": 178,
+    "n_weeks_total": 183,
+    "mean": 0.07007485259689888,
+    "std_ddof0": 0.2276260052324029,
+    "std_ddof1": 0.22826811089508384,
+    "t_simple_ddof0": 4.107242235949538,
+    "t_simple_ddof1": 4.095688789051659,
+    "nw_lag0": {
+      "gamma_l": {},
+      "se_nw": 0.017061290416122376,
+      "t_nw": 4.1072422359495375
+    },
+    "nw_lag1": {
+      "gamma_l": {
+        "1": 0.01086845494564534
+      },
+      "se_nw": 0.018765563309236472,
+      "t_nw": 3.7342259031684817
+    },
+    "summary_ic": {
+      "mean": 0.07007485259689888,
+      "std": 0.22826811089508384,
+      "t_stat": 4.095688789051659,
+      "ir": 0.30698485356593047,
+      "n_weeks": 178,
+      "recent_26w_mean": 0.08433017578054552,
+      "recent_26w_t": 1.7062795668691169,
+      "sign_consistent": 0.601123595505618
+    }
+  },
+  "forward_return_20d": {
+    "n_ic_weeks": 175,
+    "n_weeks_total": 183,
+    "mean": 0.0822594349629103,
+    "std_ddof0": 0.24170553225728794,
+    "std_ddof1": 0.24239909331633688,
+    "t_simple_ddof0": 4.502131289011696,
+    "t_simple_ddof1": 4.489249628020046,
+    "nw_lag0": {
+      "gamma_l": {},
+      "se_nw": 0.018271220824608123,
+      "t_nw": 4.502131289011696
+    },
+    "nw_lag4": {
+      "gamma_l": {
+        "1": 0.04416614558239767,
+        "2": 0.027256714536303548,
+        "3": 0.008661763622167352,
+        "4": -0.00739323656194912
+      },
+      "se_nw": 0.030777317340825963,
+      "t_nw": 2.6727292067718182
+    },
+    "overlap_inflation_t_simple_over_t_nw_ddof0": 1.6844696715270568,
+    "overlap_inflation_t_simple_over_t_nw_ddof1": 1.679650005936165
+  },
+  "calibration_5d": {
+    "summary_t_stat": 4.095688789051659,
+    "recomputed_t_ddof0": 4.107242235949538,
+    "recomputed_t_ddof1": 4.095688789051659,
+    "abs_diff_ddof0": 0.011553446897879738,
+    "abs_diff_ddof1": 0.0,
+    "summary_std": 0.22826811089508384,
+    "recomputed_std_ddof0": 0.2276260052324029,
+    "recomputed_std_ddof1": 0.22826811089508384
+  }
+}

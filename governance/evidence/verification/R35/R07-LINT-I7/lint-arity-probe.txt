@@ -1,0 +1,25 @@
+$ factorlab lint r35_lint_arity_bad.yaml  (ts_cum_count(close,5))
+2:9: 算子 ts_cum_count 参数过多：最多接受 1 个位置参数，收到 2 个
+EXIT=1
+
+$ factorlab lint r35_lint_arity_good.yaml  (ts_cum_count(close))
+OK r35_lint_arity_good
+EXIT=0
+
+$ generator arity row + semantics hook
+277:    ('ts_cum_count', 'ts', 'unbounded', (), 1, 1, 'polars_ta', 'ts_cum_count', 'scalar'),
+        - `**kwargs` 展开静态不可知 → 放行；`min_args/max_args` 为 None（未探测/可变）
+          → 放行（不误杀插件/注册面/平台算子）。
+        """
+        if any(kw.arg is None for kw in node.keywords):
+            return
+        n_pos = len(node.args)
+        n_total = n_pos + len(node.keywords)
+        if meta.min_args is not None and n_total < meta.min_args:
+            raise SemanticError(
+                f"算子 {meta.name} 参数过少：需要至少 {meta.min_args} 个参数，"
+                f"收到 {n_total} 个", node.lineno, node.col_offset)
+        if meta.max_args is not None and n_pos > meta.max_args:
+            raise SemanticError(
+                f"算子 {meta.name} 参数过多：最多接受 {meta.max_args} 个位置参数，"
+                f"收到 {n_pos} 个", node.lineno, node.col_offset)

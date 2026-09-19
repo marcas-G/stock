@@ -1,0 +1,15 @@
+$ factorlab run --help | grep -i profile
+ FACTORLAB_DEFAULT_UNIVERSE。--eval-frequency 覆盖 spec 评估频率 （daily 默认逐日口径；weekly 为旧口径可选对照）。--profile 输出分段计时。 --chunk-workers 分钟链 chunk 并行度（默认 1，见 --help）。   
+ --accept-quality/--override-reason 读取门 opt-in（N2：DEGRADED/LEGACY 显式接受）。                                                                                                                     
+                                                                                                                                                                                                        
+--
+│ --profile                                                 R09-M3 分段计时：输出各段（读数据/折日/label/评估/分层回测/落盘）墙钟+峰值 RSS 到 stderr，并写 summary.runtime.profile（默认关闭；env      │
+│                                                           FACTORLAB_PROFILE=1 等效）                                                                                                                 │
+│ --chunk-workers                       <int range> [x>=1]  R09-PERF-P4 分钟链 chunk 并行 worker 数（默认 1=顺序现行为；N>=2 按 chunk 并行「读+折日」后有序合并，数值与 N=1 逐值一致；并发前按         │
+│                                                           chunk_days 校准的单 chunk 估值（3.6GB×max(chunk_days,10)/10；默认 20 日块 7.2GB/chunk）对 FACTORLAB_MAX_MEMORY 做预算门，超限拒绝；仅      │
+
+== app/profile.py ==
+-rw-rw-r-- 1 gaolei gaolei 8777 9月  19 03:13 platform/src/factorlab/app/profile.py
+
+== test_profile_timing.py tests ==
+9

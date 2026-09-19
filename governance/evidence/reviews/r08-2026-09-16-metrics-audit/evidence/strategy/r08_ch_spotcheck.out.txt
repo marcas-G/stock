@@ -1,0 +1,18 @@
+抽笔 6 笔（event/code/side/filled）:
+  e0 000650.SZ  buy  filled=  60600 ref=5.5
+  e1 000937.SZ  sell filled=  57700 ref=5.91
+  e3 000012.SZ  buy  filled=    600 ref=5.0
+  e3 000538.SZ  sell filled=    100 ref=56.31
+  e4 000883.SZ  sell filled=  71200 ref=4.8
+  e4 002807.SZ  sell filled=  79900 ref=4.42
+
+CH daily.open 返回 6 行
+trade_cal 返回 18 行
+  e0 000650.SZ  buy  ref=5.5 CH.open=5.5 Δ=0.00e+00 exec_formula=OK next_open=OK
+  e1 000937.SZ  sell ref=5.91 CH.open=5.91 Δ=0.00e+00 exec_formula=OK next_open=OK
+  e3 000012.SZ  buy  ref=5.0 CH.open=5.0 Δ=0.00e+00 exec_formula=OK next_open=OK
+  e3 000538.SZ  sell ref=56.31 CH.open=56.31 Δ=0.00e+00 exec_formula=OK next_open=OK
+  e4 000883.SZ  sell ref=4.8 CH.open=4.8 Δ=0.00e+00 exec_formula=OK next_open=OK
+  e4 002807.SZ  sell ref=4.42 CH.open=4.42 Δ=0.00e+00 exec_formula=OK next_open=OK
+
+CH 抽笔对拍: PASS (6/6 price, 6/6 next-open)

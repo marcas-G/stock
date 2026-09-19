@@ -1,0 +1,4 @@
+$ pytest -q tests/test_minute_fold.py
+..................................                                                                                                                                                               [100%]
+34 passed in 5.13s
+EXIT=0

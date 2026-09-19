@@ -1,0 +1,26 @@
+# R07-D5 (evidence/data/ gitignore) status check, R08 2026-09-16
+
+$ git check-ignore -v governance/evidence/reviews/r07-2026-09-16-gap-audit/evidence/data-audit/08c-idx-circmv-impact.txt
+exit=1
+
+$ git check-ignore -v governance/evidence/reviews/r08-2026-09-16-metrics-audit/evidence/labels/01_forward_recompute.py
+exit=1
+
+(exit=1 = 未被 ignore)
+
+$ ls r07 evidence dirs:
+data-audit
+eng
+feature
+
+$ ls r29 evidence dirs (data 改名):
+R5
+R6
+R7
+R8
+R9
+README.md
+contracts
+data-t4
+hygiene
+README.md

@@ -1,0 +1,4 @@
+$ pytest -q tests/test_backtest_ca_multi_year.py
+...                                                                                                                                                                                              [100%]
+3 passed in 17.15s
+EXIT=0

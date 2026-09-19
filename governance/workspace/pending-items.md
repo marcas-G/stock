@@ -474,3 +474,22 @@ H5. **memguard 未做真实触发演练（避免人为 OOM）**（2026-09-18 登
   `data/fact/lob_fact/tick_daily_event/`（242 日）保留不再续跑。
 - **复活条件**：如需再启，需①更长 tick 历史（≥2 年）或②更细的假设（非日聚合计数，
   如簿态时间加权/跨日微结构）——届时从 event_daily 的测试与 README 起步。
+
+## A3 bars_1m 分钟缺行（2026-09-19 发现）
+
+- 现象：(code=920396, date=2023-06-27) 日线在、分钟无行（BSE）；flab 严格模式正确 fail fast，但阻塞 minute spec 直跑。
+- 规避：FACTORLAB_MINUTE_UNCOVERED=drop（契约内）。
+- 建议：ch_ingest 对账链加分钟缺行反查，或 universe 剔除已知缺口。
+
+## 暂停项（用户拍板）
+
+23. **tick 全线暂停（2026-09-19 用户）**
+    范围：tick/逐笔及 LOB 事实库相关的一切（工具整改、门红处置、tick 数据加工、tick 因子/研究）。
+    现状影响：`platform/tools/lob_fact/` 的 14 处门红（`event_daily.py`/`panel_batch.py` 分区字面量 + 直读未登记）
+    作为**已知红**保留；`make gates` 因此在 tick 恢复前不会全绿（处置方式见 STATUS 待定问题）。
+    恢复条件：用户重新启动 tick 方向；恢复后按原计划（factio.partitions 单点 + G-READ 登记）一次性修完。
+    不受影响：分钟线（bars_1m）、daily、fund_flow、financials 相关的 DQ/评估/策略链照常。
+    处置（2026-09-19，用户选 C）：`governance/ops/check_dataiface.py` 增 `PAUSED_TREES`
+    （扫描豁免 + 白名单"不腐"校验跳过；门输出显式打印"⏸ 暂停豁免"提示）。`make gates` 已回 exit 0。
+    恢复步骤：① 移除 `PAUSED_TREES`；② 按原方案修 14 处（factio.partitions 单点 + G-READ 登记/或行级豁免）；
+    ③ 清理/回填 `run_lob_batch.py` 两条已失效白名单登记；④ 复跑 `make gates`。

@@ -1,0 +1,11 @@
+== profile markers in smoke stderr ==
+1:heavy.sh: slot=1/2 avail=56.9GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/factorlab run /tmp/opencode/r35_profile_smoke.yaml --profile --chunk-days 10 --accept-quality UNKNOWN --override-reason R35 audit replay
+
+== full stderr line count ==
+6 governance/evidence/verification/R35/R09-PERF-M3/smoke-stderr.txt
+
+== R31 before timings profile usage (worked pre-gate) ==
+3:- 运行口径：`--chunk-days 10 --profile`，单因子超时 1500s（25min）；env：`FACTORLAB_DATA_BACKEND=ch FACTORLAB_MAX_MEMORY=8GB FACTORLAB_ST_DEGRADE=allow FACTORLAB_MINUTE_UNCOVERED=drop`；经 `governance/ops/heavy.sh` 闸。
+25:## 实测（墙钟来自 summary.runtime.profile.wall_ms；外部峰值来自 /usr/bin/time -v）
+
+== does R31 docs mention read gate blocker? ==

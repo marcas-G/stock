@@ -1,0 +1,67 @@
+== platform/results hits in dossiers ==
+knowledge/dossiers/factors/README.md:16:`platform/results/<name>/summary.json`，该产物从未随仓存档，且当前环境不可复跑。**
+knowledge/dossiers/factors/README.md:23:| `platform/results/` 为空（`results/` 被 gitignore，历史运行产物已清） | `find platform/results -mindepth 1` → 0 项 |
+
+== git show 79bbc79 --stat ==
+79bbc79 fix(workspace): R07-MIG-I2 档案模板根因 + 存量旧坐标机械清理
+
+ governance/workspace/pending-items.md                  | 18 ++++++++++++++++++
+ knowledge/dossiers/factors/_template.md                |  4 ++--
+ .../dossiers/factors/crash_bottom_leader/adv20.md      |  2 +-
+ .../dossiers/factors/crash_bottom_leader/adv_mv.md     |  2 +-
+ .../factors/crash_bottom_leader/crash_bottom_leader.md |  2 +-
+ knowledge/dossiers/factors/crash_bottom_leader/dd.md   |  2 +-
+ .../dossiers/factors/crash_bottom_leader/mom10.md      |  2 +-
+ .../dossiers/factors/crash_bottom_leader/timed.md      |  2 +-
+ .../factors/crash_bottom_leader/timed_stable.md        |  2 +-
+ knowledge/dossiers/factors/dividend/yield.md           |  2 +-
+ knowledge/dossiers/factors/liquidity/20d.md            |  2 +-
+ knowledge/dossiers/factors/liquidity/accel.md          |  2 +-
+ knowledge/dossiers/factors/liquidity/directional.md    |  2 +-
+ knowledge/dossiers/factors/liquidity/level.md          |  2 +-
+ knowledge/dossiers/factors/liquidity/level_ma20.md     |  2 +-
+ knowledge/dossiers/factors/liquidity/turn_20d.md       |  2 +-
+ knowledge/dossiers/factors/liquidity/volume_ratio.md   |  2 +-
+ .../dossiers/factors/misc/closing_strength_20d.md      |  2 +-
+
+== template diff ==
+commit 79bbc79ae157a97e346d1c14b66c4fed5d825886
+Author: marcas-G <2639833758@qq.com>
+Date:   Wed Sep 16 19:03:47 2026 +0800
+
+    fix(workspace): R07-MIG-I2 档案模板根因 + 存量旧坐标机械清理
+    
+    - _template.md：结果根占位 results/<name> → runs/platform/<name>；
+      核查并修模板内 docs/factors/ → knowledge/dossiers/factors/（其它旧坐标）
+    - 存量：tracked 且工作区干净档案 156 份 163 处机械替换
+      （`results/…` → `runs/platform/…`；_mine_round_* → _mine_rounds/_mine_round_*；
+      含 strategies 档案 --output-dir/--panel 命令行形态）
+    - 计数：修前 164 行/156 文件（具体指针口径）→ 修后 0；跳过在途 M/?? 0
+    - 残余登记 pending-items #23（历史/映射行 → G-LEGACY 行级/整档豁免）
+    
+    背景：R07 缺口审计 R07-MIG-I2（findings.md）。证据：
+    governance/evidence/verification/R24/17-r07-fixes/04-mig-i2-fix.txt
+    （含批量脚本 bulk_replace_oldcoord.py、前后计数、diff 核查）
+
+diff --git a/knowledge/dossiers/factors/_template.md b/knowledge/dossiers/factors/_template.md
+index 3eb7bdc..018c0dc 100644
+--- a/knowledge/dossiers/factors/_template.md
++++ b/knowledge/dossiers/factors/_template.md
+@@ -1,7 +1,7 @@
+ # 因子档案模板
+ 
+ > 本文件是因子档案的标准模板。**新建因子档案**：复制本文件为
+-> `docs/factors/<族>/<name>.md`（族目录与 spec 同族），删除本说明块，按各章节填写。
++> `knowledge/dossiers/factors/<族>/<name>.md`（族目录与 spec 同族），删除本说明块，按各章节填写。
+ > **可执行定义**：`factor/<族>/<name>.yaml`（机器执行）与本文档（人读档案）并行存放；
+ > 两者必须一致，改 yaml 后同步本档案。
+ 
+@@ -72,7 +72,7 @@ adjustment: <qfq 等>
+ 
+ ## 4. 验证结果
+ 
+-> 数据快照自 `results/<name>/summary.json`（运行 `factorlab run` 后更新）。
++> 数据快照自 `runs/platform/<name>/summary.json`（运行 `factorlab run` 后更新）。
+ > 本表为某次快照；重跑后如需更新，用新的 summary.json 数值替换并刷新
+ > `updated_ts` 与下方判定。**若该快照的产物未随仓存档、当前环境不可复跑，
+ > front matter 必须保留 `snapshot: 历史快照（...）` 标注**（口径见同目录 `README.md`）。

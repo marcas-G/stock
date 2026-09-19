@@ -52,3 +52,5 @@
 5. **策略 lint + `universe_override` 显式拒绝或消费**；lint 增 arity/形态校验（R07-STRAT-I6 / R07-LINT-I7）；
 6. **CA Gate 连续回测工作流**：提供分段拼接口径文档或评估"多年连续"能力（R07-DATA-I8）；
 7. **backlog 排期登记**：Plan 2/3、分钟 V2、策略 lint、circ_mv 进 `pending-items.md`（当前只散在设计与报告里）。
+
+**可执行实施计划**：`improvement-plan.md`（Plan G，8 个任务：Task 1 门回绿+坐标根因 → Task 2 判据加固 → Task 3 契约同步 → Task 4 数据三件 → Task 5 口子收口 → Task 6 规则/卫生 → Task 7 backlog 登记 → Task 8 验收）。

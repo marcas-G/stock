@@ -1,0 +1,7 @@
+$ factorlab lint research/strategy/low_lottery_top30_weekly.yaml
+OK low_lottery_top30_weekly
+EXIT=0
+
+$ factorlab lint research/strategy/cx_demo_equal_weight.yaml
+OK cx_demo_equal_weight
+EXIT=0

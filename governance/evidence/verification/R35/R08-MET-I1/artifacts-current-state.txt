@@ -1,0 +1,37 @@
+== max_effect_20d_high summary evaluation keys/coverage ==
+version: None
+evaluation keys: ['factor', 'target', 'direction', 'n_weeks', 'n_stocks_avg', 'ic', 'pearson_ic', 'decile_returns', 'turnover', 'coverage', 'factor_name', 'layered_backtest']
+coverage: {'pct_valid': 1.0, 'total_rows': 896750, 'valid_rows': 896750}
+n_weeks: 178
+created_at/runtime: None None
+
+== intraday_high_time weekly.parquet ==
+shape (609076, 6) cols ['date', 'code', 'signal', 'forward_return_1d', 'forward_return_5d', 'forward_return_20d']
+distinct dates: 117
+first/last: 2024-01-02 2024-06-28
+shape: (3, 6)
+┌────────────┬───────────┬──────────┬───────────────────┬───────────────────┬────────────────────┐
+│ date       ┆ code      ┆ signal   ┆ forward_return_1d ┆ forward_return_5d ┆ forward_return_20d │
+│ ---        ┆ ---       ┆ ---      ┆ ---               ┆ ---               ┆ ---                │
+│ date       ┆ str       ┆ f64      ┆ f32               ┆ f32               ┆ f32                │
+╞════════════╪═══════════╪══════════╪═══════════════════╪═══════════════════╪════════════════════╡
+│ 2024-01-02 ┆ 000001.SZ ┆ 0.0      ┆ -0.000931         ┆ -0.002789         ┆ 0.026965           │
+│ 2024-01-02 ┆ 000002.SZ ┆ 0.0      ┆ -0.001048         ┆ -0.014144         ┆ -0.018858          │
+│ 2024-01-02 ┆ 000004.SZ ┆ 0.004184 ┆ 0.010481          ┆ -0.015789         ┆ -0.159521          │
+└────────────┴───────────┴──────────┴───────────────────┴───────────────────┴────────────────────┘
+
+== version field presence across recent summaries ==
+runs/platform/amihud_illiq_turn_20d/summary.json
+runs/platform/cx_demo_x1/summary.json
+runs/platform/cx_demo_x2/summary.json
+runs/platform/e2e_research_api_probe/summary.json
+runs/platform/intraday_abs_auction_premium/summary.json
+runs/platform/intraday_afternoon_ret/summary.json
+runs/platform/intraday_amihud_minute/summary.json
+runs/platform/intraday_am_pm_vol/summary.json
+runs/platform/intraday_auction_conc_inter/summary.json
+runs/platform/intraday_auction_range/summary.json
+count:
+102
+total summaries:
+136

@@ -1,0 +1,47 @@
+$ grep -c NEXT_WINDOW knowledge/contracts/interface.md
+20
+
+$ NEXT_OPEN-only residual check
+3004:PRE/POST phase 必须；三日期对齐；FillBatch timing = 仅 NEXT_OPEN（v1 唯一
+3197:  原语级 NEXT_OPEN-only 约束。
+
+$ section anchor
+3129:### R22 Minute-Window Execution（`NEXT_WINDOW` + `minute_window`）
+
+$ tests referencing NEXT_WINDOW
+platform/tests/test_window_spec.py
+platform/tests/test_doc_paths_exist.py
+platform/tests/test_strategy_doc.py
+platform/tests/test_backtest_window_runtime.py
+platform/tests/test_cli_lint_strategy.py
+platform/tests/test_execution_store_window.py
+platform/tests/test_minute_execution_e2e.py
+== context 2998-3008 ==
+cash_after = POST state.cash
+**cash bridge 严格**：POST cash == PRE cash + Σ delta（否则 ValueError
+  "POST cash is inconsistent with PRE cash + FillBatch effective_cash_delta"）
+buy/sell gross 与四项费用直接聚合 FillBatch 列；total_fees 按固定顺序
+  = commission + stamp_tax + transfer_fee（禁止按 rates 反算——不接收
+  ExecutionCostSpec）
+PRE/POST phase 必须；三日期对齐；FillBatch timing = 仅 NEXT_OPEN（v1 唯一
+可入账 execution event 标记——NEXT_WINDOW 的窗口成交同样经 NEXT_OPEN-stamped
+FillBatch 聚合入账，见「R22 分钟窗口执行」）；不含 position valuation
+```
+
+
+== context 3190-3200 ==
+  OPEN_BASED）；`WINDOW_END_BASED` 与 NEXT_OPEN
+  组合 → ValueError（NEXT_OPEN 必须 OPEN_BASED）。每 event sanity 与
+  NEXT_OPEN 不同（mark 与成交价口径不同）：`POST NAV == PRE NAV +
+  Σfilled×(mark − execution_price) − total_fees`（买 +、卖 −；rel 1e-9）。
+- **执行日程/原语不动**：schedule/OrderBatch/FillBatch 的 `execution_timing`
+  仍为 NEXT_OPEN（窗口属于该 next-open execution event 内）；accounting
+  （M8-05B）继续只接受 NEXT_OPEN-stamped FillBatch——NEXT_WINDOW 不放松
+  原语级 NEXT_OPEN-only 约束。
+- **分钟数据仅 CH**：`load_execution_window`（唯一窗口读取入口）duckdb 后端
+  → NotImplementedError（duckdb 平台库无 bars_1m）；契约校验 fail fast：
+  (code, minute_index) 重复 / volume·amount null 或 <0 / session_type
+
+== NEXT_WINDOW mentions in test_doc_paths_exist.py ==
+93:    """防漂移（R07-CONTRACT-I5）：NEXT_WINDOW/分钟窗口契约必须留在 interface.md；
+96:    assert "NEXT_WINDOW" in text, "interface.md 缺 NEXT_WINDOW（R22 分钟窗口契约）"

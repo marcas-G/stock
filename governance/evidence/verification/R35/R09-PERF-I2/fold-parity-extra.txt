@@ -1,0 +1,3 @@
+keys: ['window', 'chunk_days', 'head_ref', 'head_commit', 'tree_commit', 'factors']
+open_minute_mom: p3_vs_head bit_exact=True n_bit_diff=0 max_abs=0.0 fold legacy=14.63 fused=12.27
+close_auction_premium: p3_vs_head bit_exact=True n_bit_diff=0 max_abs=0.0 fold legacy=19.0 fused=11.87

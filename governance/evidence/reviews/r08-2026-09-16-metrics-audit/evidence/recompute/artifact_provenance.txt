@@ -1,0 +1,19 @@
+R08 recompute — artifact provenance (只读证据)
+captured: 2026-09-16 22:14:49 +0800
+
+== file mtimes ==
+2026-09-16 22:02:01.389766157 +0800  runs/platform/low_vol_20d/summary.json
+2026-09-16 01:24:56.564506964 +0800  runs/platform/max_effect_20d_high/summary.json
+2026-09-16 01:24:56.552506449 +0800  runs/platform/max_effect_20d_high/weekly.parquet
+2026-09-16 07:56:47.914732176 +0800  runs/platform/intraday_high_time/summary.json
+2026-09-16 07:56:47.910732005 +0800  runs/platform/intraday_high_time/weekly.parquet
+
+== related fix commits (2026-09-16) ==
+2026-09-16 01:42:40 +0800  fix(platform): R03-I2 — 评估 coverage 改过滤前口径（null 行计入 total 与 signal_null_ratio 对账）
+2026-09-16 11:19:13 +0800  fix(platform): R05-I4 — align_weekly 每周恰一个评估日期（分钟链多日期/n_weeks 虚高修复）
+2026-09-15 22:15:03 +0800  fix(platform): R21 EVAL — NaN 口径统一 + 真 Spearman/周频 corr + 均匀抽样 + web target/降级 + tie-aware decile + t 分母修正
+
+== weekly.parquet date granularity (raw dates vs valid dates vs ISO weeks) ==
+low_vol_20d: rows=934236 raw_dates=183 valid_dates=178 raw_iso_weeks=183 valid_iso_weeks=178
+max_effect_20d_high: rows=934236 raw_dates=272 valid_dates=178 raw_iso_weeks=183 valid_iso_weeks=178
+intraday_high_time: rows=130169 raw_dates=39 valid_dates=32 raw_iso_weeks=25 valid_iso_weeks=24

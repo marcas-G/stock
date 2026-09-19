@@ -1,0 +1,4 @@
+$ pytest -q tests/test_catalog.py
+............................                                                                                                                                                                     [100%]
+28 passed in 2.01s
+EXIT=0

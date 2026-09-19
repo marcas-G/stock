@@ -1,0 +1,103 @@
+{
+  "candidate_pool_codes": 181,
+  "codes_with_gap_ge3_in_2024": 112,
+  "chosen": {
+    "ts_code": "000525.SZ",
+    "start": "2024-11-11",
+    "end": "2024-12-12",
+    "days": "24"
+  },
+  "chosen_gap_len_trade_days": 24,
+  "panel_rows_for_chosen": 624,
+  "right_edge_cutoff_5d": "2026-07-24",
+  "right_edge_cutoff_20d": "2026-07-03",
+  "checks": {
+    "panel_vs_skeleton_f32_5d": {
+      "n": 619,
+      "null_mismatch": 0,
+      "value_diff_gt_1e-6": 0,
+      "max_abs_diff": 0.0
+    },
+    "panel_vs_skeleton_f32_20d": {
+      "n": 604,
+      "null_mismatch": 0,
+      "value_diff_gt_1e-6": 0,
+      "max_abs_diff": 0.0
+    },
+    "panel_vs_traded_f32_5d": {
+      "n": 619,
+      "null_mismatch": 7,
+      "value_diff_gt_1e-6": 10,
+      "max_abs_diff": 0.08828377723693848
+    },
+    "panel_vs_traded_f32_20d": {
+      "n": 604,
+      "null_mismatch": 22,
+      "value_diff_gt_1e-6": 40,
+      "max_abs_diff": 0.10277533531188965
+    },
+    "panel_vs_skeleton_f64_5d": {
+      "n": 619,
+      "null_mismatch": 0,
+      "value_diff_gt_1e-6": 0,
+      "max_abs_diff": 2.7026667104301794e-07
+    },
+    "panel_vs_traded_f64_5d": {
+      "n": 619,
+      "null_mismatch": 7,
+      "value_diff_gt_1e-6": 10,
+      "max_abs_diff": 0.08828378214671151
+    },
+    "panel_vs_traded_f64_20d": {
+      "n": 604,
+      "null_mismatch": 22,
+      "value_diff_gt_1e-6": 40,
+      "max_abs_diff": 0.10277534650120912
+    }
+  },
+  "focus_rows": 80,
+  "diff_rows_skeleton_vs_traded": 22,
+  "focus_file": "02_suspension_focus_000525_SZ.csv",
+  "diff_file": "02_suspension_diff_000525_SZ.csv",
+  "t_with_t_plus_5_inside_gap": 5,
+  "example_t_plus5_inside_gap": [
+    {
+      "date": "2024-11-04",
+      "panel_fwd5": null,
+      "traded_shift_fwd5": 0.2873222827911377
+    },
+    {
+      "date": "2024-11-05",
+      "panel_fwd5": null,
+      "traded_shift_fwd5": 0.17626166343688965
+    },
+    {
+      "date": "2024-11-06",
+      "panel_fwd5": null,
+      "traded_shift_fwd5": 0.14653921127319336
+    },
+    {
+      "date": "2024-11-07",
+      "panel_fwd5": null,
+      "traded_shift_fwd5": 0.08522391319274902
+    },
+    {
+      "date": "2024-11-08",
+      "panel_fwd5": null,
+      "traded_shift_fwd5": 0.03415226936340332
+    }
+  ],
+  "t_spanning_gap_value_diff": 2,
+  "example_t_spanning_gap": [
+    {
+      "date": "2024-12-13",
+      "panel_fwd5": -0.1708301305770874,
+      "traded_shift_fwd5": -0.20820528268814087
+    },
+    {
+      "date": "2024-12-16",
+      "panel_fwd5": -0.17009061574935913,
+      "traded_shift_fwd5": -0.20694857835769653
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+== task11 evidence files ==
+21-rerun-lowvol.log
+22-signal-after-lowvol.txt
+23-sidecar-sha256.txt
+24-test-research.log
+25-backfill-regenerate.log
+26-ingest-adj-factor-v2.log
+27-reconcile-all-v2.log
+28-rerun-clean.log
+30-task11-inventory.txt
+31-r22-red.txt
+32-r22-baseline-refresh.txt
+33-task11-rerun.log
+35-task11-delete-manifest.txt
+36-task11-spotcheck.txt
+37-platform-fullsuite-task11.txt
+38-gates-task11.txt
+README.md
+reference_audit.py
+refresh_r22_baseline.py
+run_reruns.py
+
+== spotcheck head ==
+== intraday_high_time
+version= 2 frequency= daily target= forward_return_1d n_weeks= 116
+weekly.parquet rows 609076 dates 117 cols ['date', 'code', 'signal', 'forward_return_1d', 'forward_return_5d', 'forward_return_20d']
+Traceback (most recent call last):
+  File "<stdin>", line 12, in <module>
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/dataframe/group_by.py", line 614, in len
+    return self.agg(len_expr)
+           ~~~~~~~~^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/dataframe/group_by.py", line 381, in agg
+    ._collect_eager(optimizations=QueryOptFlags.none())
+     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/lazyframe/frame.py", line 2240, in _collect_eager
+    return _eager_engine().collect(
+           ~~~~~~~~~~~~~~~~~~~~~~~^
+        self, optimizations=optimizations, background=False
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/polars/lazyframe/engine.py", line 435, in collect
+    return wrap_df(ldf.collect(self.name, callback))
+                   ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+polars.exceptions.DuplicateError: column with name 'len' has more than one occurrence
+
+Resolved plan until failure:
+
+	---> FAILED HERE RESOLVING 'group_by' <---
+DF ["y", "w", "len"]; PROJECT */3 COLUMNS
+
+This error occurred with the following context stack:
+	[1] 'group_by'
+
+== delete manifest head ==
+# R30 Task 11 删除清单（D7：无重跑价值产物，不留兼容层）
+# 生成 2026-09-17T12:17:37.921302
+# 退路：spec 保留则可 `factorlab run` 再生；下表含 spec 路径与 summary 关键值。
+
+[r07_idx_circmv_probe]
+  理由: R07 探针（信号全 null，purpose served）
+  文件: 6 个 / 0.0 MB  summary_sha256[:16]=1148b532f883d7b9  n_weeks=0 ic_mean=nan version=None
+  文件清单: .factorlab-run.lock, labels.parquet, panel.parquet, signal.parquet, summary.json, weekly.parquet
+[r07_minute_cov_probe]
+  理由: R07 探针（n_weeks=0）
+  文件: 6 个 / 0.3 MB  summary_sha256[:16]=1fba6fd2fc14e116  n_weeks=0 ic_mean=nan version=None
+  文件清单: .factorlab-run.lock, labels.parquet, panel.parquet, signal.parquet, summary.json, weekly.parquet
+[r07_st_probe]
+  理由: R07 探针（2 周，ST 降级验证）
+  文件: 6 个 / 2.6 MB  summary_sha256[:16]=ac5a72c74bd3833c  n_weeks=2 ic_mean=-0.07937432747543996 version=None

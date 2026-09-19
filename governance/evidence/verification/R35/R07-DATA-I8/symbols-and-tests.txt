@@ -1,0 +1,26 @@
+== symbols ==
+platform/src/factorlab/core/execution/corporate_actions.py:79:def apply_corporate_actions(
+platform/src/factorlab/adapters/read/market_open.py:568:def load_adj_detail_window(
+
+== backtest wiring (snapshot→orders) ==
+platform/src/factorlab/app/backtest/backtest.py:61:from factorlab.core.execution.corporate_actions import apply_corporate_actions
+platform/src/factorlab/app/backtest/backtest.py:216:    - 已支持事件 → apply_corporate_actions（资格日 = PRE 持仓 = 窗口内
+platform/src/factorlab/app/backtest/backtest.py:265:    return apply_corporate_actions(state, scoped)
+
+== tests ==
+platform/tests/test_backtest_ca_gate.py
+platform/tests/test_corporate_actions.py
+
+== evidence ==
+adj_detail_semantics.txt
+ca_products.py
+hand_calc.txt
+multi_year_events.txt
+multi_year_metrics.json
+multi_year_nav.csv
+__pycache__
+pytest_full_platform.txt
+pytest_required_and_new.txt
+README.md
+real_fragment.txt
+stub_kill.txt

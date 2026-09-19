@@ -1,0 +1,299 @@
+{
+ "factor": "intraday_high_time",
+ "direction": -1,
+ "artifact": {
+  "rows": 130169,
+  "n_dates": 32,
+  "n_iso_weeks": 24,
+  "date_min": "2024-01-05",
+  "date_max": "2024-06-21"
+ },
+ "recomputed": {
+  "coverage": {
+   "pct_valid": 0.9597,
+   "pct_valid_raw": 0.9597062280573716,
+   "total_rows": 130169,
+   "valid_rows": 124924
+  },
+  "n_weeks": 27,
+  "n_ok": 27,
+  "n_stocks_avg": 4626.62962962963,
+  "ic": {
+   "mean": -0.01887950869521011,
+   "std": 0.2546009811296478,
+   "t_stat": -0.38531196702722875,
+   "ir": -0.07415332262838491,
+   "n_weeks": 27,
+   "n_ok": 27,
+   "recent_26w_mean": -0.02559953712125127,
+   "recent_26w_t": -0.507534371478018,
+   "sign_consistent": 0.5555555555555556
+  },
+  "pearson_ic": {
+   "mean": -0.047465079683411744,
+   "t_stat": -1.0540120990373127,
+   "n_used": 27
+  },
+  "decile": {
+   "groups": [
+    -0.0003354310900257135,
+    -0.011167138406053642,
+    7.330068314970448e-05,
+    -0.013604173905553588,
+    -0.002845369718702468,
+    -0.025255803414821632,
+    -0.005421415449160308,
+    -0.0035507163959023684,
+    -0.0039058504097184755,
+    -0.0030677734056022954
+   ],
+   "monotonic": false,
+   "spread_ret": -0.002732342315576582,
+   "weeks_with_group": [
+    21,
+    24,
+    21,
+    23,
+    23,
+    31,
+    25,
+    26,
+    25,
+    24
+   ]
+  },
+  "turnover": {
+   "monthly": 0.8986136600945952,
+   "quarterly": 0.9107931630497408
+  }
+ },
+ "comparison": [
+  {
+   "metric": "n_weeks",
+   "summary": 27,
+   "recomputed": 27,
+   "delta": "+0.000e+00",
+   "match": true
+  },
+  {
+   "metric": "n_stocks_avg",
+   "summary": 4626.62962962963,
+   "recomputed": 4626.62962962963,
+   "delta": "+0.000e+00",
+   "match": true
+  },
+  {
+   "metric": "ic.mean",
+   "summary": -0.018879508695210115,
+   "recomputed": -0.01887950869521011,
+   "delta": "+3.469e-18",
+   "match": true
+  },
+  {
+   "metric": "ic.std",
+   "summary": 0.25460098112964774,
+   "recomputed": 0.2546009811296478,
+   "delta": "+5.551e-17",
+   "match": true
+  },
+  {
+   "metric": "ic.t_stat",
+   "summary": -0.3853119670272289,
+   "recomputed": -0.38531196702722875,
+   "delta": "+1.665e-16",
+   "match": true
+  },
+  {
+   "metric": "ic.ir",
+   "summary": -0.07415332262838494,
+   "recomputed": -0.07415332262838491,
+   "delta": "+2.776e-17",
+   "match": true
+  },
+  {
+   "metric": "ic.n_weeks",
+   "summary": 27,
+   "recomputed": 27,
+   "delta": "+0.000e+00",
+   "match": true
+  },
+  {
+   "metric": "ic.recent_26w_mean",
+   "summary": -0.025599537121251268,
+   "recomputed": -0.02559953712125127,
+   "delta": "-3.469e-18",
+   "match": true
+  },
+  {
+   "metric": "ic.recent_26w_t",
+   "summary": -0.5075343714780179,
+   "recomputed": -0.507534371478018,
+   "delta": "-1.110e-16",
+   "match": true
+  },
+  {
+   "metric": "ic.sign_consistent",
+   "summary": 0.5555555555555556,
+   "recomputed": 0.5555555555555556,
+   "delta": "+0.000e+00",
+   "match": true
+  },
+  {
+   "metric": "ic.n_ok",
+   "summary": 27,
+   "recomputed": 27,
+   "delta": "+0.000e+00",
+   "match": true
+  },
+  {
+   "metric": "pearson_ic.mean",
+   "summary": -0.04746507968341174,
+   "recomputed": -0.047465079683411744,
+   "delta": "-6.939e-18",
+   "match": true
+  },
+  {
+   "metric": "pearson_ic.t_stat",
+   "summary": -1.0540120990373125,
+   "recomputed": -1.0540120990373127,
+   "delta": "-2.220e-16",
+   "match": true
+  },
+  {
+   "metric": "decile.g0.mean_ret",
+   "summary": -0.00033543109002571585,
+   "recomputed": -0.0003354310900257135,
+   "delta": "+2.331e-18",
+   "match": true
+  },
+  {
+   "metric": "decile.g1.mean_ret",
+   "summary": -0.011167138406053644,
+   "recomputed": -0.011167138406053642,
+   "delta": "+1.735e-18",
+   "match": true
+  },
+  {
+   "metric": "decile.g2.mean_ret",
+   "summary": 7.330068314970382e-05,
+   "recomputed": 7.330068314970448e-05,
+   "delta": "+6.641e-19",
+   "match": true
+  },
+  {
+   "metric": "decile.g3.mean_ret",
+   "summary": -0.013604173905553588,
+   "recomputed": -0.013604173905553588,
+   "delta": "+0.000e+00",
+   "match": true
+  },
+  {
+   "metric": "decile.g4.mean_ret",
+   "summary": -0.002845369718702468,
+   "recomputed": -0.002845369718702468,
+   "delta": "+0.000e+00",
+   "match": true
+  },
+  {
+   "metric": "decile.g5.mean_ret",
+   "summary": -0.025255803414821636,
+   "recomputed": -0.025255803414821632,
+   "delta": "+3.469e-18",
+   "match": true
+  },
+  {
+   "metric": "decile.g6.mean_ret",
+   "summary": -0.0054214154491603085,
+   "recomputed": -0.005421415449160308,
+   "delta": "+8.674e-19",
+   "match": true
+  },
+  {
+   "metric": "decile.g7.mean_ret",
+   "summary": -0.003550716395902368,
+   "recomputed": -0.0035507163959023684,
+   "delta": "-4.337e-19",
+   "match": true
+  },
+  {
+   "metric": "decile.g8.mean_ret",
+   "summary": -0.0039058504097184764,
+   "recomputed": -0.0039058504097184755,
+   "delta": "+8.674e-19",
+   "match": true
+  },
+  {
+   "metric": "decile.g9.mean_ret",
+   "summary": -0.0030677734056022954,
+   "recomputed": -0.0030677734056022954,
+   "delta": "+0.000e+00",
+   "match": true
+  },
+  {
+   "metric": "decile.monotonic",
+   "summary": false,
+   "recomputed": false,
+   "delta": "exact",
+   "match": true
+  },
+  {
+   "metric": "decile.spread.ret",
+   "summary": -0.0027323423155765796,
+   "recomputed": -0.002732342315576582,
+   "delta": "-2.168e-18",
+   "match": true
+  },
+  {
+   "metric": "turnover.monthly",
+   "summary": 0.8986136600945952,
+   "recomputed": 0.8986136600945952,
+   "delta": "+0.000e+00",
+   "match": true
+  },
+  {
+   "metric": "turnover.quarterly",
+   "summary": 0.9107931630497408,
+   "recomputed": 0.9107931630497408,
+   "delta": "+0.000e+00",
+   "match": true
+  },
+  {
+   "metric": "coverage.pct_valid",
+   "summary": 0.9597,
+   "recomputed": 0.9597,
+   "delta": "+0.000e+00",
+   "match": true
+  },
+  {
+   "metric": "coverage.total_rows",
+   "summary": 130169,
+   "recomputed": 130169,
+   "delta": "+0.000e+00",
+   "match": true
+  },
+  {
+   "metric": "coverage.valid_rows",
+   "summary": 124924,
+   "recomputed": 124924,
+   "delta": "+0.000e+00",
+   "match": true
+  }
+ ],
+ "mismatches": [],
+ "summary_evaluation_keys": [
+  "coverage",
+  "decile_returns",
+  "direction",
+  "factor",
+  "factor_name",
+  "ic",
+  "layered_backtest",
+  "n_stocks_avg",
+  "n_weeks",
+  "pearson_ic",
+  "target",
+  "turnover"
+ ],
+ "summary_evaluation_has_version": false,
+ "summary_layered_backtest_has_version": false
+}

@@ -1,0 +1,63 @@
+== interface CA mentions ==
+2332:**load_adj_detail_window(rd, *, start_date, end_date, codes)**（R07-DATA-I8
+2334:`adj_detail(ts_code, trade_date, div_cash, div_bonus, div_transfer,
+3083:**CA Gate（WS5 → R07-DATA-I8 v2；事件源 = `adj_event` + `adj_detail`）**：
+3111:- 命中事件但缺 `adj_detail` 表 / (code, date) 无对应明细行 / 明细全 0-NULL
+3343:| 日K | `日K线数据---复权因子-经典技术指标--bs点缠论划线/`（全量 `19910101至*` + 增量 `YYYY-MM-DD至*` + `退市股/`） | `data/raw/daily/` | `ashare_ingest/import_daily.py` | `data/fact/daily_fact/daily_fact.parquet` → CH `daily` 层 5 表 + `stk_limit` + `adj_detail/adj_event`（`ch_ingest` 脚本） |
+
+== ca evidence README ==
+# R07-DATA-I8（I）：CA Gate 多年连续回测硬阻断 — 修复证据
+
+- 日期：2026-09-16
+- 发现：R07 报告 §2 `R07-DATA-I8`；原始复现 `r07-2026-09-16-gap-audit/evidence/data-audit/04-ca-gate-repro.txt`
+- 处置（R07 §4.6）：评估"多年连续"能力 → 本证据 = 能力落地（不再是"提供分段拼接口径"）
+
+## 1. 根因
+
+WS5 CA Gate 只读 `adj_event(ts_code, trade_date)`（**只有日期**）：窗口
+`(prev_exec, exec]` 内 held(PRE) 命中即 `ExecutionDataQualityError`。真实数据下
+月频策略 3 窗口必撞 2（R03-I8），分段 run 又因"每段从 initial_cash + 空仓位
+开始"丢失段间持仓/资金连续性 → 多年回测无连续产物（无法算 Sharpe/回撤）。
+
+## 2. 设计选择（口径）
+
+| 决策点 | V1 选择 | 理由 / 证据 |
+|---|---|---|
+| 事件源 | `adj_event`（日期） + **`adj_detail`（调整量）** | 明细全表 18,124,805 行（`adj_detail_semantics.txt`）；事件行 57,173 |
+| 资格日 | 除权日前收市持仓 = **PRE 持仓** | 跨 exec 间隔无成交，PRE 持仓 == 每个窗口日收市持仓 == 登记日持仓；买入日=事件日豁免（左开窗口）不变 |
+| 现金分红 | `cash += 资格股数 × div_cash/10`（元/10股）；下一次 exec 开盘前入账 | 手算样例 1；真实片段 600519 精确对拍 |
+| 送股/转增 | `qty/sellable ×= 1+(b+t)/10`；**不足 1 股 floor 舍去** | 数据含分数比例（1736 行非整数送转）；floor 与登记结算"零股顺延分配"不确定性的保守近似；Decimal 精确缩放（float 在 100×1.01 会少 1 股） |
+| 配股 | **不参与**：shares/cash 不变 + `CorporateActionWarning` | 参与需申购/中签近似与现金扣减；不参与时除权价格落差自然计入 NAV = 真实成本，且 share-unit 连续 |
+| 未支持 | fail-closed（负分红/缩股/负配股/明细缺失/停牌×CA） | 与 WS5 同级，不加宽 |
+| 停牌×CA | fail-closed | 冻结 mark 为除权前 basis；不发明（理论）价格 |
+
+## 3. 改动（platform 树）
+
+- `src/factorlab/adapters/read/market_open.py`：新增 `load_adj_detail_window`
+  （duckdb/ch 编译对；表缺失 typed empty；缺列/重复 fail fast；NaN 归一 NULL）
+- `src/factorlab/core/execution/corporate_actions.py`（新）：
+  `apply_corporate_actions`（PRE 状态 + 明细 → 调整后 PRE；Decimal floor 缩放；
+  配股 warning）
+- `src/factorlab/app/backtest/backtest.py`：`_assert_ca_gate` → `_apply_ca_adjustments`
+  （快照后、订单前；fail-closed 面见 `interface.md` §6 CA Gate v2）
+- `tests/test_backtest_ca_gate.py`（B1-B14 语义更新 + 明细 loader 合约 + 真实 CH 片段）
+- `tests/test_corporate_actions.py`（新，primitive 单测 15 条）
+- `tests/test_backtest_ca_multi_year.py`（新，4 年连续 + 存根必败）
+
+文档：`knowledge/contracts/interface.md` §4 loader + §6 CA Gate v2；
+`knowledge/design/platform/specs/2026-09-07-factorlab-daily-closeout-design.md`
+
+== multi_year_metrics.json ==
+{
+  "decisions": 53,
+  "events": 4,
+  "span_days": 1456,
+  "nav_start": 1000000.0,
+  "nav_end": 1570629.2850642926,
+  "total_return": 0.5706292850642927,
+  "sharpe_monthly_ann": 5.599701322099383,
+  "max_drawdown": -0.025669157922066588,
+  "returns_finite": true,
+  "rights_warnings": 1,
+  "trailing_unresolved": false
+}

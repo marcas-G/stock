@@ -1,0 +1,17 @@
+$ negative: copy valid strategy + unknown key
+策略 spec /tmp/opencode/r35_bad_strategy_unknown.yaml: 根 含未知键 
+['unknown_key_probe']（extra=forbid，允许 ['date', 'direction', 'execution', 
+'name', 'portfolio', 'regime', 'rules', 'signal', 'signal_kind', 
+'universe_override']）
+EXIT=1
+
+$ negative: NEXT_WINDOW without window
+OK low_lottery_top30_weekly
+EXIT=0
+$ factorlab lint (NEXT_WINDOW without minute_window)
+策略 spec /tmp/opencode/r35_bad_strategy_nextwindow.yaml: execution（L5） 非法: 
+1 validation error for ExecutionSpec
+  Value error, execution_timing=NEXT_WINDOW 必须提供 
+minute_window（窗口执行配置缺失，禁止隐式默认窗口） 
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+EXIT=1

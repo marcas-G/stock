@@ -1,0 +1,17 @@
+$ check_reviews.py --closure
+[G-REVIEWS] 台账闭环摘要（--closure）
+  · 行数 114：fixed-claimed 11、复查列已填 102、fixed-claimed 未复查 10
+    R07 8 行：R07-MIG-I1、R07-MIG-I2、R07-GATE-I3、R07-DATA-I4、R07-CONTRACT-I5、R07-STRAT-I6、R07-LINT-I7、R07-DATA-I8
+    R09 2 行：R09-PERF-I1、R09-PERF-M3
+  · 报告/复查列-台账状态告警 10 条：
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:33 报告称 [R01-DATA-C1] reopened，台账状态 'verified'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:33 报告称 [R02-C2] reopened，台账状态 'verified'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:34 报告称 [R01-TOOLS-I9] partial，台账状态 'verified'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:34 报告称 [R02-I6a] partial，台账状态 'verified'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:35 报告称 [R01-TOOLS-I3] partial，台账状态 'verified'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:35 报告称 [R02-I6b] partial，台账状态 'verified'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:36 报告称 [R01-ENG-I3] partial，台账状态 'verified'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:36 报告称 [R02-I7] partial，台账状态 'verified'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:37 报告称 [R01-TOOLS-I5] partial，台账状态 'verified'（reviewer 回填？）
+    [WARN] governance/evidence/reviews/r02-2026-09-15-strict-review/report.md:38 报告称 [R01-EVAL-I7] partial，台账状态 'verified'（reviewer 回填？）
+  · 说明：状态列回填属 reviewer 职责（README §流程 3），开发团队不代填；告警非致命。

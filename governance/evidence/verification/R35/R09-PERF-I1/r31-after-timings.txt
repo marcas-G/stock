@@ -1,0 +1,19 @@
+== R31 after/timings.md (I1 numbers) ==
+| 因子 | 状态 | 总墙钟 | read_data | fold | label | evaluate | backtest | persist | 进程峰值RSS |
+| am_pm_vol | ok（panel_rows=281338, 2024-01-02..2024-03-29） | 46736ms | 43145ms | 14106ms | 644ms | 551ms | 126ms | 161ms | 3383MB |
+| autocorr_micro | ok（panel_rows=281338, 2024-01-02..2024-03-29） | 53192ms | 49624ms | 23020ms | 643ms | 597ms | 121ms | 125ms | 3140MB |
+| vol_price_corr | ok（panel_rows=281338, 2024-01-02..2024-03-29） | 63129ms | 59540ms | 27294ms | 700ms | 597ms | 116ms | 143ms | 3596MB |
+
+== R07 data-i4 reconcile evidence tail ==
+  trade_cal    CH=           8,772 源=           8,772  一致
+  stock_basic  CH=           5,861 源=           5,861  一致
+daily 不变量:
+  不变量 pre_close/change 恒等式   违规=0  OK
+  不变量 pct_chg 恒等式            违规=0  OK
+  不变量 pre_close NULL 仅组内首行   违规=0  OK
+  daily 日期范围 CH=1990-12-19..2026-08-21 源=1990-12-19..2026-08-21  一致
+派生表:
+  stk_limit    CH=      17,854,764 期望=      17,854,764  日期 1996-12-16..2026-08-21  band违例=0 早于1996-12-16=0 悬空=0  一致
+  adj_detail   CH=      18,124,805 源=      18,124,805  uniq=      18,124,805  日期 1990-12-19..2026-08-21  一致
+  adj_event    CH=          57,173 源=          57,173  uniq=          57,173  一致
+全库一致

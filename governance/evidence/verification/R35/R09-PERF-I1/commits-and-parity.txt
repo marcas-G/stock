@@ -1,0 +1,47 @@
+== 2b4daae stat ==
+2b4daae feat(engine): 分钟折日物化共享融合路径（R09-PERF-I1）
+
+ platform/src/factorlab/core/engine/compute.py     |  28 +-
+ platform/src/factorlab/core/engine/minute_fold.py | 514 ++++++++++++++++++++++
+ platform/tests/test_minute_fold.py                | 319 ++++++++++++++
+ 3 files changed, 852 insertions(+), 9 deletions(-)
+
+== 7760357 stat ==
+7760357 feat(engine): R09-PERF-I2 条件取值 filter 单次聚合 + at_minute(k) 算子
+
+ platform/src/factorlab/core/engine/minute_fold.py | 206 ++++++++++++++++++----
+ platform/src/factorlab/core/engine/minute_gate.py |  24 ++-
+ platform/src/factorlab/core/ops/minute_ops.py     |  31 +++-
+ platform/tests/test_minute_fold.py                | 155 ++++++++++++++++
+ platform/tests/test_minute_gate.py                |  30 ++++
+ platform/tests/test_minute_ops.py                 |  65 +++++++
+ 6 files changed, 476 insertions(+), 35 deletions(-)
+
+== after dir (I1 evidence) ==
+governance/evidence/verification/R31/minute-perf/after
+governance/evidence/verification/R31/minute-perf/after/runs
+governance/evidence/verification/R31/minute-perf/after/runs/autocorr_micro
+governance/evidence/verification/R31/minute-perf/after/runs/vol_price_corr
+governance/evidence/verification/R31/minute-perf/after/runs/am_pm_vol
+governance/evidence/verification/R31/minute-perf/after/runs/vol_asym
+governance/evidence/verification/R31/minute-perf/after/specs
+governance/evidence/verification/R31/minute-perf/after/specs/autocorr_micro__2024-01-02_2024-03-29.yaml
+governance/evidence/verification/R31/minute-perf/after/specs/vol_asym__2024-01-02_2024-03-29.yaml
+governance/evidence/verification/R31/minute-perf/after/specs/am_pm_vol__2024-01-02_2024-03-29.yaml
+governance/evidence/verification/R31/minute-perf/after/specs/vol_price_corr__2024-01-02_2024-03-29.yaml
+governance/evidence/verification/R31/minute-perf/after/env.txt
+governance/evidence/verification/R31/minute-perf/after/timings.md
+governance/evidence/verification/R31/minute-perf/after/fold_parity.json
+
+== fold_parity (after, I1) factor summary ==
+## after window= 2024-01-02..2024-03-29 head= 
+  am_pm_vol: fused_vs_legacy={'bit_exact': True, 'n_bit_diff': 0, 'max_abs_delta': 0.0, 'max_rel_delta': 0.0} other=['rows', 'signal', 'f32_rounding_scale', 'wall_s_with_three_compute']
+  vol_asym: fused_vs_legacy={'bit_exact': True, 'n_bit_diff': 0, 'max_abs_delta': 0.0, 'max_rel_delta': 0.0} other=['rows', 'signal', 'f32_rounding_scale', 'wall_s_with_three_compute']
+  autocorr_micro: fused_vs_legacy={'bit_exact': False, 'n_bit_diff': 121839, 'max_abs_delta': 3.2782554626464844e-07, 'max_rel_delta': 1.1333333896413873} other=['rows', 'signal', 'f32_rounding_scale', 'wall_s_with_three_compute']
+  vol_price_corr: fused_vs_legacy={'bit_exact': False, 'n_bit_diff': 264892, 'max_abs_delta': 2.4165795663444456e-06, 'max_rel_delta': 3.1034615434515045e-06} other=['rows', 'signal', 'f32_rounding_scale', 'wall_s_with_three_compute']
+## after-p3 window= 2024-01-02..2024-03-29 head= b3acf070
+  am_pm_vol: fused_vs_legacy={'bit_exact': True, 'n_bit_diff': 0, 'max_abs_delta': 0.0, 'max_rel_delta': 0.0} other=['rows', 'signal', 'p3_vs_head', 'fold_s_legacy', 'fold_s_fused', 'fold_s_head', 'f32_rounding_scale', 'wall_s_with_four_compute']
+  vol_asym: fused_vs_legacy={'bit_exact': True, 'n_bit_diff': 0, 'max_abs_delta': 0.0, 'max_rel_delta': 0.0} other=['rows', 'signal', 'p3_vs_head', 'fold_s_legacy', 'fold_s_fused', 'fold_s_head', 'f32_rounding_scale', 'wall_s_with_four_compute']
+  autocorr_micro: fused_vs_legacy={'bit_exact': False, 'n_bit_diff': 121839, 'max_abs_delta': 3.2782554626464844e-07, 'max_rel_delta': 1.1333333896413873} other=['rows', 'signal', 'p3_vs_head', 'fold_s_legacy', 'fold_s_fused', 'fold_s_head', 'f32_rounding_scale', 'wall_s_with_four_compute']
+  vol_price_corr: fused_vs_legacy={'bit_exact': False, 'n_bit_diff': 264892, 'max_abs_delta': 2.4165795663444456e-06, 'max_rel_delta': 3.1034615434515045e-06} other=['rows', 'signal', 'p3_vs_head', 'fold_s_legacy', 'fold_s_fused', 'fold_s_head', 'f32_rounding_scale', 'wall_s_with_four_compute']
+  lunch_jump: fused_vs_legacy={'bit_exact': True, 'n_bit_diff': 0, 'max_abs_delta': 0.0, 'max_rel_delta': 0.0} other=['rows', 'signal', 'p3_vs_head', 'at_minute_vs_day_max_ifelse', 'fold_s_legacy', 'fold_s_fused', 'fold_s_head', 'f32_rounding_scale', 'wall_s_with_four_compute']

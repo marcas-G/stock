@@ -1,0 +1,4 @@
+$ pytest -q tests/test_run_strategy.py tests/test_strategy_doc.py -k universe_override
+........                                                                                                                                                                                         [100%]
+8 passed, 91 deselected in 5.94s
+EXIT=0

@@ -1,0 +1,39 @@
+== _mine_round refs in dossiers/tools ==
+knowledge/dossiers/factors/momentum_20d/vwap.md:143:  `runs/platform/_mine_rounds/_mine_round_2.md`。
+knowledge/dossiers/factors/momentum_20d/turnrank.md:152:  方向对照（已废弃）。变异记录见 `runs/platform/_mine_rounds/_mine_round_1.md`。
+knowledge/dossiers/factors/vol_run_energy/rl120_turn.md:158:  组合冗余；种子档案已记录本迭代。变异记录 `runs/platform/_mine_rounds/_mine_round_1.md`。
+knowledge/dossiers/factors/vol_run_energy/symrun.md:162:- 变异记录 `runs/platform/_mine_rounds/_mine_round_7.md`。
+
+== git show 458030b stat ==
+458030b fix(research): R07-MIG-I2 连带 — strategies 工具旧坐标
+
+ research/tools/strategies/README.md                | 4 ++--
+ research/tools/strategies/strategy_crash_bottom.py | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+== 04 evidence tail ==
+ `tests/test_strategy.py`、`tests/test_run_strategy_cli.py`、`tests/test_l5_rules.py`。
+-**文档**：`docs/strategies/`（含策略口径与结论）。
++**文档**：`knowledge/dossiers/strategies/`（含策略口径与结论）。
+diff --git a/research/tools/strategies/strategy_crash_bottom.py b/research/tools/strategies/strategy_crash_bottom.py
+index 2b2c5b5..7d38887 100644
+--- a/research/tools/strategies/strategy_crash_bottom.py
++++ b/research/tools/strategies/strategy_crash_bottom.py
+@@ -477,7 +477,7 @@ def monte_carlo(
+ 
+ def main() -> None:
+     ap = argparse.ArgumentParser(description="crash_bottom_leader 策略回测")
+-    ap.add_argument("--panel", default="results/crash_bottom_leader_timed/panel.parquet")
++    ap.add_argument("--panel", default="runs/platform/crash_bottom_leader_timed/panel.parquet")
+     ap.add_argument("--db", default="data/factorlab.duckdb")
+     ap.add_argument("--k", type=int, default=K_DEFAULT)
+     ap.add_argument("--cost-bps", type=int, default=COST_BPS_DEFAULT)
+
+### D. 残余（保留项，非活指针；门行级豁免）
+  1. knowledge/dossiers/factors/README.md:16,23 — R21 快照历史事实（旧落点为当时事实，README 明示不改写）
+  2. knowledge/README.md:4,12 / runs/README.md:3 / knowledge/dossiers/factors/README.md:7,8 — R24 路径映射注（旧→新，天然引用旧路径）
+  3. governance/workspace/migration-r04.md — 迁移台账（整档豁免）
+  4. governance/workspace/pending-items.md:136 — 「原表述保留如下」历史引文（research/tools/lib/）
+  5. governance/workspace/workspace-p0p8.md:126 — R24 前 worktree 盘点历史行
+  6. 全档案尾行 docs/factor-mining-playbook.md — 历史档案正文（README 明示「不改写」；现行=knowledge/handbooks/）
+  7. 挖矿在途 untracked 档案的 platform/results 引用 — 不属本批（纪律：不碰 M/??）；门已纳入 untracked 扫描

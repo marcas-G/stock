@@ -1,0 +1,53 @@
+== HEAD ==
+011ca16 ci: COLUMNS=200 全局 + 钉 typer/rich/click 版本（help 断言确定化）
+== untracked/modified relevant to audit ==
+?? governance/evidence/verification/R35/
+== r35 probe leftovers ==
+0
+== R35 evidence tree ==
+governance/evidence/verification/R35/_inventory/closure.txt
+governance/evidence/verification/R35/_inventory/commit-inventory.txt
+governance/evidence/verification/R35/_inventory/final-state.txt
+governance/evidence/verification/R35/_inventory/ledger-parse.txt
+governance/evidence/verification/R35/R07-CONTRACT-I5/next-window-grep.txt
+governance/evidence/verification/R35/R07-CONTRACT-I5/pytest-doc-paths.txt
+governance/evidence/verification/R35/R07-DATA-I4/ch-circ-mv-counts.txt
+governance/evidence/verification/R35/R07-DATA-I4/ch-circ-mv-value-sampling.txt
+governance/evidence/verification/R35/R07-DATA-I4/circ-gt-total-sample.txt
+governance/evidence/verification/R35/R07-DATA-I4/evidence-03-reconcile.txt
+governance/evidence/verification/R35/R07-DATA-I4/evidence-04-head.txt
+governance/evidence/verification/R35/R07-DATA-I8/contract-and-evidence.txt
+governance/evidence/verification/R35/R07-DATA-I8/pytest-ca-multiyear.txt
+governance/evidence/verification/R35/R07-DATA-I8/pytest-ca.txt
+governance/evidence/verification/R35/R07-DATA-I8/stub-kill-head.txt
+governance/evidence/verification/R35/R07-DATA-I8/symbols-and-tests.txt
+governance/evidence/verification/R35/R07-GATE-I3/injection-clean.txt
+governance/evidence/verification/R35/R07-GATE-I3/injection-red.txt
+governance/evidence/verification/R35/R07-LINT-I7/lint-arity-probe.txt
+governance/evidence/verification/R35/R07-MIG-I1/extcnt-and-index.txt
+governance/evidence/verification/R35/R07-MIG-I1/gates-structure.txt
+governance/evidence/verification/R35/R07-MIG-I2/git-and-residuals.txt
+governance/evidence/verification/R35/R07-MIG-I2/mine-round-and-458030b.txt
+governance/evidence/verification/R35/R07-MIG-I2/template-and-residual-scan.txt
+governance/evidence/verification/R35/R07-STRAT-I6/lint-strategy-negative.txt
+governance/evidence/verification/R35/R07-STRAT-I6/lint-strategy-real.txt
+governance/evidence/verification/R35/R07-STRAT-I6/pytest-cli-strategy.txt
+governance/evidence/verification/R35/R07-STRAT-I6/pytest-universe-override.txt
+governance/evidence/verification/R35/R08-DATA-I2/ch-delisted-adj-sample.txt
+governance/evidence/verification/R35/R08-DATA-I2/sidecar-and-tool.txt
+governance/evidence/verification/R35/R08-MET-I1/artifacts-current-state.txt
+governance/evidence/verification/R35/R08-MET-I1/task11-evidence.txt
+governance/evidence/verification/R35/R09-PERF-I1/commits-and-parity.txt
+governance/evidence/verification/R35/R09-PERF-I1/impl-tests-evidence.txt
+governance/evidence/verification/R35/R09-PERF-I1/pytest-minute-fold.txt
+governance/evidence/verification/R35/R09-PERF-I1/r31-after-timings.txt
+governance/evidence/verification/R35/R09-PERF-I2/catalog-at-minute.txt
+governance/evidence/verification/R35/R09-PERF-I2/fold-parity-extra.txt
+governance/evidence/verification/R35/R09-PERF-I2/parity-and-timings-detail.txt
+governance/evidence/verification/R35/R09-PERF-I2/pytest-catalog.txt
+governance/evidence/verification/R35/R09-PERF-M3/help-and-files.txt
+governance/evidence/verification/R35/R09-PERF-M3/pytest-profile.txt
+governance/evidence/verification/R35/R09-PERF-M3/smoke-blocked-analysis.txt
+governance/evidence/verification/R35/R09-PERF-M3/smoke-exit.txt
+governance/evidence/verification/R35/R09-PERF-M3/smoke-stderr.txt
+governance/evidence/verification/R35/R09-PERF-M3/smoke-stdout.txt

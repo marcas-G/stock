@@ -1,0 +1,127 @@
+====================================================================================================
+R08 指标独立复算  (tolerance: relative 1e-6)
+factor 样本: low_vol_20d, max_effect_20d_high, intraday_high_time
+====================================================================================================
+
+### low_vol_20d  direction=1
+[artifact] rows=934236 n_dates=178 n_iso_weeks=178 range=2023-02-10..2026-07-24
+[recomputed] n_weeks=178 n_ok=178
+[eval keys] ['coverage', 'decile_returns', 'direction', 'factor', 'factor_name', 'ic', 'layered_backtest', 'n_stocks_avg', 'n_weeks', 'pearson_ic', 'target', 'turnover']
+[evaluation has 'version'] False  (layered_backtest: False)
+metric                                    summary             recomputed          delta  match
+----------------------------------------------------------------------------------------------------
+n_weeks                                       178                    178     +0.000e+00  OK
+n_stocks_avg                    5037.921348314607      5037.921348314607     +0.000e+00  OK
+ic.mean                       0.07007485259689888    0.07007485259689888     +0.000e+00  OK
+ic.std                        0.22826811089508384     0.2282681108950838     -2.776e-17  OK
+ic.t_stat                       4.095688789051659       4.09568878905166     +8.882e-16  OK
+ic.ir                         0.30698485356593047    0.30698485356593047     +0.000e+00  OK
+ic.n_weeks                                    178                    178     +0.000e+00  OK
+ic.recent_26w_mean            0.08433017578054552    0.08433017578054552     +0.000e+00  OK
+ic.recent_26w_t                1.7062795668691169     1.7062795668691169     +0.000e+00  OK
+ic.sign_consistent              0.601123595505618      0.601123595505618     +0.000e+00  OK
+ic.n_ok                                       178                    178     +0.000e+00  OK
+pearson_ic.mean              0.016719672975505476   0.016719672975505476     +0.000e+00  OK
+pearson_ic.t_stat               1.206316741434878      1.206316741434878     +0.000e+00  OK
+decile.g0.mean_ret         -0.0004547073269183094 -0.00045470732691830986     -4.337e-19  OK
+decile.g1.mean_ret           0.002396231101381411  0.0023962311013814106     -4.337e-19  OK
+decile.g2.mean_ret           0.002563587990667151   0.002563587990667151     +0.000e+00  OK
+decile.g3.mean_ret           0.002756346071501891  0.0027563460715018906     -4.337e-19  OK
+decile.g4.mean_ret          0.0030577073222837164  0.0030577073222837164     +0.000e+00  OK
+decile.g5.mean_ret           0.003044518627763895   0.003044518627763895     +0.000e+00  OK
+decile.g6.mean_ret          0.0031187210883853286   0.003118721088385328     -4.337e-19  OK
+decile.g7.mean_ret           0.002716480089044489  0.0027164800890444886     -4.337e-19  OK
+decile.g8.mean_ret          0.0019970199824702706    0.00199701998247027     -4.337e-19  OK
+decile.g9.mean_ret           0.001688214923787849   0.001688214923787849     +0.000e+00  OK
+decile.monotonic                             True                   True          exact  OK
+decile.spread.ret          -0.0021429222507061583 -0.0021429222507061588     -4.337e-19  OK
+turnover.monthly               0.7606745293616993     0.7606745293616991     -2.220e-16  OK
+turnover.quarterly              0.804011367494198      0.804011367494198     +0.000e+00  OK
+coverage.pct_valid                         0.9599                 0.9599     +0.000e+00  OK
+coverage.total_rows                        934236                 934236     +0.000e+00  OK
+coverage.valid_rows                        896750                 896750     +0.000e+00  OK
+-> mismatches: 0
+
+### max_effect_20d_high  direction=-1
+[artifact] rows=934236 n_dates=178 n_iso_weeks=178 range=2023-02-10..2026-07-24
+[recomputed] n_weeks=178 n_ok=178
+[eval keys] ['coverage', 'decile_returns', 'direction', 'factor', 'factor_name', 'ic', 'layered_backtest', 'n_stocks_avg', 'n_weeks', 'pearson_ic', 'target', 'turnover']
+[evaluation has 'version'] False  (layered_backtest: False)
+metric                                    summary             recomputed          delta  match
+----------------------------------------------------------------------------------------------------
+n_weeks                                       178                    178     +0.000e+00  OK
+n_stocks_avg                    5037.921348314607      5037.921348314607     +0.000e+00  OK
+ic.mean                      -0.06990199193229453   -0.06990199193229454     -1.388e-17  OK
+ic.std                        0.18656307562893418    0.18656307562893418     +0.000e+00  OK
+ic.t_stat                      -4.998893219518214     -4.998893219518215     -8.882e-16  OK
+ic.ir                        -0.37468288779354464   -0.37468288779354475     -1.110e-16  OK
+ic.n_weeks                                    178                    178     +0.000e+00  OK
+ic.recent_26w_mean           -0.07528175101763804   -0.07528175101763804     +0.000e+00  OK
+ic.recent_26w_t               -1.7190067330436434    -1.7190067330436436     -2.220e-16  OK
+ic.sign_consistent             0.3595505617977528     0.3595505617977528     +0.000e+00  OK
+ic.n_ok                                       178                    178     +0.000e+00  OK
+pearson_ic.mean             -0.015100168279920638  -0.015100168279920636     +1.735e-18  OK
+pearson_ic.t_stat              -1.303603139801755    -1.3036031398017547     +2.220e-16  OK
+decile.g0.mean_ret           0.002486126856488325   0.002486126856488323     -2.168e-18  OK
+decile.g1.mean_ret           0.002183748423085346   0.002183748423085345     -8.674e-19  OK
+decile.g2.mean_ret           0.002913199662581355   0.002913199662581353     -1.735e-18  OK
+decile.g3.mean_ret           0.003321855142628299   0.003321855142628301     +2.168e-18  OK
+decile.g4.mean_ret           0.002960433212818741   0.002960433212818742     +8.674e-19  OK
+decile.g5.mean_ret          0.0029904743438126614   0.002990474343812662     +4.337e-19  OK
+decile.g6.mean_ret           0.002681056690477321   0.002681056690477322     +8.674e-19  OK
+decile.g7.mean_ret          0.0011712001855771696  0.0011712001855771704     +8.674e-19  OK
+decile.g8.mean_ret           0.001052660605685826   0.001052660605685827     +1.084e-18  OK
+decile.g9.mean_ret          0.0011234548412972277  0.0011234548412972286     +8.674e-19  OK
+decile.monotonic                            False                  False          exact  OK
+decile.spread.ret          -0.0013626720151910974 -0.0013626720151910944     +3.036e-18  OK
+turnover.monthly               0.7759366422944691     0.7759366422944688     -3.331e-16  OK
+turnover.quarterly             0.8215418325113102     0.8215418325113102     +0.000e+00  OK
+coverage.pct_valid                            1.0                 0.9599     -4.010e-02  MISMATCH
+coverage.total_rows                        896750                 934236     +3.749e+04  MISMATCH
+coverage.valid_rows                        896750                 896750     +0.000e+00  OK
+-> mismatches: 2
+   MISMATCH coverage.pct_valid: summary=1.0 recomputed=0.9599 delta=-4.010e-02
+   MISMATCH coverage.total_rows: summary=896750 recomputed=934236 delta=+3.749e+04
+
+### intraday_high_time  direction=-1
+[artifact] rows=130169 n_dates=32 n_iso_weeks=24 range=2024-01-05..2024-06-21
+[recomputed] n_weeks=27 n_ok=27
+[eval keys] ['coverage', 'decile_returns', 'direction', 'factor', 'factor_name', 'ic', 'layered_backtest', 'n_stocks_avg', 'n_weeks', 'pearson_ic', 'target', 'turnover']
+[evaluation has 'version'] False  (layered_backtest: False)
+metric                                    summary             recomputed          delta  match
+----------------------------------------------------------------------------------------------------
+n_weeks                                        27                     27     +0.000e+00  OK
+n_stocks_avg                     4626.62962962963       4626.62962962963     +0.000e+00  OK
+ic.mean                     -0.018879508695210115   -0.01887950869521011     +3.469e-18  OK
+ic.std                        0.25460098112964774     0.2546009811296478     +5.551e-17  OK
+ic.t_stat                     -0.3853119670272289   -0.38531196702722875     +1.665e-16  OK
+ic.ir                        -0.07415332262838494   -0.07415332262838491     +2.776e-17  OK
+ic.n_weeks                                     27                     27     +0.000e+00  OK
+ic.recent_26w_mean          -0.025599537121251268   -0.02559953712125127     -3.469e-18  OK
+ic.recent_26w_t               -0.5075343714780179     -0.507534371478018     -1.110e-16  OK
+ic.sign_consistent             0.5555555555555556     0.5555555555555556     +0.000e+00  OK
+ic.n_ok                                        27                     27     +0.000e+00  OK
+pearson_ic.mean              -0.04746507968341174  -0.047465079683411744     -6.939e-18  OK
+pearson_ic.t_stat             -1.0540120990373125    -1.0540120990373127     -2.220e-16  OK
+decile.g0.mean_ret         -0.00033543109002571585 -0.0003354310900257135     +2.331e-18  OK
+decile.g1.mean_ret          -0.011167138406053644  -0.011167138406053642     +1.735e-18  OK
+decile.g2.mean_ret          7.330068314970382e-05  7.330068314970448e-05     +6.641e-19  OK
+decile.g3.mean_ret          -0.013604173905553588  -0.013604173905553588     +0.000e+00  OK
+decile.g4.mean_ret          -0.002845369718702468  -0.002845369718702468     +0.000e+00  OK
+decile.g5.mean_ret          -0.025255803414821636  -0.025255803414821632     +3.469e-18  OK
+decile.g6.mean_ret         -0.0054214154491603085  -0.005421415449160308     +8.674e-19  OK
+decile.g7.mean_ret          -0.003550716395902368 -0.0035507163959023684     -4.337e-19  OK
+decile.g8.mean_ret         -0.0039058504097184764 -0.0039058504097184755     +8.674e-19  OK
+decile.g9.mean_ret         -0.0030677734056022954 -0.0030677734056022954     +0.000e+00  OK
+decile.monotonic                            False                  False          exact  OK
+decile.spread.ret          -0.0027323423155765796  -0.002732342315576582     -2.168e-18  OK
+turnover.monthly               0.8986136600945952     0.8986136600945952     +0.000e+00  OK
+turnover.quarterly             0.9107931630497408     0.9107931630497408     +0.000e+00  OK
+coverage.pct_valid                         0.9597                 0.9597     +0.000e+00  OK
+coverage.total_rows                        130169                 130169     +0.000e+00  OK
+coverage.valid_rows                        124924                 124924     +0.000e+00  OK
+-> mismatches: 0
+
+====================================================================================================
+TOTAL mismatches across 3 factors: 2
+====================================================================================================

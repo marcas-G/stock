@@ -1,0 +1,692 @@
+/data/students/gaolei/stock/governance/evidence/reviews/r08-2026-09-16-metrics-audit/evidence/labels/05_quality_survivorship.py:179: DeprecationWarning: `is_in` with a collection of the same datatype is ambiguous and deprecated.
+Please use `implode` to return to previous behavior.
+
+See https://github.com/pola-rs/polars/issues/22149 for more information.
+  mc = mid_codes.with_columns(pl.col("code").is_in(dead_set).alias("is_dead"))
+{
+  "quality": [
+    {
+      "factor": "low_vol_20d",
+      "target": "forward_return_5d",
+      "signal_null_ratio": {
+        "summary": 0.0335,
+        "recomputed": 0.0335,
+        "recomputed_raw": 0.03352916393066493,
+        "match": true,
+        "panel_rows": 4419466,
+        "signal_null_rows": 148181
+      },
+      "coverage": {
+        "weekly_rows": 934236,
+        "valid_rows": 896750,
+        "pct_valid": 0.9599,
+        "summary": {
+          "pct_valid": 0.9599,
+          "total_rows": 934236,
+          "valid_rows": 896750
+        },
+        "match": true
+      },
+      "summary_keys": [
+        "coverage",
+        "decile_returns",
+        "direction",
+        "factor",
+        "factor_name",
+        "ic",
+        "layered_backtest",
+        "n_stocks_avg",
+        "n_weeks",
+        "pearson_ic",
+        "target",
+        "turnover"
+      ],
+      "dead_signal_field_present": false
+    },
+    {
+      "factor": "vol_run_energy_symrun",
+      "target": "forward_return_5d",
+      "signal_null_ratio": {
+        "summary": 0.419,
+        "recomputed": 0.419,
+        "recomputed_raw": 0.4190494371485377,
+        "match": true,
+        "panel_rows": 5568343,
+        "signal_null_rows": 2333411
+      },
+      "coverage": {
+        "weekly_rows": 1171702,
+        "valid_rows": 683663,
+        "pct_valid": 0.5835,
+        "summary": {
+          "pct_valid": 0.5835,
+          "total_rows": 1171702,
+          "valid_rows": 683663
+        },
+        "match": true
+      },
+      "summary_keys": [
+        "coverage",
+        "decile_returns",
+        "direction",
+        "factor",
+        "factor_name",
+        "ic",
+        "layered_backtest",
+        "n_stocks_avg",
+        "n_weeks",
+        "pearson_ic",
+        "target",
+        "turnover"
+      ],
+      "dead_signal_field_present": false
+    }
+  ],
+  "dead_signal_existing_artifacts": [
+    {
+      "factor": "value_bp",
+      "signal_null_ratio": 1.0,
+      "coverage": {
+        "pct_valid": 0.0,
+        "total_rows": 0,
+        "valid_rows": 0
+      },
+      "n_weeks": 0,
+      "ic_mean": NaN,
+      "dead_signal_field": false
+    },
+    {
+      "factor": "small_cap",
+      "signal_null_ratio": 1.0,
+      "coverage": {
+        "pct_valid": 0.0,
+        "total_rows": 934236,
+        "valid_rows": 0
+      },
+      "n_weeks": 0,
+      "ic_mean": NaN,
+      "dead_signal_field": false
+    },
+    {
+      "factor": "cap_real2",
+      "signal_null_ratio": 1.0,
+      "coverage": {
+        "pct_valid": 0.0,
+        "total_rows": 61244,
+        "valid_rows": 0
+      },
+      "n_weeks": 0,
+      "ic_mean": NaN,
+      "dead_signal_field": false
+    },
+    {
+      "factor": "crash_bottom_leader_adv20",
+      "signal_null_ratio": 1.0,
+      "coverage": {
+        "pct_valid": 0.0,
+        "total_rows": 0,
+        "valid_rows": 0
+      },
+      "n_weeks": 0,
+      "ic_mean": NaN,
+      "dead_signal_field": false
+    },
+    {
+      "factor": "r07_idx_circmv_probe",
+      "signal_null_ratio": 1.0,
+      "coverage": {
+        "pct_valid": 0.0,
+        "total_rows": 6,
+        "valid_rows": 0
+      },
+      "n_weeks": 0,
+      "ic_mean": NaN,
+      "dead_signal_field": false
+    }
+  ],
+  "survivorship_low_vol_20d": {
+    "panel_rows": 4419466,
+    "date_max": "2026-07-31",
+    "fwd5_null_ratio_overall": 0.01803317414366351,
+    "fwd20_null_ratio_overall": 0.03604530502101385,
+    "last_25_dates": [
+      {
+        "date": "2026-06-29",
+        "n": 5205,
+        "fwd5_null_ratio": 0.005,
+        "fwd20_null_ratio": 0.0063
+      },
+      {
+        "date": "2026-06-30",
+        "n": 5202,
+        "fwd5_null_ratio": 0.0046,
+        "fwd20_null_ratio": 0.0056
+      },
+      {
+        "date": "2026-07-01",
+        "n": 5202,
+        "fwd5_null_ratio": 0.0044,
+        "fwd20_null_ratio": 0.0052
+      },
+      {
+        "date": "2026-07-02",
+        "n": 5203,
+        "fwd5_null_ratio": 0.0038,
+        "fwd20_null_ratio": 0.0038
+      },
+      {
+        "date": "2026-07-03",
+        "n": 5203,
+        "fwd5_null_ratio": 0.0038,
+        "fwd20_null_ratio": 0.0038
+      },
+      {
+        "date": "2026-07-06",
+        "n": 5203,
+        "fwd5_null_ratio": 0.0038,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-07",
+        "n": 5203,
+        "fwd5_null_ratio": 0.0033,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-08",
+        "n": 5203,
+        "fwd5_null_ratio": 0.0029,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-09",
+        "n": 5203,
+        "fwd5_null_ratio": 0.0031,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-10",
+        "n": 5203,
+        "fwd5_null_ratio": 0.0031,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-13",
+        "n": 5203,
+        "fwd5_null_ratio": 0.0023,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-14",
+        "n": 5201,
+        "fwd5_null_ratio": 0.0015,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-15",
+        "n": 5201,
+        "fwd5_null_ratio": 0.0015,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-16",
+        "n": 5201,
+        "fwd5_null_ratio": 0.0015,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-17",
+        "n": 5200,
+        "fwd5_null_ratio": 0.0017,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-20",
+        "n": 5200,
+        "fwd5_null_ratio": 0.0023,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-21",
+        "n": 5201,
+        "fwd5_null_ratio": 0.0021,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-22",
+        "n": 5201,
+        "fwd5_null_ratio": 0.0023,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-23",
+        "n": 5201,
+        "fwd5_null_ratio": 0.0019,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-24",
+        "n": 5201,
+        "fwd5_null_ratio": 0.0021,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-27",
+        "n": 5201,
+        "fwd5_null_ratio": 1.0,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-28",
+        "n": 5201,
+        "fwd5_null_ratio": 1.0,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-29",
+        "n": 5201,
+        "fwd5_null_ratio": 1.0,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-30",
+        "n": 5202,
+        "fwd5_null_ratio": 1.0,
+        "fwd20_null_ratio": 1.0
+      },
+      {
+        "date": "2026-07-31",
+        "n": 5202,
+        "fwd5_null_ratio": 1.0,
+        "fwd20_null_ratio": 1.0
+      }
+    ],
+    "first_10_dates": [
+      {
+        "date": "2023-01-03",
+        "n": 4904,
+        "fwd5_null_ratio": 0.0283,
+        "fwd20_null_ratio": 0.0285
+      },
+      {
+        "date": "2023-01-04",
+        "n": 4904,
+        "fwd5_null_ratio": 0.0279,
+        "fwd20_null_ratio": 0.0283
+      },
+      {
+        "date": "2023-01-05",
+        "n": 4904,
+        "fwd5_null_ratio": 0.0285,
+        "fwd20_null_ratio": 0.0283
+      },
+      {
+        "date": "2023-01-06",
+        "n": 4905,
+        "fwd5_null_ratio": 0.0283,
+        "fwd20_null_ratio": 0.0285
+      },
+      {
+        "date": "2023-01-09",
+        "n": 4905,
+        "fwd5_null_ratio": 0.0287,
+        "fwd20_null_ratio": 0.029
+      },
+      {
+        "date": "2023-01-10",
+        "n": 4905,
+        "fwd5_null_ratio": 0.0281,
+        "fwd20_null_ratio": 0.0281
+      },
+      {
+        "date": "2023-01-11",
+        "n": 4905,
+        "fwd5_null_ratio": 0.0283,
+        "fwd20_null_ratio": 0.0279
+      },
+      {
+        "date": "2023-01-12",
+        "n": 4905,
+        "fwd5_null_ratio": 0.029,
+        "fwd20_null_ratio": 0.0283
+      },
+      {
+        "date": "2023-01-13",
+        "n": 4905,
+        "fwd5_null_ratio": 0.0287,
+        "fwd20_null_ratio": 0.0281
+      },
+      {
+        "date": "2023-01-16",
+        "n": 4905,
+        "fwd5_null_ratio": 0.0287,
+        "fwd20_null_ratio": 0.0277
+      }
+    ],
+    "fwd20_null_window_end": {
+      "cut_date": "2026-07-03",
+      "nulls_in_last_20_dates": 104052,
+      "rows_in_last_20_dates": 109235,
+      "nulls_before": 55249,
+      "share_of_all_nulls_at_end": 0.6531785738947025
+    },
+    "fwd5_null_window_end": {
+      "cut_date": "2026-07-24",
+      "nulls_in_last_5_dates": 26018,
+      "rows_in_last_5_dates": 31208
+    },
+    "codes_total": 5346,
+    "codes_left_before_end": 144,
+    "nulls_from_codes_left_before_end": 44735,
+    "nulls_from_codes_present_at_end": 114566,
+    "codes_with_any_fwd20_null": 5346,
+    "top10_codes_by_fwd20_null": [
+      {
+        "code": "300344.SZ",
+        "rows": 797,
+        "null20": 797,
+        "null20_ratio": 1.0,
+        "first": "2023-01-03",
+        "last": "2026-04-21"
+      },
+      {
+        "code": "300391.SZ",
+        "rows": 790,
+        "null20": 790,
+        "null20_ratio": 1.0,
+        "first": "2023-01-03",
+        "last": "2026-04-10"
+      },
+      {
+        "code": "600355.SH",
+        "rows": 786,
+        "null20": 786,
+        "null20_ratio": 1.0,
+        "first": "2023-01-03",
+        "last": "2026-04-03"
+      },
+      {
+        "code": "002231.SZ",
+        "rows": 746,
+        "null20": 746,
+        "null20_ratio": 1.0,
+        "first": "2023-01-03",
+        "last": "2026-01-29"
+      },
+      {
+        "code": "300379.SZ",
+        "rows": 740,
+        "null20": 740,
+        "null20_ratio": 1.0,
+        "first": "2023-01-03",
+        "last": "2026-01-21"
+      },
+      {
+        "code": "603056.SH",
+        "rows": 739,
+        "null20": 739,
+        "null20_ratio": 1.0,
+        "first": "2023-01-03",
+        "last": "2026-01-20"
+      },
+      {
+        "code": "600200.SH",
+        "rows": 725,
+        "null20": 725,
+        "null20_ratio": 1.0,
+        "first": "2023-01-03",
+        "last": "2025-12-29"
+      },
+      {
+        "code": "603388.SH",
+        "rows": 690,
+        "null20": 690,
+        "null20_ratio": 1.0,
+        "first": "2023-01-03",
+        "last": "2025-11-10"
+      },
+      {
+        "code": "300280.SZ",
+        "rows": 670,
+        "null20": 670,
+        "null20_ratio": 1.0,
+        "first": "2023-01-03",
+        "last": "2025-10-13"
+      },
+      {
+        "code": "000851.SZ",
+        "rows": 665,
+        "null20": 665,
+        "null20_ratio": 1.0,
+        "first": "2023-01-03",
+        "last": "2025-09-26"
+      }
+    ],
+    "codes_present_at_end_with_gt30pct_fwd20_null": 16,
+    "top5_suspension_like": [
+      {
+        "code": "301666.SZ",
+        "rows": 73,
+        "null20": 26,
+        "null20_ratio": 0.3562,
+        "null5": 11,
+        "last": "2026-07-31"
+      },
+      {
+        "code": "001393.SZ",
+        "rows": 55,
+        "null20": 20,
+        "null20_ratio": 0.3636,
+        "null5": 5,
+        "last": "2026-07-31"
+      },
+      {
+        "code": "001237.SZ",
+        "rows": 50,
+        "null20": 20,
+        "null20_ratio": 0.4,
+        "null5": 5,
+        "last": "2026-07-31"
+      },
+      {
+        "code": "603435.SH",
+        "rows": 50,
+        "null20": 20,
+        "null20_ratio": 0.4,
+        "null5": 5,
+        "last": "2026-07-31"
+      },
+      {
+        "code": "688635.SH",
+        "rows": 47,
+        "null20": 20,
+        "null20_ratio": 0.4255,
+        "null5": 5,
+        "last": "2026-07-31"
+      }
+    ],
+    "mid_sample_fwd20_nulls_total": 55249,
+    "mid_sample_codes_with_nulls": 1035,
+    "top10_codes_mid_sample_fwd20_null": [
+      {
+        "code": "300344.SZ",
+        "rows_before_cut": 797,
+        "mid_null20": 797,
+        "mid_null_ratio": 1.0,
+        "signal_null_full": 797,
+        "rows_full": 797,
+        "last_full": "2026-04-21"
+      },
+      {
+        "code": "300391.SZ",
+        "rows_before_cut": 790,
+        "mid_null20": 790,
+        "mid_null_ratio": 1.0,
+        "signal_null_full": 790,
+        "rows_full": 790,
+        "last_full": "2026-04-10"
+      },
+      {
+        "code": "600355.SH",
+        "rows_before_cut": 786,
+        "mid_null20": 786,
+        "mid_null_ratio": 1.0,
+        "signal_null_full": 786,
+        "rows_full": 786,
+        "last_full": "2026-04-03"
+      },
+      {
+        "code": "002231.SZ",
+        "rows_before_cut": 746,
+        "mid_null20": 746,
+        "mid_null_ratio": 1.0,
+        "signal_null_full": 746,
+        "rows_full": 746,
+        "last_full": "2026-01-29"
+      },
+      {
+        "code": "300379.SZ",
+        "rows_before_cut": 740,
+        "mid_null20": 740,
+        "mid_null_ratio": 1.0,
+        "signal_null_full": 740,
+        "rows_full": 740,
+        "last_full": "2026-01-21"
+      },
+      {
+        "code": "603056.SH",
+        "rows_before_cut": 739,
+        "mid_null20": 739,
+        "mid_null_ratio": 1.0,
+        "signal_null_full": 739,
+        "rows_full": 739,
+        "last_full": "2026-01-20"
+      },
+      {
+        "code": "600200.SH",
+        "rows_before_cut": 725,
+        "mid_null20": 725,
+        "mid_null_ratio": 1.0,
+        "signal_null_full": 725,
+        "rows_full": 725,
+        "last_full": "2025-12-29"
+      },
+      {
+        "code": "603388.SH",
+        "rows_before_cut": 690,
+        "mid_null20": 690,
+        "mid_null_ratio": 1.0,
+        "signal_null_full": 690,
+        "rows_full": 690,
+        "last_full": "2025-11-10"
+      },
+      {
+        "code": "300280.SZ",
+        "rows_before_cut": 670,
+        "mid_null20": 670,
+        "mid_null_ratio": 1.0,
+        "signal_null_full": 670,
+        "rows_full": 670,
+        "last_full": "2025-10-13"
+      },
+      {
+        "code": "000851.SZ",
+        "rows_before_cut": 665,
+        "mid_null20": 665,
+        "mid_null_ratio": 1.0,
+        "signal_null_full": 665,
+        "rows_full": 665,
+        "last_full": "2025-09-26"
+      }
+    ],
+    "mid_null_nullcodes_left_before_end": 144,
+    "mid_null_nullcodes_present_at_end": 891,
+    "mid_nulls_from_dead_codes": 43914,
+    "mid_nulls_from_delisted_nondead": 792,
+    "mid_nulls_from_live_suspension_like": 10543,
+    "mid_live_codes_count": 891,
+    "top10_live_codes_mid_fwd20_null": [
+      {
+        "code": "002656.SZ",
+        "rows_before_cut": 845,
+        "mid_null20": 129,
+        "mid_null_ratio": 0.1527
+      },
+      {
+        "code": "600289.SH",
+        "rows_before_cut": 845,
+        "mid_null20": 74,
+        "mid_null_ratio": 0.0876
+      },
+      {
+        "code": "600777.SH",
+        "rows_before_cut": 845,
+        "mid_null20": 74,
+        "mid_null_ratio": 0.0876
+      },
+      {
+        "code": "600530.SH",
+        "rows_before_cut": 845,
+        "mid_null20": 68,
+        "mid_null_ratio": 0.0805
+      },
+      {
+        "code": "002309.SZ",
+        "rows_before_cut": 845,
+        "mid_null20": 68,
+        "mid_null_ratio": 0.0805
+      },
+      {
+        "code": "603377.SH",
+        "rows_before_cut": 845,
+        "mid_null20": 64,
+        "mid_null_ratio": 0.0757
+      },
+      {
+        "code": "002731.SZ",
+        "rows_before_cut": 845,
+        "mid_null20": 63,
+        "mid_null_ratio": 0.0746
+      },
+      {
+        "code": "300225.SZ",
+        "rows_before_cut": 845,
+        "mid_null20": 63,
+        "mid_null_ratio": 0.0746
+      },
+      {
+        "code": "600735.SH",
+        "rows_before_cut": 845,
+        "mid_null20": 63,
+        "mid_null_ratio": 0.0746
+      },
+      {
+        "code": "002564.SZ",
+        "rows_before_cut": 845,
+        "mid_null20": 61,
+        "mid_null_ratio": 0.0722
+      }
+    ],
+    "dead_codes_signal_all_null": {
+      "n_codes": 134,
+      "rows": 43941,
+      "share_panel_rows": 0.009942603925451626,
+      "last_year_hist": {
+        "2023": 47,
+        "2024": 48,
+        "2025": 30,
+        "2026": 9
+      },
+      "codes_present_at_end": 3,
+      "codes_present_at_end_list": [
+        "301583.SZ",
+        "688806.SH",
+        "301677.SZ"
+      ]
+    },
+    "dead_codes_adj_factor_all_null": 131,
+    "dead_codes_adj_factor_nonnull": 3
+  },
+  "r07_d5_gitignore_status": "evidence/ 下 data 目录已改名（R07 证据为 data-audit/；R29 为 data-t4/），git check-ignore 未命中（见 05_r07_d5_check.txt）",
+  "r07_d6_dead_signal_status": "仍开放：run.py 仅写 signal_null_ratio，无 dead_signal 字段/非零退出；R08 实证 run（pb 全空）exit 0 且 n_weeks=0 ic=nan（05_dead_signal_cli.out.txt）；v2 计划 Task 2 未实现（plan 未勾选）"
+}

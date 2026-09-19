@@ -1,0 +1,21 @@
+== sidecar ==
+-rw-rw-r-- 1 gaolei gaolei    968 9月  17 11:30 data/fact/daily_fact/delisted_adj_factor.meta.json
+-rw-rw-r-- 1 gaolei gaolei 374044 9月  17 11:30 data/fact/daily_fact/delisted_adj_factor.parquet
+rows 83967 cols ['code', 'trade_date', 'adj_factor']
+codes n/a
+shape: (3, 3)
+┌───────────┬────────────┬────────────┐
+│ code      ┆ trade_date ┆ adj_factor │
+│ ---       ┆ ---        ┆ ---        │
+│ str       ┆ date       ┆ f64        │
+╞═══════════╪════════════╪════════════╡
+│ 000005.SZ ┆ 2022-01-04 ┆ 9.908898   │
+│ 000005.SZ ┆ 2022-01-05 ┆ 9.828696   │
+│ 000005.SZ ┆ 2022-01-06 ┆ 9.856034   │
+└───────────┴────────────┴────────────┘
+meta: {'codes_requested': 185, 'codes_ok': 180, 'codes_failed': {'000004.SZ': 'ValueError: 000004.SZ: vendor 与 hfq/raw 漂移过大（rel_max_err=1.50e-01 > 5e-03）——拒绝填洞', '002808.SZ': 'ValueError: 002808.SZ: vendor 与 hfq/raw 漂移过大（rel_max_err=6.99e-03 > 5e-03）——拒绝填洞', '600608.SH': 'ValueError: 600608.SH: vendor 与 hfq/raw 漂移过大（rel_max_err=5.58e-01 > 5e-03）——拒绝填洞', '600636.SH': 'ValueError: 600636.SH: vendor 与 hfq/raw 漂移过大（rel_max_err=3.70e-02 > 5e-03）——拒绝填洞', '688287.SH': 'ValueError: 688287.SH: vendor 与 hfq/raw 漂移过大（rel_max_err=8.96e-01 > 5e-03）——拒绝填洞'}, 'rows': 83967, 'date_min': '2022-01-04', 'date_max': '2026-07-16', 'source': 'https://proxy.finance.qq.com/ifzqgtimg/appstock/app/fqkline/get', 'fetched_at': '2026-09-17T11:30:10.292814', 'start': '2022-01-01', 'end': '2026-09-17', 'codes': 180}
+
+== backfill tool + tests ==
+-rw-rw-r-- 1 gaolei gaolei 16911 9月  17 11:28 platform/tools/ch_ingest/delisted_adj_backfill.py
+-rw-rw-r-- 1 gaolei gaolei 12031 9月  17 11:28 platform/tools/ch_ingest/tests/test_delisted_adj_backfill.py
+19

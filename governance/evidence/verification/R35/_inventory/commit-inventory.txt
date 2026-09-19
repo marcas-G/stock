@@ -1,0 +1,38 @@
+== HEAD ==
+011ca16 ci: COLUMNS=200 全局 + 钉 typer/rich/click 版本（help 断言确定化）
+== claimed commits ==
+5919337   5919337 2026-09-16 fix(workspace): R07-MIG-I1 门回绿 — extcnt 旧坐标/索引重生/extsum snapshot
+ad43a87   ad43a87 2026-09-16 fix(workspace): R07-MIG-I1 循环 2 — turnrank_top10 snapshot 补齐
+79bbc79   79bbc79 2026-09-16 fix(workspace): R07-MIG-I2 档案模板根因 + 存量旧坐标机械清理
+458030b   458030b 2026-09-16 fix(research): R07-MIG-I2 连带 — strategies 工具旧坐标
+83bf9a2   83bf9a2 2026-09-16 fix(workspace): R07-GATE-I3 G-LEGACY 判据加固（tracked+untracked/裸 results/行级豁免）
+ffa78ef   ffa78ef 2026-09-16 docs(workspace): R07 §4.1 factor-mine 门纪律 + pending-items 残余改号 #27
+18e8531   18e8531 2026-09-16 fix(tools): R07-DATA-I4 circ_mv 派生重灌
+73f30f6   73f30f6 2026-09-16 docs(platform): R07-CONTRACT-I5 NEXT_WINDOW
+56f5f9e   56f5f9e 2026-09-16 feat(platform): 策略 lint 入口 + universe_override 运行链消费（R07-STRAT-I6）
+9e1fdaf   9e1fdaf 2026-09-16 feat(research): dry-run 明示 universe_override 消费语义（R07-STRAT-I6）
+16fbc84   16fbc84 2026-09-16 feat(platform): lint 静态校验库函数 arity（R07-LINT-I7）
+377432c   377432c 2026-09-16 feat(execution): CA Gate v2 — 除权事件开盘前调整，多年连续回测（R07-DATA-I8）
+b87ddd2   b87ddd2 2026-09-16 docs(interface): CA Gate v2（adj_detail + 开盘前调整）多年连续语义（R07-DATA-I8）
+2b4daae   2b4daae 2026-09-18 feat(engine): 分钟折日物化共享融合路径（R09-PERF-I1）
+7760357   7760357 2026-09-18 feat(engine): R09-PERF-I2 条件取值 filter 单次聚合 + at_minute(k) 算子
+df0c3b0   df0c3b0 2026-09-18 feat(engine): run --profile 分段计时（R09-M3）
+3c67c0d   3c67c0d 2026-09-16 fix(platform): R03-I6 — 分钟覆盖口径 fail|drop 开关 + 审计/告警 + coverage 只读辅助
+29d1e07   29d1e07 2026-09-16 fix(platform): R05-I4 — align_weekly 每周恰一个评估日期（分钟链多日期/n_weeks 虚高修复）
+== ancestry vs HEAD ==
+5919337 ancestor
+ad43a87 ancestor
+79bbc79 ancestor
+458030b ancestor
+83bf9a2 ancestor
+ffa78ef ancestor
+18e8531 ancestor
+73f30f6 ancestor
+56f5f9e ancestor
+9e1fdaf ancestor
+16fbc84 ancestor
+377432c ancestor
+b87ddd2 ancestor
+2b4daae ancestor
+7760357 ancestor
+df0c3b0 ancestor

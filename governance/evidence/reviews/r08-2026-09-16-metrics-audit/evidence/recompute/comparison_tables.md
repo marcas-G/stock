@@ -1,0 +1,102 @@
+
+### low_vol_20d (direction=1, n_ok=178, artifact rows=934236, n_dates=178/178 ISO weeks)
+| 指标 | summary | 复算 | Δ | 一致 |
+|---|---|---|---|---|
+| n_weeks | 178 | 178 | +0.000e+00 | OK |
+| n_stocks_avg | 5037.92135 | 5037.92135 | +0.000e+00 | OK |
+| ic.mean | 0.0700748526 | 0.0700748526 | +0.000e+00 | OK |
+| ic.std | 0.228268111 | 0.228268111 | -2.776e-17 | OK |
+| ic.t_stat | 4.09568879 | 4.09568879 | +8.882e-16 | OK |
+| ic.ir | 0.306984854 | 0.306984854 | +0.000e+00 | OK |
+| ic.n_weeks | 178 | 178 | +0.000e+00 | OK |
+| ic.recent_26w_mean | 0.0843301758 | 0.0843301758 | +0.000e+00 | OK |
+| ic.recent_26w_t | 1.70627957 | 1.70627957 | +0.000e+00 | OK |
+| ic.sign_consistent | 0.601123596 | 0.601123596 | +0.000e+00 | OK |
+| ic.n_ok | 178 | 178 | +0.000e+00 | OK |
+| pearson_ic.mean | 0.016719673 | 0.016719673 | +0.000e+00 | OK |
+| pearson_ic.t_stat | 1.20631674 | 1.20631674 | +0.000e+00 | OK |
+| decile.g0.mean_ret | -0.000454707327 | -0.000454707327 | -4.337e-19 | OK |
+| decile.g1.mean_ret | 0.0023962311 | 0.0023962311 | -4.337e-19 | OK |
+| decile.g2.mean_ret | 0.00256358799 | 0.00256358799 | +0.000e+00 | OK |
+| decile.g3.mean_ret | 0.00275634607 | 0.00275634607 | -4.337e-19 | OK |
+| decile.g4.mean_ret | 0.00305770732 | 0.00305770732 | +0.000e+00 | OK |
+| decile.g5.mean_ret | 0.00304451863 | 0.00304451863 | +0.000e+00 | OK |
+| decile.g6.mean_ret | 0.00311872109 | 0.00311872109 | -4.337e-19 | OK |
+| decile.g7.mean_ret | 0.00271648009 | 0.00271648009 | -4.337e-19 | OK |
+| decile.g8.mean_ret | 0.00199701998 | 0.00199701998 | -4.337e-19 | OK |
+| decile.g9.mean_ret | 0.00168821492 | 0.00168821492 | +0.000e+00 | OK |
+| decile.monotonic | True | True | exact | OK |
+| decile.spread.ret | -0.00214292225 | -0.00214292225 | -4.337e-19 | OK |
+| turnover.monthly | 0.760674529 | 0.760674529 | -2.220e-16 | OK |
+| turnover.quarterly | 0.804011367 | 0.804011367 | +0.000e+00 | OK |
+| coverage.pct_valid | 0.9599 | 0.9599 | +0.000e+00 | OK |
+| coverage.total_rows | 934236 | 934236 | +0.000e+00 | OK |
+| coverage.valid_rows | 896750 | 896750 | +0.000e+00 | OK |
+
+### max_effect_20d_high (direction=-1, n_ok=178, artifact rows=934236, n_dates=178/178 ISO weeks)
+| 指标 | summary | 复算 | Δ | 一致 |
+|---|---|---|---|---|
+| n_weeks | 178 | 178 | +0.000e+00 | OK |
+| n_stocks_avg | 5037.92135 | 5037.92135 | +0.000e+00 | OK |
+| ic.mean | -0.0699019919 | -0.0699019919 | -1.388e-17 | OK |
+| ic.std | 0.186563076 | 0.186563076 | +0.000e+00 | OK |
+| ic.t_stat | -4.99889322 | -4.99889322 | -8.882e-16 | OK |
+| ic.ir | -0.374682888 | -0.374682888 | -1.110e-16 | OK |
+| ic.n_weeks | 178 | 178 | +0.000e+00 | OK |
+| ic.recent_26w_mean | -0.075281751 | -0.075281751 | +0.000e+00 | OK |
+| ic.recent_26w_t | -1.71900673 | -1.71900673 | -2.220e-16 | OK |
+| ic.sign_consistent | 0.359550562 | 0.359550562 | +0.000e+00 | OK |
+| ic.n_ok | 178 | 178 | +0.000e+00 | OK |
+| pearson_ic.mean | -0.0151001683 | -0.0151001683 | +1.735e-18 | OK |
+| pearson_ic.t_stat | -1.30360314 | -1.30360314 | +2.220e-16 | OK |
+| decile.g0.mean_ret | 0.00248612686 | 0.00248612686 | -2.168e-18 | OK |
+| decile.g1.mean_ret | 0.00218374842 | 0.00218374842 | -8.674e-19 | OK |
+| decile.g2.mean_ret | 0.00291319966 | 0.00291319966 | -1.735e-18 | OK |
+| decile.g3.mean_ret | 0.00332185514 | 0.00332185514 | +2.168e-18 | OK |
+| decile.g4.mean_ret | 0.00296043321 | 0.00296043321 | +8.674e-19 | OK |
+| decile.g5.mean_ret | 0.00299047434 | 0.00299047434 | +4.337e-19 | OK |
+| decile.g6.mean_ret | 0.00268105669 | 0.00268105669 | +8.674e-19 | OK |
+| decile.g7.mean_ret | 0.00117120019 | 0.00117120019 | +8.674e-19 | OK |
+| decile.g8.mean_ret | 0.00105266061 | 0.00105266061 | +1.084e-18 | OK |
+| decile.g9.mean_ret | 0.00112345484 | 0.00112345484 | +8.674e-19 | OK |
+| decile.monotonic | False | False | exact | OK |
+| decile.spread.ret | -0.00136267202 | -0.00136267202 | +3.036e-18 | OK |
+| turnover.monthly | 0.775936642 | 0.775936642 | -3.331e-16 | OK |
+| turnover.quarterly | 0.821541833 | 0.821541833 | +0.000e+00 | OK |
+| coverage.pct_valid | 1 | 0.9599 | -4.010e-02 | MISMATCH |
+| coverage.total_rows | 896750 | 934236 | +3.749e+04 | MISMATCH |
+| coverage.valid_rows | 896750 | 896750 | +0.000e+00 | OK |
+
+### intraday_high_time (direction=-1, n_ok=27, artifact rows=130169, n_dates=32/24 ISO weeks)
+| 指标 | summary | 复算 | Δ | 一致 |
+|---|---|---|---|---|
+| n_weeks | 27 | 27 | +0.000e+00 | OK |
+| n_stocks_avg | 4626.62963 | 4626.62963 | +0.000e+00 | OK |
+| ic.mean | -0.0188795087 | -0.0188795087 | +3.469e-18 | OK |
+| ic.std | 0.254600981 | 0.254600981 | +5.551e-17 | OK |
+| ic.t_stat | -0.385311967 | -0.385311967 | +1.665e-16 | OK |
+| ic.ir | -0.0741533226 | -0.0741533226 | +2.776e-17 | OK |
+| ic.n_weeks | 27 | 27 | +0.000e+00 | OK |
+| ic.recent_26w_mean | -0.0255995371 | -0.0255995371 | -3.469e-18 | OK |
+| ic.recent_26w_t | -0.507534371 | -0.507534371 | -1.110e-16 | OK |
+| ic.sign_consistent | 0.555555556 | 0.555555556 | +0.000e+00 | OK |
+| ic.n_ok | 27 | 27 | +0.000e+00 | OK |
+| pearson_ic.mean | -0.0474650797 | -0.0474650797 | -6.939e-18 | OK |
+| pearson_ic.t_stat | -1.0540121 | -1.0540121 | -2.220e-16 | OK |
+| decile.g0.mean_ret | -0.00033543109 | -0.00033543109 | +2.331e-18 | OK |
+| decile.g1.mean_ret | -0.0111671384 | -0.0111671384 | +1.735e-18 | OK |
+| decile.g2.mean_ret | 7.33006831e-05 | 7.33006831e-05 | +6.641e-19 | OK |
+| decile.g3.mean_ret | -0.0136041739 | -0.0136041739 | +0.000e+00 | OK |
+| decile.g4.mean_ret | -0.00284536972 | -0.00284536972 | +0.000e+00 | OK |
+| decile.g5.mean_ret | -0.0252558034 | -0.0252558034 | +3.469e-18 | OK |
+| decile.g6.mean_ret | -0.00542141545 | -0.00542141545 | +8.674e-19 | OK |
+| decile.g7.mean_ret | -0.0035507164 | -0.0035507164 | -4.337e-19 | OK |
+| decile.g8.mean_ret | -0.00390585041 | -0.00390585041 | +8.674e-19 | OK |
+| decile.g9.mean_ret | -0.00306777341 | -0.00306777341 | +0.000e+00 | OK |
+| decile.monotonic | False | False | exact | OK |
+| decile.spread.ret | -0.00273234232 | -0.00273234232 | -2.168e-18 | OK |
+| turnover.monthly | 0.89861366 | 0.89861366 | +0.000e+00 | OK |
+| turnover.quarterly | 0.910793163 | 0.910793163 | +0.000e+00 | OK |
+| coverage.pct_valid | 0.9597 | 0.9597 | +0.000e+00 | OK |
+| coverage.total_rows | 130169 | 130169 | +0.000e+00 | OK |
+| coverage.valid_rows | 124924 | 124924 | +0.000e+00 | OK |

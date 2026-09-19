@@ -1,0 +1,32 @@
+# low_lottery_top30_weekly 产物清单（R08 独立核对）
+# backtest manifest: type=backtest_result schema=1 runtime=factorlab-m8-06c
+# execution_date_range: 2025-03-10 ~ 2025-04-01 timing=next_open
+# strategy manifest v1: signal=max_effect_20d_high dir=-1
+file                                                   rows  cols      bytes  sha256(match)
+artifacts/accounting.parquet                              5    10       3883            YES
+artifacts/assessment.parquet                            177     6       3857            YES
+artifacts/execution_artifact.parquet                      5    11       4352            YES
+artifacts/fills.parquet                                 176    13      14961            YES
+artifacts/orders.parquet                                177     4       2522            YES
+artifacts/positions.parquet                             270     5       3630            YES
+artifacts/state.parquet                                  10     3       1236            YES
+artifacts/valuation.parquet                             150     5       3646            YES
+nav/nav_series.parquet                                    5     4       1555            YES
+state/final_state.parquet                                31     6       2765            YES
+target_portfolio.parquet                                150     3       1610            YES
+rebalance_schedule.parquet                                5     1        531            YES
+
+note: 策略层无 summary.json（指标仅由 runner stdout 落到 R28 evidence/dossier；
+      本次已由产物独立复算并逐值对上，见 R08-strategy-audit-report.md §2.4）
+
+columns:
+  artifacts/execution_artifact.parquet: ['event_index', 'decision_date', 'execution_date', 'pre_cash', 'post_cash', 'nav_market_value', 'nav_nav', 'disp_fillable', 'disp_blocked_suspension', 'disp_blocked_limit_up', 'disp_blocked_limit_down']
+  artifacts/orders.parquet: ['event_index', 'code', 'side', 'quantity']
+  artifacts/assessment.parquet: ['event_index', 'code', 'side', 'quantity', 'disposition', 'fillable_price']
+  artifacts/fills.parquet: ['event_index', 'code', 'side', 'order_quantity', 'filled_quantity', 'reference_price', 'execution_price', 'gross_notional', 'commission', 'stamp_tax', 'transfer_fee', 'total_fees', 'effective_cash_delta']
+  artifacts/accounting.parquet: ['event_index', 'cash_before', 'buy_gross_notional', 'sell_gross_notional', 'commission', 'stamp_tax', 'transfer_fee', 'total_fees', 'net_cash_delta', 'cash_after']
+  artifacts/valuation.parquet: ['event_index', 'code', 'quantity', 'mark_price', 'market_value']
+  artifacts/state.parquet: ['event_index', 'stage', 'cash']
+  artifacts/positions.parquet: ['event_index', 'stage', 'code', 'quantity', 'sellable_quantity']
+  state/final_state.parquet: ['as_of_date', 'phase', 'cash', 'code', 'quantity', 'sellable_quantity']
+  nav/nav_series.parquet: ['execution_date', 'cash', 'market_value', 'nav']
