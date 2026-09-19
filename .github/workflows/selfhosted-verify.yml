@@ -5,6 +5,11 @@ name: Selfhosted Verify (CH/全量)
 # 是任意代码执行风险面（GitHub 官方安全建议：自托管 runner 仅配私有仓）。
 # 本机出网阻断 github.com：本 workflow 不使用任何 marketplace action（含
 # actions/checkout——改 git 直取）；远端动作下载若需要，请先在外部网络验证。
+#
+# 与 hosted CI 的分工：hosted 跑"干净 checkout 可绿"的离线门子集（ci.yml gates job）；
+# 本 workflow 的独有价值 = **宿主数据面**（真 CH + 在盘 parquet）。故不跑 `make gates`
+# 全量：其中 G-REVIEWS 校验台账引用的 runs/... 产物路径、G-DATAIFACE 含在途红——
+# 均为本机态门，干净 checkout 必红（见 ci.yml gates job 注释；门降级后再收编）。
 on:
   workflow_dispatch:
   repository_dispatch:
@@ -32,6 +37,7 @@ jobs:
     steps:
       # 不用 actions/checkout：github.com 在本机被阻断；git 走 SSH-over-443
       #（~/.ssh/config → ssh.github.com:443），且 runner 与仓库同机。
+      # 全量 fetch（非 shallow）：档案时效门等需 git 历史。
       - name: 同步代码（git 直取）
         run: |
           set -euo pipefail
@@ -42,8 +48,8 @@ jobs:
           else
             git remote add origin git@github.com:marcas-G/stock.git
           fi
-          git fetch -q --depth=1 origin "$GITHUB_SHA"
-          git checkout -q -f FETCH_HEAD
+          if [ -f .git/shallow ]; then git fetch -q --unshallow origin; else git fetch -q origin; fi
+          git checkout -q -f "$GITHUB_SHA"
           git clean -qfd
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git log --oneline -1
@@ -59,9 +65,6 @@ jobs:
             -e "./platform[dev]" \
             "httpx==0.28.1" "polars==1.44.1" "typer==0.27.2" "rich==15.0.0" \
             "click==8.5.0" "pytest-timeout==2.4.0"
-
-      - name: 常驻门 make gates
-        run: make gates
 
       # 平台全量：宿主有 CH，hosted CI 的"数据在盘假设"排除项在此**不必排除**。
       # 唯一排除：lob_fact tick e2e（tick 全线暂停 2026-09-19，见 issue #15；
