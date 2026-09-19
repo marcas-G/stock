@@ -1,0 +1,4 @@
+$ make check-r22-baseline
+platform/.venv/bin/python governance/ops/refresh_r22_baseline.py --check
+指纹一致 ✓ digest=d4e47b8a7913b043cc4b6909e24dfe100a812b46891f35538c11520ed7eebb51 （recorded_at=2026-09-19T17:25:01+0800）
+exit=0

@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "database": "factorlab",
+  "tables": {
+    "daily": {
+      "rows": 18226404,
+      "mtime": "2026-09-19 17:05:19+08:00"
+    },
+    "adj_factor": {
+      "rows": 18226404,
+      "mtime": "2026-09-19 17:05:22+08:00"
+    },
+    "daily_basic": {
+      "rows": 18226404,
+      "mtime": "2026-09-19 17:05:28+08:00"
+    },
+    "stk_limit": {
+      "rows": 17958979,
+      "mtime": "2026-09-19 17:05:42+08:00"
+    },
+    "stock_basic": {
+      "rows": 5879,
+      "mtime": "2026-09-19 17:05:29+08:00"
+    },
+    "trade_cal": {
+      "rows": 8791,
+      "mtime": "2026-09-19 17:05:28+08:00"
+    },
+    "moneyflow": {
+      "rows": 1119242,
+      "mtime": "2026-09-18 09:04:00+08:00"
+    },
+    "index_daily": {
+      "rows": 0,
+      "mtime": null
+    },
+    "bars_1m": {
+      "rows": 1878715920,
+      "mtime": "2026-09-18 01:18:34+08:00"
+    }
+  },
+  "digest": "d4e47b8a7913b043cc4b6909e24dfe100a812b46891f35538c11520ed7eebb51",
+  "old_digest": null,
+  "recorded_at": "2026-09-19T17:25:01+0800",
+  "refresh": "refresh-20260919-172501",
+  "commit": "372684518bf5a51874e19b5a1b65ad149e5ce558"
+}

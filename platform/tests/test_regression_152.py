@@ -15,6 +15,7 @@
 在 `00-baseline/specs/` 副本中移除（formula/date/params 逐字不变）。
 """
 
+# 基线最近刷新：2026-09-19T17:25:01+0800 指纹 sha256:d4e47b8a7913b043cc4b6909e24dfe100a812b46891f35538c11520ed7eebb51 刷新档 refresh-20260919-172501/（governance/ops/refresh_r22_baseline.py 自动维护）
 from __future__ import annotations
 
 import json

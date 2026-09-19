@@ -1,0 +1,3 @@
+$ platform/.venv/bin/python -m pytest governance/ops/tests/test_refresh_r22_baseline.py research/tools/factor_lib/tests/test_dossier_freshness.py research/tools/factor_lib/tests/test_index.py -q
+...................................                                      [100%]
+35 passed in 3.22s
