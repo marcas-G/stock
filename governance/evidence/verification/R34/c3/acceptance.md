@@ -101,3 +101,35 @@ POLARS_MAX_THREADS=1 platform/.venv/bin/python -m pytest \
   research/tools/factor_lib/tests/test_composite_index.py -q
 make index && bash governance/ops/gates.sh --structure | grep -A1 G-INDEX
 ```
+
+## 7. 修复轮（C3 终审 must-fix + 小项，2026-09-19）
+
+**Must-fix**：C2 落库 5 例 spec（`linear_rank/linear_weighted/ridge/pls/pca`）缺档案 →
+`--check`/`make index`/G-INDEX 红、`test_real_index_matches_generator` 失败（本文件 §1-§2
+原始输出为修复前历史态）。修复：
+
+- 5 份档案落 `knowledge/dossiers/composites/`：`linear_rank`/`linear_weighted` 用**真跑产物**
+  （C2 runs：IC -0.043226 / -0.032908，delta_vs_best 0.006391 / 0.016709，`lock_hash`
+  已接线 `6b00f85b…`）；`ridge`/`pls`/`pca` 如实标注**缺库未真跑**（scipy/sklearn absent，
+  compose fail fast，装库后按档案 §6 转真跑）。
+- 防复发：`test_real_repo_every_spec_has_dossier` 常驻断言（真实仓全量 spec↔档案成对 +
+  C1/C2 六例点名）。
+- CI（`.github/workflows/ci.yml` gates job）G-INDEX 步补 composite `--check`（干净检出
+  确定性绿；YAML 解析自检见 `fix_round_green.txt` 同批命令）。
+
+**回绿证据**：
+
+| 证据 | 结果 |
+|---|---|
+| `fix_round_red_green.txt` | 暂移 `ridge.md` → `--check` 点名红 exit=1、pytest 2 failed；恢复 → ✓ exit=0、14 passed |
+| `fix_round_green.txt` | `make index` exit=0；三索引 `--check` 全 ✓；composite 14 passed；全目录 1 failed/40 passed（唯一失败=存量 `turnrank_top2/5` 时效门，BASE 即红、CI 已 deselect） |
+| `gates_gindex_fix.txt` / `gates_structure_fix.txt` | G-INDEX 因子/策略/composite 三段全 ✓；唯一红 = G-BOUNDARY 4 处存量注释文案（C1 已记录） |
+
+**小项**：c2c3c4b 计划 `top_k_buffered` 文案改为锁定语义（空位从 `enter_k` **名次内**按
+`(signal, code_asc)` 确定性补入、不向 `enter_k` 外扩名额——终审引用的 `c4.md` 无此句，
+实际错误文案在该计划文件）；design §2 增一句截面边界说明（compute 自定截面切分，逐日口径
+由评估/baseline 提供）。A2（cx_demo 重跑刷新 `lock_hash`）**未执行**：见 b-report
+（cache_key 不变 → 自然重跑会命中缓存不重写 provenance；避免为此删除产物）。
+
+**注**：本工作树 `knowledge/index/factors.md` 因 11 个**未跟踪在途挖矿 spec** 重生成而漂移
+（228→239），非本流改动、不随本流提交（`fix_round_green.txt` 已留痕；干净检出 228↔228）。

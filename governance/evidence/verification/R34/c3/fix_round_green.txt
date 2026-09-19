@@ -1,0 +1,39 @@
+# Plan CX-C3 修复轮：索引门回绿 + make index 幂等 + 测试（最终态）
+
+$ make index
+platform/.venv/bin/python research/tools/factor_lib/build_index.py
+已生成 knowledge/index/factors.md（402 行）
+platform/.venv/bin/python research/tools/factor_lib/build_strategy_index.py
+已生成 knowledge/index/strategies.md（16 行）
+platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py
+已生成 knowledge/index/composites.md（15 行）
+exit=0
+
+# 注：factors.md 在本工作树含 11 个未跟踪在途挖矿 spec（research/factor/**，非本流）；
+#     生成物不随本流提交（精确 add），由挖矿流随 spec 一并归档。
+$ git status --short knowledge/index/
+ M knowledge/index/composites.md
+ M knowledge/index/factors.md
+
+$ platform/.venv/bin/python research/tools/factor_lib/build_index.py --check
+索引一致 ✓
+exit=0
+$ platform/.venv/bin/python research/tools/factor_lib/build_strategy_index.py --check
+策略索引一致 ✓
+exit=0
+$ platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py --check
+合成分索引一致 ✓
+exit=0
+
+$ POLARS_MAX_THREADS=1 platform/.venv/bin/python -m pytest research/tools/factor_lib/tests/test_composite_index.py -q
+..............                                                           [100%]
+14 passed in 0.09s
+
+$ POLARS_MAX_THREADS=1 platform/.venv/bin/python -m pytest research/tools/factor_lib/tests -q
+=========================== short test summary info ============================
+FAILED research/tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches
+1 failed, 40 passed in 2.07s
+pytest_exit=1
+
+# 唯一失败 = 存量 test_index 档案时效门（momentum_20d/turnrank_top2|top5 超 72h 缺档，
+# BASE 即红，属挖矿在途；CI 已精确 deselect）。本流新增用例全绿。

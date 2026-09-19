@@ -1,0 +1,33 @@
+# Plan CX-C3 修复轮：真实仓成对门负向→恢复演示（ridge 档案暂移）
+
+$ mv knowledge/dossiers/composites/ridge.md /tmp/opencode/ridge.md.fixbak
+$ platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py --check
+合成分索引成对门失败：
+ridge: spec 缺档案 knowledge/dossiers/composites/ridge.md
+exit=1
+
+$ POLARS_MAX_THREADS=1 platform/.venv/bin/python -m pytest research/tools/factor_lib/tests/test_composite_index.py -q
+=========================== short test summary info ============================
+FAILED research/tools/factor_lib/tests/test_composite_index.py::test_real_index_matches_generator
+FAILED research/tools/factor_lib/tests/test_composite_index.py::test_real_repo_every_spec_has_dossier
+2 failed, 12 passed in 0.11s
+pytest_exit=1
+
+$ mv /tmp/opencode/ridge.md.fixbak knowledge/dossiers/composites/ridge.md
+$ platform/.venv/bin/python research/tools/factor_lib/build_composite_index.py --check
+合成分索引一致 ✓
+exit=0
+
+$ POLARS_MAX_THREADS=1 platform/.venv/bin/python -m pytest research/tools/factor_lib/tests/test_composite_index.py -q
+..............                                                           [100%]
+14 passed in 0.11s
+pytest_exit=0
+
+# 残留检查
+$ git status --short knowledge/dossiers/composites/
+ M knowledge/dossiers/composites/_template.md
+?? knowledge/dossiers/composites/linear_rank.md
+?? knowledge/dossiers/composites/linear_weighted.md
+?? knowledge/dossiers/composites/pca.md
+?? knowledge/dossiers/composites/pls.md
+?? knowledge/dossiers/composites/ridge.md
