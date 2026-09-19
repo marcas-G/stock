@@ -1,0 +1,82 @@
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /data/students/gaolei/stock/research/composites/implementations/ridge_pls_pc │
+│ a.py:31 in _scipy_linalg                                                     │
+│                                                                              │
+│   28                                                                         │
+│   29 def _scipy_linalg():                                                    │
+│   30 │   try:                                                                │
+│ ❱ 31 │   │   from scipy import linalg                                        │
+│   32 │   except ImportError as exc:                       # pragma: no cover │
+│      - 环境相关                                                              │
+│   33 │   │   raise ImportError(                                              │
+│   34 │   │   │   "scipy 未安装：ridge 示例需要 scipy（平台 venv              │
+│      不新增依赖；"                                                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ModuleNotFoundError: No module named 'scipy'
+
+The above exception was the direct cause of the following exception:
+
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /data/students/gaolei/stock/platform/src/factorlab/surfaces/cli/main.py:494  │
+│ in compose                                                                   │
+│                                                                              │
+│   491 │   from factorlab.app.composite.runner import run_composite           │
+│   492 │                                                                      │
+│   493 │   try:                                                               │
+│ ❱ 494 │   │   result = run_composite(spec_path, results_dir=results_dir,     │
+│       out_dir=out_dir)                                                       │
+│   495 │   except (ValueError, FileNotFoundError) as exc:                     │
+│   496 │   │   console.print(f"错误: {exc}")                                  │
+│   497 │   │   raise typer.Exit(code=1) from exc                              │
+│                                                                              │
+│ /data/students/gaolei/stock/platform/src/factorlab/app/composite/runner.py:1 │
+│ 60 in run_composite                                                          │
+│                                                                              │
+│   157 │                                                                      │
+│   158 │   aligned = align_members(refs)                                      │
+│   159 │   X, index = build_X(aligned, refs)                                  │
+│ ❱ 160 │   y = call_compute(impl, X, spec.params)                             │
+│   161 │   validate_output(y, X.shape[0])                                     │
+│   162 │   frame = index.with_columns(pl.Series("signal", y,                  │
+│       dtype=pl.Float64))                                                     │
+│   163                                                                        │
+│                                                                              │
+│ /data/students/gaolei/stock/platform/src/factorlab/app/composite/runtime.py: │
+│ 182 in call_compute                                                          │
+│                                                                              │
+│   179 │   except ValueError as exc:                                          │
+│   180 │   │   raise ValueError(                                              │
+│   181 │   │   │   f"实现入口 {loaded.entrypoint!r} 签名不可解析: {exc}")     │
+│       from exc                                                               │
+│ ❱ 182 │   return np.asarray(compute(X, params))                              │
+│   183                                                                        │
+│   184                                                                        │
+│   185 def validate_output(y: Any, n: int) -> None:                           │
+│                                                                              │
+│ /data/students/gaolei/stock/research/composites/implementations/ridge_pls_pc │
+│ a.py:61 in ridge                                                             │
+│                                                                              │
+│   58                                                                         │
+│   59 def ridge(X, params):                                                   │
+│   60 │   """Ridge 闭式解：`w = (XsᵀXs + αI)⁻¹ Xsᵀz`，`y = Xs                 │
+│      w`（scipy.linalg.solve）。"""                                           │
+│ ❱ 61 │   linalg = _scipy_linalg()                                            │
+│   62 │   alpha = float(params.get("alpha", 1.0))                             │
+│   63 │   Xs = _standardize(X)                                                │
+│   64 │   z = _self_target(Xs)                                                │
+│                                                                              │
+│ /data/students/gaolei/stock/research/composites/implementations/ridge_pls_pc │
+│ a.py:33 in _scipy_linalg                                                     │
+│                                                                              │
+│   30 │   try:                                                                │
+│   31 │   │   from scipy import linalg                                        │
+│   32 │   except ImportError as exc:                       # pragma: no cover │
+│      - 环境相关                                                              │
+│ ❱ 33 │   │   raise ImportError(                                              │
+│   34 │   │   │   "scipy 未安装：ridge 示例需要 scipy（平台 venv              │
+│      不新增依赖；"                                                           │
+│   35 │   │   │   "装入 scipy 后本示例即可运行）") from exc                   │
+│   36 │   return linalg                                                       │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ImportError: scipy 未安装：ridge 示例需要 scipy（平台 venv 不新增依赖；装入 
+scipy 后本示例即可运行）

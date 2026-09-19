@@ -16,13 +16,18 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
+import re
 import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from factorlab.app.composite.runtime import (LoadedImpl, call_compute, load_impl,
+from factorlab.app.composite.runtime import (LoadedImpl, call_compute,
+                                             collect_environment,
+                                             environment_lock_hash, load_impl,
                                              validate_output)
 
 REPO = Path(__file__).resolve().parents[1]      # platform/
@@ -259,3 +264,78 @@ def test_validate_output_rejects_non_1d_and_bool():
         validate_output(np.array(1.0), 1)
     with pytest.raises(ValueError):
         validate_output(np.array([True, False]), 2)     # bool 不是 numeric
+
+
+# ================================================================
+# environment lock_hash（Plan CX-C2，design §8/§17）
+# ================================================================
+
+_ENV_LIBS = {"numpy", "polars", "scipy", "sklearn", "statsmodels"}
+
+
+def test_collect_environment_records_python_and_key_libs():
+    env = collect_environment()
+    assert env["python"] == sys.version
+    assert set(env["libs"]) == _ENV_LIBS
+    assert all(isinstance(v, str) and v for v in env["libs"].values())
+
+
+def test_environment_lock_hash_stable_in_same_environment():
+    first = environment_lock_hash()
+    second = environment_lock_hash()
+    assert first == second
+    assert re.fullmatch(r"[0-9a-f]{64}", first)
+
+
+def test_environment_lock_hash_changes_with_lib_version(monkeypatch):
+    """存根（常量）必败：任一关键库版本串变 → hash 必须变。"""
+    base = environment_lock_hash()
+    real_version = importlib.metadata.version
+
+    def fake_version(dist: str) -> str:
+        if dist == "numpy":
+            return "0.0.0+c2-monkeypatch"
+        return real_version(dist)
+
+    monkeypatch.setattr(importlib.metadata, "version", fake_version)
+
+    assert collect_environment()["libs"]["numpy"] == "0.0.0+c2-monkeypatch"
+    assert environment_lock_hash() != base
+
+
+def test_environment_lock_hash_changes_with_python_version(monkeypatch):
+    base = environment_lock_hash()
+    monkeypatch.setattr(sys, "version", "9.9.9 (C2 fake)")
+    assert environment_lock_hash() != base
+
+
+def test_collect_environment_records_absent_for_missing_lib(monkeypatch):
+    real_version = importlib.metadata.version
+
+    def fake_version(dist: str) -> str:
+        if dist == "statsmodels":
+            raise importlib.metadata.PackageNotFoundError(dist)
+        return real_version(dist)
+
+    monkeypatch.setattr(importlib.metadata, "version", fake_version)
+    assert collect_environment()["libs"]["statsmodels"] == "absent"
+
+
+def test_environment_lock_hash_distinguishes_present_vs_absent(monkeypatch):
+    real_version = importlib.metadata.version
+
+    def present(dist: str) -> str:
+        if dist == "statsmodels":
+            return "1.2.3"
+        return real_version(dist)
+
+    monkeypatch.setattr(importlib.metadata, "version", present)
+    present_hash = environment_lock_hash()
+
+    def absent(dist: str) -> str:
+        if dist == "statsmodels":
+            raise importlib.metadata.PackageNotFoundError(dist)
+        return real_version(dist)
+
+    monkeypatch.setattr(importlib.metadata, "version", absent)
+    assert environment_lock_hash() != present_hash

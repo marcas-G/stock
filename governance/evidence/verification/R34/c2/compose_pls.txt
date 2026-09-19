@@ -1,0 +1,82 @@
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /data/students/gaolei/stock/research/composites/implementations/ridge_pls_pc │
+│ a.py:51 in _sklearn_pls                                                      │
+│                                                                              │
+│   48                                                                         │
+│   49 def _sklearn_pls():                                                     │
+│   50 │   try:                                                                │
+│ ❱ 51 │   │   from sklearn.cross_decomposition import PLSRegression           │
+│   52 │   except ImportError as exc:                       # pragma: no cover │
+│      - 环境相关                                                              │
+│   53 │   │   raise ImportError(                                              │
+│   54 │   │   │   "scikit-learn 未安装：pls 示例需要 sklearn（平台 venv       │
+│      不新增依赖；"                                                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ModuleNotFoundError: No module named 'sklearn'
+
+The above exception was the direct cause of the following exception:
+
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /data/students/gaolei/stock/platform/src/factorlab/surfaces/cli/main.py:494  │
+│ in compose                                                                   │
+│                                                                              │
+│   491 │   from factorlab.app.composite.runner import run_composite           │
+│   492 │                                                                      │
+│   493 │   try:                                                               │
+│ ❱ 494 │   │   result = run_composite(spec_path, results_dir=results_dir,     │
+│       out_dir=out_dir)                                                       │
+│   495 │   except (ValueError, FileNotFoundError) as exc:                     │
+│   496 │   │   console.print(f"错误: {exc}")                                  │
+│   497 │   │   raise typer.Exit(code=1) from exc                              │
+│                                                                              │
+│ /data/students/gaolei/stock/platform/src/factorlab/app/composite/runner.py:1 │
+│ 60 in run_composite                                                          │
+│                                                                              │
+│   157 │                                                                      │
+│   158 │   aligned = align_members(refs)                                      │
+│   159 │   X, index = build_X(aligned, refs)                                  │
+│ ❱ 160 │   y = call_compute(impl, X, spec.params)                             │
+│   161 │   validate_output(y, X.shape[0])                                     │
+│   162 │   frame = index.with_columns(pl.Series("signal", y,                  │
+│       dtype=pl.Float64))                                                     │
+│   163                                                                        │
+│                                                                              │
+│ /data/students/gaolei/stock/platform/src/factorlab/app/composite/runtime.py: │
+│ 182 in call_compute                                                          │
+│                                                                              │
+│   179 │   except ValueError as exc:                                          │
+│   180 │   │   raise ValueError(                                              │
+│   181 │   │   │   f"实现入口 {loaded.entrypoint!r} 签名不可解析: {exc}")     │
+│       from exc                                                               │
+│ ❱ 182 │   return np.asarray(compute(X, params))                              │
+│   183                                                                        │
+│   184                                                                        │
+│   185 def validate_output(y: Any, n: int) -> None:                           │
+│                                                                              │
+│ /data/students/gaolei/stock/research/composites/implementations/ridge_pls_pc │
+│ a.py:79 in pls                                                               │
+│                                                                              │
+│   76                                                                         │
+│   77 def pls(X, params):                                                     │
+│   78 │   """PLS（sklearn `PLSRegression`；n_components 默认 1）预测内部目标  │
+│      `z`。"""                                                                │
+│ ❱ 79 │   PLSRegression = _sklearn_pls()                                      │
+│   80 │   n_components = int(params.get("n_components", 1))                   │
+│   81 │   Xs = _standardize(X)                                                │
+│   82 │   z = _self_target(Xs)                                                │
+│                                                                              │
+│ /data/students/gaolei/stock/research/composites/implementations/ridge_pls_pc │
+│ a.py:53 in _sklearn_pls                                                      │
+│                                                                              │
+│   50 │   try:                                                                │
+│   51 │   │   from sklearn.cross_decomposition import PLSRegression           │
+│   52 │   except ImportError as exc:                       # pragma: no cover │
+│      - 环境相关                                                              │
+│ ❱ 53 │   │   raise ImportError(                                              │
+│   54 │   │   │   "scikit-learn 未安装：pls 示例需要 sklearn（平台 venv       │
+│      不新增依赖；"                                                           │
+│   55 │   │   │   "装入 scikit-learn 后本示例即可运行）") from exc            │
+│   56 │   return PLSRegression                                                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ImportError: scikit-learn 未安装：pls 示例需要 sklearn（平台 venv 
+不新增依赖；装入 scikit-learn 后本示例即可运行）

@@ -1,0 +1,7 @@
+name: linear_rank
+members: [cx_demo_x1, cx_demo_x2]
+implementation:
+  entrypoint: research.composites.implementations.linear_rank:rank_average
+params: {}
+alignment: {join: intersection, missing_policy: reject}
+output: {name: signal}

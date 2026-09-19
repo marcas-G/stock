@@ -31,7 +31,8 @@ from factorlab.app.composite.evaluate import evaluate_composite
 from factorlab.app.composite.matrix import build_X
 from factorlab.app.composite.resolver import (COMPOSITES_DIRNAME, MemberRef,
                                               resolve_members)
-from factorlab.app.composite.runtime import call_compute, load_impl, validate_output
+from factorlab.app.composite.runtime import (call_compute, environment_lock_hash,
+                                             load_impl, validate_output)
 from factorlab.app.evaluate import DAILY_TARGET
 from factorlab.config import settings
 from factorlab.core.composite import (CompositeSpec, build_provenance, cache_key,
@@ -167,7 +168,8 @@ def run_composite(spec_path: str | Path, *, results_dir: str | Path | None = Non
         member_panels, target=DAILY_TARGET)
 
     provenance = build_provenance(spec, impl, spec.params, refs, spec.alignment,
-                                  output_hash=None)
+                                  output_hash=None,
+                                  env_lock_hash=environment_lock_hash())
     meta = {"name": spec.name, "definition_hash": def_hash}
     write_composite_artifact(out, frame, meta, provenance)
     # 读回磁盘事实（§8 嵌套 meta + 实际 output_hash）——两条路径返回同形结果

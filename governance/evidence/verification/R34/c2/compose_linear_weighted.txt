@@ -1,0 +1,3 @@
+linear_weighted: rows=435 cached=False ic_mean=-0.03290816326530612 
+delta_vs_best=0.0167091836734694 
+out=/data/students/gaolei/stock/runs/platform/composites/linear_weighted

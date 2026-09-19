@@ -9,13 +9,20 @@ design §7/§14/§15 冻结：
 
 `LoadedImpl` 额外携带 `git_commit`（§8 implementation.git_commit）：从实现文件向上
 找 `.git` 后 `git rev-parse HEAD`，不在仓库内为 None（缓存/provenance 记录用）。
+
+C2（design §8/§17）：`collect_environment` / `environment_lock_hash` 采集
+`sys.version` + 关键库（numpy/polars/scipy/sklearn/statsmodels）精确版本串
+（缺 → `absent`），稳定序列化（键排序）后 sha256——runner 写入
+`provenance.environment.lock_hash`（复现锚点，不 import 库本身）。
 """
 
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import importlib.util
 import inspect
+import json
 import re
 import subprocess
 import sys
@@ -28,6 +35,42 @@ import numpy as np
 
 _NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 _GIT_TIMEOUT = 10
+
+# 复现锚点采集面：键 = import 名（design/plan 文案），值 = distribution 名
+# （sklearn 的发行版名为 scikit-learn）。只查 metadata，不 import 库本身。
+_ENV_LIBS: tuple[tuple[str, str], ...] = (
+    ("numpy", "numpy"),
+    ("polars", "polars"),
+    ("scipy", "scipy"),
+    ("sklearn", "scikit-learn"),
+    ("statsmodels", "statsmodels"),
+)
+
+
+def collect_environment() -> dict:
+    """`sys.version` + 关键库精确版本串（缺 → `"absent"`）。
+
+    返回值形状冻结：`{"python": <sys.version>, "libs": {import 名: 版本串}}`。
+    缺库记 `absent`（不跳过、不报错——provenance 必须显式可区分缺库环境）。
+    """
+    libs: dict[str, str] = {}
+    for import_name, dist_name in _ENV_LIBS:
+        try:
+            libs[import_name] = importlib.metadata.version(dist_name)
+        except importlib.metadata.PackageNotFoundError:
+            libs[import_name] = "absent"
+    return {"python": sys.version, "libs": libs}
+
+
+def environment_lock_hash() -> str:
+    """environment → 稳定序列化（`sort_keys`）→ sha256 hex（design §8 environment.lock_hash）。
+
+    同一环境两次调用必须相等；任一版本串/`sys.version` 变 → hash 变（C2 验收）。
+    """
+    payload = collect_environment()
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                           ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)

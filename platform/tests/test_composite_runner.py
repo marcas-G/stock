@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import datetime
+import importlib.metadata
 import json
 import textwrap
 from pathlib import Path
@@ -30,6 +31,7 @@ from factorlab.app.composite.alignment import AlignmentError
 from factorlab.app.composite.artifact import read_composite_artifact
 from factorlab.app.composite.resolver import MemberResolutionError
 from factorlab.app.composite.runner import run_composite
+from factorlab.app.composite.runtime import environment_lock_hash
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 
 D1, D2, D3 = (datetime.date(2024, 1, 2), datetime.date(2024, 1, 3), datetime.date(2024, 1, 4))
@@ -335,6 +337,38 @@ def test_intersection_and_audit_counts(tmp_path):
     assert by_member["factor_A"].dropped_uncovered == 1
     assert by_member["factor_B"].rows == 5
     assert by_member["factor_B"].dropped_uncovered == 0
+
+
+def test_provenance_environment_lock_hash_written(tmp_path, monkeypatch):
+    """§8/§17 C2：runner 把 environment lock_hash 写入 provenance；环境变→hash 变。"""
+    runs = tmp_path / "runs"
+    write_factor(runs, "factor_A", 0.0)
+    write_factor(runs, "factor_B", 5.0)
+    entry, _ = write_impl(tmp_path, _COMPUTE_BODY)
+    spec = write_spec(tmp_path, "cx_demo", ["factor_A", "factor_B"], entry)
+
+    result = run_composite(spec, results_dir=runs)
+
+    lock = result.provenance["environment"]["lock_hash"]
+    assert isinstance(lock, str) and len(lock) == 64
+    assert lock == environment_lock_hash()      # 常量存根必败（与采集函数一致）
+    assert lock != "0" * 64
+
+    real_version = importlib.metadata.version
+
+    def fake_version(dist: str) -> str:
+        if dist == "numpy":
+            return "0.0.0+c2-monkeypatch"
+        return real_version(dist)
+
+    monkeypatch.setattr(importlib.metadata, "version", fake_version)
+    fresh = tmp_path / "runs2"
+    write_factor(fresh, "factor_A", 0.0)
+    write_factor(fresh, "factor_B", 5.0)
+    second = run_composite(spec, results_dir=fresh)
+    lock2 = second.provenance["environment"]["lock_hash"]
+    assert lock2 == environment_lock_hash()
+    assert lock2 != lock
 
 
 def test_composite_only_members_fail_with_target_guidance(tmp_path):
