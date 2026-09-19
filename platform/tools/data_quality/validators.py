@@ -232,6 +232,9 @@ def validate_daily(
         cond = (pl.col("_sym").is_in(list(reg.codes))
                 & pl.col("_date").is_not_null() & (pl.col("_date") < before)
                 & plausible)
+        if reg.after is not None:
+            cond = cond & (pl.col("_date") >= pl.lit(reg.after).str.to_date(
+                strict=False))
         hist_idx = pl.when(cond).then(pl.lit(i, dtype=pl.Int64)) \
             .otherwise(hist_idx)
     work = work.with_columns(hist_idx.alias("_hist_idx"))

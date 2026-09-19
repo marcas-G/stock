@@ -42,6 +42,11 @@ historic_unit_exceptions:
     before: "1994-01-01"
     factor: 5.0
     match_tol: 0.10
+  - codes: ["600602.SH"]
+    after: "1991-01-03"
+    before: "1992-12-01"
+    factor: 0.01
+    match_tol: 0.10
 """
 
 
@@ -65,10 +70,30 @@ def test_load_policy_shipped_yaml_matches_spec_values():
     assert (p.vwap_default_tol, p.vwap_pre_1995_tol,
             p.vwap_pre_1995_cutoff) == (0.01, 0.02, "1995-01-01")
     assert p.field_invalidity_null == ("adj_factor", "fq_factor")
-    assert len(p.historic_unit_exceptions) == 1
-    reg = p.historic_unit_exceptions[0]
-    assert reg.codes == ("000002.SZ", "000004.SZ")
-    assert (reg.before, reg.factor, reg.match_tol) == ("1994-01-01", 5.0, 0.10)
+    assert p.historic_unit_exceptions[0] == rules.HistoricUnitException(
+        codes=("000002.SZ", "000004.SZ"), before="1994-01-01", factor=5.0,
+        match_tol=0.10)
+    sh = next(r for r in p.historic_unit_exceptions
+              if r.codes == ("600602.SH",))
+    assert (sh.after, sh.before, sh.factor, sh.match_tol) == (
+        "1991-01-03", "1992-12-01", 0.01, 0.10)
+
+
+def test_shipped_registry_covers_t2b_unit_eras():
+    """T2b：登记均为 code×era 单位约定（含 after 下界），样本与 dominance 见 RCA。"""
+    p = rules.load_policy()
+    regs = p.historic_unit_exceptions
+    assert len(regs) == 15, "1（T2）+ 14（T2b 前 1996 单位 regime）"
+    by_code = {}
+    for r in regs:
+        for c in r.codes:
+            by_code.setdefault(c, []).append(r)
+    # 每个 T2b 登记项都有 era 下界（after）与 unit factor（≠1，除既有 T2 条目）
+    t2b = [r for r in regs if r.codes != ("000002.SZ", "000004.SZ")]
+    assert all(r.after is not None for r in t2b), "T2b era 必须带 after 下界"
+    assert all(r.factor != 1.0 for r in t2b), "登记只收单位因子（不得把 1.0 当例外）"
+    assert {"600602.SH", "600654.SH", "600651.SH", "600601.SH", "000017.SZ"} \
+        <= set(by_code)
 
 
 def test_load_policy_reads_values_from_given_path(tmp_path):
@@ -142,6 +167,20 @@ def test_registry_entry_bad_match_tol_rejected(tmp_path):
     with pytest.raises(ValueError) as ei:
         rules.load_policy(_write_policy(tmp_path, body))
     assert "historic_unit_exceptions[0].match_tol" in str(ei.value)
+
+
+def test_registry_entry_bad_after_rejected(tmp_path):
+    body = FULL.replace('after: "1991-01-03"', 'after: "not-a-date"')
+    with pytest.raises(ValueError) as ei:
+        rules.load_policy(_write_policy(tmp_path, body))
+    assert "historic_unit_exceptions[1].after" in str(ei.value)
+
+
+def test_registry_entry_after_on_or_after_before_rejected(tmp_path):
+    body = FULL.replace('after: "1991-01-03"', 'after: "1993-01-01"')
+    with pytest.raises(ValueError) as ei:
+        rules.load_policy(_write_policy(tmp_path, body))
+    assert "historic_unit_exceptions[1].after" in str(ei.value)
 
 
 def test_field_invalidity_requires_nonempty_string_list(tmp_path):

@@ -154,7 +154,8 @@ class RuleResult:
 class HistoricUnitException:
     """历史单位约定例外 registry 条目（daily-v2）：code 集合 × era × 单位因子。
 
-    ``before``（ISO date）为**开区间上界**：命中条件为 ``trade_date < before``。
+    ``after``（ISO date，可缺省）：闭区间下界（``trade_date >= after``）；
+    ``before``（ISO date）为**开区间上界**（``trade_date < before``）。
     ``match_tol``：``vwap / factor`` 相对 ``[low, high]`` 的放宽比例（用于把
     整数价取整行也纳入该代码的既有单位约定，同时排除真坏行）。
     """
@@ -163,6 +164,7 @@ class HistoricUnitException:
     before: str
     factor: float
     match_tol: float
+    after: str | None = None
 
 
 @dataclass(frozen=True)
@@ -287,6 +289,14 @@ def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
             if (not isinstance(codes, list) or not codes
                     or any(not isinstance(c, str) or not c for c in codes)):
                 problems.append(f"{base}.codes（须为非空字符串列表）")
+            after = entry.get("after")
+            if after is not None:
+                if not _iso_date(after):
+                    problems.append(f"{base}.after（须为 ISO 日期）")
+                elif _iso_date(entry.get("before")) \
+                        and after >= str(entry["before"]):
+                    problems.append(
+                        f"{base}.after（{after!r} 必须 < before {entry['before']!r}）")
             if not _iso_date(entry.get("before")):
                 problems.append(f"{base}.before（须为 ISO 日期）")
             for key in ("factor", "match_tol"):
@@ -309,7 +319,8 @@ def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
     exceptions = tuple(
         HistoricUnitException(
             codes=tuple(entry["codes"]), before=str(entry["before"]),
-            factor=float(entry["factor"]), match_tol=float(entry["match_tol"]))
+            factor=float(entry["factor"]), match_tol=float(entry["match_tol"]),
+            after=str(entry["after"]) if entry.get("after") is not None else None)
         for entry in registry)
     return DqPolicy(
         dq_policy_version=version,

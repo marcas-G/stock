@@ -372,6 +372,43 @@ def test_historic_unit_exception_rejects_corrupt_row_of_registered_code():
     _assert_absent(res, rules.HISTORIC_UNIT_EXCEPTION)
 
 
+# ── T2b：前 1996 单位 regime（after..before 双边界 era）───────────────────
+def _sh_row(day, close=10.0, amount=100.0):
+    """600602.SH 0.01 单位约定行：vwap = close/100。"""
+    return _row(symbol="600602.SH", trade_date=day, open=close, high=close,
+                low=close, close=close, volume=1000.0, amount=amount)
+
+
+def test_historic_unit_exception_era_after_boundary():
+    """era 有下界：after 之前 / before 之后的行不得降级（不得泛化到未登记年代）。"""
+    inside = _sh_row(D(1992, 6, 1))
+    res = _run(_frame([inside]), calendar=None)
+    _assert_hits(res, rules.HISTORIC_UNIT_EXCEPTION, rules.WARN, n=1)
+    _assert_absent(res, rules.VWAP_OUT_OF_RANGE)
+
+    before_era = _sh_row(D(1990, 12, 19))
+    res = _run(_frame([before_era]), calendar=None)
+    _assert_hits(res, rules.VWAP_OUT_OF_RANGE, rules.ERROR, n=1)
+    _assert_absent(res, rules.HISTORIC_UNIT_EXCEPTION)
+
+    after_era = _sh_row(D(1993, 1, 4))
+    res = _run(_frame([after_era]), calendar=None)
+    _assert_hits(res, rules.VWAP_OUT_OF_RANGE, rules.ERROR, n=1)
+    _assert_absent(res, rules.HISTORIC_UNIT_EXCEPTION)
+
+
+def test_historic_unit_exception_era_guard_rejects_deviation():
+    """era 内但背离单位约定 >10%（ratio≈0.12）→ 仍 VWAP ERROR。"""
+    bad = _sh_row(D(1992, 6, 1), amount=120.0)       # vwap=0.12 → /0.01=12
+    res = _run(_frame([bad]), calendar=None)
+    _assert_hits(res, rules.VWAP_OUT_OF_RANGE, rules.ERROR, n=1)
+    _assert_absent(res, rules.HISTORIC_UNIT_EXCEPTION)
+
+    edge = _sh_row(D(1992, 6, 1), amount=110.0)      # /0.01=11 = high*1.1 带边
+    res = _run(_frame([edge]), calendar=None)
+    _assert_absent(res, rules.VWAP_OUT_OF_RANGE)
+
+
 # ── ⑥ 证券状态与市场规则 ─────────────────────────────────────────────────
 def test_limit_breach_warn_and_first_day_exempt_info():
     """越界 → WARN；上市首日例外 → INFO（正常特殊状态，不隔离）。"""
