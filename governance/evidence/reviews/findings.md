@@ -310,3 +310,22 @@
   请求：a) 平台跑数据健康发布链（health.py publish 全历史或至少 2023-01→2026-09），
   b) 或为 UNKNOWN-LEGACY 提供 research opt-in 通道（含 manifest），
   c) 顺带：`flab data status --pretty` 报 USAGE 错（与全 CLI 的 pretty 约定不一致）。
+
+- **R31-CODEGEN-I1（数据腐蚀级，重要，2026-09-19）**：CH 后端表达式代码生成 bug——
+  复合表达式中直接对中间变量再次做窗口算子（如 `signal = -ts_rank(_rl, 120) * _energy * 2.0`）
+  会**静默产出全 NaN 信号**，无任何告警；组件逐一验证全部正常，把 `ts_rank(_rl,120)`
+  提升为独立中间行即恢复正常。定位过程：探针链
+  （`/tmp/opencode/probe/{tsrank,rl,energy,mid_tsrank,combine,combine2,neg,nested}_probe.yaml`）。
+  请求：a) 修复 codegen 对嵌套窗口算子的处理；b) 表达式编译后增加"全 NaN 即报错"的产出守卫
+  （全 NaN 信号通过静默评估 = 把 bug 变成错误结论）。复现 spec：
+  `research/factor/intraday/_oos2026/vol_run_energy_symrun_oos2026.yaml`（原版写法触发）。
+
+## R36 自托管 CI 首跑发现（2026-09-19，selfhosted CI）
+
+> 背景：上线自托管 runner（`gpu-server-1`）跑"宿主数据面"验证（平台全量 + CH 集成 +
+> 工具/研究/治理）时，逐项隔离出 heavy.sh 环境注入引发的真实缺陷。hosted CI 无 CH/
+> 无线程 env，长期未覆盖该路径。报告与探针：`governance/evidence/reviews/r36-2026-09-19-selfhosted-ci/`。
+
+| ID | 级 | 问题 | 关键位置 | 状态 | 修复说明（团队填） | 复查 |
+|---|---|---|---|---|---|---|
+| R36-CI-I1 | I | **`POLARS_MAX_THREADS` 改变 polars 浮点求和顺序 → backtest cash bridge「精确 `!=`」校验失败**：heavy.sh 默认注入 `POLARS_MAX_THREADS=8` 时 `flab strategy run` 产物校验抛 `ValueError: artifact cash bridge 破坏：post.cash != pre.cash + Σ delta`（实测差值 -1.27e-11 = 纯浮点噪声；无该 env 全绿）。影响：按 AGENTS.md 重任务协议经 heavy.sh 跑策略链即触发【实测】 | `platform/src/factorlab/core/domain/backtest.py:130`；复现：`governance/evidence/reviews/r36-2026-09-19-selfhosted-ci/probe/repro_cash_bridge.sh`；输出：`governance/evidence/reviews/r36-2026-09-19-selfhosted-ci/probe/output.txt` | open |  |  |
