@@ -18,13 +18,19 @@ import datetime
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Callable
 
 import polars as pl
 import pytest
 
-from factorlab.adapters.parquet_artifacts import SIGNAL_FILE, write_factor_artifacts
+from factorlab.adapters.parquet_artifacts import (SIGNAL_FILE,
+                                                 write_factor_artifacts)
 from factorlab.app.composite import MemberResolutionError, resolve_members
-from factorlab.core.composite import CompositeSpec
+from factorlab.app.composite.artifact import (read_composite_artifact,
+                                              write_composite_artifact)
+from factorlab.core.composite import (CompositeSpec, build_provenance,
+                                      definition_hash)
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 
 D1, D2, D3 = (datetime.date(2024, 1, 2), datetime.date(2024, 1, 3), datetime.date(2024, 1, 4))
@@ -60,30 +66,40 @@ def write_factor(root: Path, name: str, offset: float = 0.0,
 
 
 def write_composite(root: Path, name: str, offset: float = 0.0, *,
-                    definition_hash: str | None = "c0ffee",
-                    output: str = "signal",
-                    output_hash: str | None = None,
+                    member: str = "factor_A",
+                    member_hash: str = "a" * 64,
+                    artifact_name: str | None = None,
+                    mutate: Callable[[dict], None] | None = None,
                     raw_artifact: str | None = None) -> Path:
-    """真实落盘一个 composite artifact 目录（panel + artifact.json）。
+    """用 T3 真 writer（`write_composite_artifact`）落一个 composite artifact。
 
-    artifact.json 契约（T1 resolver 冻结；T3/T4 writer 必须对齐）：
-    `{name, signal_kind, output, definition_hash, output_hash}`；
-    output_hash = panel.parquet 字节 sha256。
+    artifact.json（spec §8 嵌套契约）：`signal_kind=composite` +
+    `composite.{name,definition_hash}` + `provenance.*` + `input_binding.x1..xK`。
+    `mutate(doc)` 在 writer 之后篡改 artifact.json（负路径测试专用）；
+    `raw_artifact` 直接覆盖整个文件（非法 JSON 测试）。
     """
     d = Path(root) / "composites" / name
-    d.mkdir(parents=True, exist_ok=True)
+    artifact_name = artifact_name or name
     frame = pl.DataFrame(_rows(offset))
-    frame.write_parquet(d / "panel.parquet")
-    actual = hashlib.sha256((d / "panel.parquet").read_bytes()).hexdigest()
+    spec = CompositeSpec.model_validate({
+        "name": artifact_name,
+        "members": [member],
+        "implementation": {"entrypoint": "pkg.mod:compute"},
+    })
+    impl = SimpleNamespace(entrypoint="pkg.mod:compute", source_hash="b" * 64,
+                           git_commit=None)
+    ref = SimpleNamespace(position=1, member=member, artifact_hash=member_hash)
+    prov = build_provenance(spec, impl, {}, [ref], spec.alignment, output_hash=None)
+    meta = {"name": artifact_name,
+            "definition_hash": definition_hash(spec, [member_hash])}
+    write_composite_artifact(d, frame, meta, prov)
     if raw_artifact is not None:
-        text = raw_artifact
-    else:
-        doc = {"name": name, "signal_kind": "composite", "output": output,
-               "output_hash": output_hash if output_hash is not None else actual}
-        if definition_hash is not None:
-            doc["definition_hash"] = definition_hash
-        text = json.dumps(doc)
-    (d / "artifact.json").write_text(text, encoding="utf-8")
+        (d / "artifact.json").write_text(raw_artifact, encoding="utf-8")
+    elif mutate is not None:
+        doc = json.loads((d / "artifact.json").read_text(encoding="utf-8"))
+        mutate(doc)
+        (d / "artifact.json").write_text(json.dumps(doc, ensure_ascii=False),
+                                         encoding="utf-8")
     return d
 
 
@@ -193,13 +209,15 @@ def test_factor_artifact_hash_changes_when_data_rewritten(tmp_path):
 
 
 # ================================================================
-# composite 成员（链式，§10）
+# composite 成员（链式，§8 嵌套契约 / §10）
 # ================================================================
 
-def test_resolve_composite_member(tmp_path):
+def test_resolve_composite_member_reads_nested_section8_contract(tmp_path):
+    """composite 读分支按 spec §8：composite/provenance/input_binding（T3 writer 同源）。"""
     root = tmp_path / "runs"
     write_factor(root, "factor_A", 1.0)
-    comp_dir = write_composite(root, "comp_1", 300.0, definition_hash="abc123")
+    comp_dir = write_composite(root, "comp_1", 300.0, member="factor_A",
+                               member_hash="abc123")
     refs = resolve_members(spec_with(["factor_A", "composites/comp_1"]), root)
     ref = refs[1]
 
@@ -208,11 +226,33 @@ def test_resolve_composite_member(tmp_path):
     assert ref.name == "comp_1"
     assert ref.position == 2
     assert ref.artifact_dir == comp_dir
-    assert ref.meta["definition_hash"] == "abc123"
+    assert ref.value_col == "signal"
+    assert ref.meta["composite"]["name"] == "comp_1"
+    nested_hash = ref.meta["composite"]["definition_hash"]
+    assert isinstance(nested_hash, str) and nested_hash
+    assert ref.meta["provenance"]["members"] == [
+        {"position": 1, "ref": "factor_A", "artifact_hash": "abc123"}]
+    assert ref.meta["input_binding"]["x1"] == {
+        "member": "factor_A", "artifact_hash": "abc123"}
     assert ref.frame.columns == ["date", "code", "signal"]
     assert ref.frame["signal"].to_list() == [300.0, 301.0, 310.0, 311.0, 320.0, 321.0]
     assert ref.artifact_hash == hashlib.sha256(
         (comp_dir / "panel.parquet").read_bytes()).hexdigest()
+
+
+def test_composite_chain_roundtrip_uses_t3_writer(tmp_path):
+    """链式读取回归：T3 writer 真产物 → resolver 读回（hash/meta/frame 一致）。"""
+    root = tmp_path / "runs"
+    write_factor(root, "factor_A", 1.0)
+    comp_dir = write_composite(root, "comp_1", 300.0, member="factor_A")
+    frame, meta, prov = read_composite_artifact(comp_dir)
+    ref = resolve_members(spec_with(["composites/comp_1"]), root)[0]
+
+    assert ref.artifact_hash == meta["output_hash"] == prov["output_hash"]
+    assert ref.meta["composite"]["definition_hash"] == \
+        meta["composite"]["definition_hash"]
+    assert ref.meta["provenance"]["implementation"]["source_hash"] == "b" * 64
+    assert ref.frame["signal"].to_list() == frame["signal"].to_list()
 
 
 def test_composite_missing_artifact_json_fails(tmp_path):
@@ -243,26 +283,89 @@ def test_composite_missing_panel_fails(tmp_path):
     assert "comp_1" in msg and str(d) in msg
 
 
-def test_composite_output_hash_mismatch_fails(tmp_path):
+def test_composite_signal_kind_must_be_composite(tmp_path):
+    """signal_kind 校验（F2）：非 composite 的目录不得被当成员消费。"""
     root = tmp_path / "runs"
-    write_composite(root, "comp_1", 0.0, output_hash="0" * 64)
+    write_composite(root, "comp_1", 0.0,
+                    mutate=lambda d: d.update(signal_kind="factor"))
     with pytest.raises(MemberResolutionError) as ei:
         resolve_members(spec_with(["composites/comp_1"]), root)
     msg = str(ei.value)
-    assert "comp_1" in msg and "hash" in msg
+    assert "signal_kind" in msg and "composite" in msg
 
 
-def test_composite_requires_definition_hash(tmp_path):
+def test_composite_nested_name_must_match_member(tmp_path):
+    """name 校验（F2）：artifact.composite.name 必须与成员名一致（防目录/内容错配）。"""
     root = tmp_path / "runs"
-    write_composite(root, "comp_1", 0.0, definition_hash=None)
+    write_composite(root, "comp_1", 0.0, artifact_name="other_comp")
+    with pytest.raises(MemberResolutionError) as ei:
+        resolve_members(spec_with(["composites/comp_1"]), root)
+    msg = str(ei.value)
+    assert "other_comp" in msg and "comp_1" in msg
+
+
+def test_composite_requires_nested_composite_block(tmp_path):
+    """§8 嵌套契约是唯一权威：无 `composite` 块的旧平铺 artifact 必须拒绝。"""
+    root = tmp_path / "runs"
+    d = write_composite(root, "comp_1", 0.0)
+    doc = json.loads((d / "artifact.json").read_text(encoding="utf-8"))
+    doc.pop("composite")
+    (d / "artifact.json").write_text(json.dumps(doc), encoding="utf-8")
+    with pytest.raises(MemberResolutionError) as ei:
+        resolve_members(spec_with(["composites/comp_1"]), root)
+    assert "嵌套" in str(ei.value)
+
+
+def test_composite_requires_nested_definition_hash(tmp_path):
+    """顶层 definition_hash 不能替代 `composite.definition_hash`（嵌套权威）。"""
+    root = tmp_path / "runs"
+    write_composite(root, "comp_1", 0.0,
+                    mutate=lambda d: d["composite"].pop("definition_hash"))
     with pytest.raises(MemberResolutionError) as ei:
         resolve_members(spec_with(["composites/comp_1"]), root)
     assert "definition_hash" in str(ei.value)
 
 
+def test_composite_requires_provenance_block(tmp_path):
+    root = tmp_path / "runs"
+    write_composite(root, "comp_1", 0.0, mutate=lambda d: d.pop("provenance"))
+    with pytest.raises(MemberResolutionError) as ei:
+        resolve_members(spec_with(["composites/comp_1"]), root)
+    assert "provenance" in str(ei.value)
+
+
+def test_composite_output_hash_authority_is_nested_provenance(tmp_path):
+    """provenance.output_hash 为权威：顶层 output_hash 正确也不得掩盖嵌套失配。"""
+    root = tmp_path / "runs"
+    write_composite(root, "comp_1", 0.0,
+                    mutate=lambda d: d["provenance"].update(output_hash="0" * 64))
+    with pytest.raises(MemberResolutionError) as ei:
+        resolve_members(spec_with(["composites/comp_1"]), root)
+    assert "output_hash" in str(ei.value)
+
+
+def test_composite_requires_input_binding(tmp_path):
+    root = tmp_path / "runs"
+    write_composite(root, "comp_1", 0.0, mutate=lambda d: d.pop("input_binding"))
+    with pytest.raises(MemberResolutionError) as ei:
+        resolve_members(spec_with(["composites/comp_1"]), root)
+    assert "input_binding" in str(ei.value)
+
+
+def test_composite_input_binding_must_match_provenance_members(tmp_path):
+    def _corrupt(doc: dict) -> None:
+        doc["input_binding"]["x1"]["artifact_hash"] = "f" * 64
+    root = tmp_path / "runs"
+    write_composite(root, "comp_1", 0.0, mutate=_corrupt)
+    with pytest.raises(MemberResolutionError) as ei:
+        resolve_members(spec_with(["composites/comp_1"]), root)
+    assert "x1" in str(ei.value)
+
+
 def test_composite_output_name_must_be_signal(tmp_path):
     root = tmp_path / "runs"
-    write_composite(root, "comp_1", 0.0, output="alpha")
+    write_composite(root, "comp_1", 0.0,
+                    mutate=lambda d: d.update(output="alpha"))
     with pytest.raises(MemberResolutionError) as ei:
         resolve_members(spec_with(["composites/comp_1"]), root)
     msg = str(ei.value)

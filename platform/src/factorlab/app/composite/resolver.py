@@ -8,9 +8,14 @@
 - `composites/<name>` → `<results_dir>/composites/<name>`（design §14 落点）；
   目录内 `artifact.json` + `panel.parquet`（面板经 `adapters.panel_store` 读单点）。
 
-composite `artifact.json` 读契约（T1 冻结；T3/T4 writer 必须对齐）：
-`{name, signal_kind, output: "signal", definition_hash, output_hash}`，
-`output_hash` = `panel.parquet` 字节 sha256（缺失则 resolver 自算；不一致 → FAIL）。
+composite `artifact.json` 读契约（design §8 嵌套；与 T3 writer `write_composite_artifact`
+同源，T4b-F1/F2）：
+- 顶层 `signal_kind == "composite"`、`output == "signal"`；
+- `composite.{name, definition_hash}`——name 必须与成员名一致（目录/内容错配拒绝），
+  definition_hash 以**嵌套**为权威（顶层平铺字段不替代）；
+- `provenance.{output_hash, members[...]}`——`output_hash` = `panel.parquet` 字节 sha256
+  （不含则 FAIL；不一致 → FAIL），members 为 `[{position,ref,artifact_hash}]`；
+- `input_binding.x1..xK`——与 provenance.members 逐位一致（member/artifact_hash）。
 
 provenance 锚点（design §8/§9）：MemberRef 携带 position/member/kind/artifact_hash/meta。
 只读：绝不回写/触碰成员 artifact。
@@ -97,6 +102,81 @@ def _load_factor(root: Path, position: int, token: str, name: str) -> MemberRef:
                      frame=frame, value_col="signal", meta=dict(meta or {}))
 
 
+def _validate_nested_contract(doc: dict, token: str, name: str,
+                              artifact_dir: Path) -> str:
+    """按 spec §8 校验 composite artifact.json 嵌套契约 → `output_hash`。
+
+    权威字段全在嵌套块（与 T3 writer 一致）：`composite.{name,definition_hash}`、
+    `provenance.{output_hash,members}`、`input_binding.x1..xK`。任何缺失/错配 →
+    MemberResolutionError（含成员名与目录），拒绝消费可疑 artifact。
+    """
+    if doc.get("signal_kind") != "composite":
+        raise _fail(token, artifact_dir,
+                    f"artifact signal_kind 必须为 'composite'，实际 "
+                    f"{doc.get('signal_kind')!r}（spec §8）")
+    nested = doc.get("composite")
+    if not isinstance(nested, dict):
+        raise _fail(token, artifact_dir,
+                    "缺 spec §8 嵌套 composite 块（需 composite.{name,definition_hash}）"
+                    "——旧平铺 artifact 不受支持，请用 write_composite_artifact 重新生成")
+    nested_name = nested.get("name")
+    if not isinstance(nested_name, str) or not nested_name:
+        raise _fail(token, artifact_dir, "缺 composite.name（spec §8）")
+    if nested_name != name:
+        raise _fail(token, artifact_dir,
+                    f"artifact composite.name={nested_name!r} 与成员名 {name!r} 不一致"
+                    f"（目录/内容错配，拒绝消费）")
+    top_name = doc.get("name")
+    if top_name is not None and top_name != nested_name:
+        raise _fail(token, artifact_dir,
+                    f"artifact 顶层 name={top_name!r} 与 composite.name={nested_name!r} 不一致")
+    definition_hash = nested.get("definition_hash")
+    if not isinstance(definition_hash, str) or not definition_hash:
+        raise _fail(token, artifact_dir,
+                    "缺 composite.definition_hash（spec §8，provenance/cache 必需；"
+                    "顶层平铺字段不替代）")
+    output = doc.get("output", "signal")
+    if output != "signal":
+        raise _fail(token, artifact_dir,
+                    f"composite output 名必须为 'signal'，实际 {output!r}")
+    prov = doc.get("provenance")
+    if not isinstance(prov, dict):
+        raise _fail(token, artifact_dir,
+                    "缺 spec §8 嵌套 provenance（需 output_hash/members）")
+    output_hash = prov.get("output_hash")
+    if not isinstance(output_hash, str) or not output_hash:
+        raise _fail(token, artifact_dir,
+                    "缺 provenance.output_hash（spec §8，panel 完整性锚点）")
+    members = prov.get("members")
+    if not isinstance(members, list) or not members:
+        raise _fail(token, artifact_dir,
+                    "缺 provenance.members（spec §8 [{position,ref,artifact_hash}]）")
+    binding = doc.get("input_binding")
+    if not isinstance(binding, dict):
+        raise _fail(token, artifact_dir,
+                    "缺 spec §8 input_binding（x1..xK → member/artifact_hash）")
+    expected_keys = {f"x{i}" for i in range(1, len(members) + 1)}
+    if set(binding) != expected_keys:
+        raise _fail(token, artifact_dir,
+                    f"input_binding 键必须为 {sorted(expected_keys)}，"
+                    f"实际 {sorted(binding)}")
+    for i, member in enumerate(members, 1):
+        ok = (isinstance(member, dict) and member.get("position") == i
+              and isinstance(member.get("ref"), str) and member["ref"]
+              and isinstance(member.get("artifact_hash"), str) and member["artifact_hash"])
+        if not ok:
+            raise _fail(token, artifact_dir,
+                        f"provenance.members[{i - 1}] 非法（需 position={i} + ref + "
+                        f"artifact_hash）: {member!r}")
+        entry = binding[f"x{i}"]
+        if (not isinstance(entry, dict) or entry.get("member") != member["ref"]
+                or entry.get("artifact_hash") != member["artifact_hash"]):
+            raise _fail(token, artifact_dir,
+                        f"input_binding.x{i} 与 provenance.members[{i - 1}] 不一致: "
+                        f"{entry!r}")
+    return output_hash
+
+
 def _load_composite(root: Path, position: int, token: str, name: str) -> MemberRef:
     artifact_dir = root / COMPOSITES_DIRNAME / name
     artifact_path = artifact_dir / COMPOSITE_ARTIFACT_NAME
@@ -112,29 +192,21 @@ def _load_composite(root: Path, position: int, token: str, name: str) -> MemberR
     if not isinstance(doc, dict):
         raise _fail(token, artifact_dir,
                     f"{COMPOSITE_ARTIFACT_NAME} 根结构必须是 dict，实际 {type(doc).__name__}")
-    output = doc.get("output", "signal")
-    if output != "signal":
-        raise _fail(token, artifact_dir,
-                    f"composite output 名必须为 'signal'，实际 {output!r}")
-    definition_hash = doc.get("definition_hash")
-    if not isinstance(definition_hash, str) or not definition_hash:
-        raise _fail(token, artifact_dir,
-                    "composite artifact 缺 definition_hash（provenance/cache 必需）")
+    declared_hash = _validate_nested_contract(doc, token, name, artifact_dir)
     panel_file = results_fs.panel_path(root, f"{COMPOSITES_DIRNAME}/{name}")
     try:
         panel = ParquetPanelStore().load_panel(root, f"{COMPOSITES_DIRNAME}/{name}")
     except Exception as exc:
         raise _fail(token, artifact_dir, f"composite panel 不可加载: {exc}") from exc
     actual_hash = _sha256_file(panel_file)
-    declared_hash = doc.get("output_hash")
-    if declared_hash is not None and declared_hash != actual_hash:
+    if declared_hash != actual_hash:
         raise _fail(token, artifact_dir,
-                    f"output_hash 与 panel.parquet 内容 hash 不一致："
-                    f"artifact={str(declared_hash)[:12]}… 磁盘={actual_hash[:12]}…")
+                    f"provenance.output_hash 与 panel.parquet 内容 hash 不一致："
+                    f"artifact={declared_hash[:12]}… 磁盘={actual_hash[:12]}…")
     frame = _normalize_frame(panel, "composite panel", token, artifact_dir)
     return MemberRef(position=position, member=token, kind="composite", name=name,
                      artifact_dir=artifact_dir, artifact_hash=actual_hash,
-                     frame=frame, value_col=output, meta=doc)
+                     frame=frame, value_col="signal", meta=doc)
 
 
 def resolve_members(spec: CompositeSpec, results_dir: str | Path) -> list[MemberRef]:
