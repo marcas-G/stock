@@ -1,0 +1,40 @@
+{
+  "bad": {
+    "n": 1115,
+    "vol_ratio": {
+      "count": 1115.0,
+      "mean": 0.529481,
+      "min": 0.0,
+      "50%": 0.539638,
+      "max": 1.000141
+    },
+    "amt_ratio": {
+      "count": 1115.0,
+      "mean": 0.566224,
+      "min": 0.0,
+      "50%": 0.594714,
+      "max": 1.0
+    },
+    "m_vwap_in_daily_band": 1060,
+    "d_vwap_in_minute_band": 3
+  },
+  "control": {
+    "n": 3000,
+    "vol_ratio": {
+      "count": 3000.0,
+      "mean": 0.99543,
+      "min": 0.0,
+      "50%": 0.999998,
+      "max": 1.046622
+    },
+    "amt_ratio": {
+      "count": 3000.0,
+      "mean": 0.995427,
+      "min": 0.0,
+      "50%": 0.999988,
+      "max": 1.046515
+    },
+    "m_vwap_out_of_band": 5
+  },
+  "conclusion": "分钟聚合在对照日与 daily 一致（vol/amt ratio≈1）；异常日 daily 总量为分钟总量的 ~1.9×且 daily vwap 越自身 OHLC 带 → 异常日 daily amount/volume 损坏（TRUE_ERROR，M3 用 bars_1m 重建）"
+}
