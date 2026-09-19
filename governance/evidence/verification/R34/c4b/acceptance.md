@@ -94,15 +94,40 @@ POLARS_MAX_THREADS=1 platform/.venv/bin/python -m pytest \
 `stock/tests/test_run_factor.py`（R8 包内归位后该文件已不存在）→ `FileNotFoundError`。
 该测试文件不在本计划改动集（`git status` 未见改动），失败早于被测逻辑执行。
 
-## 4. 遗留
+## 4. C4b 收口（2026-09-19）：`top_k_buffered` YAML 入口 + 打印
 
-1. **buffered 的 YAML 入口未加**：`core/strategy/spec_io.py` 不在本工作流文件授权内
-   （Plan 的 Files 清单只列 `spec/constructor`），当前 `portfolio` 只认 `top_k`。
-   程序化入口已通（`StrategySpec(selection=SelectionSpec(method="top_k_buffered", ...))`
-   → `run_strategy`）；建议后续在 `portfolio` 增 `enter_k/retain_k`（与 `top_k` 互斥）
-   并补 spec_io 测试。
-2. `research/tools/strategies/run_strategy.py` 展示行打印 `s.selection.k`（buffered 下为
-   None）——research/tools 属 B 流边界，未触碰；随 YAML 入口一并修。
+原始遗留 ①② 已修复（授权新增范围：`doc.py` / `spec_io.py`（唯一 YAML 解析点，最小接线）/
+`research/tools/strategies/run_strategy.py` + 对应 tests）：
+
+- `core/strategy/doc.py::PortfolioSpec`：YAML `portfolio:` 双形态契约——
+  `method: top_k|top_k_buffered`（缺省 top_k）；`top_k`（既有权名）vs
+  `enter_k/retain_k` 互斥/缺失/`retain_k>=enter_k`/strict int **校验单一来源 =
+  `SelectionSpec`**（`to_selection()` 透传，不复制规则）；`weighting`/
+  `gross_exposure`/`rebalance_frequency` 原值透传（校验归 `WeightingSpec`/
+  `StrategySpec`，既有错误语义零变化）。
+- `core/strategy/spec_io.py`：`_PORTFOLIO_KEYS` 增 `method/enter_k/retain_k`；
+  `_build_strategy` 改经 `PortfolioSpec`→`to_selection()` 映射（top_k 形态逐字等价）。
+- `research/tools/strategies/run_strategy.py`：`--dry-run` 打印 buffered 时显示
+  `method=top_k_buffered enter_k=... retain_k=...`（不再 `k=None`）；top_k 形态保持
+  `top_k=...` token（既有 CLI 测试零回归）。
+- 测试：YAML 双形态 round-trip、互斥/缺失/类型/未知 method 报错（`test_strategy_doc.py`）、
+  buffered YAML 全链 E2E（`test_run_strategy.py`，close 信号 D4 对照 top_k {A,B} vs
+  buffered 保留 {A,C}）、CLI 打印断言（`research/tools/strategies/tests/test_run_strategy_cli.py`）。
+- 证据：`pytest_yaml_closeout.txt`（指定命令 99 passed；四文件 202 passed）、
+  `regression_yaml_closeout.txt`（platform sweep 414 passed/3 skipped/2 存量红；
+  research strategies 47 passed/2 存量红——两条 integration 为 DQ-M1 读取门
+  partition=2025-03-31 UNKNOWN，C4 acceptance §3 同款存量）。
+- 遗留 ①② 关闭；本轮无新增遗留（`platform/tests` 指定命令与四文件套件零回归）。
+
+（以下为 C4b 首轮记录，遗留 ①② 状态更新见本节。）
+
+## 5. 遗留（首轮记录）
+
+1. ~~**buffered 的 YAML 入口未加**~~ **已关闭（§4）**：`PortfolioSpec` + spec_io 接线，
+   YAML `method: top_k_buffered` 可用（`test_strategy_doc.py`/`test_run_strategy.py` 锁定）。
+2. ~~`research/tools/strategies/run_strategy.py` 展示行打印 `s.selection.k`~~ **已关闭（§4）**：
+   buffered 打印 `method=top_k_buffered enter_k/retain_k`；CLI 打印断言落
+   `research/tools/strategies/tests/test_run_strategy_cli.py`。
 3. `_load_composite_signal` 对 legacy 产物保留 `meta.get("frequency") or "1d"` 回退
    （C4b 前的旧 artifact 无显式字段）；新写入恒显式。
 4. buffered + score_weighted 组合下，持有状态 = 实际有权重的建仓行（s'=0 不占缓冲位）
