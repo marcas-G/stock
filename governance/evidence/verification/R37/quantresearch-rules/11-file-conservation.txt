@@ -1,0 +1,9 @@
+== results 守恒 ==
+before_files=28 after_files=50
+in_flight_kept=True
+missing_after_tidy=[]
+== 根脚本守恒（去日期前缀） ==
+before_root_py=17 scratch_py=18
+missing_scripts=[]
+pycache_dirs=[]
+OK: 无数据文件丢失（只移动/归档）

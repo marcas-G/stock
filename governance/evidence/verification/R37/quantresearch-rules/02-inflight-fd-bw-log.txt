@@ -1,0 +1,5 @@
+总用量 0
+lr-x------ 1 gaolei gaolei 64 9月  20 01:36 0 -> /dev/null
+l-wx------ 1 gaolei gaolei 64 9月  20 01:36 1 -> /data/students/gaolei/quantresearch/results/bw.log
+lr-x------ 1 gaolei gaolei 64 9月  20 01:36 10 -> pipe:[2950375118]
+lr-x------ 1 gaolei gaolei 64 9月  20 01:36 11 -> pipe:[2950532553]

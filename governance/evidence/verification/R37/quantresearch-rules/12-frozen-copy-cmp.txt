@@ -1,0 +1,2 @@
+$ cmp /data/students/gaolei/quantresearch/CONVENTIONS.md /data/students/gaolei/stock/governance/evidence/verification/R37/quantresearch-rules/CONVENTIONS.md
+identical

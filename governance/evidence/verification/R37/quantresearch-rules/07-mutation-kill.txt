@@ -1,0 +1,128 @@
+== mutation diff ==
+--- /tmp/opencode/research_tidy.py.orig	2026-09-20 01:39:54.532677146 +0800
++++ governance/ops/research_tidy.py	2026-09-20 01:39:54.564678521 +0800
+@@ -91,8 +91,7 @@
+ 
+ 
+ def findings(root: Path, *, allow_missing_manifest: bool = False) -> list[Finding]:
+-    fs = (check_root(root) + check_scratch(root)
+-          + check_results(root, allow_missing_manifest) + check_pycache(root))
++    fs = ()  # MUTATION: always pass
+     return sorted(fs, key=lambda f: (f.level != "error", f.path))
+ 
+ 
+== pytest under mutation ==
+.F.FFFFF.....                                                            [100%]
+=================================== FAILURES ===================================
+____________________ test_root_whitelist_violation_is_error ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3414/test_root_whitelist_violation_0')
+
+    def test_root_whitelist_violation_is_error(tmp_path):
+        root = _root(tmp_path)
+        (root / "bw3.py").write_text("x\n", encoding="utf-8")
+        (root / "notes.txt").write_text("x\n", encoding="utf-8")
+        errs = _by_level(RT.findings(root), "error")
+        names = {Path(f.path).name for f in errs}
+>       assert names == {"bw3.py", "notes.txt"}
+E       AssertionError: assert set() == {'bw3.py', 'notes.txt'}
+E         
+E         Extra items in the right set:
+E         'bw3.py'
+E         'notes.txt'
+E         Use -v to get more diff
+
+governance/ops/tests/test_research_tidy.py:56: AssertionError
+______________ test_scratch_bad_name_is_error_and_good_names_pass ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3414/test_scratch_bad_name_is_error0')
+
+    def test_scratch_bad_name_is_error_and_good_names_pass(tmp_path):
+        root = _root(tmp_path)
+        (root / SCRATCH / "bw3.py").write_text("x\n", encoding="utf-8")
+        (root / SCRATCH / "2026-09-19_x.py").write_text("x\n", encoding="utf-8")
+        (root / SCRATCH / "20260919.py").write_text("x\n", encoding="utf-8")
+        (root / SCRATCH / "20260919_bw_50-v2.py").write_text("x\n", encoding="utf-8")
+        (root / SCRATCH / "README.md").write_text("x\n", encoding="utf-8")
+        errs = _by_level(RT.findings(root), "error")
+        names = {Path(f.path).name for f in errs}
+>       assert names == {"bw3.py", "2026-09-19_x.py", "20260919.py"}
+E       AssertionError: assert set() == {'2026-09-19_...py', 'bw3.py'}
+E         
+E         Extra items in the right set:
+E         'bw3.py'
+E         '2026-09-19_x.py'
+E         '20260919.py'
+E         Use -v to get more diff
+
+governance/ops/tests/test_research_tidy.py:77: AssertionError
+________________ test_results_missing_manifest_error_by_default ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3414/test_results_missing_manifest_0')
+
+    def test_results_missing_manifest_error_by_default(tmp_path):
+        root = _root(tmp_path)
+        (root / RESULTS / "oos").mkdir()
+        errs = _by_level(RT.findings(root), "error")
+        manifest_errs = [f for f in errs if "manifest" in f.message]
+>       assert len(manifest_errs) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+governance/ops/tests/test_research_tidy.py:87: AssertionError
+______________ test_allow_missing_manifest_downgrades_to_warning _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3414/test_allow_missing_manifest_do0')
+
+    def test_allow_missing_manifest_downgrades_to_warning(tmp_path):
+        root = _root(tmp_path)
+        (root / RESULTS / "oos").mkdir()
+        fs = RT.findings(root, allow_missing_manifest=True)
+        assert _by_level(fs, "error") == []
+        warns = [f for f in _by_level(fs, "warning") if "manifest" in f.message]
+>       assert len(warns) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+governance/ops/tests/test_research_tidy.py:98: AssertionError
+_______________________ test_results_loose_file_is_error _______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3414/test_results_loose_file_is_err0')
+
+    def test_results_loose_file_is_error(tmp_path):
+        root = _root(tmp_path)
+        (root / RESULTS / "bw.log").write_text("x\n", encoding="utf-8")
+        errs = _by_level(RT.findings(root), "error")
+>       assert [(Path(f.path).name, RESULTS in f.message) for f in errs] == [("bw.log", True)]
+E       AssertionError: assert [] == [('bw.log', True)]
+E         
+E         Right contains one more item: ('bw.log', True)
+E         Use -v to get more diff
+
+governance/ops/tests/test_research_tidy.py:106: AssertionError
+_________________ test_pycache_warning_does_not_fail_exit_code _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-3414/test_pycache_warning_does_not_0')
+
+    def test_pycache_warning_does_not_fail_exit_code(tmp_path):
+        root = _root(tmp_path)
+        p = root / SCRATCH / "__pycache__"
+        p.mkdir()
+        (p / "x.pyc").write_text("")
+        (root / "lab" / "__pycache__").mkdir(parents=True)
+        fs = RT.findings(root)
+        assert _by_level(fs, "error") == []
+        warns = {Path(f.path).name for f in _by_level(fs, "warning")}
+>       assert "__pycache__" in warns
+E       AssertionError: assert '__pycache__' in set()
+
+governance/ops/tests/test_research_tidy.py:118: AssertionError
+=========================== short test summary info ============================
+FAILED governance/ops/tests/test_research_tidy.py::test_root_whitelist_violation_is_error
+FAILED governance/ops/tests/test_research_tidy.py::test_scratch_bad_name_is_error_and_good_names_pass
+FAILED governance/ops/tests/test_research_tidy.py::test_results_missing_manifest_error_by_default
+FAILED governance/ops/tests/test_research_tidy.py::test_allow_missing_manifest_downgrades_to_warning
+FAILED governance/ops/tests/test_research_tidy.py::test_results_loose_file_is_error
+FAILED governance/ops/tests/test_research_tidy.py::test_pycache_warning_does_not_fail_exit_code
+6 failed, 7 passed in 0.13s
+rc=1

@@ -1,0 +1,12 @@
+[audit] moved 4: audit_v1.json, audit_v1.log, audit_v2.json, audit_v2.log
+[cache] moved 2: cache_build.log, scan_globals.log
+[backward] moved 3: backward_v1.log, bw_final.json, bw50.log
+[oos] moved 3: oos_v1.json, oos_v1.log, basis_v2.json
+[verify] moved 2: verify_final_v1.json, verify_final_v1.log
+[cond] moved 4: cond_new_v1.json, cond_new_v1.log, cond_m14_v1.json, cond_m14_v1.log
+[greedy] moved 2: greedy_v1.json, greedy_v1.log
+[incremental] moved 2: incremental_v1.json, incremental_v1.log
+[redundancy] moved 2: entry_corr_new.json, mutual_new_v1.json
+[nullq] moved 2: nullq.json, nullq.log
+[stopping] moved 1: stopping_v1.json
+moved_total=27 leftover_files=['bw.log']

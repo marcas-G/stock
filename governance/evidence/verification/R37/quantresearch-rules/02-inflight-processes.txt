@@ -1,0 +1,15 @@
+gaolei    4376     1  0 9月19 ?       00:00:04 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei    4428  4376  4 9月19 ?       00:43:43 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei    4430  4376  4 9月19 ?       00:43:36 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei    4432  4376  4 9月19 ?       00:43:35 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei    4436  4376  4 9月19 ?       00:43:44 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei    4438  4376  3 9月19 ?       00:42:17 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei    4439  4376  3 9月19 ?       00:42:16 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei    4440  4376  3 9月19 ?       00:42:05 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei    4442  4376  3 9月19 ?       00:42:13 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei   13533  4376  0 9月19 ?       00:00:00 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei   13534  4376  0 9月19 ?       00:00:00 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei   13535  4376  0 9月19 ?       00:00:00 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei   13536  4376  0 9月19 ?       00:00:00 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei   13537  4376  0 9月19 ?       00:00:00 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py
+gaolei   13538  4376  0 9月19 ?       00:00:00 /data/students/gaolei/stock/platform/.venv/bin/python bw3.py

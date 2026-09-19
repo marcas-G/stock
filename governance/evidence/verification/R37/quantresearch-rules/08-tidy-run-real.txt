@@ -1,0 +1,2 @@
+[ERROR] /data/students/gaolei/quantresearch/results/bw.log: results/ 根下裸文件：bw.log（应归入 campaign 目录）
+root=/data/students/gaolei/quantresearch errors=1 warnings=0
