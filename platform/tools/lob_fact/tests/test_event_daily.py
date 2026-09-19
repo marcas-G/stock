@@ -172,6 +172,8 @@ def _load(day, table):
 
 @pytest.fixture(scope='module')
 def real_day():
+    if not os.path.isdir(LOB_ROOT):
+        pytest.skip(f"lob_fact 数据不在盘: {LOB_ROOT}（CI 干净 checkout 无 data/）")
     ev = _load(DAY, 'lob_events')
     sw = _load(DAY, 'lob_sweep_meta')
     return ED.event_day_stats(ev, sw)

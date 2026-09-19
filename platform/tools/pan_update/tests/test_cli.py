@@ -780,6 +780,11 @@ def test_install_script_falls_back_to_crontab_without_user_systemd(tmp_path):
 
 def test_install_script_readonly_status_runs(tmp_path):
     p = ROOT / "governance" / "ops" / "install_pan_timer.sh"
+    probe = subprocess.run(["systemctl", "--user", "show-environment"],
+                           capture_output=True, text=True)
+    if probe.returncode != 0:
+        import pytest as _pytest
+        _pytest.skip("无 systemd --user 会话（CI 容器）——status 文案依赖本机 user manager")
     r = subprocess.run(["bash", str(p), "status"], capture_output=True, text=True,
                        env={**os.environ, "HOME": str(tmp_path)})
     assert r.returncode == 0, r.stdout + r.stderr
