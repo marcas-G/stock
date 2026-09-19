@@ -447,20 +447,57 @@ class _SeqCountCH:
         return self._counts.pop(0)
 
 
-def test_clean_source_expectations_and_explained_delta(tmp_path, capsys):
+def test_clean_source_expectations_and_explained_delta(tmp_path, capsys,
+                                                       monkeypatch):
     """--source=clean staging：期望行数/日期/代码按 clean 计算 → 一致；
-    raw−clean 差额以 explained delta（quarantine + deduped）注释输出。"""
+    raw−clean 差额以 explained delta（quarantine + deduped）注释输出。
+
+    Plan DQ-M1.5 T2：trade_cal 例外——日期域按 **raw daily** 期望（全隔离日
+    不得从日历消失），其余 4 表仍按 clean。
+    """
     src = _clean_staging(tmp_path, quarantined=2, deduped=1, raw=11)
-    ch = _SeqCountCH([8, 8, 8, 2, 4])
+    all_days = (datetime.date(2026, 9, 16), datetime.date(2026, 9, 17),
+                datetime.date(2026, 9, 18))
+    raw = tmp_path / "raw_fact.parquet"
+    rows = [{"code": f"{i:06d}.SZ", "trade_date": d}
+            for d in all_days for i in range(4)]
+    pl.DataFrame(rows, schema={"code": pl.String,
+                               "trade_date": pl.Date}).write_parquet(raw)
+    monkeypatch.setattr(RC, "DAILY_SRC", str(raw))
+
+    ch = _SeqCountCH([8, 8, 8, 3, 4])
     results = {table: RC._reconcile(ch, "dbtest", table, src_rows, daily_src=src)
                for table, src_rows, _ in RC.DAILY_TABLES}
     assert all(c == s for c, s, _ in results.values()), results
+    assert results["daily"][1] == 8, "daily 仍按 clean 幸存行期望"
+    assert results["trade_cal"][1] == 3, "trade_cal 按 raw 日期域期望（3 日）"
     assert any("dbtest.daily" in q for q in ch.queries)
     note = results["daily"][2]
     assert "explained delta" in note, note
     assert "raw 11" in note and "clean 8" in note
     assert "quarantine 2" in note and "deduped 1" in note
+    assert "raw" in results["trade_cal"][2], "trade_cal 注释须点明 raw 日期域口径"
     assert "不一致" not in capsys.readouterr().out
+
+
+def test_trade_cal_expected_from_raw_when_source_is_clean(tmp_path, monkeypatch,
+                                                          capsys):
+    """clean 源含 2 日、raw 含 3 日：trade_cal 期望 = raw（隔离日不消失）。"""
+    src = _clean_staging(tmp_path)
+    raw = tmp_path / "raw_fact.parquet"
+    days = (datetime.date(2026, 9, 16), datetime.date(2026, 9, 17),
+            datetime.date(2026, 9, 18))
+    pl.DataFrame([{"code": "000001.SZ", "trade_date": d} for d in days],
+                 schema={"code": pl.String, "trade_date": pl.Date}
+                 ).write_parquet(raw)
+    monkeypatch.setattr(RC, "DAILY_SRC", str(raw))
+
+    ch, exp, note = RC._reconcile(_FakeCountCH(3), "dbtest", "trade_cal", None,
+                                  daily_src=src)
+    assert (ch, exp) == (3, 3)
+    assert "raw" in note and "隔离" in note
+    out = capsys.readouterr().out
+    assert "不一致" not in out
 
 
 def test_source_flag_defaults_to_raw_and_parses():

@@ -40,6 +40,10 @@ R21 TOOLS-I7 扩展（旧版只对 5 张 daily 表行数）：
 **--source 指向的 clean 文件**计算，`raw − clean = quarantine + deduped` 的 explained
 delta 计入输出注释（不判红）。``--source`` 缺省 = raw ``daily_fact.parquet``（向后兼容）；
 派生表（adj_detail/adj_event/delisted_adj）保持 raw 口径不动（adj_backfill 仍读 raw）。
+
+Plan DQ-M1.5 T2 例外：``trade_cal`` 的日期域按 **raw daily**（``DAILY_SRC``）期望
+（与 ingest_daily ``--calendar-source`` 缺省一致）——clean 幸存行不含全隔离日，
+日历不得随之收缩。
 """
 from __future__ import annotations
 
@@ -160,24 +164,32 @@ def _explained_delta(clean_path: Path) -> str | None:
 
 def _reconcile(client, db, table: str, src_rows: int | None, *,
                daily_src: str | Path | None = None) -> tuple[int, int, str]:
+    """单表对账；返回 (CH 行数, 期望行数, 注释)。
+
+    Plan DQ-M1.5 T2：``trade_cal`` 的日期域恒按 **raw daily**（``DAILY_SRC``）
+    期望——clean staging 只含幸存行，全隔离日不得从日历消失；其余 daily 表仍
+    按 ``--source``（clean）期望。``daily_src`` 仅影响数据表口径。
+    """
     src_path = resolve_daily_source(daily_src)
     ch = client.command(f"SELECT count() FROM {db}.{table}")
+    cal_note = ""
     if src_rows is None:
         if table == "trade_cal":
-            # trade_cal 行数 = daily 源 distinct trade_date
-            src_rows = _src_distinct(src_path, "trade_date")
+            # 日期域=raw daily（与 ingest_daily --calendar-source 缺省一致）
+            src_rows = _src_distinct(Path(DAILY_SRC), "trade_date")
+            cal_note = f"（日期域=raw daily {DAILY_SRC}，含 clean 全隔离日）"
         elif table == "stock_basic":
             src_rows = _src_distinct(src_path, "code")
         else:
             src_rows = _src_rows(src_path)
     if ch == src_rows:
-        note = "一致"
+        note = "一致" + cal_note
         if table == "daily" and daily_src is not None:
             delta = _explained_delta(src_path)
             if delta:
                 note += f"（{delta}）"
     else:
-        note = f"不一致 (差 {ch - src_rows:+,})"
+        note = f"不一致 (差 {ch - src_rows:+,})" + cal_note
         if table == "daily":
             note += f"（{QUARANTINE_NOTE}）"
             if daily_src is not None:

@@ -36,3 +36,13 @@ def test_daily_chain_uses_venv_python_and_existing_scripts():
         assert cmd[0] == str(venv_py), "必须用平台 venv 解释器（经 repo_root 派生）"
         assert Path(cmd[0]).is_file()
         assert Path(cmd[1]).is_file(), f"脚本不存在：{cmd[1]}"
+
+
+def test_ingest_step_anchors_trade_cal_to_raw_daily():
+    """Plan DQ-M1.5 T2：日历日期域必须显式传 raw daily，不得随 clean 幸存行收缩。"""
+    ingest = stages.STAGE_CHAINS["daily"][2]
+    assert "--source" in ingest and "--calendar-source" in ingest
+    cal = ingest[ingest.index("--calendar-source") + 1]
+    assert cal == str(stages._DAILY_RAW)
+    assert stages._DAILY_RAW == (config.DATA_ROOT / "fact" / "daily_fact"
+                                 / "daily_fact.parquet")

@@ -16,7 +16,10 @@
   也归 NULL——CH 列 Nullable，qfq 基准 argMax 跳过 NULL（R01-TOOLS-I1）。
 - stock_basic.delist_date：sidecar（退市目录权威信号，last<max → last+1）+ 断流
   兜底（不在 sidecar 且 gap>250 交易日 → last+1）；平台语义 is_listed = t < delist_date。
-- trade_cal = distinct trade_date（is_open=1）；stock_basic.list_date = 最早交易日代理。
+- trade_cal = **raw daily 日期域** distinct trade_date（is_open=1）；Plan DQ-M1.5 T2：
+  日历不得从 clean 幸存行派生——被隔离/恢复日不得整日消失；`--calendar-source`
+  缺省 = raw daily_fact（--source 只控制 5 表数据来源）。
+- stock_basic.list_date = 最早交易日代理（按 clean 幸存行；全隔离日无行不入代理）。
 
 单进程即可（18M 行一次物化 ~3GB）。幂等：每表先 TRUNCATE 再灌。
 用法：python ingest_daily.py [--only TABLE ...] [--source PARQUET]
@@ -199,11 +202,23 @@ def resolve_source(source: str | Path | None = None) -> str:
     return str(source) if source is not None else DAILY_SRC
 
 
-def main(tables: set[str] | None = None, source: str | Path | None = None):
+def resolve_calendar_source(source: str | Path | None = None) -> str:
+    """trade_cal 日期域来源：``--calendar-source`` 覆盖优先；缺省 = raw daily。
+
+    Plan DQ-M1.5 T2：日历必须从 **raw daily** 的 distinct trade_date 派生——
+    clean staging 只含幸存行，全隔离/恢复日会从日历消失（R33 根因）。
+    """
+    return str(source) if source is not None else DAILY_SRC
+
+
+def main(tables: set[str] | None = None, source: str | Path | None = None,
+         calendar_source: str | Path | None = None):
     """灌 daily 层 5 表；tables=None → 全部，否则仅指定表（单表重灌）。
 
     ``source``：源 parquet（缺省 ``DAILY_SRC``）；Plan DQ-M1 I1 起由 pan_update
     daily 链传 ``--source <clean staging>/daily_fact.parquet``。
+    ``calendar_source``：trade_cal 的日期域来源（缺省 raw ``DAILY_SRC``）；
+    Plan DQ-M1.5 T2：日历不随 clean 幸存行收缩。
     --only 提供单表重灌路径（如 R07-DATA-I4 只重灌 daily_basic，不动其余
     4 表）；每表仍 TRUNCATE + INSERT 全量，幂等语义不变。
     """
@@ -260,12 +275,15 @@ def main(tables: set[str] | None = None, source: str | Path | None = None):
         client.command(f"TRUNCATE TABLE {db}.daily_basic")
         _insert_table(client, "daily_basic", daily_basic_frame(df))
 
-    # --- trade_cal ---
+    # --- trade_cal（Plan DQ-M1.5 T2：日期域来自 raw daily，不是 clean 幸存行）---
     if "trade_cal" in want:
-        print("TRUNCATE + 灌 trade_cal", flush=True)
+        cal_src = resolve_calendar_source(calendar_source)
+        print(f"TRUNCATE + 灌 trade_cal（日期域源={cal_src}）", flush=True)
         client.command(f"TRUNCATE TABLE {db}.trade_cal")
         cal = (
-            df.select(pl.col("trade_date").unique())
+            pl.scan_parquet(cal_src)
+            .select(pl.col("trade_date").unique())
+            .collect()
             .sort("trade_date")
             .rename({"trade_date": "cal_date"})
             .with_columns(pl.lit(1, dtype=pl.UInt8).alias("is_open"))
@@ -315,8 +333,12 @@ def cli(argv: list[str] | None = None) -> None:
     ap.add_argument("--source", default=None,
                     help="源 parquet（缺省 A5 权威位 daily_fact；clean staging 时传 "
                          "data/staging/ashare_daily/<run_tag>/daily_fact.parquet）")
+    ap.add_argument("--calendar-source", default=None,
+                    help="trade_cal 日期域来源（缺省 raw daily_fact；Plan DQ-M1.5 T2："
+                         "日历不得从 clean 幸存行派生）")
     args = ap.parse_args(argv)
-    main(set(args.only) if args.only else None, source=args.source)
+    main(set(args.only) if args.only else None, source=args.source,
+         calendar_source=args.calendar_source)
 
 
 if __name__ == "__main__":

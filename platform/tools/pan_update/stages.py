@@ -8,6 +8,8 @@
   ``data/staging/ashare_daily/<run_tag>/daily_fact.parquet``，同一 run_tag 路径经
   ``ingest_daily --source`` 传入（被隔离/dedup 的行不进 canonical）；clean 非零退出
   （PRE-INGEST FAIL）→ 阶段失败上抛，ingest 不执行、stage 标记不落。
+  ``ingest_daily --calendar-source`` 显式锚定 raw daily（Plan DQ-M1.5 T2：trade_cal
+  日期域不得随 clean 幸存行收缩，全隔离/恢复日保留在日历）。
   daily 链**最后**追加 ``data_quality/health.py publish``（Plan DQ-M1 T6 §5：
   CANONICAL INGEST → POST-INGEST AUDIT → FINAL PARTITION GATE → HEALTH ARTIFACT
   → PUBLISH RESEARCH-READY）：post-ingest 审计（completeness/PK/reconcile/腾讯
@@ -47,6 +49,8 @@ _TOOLS = config.repo_root() / "platform" / "tools"
 _DAILY_RUN_TAG = datetime.date.today().strftime("%Y%m%d")
 _DAILY_STAGING = (config.DATA_ROOT / "staging" / "ashare_daily" / _DAILY_RUN_TAG
                   / "daily_fact.parquet")
+# Plan DQ-M1.5 T2：trade_cal 日期域锚定 raw daily（clean 幸存行会丢全隔离日）
+_DAILY_RAW = config.DATA_ROOT / "fact" / "daily_fact" / "daily_fact.parquet"
 
 STAGE_CHAINS: dict[str, list[list[str]]] = {
     "daily": [
@@ -54,7 +58,8 @@ STAGE_CHAINS: dict[str, list[list[str]]] = {
         [str(_VENV_PYTHON), str(_TOOLS / "data_quality" / "pipeline.py"),
          "clean", "--partition", "latest", "--run-tag", _DAILY_RUN_TAG],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "ingest_daily.py"),
-         "--source", str(_DAILY_STAGING)],
+         "--source", str(_DAILY_STAGING),
+         "--calendar-source", str(_DAILY_RAW)],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "derive_stk_limit.py")],
         [str(_VENV_PYTHON), str(_TOOLS / "ch_ingest" / "adj_backfill.py")],
         # T6：post-ingest audit + FINAL 门 + health 发布（在 canonical 派生完成后）

@@ -284,8 +284,12 @@ def test_pan_update_daily_chain_clean_args_and_ingest_source():
     staged = (config.DATA_ROOT / "staging" / DATASET / tag / "daily_fact.parquet")
     assert stages._DAILY_STAGING == staged
     assert chain[2] == [venv, str(stages._TOOLS / "ch_ingest" / "ingest_daily.py"),
-                        "--source", str(staged)], (
-        "ingest 必须消费 clean staging（与 clean 的 run_tag 同一目录）")
+                        "--source", str(staged),
+                        "--calendar-source", str(stages._DAILY_RAW)], (
+        "ingest 必须消费 clean staging（与 clean 的 run_tag 同一目录），"
+        "且 trade_cal 日期域显式锚定 raw daily（Plan DQ-M1.5 T2）")
+    assert stages._DAILY_RAW == (config.DATA_ROOT / "fact" / "daily_fact"
+                                 / "daily_fact.parquet")
     assert Path(chain[1][1]).is_file() and Path(chain[2][1]).is_file()
 
 

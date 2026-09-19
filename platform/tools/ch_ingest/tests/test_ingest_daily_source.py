@@ -118,16 +118,64 @@ def test_main_without_source_uses_default_backcompat(tmp_path, monkeypatch):
 def test_cli_passes_source_and_only(tmp_path, monkeypatch):
     seen: dict = {}
 
-    def fake_main(tables=None, source=None):
+    def fake_main(tables=None, source=None, calendar_source=None):
         seen["tables"] = tables
         seen["source"] = source
+        seen["calendar_source"] = calendar_source
 
     monkeypatch.setattr(ingest_daily, "main", fake_main)
     p = str(tmp_path / "staged.parquet")
+    q = str(tmp_path / "raw_fact.parquet")
     ingest_daily.cli(["--only", "daily", "--source", p])
-    assert seen == {"tables": {"daily"}, "source": p}
-    ingest_daily.cli(["--only", "daily"])
-    assert seen["tables"] == {"daily"} and seen["source"] is None
+    assert seen == {"tables": {"daily"}, "source": p, "calendar_source": None}
+    ingest_daily.cli(["--only", "trade_cal", "--source", p,
+                      "--calendar-source", q])
+    assert seen == {"tables": {"trade_cal"}, "source": p, "calendar_source": q}
+
+
+# ── Plan DQ-M1.5 T2：trade_cal 从 raw daily 日期域派生（隔离日不得消失）──
+def _fact_days(codes_days):
+    return _fact([_row(c, day=d) for c, d in codes_days])
+
+
+def test_trade_cal_uses_calendar_source_not_clean_source(tmp_path, monkeypatch):
+    """clean staging 幸存日 ⊂ raw 日期域：trade_cal 必须保留 raw 的全隔离日。"""
+    d1, d2, d3 = D, D + datetime.timedelta(days=1), D + datetime.timedelta(days=2)
+    clean = tmp_path / "clean.parquet"
+    _fact_days([("A.SZ", d1), ("B.SZ", d2)]).write_parquet(clean)
+    raw = tmp_path / "raw_fact.parquet"
+    _fact_days([("A.SZ", d1), ("B.SZ", d2), ("C.SZ", d3)]).write_parquet(raw)
+    monkeypatch.setattr(ingest_daily, "DAILY_SRC", str(raw))
+    fake = _FakeCH()
+    _wire(monkeypatch, fake)
+
+    ingest_daily.main({"trade_cal"}, source=str(clean), calendar_source=str(raw))
+    cal = sorted(fake.inserted["trade_cal"]["cal_date"].to_list())
+    assert cal == [d1, d2, d3], (
+        "trade_cal 必须来自 raw 日期域（d3 行全隔离也不得从日历消失）")
+    assert fake.inserted["trade_cal"]["is_open"].to_list() == [1, 1, 1]
+
+
+def test_trade_cal_default_calendar_source_is_raw_daily(tmp_path, monkeypatch):
+    """缺省 calendar_source = raw daily（--source 只控制系统数据来源）。"""
+    d1, d2 = D, D + datetime.timedelta(days=1)
+    clean = tmp_path / "clean.parquet"
+    _fact_days([("A.SZ", d1)]).write_parquet(clean)
+    raw = tmp_path / "raw_fact.parquet"
+    _fact_days([("A.SZ", d1), ("B.SZ", d2)]).write_parquet(raw)
+    monkeypatch.setattr(ingest_daily, "DAILY_SRC", str(raw))
+    fake = _FakeCH()
+    _wire(monkeypatch, fake)
+
+    ingest_daily.main({"trade_cal"}, source=str(clean))
+    cal = sorted(fake.inserted["trade_cal"]["cal_date"].to_list())
+    assert cal == [d1, d2]
+
+
+def test_resolve_calendar_source_default_and_override(tmp_path):
+    assert ingest_daily.resolve_calendar_source() == ingest_daily.DAILY_SRC
+    p = str(tmp_path / "raw.parquet")
+    assert ingest_daily.resolve_calendar_source(p) == p
 
 
 def test_ingest_consumes_clean_staging_excludes_quarantined_row(tmp_path, monkeypatch):
