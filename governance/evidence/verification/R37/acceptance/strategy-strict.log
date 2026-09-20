@@ -1,0 +1,30 @@
+[guard] slot=1/2 argv=strategy run /data/students/gaolei/quantresearch/strategy/low_lottery_top30_weekly.yaml
+{
+  "ok": true,
+  "schema_version": 1,
+  "command": "strategy.run",
+  "data": {
+    "name": "low_lottery_top30_weekly",
+    "signal": "max_effect_20d_high",
+    "decisions": 5,
+    "execution_events": 5,
+    "fills": 176,
+    "nav": {
+      "events": 5,
+      "first": 9992407.370042782,
+      "last": 10214807.424781848,
+      "total_return": 0.02225690431775429,
+      "date_start": "2025-03-10",
+      "date_end": "2025-04-01"
+    }
+  },
+  "artifacts": {
+    "strategy_dir": "runs/platform/strategies/low_lottery_scope_20260920",
+    "strategy_manifest": "runs/platform/strategies/low_lottery_scope_20260920/strategy_manifest.json",
+    "backtest_manifest": "runs/platform/strategies/low_lottery_scope_20260920/manifest.json",
+    "nav": "runs/platform/strategies/low_lottery_scope_20260920/nav/nav_series.parquet",
+    "log": "runs/platform/strategies/low_lottery_scope_20260920/run.log"
+  },
+  "warnings": [],
+  "error": null
+}

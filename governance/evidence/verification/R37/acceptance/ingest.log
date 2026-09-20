@@ -1,0 +1,18 @@
+heavy.sh: slot=1/2 avail=36.4GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python platform/tools/ch_ingest/ingest_daily.py --source data/staging/ashare_daily/scope20260920/daily_fact.parquet --calendar-source data/fact/daily_fact/daily_fact.parquet
+读取 data/staging/ashare_daily/scope20260920/daily_fact.parquet ...
+  17,787,885 rows / 5,540 codes / 7,449 trade dates
+  delist sidecar: 331 codes
+  delist_date: 328 codes（其中 sidecar 命中另计）
+TRUNCATE + 灌 daily
+  daily: 17,787,885 rows
+TRUNCATE + 灌 adj_factor
+  delisted-adj sidecar: 83,967 rows / 180 codes
+  adj_factor NULL 行: 1,150,038（sidecar 前 1,226,704）
+  adj_factor: 17,787,885 rows
+TRUNCATE + 灌 daily_basic
+  daily_basic: 17,787,885 rows
+TRUNCATE + 灌 trade_cal（日期域源=data/fact/daily_fact/daily_fact.parquet）
+  trade_cal: 8,791 rows
+TRUNCATE + 灌 stock_basic
+  stock_basic: 5,540 rows
+daily 层灌入完成

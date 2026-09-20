@@ -1,0 +1,4 @@
+heavy.sh: slot=1/2 avail=39.0GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python platform/tools/data_quality/pipeline.py clean --partition latest --run-tag scope20260920
+[scope] 过滤范围外行 442311（< 1996-01-01 或 .BJ）
+[ashare_daily] run_tag=scope20260920 scope=full_table gate_scope=delta watermark=2026-09-17 delta_rows=0 partition=2026-09-17: decision=PASS rows=17787921 clean=17787885 quarantined=36 (full_table error=36)
+[pipeline] 2026-09-17 decision=PASS clean=17787885 quarantined=36 staging=/data/students/gaolei/stock/data/staging/ashare_daily/scope20260920/daily_fact.parquet

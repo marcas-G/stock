@@ -1,0 +1,35 @@
+heavy.sh: slot=1/2 avail=38.8GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python platform/tools/ch_ingest/reconcile.py --source data/staging/ashare_daily/scope20260920/daily_fact.parquet
+daily 层（源=data/staging/ashare_daily/scope20260920/daily_fact.parquet）:
+  daily        CH=      17,787,885 源=      17,787,885  一致（explained delta: raw 17,787,921 − clean 17,787,885 = 36 = quarantine 36 + deduped 0）
+  adj_factor   CH=      17,787,885 源=      17,787,885  一致
+  daily_basic  CH=      17,787,885 源=      17,787,885  一致
+  trade_cal    CH=           8,791 源=           8,791  一致（日期域=raw daily /data/students/gaolei/stock/data/fact/daily_fact/daily_fact.parquet，含 clean 全隔离日）
+  stock_basic  CH=           5,540 源=           5,540  一致
+daily 不变量:
+  不变量 pre_close/change 恒等式   违规=0  OK
+  不变量 pct_chg 恒等式            违规=0  OK
+  不变量 pre_close NULL 仅组内首行   违规=0  OK
+  daily 日期范围 CH=1996-01-02..2026-09-17 源=1996-01-02..2026-09-17  一致
+派生表:
+  stk_limit    CH=      17,958,979 期望=      17,690,269  日期 1996-12-16..2026-09-17  band违例=0 早于1996-12-16=0 悬空=268729  不一致
+  adj_detail   CH=      18,230,232 源=      18,230,232  uniq=      18,230,232  日期 1990-12-19..2026-09-17  一致
+  adj_event    CH=          57,426 源=          57,426  uniq=          57,426  一致
+退市股 adj 补灌:
+  delisted_adj sidecar=  83,967 行 /  180 码  CH 缺行或空值=0  重复键=0  一致
+moneyflow:
+  moneyflow    CH=   1,119,242 源=   1,119,242  日期 2025-11-20..2026-09-17 / 2025-11-20..2026-09-17  天=203/203  main_net_inflow 空值=8794/8794  键异常=0  一致
+moneyflow_sector:
+  moneyflow_sector CH=      77,524 源=      77,524  日期 2026-02-04..2026-09-17 / 2026-02-04..2026-09-17  天=147/147  main_net_inflow 空值=0/0  类型异常=0  BK码异常=0  名称空=0/0  行业/概念=18480/18480 + 59044/59044  一致
+concept_members:
+  concept_members CH=   7,281,555 源=   7,281,555  日期 2026-05-19..2026-09-17 / 2026-05-19..2026-09-17  天=87/87  键 uniq=7,281,555  BK码异常=0  ts_code 异常=0  名称空=59/59  每日行数=81219..85972 / 81219..85972  一致
+fundamentals:
+  fundamentals CH=       5,556 源=       5,556  日期 2026-07-16..2026-09-03 / 2026-07-16..2026-09-03  天=38/38  total_shares 空值=0/0  键异常=0  一致
+bars_1m:
+  bars_1m: 全部 81 分区一致
+tick_trades:
+  tick_trades: 全部 13 分区一致
+tick_orders:
+  tick_orders: 全部 13 分区一致
+tick_snapshots:
+  tick_snapshots: 全部 13 分区一致
+存在差异
