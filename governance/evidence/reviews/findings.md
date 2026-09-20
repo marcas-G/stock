@@ -302,7 +302,7 @@
   "分钟文法饱和"的旧结论系 weekly-resIC 判据错配所致，条件口径下发现率 λ̂≈0.5/试验，未饱和。
   方法与全量证据：`/data/students/gaolei/quantresearch/{README.md,REPORT.md,results/*}`。
 
-- **R31-DQ-I1（阻塞级，open，2026-09-19）**：读取门（Plan DQ-M1 T7）已上线，但
+- **R31-DQ-I1（阻塞级，resolved-2026-09-20/R37，2026-09-19）**：读取门（Plan DQ-M1 T7）已上线，但
   health artifact **从未发布过 PASS**——`data/health/ashare_daily/` 全部 8790 分区
   health_status=UNKNOWN（data_version=LEGACY，completeness=UNKNOWN），且 UNKNOWN 的
   完整性检查独立于 accept_quality opt-in（"不靠 coverage 推"），research 侧无合规通路。
