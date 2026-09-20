@@ -642,7 +642,7 @@ def publish_history(
     log = log or (lambda line: None)
     start = _iso_date(date_from, "date_from")
     end = (_iso_date(date_to, "date_to") if date_to is not None
-           else dt.date.today())
+           else datetime.date.today())
     if end < start:
         raise ValueError(f"date_to({end}) < date_from({start})")
     policy = rules.load_policy()
