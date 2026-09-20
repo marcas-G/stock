@@ -100,20 +100,28 @@ def test_adj_factor_nonpositive_and_nan_are_null(ch):
 
 
 def test_daily_amount_nan_is_null(ch):
+    # R37 范围收窄（1996+ 非 BJ）：NULL 计数随范围下降（实测 1,218,471；原 ≥1.25M 为全量口径）
     n_null = _one(ch, "SELECT countIf(isNull(amount)) FROM factorlab.daily")[0]
-    assert n_null >= 1_250_000, f"amount NULL 数不足：{n_null}"
-    v = _one(ch, "SELECT amount FROM factorlab.daily WHERE ts_code='600811.SH' "
-                 "AND trade_date=toDate('1994-01-06')")[0]
-    assert v is None
+    assert n_null >= 1_200_000, f"amount NULL 数不足：{n_null}"
+    # NaN 必须落成 true NULL（既不残留 NaN，也不是 0 填充）
+    nan = _one(ch, "SELECT countIf(isNotNull(amount) AND isNaN(amount)) "
+                   "FROM factorlab.daily")[0]
+    assert nan == 0, f"daily.amount 残留 NaN：{nan}"
+    # 退市无源股（600811）scope 内 amount 应为 NULL 而非 0/NaN
+    n811_null = _one(ch, "SELECT countIf(isNull(amount)) FROM factorlab.daily "
+                         "WHERE ts_code='600811.SH'")[0]
+    assert n811_null > 0, "600811 源缺 amount 未落 NULL（scope 内 1996+）"
 
 
 # ── C2 错位修复 ────────────────────────────────────────────────────────
 def test_fake_codes_gone_and_600811_has_full_history(ch):
     n_fake = _one(ch, "SELECT count() FROM factorlab.daily WHERE ts_code='000018.SZ'")[0]
     assert n_fake == 0, "000018.SZ 假历史仍在"
-    n811, dmax = _one(ch, "SELECT count(), max(trade_date) FROM factorlab.daily "
-                           "WHERE ts_code='600811.SH'")
-    assert n811 == 7598
+    # R37 范围收窄后 daily 重建：600811 计数 7,598→7,098（−500 前 1996 行，范围外留盘不入库）
+    n811, dmin, dmax = _one(ch, "SELECT count(), min(trade_date), max(trade_date) "
+                                "FROM factorlab.daily WHERE ts_code='600811.SH'")
+    assert n811 == 7098
+    assert dmin == datetime.date(1996, 1, 2), dmin
     assert dmax == datetime.date(2025, 4, 14), dmax
     dd811 = _one(ch, "SELECT delist_date FROM factorlab.stock_basic "
                      "WHERE ts_code='600811.SH'")[0]
@@ -140,10 +148,13 @@ def test_delist_date_ingested_and_pit_semantics(ch):
                      "WHERE ts_code='600005.SH' AND delist_date IS NOT NULL "
                      "AND toDate('2026-08-14') < delist_date")[0]
     assert alive == 0
-    # 侧车/兜底覆盖 920305.BJ（空文件 + 断流）
-    dd2 = _one(ch, "SELECT delist_date FROM factorlab.stock_basic "
-                   "WHERE ts_code='920305.BJ'")[0]
-    assert dd2 is not None
+    # R37 范围收窄：BJ 不纳入范围（stock_basic 零 .BJ；原 920305.BJ 侧车样例改为范围+覆盖面断言）
+    n_bj = _one(ch, "SELECT count() FROM factorlab.stock_basic "
+                     "WHERE endsWith(ts_code, '.BJ')")[0]
+    assert n_bj == 0, "范围收窄后 stock_basic 不应再含 .BJ"
+    n_dd = _one(ch, "SELECT count() FROM factorlab.stock_basic "
+                     "WHERE delist_date IS NOT NULL")[0]
+    assert n_dd > 100, f"退市目录覆盖面异常：{n_dd}"
 
 
 # ── I4 stk_limit 除权日带 ──────────────────────────────────────────────
