@@ -11,7 +11,7 @@ dependencies = [
     "polars>=1.38",
     "numpy>=1.26",  # 逐周横截面 OLS（eval.cross_section）/ eval.correlation 运行时依赖
     "duckdb>=1.5",
-    "pyarrow>=25.0.1,<26",  # 本机 glibc 2.27: >=21 无 cp313 manylinux wheel, 只能 20.x（R29：uv lock 需显式上界，否则解析到 25.x 源码构建必败）
+    "pyarrow>=20,<21",  # 本机 glibc 2.27: >=21 无 cp313 manylinux wheel, 只能 20.x（R29：uv lock 需显式上界，否则解析到 25.x 源码构建必败）；Dependabot 大版本已屏蔽（.github/dependabot.yml ignore >=21），勿再上调
     "clickhouse-connect>=1.7",  # ClickHouse 读后端 (ch_source)
     "pyyaml>=6",
     "pydantic>=2.12",

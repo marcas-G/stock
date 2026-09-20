@@ -15,3 +15,8 @@ updates:
     groups:
       python-deps:
         patterns: ["*"]
+    ignore:
+      # 本机 glibc 2.27：pyarrow>=21 无 cp313 manylinux wheel，源码构建必败
+      # （R37 实拍：#19 合并 25.0.1 后自托管 CI 装环境即红）。大版本勿再上调。
+      - dependency-name: "pyarrow"
+        versions: [">=21"]
