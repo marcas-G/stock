@@ -339,3 +339,13 @@
 | ID | 级 | 问题 | 关键位置 | 状态 | 修复说明（团队填） | 复查 |
 |---|---|---|---|---|---|---|
 | R36-CI-I1 | I | **`POLARS_MAX_THREADS` 改变 polars 浮点求和顺序 → backtest cash bridge「精确 `!=`」校验失败**：heavy.sh 默认注入 `POLARS_MAX_THREADS=8` 时 `flab strategy run` 产物校验抛 `ValueError: artifact cash bridge 破坏：post.cash != pre.cash + Σ delta`（实测差值 -1.27e-11 = 纯浮点噪声；无该 env 全绿）。影响：按 AGENTS.md 重任务协议经 heavy.sh 跑策略链即触发【实测】 | `platform/src/factorlab/core/domain/backtest.py:130`；复现：`governance/evidence/reviews/r36-2026-09-19-selfhosted-ci/probe/repro_cash_bridge.sh`；输出：`governance/evidence/reviews/r36-2026-09-19-selfhosted-ci/probe/output.txt` | open |  |  |
+
+## R37 5 年回测执行面发现（2026-09-20，exec）
+
+> 背景：用户要求 5 年（2021-08→2026-07）回测；1 个月窗口未触发的两个执行面缺口在长窗口暴露。
+> 证据目录：`governance/evidence/verification/R37/exec-issues/`。
+
+| ID | 级 | 问题 | 关键位置 | 状态 | 修复说明（团队填） | 复查 |
+|---|---|---|---|---|---|---|
+| R37-EXEC-I1 | I | **bounded slippage 未实现 → 长窗口回测被滑点越限整单阻断**：参考价已在涨停/跌停带边缘时叠加滑点越界，`fills.py` 直接 `ValueError`（不 clipping），5 年首跑即被 600900.SH 阻断；平台无配置可绕过（只能 `slippage_bps=0`）。建议按契约二选一：clip 到 [down,up]，或越界记 `blocked_limit_up/down` 跳单（不静默改价）【实测】 | `platform/src/factorlab/app/backtest/fills.py:70-81`；`platform/src/factorlab/core/execution/costs.py:103-110`；复现 `governance/evidence/verification/R37/exec-issues/low_lottery_5y_slippage5.yaml`；失败输出 `governance/evidence/verification/R37/exec-issues/slippage-fail.json` | open |  |  |
+| R37-EXEC-I2 | I | **无涨跌幅制度日未建模 → stk_limit 误带 + M8 闸拦截合法行情**：恢复上市首日/退市整理期首日（如 000502.SZ 2022-06-06 退市整理首日 3.80→0.45）等无涨跌幅日仍按 ±10% 派生 `stk_limit`，5 年窗口共 140 行/138 券（0.0008%）触发 `执行数据质量闸拦截`，5 年回测整单被打断。建议：派生侧补"无涨跌幅日"语义（has_limit=0/宽口径），M8 闸按此放行；附复牌/退市整理清单核对【实测】 | `platform/tools/ch_ingest/derive_stk_limit.py`；证据 `governance/evidence/verification/R37/exec-issues/probe_stk_limit_gap.py`、`governance/evidence/verification/R37/exec-issues/stk-limit-gap-output.txt`、`governance/evidence/verification/R37/exec-issues/outside-band-rows.csv` | open |  |  |
