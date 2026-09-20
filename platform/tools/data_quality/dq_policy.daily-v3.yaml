@@ -1,0 +1,121 @@
+dq_policy_version: daily-v3
+# daily-v3（2026-09-20 用户裁定，R37）：新增 scope: 块——数据集研究范围冻结为
+#   trade_date >= 1996-01-01 且 code 非 .BJ（北交所）；范围外数据保留在盘、不删除、
+#   不改写，但不纳入审计/发布/研究。权威裁定见 governance/workspace/pending-items.md #24；
+#   语义增补见 knowledge/design/platform/specs/2026-09-20-dq-scope-cut-addendum.md。
+#   本块必须与 factorlab.core.scope 常量一致（tools 测试锁定，不许漂移）。
+# 其余内容与 daily-v2 完全一致（vwap/单位例外 registry/ADJ 字段级语义不变）。
+
+# daily-v2（Plan DQ-M1.5 T2/T2b，2026-09-19 控制者裁定）相对 daily-v1 的语义变更：
+# 1) vwap.pre_1995_*：trade_date < 1995-01-01 的 VWAP 容差带 2%（>=1995 保持 1%）
+#    —— 恢复 3 个整日 + 混合日边际行；覆盖上界 0.02/1.02≈1.96pp；
+# 2) historic_unit_exceptions：登记（code 集合 × era）的早期单位约定 registry；
+#    命中且 vwap/factor 落在 [low,high]×(1±match_tol) 内 → VWAP 降级 WARN + flag
+#    HISTORIC_UNIT_EXCEPTION（行保留）；不得泛化到未登记代码/年代（era 双边界：
+#    after <= trade_date < before；真坏行由 ±10% 约定 guard 挡住）；
+#    T2b 追加 14 条前 1996 单位 regime，证据 = governance/evidence/verification/R33/
+#    residual-vwap-rca.md（每月 dominant unit factor ≥60% 行、连续月、span≥100 行、
+#    全 span dominance ≥0.70；条目行内注释给 n_match/n_span/dominance）；
+# 3) field_invalidity：adj_factor/fq_factor <= 0 → 该字段置 NULL + flag ADJ_NULLED，
+#    OHLCV 不动、整行保留（不再整行 quarantine）。
+partition_gate:
+  pass:
+    max_error_rate: 0.0001        # PASS 上界
+    min_coverage: 0.999
+  fail:
+    min_error_rate: 0.01          # FAIL 下界（之间 = DEGRADED）
+    max_missing_coverage: 0.01
+systemic:
+  field_share: 0.80
+  field_count: 50
+  group_ratio: 10.0
+  group_count: 50
+  time_share: 0.80
+  time_count: 100
+vwap:
+  default_tol: 0.01
+  pre_1995_tol: 0.02
+  pre_1995_cutoff: "1995-01-01"
+field_invalidity:
+  null_on_nonpositive: ["adj_factor", "fq_factor"]
+historic_unit_exceptions:
+  # T2（18 日 RCA）：000002/000004 早期 amount≈5×close×volume
+  - codes: ["000002.SZ", "000004.SZ"]
+    before: "1994-01-01"
+    factor: 5.0
+    match_tol: 0.10
+  # T2b（残余 VWAP RCA）：前 1996 单位 regime，逐条 n_match/n_span/dominance
+  - codes: ["600602.SH"]          # 0.01 单位；n=460/479 dom=0.960
+    after: "1991-01-03"
+    before: "1992-12-01"
+    factor: 0.01
+    match_tol: 0.10
+  - codes: ["600654.SH"]          # 0.01 单位；n=213/227 dom=0.938
+    after: "1991-07-01"
+    before: "1992-05-30"
+    factor: 0.01
+    match_tol: 0.10
+  - codes: ["600651.SH"]          # 0.04 单位；n=91/120 dom=0.758
+    after: "1990-12-21"
+    before: "1991-06-29"
+    factor: 0.04
+    match_tol: 0.10
+  - codes: ["600601.SH"]          # 0.1 单位；n=336/359 dom=0.936
+    after: "1991-07-01"
+    before: "1992-12-01"
+    factor: 0.1
+    match_tol: 0.10
+  - codes: ["600603.SH"]          # 0.1 单位；n=134/145 dom=0.924
+    after: "1992-05-08"
+    before: "1992-12-01"
+    factor: 0.1
+    match_tol: 0.10
+  - codes: ["600604.SH"]          # 0.1 单位；n=131/138 dom=0.949
+    after: "1992-05-11"
+    before: "1992-12-01"
+    factor: 0.1
+    match_tol: 0.10
+  - codes: ["600605.SH"]          # 0.1 单位；n=130/137 dom=0.949
+    after: "1992-05-13"
+    before: "1992-12-01"
+    factor: 0.1
+    match_tol: 0.10
+  - codes: ["600606.SH"]          # 0.1 单位；n=127/136 dom=0.934
+    after: "1992-05-21"
+    before: "1992-12-01"
+    factor: 0.1
+    match_tol: 0.10
+  - codes: ["600608.SH"]          # 0.1 单位；n=129/136 dom=0.949
+    after: "1992-05-21"
+    before: "1992-12-01"
+    factor: 0.1
+    match_tol: 0.10
+  - codes: ["600651.SH"]          # 0.1 单位；n=279/311 dom=0.897
+    after: "1991-09-02"
+    before: "1992-12-01"
+    factor: 0.1
+    match_tol: 0.10
+  - codes: ["600653.SH"]          # 0.1 单位；n=133/157 dom=0.847
+    after: "1991-07-01"
+    before: "1992-02-27"
+    factor: 0.1
+    match_tol: 0.10
+  - codes: ["600653.SH"]          # 0.1 单位（第二段）；n=155/168 dom=0.923
+    after: "1992-04-01"
+    before: "1992-12-01"
+    factor: 0.1
+    match_tol: 0.10
+  - codes: ["600654.SH"]          # 0.1 单位；n=119/129 dom=0.922
+    after: "1992-06-01"
+    before: "1992-12-01"
+    factor: 0.1
+    match_tol: 0.10
+  - codes: ["000017.SZ"]          # 5.0 单位；n=259/273 dom=0.949
+    after: "1992-04-01"
+    before: "1993-05-01"
+    factor: 5.0
+    match_tol: 0.10
+
+scope:
+  min_trade_date: "1996-01-01"
+  exclude_code_suffixes: [".BJ"]

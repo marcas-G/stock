@@ -381,8 +381,8 @@ def test_health_doc_records_repair_policy_version(tmp_path):
     """M1.5 留痕：raw_lineage 之外必须记录 repair_policy_version（缺省=policy 版本）。"""
     p = _publish(tmp_path)
     doc = json.loads(p.read_text(encoding="utf-8"))
-    assert doc["repair_policy_version"] == rules.POLICY_VERSION == "daily-v2"
-    assert doc["dq_policy_version"] == "daily-v2"
+    assert doc["repair_policy_version"] == rules.POLICY_VERSION == "daily-v3"
+    assert doc["dq_policy_version"] == "daily-v3"
 
     p2 = _publish(tmp_path, partition="2026-09-17",
                   repair_policy_version="repair-v9")

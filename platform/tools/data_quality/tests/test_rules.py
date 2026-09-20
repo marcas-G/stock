@@ -14,9 +14,9 @@ import pytest
 
 from data_quality import rules
 
-# spec §3.2 冻结初值（daily-v2：M1.5 语义变更，2026-09-19 控制者裁定）
+# spec §3.2 冻结初值（daily-v3：R37 范围收窄，2026-09-20 用户裁定）
 FULL = """\
-dq_policy_version: daily-v2
+dq_policy_version: daily-v3
 partition_gate:
   pass:
     max_error_rate: 0.0001
@@ -47,6 +47,9 @@ historic_unit_exceptions:
     before: "1992-12-01"
     factor: 0.01
     match_tol: 0.10
+scope:
+  min_trade_date: "1996-01-01"
+  exclude_code_suffixes: [".BJ"]
 """
 
 
@@ -58,7 +61,7 @@ def _write_policy(tmp_path: Path, body: str) -> Path:
 
 def test_load_policy_shipped_yaml_matches_spec_values():
     p = rules.load_policy()
-    assert p.dq_policy_version == rules.POLICY_VERSION == "daily-v2"
+    assert p.dq_policy_version == rules.POLICY_VERSION == "daily-v3"
     assert p.partition_gate == {
         "pass": {"max_error_rate": 0.0001, "min_coverage": 0.999},
         "fail": {"min_error_rate": 0.01, "max_missing_coverage": 0.01},
@@ -125,18 +128,18 @@ def test_vwap_cutoff_must_be_iso_date(tmp_path):
 
 
 def test_missing_version_raises_naming_it(tmp_path):
-    body = FULL.replace("dq_policy_version: daily-v2\n", "")
+    body = FULL.replace("dq_policy_version: daily-v3\n", "")
     with pytest.raises(ValueError) as ei:
         rules.load_policy(_write_policy(tmp_path, body))
     assert "dq_policy_version" in str(ei.value)
 
 
 def test_unknown_version_rejected_not_mapped(tmp_path):
-    body = FULL.replace("daily-v2", "daily-v0")
+    body = FULL.replace("daily-v3", "daily-v0")
     with pytest.raises(ValueError) as ei:
         rules.load_policy(_write_policy(tmp_path, body))
     msg = str(ei.value)
-    assert "daily-v0" in msg and "daily-v2" in msg
+    assert "daily-v0" in msg and "daily-v3" in msg
 
 
 def test_v1_policy_file_rejected_by_v2_loader():
@@ -145,7 +148,7 @@ def test_v1_policy_file_rejected_by_v2_loader():
     assert v1.is_file(), "daily-v1 文件必须保留（历史可追溯）"
     with pytest.raises(ValueError) as ei:
         rules.load_policy(v1)
-    assert "daily-v1" in str(ei.value) and "daily-v2" in str(ei.value)
+    assert "daily-v1" in str(ei.value) and "daily-v3" in str(ei.value)
 
 
 def test_non_numeric_threshold_rejected_naming_it(tmp_path):

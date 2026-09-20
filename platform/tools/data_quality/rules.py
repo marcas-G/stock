@@ -25,10 +25,14 @@ from typing import Any
 
 import yaml
 
+from factorlab.core import scope as core_scope
+
 # ── policy 版本 ───────────────────────────────────────────────────────────
+# daily-v3（R37，2026-09-20 用户裁定）：新增 scope: 块（1996-01-01 起、排除 .BJ），
+# 与 factorlab.core.scope 常量一致（加载校验不一致即 ValueError）。
 # daily-v2（Plan DQ-M1.5 T2，2026-09-19 控制者裁定）：早市 VWAP 容差、单位约定
-# 例外 registry、ADJ 字段级置 NULL。v1 文件保留作历史，加载器拒绝旧版本。
-POLICY_VERSION = "daily-v2"
+# 例外 registry、ADJ 字段级置 NULL。旧文件保留作历史，加载器拒绝旧版本。
+POLICY_VERSION = "daily-v3"
 DEFAULT_POLICY_PATH = Path(__file__).with_name(f"dq_policy.{POLICY_VERSION}.yaml")
 
 # ── §1 严重度（排序秩 = 优先级，越小越严重）──────────────────────────────
@@ -231,7 +235,7 @@ def _iso_date(value: Any) -> bool:
 
 
 def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
-    """加载并校验 dq_policy YAML（daily-v2 结构）。
+    """加载并校验 dq_policy YAML（daily-v3 结构）。
 
     - 缺字段/非数值/非法结构 → ``ValueError``，消息逐个点名 dotted path；
     - ``dq_policy_version`` ≠ ``POLICY_VERSION`` → ``ValueError``（旧版拒绝，
@@ -239,6 +243,8 @@ def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
     - v2 扩展：``vwap``（早市容差与截止日）、``field_invalidity``（字段级置
       NULL 白名单）、``historic_unit_exceptions``（code 集合 × era registry，
       条目逐字段校验，不允许空 codes/非法日期/非数值因子）。
+    - v3 扩展：``scope``（min_trade_date / exclude_code_suffixes）必须与
+      ``factorlab.core.scope`` 常量一致——不一致即拒绝（口径不许漂移）。
     """
     p = Path(path)
     raw = yaml.safe_load(p.read_text(encoding="utf-8"))
@@ -303,6 +309,22 @@ def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
                 v = entry.get(key)
                 if isinstance(v, bool) or not isinstance(v, (int, float)):
                     problems.append(f"{base}.{key}（值 {v!r} 非数值）")
+
+    scope_raw = raw.get("scope")
+    if not isinstance(scope_raw, dict):
+        problems.append("scope（须为 mapping：min_trade_date / exclude_code_suffixes）")
+    else:
+        md = scope_raw.get("min_trade_date")
+        if md != core_scope.MIN_TRADE_DATE_ISO:
+            problems.append(
+                f"scope.min_trade_date（须为 {core_scope.MIN_TRADE_DATE_ISO!r}，"
+                f"与 factorlab.core.scope 一致；收到 {md!r}）")
+        suffixes = scope_raw.get("exclude_code_suffixes")
+        if suffixes != list(core_scope.EXCLUDED_CODE_SUFFIXES):
+            problems.append(
+                f"scope.exclude_code_suffixes（须为 "
+                f"{list(core_scope.EXCLUDED_CODE_SUFFIXES)!r}，与 factorlab.core.scope "
+                f"一致；收到 {suffixes!r}）")
 
     if problems:
         raise ValueError(f"dq_policy 缺少/非法字段（{p}）：{', '.join(problems)}")
