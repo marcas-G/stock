@@ -327,3 +327,14 @@ def test_publish_history_cli_requires_from_and_run_tag(tmp_path, capsys):
         health.main(["publish-history", "--from", P1, "--root", str(tmp_path)])
     assert ei2.value.code == 2
     assert "required" in capsys.readouterr().err, "缺 --run-tag 必须是所需参数错误"
+
+
+def test_publish_history_date_to_none_means_latest(tmp_path):
+    """--to 缺省 = 最新（今天），不得塌缩到 date_from（2026-09-20 真跑发现）。"""
+    rep = health.publish_history(
+        dataset_id=DATASET, date_from=P1, run_tag=TAG, root=tmp_path,
+        reader=_Reader(_fixture_frames()), dates=[P1, P2],
+        ledger=_ledger(_scoped_fixture()))
+    assert rep["date_to"] == dt.date.today().isoformat()
+    assert rep["total"] == 2 and rep["status"] == "ok"
+    assert (rep["published"], rep["skipped"]) == (2, 0)
