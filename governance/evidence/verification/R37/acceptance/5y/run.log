@@ -1,0 +1,2 @@
+[2026-09-20T19:00:14] flab strategy run doc=/data/students/gaolei/quantresearch/experiments/r37_5y/low_lottery_5y_clean.yaml out_dir=runs/platform/strategies/low_lottery_5y_clean
+[2026-09-20T19:00:14] signal=max_effect_20d_high_5y decisions=255 events=255
