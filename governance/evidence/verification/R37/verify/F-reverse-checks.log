@@ -1,0 +1,28 @@
+F1 backup dir exists=True files=8792
+   current dir files=8792
+   [2025-03-10] bak_status=UNKNOWN bak_policy=daily-v1 | cur_status=PASS cur_policy=daily-v3
+   [1996-01-02] bak_status=UNKNOWN bak_policy=daily-v1 | cur_status=DEGRADED cur_policy=daily-v3
+   [1995-12-29] bak_status=UNKNOWN bak_policy=daily-v1 | cur_status=UNKNOWN cur_policy=daily-v1
+   backup mtime=2026-09-19 17:06:52.126032
+
+F3 status_counts={'UNKNOWN': 1342, 'DEGRADED': 35, 'PASS': 7414}
+   degraded partitions=35 residual dates=35
+   DEGRADED set == residual dates set: True
+   per-partition quarantine mismatch: none
+   PASS partitions with quarantine>0: none
+   FAIL / in-scope UNKNOWN partitions: none
+
+F4 health summary.json: partitions=8791 PASS=7414 DEGRADED=35 UNKNOWN=1342 mtime=2026-09-20 16:35:20.253140
+   [2025-03-10] summary_status=PASS validated_at=2026-09-20T08:32:01.606978+00:00
+   [1996-01-02] summary_status=DEGRADED validated_at=2026-09-20T07:50:21.824522+00:00
+   [1995-12-29] summary_status=UNKNOWN validated_at=2026-09-18T18:30:34.324984+00:00
+
+== checks ==
+  OK  F1_backup_exists
+  OK  F1_backup_file_count_8792
+  OK  F1_backup_untouched_vs_current
+  OK  F3_degraded_set_eq_residual_dates
+  OK  F3_quarantine_counts_match
+  OK  F3_no_pass_with_quarantine
+  OK  F3_no_fail_no_in_scope_unknown
+  OK  F4_summary_reflects_r37

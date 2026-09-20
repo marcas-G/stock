@@ -1,0 +1,58 @@
+health dir: /data/students/gaolei/stock/data/health/ashare_daily
+json files total: 8792
+
+== by (dq_policy_version, health_status) ==
+  policy=<missing>    status=<missing>  n=1
+  policy=daily-v1     status=UNKNOWN    n=1342
+  policy=daily-v3     status=DEGRADED   n=35
+  policy=daily-v3     status=PASS       n=7414
+
+== by (dq_policy_version, partition>=1996-01-01) ==
+  policy=<missing>    in_scope=None  n=1
+  policy=daily-v1     in_scope=False n=1342
+  policy=daily-v3     in_scope=True  n=7449
+in-scope (date>=1996-01-01) partitions total: 7449
+
+== DEGRADED partitions (35) ==
+  1996-01-02  quarantine=1  error=1  expected=298  actual=297  coverage=0.9966442953020134  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-01-08  quarantine=1  error=1  expected=305  actual=304  coverage=0.9967213114754099  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-01-19  quarantine=1  error=1  expected=306  actual=305  coverage=0.9967320261437909  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-01-29  quarantine=1  error=1  expected=308  actual=307  coverage=0.9967532467532467  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-02-02  quarantine=1  error=1  expected=309  actual=308  coverage=0.9967637540453075  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-02-06  quarantine=1  error=1  expected=309  actual=308  coverage=0.9967637540453075  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-02-07  quarantine=1  error=1  expected=310  actual=309  coverage=0.9967741935483871  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-02-08  quarantine=1  error=1  expected=311  actual=310  coverage=0.9967845659163987  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-02-09  quarantine=2  error=2  expected=303  actual=301  coverage=0.9933993399339934  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-02-12  quarantine=1  error=1  expected=310  actual=309  coverage=0.9967741935483871  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-02-13  quarantine=1  error=1  expected=311  actual=310  coverage=0.9967845659163987  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-03-28  quarantine=1  error=1  expected=321  actual=320  coverage=0.9968847352024922  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-05-13  quarantine=1  error=1  expected=332  actual=331  coverage=0.9969879518072289  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-08-19  quarantine=1  error=1  expected=397  actual=396  coverage=0.9974811083123426  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  1996-09-19  quarantine=1  error=1  expected=414  actual=413  coverage=0.9975845410628019  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2000-02-15  quarantine=1  error=1  expected=917  actual=916  coverage=0.9989094874591058  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2000-02-16  quarantine=1  error=1  expected=921  actual=920  coverage=0.998914223669924  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2001-07-20  quarantine=1  error=1  expected=1100  actual=1099  coverage=0.9990909090909091  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2001-07-27  quarantine=1  error=1  expected=1103  actual=1102  coverage=0.99909338168631  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2001-08-30  quarantine=1  error=1  expected=1105  actual=1104  coverage=0.9990950226244344  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2001-12-17  quarantine=1  error=1  expected=1092  actual=1091  coverage=0.9990842490842491  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2001-12-19  quarantine=1  error=1  expected=1109  actual=1108  coverage=0.9990982867448152  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2002-04-19  quarantine=1  error=1  expected=1118  actual=1117  coverage=0.9991055456171736  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2003-05-13  quarantine=1  error=1  expected=1182  actual=1181  coverage=0.9991539763113367  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2004-12-03  quarantine=1  error=1  expected=1334  actual=1333  coverage=0.9992503748125937  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2006-05-19  quarantine=1  error=1  expected=1137  actual=1136  coverage=0.9991204925241864  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2006-05-31  quarantine=1  error=1  expected=1154  actual=1153  coverage=0.9991334488734835  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2006-07-13  quarantine=1  error=1  expected=1213  actual=1212  coverage=0.9991755976916735  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2007-05-21  quarantine=1  error=1  expected=1337  actual=1336  coverage=0.9992520568436799  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2007-05-22  quarantine=1  error=1  expected=1329  actual=1328  coverage=0.999247554552295  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2007-05-23  quarantine=1  error=1  expected=1329  actual=1328  coverage=0.999247554552295  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2007-05-24  quarantine=1  error=1  expected=1331  actual=1330  coverage=0.9992486851990984  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2009-02-05  quarantine=1  error=1  expected=1545  actual=1544  coverage=0.9993527508090615  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2009-02-09  quarantine=1  error=1  expected=1544  actual=1543  coverage=0.9993523316062176  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+  2009-04-24  quarantine=1  error=1  expected=1511  actual=1510  coverage=0.99933818663137  completeness=COMPLETE  policy=daily-v3  backlog_q=36
+
+== random 3 PASS (seed=37) ==
+  1999-03-03
+  2016-09-06
+  2019-03-12
+
+parse_errors=0

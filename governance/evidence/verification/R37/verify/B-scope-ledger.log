@@ -1,0 +1,20 @@
+# CH queries (read-only) via clickhouse-connect 127.0.0.1:8123
+CH daily        rows=17787885 .BJ=0 pre1996=0 date=1996-01-02..2026-09-17 codes=5540
+CH daily_basic  rows=17787885 .BJ=0 pre1996=0 date=1996-01-02..2026-09-17 codes=5540
+CH adj_factor   rows=17787885 .BJ=0 pre1996=0 date=1996-01-02..2026-09-17 codes=5540
+CH stk_limit    rows=17690269 .BJ=0 pre1996=0 date=1996-12-16..2026-09-17 codes=5540
+CH adj_detail   rows=18230232 .BJ=270183 pre1996=172128 date=1990-12-19..2026-09-17 codes=5879
+CH adj_event    rows=57426 .BJ=1380 pre1996=563 date=1991-02-26..2026-09-17 codes=5459
+CH trade_cal    rows=8791 pre1996=1342 date=1990-12-19..2026-09-17
+CH stock_basic  rows=5540 .BJ=0 codes=5540
+CH daily .BJ share = {"divide(countIf(like(ts_code, '%.BJ')), count())": 0.0}
+CH daily scoped(>=1996 & non-BJ) rows = 17787885
+
+# raw daily_fact.parquet lazy scan (independent recount)
+raw total=18230232 scope=17787921 (.BJ=270183, pre1996=172128) date=1990-12-19..2026-09-17
+raw scope + bj + pre1996 = 18230232 (expect total=18230232)
+
+# clean staging parquet lazy scan
+clean total=17787885 .BJ=0 pre1996=0 trade_dates=7449 codes=5540 date=1996-01-02..2026-09-17
+raw_scope - clean = 36 (summary.json quarantine=36, deduped=0)
+raw scope trade_dates=7449 vs clean=7449 (差 = 全隔离日)

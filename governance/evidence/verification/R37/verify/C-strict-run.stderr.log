@@ -1,0 +1,2 @@
+[guard] slot=1/2 argv=strategy run /data/students/gaolei/quantresearch/strategy/low_lottery_top30_weekly.yaml
+EXIT=0

@@ -1,0 +1,8 @@
+health in-scope partitions = 7449
+raw scope trade dates      = 7449
+clean trade dates          = 7449
+health == raw_dates: True
+health == clean_dates: True
+health - raw_dates: []
+raw_dates - health: []
+clean_dates - health: []

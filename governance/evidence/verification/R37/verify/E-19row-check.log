@@ -1,0 +1,33 @@
+CSV rows total=55 unit_like=19 other=36
+CH found 19/19 unit_like rows
+
+== all 19: CH volume / csv volume ratio + vwap band ==
+  2015-05-28 000725.SZ  vol_ratio=100.000000  vwap=5.314707 in [4.89,5.43] band=True band1pct=True
+  2015-06-09 601988.SH  vol_ratio=100.000000  vwap=5.297167 in [5.12,5.46] band=True band1pct=True
+  2015-07-06 601288.SH  vol_ratio=100.000000  vwap=3.788828 in [3.65,3.86] band=True band1pct=True
+  2015-07-08 601988.SH  vol_ratio=100.000000  vwap=5.374887 in [4.85,5.6] band=True band1pct=True
+  2024-11-08 600221.SH  vol_ratio=100.000000  vwap=2.341637 in [2.18,2.44] band=True band1pct=True
+  2024-12-09 600157.SH  vol_ratio=100.000000  vwap=1.994103 in [1.9,2.04] band=True band1pct=True
+  2024-12-10 600157.SH  vol_ratio=100.000000  vwap=2.014267 in [1.92,2.14] band=True band1pct=True
+  2025-10-14 600010.SH  vol_ratio=100.000000  vwap=3.003304 in [2.88,3.07] band=True band1pct=True
+  2026-03-12 601868.SH  vol_ratio=100.000000  vwap=3.648805 in [3.5,3.8] band=True band1pct=True
+  2026-05-22 000725.SZ  vol_ratio=100.000000  vwap=4.851535 in [4.47,5.16] band=True band1pct=True
+  2026-05-25 000725.SZ  vol_ratio=100.000000  vwap=5.221515 in [5.06,5.37] band=True band1pct=True
+  2026-05-26 000725.SZ  vol_ratio=100.000000  vwap=5.575570 in [5.18,5.8] band=True band1pct=True
+  2026-05-27 000725.SZ  vol_ratio=100.000000  vwap=5.781126 in [5.53,6.09] band=True band1pct=True
+  2026-06-05 000725.SZ  vol_ratio=100.000000  vwap=6.483292 in [6.01,6.77] band=True band1pct=True
+  2026-06-08 000725.SZ  vol_ratio=100.000000  vwap=6.457053 in [6.22,6.74] band=True band1pct=True
+  2026-06-26 000725.SZ  vol_ratio=100.000000  vwap=7.884041 in [7.36,8.24] band=True band1pct=True
+  2026-06-30 000725.SZ  vol_ratio=100.000000  vwap=8.588597 in [8.11,8.75] band=True band1pct=True
+  2026-07-01 000725.SZ  vol_ratio=100.000000  vwap=8.561853 in [8.31,8.81] band=True band1pct=True
+  2026-07-02 000725.SZ  vol_ratio=100.000000  vwap=8.714878 in [7.89,9.5] band=True band1pct=True
+
+== focus 3 rows (per task: 2x 2015 class + 1 minute-confirmed) ==
+  2015-05-28 000725.SZ: CH volume=5135466500 (csv 51354665 ×100) amount=27293497344 vwap=5.314707 OHLC=[4.89,5.43] in_band=True
+  2015-06-09 601988.SH: CH volume=4795353100 (csv 47953531 ×100) amount=25401788416 vwap=5.297167 OHLC=[5.12,5.46] in_band=True
+  2026-03-12 601868.SH: CH volume=4784655900 (csv 47846559 ×100) amount=17458274304 vwap=3.648805 OHLC=[3.5,3.8] in_band=True
+
+== residual 36 rows must be absent from CH canonical ==
+  residual rows found in CH: 0 (expect 0)
+
+FAILS: 0

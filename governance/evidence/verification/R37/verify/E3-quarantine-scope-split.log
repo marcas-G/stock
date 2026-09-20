@@ -1,0 +1,5 @@
+schema: ['trade_date', 'code', 'open', 'high', 'low', 'close', 'adj_factor', 'amount', 'volume', 'float_shares', 'total_shares', 'fq_factor', 'fq_deduct', 'div_cash', 'div_bonus', 'div_transfer', 'rights_num', 'rights_price']
+total: 3828
+BJ: 1115 pre1996: 2658 in-scope: 55
+BJ+pre1996+scope: 3828
+in-scope dates: 54

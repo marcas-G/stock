@@ -1,0 +1,36 @@
+== D. read gate require_dataset behavior ==
+
+[D1_1995-12-29_default] REJECTED status=OUT_OF_SCOPE
+    message : 读取门拒绝：dataset=ashare_daily partition=1995-12-29 status=OUT_OF_SCOPE——partition=1995-12-29 早于数据集范围 1996-01-01（用户裁定 2026-09-20）；指引：数据集范围 = trade_date >= 1996-01-01 且 code 非 .BJ（用户裁定 2026-09-20；pending-items #24，spec 2026-09-20-dq-scope-cut-addendum.md §3）——范围外数据保留在盘、不删除不改写，但不纳入研究读取；不属 UNKNOWN/LEGACY 过渡条款，无 opt-in 通道
+    guidance: 数据集范围 = trade_date >= 1996-01-01 且 code 非 .BJ（用户裁定 2026-09-20；pending-items #24，spec 2026-09-20-dq-scope-cut-addendum.md §3）——范围外数据保留在盘、不删除不改写，但不纳入研究读取；不属 UNKNOWN/LEGACY 过渡条款，无 opt-in 通道
+[D2_2025-03-10_default] PASS_THROUGH -> {"dataset": "ashare_daily", "partition": "2025-03-10", "health_status": "PASS", "verification_state": "VERIFIED", "completeness_status": "COMPLETE", "quarantined_rows": 0, "coverage": 1.0, "dq_policy_version": "daily-v3", "override_reason": null}
+[D3_2025-03-10_strict] PASS_THROUGH -> {"dataset": "ashare_daily", "partition": "2025-03-10", "health_status": "PASS", "verification_state": "VERIFIED", "completeness_status": "COMPLETE", "quarantined_rows": 0, "coverage": 1.0, "dq_policy_version": "daily-v3", "override_reason": null}
+[D4_1996-01-02_DEGRADED_default] REJECTED status=DEGRADED
+    message : 读取门拒绝：dataset=ashare_daily partition=1996-01-02 status=DEGRADED——不在 accept_quality=('PASS',)（默认 fail-closed）；指引：DEGRADED 需显式 opt-in（accept_quality 含 DEGRADED + override_reason，自动写 manifest）；或修复数据重发 health
+    guidance: DEGRADED 需显式 opt-in（accept_quality 含 DEGRADED + override_reason，自动写 manifest）；或修复数据重发 health
+[D5_1996-01-02_DEGRADED_optin] PASS_THROUGH -> {"dataset": "ashare_daily", "partition": "1996-01-02", "health_status": "DEGRADED", "verification_state": "VERIFIED", "completeness_status": "COMPLETE", "quarantined_rows": 1, "coverage": 0.9966442953020134, "dq_policy_version": "daily-v3", "override_reason": "R37 verify: opt-in path smoke test"}
+[D6_FAIL_optin_rejected] VALUE_ERROR: FAIL 不可 opt-in（设计 §7：FAIL ❌ 不可 opt-in）——先修复数据重发 health
+[D7_1996-01-02_strict_default] REJECTED status=DEGRADED
+    message : 读取门拒绝：dataset=ashare_daily partition=1996-01-02 status=DEGRADED——不在 accept_quality=('PASS',)（默认 fail-closed）；指引：DEGRADED 需显式 opt-in（accept_quality 含 DEGRADED + override_reason，自动写 manifest）；或修复数据重发 health
+    guidance: DEGRADED 需显式 opt-in（accept_quality 含 DEGRADED + override_reason，自动写 manifest）；或修复数据重发 health
+[D8_1996-01-02_strict_optin] VALUE_ERROR: strict（正式 OOS/验收/基准场景）只接受 PASS：accept_quality=('DEGRADED',) 非法
+
+== checks ==
+  OK  D1_status_is_OUT_OF_SCOPE
+  OK  D1_message_has_1996-01-01
+  OK  D1_no_optin_channel
+  OK  D2_pass
+  OK  D3_pass
+  OK  D3_status_PASS
+  OK  D4_rejected
+  OK  D4_status_DEGRADED
+  OK  D4_message_mentions_default_fail_closed
+  OK  D5_pass
+  OK  D5_status_DEGRADED
+  OK  D5_manifest_written
+  OK  D5_manifest_not_in_repo
+  OK  D6_ValueError
+  OK  D7_strict_default_rejected
+  OK  D7_status_DEGRADED
+  OK  D8_strict_optin_ValueError
+  OK  D8_manifest_not_written

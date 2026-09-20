@@ -1,0 +1,83 @@
+{
+  "ch:daily": {
+    "rows": 17787885,
+    "bj_rows": 0,
+    "pre1996_rows": 0,
+    "min_date": "1996-01-02",
+    "max_date": "2026-09-17",
+    "distinct_codes": 5540
+  },
+  "ch:daily_basic": {
+    "rows": 17787885,
+    "bj_rows": 0,
+    "pre1996_rows": 0,
+    "min_date": "1996-01-02",
+    "max_date": "2026-09-17",
+    "distinct_codes": 5540
+  },
+  "ch:adj_factor": {
+    "rows": 17787885,
+    "bj_rows": 0,
+    "pre1996_rows": 0,
+    "min_date": "1996-01-02",
+    "max_date": "2026-09-17",
+    "distinct_codes": 5540
+  },
+  "ch:stk_limit": {
+    "rows": 17690269,
+    "bj_rows": 0,
+    "pre1996_rows": 0,
+    "min_date": "1996-12-16",
+    "max_date": "2026-09-17",
+    "distinct_codes": 5540
+  },
+  "ch:adj_detail": {
+    "rows": 18230232,
+    "bj_rows": 270183,
+    "pre1996_rows": 172128,
+    "min_date": "1990-12-19",
+    "max_date": "2026-09-17",
+    "distinct_codes": 5879
+  },
+  "ch:adj_event": {
+    "rows": 57426,
+    "bj_rows": 1380,
+    "pre1996_rows": 563,
+    "min_date": "1991-02-26",
+    "max_date": "2026-09-17",
+    "distinct_codes": 5459
+  },
+  "ch:trade_cal": {
+    "rows": 8791,
+    "pre1996_rows": 1342,
+    "min_date": "1990-12-19",
+    "max_date": "2026-09-17"
+  },
+  "ch:stock_basic": {
+    "rows": 5540,
+    "bj_rows": 0,
+    "distinct_codes": 5540
+  },
+  "ch:daily_bj_share": {
+    "divide(countIf(like(ts_code, '%.BJ')), count())": 0.0
+  },
+  "ch:daily_scoped_rows": 17787885,
+  "raw": {
+    "total": 18230232,
+    "scope": 17787921,
+    "bj_rows": 270183,
+    "pre1996_rows": 172128,
+    "min_date": "1990-12-19",
+    "max_date": "2026-09-17"
+  },
+  "clean": {
+    "total": 17787885,
+    "bj_rows": 0,
+    "pre1996_rows": 0,
+    "trade_dates": 7449,
+    "codes": 5540,
+    "min_date": "1996-01-02",
+    "max_date": "2026-09-17"
+  },
+  "raw_scope_days": 7449
+}
