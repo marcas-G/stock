@@ -9,7 +9,10 @@ Readable = HealthValid AND FreshEnough AND Complete
   ``FAIL`` 不可 opt-in；``UNKNOWN`` 仅 LEGACY 存量过渡（显式声明）；
 - ``completeness.status`` 独立检查（不靠 coverage 推）；
 - ``freshness`` 独立检查（``max_staleness`` 对 ``freshness.latest_trade_date``）；
-- 拒绝文案含 dataset / partition / status / 指引。
+- 拒绝文案含 dataset / partition / status / 指引；
+- **范围门（R37，2026-09-20 用户裁定）**：``partition < core.scope.MIN_TRADE_DATE``
+  一律 ``OUT_OF_SCOPE``（无论 health 是否存在；不属 UNKNOWN/LEGACY 过渡条款）——
+  范围外数据保留在盘，只不纳入研究读取。
 
 ``DatasetGate.summary_fields()`` 供 evaluate/backtest 产物追加五字段：
 ``dataset_version / quality_status / quarantined_rows / coverage /
@@ -24,6 +27,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from factorlab.core import scope
 
 DEFAULT_DATASET = "ashare_daily"
 DEFAULT_MAX_STALENESS = "1d"
@@ -222,10 +227,25 @@ def require_dataset(
         raise ValueError(
             "require_dataset 必须显式给出 as_of（读取分区；不猜'最新'）")
     try:
-        datetime.date.fromisoformat(str(as_of))
+        as_of_date = datetime.date.fromisoformat(str(as_of))
     except ValueError as exc:
         raise ValueError(f"as_of 需为 ISO 日期（YYYY-MM-DD）：{as_of!r}") from exc
     as_of = str(as_of)
+
+    # R37 范围门（2026-09-20 用户裁定）：范围外分区无论 health 是否存在一律拒——
+    # 不落入 MISSING/LEGACY 过渡语义，也无 opt-in 通道。
+    if as_of_date < scope.MIN_TRADE_DATE:
+        min_iso = scope.MIN_TRADE_DATE.isoformat()
+        raise _reject(
+            dataset, as_of, "OUT_OF_SCOPE",
+            f"partition={as_of} 早于数据集范围 {min_iso}"
+            f"（用户裁定 2026-09-20）",
+            guidance=(
+                f"数据集范围 = trade_date >= {min_iso} 且 code 非 .BJ"
+                f"（用户裁定 2026-09-20；pending-items #24，"
+                f"spec 2026-09-20-dq-scope-cut-addendum.md §3）——范围外数据"
+                f"保留在盘、不删除不改写，但不纳入研究读取；不属 "
+                f"UNKNOWN/LEGACY 过渡条款，无 opt-in 通道"))
 
     if not accept_quality:
         raise ValueError("accept_quality 不能为空（默认 ('PASS',)）")

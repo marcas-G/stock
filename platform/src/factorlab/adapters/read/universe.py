@@ -18,9 +18,30 @@ from factorlab.core.spec import FactorSpec
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 VALID_EXCHANGES = ("SSE", "SZSE")
-_ALLOWED_RULES = {"exclude_st", "min_list_days", "exchanges"}
+# R37（2026-09-20 用户裁定）：exclude_bj 默认 true——universe 解析默认排除 .BJ，
+# 仅显式 false 才纳入（口径唯一事实源 factorlab.core.scope）。
+_ALLOWED_RULES = {"exclude_st", "min_list_days", "exchanges", "exclude_bj"}
 # 平台库 stock_basic 无 exchange 列：交易所从 ts_code 后缀推断（.SH→SSE、.SZ→SZSE、.BJ→BSE）
 _EXCHANGE_BY_SUFFIX = {"SH": "SSE", "SZ": "SZSE", "BJ": "BSE"}
+
+
+def _exclude_bj(data: dict[str, Any]) -> bool:
+    """R37 范围口径：默认 True；`rules.exclude_bj` 或 ref 文件顶层
+    `exclude_bj: false` 显式放行 .BJ。"""
+    rules = data.get("rules") or {}
+    return bool(data.get("exclude_bj", rules.get("exclude_bj", True)))
+
+
+def _default_suffixes(rules: dict[str, Any]) -> list[str]:
+    """默认交易所后缀集（SSE+SZSE）；exclude_bj: false 时加 .BJ。"""
+    suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in VALID_EXCHANGES]
+    if not bool(rules.get("exclude_bj", True)):
+        suffixes.append("BJ")
+    return suffixes
+
+
+def _is_bj_ts_code(ts_code: Any) -> bool:
+    return isinstance(ts_code, str) and ts_code.upper().endswith(".BJ")
 
 
 def normalize_code(code: str) -> str:
@@ -71,7 +92,7 @@ def _rules_query_duckdb(rd: ReadPort, rules: dict[str, Any], date_start: str | N
     sql = ("SELECT symbol FROM stock_basic"
            f" WHERE regexp_matches(ts_code, '{CANONICAL_TS_CODE_PATTERN}')"
            " AND substr(ts_code, -2) IN (SELECT unnest(?))")
-    params: list[Any] = [[s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in VALID_EXCHANGES]]
+    params: list[Any] = [_default_suffixes(rules)]
     if rules.get("exclude_st"):
         # stock_st 无 is_st 列：最新 trade_date 快照中的 ts_code 集合即 ST 集合（type='ST' 语义）
         sql += (
@@ -107,8 +128,7 @@ def _rules_query_ch(rd: ReadPort, rules: dict[str, Any], date_start: str | None)
     from factorlab.adapters.ch_read import in_clause
 
     db = settings.ch_database
-    ph, params = in_clause(
-        [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in VALID_EXCHANGES])
+    ph, params = in_clause(_default_suffixes(rules))
     sql = (f"SELECT symbol FROM {db}.stock_basic"
            f" WHERE match(ts_code, '{CANONICAL_TS_CODE_PATTERN}')"
            f" AND right(ts_code, 2) IN ({ph})")
@@ -352,7 +372,11 @@ def _match_stock_basic(rd: ReadPort, data: dict[str, Any]) -> list[str] | None:
             candidates.append(normalize_code(c))
         except ValueError:
             candidates.append(c)
-    return _codes_from_matched(candidates, _SB_MATCH_IMPL[rd.backend](rd, candidates))
+    rows = _SB_MATCH_IMPL[rd.backend](rd, candidates)
+    if _exclude_bj(data):
+        # R37：默认口径剔除 .BJ（显式 codes 亦然；ref 文件顶层 exclude_bj: false 放行）
+        rows = [r for r in rows if not _is_bj_ts_code(r[1])]
+    return _codes_from_matched(candidates, rows)
 
 
 def resolve_codes(
@@ -386,7 +410,7 @@ def _candidate_rules_duckdb(rd: ReadPort, rules: dict[str, Any]) -> list[tuple]:
     if exchanges:
         suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in exchanges]
     else:
-        suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in VALID_EXCHANGES]
+        suffixes = _default_suffixes(rules)
     # M6-07B4：rules 候选必须满足 canonical research identifier——legacy
     # vendor aliases（T600018.SH 等）即使后缀匹配 .SH 也绝不进入 candidate
     return rd.query_rows(
@@ -405,7 +429,7 @@ def _candidate_rules_ch(rd: ReadPort, rules: dict[str, Any]) -> list[tuple]:
     if exchanges:
         suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in exchanges]
     else:
-        suffixes = [s for s, ex in _EXCHANGE_BY_SUFFIX.items() if ex in VALID_EXCHANGES]
+        suffixes = _default_suffixes(rules)
     ph, params = in_clause(suffixes)
     return rd.query_rows(
         f"SELECT symbol FROM {settings.ch_database}.stock_basic"
@@ -632,6 +656,7 @@ def resolve_universe_frame(
             "更新：make data-update）")
     has_st = "stock_st" in tables
     exclude_st = bool(rules.get("exclude_st"))
+    exclude_bj = _exclude_bj(data)
     if exclude_st and not has_st:
         if _st_degrade_on(settings):
             # R03-I1：显式降级——has_st 保持 False → is_st 全 null（unknown ≠ false），
@@ -707,6 +732,12 @@ def resolve_universe_frame(
             pl.when(pl.col("date").dt.strftime("%Y%m%d")
                     .is_between(pl.lit(st_cov[0]), pl.lit(st_cov[1])))
             .then(pl.col("is_st")).otherwise(None).alias("is_st"))
+    if exclude_bj:
+        # R37：默认口径 .BJ 一律不出现在结果帧（含显式 candidate_codes 旁路）；
+        # 显式 exclude_bj: false 才保留（可见于 in_universe 判定）。
+        uf = uf.filter(
+            pl.col("ts_code").is_null()
+            | ~pl.col("ts_code").str.to_uppercase().str.ends_with(".BJ"))
     # 最终输出 invariant：内部逻辑不得产生重复 (date, code)
     dup = uf.group_by(["date", "code"]).len().filter(pl.col("len") > 1)
     if dup.height:
@@ -720,11 +751,18 @@ def resolve_universe_frame(
             if min_days < 0:
                 raise ValueError(f"min_list_days 不能为负: {min_days}")
             cond = cond & (pl.col("list_days") >= min_days)
-        exchanges = rules.get("exchanges") or list(VALID_EXCHANGES)
-        bad = [e for e in exchanges if e not in VALID_EXCHANGES]
-        if bad:
-            raise ValueError(f"不支持的交易所: {bad}（v1 仅支持 {VALID_EXCHANGES}，不含 BSE）")
-        cond = cond & pl.col("exchange").is_in(exchanges)
+        exchanges = rules.get("exchanges")
+        if exchanges:
+            bad = [e for e in exchanges if e not in VALID_EXCHANGES]
+            if bad:
+                raise ValueError(f"不支持的交易所: {bad}（v1 仅支持 {VALID_EXCHANGES}，不含 BSE）")
+            cond = cond & pl.col("exchange").is_in(exchanges)
+        else:
+            # 默认 SSE+SZSE；R37 显式 exclude_bj: false 时 BSE 一并纳入
+            default_exchanges = list(VALID_EXCHANGES)
+            if not exclude_bj:
+                default_exchanges = [*default_exchanges, "BSE"]
+            cond = cond & pl.col("exchange").is_in(default_exchanges)
         if exclude_st:
             cond = cond & pl.col("is_st").fill_null(False).not_()
     uf = uf.with_columns(cond.fill_null(False).alias("in_universe"))

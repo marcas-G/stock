@@ -1153,7 +1153,10 @@ universe 解析优先级：`override` > spec 内联（`ref` 命名引用 / `code
 **挖掘约定**：同批次因子固定同一 universe（`--universe` 或共享 spec 引用），同池计算、同池比较。
 
 `rules` 支持：`exclude_st`（ST 状态过滤）、`min_list_days`（list_date 距 date.start
-或数据最早日期满 N 自然日）、`exchanges`（SSE/SZSE，BSE 不在 v1 集合）。
+或数据最早日期满 N 自然日）、`exchanges`（SSE/SZSE，BSE 不在 v1 集合）、
+`exclude_bj`（**默认 true**：universe 解析默认排除 `.BJ`；仅显式 `false` 才纳入——
+R37 范围裁定 2026-09-20，口径唯一事实源 `factorlab.core.scope`；ref 文件顶层
+`exclude_bj: false` 对 codes 分支同义）。
 code 候选先经 stock_basic.symbol 匹配归一（ch 侧两层 IN 命中索引；孤儿 code
 不在 stock_basic → ch 后端不命中，duckdb 前缀匹配会命中——编译函数对语义，
 测试双腿锁定）。
@@ -1680,6 +1683,12 @@ PIT 语义：
 - **ST coverage**：以 `min/max(stock_st.trade_date)` 为 coverage（v1 contract，内部 gap 的精确 provenance 留给 Data Coverage Registry）——coverage 内：当日快照出现 → true、缺席 → false；**coverage 外：is_st = null（unknown ≠ false）**；`exclude_st=true` 且请求日期落在 coverage 外 → **ValueError（fail fast，错误含 requested date 与 coverage 区间）**；缺 stock_st 表：exclude_st=true → ValueError、false → is_st=null
 - **ST 显式降级（R03-I1，仅"缺表"一种 unknown）**：`exclude_st=true` 且库中**无** `stock_st` 表时，默认仍 **ValueError（fail fast，不把 unknown 当非 ST）**；只有显式设置 `FACTORLAB_ST_DEGRADE=allow`（`settings.st_degrade`，默认 `"fail"`）才降级为**无 ST 口径**——`warnings.warn` 响亮告警（文案含"ST 未知按非 ST 处理，结果为无 ST 口径"）、`is_st=null`（unknown ≠ false 语义保留）、`in_universe` 不做 ST 过滤；`run_factor`/`run_factor_minute`/`resolve_universe_frame` 调用方可用 `st_degrade_active(spec, rd, override=...)` 查询本 run 是否降级，run 摘要恒写 `st_degrade: true/false`（审计，不静默）。空 `stock_st` 表、请求日期在 coverage 外（后两种 unknown）**不受开关影响，仍 fail fast**。**挖矿口径**：CH 当前无 `stock_st`，全市场挖矿/复跑须显式 `FACTORLAB_ST_DEGRADE=allow` 接受无 ST 口径（挖矿 spec 保持库规范 `exclude_st: true`，不写"无 ST 影子 spec"）；有真实 `stock_st` 后应关开关按标准 ST 过滤复跑——降级结果与 ST 过滤结果口径不同，不得混比。**R29 当前裁决（2026-09-16）**：本机无 `stock_st` 历史源（CH 无表、`data/raw` 无快照、历史外部源 2026-09-17 已退役）——保留本开关为现行口径，不伪造 ST 数据；触发条件 = 外部 ST 历史源到位 → 建表灌入（沿本节 coverage 契约）→ 关开关按标准 ST 过滤复跑，届时解除降级口径。
 - **exchange**：ts_code 后缀（.SH→SSE / .SZ→SZSE / .BJ→BSE）；默认池 SSE+SZSE，不意外纳入 BSE
+- **范围（R37，2026-09-20 用户裁定）**：universe 解析默认排除 `.BJ`——`rules.exclude_bj`
+  默认 true、仅显式 false 才纳入（未显式 `exchanges` 时默认交易所补 BSE；显式 exchanges 为准）；
+  `.BJ` 一律不出现在 UniverseFrame（含显式 `candidate_codes` 旁路；显式 false 才保留并按
+  exchange 规则判 `in_universe`）；codes/ref 分支同口径（ref 文件顶层 `exclude_bj: false` 放行）。
+  范围外数据保留在盘、不删除不改写、不纳入研究读取（spec
+  `2026-09-20-dq-scope-cut-addendum.md` §4；裁定源 `governance/workspace/pending-items.md` #24）
 - 显式 codes 同样尊重上市/退市 PIT 状态（不自动增加 exclude_st/min_list_days 规则）
 - 输入校验：dates 仅接受 datetime.date / ISO `YYYY-MM-DD`（非法格式、重复日期 fail fast）；candidate_codes 重复 fail fast；输出前主动验证 (date, code) 唯一
 - **delist_date 保护**：`stock_basic.delist_date` 是语义关键稀疏字段——`build_final_db` 的 sparsity pruning 不得物理删除（PROTECTED_SPARSE_FIELDS，仅保护显式字段，不关闭整体 pruning）；旧 DB 无 delist_date 列时仍可运行，但 **delisting PIT is incomplete**（不伪造退市日期）。**R21 起**：ch 生产库 `stock_basic.delist_date` 已灌入（Nullable(Date)，代理 = 最后交易日 + 1 天，来源 = 退市股文件 in-file code 权威集合，断流兜底）；平台侧列兼容 Date 与 String 两形态（ch 编译器统一 `toString(toYYYYMMDD(...))`，R01-DATA-I4），且运行期有 staleness gate 兜底（见 §4.7）
@@ -1961,6 +1970,32 @@ bounded reference/debug mode（受限窗口独立实现对照）。full-history 
 **M6 已验证结果**：F1 全历史 120/60 结构 exact + ≤4 ULP；F2/F3 全历史
 120/60 strict exact（stable rank 下 F2 亦 exact）；bounded F2/F3
 FULL/120/60 strict exact；labels strict exact；F2_ST violations=0。
+
+## 4.9 DQ 读取门（require_dataset；R37 范围门）
+
+`factorlab.adapters.read.health.require_dataset(dataset="ashare_daily", as_of, *,
+accept_quality, max_staleness, completeness_required, root, override_reason,
+strict)` → `DatasetGate`。
+
+读取 `data/health/<dataset>/<as_of>.json` 判定该分区是否 research-ready
+（fail-closed；**只读 health 证明**，不重跑行级校验/不重算 OHLC）：
+
+- `DataReadable = HealthValid ∧ FreshEnough ∧ Complete`：默认仅接受 `PASS`；
+  `DEGRADED` / `UNKNOWN(LEGACY_UNVERIFIED)` 必须显式 opt-in（`accept_quality`
+  + `override_reason`，自动写 Experiment Manifest 五字段）；`FAIL` 不可 opt-in；
+  `completeness.status` 与 `freshness` 独立检查（不靠 coverage 推）；
+  `strict=True`（正式 OOS/验收/基准）只接受 PASS；
+- **范围门（R37，2026-09-20 用户裁定）**：`as_of < factorlab.core.scope.MIN_TRADE_DATE`
+  （1996-01-01）→ `DatasetQualityError(status="OUT_OF_SCOPE")`，**无论 health 文件
+  是否存在**；不属 `UNKNOWN`/`LEGACY` 过渡条款、无 opt-in 通道。范围外数据保留在盘、
+  不删除不改写，只不纳入研究读取（口径与裁定源：`knowledge/design/platform/specs/2026-09-20-dq-scope-cut-addendum.md` §3、
+  `governance/workspace/pending-items.md` #24）；
+- 拒绝异常带结构化上下文 `dataset/partition/status/freshness/guidance`
+  （CLI/门面按字段渲染友好报错，不解析文案）；
+- 策略链消费：`factorlab.app.strategy.run.run_strategy` 组合前对信号帧应用同一
+  scope 谓词（`factorlab.core.scope.filter_frame`；历史产物兼容——不重算信号也不
+  交易 BJ/1996 前证券），随即 `run_backtest` 按决策窗口末端过读取门（五字段进
+  manifest）。
 
 ## 5. M7 Portfolio Construction
 

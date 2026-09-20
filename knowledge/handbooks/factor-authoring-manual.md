@@ -19,6 +19,17 @@ export FACTORLAB_DATA_BACKEND=ch      # 当前唯一可用读后端（duckdb 平
 - **ST 口径**：`universe.rules.exclude_st: true` 需要 `stock_st` 表；CH 无该表时默认 fail fast，
   临时可用 `FACTORLAB_ST_DEGRADE=allow` 降级（结果 = **无 ST 口径**，不可与 ST 过滤结果混比）。
 
+### 数据范围（R37 裁定，2026-09-20）
+
+- 研究范围 = **trade_date ≥ 1996-01-01 且 code 非 `.BJ`**（北交所）。universe 解析默认
+  已排除 BJ（`rules.exclude_bj: false` 才纳入；codes 池 ref 文件顶层同键）；策略组合前
+  对信号帧应用同一谓词（历史产物也不会交易 BJ/1996 前）；
+- 读取门对早于 1996-01-01 的分区直接拒（`DatasetQualityError.status=OUT_OF_SCOPE`，
+  无 opt-in 通道；见 interface §4.9）；
+- 范围外数据（前 1996 约 17.2 万行 + BJ 约 27.0 万行）**保留在盘、不删除不改写**，
+  只不纳入 DQ 审计/发布/研究读取。裁定源 pending-items #24，规格
+  `knowledge/design/platform/specs/2026-09-20-dq-scope-cut-addendum.md`。
+
 ## 1. 写 spec（5-10 分钟）
 
 - 位置：`$QUANTRESEARCH_ROOT/factor/<族>/<名>.yaml`；命名 `<类别>_<逻辑>_<窗口>`（如 `momentum_20d`）；

@@ -6,6 +6,8 @@
                                    # composite → results_dir/composites/<name>
       → 按 doc.date 过滤 signal frame
       → 按 doc.universe_override 过滤 signal frame（R07-STRAT-I6：canonical 子集）
+      → 按数据集范围过滤 signal frame（R37：非 .BJ 且 date >= 1996-01-01；
+         历史产物兼容——不重算信号也不交易范围外证券）
       → _load_market_cap（仅 market_cap_weighted：读句柄取 PIT total_mv）
       → construct_target_portfolio（M7：StrategySpec + market_cap 面板）
       → build_rebalance_schedule
@@ -35,6 +37,7 @@ from factorlab.app.backtest import run_backtest, save_backtest_result
 from factorlab.app.composite.artifact import read_composite_artifact
 from factorlab.app.composite.resolver import COMPOSITES_DIRNAME
 from factorlab.config import settings
+from factorlab.core import scope
 from factorlab.core.domain.backtest import BacktestResult, NavSeries
 from factorlab.core.domain.frames import SignalArtifact, SignalMeta
 from factorlab.core.domain.portfolio import TargetPortfolio
@@ -87,6 +90,25 @@ def _filter_to_universe(signal: SignalArtifact, doc: StrategyDoc) -> SignalArtif
             f"{doc.date.start}~{doc.date.end} 内的 signal codes 无交集"
             f"（窗口内可用 {available}；override 需为 canonical ts_code 形态，"
             f"如 '000001.SZ'）——不静默空跑")
+    return SignalArtifact(frame=frame, meta=signal.meta)
+
+
+def _filter_to_scope(signal: SignalArtifact, doc: StrategyDoc) -> SignalArtifact:
+    """R37 数据集范围谓词：组合前剔除非 .BJ 且 date >= 1996-01-01 之外的信号行。
+
+    口径唯一事实源 `factorlab.core.scope`（范围外数据保留在盘，只不参与研究）。
+    历史产物兼容：加载既有 SignalArtifact 时同样过滤——不重算信号也能保证
+    不交易 BJ/1996 前证券。保持行序与 schema；过滤后为空 → fail fast
+    （不静默空跑）。
+    """
+    frame = scope.filter_frame(signal.frame, date_col="date", code_col="code")
+    if frame.height == 0:
+        raise ValueError(
+            f"策略 {doc.strategy.name}: 信号 {signal.meta.name!r}"
+            f"（{doc.signal_kind}）在 date 窗口 {doc.date.start}~{doc.date.end} "
+            f"内经数据集范围（trade_date >= {scope.MIN_TRADE_DATE.isoformat()} "
+            f"且 code 非 .BJ）过滤后无任何行——历史产物含范围外信号；"
+            f"不静默空跑（请重算信号或换窗口）")
     return SignalArtifact(frame=frame, meta=signal.meta)
 
 
@@ -210,6 +232,7 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
     signal = _load_signal(doc, root)
     filtered = _filter_to_window(signal, doc)
     filtered = _filter_to_universe(filtered, doc)
+    filtered = _filter_to_scope(filtered, doc)
     mv_panel = _load_market_cap(filtered, doc, rd)
     target = construct_target_portfolio(filtered, doc.strategy, market_cap=mv_panel)
     if target_transform is not None:
