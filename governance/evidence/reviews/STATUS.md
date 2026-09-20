@@ -43,7 +43,7 @@
 ### reviewer（我）
 1. ~~R07 8 行 + R09 3 行 fixed-claimed 复查回填~~ → ✅ **已完成（R35）**：13 行逐条实测**全部与声称一致** → 11 行 verified；R08 两行加**复查注记**（事实已落地，待团队回填修复说明）
 2. ~~R08 2 行 open 跟进~~ → 🔶 注记已加，保持 open 等团队回填（R30 Task11/12 已事实落地）
-3. 台账现状：**119 行 · verified 113 · open 6 · fixed-claimed 0 · 复查列覆盖 115/119**；`make gates` exit 0（R31-DQ-I1 已 verified；R36-CI-I1 与 5 条 R31 待团队）
+3. 台账现状：**120 行 · verified 113 · open 7 · fixed-claimed 0 · 复查列覆盖 115/120**；`make gates` exit 0（R31-DQ-I1 已 verified；R36-CI-I1 与 4 条 R31 待团队；R31-API-P1 更名 R31-API-M1——原 ID 末段 `P1` 不合规会被台账门静默漏行，已同步 issue #23）
 
 ### 开发团队
 1. ~~lob_fact 门红 14 处~~ → **已按 C 处置（2026-09-19）**：`check_dataiface.py` 增 `PAUSED_TREES`（扫描豁免 + 白名单"不腐"校验跳过，输出显式打印暂停提示）；`make gates` 已回 **exit 0 全绿**。恢复 tick 时：移除 `PAUSED_TREES`、按原方案修 14 处、清理/回填 `run_lob_batch` 两条失效登记
