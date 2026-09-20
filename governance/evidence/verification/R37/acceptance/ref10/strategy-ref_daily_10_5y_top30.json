@@ -1,0 +1,30 @@
+[guard] slot=1/2 argv=strategy run /data/students/gaolei/quantresearch/experiments/r37_5y/ref_daily_10_5y_top30.yaml
+{
+  "ok": true,
+  "schema_version": 1,
+  "command": "strategy.run",
+  "data": {
+    "name": "ref_daily_10_5y_top30",
+    "signal": "ref_daily_10_5y",
+    "decisions": 164,
+    "execution_events": 164,
+    "fills": 7295,
+    "nav": {
+      "events": 164,
+      "first": 9997412.5722922,
+      "last": 17709835.58869584,
+      "total_return": 0.7714419066567881,
+      "date_start": "2023-05-29",
+      "date_end": "2026-08-03"
+    }
+  },
+  "artifacts": {
+    "strategy_dir": "runs/platform/strategies/ref_daily_10_5y_top30",
+    "strategy_manifest": "runs/platform/strategies/ref_daily_10_5y_top30/strategy_manifest.json",
+    "backtest_manifest": "runs/platform/strategies/ref_daily_10_5y_top30/manifest.json",
+    "nav": "runs/platform/strategies/ref_daily_10_5y_top30/nav/nav_series.parquet",
+    "log": "runs/platform/strategies/ref_daily_10_5y_top30/run.log"
+  },
+  "warnings": [],
+  "error": null
+}

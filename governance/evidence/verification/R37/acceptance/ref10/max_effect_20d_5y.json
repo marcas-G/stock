@@ -1,0 +1,5 @@
+[guard] slot=2/2 argv=factor run /data/students/gaolei/quantresearch/experiments/r37_5y/ref/max_effect_20d_5y.yaml
+/data/students/gaolei/stock/platform/src/factorlab/app/run.py:405: STDegradedWarning: ST 未知按非 ST 处理，结果为无 ST 口径：exclude_st=true 但库中无 stock_st 表，FACTORLAB_ST_DEGRADE=allow 已显式降级（is_st=null、in_universe 不做 ST 过滤）。需真实 ST 过滤请灌入 stock_st 并保持开关默认 fail fast。
+  uf = resolve_universe_frame(spec, rd, dates=signal_cal.to_list(),
+2026-09-20 20:21:12.189 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-20 20:21:12.225 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py

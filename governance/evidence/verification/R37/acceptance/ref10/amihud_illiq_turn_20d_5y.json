@@ -1,0 +1,87 @@
+[guard] slot=2/2 argv=factor run /data/students/gaolei/quantresearch/experiments/r37_5y/ref/amihud_illiq_turn_20d_5y.yaml
+/data/students/gaolei/stock/platform/src/factorlab/app/run.py:405: STDegradedWarning: ST 未知按非 ST 处理，结果为无 ST 口径：exclude_st=true 但库中无 stock_st 表，FACTORLAB_ST_DEGRADE=allow 已显式降级（is_st=null、in_universe 不做 ST 过滤）。需真实 ST 过滤请灌入 stock_st 并保持开关默认 fail fast。
+  uf = resolve_universe_frame(spec, rd, dates=signal_cal.to_list(),
+2026-09-20 20:19:56.020 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-20 20:19:56.050 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+{
+  "ok": true,
+  "schema_version": 1,
+  "command": "factor.run",
+  "data": {
+    "name": "amihud_illiq_turn_20d_5y",
+    "evaluation": {
+      "version": 2,
+      "frequency": "daily",
+      "target": "forward_return_1d",
+      "n_weeks": 1190,
+      "ic": {
+        "mean": 0.02412089381622497,
+        "std": 0.1284012136846112,
+        "t_stat": 6.48033934921525,
+        "ir": 0.18785565279369199,
+        "n_weeks": 1190,
+        "recent_26w_mean": 0.08918989162158615,
+        "recent_26w_t": 2.6176700102557118,
+        "sign_consistent": 0.5512605042016807,
+        "direction_consistent_share": 0.5512605042016807
+      },
+      "decile_spread": {
+        "ret": 0.0009911202260679836
+      },
+      "turnover": {
+        "monthly": 0.3541008718681107,
+        "quarterly": 0.5625082537054912
+      },
+      "coverage": {
+        "pct_valid": 0.9639,
+        "total_rows": 6032765,
+        "valid_rows": 5815173
+      },
+      "ic_decay": {
+        "1": {
+          "column": "forward_return_1d",
+          "available": true,
+          "n_periods": 1190,
+          "mean": 0.02412089381622497,
+          "std": 0.12840121368461116,
+          "t_stat": 6.480339349215252,
+          "ir": 0.187855652793692
+        },
+        "5": {
+          "column": "forward_return_5d",
+          "available": true,
+          "n_periods": 1186,
+          "mean": 0.03589477422096947,
+          "std": 0.12019431913975011,
+          "t_stat": 10.284652655140746,
+          "ir": 0.29863952371355057
+        },
+        "10": {
+          "column": "forward_return_10d",
+          "available": false,
+          "n_periods": 0,
+          "mean": null,
+          "std": null,
+          "t_stat": null,
+          "ir": null
+        },
+        "20": {
+          "column": "forward_return_20d",
+          "available": true,
+          "n_periods": 1171,
+          "mean": 0.057228712699566864,
+          "std": 0.12519998480004804,
+          "t_stat": 15.641851136917202,
+          "ir": 0.4570983997399407
+        }
+      }
+    }
+  },
+  "artifacts": {
+    "run_dir": "/data/students/gaolei/stock/runs/platform/amihud_illiq_turn_20d_5y",
+    "summary": "/data/students/gaolei/stock/runs/platform/amihud_illiq_turn_20d_5y/summary.json",
+    "log": "/data/students/gaolei/stock/runs/platform/amihud_illiq_turn_20d_5y/run.log"
+  },
+  "warnings": [],
+  "error": null
+}
