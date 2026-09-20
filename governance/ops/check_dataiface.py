@@ -152,6 +152,9 @@ G_READ_ALLOWED = {
     # （与 ingest_daily DAILY_SRC 同款理由）。
     ("platform/tools/data_quality/pipeline.py", "main", "raw"):
         "clean 链输入源（--raw，缺省 factio.paths.daily_fact；Plan DQ-M1 T5）",
+    ("platform/tools/data_quality/health.py", "_load_scoped_ledger", "raw_path"):
+        "R37 T2：publish-history 开工前装载 scoped 全范围账本（只读 raw 全表；"
+        "路径取 factio.paths.daily_fact 单点，不写回、不指向事实库分区）",
     ("platform/tools/data_quality/health.py", "_scan_raw", "str(raw_path)"):
         "post-ingest 审计读 raw 单日/基线窗口（不整表拉取；Plan DQ-M1 T6）",
     ("platform/tools/data_quality/health.py", "main", "str(raw_path)"):

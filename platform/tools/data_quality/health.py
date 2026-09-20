@@ -30,6 +30,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Iterable
 
 import polars as pl
 
@@ -37,7 +38,17 @@ _TOOLS = Path(__file__).resolve().parents[1]
 if str(_TOOLS) not in sys.path:      # 脚本直启（阶段链）时补 tools/ 再导入
     sys.path.insert(0, str(_TOOLS))
 
+from factorlab.core import scope as core_scope  # noqa: E402
+
 from data_quality import audit, rules  # noqa: E402
+
+if TYPE_CHECKING:                    # pragma: no cover - 仅类型
+    from data_quality.pipeline import ScopedLedger
+
+PASS = audit.PASS
+DEGRADED = audit.DEGRADED
+FAIL = audit.FAIL
+
 
 HEALTH_STATUSES = ("PASS", "DEGRADED", "FAIL", "UNKNOWN")
 VERIFICATION_STATES = ("VERIFIED", "LEGACY_UNVERIFIED", "KNOWN_ISSUE")
@@ -61,6 +72,8 @@ BACKLOG_KEYS = ("scope", "expected_count", "actual_count", "fatal_count",
 NOTE_NO_NEW_DATA = "no_new_data"
 
 DEFAULT_DATASET = "ashare_daily"
+# R37 T2：publish-history 的 quality_backlog scope 标签（scoped 全范围披露）
+HISTORY_BACKLOG_SCOPE = "scoped_full_table"
 
 
 def _default_backlog() -> dict:
@@ -388,6 +401,323 @@ def quality_block(base_quality: dict, metrics: audit.AuditMetrics | None,
     }
 
 
+# ── publish-history（R37 T2：scoped 账本 + 逐分区批量发布）────────────────
+def derive_partition_status(*, partition_quarantine: int,
+                            partition_expected: int,
+                            partition_has_error: bool, policy) -> str:
+    """publish-history 分区状态推导（R37 规格增补 §2；语义冻结）。
+
+    - 分区级 audit 有 ERROR（PK 重复等）→ ``FAIL``；
+    - 分区内 scope 内 ``quarantine > 0``，或
+      ``error_rate = quarantine / expected ∈ (pass.max_error_rate,
+      fail.min_error_rate]`` → ``DEGRADED``；
+    - 其余 → ``PASS``。
+
+    全表计数/规则 top-N 只进 ``quality_backlog`` 披露，**不参与**本判定。
+    """
+    if partition_expected < 0 or partition_quarantine < 0:
+        raise ValueError(
+            f"quarantine/expected 必须非负：quarantine={partition_quarantine!r} "
+            f"expected={partition_expected!r}")
+    if partition_has_error:
+        return FAIL
+    rate = (partition_quarantine / partition_expected
+            if partition_expected > 0
+            else (1.0 if partition_quarantine else 0.0))
+    gate = policy.partition_gate
+    if partition_quarantine > 0 or (
+            gate["pass"]["max_error_rate"] < rate
+            <= gate["fail"]["min_error_rate"]):
+        return DEGRADED
+    return PASS
+
+
+def _history_backlog(ledger: "ScopedLedger") -> dict:
+    """全范围 scoped 账本 → health ``quality_backlog`` 披露块（键集同契约）。"""
+    top = sorted((ledger.rules or {}).items(),
+                 key=lambda kv: (-int(kv[1]), str(kv[0])))[:10]
+    return {
+        "scope": HISTORY_BACKLOG_SCOPE,
+        "expected_count": ledger.expected_count,
+        "actual_count": ledger.clean_count,
+        "fatal_count": ledger.fatal_count,
+        "error_count": ledger.error_count,
+        "warning_count": ledger.warning_count,
+        "quarantine_count": ledger.quarantine_count,
+        "error_rate": ledger.error_rate,
+        "systemic_detail": (ledger.systemic.detail if ledger.systemic else None),
+        "top_classes": [{"rule_id": str(k), "count": int(v)} for k, v in top],
+    }
+
+
+def _iso_date(value: str, what: str) -> datetime.date:
+    try:
+        return datetime.date.fromisoformat(str(value))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{what} 需为 ISO 日期（YYYY-MM-DD）：{value!r}") from exc
+
+
+def _normalize_dates(dates: Iterable) -> list[datetime.date]:
+    out: list[datetime.date] = []
+    for d in dates:
+        if isinstance(d, datetime.date):
+            out.append(d)
+            continue
+        out.append(_iso_date(d, "dates 元素"))
+    return out
+
+
+def _is_published_pass(path: Path, policy_version: str) -> bool:
+    """已发布且可续跑：PASS + VERIFIED + 当前政策版本（旧政策不算续跑）。"""
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return (doc.get("health_status") == PASS
+            and doc.get("verification_state") == "VERIFIED"
+            and doc.get("dq_policy_version") == policy_version)
+
+
+def _load_scoped_ledger(*, policy=None, log: Callable[[str], None] | None = None,
+                        ) -> "ScopedLedger":
+    """生产装载：读 raw 全表 → ``pipeline.build_scoped_ledger``（只读、不落盘）。
+
+    publish-history 开工前跑一次；`systemic` 非 None → 整批拒绝（§2）。
+    """
+    from data_quality import pipeline as dq_pipeline
+
+    policy = policy or rules.load_policy()
+    log = log or (lambda line: None)
+    raw_path = dq_pipeline._resolve_raw(None)
+    log(f"[publish-history] scoped 全范围账本：{raw_path}")
+    raw = pl.read_parquet(raw_path)
+    return dq_pipeline.build_scoped_ledger(
+        raw, policy=policy, raw_sha256=sha256_file(raw_path), log=log)
+
+
+def _list_canonical_partitions(dataset: str = DEFAULT_DATASET, *,
+                               date_from: str, date_to: str) -> list[str]:
+    """canonical 中 [date_from, date_to] 的交易日清单（DISTINCT；升序）。"""
+    table = _table_name(dataset)
+    from factorlab.app.bootstrap import open_read
+
+    rd = open_read()
+    try:
+        if table not in rd.tables():
+            raise ValueError(
+                f"canonical 表 {table!r} 不存在（backend={rd.backend}）——"
+                f"publish-history 需要已灌入的 canonical")
+        if rd.backend == "ch":
+            pred = (f"trade_date >= toDate('{date_from}') AND "
+                    f"trade_date <= toDate('{date_to}')")
+        else:
+            pred = (f"trade_date >= DATE '{date_from}' AND "
+                    f"trade_date <= DATE '{date_to}'")
+        frame = rd.query_df(
+            f"SELECT DISTINCT trade_date FROM {table} WHERE {pred} "
+            f"ORDER BY trade_date")
+        days = frame["trade_date"].to_list()
+    finally:
+        rd.close()
+    return sorted(d.isoformat() if hasattr(d, "isoformat") else str(d)
+                  for d in days)
+
+
+def _read_partition_scoped(partition: str,
+                           dataset: str = DEFAULT_DATASET) -> pl.DataFrame:
+    """读 canonical 单分区 + scope 过滤（§2：读该分区 canonical（scoped））。
+
+    只拉分区帧（不整表 count），列与现有 ``_read_canonical`` 同口径：
+    ``code/trade_date/open/high/low/close``。
+    """
+    table = _table_name(dataset)
+    from factorlab.app.bootstrap import open_read
+
+    rd = open_read()
+    try:
+        if table not in rd.tables():
+            raise ValueError(
+                f"canonical 表 {table!r} 不存在（backend={rd.backend}）——"
+                f"publish-history 需要已灌入的 canonical")
+        pred = (f"trade_date = toDate('{partition}')" if rd.backend == "ch"
+                else f"trade_date = DATE '{partition}'")
+        frame = rd.query_df(
+            f"SELECT ts_code AS code, trade_date, open, high, low, close "
+            f"FROM {table} WHERE {pred}")
+    finally:
+        rd.close()
+    return core_scope.filter_frame(frame)
+
+
+def _history_doc(*, partition: str, frame: pl.DataFrame,
+                 ledger: "ScopedLedger", policy, dataset_id: str,
+                 run_tag: str) -> tuple[dict, str]:
+    """单分区 canonical（scoped）审计 → health doc + 冻结推导状态。"""
+    scoped = core_scope.filter_frame(frame)
+    unit = ledger.partition(partition)
+    expected = unit.expected if unit is not None else scoped.height
+    actual = scoped.height
+    explained = ((unit.quarantined_rows + unit.deduped_rows)
+                 if unit is not None else 0)
+    metrics = audit.audit_post_ingest(
+        scoped, partition=partition,
+        expected_count=expected if expected > 0 else None,
+        actual_count=actual, explained_drops=explained)
+    has_error = any(r.level in (rules.FATAL, rules.ERROR)
+                    for r in metrics.results)
+    quarantine = unit.quarantined_keys if unit is not None else 0
+    status = derive_partition_status(
+        partition_quarantine=quarantine, partition_expected=expected,
+        partition_has_error=has_error, policy=policy)
+
+    audit_level = {rules.FATAL: 0, rules.ERROR: 0, rules.WARN: 0}
+    for r in metrics.results:
+        if r.level in audit_level:
+            audit_level[r.level] += 1
+    error_count = (unit.error_count if unit is not None else 0) \
+        + audit_level[rules.ERROR]
+    quality = {
+        "fatal_count": (unit.fatal_count if unit is not None else 0)
+        + audit_level[rules.FATAL],
+        "error_count": error_count,
+        "warning_count": (unit.warning_count if unit is not None else 0)
+        + audit_level[rules.WARN],
+        "quarantine_count": quarantine,
+        "error_rate": error_count / expected if expected else 0.0,
+        "systematic_issue": False,     # 系统性已在开工前整批裁定（§2）
+        "systemic_detail": None,
+    }
+    completeness = metrics.completeness
+    doc = build_health_doc(
+        dataset_id=dataset_id, partition=partition,
+        data_version=f"v{run_tag}_01",
+        dq_policy_version=policy.dq_policy_version,
+        repair_policy_version=policy.dq_policy_version,
+        health_status=status, verification_state="VERIFIED",
+        completeness={
+            "status": completeness.status,
+            "expected_count": completeness.expected_count,
+            "actual_count": completeness.actual_count,
+            "coverage": completeness.coverage},
+        quality=quality, rules_counts=_rule_counts(metrics.results),
+        latest_trade_date=partition, quality_backlog=_history_backlog(ledger),
+        source_version=str(run_tag), raw_sha256=ledger.raw_sha256)
+    return doc, status
+
+
+def publish_history(
+    *,
+    dataset_id: str = DEFAULT_DATASET,
+    date_from: str,
+    date_to: str | None = None,
+    run_tag: str,
+    root: str | Path | None = None,
+    resume: bool = True,
+    force: bool = False,
+    reader: Callable[[str], pl.DataFrame] | None = None,
+    dates: Iterable | None = None,
+    ledger: "ScopedLedger | None" = None,
+    log: Callable[[str], None] | None = None,
+) -> dict:
+    """scope 全范围账本 + 逐分区 canonical 审计 → health 批量发布（R37 §2）。
+
+    语义（冻结）：
+
+    - 开工前在 scoped 全范围上跑一次 ``aggregate.detect_systemic``；未过 →
+      ``status="rejected_systemic"``，**零落盘**（fail fast，不留半成品）；
+    - 逐分区（[date_from, date_to] 内 canonical 交易日）：读 canonical（scoped）
+      → 分区级 audit（PK/重复）→ 冻结推导
+      （``derive_partition_status``）→ 原子写
+      ``data/health/<dataset>/<partition>.json``；
+    - 幂等可续：已 PASS（且政策版本一致）分区跳过；``force=True`` 重发；
+    - 全表计数只进 ``quality_backlog`` 披露；``summary.json`` 末尾一次性重建；
+    - 范围外分区（<1996-01-01 或超出 [date_from, date_to]）**不写**。
+
+    返回报告：``status``（ok / rejected_systemic / no_dates）与
+    published/skipped/passed/degraded/failed 计数。
+    ``reader`` / ``dates`` / ``ledger`` 为测试/装配注入面（生产留 None）。
+    """
+    if not isinstance(run_tag, str) or not run_tag.strip():
+        raise ValueError(f"run_tag 必须为非空字符串：{run_tag!r}")
+    log = log or (lambda line: None)
+    start = _iso_date(date_from, "date_from")
+    end = _iso_date(date_to, "date_to") if date_to is not None else start
+    if end < start:
+        raise ValueError(f"date_to({end}) < date_from({start})")
+    policy = rules.load_policy()
+    base = _resolve_root(root)
+    health_dir = base / "health" / dataset_id
+    effective_from = max(start, core_scope.MIN_TRADE_DATE)
+    if effective_from > start:
+        log(f"[publish-history] --from {start} 早于数据集范围 "
+            f"{core_scope.MIN_TRADE_DATE_ISO} → 从 {effective_from} 起")
+
+    if dates is None:
+        picked = _normalize_dates(_list_canonical_partitions(
+            dataset_id, date_from=effective_from.isoformat(),
+            date_to=end.isoformat()))
+    else:
+        picked = _normalize_dates(dates)
+    picked = sorted(d for d in picked if effective_from <= d <= end)
+
+    report = {
+        "dataset_id": dataset_id,
+        "date_from": start.isoformat(),
+        "date_to": end.isoformat(),
+        "run_tag": str(run_tag),
+        "status": "ok",
+        "total": len(picked),
+        "published": 0,
+        "skipped": 0,
+        "passed": 0,
+        "degraded": 0,
+        "failed": 0,
+        "systemic_detail": None,
+    }
+    if not picked:
+        report["status"] = "no_dates"
+        log(f"[publish-history] 范围内无分区日期（{effective_from}..{end}）")
+        return report
+
+    if ledger is None:
+        ledger = _load_scoped_ledger(policy=policy, log=log)
+    if ledger.systemic is not None:
+        report["status"] = "rejected_systemic"
+        report["systemic_detail"] = ledger.systemic.detail
+        log(f"[publish-history] 系统性检查未过 → 整批拒绝："
+            f"{ledger.systemic.detail}")
+        return report
+
+    read = reader or (lambda partition: _read_partition_scoped(partition,
+                                                               dataset_id))
+    skip = resume and not force
+    total = len(picked)
+    for i, partition in enumerate(picked, start=1):
+        iso = partition.isoformat()
+        path = health_dir / f"{iso}.json"
+        if skip and _is_published_pass(path, policy.dq_policy_version):
+            report["skipped"] += 1
+        else:
+            doc, status = _history_doc(
+                partition=iso, frame=read(iso), ledger=ledger, policy=policy,
+                dataset_id=dataset_id, run_tag=run_tag)
+            write_health_artifact(base, doc)
+            report["published"] += 1
+            if status == PASS:
+                report["passed"] += 1
+            elif status == DEGRADED:
+                report["degraded"] += 1
+            else:
+                report["failed"] += 1
+        if i % 100 == 0 or i == total:
+            log(f"[publish-history] {i}/{total} published={report['published']} "
+                f"skipped={report['skipped']} degraded={report['degraded']} "
+                f"failed={report['failed']}")
+    if report["published"]:
+        refresh_dataset_summary(health_dir)
+    return report
+
+
 # ── CLI（阶段链末步）────────────────────────────────────────────────────
 def _table_name(dataset: str) -> str:
     return dataset.split("_", 1)[-1] if dataset.startswith("ashare_") else dataset
@@ -475,10 +805,36 @@ def _scan_raw(raw_path, *, day: str | None = None,
     return lf.collect()
 
 
-def main(argv: list[str] | None = None) -> int:
-    """``publish``：staging summary + canonical → audit → FINAL 门 → health 发布。
+def _publish_history_cli(args) -> int:
+    """``publish-history`` 子命令入口（退出码 0/1/2）。"""
+    try:
+        report = publish_history(
+            dataset_id=args.dataset, date_from=args.date_from,
+            date_to=args.date_to, run_tag=args.run_tag, root=args.root,
+            force=args.force, log=lambda line: print(line, flush=True))
+    except ValueError as ex:
+        print(f"错误：{ex}", file=sys.stderr)
+        return 2
+    if report["status"] == "no_dates":
+        print(f"错误：范围内无分区日期（{report['date_from']} .. "
+              f"{report['date_to']}）", file=sys.stderr)
+        return 2
+    if report["status"] == "rejected_systemic":
+        print(f"错误：系统性检查未过，整批拒绝发布："
+              f"{report['systemic_detail']}", file=sys.stderr)
+        return 1
+    print(f"[health] publish-history {report['date_from']}..{report['date_to']} "
+          f"published={report['published']} skipped={report['skipped']} "
+          f"passed={report['passed']} degraded={report['degraded']} "
+          f"failed={report['failed']}", flush=True)
+    return 0
 
-    退出码：0 非 FAIL；1 FINAL FAIL；2 用法/输入错误。
+
+def main(argv: list[str] | None = None) -> int:
+    """``publish``：日更链末步；``publish-history``：R37 批量历史发布。
+
+    退出码（publish）：0 非 FAIL；1 FINAL FAIL；2 用法/输入错误。
+    退出码（publish-history）：0 完成；1 系统性拒绝；2 无在范围日期/用法错误。
     """
     ap = argparse.ArgumentParser(prog="health", description=__doc__)
     sub = ap.add_subparsers(dest="command", required=True)
@@ -492,7 +848,22 @@ def main(argv: list[str] | None = None) -> int:
     pub.add_argument("--sample", type=int, default=3, help="腾讯抽样 symbol 数")
     pub.add_argument("--no-sample", action="store_true", help="跳过腾讯抽样")
     pub.add_argument("--dry-run", action="store_true")
+    hist = sub.add_parser(
+        "publish-history",
+        help="scoped 全范围账本 + 逐分区 audit + health 批量历史发布")
+    hist.add_argument("--from", dest="date_from", required=True,
+                      help="ISO 起始交易日（含）")
+    hist.add_argument("--to", dest="date_to", default=None,
+                      help="ISO 结束交易日（含；缺省 = --from）")
+    hist.add_argument("--run-tag", required=True,
+                      help="发布标记（进 data_version/source_version）")
+    hist.add_argument("--root", default=None, help="data 根（缺省 factio DATA_ROOT）")
+    hist.add_argument("--dataset", default=DEFAULT_DATASET)
+    hist.add_argument("--force", action="store_true",
+                      help="重发已 PASS 分区（默认幂等跳过）")
     args = ap.parse_args(argv)
+    if args.command == "publish-history":
+        return _publish_history_cli(args)
     if args.command != "publish":     # pragma: no cover - argparse required
         ap.error(f"未知子命令 {args.command!r}")
 

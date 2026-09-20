@@ -44,6 +44,8 @@ _TOOLS = Path(__file__).resolve().parents[1]
 if str(_TOOLS) not in sys.path:
     sys.path.insert(0, str(_TOOLS))
 
+from factorlab.core import scope as core_scope  # noqa: E402
+
 from data_quality import aggregate, health as dq_health, repair, rules, validators  # noqa: E402
 from data_quality.aggregate import Metrics, SystemicDetail  # noqa: E402
 from data_quality.rules import DqPolicy  # noqa: E402
@@ -86,6 +88,155 @@ class CleanStageResult:
     def ok(self) -> bool:
         """门通过（PASS/DEGRADED 可入 canonical；FAIL 阻断）。"""
         return self.decision != FAIL
+
+
+@dataclass(frozen=True)
+class PartitionLedger:
+    """单分区（交易日）scoped 账本单元（R37 T2；publish-history 状态推导输入）。
+
+    ``expected`` = scope 内 raw 行数；``clean`` = scope 内 clean 行数；
+    ``quarantined_keys`` = 去重 key 数（= aggregate.quarantine_count 口径）；
+    ``deduped_rows`` = expected − clean − quarantined_rows（确定性账本身份式）。
+    """
+
+    expected: int
+    clean: int
+    quarantined_rows: int
+    quarantined_keys: int
+    deduped_rows: int
+    fatal_count: int
+    error_count: int
+    warning_count: int
+    info_count: int
+
+
+@dataclass(frozen=True)
+class ScopedLedger:
+    """scoped 全范围清洗账本（R37 T2；publish-history 的公共 ledger）。
+
+    规格增补 §2：validators 前先过滤 scope；expected/actual/quarantine/dedup
+    与 quality_backlog 全部按 scope 计算。`systemic` = 在 scoped 全范围上
+    ``aggregate.detect_systemic`` 的结果；非 None → publish-history 整批拒绝。
+    """
+
+    expected_count: int
+    clean_count: int
+    fatal_count: int
+    error_count: int
+    warning_count: int
+    info_count: int
+    quarantine_count: int
+    error_rate: float
+    deduped_rows: int
+    rules: dict[str, int]
+    systemic: SystemicDetail | None
+    by_date: dict[str, PartitionLedger]
+    raw_sha256: str | None = None
+
+    def partition(self, iso_date: str) -> PartitionLedger | None:
+        """该交易日的分区账本；范围外/无数据 → None。"""
+        return self.by_date.get(iso_date)
+
+
+def build_scoped_ledger(
+    raw: pl.DataFrame,
+    *,
+    policy: DqPolicy | None = None,
+    calendar: Any = None,
+    listing: Any = None,
+    limits: Any = None,
+    raw_sha256: str | None = None,
+    log: Callable[[str], None] | None = None,
+) -> ScopedLedger:
+    """对 raw 全表做 **scope 内** 校验/修复（不落盘）→ scoped 公共账本。
+
+    与 ``run_clean_stage`` 的清洗语义一致（同排序/校验/修复/聚合/systemic），
+    差别只有两点：入口先 ``scope.filter_frame``；零落盘、不触发 ingest。
+    ``by_date`` 以交易日切账（expected/clean/quarantine/dedup + 级别计数），
+    publish-history 逐分区据此推导状态并组装 quality_backlog。
+    """
+    policy = policy or rules.load_policy()
+    log = log or (lambda line: None)
+    scoped = core_scope.filter_frame(raw)
+    dropped = raw.height - scoped.height
+    if dropped:
+        log(f"[scope] 过滤范围外行 {dropped}（< {core_scope.MIN_TRADE_DATE_ISO} "
+            f"或 {'/'.join(core_scope.EXCLUDED_CODE_SUFFIXES)}）")
+    expected = scoped.height
+    if expected == 0:
+        return ScopedLedger(
+            expected_count=0, clean_count=0, fatal_count=0, error_count=0,
+            warning_count=0, info_count=0, quarantine_count=0, error_rate=0.0,
+            deduped_rows=0, rules={}, systemic=None, by_date={},
+            raw_sha256=raw_sha256)
+
+    df = _sort_rows(scoped)
+    results = validators.validate_daily(df, calendar, listing, limits, policy)
+    clean, quarantined, repair_log = repair.repair(df, results)
+    metrics = aggregate.aggregate(results, expected, expected)
+    systemic = aggregate.detect_systemic(metrics, df, policy)
+    deduped = sum(int(e.get("count", 0)) for e in repair_log
+                  if e.get("action") == "dedup_identical")
+    by_date = _ledger_by_date(scoped, clean, quarantined, results)
+    log(f"[scope-ledger] rows={expected} clean={clean.height} "
+        f"quarantine_keys={metrics.quarantine_count} error={metrics.error_count} "
+        f"systemic={systemic is not None}")
+    return ScopedLedger(
+        expected_count=expected, clean_count=clean.height,
+        fatal_count=metrics.fatal_count, error_count=metrics.error_count,
+        warning_count=metrics.warning_count, info_count=metrics.info_count,
+        quarantine_count=metrics.quarantine_count, error_rate=metrics.error_rate,
+        deduped_rows=deduped, rules=metrics.rules, systemic=systemic,
+        by_date=by_date, raw_sha256=raw_sha256)
+
+
+def _counts_by_date(frame: pl.DataFrame) -> dict[str, int]:
+    """帧 → ISO 日期 → 行数（不可解析日期不入桶）。"""
+    if frame.height == 0 or "trade_date" not in frame.columns:
+        return {}
+    expr = validators._date_expr(frame.schema["trade_date"])
+    if expr is None:
+        return {}
+    grouped = (frame.select(expr.alias("_d"))
+               .filter(pl.col("_d").is_not_null())
+               .group_by("_d").len())
+    return {d.isoformat(): int(n) for d, n in grouped.iter_rows()}
+
+
+def _ledger_by_date(scoped: pl.DataFrame, clean: pl.DataFrame,
+                    quarantined: pl.DataFrame,
+                    results: list) -> dict[str, PartitionLedger]:
+    """按交易日切 scoped 账本；级别计数/隔离 key 来自行级 results。"""
+    expected = _counts_by_date(scoped)
+    clean_c = _counts_by_date(clean)
+    quar_c = _counts_by_date(quarantined)
+    levels: dict[str, dict[str, int]] = {}
+    qkeys: dict[str, set[str]] = {}
+    for r in results:
+        if "|" not in r.key:
+            continue
+        day = r.key.rsplit("|", 1)[1]
+        if day not in expected:
+            continue
+        bucket = levels.setdefault(day, {})
+        bucket[r.level] = bucket.get(r.level, 0) + 1
+        if rules.SEVERITY[r.level] <= rules.SEVERITY[rules.ERROR]:
+            qkeys.setdefault(day, set()).add(r.key)
+    out: dict[str, PartitionLedger] = {}
+    for day in sorted(expected):
+        n = expected[day]
+        c = clean_c.get(day, 0)
+        q = quar_c.get(day, 0)
+        bucket = levels.get(day, {})
+        out[day] = PartitionLedger(
+            expected=n, clean=c, quarantined_rows=q,
+            quarantined_keys=len(qkeys.get(day, ())),
+            deduped_rows=max(n - c - q, 0),
+            fatal_count=bucket.get(rules.FATAL, 0),
+            error_count=bucket.get(rules.ERROR, 0),
+            warning_count=bucket.get(rules.WARN, 0),
+            info_count=bucket.get(rules.INFO, 0))
+    return out
 
 
 def run_clean_stage(
@@ -444,9 +595,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"错误：读取 raw 失败：{ex}", file=sys.stderr)
         return 2
 
+    # R37 T2：日更链装载 raw 的入口先过滤 scope（1996+ 非 BJ）；范围外行不进
+    # validators/repair/staging/quarantine。run_clean_stage 纯 API 保持不变
+    # （既有单测语义不破），过滤只发生在本 CLI 入口。
+    scoped = core_scope.filter_frame(df)
+    if scoped.height != df.height:
+        print(f"[scope] 过滤范围外行 {df.height - scoped.height}"
+              f"（< {core_scope.MIN_TRADE_DATE_ISO} 或 "
+              f"{'/'.join(core_scope.EXCLUDED_CODE_SUFFIXES)}）", flush=True)
+    if scoped.height == 0:
+        print(f"错误：scope 过滤后无数据（范围 = {core_scope.MIN_TRADE_DATE_ISO} 起、"
+              f"排除 {'/'.join(core_scope.EXCLUDED_CODE_SUFFIXES)}）——拒绝清洗/灌入",
+              file=sys.stderr)
+        return 2
+
     try:
         res = run_clean_stage(
-            df, run_tag=args.run_tag or _default_run_tag(), dataset=args.dataset,
+            scoped, run_tag=args.run_tag or _default_run_tag(), dataset=args.dataset,
             partition=args.partition, root=args.root, dry_run=args.dry_run,
             log=lambda line: print(line, flush=True))
     except ValueError as ex:
