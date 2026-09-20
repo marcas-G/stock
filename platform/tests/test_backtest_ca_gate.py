@@ -603,3 +603,21 @@ def test_real_ch_fragment_moutai_dividend_continuous(ch_prod):
     assert a2.nav.nav == pytest.approx(expected_cash + qty0 * sell_px,
                                        rel=1e-12)
     assert a2.nav.nav > cash0  # 分红真实入账（不是纯价格幻觉）
+
+
+def test_detail_loader_robust_when_prefix_all_null(tmp_path):
+    """R37-EXEC-I3：schema 只传列名列表 → polars 按前 100 行推断类型；前段全 NULL
+    的列在后续出现小数时崩溃（5 年策略窗口真跑复现）。loader 必须显式 dtype，
+    输出类型不随行序/窗口长度漂移。"""
+    rows = [(D1 + datetime.timedelta(days=i), _A, None, None, None, None, None)
+            for i in range(110)]
+    rows.append((D1 + datetime.timedelta(days=110), _A, 2.564, 0.0, 0.0, 0.0, 1.5))
+    db = _adj_db(tmp_path, detail=rows)
+    out = _detail_rows(db, start=D1, end=D1 + datetime.timedelta(days=110),
+                       codes=[_A])
+    assert out.schema == {"code": pl.String, "trade_date": pl.Date,
+                          "div_cash": pl.Float64, "div_bonus": pl.Float64,
+                          "div_transfer": pl.Float64, "rights_num": pl.Float64,
+                          "rights_price": pl.Float64}
+    assert out["div_cash"].to_list()[-1] == 2.564
+    assert out["div_cash"].null_count() == 110

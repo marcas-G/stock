@@ -618,7 +618,13 @@ def load_adj_detail_window(
         raise ValueError(
             f"adj_detail 在窗口 [{start_date}, {end_date}] 存在 "
             f"(ts_code, trade_date) 重复——不取 first/last")
-    out = pl.DataFrame(details, schema=_ADJ_DETAIL_COLUMNS, orient="row")
+    # R37-EXEC-I3：schema 必须给 **dtype**（此前只给列名列表 → polars 按前 100 行
+    # 推断：前段全 NULL 的列推断成 Null，后续出现小数即 ComputeError）。
+    out = pl.DataFrame(
+        details,
+        schema={"code": pl.String, "trade_date": pl.Date,
+                **{c: pl.Float64 for c in _ADJ_DETAIL_VALUE_COLUMNS}},
+        orient="row")
     out = out.with_columns(
         pl.col("code").cast(pl.String), pl.col("trade_date").cast(pl.Date),
         *[pl.col(c).cast(pl.Float64) for c in _ADJ_DETAIL_VALUE_COLUMNS])
