@@ -116,6 +116,42 @@ historic_unit_exceptions:
     factor: 5.0
     match_tol: 0.10
 
+unit_scale_repairs:
+  # R37 T4（2026-09-20）：scope 内 55 行残余中 19 行现代单位 bug —— volume 源值
+  # 以「手」计（漏 ×100），amount 正确。确证等级：
+  #   15 行 bars_1m 分钟三角（m_volume/daily_volume=100.000、m_amount/daily_amount≈1，
+  #        ×100 后 VWAP 落 OHLC 带；对照组同日正常日比值≈1）——证据
+  #        governance/evidence/verification/R37/residual-55/minute-triangulation-19.{json,csv}；
+  #    4 行（2015，bars_1m 自 2020-01-02 起无覆盖）vendor 源 xlsx（换手率随 volume
+  #        塌缩 ~100×）+ 相邻日连续性（amount 平滑、volume 恰 ×100 断点）确证——同一签名。
+  # 逐行对照表：residual-55/scoped-55-rows.csv、rca.md。
+  # 行级守卫（validators）：仅当本行 VWAP 越带且 vwap/factor 落 [low,high]×(1±match_tol)
+  # 才降级 WARN + repair 换算；未命中/换算后仍越带 → 照旧 ERROR quarantine（不洗白）。
+  # 范围外/未确证行不得登记（loader 拒绝 scope 外键）；其余 36 行保持隔离披露。
+  - field: volume
+    factor: 100.0
+    match_tol: 0.10
+    keys:
+      - "000725.SZ|2015-05-28"
+      - "601988.SH|2015-06-09"
+      - "601288.SH|2015-07-06"
+      - "601988.SH|2015-07-08"
+      - "600221.SH|2024-11-08"
+      - "600157.SH|2024-12-09"
+      - "600157.SH|2024-12-10"
+      - "600010.SH|2025-10-14"
+      - "601868.SH|2026-03-12"
+      - "000725.SZ|2026-05-22"
+      - "000725.SZ|2026-05-25"
+      - "000725.SZ|2026-05-26"
+      - "000725.SZ|2026-05-27"
+      - "000725.SZ|2026-06-05"
+      - "000725.SZ|2026-06-08"
+      - "000725.SZ|2026-06-26"
+      - "000725.SZ|2026-06-30"
+      - "000725.SZ|2026-07-01"
+      - "000725.SZ|2026-07-02"
+
 scope:
   min_trade_date: "1996-01-01"
   exclude_code_suffixes: [".BJ"]

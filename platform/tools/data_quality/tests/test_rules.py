@@ -219,6 +219,8 @@ CATALOG = {
     "ADJ_NULLED": rules.WARN,
     # v2：登记代码×年代的早期单位约定例外（VWAP 降级 WARN + flag）
     "HISTORIC_UNIT_EXCEPTION": rules.WARN,
+    # v3：逐行单位 bug 修复（VWAP 降级 WARN + repair 字段换算，R37 T4）
+    "UNIT_SCALE_REPAIRED": rules.WARN,
     # ⑥ 证券状态与市场规则
     "LIMIT_BREACH": rules.WARN,
     "LIMIT_FIRST_DAY_EXEMPT": rules.INFO,

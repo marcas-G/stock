@@ -15,9 +15,9 @@
 - 不含任何统计美化：不 winsorize、不 fillna(0)、不佳值修补。
 
 ``repair(df, results) -> (clean_df, quarantined_df, repair_log)``
-    repair_log：有序 dict 列表，action ∈ {dedup_identical, normalize_time,
-    coerce_dtypes, quarantine}；quarantine 条目携带 rule_id/reason/count/keys，
-    可直接喂给 ``write_quarantine`` 的 index。
+    repair_log：有序 dict 列表，action ∈ {dedup_identical, null_field,
+    scale_field, normalize_time, coerce_dtypes, quarantine}；quarantine 条目
+    携带 rule_id/reason/count/keys，可直接喂给 ``write_quarantine`` 的 index。
 
 ``write_quarantine(dataset, partition, rows, index, *, root=None) -> Path``
     落 ``<root>/quarantine/<dataset>/<partition>/``：rows.parquet + index.json
@@ -139,6 +139,43 @@ def repair(
             if n:
                 log.append({"action": "null_field", "rule_id": rules.ADJ_NULLED,
                             "field": field, "count": n, "keys": keys})
+
+    # ── 3.6) v3 逐行单位换算：UNIT_SCALE_REPAIRED → field 换算（行保留）────
+    # 只作用于 clean（非 blocking）行；quarantine 行是证据，保持原始形态。
+    # 方向：volume ×factor（手→股）、amount ÷factor（金额偏大）。只在 validator
+    # 已确认（换算后落带）的键上执行——policy 键本身不触发任何动作。
+    if has_key and "_key" in clean.columns:
+        by_field: dict[str, dict[float, list[str]]] = {}
+        for r in results:
+            if (r.rule_id == rules.UNIT_SCALE_REPAIRED and r.field
+                    and r.factor and r.key):
+                by_field.setdefault(r.field, {}).setdefault(
+                    float(r.factor), []).append(r.key)
+        exprs: list[pl.Expr] = []
+        scaled: dict[tuple[str, str, float], list[str]] = {}
+        for field in sorted(by_field):
+            actual = field
+            if actual not in clean.columns:
+                actual = "vol" if (field == "volume" and "vol" in clean.columns) \
+                    else ""
+            if not actual or not clean.schema[actual].is_numeric():
+                continue
+            for factor in sorted(by_field[field]):
+                keys = sorted(set(by_field[field][factor]))
+                mult = factor if field != "amount" else 1.0 / factor
+                exprs.append(pl.when(pl.col("_key").is_in(keys))
+                             .then(pl.col(actual) * mult)
+                             .otherwise(pl.col(actual)).alias(actual))
+                scaled[(actual, field, factor)] = keys
+        if exprs:
+            clean = clean.with_columns(exprs)
+        for (actual, field, factor), keys in sorted(scaled.items()):
+            n = clean.filter(pl.col("_key").is_in(keys)).height
+            if n:
+                log.append({"action": "scale_field",
+                            "rule_id": rules.UNIT_SCALE_REPAIRED,
+                            "field": field, "factor": factor,
+                            "count": n, "keys": keys})
 
     if "_key" in clean.columns:
         clean = clean.drop("_key")

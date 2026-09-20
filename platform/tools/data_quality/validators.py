@@ -214,6 +214,8 @@ def validate_daily(
     #    pre_1995_tol，否则 default_tol；0 量不校验）→ ERROR。
     #    v2 例外：登记（code 集合 × era）且 vwap/factor 落代码约定的行降级
     #    HISTORIC_UNIT_EXCEPTION（WARN，行保留）——不得泛化到未登记代码/年代。
+    #    v3 例外：登记（逐行键 × 字段 × 因子）且换算落带的现代单位 bug 行降级
+    #    UNIT_SCALE_REPAIRED（WARN，repair 执行字段换算）——只认逐行证据。
     V, A = F[vol_col], F["amount"]
     vwap = A / V
     cutoff = pl.lit(policy.vwap_pre_1995_cutoff).str.to_date(strict=False)
@@ -238,7 +240,40 @@ def validate_daily(
         hist_idx = pl.when(cond).then(pl.lit(i, dtype=pl.Int64)) \
             .otherwise(hist_idx)
     work = work.with_columns(hist_idx.alias("_hist_idx"))
-    downgraded = vwap_bad & (pl.col("_hist_idx") >= 0)
+
+    # v3 逐行单位修复（R37 T4）：登记键（逐行 RCA 证据）× 单位因子，且
+    # vwap/factor 落 [low,high]×(1±match_tol) → 降级 WARN UNIT_SCALE_REPAIRED
+    # （携带 field/factor 供 repair 换算）；不落带 → 照旧 ERROR（守卫不洗白）。
+    # 优先级：逐行登记 > 历史 registry（前者证据更具体）。
+    rep_idx = pl.lit(-1, dtype=pl.Int64)
+    for i, rep in enumerate(policy.unit_scale_repairs):
+        actual = vol_col if rep.field == "volume" else rep.field
+        if f"_{actual}" not in work.columns:
+            continue
+        scaled = vwap / rep.factor
+        plausible = ((scaled >= L * (1 - rep.match_tol))
+                     & (scaled <= H * (1 + rep.match_tol)))
+        cond = pl.col("_key").is_in(list(rep.keys)) & plausible
+        rep_idx = pl.when(cond).then(pl.lit(i, dtype=pl.Int64)) \
+            .otherwise(rep_idx)
+    work = work.with_columns(rep_idx.alias("_rep_idx"))
+
+    repaired = vwap_bad & (pl.col("_rep_idx") >= 0)
+    downgraded = vwap_bad & ~repaired & (pl.col("_hist_idx") >= 0)
+    vwap_errors = vwap_bad & ~repaired & ~downgraded
+
+    for row in work.filter(repaired).select(
+            ["_key", "_low", "_high", f"_{vol_col}", "_amount", "_rep_idx"]
+    ).iter_rows(named=True):
+        v = row[f"_{vol_col}"]
+        px = row["_amount"] / v if v else float("nan")
+        rep = policy.unit_scale_repairs[row["_rep_idx"]]
+        out.append(RuleResult(
+            rules.UNIT_SCALE_REPAIRED, rules.WARN, row["_key"],
+            f"现代单位 bug（逐行登记，factor={rep.factor:g}）：{rep.field} "
+            f"换算后 VWAP={px / rep.factor:.4f} 落带 "
+            f"[{row['_low']}, {row['_high']}]；原 VWAP={px:.4f}",
+            field=rep.field, factor=rep.factor))
     for row in work.filter(downgraded).select(
             ["_key", "_low", "_high", f"_{vol_col}", "_amount", "_hist_idx"]
     ).iter_rows(named=True):
@@ -249,7 +284,7 @@ def validate_daily(
             rules.HISTORIC_UNIT_EXCEPTION, rules.WARN, row["_key"],
             f"历史制度例外（registry: codes={list(reg.codes)} < {reg.before}，"
             f"factor={reg.factor:g}）：VWAP={px:.4f} 按单位约定保留入 canonical"))
-    for row in work.filter(vwap_bad & ~downgraded).select(
+    for row in work.filter(vwap_errors).select(
             ["_key", "_low", "_high", f"_{vol_col}", "_amount"]
     ).iter_rows(named=True):
         v = row[f"_{vol_col}"]

@@ -1,0 +1,28 @@
+{
+  "rows": 19,
+  "vendor_eq_daily_fact_all": true,
+  "bars_1m_covered": 15,
+  "no_bars_1m": [
+    {
+      "code": "000725.SZ",
+      "trade_date": "2015-05-28"
+    },
+    {
+      "code": "601988.SH",
+      "trade_date": "2015-06-09"
+    },
+    {
+      "code": "601288.SH",
+      "trade_date": "2015-07-06"
+    },
+    {
+      "code": "601988.SH",
+      "trade_date": "2015-07-08"
+    }
+  ],
+  "turnover_before_pct_median": 1.941,
+  "turnover_after_x100_median": 14.1,
+  "vol_ratio_vs_prev_x100_median": 2.5282,
+  "amt_ratio_vs_prev_median": 1.2981,
+  "csv": "governance/evidence/verification/R37/residual-55/vendor-source-19.csv"
+}

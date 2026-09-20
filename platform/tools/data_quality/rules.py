@@ -67,6 +67,9 @@ ADJ_FACTOR_CA_MISMATCH = "ADJ_FACTOR_CA_MISMATCH"
 ADJ_NULLED = "ADJ_NULLED"
 # v2 历史制度例外：登记（code 集合 × era）的早期单位约定行，VWAP 降级 WARN + flag
 HISTORIC_UNIT_EXCEPTION = "HISTORIC_UNIT_EXCEPTION"
+# v3（R37 T4）现代单位 bug 逐行修复：登记（逐行键 × 字段 × 单位因子）行 VWAP
+# 降级 WARN + flag，repair 执行字段换算（volume ×factor / amount ÷factor），行保留
+UNIT_SCALE_REPAIRED = "UNIT_SCALE_REPAIRED"
 # ⑥ 证券状态与市场规则一致性
 LIMIT_BREACH = "LIMIT_BREACH"
 LIMIT_FIRST_DAY_EXEMPT = "LIMIT_FIRST_DAY_EXEMPT"   # 首日上市例外（正常特殊状态）
@@ -100,6 +103,7 @@ RULE_LEVELS: dict[str, str] = {
     ADJ_FACTOR_CA_MISMATCH: WARN,
     ADJ_NULLED: WARN,
     HISTORIC_UNIT_EXCEPTION: WARN,
+    UNIT_SCALE_REPAIRED: WARN,
     LIMIT_BREACH: WARN,
     LIMIT_FIRST_DAY_EXEMPT: INFO,
     CROSS_SOURCE_DEVIATION: WARN,
@@ -129,6 +133,7 @@ RULE_FIELDS: dict[str, str | None] = {
     ADJ_FACTOR_CA_MISMATCH: "fq_factor",
     ADJ_NULLED: None,                 # adj_factor / fq_factor 均可（detail 点名）
     HISTORIC_UNIT_EXCEPTION: "amount",   # VWAP = amount/volume（单位约定）
+    UNIT_SCALE_REPAIRED: None,        # 字段级处置（field/factor 随 RuleResult 携带）
     LIMIT_BREACH: None,
     LIMIT_FIRST_DAY_EXEMPT: None,
     CROSS_SOURCE_DEVIATION: None,
@@ -144,7 +149,9 @@ RULE_FIELDS: dict[str, str | None] = {
 class RuleResult:
     """单条规则命中：级别 + 规则 + 定位键 + 原因（+ 可选字段级定位）。
 
-    ``field``：字段级处置类规则（ADJ_NULLED）指名要置 NULL 的列；行级规则为 None。
+    ``field``：字段级处置类规则指名列（ADJ_NULLED 置 NULL；UNIT_SCALE_REPAIRED
+    换算的列）；行级规则为 None。
+    ``factor``：UNIT_SCALE_REPAIRED 的单位因子（volume ×factor / amount ÷factor）。
     """
 
     rule_id: str
@@ -152,6 +159,7 @@ class RuleResult:
     key: str
     detail: str = ""
     field: str | None = None
+    factor: float | None = None
 
 
 @dataclass(frozen=True)
@@ -172,8 +180,27 @@ class HistoricUnitException:
 
 
 @dataclass(frozen=True)
+class UnitScaleRepair:
+    """逐行单位 bug 修复登记（daily-v3，R37 T4）。
+
+    ``keys``：行键 ``<code>|<YYYY-MM-DD>``（与 validators 的 ``_key`` 同式），
+    **逐行 RCA 证据**（bars_1m 三角 / vendor 源）锁定；只允许 scope 内行。
+    ``field`` ∈ {volume, amount}；``factor`` = 原值/真值倍率（volume 手→股 =
+    100，amount 金额偏大 = 100）——修正 VWAP = 原 VWAP / factor；换算方向：
+    volume ×factor、amount ÷factor。
+    ``match_tol``：换算后 VWAP 对 [low, high] 的放宽比例（同 registry guard）——
+    不落带的行照旧 ERROR quarantine（不洗白）。
+    """
+
+    field: str
+    factor: float
+    match_tol: float
+    keys: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class DqPolicy:
-    """dq_policy.daily-v2 的结构化视图（daily 面字段为 v2 扩展）。"""
+    """dq_policy.daily-v3 的结构化视图（daily 面字段为 v2/v3 扩展）。"""
 
     dq_policy_version: str
     partition_gate: dict[str, dict[str, float]]
@@ -183,6 +210,7 @@ class DqPolicy:
     vwap_pre_1995_cutoff: str
     field_invalidity_null: tuple[str, ...]
     historic_unit_exceptions: tuple[HistoricUnitException, ...]
+    unit_scale_repairs: tuple[UnitScaleRepair, ...] = ()
 
 
 def sort_results(results: list[RuleResult]) -> list[RuleResult]:
@@ -244,7 +272,9 @@ def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
       NULL 白名单）、``historic_unit_exceptions``（code 集合 × era registry，
       条目逐字段校验，不允许空 codes/非法日期/非数值因子）。
     - v3 扩展：``scope``（min_trade_date / exclude_code_suffixes）必须与
-      ``factorlab.core.scope`` 常量一致——不一致即拒绝（口径不许漂移）。
+      ``factorlab.core.scope`` 常量一致——不一致即拒绝（口径不许漂移）；
+      ``unit_scale_repairs``（可缺省）逐行单位修复登记：字段/因子/键逐项校验，
+      键必须 ``<code>|<ISO date>`` 且 scope 内、全局不重复（R37 T4）。
     """
     p = Path(path)
     raw = yaml.safe_load(p.read_text(encoding="utf-8"))
@@ -310,6 +340,55 @@ def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
                 if isinstance(v, bool) or not isinstance(v, (int, float)):
                     problems.append(f"{base}.{key}（值 {v!r} 非数值）")
 
+    # v3 逐行单位修复登记（可缺省；条目逐字段校验，不允许静默无效条目）
+    repairs_raw = raw.get("unit_scale_repairs", [])
+    if not isinstance(repairs_raw, list):
+        problems.append("unit_scale_repairs（须为列表，可缺省）")
+        repairs_raw = []
+    else:
+        seen_keys: dict[str, int] = {}
+        for i, entry in enumerate(repairs_raw):
+            base = f"unit_scale_repairs[{i}]"
+            if not isinstance(entry, dict):
+                problems.append(f"{base}（须为 mapping）")
+                continue
+            field = entry.get("field")
+            if field not in ("volume", "amount"):
+                problems.append(
+                    f"{base}.field（须为 volume|amount；收到 {field!r}）")
+            factor = entry.get("factor")
+            if (isinstance(factor, bool) or not isinstance(factor, (int, float))
+                    or factor <= 0 or factor == 1.0):
+                problems.append(
+                    f"{base}.factor（须为正数值且 ≠1.0；收到 {factor!r}）")
+            tol = entry.get("match_tol")
+            if isinstance(tol, bool) or not isinstance(tol, (int, float)) or tol < 0:
+                problems.append(f"{base}.match_tol（须为非负数值；收到 {tol!r}）")
+            keys = entry.get("keys")
+            if (not isinstance(keys, list) or not keys
+                    or any(not isinstance(k, str) or not k for k in keys)):
+                problems.append(f"{base}.keys（须为非空字符串列表）")
+                continue
+            for j, k in enumerate(keys):
+                code, sep, day = k.partition("|")
+                if not sep or not code or not _iso_date(day):
+                    problems.append(
+                        f"{base}.keys[{j}]（须为 '<code>|<ISO date>'；收到 {k!r}）")
+                    continue
+                if (not core_scope.is_in_scope_code(code)
+                        or not core_scope.is_in_scope_date(
+                            dt.date.fromisoformat(day))):
+                    problems.append(
+                        f"{base}.keys[{j}]（scope 外行不可登记——范围外免修；"
+                        f"收到 {k!r}）")
+                    continue
+                if k in seen_keys:
+                    problems.append(
+                        f"{base}.keys[{j}]（键重复，已登记于 "
+                        f"unit_scale_repairs[{seen_keys[k]}]；收到 {k!r}）")
+                else:
+                    seen_keys[k] = i
+
     scope_raw = raw.get("scope")
     if not isinstance(scope_raw, dict):
         problems.append("scope（须为 mapping：min_trade_date / exclude_code_suffixes）")
@@ -344,6 +423,11 @@ def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
             factor=float(entry["factor"]), match_tol=float(entry["match_tol"]),
             after=str(entry["after"]) if entry.get("after") is not None else None)
         for entry in registry)
+    unit_scale_repairs = tuple(
+        UnitScaleRepair(field=str(entry["field"]), factor=float(entry["factor"]),
+                        match_tol=float(entry["match_tol"]),
+                        keys=tuple(str(k) for k in entry["keys"]))
+        for entry in repairs_raw)
     return DqPolicy(
         dq_policy_version=version,
         partition_gate={
@@ -356,6 +440,7 @@ def load_policy(path: str | Path = DEFAULT_POLICY_PATH) -> DqPolicy:
         vwap_pre_1995_cutoff=str(vwap_raw["pre_1995_cutoff"]),
         field_invalidity_null=tuple(null_fields),
         historic_unit_exceptions=exceptions,
+        unit_scale_repairs=unit_scale_repairs,
     )
 
 

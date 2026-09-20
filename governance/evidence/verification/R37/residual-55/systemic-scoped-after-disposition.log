@@ -1,0 +1,207 @@
+heavy.sh: slot=1/2 avail=35.1GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python governance/evidence/verification/R37/residual-55/systemic_check.py --evidence governance/evidence/verification/R37/residual-55/scoped-55-rows.csv --out governance/evidence/verification/R37/residual-55/systemic-scoped-after-disposition.json
+[load] scoped rows=17787921 (17.79M) in 12.3s
+[policy] daily-v3 unit_scale_repairs=[19]
+[pre] decision=FAIL errors=55 systemic=SYSTEMATIC_FIELD_FAILURE (36.8s)
+[post] decision=PASS errors=36 systemic=None clean=17787885 quarantined=36 (70.4s)
+{
+  "raw_file": "data/fact/daily_fact/daily_fact.parquet",
+  "scope": {
+    "min_trade_date": "1996-01-01",
+    "exclude_code_suffixes": [
+      ".BJ"
+    ]
+  },
+  "scoped_rows": 17787921,
+  "pre_disposition": {
+    "expected_count": 17787921,
+    "actual_count": 17787921,
+    "error_count": 55,
+    "warning_count": 1269599,
+    "info_count": 0,
+    "fatal_count": 0,
+    "quarantine_count": 55,
+    "error_rate": 3.09e-06,
+    "coverage": 1.0,
+    "errors_by_field": {
+      "amount": 55
+    },
+    "errors_by_group": {
+      "SH": 35,
+      "SZ": 20
+    },
+    "errors_by_date": {
+      "1996-01-02": 1,
+      "1996-01-08": 1,
+      "1996-01-19": 1,
+      "1996-01-29": 1,
+      "1996-02-02": 1,
+      "1996-02-06": 1,
+      "1996-02-07": 1,
+      "1996-02-08": 1,
+      "1996-02-09": 2,
+      "1996-02-12": 1,
+      "1996-02-13": 1,
+      "1996-03-28": 1,
+      "1996-05-13": 1,
+      "1996-08-19": 1,
+      "1996-09-19": 1,
+      "2000-02-15": 1,
+      "2000-02-16": 1,
+      "2001-07-20": 1,
+      "2001-07-27": 1,
+      "2001-08-30": 1,
+      "2001-12-17": 1,
+      "2001-12-19": 1,
+      "2002-04-19": 1,
+      "2003-05-13": 1,
+      "2004-12-03": 1,
+      "2006-05-19": 1,
+      "2006-05-31": 1,
+      "2006-07-13": 1,
+      "2007-05-21": 1,
+      "2007-05-22": 1,
+      "2007-05-23": 1,
+      "2007-05-24": 1,
+      "2009-02-05": 1,
+      "2009-02-09": 1,
+      "2009-04-24": 1,
+      "2015-05-28": 1,
+      "2015-06-09": 1,
+      "2015-07-06": 1,
+      "2015-07-08": 1,
+      "2024-11-08": 1,
+      "2024-12-09": 1,
+      "2024-12-10": 1,
+      "2025-10-14": 1,
+      "2026-03-12": 1,
+      "2026-05-22": 1,
+      "2026-05-25": 1,
+      "2026-05-26": 1,
+      "2026-05-27": 1,
+      "2026-06-05": 1,
+      "2026-06-08": 1,
+      "2026-06-26": 1,
+      "2026-06-30": 1,
+      "2026-07-01": 1,
+      "2026-07-02": 1
+    },
+    "rules": {
+      "ADJ_FACTOR_CA_MISMATCH": 42895,
+      "ADJ_NULLED": 8233,
+      "MISSING_VALUE": 1218471,
+      "VWAP_OUT_OF_RANGE": 55
+    },
+    "systemic": {
+      "rule": "SYSTEMATIC_FIELD_FAILURE",
+      "subject": "amount",
+      "count": 55,
+      "share": 1.0,
+      "detail": "字段集中：单一字段 amount 占全部 error 100.00%（>80%）且分区 error_count 55 > 50"
+    }
+  },
+  "post_disposition": {
+    "expected_count": 17787921,
+    "actual_count": 17787921,
+    "error_count": 36,
+    "warning_count": 1269618,
+    "info_count": 0,
+    "fatal_count": 0,
+    "quarantine_count": 36,
+    "error_rate": 2.02e-06,
+    "coverage": 1.0,
+    "errors_by_field": {
+      "amount": 36
+    },
+    "errors_by_group": {
+      "SH": 27,
+      "SZ": 9
+    },
+    "errors_by_date": {
+      "1996-01-02": 1,
+      "1996-01-08": 1,
+      "1996-01-19": 1,
+      "1996-01-29": 1,
+      "1996-02-02": 1,
+      "1996-02-06": 1,
+      "1996-02-07": 1,
+      "1996-02-08": 1,
+      "1996-02-09": 2,
+      "1996-02-12": 1,
+      "1996-02-13": 1,
+      "1996-03-28": 1,
+      "1996-05-13": 1,
+      "1996-08-19": 1,
+      "1996-09-19": 1,
+      "2000-02-15": 1,
+      "2000-02-16": 1,
+      "2001-07-20": 1,
+      "2001-07-27": 1,
+      "2001-08-30": 1,
+      "2001-12-17": 1,
+      "2001-12-19": 1,
+      "2002-04-19": 1,
+      "2003-05-13": 1,
+      "2004-12-03": 1,
+      "2006-05-19": 1,
+      "2006-05-31": 1,
+      "2006-07-13": 1,
+      "2007-05-21": 1,
+      "2007-05-22": 1,
+      "2007-05-23": 1,
+      "2007-05-24": 1,
+      "2009-02-05": 1,
+      "2009-02-09": 1,
+      "2009-04-24": 1
+    },
+    "rules": {
+      "ADJ_FACTOR_CA_MISMATCH": 42895,
+      "ADJ_NULLED": 8233,
+      "MISSING_VALUE": 1218471,
+      "UNIT_SCALE_REPAIRED": 19,
+      "VWAP_OUT_OF_RANGE": 36
+    },
+    "systemic": null
+  },
+  "post_decision": "PASS",
+  "clean_rows": 17787885,
+  "quarantine_rows": 36,
+  "repair_log": [
+    {
+      "action": "quarantine",
+      "rule_id": "VWAP_OUT_OF_RANGE",
+      "reason": "VWAP=7.4681 越界 [7.35, 7.35]",
+      "count": 36,
+      "n_keys": 36
+    },
+    {
+      "action": "null_field",
+      "rule_id": "ADJ_NULLED",
+      "field": "adj_factor",
+      "count": 8233,
+      "n_keys": 8233
+    },
+    {
+      "action": "scale_field",
+      "rule_id": "UNIT_SCALE_REPAIRED",
+      "field": "volume",
+      "factor": 100.0,
+      "count": 19,
+      "n_keys": 19
+    }
+  ],
+  "checks": {
+    "quarantine_keys_eq_evidence_other36": true,
+    "repaired_keys_eq_evidence_unit19": true,
+    "repair_scale_log_keys_eq_repaired": true,
+    "repaired_volume_x100_exact": true,
+    "repaired_amount_unchanged": true,
+    "repaired_ohlc_unchanged": true,
+    "quarantine_count_36": true,
+    "clean_rows_eq_scoped_minus_36": true,
+    "systemic_post_is_none": true,
+    "error_count_le_field_count": true,
+    "no_field_time_group_systemic": true
+  },
+  "all_checks_pass": true,
+  "elapsed_s": 129.6
+}
