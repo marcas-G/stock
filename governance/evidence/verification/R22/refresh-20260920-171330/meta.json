@@ -1,0 +1,209 @@
+{
+  "refreshed_at": "2026-09-20T17:13:30+0800",
+  "epoch": 1789895610.937956,
+  "commit": "670f20265af359518719694decdc82464c2e5213",
+  "digest_old": "d4e47b8a7913b043cc4b6909e24dfe100a812b46891f35538c11520ed7eebb51",
+  "digest_new": "b9bcd2e07b78b27e6e0f7935da8b405965d08144dae9a903da6d0610c9f5f2c3",
+  "specs": {
+    "reversal_20d": "reversal_20d/reversal_20d.yaml",
+    "momentum_20d": "momentum_20d/momentum_20d.yaml",
+    "vol_run_energy_symrun": "vol_run_energy/symrun.yaml",
+    "low_vol_20d": "volatility/low_vol_20d.yaml",
+    "turnover_accel": "liquidity/accel.yaml",
+    "reversal_20d_wcorr": "reversal_20d/wcorr.yaml"
+  },
+  "old_new": {
+    "reversal_20d": {
+      "n_weeks": {
+        "old": 178,
+        "new": 178
+      },
+      "coverage": {
+        "old": {
+          "pct_valid": 0.9684,
+          "total_rows": 934237,
+          "valid_rows": 904685
+        },
+        "new": {
+          "pct_valid": 0.9684,
+          "total_rows": 934237,
+          "valid_rows": 904693
+        }
+      },
+      "ic": {
+        "mean": {
+          "old": -0.040132743612514774,
+          "new": -0.040133558743973084
+        },
+        "t_stat": {
+          "old": -3.3432873654079165,
+          "new": -3.343373164928806
+        },
+        "ir": {
+          "old": -0.25058998257927195,
+          "new": -0.25059641352525264
+        }
+      }
+    },
+    "momentum_20d": {
+      "n_weeks": {
+        "old": 178,
+        "new": 178
+      },
+      "coverage": {
+        "old": {
+          "pct_valid": 0.9684,
+          "total_rows": 934237,
+          "valid_rows": 904685
+        },
+        "new": {
+          "pct_valid": 0.9684,
+          "total_rows": 934237,
+          "valid_rows": 904693
+        }
+      },
+      "ic": {
+        "mean": {
+          "old": -0.040132743612514774,
+          "new": -0.040133558743973084
+        },
+        "t_stat": {
+          "old": -3.3432873654079165,
+          "new": -3.343373164928806
+        },
+        "ir": {
+          "old": -0.25058998257927195,
+          "new": -0.25059641352525264
+        }
+      }
+    },
+    "vol_run_energy_symrun": {
+      "n_weeks": {
+        "old": 142,
+        "new": 142
+      },
+      "coverage": {
+        "old": {
+          "pct_valid": 0.5835,
+          "total_rows": 1171703,
+          "valid_rows": 683667
+        },
+        "new": {
+          "pct_valid": 0.5835,
+          "total_rows": 1171703,
+          "valid_rows": 683675
+        }
+      },
+      "ic": {
+        "mean": {
+          "old": -0.02564947532895502,
+          "new": -0.02560166703634229
+        },
+        "t_stat": {
+          "old": -6.90253819772547,
+          "new": -6.888448312332087
+        },
+        "ir": {
+          "old": -0.579248138046204,
+          "new": -0.5780657411299377
+        }
+      }
+    },
+    "low_vol_20d": {
+      "n_weeks": {
+        "old": 178,
+        "new": 178
+      },
+      "coverage": {
+        "old": {
+          "pct_valid": 0.9684,
+          "total_rows": 934237,
+          "valid_rows": 904685
+        },
+        "new": {
+          "pct_valid": 0.9684,
+          "total_rows": 934237,
+          "valid_rows": 904693
+        }
+      },
+      "ic": {
+        "mean": {
+          "old": 0.07069008070431443,
+          "new": 0.07069073440632433
+        },
+        "t_stat": {
+          "old": 4.161025730947091,
+          "new": 4.161136236359318
+        },
+        "ir": {
+          "old": 0.3118820644072012,
+          "new": 0.3118903471380282
+        }
+      }
+    },
+    "turnover_accel": {
+      "n_weeks": {
+        "old": 178,
+        "new": 178
+      },
+      "coverage": {
+        "old": {
+          "pct_valid": 0.96,
+          "total_rows": 934237,
+          "valid_rows": 896825
+        },
+        "new": {
+          "pct_valid": 0.96,
+          "total_rows": 934237,
+          "valid_rows": 896833
+        }
+      },
+      "ic": {
+        "mean": {
+          "old": -0.03673138297199555,
+          "new": -0.036729629648021914
+        },
+        "t_stat": {
+          "old": -5.295377541973539,
+          "new": -5.295441186188356
+        },
+        "ir": {
+          "old": -0.396905327290618,
+          "new": -0.3969100976262006
+        }
+      }
+    },
+    "reversal_20d_wcorr": {
+      "n_weeks": {
+        "old": 178,
+        "new": 178
+      },
+      "coverage": {
+        "old": {
+          "pct_valid": 0.9599,
+          "total_rows": 934237,
+          "valid_rows": 896754
+        },
+        "new": {
+          "pct_valid": 0.9599,
+          "total_rows": 934237,
+          "valid_rows": 896762
+        }
+      },
+      "ic": {
+        "mean": {
+          "old": -0.06749778788677138,
+          "new": -0.06748853066651771
+        },
+        "t_stat": {
+          "old": -7.300601724592567,
+          "new": -7.300024080905472
+        },
+        "ir": {
+          "old": -0.5472032341319965,
+          "new": -0.547159937907154
+        }
+      }
+    }
+  }
+}

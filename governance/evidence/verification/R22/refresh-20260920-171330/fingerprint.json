@@ -41,7 +41,7 @@
   },
   "digest": "b9bcd2e07b78b27e6e0f7935da8b405965d08144dae9a903da6d0610c9f5f2c3",
   "old_digest": "d4e47b8a7913b043cc4b6909e24dfe100a812b46891f35538c11520ed7eebb51",
-  "recorded_at": "2026-09-20T17:13:30+0800",
+  "refreshed_at": "2026-09-20T17:13:30+0800",
   "refresh": "refresh-20260920-171330",
   "commit": "670f20265af359518719694decdc82464c2e5213"
 }
