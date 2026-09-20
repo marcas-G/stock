@@ -504,3 +504,7 @@ H5. **memguard 未做真实触发演练（避免人为 OOM）**（2026-09-18 登
     落地（团队）：① ingest/发布 scope 过滤（日期 + `.BJ`）；② 批量历史 publish；
     ③ research 端默认口径（起始日/universe）；④ 55 行处置（quarantine + 单位 bug 登记）。
     关联：#8（DQ-M3 范围收窄）、#25（发布链按新范围执行）。
+    **执行完毕（2026-09-20，R37）**：`20c0f2b/e25f893/242dd09/6987286`（scope/账本+发布/55 行/读取门）；
+    clean 17,787,885/36 → ingest/reconcile rc=0 → 全历史发布 **7,449 分区（PASS 7,414/DEGRADED 35/FAIL 0）**；
+    严格模式 `low_lottery_top30_weekly` 回测 `ok:true`；独立复查 `9e89bf8` 全一致；
+    #8/#25 已关。19 行单位 bug 修复入库；36 行残余隔离披露（其中 3 行 ratio≈0.10 留后续复核）。
