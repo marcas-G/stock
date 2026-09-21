@@ -281,3 +281,20 @@ cd platform && .venv/bin/python -m pytest -q \
 - 生产路径：Prefect 工作流（server/runner 常驻，127.0.0.1:4200）+ 宿主 `factorlab`；
   **锁箱硬门在 `execute_run` 层，与容器无关**（R39 的 L1 验收作为历史记录保留）。
 - 回退：`make svc-image REF=<sha> STABLE=1` + `governance/ops/install_svc.sh install`。
+
+## 真实宿主验收（2026-09-21；状态已初始化）
+
+- `factorlab lockbox roll` → `window=2026Q2 start=2025-07-01 end=2026-09-17`（`is_end=2025-06-30`；roll 后 `final**used=0`）。
+- 碰箱无 flag 拒跑：`factorlab run <spec> --no-backtest` → `LOCKBOX_INTENT_REQUIRED`（含窗口与提示，零产物）。
+- **exploration 真跑**（flab/ch/ST_DEGRADE）：rc=0，IC=0.05646；`summary.sample.role=mixed`、
+  `access_id=01M32CQXYC…`（与台账一致，`result_ref` 已回填产物目录）。
+- **final 真跑**：rc=0；**复用**既有 final 登记 `01M32CP8SN…`（`result_ref` 回填），未新增行 → quota 19/20。
+- **IS 无 flag**：临时 spec（end=2025-06-30）→ rc=0；`summary.sample.role=is`；台账行数不变（4）→ 证 IS 零登记。
+- `flab health --json` lockbox 段：`initialized=true / window=2026Q2 / final_used=1 / final_remaining=19`；
+  `lockbox-reminder.sh` rc=0（窗口正常）。
+- 门：`G-ANNOTATE` ✓（231 份 sample_role 齐备）；`G-LOCKBOX` ✓ host 交叉核对 + `--selftest` 7 类造假必抓；
+  `make gates` 唯一 `[BAD]`=既有 porteval #33（与锁箱无关）。
+- 说明：早期两次失败 run（宿主默认 duckdb 后端 / 缺 `FACTORLAB_ST_DEGRADE`）在 guard 之后失败，
+  台账保留其 `result_ref=NULL` 行——**登记先于重链**（如实记录访问尝试；失败不抹除）。
+- 指路：`/tmp/r40-real-roll.log`、`/tmp/r40-real-status.json`、`/tmp/r40-{expl,final,is}.json`；
+  产物 `quantresearch/results/platform/_svc_smoke/r40_{expl,final,is}/`。

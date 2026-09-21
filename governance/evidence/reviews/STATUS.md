@@ -115,6 +115,18 @@ flab strategy run <yaml>
   （恢复指引见 `reviews/README.md`）。
 - 证据：`governance/evidence/verification/R38/`（01-markers / 02-runner-retire / 03-verify）。
 
+## 锁箱纪律（R40，2026-09-21 完成）
+
+- 全链落地：窗口内核（core）+ 台账/登记（adapters.lockbox_store）+ CLI（`factorlab lockbox status|roll`）
+  + run 家族硬门（`--lockbox exploration|final --lockbox-reason`，日/分钟/挂接）+ admit/ref 终评校验
+  + compose/strategy 接线 + 流水线 final 登记（access_ids 入 manifest）+ G-LOCKBOX/G-ANNOTATE 门
+  + health 段/季度提醒 + 文档（interface §10/手册/技能/公约）。
+- 状态：真实台账已初始化（window=2026Q2，start=2025-07-01，is_end=2025-06-30，final 1/20）；
+  碰箱无 flag 拒跑、IS 直跑零登记、final 复用幂等（R40 真实宿主验收全绿）。
+- 部署形态：**Docker 挖矿服务退役**（unit inactive/disabled、容器移除、镜像保留可回退）；
+  生产路径=Prefect 工作流（4200）+ 宿主 `factorlab`/`flab`；锁箱硬门在 execute 层，与容器无关。
+- 证据：`governance/evidence/verification/R40/`；计划 `plans/2026-09-21-lockbox-discipline.md`（T1–T12）。
+
 ### 挖矿服务（R39，2026-09-21；**已退役**）
 
 > **退役（2026-09-21）**：容器化执行器不再作为生产入口，生产路径 = 研究工作流
