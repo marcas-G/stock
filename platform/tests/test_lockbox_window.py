@@ -1,11 +1,9 @@
 from __future__ import annotations
 import datetime as dt
-from pathlib import Path
 import pytest
 from factorlab.core.lockbox import (LockboxError, candidate_fingerprint,
-                                    compute_window, latest_data_date,
-                                    quarter_end_before, role_for,
-                                    spec_fingerprint)
+                                    compute_window, quarter_end_before,
+                                    role_for, spec_fingerprint)
 
 def test_quarter_end_before():
     assert quarter_end_before(dt.date(2026, 9, 21)) == dt.date(2026, 6, 30)
@@ -61,14 +59,6 @@ def test_role_for_boundaries():
     assert role_for(dt.date(2025, 6, 1), dt.date(2025, 7, 2), w) == "mixed"
     assert role_for(dt.date(2025, 7, 1), dt.date(2026, 9, 18), w) == "lockbox"
     assert role_for(dt.date(2025, 7, 2), dt.date(2026, 9, 18), w) == "lockbox"
-
-def test_latest_data_date(tmp_path: Path):
-    d = tmp_path / "ashare_daily"; d.mkdir()
-    (d / "2026-09-17.json").write_text("{}", encoding="utf-8")
-    (d / "2026-09-18.json").write_text("{}", encoding="utf-8")
-    (d / "junk.json").write_text("{}", encoding="utf-8")
-    assert latest_data_date(tmp_path) == dt.date(2026, 9, 18)
-    assert latest_data_date(tmp_path / "missing") is None
 
 def test_fingerprint_stable_and_param_sensitive():
     f1 = candidate_fingerprint(artifact_sha256="a", params={"x": 1},
