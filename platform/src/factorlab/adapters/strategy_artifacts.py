@@ -24,6 +24,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Mapping
 
 import polars as pl
 
@@ -201,12 +202,16 @@ def write_strategy_artifacts(
     spec: StrategySpec,
     schedule: RebalanceSchedule,
     target: TargetPortfolio,
+    sample: Mapping[str, Any] | None = None,
 ) -> dict:
     """策略三对象持久化（validate all → target → schedule → manifest LAST）。
 
     source_signal 只用于 cross-validation + provenance（其 frame 不写入
     strategy directory——正式 signal 数据仍属 Factor Artifact）。
     不重新运行 constructor/scheduler——本函数是 persistence layer。
+
+    `sample`（R40）：锁箱样本声明（`{role, window_id, access_id, 窗口端点}`），
+    非 None 时写 `manifest["sample"]`；loader 忽略该外部键（向后兼容）。
     """
     _require(output_dir, Path, "output_dir")
     _require(source_signal, SignalArtifact, "source_signal")
@@ -268,6 +273,8 @@ def write_strategy_artifacts(
             },
         },
     }
+    if sample is not None:
+        manifest["sample"] = dict(sample)
     _write_text(mani_path, json.dumps(manifest, ensure_ascii=False, indent=2))
     if stale is not None:
         stale.unlink(missing_ok=True)         # 覆盖写成功：清理 tombstone

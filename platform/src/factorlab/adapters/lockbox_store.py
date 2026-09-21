@@ -4,7 +4,8 @@
 - `connect`：WAL + schema（`lockbox_state` 单行 + `lockbox_access` append-only）
 - `roll`：状态推进（拒绝倒退；同窗幂等，配额可显式更新）
 - `current_window`：state 与当前季度一致性检查（无 state/陈旧各有稳定错误码）
-- `published_days`/`latest_data_date`：health 已发布日目录扫描
+- `published_days`/`latest_data_date`/`run_calendar`：health 已发布日目录扫描
+  （执行层日历单点）
 - `register_access`/`update_result_ref`/`final_count`/`final_exists`/`require_final`：
   登记（append-only）、结果回填、终评唯一性与配额校验
 - `RunGuard`/`guard_run`：execute 层硬门（env 开关 → 角色判定 → 自动登记 +
@@ -92,6 +93,22 @@ def latest_data_date(health_root: Path) -> dt.date | None:
     """最新已发布数据日；目录缺失或无可解析文件名返回 None。"""
     days = published_days(health_root)
     return max(days) if days else None
+
+
+def run_calendar(health_root: Path | None = None) -> tuple[list[dt.date], dt.date]:
+    """执行层锁箱日历单点：`(已发布交易日, 最新数据日)`。
+
+    `health_root` 缺省 = `DATA_ROOT/health`（与 CLI `_lockbox_health_root` 同源）；
+    data_end 缺省回退 `days` 最新日、再回退 `today`（env off 时也会被调用，
+    guard 内部才短路——只读扫描，无副作用）。
+    """
+    if health_root is None:
+        from factorlab.core.factio.paths import DATA_ROOT
+        health_root = Path(DATA_ROOT) / "health"
+    days = published_days(health_root)
+    data_end = latest_data_date(health_root) or (
+        days[-1] if days else dt.date.today())
+    return days, data_end
 
 
 def connect(db_path: Path) -> sqlite3.Connection:

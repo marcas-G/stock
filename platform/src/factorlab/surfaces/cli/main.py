@@ -76,6 +76,89 @@ def _lockbox_today() -> datetime.date:
     return datetime.date.today()
 
 
+def _member_spec_window(kind: str, name: str, results_dir: Path
+                        ) -> tuple[datetime.date, datetime.date] | None:
+    """成员 artifact 内声明的 spec date 窗口；缺 spec/date/不可解析 → None。
+
+    factor 成员：产物 `summary.json` 的 `spec_yaml` 是成员 spec 的落盘副本
+    （`app/run.py` 恒写）；composite 成员 artifact 不携带 spec date（C1 §8
+    契约）→ 视为缺 date，由调用方回退。
+    """
+    if kind != "factor":
+        return None
+    from factorlab.adapters import results_fs
+    summary_path = results_fs.summary_path(Path(results_dir), name)
+    if not summary_path.is_file():
+        return None
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, ValueError):
+        return None
+    text = summary.get("spec_yaml") if isinstance(summary, dict) else None
+    if not isinstance(text, str) or not text.strip():
+        return None
+    import yaml
+    try:
+        spec_doc = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return None
+    date_doc = spec_doc.get("date") if isinstance(spec_doc, dict) else None
+    if not isinstance(date_doc, dict):
+        return None
+    start, end = date_doc.get("start"), date_doc.get("end")
+    if not start or not end:
+        return None
+    try:
+        return (datetime.date.fromisoformat(str(start)),
+                datetime.date.fromisoformat(str(end)))
+    except ValueError:
+        return None
+
+
+def _compose_effective_window(spec, results_dir: Path
+                              ) -> tuple[datetime.date, datetime.date] | None:
+    """compose 有效窗口 = 成员 spec date 交集（max start / min end）。
+
+    任一成员缺 date（含 composite 成员）或交集为空 → None（调用方回退
+    published days min/max，保守按最大窗口判定角色）。
+    """
+    from factorlab.core.composite import parse_member_ref
+    starts: list[datetime.date] = []
+    ends: list[datetime.date] = []
+    for token in spec.members:
+        kind, name = parse_member_ref(token)
+        window = _member_spec_window(kind, name, Path(results_dir))
+        if window is None:
+            return None
+        starts.append(window[0])
+        ends.append(window[1])
+    start, end = max(starts), min(ends)
+    return (start, end) if start <= end else None
+
+
+def _lockbox_guard_for_compose(spec, spec_path: Path, results_dir: Path, *,
+                               intent: str | None, reason: str | None):
+    """compose 执行前锁箱硬门（成员交集窗口；与 factor execute 同口径）。
+
+    有效窗口取成员 spec date 交集；缺 date/交集为空 → 回退已发布日历全域。
+    `spec_doc`=composite spec 的 model_dump，`artifact`=composite spec 路径。
+    """
+    from factorlab.adapters import lockbox_store as store
+    days = _lockbox_published_days()
+    data_end = _lockbox_data_end() or (days[-1] if days else _lockbox_today())
+    window = _compose_effective_window(spec, results_dir)
+    if window is None:
+        start = min(days) if days else datetime.date(1970, 1, 1)
+        end = data_end
+    else:
+        start, end = window
+    return store.guard_run(
+        panel_start=start, panel_end=end, intent=intent, reason=reason,
+        spec_doc=spec.model_dump(mode="json"), artifact=str(spec_path),
+        command="compose", tool=f"factorlab {__version__}",
+        db_path=settings.lockbox_db, trading_days=days, data_end=data_end)
+
+
 @lockbox_app.command("status")
 def lockbox_status(json_out: bool = typer.Option(False, "--json")) -> None:
     """锁箱窗口/配额/剩余（未初始化时 initialized=false）。"""
@@ -590,16 +673,36 @@ def compose(
     out_dir: Path | None = typer.Option(
         None, "--out-dir",
         help="产物目录（缺省 <results-dir>/composites/<name>）"),
+    lockbox: str | None = typer.Option(
+        None, "--lockbox",
+        help="R40 锁箱意图 exploration|final（成员有效窗口与锁箱相交时必需）"),
+    lockbox_reason: str | None = typer.Option(
+        None, "--lockbox-reason",
+        help="R40 锁箱访问理由（与 --lockbox 配对，必填非空）"),
 ) -> None:
     """运行 Composite spec：成员 artifact×K → X → Python compute → 评估 → 落盘。
 
     薄壳（Plan CX-C1 §14）：全链在 app.composite.runner；本命令只做参数透传与
     ValueError/FileNotFoundError → 友好文案 + exit 1（缺成员/交集为空/NaN 输出等）。
+    R40：有效窗口=成员 spec date 交集（缺/空回退已发布日历全域），重链前过
+    锁箱硬门；命中自动登记并写 `summary.sample`/回填 `result_ref`。
     """
     from factorlab.app.composite.runner import run_composite
+    from factorlab.core.composite import load_composite_spec
 
+    results = (Path(results_dir) if results_dir is not None
+               else Path(settings.results_dir))
     try:
-        result = run_composite(spec_path, results_dir=results_dir, out_dir=out_dir)
+        spec = load_composite_spec(spec_path)
+        guard = _lockbox_guard_for_compose(spec, spec_path, results,
+                                           intent=lockbox, reason=lockbox_reason)
+        result = run_composite(spec_path, results_dir=results_dir, out_dir=out_dir,
+                               guard=guard)
+    except LockboxError as exc:
+        console.print(f"错误: {exc}", soft_wrap=True)
+        console.print("  提示: `factorlab lockbox status` 看窗口与配额；"
+                      "`factorlab lockbox roll` 对齐季度窗口", soft_wrap=True)
+        raise typer.Exit(code=1) from exc
     except (ValueError, FileNotFoundError) as exc:
         console.print(f"错误: {exc}")
         raise typer.Exit(code=1) from exc

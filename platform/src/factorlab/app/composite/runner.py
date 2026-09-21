@@ -1,6 +1,6 @@
 """Composite Runner 全链（Plan CX-C1 C1-09/10，design §9/§11/§14/§15）。
 
-`run_composite(spec_path, *, results_dir=None, out_dir=None) -> CompositeRunResult`：
+`run_composite(spec_path, *, results_dir=None, out_dir=None, guard=None) -> CompositeRunResult`：
 
     load spec → resolve members（顺序=列序）→ cache 检查（命中即返回，**不调 compute**）
     → align（intersection+reject）→ build_X（匿名 X[N×K]）→ load_impl（按路径动态加载）
@@ -125,12 +125,28 @@ def _read_cached_summary(summary_path: Path, spec: CompositeSpec, *,
     }
 
 
+def _lockbox_attach(guard, summary: dict) -> None:
+    """R40：锁箱产物声明（`summary["sample"]`；guard 未接线时零行为变化）。"""
+    if guard is not None:
+        guard.attach(summary)
+
+
+def _lockbox_mark_result(guard, out_dir: Path) -> None:
+    """R40：产物落盘后回填 `result_ref`（guard 未接线/IS 时 no-op）。"""
+    if guard is not None:
+        guard.mark_result(str(out_dir))
+
+
 def run_composite(spec_path: str | Path, *, results_dir: str | Path | None = None,
-                  out_dir: str | Path | None = None) -> CompositeRunResult:
+                  out_dir: str | Path | None = None, guard=None) -> CompositeRunResult:
     """跑通 C1 composite 全链并落产物（见模块 docstring）。
 
     `results_dir` 缺省 = `settings.results_dir`（`runs/platform`）；
     `out_dir` 缺省 = `<results_dir>/composites/<spec.name>`（design §14 落点）。
+
+    R40：`guard`（`adapters.lockbox_store.RunGuard`，由 CLI compose 在重链前
+    构造）非 None 时——summary 落盘前 attach `sample`，产物写完后 `mark_result`；
+    cache 命中同样声明本次访问并回填。缺省 None = 直接 API 调用零行为变化。
     """
     spec_file = Path(spec_path)
     spec = load_composite_spec(spec_file)
@@ -150,6 +166,11 @@ def run_composite(spec_path: str | Path, *, results_dir: str | Path | None = Non
         summary = _read_cached_summary(summary_path, spec,
                                        definition_hash_value=def_hash, key=key,
                                        rows=frame.height)
+        if guard is not None:
+            # cache 命中也要让盘上声明与本次访问一致（cache_key 不含窗口/访问）
+            _lockbox_attach(guard, summary)
+            results_fs.write_summary(out, summary)
+            _lockbox_mark_result(guard, out)
         return CompositeRunResult(spec=spec, name=spec.name, out_dir=out, cached=True,
                                   frame=frame, meta=meta, provenance=provenance,
                                   summary=summary, summary_path=summary_path,
@@ -191,8 +212,10 @@ def run_composite(spec_path: str | Path, *, results_dir: str | Path | None = Non
         "rows": frame.height,
         "evaluation": evaluation,
     }
+    _lockbox_attach(guard, summary)
     summary_path = results_fs.summary_path(out.parent, out.name)
     results_fs.write_summary(out, summary)
+    _lockbox_mark_result(guard, out)
     return CompositeRunResult(spec=spec, name=spec.name, out_dir=out, cached=False,
                               frame=frame, meta=meta, provenance=provenance,
                               summary=summary, summary_path=summary_path,

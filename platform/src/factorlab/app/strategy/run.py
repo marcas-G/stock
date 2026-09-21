@@ -30,6 +30,7 @@ from pathlib import Path
 
 import polars as pl
 
+from factorlab import __version__
 from factorlab.adapters.parquet_artifacts import load_signal_artifact
 from factorlab.adapters.read.source import load_daily
 from factorlab.adapters.strategy_artifacts import write_strategy_artifacts
@@ -195,6 +196,25 @@ def _load_market_cap(signal: SignalArtifact, doc: StrategyDoc,
     return mv.select(["date", "code", "total_mv"])
 
 
+def _lockbox_guard_for_strategy(doc: StrategyDoc, doc_path: Path | None, *,
+                                intent: str | None, reason: str | None):
+    """执行前锁箱硬门：窗口端点取 `doc.date`（信号加载/组合/回测之前的唯一闸）。
+
+    R40：与 factor `execute_run` 同口径——`guard_run` 内做 env 开关/窗口角色/
+    缺意图或理由拒跑/命中自动登记；env off 时内部直接返回 IS（本函数仍只读日历，
+    与 CLI 现状一致）。`artifact` 取策略 YAML 路径（指纹用 spec_doc，不含路径）。
+    """
+    from factorlab.adapters import lockbox_store as store
+    days, data_end = store.run_calendar()
+    return store.guard_run(
+        panel_start=doc.date.start, panel_end=doc.date.end,
+        intent=intent, reason=reason,
+        spec_doc=doc.model_dump(mode="json"),
+        artifact=str(doc_path) if doc_path is not None else "",
+        command="strategy run", tool=f"factorlab {__version__}",
+        db_path=settings.lockbox_db, trading_days=days, data_end=data_end)
+
+
 def run_strategy(doc: StrategyDoc, rd: ReadPort,
                  results_dir: Path | None = None,
                  out_dir: Path | None = None,
@@ -204,7 +224,10 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
                  max_staleness: str = "1d",
                  dq_root=None,
                  override_reason: str | None = None,
-                 strict: bool = False) -> StrategyRunResult:
+                 strict: bool = False,
+                 lockbox_intent: str | None = None,
+                 lockbox_reason: str | None = None,
+                 doc_path: Path | None = None) -> StrategyRunResult:
     """执行策略文档：读信号 → 窗口过滤 → M7 组合 → 落盘 → M8 回测 → 落盘。
 
     - results_dir：results 根（缺省 settings.results_dir）——factor 信号按
@@ -222,11 +245,17 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
     - Plan DQ-M1 F3/F4：`dataset`（默认 "ashare_daily"）传给 run_backtest 的
       读取门（fail-closed）；过门后五字段随 BacktestResult 进持久化 manifest。
       合成/历史调用可显式 `dataset=None` 关闭（库层默认 None 语义）。
+    - R40：`lockbox_intent`/`lockbox_reason`/`doc_path`——doc.date 与锁箱相交时
+      必需（`LockboxError` 硬门，先于信号加载）；命中自动登记，`strategy_manifest`
+      挂 `sample` 并把产物目录回填 `result_ref`。env `FACTORLAB_LOCKBOX` 关闭时
+      直接 IS 放行；直接 API 调用不传 doc_path 时 artifact 记空串（指纹不含路径）。
     """
     if not isinstance(doc, StrategyDoc):
         raise TypeError(
             f"doc 必须为 StrategyDoc（收到 {type(doc).__name__}）——"
             f"dict/YAML 路径不自动转换，请先 load_strategy_doc")
+    guard = _lockbox_guard_for_strategy(doc, doc_path, intent=lockbox_intent,
+                                        reason=lockbox_reason)
     root = Path(results_dir) if results_dir is not None else Path(
         settings.results_dir)
     signal = _load_signal(doc, root)
@@ -245,12 +274,14 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
     target_dir = (Path(out_dir) if out_dir is not None
                   else root / "strategies" / doc.strategy.name)
     write_strategy_artifacts(target_dir, source_signal=filtered,
-                             spec=doc.strategy, schedule=schedule, target=target)
+                             spec=doc.strategy, schedule=schedule, target=target,
+                             sample=guard.info)
     backtest = run_backtest(target, doc.execution, rd, dataset=dataset,
                             accept_quality=accept_quality,
                             max_staleness=max_staleness, dq_root=dq_root,
                             override_reason=override_reason, strict=strict)
     save_backtest_result(backtest, target_dir)
+    guard.mark_result(str(target_dir))
     return StrategyRunResult(
         out_dir=target_dir,
         target=target,

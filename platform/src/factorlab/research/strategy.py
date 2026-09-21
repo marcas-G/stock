@@ -235,6 +235,7 @@ def strategy_run(args: Any) -> envelope.Envelope:
     """策略回测：load_strategy_doc →（dry-run 只回解析）→ open_read → run_strategy。"""
     from factorlab.app.memory import apply_hard_memory_limit_from_settings
     from factorlab.core.domain.execution import ExecutionDataQualityError
+    from factorlab.core.lockbox import LockboxError
     from factorlab.core.strategy import load_strategy_doc
     from factorlab.research._guard import GuardError as _GuardError  # noqa: F401
 
@@ -319,10 +320,16 @@ def strategy_run(args: Any) -> envelope.Envelope:
                 res = run_strategy(doc, rd, results_dir=results_dir,
                                    out_dir=out_dir,
                                    accept_quality=quality,
-                                   override_reason=override_reason)
+                                   override_reason=override_reason,
+                                   lockbox_intent=getattr(args, "lockbox", None),
+                                   lockbox_reason=getattr(args, "lockbox_reason", None),
+                                   doc_path=doc_path)
     except GuardError as exc:
         return envelope.fail("strategy.run", exc.code, exc.message,
                              hint=exc.hint, log=exc.log)
+    except LockboxError as exc:
+        return envelope.fail("strategy.run", exc.code, exc.message,
+                             hint="`flab lockbox status` 看窗口与配额")
     except ExecutionDataQualityError as exc:
         return envelope.fail(
             "strategy.run", "STRATEGY_FAILED", f"执行数据质量闸拦截: {exc}",
@@ -615,10 +622,18 @@ def _reg_all() -> None:
                 registry.ParamSpec("override_reason", kind="str",
                                    help="非 PASS 读取门 opt-in 原因（写入 "
                                         "Experiment Manifest）"),
+                registry.ParamSpec("lockbox", kind="str",
+                                   help="R40 锁箱意图 exploration|final"
+                                        "（doc.date 与锁箱相交时必需）"),
+                registry.ParamSpec("lockbox_reason", kind="str",
+                                   help="R40 锁箱访问理由（与 --lockbox 配对，"
+                                        "必填非空）"),
                 _JSON, _PRETTY),
         defaults={"signal": None, "dry_run": False, "out_dir": None, "wait": False,
-                  "accept_quality": None, "override_reason": None},
-        description="策略回测：信号→M7 组合→M8 回测→持久化（过 heavy 闸）",
+                  "accept_quality": None, "override_reason": None,
+                  "lockbox": None, "lockbox_reason": None},
+        description="策略回测：信号→M7 组合→M8 回测→持久化（过 heavy 闸；"
+                    "R40 锁箱硬门）",
         examples=("flab strategy run $QUANTRESEARCH_ROOT/strategy/low_lottery_top30_weekly.yaml",
                   "flab strategy run <doc> --dry-run",
                   "flab strategy run <doc> --signal max_effect_20d_high --wait"),
