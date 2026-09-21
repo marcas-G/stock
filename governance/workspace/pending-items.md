@@ -481,6 +481,13 @@ H5. **memguard 未做真实触发演练（避免人为 OOM）**（2026-09-18 登
 - 规避：FACTORLAB_MINUTE_UNCOVERED=drop（契约内）。
 - 建议：ch_ingest 对账链加分钟缺行反查，或 universe 剔除已知缺口。
 
+## 路径归位（R37，2026-09-21 用户裁定）
+
+- **运行产物物理归位**：`quantresearch/results/{platform,research}/`（仓内 `runs/*` 为兼容软链）；
+  `settings.results_dir` 默认改"研究产物区优先、无产物区回退仓内"；`FACTORLAB_RESULTS_DIR` 仍最高优先。
+- 文档债：`knowledge/handbooks/**` 等对 `runs/platform/...` 的旧引用**暂不逐一改写**（软链兼容；
+  契约 interface.md 已加映射说明）；随例行文档更新清理。
+
 ## 暂停项（用户拍板）
 
 23. **tick 全线暂停（2026-09-19 用户）**

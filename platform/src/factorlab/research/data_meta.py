@@ -4,7 +4,8 @@
 只读 SQL（port 层）。本模块承载：
 
 - `result_frame`：大数据落盘契约（spec §4）——>200 行默认落
-  `runs/research/<command>/<ts>/data.parquet`，JSON 只回 path+head(5)+schema；
+  `<results_dir 的兄弟>/research/<command>/<ts>/data.parquet`（R37 归位后物理在
+  `$QUANTRESEARCH_ROOT/results/research/`），JSON 只回 path+head(5)+schema；
   `--out/--limit/--inline` 覆盖。
 - `data_command` 守卫：任何数据读取异常 → `DATA` 信封（缺表/后端不可用）。
 - raw 表方言过滤构造（duckdb ? 位置参数 | ch %(name)s 命名参数）。

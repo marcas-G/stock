@@ -262,7 +262,9 @@ class _Index:
     def __init__(self, repo: Path):
         self.paths: set[str] = set()
         self._by_name: dict[str, list[str]] = {}
-        for dirpath, dirnames, filenames in os.walk(repo):
+        # R37：`runs/platform`、`runs/research` 为兼容软链（物理产物已归位研究产物区），
+        # 历史台账引用（`runs/platform/...`）经软链继续可解析 → walk 必须 followlinks。
+        for dirpath, dirnames, filenames in os.walk(repo, followlinks=True):
             top = Path(dirpath) == repo
             dirnames[:] = [d for d in dirnames
                            if d not in _INDEX_PRUNE and not (top and d in _INDEX_SKIP_TOP)]

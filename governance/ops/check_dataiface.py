@@ -179,7 +179,7 @@ G_READ_ALLOWED = {
         "Plan DQ-M1.5 T3：CLI 显式 `--raw` 输入（只读报告，不落 parquet/CH）",
     # ── R37 参考库审计（#31）：研究产物区自产 panel，只取 signal/forward_return 列 ──
     ("research/tools/factor_lib/reference_audit.py", "_scan_panel", "str(path)"):
-        "参考库基础指标审计输入 = runs/platform/<name>_5y/panel.parquet（自产研究产物，"
+        "参考库基础指标审计输入 = <results_dir>/<name>_5y/panel.parquet（R37 归位后物理在 QUANTRESEARCH_ROOT/results/platform；自产研究产物，"
         "非事实库分区；只取 signal 与 forward_return 列）——R37-REF-I2/#31",
 }
 _READ_CALLS = {"read_parquet", "scan_parquet", "ParquetFile"}

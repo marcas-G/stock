@@ -4,9 +4,10 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# 运行产物单点（R24）：仓库根 `runs/platform/<name>/`。从包位置派生（非硬编码绝对
-# 前缀，可随仓库搬迁）；修复历史 cwd 分裂（R24 前产物落点随调用目录漂移，仓库根/平台
-# 目录各写一处）。`FACTORLAB_RESULTS_DIR` 覆盖语义不变（相对 cwd 解释）。
+# 运行产物单点（R24；R37 2026-09-21 归位）：物理产物在**研究产物区**
+# `<research_root>/results/platform/<name>/`（`~quantresearch/results/platform`）；
+# 无产物区环境（GitHub-hosted CI）回退仓库 `runs/platform/`（本机仓内为兼容软链）。
+# `FACTORLAB_RESULTS_DIR` 覆盖语义不变（相对 cwd 解释，优先级最高）。
 _REPO_ROOT = Path(__file__).resolve().parents[3]  # platform/src/factorlab/config.py → stock/
 
 # 研究产物区根单点（R37 Phase 2）：研究 spec/策略/档案/索引已迁出主仓到
@@ -18,6 +19,18 @@ DEFAULT_QUANTRESEARCH_ROOT = Path("/data/students/gaolei/quantresearch")
 
 def default_research_root() -> Path:
     return Path(os.environ.get(QUANTRESEARCH_ROOT_ENV) or DEFAULT_QUANTRESEARCH_ROOT)
+
+
+def default_results_dir() -> Path:
+    """运行产物默认根（R37）：研究产物区优先，回退仓内 runs/platform。
+
+    物理产物归位 `<research_root>/results/platform/`（2026-09-21）；仓内
+    `runs/platform` 为兼容软链。env `FACTORLAB_RESULTS_DIR` 覆盖优先级最高。
+    """
+    rr = default_research_root()
+    if rr.is_dir():
+        return rr / "results" / "platform"
+    return _REPO_ROOT / "runs" / "platform"
 
 
 class Settings(BaseSettings):
@@ -49,7 +62,7 @@ class Settings(BaseSettings):
     min_available_memory: str | None = None  # FACTORLAB_MIN_AVAILABLE_MEMORY：系统可用内存下限
     default_chunk_size: int = 1000
     use_float32: bool = True
-    results_dir: Path = _REPO_ROOT / "runs" / "platform"  # FACTORLAB_RESULTS_DIR 可覆盖；run --output-dir 缺省根目录
+    results_dir: Path = Field(default_factory=default_results_dir)  # FACTORLAB_RESULTS_DIR 可覆盖；run --output-dir 缺省根目录
     # R37：研究产物区根（factor/strategy/composites/dossiers/index 的父目录）；
     # `QUANTRESEARCH_ROOT` env 优先（FACTORLAB_RESEARCH_ROOT 亦可覆盖，pydantic 前缀）。
     research_root: Path = Field(default_factory=default_research_root)

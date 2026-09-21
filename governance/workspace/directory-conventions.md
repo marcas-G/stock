@@ -24,7 +24,8 @@
   非 git 仓，公约见其 `CONVENTIONS.md` 与本文件 §7）——主仓只留工具。
 - 新数据 → **必须**入 `data/` 对应类别（五类判据见 §2）；不确定归属的临时物 → `_archive/`（先归档再想）。
 - **禁止在根目录新建条目**；脚本、日志、图片、中间产物一律不进根（工作区级门与脚本进
-  `governance/ops/`，运行产物进 gitignore 的 `runs/`）。
+  `governance/ops/`；**运行产物 → 研究产物区 `$QUANTRESEARCH_ROOT/results/{platform,research}/`**，
+  仓内 `runs/` 仅留兼容软链、不入 git）。
 - 根 `.gitignore` 是**白名单式**（`/*` 忽略 + 逐项放行 + 显式忽略 `data/`/`runs/`/`*.duckdb`）：
   `git ls-files` 只会包含三棵树与根级文档，任何新增根文件都不会被误提交。
 - R24 已完成：`scripts/` → `governance/ops/`；根 `docs/` → `knowledge/` + `governance/`（2026-09-16，`docs/` 已从根消失）。

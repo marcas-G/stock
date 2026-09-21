@@ -30,7 +30,8 @@ front matter 约定（`_` 前缀文件 = 元数据豁免，如 `_template.md`）
 显式列出（透明，不静默丢弃）。
 
 `--check` 只读已提交文件（spec + 档案），不依赖 `runs/` 产物——干净检出即可复现；
-评估数字在档案正文中如实引用 `runs/platform/composites/<name>/summary.json` 快照。
+评估数字在档案正文中如实引用 `$QUANTRESEARCH_ROOT/results/platform/composites/<name>/summary.json`
+（R37 归位；仓内 `runs/platform` 为兼容软链）快照。
 """
 from __future__ import annotations
 

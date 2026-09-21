@@ -25,7 +25,7 @@ load_bars_1m_codes，2026-09-08 开工）见
 M5 在 M4b 结果落盘（summary.json/weekly.parquet）之上补齐浏览器可视化闭环：
 
 - **`factorlab serve`**（`--port`/`--host`，默认 `127.0.0.1:8000`）：只读启动
-  Web 服务，可视化 `settings.results_dir`（默认仓库根 `runs/platform/`；`FACTORLAB_RESULTS_DIR` 可覆盖）下
+  Web 服务，可视化 `settings.results_dir`（默认 `$QUANTRESEARCH_ROOT/results/platform/`（R37 归位；无产物区环境回退仓内 `runs/platform/`，本机为兼容软链）；`FACTORLAB_RESULTS_DIR` 可覆盖）下
   已保存因子（见 §1 与 §4 `factorlab.surfaces.web`）。
 - **web 包**（`factorlab.surfaces.web`）：`app.create_app(results_dir)` 构建 FastAPI 只读
   应用——列表 `/` + 详情 `/factor/<name>`，Jinja2 模板 + Plotly 图表内嵌；
@@ -50,7 +50,7 @@ M4b 在 M4a 评估链路之上补齐单因子评估闭环：
 - **M4a 遗留接线**：`pit_qfq` 消费（`run_factor` 传 `asof=spec.date.end`）、
   评估输入面板落盘为 `weekly.parquet`（**文件名保留历史布局**；D9 起 daily 模式
   内容为日频面板、weekly 模式为周频对齐面板）、`results_dir` 锚定
-  （`--output-dir` 缺省 `<results_dir>/<name>/`；`results_dir` 默认仓库根 `runs/platform/`）。
+  （`--output-dir` 缺省 `<results_dir>/<name>/`；`results_dir` 默认 `$QUANTRESEARCH_ROOT/results/platform/`（R37 归位；无产物区环境回退仓内 `runs/platform/`，本机为兼容软链））。
 - 回测期数口径与评估期数一致：signal/forward 全 null 的期（头部窗口
   未满/尾部无未来收益）不计入，`bt["periods"] == evaluation["n_weeks"]`（实测）。
 
@@ -87,7 +87,7 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 |------|------|
 | `factorlab version` | 打印包版本 |
 | `factorlab lint <spec.yaml>` | 校验 Spec、AST 白名单与引擎同序语义门（未知算子/负位移/未来下标，含池公式），失败时以非 0 退出 |
-| `factorlab run <spec.yaml> [--universe U] [--max-memory M] [--output-dir DIR] [--no-float32] [--backtest/--no-backtest] [--groups N] [--eval-frequency daily\|weekly] [--set k=v ...] [--chunk-days N] [--warmup-days N] [--chunk-workers N] [--profile] [--no-read-cache]` | 计算因子并评估（daily 逐日默认 / weekly 对照）+ 分层回测（默认），落盘 `runs/platform/<name>/`（缺省 results_dir；`--set` 生成 `runs/platform/<name>_<k><v>.../` 参数变体；`--chunk-days` 日期分块，见 §运行-分块计算；`--profile` 分段计时，见下） |
+| `factorlab run <spec.yaml> [--universe U] [--max-memory M] [--output-dir DIR] [--no-float32] [--backtest/--no-backtest] [--groups N] [--eval-frequency daily\|weekly] [--set k=v ...] [--chunk-days N] [--warmup-days N] [--chunk-workers N] [--profile] [--no-read-cache]` | 计算因子并评估（daily 逐日默认 / weekly 对照）+ 分层回测（默认），落盘 `$QUANTRESEARCH_ROOT/results/platform/<name>/`（缺省 results_dir（R37 归位）；`--set` 生成 `runs/platform/<name>_<k><v>.../` 参数变体；`--chunk-days` 日期分块，见 §运行-分块计算；`--profile` 分段计时，见下） |
 | `factorlab list` | 列出已保存因子与最近运行摘要（扫描 `results_dir/*/summary.json`，按运行时间倒序） |
 | `factorlab show <name>` | 查看单因子完整摘要（spec 原文/评估/分层回测） |
 | `factorlab corr <name1> <name2> ... [--against reference\|all\|<names>]` | 因子两两相关性（≥2 个）：周度横截面秩相关均值 + 全局 Pearson；任一因子无 results 报错（数据源 `<results_dir>/<name>/panel.parquet`（默认 `runs/platform/`） 的 signal，按 date+code inner join；join 后超 2000 万行每周降采样 5000 只）。`--against reference`（D10）= 与参考库 `$QUANTRESEARCH_ROOT/factor/_reference.yaml` daily 组成员的并集矩阵（names 可省略=库内自相关矩阵；只读库清单，不扫全库、不跨 scales）；`--against all`= 显式扫全库；`--against a,b`= 显式名单 |
@@ -114,7 +114,7 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 - `--max-memory M`：运行期 DuckDB `memory_limit`（默认 `4GB`；**仅** DuckDB
   连接——进程级护栏见下方「进程内存护栏」`FACTORLAB_MAX_MEMORY`）。
 - `--output-dir DIR`：落盘目录，默认 `settings.results_dir / <spec.name>`
-  （默认仓库根 `runs/platform/`——从包位置派生、与 cwd 无关；`FACTORLAB_RESULTS_DIR` 可覆盖，
+  （默认 `$QUANTRESEARCH_ROOT/results/platform/`（R37 归位；无产物区环境回退仓内 `runs/platform/`，本机为兼容软链）——从包位置派生、与 cwd 无关；`FACTORLAB_RESULTS_DIR` 可覆盖，
   相对 cwd 解释——`list`/`show` 扫描同一目录）。
 - `--no-float32`：关闭 float32 内存护栏。
 - `--backtest/--no-backtest`：默认产出分层回测并写入 evaluation；`--no-backtest`

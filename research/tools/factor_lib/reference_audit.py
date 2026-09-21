@@ -36,7 +36,9 @@ import quantresearch_paths as QP  # noqa: E402
 REPO = Path(__file__).resolve().parents[3]
 METRICS_JSON = "_reference_metrics.json"
 METRICS_MD = "_reference_metrics.md"
-DEFAULT_RUNS = REPO / "runs" / "platform"
+DEFAULT_RUNS = ((QP.ROOT / "results" / "platform")
+                if (QP.ROOT / "results" / "platform").is_dir()
+                else REPO / "runs" / "platform")
 
 H1 = "forward_return_1d"
 H20 = "forward_return_20d"

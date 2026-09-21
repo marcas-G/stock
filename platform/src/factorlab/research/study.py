@@ -40,7 +40,8 @@ _AGAINST_SCALES = {"reference": "daily", "daily": "daily", "minute": "minute"}
 
 
 def _study_root() -> Path:
-    """study 记录根：`runs/research/study`（results_dir=runs/platform 的兄弟）。"""
+    """study 记录根：`<results_dir 的兄弟>/research/study`（R37 归位后物理在
+    `$QUANTRESEARCH_ROOT/results/research/study`）。"""
     return Path(settings.results_dir).parent / "research" / "study"
 
 
