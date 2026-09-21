@@ -1,0 +1,80 @@
+{
+  "EW": {
+    "no_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.4959043564496848,
+      "ann_vol": 0.20297326686821526,
+      "sharpe_net": 2.0870419991280063,
+      "max_drawdown": -0.24061991539164407,
+      "avg_oneway_turnover": 1.0607526614536422,
+      "avg_daily_gross": 0.003166060601646933,
+      "avg_daily_cost": 0.001485053726035099,
+      "nav_final": 2.2847067794234763,
+      "hit_rate": 0.562862669245648,
+      "fee_bps": 7.0,
+      "quantile": 0.1
+    },
+    "with_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.4894845097558085,
+      "ann_vol": 0.20738269587376856,
+      "sharpe_net": 2.026586464915803,
+      "max_drawdown": -0.23908235574943026,
+      "avg_oneway_turnover": 1.0380563771470113,
+      "blocked_buy_per_day": 17.176015473887816,
+      "blocked_sell_per_day": 1.9458413926499032
+    }
+  },
+  "PLS": {
+    "no_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.5038762761251918,
+      "ann_vol": 0.18416335731473502,
+      "sharpe_net": 2.3093173982889197,
+      "max_drawdown": -0.13337955188582828,
+      "avg_oneway_turnover": 1.3761133620890134,
+      "avg_daily_gross": 0.0036142239655524624,
+      "avg_daily_cost": 0.001926558706924619,
+      "nav_final": 2.3097560382359497,
+      "hit_rate": 0.5512572533849129,
+      "fee_bps": 7.0,
+      "quantile": 0.1
+    },
+    "with_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.4978734508936755,
+      "ann_vol": 0.19158748520824964,
+      "sharpe_net": 2.2065617298716713,
+      "max_drawdown": -0.14150521726667387,
+      "avg_oneway_turnover": 1.3549203622901764,
+      "blocked_buy_per_day": 17.216634429400386,
+      "blocked_sell_per_day": 1.5570599613152805
+    }
+  },
+  "mix50_50": {
+    "no_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.6137594056883406,
+      "ann_vol": 0.19982392052235448,
+      "sharpe_net": 2.4968947821333662,
+      "max_drawdown": -0.1860828970474927,
+      "avg_oneway_turnover": 1.2004909873930243,
+      "avg_daily_gross": 0.0036606052573411045,
+      "avg_daily_cost": 0.001680687382350234,
+      "nav_final": 2.6693124694931822,
+      "hit_rate": 0.5609284332688588,
+      "fee_bps": 7.0,
+      "quantile": 0.1
+    },
+    "with_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.6071717491863176,
+      "ann_vol": 0.20563714499825297,
+      "sharpe_net": 2.412454929989783,
+      "max_drawdown": -0.18468956150470117,
+      "avg_oneway_turnover": 1.1772775929004162,
+      "blocked_buy_per_day": 17.750483558994198,
+      "blocked_sell_per_day": 1.7176015473887813
+    }
+  }
+}
