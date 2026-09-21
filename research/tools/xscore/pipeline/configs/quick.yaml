@@ -1,0 +1,15 @@
+# 最小示例：全 42 因子 × M0a/M0b，只跑 open 口径
+name: quick
+panel: /data/students/gaolei/quantresearch/data/cache/panel_42_5y.npz
+out: /data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/quick
+folds: [252, 63, 63]
+subsample: 40000
+groups:
+  all42: "*"
+models: [M0a, M0b]
+portfolio:
+  exec: [open]
+  domains: [all, Q1Q3]
+  every: 5
+  q: 0.1
+  fee_bps: 7

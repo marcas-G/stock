@@ -26,3 +26,9 @@ research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/m0-
 ## 依赖
 
 `research/.venv`（uv 建）：`prefect>=3,<4` + numpy + pyyaml；计算依赖全部在 platform venv。
+
+## portfolio 段默认（porteval V1）
+
+`exec: open`（T+1 开盘）、`limit_policy: block`（涨跌停冻结）、`min_adv: 0`（默认不过滤；
+生产建议 2e7）、`aum` 缺省=容量关闭。组合层实现与参数见
+`knowledge/design/research/specs/2026-09-21-porteval-design.md`。

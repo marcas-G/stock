@@ -96,10 +96,13 @@ def score_task(key: str, name: str, cols: list[int], model: str, cfg: dict) -> s
 @task(cache_key_fn=lambda ctx, params: params["key"], cache_expiration=timedelta(days=30))
 def portfolio_task(key: str, score_dir: str, exec_mode: str, domain: str, cfg: dict) -> str:
     out = Path(score_dir) / f"portfolio_{exec_mode}_{domain}.json"
+    pf = cfg["portfolio"]
     _run([str(HERE / "portfolio_once.py"), "--signal", str(Path(score_dir) / "signal.npz"),
           "--exec", exec_mode, "--domain", domain,
-          "--every", str(cfg["portfolio"]["every"]), "--q", str(cfg["portfolio"]["q"]),
-          "--fee-bps", str(cfg["portfolio"]["fee_bps"]), "--out", str(out)])
+          "--every", str(pf["every"]), "--q", str(pf["q"]),
+          "--fee-bps", str(pf["fee_bps"]),
+          "--limit-policy", str(pf.get("limit_policy", "block")),
+          "--min-adv", str(pf.get("min_adv", 0.0)), "--out", str(out)])
     return str(out)
 
 
@@ -113,7 +116,10 @@ def report_task(cfg: dict, score_dirs: list[str]) -> str:
         ic = met.get("ic", {})
         for pf in sorted(p for p in sd.glob("portfolio_*.json") if not p.name.endswith(".manifest.json")):
             p = json.loads(pf.read_text())
-            rows.append((sd.name, f"{p['exec_mode']}/{p['domain']}", p["ann"], p["bench"],
+            c = p.get("config", {})
+            exec_mode = c.get("exec_mode", p.get("exec_mode", "?"))
+            domain = c.get("mv_scope", p.get("domain", "?"))
+            rows.append((sd.name, f"{exec_mode}/{domain}", p["ann"], p["bench"],
                          p["excess"], p["ir"], ic.get("mean"), ic.get("t_nw")))
     lines = ["# xscore 流水线报告", "",
              f"- 配置：`{cfg['config_path']}`", f"- 面板：`{cfg['panel']}`（{cfg['panel_sig']}）",
@@ -136,7 +142,8 @@ def xscore_pipeline(config_path: str) -> str:
     cfg.setdefault("subsample", 40000)
     cfg.setdefault("models", ["M0a"])
     cfg.setdefault("portfolio", {"exec": ["open", "close"], "domains": ["all", "Q1Q3"],
-                                 "every": 5, "q": 0.1, "fee_bps": 7})
+                                 "every": 5, "q": 0.1, "fee_bps": 7,
+                                 "limit_policy": "block", "min_adv": 0.0})
     groups = _resolve_groups(cfg)
     print(f"[groups] " + ", ".join(f"{k}={len(v)}" for k, v in groups.items()))
 
