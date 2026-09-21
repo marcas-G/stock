@@ -11,10 +11,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 from factorlab.app.profile import Profiler
 from factorlab.config import settings
+
+if TYPE_CHECKING:
+    from factorlab.adapters.lockbox_store import RunGuard
 
 
 @dataclass
@@ -41,4 +44,4 @@ class RunContext:
     profiler: Profiler | None = None  # R09-M3 分段计时（None=关闭）
     chunk_workers: int = 1  # R09-PERF-P4 分钟链 chunk 并行（1=顺序，>=2 opt-in）
     read_cache: bool | None = None  # R31 分钟链 bars 读磁盘缓存（None=env 默认开；False=--no-read-cache）
-    guard: Any = None   # R40：execute 层锁箱守卫（RunGuard；None=未启用）
+    guard: RunGuard | None = None  # R40：execute 层锁箱守卫（None=未接线/IS）

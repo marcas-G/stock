@@ -36,17 +36,40 @@ lockbox_app = typer.Typer(no_args_is_help=True)
 app.add_typer(lockbox_app, name="lockbox")
 
 
+def _lockbox_health_root() -> Path:
+    from factorlab.core.factio.paths import DATA_ROOT
+    return Path(DATA_ROOT) / "health"
+
+
 def _lockbox_published_days() -> list[datetime.date]:
     """锁箱交易日历 = health 已发布日期（与服务 dataset_version 同源；离线可测）。"""
     from factorlab.adapters import lockbox_store as store
-    from factorlab.core.factio.paths import DATA_ROOT
-    return store.published_days(Path(DATA_ROOT) / "health")
+    return store.published_days(_lockbox_health_root())
 
 
 def _lockbox_data_end() -> datetime.date | None:
     from factorlab.adapters import lockbox_store as store
-    from factorlab.core.factio.paths import DATA_ROOT
-    return store.latest_data_date(Path(DATA_ROOT) / "health")
+    return store.latest_data_date(_lockbox_health_root())
+
+
+def _lockbox_guard_for_execute(spec, spec_path: Path, *, intent: str | None,
+                               reason: str | None):
+    """执行前锁箱硬门（execute 层统一）：窗口端点取 spec.date，缺失回退日历边界。
+
+    拒跑发生在 ctx/RLIMIT/开库与重链之前；IS 段返回空登记 guard。
+    """
+    from factorlab.adapters import lockbox_store as store
+    days = _lockbox_published_days()
+    data_end = _lockbox_data_end() or (days[-1] if days else _lockbox_today())
+    start = (datetime.date.fromisoformat(spec.date.start) if spec.date.start
+             else (min(days) if days else datetime.date(1970, 1, 1)))
+    end = datetime.date.fromisoformat(spec.date.end) if spec.date.end else data_end
+    return store.guard_run(
+        panel_start=min(start, end), panel_end=max(start, end),
+        intent=intent, reason=reason,
+        spec_doc=spec.model_dump(mode="json"), artifact=str(spec_path),
+        command="factor run", tool=f"factorlab {__version__}",
+        db_path=settings.lockbox_db, trading_days=days, data_end=data_end)
 
 
 def _lockbox_today() -> datetime.date:
@@ -56,10 +79,12 @@ def _lockbox_today() -> datetime.date:
 @lockbox_app.command("status")
 def lockbox_status(json_out: bool = typer.Option(False, "--json")) -> None:
     """锁箱窗口/配额/剩余（未初始化时 initialized=false）。"""
+    from contextlib import closing
     from factorlab.adapters import lockbox_store as store
-    conn = store.connect(settings.lockbox_db)
     data_end = _lockbox_data_end() or _lockbox_today()
-    doc = store.status(conn, trading_days=_lockbox_published_days(), data_end=data_end)
+    with closing(store.connect(settings.lockbox_db)) as conn:
+        doc = store.status(conn, trading_days=_lockbox_published_days(),
+                           data_end=data_end)
     if json_out:
         # 原样单行输出：rich console 会折行/美化，破坏"末行可 json.loads"消费契约
         typer.echo(json.dumps(doc, ensure_ascii=False))
@@ -75,16 +100,18 @@ def lockbox_roll(
     quota_final: int | None = typer.Option(None, "--quota-final", min=1),
 ) -> None:
     """季度滚动（幂等；拒绝倒退）。"""
+    from contextlib import closing
     from factorlab.adapters import lockbox_store as store
     from factorlab.core.lockbox import compute_window
     as_of_date = datetime.date.fromisoformat(as_of) if as_of else _lockbox_today()
     window = compute_window(as_of=as_of_date,
                             trading_days=_lockbox_published_days(),
                             data_end=_lockbox_data_end() or as_of_date)
-    conn = store.connect(settings.lockbox_db)
-    rolled, changed = store.roll(conn, window=window, quota_final=quota_final)
-    console.print(f"\\[lockbox] window={rolled.window_id} start={rolled.start} "
-                  f"end={rolled.end} {'已更新' if changed else '无变化（幂等）'}")
+    with closing(store.connect(settings.lockbox_db)) as conn:
+        rolled, changed = store.roll(conn, window=window, quota_final=quota_final)
+    console.print(f"[lockbox] window={rolled.window_id} start={rolled.start} "
+                  f"end={rolled.end} {'已更新' if changed else '无变化（幂等）'}",
+                  markup=False)
 
 
 @app.callback()
@@ -382,21 +409,8 @@ def execute_run(
     if overrides:
         spec.params = {**spec.params, **overrides}
         variant = spec.name + "_" + "_".join(f"{k}{v}" for k, v in overrides.items())
-    from factorlab.adapters import lockbox_store as _lockbox
-    _days = _lockbox_published_days()
-    _data_end = _lockbox_data_end() or (_days[-1] if _days else _lockbox_today())
-    _panel_start = (datetime.date.fromisoformat(spec.date.start)
-                    if spec.date.start
-                    else (min(_days) if _days else datetime.date(1970, 1, 1)))
-    _panel_end = (datetime.date.fromisoformat(spec.date.end)
-                  if spec.date.end else _data_end)
-    guard = _lockbox.guard_run(
-        panel_start=min(_panel_start, _panel_end),
-        panel_end=max(_panel_start, _panel_end),
-        intent=lockbox_intent, reason=lockbox_reason,
-        spec_doc=spec.model_dump(mode="json"), artifact=str(spec_path),
-        command="factor run", tool=f"factorlab {__version__}",
-        db_path=settings.lockbox_db, trading_days=_days, data_end=_data_end)
+    guard = _lockbox_guard_for_execute(spec, spec_path, intent=lockbox_intent,
+                                       reason=lockbox_reason)
     profiler = Profiler() if (profile or profile_enabled()) else None
     if profiler is not None:
         profiler.start()

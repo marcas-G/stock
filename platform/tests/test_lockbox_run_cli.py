@@ -23,10 +23,10 @@ import pytest
 from _text import strip_ansi
 from typer.testing import CliRunner
 
+from _lockbox import DAYS, WINDOW as W, WINDOW_ID
 from factorlab.adapters.lockbox_store import connect, guard_run, roll
 from factorlab.config import settings
-from factorlab.core.lockbox import (LockboxError, LockboxWindow, compute_window,
-                                    quarter_end_before, window_id_of)
+from factorlab.core.lockbox import LockboxError, LockboxWindow
 from factorlab.surfaces.cli import main as cli_main
 from factorlab.surfaces.cli.main import app, execute_run
 
@@ -35,11 +35,6 @@ from factorlab.surfaces.cli.main import app, execute_run
 def _lockbox_enabled(monkeypatch):
     monkeypatch.setenv("FACTORLAB_LOCKBOX", "1")
 
-
-TODAY = dt.date.today()
-DAYS = [TODAY - dt.timedelta(days=i) for i in range(800)][::-1]
-W = compute_window(as_of=TODAY, trading_days=DAYS, data_end=TODAY)
-WINDOW_ID = window_id_of(quarter_end_before(TODAY))
 SPEC = ("name: x\ncategory: custom\ndirection: 1\n"
         "universe:\n  codes: [\"000001.SZ\"]\n"
         f"formula: close\ndate:\n  start: '{W.start.isoformat()}'\n"

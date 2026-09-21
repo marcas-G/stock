@@ -20,20 +20,15 @@ from pathlib import Path
 
 import pytest
 
+from _lockbox import DAYS, TODAY, WINDOW as W, WINDOW_ID
 from factorlab.adapters.lockbox_store import connect, guard_run, roll
-from factorlab.core.lockbox import (LockboxError, compute_window,
-                                    quarter_end_before, window_id_of)
+from factorlab.core.lockbox import LockboxError
 
 
 @pytest.fixture(autouse=True)
 def _lockbox_enabled(monkeypatch):
     monkeypatch.setenv("FACTORLAB_LOCKBOX", "1")
 
-
-TODAY = dt.date.today()
-DAYS = [TODAY - dt.timedelta(days=i) for i in range(800)][::-1]
-W = compute_window(as_of=TODAY, trading_days=DAYS, data_end=TODAY)
-WINDOW_ID = window_id_of(quarter_end_before(TODAY))
 
 
 def _db(tmp_path: Path, *, initialized: bool = True) -> Path:
