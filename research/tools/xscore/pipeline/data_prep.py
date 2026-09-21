@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -24,7 +25,13 @@ RUNS = Path("/data/students/gaolei/stock/runs/platform")
 
 def _ch():
     import clickhouse_connect
-    return clickhouse_connect.get_client(host="127.0.0.1", port=8123, database="factorlab")
+
+    import xlib as _xlib
+    _xlib.load_service_env()
+    return clickhouse_connect.get_client(
+        host="127.0.0.1", port=8123, database="factorlab",
+        username=os.environ.get("FACTORLAB_CH_USER") or "default",
+        password=os.environ.get("FACTORLAB_CH_PASSWORD") or "")
 
 
 def ensure_panel(path: Path, *, suffix: str = "_5y", force: bool = False) -> None:

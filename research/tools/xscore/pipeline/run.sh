@@ -4,6 +4,13 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 export PREFECT_API_URL="${PREFECT_API_URL:-http://127.0.0.1:4200/api}"
+SVC_ENV="${FACTORLAB_SVC_ENV_FILE:-$HOME/.config/factorlab/service.env}"
+if [ -f "$SVC_ENV" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$SVC_ENV"
+  set +a
+fi
 CFG="${1:?usage: run.sh <config.yaml> [max_workers]}"
 WORKERS="${2:-2}"
 exec "$HERE/../../../.venv/bin/python" "$HERE/flows.py" --config "$CFG" --max-workers "$WORKERS"

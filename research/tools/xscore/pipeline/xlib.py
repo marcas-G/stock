@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +19,23 @@ QR = Path("/data/students/gaolei/quantresearch")
 STOCK = Path("/data/students/gaolei/stock")
 PLATFORM_PY = STOCK / "platform/.venv/bin/python"
 sys.path.insert(0, str(QR))
+
+
+def load_service_env() -> dict:
+    """加载 CH 只读账号凭据（~/.config/factorlab/service.env；不覆盖已设环境变量）。
+
+    返回 {"user": ...} 便于日志；文件缺失时保持 default 账号（本地 dev 兼容）。
+    """
+    env_file = Path(os.environ.get(
+        "FACTORLAB_SVC_ENV_FILE", Path.home() / ".config/factorlab/service.env"))
+    if env_file.is_file():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip())
+    return {"user": os.environ.get("FACTORLAB_CH_USER", "default")}
 
 
 def git_commit() -> str:
