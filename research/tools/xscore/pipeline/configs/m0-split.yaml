@@ -1,0 +1,21 @@
+# xscore 流水线配置：日线/分钟/全量 × M0a，双执行口径 × 双域
+name: m0-split
+panel: /data/students/gaolei/quantresearch/data/cache/panel_42_5y.npz
+out: /data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/m0-split
+
+folds: [252, 63, 63]        # 训练252日 → 测试63日 → 步进63（9折）
+subsample: 40000            # 训练行子采样上限（0=全量）
+
+groups:
+  daily10:  {source: reference, scale: daily}
+  minute32: {source: reference, scale: minute}
+  all42: "*"
+
+models: [M0a]               # 可加 M0b/M1/M2/M3/M4
+
+portfolio:
+  exec: [open, close]       # open = T 信号→T+1 开盘；close = T 日收盘
+  domains: [all, Q1Q3]      # Q1Q3 = 市值五分位的小/中盘
+  every: 5                  # 周频
+  q: 0.1                    # 多头十分位
+  fee_bps: 7
