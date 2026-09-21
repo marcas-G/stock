@@ -9,6 +9,10 @@
 > 真作业 succeeded（产物属主 1010）；开发改代码不影响挖矿结果（panel sha 相同）；
 > 挖矿运行中 dev gates +3.4%；restart→interrupted、pause/resume、cancel 语义实测通过；
 > `make gates`/`make verify-deep` 全绿。部署件落 `governance/ops/service/`（根白名单）。
+> **L2 小项（§9）同日完成**：CH 只读账号 svc（users.xml+reload；实测写入被拒/作业在用）、
+> dataset_version 入作业记录（旧库自动迁移）、磁盘预检；**OOM 语义修复**——
+> 本机 swap 不受限额导致限额触顶换页抖动不杀进程，容器加 `--memory-swappiness=0` 后
+> 实测 `SIGNAL 9` 且服务无损。
 
 **Goal:** 挖矿作业跑进按 git ref 冻结的镜像 + 常驻作业服务（SQLite 队列 / FastAPI / 127.0.0.1:8787），
 容器资源限额，达成 L1"开发⇄挖矿双向不干扰"。

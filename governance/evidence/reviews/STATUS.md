@@ -122,4 +122,8 @@ flab strategy run <yaml>
   客户端 `~/quantresearch/lab/platform_client.py`；`make svc-image REF=<ref> [STABLE=1]`。
 - 验收：真作业 succeeded（产物属主 1010）；开发改代码不影响挖矿（panel sha 相同）；挖矿运行中
   dev gates +3.4%；restart→interrupted / pause→resume / cancel 实测通过；证据 R39。
+- **L2（同日）**：CH 只读账号 `svc`（写入/DDL 被拒；作业运行中确认在用）、
+  `dataset_version` 入作业记录（`vscope20260920_01`）、磁盘预检；
+  **OOM 修复**：本机 swap 不受限导致限额触顶不杀进程 → 容器 `--memory-swappiness=0`，
+  实测内核 OOM（SIGNAL 9）且服务无损。
 - 挖矿执行入口约定：研究脚本默认走服务（`CONVENTIONS.md` §4）；宿主 `flab` 仅 dev/应急。
