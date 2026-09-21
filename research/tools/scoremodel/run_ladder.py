@@ -115,6 +115,7 @@ def main() -> int:
     ap.add_argument("--test-days", type=int, default=63)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--smoke", action="store_true", help="只跑 1 折 2 模型")
+    ap.add_argument("--save-signals", action="store_true")
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
 
@@ -154,6 +155,10 @@ def main() -> int:
                              subsample=args.subsample, groups=gtr)
             sig[f.test_start:f.test_end] = s
         signals[kind] = sig
+        if args.save_signals:
+            sd = args.out / "signals"
+            sd.mkdir(parents=True, exist_ok=True)
+            np.savez(sd / f"{kind}.npz", signal=sig, dates=p.dates, codes=p.codes)
         m_eval = valid & np.isfinite(sig)
         ic = metrics.daily_rank_ic(sig, tgt, m_eval)
         st = metrics.ic_stats(ic)
