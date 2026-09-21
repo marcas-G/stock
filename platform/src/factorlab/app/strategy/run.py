@@ -275,7 +275,7 @@ def run_strategy(doc: StrategyDoc, rd: ReadPort,
                   else root / "strategies" / doc.strategy.name)
     write_strategy_artifacts(target_dir, source_signal=filtered,
                              spec=doc.strategy, schedule=schedule, target=target,
-                             sample=guard.info)
+                             sample=guard.sample())
     backtest = run_backtest(target, doc.execution, rd, dataset=dataset,
                             accept_quality=accept_quality,
                             max_staleness=max_staleness, dq_root=dq_root,

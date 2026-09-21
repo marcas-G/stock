@@ -126,9 +126,14 @@ def _read_cached_summary(summary_path: Path, spec: CompositeSpec, *,
 
 
 def _lockbox_attach(guard, summary: dict) -> None:
-    """R40：锁箱产物声明（`summary["sample"]`；guard 未接线时零行为变化）。"""
+    """R40：锁箱产物声明（`summary["sample"]`；guard 未接线时零行为变化）。
+
+    终审裁定：composite 产物 = 运行记录（固化门仅 admit/ref add）——
+    `sample.conclusion_eligible` 标注是否可作结论证据（final/is/off → true，
+    exploration → false）。
+    """
     if guard is not None:
-        guard.attach(summary)
+        summary["sample"] = guard.sample()
 
 
 def _lockbox_mark_result(guard, out_dir: Path) -> None:

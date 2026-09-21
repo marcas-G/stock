@@ -115,6 +115,16 @@ def _evaluate_frame(frame: pl.DataFrame, spec: FactorSpec, frequency: str,
                                   weighting=weighting, mv_col=mv_col)
 
 
+def _panel_date_span(panel: pl.DataFrame) -> dict[str, str | None]:
+    """评估面板 date min/max（ISO；空面板 → None）——spec §7 样本区间可追溯。"""
+    lo = panel["date"].min() if panel.height else None
+    hi = panel["date"].max() if panel.height else None
+    return {
+        "date_start": lo.isoformat() if lo is not None else None,
+        "date_end": hi.isoformat() if hi is not None else None,
+    }
+
+
 def _backtest_frame(frame: pl.DataFrame, spec: FactorSpec, frequency: str, *,
                     groups: int) -> dict:
     if frequency == "daily":
@@ -166,6 +176,7 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
     else:
         with profile_span(prof, "evaluate"):
             eval_panel = align_weekly(result.panel)
+    span = _panel_date_span(eval_panel)   # spec §7 line 136：评估/回测块记样本区间
     outputs = list(spec.outputs) if spec.outputs is not None else ["signal"]
     notes: list[str] = []
     dead: dict | None = None
@@ -173,6 +184,7 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
         with profile_span(prof, "evaluate"):
             evaluation = _evaluate_frame(eval_panel, spec, freq)
             evaluation["frequency"] = freq
+            evaluation.update(span)
             # E2（R30 Task 6）：IC 衰减 append（不改变主指标；缺标签 horizon → null）
             evaluation["ic_decay"] = ic_decay(eval_panel)
         _mark_degenerate_deciles(evaluation, notes)
@@ -180,6 +192,7 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
         if backtest:
             with profile_span(prof, "layered_backtest"):
                 bt = _backtest_frame(eval_panel, spec, freq, groups=groups)
+            bt.update(span)
             evaluation["layered_backtest"] = bt
             if bt.get("empty_groups"):
                 notes.append(f"档位 {bt['empty_groups']} 全期无股票——universe 过小或 --groups 过大")
@@ -196,6 +209,7 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
             with profile_span(prof, "evaluate"):
                 ev_o = _evaluate_frame(p, spec, freq, weekly=p)
                 ev_o["ic_decay"] = ic_decay(p)   # E2：逐输出 append
+                ev_o.update(span)                # spec §7 line 136：逐输出样本区间
             _mark_degenerate_deciles(ev_o, notes, prefix=f"输出 {o} ")
             dead_o = _mark_dead_signal(ev_o, result.panel, o, notes, prefix=f"输出 {o} ")
             if dead is None and dead_o is not None:
@@ -203,6 +217,7 @@ def evaluate_run(result: FactorResult, spec: FactorSpec, ctx: RunContext, *,
             if backtest:
                 with profile_span(prof, "layered_backtest"):
                     bt = _backtest_frame(p, spec, freq, groups=groups)
+                bt.update(span)
                 ev_o["layered_backtest"] = bt
                 if bt.get("empty_groups"):
                     notes.append(f"输出 {o} 档位 {bt['empty_groups']} 全期无股票"

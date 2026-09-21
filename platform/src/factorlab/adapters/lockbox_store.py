@@ -193,6 +193,7 @@ def status(conn: sqlite3.Connection, *, trading_days: Sequence[dt.date],
         "window_end": data_end.isoformat(),
         "quota_final": int(state["quota_final"]),
         "final_used": used,
+        "exploration_used": exploration_count(conn, state["window_id"]),
         "final_remaining": max(0, int(state["quota_final"]) - used),
         "rolled_at": state["rolled_at"],
         "is_end": is_end.isoformat(),
@@ -202,6 +203,13 @@ def status(conn: sqlite3.Connection, *, trading_days: Sequence[dt.date],
 def final_count(conn: sqlite3.Connection, window_id: str) -> int:
     row = conn.execute(
         "SELECT COUNT(*) FROM lockbox_access WHERE window_id = ? AND kind = 'final'",
+        (window_id,)).fetchone()
+    return int(row[0])
+
+
+def exploration_count(conn: sqlite3.Connection, window_id: str) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) FROM lockbox_access WHERE window_id = ? AND kind = 'exploration'",
         (window_id,)).fetchone()
     return int(row[0])
 
@@ -295,17 +303,32 @@ class RunGuard:
     """一次评估的锁箱守卫结果：IS=空登记；碰箱=自动登记 + 可回填 result_ref。"""
 
     def __init__(self, info: dict[str, Any], *,
-                 db_path: Path | None = None) -> None:
+                 db_path: Path | None = None,
+                 intent: str | None = None) -> None:
         self.info = info
         self._db_path = db_path
+        self._intent = intent
 
     @property
     def access_id(self) -> str | None:
         return self.info.get("access_id")
 
+    @property
+    def conclusion_eligible(self) -> bool:
+        """产物是否可作结论证据（终审裁定：仅 admit/ref add 是固化门）。
+
+        `intent=="final"` → True；exploration（mixed/lockbox 碰箱非终评）→ False；
+        `is`/env off（无访问意图）→ True。
+        """
+        return self._intent != "exploration"
+
     def attach(self, summary: dict[str, Any]) -> None:
         """产物声明：`summary.sample = {role, window_id, access_id, 窗口端点}`。"""
         summary["sample"] = dict(self.info)
+
+    def sample(self) -> dict[str, Any]:
+        """compose/strategy 产物样本声明：info + `conclusion_eligible` 标注。"""
+        return {**self.info, "conclusion_eligible": self.conclusion_eligible}
 
     def mark_result(self, result_ref: str) -> None:
         """产物落盘后回填 `result_ref`（唯一允许回填的列；失败=登记保持 NULL）。"""
@@ -314,24 +337,6 @@ class RunGuard:
         conn = connect(self._db_path)
         try:
             update_result_ref(conn, self.access_id, result_ref)
-        finally:
-            conn.close()
-
-    def register_final(self, *, reason: str, spec_doc: Mapping[str, Any],
-                       artifact: str, params: Mapping[str, Any],
-                       command: str, tool: str,
-                       window: LockboxWindow) -> str:
-        """admit/ref add 在无既有终评时为候选补终评登记（走同一配额/唯一性）。"""
-        assert self._db_path is not None
-        fp = candidate_fingerprint(
-            artifact_sha256=spec_fingerprint(spec_doc), params=params,
-            window_id=window.window_id, kind="final")
-        conn = connect(self._db_path)
-        try:
-            return register_access(conn, kind="final", fingerprint=fp,
-                                   artifact=artifact, params=params,
-                                   command=command, reason=reason, window=window,
-                                   tool=tool)
         finally:
             conn.close()
 
@@ -410,6 +415,6 @@ def guard_run(*, panel_start: dt.date, panel_end: dt.date,
         info = {"role": role, "window_id": window.window_id,
                 "window_start": window.start.isoformat(),
                 "window_end": window.end.isoformat(), "access_id": access_id}
-        return RunGuard(info, db_path=db_path)
+        return RunGuard(info, db_path=db_path, intent=intent)
     finally:
         conn.close()

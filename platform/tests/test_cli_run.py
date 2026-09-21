@@ -694,9 +694,10 @@ formula: |
     ev = summary["evaluation"]
     # 收口前（b2b6977^）实测键快照 + R30 D1=B version + D9 frequency（均为 append 字段）：
     # 多输出改造不得改动 legacy 顶层结构
-    # （R30 Task 6/E2 append `ic_decay`——计划 Global Constraints「一切新增字段 append」，
-    #   其余键与 M2 收口前逐键一致）
-    assert sorted(ev) == sorted(["version", "frequency", "coverage", "decile_returns",
+    # （R30 Task 6/E2 append `ic_decay`、R40 spec §7 append `date_start`/`date_end`
+    #   ——计划 Global Constraints「一切新增字段 append」，其余键与 M2 收口前逐键一致）
+    assert sorted(ev) == sorted(["version", "frequency", "coverage", "date_start",
+                                 "date_end", "decile_returns",
                                  "direction", "factor", "factor_name", "ic", "ic_decay",
                                  "layered_backtest", "n_stocks_avg", "n_weeks", "pearson_ic",
                                  "target", "turnover"])
@@ -707,6 +708,13 @@ formula: |
     assert ev["n_weeks"] >= 1
     assert ev["ic"]["mean"] == pytest.approx(1.0, abs=1e-9)
     assert ev["layered_backtest"]["periods"] == ev["n_weeks"]
+    # 真面板区间（非固定值）：= 落盘评估面板（weekly.parquet）date min/max
+    import polars as pl
+    weekly = pl.read_parquet(out_dir / "weekly.parquet")
+    panel_span = (str(weekly["date"].min()), str(weekly["date"].max()))
+    assert (ev["date_start"], ev["date_end"]) == panel_span
+    assert (ev["layered_backtest"]["date_start"],
+            ev["layered_backtest"]["date_end"]) == panel_span
 
 
 def test_run_minute_spec_dispatches_to_minute_chain(ch_db, tmp_path, monkeypatch):

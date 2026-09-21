@@ -21,6 +21,7 @@ import pytest
 from _lockbox import DAYS, WINDOW as W, WINDOW_ID
 from typer.testing import CliRunner
 
+from factorlab.adapters import lockbox_store as store
 from factorlab.adapters.lockbox_store import connect, roll
 from factorlab.config import settings
 from factorlab.core.lockbox import candidate_fingerprint, spec_fingerprint
@@ -68,6 +69,8 @@ def _sandbox(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(settings, "results_dir", tmp_path / "results")
     monkeypatch.setattr(cli_main, "_lockbox_published_days", lambda: list(DAYS))
     monkeypatch.setattr(cli_main, "_lockbox_data_end", lambda: W.end)
+    # research 层日历单点（T8）：final gate 走 adapters.run_calendar，不复用 CLI 私有 helper
+    monkeypatch.setattr(store, "run_calendar", lambda: (list(DAYS), W.end))
     monkeypatch.setenv("FACTORLAB_REFERENCE", str(ref))
     # heavy 闸（flock/nice/内存预检）与本任务无关：打桩保测试稳定
     monkeypatch.setattr(F, "guard_heavy", lambda argv, wait=False: ({}, "slot"))
@@ -101,6 +104,29 @@ def _expected_fp(doc: dict) -> str:
     return candidate_fingerprint(artifact_sha256=spec_fingerprint(doc),
                                  params={"intent": "final"},
                                  window_id=WINDOW_ID, kind="final")
+
+
+def test_final_gate_uses_adapter_run_calendar_not_cli_helpers(tmp_path, monkeypatch):
+    """T8 单点：research 层锁箱日历走 `adapters.lockbox_store.run_calendar`。
+
+    CLI 私有 helper 打桩为硬失败——门若仍复用 surfaces helper 必红。
+    """
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+
+    def _boom():
+        raise AssertionError("research 层不得复用 surfaces/cli 私有日历 helper")
+
+    monkeypatch.setattr(cli_main, "_lockbox_published_days", _boom)
+    monkeypatch.setattr(cli_main, "_lockbox_data_end", _boom)
+
+    access_id = F._lockbox_final_gate(spec=load_spec(spec), artifact=str(spec),
+                                      reason="终评", command="factor admit",
+                                      tool="factorlab test")
+
+    rows = _rows(db)
+    assert len(rows) == 1
+    assert rows[0]["access_id"] == access_id
+    assert rows[0]["kind"] == "final"
 
 
 # ================================================================

@@ -3612,7 +3612,10 @@ run 家族统一参数（Typer，`factorlab` 与 `flab` 同源）：
 （= `flab factor run`）、`factorlab research strategy run`（均带 `--lockbox`/`--lockbox-reason`）；
 固化路径 `factorlab research factor admit`、`factorlab research factor ref add` 只带
 `--lockbox-reason`（用于补登记），且要求已存在对应 **final** 登记，缺失 →
-`LOCKBOX_FINAL_REQUIRED`（走同一唯一性/配额）。
+`LOCKBOX_FINAL_REQUIRED`（走同一唯一性/配额）。**实现裁定（2026-09-21）**：固化门仅
+上述 admit/ref add；`compose`/`strategy run` 产物 = 运行记录——其 manifest 的
+`sample.conclusion_eligible` 标注能否作结论证据（`--lockbox final` → true；
+exploration → false；`is`/env off → true）。
 
 ### 10.3 错误码
 
@@ -3641,6 +3644,8 @@ run 家族统一参数（Typer，`factorlab` 与 `flab` 同源）：
 
 `is` 仅含 `role`；碰箱时 `access_id` 与 `lockbox_access` 登记一致，评估结束回填
 `result_ref`。评估段与分层回测块记录 `date_start/date_end`（样本区间可追溯）。
+`compose`/`strategy run` 产物 manifest 的 `sample` 追加 `conclusion_eligible`——实现
+裁定（2026-09-21）：仅 admit/ref add 是固化门，composite/strategy 产物 = 运行记录。
 
 **研究工作流（xscore pipeline）语义对齐**：流水线 **config = 候选**——flow 开始按同一
 窗口/角色判定并**钉死候选身份**（`artifact_sha256 = panel 文件签名`、config 部分 = config
@@ -3660,7 +3665,7 @@ run 家族统一参数（Typer，`factorlab` 与 `flab` 同源）：
   `kind(exploration|final)`、`fingerprint`、`artifact`、`params`、`command`、`result_ref`、
   `reason`、`actor`、`tool`。只增不改不删（触发器强制；唯一允许回填的列 = `result_ref`）。
 - **终评唯一 + 配额**：`(window_id, fingerprint)` 唯一（指纹 = `sha256(canonical({kind,
-  primary_artifact_sha256, params, window_id}))`，改参=新候选）；每窗口 final 计数 ≤ M
+  artifact, params, window_id}))`，改参=新候选）；每窗口 final 计数 ≤ M
   （缺省 20，roll 时 `--quota-final` 可改）。探索不限额。
 - 写入方只有平台（execute 层 guard）、研究工作流（xscore pipeline 的 final 登记）与研究侧
   `lab/lockbox.py`；禁手改（同 ledger 纪律）。

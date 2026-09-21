@@ -45,7 +45,7 @@
 | 锁箱（OOS） | 数据日期 `∈ [window_start, window_end]`（window_end=最新数据日）；**边界含 window_start** |
 | 探索评估（exploration） | 任何在含锁箱窗口上产生可见指标的评估；不限额，必登记 |
 | 终评（final） | 作为入库/结论证据的评估（admit/ref add/策略与合并固化/档案冻结/experiments 结论）；每候选每窗一次 + 每窗 M 总额 |
-| 候选指纹 | `sha256(canonical({kind, primary_artifact_sha256, params, window_id}))`；改参=新候选 |
+| 候选指纹 | `sha256(canonical({kind, artifact, params, window_id}))`；改参=新候选 |
 | window_id | 最近一次 roll 的季度号（如 `2026Q3`）；配额与唯一性以它分桶 |
 
 ## 4. 窗口与状态
@@ -134,15 +134,17 @@ CLI 参数（Typer，run 族命令统一）：
 
 - `summary.sample = {role, window_id, access_id, window_start, window_end}`；
 - 评估段（`evaluation`）与分层回测块记 `date_start/date_end`（补现状缺口）；
+- 勘误（实现裁定 2026-09-21）：固化门仅 admit/ref add；composite/strategy 产物以
+  `sample.conclusion_eligible=false` 标注非结论证据；
 - 档案/manifest 生成器从 summary/登记取字段，不新增人工填报。
 
 ## 8. 研究侧（quantresearch）
 
 - `lab/lockbox.py`（薄封装平台内核）：`window()` / `status()` / `register(...)` / `fingerprint(...)`，
   供 scratch、experiments、notebook 使用；不含独立 SQL。
-- `experiments/*/manifest.json` 必填：`window_id`、`sample_role`、`access_ids`（list）、
-  `platform_commit`；`research_tidy.py` 升级为 error 级（缺 = error；`--allow-missing-manifest`
-  仍只降 manifest 存在性一类）。
+- `results/<campaign>/manifest.json`（R37 约定；campaign 级）必填：`window_id`、
+  `sample_role`、`access_ids`（list）、`platform_commit`；`research_tidy.py` 升级为 error
+  级（缺 = error；`--allow-missing-manifest` 仍只降 manifest 存在性一类）。
 - `dossiers/factors/_template.md` front matter 增：`sample_role`、`window_id`、
   `lockbox_access`（final 访问 id 列表）；已存在档案按 `updated_ts` 从生效日起适用（grandfather）。
 

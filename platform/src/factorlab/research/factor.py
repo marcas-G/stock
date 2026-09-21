@@ -550,11 +550,9 @@ def _lockbox_final_gate(*, spec: Any = None,
         return None
     from factorlab.adapters import lockbox_store as store
     from factorlab.core import lockbox as lb
-    from factorlab.surfaces.cli import main as cli_main
 
-    days = cli_main._lockbox_published_days()
-    data_end = (cli_main._lockbox_data_end()
-                or (days[-1] if days else cli_main._lockbox_today()))
+    # T8 日历单点：adapters.run_calendar（缺省 DATA_ROOT/health，空日历回退 today）
+    days, data_end = store.run_calendar()
     if spec is not None:
         spec_doc = spec.model_dump(mode="json")
         start = (datetime.date.fromisoformat(spec.date.start) if spec.date.start

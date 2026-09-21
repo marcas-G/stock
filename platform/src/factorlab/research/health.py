@@ -113,9 +113,10 @@ def _read_cache() -> tuple[dict[str, Any], str | None]:
     return ({key: stats[key] for key in _RC_KEYS}, stats.get("degraded"))
 
 
-# R40：锁箱段公开字段（与 `lockbox status` 同源，含 is_end）
+# R40：锁箱段公开字段（与 `lockbox status` 同源，含 is_end 与探索计数）
 _LOCKBOX_KEYS = ("initialized", "window_id", "window_start", "window_end",
-                 "quota_final", "final_used", "final_remaining", "is_end")
+                 "quota_final", "final_used", "exploration_used",
+                 "final_remaining", "is_end")
 
 
 def _lockbox() -> tuple[dict[str, Any], list[str]]:
@@ -261,6 +262,7 @@ registry.register(
                     "window_end": {"type": "string"},
                     "quota_final": {"type": "integer"},
                     "final_used": {"type": "integer"},
+                    "exploration_used": {"type": "integer"},
                     "final_remaining": {"type": "integer"},
                     "is_end": {"type": "string"},
                     "degraded": {"type": "string"}}},

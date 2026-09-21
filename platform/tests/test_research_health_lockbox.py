@@ -60,6 +60,10 @@ def test_lockbox_section_after_roll_matches_status(env, tmp_path, monkeypatch):
                             data_end=days[-1])
     with closing(store.connect(settings.lockbox_db)) as conn:
         store.roll(conn, window=window, quota_final=7)
+        store.register_access(conn, kind="exploration", fingerprint="fp-explore-1",
+                              artifact="factor/x.yaml", params={"intent": "exploration"},
+                              command="factor run", reason="摸边界", window=window,
+                              tool="factorlab test")
         expected = store.status(conn, trading_days=days, data_end=days[-1])
 
     e = H.health(_args())
@@ -69,7 +73,10 @@ def test_lockbox_section_after_roll_matches_status(env, tmp_path, monkeypatch):
     assert section["initialized"] is True
     assert section["quota_final"] == 7  # 存根硬编码 20 必败
     assert section["window_id"] == window.window_id
-    for key in ("window_start", "window_end", "final_used",
+    # T13 终审修复：exploration 实计数进状态段（硬编码 0 必败）
+    assert expected["exploration_used"] == 1
+    assert section["exploration_used"] == 1
+    for key in ("window_start", "window_end", "final_used", "exploration_used",
                 "final_remaining", "is_end"):
         assert section[key] == expected[key], key
     assert not any("陈旧" in w for w in e.warnings), e.warnings
@@ -110,4 +117,6 @@ def test_health_registry_schema_declares_lockbox():
     doc = registry.COMMANDS["health"].to_doc()
     props = doc["output_schema"]["properties"]
     assert "lockbox" in props, "health output_schema 必须声明 lockbox 段"
+    assert "exploration_used" in props["lockbox"]["properties"], \
+        "锁箱段 schema 必须声明 exploration_used"
     assert "锁箱" in doc["description"]

@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 
 import polars as pl
+import pytest
 
 from factorlab.app.context import RunContext
 from factorlab.app.evaluate import evaluate_run
@@ -73,6 +74,61 @@ def test_evaluate_run_no_false_positive_for_continuous_signal():
     outcome = _outcome(_continuous_panel())
     assert outcome.notes == []
     assert "degenerate_groups" not in outcome.evaluation["decile_returns"]
+
+
+def _dated_panel(dates: tuple[dt.date, ...], n: int = 30) -> pl.DataFrame:
+    """指定日期序列的连续信号面板（min/max 随参数变化，硬编码区间必败）。"""
+    rows = []
+    for d in dates:
+        for s in range(n):
+            sig = (s + 1) / n
+            rows.append({"date": d, "code": f"{s:06d}", "signal": sig,
+                         "forward_return_5d": 0.001 * sig,
+                         "forward_return_1d": 0.001 * sig})
+    return pl.DataFrame(rows)
+
+
+@pytest.mark.parametrize("dates", [
+    (dt.date(2023, 3, 14), dt.date(2023, 3, 21), dt.date(2023, 3, 30)),
+    (dt.date(2021, 11, 2), dt.date(2021, 11, 9), dt.date(2021, 11, 17)),
+])
+def test_evaluate_run_records_panel_date_span(dates):
+    """spec §7 line 136：evaluation 与 layered_backtest 记真实面板 date_start/date_end。
+
+    面板日期参数化（两组不相交区间）——固定值存根必败；值 = 评估面板 min/max。
+    """
+    panel = _dated_panel(dates)
+    expected = (panel["date"].min().isoformat(), panel["date"].max().isoformat())
+
+    outcome = _outcome(panel)
+
+    ev = outcome.evaluation
+    assert (ev["date_start"], ev["date_end"]) == expected
+    bt = ev["layered_backtest"]
+    assert (bt["date_start"], bt["date_end"]) == expected
+
+
+@pytest.mark.parametrize("dates", [
+    (dt.date(2023, 3, 14), dt.date(2023, 3, 21), dt.date(2023, 3, 30)),
+    (dt.date(2021, 11, 2), dt.date(2021, 11, 9), dt.date(2021, 11, 17)),
+])
+def test_evaluate_run_multi_output_records_panel_date_span(dates):
+    """多输出路径同样逐输出记 date_start/date_end（顶层键结构不变）。"""
+    panel = _dated_panel(dates)
+    panel = panel.with_columns((pl.col("signal") * -1.0).alias("sig_neg")) \
+                 .rename({"signal": "sig_pos"})
+    expected = (panel["date"].min().isoformat(), panel["date"].max().isoformat())
+    spec = _spec(outputs=["sig_pos", "sig_neg"])
+
+    outcome = _outcome(panel, spec)
+
+    ev = outcome.evaluation
+    assert set(ev) == {"outputs", "frequency"}
+    for name in ("sig_pos", "sig_neg"):
+        ev_o = ev["outputs"][name]
+        assert (ev_o["date_start"], ev_o["date_end"]) == expected
+        bt = ev_o["layered_backtest"]
+        assert (bt["date_start"], bt["date_end"]) == expected
 
 
 def test_evaluate_run_multi_output_note_names_output():

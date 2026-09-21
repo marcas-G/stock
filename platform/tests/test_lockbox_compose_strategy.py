@@ -172,6 +172,8 @@ def test_compose_member_intersection_is_role_passes_without_registration(
     summary = json.loads((runs / "composites" / "cx_lock" / "summary.json")
                          .read_text(encoding="utf-8"))
     assert summary["sample"]["role"] == "is"
+    # 终审裁定：is/off → 产物为结论证据（无需 final 登记）
+    assert summary["sample"]["conclusion_eligible"] is True
 
 
 def test_compose_cross_lockbox_requires_intent(tmp_path, monkeypatch):
@@ -237,7 +239,26 @@ def test_compose_exploration_registers_and_persists_sample(tmp_path, monkeypatch
     summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
     assert summary["sample"]["access_id"] == row["access_id"]
     assert summary["sample"]["role"] == "lockbox"
+    # 终审裁定：exploration 产物 = 运行记录，不作为结论证据
+    assert summary["sample"]["conclusion_eligible"] is False
     assert row["result_ref"] == str(out_dir)
+
+
+def test_compose_final_intent_marks_conclusion_eligible(tmp_path, monkeypatch):
+    """final：manifest sample.conclusion_eligible=true（与 exploration 反证）。"""
+    spec_path, runs, db = _compose_world(
+        tmp_path, monkeypatch, a=(_START, _END), b=(_START, _END))
+
+    result = _compose(spec_path, runs, "--lockbox", "final",
+                      "--lockbox-reason", "固化终评")
+
+    assert result.exit_code == 0, result.output
+    rows = _rows(db)
+    assert len(rows) == 1 and rows[0]["kind"] == "final"
+    summary = json.loads((runs / "composites" / "cx_lock" / "summary.json")
+                         .read_text(encoding="utf-8"))
+    assert summary["sample"]["role"] == "lockbox"
+    assert summary["sample"]["conclusion_eligible"] is True
 
 
 def test_compose_cache_hit_declares_current_access(tmp_path, monkeypatch):
@@ -412,8 +433,39 @@ def test_strategy_exploration_manifest_sample_and_result_ref(tmp_path, monkeypat
     assert manifest["sample"]["access_id"] == rows[0]["access_id"]
     assert manifest["sample"]["role"] == "lockbox"
     assert manifest["sample"]["window_id"] == WINDOW_ID
+    # 终审裁定：exploration 策略产物 = 运行记录，不作为结论证据
+    assert manifest["sample"]["conclusion_eligible"] is False
     assert rows[0]["result_ref"] == str(res.out_dir)
     assert called["saved"] == res.out_dir   # 回填发生在全部产物落盘之后
+
+
+def test_strategy_final_intent_marks_conclusion_eligible(tmp_path, monkeypatch):
+    """final：策略 manifest sample.conclusion_eligible=true（与 exploration 反证）。"""
+    import factorlab.app.strategy.run as SR
+    from factorlab.app.strategy.run import run_strategy
+
+    db = _strategy_sandbox(tmp_path, monkeypatch)
+    results = tmp_path / "results"
+    signal_dates = (_START, _START + dt.timedelta(days=1), _START + dt.timedelta(days=2))
+    fx.write_factor(results, "ws7_doc_chain", dates=signal_dates)
+    doc_path = _strategy_doc_file(tmp_path, start=_START, end=_END)
+    doc = load_strategy_doc(doc_path)
+
+    monkeypatch.setattr(SR, "run_backtest", lambda target, execution, rd, **kw: (
+        SimpleNamespace(nav_series=None, artifacts=[])))
+    monkeypatch.setattr(SR, "save_backtest_result",
+                        lambda backtest, out_dir: None)
+
+    res = run_strategy(doc, None, dataset=None, results_dir=results,
+                       doc_path=doc_path, lockbox_intent="final",
+                       lockbox_reason="固化终评")
+
+    manifest = json.loads((res.out_dir / "strategy_manifest.json")
+                          .read_text(encoding="utf-8"))
+    assert manifest["sample"]["role"] == "lockbox"
+    assert manifest["sample"]["conclusion_eligible"] is True
+    rows = _rows(db)
+    assert len(rows) == 1 and rows[0]["kind"] == "final"
 
 
 def test_strategy_run_registry_and_handler_maps_lockbox_error(tmp_path, monkeypatch):
