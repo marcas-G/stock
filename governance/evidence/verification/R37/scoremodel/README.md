@@ -47,3 +47,14 @@ Spec/计划：`knowledge/design/research/{specs,plans}/2026-09-21-scoremodel*.md
 
 执行时点成本：全市场 -4.2pp/-0.71IR；小中盘 -1.1pp/-0.38IR（反转信号隔夜衰减更伤大盘段）。
 脚本 `quantresearch/lab/autoencoder42/portfolio_nextopen.py`；数据 `open_adj_42_5y.npz`。
+
+## 日线 vs 分钟因子分组（M0a 同分数器，T+1 开盘，周频长多）
+
+| 分组 | IC | tNW | 全市场 ann/超额/IR | Q1-Q3 ann/超额/IR |
+|---|---|---|---|---|
+| daily10 | 0.0702 | 13.5 | 19.1% / -0.7% / -0.05 | 25.4% / +2.2% / 0.37 |
+| minute32 | 0.1012 | 17.1 | 32.1% / +9.7% / 1.07 | 34.0% / +8.6% / 1.18 |
+| all42 | 0.1016 | 18.4 | 33.2% / +11.0% / 1.24 | 36.8% / +11.1% / 1.55 |
+
+结论：分钟因子为主力；日线组单独几乎无长多超额；合并的增量来自分散化（IR 提升）。
+脚本 `research/tools/scoremodel/run_split.py`。
