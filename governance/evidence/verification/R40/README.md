@@ -271,3 +271,13 @@ cd platform && .venv/bin/python -m pytest -q \
 - 契约/技能/手册：`knowledge/contracts/interface.md` §10、
   `.claude/skills/factor-mine/SKILL.md` §7/§8、
   `knowledge/handbooks/factor-mining-playbook.md` §4.1
+
+## 部署形态切换：Docker 挖矿服务退役（2026-09-21，用户裁定 A）
+
+- 操作：`systemctl --user stop factorlab-svc && systemctl --user disable factorlab-svc`；
+  `docker rm -f factorlab-svc`（镜像保留 `factorlab-svc:{33ec23e,stable,a9b9bfa}` 以便回退）。
+- 验证：`is-active=inactive`、`is-enabled=disabled`、`docker ps -a` 无容器、
+  `http://127.0.0.1:8787/health` 不可达；`factorlab lockbox status` 真实台账仍 `initialized:false`（未 roll）。
+- 生产路径：Prefect 工作流（server/runner 常驻，127.0.0.1:4200）+ 宿主 `factorlab`；
+  **锁箱硬门在 `execute_run` 层，与容器无关**（R39 的 L1 验收作为历史记录保留）。
+- 回退：`make svc-image REF=<sha> STABLE=1` + `governance/ops/install_svc.sh install`。
