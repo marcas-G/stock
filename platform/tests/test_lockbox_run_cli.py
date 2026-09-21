@@ -6,6 +6,10 @@
 - exploration 在重链前登记（登记行真实存在；后续链路因无库必败）；
 - `flab factor run` registry 暴露并透传两参数，`LockboxError` → 信封稳定错误码。
 
+墙钟鲁棒（T5 修复轮1）：spec 窗口、沙箱日历、期望 window_id 全部从
+`dt.date.today()` + `quarter_end_before`/`window_id_of` 动态派生；roll 与
+guard 共用同一序列，不依赖 `_lockbox_today` seam（guard 用真墙钟）。
+
 真实度：真 typer runner + 真 SQLite（沙箱）；只 patch 日历/数据日与
 `settings.lockbox_db`（与真台账隔离）。
 """
@@ -21,19 +25,25 @@ from typer.testing import CliRunner
 
 from factorlab.adapters.lockbox_store import connect, guard_run, roll
 from factorlab.config import settings
-from factorlab.core.lockbox import LockboxError, LockboxWindow
+from factorlab.core.lockbox import (LockboxError, LockboxWindow, compute_window,
+                                    quarter_end_before, window_id_of)
 from factorlab.surfaces.cli import main as cli_main
 from factorlab.surfaces.cli.main import app, execute_run
-
-SPEC = ("name: x\ncategory: custom\ndirection: 1\n"
-        "universe:\n  codes: [\"000001.SZ\"]\n"
-        "formula: close\ndate:\n  start: '2026-01-05'\n"
-        "  end: '2026-09-18'\n")
 
 
 @pytest.fixture(autouse=True)
 def _lockbox_enabled(monkeypatch):
     monkeypatch.setenv("FACTORLAB_LOCKBOX", "1")
+
+
+TODAY = dt.date.today()
+DAYS = [TODAY - dt.timedelta(days=i) for i in range(800)][::-1]
+W = compute_window(as_of=TODAY, trading_days=DAYS, data_end=TODAY)
+WINDOW_ID = window_id_of(quarter_end_before(TODAY))
+SPEC = ("name: x\ncategory: custom\ndirection: 1\n"
+        "universe:\n  codes: [\"000001.SZ\"]\n"
+        f"formula: close\ndate:\n  start: '{W.start.isoformat()}'\n"
+        f"  end: '{W.end.isoformat()}'\n")
 
 
 def _sandbox(tmp_path: Path, monkeypatch):
@@ -43,11 +53,9 @@ def _sandbox(tmp_path: Path, monkeypatch):
     spec.write_text(SPEC, encoding="utf-8")
     db = tmp_path / "ledger.sqlite"
     monkeypatch.setattr(settings, "lockbox_db", db)
-    monkeypatch.setattr(cli_main, "_lockbox_published_days",
-                        lambda: [dt.date(2026, 1, 5), dt.date(2026, 9, 18)])
-    monkeypatch.setattr(cli_main, "_lockbox_data_end", lambda: dt.date(2026, 9, 18))
-    monkeypatch.setattr(cli_main, "_lockbox_today", lambda: dt.date(2026, 9, 21))
-    CliRunner().invoke(app, ["lockbox", "roll"])   # 初始化状态
+    monkeypatch.setattr(cli_main, "_lockbox_published_days", lambda: list(DAYS))
+    monkeypatch.setattr(cli_main, "_lockbox_data_end", lambda: W.end)
+    CliRunner().invoke(app, ["lockbox", "roll"])   # 初始化状态（as_of=真今天）
     return spec, db
 
 
@@ -71,10 +79,11 @@ def test_execute_registers_exploration_before_heavy_chain(tmp_path: Path, monkey
     spec, db = _sandbox(tmp_path, monkeypatch)
     with pytest.raises(Exception):   # 无库 → 后续链路必败；关键看登记已落
         execute_run(spec, backtest=False, lockbox_intent="exploration",
-                    lockbox_reason="单元验证")
+                    lockbox_reason="单元验证",
+                    output_dir=tmp_path / "results")
     row = connect(db).execute(
         "SELECT kind, window_id FROM lockbox_access").fetchone()
-    assert (row["kind"], row["window_id"]) == ("exploration", "2026Q2")
+    assert (row["kind"], row["window_id"]) == ("exploration", WINDOW_ID)
 
 
 def test_cli_run_help_exposes_lockbox_flags():
@@ -122,23 +131,22 @@ def test_run_factor_persists_sample_and_result_ref(env, tmp_path, monkeypatch):
     """日频链路真实落盘：`summary.sample` 与登记 result_ref 必须同源可见。
 
     真 SQLite 台账 + 真 run_factor 链路：去掉 run.py 的 attach/mark 挂接即红
-    （存根替换失败点）。
+    （存根替换失败点）。合成面板固定 2024 年（数据 fixture 自带），窗口状态
+    起点设 2024-01-02 使面板整体落锁箱；window_id 仍按真墙钟季度派生。
     """
     from factorlab.app.run import run_factor
     from test_run_factor import _ctx, _seed, _spec
 
     _seed(env)
     db = tmp_path / "ledger.sqlite"
-    days = [dt.date(2025, 7, 1), dt.date(2026, 9, 18)]
     conn = connect(db)
-    roll(conn, window=LockboxWindow("2026Q2", dt.date(2024, 1, 2),
-                                    dt.date(2026, 9, 18)))
+    roll(conn, window=LockboxWindow(WINDOW_ID, dt.date(2024, 1, 2), W.end))
     conn.close()
     guard = guard_run(panel_start=dt.date(2024, 1, 2), panel_end=dt.date(2024, 1, 9),
                       intent="exploration", reason="集成验证",
                       spec_doc={"name": "demo"}, artifact="factor/demo/x.yaml",
                       command="factor run", tool="factorlab test", db_path=db,
-                      trading_days=days, data_end=dt.date(2026, 9, 18))
+                      trading_days=DAYS, data_end=W.end)
     out_dir = tmp_path / "out"
     ctx = _ctx(env, out_dir)
     ctx.guard = guard
