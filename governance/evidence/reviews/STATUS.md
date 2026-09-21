@@ -75,6 +75,8 @@ factorlab ref list          # 参考库（daily 10 + minute 20）
 factorlab compose <spec.yaml>
 # 策略（引用因子或 composities/、加权/缓冲/执行参数全可配）
 flab strategy run <yaml>
+# 执行入口（R39）：研究默认走本地服务（/health 探活、platform_client.submit）；
+# 宿主 CLI（factorlab/flab）仅 dev/应急（服务交付后生效）
 ```
 
 ## 五、GitHub Issue 索引（2026-09-19 seed）

@@ -114,7 +114,7 @@ def create_service_app(*, store, worker_state, version_info) -> FastAPI
   token 读 `~/.config/factorlab/service_token`）；
 - `quantresearch/scratch/20260921_service_smoke.py`：提交一个已存在的小 factor_run → 轮询 → 打印结果路径；
 - `quantresearch/CONVENTIONS.md` 增"执行入口=服务"节 + 宿主 CLI 仅 dev/应急。
-- [ ] 提交（研究产物区文件不进 git；文档改动若涉仓内 STATUS 一并提交）。
+- [x] 提交（研究产物区文件不进 git；文档改动若涉仓内 STATUS 一并提交）。
 
 ### Task 6: 镜像与部署（Docker + systemd + make）
 
