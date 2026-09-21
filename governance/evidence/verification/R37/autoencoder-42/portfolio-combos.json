@@ -1,0 +1,58 @@
+{
+  "EW_alone": {
+    "n_days": 517,
+    "ann_return_net": 0.4959043564496848,
+    "ann_vol": 0.20297326686821526,
+    "sharpe_net": 2.0870419991280063,
+    "max_drawdown": -0.24061991539164407,
+    "avg_oneway_turnover": 1.0607526614536422,
+    "avg_daily_gross": 0.003166060601646933,
+    "avg_daily_cost": 0.001485053726035099,
+    "nav_final": 2.2847067794234763,
+    "hit_rate": 0.562862669245648,
+    "fee_bps": 7.0,
+    "quantile": 0.1
+  },
+  "PLS_alone": {
+    "n_days": 517,
+    "ann_return_net": 0.5038762761251918,
+    "ann_vol": 0.18416335731473502,
+    "sharpe_net": 2.3093173982889197,
+    "max_drawdown": -0.13337955188582828,
+    "avg_oneway_turnover": 1.3761133620890134,
+    "avg_daily_gross": 0.0036142239655524624,
+    "avg_daily_cost": 0.001926558706924619,
+    "nav_final": 2.3097560382359497,
+    "hit_rate": 0.5512572533849129,
+    "fee_bps": 7.0,
+    "quantile": 0.1
+  },
+  "mix50_50": {
+    "n_days": 517,
+    "ann_return_net": 0.6137594056883406,
+    "ann_vol": 0.19982392052235448,
+    "sharpe_net": 2.4968947821333662,
+    "max_drawdown": -0.1860828970474927,
+    "avg_oneway_turnover": 1.2004909873930243,
+    "avg_daily_gross": 0.0036606052573411045,
+    "avg_daily_cost": 0.001680687382350234,
+    "nav_final": 2.6693124694931822,
+    "hit_rate": 0.5609284332688588,
+    "fee_bps": 7.0,
+    "quantile": 0.1
+  },
+  "EW_plus_residPLS": {
+    "n_days": 517,
+    "ann_return_net": 0.6005500993955981,
+    "ann_vol": 0.19484132475523291,
+    "sharpe_net": 2.513459139455603,
+    "max_drawdown": -0.16718361834975104,
+    "avg_oneway_turnover": 1.2545624556627113,
+    "avg_daily_gross": 0.003699743423839214,
+    "avg_daily_cost": 0.001756387437927796,
+    "nav_final": 2.6246792991212096,
+    "hit_rate": 0.5531914893617021,
+    "fee_bps": 7.0,
+    "quantile": 0.1
+  }
+}
