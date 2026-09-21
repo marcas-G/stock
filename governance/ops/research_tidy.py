@@ -1,12 +1,19 @@
 #!/usr/bin/env python
 """R37 quantresearch 目录公约检查器：根白名单 / scratch 命名 / results manifest / __pycache__。
 
+只用标准库（不 import 平台包）。results/<dir>/manifest.json 除"存在"外还校验
+锁箱样本字段（T9 裁定）：必含 window_id/sample_role/access_ids/platform_commit，
+sample_role ∈ {is,mixed,lockbox,legacy,unknown}，access_ids 为字符串列表，
+platform_commit 非空字符串；缺键消息含键名。`--allow-missing-manifest` 只豁免
+"manifest 文件缺失"这一类，不豁免字段缺失。
+
 只报告不修改（无 --fix）。退出码：0=无 error（warning 不失败）；1=有 error；root 不存在=SKIP(0)。
 用法：platform/.venv/bin/python governance/ops/research_tidy.py [--root DIR] [--allow-missing-manifest]
 """
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 from pathlib import Path
@@ -18,6 +25,8 @@ ROOT_REPORT_GLOB = "REPORT*.md"
 RESULTS = "results"
 SCRATCH = "scratch"
 MANIFEST = "manifest.json"
+MANIFEST_REQUIRED = ("window_id", "sample_role", "access_ids", "platform_commit")
+SAMPLE_ROLES = ("is", "mixed", "lockbox", "legacy", "unknown")
 SCRATCH_RE = re.compile(r"^\d{8}_[A-Za-z0-9][A-Za-z0-9_.-]*\.py$")
 
 
@@ -66,6 +75,33 @@ def check_scratch(root: Path) -> list[Finding]:
     return out
 
 
+def _check_manifest_fields(path: Path) -> list[Finding]:
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return [Finding("error", str(path), f"{MANIFEST} 解析失败：{exc}")]
+    if not isinstance(doc, dict):
+        return [Finding("error", str(path), f"{MANIFEST} 顶层必须是 JSON object")]
+    out = []
+    missing = [k for k in MANIFEST_REQUIRED if k not in doc]
+    if missing:
+        out.append(Finding("error", str(path),
+                           f"{MANIFEST} 缺键：{', '.join(missing)}"))
+    if "sample_role" not in missing and doc["sample_role"] not in SAMPLE_ROLES:
+        out.append(Finding(
+            "error", str(path),
+            f"sample_role 非法：{doc['sample_role']!r}（允许 {'/'.join(SAMPLE_ROLES)}）"))
+    if "access_ids" not in missing:
+        value = doc["access_ids"]
+        if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
+            out.append(Finding("error", str(path), "access_ids 必须是字符串列表"))
+    if "platform_commit" not in missing:
+        value = doc["platform_commit"]
+        if not isinstance(value, str) or not value.strip():
+            out.append(Finding("error", str(path), "platform_commit 必须是非空字符串"))
+    return out
+
+
 def check_results(root: Path, allow_missing_manifest: bool = False) -> list[Finding]:
     out = []
     r = root / RESULTS
@@ -75,10 +111,15 @@ def check_results(root: Path, allow_missing_manifest: bool = False) -> list[Find
         if p.is_file():
             out.append(Finding(
                 "error", str(p), f"{RESULTS}/ 根下裸文件：{p.name}（应归入 campaign 目录）"))
-        elif p.is_dir() and not (p / MANIFEST).is_file():
-            level = "warning" if allow_missing_manifest else "error"
-            hint = "（--allow-missing-manifest：暂缓）" if allow_missing_manifest else ""
-            out.append(Finding(level, str(p / MANIFEST), f"{RESULTS}/{p.name}/ 缺 {MANIFEST}{hint}"))
+        elif p.is_dir():
+            manifest = p / MANIFEST
+            if not manifest.is_file():
+                level = "warning" if allow_missing_manifest else "error"
+                hint = "（--allow-missing-manifest：暂缓）" if allow_missing_manifest else ""
+                out.append(Finding(level, str(manifest),
+                                   f"{RESULTS}/{p.name}/ 缺 {MANIFEST}{hint}"))
+            else:
+                out.extend(_check_manifest_fields(manifest))
     return out
 
 

@@ -7,7 +7,9 @@ DAG：
 - 每个 score 节点保持 walk-forward 训练并落 `signal.npz` + `metrics.json` + `manifest.json`；
 - portfolio 节点对信号做周频长多评估（T+1 开盘 / T 日收盘 × 全市场 / Q1-Q3）；
 - Prefect 缓存键 = 面板指纹 + 分组列 + 模型 + 折参数 + 代码指纹 → 输入不变则秒级跳过；
-- 计算 step 以 **platform venv** 子进程执行（依赖隔离）；本流程只编排。
+- 计算 step 以 **platform venv** 子进程执行（依赖隔离）；本流程只编排；
+- flow 收尾写/刷新 `<out>/manifest.json`（T9 锁箱样本字段：platform_commit/panel_sig/
+  config_path/window_id/sample_role/access_ids；已有字段保留）。
 
 运行：
     research/.venv/bin/python research/tools/xscore/pipeline/flows.py \
@@ -144,6 +146,22 @@ def report_task(cfg: dict, score_dirs: list[str]) -> str:
     return str(out / "REPORT.md")
 
 
+def _write_manifest(cfg: dict) -> str:
+    """flow 收尾：写/刷新 `<out>/manifest.json`（已有字段保留；锁箱样本声明 T9）。"""
+    panel = lib.panel_dates(cfg["panel"])
+    updates = {
+        "platform_commit": lib.git_commit(),
+        "panel_sig": cfg["panel_sig"],
+        "config_path": cfg["config_path"],
+        **lib.lockbox_sample(panel_start=panel[0] if panel else None,
+                             panel_end=panel[1] if panel else None),
+        "access_ids": [],
+    }
+    path = Path(cfg["out"]) / "manifest.json"
+    lib.write_manifest(path, updates)
+    return str(path)
+
+
 @flow(name="xscore-pipeline", log_prints=True)
 def xscore_pipeline(config_path: str) -> str:
     cfg = yaml.safe_load(Path(config_path).read_text())
@@ -179,7 +197,8 @@ def xscore_pipeline(config_path: str) -> str:
                     score_dir=sd, exec_mode=exec_mode, domain=domain, cfg=cfg))
     [f.result() for f in futs]
     report = report_task(cfg, score_dirs)
-    print(f"[done] {report}")
+    manifest = _write_manifest(cfg)
+    print(f"[done] {report} manifest={manifest}")
     return report
 
 

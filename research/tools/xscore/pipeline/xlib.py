@@ -5,18 +5,22 @@ Prefect 只做编排，通过 subprocess 调用本目录脚本。
 """
 from __future__ import annotations
 
+import datetime as dt
 import hashlib
 import json
 import os
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import yaml
 
 QR = Path("/data/students/gaolei/quantresearch")
 STOCK = Path("/data/students/gaolei/stock")
+PLATFORM_SRC = STOCK / "platform/src"
 PLATFORM_PY = STOCK / "platform/.venv/bin/python"
 sys.path.insert(0, str(QR))
 
@@ -55,6 +59,88 @@ def file_sig(path: Path) -> str:
         return "missing"
     st = p.stat()
     return hashlib.sha256(f"{p.resolve()}:{st.st_size}:{int(st.st_mtime)}".encode()).hexdigest()[:16]
+
+
+def _ensure_platform_src() -> None:
+    """让 research venv 也能 import factorlab（flows.py 不在平台 venv 下跑）。"""
+    if str(PLATFORM_SRC) not in sys.path:
+        sys.path.insert(0, str(PLATFORM_SRC))
+
+
+def panel_dates(panel_path: Path) -> tuple[dt.date, dt.date] | None:
+    """panel npz `dates` 首/末（ISO 字符串）；文件缺失/无 dates/空/非法 → None。"""
+    p = Path(panel_path)
+    if not p.is_file():
+        return None
+    try:
+        raw = np.load(p, allow_pickle=False)["dates"]
+    except (KeyError, OSError, ValueError, EOFError):
+        return None
+    if raw.size == 0:
+        return None
+    try:
+        return dt.date.fromisoformat(str(raw[0])), dt.date.fromisoformat(str(raw[-1]))
+    except ValueError:
+        return None
+
+
+def write_manifest(path: Path, updates: Mapping[str, Any]) -> dict:
+    """读-合并-原子写 manifest：已有字段保留，仅覆盖 updates 所列键。"""
+    p = Path(path)
+    existing: dict = {}
+    if p.is_file():
+        existing = json.loads(p.read_text(encoding="utf-8"))
+    doc = {**existing, **updates}
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(p)
+    return doc
+
+
+def lockbox_sample(*, panel_start: dt.date | None, panel_end: dt.date | None,
+                   today: dt.date | None = None, db_path: Path | None = None,
+                   health_root: Path | None = None) -> dict:
+    """读锁箱台账（SQLite state + health 日历）→ manifest 样本声明。
+
+    - 无 state（锁箱未初始化）→ `{"window_id": None, "sample_role": "unknown"}`；
+    - 有 state → `current_window` 对账后 `role_for(panel_start, panel_end, window)`
+      判 is/mixed/lockbox（panel 区间缺省回退已发布日历 min/max）；
+    - state 陈旧（跨季未 roll，LOCKBOX_WINDOW_STALE）→ 用 state 窗口声明，
+      不让流水线收尾失败（诚实标注台账登记窗口）。
+    """
+    _ensure_platform_src()
+    from factorlab.adapters import lockbox_store as store
+    from factorlab.core.factio.paths import DATA_ROOT
+    from factorlab.core.lockbox import LockboxError, LockboxWindow, role_for
+
+    if db_path is None:
+        from factorlab.config import settings
+        db_path = settings.lockbox_db
+    health = Path(health_root) if health_root is not None else Path(DATA_ROOT) / "health"
+    today = today or dt.date.today()
+    days = store.published_days(health)
+    data_end = store.latest_data_date(health) or today
+    conn = store.connect(Path(db_path))
+    try:
+        state = store.load_state(conn)
+        if state is None:
+            return {"window_id": None, "sample_role": "unknown"}
+        try:
+            window = store.current_window(conn, as_of=today, trading_days=days,
+                                          data_end=data_end)
+        except LockboxError as exc:
+            if exc.code != "LOCKBOX_WINDOW_STALE":
+                raise
+            window = LockboxWindow(state["window_id"],
+                                   dt.date.fromisoformat(state["window_start"]),
+                                   data_end)
+        if panel_start is None or panel_end is None:
+            panel_start, panel_end = (min(days), max(days)) if days else (data_end, data_end)
+        return {"window_id": window.window_id,
+                "sample_role": role_for(panel_start, panel_end, window)}
+    finally:
+        conn.close()
 
 
 def load_panel(path: Path):
