@@ -33,6 +33,15 @@ def default_results_dir() -> Path:
     return _REPO_ROOT / "runs" / "platform"
 
 
+def default_lockbox_db() -> Path:
+    """锁箱状态库默认路径（R40）：研究产物区 `<research_root>/data/ledger.sqlite`。
+
+    WAL SQLite，`lockbox status|roll` 与访问登记共用（设计 §4；env
+    `FACTORLAB_LOCKBOX_DB` 覆盖）。
+    """
+    return default_research_root() / "data" / "ledger.sqlite"
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="FACTORLAB_",
@@ -63,6 +72,8 @@ class Settings(BaseSettings):
     default_chunk_size: int = 1000
     use_float32: bool = True
     results_dir: Path = Field(default_factory=default_results_dir)  # FACTORLAB_RESULTS_DIR 可覆盖；run --output-dir 缺省根目录
+    # R40 锁箱状态库：`<research_root>/data/ledger.sqlite`（FACTORLAB_LOCKBOX_DB 覆盖）
+    lockbox_db: Path = Field(default_factory=default_lockbox_db)
     # R37：研究产物区根（factor/strategy/composites/dossiers/index 的父目录）；
     # `QUANTRESEARCH_ROOT` env 优先（FACTORLAB_RESEARCH_ROOT 亦可覆盖，pydantic 前缀）。
     research_root: Path = Field(default_factory=default_research_root)

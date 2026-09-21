@@ -29,6 +29,64 @@ op_app = typer.Typer(no_args_is_help=True)
 app.add_typer(op_app, name="op")
 # R31：研究员统一门面（flab 短入口的落点；命令注册单点在 factorlab.research.registry）
 app.add_typer(research_app, name="research")
+# R40 锁箱纪律（设计 knowledge/design/platform/specs/2026-09-21-lockbox-discipline-design.md）：
+# 窗口/配额/终评唯一的运维入口；纯窗口数学在 core.lockbox，IO 在 adapters.lockbox_store。
+lockbox_app = typer.Typer(no_args_is_help=True)
+app.add_typer(lockbox_app, name="lockbox")
+
+
+def _lockbox_published_days() -> list[datetime.date]:
+    """锁箱交易日历 = health 已发布日期（与服务 dataset_version 同源；离线可测）。"""
+    from factorlab.adapters import lockbox_store as store
+    from factorlab.core.factio.paths import DATA_ROOT
+    return store.published_days(Path(DATA_ROOT) / "health")
+
+
+def _lockbox_data_end() -> datetime.date | None:
+    from factorlab.adapters import lockbox_store as store
+    from factorlab.core.factio.paths import DATA_ROOT
+    return store.latest_data_date(Path(DATA_ROOT) / "health")
+
+
+def _lockbox_today() -> datetime.date:
+    return datetime.date.today()
+
+
+@lockbox_app.command("status")
+def lockbox_status(json_out: bool = typer.Option(False, "--json")) -> None:
+    """锁箱窗口/配额/剩余（未初始化时 initialized=false）。"""
+    from factorlab.adapters import lockbox_store as store
+    conn = store.connect(settings.lockbox_db)
+    data_end = _lockbox_data_end() or _lockbox_today()
+    doc = store.status(conn, trading_days=_lockbox_published_days(), data_end=data_end)
+    if doc.get("initialized"):
+        doc["is_end"] = (datetime.date.fromisoformat(doc["window_start"])
+                         - datetime.timedelta(days=1)).isoformat()
+    if json_out:
+        # 原样单行输出：rich console 会折行/美化，破坏"末行可 json.loads"消费契约
+        typer.echo(json.dumps(doc, ensure_ascii=False))
+    else:
+        console.print(doc)
+    if not doc.get("initialized"):
+        raise typer.Exit(code=1)
+
+
+@lockbox_app.command("roll")
+def lockbox_roll(
+    as_of: str | None = typer.Option(None, "--as-of", help="ISO 日期（缺省今天）"),
+    quota_final: int | None = typer.Option(None, "--quota-final", min=1),
+) -> None:
+    """季度滚动（幂等；拒绝倒退）。"""
+    from factorlab.adapters import lockbox_store as store
+    from factorlab.core.lockbox import compute_window
+    as_of_date = datetime.date.fromisoformat(as_of) if as_of else _lockbox_today()
+    window = compute_window(as_of=as_of_date,
+                            trading_days=_lockbox_published_days(),
+                            data_end=_lockbox_data_end() or as_of_date)
+    conn = store.connect(settings.lockbox_db)
+    rolled, changed = store.roll(conn, window=window, quota_final=quota_final)
+    console.print(f"\\[lockbox] window={rolled.window_id} start={rolled.start} "
+                  f"end={rolled.end} {'已更新' if changed else '无变化（幂等）'}")
 
 
 @app.callback()
