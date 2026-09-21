@@ -23,3 +23,33 @@
 - 部署件：`governance/ops/service/{Dockerfile,run-service.sh,factorlab-svc.service}`、`governance/ops/install_svc.sh`、`Makefile:svc-image`
 - 客户端/冒烟：`~/quantresearch/lab/platform_client.py`、`~/quantresearch/scratch/20260921_service_smoke.py`
 - 关键实现提交：`d3818f4`(store) `e7ce77a`(params) `90b0f11`(runner) `c64bdd7`(api/cli) `9654ec6`(部署初版) + 本次归位/修正提交
+
+## L2 小项验收（2026-09-21 下午，规格 §9）
+
+### CH 只读账号（svc）
+- 部署无 SQL RBAC 存储（`ACCESS_STORAGE_FOR_INSERTION_NOT_FOUND`），改走 `users.xml` + `SYSTEM RELOAD USERS`：
+  备份 `users.xml.bak-20260921-svc`；新增 profile `svc`（`max_threads=8`、`max_memory_usage=8e9`、
+  `readonly=2`）、user `svc`（sha256 口令、networks 127.0.0.1/::1）、quota `svc_quota`（600 q/h）。
+- 凭据：`~/.config/factorlab/service.env`（0600，不入 git）；`run-service.sh` 自动加载并透传容器。
+- 边界实测：`SELECT count() FROM factorlab.daily` = **17,787,885**（与 DQ clean 一致）；
+  `INSERT`/`CREATE TABLE` 被拒（READONLY）；`system.tables/columns` 探测可用；
+  **作业运行中宿主观测 `system.processes` 非 default 活跃账号 = ['svc']**（端到端确证）。
+- `run-service.sh` 启动日志：`CH 账号: svc（只读=是）`。
+
+### dataset_version 入作业记录
+- store 加列 + 旧库自动迁移（`PRAGMA table_info` → `ALTER TABLE`）；
+  claim 当刻冻结写入；`/jobs/{id}`、`/result.service`、SQLite 三处一致。
+- 实测 job `01M31F8AASM8EXAGWDS6WN4RWD`：succeeded 65s，`dataset_version=vscope20260920_01`。
+
+### 磁盘预检
+- `run-service.sh` 启动日志：`磁盘余量 257GB（阈值 20GB）`；低于阈值打印 warn（`FACTORLAB_SVC_DISK_MIN_GB` 可调）。
+
+### OOM 语义：发现与修复（重要）
+- **发现**：本机 cgroup v1 + swap 不受限额（启动告警 "Memory limited without swap"）+
+  `memory.swappiness=60`。内存推到 16GiB 后用 swap 顶住 → 容器整体换页抖动、`/health` 超时，
+  **内核未击杀失控进程**（8 分钟未 OOM）。
+- **修复**：容器加 `--memory-swappiness=0` → 匿名页不可换出，限额触顶即 cgroup OOM。
+- **修复后实测**：同样吞噬进程 → `SIGNAL 9`（内核 OOM 杀）；服务 `/health` 42ms 内恢复健康；
+  内存回落 213MiB；随后真作业 succeeded 65s（无回归）。
+- 遗留（L3 建议）：单容器内失控**非平台子进程**仍可能短暂拖慢 API（平台 8GB 作业守卫是一线）；
+  彻底方案=作业独立容器/子 cgroup（L3）。
