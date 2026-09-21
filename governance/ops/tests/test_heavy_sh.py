@@ -51,7 +51,11 @@ def test_injects_guard_env_and_nice(env):
               '$OMP_NUM_THREADS|$POLARS_MAX_THREADS|$(ps -o ni= -p $$ | tr -d " ")"'],
              env)
     assert r.returncode == 0, r.stderr
-    assert r.stdout.strip() == "8GB|6GB|8|8|10"
+    fields = r.stdout.strip().split("|")
+    assert fields[:4] == ["8GB", "6GB", "8", "8"]
+    # nice -n 10 是增量语义：nightly-verify.sh 已经 heavy.sh（nice=10）包住 verify.sh 时，
+    # verify 内的测试再进 heavy.sh 会继承 niceness（10+10 上限 19）——断言"至少 +10"。
+    assert int(fields[4]) >= 10
 
 
 def test_existing_env_overrides_not_clobbered(env):

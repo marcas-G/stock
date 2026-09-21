@@ -76,14 +76,17 @@ governance/ops/ci_env.sh [--dir DIR]                        # 幂等建 venv + �
 `governance/ops/nightly_notify.py`、`~/.config/systemd/user/factorlab-nightly-verify.{service,timer}`（安装脚本
 `governance/ops/install_nightly_verify.sh`）；Modify `governance/evidence/reviews/README.md`（验证体系一节）。
 
-- [ ] 注销 runner：`GET actions/runners` → `DELETE /actions/runners/<id>`；`systemctl --user disable --now actions-runner`；
-      备份目录路径写入 README（恢复指引）；
-- [ ] `nightly_notify.py`：marker `<!-- nightly:YYYY-MM-DD -->` 幂等创建 issue（labels kind:process,status:open；
+- [x] 注销 runner：`GET actions/runners` → `DELETE /actions/runners/<id>`；`systemctl --user disable --now actions-runner`；
+      备份目录路径写入 README（恢复指引）；（2026-09-21：runner id=21 已注销，API total_count=0；服务 disabled/inactive；
+      目录原地归档；证据 `/tmp/opencode/nightly-verify/`）
+- [x] `nightly_notify.py`：marker `<!-- nightly:YYYY-MM-DD -->` 幂等创建 issue（labels kind:process,status:open；
       正文=失败步骤+日志尾 30 行+日志路径+`make verify-deep` 复现命令）；**用 `--force-fail` 注入测试**：手工建一条
-      测试 issue 后关闭（记录 URL 于证据）；
-- [ ] 安装并 `systemctl --user start factorlab-nightly-verify.service` 实跑成功（日志落
-      `$QUANTRESEARCH_ROOT/results/platform/.nightly/`，记 `last.json`）；
-- [ ] 提交：`ci: 自托管 runner 退役——夜间深检改宿主 timer + 失败自动开 issue`
+      测试 issue 后关闭（记录 URL 于证据）；（2026-09-21：故障注入创建 #32 并关闭；二次注入验证幂等=追加评论；
+      单测 15 条 `governance/ops/tests/test_nightly_{notify,verify_sh}.py`）
+- [x] 安装并 `systemctl --user start factorlab-nightly-verify.service` 实跑成功（日志落
+      `$QUANTRESEARCH_ROOT/results/platform/.nightly/`，记 `last.json`）；（2026-09-21：`NIGHTLY_PROFILE=fast` 经
+      systemd 服务实跑 rc=0，7m23s，日志 `20260921-113251.log` + `last.json`；timer 已 enable，下次 2026-09-22 03:00）
+- [x] 提交：`ci: 自托管 runner 退役——夜间深检改宿主 timer + 失败自动开 issue`
 
 ### Task 5: 验收与收口（控制器）
 

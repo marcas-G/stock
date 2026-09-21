@@ -62,13 +62,30 @@ governance/evidence/reviews/
   `~/.ssh/config` 已配 `Host github.com → HostName ssh.github.com / Port 443`，
   key `~/.ssh/id_ecdsa_github`（账号 key 名 `gaolei-gpu-server`，OpenSSH 8.2 不支持 ed25519 故用 ECDSA）；
   `origin` 已切 `git@github.com:marcas-G/stock.git`。**本机不要再用 https 推拉**。
-- **自托管 runner（2026-09-19）**：`gpu-server-1`（标签 `self-hosted,Linux,X64,factorlab,ch`），
-  宿主直连 CH + 在盘数据；systemd **user** 服务 `actions-runner.service`
-  （目录 `/data/students/gaolei/actions-runner`，日志 `journalctl --user -u actions-runner`，
-  已 `--disableupdate`——本机下不了 runner 升级包，升级走 API asset 手动换版）。
-  配套 workflow `.github/workflows/selfhosted-verify.yml`（手动 dispatch / 夜间 03:00 /
-  repository_dispatch；**故意不挂 `pull_request`**——公开仓 + 自托管的分叉 PR 是任意代码执行
-  风险面，GitHub 官方建议自托管仅配私有仓；**建议后续把仓库转私有**）。
+- **自托管 runner（2026-09-19 启用 → 2026-09-21 退役）**：`gpu-server-1` 已经 API 注销
+  （`GET /repos/marcas-G/stock/actions/runners` → `DELETE .../runners/21`，HTTP 204；
+  注销后 `total_count=0`；证据 `/tmp/opencode/nightly-verify/runner-api-{before,after}.json`）。
+  systemd **user** 服务 `actions-runner.service` 已 `disable --now`（disabled/inactive）；
+  runner 目录 `/data/students/gaolei/actions-runner` 与 `.runner` 配置**原地归档保留**
+  （未删数据；2026-09-21 核对 `.runner` 中 `disableUpdate: true`——本机下不了 runner
+  升级包，注册时用了 `--disableupdate`，如需恢复仍应如此）。
+  **恢复指引**（公开仓 + 自托管 runner 有 fork PR 任意代码执行风险，官方建议仅私有仓）：
+  1) `systemctl --user enable --now actions-runner`；
+  2) 若注册已失效：`cd /data/students/gaolei/actions-runner && ./config.sh --url
+     https://github.com/marcas-G/stock --token <registration-token> --disableupdate`
+     （registration token 走 API `POST /repos/marcas-G/stock/actions/runners/registration-token`）；
+  3) 核对 `systemctl --user status actions-runner` + API runner 列表。
+  原 workflow `.github/workflows/selfhosted-verify.yml` 已删除（git rm）；全量腿改由宿主
+  systemd user timer **`factorlab-nightly-verify.timer`**（每日 03:00 CST，Persistent=true）
+  执行 `governance/ops/nightly-verify.sh`（经 `heavy.sh` → `verify.sh --profile deep`），
+  日志与 `last.json` 落 `$QUANTRESEARCH_ROOT/results/platform/.nightly/`；失败经
+  `governance/ops/nightly_notify.py` 按 marker `<!-- nightly:<date> -->` 幂等开/追加 issue
+  （labels `kind:process,status:open`；2026-09-21 故障注入实测 issue #32，随后手动关闭；
+  同日 `NIGHTLY_PROFILE=fast` 经 timer 服务实跑 rc=0）。安装/状态：
+  `bash governance/ops/install_nightly_verify.sh install|status`。
+- **自托管 runner 历史口径（2026-09-19/20 存档；runner 已退役，口径仅备查）**：
+  标签 `self-hosted,Linux,X64,factorlab,ch`，宿主直连 CH + 在盘数据；workflow
+  **故意不挂 `pull_request`**——公开仓 + 自托管的分叉 PR 是任意代码执行风险面。
   自查口径（2026-09-19 实测）：平台单测 = **默认后端**（无 CH，~8min，CH 腿自动 skip）；
   CH 集成 = `cd platform && FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow
   FACTORLAB_MINUTE_UNCOVERED=drop .venv/bin/python -m pytest -q -m integration`（14 passed /
