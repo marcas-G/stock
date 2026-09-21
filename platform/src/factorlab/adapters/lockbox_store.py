@@ -5,16 +5,19 @@
 - `roll`：状态推进（拒绝倒退；同窗幂等，配额可显式更新）
 - `current_window`：state 与当前季度一致性检查（无 state/陈旧各有稳定错误码）
 - `published_days`/`latest_data_date`：health 已发布日目录扫描
+- `register_access`/`update_result_ref`/`final_count`/`final_exists`/`require_final`：
+  登记（append-only）、结果回填、终评唯一性与配额校验
 """
 from __future__ import annotations
 
 import datetime as dt
 import sqlite3
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
-from factorlab.core.lockbox import (DEFAULT_QUOTA_FINAL, LockboxError,
-                                    LockboxWindow, compute_window,
+from factorlab.core.lockbox import (ACCESS_KINDS, DEFAULT_QUOTA_FINAL,
+                                    LockboxError, LockboxWindow, _canonical,
+                                    actor, compute_window, new_access_id,
                                     window_sort_key)
 
 _DDL = """
@@ -171,3 +174,59 @@ def final_count(conn: sqlite3.Connection, window_id: str) -> int:
         "SELECT COUNT(*) FROM lockbox_access WHERE window_id = ? AND kind = 'final'",
         (window_id,)).fetchone()
     return int(row[0])
+
+
+def register_access(conn: sqlite3.Connection, *, kind: str, fingerprint: str,
+                    artifact: str, params: Mapping[str, Any], command: str,
+                    reason: str, window: LockboxWindow, tool: str,
+                    result_ref: str | None = None) -> str:
+    if kind not in ACCESS_KINDS:
+        raise ValueError(f"未知访问类型 {kind!r}；可选 {ACCESS_KINDS}")
+    if not (reason or "").strip():
+        raise LockboxError("LOCKBOX_REASON_REQUIRED", "锁箱访问必须给出非空理由")
+    if kind == "final":
+        if final_exists(conn, window.window_id, fingerprint):
+            raise LockboxError("LOCKBOX_FINAL_DUPLICATE",
+                               f"候选 {fingerprint[:12]}… 在窗口 {window.window_id} 已有终评")
+        state = load_state(conn)
+        quota = int((state or {}).get("quota_final", DEFAULT_QUOTA_FINAL))
+        if final_count(conn, window.window_id) >= quota:
+            raise LockboxError("LOCKBOX_QUOTA_EXCEEDED",
+                               f"窗口 {window.window_id} 终评配额 {quota} 已用尽")
+    access_id = new_access_id()
+    conn.execute(
+        "INSERT INTO lockbox_access (access_id, ts_utc, window_id, window_start,"
+        " window_end, kind, fingerprint, artifact, params, command, result_ref,"
+        " reason, actor, tool) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (access_id, dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+         window.window_id, window.start.isoformat(), window.end.isoformat(),
+         kind, fingerprint, artifact, _canonical(dict(params)), command,
+         result_ref, reason.strip(), actor(), tool))
+    return access_id
+
+
+def update_result_ref(conn: sqlite3.Connection, access_id: str,
+                      result_ref: str) -> None:
+    conn.execute("UPDATE lockbox_access SET result_ref = ? WHERE access_id = ?",
+                 (result_ref, access_id))
+
+
+def final_exists(conn: sqlite3.Connection, window_id: str,
+                 fingerprint: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM lockbox_access WHERE window_id = ? AND kind = 'final'"
+        " AND fingerprint = ? LIMIT 1", (window_id, fingerprint)).fetchone()
+    return row is not None
+
+
+def require_final(conn: sqlite3.Connection, *, window_id: str,
+                  fingerprint: str) -> str:
+    row = conn.execute(
+        "SELECT access_id FROM lockbox_access WHERE window_id = ? AND kind = 'final'"
+        " AND fingerprint = ? LIMIT 1", (window_id, fingerprint)).fetchone()
+    if row is None:
+        raise LockboxError(
+            "LOCKBOX_FINAL_REQUIRED",
+            f"窗口 {window_id} 缺终评登记（候选 {fingerprint[:12]}…）："
+            "先 `flab factor run <spec> --lockbox final --lockbox-reason <理由>`")
+    return str(row[0])
