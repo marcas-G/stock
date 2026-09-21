@@ -46,8 +46,8 @@ class ScoreModel:
         self.feature_filter = feature_filter
 
     # ---- 内部：训练/推理共享的 N+R 变换 ----
-    def _expand_fit(self, X: np.ndarray):
-        Z = N.robust_z(X)
+    def _expand_fit(self, X: np.ndarray, groups=None):
+        Z = N.robust_z(X) if groups is None else N.robust_z_groups(X, groups)
         H, names = E.expand(Z, spec=self.representation)
         if self.feature_filter:
             self.filter = E.FeatureFilter.fit(H, coverage_min=self.coverage_min,
@@ -66,10 +66,10 @@ class ScoreModel:
             H = self.filter.apply(H)
         return H, Z
 
-    def fit(self, Xtr: np.ndarray, ytr: np.ndarray) -> "ScoreModel":
+    def fit(self, Xtr: np.ndarray, ytr: np.ndarray, groups=None) -> "ScoreModel":
         Xtr = np.asarray(Xtr, dtype=np.float64)
         ytr = np.asarray(ytr, dtype=np.float64).ravel()
-        H, _ = self._expand_fit(Xtr)
+        H, _ = self._expand_fit(Xtr, groups=groups)
         self.agg_model = _AGG[self.aggregator](self.agg_kwargs).fit(H, ytr)
         return self
 

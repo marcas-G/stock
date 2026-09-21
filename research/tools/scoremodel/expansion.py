@@ -92,23 +92,22 @@ class FeatureFilter:
                 dropped["variance"].append(j)
         alive = alive2
 
+        # 完全重复列：向量化去重（H 行序无关，用列向量的字节签名判定；
+        # 原 O(M^2) 逐列比较在 M~5k 时是分钟-小时级）
         kept: list[int] = []
-        seen: list[np.ndarray] = []
+        seen_sig: set[bytes] = set()
         for j in alive:
             v = H[fin[:, j], j]
-            dup = False
-            for s in seen:
-                if s.shape == v.shape and np.array_equal(np.nan_to_num(v), np.nan_to_num(s)):
-                    dup = True
-                    break
-            if dup:
+            sig = np.nan_to_num(v).astype(np.float64).tobytes()
+            if sig in seen_sig:
                 dropped["duplicate"].append(j)
             else:
-                seen.append(v)
+                seen_sig.add(sig)
                 kept.append(j)
         alive = kept
 
-        # 相关性过滤（贪心：与已保留列 |corr| 超限则丢）
+        # 相关性过滤（贪心：与已保留列 |corr| 超限则丢；BLAS matmul 计算相关矩阵，
+        # 避免 O(M^2) 次逐列点积——扩展空间 M~5k 时这是数量级差异）
         if corr_max is not None and len(alive) > 1:
             Xf = H[:, alive]
             col_ok = np.isfinite(Xf)
@@ -118,14 +117,15 @@ class FeatureFilter:
             sd = np.where(sd > 0, sd, 1.0)
             Zs = np.where(col_ok, (fill - mu) / sd, 0.0)
             n_eff = np.maximum(col_ok.sum(axis=0), 1)
-            kept = [alive[0]]
-            for pos in range(1, len(alive)):
-                c = (Zs[:, pos] @ Zs[:, kept]) / np.sqrt(n_eff[pos] * n_eff[kept])
-                if np.max(np.abs(c)) <= corr_max:
-                    kept.append(alive[pos])
+            Cm = (Zs.T @ Zs) / np.sqrt(np.outer(n_eff, n_eff))
+            np.fill_diagonal(Cm, 1.0)
+            kept = [0]
+            for pos in range(1, Cm.shape[0]):
+                if np.max(np.abs(Cm[pos, kept])) <= corr_max:
+                    kept.append(pos)
                 else:
                     dropped["corr"].append(alive[pos])
-            alive = kept
+            alive = [alive[k] for k in kept]
 
         return cls(keep=np.asarray(alive, dtype=np.int64), coverage_min=coverage_min,
                    var_min=var_min, corr_max=corr_max, dropped=dropped)

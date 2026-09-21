@@ -63,3 +63,15 @@ def test_nan_input_preserved():
     z = normalize.robust_z(x)
     assert np.isnan(z[1, 0])
     assert np.isfinite(z[0, 0]) and np.isfinite(z[2, 0])
+
+
+def test_groups_per_day_shift_invariance():
+    g1 = np.array([[1.0], [2.0], [3.0], [4.0]])
+    g2 = g1 + 1000.0
+    X = np.vstack([g1, g2])
+    groups = np.array([0, 0, 0, 0, 1, 1, 1, 1])
+    Z = normalize.robust_z_groups(X, groups)
+    assert np.allclose(Z[:4], Z[4:])          # 同分布不同平移 → 组内 z 相同
+    # 与逐日分别调用一致
+    Z2 = np.vstack([normalize.robust_z(g1), normalize.robust_z(g2)])
+    assert np.allclose(Z, Z2)
