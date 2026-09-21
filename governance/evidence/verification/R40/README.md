@@ -4,11 +4,14 @@
 - 契约：`knowledge/contracts/interface.md` §10；计划：`knowledge/design/platform/plans/2026-09-21-lockbox-discipline.md`
 - 实现：T1–T11 提交（`f75731a`…`f7f8a1b`）；T12a 修正 `flab lockbox` → `factorlab lockbox`
   文案 + 契约/手册/技能同步，并落本证据
+- 修复轮1（review）：契约 §10.1 窗口示例 `2025-10-09`（10-01~08 休市）、§10.2 覆盖命令
+  名更正；本 README 补 §1.8 `role=lockbox` 样本、§10-4/§10-5 单测证据与只读措辞
 - 沙箱隔离：`SB=/tmp/opencode/r40-lockbox`（`rm -rf` 重建，全 tmp）；台账
   `DB=$SB/ledger.sqlite`（tmp 内新建，等价 `FACTORLAB_LOCKBOX_DB=$(mktemp ...)`）；
   研究根用 `QUANTRESEARCH_ROOT=$SB` 隔离（`factorlab research factor run` **无 `--root`
   参数**，`--help` 实测；输出另用 `--output-dir` 显式落 tmp）。真实台账
-  `<QR>/data/ledger.sqlite` 全程**只读**（`status --json`），未执行任何 `roll`/写操作。
+  `<QR>/data/ledger.sqlite` 全程**只读**（`status --json`/`health` 探活）：**无 roll、无数据行
+  写入**（`connect` 探活只读；库/表已存在时 DDL no-op）。
 - 运行环境：真 CLI `FLAB_BIN=/data/students/gaolei/stock/platform/.venv/bin/factorlab`；
   `FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow`（CH 无 `stock_st`，显式降级；
   与锁箱门无关）。
@@ -159,7 +162,29 @@ env FACTORLAB_LOCKBOX=off FACTORLAB_LOCKBOX_DB="$DB" QUANTRESEARCH_ROOT="$SB" \
 
 **结论**：显式 off 时直接 IS 放行、不读 state、不登记（CI/离线基线行为；生产不设）。
 
-## 2. 真宿主（禁 Docker；不初始化、不 roll）
+### 1.8 `role=lockbox`（纯锁箱窗）补充样本
+
+```bash
+env FACTORLAB_LOCKBOX_DB="$DB" QUANTRESEARCH_ROOT="$SB" \
+  FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow \
+  "$FLAB_BIN" research factor run "$SB/factor/probe/locked.yaml" --no-backtest \
+  --lockbox exploration --lockbox-reason "R40 沙箱验收：纯锁箱窗 role=lockbox" \
+  --output-dir "$SB/results/platform/r40_locked"
+```
+
+关键输出（`rows before=2`）：
+
+```
+run rc=0
+summary.sample = {"role": "lockbox", "window_id": "2026Q2", "window_start": "2025-07-01",
+                  "window_end": "2026-09-17", "access_id": "01M32B60NBH286P2N4GSAG8VV8"}
+rows after = 3 ; kinds = [('exploration', 2), ('final', 1)]
+```
+
+**结论**：整段 ≥ `window_start` 的面板判 `role=lockbox`（与 `mixed` 并列覆盖碰箱两分支）；
+新增 1 行 exploration、final 计数不变。
+
+## 2. 真宿主（禁 Docker；无 roll、无数据行写入）
 
 ### 2.1 真台账 status（只读）
 
@@ -175,7 +200,8 @@ rc=1
 ```
 
 （真实 `<QR>/data/ledger.sqlite` 已存在：`lockbox_state` 0 行、`lockbox_access` 0 行；
-本段未执行 `roll` 或任何写操作——真实初始化留待 T12b。）
+本段**无 roll、无数据行写入**——`status` 的 `connect` 为只读探活、表已存在时 DDL no-op；
+真实台账 roll 由 controller 在 T12b 后执行。）
 
 ### 2.2 `flab health --json` 锁箱段
 
@@ -217,20 +243,31 @@ rc=1
   缺字段/空 id/幽灵 id/探索冒充终评/档案缺声明均被抓、干净样本不误伤）。
   门整体 rc≠0 的唯一失败 = `[G-TOPO] research/tools/porteval/run.py: import 'engine' →
   lob_fact/core`（跨工具 import，**与本任务无关**；按裁定标注 porteval #33，未改动）。
-- 聚焦回归（T12a 文案修正先红后绿）：
+- 聚焦回归（T12a 文案修正先红后绿；修复轮1 复跑同集）：
 
 ```bash
 cd platform && .venv/bin/python -m pytest -q \
-  tests/test_lockbox_*.py tests/test_research_health_lockbox.py
-# → 114 passed
+  tests/test_lockbox_*.py tests/test_research_health_lockbox.py tests/test_doc_paths_exist.py
+# → 125 passed
 ```
+
+- §10-4/§10-5 唯一性/配额/终评要求的单测证据（登记层严格语义；行号为本提交时）：
+  - `platform/tests/test_lockbox_registry.py`：`test_final_unique_per_fingerprint`（L23 → L30
+    `LOCKBOX_FINAL_DUPLICATE`）、`test_quota_exhausted`（L33 → L42 `LOCKBOX_QUOTA_EXCEEDED`）、
+    `test_exploration_not_counted_toward_quota`（L48）、`test_require_final_missing`（L74 →
+    L78 `LOCKBOX_FINAL_REQUIRED`）、`test_final_concurrent_same_fingerprint`（L85 → L112
+    `LOCKBOX_FINAL_DUPLICATE`）。
+  - `platform/tests/test_lockbox_admit.py`：`test_admit_locked_without_final_and_reason_is_refused`
+    （L110 → L115 `LOCKBOX_FINAL_REQUIRED`）、`test_ref_add_locked_without_final_and_reason_is_refused`
+    （L199 → L206）、`test_admit_locked_without_state_is_no_state`（L185，NO_STATE 不误报 FINAL_REQUIRED）。
 
 ## 4. 指路（产物不进 git）
 
 - 沙箱根/日志/台账：`/tmp/opencode/r40-lockbox/`（`b_is.log`、`c_noflag.log`、
-  `d_expl.log`、`e_final_1|2.log`、`f_*.log`、`g_off.log`；tmp 清理后按本文命令可复现）
+  `d_expl.log`、`e_final_1|2.log`、`f_*.log`、`g_off.log`、`h_locked.log`；tmp 清理后按本文
+  命令可复现）
 - 门日志：`/tmp/opencode/r40-gates.log`（`make gates` 全量输出）
-- 真实台账：`/data/students/gaolei/quantresearch/data/ledger.sqlite`（只读核验，未写）
+- 真实台账：`/data/students/gaolei/quantresearch/data/ledger.sqlite`（只读核验，无 roll/无数据行写入）
 - 契约/技能/手册：`knowledge/contracts/interface.md` §10、
   `.claude/skills/factor-mine/SKILL.md` §7/§8、
   `knowledge/handbooks/factor-mining-playbook.md` §4.1

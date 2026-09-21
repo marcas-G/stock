@@ -3580,7 +3580,7 @@ M=20"硬门约束。设计：`knowledge/design/platform/specs/2026-09-21-lockbox
   `window_id=f"{Qe.year}Q{Qe.quarter}"`；`window_start` = 首个 ≥ `(Qe − 1 年 + 1 日)` 的
   交易日（交易日历）；`window_end` = 最新数据日（随数据自然生长）。
   例：2026-09-21 roll → `2026Q2`、`window_start=2025-07-01`；2026-10-01 roll → `2026Q3`、
-  `window_start=2025-10-01`（旧窗解封并入 IS）。
+  `window_start=2025-10-09`（2025-10-01~08 休市，首个交易日为 2025-10-09；旧窗解封并入 IS）。
 - **`is_end`** = `window_start` 的前一交易日（`lockbox status --json` 直接输出）；
   挖矿 spec 写 `date.end = is_end` 即不碰箱。
 - **幂等与倒退**：同一 `window_id` 重复 roll 不变更任何行（`--quota-final` 可显式改配额）；
@@ -3608,10 +3608,11 @@ run 家族统一参数（Typer，`factorlab` 与 `flab` 同源）：
 | `--lockbox exploration\|final` | 碰箱评估必需；缺失 → `LOCKBOX_INTENT_REQUIRED`（拒跑在开库/重链前，零产物） |
 | `--lockbox-reason TEXT` | 与 `--lockbox` 配对、必填非空 → 否则 `LOCKBOX_REASON_REQUIRED` |
 
-覆盖命令：`factorlab research factor run`（= `flab factor run`）、`factor compose`、
-`factorlab research strategy run`、`factorlab research factor admit`、`ref add`。
-`admit`/`ref add` 是固化路径：引用的评估窗口碰箱时必须已存在对应 **final** 登记，缺失 →
-`LOCKBOX_FINAL_REQUIRED`（它们可带 `--lockbox-reason` 补登记，走同一唯一性/配额）。
+覆盖命令：`factorlab run`、`factorlab compose`、`factorlab research factor run`
+（= `flab factor run`）、`factorlab research strategy run`（均带 `--lockbox`/`--lockbox-reason`）；
+固化路径 `factorlab research factor admit`、`factorlab research factor ref add` 只带
+`--lockbox-reason`（用于补登记），且要求已存在对应 **final** 登记，缺失 →
+`LOCKBOX_FINAL_REQUIRED`（走同一唯一性/配额）。
 
 ### 10.3 错误码
 

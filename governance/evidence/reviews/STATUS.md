@@ -138,7 +138,7 @@ flab strategy run <yaml>
   compose/strategy（T8）、研究侧 manifest/档案字段（T9）、G-LOCKBOX/G-ANNOTATE（T10）、
   `flab health` 锁箱段 + 季度提醒（T11）；最新提交 `f7f8a1b`。
 - **T12 进行中**：T12a（`flab lockbox` 文案修正 + 契约/手册/技能同步 + R40 验收证据）
-  本轮完成；T12b（真实台账初始化 + 端到端复验）另派。证据
+  本轮完成（含修复轮1）；T12b（流水线登记接线）另派，真实台账 roll 由 controller 在其后执行。证据
   `governance/evidence/verification/R40/`。
 - 运行入口：`factorlab lockbox status|roll`（`flab` = `factorlab research` 门面，
   **无 lockbox 子命令**）；生产硬门在 execute 层，与容器/服务形态无关。
