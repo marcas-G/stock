@@ -135,7 +135,8 @@ def create_service_app(*, store: JobStore, worker_state: Any, version_info: dict
             "image_ref": info.get("image_ref"),
             "git_sha": info.get("git_sha"),
             "uv_lock_hash": info.get("uv_lock_hash"),
-            "dataset_version": (job.params.get("dataset_version")
+            "dataset_version": (job.dataset_version
+                                or job.params.get("dataset_version")
                                 or info.get("dataset_version")),
             "started": job.started_at,
             "finished": job.finished_at,

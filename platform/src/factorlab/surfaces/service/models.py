@@ -67,6 +67,7 @@ class Job:
     log_path: str | None = None
     result_path: str | None = None
     image_ref: str | None = None
+    dataset_version: str | None = None
     pid: int | None = None
 
     def to_doc(self) -> dict[str, Any]:
@@ -83,5 +84,6 @@ class Job:
             "log_path": self.log_path,
             "result_path": self.result_path,
             "image_ref": self.image_ref,
+            "dataset_version": self.dataset_version,
             "pid": self.pid,
         }

@@ -344,3 +344,25 @@ def test_bearer_token_required_when_token_file_exists(root: Path, tmp_path: Path
         assert client2.get("/health").status_code == 200, "token 文件不存在 → 仅本机无鉴权"
     finally:
         store2.close()
+
+
+def test_result_service_section_prefers_job_dataset_version(root: Path):
+    state = root / "state"
+    store = JobStore(state / "jobs.sqlite3")
+    worker = Worker(store, concurrency=1, log_dir=state / "logs",
+                    result_dir=state / "results", python=PY,
+                    runner=_fake_runner, cli_results_dir=root / "results",
+                    cache_dir=state / "cache",
+                    dataset_version_fn=lambda: "dv-svc-1")
+    client, store, worker, _ = make_env(root, worker=worker)
+    try:
+        job_id = client.post("/jobs", json={"type": "factor_run",
+                                            "spec": "factor/demo/a.yaml"}).json()["job_id"]
+        assert worker.run_once() is True
+
+        resp = client.get(f"/jobs/{job_id}/result")
+        assert resp.status_code == 200
+        assert resp.json()["service"]["dataset_version"] == "dv-svc-1", \
+            "作业记录里的 dataset_version 优先于 params/info"
+    finally:
+        store.close()

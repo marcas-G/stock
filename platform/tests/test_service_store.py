@@ -271,3 +271,61 @@ def test_wal_concurrent_read_write_does_not_explode(tmp_path: Path):
     assert len(writer.list(limit=100)) == 60
     writer.close()
     reader.close()
+
+
+# ---- dataset_version（L2 小项：作业记录写 dataset_version）----------------
+
+def test_claim_records_dataset_version(store: JobStore):
+    job = store.create("factor_run", {"spec": "/r/factor/a.yaml"})
+    claimed = store.claim_next(dataset_version="dv-20260921")
+
+    assert claimed is not None and claimed.id == job.id
+    record = store.get(job.id)
+    assert record is not None
+    assert record.dataset_version == "dv-20260921", "claim 时应把当刻 dataset_version 落库"
+    assert record.to_doc()["dataset_version"] == "dv-20260921"
+
+
+def test_claim_without_dataset_version_leaves_null(store: JobStore):
+    job = store.create("factor_run", {"spec": "/r/factor/a.yaml"})
+    store.claim_next()
+
+    assert store.get(job.id).dataset_version is None
+
+
+def test_store_migrates_legacy_table_without_dataset_version(tmp_path: Path):
+    """部署中的旧库（无 dataset_version 列）自动迁移，且不丢历史行。"""
+    import sqlite3
+
+    db = tmp_path / "legacy.sqlite3"
+    conn = sqlite3.connect(db)
+    conn.executescript("""
+CREATE TABLE jobs (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    params TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    started_at TEXT,
+    finished_at TEXT,
+    exit_code INTEGER,
+    error TEXT,
+    log_path TEXT,
+    result_path TEXT,
+    image_ref TEXT,
+    pid INTEGER
+);""")
+    conn.execute("INSERT INTO jobs (id, type, status, params, created_at)"
+                 " VALUES ('01LEGACYJOB0000000000000000', 'factor_run', 'queued', '{}',"
+                 " '2026-09-01T00:00:00.000+00:00')")
+    conn.commit()
+    conn.close()
+
+    s = JobStore(db)
+    try:
+        assert s.get("01LEGACYJOB0000000000000000") is not None, "迁移不得丢历史行"
+        claimed = s.claim_next(dataset_version="dv-new")
+        assert claimed is not None
+        assert s.get("01LEGACYJOB0000000000000000").dataset_version == "dv-new"
+    finally:
+        s.close()

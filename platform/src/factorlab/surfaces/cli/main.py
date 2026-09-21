@@ -922,9 +922,11 @@ def service(
 
     import uvicorn
 
+    from factorlab.core.factio.paths import DATA_ROOT
     from factorlab.surfaces.service.app import (create_service_app,
                                                 version_info_from_env)
-    from factorlab.surfaces.service.runner import Worker
+    from factorlab.surfaces.service.runner import (Worker,
+                                                   current_dataset_version)
     from factorlab.surfaces.service.store import JobStore
 
     resolved_host = host or settings.service_host
@@ -941,7 +943,9 @@ def service(
                     log_dir=state / "logs", result_dir=state / "results",
                     python=Path(sys.executable),
                     cli_results_dir=settings.results_dir,
-                    cache_dir=state / "cache")
+                    cache_dir=state / "cache",
+                    dataset_version_fn=lambda: current_dataset_version(
+                        Path(DATA_ROOT) / "health"))
     service_app = create_service_app(
         store=store, worker_state=worker, version_info=version_info_from_env(),
         research_root=settings.research_root,

@@ -301,3 +301,51 @@ def test_build_env_fixed_values(store: JobStore, tmp_path: Path):
     assert env["FACTORLAB_CH_MAX_THREADS"] == "8"
     assert env["FACTORLAB_READ_CACHE_DIR"] == str(tmp_path / "state" / "cache" / "bars_1m")
     assert env["PATH"] == os.environ["PATH"], "父进程 env 必须继承"
+
+
+# ---- dataset_version（L2 小项）-------------------------------------------
+
+def _ok_fake(cmd, log_path, timeout, register):
+    log_path.write_text("{}\n", encoding="utf-8")
+    return 0, False
+
+
+def test_claim_records_dataset_version_from_fn(store: JobStore, tmp_path: Path):
+    w = _worker(store, tmp_path, runner=_ok_fake,
+                dataset_version_fn=lambda: "dv-xyz")
+    job = store.create("factor_run", {"spec": "/r/factor/a.yaml"})
+
+    assert w.run_once() is True
+    record = store.get(job.id)
+    assert record.status == "succeeded"
+    assert record.dataset_version == "dv-xyz"
+
+
+def test_dataset_version_fn_failure_does_not_block_claim(store: JobStore, tmp_path: Path):
+    def boom():
+        raise RuntimeError("health 缺失")
+
+    w = _worker(store, tmp_path, runner=_ok_fake, dataset_version_fn=boom)
+    job = store.create("factor_run", {"spec": "/r/factor/a.yaml"})
+
+    assert w.run_once() is True, "版本读取失败不得阻塞作业"
+    record = store.get(job.id)
+    assert record.status == "succeeded"
+    assert record.dataset_version is None
+
+
+def test_current_dataset_version_reads_latest_non_null(tmp_path: Path):
+    from factorlab.surfaces.service.runner import current_dataset_version
+
+    root = tmp_path / "health"
+    d = root / "ashare_daily"
+    d.mkdir(parents=True)
+    (d / "2026-09-18.json").write_text(json.dumps({"data_version": "dv-old"}),
+                                       encoding="utf-8")
+    (d / "2026-09-19.json").write_text(json.dumps({"data_version": "dv-new"}),
+                                       encoding="utf-8")
+    (d / "2026-09-20.json").write_text(json.dumps({"partition": "2026-09-20"}),
+                                       encoding="utf-8")
+
+    assert current_dataset_version(root) == "dv-new", "最新分区空则回退上一非空版本"
+    assert current_dataset_version(tmp_path / "missing") is None

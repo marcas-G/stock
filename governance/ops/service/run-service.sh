@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # 启动/替换 FactorLab 挖矿服务容器（规格 §3 挂载 / §7 限额；R39 Task 6）。
 #
-# 用法：deploy/service/run-service.sh [镜像tag]
+# 用法：governance/ops/service/run-service.sh [镜像tag]
 #   镜像来源优先级：$1 > $FACTORLAB_SVC_IMAGE > <QR>/results/platform/.service/image.json
 #   （make svc-image 写入）的 tags[0]。
+# CH 只读账号（L2）：凭据文件缺省 ~/.config/factorlab/service.env（0600，不入 git），
+#   提供 FACTORLAB_CH_USER/FACTORLAB_CH_PASSWORD；无该文件则以 default 账号连 CH。
 # systemd user unit 以 FACTORLAB_SVC_HOLD=1 调用：脚本末尾 exec docker wait 前台阻塞，
 # 让 Restart=always 能观察到容器退出并重建（Type=simple 否则会立刻退出 → 重启风暴）。
 set -euo pipefail
@@ -14,6 +16,30 @@ REPO_ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 UID_GID=${FACTORLAB_SVC_USER:-1010:1010}
 DOCKER=${DOCKER:-/usr/bin/docker}
 [ -x "$DOCKER" ] || DOCKER=$(command -v docker)
+
+# L2：CH 只读账号凭据（文件不入 git；缺省不改变 default 账号行为）。
+SVC_ENV_FILE=${FACTORLAB_SVC_ENV_FILE:-$HOME/.config/factorlab/service.env}
+if [ -f "$SVC_ENV_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$SVC_ENV_FILE"
+  set +a
+fi
+CH_ENVS=()
+if [ -n "${FACTORLAB_CH_USER:-}" ]; then
+  CH_ENVS+=(-e "FACTORLAB_CH_USER=$FACTORLAB_CH_USER" \
+            -e "FACTORLAB_CH_PASSWORD=${FACTORLAB_CH_PASSWORD:-}")
+fi
+
+# L2：磁盘余量预检（内存告警由宿主 memguard 覆盖；容器内存由 --memory 限额）。
+DISK_MIN_GB=${FACTORLAB_SVC_DISK_MIN_GB:-20}
+FREE_GB=$(df -Pk "$QR" | awk 'NR==2 {printf "%d", $4/1024/1024}')
+if [ "$FREE_GB" -lt "$DISK_MIN_GB" ]; then
+  echo "[run-service][warn] 产物区磁盘余量 ${FREE_GB}GB < ${DISK_MIN_GB}GB（$QR）" >&2
+else
+  echo "[run-service] 磁盘余量 ${FREE_GB}GB（阈值 ${DISK_MIN_GB}GB）"
+fi
+echo "[run-service] CH 账号: ${FACTORLAB_CH_USER:-default}（只读=${FACTORLAB_CH_USER:+是}）"
 
 IMAGE=${1:-${FACTORLAB_SVC_IMAGE:-}}
 if [ -z "$IMAGE" ]; then
@@ -47,6 +73,7 @@ CID=$("$DOCKER" run -d --name "$NAME" --restart unless-stopped \
   -e FACTORLAB_READ_CACHE_DIR=/service-cache/bars_1m \
   -e FACTORLAB_CH_MAX_THREADS=8 \
   -e FACTORLAB_MAX_MEMORY=8GB \
+  "${CH_ENVS[@]}" \
   -v "$QR/results:/quantresearch/results:rw" \
   -v "$QR/factor:/quantresearch/factor:rw" \
   -v "$QR/experiments:/quantresearch/experiments:rw" \

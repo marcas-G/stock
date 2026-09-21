@@ -33,6 +33,28 @@ DEFAULT_TIMEOUTS: dict[str, float] = {
 RegisterProc = Callable[[subprocess.Popen], None]
 RunnerFn = Callable[[list[str], Path, float, RegisterProc], tuple[int | None, bool]]
 
+DEFAULT_HEALTH_DATASET = "ashare_daily"
+
+
+def current_dataset_version(health_root: Path) -> str | None:
+    """最新 health 分区里的 data_version（L2：作业记录冻结当刻数据版本）。
+
+    从最新分区向前回退，取第一个非空 `data_version`；目录缺失/全空 → None。
+    """
+    dataset_dir = Path(health_root) / DEFAULT_HEALTH_DATASET
+    if not dataset_dir.is_dir():
+        return None
+    for path in sorted(dataset_dir.glob("*.json"), reverse=True):
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(doc, dict):
+            version = doc.get("data_version")
+            if version:
+                return str(version)
+    return None
+
 
 def build_command(job: Job, *, python: Path) -> list[str]:
     """作业 → argv（镜像内 CLI；python 的同级脚本 = factorlab 入口点）。"""
@@ -78,7 +100,8 @@ class Worker:
                  timeouts: dict[str, float] | None = None, term_grace: float = 10.0,
                  cli_results_dir: Path | None = None, cache_dir: Path | None = None,
                  env_overrides: dict[str, str] | None = None,
-                 command_builder: Callable[[Job, Path], list[str]] | None = None):
+                 command_builder: Callable[[Job, Path], list[str]] | None = None,
+                 dataset_version_fn: Callable[[], str | None] | None = None):
         self._store = store
         self.concurrency = int(concurrency)
         self._log_dir = Path(log_dir)
@@ -93,6 +116,7 @@ class Worker:
                            else self._result_dir.parent / "cache")
         self._env_overrides = dict(env_overrides or {})
         self._command_builder = command_builder or build_command
+        self._dataset_version_fn = dataset_version_fn
 
         self.paused = False
         self._lock = threading.RLock()
@@ -101,6 +125,17 @@ class Worker:
         self._cancel_requested: set[str] = set()
         self._done_events: dict[str, threading.Event] = {}
         self._threads: list[threading.Thread] = []
+
+    def _resolve_dataset_version(self) -> str | None:
+        """版本读取失败不阻塞作业（L2 记录项，非准入项）。"""
+        fn = self._dataset_version_fn
+        if fn is None:
+            return None
+        try:
+            value = fn()
+        except Exception:  # noqa: BLE001
+            return None
+        return str(value) if value else None
 
     # ---- 观察面（health/API） -----------------------------------------
 
@@ -137,7 +172,8 @@ class Worker:
         with self._lock:
             if len(self._active_ids) >= self.concurrency:
                 return False
-        job = self._store.claim_next()
+        job = self._store.claim_next(
+            dataset_version=self._resolve_dataset_version())
         if job is None:
             return False
         self._run_job(job)
@@ -154,7 +190,8 @@ class Worker:
                 if full:
                     stop_event.wait(0.05)
                     continue
-                job = self._store.claim_next()
+                job = self._store.claim_next(
+                    dataset_version=self._resolve_dataset_version())
                 if job is None:
                     stop_event.wait(0.05)
                     continue

@@ -31,11 +31,25 @@ CREATE TABLE IF NOT EXISTS jobs (
     log_path TEXT,
     result_path TEXT,
     image_ref TEXT,
+    dataset_version TEXT,
     pid INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_status_created
     ON jobs(status, created_at);
 """
+
+_MIGRATIONS = (
+    ("dataset_version", "ALTER TABLE jobs ADD COLUMN dataset_version TEXT"),
+)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """旧库补列（部署中已有 jobs.sqlite3 时 CREATE IF NOT EXISTS 不会加列）。"""
+    columns = {row["name"] for row in
+               conn.execute("PRAGMA table_info(jobs)").fetchall()}
+    for column, ddl in _MIGRATIONS:
+        if column not in columns:
+            conn.execute(ddl)
 
 _RUNNING_FIELDS = ("pid", "log_path", "result_path", "image_ref")
 
@@ -54,6 +68,7 @@ def _row_to_job(row: sqlite3.Row) -> Job:
         log_path=row["log_path"],
         result_path=row["result_path"],
         image_ref=row["image_ref"],
+        dataset_version=row["dataset_version"],
         pid=row["pid"],
     )
 
@@ -73,6 +88,7 @@ class JobStore:
         self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.execute("PRAGMA busy_timeout=10000")
         self._conn.executescript(_DDL)
+        _migrate(self._conn)
 
     def close(self) -> None:
         with self._lock:
@@ -136,8 +152,11 @@ class JobStore:
 
     # ---- 状态迁移 ----------------------------------------------------
 
-    def claim_next(self) -> Job | None:
-        """原子取队首：queued→running（SELECT+UPDATE 同一 IMMEDIATE 事务）。"""
+    def claim_next(self, *, dataset_version: str | None = None) -> Job | None:
+        """原子取队首：queued→running（SELECT+UPDATE 同一 IMMEDIATE 事务）。
+
+        `dataset_version`（L2）：作业开跑当刻的数据版本，随 claim 冻结入记录。
+        """
         with self._lock:
             self._conn.execute("BEGIN IMMEDIATE")
             try:
@@ -149,8 +168,10 @@ class JobStore:
                     return None
                 started = now_iso()
                 cur = self._conn.execute(
-                    "UPDATE jobs SET status = 'running', started_at = ?"
-                    " WHERE id = ? AND status = 'queued'", (started, row["id"]))
+                    "UPDATE jobs SET status = 'running', started_at = ?,"
+                    " dataset_version = ?"
+                    " WHERE id = ? AND status = 'queued'",
+                    (started, dataset_version, row["id"]))
                 if cur.rowcount != 1:
                     self._conn.execute("ROLLBACK")
                     return None
@@ -161,6 +182,7 @@ class JobStore:
         job = _row_to_job(row)
         job.status = "running"
         job.started_at = started
+        job.dataset_version = dataset_version
         return job
 
     def finish(self, id: str, *, status: str, exit_code: int | None = None,
