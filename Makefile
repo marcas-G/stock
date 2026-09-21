@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 PLATFORM_PY := platform/.venv/bin/python
 
-.PHONY: help test-platform test-research test-all gates lint-factors index index-check reconcile data-update check-r22-baseline clean
+.PHONY: help test-platform test-research test-all gates verify-fast verify-deep lint-factors index index-check reconcile data-update check-r22-baseline clean
 
 # 研究产物区根（R37）：QUANTRESEARCH_ROOT env 可覆盖（缺省 /data/students/gaolei/
 # quantresearch，解析单点在 research/tools/factor_lib/quantresearch_paths.py 与
@@ -12,6 +12,8 @@ help:
 	@echo "make test-platform   平台全量测试（约 13 分钟；最近基线见 governance/evidence/verification/R24/00-baseline/）"
 	@echo "make test-research   工具/研究/ops 测试（单解释器：平台 venv 3.13）"
 	@echo "make gates           全套常驻门（结构/契约/标记/旧路径/索引/文档路径/台账口径）"
+	@echo "make verify-fast     单一入口 fast 档（云端等价：离线门 + 三组 pytest；无 CH/无产物区）"
+	@echo "make verify-deep     单一入口 deep 档（宿主：全量门 + CH 集成 + 在盘数据 + 研究产物门）"
 	@echo "make lint-factors    全库因子 spec lint（QUANTRESEARCH_ROOT/factor；单进程批跑）"
 	@echo "make index           重生成 $$QUANTRESEARCH_ROOT/index/{factors,strategies,composites}.md"
 	@echo "make index-check     索引/成对门一致性检查（byte-equality；对 $$QUANTRESEARCH_ROOT）"
@@ -35,6 +37,13 @@ test-all: test-platform test-research
 
 gates:
 	bash governance/ops/gates.sh
+
+# 唯一验证入口（命令真相源 = governance/ops/verify.sh；workflow/timer/人均只调它）
+verify-fast:
+	bash governance/ops/verify.sh --profile fast
+
+verify-deep:
+	bash governance/ops/verify.sh --profile deep
 
 lint-factors:
 	platform/.venv/bin/factorlab lint --all

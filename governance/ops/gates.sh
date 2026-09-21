@@ -1,20 +1,34 @@
 #!/usr/bin/env bash
 # stock 工作区常驻门（单仓单树）
 #
-# 用法：bash governance/ops/gates.sh [--all|--structure|--topo|--dataiface|--ref]
+# 用法：bash governance/ops/gates.sh [--all|--structure|--topo|--dataiface|--ref] [--offline]
 # 设计：分两档——
 #   [强制] 结构门：现在就必须绿，红了即失败退出；
 #   [判定] 数据接口门：R8c 起由 `governance/ops/check_dataiface.py` 做 **AST 判据**
 #          （grep 会把注释/文案/关键字实参算进去，计数不说明问题）：
 #          ENFORCED 两项（研究侧分区字面量、标记路径构造）红了即失败；
 #          REPORT 两项（平台表名、研究侧直读）打印未竟计数并指向 pending-items。
+# --offline（R38）：云端/干净 checkout 子集——跳过依赖研究产物区/台账的门
+#   （G-INDEX 产品索引、G-ANNOTATE、G-REVIEWS、G-REF sidecar；G-LINT 无产物区时 SKIP），
+#   其余静态门照跑；每条 SKIP 打印 [G-OFFLINE] 及原因。不得借此放宽实质检查。
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd); cd "$ROOT"
-MODE=${1:---all}
+MODE="--all"
+OFFLINE=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --offline) OFFLINE=1 ;;
+    --all|--structure|--topo|--dataiface|--ref) MODE=$1 ;;
+    *) echo "未知参数：$1（用法见文件头）" >&2; exit 2 ;;
+  esac
+  shift
+done
 FAIL=0
+PRODUCT_ROOT="${QUANTRESEARCH_ROOT:-/data/students/gaolei/quantresearch}"
 ok()   { echo "    ✓ $1"; }
 bad()  { echo "    ✗ $1"; FAIL=1; }
 info() { echo "    · $1"; }
+skip_offline() { echo "    [G-OFFLINE] SKIP $1 —— $2"; }
 
 PLATFORM=platform
 RESEARCH=research
@@ -139,35 +153,46 @@ structure() {
   if "$PLATFORM/.venv/bin/python" governance/ops/check_imports.py --selftest >/dev/null 2>&1; then ok "自检通过（能抓到迁移遗漏）"; else bad "自检失败——门失效"; fi
   if out=$("$PLATFORM/.venv/bin/python" governance/ops/check_imports.py 2>&1); then ok "$(echo "$out" | tail -1)"; else bad "导入解析失败"; echo "$out" | head -8 | sed 's/^/      /'; fi
 
-  echo "[G-INDEX] 因子索引与生成器一致"
-  if out=$("$PLATFORM/.venv/bin/python" research/tools/factor_lib/build_index.py --check 2>&1); then ok "$out"; else bad "索引不一致：$out"; fi
-
-  echo "[G-INDEX] 策略索引与生成器一致 · spec↔档案成对"
-  if out=$("$PLATFORM/.venv/bin/python" research/tools/factor_lib/build_strategy_index.py --check 2>&1); then ok "$out"; else bad "策略索引不一致：$out"; fi
-
-  echo "[G-INDEX] composite 索引与生成器一致 · spec↔档案成对"
-  if out=$("$PLATFORM/.venv/bin/python" research/tools/factor_lib/build_composite_index.py --check 2>&1); then ok "$out"; else bad "composite 索引不一致：$out"; fi
-
-  echo "[G-ANNOTATE] 因子档案 snapshot 标注齐备（R21 约定）"
-  # 脚本原位在 R21/EVID（证据即工具）；只做只读 --check，不写档案。
-  # R06-M5：改平台 venv 解释器（原系统 python3=anaconda 3.10，与单解释器声明不符）。
-  if out=$("$PLATFORM/.venv/bin/python" governance/evidence/verification/R21/EVID/annotate_factor_archives.py --check 2>&1); then ok "$out"; else bad "$out"; fi
-
-  echo "[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）"
-  if out=$("$PLATFORM/.venv/bin/python" governance/ops/check_reviews.py 2>&1); then
-    ok "$(echo "$out" | sed -n '2p' | sed 's/^ *✓ *//')"
-    info "$(echo "$out" | sed -n '3p' | sed 's/^ *· *//')"
-    info "$(echo "$out" | sed -n '4p' | sed 's/^ *· *//')"
+  if [ "$OFFLINE" = "1" ]; then
+    echo "[G-INDEX] 因子/策略/composite 索引与生成器一致 · spec↔档案成对"
+    skip_offline "G-INDEX（三索引 + 成对门）" "需要研究产物区（spec/档案/索引）：$PRODUCT_ROOT"
+    echo "[G-ANNOTATE] 因子档案 snapshot 标注齐备（R21 约定）"
+    skip_offline "G-ANNOTATE（档案 snapshot）" "档案在产物区：$PRODUCT_ROOT/dossiers"
+    echo "[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）"
+    skip_offline "G-REVIEWS（评审台账）" "台账引用 runs/ 产物，干净 checkout/离线不可解析"
   else
-    bad "台账门失败"; echo "$out" | sed 's/^/      /'
+    echo "[G-INDEX] 因子索引与生成器一致"
+    if out=$("$PLATFORM/.venv/bin/python" research/tools/factor_lib/build_index.py --check 2>&1); then ok "$out"; else bad "索引不一致：$out"; fi
+
+    echo "[G-INDEX] 策略索引与生成器一致 · spec↔档案成对"
+    if out=$("$PLATFORM/.venv/bin/python" research/tools/factor_lib/build_strategy_index.py --check 2>&1); then ok "$out"; else bad "策略索引不一致：$out"; fi
+
+    echo "[G-INDEX] composite 索引与生成器一致 · spec↔档案成对"
+    if out=$("$PLATFORM/.venv/bin/python" research/tools/factor_lib/build_composite_index.py --check 2>&1); then ok "$out"; else bad "composite 索引不一致：$out"; fi
+
+    echo "[G-ANNOTATE] 因子档案 snapshot 标注齐备（R21 约定）"
+    # 脚本原位在 R21/EVID（证据即工具）；只做只读 --check，不写档案。
+    # R06-M5：改平台 venv 解释器（原系统 python3=anaconda 3.10，与单解释器声明不符）。
+    if out=$("$PLATFORM/.venv/bin/python" governance/evidence/verification/R21/EVID/annotate_factor_archives.py --check 2>&1); then ok "$out"; else bad "$out"; fi
+
+    echo "[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）"
+    if out=$("$PLATFORM/.venv/bin/python" governance/ops/check_reviews.py 2>&1); then
+      ok "$(echo "$out" | sed -n '2p' | sed 's/^ *✓ *//')"
+      info "$(echo "$out" | sed -n '3p' | sed 's/^ *· *//')"
+      info "$(echo "$out" | sed -n '4p' | sed 's/^ *· *//')"
+    else
+      bad "台账门失败"; echo "$out" | sed 's/^/      /'
+    fi
+    if out=$("$PLATFORM/.venv/bin/python" governance/ops/check_reviews.py --selftest 2>&1); then
+      ok "负向自检通过（重复 ID/非法状态/死路径/空修复说明/统计不符）"
+    else bad "自检失败——门失效"; echo "$out" | sed 's/^/      /'; fi
   fi
-  if out=$("$PLATFORM/.venv/bin/python" governance/ops/check_reviews.py --selftest 2>&1); then
-    ok "负向自检通过（重复 ID/非法状态/死路径/空修复说明/统计不符）"
-  else bad "自检失败——门失效"; echo "$out" | sed 's/^/      /'; fi
 
   echo "[G-LINT] 全库因子 spec lint（单进程批跑；挖矿在途 spec 一并计入）"
   # 失败行含具体 spec 路径——在途红与代码级红按文件区分，不误报为门故障。
-  if out=$("$PLATFORM/.venv/bin/factorlab" lint --all 2>&1); then ok "$(echo "$out" | tail -1)"; else
+  if [ "$OFFLINE" = "1" ] && [ ! -d "$PRODUCT_ROOT/factor" ]; then
+    skip_offline "G-LINT（全库因子 spec lint）" "研究产物区不在盘：$PRODUCT_ROOT/factor"
+  elif out=$("$PLATFORM/.venv/bin/factorlab" lint --all 2>&1); then ok "$(echo "$out" | tail -1)"; else
     bad "lint 有失败（在途/存量按下列文件区分）"; echo "$out" | sed 's/^/      /'; fi
 
   echo "[G-VENV] 平台 editable 落位断言"
@@ -210,12 +235,21 @@ dataiface() {
 refaudit() {
   # R37-REF-I2（#31）：参考库基础指标审计——结构（sidecar 存在/产物齐全/指纹未过期）
   # 必须绿；门槛违规按 `_reference_policy.yaml` enforcement（report 报告 / enforce 失败）。
+  echo "[G-REF] 参考库基础指标审计"
+  if [ "$OFFLINE" = "1" ]; then
+    skip_offline "G-REF（参考库 sidecar/指纹）" "侧车与产物在产物区：$PRODUCT_ROOT/results"
+    return
+  fi
   PY=${PLATFORM}/.venv/bin/python
   if [ ! -x "$PY" ]; then bad "平台 venv 缺失：$PY（单解释器纪律：不回落系统 python3）"; return; fi
   "$PY" research/tools/factor_lib/reference_audit.py --check || FAIL=1
 }
 
 echo "== stock gates =="
+if [ "$OFFLINE" = "1" ]; then
+  echo "[G-OFFLINE] 离线模式：SKIP 依赖研究产物区/台账的门（G-INDEX / G-ANNOTATE / G-REVIEWS / G-REF sidecar；"
+  echo "[G-OFFLINE] G-LINT 无产物区时 SKIP），静态门照跑；SKIP 原因逐条打印 [G-OFFLINE]。"
+fi
 case "$MODE" in
   --structure) structure ;;
   --dataiface) dataiface ;;
