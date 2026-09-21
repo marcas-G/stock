@@ -90,34 +90,65 @@ def test_forward_roll(tmp_path: Path):
     assert w.window_id == "2026Q3" and w.start == dt.date(2025, 10, 1)
     assert load_state(conn)["window_id"] == "2026Q3"
 
-def _insert_access(conn: sqlite3.Connection, access_id: str = "A1") -> None:
+def _write_access(conn: sqlite3.Connection, access_id: str = "A1", *,
+                  or_replace: bool = False) -> None:
+    verb = "INSERT OR REPLACE" if or_replace else "INSERT"
     conn.execute(
-        "INSERT INTO lockbox_access (access_id, ts_utc, window_id, window_start,"
-        " window_end, kind, fingerprint, artifact, params, command, result_ref,"
-        " reason, actor, tool) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        f"{verb} INTO lockbox_access (access_id, ts_utc, window_id,"
+        " window_start, window_end, kind, fingerprint, artifact, params,"
+        " command, result_ref, reason, actor, tool)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (access_id, "2026-09-21T00:00:00+00:00", "2026Q2", "2025-07-01",
          "2026-09-18", "final", "fp", "art", "{}", "factorlab run",
          None, "confirm", "u@h", "test"))
 
-def test_access_append_only_trigger(tmp_path: Path):
+_ACCESS_IMMUTABLE_COLUMNS = (
+    ("access_id", "A2"),
+    ("ts_utc", "2026-09-22T00:00:00+00:00"),
+    ("window_id", "2026Q3"),
+    ("window_start", "2025-10-01"),
+    ("window_end", "2026-09-19"),
+    ("kind", "exploration"),
+    ("fingerprint", "fp2"),
+    ("artifact", "art2"),
+    ("params", "{\"x\": 1}"),
+    ("command", "factorlab run --x"),
+    ("reason", "explore"),
+    ("actor", "evil@h"),
+    ("tool", "evil"),
+)
+
+@pytest.mark.parametrize("column,value", _ACCESS_IMMUTABLE_COLUMNS)
+def test_access_update_any_column_aborts(tmp_path: Path, column: str,
+                                        value: str):
     conn = connect(tmp_path / "ledger.sqlite")
-    _insert_access(conn)
+    _write_access(conn)
     with pytest.raises(sqlite3.IntegrityError, match="append-only"):
-        conn.execute("UPDATE lockbox_access SET reason = 'changed'"
-                     " WHERE access_id = 'A1'")
-    with pytest.raises(sqlite3.IntegrityError, match="append-only"):
-        conn.execute("UPDATE lockbox_access SET params = '{\"x\": 1}'"
-                     " WHERE access_id = 'A1'")
-    with pytest.raises(sqlite3.IntegrityError, match="append-only"):
-        conn.execute("UPDATE lockbox_access SET actor = 'evil'"
-                     " WHERE access_id = 'A1'")
+        conn.execute(f"UPDATE lockbox_access SET {column} = ?"
+                     " WHERE access_id = 'A1'", (value,))
+    row = conn.execute("SELECT * FROM lockbox_access"
+                       " WHERE access_id = 'A1'").fetchone()
+    assert row is not None and row["reason"] == "confirm"
+
+def test_access_delete_aborts_and_result_ref_update_allowed(tmp_path: Path):
+    conn = connect(tmp_path / "ledger.sqlite")
+    _write_access(conn)
     with pytest.raises(sqlite3.IntegrityError, match="append-only"):
         conn.execute("DELETE FROM lockbox_access WHERE access_id = 'A1'")
     conn.execute("UPDATE lockbox_access SET result_ref = 'r1'"
                  " WHERE access_id = 'A1'")
-    row = conn.execute("SELECT result_ref FROM lockbox_access"
+    row = conn.execute("SELECT * FROM lockbox_access"
                        " WHERE access_id = 'A1'").fetchone()
-    assert row["result_ref"] == "r1"
+    assert row["result_ref"] == "r1" and row["reason"] == "confirm"
+
+def test_access_insert_or_replace_aborts(tmp_path: Path):
+    conn = connect(tmp_path / "ledger.sqlite")
+    _write_access(conn)
+    with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+        _write_access(conn, or_replace=True)
+    row = conn.execute("SELECT * FROM lockbox_access"
+                       " WHERE access_id = 'A1'").fetchone()
+    assert row is not None and row["reason"] == "confirm"
 
 def test_published_days_and_latest_data_date(tmp_path: Path):
     d = tmp_path / "ashare_daily"; d.mkdir()
