@@ -13,7 +13,7 @@ ACTION=${1:-}
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 UNIT_NAME=factorlab-svc.service
-TEMPLATE="$REPO_ROOT/deploy/service/$UNIT_NAME"
+TEMPLATE="$REPO_ROOT/governance/ops/service/$UNIT_NAME"
 SYSTEMD_UNIT_DIR=${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user
 UNIT_PATH="$SYSTEMD_UNIT_DIR/$UNIT_NAME"
 

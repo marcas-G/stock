@@ -13,7 +13,7 @@ Documentation=file:@REPO_ROOT@/knowledge/design/platform/specs/2026-09-21-factor
 [Service]
 Type=simple
 Environment=FACTORLAB_SVC_HOLD=1
-ExecStart=@REPO_ROOT@/deploy/service/run-service.sh
+ExecStart=@REPO_ROOT@/governance/ops/service/run-service.sh
 # sh -c：允许 $DOCKER 覆盖（默认 /usr/bin/docker；见 run-service.sh 顶部解析）。
 ExecStop=/bin/sh -c 'exec "${DOCKER:-/usr/bin/docker}" stop factorlab-svc'
 ExecStopPost=-/bin/sh -c 'exec "${DOCKER:-/usr/bin/docker}" rm -f factorlab-svc'
