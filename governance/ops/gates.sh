@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # stock 工作区常驻门（单仓单树）
 #
-# 用法：bash governance/ops/gates.sh [--all|--structure|--topo|--dataiface]
+# 用法：bash governance/ops/gates.sh [--all|--structure|--topo|--dataiface|--ref]
 # 设计：分两档——
 #   [强制] 结构门：现在就必须绿，红了即失败退出；
 #   [判定] 数据接口门：R8c 起由 `governance/ops/check_dataiface.py` 做 **AST 判据**
@@ -207,12 +207,21 @@ dataiface() {
   "$PY" governance/ops/check_dataiface.py --selftest || FAIL=1
 }
 
+refaudit() {
+  # R37-REF-I2（#31）：参考库基础指标审计——结构（sidecar 存在/产物齐全/指纹未过期）
+  # 必须绿；门槛违规按 `_reference_policy.yaml` enforcement（report 报告 / enforce 失败）。
+  PY=${PLATFORM}/.venv/bin/python
+  if [ ! -x "$PY" ]; then bad "平台 venv 缺失：$PY（单解释器纪律：不回落系统 python3）"; return; fi
+  "$PY" research/tools/factor_lib/reference_audit.py --check || FAIL=1
+}
+
 echo "== stock gates =="
 case "$MODE" in
   --structure) structure ;;
   --dataiface) dataiface ;;
   --topo) topo ;;
-  *) structure; echo; topo; echo; dataiface ;;
+  --ref) refaudit ;;
+  *) structure; echo; topo; echo; dataiface; echo; refaudit ;;
 esac
 echo
 if [ "$FAIL" = "0" ]; then echo "结构门：全绿"; else echo "结构门：有失败（见上）"; fi

@@ -28,6 +28,9 @@ test-research:
 	$(PLATFORM_PY) -m pytest research/tools -q
 	$(PLATFORM_PY) -m pytest governance/ops -q
 
+audit-library:
+	$(PLATFORM_PY) research/tools/factor_lib/reference_audit.py
+
 test-all: test-platform test-research
 
 gates:

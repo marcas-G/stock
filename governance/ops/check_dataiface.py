@@ -177,6 +177,10 @@ G_READ_ALLOWED = {
         "退市目录 sidecar（自产元数据）——T3 分类判据输入",
     ("platform/tools/data_quality/classify_missing.py", "main", "str(args.raw)"):
         "Plan DQ-M1.5 T3：CLI 显式 `--raw` 输入（只读报告，不落 parquet/CH）",
+    # ── R37 参考库审计（#31）：研究产物区自产 panel，只取 signal/forward_return 列 ──
+    ("research/tools/factor_lib/reference_audit.py", "_scan_panel", "str(path)"):
+        "参考库基础指标审计输入 = runs/platform/<name>_5y/panel.parquet（自产研究产物，"
+        "非事实库分区；只取 signal 与 forward_return 列）——R37-REF-I2/#31",
 }
 _READ_CALLS = {"read_parquet", "scan_parquet", "ParquetFile"}
 # 硬规则：目标表达式里出现事实库名或分区标记 → 任何理由都不豁免（必须走平台单点）
