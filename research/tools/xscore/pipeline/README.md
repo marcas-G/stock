@@ -32,3 +32,49 @@ research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/m0-
 `exec: open`（T+1 开盘）、`limit_policy: block`（涨跌停冻结）、`min_adv: 0`（默认不过滤；
 生产建议 2e7）、`aum` 缺省=容量关闭。组合层实现与参数见
 `knowledge/design/research/specs/2026-09-21-porteval-design.md`。
+
+## 完整工作流（Runbook）
+
+```
+data_prep（幂等缓存） → score（分组×模型） → porteval（口径×域） → report
+```
+
+### 日常
+
+```bash
+# 0) 数据/面板缓存（首次或数据更新后；幂等）
+make xpipe-data
+# 1) 跑实验（改 configs/*.yaml 后）
+make xpipe CFG=research/tools/xscore/pipeline/configs/m0-split.yaml
+# 2) 看结果
+cat <out>/REPORT.md
+# UI: http://127.0.0.1:4200
+```
+
+### 服务（一次安装，开机自启，均用户级）
+
+```bash
+bash governance/ops/install_prefect_server.sh   # UI/调度服务（4200）
+bash governance/ops/install_prefect_runner.sh   # 部署 runner（UI 可点 Run）
+PREFECT_API_URL=http://127.0.0.1:4200/api research/.venv/bin/prefect deployment ls
+```
+
+触发方式三选一：UI `Deployments → Run`；`prefect deployment run 'xscore-pipeline/xscore-quick'`；
+`make xpipe CFG=...`（直跑不入 deployment）。
+
+### 缓存语义
+
+| 变化 | 重算范围 |
+|---|---|
+| 面板/缓存文件变化 | data_prep + 下游 score/portfolio |
+| 分组/模型/折参数变化 | 对应 score 节点及其 portfolio |
+| porteval 参数（exec/域/费率/涨跌停/容量）变化 | 对应 portfolio 节点 |
+| xscore/porteval 代码变化（含 CODE_FILES 指纹） | 相关节点（7–30 天缓存有效） |
+
+### 运维
+
+```bash
+systemctl --user status prefect-server prefect-runner
+journalctl --user -u prefect-runner -n 50
+```
+重任务建议：`governance/ops/heavy.sh make xpipe CFG=...`

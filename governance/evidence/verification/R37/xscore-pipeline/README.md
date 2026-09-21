@@ -15,3 +15,10 @@ REPORT 摘要（open 口径）：
 | all42_M0a | open/Q1Q3 | 34.30% | 22.66% | 9.05% | 1.28 | 0.0977 | 18.8 |
 | all42_M0a | open/all | 31.64% | 19.68% | 9.50% | 1.11 | 0.0977 | 18.8 |
 ```
+
+## 工作流补全（2026-09-21 晚）
+- data_prep.py：面板/开盘复权/mv/limits/amount 缓存幂等准备（platform venv 子进程）
+- flows 首步 data_prep_task（缓存 7 天）；部署触发实测（olivine-kestrel：全缓存命中、Completed）
+- prefect-runner.service（用户级 systemd）：deployments xscore-m0-split / xscore-quick，UI 可 Run
+- Makefile：make xpipe / xpipe-data / prefect-runner
+- 文档：pipeline README Runbook、research/README、AGENTS.md

@@ -12,6 +12,9 @@
 | `$QUANTRESEARCH_ROOT/dossiers/strategies/` | 策略档案（含结论：崩底反弹已实现、死等股灾已证伪）|
 | `../knowledge/handbooks/factor-mining-playbook.md` | 挖因子 playbook |
 | `../knowledge/design/research/` | **研究独有**的 spec/plan（平台 spec 在 `../knowledge/design/platform/`，单副本）|
+| `tools/xscore/`（截面评分器）| 多因子值 → 截面分数（N→R→A→C；M0–M6 阶梯；测试 `pytest research/tools/xscore/tests`）|
+| `tools/porteval/`（组合评估器）| 分数 → 仅多头组合 → 评估（T+1 开盘默认；容量默认关；spec 见 knowledge/design/research/specs/2026-09-21-porteval-design.md）|
+| `tools/xscore/pipeline/`（研究实验流水线）| Prefect 3：`data_prep → score → porteval → report`；`make xpipe CFG=...`；UI http://127.0.0.1:4200 |
 | `../platform/tools/lib/` | 数据生产线共享库（R27 归位）：`tickdata`（读单点薄封装）· `writekit`（标记·锁·state·原子写·流式月写入器）· `tickkit`（转换小件）· `monthflow`（月分片写入骨架）|
 | `../platform/tools/lob_fact/` | tick 订单簿重建工具链（引擎/锚定/因子面板/批算/QA/校准；192 tests + 金样 pins）|
 | `../platform/tools/ch_ingest/` | 事实库 → ClickHouse 灌入与对账（**唯一对账入口** `reconcile.py`）；职责三分：`ch_source`（源侧只读）/ `ch_state`（断点）/ `ch_write`（灌入+编排+对账），`ingest_common` 只转发 |

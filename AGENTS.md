@@ -99,6 +99,13 @@
   512M 限制下仍成功）。
 - 分钟链保持默认 20 交易日/块；显式超大 `--chunk-days` 按估算告警/拒绝。
 
+## 研究实验流水线（R37）
+
+- 入口：`make xpipe CFG=research/tools/xscore/pipeline/configs/<cfg>.yaml`（Prefect 3）
+- 阶段：`data_prep`（缓存幂等）→ `xscore`（分数）→ `porteval`（组合评估）→ `report`
+- 服务：`install_prefect_server.sh`（UI :4200）/ `install_prefect_runner.sh`（UI 可触发）
+- 文档：`research/tools/xscore/pipeline/README.md`；产物 manifest 强制
+
 ## 工具链速查
 
 | 目的 | 命令 |

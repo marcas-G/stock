@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 PLATFORM_PY := platform/.venv/bin/python
 
-.PHONY: help test-platform test-research test-all gates verify-fast verify-deep lint-factors index index-check reconcile data-update check-r22-baseline svc-image clean
+.PHONY: help test-platform test-research test-all gates verify-fast verify-deep lint-factors index index-check reconcile data-update check-r22-baseline svc-image clean xpipe xpipe-data prefect-runner
 
 # 研究产物区根（R37）：QUANTRESEARCH_ROOT env 可覆盖（缺省 /data/students/gaolei/
 # quantresearch，解析单点在 research/tools/factor_lib/quantresearch_paths.py 与
@@ -111,3 +111,16 @@ clean:
 	find . -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 	find . -name .pytest_cache -type d -prune -exec rm -rf {} + 2>/dev/null || true
 
+
+# ── 研究实验流水线（Prefect 3；R37）────────────────────────────────────────────
+# 用法: make xpipe CFG=research/tools/xscore/pipeline/configs/quick.yaml
+CFG ?= research/tools/xscore/pipeline/configs/quick.yaml
+
+xpipe:
+	research/tools/xscore/pipeline/run.sh $(CFG)
+
+xpipe-data:
+	platform/.venv/bin/python research/tools/xscore/pipeline/data_prep.py
+
+prefect-runner:
+	bash governance/ops/install_prefect_runner.sh

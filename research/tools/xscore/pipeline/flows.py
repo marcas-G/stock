@@ -65,6 +65,17 @@ def _resolve_groups(cfg: dict) -> dict[str, list[int]]:
     return groups
 
 
+@task(cache_key_fn=lambda ctx, params: params["key"], cache_expiration=timedelta(days=7))
+def data_prep_task(key: str, cfg: dict) -> str:
+    """确保数据/面板缓存存在（幂等；面板构建 ~10min，命中则秒过）。"""
+    if not cfg.get("data", {}).get("ensure", True):
+        return "skipped"
+    caches = cfg["data"].get("cache_dir", str(QR / "data/cache"))
+    _run([str(HERE / "data_prep.py"), "--cache-dir", caches,
+          "--only", cfg["data"].get("only", "panel,open_adj,mv,limits,amount")])
+    return caches
+
+
 def _run(step: list[str]) -> None:
     r = subprocess.run([str(PLATFORM_PY), *step], capture_output=True, text=True)
     if r.returncode != 0:
@@ -140,10 +151,14 @@ def xscore_pipeline(config_path: str) -> str:
     cfg["panel_sig"] = lib.file_sig(Path(cfg["panel"]))
     cfg.setdefault("folds", [252, 63, 63])
     cfg.setdefault("subsample", 40000)
+    cfg.setdefault("data", {})
     cfg.setdefault("models", ["M0a"])
     cfg.setdefault("portfolio", {"exec": ["open", "close"], "domains": ["all", "Q1Q3"],
                                  "every": 5, "q": 0.1, "fee_bps": 7,
                                  "limit_policy": "block", "min_adv": 0.0})
+    if cfg["data"].get("ensure", True):
+        data_prep_task.submit(key=f"data|{cfg['panel_sig']}|{_code_sig()}",
+                              cfg=cfg).result()
     groups = _resolve_groups(cfg)
     print(f"[groups] " + ", ".join(f"{k}={len(v)}" for k, v in groups.items()))
 
