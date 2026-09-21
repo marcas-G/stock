@@ -4,7 +4,7 @@
 
 **Goal:** 实现通用"多因子值 → 截面分数"模块（N→R→A→C），并按 M0–M6 阶梯逐级检验结构假设（先显式后学习）。
 
-**Architecture:** numpy 优先（平台 venv 无 sklearn/scipy）；模块 `lab/scoremodel/` 只做 fit(X,y)/predict(X)→score；复用 `lab/autoencoder42/` 的面板、walk-forward、指标与组合消费脚本做验收。
+**Architecture:** numpy 优先（平台 venv 无 sklearn/scipy）；模块 `research/tools/scoremodel/` 只做 fit(X,y)/predict(X)→score；复用 `lab/autoencoder42/` 的面板、walk-forward、指标与组合消费脚本做验收。
 
 **Spec:** `knowledge/design/research/specs/2026-09-21-scoremodel-design.md`
 

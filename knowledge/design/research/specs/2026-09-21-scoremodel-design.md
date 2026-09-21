@@ -86,5 +86,5 @@ Huber 理由：未来收益 fat-tail，避免极端股主导拟合；δ 明示�
 - **V1**：RobustZScore + Identity/CoreExpansion + HuberRidge/ElasticNet/PLS + 校准
 - **V2**：ExtendedExpansion + SmallMLP + RankAwareHuberRidge
 - **V3**：SupervisedAE
-- 代码位置：`quantresearch/lab/scoremodel/`（研究模块，TDD；验证后提升到平台 `core/score/` 或 research/tools）
+- 代码位置：`research/tools/scoremodel/`（工具树，TDD；验证后如产品化再提升到平台 `core/score/`）
 - 实验：复用 `lab/autoencoder42/` 的 42 因子 5y 面板与 walkforward；结果 `results/2026-09-scoremodel/`
