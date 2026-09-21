@@ -46,6 +46,8 @@ CREATE TABLE IF NOT EXISTS lockbox_access (
 );
 CREATE INDEX IF NOT EXISTS idx_lockbox_win_kind_fp
     ON lockbox_access(window_id, kind, fingerprint);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_lockbox_final
+    ON lockbox_access(window_id, fingerprint) WHERE kind = 'final';
 CREATE TRIGGER IF NOT EXISTS lockbox_access_no_delete
     BEFORE DELETE ON lockbox_access
     BEGIN SELECT RAISE(ABORT, 'lockbox_access is append-only'); END;
@@ -176,23 +178,10 @@ def final_count(conn: sqlite3.Connection, window_id: str) -> int:
     return int(row[0])
 
 
-def register_access(conn: sqlite3.Connection, *, kind: str, fingerprint: str,
-                    artifact: str, params: Mapping[str, Any], command: str,
-                    reason: str, window: LockboxWindow, tool: str,
-                    result_ref: str | None = None) -> str:
-    if kind not in ACCESS_KINDS:
-        raise ValueError(f"未知访问类型 {kind!r}；可选 {ACCESS_KINDS}")
-    if not (reason or "").strip():
-        raise LockboxError("LOCKBOX_REASON_REQUIRED", "锁箱访问必须给出非空理由")
-    if kind == "final":
-        if final_exists(conn, window.window_id, fingerprint):
-            raise LockboxError("LOCKBOX_FINAL_DUPLICATE",
-                               f"候选 {fingerprint[:12]}… 在窗口 {window.window_id} 已有终评")
-        state = load_state(conn)
-        quota = int((state or {}).get("quota_final", DEFAULT_QUOTA_FINAL))
-        if final_count(conn, window.window_id) >= quota:
-            raise LockboxError("LOCKBOX_QUOTA_EXCEEDED",
-                               f"窗口 {window.window_id} 终评配额 {quota} 已用尽")
+def _insert_access(conn: sqlite3.Connection, *, kind: str, fingerprint: str,
+                   artifact: str, params: Mapping[str, Any], command: str,
+                   reason: str, window: LockboxWindow, tool: str,
+                   result_ref: str | None) -> str:
     access_id = new_access_id()
     conn.execute(
         "INSERT INTO lockbox_access (access_id, ts_utc, window_id, window_start,"
@@ -205,28 +194,70 @@ def register_access(conn: sqlite3.Connection, *, kind: str, fingerprint: str,
     return access_id
 
 
+def _final_access_id(conn: sqlite3.Connection, window_id: str,
+                     fingerprint: str) -> str | None:
+    row = conn.execute(
+        "SELECT access_id FROM lockbox_access WHERE window_id = ? AND kind = 'final'"
+        " AND fingerprint = ? LIMIT 1", (window_id, fingerprint)).fetchone()
+    return str(row[0]) if row is not None else None
+
+
+def register_access(conn: sqlite3.Connection, *, kind: str, fingerprint: str,
+                    artifact: str, params: Mapping[str, Any], command: str,
+                    reason: str, window: LockboxWindow, tool: str,
+                    result_ref: str | None = None) -> str:
+    if kind not in ACCESS_KINDS:
+        raise ValueError(f"未知访问类型 {kind!r}；可选 {ACCESS_KINDS}")
+    if not (reason or "").strip():
+        raise LockboxError("LOCKBOX_REASON_REQUIRED", "锁箱访问必须给出非空理由")
+    insert = dict(kind=kind, fingerprint=fingerprint, artifact=artifact,
+                  params=params, command=command, reason=reason, window=window,
+                  tool=tool, result_ref=result_ref)
+    if kind != "final":
+        return _insert_access(conn, **insert)
+    # final 唯一性+配额检查与插入必须原子：BEGIN IMMEDIATE 拿写锁后再读。
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if final_exists(conn, window.window_id, fingerprint):
+            raise LockboxError("LOCKBOX_FINAL_DUPLICATE",
+                               f"候选 {fingerprint[:12]}… 在窗口 {window.window_id} 已有终评")
+        state = load_state(conn)
+        quota = int((state or {}).get("quota_final", DEFAULT_QUOTA_FINAL))
+        if final_count(conn, window.window_id) >= quota:
+            raise LockboxError("LOCKBOX_QUOTA_EXCEEDED",
+                               f"窗口 {window.window_id} 终评配额 {quota} 已用尽")
+        access_id = _insert_access(conn, **insert)
+    except LockboxError:
+        conn.execute("ROLLBACK")
+        raise
+    except sqlite3.IntegrityError as e:
+        conn.execute("ROLLBACK")
+        raise LockboxError(
+            "LOCKBOX_FINAL_DUPLICATE",
+            f"候选 {fingerprint[:12]}… 在窗口 {window.window_id} 已有终评") from e
+    conn.execute("COMMIT")
+    return access_id
+
+
 def update_result_ref(conn: sqlite3.Connection, access_id: str,
                       result_ref: str) -> None:
-    conn.execute("UPDATE lockbox_access SET result_ref = ? WHERE access_id = ?",
-                 (result_ref, access_id))
+    cur = conn.execute("UPDATE lockbox_access SET result_ref = ?"
+                       " WHERE access_id = ?", (result_ref, access_id))
+    if cur.rowcount == 0:
+        raise ValueError(f"未知 access_id: {access_id}")
 
 
 def final_exists(conn: sqlite3.Connection, window_id: str,
                  fingerprint: str) -> bool:
-    row = conn.execute(
-        "SELECT 1 FROM lockbox_access WHERE window_id = ? AND kind = 'final'"
-        " AND fingerprint = ? LIMIT 1", (window_id, fingerprint)).fetchone()
-    return row is not None
+    return _final_access_id(conn, window_id, fingerprint) is not None
 
 
 def require_final(conn: sqlite3.Connection, *, window_id: str,
                   fingerprint: str) -> str:
-    row = conn.execute(
-        "SELECT access_id FROM lockbox_access WHERE window_id = ? AND kind = 'final'"
-        " AND fingerprint = ? LIMIT 1", (window_id, fingerprint)).fetchone()
-    if row is None:
+    access_id = _final_access_id(conn, window_id, fingerprint)
+    if access_id is None:
         raise LockboxError(
             "LOCKBOX_FINAL_REQUIRED",
             f"窗口 {window_id} 缺终评登记（候选 {fingerprint[:12]}…）："
             "先 `flab factor run <spec> --lockbox final --lockbox-reason <理由>`")
-    return str(row[0])
+    return access_id
