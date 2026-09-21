@@ -900,3 +900,61 @@ def serve(port: int = 8000, host: str = "127.0.0.1") -> None:
 
     from factorlab.surfaces.web.app import create_app
     uvicorn.run(create_app(settings.results_dir), host=host, port=port)
+
+
+@app.command("service")
+def service(
+    host: str | None = typer.Option(None, "--host", help="监听地址（缺省 127.0.0.1）"),
+    port: int | None = typer.Option(None, "--port", help="监听端口（缺省 8787）"),
+    concurrency: int | None = typer.Option(None, "--concurrency", min=1,
+                                           help="并发作业数（缺省 1）"),
+    state_dir: Path | None = typer.Option(
+        None, "--state-dir",
+        help="服务状态目录（SQLite/日志/结果；缺省 <results>/.service）"),
+) -> None:
+    """启动挖矿作业服务（常驻：SQLite 队列 + FastAPI 127.0.0.1:8787）。
+
+    作业只接受固定命令集（factor_run/compose/strategy_run/factor_admit），
+    经参数白名单校验后由 worker 在子进程执行；队列上限 32。
+    """
+    import sys
+    import threading
+
+    import uvicorn
+
+    from factorlab.surfaces.service.app import (create_service_app,
+                                                version_info_from_env)
+    from factorlab.surfaces.service.runner import Worker
+    from factorlab.surfaces.service.store import JobStore
+
+    resolved_host = host or settings.service_host
+    resolved_port = port if port is not None else settings.service_port
+    resolved_concurrency = concurrency or settings.service_concurrency
+    state = Path(state_dir) if state_dir else (
+        Path(settings.service_state_dir) if settings.service_state_dir
+        else settings.results_dir / ".service")
+    store = JobStore(state / "jobs.sqlite3")
+    interrupted = store.requeue_interrupted()
+    if interrupted:
+        console.print(f"启动恢复：{interrupted} 个 running 作业 → interrupted（不自动重跑）")
+    worker = Worker(store, concurrency=resolved_concurrency,
+                    log_dir=state / "logs", result_dir=state / "results",
+                    python=Path(sys.executable),
+                    cli_results_dir=settings.results_dir,
+                    cache_dir=state / "cache")
+    service_app = create_service_app(
+        store=store, worker_state=worker, version_info=version_info_from_env(),
+        research_root=settings.research_root,
+        token_path=settings.service_token_path,
+        queue_limit=settings.service_queue_limit)
+    stop = threading.Event()
+    thread = threading.Thread(target=worker.run_forever, args=(stop,), daemon=True)
+    thread.start()
+    console.print(f"factorlab service: http://{resolved_host}:{resolved_port} "
+                  f"state={state} concurrency={resolved_concurrency}")
+    try:
+        uvicorn.run(service_app, host=resolved_host, port=resolved_port)
+    finally:
+        stop.set()
+        thread.join(timeout=10)
+        store.close()

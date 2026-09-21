@@ -35,7 +35,7 @@ def test_factor_run_valid_normalizes_paths_and_options(root: Path):
         "spec": "factor/demo/a.yaml",
         "set": ["n=20", "m=3"],
         "universe": "all",
-        "output_dir": "results/foo",
+        "output_dir": "./results/foo",
         "profile": True,
     }, research_root=root)
 

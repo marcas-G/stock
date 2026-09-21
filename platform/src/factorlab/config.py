@@ -81,6 +81,14 @@ class Settings(BaseSettings):
     # 墙钟+峰值 RSS 到 stderr 并写 summary.runtime.profile；缺省 False=零行为变化
     # （见 app/profile.py 与 interface.md §1）
     profile: bool = False  # FACTORLAB_PROFILE
+    # R39 挖矿作业服务（规格 §5/§7）：`factorlab service` 监听/并发/队列上限/
+    # 状态目录/客户端 token；state_dir 缺省 = <results_dir>/.service。
+    service_host: str = "127.0.0.1"
+    service_port: int = 8787
+    service_concurrency: int = 1
+    service_queue_limit: int = 32
+    service_state_dir: Path | None = None
+    service_token_path: Path = Path.home() / ".config" / "factorlab" / "service_token"
 
 
 settings = Settings()
