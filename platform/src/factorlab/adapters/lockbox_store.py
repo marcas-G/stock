@@ -99,15 +99,14 @@ def run_calendar(health_root: Path | None = None) -> tuple[list[dt.date], dt.dat
     """执行层锁箱日历单点：`(已发布交易日, 最新数据日)`。
 
     `health_root` 缺省 = `DATA_ROOT/health`（与 CLI `_lockbox_health_root` 同源）；
-    data_end 缺省回退 `days` 最新日、再回退 `today`（env off 时也会被调用，
-    guard 内部才短路——只读扫描，无副作用）。
+    data_end 缺省回退 `today`（`published_days` 已升序，空日历无 max 可回退；
+    env off 时也会被调用，guard 内部才短路——只读扫描，无副作用）。
     """
     if health_root is None:
         from factorlab.core.factio.paths import DATA_ROOT
         health_root = Path(DATA_ROOT) / "health"
     days = published_days(health_root)
-    data_end = latest_data_date(health_root) or (
-        days[-1] if days else dt.date.today())
+    data_end = days[-1] if days else dt.date.today()
     return days, data_end
 
 

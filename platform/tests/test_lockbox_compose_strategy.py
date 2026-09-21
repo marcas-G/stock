@@ -113,7 +113,7 @@ def _rows(db: Path) -> list[dict]:
     conn = connect(db)
     try:
         return [dict(r) for r in conn.execute(
-            "SELECT * FROM lockbox_access ORDER BY ts_utc").fetchall()]
+            "SELECT * FROM lockbox_access ORDER BY rowid").fetchall()]
     finally:
         conn.close()
 
@@ -237,6 +237,105 @@ def test_compose_exploration_registers_and_persists_sample(tmp_path, monkeypatch
     assert summary["sample"]["access_id"] == row["access_id"]
     assert summary["sample"]["role"] == "lockbox"
     assert row["result_ref"] == str(out_dir)
+
+
+def test_compose_cache_hit_declares_current_access(tmp_path, monkeypatch):
+    """cache 命中（第二次 CLI compose）：盘上 sample 指向本次新登记，且本次回填
+    result_ref；首次登记行不被改写。整块 cache 分支去接线即红（summary 仍是首跑
+    access_id；随机 ULID 使硬编码必败）。"""
+    spec_path, runs, db = _compose_world(
+        tmp_path, monkeypatch, a=(_START, _END), b=(_START, _END))
+    out_dir = runs / "composites" / "cx_lock"
+
+    first = _compose(spec_path, runs, "--lockbox", "exploration",
+                     "--lockbox-reason", "首跑")
+    assert first.exit_code == 0, first.output
+    rows_first = _rows(db)
+    assert len(rows_first) == 1
+    assert rows_first[0]["result_ref"] == str(out_dir)
+
+    second = _compose(spec_path, runs, "--lockbox", "exploration",
+                      "--lockbox-reason", "缓存命中")
+    assert second.exit_code == 0, second.output
+    assert "cached=True" in strip_ansi(second.output)
+
+    rows = _rows(db)
+    assert len(rows) == 2
+    current = rows[1]["access_id"]
+    assert current != rows[0]["access_id"]
+    summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["sample"]["access_id"] == current
+    assert rows[1]["result_ref"] == str(out_dir)      # cache 路径同样回填本次产物
+    assert rows[0]["result_ref"] == str(out_dir)      # 首跑登记行保持原值
+
+
+def test_compose_nested_composite_member_falls_back_to_full_calendar(
+        tmp_path, monkeypatch):
+    """成员含 `composites/*`（artifact 无 spec date）→ 有效窗口回退全域
+    published days min/max，guard 按全域判角色（错误窗点即回退窗口）。"""
+    runs = tmp_path / "runs"
+    _write_member(runs, "factor_A", (_START, _END))
+    entry, _ = fx.write_impl(tmp_path, fx._COMPUTE_BODY)
+    spec_path = fx.write_spec(tmp_path, "cx_nested",
+                              ["composites/cx_base", "factor_A"], entry)
+    db = _compose_sandbox(tmp_path, monkeypatch)
+
+    result = _compose(spec_path, runs)
+
+    out = strip_ansi(result.output)
+    assert result.exit_code != 0
+    assert "LOCKBOX_INTENT_REQUIRED" in out
+    # 回退窗口 = [min(published days) ~ data_end]；若按"跳过 composite 成员"
+    # 只取 factor_A 会在 [W.start~W.end] 判窗——此处两个端点断言即反证。
+    assert str(min(DAYS)) in out
+    assert str(W.end) in out
+    assert _rows(db) == []
+    assert not (runs / "composites" / "cx_nested").exists()
+
+
+# ================================================================
+# run_calendar（execution 层日历单点）直测：真 health 目录扫描
+# ================================================================
+
+def test_run_calendar_reads_sorted_health_days_and_data_end(tmp_path):
+    dataset = tmp_path / "health" / "ashare_daily"
+    dataset.mkdir(parents=True)
+    (dataset / "2024-01-05.json").write_text("{}", encoding="utf-8")
+    (dataset / "2024-01-02.json").write_text("{}", encoding="utf-8")
+    (dataset / "2024-01-04.json").write_text("{}", encoding="utf-8")
+    (dataset / "not-a-date.json").write_text("{}", encoding="utf-8")  # 非法名忽略
+
+    days, data_end = store.run_calendar(tmp_path / "health")
+
+    assert days == [dt.date(2024, 1, 2), dt.date(2024, 1, 4), dt.date(2024, 1, 5)]
+    assert data_end == dt.date(2024, 1, 5)
+
+
+def test_run_calendar_empty_or_missing_dir_falls_back_to_today(tmp_path):
+    empty = tmp_path / "health" / "ashare_daily"
+    empty.mkdir(parents=True)
+    today = dt.date.today()
+
+    days, data_end = store.run_calendar(tmp_path / "health")
+    assert (days, data_end) == ([], today)
+
+    days, data_end = store.run_calendar(tmp_path / "missing-root")
+    assert (days, data_end) == ([], today)
+
+
+def test_run_calendar_defaults_to_platform_health_root(tmp_path, monkeypatch):
+    """缺省 root = DATA_ROOT/health（与 CLI helper 同源）；用假 DATA_ROOT 直测。"""
+    from factorlab.core.factio import paths
+
+    monkeypatch.setattr(paths, "DATA_ROOT", str(tmp_path / "data_root"))
+    dataset = tmp_path / "data_root" / "health" / "ashare_daily"
+    dataset.mkdir(parents=True)
+    (dataset / "2024-03-01.json").write_text("{}", encoding="utf-8")
+
+    days, data_end = store.run_calendar()
+
+    assert days == [dt.date(2024, 3, 1)]
+    assert data_end == dt.date(2024, 3, 1)
 
 
 # ================================================================
