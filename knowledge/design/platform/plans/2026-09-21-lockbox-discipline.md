@@ -17,6 +17,7 @@
 - **未初始化（无 state）时：IS 运行照常；碰箱运行报 `LOCKBOX_NO_STATE`**（先 `factorlab lockbox roll`）。
 - 登记 append-only（触发器禁 UPDATE/DELETE，`result_ref` 除外）；错误码：`LOCKBOX_INTENT_REQUIRED`/`LOCKBOX_REASON_REQUIRED`/`LOCKBOX_FINAL_DUPLICATE`/`LOCKBOX_QUOTA_EXCEEDED`/`LOCKBOX_FINAL_REQUIRED`/`LOCKBOX_WINDOW_STALE`/`LOCKBOX_NO_STATE`/`LOCKBOX_ROLL_BACKWARD`。
 - 终评默认配额 M=20/窗口；探索不限额；同窗 roll 带 `quota_final` 允许更新配额（返回 changed=True）。
+- 开关：env `FACTORLAB_LOCKBOX`（缺省 `1`=启用）；`off` 时 guard 直接返回 `{"role":"is"}`（不读 state、不登记）。生产/服务不设或设 1；CI 与既有测试基线由 `platform/tests/conftest.py` 自动设 `off`（锁箱专项测试自行置 `1`）。日历为空且启用时 → `LOCKBOX_NO_CALENDAR`（响亮失败，不静默）。
 - 分层：`factorlab/core/**` 保持**纯**（零文件/DB IO；`platform/tests/test_architecture.py::test_core_has_no_io_or_outer_imports` 必须绿）；锁箱的 IO（health 目录扫描 + SQLite 状态/登记）全部落 `factorlab/adapters/lockbox_store.py`。
 - 窗口日历源：`<DATA_ROOT>/health/ashare_daily/*.json` 的发布日期集合（与服务 `dataset_version` 同源、离线可测）；**不用 CH trade_cal**。
 - 测试不得触碰真实 `$QUANTRESEARCH_ROOT/data/ledger.sqlite`：一律 tmp + `FACTORLAB_LOCKBOX_DB`。
@@ -745,6 +746,7 @@ git commit -m "feat(lockbox): lockbox_db 配置与 status/roll CLI（T4）"
 - Modify: `platform/src/factorlab/surfaces/cli/main.py`（`execute_run` 在 `spec = load_spec` 之后 guard；顶层 `run` 两选项；复用 T4 helpers）
 - Modify: `platform/src/factorlab/app/run.py`（summary 组装后 `ctx.guard.attach(summary)`；产物落盘后 `ctx.guard.mark_result(str(run_dir))`）
 - Modify: `platform/src/factorlab/research/factor.py`（`_RUN_PARAMS` 两参数；`factor_run` 透传 + `LockboxError` → 信封映射）
+- Modify: `platform/tests/conftest.py`（autouse：`FACTORLAB_LOCKBOX=off` + `settings.lockbox_db` 指向 tmp，防既有测试触发锁箱/碰真台账）
 - Test: `platform/tests/test_lockbox_guard.py`、`platform/tests/test_lockbox_run_cli.py`
 
 **Interfaces:**
