@@ -64,6 +64,7 @@ mkdir -p "$QR/results/platform/.service/cache"
 
 CID=$("$DOCKER" run -d --name "$NAME" --restart unless-stopped \
   --network host --user "$UID_GID" --cpus=8 --memory=16g --pids-limit=256 \
+  --memory-swappiness=0 \
   -e FACTORLAB_DATA_BACKEND=ch \
   -e FACTORLAB_ST_DEGRADE=allow \
   -e FACTORLAB_MINUTE_UNCOVERED=drop \
