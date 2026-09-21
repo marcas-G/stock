@@ -11,6 +11,7 @@ import json
 import os
 import secrets
 import socket
+import sqlite3
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -123,3 +124,123 @@ def new_access_id() -> str:
 
 def actor() -> str:
     return f"{os.getuid()}@{socket.gethostname()}"
+
+
+_DDL = """
+CREATE TABLE IF NOT EXISTS lockbox_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    window_id TEXT NOT NULL,
+    window_start TEXT NOT NULL,
+    quota_final INTEGER NOT NULL DEFAULT 20,
+    rolled_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS lockbox_access (
+    access_id TEXT PRIMARY KEY,
+    ts_utc TEXT NOT NULL,
+    window_id TEXT NOT NULL,
+    window_start TEXT NOT NULL,
+    window_end TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('exploration','final')),
+    fingerprint TEXT NOT NULL,
+    artifact TEXT NOT NULL,
+    params TEXT NOT NULL DEFAULT '{}',
+    command TEXT NOT NULL,
+    result_ref TEXT,
+    reason TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    tool TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lockbox_win_kind_fp
+    ON lockbox_access(window_id, kind, fingerprint);
+CREATE TRIGGER IF NOT EXISTS lockbox_access_no_delete
+    BEFORE DELETE ON lockbox_access
+    BEGIN SELECT RAISE(ABORT, 'lockbox_access is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS lockbox_access_no_update
+    BEFORE UPDATE ON lockbox_access
+    WHEN NEW.access_id != OLD.access_id OR NEW.ts_utc != OLD.ts_utc
+      OR NEW.window_id != OLD.window_id OR NEW.kind != OLD.kind
+      OR NEW.fingerprint != OLD.fingerprint OR NEW.reason != OLD.reason
+    BEGIN SELECT RAISE(ABORT, 'lockbox_access is append-only'); END;
+"""
+
+
+def connect(db_path: Path) -> sqlite3.Connection:
+    path = Path(db_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(path), timeout=10.0, isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=10000")
+    conn.executescript(_DDL)
+    return conn
+
+
+def load_state(conn: sqlite3.Connection) -> dict[str, Any] | None:
+    row = conn.execute("SELECT * FROM lockbox_state WHERE id = 1").fetchone()
+    return dict(row) if row is not None else None
+
+
+def roll(conn: sqlite3.Connection, *, window: LockboxWindow,
+         quota_final: int | None = None,
+         now: dt.datetime | None = None) -> tuple[LockboxWindow, bool]:
+    state = load_state(conn)
+    if state is not None:
+        if window_sort_key(window.window_id) < window_sort_key(state["window_id"]):
+            raise LockboxError("LOCKBOX_ROLL_BACKWARD",
+                               f"窗口倒退：state={state['window_id']} < roll={window.window_id}")
+        if window.window_id == state["window_id"]:
+            return LockboxWindow(state["window_id"],
+                                 dt.date.fromisoformat(state["window_start"]),
+                                 window.end), False
+    quota = int(quota_final if quota_final is not None
+                else (state or {}).get("quota_final", DEFAULT_QUOTA_FINAL))
+    now = now or dt.datetime.now(dt.timezone.utc)
+    conn.execute(
+        "INSERT OR REPLACE INTO lockbox_state"
+        " (id, window_id, window_start, quota_final, rolled_at) VALUES (1,?,?,?,?)",
+        (window.window_id, window.start.isoformat(), quota,
+         now.isoformat(timespec="seconds")))
+    return window, True
+
+
+def current_window(conn: sqlite3.Connection, *, as_of: dt.date,
+                   trading_days: Sequence[dt.date],
+                   data_end: dt.date) -> LockboxWindow:
+    state = load_state(conn)
+    if state is None:
+        raise LockboxError("LOCKBOX_NO_STATE",
+                           "锁箱未初始化：先 `factorlab lockbox roll`（IS 运行不需要）")
+    expected = compute_window(as_of=as_of, trading_days=trading_days,
+                              data_end=data_end)
+    if expected.window_id != state["window_id"]:
+        raise LockboxError(
+            "LOCKBOX_WINDOW_STALE",
+            f"状态窗口 {state['window_id']} 落后于当前季度 {expected.window_id}："
+            "先 `factorlab lockbox roll`（解封旧窗并入 IS）")
+    return LockboxWindow(state["window_id"],
+                         dt.date.fromisoformat(state["window_start"]), data_end)
+
+
+def status(conn: sqlite3.Connection, *, trading_days: Sequence[dt.date],
+           data_end: dt.date) -> dict[str, Any]:
+    state = load_state(conn)
+    if state is None:
+        return {"initialized": False}
+    used = final_count(conn, state["window_id"])
+    return {
+        "initialized": True,
+        "window_id": state["window_id"],
+        "window_start": state["window_start"],
+        "window_end": data_end.isoformat(),
+        "quota_final": int(state["quota_final"]),
+        "final_used": used,
+        "final_remaining": max(0, int(state["quota_final"]) - used),
+        "rolled_at": state["rolled_at"],
+    }
+
+
+def final_count(conn: sqlite3.Connection, window_id: str) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) FROM lockbox_access WHERE window_id = ? AND kind = 'final'",
+        (window_id,)).fetchone()
+    return int(row[0])
