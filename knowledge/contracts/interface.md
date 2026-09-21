@@ -3642,6 +3642,13 @@ run 家族统一参数（Typer，`factorlab` 与 `flab` 同源）：
 `is` 仅含 `role`；碰箱时 `access_id` 与 `lockbox_access` 登记一致，评估结束回填
 `result_ref`。评估段与分层回测块记录 `date_start/date_end`（样本区间可追溯）。
 
+**研究工作流（xscore pipeline）语义对齐**：流水线 **config = 候选**——flow 开始按同一
+窗口/角色判定（无 state → 不登记 `unknown`/`[]`），碰箱即幂等登记 **final**（命中复用
+`access_id`；配额不足 `LOCKBOX_QUOTA_EXCEEDED`，报错指引 `factorlab lockbox status`），
+`access_id` 写入 run 级与 campaign 级 manifest 的 `access_ids`（campaign = 既有 ∪ 新 id），
+`window_id`/`sample_role` 同步为本次真实值，收尾把 `result_ref` 回填为 run 的 out 目录；
+流水线自身不 `roll`、不初始化台账（见 `research/tools/xscore/pipeline/README.md`）。
+
 ### 10.5 台账（`<research_root>/data/ledger.sqlite`，WAL；append-only）
 
 - `lockbox_state`（单行）：`window_id/window_start/quota_final/rolled_at`——状态推进只经 roll。

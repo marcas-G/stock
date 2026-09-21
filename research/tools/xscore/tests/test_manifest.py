@@ -1,6 +1,6 @@
-"""xscore 流水线 manifest 样本字段单测（锁箱纪律 T9）。
+"""xscore 流水线 manifest 样本字段单测（锁箱纪律 T9/T12b）。
 
-行为要求（T9 裁定）：
+行为要求：
 - `panel_dates`：从 panel npz 的 `dates` 取首/末日期；文件缺失/无 dates/空/非法 → None；
 - `write_manifest`：读-合并-原子写；已有字段保留、只更新所列键；无文件则新建；
   真正落盘（重新读文件可见），不留临时文件；
@@ -9,25 +9,34 @@
   有 state → 按 panel 区间与窗口起点判 is/mixed/lockbox，window_id 取台账 state；
   panel 区间不可得 → 回退已发布日历 min/max；
   state 窗口陈旧（跨季未 roll）→ 用 state 窗口声明而非报错；
+- `lockbox_register_and_manifest`（T12b）：流水线 config=候选——
+  碰箱（is 除外）幂等登记 final（同候选复用 access_id、配额不足响亮报错并指引
+  `factorlab lockbox status`），access_id 写入 run/campaign manifest 的 `access_ids`
+  （campaign 既有 ∪ 新 id，不丢旧），`result_ref` 回填 run out 目录；无 state → 不登记
+  （unknown/[]）；is 窗口 → 零登记；
 - 禁止行为：结果不得是硬编码——roll 前后、不同面板区间输出必须变化。
 
-突变必杀：`lockbox_sample` 换成返回常量、`write_manifest` 不落盘 → 对应测试失败。
+突变必杀：`lockbox_sample` 换成返回常量、`write_manifest` 不落盘、
+`lockbox_register_and_manifest` 不登记/不写 ids → 对应测试失败。
 """
 from __future__ import annotations
 
 import datetime as dt
 import json
 import pathlib
+import sqlite3
 import sys
 
 import numpy as np
+import pytest
+import yaml
 
 PIPELINE = pathlib.Path(__file__).resolve().parents[1] / "pipeline"
 sys.path.insert(0, str(PIPELINE))
 import xlib as lib  # noqa: E402
 
 from factorlab.adapters import lockbox_store as store  # noqa: E402
-from factorlab.core.lockbox import LockboxWindow  # noqa: E402
+from factorlab.core.lockbox import LockboxError, LockboxWindow  # noqa: E402
 
 
 def _health(root: pathlib.Path, days: list[str]) -> pathlib.Path:
@@ -166,10 +175,138 @@ def test_lockbox_sample_stale_state_uses_state_window(tmp_path):
     assert got == {"window_id": "2026Q1", "sample_role": "lockbox"}
 
 
-# ── flows 双写接线（fake prefect shim；T10 修复轮1）────────────────────
+# ── T12b 流水线 final 登记 + access_ids 接线（沙箱台账；真 SQLite）────────
+# 流水线 config = 候选：碰箱即登记 final（同 fp 幂等复用；配额耗尽响亮报错），
+# access_id 写入 run/campaign manifest，result_ref 回填 run out 目录。
+
+def _rows(db: pathlib.Path) -> list[dict]:
+    conn = sqlite3.connect(db)
+    conn.row_factory = sqlite3.Row
+    try:
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM lockbox_access ORDER BY ts_utc, access_id")]
+    finally:
+        conn.close()
+
+
+def _register(tmp_path, db, health, *, out, config, result_ref=None, panel=None):
+    panel = panel or _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    out.mkdir(parents=True, exist_ok=True)
+    return lib.lockbox_register_and_manifest(
+        run_manifest=out / "manifest.json", campaign_manifest=out.parent / "manifest.json",
+        panel=panel, panel_sig="sig-1", config_path=config,
+        base_updates={"platform_commit": "deadbeef", "panel_sig": "sig-1"},
+        db_path=db, health_root=health, today=dt.date(2026, 9, 21),
+        result_ref=result_ref)
+
+
+def test_lockbox_register_and_manifest_registers_final_and_merges_ids(tmp_path):
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    db = _ledger(tmp_path, LockboxWindow("2026Q2", dt.date(2025, 7, 1),
+                                         dt.date(2026, 7, 3)))
+    out = tmp_path / "camp" / "run"
+    campaign = tmp_path / "camp" / "manifest.json"
+    campaign.parent.mkdir(parents=True)
+    campaign.write_text(json.dumps({"campaign": "camp", "access_ids": ["OLD-1"],
+                                    "keep": 1}), encoding="utf-8")
+
+    doc = _register(tmp_path, db, health, out=out, config="configs/a.yaml",
+                    result_ref=str(out))
+
+    rows = _rows(db)
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["kind"] == "final" and row["window_id"] == "2026Q2"
+    assert row["window_start"] == "2025-07-01"
+    assert row["reason"] == "pipeline:configs/a.yaml"
+    assert row["result_ref"] == str(out)
+    assert row["tool"] == "xscore-pipeline"
+    assert doc["window_id"] == "2026Q2" and doc["sample_role"] == "lockbox"
+    assert doc["access_ids"] == ["OLD-1", row["access_id"]], "campaign = 既有 ∪ 新 id"
+    assert doc["keep"] == 1 and doc["platform_commit"] == "deadbeef"
+    run_doc = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert run_doc["access_ids"] == [row["access_id"]]
+    assert run_doc["sample_role"] == "lockbox" and run_doc["window_id"] == "2026Q2"
+
+
+def test_lockbox_register_and_manifest_idempotent_reuses_id(tmp_path):
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    db = _ledger(tmp_path, LockboxWindow("2026Q2", dt.date(2025, 7, 1),
+                                         dt.date(2026, 7, 3)))
+    out = tmp_path / "camp" / "run"
+    campaign = tmp_path / "camp" / "manifest.json"
+    campaign.parent.mkdir(parents=True)
+    campaign.write_text(json.dumps({"access_ids": ["OLD-1"]}), encoding="utf-8")
+
+    doc1 = _register(tmp_path, db, health, out=out, config="configs/a.yaml")
+    rows1 = _rows(db)
+    assert len(rows1) == 1
+    doc2 = _register(tmp_path, db, health, out=out, config="configs/a.yaml",
+                     result_ref=str(out))
+    rows2 = _rows(db)
+
+    assert len(rows2) == 1, "同候选第二次调用不得新增登记行"
+    assert rows2[0]["access_id"] == rows1[0]["access_id"], "同候选必须复用 access_id"
+    assert rows2[0]["result_ref"] == str(out)
+    assert doc2["access_ids"] == ["OLD-1", rows1[0]["access_id"]]
+    assert doc2["access_ids"].count(rows1[0]["access_id"]) == 1, "不得重复计入 id"
+
+
+def test_lockbox_register_and_manifest_quota_exhausted_raises_with_status_hint(tmp_path):
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    db = tmp_path / "ledger.sqlite"
+    conn = store.connect(db)
+    store.roll(conn, window=LockboxWindow("2026Q2", dt.date(2025, 7, 1),
+                                          dt.date(2026, 7, 3)), quota_final=1)
+    conn.close()
+
+    out1 = tmp_path / "c1" / "run"
+    _register(tmp_path, db, health, out=out1, config="configs/first.yaml")
+    assert len(_rows(db)) == 1
+
+    out2 = tmp_path / "c2" / "run"
+    with pytest.raises(LockboxError) as ei:
+        _register(tmp_path, db, health, out=out2, config="configs/second.yaml")
+    assert ei.value.code == "LOCKBOX_QUOTA_EXCEEDED"
+    assert "factorlab lockbox status" in str(ei.value), "配额报错必须指引 status 命令"
+    assert len(_rows(db)) == 1, "配额耗尽不得写入新登记"
+    assert not (out2 / "manifest.json").is_file(), "登记失败不得落 manifest"
+
+
+def test_lockbox_register_and_manifest_no_state_unknown_zero_registration(tmp_path):
+    db = _ledger(tmp_path)
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    out = tmp_path / "camp" / "run"
+
+    doc = _register(tmp_path, db, health, out=out, config="configs/ns.yaml")
+
+    assert doc["window_id"] is None and doc["sample_role"] == "unknown"
+    assert doc["access_ids"] == []
+    assert _rows(db) == [], "无 state 不得登记"
+    run_doc = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert run_doc["access_ids"] == [] and run_doc["sample_role"] == "unknown"
+
+
+def test_lockbox_register_and_manifest_is_window_zero_registration(tmp_path):
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    db = _ledger(tmp_path, LockboxWindow("2026Q2", dt.date(2025, 7, 1),
+                                         dt.date(2026, 7, 3)))
+    panel = _panel(tmp_path / "panel.npz", ["2024-01-02", "2025-06-30"])
+    out = tmp_path / "camp" / "run"
+
+    doc = _register(tmp_path, db, health, out=out, config="configs/is.yaml",
+                    panel=panel)
+
+    assert doc["sample_role"] == "is" and doc["window_id"] == "2026Q2"
+    assert doc["access_ids"] == []
+    assert _rows(db) == [], "is 窗口不得登记"
+
+
+# ── flows 接线（fake prefect shim；T10/T12b）────────────────────────────
 # flows.py 顶层 import prefect（平台 venv 无此依赖）——测试注入最小替身，
-# 真执行 `flows._write_manifest`，锁死「run + campaign 双写、既有键保留、
-# access_ids 非空不清空」的接线（改回单写或清空 access_ids 此测试必红）。
+# 真执行 `flows._register_lockbox` / `flows._write_manifest`，锁死
+# 「flow 开始登记 final、run + campaign 双写、既有键保留、access_ids 并集、
+# result_ref 回填」的接线（改成不登记/不双写/清空 ids 此测试必红）。
 
 def _fake_prefect(monkeypatch):
     import functools
@@ -245,11 +382,25 @@ def _minimal_cfg(tmp_path, out):
             "panel_sig": "sig-1", "config_path": "configs/x.yaml"}
 
 
+def _wire_ledger(monkeypatch, flows, db, health):
+    """注入沙箱台账/日历（生产缺省走 settings/DATA_ROOT，测试绝不碰真台账）。"""
+    real = flows.lib.lockbox_register_and_manifest
+
+    def wired(**kwargs):
+        kwargs["db_path"] = db
+        kwargs["health_root"] = health
+        kwargs.setdefault("today", dt.date(2026, 9, 21))
+        return real(**kwargs)
+
+    monkeypatch.setattr(flows.lib, "lockbox_register_and_manifest", wired)
+
+
 def test_flows_write_manifest_dual_writes_and_preserves_campaign_ids(tmp_path, monkeypatch):
     flows = _load_flows(monkeypatch)
     monkeypatch.setattr(flows.lib, "git_commit", lambda: "deadbeef")
-    monkeypatch.setattr(flows.lib, "lockbox_sample",
-                        lambda **kwargs: {"window_id": None, "sample_role": "unknown"})
+    db = _ledger(tmp_path)  # 未初始化：unknown/[]、零登记
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    _wire_ledger(monkeypatch, flows, db, health)
     out = tmp_path / "camp" / "run"
     out.mkdir(parents=True)
     campaign = tmp_path / "camp" / "manifest.json"
@@ -270,17 +421,62 @@ def test_flows_write_manifest_dual_writes_and_preserves_campaign_ids(tmp_path, m
     assert run_doc["access_ids"] == []
     assert camp_doc["keep"] == 1 and run_doc["run_keep"] == 2
     assert str(run_manifest) in result and str(campaign) in result
+    assert _rows(db) == []
 
 
 def test_flows_write_manifest_fresh_pair_identical(tmp_path, monkeypatch):
     flows = _load_flows(monkeypatch)
     monkeypatch.setattr(flows.lib, "git_commit", lambda: "cafe1234")
-    monkeypatch.setattr(flows.lib, "lockbox_sample",
-                        lambda **kwargs: {"window_id": "2026Q2", "sample_role": "is"})
+    db = _ledger(tmp_path)
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    _wire_ledger(monkeypatch, flows, db, health)
     out = tmp_path / "camp2" / "run"
     out.mkdir(parents=True)
     flows._write_manifest(_minimal_cfg(tmp_path, out))
     run_doc = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
     camp_doc = json.loads((out.parent / "manifest.json").read_text(encoding="utf-8"))
     assert run_doc == camp_doc
-    assert run_doc["access_ids"] == [] and run_doc["sample_role"] == "is"
+    assert run_doc["access_ids"] == [] and run_doc["sample_role"] == "unknown"
+
+
+def test_flows_register_lockbox_final_and_backfill_result_ref(tmp_path, monkeypatch):
+    flows = _load_flows(monkeypatch)
+    monkeypatch.setattr(flows.lib, "git_commit", lambda: "feedface")
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    db = _ledger(tmp_path, LockboxWindow("2026Q2", dt.date(2025, 7, 1),
+                                         dt.date(2026, 7, 3)))
+    _wire_ledger(monkeypatch, flows, db, health)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    out = tmp_path / "camp" / "run"
+    out.mkdir(parents=True)
+    campaign = tmp_path / "camp" / "manifest.json"
+    campaign.write_text(json.dumps({"campaign": "camp", "access_ids": ["OLD-1"]}),
+                        encoding="utf-8")
+    cfg_path = tmp_path / "cfg.yaml"
+    cfg_path.write_text(yaml.safe_dump(
+        {"panel": str(panel), "out": str(out), "data": {"ensure": False},
+         "groups": {"g": "*"}, "models": ["M0a"]}), encoding="utf-8")
+    ledger_at_compute = []
+    monkeypatch.setattr(flows, "_run",
+                        lambda step: ledger_at_compute.append(_rows(db)))
+    monkeypatch.setattr(flows, "_resolve_groups", lambda cfg: {"g": [0]})
+
+    report = flows.xscore_pipeline(str(cfg_path))  # 真跑 flow 主体（计算 step 打桩）
+
+    assert report == str(out / "REPORT.md")
+    assert ledger_at_compute and len(ledger_at_compute[0]) == 1, \
+        "flow 开始即登记 final（计算 step 执行时台账已可见；不登记必红）"
+    rows = _rows(db)
+    assert len(rows) == 1 and rows[0]["kind"] == "final"
+    assert rows[0]["access_id"] == ledger_at_compute[0][0]["access_id"], "收尾幂等复用"
+    assert rows[0]["window_id"] == "2026Q2"
+    assert rows[0]["reason"] == f"pipeline:{cfg_path}"
+    assert rows[0]["result_ref"] == str(out), "result_ref 回填为 run out 目录"
+    run_doc = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    camp_doc = json.loads(campaign.read_text(encoding="utf-8"))
+    assert run_doc["platform_commit"] == camp_doc["platform_commit"] == "feedface"
+    assert run_doc["sample_role"] == camp_doc["sample_role"] == "lockbox"
+    assert run_doc["window_id"] == camp_doc["window_id"] == "2026Q2"
+    assert run_doc["access_ids"] == [rows[0]["access_id"]]
+    assert camp_doc["access_ids"] == ["OLD-1", rows[0]["access_id"]]
+    assert camp_doc["campaign"] == "camp"

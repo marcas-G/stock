@@ -119,8 +119,8 @@ def write_manifest_pair(run_manifest: Path, campaign_manifest: Path,
                         updates: Mapping[str, Any]) -> list[Path]:
     """双写 run 级 + campaign 级 manifest（T10）：同字段；既有键保留。
 
-    `access_ids` 特例：各自保留目标文件已有的非空列表（回填后不被流水线清空），
-    否则用 updates 值（通常 []）。同一路径只写一次。
+    `access_ids` 特例：与目标文件已有非空列表取**并集**（去重保序；T12b）——
+    既有回填不被清空，新登记 id 不丢（campaign 跨 run 累积）。同一路径只写一次。
     """
     written: list[Path] = []
     for p in (Path(run_manifest), Path(campaign_manifest)):
@@ -128,24 +128,29 @@ def write_manifest_pair(run_manifest: Path, campaign_manifest: Path,
             continue
         merged = dict(updates)
         if "access_ids" in merged:
-            preserved = preserved_access_ids(p)
-            if preserved:
-                merged["access_ids"] = preserved
+            merged["access_ids"] = _merged_access_ids(p, merged["access_ids"])
         write_manifest(p, merged)
         written.append(p)
     return written
 
 
-def lockbox_sample(*, panel_start: dt.date | None, panel_end: dt.date | None,
-                   today: dt.date | None = None, db_path: Path | None = None,
-                   health_root: Path | None = None) -> dict:
-    """读锁箱台账（SQLite state + health 日历）→ manifest 样本声明。
+def _merged_access_ids(path: Path, new_ids: Any) -> list[str]:
+    merged = list(preserved_access_ids(path))
+    for access_id in (new_ids if isinstance(new_ids, list) else []):
+        if access_id not in merged:
+            merged.append(access_id)
+    return merged
 
-    - 无 state（锁箱未初始化）→ `{"window_id": None, "sample_role": "unknown"}`；
-    - 有 state → `current_window` 对账后 `role_for(panel_start, panel_end, window)`
-      判 is/mixed/lockbox（panel 区间缺省回退已发布日历 min/max）；
-    - state 陈旧（跨季未 roll，LOCKBOX_WINDOW_STALE）→ 用 state 窗口声明，
-      不让流水线收尾失败（诚实标注台账登记窗口）。
+
+def _lockbox_open(*, panel_start: dt.date | None, panel_end: dt.date | None,
+                  today: dt.date | None = None, db_path: Path | None = None,
+                  health_root: Path | None = None):
+    """连台账并解析 `(conn, state, window, role)`；调用方负责 `conn.close()`。
+
+    - 无 state → `(conn, None, None, "unknown")`；
+    - state 陈旧（跨季未 roll，LOCKBOX_WINDOW_STALE）→ 用 state 窗口（与
+      lockbox_sample 同一诚实标注口径，不让流水线收尾失败）；
+    - panel 区间缺省回退已发布日历 min/max（空日历回退 data_end）。
     """
     _ensure_platform_src()
     from factorlab.adapters import lockbox_store as store
@@ -162,23 +167,128 @@ def lockbox_sample(*, panel_start: dt.date | None, panel_end: dt.date | None,
     conn = store.connect(Path(db_path))
     try:
         state = store.load_state(conn)
+    except Exception:
+        conn.close()
+        raise
+    if state is None:
+        return conn, None, None, "unknown"
+    try:
+        window = store.current_window(conn, as_of=today, trading_days=days,
+                                      data_end=data_end)
+    except LockboxError as exc:
+        if exc.code != "LOCKBOX_WINDOW_STALE":
+            conn.close()
+            raise
+        window = LockboxWindow(state["window_id"],
+                               dt.date.fromisoformat(state["window_start"]), data_end)
+    if panel_start is None or panel_end is None:
+        panel_start, panel_end = (min(days), max(days)) if days else (data_end, data_end)
+    return conn, state, window, role_for(panel_start, panel_end, window)
+
+
+def lockbox_sample(*, panel_start: dt.date | None, panel_end: dt.date | None,
+                   today: dt.date | None = None, db_path: Path | None = None,
+                   health_root: Path | None = None) -> dict:
+    """读锁箱台账（SQLite state + health 日历）→ manifest 样本声明。
+
+    - 无 state（锁箱未初始化）→ `{"window_id": None, "sample_role": "unknown"}`；
+    - 有 state → `current_window` 对账后 `role_for(panel_start, panel_end, window)`
+      判 is/mixed/lockbox（panel 区间缺省回退已发布日历 min/max）；
+    - state 陈旧（跨季未 roll，LOCKBOX_WINDOW_STALE）→ 用 state 窗口声明，
+      不让流水线收尾失败（诚实标注台账登记窗口）。
+    """
+    conn, state, window, role = _lockbox_open(
+        panel_start=panel_start, panel_end=panel_end, today=today,
+        db_path=db_path, health_root=health_root)
+    try:
         if state is None:
             return {"window_id": None, "sample_role": "unknown"}
-        try:
-            window = store.current_window(conn, as_of=today, trading_days=days,
-                                          data_end=data_end)
-        except LockboxError as exc:
-            if exc.code != "LOCKBOX_WINDOW_STALE":
-                raise
-            window = LockboxWindow(state["window_id"],
-                                   dt.date.fromisoformat(state["window_start"]),
-                                   data_end)
-        if panel_start is None or panel_end is None:
-            panel_start, panel_end = (min(days), max(days)) if days else (data_end, data_end)
-        return {"window_id": window.window_id,
-                "sample_role": role_for(panel_start, panel_end, window)}
+        return {"window_id": window.window_id, "sample_role": role}
     finally:
         conn.close()
+
+
+def lockbox_register_and_manifest(*, run_manifest: Path, campaign_manifest: Path,
+                                  panel: Path, panel_sig: str, config_path: str,
+                                  base_updates: Mapping[str, Any] | None = None,
+                                  db_path: Path | None = None,
+                                  health_root: Path | None = None,
+                                  today: dt.date | None = None,
+                                  result_ref: str | None = None,
+                                  panel_start: dt.date | None = None,
+                                  panel_end: dt.date | None = None) -> dict:
+    """T12b 流水线锁箱接线：角色判定 →（碰箱）幂等 final 登记 → 双写 manifest。
+
+    裁定：流水线 **config = 候选**（一次 config 一次终评）——id 取
+    `candidate_fingerprint(artifact_sha256=file_sig(panel),
+    params={"config": config_path, "panel_sig": panel_sig}, kind="final")`：
+
+    - 无 state：不登记、不初始化（`sample_role="unknown"`、`window_id=null`、
+      `access_ids` 保持既有）；真实台账 roll 由 controller 执行；
+    - `is`（面板整段早于窗口起点）：不登记，`sample_role="is"` + 真实 window_id；
+    - `mixed`/`lockbox`：`require_final` 命中复用 access_id（重跑幂等、不耗配额），
+      否则 `register_access(kind="final", reason="pipeline:<config>")`；
+      配额不足 → `LOCKBOX_QUOTA_EXCEEDED`，消息指引 `factorlab lockbox status`；
+    - `result_ref` 非空时回填（flow 结束传 run 的 out 目录）；
+    - 返回 campaign 级 manifest 文档（access_ids = 既有 ∪ 本次 id）。
+    """
+    _ensure_platform_src()
+    from factorlab.adapters import lockbox_store as store
+    from factorlab.core.lockbox import LockboxError, candidate_fingerprint
+
+    panel = Path(panel)
+    if panel_start is None or panel_end is None:
+        dates = panel_dates(panel)
+        if dates is not None:
+            panel_start, panel_end = dates
+    conn, state, window, role = _lockbox_open(
+        panel_start=panel_start, panel_end=panel_end, today=today,
+        db_path=db_path, health_root=health_root)
+    try:
+        access_id: str | None = None
+        if window is not None and role != "is":
+            params = {"config": str(config_path), "panel_sig": str(panel_sig)}
+            fp = candidate_fingerprint(artifact_sha256=file_sig(panel), params=params,
+                                       window_id=window.window_id, kind="final")
+            access_id = _pipeline_final_access(conn, store, fp=fp, params=params,
+                                               panel=panel, config_path=config_path,
+                                               window=window)
+            if result_ref is not None:
+                store.update_result_ref(conn, access_id, result_ref)
+        updates = dict(base_updates or {})
+        updates.update({"window_id": window.window_id if window is not None else None,
+                        "sample_role": role,
+                        "access_ids": [access_id] if access_id else []})
+        write_manifest_pair(run_manifest, campaign_manifest, updates)
+        return json.loads(Path(campaign_manifest).read_text(encoding="utf-8"))
+    finally:
+        conn.close()
+
+
+def _pipeline_final_access(conn, store, *, fp: str, params: Mapping[str, Any],
+                           panel: Path, config_path: str, window) -> str:
+    """流水线 final 登记：先查复用（幂等），缺则登记；配额错误附 status 指引。"""
+    from factorlab.core.lockbox import LockboxError
+
+    try:
+        return store.require_final(conn, window_id=window.window_id, fingerprint=fp)
+    except LockboxError as exc:
+        if exc.code != "LOCKBOX_FINAL_REQUIRED":
+            raise
+    try:
+        return store.register_access(
+            conn, kind="final", fingerprint=fp, artifact=str(panel), params=params,
+            command=f"xscore-pipeline config={config_path}",
+            reason=f"pipeline:{config_path}", window=window, tool="xscore-pipeline")
+    except LockboxError as exc:
+        if exc.code == "LOCKBOX_FINAL_DUPLICATE":  # 并发竞态：回查复用（同 guard）
+            return store.require_final(conn, window_id=window.window_id, fingerprint=fp)
+        if exc.code == "LOCKBOX_QUOTA_EXCEEDED":
+            raise LockboxError(
+                exc.code,
+                f"{exc.message}；运行 `factorlab lockbox status` 查看配额/已用"
+                "（必要时经 `factorlab lockbox roll` 对齐窗口）") from exc
+        raise
 
 
 def load_panel(path: Path):

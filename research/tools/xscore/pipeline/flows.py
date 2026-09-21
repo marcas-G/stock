@@ -8,9 +8,11 @@ DAG：
 - portfolio 节点对信号做周频长多评估（T+1 开盘 / T 日收盘 × 全市场 / Q1-Q3）；
 - Prefect 缓存键 = 面板指纹 + 分组列 + 模型 + 折参数 + 代码指纹 → 输入不变则秒级跳过；
 - 计算 step 以 **platform venv** 子进程执行（依赖隔离）；本流程只编排；
+- flow 开始锁箱判定（T12b）：config=候选，碰箱即登记 **final**（同候选幂等复用；
+  配额不足 fail fast，消息指引 `factorlab lockbox status`；无 state 不登记/不初始化）；
 - flow 收尾写/刷新 `<out>/manifest.json` **并双写 campaign 级 `<out>/../manifest.json`**
   （T10 锁箱纪律：platform_commit/panel_sig/config_path/window_id/sample_role/access_ids；
-  已有字段保留，access_ids 非空不覆盖）。
+  已有字段保留，`access_ids` = 既有 ∪ 本次登记 id），并把 `result_ref` 回填为该 run 目录。
 
 运行：
     research/.venv/bin/python research/tools/xscore/pipeline/flows.py \
@@ -147,25 +149,34 @@ def report_task(cfg: dict, score_dirs: list[str]) -> str:
     return str(out / "REPORT.md")
 
 
-def _write_manifest(cfg: dict) -> str:
-    """flow 收尾：双写 run 级 + campaign 级 manifest（T10；已有键保留）。
+def _lockbox_manifest(cfg: dict, *, result_ref: str | None = None) -> dict:
+    """薄调用 xlib（T12b）：角色判定 + final 登记（幂等）+ 双写 manifest。
 
     campaign 级 = `<out>/../manifest.json`（与 `research_tidy`/G-LOCKBOX 权威层同层）；
-    两处字段相同，`access_ids` 以 [] 起步、各自保留既有非空值（回填不被清空）。
+    两处字段相同，`access_ids` = 各自既有非空 ∪ 本次 id（不被清空、不丢旧 id）。
     """
-    panel = lib.panel_dates(cfg["panel"])
-    updates = {
-        "platform_commit": lib.git_commit(),
-        "panel_sig": cfg["panel_sig"],
-        "config_path": cfg["config_path"],
-        **lib.lockbox_sample(panel_start=panel[0] if panel else None,
-                             panel_end=panel[1] if panel else None),
-        "access_ids": [],
-    }
     out = Path(cfg["out"])
-    paths = lib.write_manifest_pair(out / "manifest.json",
-                                    out.parent / "manifest.json", updates)
-    return " ".join(str(p) for p in paths)
+    return lib.lockbox_register_and_manifest(
+        run_manifest=out / "manifest.json",
+        campaign_manifest=out.parent / "manifest.json",
+        panel=Path(cfg["panel"]), panel_sig=cfg["panel_sig"],
+        config_path=cfg["config_path"],
+        base_updates={"platform_commit": lib.git_commit(),
+                      "panel_sig": cfg["panel_sig"],
+                      "config_path": cfg["config_path"]},
+        result_ref=result_ref)
+
+
+def _register_lockbox(cfg: dict) -> dict:
+    """flow 开始：碰箱即登记 final（配额不足 fail fast，不浪费后续计算）。"""
+    return _lockbox_manifest(cfg)
+
+
+def _write_manifest(cfg: dict) -> str:
+    """flow 收尾：幂等复用登记 + `result_ref` 回填 run out 目录 + 双写 manifest。"""
+    out = Path(cfg["out"])
+    _lockbox_manifest(cfg, result_ref=str(out))
+    return " ".join(str(p) for p in (out / "manifest.json", out.parent / "manifest.json"))
 
 
 @flow(name="xscore-pipeline", log_prints=True)
@@ -180,6 +191,7 @@ def xscore_pipeline(config_path: str) -> str:
     cfg.setdefault("portfolio", {"exec": ["open", "close"], "domains": ["all", "Q1Q3"],
                                  "every": 5, "q": 0.1, "fee_bps": 7,
                                  "limit_policy": "block", "min_adv": 0.0})
+    _register_lockbox(cfg)
     if cfg["data"].get("ensure", True):
         data_prep_task.submit(key=f"data|{cfg['panel_sig']}|{_code_sig()}",
                               cfg=cfg).result()

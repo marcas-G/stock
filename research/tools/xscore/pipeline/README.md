@@ -62,6 +62,25 @@ PREFECT_API_URL=http://127.0.0.1:4200/api research/.venv/bin/prefect deployment 
 触发方式三选一：UI `Deployments → Run`；`prefect deployment run 'xscore-pipeline/xscore-quick'`；
 `make xpipe CFG=...`（直跑不入 deployment）。
 
+### 锁箱登记（R40）
+
+流水线按 R40 锁箱纪律自动登记：**config = 候选**——一次 config 一次终评。
+
+- flow 开始按面板区间（panel npz 首末日期，缺省回退已发布日历 min/max）判定角色：
+  - `is`（面板整段早于窗口起点）→ 不登记，manifest `sample_role: is`；
+  - `mixed` / `lockbox` → 自动登记 **final**（`kind=final`；fingerprint = panel 文件签名 +
+    `config_path` + `panel_sig` + window），受配额 M=20/window 约束；
+  - **无 state（锁箱未初始化）**→ 不登记、不初始化：manifest 记 `window_id: null` /
+    `sample_role: unknown` / `access_ids: []`（真实台账 `roll` 由 controller 执行）。
+- **幂等**：同 config 重跑（含 Prefect 缓存命中）复用既有 `access_id`，不耗配额、不增行；
+  配额用尽 → flow 开始即 fail fast（`LOCKBOX_QUOTA_EXCEEDED`），先看
+  `factorlab lockbox status`（输出 `window_id`/`is_end`/已用/剩余）。
+- **manifest**：`access_id` 写入 run 级与 campaign 级 `access_ids`（campaign = 既有 ∪ 新 id，
+  不丢旧）；`window_id`/`sample_role` 为本次真实值；flow 收尾把 `result_ref` 回填为 run 的
+  `out` 目录。G-LOCKBOX（`make gates`）依此与台账交叉核对。
+- **台账只读挂接**：只连 `<research_root>/data/ledger.sqlite`（`FACTORLAB_LOCKBOX_DB` 可覆盖），
+  流水线自身**不 roll、不初始化**；未初始化时行为=现状（`unknown`/`[]`）。
+
 ### 缓存语义
 
 | 变化 | 重算范围 |
