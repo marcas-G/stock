@@ -20,7 +20,7 @@ sys.path.insert(0, str(QR))
 sys.path.insert(0, str(TOOL))
 from lab.autoencoder42 import metrics, panel as pm, walkforward  # noqa: E402
 import calibrate as C  # noqa: E402
-import pipeline as P  # noqa: E402
+import score_model as P  # noqa: E402
 
 
 def cs_y(target, valid):
@@ -55,7 +55,7 @@ def portfolio_nextopen(sig, r_open, tradable, *, domain=None, every=5, q=0.1, fe
     vv = tradable.copy()
     if domain is not None:
         vv &= domain
-    W = np.zeros((D, N))
+    wts = np.zeros((D, N))
     Wb = np.zeros((D, N))
     prev = np.zeros(N)
     net = np.zeros(D)
@@ -67,10 +67,10 @@ def portfolio_nextopen(sig, r_open, tradable, *, domain=None, every=5, q=0.1, fe
             idx = np.flatnonzero(vv[d] & sok[t])
             if len(idx) >= 30:
                 k = max(1, int(len(idx) * q))
-                W[d] = 0.0
-                W[d, idx[np.argsort(sig[t, idx], kind="stable")[-k:]]] = 1.0 / k
+                wts[d] = 0.0
+                wts[d, idx[np.argsort(sig[t, idx], kind="stable")[-k:]]] = 1.0 / k
         elif d > 0:
-            W[d] = W[d - 1]
+            wts[d] = wts[d - 1]
         if t >= 0 and t % every == 0:
             v = np.flatnonzero(vv[d])
             Wb[d] = 0.0
@@ -78,11 +78,11 @@ def portfolio_nextopen(sig, r_open, tradable, *, domain=None, every=5, q=0.1, fe
                 Wb[d, v] = 1.0 / len(v)
         elif d > 0:
             Wb[d] = Wb[d - 1]
-        dw = W[d] - prev
-        net[d] = np.nansum(W[d] * np.nan_to_num(r_open[d])) - np.abs(dw).sum() * fee / 1e4
+        dw = wts[d] - prev
+        net[d] = np.nansum(wts[d] * np.nan_to_num(r_open[d])) - np.abs(dw).sum() * fee / 1e4
         bnet[d] = np.nansum(Wb[d] * np.nan_to_num(r_open[d]))
-        prev = W[d]
-    first = int(np.flatnonzero(W.any(axis=1))[0]) if W.any() else 0
+        prev = wts[d]
+    first = int(np.flatnonzero(wts.any(axis=1))[0]) if wts.any() else 0
     x = net[first:]
     b = bnet[first:]
     ex = x - b

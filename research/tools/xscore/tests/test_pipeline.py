@@ -10,7 +10,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-import pipeline as P  # noqa: E402
+import score_model as P  # noqa: E402
 
 
 def _data(n=800, k=4, seed=0):

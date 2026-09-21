@@ -20,8 +20,8 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
-import lib  # noqa: E402
-from lib import QR  # noqa: E402
+import xlib as lib  # noqa: E402
+from xlib import QR  # noqa: E402
 
 
 def main() -> int:

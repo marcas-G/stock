@@ -59,7 +59,7 @@ def cs_y(target: np.ndarray, valid: np.ndarray) -> np.ndarray:
 
 def make_score_model(kind: str):
     sys.path.insert(0, str(STOCK / "research/tools/xscore"))
-    import pipeline as P
+    import score_model as P
     table = {
         "M0a": dict(representation="identity", aggregator="ridge"),
         "M0b": dict(representation="identity", aggregator="huber",
@@ -132,7 +132,7 @@ def portfolio_eval(sig, *, ret_close, ret_open, valid, tradable_open, domain_mas
     vv = tradable.copy()
     if domain_mask is not None:
         vv &= domain_mask
-    W = np.zeros((D, N))
+    wts = np.zeros((D, N))
     Wb = np.zeros((D, N))
     prev = np.zeros(N)
     net = np.zeros(D)
@@ -145,10 +145,10 @@ def portfolio_eval(sig, *, ret_close, ret_open, valid, tradable_open, domain_mas
             idx = np.flatnonzero(vv[d] & sok[t])
             if len(idx) >= 30:
                 k = max(1, int(len(idx) * q))
-                W[d] = 0.0
-                W[d, idx[np.argsort(sig[t, idx], kind="stable")[-k:]]] = 1.0 / k
+                wts[d] = 0.0
+                wts[d, idx[np.argsort(sig[t, idx], kind="stable")[-k:]]] = 1.0 / k
         elif d > 0:
-            W[d] = W[d - 1]
+            wts[d] = wts[d - 1]
         if t >= 0 and t % every == 0:
             v = np.flatnonzero(vv[d])
             Wb[d] = 0.0
@@ -156,12 +156,12 @@ def portfolio_eval(sig, *, ret_close, ret_open, valid, tradable_open, domain_mas
                 Wb[d, v] = 1.0 / len(v)
         elif d > 0:
             Wb[d] = Wb[d - 1]
-        dw = W[d] - prev
+        dw = wts[d] - prev
         turn[d] = 0.5 * np.abs(dw).sum()
-        net[d] = np.nansum(W[d] * np.nan_to_num(returns[d])) - np.abs(dw).sum() * fee_bps / 1e4
+        net[d] = np.nansum(wts[d] * np.nan_to_num(returns[d])) - np.abs(dw).sum() * fee_bps / 1e4
         bnet[d] = np.nansum(Wb[d] * np.nan_to_num(returns[d]))
-        prev = W[d]
-    first = int(np.flatnonzero(W.any(axis=1))[0]) if W.any() else 0
+        prev = wts[d]
+    first = int(np.flatnonzero(wts.any(axis=1))[0]) if wts.any() else 0
     x, b = net[first:], bnet[first:]
     ex = x - b
     ok = np.isfinite(x) & np.isfinite(b)

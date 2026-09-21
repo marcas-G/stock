@@ -30,7 +30,7 @@ sys.path.insert(0, str(QR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lab.autoencoder42 import metrics, panel as pm, walkforward  # noqa: E402
 import calibrate as C  # noqa: E402
-import pipeline as P  # noqa: E402
+import score_model as P  # noqa: E402
 
 
 def cs_robust_z_rows(target: np.ndarray, valid: np.ndarray) -> np.ndarray:

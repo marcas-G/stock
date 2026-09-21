@@ -33,12 +33,12 @@ HERE = Path(__file__).resolve().parent
 STOCK = HERE.parents[3]
 QR = Path("/data/students/gaolei/quantresearch")
 PLATFORM_PY = STOCK / "platform/.venv/bin/python"
-CODE_FILES = [HERE / "lib.py", HERE / "score_once.py", HERE / "portfolio_once.py",
-              HERE.parent / "pipeline.py", HERE.parent / "aggregators.py",
+CODE_FILES = [HERE / "xlib.py", HERE / "score_once.py", HERE / "portfolio_once.py",
+              HERE.parent / "score_model.py", HERE.parent / "aggregators.py",
               HERE.parent / "expansion.py", HERE.parent / "normalize.py",
               HERE.parent / "calibrate.py"]
 sys.path.insert(0, str(HERE))
-import lib  # noqa: E402
+import xlib as lib  # noqa: E402
 
 
 def _code_sig() -> str:
