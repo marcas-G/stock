@@ -32,6 +32,7 @@ from typing import Any, Iterator
 
 import yaml
 
+from factorlab import __version__
 from factorlab.adapters.atomicio import atomic_write_text
 # Plan DQ-M1 终审修复 N2：读取门 opt-in（入口参数校验 + DATA 信封映射）
 from factorlab.adapters.read.health import (DatasetQualityError,
@@ -531,11 +532,89 @@ _ADVICE = {
 }
 
 
+def _lockbox_final_gate(*, spec: Any = None,
+                        fingerprint_doc: dict[str, Any] | None = None,
+                        artifact: str, reason: str | None, command: str,
+                        tool: str) -> str | None:
+    """admit / ref add 的终评硬门（设计 §6/§7）：窗口碰箱须有 final 登记。
+
+    与 execute 层 `_lockbox_guard_for_execute` 同口径：窗口端点取 spec.date
+    （缺失回退日历边界；ref add 无 spec 时以 `fingerprint_doc` 为指纹基）。
+    IS 段/未初始化-IS 直接放行（返回 None）；env `FACTORLAB_LOCKBOX` 关闭时
+    不读台账、不登记。缺终评 + 非空 reason → 补登记（唯一性/配额仍由
+    `register_access` 严把）；缺终评且无 reason → `LOCKBOX_FINAL_REQUIRED`。
+    返回既有/新建的 final access_id。
+    """
+    if os.environ.get("FACTORLAB_LOCKBOX", "1").strip().lower() in (
+            "0", "off", "false"):
+        return None
+    from factorlab.adapters import lockbox_store as store
+    from factorlab.core import lockbox as lb
+    from factorlab.surfaces.cli import main as cli_main
+
+    days = cli_main._lockbox_published_days()
+    data_end = (cli_main._lockbox_data_end()
+                or (days[-1] if days else cli_main._lockbox_today()))
+    if spec is not None:
+        spec_doc = spec.model_dump(mode="json")
+        start = (datetime.date.fromisoformat(spec.date.start) if spec.date.start
+                 else (min(days) if days else datetime.date(1970, 1, 1)))
+        end = (datetime.date.fromisoformat(spec.date.end) if spec.date.end
+               else data_end)
+    else:
+        spec_doc = dict(fingerprint_doc or {})
+        start = min(days) if days else datetime.date(1970, 1, 1)
+        end = data_end
+    panel_start, panel_end = min(start, end), max(start, end)
+    conn = store.connect(settings.lockbox_db)
+    try:
+        no_state = False
+        try:
+            window = store.current_window(conn, as_of=datetime.date.today(),
+                                          trading_days=days, data_end=data_end)
+        except lb.LockboxError as exc:
+            if exc.code != "LOCKBOX_NO_STATE":
+                raise
+            no_state = True
+            window = lb.compute_window(as_of=datetime.date.today(),
+                                       trading_days=days, data_end=data_end)
+        if lb.role_for(panel_start, panel_end, window) == "is":
+            return None
+        if no_state:
+            raise lb.LockboxError(
+                "LOCKBOX_NO_STATE",
+                f"评估窗口 [{panel_start}~{panel_end}] 与锁箱（{window.window_id}，"
+                f"起点 {window.start}）相交但锁箱未初始化：先 `factorlab lockbox roll`")
+        fp = lb.candidate_fingerprint(
+            artifact_sha256=lb.spec_fingerprint(spec_doc),
+            params={"intent": "final"}, window_id=window.window_id, kind="final")
+        try:
+            return store.require_final(conn, window_id=window.window_id,
+                                       fingerprint=fp)
+        except lb.LockboxError as exc:
+            if exc.code != "LOCKBOX_FINAL_REQUIRED":
+                raise
+            if not (reason or "").strip():
+                raise lb.LockboxError(
+                    "LOCKBOX_FINAL_REQUIRED",
+                    f"窗口 {window.window_id} 缺终评登记（候选 {fp[:12]}…）：先 "
+                    "`flab factor run <spec> --lockbox final --lockbox-reason <理由>`，"
+                    "或本次加 `--lockbox-reason <理由>` 补终评") from None
+            return store.register_access(
+                conn, kind="final", fingerprint=fp, artifact=artifact,
+                params={"intent": "final"}, command=command, reason=reason,
+                window=window, tool=tool)
+    finally:
+        conn.close()
+
+
 def factor_admit(args: Any) -> envelope.Envelope:
     """一键入库检验：lint →（缺产物则 run，经闸）→ 参考库 corr+resic → verdict。"""
     from factorlab.adapters import results_fs
     from factorlab.app.analysis.cross_section import incremental_diagnostics
     from factorlab.app.analysis.reference import reference_names
+    from factorlab.core.lockbox import LockboxError
+    from factorlab.core.spec import load_spec
 
     _ensure()
     spec_path = Path(args.spec_path)
@@ -546,13 +625,23 @@ def factor_admit(args: Any) -> envelope.Envelope:
             f"{spec_path}: {failures[0][1]}",
             hint="先 `flab factor lint <spec>` 修 spec")
     name = results[0]["name"]
+    try:
+        _lockbox_final_gate(
+            spec=load_spec(spec_path), artifact=str(spec_path),
+            reason=getattr(args, "lockbox_reason", None),
+            command="factor admit", tool=f"factorlab {__version__}")
+    except LockboxError as exc:
+        return envelope.fail("factor.admit", exc.code, exc.message,
+                             hint="`flab lockbox status` 看窗口与配额")
 
     results_dir = Path(settings.results_dir)
     summary_path = results_fs.summary_path(results_dir, name)
     panel_path = results_fs.panel_path(results_dir, name)
     ran = False
     if not (summary_path.is_file() and panel_path.is_file()):
-        run_env = factor_run(_run_args(spec_path, wait=bool(getattr(args, "wait", False))))
+        run_env = factor_run(_run_args(
+            spec_path, wait=bool(getattr(args, "wait", False)),
+            lockbox="final", lockbox_reason=getattr(args, "lockbox_reason", None)))
         if not run_env.ok:
             err = run_env.error or {}
             return envelope.fail("factor.admit", err.get("code", "RUN_FAILED"),
@@ -733,6 +822,31 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
         return envelope.fail("factor.ref.add", "LINT",
                              f"参考库已存在: {name}（近亲/重复登记会污染对照集）",
                              hint=f"如需替换先 `flab factor ref remove {name}`")
+    from factorlab.core.lockbox import LockboxError
+    from factorlab.core.spec import load_spec
+
+    spec_path = next(iter(sorted(
+        (Path(settings.research_root) / "factor").rglob(f"{name}.yaml"))), None)
+    gate_spec: Any = None
+    artifact = f"ref:{name}"
+    fingerprint_doc: dict[str, Any] | None = None
+    if spec_path is not None:
+        try:
+            gate_spec = load_spec(spec_path)
+        except (OSError, ValueError, yaml.YAMLError):
+            gate_spec = None
+        else:
+            artifact = str(spec_path)
+    if gate_spec is None:
+        fingerprint_doc = {"ref_name": name, "scales": scales}
+    try:
+        _lockbox_final_gate(spec=gate_spec, fingerprint_doc=fingerprint_doc,
+                            artifact=artifact,
+                            reason=getattr(args, "lockbox_reason", None),
+                            command="factor ref add", tool=f"factorlab {__version__}")
+    except LockboxError as exc:
+        return envelope.fail("factor.ref.add", exc.code, exc.message,
+                             hint="`flab lockbox status` 看窗口与配额")
     entry = {
         "name": name, "style": args.style, "reason": args.reason,
         "added": getattr(args, "added", None) or datetime.date.today().isoformat(),
@@ -1019,9 +1133,11 @@ def _reg_all() -> None:
                                    help="入库时对库内其余成员 max|ρ|"),
                 registry.ParamSpec("entry_resic_t", kind="float",
                                    help="入库时对库内其余成员残差 t（有符号）"),
+                registry.ParamSpec("lockbox_reason", kind="str",
+                                   help="R40 锁箱终评理由（窗口碰箱且无既有终评时补登记，走配额）"),
                 _JSON, _PRETTY),
         defaults={"scales": "daily", "added": None, "entry_corr_max": None,
-                  "entry_resic_t": None},
+                  "entry_resic_t": None, "lockbox_reason": None},
         description="参考库入库（备份/校验 scales/原子写；重名 → LINT）",
         examples=("flab factor ref add my_factor --style 量价 --reason '独立增量'",),
         output_schema={"type": "object", "properties": {
@@ -1046,8 +1162,10 @@ def _reg_all() -> None:
                 registry.ParamSpec("scales", kind="str", help="参考库分组（缺省 daily）"),
                 registry.ParamSpec("wait", kind="bool",
                                    help="缺产物需 run 时，闸满阻塞等槽"),
+                registry.ParamSpec("lockbox_reason", kind="str",
+                                   help="R40 锁箱终评理由（窗口碰箱且无既有终评时补登记，走配额）"),
                 _JSON, _PRETTY),
-        defaults={"scales": "daily", "wait": False},
+        defaults={"scales": "daily", "wait": False, "lockbox_reason": None},
         description="一键入库检验：lint→（缺产物则 run）→参考库 corr+resic→verdict",
         examples=("flab factor admit $QUANTRESEARCH_ROOT/factor/volatility/max_effect_20d.yaml",),
         output_schema={"type": "object", "properties": {

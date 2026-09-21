@@ -368,10 +368,16 @@ def guard_run(*, panel_start: dt.date, panel_end: dt.date,
         fp = candidate_fingerprint(artifact_sha256=spec_fingerprint(spec_doc),
                                    params={"intent": intent},
                                    window_id=window.window_id, kind=intent)
-        access_id = register_access(conn, kind=intent, fingerprint=fp,
-                                    artifact=artifact, params={"intent": intent},
-                                    command=command, reason=reason, window=window,
-                                    tool=tool)
+        # T7 幂等：final 已有同 fp 登记 → 复用 access_id（admit/ref add 补终评后
+        # 内部重跑同一候选不得 DUPLICATE）；首次登记仍由 register_access 严把
+        # 唯一性/配额（探索不受影响）。
+        access_id = (_final_access_id(conn, window.window_id, fp)
+                     if intent == "final" else None)
+        if access_id is None:
+            access_id = register_access(conn, kind=intent, fingerprint=fp,
+                                        artifact=artifact, params={"intent": intent},
+                                        command=command, reason=reason, window=window,
+                                        tool=tool)
         info = {"role": role, "window_id": window.window_id,
                 "window_start": window.start.isoformat(),
                 "window_end": window.end.isoformat(), "access_id": access_id}

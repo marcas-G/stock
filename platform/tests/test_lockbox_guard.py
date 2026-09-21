@@ -98,6 +98,17 @@ def test_exploration_registers_and_attaches(tmp_path: Path):
         "exploration", "/quantresearch/results/platform/x")
 
 
+def test_final_intent_reuses_existing_access_id(tmp_path: Path):
+    """admit/ref add 补终评后，内部重跑走同一 fp 的 final：复用登记不重复。"""
+    first = _guard(tmp_path, start=W.start, end=W.end,
+                   intent="final", reason="首轮终评")
+    second = _guard(tmp_path, start=W.start, end=W.end,
+                    intent="final", reason="admit 内部重跑")
+    assert first.info["access_id"] == second.info["access_id"]
+    assert first.info["role"] == second.info["role"] == "lockbox"
+    assert _count(_db(tmp_path)) == 1
+
+
 def test_mixed_role(tmp_path: Path):
     g = _guard(tmp_path, start=W.start - dt.timedelta(days=30),
                end=W.start + dt.timedelta(days=2),
