@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 PLATFORM_PY := platform/.venv/bin/python
 
-.PHONY: help test-platform test-research test-all gates verify-fast verify-deep lint-factors index index-check reconcile data-update check-r22-baseline clean
+.PHONY: help test-platform test-research test-all gates verify-fast verify-deep lint-factors index index-check reconcile data-update check-r22-baseline svc-image clean
 
 # 研究产物区根（R37）：QUANTRESEARCH_ROOT env 可覆盖（缺省 /data/students/gaolei/
 # quantresearch，解析单点在 research/tools/factor_lib/quantresearch_paths.py 与
@@ -20,6 +20,7 @@ help:
 	@echo "make reconcile       CH 灌入对账（14 表含 moneyflow/fundamentals；依赖 ClickHouse 在线）"
 	@echo "make data-update     夸克网盘数据更新全链（sync→build→verify→R22 基线指纹化自动刷新；8GB 内存护栏）"
 	@echo "make check-r22-baseline  R22 基线数据指纹检查（只报告漂移，零写入）"
+	@echo "make svc-image REF=<ref> [STABLE=1]  按 git ref 干净树构建挖矿服务镜像 factorlab-svc:<短sha>"
 	@echo "make clean           清理 __pycache__ / .pytest_cache（本地缓存，可再生）"
 
 test-platform:
@@ -75,6 +76,36 @@ data-update:
 # R22 基线数据指纹检查（只报告漂移，零写入；漂移 exit 1）。
 check-r22-baseline:
 	$(PLATFORM_PY) governance/ops/refresh_r22_baseline.py --check
+
+# R39 Task 6：按 git ref 构建挖矿服务镜像（规格 §8）。
+# 干净树 = `git archive <REF>`（不含未提交改动）→ docker build；tag factorlab-svc:<短sha>，
+# STABLE=1 追加 factorlab-svc:stable；版本记录写 <QR>/results/platform/.service/image.json。
+# 用法：make svc-image REF=<git-ref|HEAD> [STABLE=1]
+svc-image:
+	@if [ -z "$(REF)" ]; then echo "用法：make svc-image REF=<git-ref|HEAD> [STABLE=1]" >&2; exit 2; fi
+	@set -euo pipefail; \
+	FULL=$$(git rev-parse --verify '$(REF)^{commit}'); \
+	SHA=$$(git rev-parse --short "$$FULL"); \
+	TAG="factorlab-svc:$$SHA"; \
+	QR=$${QUANTRESEARCH_ROOT:-/data/students/gaolei/quantresearch}; \
+	CTX=$$(mktemp -d /tmp/factorlab-svc-ctx.XXXXXX); \
+	trap 'rm -rf "$$CTX"' EXIT; \
+	echo "[svc-image] ref=$(REF) sha=$$SHA tag=$$TAG"; \
+	git archive --format=tar "$$FULL" | tar -x -C "$$CTX"; \
+	cp deploy/service/.dockerignore "$$CTX/.dockerignore"; \
+	BUILT_AT=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
+	UV_HASH=$$(sha256sum platform/uv.lock | cut -d' ' -f1); \
+	docker build -f deploy/service/Dockerfile \
+	  --build-arg "GIT_SHA=$$SHA" --build-arg "IMAGE_TAG=$$TAG" \
+	  --build-arg "BUILT_AT=$$BUILT_AT" --build-arg "UV_LOCK_HASH=$$UV_HASH" \
+	  -t "$$TAG" "$$CTX"; \
+	if [ -n "$(STABLE)" ]; then docker tag "$$TAG" factorlab-svc:stable; fi; \
+	mkdir -p "$$QR/results/platform/.service"; \
+	REF_VALUE='$(REF)' SHA_VALUE="$$SHA" TAG_VALUE="$$TAG" STABLE_VALUE="$(STABLE)" \
+	BUILT_AT_VALUE="$$BUILT_AT" \
+	IMAGE_JSON="$$QR/results/platform/.service/image.json" \
+	python3 -c 'import json,os,pathlib; tags=[os.environ["TAG_VALUE"]]+(["factorlab-svc:stable"] if os.environ["STABLE_VALUE"] else []); p=pathlib.Path(os.environ["IMAGE_JSON"]); p.write_text(json.dumps({"ref": os.environ["REF_VALUE"], "sha": os.environ["SHA_VALUE"], "tags": tags, "built_at": os.environ["BUILT_AT_VALUE"]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")'; \
+	echo "[svc-image] 完成：$$TAG（image.json 已更新）"
 
 clean:
 	find . -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true

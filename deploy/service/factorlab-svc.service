@@ -1,0 +1,26 @@
+# FactorLab 挖矿服务 systemd **user** unit 模板（R39 Task 6）。
+#
+# 由 governance/ops/install_svc.sh render：`@REPO_ROOT@` → 仓库绝对路径，
+# 安装到 ${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/factorlab-svc.service。
+#
+# Type=simple + run-service.sh 内 `docker wait`（FACTORLAB_SVC_HOLD=1）：
+# systemd 237 拒绝 Type=oneshot 与 Restart=always 组合，且 type=simple 直接跑
+# `docker run -d` 会立刻退出触发重启风暴；hold 模式把容器生命周期纳入 unit 观察面。
+[Unit]
+Description=FactorLab 挖矿服务（容器 factorlab-svc，127.0.0.1:8787）
+Documentation=file:@REPO_ROOT@/knowledge/design/platform/specs/2026-09-21-factorlab-service-design.md
+
+[Service]
+Type=simple
+Environment=FACTORLAB_SVC_HOLD=1
+ExecStart=@REPO_ROOT@/deploy/service/run-service.sh
+# sh -c：允许 $DOCKER 覆盖（默认 /usr/bin/docker；见 run-service.sh 顶部解析）。
+ExecStop=/bin/sh -c 'exec "${DOCKER:-/usr/bin/docker}" stop factorlab-svc'
+ExecStopPost=-/bin/sh -c 'exec "${DOCKER:-/usr/bin/docker}" rm -f factorlab-svc'
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target

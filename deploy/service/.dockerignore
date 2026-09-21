@@ -1,0 +1,16 @@
+# 构建上下文安全网（正式路径 = Makefile 的 `git archive <ref>` 干净树，本文件
+# 防"直接 docker build ."把大件/本地态打进去）。模式匹配 context 根。
+.git
+.gitignore
+.github
+data
+runs
+quantresearch
+_archive
+**/data
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.venv
+platform/.venv
+*.log
