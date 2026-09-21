@@ -67,3 +67,9 @@ AE ≈ PCA（无非线性增量），低于等权秩与 PLS(1)；**不建议引�
 
 数据 `stk_limit`×`daily` 逐日对齐（缓存 `data/cache/limits_42_5y.npz`）；
 脚本 `lab/autoencoder42/portfolio_limits.py`；结论：涨跌停影响约 -0.6~0.7pp/年。
+
+## 权重敏感性（w=PLS 权重）
+
+w: 0→1 年化 49.6/57.7/59.7/60.3/**61.4**/60.8/59.2/57.9/50.4；Sharpe 2.09→2.50→2.31；
+MDD -24.1%→-18.6%→-13.3%（单调改善）。组合增益在 0.2–0.8 全程成立（宽平台）。
+脚本同 `portfolio.py` 口径（信号已落盘 `/tmp/opencode/ae42-signals`；可复跑）。
