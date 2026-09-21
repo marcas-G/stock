@@ -164,6 +164,8 @@ def _front_matter(text: str) -> tuple[dict[str, str] | None, str | None]:
     """极简 front matter 解析（无 yaml 依赖）：返回 (键值, 错误)。
 
     None = 无 front matter（非档案，跳过）；错误 = 有 `---` 但未闭合。
+    列表块状续行（`- id`）拼回上一键值（空值才吸收），交由 `_parse_list` 明确报格式错，
+    不允许静默当空列表。
     """
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
@@ -172,25 +174,42 @@ def _front_matter(text: str) -> tuple[dict[str, str] | None, str | None]:
     if end is None:
         return None, "front matter 未闭合"
     fm: dict[str, str] = {}
+    prev_key: str | None = None
     for raw in lines[1:end]:
-        line = raw.split("<!--", 1)[0].strip()
-        if not line or line.startswith("#") or ":" not in line:
+        stripped = raw.split("<!--", 1)[0].strip()
+        if not stripped or stripped.startswith("#"):
             continue
-        key, _, value = line.partition(":")
-        fm[key.strip()] = _clean_scalar(value)
+        if (stripped.startswith("-") and prev_key is not None
+                and fm.get(prev_key, "").strip() == ""):
+            fm[prev_key] = f"{fm[prev_key]} {stripped}".strip()
+            continue
+        if ":" not in stripped:
+            continue
+        key, _, value = stripped.partition(":")
+        key = key.strip()
+        fm[key] = _clean_scalar(value)
+        prev_key = key
     return fm, None
 
 
-def _parse_list(value: str) -> list[str] | None:
+def _parse_list(value: str) -> tuple[list[str] | None, str | None]:
+    """解析内联列表：`[]` / `[a, b]` → (list, None)；其它 → (None, 原因)。
+
+    块状 YAML（`lockbox_access:` 后跟 `- id` 续行，已被 `_front_matter` 拼回）**显式报格式
+    错误**——静默当空列表会绕过「非锁箱角色必须空 / 锁箱角色必须非空」的诚实性判据。
+    """
     value = value.strip()
+    if value.startswith("-"):
+        return None, ("lockbox_access 块状列表（`- id` 续行）不支持："
+                      "请用内联 `[]` 或 `[a, b]`")
     if value in ("", "[]"):
-        return []
+        return [], None
     if value.startswith("[") and value.endswith("]"):
         inner = value[1:-1].strip()
         if not inner:
-            return []
-        return [item.strip().strip("\"'") for item in inner.split(",")]
-    return None
+            return [], None
+        return [item.strip().strip("\"'") for item in inner.split(",")], None
+    return None, "lockbox_access 必须是列表（如 [] 或 [\"<access_id>\"]）"
 
 
 def _check_dossier(path: Path, fm: dict[str, str], ledger: Ledger,
@@ -205,10 +224,9 @@ def _check_dossier(path: Path, fm: dict[str, str], ledger: Ledger,
     if role not in RT.SAMPLE_ROLES:
         return [Finding("error", str(path),
                         f"sample_role 非法：{role!r}（允许 {'/'.join(RT.SAMPLE_ROLES)}）")]
-    ids = _parse_list(fm["lockbox_access"])
-    if ids is None:
-        return [Finding("error", str(path),
-                        "lockbox_access 必须是列表（如 [] 或 [\"<access_id>\"]）")]
+    ids, list_err = _parse_list(fm["lockbox_access"])
+    if list_err:
+        return [Finding("error", str(path), list_err)]
     if role in LOCKBOX_ROLES:
         out.extend(_check_access_refs(path=path, role=role, ids=ids,
                                       window_id=fm["window_id"],

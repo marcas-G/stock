@@ -10,7 +10,7 @@
 #          REPORT 两项（平台表名、研究侧直读）打印未竟计数并指向 pending-items。
 # --offline（R38）：云端/干净 checkout 子集——跳过依赖研究产物区/台账的门
 #   （G-INDEX 产品索引、G-ANNOTATE、G-REVIEWS、G-REF sidecar；G-LINT 无产物区时 SKIP，
-#   G-LOCKBOX 离线只做声明格式校验、台账交叉核对 SKIP），
+#   G-LOCKBOX 离线只做声明格式校验 + 负向自检、台账交叉核对 SKIP），
 #   其余静态门照跑；每条 SKIP 打印 [G-OFFLINE] 及原因。不得借此放宽实质检查。
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd); cd "$ROOT"
@@ -165,6 +165,10 @@ structure() {
     if [ ! -d "$PRODUCT_ROOT" ]; then
       skip_offline "G-LOCKBOX（格式校验）" "研究产物区不在盘：$PRODUCT_ROOT"
     elif out=$("$PLATFORM/.venv/bin/python" governance/ops/check_lockbox.py --offline --root "$PRODUCT_ROOT" 2>&1); then ok "$out"; else bad "$out"; fi
+    # 负向自检自带 tmp 产物区，离线/干净 checkout 同样生效（不依赖台账）
+    if "$PLATFORM/.venv/bin/python" governance/ops/check_lockbox.py --selftest >/dev/null 2>&1; then
+      ok "负向自检通过（缺字段/空 id/幽灵 id/探索冒充终评/档案缺声明；干净样本不误伤）"
+    else bad "G-LOCKBOX 负向自检失败"; fi
     skip_offline "G-LOCKBOX 台账交叉核对（宿主段）" "锁箱登记在 $PRODUCT_ROOT/data/ledger.sqlite（access_id kind/window 核验需宿主）"
     echo "[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）"
     skip_offline "G-REVIEWS（评审台账）" "台账引用 runs/ 产物，干净 checkout/离线不可解析"

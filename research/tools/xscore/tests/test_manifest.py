@@ -164,3 +164,123 @@ def test_lockbox_sample_stale_state_uses_state_window(tmp_path):
     got = lib.lockbox_sample(panel_start=dt.date(2025, 1, 1), panel_end=dt.date(2025, 12, 31),
                              today=dt.date(2026, 9, 21), db_path=db, health_root=health)
     assert got == {"window_id": "2026Q1", "sample_role": "lockbox"}
+
+
+# ── flows 双写接线（fake prefect shim；T10 修复轮1）────────────────────
+# flows.py 顶层 import prefect（平台 venv 无此依赖）——测试注入最小替身，
+# 真执行 `flows._write_manifest`，锁死「run + campaign 双写、既有键保留、
+# access_ids 非空不清空」的接线（改回单写或清空 access_ids 此测试必红）。
+
+def _fake_prefect(monkeypatch):
+    import functools
+    import types
+
+    class _Future:
+        def __init__(self, value=None):
+            self._value = value
+
+        def result(self):
+            return self._value
+
+    class _FakeTask:
+        def __init__(self, fn):
+            self.fn = fn
+            functools.update_wrapper(self, fn)
+
+        def __call__(self, *args, **kwargs):
+            return self.fn(*args, **kwargs)
+
+        def submit(self, *args, **kwargs):
+            return _Future(self.fn(*args, **kwargs))
+
+    class _FakeFlow:
+        def __init__(self, fn):
+            self.fn = fn
+            functools.update_wrapper(self, fn)
+
+        def __call__(self, *args, **kwargs):
+            return self.fn(*args, **kwargs)
+
+        def with_options(self, **kwargs):
+            return self
+
+    def task(*args, **kwargs):
+        if len(args) == 1 and callable(args[0]) and not kwargs:
+            return _FakeTask(args[0])
+        return lambda fn: _FakeTask(fn)
+
+    def flow(*args, **kwargs):
+        return lambda fn: _FakeFlow(fn)
+
+    class ThreadPoolTaskRunner:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    prefect = types.ModuleType("prefect")
+    prefect.flow, prefect.task = flow, task
+    prefect_flows = types.ModuleType("prefect.flows")
+    prefect_flows.flow = flow
+    prefect_tasks = types.ModuleType("prefect.tasks")
+    prefect_tasks.task = task
+    prefect_runners = types.ModuleType("prefect.task_runners")
+    prefect_runners.ThreadPoolTaskRunner = ThreadPoolTaskRunner
+    prefect.task_runners = prefect_runners
+    monkeypatch.setitem(sys.modules, "prefect", prefect)
+    monkeypatch.setitem(sys.modules, "prefect.flows", prefect_flows)
+    monkeypatch.setitem(sys.modules, "prefect.tasks", prefect_tasks)
+    monkeypatch.setitem(sys.modules, "prefect.task_runners", prefect_runners)
+
+
+def _load_flows(monkeypatch):
+    import importlib.util
+    _fake_prefect(monkeypatch)
+    spec = importlib.util.spec_from_file_location("xscore_flows_t10", PIPELINE / "flows.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _minimal_cfg(tmp_path, out):
+    return {"out": str(out), "panel": str(tmp_path / "absent-panel.npz"),
+            "panel_sig": "sig-1", "config_path": "configs/x.yaml"}
+
+
+def test_flows_write_manifest_dual_writes_and_preserves_campaign_ids(tmp_path, monkeypatch):
+    flows = _load_flows(monkeypatch)
+    monkeypatch.setattr(flows.lib, "git_commit", lambda: "deadbeef")
+    monkeypatch.setattr(flows.lib, "lockbox_sample",
+                        lambda **kwargs: {"window_id": None, "sample_role": "unknown"})
+    out = tmp_path / "camp" / "run"
+    out.mkdir(parents=True)
+    campaign = tmp_path / "camp" / "manifest.json"
+    campaign.write_text(json.dumps({"campaign": "camp", "access_ids": ["CAMP-1"],
+                                    "keep": 1}), encoding="utf-8")
+    run_manifest = out / "manifest.json"
+    run_manifest.write_text(json.dumps({"access_ids": [], "run_keep": 2}), encoding="utf-8")
+
+    result = flows._write_manifest(_minimal_cfg(tmp_path, out))
+
+    run_doc = json.loads(run_manifest.read_text(encoding="utf-8"))
+    camp_doc = json.loads(campaign.read_text(encoding="utf-8"))
+    assert run_doc["platform_commit"] == camp_doc["platform_commit"] == "deadbeef"
+    assert run_doc["sample_role"] == camp_doc["sample_role"] == "unknown"
+    assert run_doc["panel_sig"] == camp_doc["panel_sig"] == "sig-1"
+    assert run_doc["config_path"] == camp_doc["config_path"] == "configs/x.yaml"
+    assert camp_doc["access_ids"] == ["CAMP-1"], "campaign 非空 access_ids 不得被清空"
+    assert run_doc["access_ids"] == []
+    assert camp_doc["keep"] == 1 and run_doc["run_keep"] == 2
+    assert str(run_manifest) in result and str(campaign) in result
+
+
+def test_flows_write_manifest_fresh_pair_identical(tmp_path, monkeypatch):
+    flows = _load_flows(monkeypatch)
+    monkeypatch.setattr(flows.lib, "git_commit", lambda: "cafe1234")
+    monkeypatch.setattr(flows.lib, "lockbox_sample",
+                        lambda **kwargs: {"window_id": "2026Q2", "sample_role": "is"})
+    out = tmp_path / "camp2" / "run"
+    out.mkdir(parents=True)
+    flows._write_manifest(_minimal_cfg(tmp_path, out))
+    run_doc = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    camp_doc = json.loads((out.parent / "manifest.json").read_text(encoding="utf-8"))
+    assert run_doc == camp_doc
+    assert run_doc["access_ids"] == [] and run_doc["sample_role"] == "is"

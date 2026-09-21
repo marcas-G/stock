@@ -328,6 +328,30 @@ def test_dossier_offline_skips_ledger_but_keeps_format(tmp_path):
     assert Path(fs[0].path).name == "norole.md"
 
 
+def test_dossier_block_list_is_format_error_online(tmp_path):
+    """块状 YAML 列表（`- id` 续行）不得被静默当 []——否则绕过诚实性判据。"""
+    root, _, _ = _root(tmp_path)
+    _put_dossier(root, "fam/block.md",
+                 "---\nxname: x\nupdated_ts: 2026-09-21\nsample_role: is\n"
+                 "window_id: 2026Q2\nlockbox_access:\n  - acc1\n---\n\n# x\n")
+    fs = CL.findings(root)
+    assert len(fs) == 1
+    assert "块状" in fs[0].message
+    assert "lockbox_access" in fs[0].message
+    assert CL.main(["--root", str(root)]) == 1
+
+
+def test_dossier_block_list_is_format_error_offline(tmp_path):
+    root, _, _ = _root(tmp_path, ledger=False)
+    _put_dossier(root, "fam/block.md",
+                 "---\nxname: x\nupdated_ts: 2026-09-21\nsample_role: lockbox\n"
+                 "window_id: 2026Q2\nlockbox_access:\n  - ghost\n---\n\n# x\n")
+    fs = CL.findings(root, offline=True)
+    assert len(fs) == 1
+    assert "块状" in fs[0].message
+    assert Path(fs[0].path).name == "block.md"
+
+
 # ── CLI / selftest / 只读 ────────────────────────────────────────────
 
 def test_json_output_shape_and_exit(tmp_path, capsys):
