@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import fcntl
 import os
 import shutil
@@ -112,6 +113,68 @@ def _read_cache() -> tuple[dict[str, Any], str | None]:
     return ({key: stats[key] for key in _RC_KEYS}, stats.get("degraded"))
 
 
+# R40：锁箱段公开字段（与 `lockbox status` 同源，含 is_end）
+_LOCKBOX_KEYS = ("initialized", "window_id", "window_start", "window_end",
+                 "quota_final", "final_used", "final_remaining", "is_end")
+
+
+def _lockbox() -> tuple[dict[str, Any], list[str]]:
+    """锁箱状态段（R40 §12）：state 摘要 + 陈旧判定。
+
+    日历/数据日与 CLI `factorlab lockbox status` 同源（`adapters.lockbox_store`
+    扫 `DATA_ROOT/health`，非 main.py 私有函数）。DB 打不开/损坏 → 该段降级为
+    `{initialized:false, degraded:<原因>}` + warning，**绝不让 health 整体 DATA
+    失败**（health 是探活入口）。
+    """
+    from factorlab.adapters import lockbox_store as store
+    from factorlab.core.factio.paths import DATA_ROOT
+    from factorlab.core.lockbox import LockboxError, compute_window
+
+    def _degraded(exc: Exception) -> dict[str, Any]:
+        return {"initialized": False,
+                "degraded": f"{type(exc).__name__}: {exc}"}
+
+    try:
+        conn = store.connect(settings.lockbox_db)
+    except Exception as exc:  # noqa: BLE001 —— 损坏库降级，不拖垮探活
+        section = _degraded(exc)
+        return section, [f"锁箱状态库不可用（health 降级）：{section['degraded']}"
+                         " —— 修复后 `flab lockbox roll`（= `factorlab lockbox roll`）"]
+    warnings: list[str] = []
+    try:
+        try:
+            health_root = Path(DATA_ROOT) / "health"
+            days = store.published_days(health_root)
+            data_end = store.latest_data_date(health_root) or dt.date.today()
+            status_doc = store.status(conn, trading_days=days, data_end=data_end)
+        except Exception as exc:  # noqa: BLE001
+            section = _degraded(exc)
+            return section, [f"锁箱状态读取失败（health 降级）："
+                             f"{section['degraded']}"]
+    finally:
+        conn.close()
+
+    section = {key: status_doc[key] for key in _LOCKBOX_KEYS
+               if key in status_doc}
+    if not status_doc.get("initialized"):
+        warnings.append(
+            "锁箱未初始化：与锁箱相交的评估会被拒（LOCKBOX_NO_STATE）——"
+            "先 `flab lockbox roll`（= `factorlab lockbox roll`）")
+        return section, warnings
+    try:
+        expected = compute_window(as_of=dt.date.today(), trading_days=days,
+                                  data_end=data_end)
+    except LockboxError as exc:
+        warnings.append(f"锁箱窗口新鲜度无法判定：{exc}")
+        return section, warnings
+    if section["window_id"] != expected.window_id:
+        warnings.append(
+            f"锁箱窗口陈旧：state={section['window_id']} 当前季="
+            f"{expected.window_id}——先 `flab lockbox roll`"
+            "（= `factorlab lockbox roll`）对齐（解封旧窗并入 IS）")
+    return section, warnings
+
+
 def health(args: argparse.Namespace) -> envelope.Envelope:
     """一览：连通/内存/磁盘/护栏/新鲜度/读缓存；后端不可达 → DATA。"""
     try:
@@ -129,6 +192,7 @@ def health(args: argparse.Namespace) -> envelope.Envelope:
     disk = _disk()
     guard = _guard_slots()
     read_cache, cache_degraded = _read_cache()
+    lockbox, lockbox_warnings = _lockbox()
     warnings: list[str] = []
     if not memory["ok"]:
         warnings.append("可用内存低于 8GB——重任务会被 heavy 闸拒绝（MEMORY_GUARD）")
@@ -139,11 +203,12 @@ def health(args: argparse.Namespace) -> envelope.Envelope:
     if cache_degraded:
         warnings.append(
             f"读缓存 manifest 损坏（按零值上报，重跑自动重建）: {cache_degraded}")
+    warnings.extend(lockbox_warnings)
     return envelope.ok(
         "health",
         {"backend": backend, "database": database, "connectivity": connectivity,
          "memory": memory, "disk": disk, "guard": guard, "freshness": freshness,
-         "read_cache": read_cache},
+         "read_cache": read_cache, "lockbox": lockbox},
         warnings=tuple(warnings))
 
 
@@ -152,7 +217,7 @@ registry.register(
         name="health",
         params=(_JSON, _PRETTY),
         defaults={"json": True, "pretty": False},
-        description="健康一览：CH 连通/内存/磁盘/heavy 闸槽位/数据新鲜度/读缓存",
+        description="健康一览：CH 连通/内存/磁盘/heavy 闸槽位/数据新鲜度/读缓存/锁箱窗口",
         examples=("flab health", "flab health --pretty"),
         output_schema={"type": "object", "properties": {
             "backend": {"type": "string"}, "database": {"type": "string"},
@@ -186,6 +251,20 @@ registry.register(
                     "hits": {"type": "integer"},
                     "misses": {"type": "integer"},
                     "fallbacks": {"type": "integer"}}},
+            "lockbox": {
+                "type": "object",
+                "description": "锁箱窗口状态（R40；与 `factorlab lockbox status`"
+                               " 同源；未初始化/陈旧/库损坏见 warnings）",
+                "properties": {
+                    "initialized": {"type": "boolean"},
+                    "window_id": {"type": "string"},
+                    "window_start": {"type": "string"},
+                    "window_end": {"type": "string"},
+                    "quota_final": {"type": "integer"},
+                    "final_used": {"type": "integer"},
+                    "final_remaining": {"type": "integer"},
+                    "is_end": {"type": "string"},
+                    "degraded": {"type": "string"}}},
         }},
     ),
     health,
