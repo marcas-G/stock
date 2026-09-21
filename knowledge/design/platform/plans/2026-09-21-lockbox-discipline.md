@@ -16,7 +16,8 @@
 - 窗口只在季末 roll 时前移；同 `window_id` 幂等；跨季未 roll → 碰箱运行报 `LOCKBOX_WINDOW_STALE`。
 - **未初始化（无 state）时：IS 运行照常；碰箱运行报 `LOCKBOX_NO_STATE`**（先 `factorlab lockbox roll`）。
 - 登记 append-only（触发器禁 UPDATE/DELETE，`result_ref` 除外）；错误码：`LOCKBOX_INTENT_REQUIRED`/`LOCKBOX_REASON_REQUIRED`/`LOCKBOX_FINAL_DUPLICATE`/`LOCKBOX_QUOTA_EXCEEDED`/`LOCKBOX_FINAL_REQUIRED`/`LOCKBOX_WINDOW_STALE`/`LOCKBOX_NO_STATE`/`LOCKBOX_ROLL_BACKWARD`。
-- 终评默认配额 M=20/窗口；探索不限额。
+- 终评默认配额 M=20/窗口；探索不限额；同窗 roll 带 `quota_final` 允许更新配额（返回 changed=True）。
+- 分层：`factorlab/core/**` 保持**纯**（零文件/DB IO；`platform/tests/test_architecture.py::test_core_has_no_io_or_outer_imports` 必须绿）；锁箱的 IO（health 目录扫描 + SQLite 状态/登记）全部落 `factorlab/adapters/lockbox_store.py`。
 - 窗口日历源：`<DATA_ROOT>/health/ashare_daily/*.json` 的发布日期集合（与服务 `dataset_version` 同源、离线可测）；**不用 CH trade_cal**。
 - 测试不得触碰真实 `$QUANTRESEARCH_ROOT/data/ledger.sqlite`：一律 tmp + `FACTORLAB_LOCKBOX_DB`。
 - 每任务收尾：`cd platform && .venv/bin/python -m pytest -q` 相关文件绿 + `make gates` 绿 + 显式文件清单提交（一次一主题）。
@@ -253,10 +254,11 @@ git commit -m "feat(lockbox): 窗口数学/角色判定/指纹内核（T1）"
 
 ---
 
-### Task 2: 内核——状态与 roll
+### Task 2: 状态与 roll（adapters.lockbox_store）
 
 **Files:**
-- Modify: `platform/src/factorlab/core/lockbox.py`
+- Create: `platform/src/factorlab/adapters/lockbox_store.py`（IO 层）
+- Modify: `platform/src/factorlab/core/lockbox.py`（移除 IO：latest_data_date 迁出）
 - Test: `platform/tests/test_lockbox_state.py`
 
 **Interfaces:**
@@ -461,11 +463,11 @@ git commit -m "feat(lockbox): 状态表与季度 roll/陈旧判定（T2）"
 
 ---
 
-### Task 3: 内核——登记、配额、终评校验
+### Task 3: 登记、配额、终评校验（adapters.lockbox_store）
 
 **Files:**
-- Modify: `platform/src/factorlab/core/lockbox.py`
-- Test: `platform/tests/test_lockbox_registry.py`
+- Modify: `platform/src/factorlab/adapters/lockbox_store.py`
+- Test: `platform/tests/test_lockbox_registry.py`（import 自 adapters）
 
 **Interfaces:**
 - Produces: `register_access(conn,*,kind,fingerprint,artifact,params,command,reason,window,tool,result_ref=None)->str`；`update_result_ref(conn,access_id,result_ref)`；`final_count(conn,window_id)`；`final_exists(conn,window_id,fingerprint)`；`require_final(conn,*,window_id,fingerprint)->str`；`RunGuard`（见 T5 接口注释，本任务先产出 registry 原语）。
@@ -738,7 +740,7 @@ git commit -m "feat(lockbox): lockbox_db 配置与 status/roll CLI（T4）"
 ### Task 5: run 硬门接线（execute 层统一）与产物声明
 
 **Files:**
-- Modify: `platform/src/factorlab/core/lockbox.py`（`RunGuard` + `guard_run`）
+- Modify: `platform/src/factorlab/adapters/lockbox_store.py`（`RunGuard` + `guard_run`）
 - Modify: `platform/src/factorlab/app/context.py`（`RunContext.guard`）
 - Modify: `platform/src/factorlab/surfaces/cli/main.py`（`execute_run` 在 `spec = load_spec` 之后 guard；顶层 `run` 两选项；复用 T4 helpers）
 - Modify: `platform/src/factorlab/app/run.py`（summary 组装后 `ctx.guard.attach(summary)`；产物落盘后 `ctx.guard.mark_result(str(run_dir))`）
@@ -810,7 +812,7 @@ def test_execute_registers_exploration_before_heavy_chain(tmp_path: Path, monkey
 
 - [ ] **Step 4: 实现**
 
-`core/lockbox.py` 追加 `RunGuard`/`guard_run`（代码同本计划上一版：`connect`/`current_window`（NO_STATE 时退回 `compute_window`）/`role_for`/`register_access`；`RunGuard.register_final` 保留给 T7）。
+`adapters/lockbox_store.py` 追加 `RunGuard`/`guard_run`（代码同本计划上一版：`connect`/`current_window`（NO_STATE 时退回 `compute_window`）/`role_for`/`register_access`；`RunGuard.register_final` 保留给 T7）。
 
 `app/context.py`：
 
