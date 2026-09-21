@@ -44,6 +44,7 @@
 └────────────────────────────────────────────────────────────────────────┘
   挂载：results rw · factor rw · experiments rw · composites/strategy/dossiers/index/lab ro
         专属缓存 <results>/.service/cache rw（L2，不共享 ~/.cache/factorlab）
+        **data/health ro**（读取门元数据；挂到 STOCK_ROOT 同名路径）
   依赖：宿主 ClickHouse 127.0.0.1:8123（host 网络；只读语义）
 ```
 
@@ -92,6 +93,7 @@
 - worker 以 subprocess 调镜像内 CLI（进程组隔离）；env 固定：
   `FACTORLAB_DATA_BACKEND=ch`、`FACTORLAB_RESULTS_DIR=<results>`、
   `FACTORLAB_MAX_MEMORY=8GB`、`FACTORLAB_CH_MAX_THREADS=8`（L2）、
+  `FACTORLAB_ST_DEGRADE=allow`、`FACTORLAB_MINUTE_UNCOVERED=drop`（挖矿标准口径）、
   `FACTORLAB_READ_CACHE_DIR=<results>/.service/cache/bars_1m`（L2）。
 - 容器限额（systemd 启动参数）：`--cpus=8`、`--memory=16g`、`--pids-limit=256`、
   `--user 1010:1010`、`--network host`；宿主 nice -n 10（挖矿让位于 dev）。

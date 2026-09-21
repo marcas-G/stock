@@ -4,6 +4,12 @@
 > 规格：`knowledge/design/platform/specs/2026-09-21-factorlab-service-design.md`（全权口径，L1 验收 §10）。
 > 纪律：TDD（先红后绿）；一次提交一主题；服务不挂源码、作业只走固定命令集。
 
+> **实施状态（2026-09-21 收口）**：T1-T7 全部完成并验收（证据 `governance/evidence/verification/R39/`）：
+> 镜像 `factorlab-svc:a9b9bfa`（stable）、systemd `factorlab-svc.service`（127.0.0.1:8787）；
+> 真作业 succeeded（产物属主 1010）；开发改代码不影响挖矿结果（panel sha 相同）；
+> 挖矿运行中 dev gates +3.4%；restart→interrupted、pause/resume、cancel 语义实测通过；
+> `make gates`/`make verify-deep` 全绿。部署件落 `governance/ops/service/`（根白名单）。
+
 **Goal:** 挖矿作业跑进按 git ref 冻结的镜像 + 常驻作业服务（SQLite 队列 / FastAPI / 127.0.0.1:8787），
 容器资源限额，达成 L1"开发⇄挖矿双向不干扰"。
 

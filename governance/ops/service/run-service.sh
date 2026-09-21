@@ -10,7 +10,7 @@ set -euo pipefail
 
 NAME=factorlab-svc
 QR=${QUANTRESEARCH_ROOT:-/data/students/gaolei/quantresearch}
-REPO_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+REPO_ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 UID_GID=${FACTORLAB_SVC_USER:-1010:1010}
 DOCKER=${DOCKER:-/usr/bin/docker}
 [ -x "$DOCKER" ] || DOCKER=$(command -v docker)
@@ -39,6 +39,8 @@ mkdir -p "$QR/results/platform/.service/cache"
 CID=$("$DOCKER" run -d --name "$NAME" --restart unless-stopped \
   --network host --user "$UID_GID" --cpus=8 --memory=16g --pids-limit=256 \
   -e FACTORLAB_DATA_BACKEND=ch \
+  -e FACTORLAB_ST_DEGRADE=allow \
+  -e FACTORLAB_MINUTE_UNCOVERED=drop \
   -e FACTORLAB_RESULTS_DIR=/quantresearch/results/platform \
   -e QUANTRESEARCH_ROOT=/quantresearch \
   -e FACTORLAB_RESEARCH_ROOT=/quantresearch \

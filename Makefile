@@ -92,10 +92,10 @@ svc-image:
 	trap 'rm -rf "$$CTX"' EXIT; \
 	echo "[svc-image] ref=$(REF) sha=$$SHA tag=$$TAG"; \
 	git archive --format=tar "$$FULL" | tar -x -C "$$CTX"; \
-	cp deploy/service/.dockerignore "$$CTX/.dockerignore"; \
+	cp governance/ops/service/.dockerignore "$$CTX/.dockerignore"; \
 	BUILT_AT=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
 	UV_HASH=$$(sha256sum platform/uv.lock | cut -d' ' -f1); \
-	docker build -f deploy/service/Dockerfile \
+	docker build -f governance/ops/service/Dockerfile \
 	  --build-arg "GIT_SHA=$$SHA" --build-arg "IMAGE_TAG=$$TAG" \
 	  --build-arg "BUILT_AT=$$BUILT_AT" --build-arg "UV_LOCK_HASH=$$UV_HASH" \
 	  -t "$$TAG" "$$CTX"; \

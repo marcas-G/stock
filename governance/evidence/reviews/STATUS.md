@@ -114,3 +114,12 @@ flab strategy run <yaml>
   旧 `selfhosted-verify.yml` 删除；目录 `/data/students/gaolei/actions-runner` 归档保留
   （恢复指引见 `reviews/README.md`）。
 - 证据：`governance/evidence/verification/R38/`（01-markers / 02-runner-retire / 03-verify）。
+
+### 挖矿服务（R39，2026-09-21）
+
+- 容器化执行器：镜像 `factorlab-svc:<sha>`（当前 `a9b9bfa`，`stable` 浮动）；systemd user
+  `factorlab-svc.service`；API `127.0.0.1:8787`；作业白名单 `factor_run/compose/strategy_run/factor_admit`；
+  客户端 `~/quantresearch/lab/platform_client.py`；`make svc-image REF=<ref> [STABLE=1]`。
+- 验收：真作业 succeeded（产物属主 1010）；开发改代码不影响挖矿（panel sha 相同）；挖矿运行中
+  dev gates +3.4%；restart→interrupted / pause→resume / cancel 实测通过；证据 R39。
+- 挖矿执行入口约定：研究脚本默认走服务（`CONVENTIONS.md` §4）；宿主 `flab` 仅 dev/应急。
