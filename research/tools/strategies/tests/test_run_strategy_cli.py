@@ -310,7 +310,7 @@ def test_results_dir_default_follows_platform_settings():
     from factorlab.config import settings
     assert settings.results_dir.name == "platform"
     # R37（f22b764）：物理产物默认 `$QUANTRESEARCH_ROOT/results/platform`；
-    # 无产物区（CI 干净 checkout）回退仓内 `runs/platform`——两分支均非旧
-    # `platform/results`。深检（宿主有产物区）与 fast（无产物区）都必须绿。
+    # 无产物区（CI 干净 checkout）回退仓内 runs/platform——两分支均非 R24 前的
+    # 仓内旧落点。深检（宿主有产物区）与 fast（无产物区）都必须绿。
     assert settings.results_dir.parent.name in {"results", "runs"}
     assert "platform/results" not in settings.results_dir.as_posix()
