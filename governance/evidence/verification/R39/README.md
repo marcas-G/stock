@@ -53,3 +53,15 @@
   内存回落 213MiB；随后真作业 succeeded 65s（无回归）。
 - 遗留（L3 建议）：单容器内失控**非平台子进程**仍可能短暂拖慢 API（平台 8GB 作业守卫是一线）；
   彻底方案=作业独立容器/子 cgroup（L3）。
+
+## 退役附注（2026-09-21，R40 T12a）
+
+- **容器化挖矿服务已退役**：生产路径 = 研究工作流（Prefect `make xpipe`）+ 宿主
+  `factorlab`/`flab` CLI。本 README 的 L1/L2 验收结论对 R39 交付时点**仍然有效**
+  （镜像/端到端/隔离/运维语义/安全均实测），当前不再作为生产入口。
+- 部署件留档不删：`governance/ops/service/`、`install_svc.sh`、`factorlab-svc.service`、
+  `make svc-image`。
+- 与锁箱（R40）的关系：锁箱硬门在 **execute 层**（`factorlab.app.run` / composite /
+  strategy / admit / ref add），与执行形态无关——宿主、工作流、容器内同样受
+  `LOCKBOX_*` 约束。契约见 `knowledge/contracts/interface.md` §10；验收证据
+  `governance/evidence/verification/R40/`。

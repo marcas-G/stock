@@ -49,7 +49,8 @@ def test_lockbox_uninitialized_warns_roll(env, tmp_path, monkeypatch):
 
     assert e.ok, e.error
     assert e.data["lockbox"] == {"initialized": False}
-    assert any("未初始化" in w and "roll" in w for w in e.warnings), e.warnings
+    assert any("未初始化" in w and "factorlab lockbox roll" in w
+               and "flab lockbox" not in w for w in e.warnings), e.warnings
 
 
 def test_lockbox_section_after_roll_matches_status(env, tmp_path, monkeypatch):
@@ -85,7 +86,8 @@ def test_lockbox_stale_window_warns_roll(env, tmp_path, monkeypatch):
 
     assert e.ok, e.error
     assert e.data["lockbox"]["window_id"] == "2000Q1"
-    assert any("锁箱窗口陈旧" in w and "roll" in w for w in e.warnings), e.warnings
+    assert any("锁箱窗口陈旧" in w and "factorlab lockbox roll" in w
+               and "flab lockbox" not in w for w in e.warnings), e.warnings
 
 
 def test_lockbox_corrupt_db_degrades_without_failing_health(
@@ -99,7 +101,8 @@ def test_lockbox_corrupt_db_degrades_without_failing_health(
     section = e.data["lockbox"]
     assert section["initialized"] is False
     assert section.get("degraded"), section
-    assert any("锁箱" in w for w in e.warnings), e.warnings
+    assert any("锁箱" in w and "factorlab lockbox roll" in w
+               and "flab lockbox" not in w for w in e.warnings), e.warnings
     assert e.data["connectivity"]["ok"] is True  # 降级只影响 lockbox 段
 
 

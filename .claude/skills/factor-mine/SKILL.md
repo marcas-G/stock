@@ -110,22 +110,24 @@ general-purpose subagent，输入：变异点记录 + `$QR/factor/<族>/<name>.y
 
 ### 7. 运行
 
-**正式作业走挖矿服务（R39：冻结镜像 + 资源限额 + 审计记录）；宿主 `flab run` 仅 dev 调试。**
+**正式运行 = 工作流 / 服务目录（现状：工作流为主）**：工作流入口
+`make xpipe CFG=research/tools/xscore/pipeline/configs/<cfg>.yaml`（Prefect 3；目录
+`research/tools/xscore/pipeline/`）；服务目录 `governance/ops/service/` 仅留档（R39
+容器化执行器已退役，生产路径 = 工作流 + 宿主 CLI）。宿主直跑（重任务经
+`governance/ops/heavy.sh`）：
 
-```python
-# 研究脚本内（python；客户端在 $QR/lab/platform_client.py，纯 stdlib）
-import sys; sys.path.insert(0, f"{QR}/lab")
-from platform_client import PlatformClient
-c = PlatformClient()                       # 默认 http://127.0.0.1:8787
-out = c.submit_and_wait("factor_run", spec="factor/<族>/<name>.yaml",
-                        output_dir="results/platform/<name>")   # 相对=研究产物区根；可选
-out["job"]["status"], out["job"]["dataset_version"], out["result"]["data"]
+```bash
+FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow \
+  $FLAB run $QR/factor/<族>/<name>.yaml [--no-backtest]
 ```
 
-- 失败：`c.log(job_id)` 看日志修复后重交；`c.cancel(id)` / `c.pause()` / `c.resume()` 运维。
-- 产物：`$QR/results/platform/<name>/`（属主 1010）；job 记录带 `dataset_version`。
-- 服务未起/应急时可回退宿主直跑（仅 dev，结论不作数）：
-  `FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow $FLAB run $QR/factor/<族>/<name>.yaml`。
+**R40 锁箱（碰箱必声明）**：spec 评估窗口与锁箱相交时必须带
+`--lockbox exploration|final --lockbox-reason <理由>`，否则 `LOCKBOX_INTENT_REQUIRED`
+拒跑（无产物）；`exploration` 自动登记、不限额，`final` 每候选每窗一次 + 每窗配额
+M=20（入库/结论依据）。`date.end ≤ is_end`（`factorlab lockbox status --json` 的 `is_end`
+= `window_start` 前一交易日）在 IS 内，无需 flag。锁箱运维入口 = 顶层
+`factorlab lockbox status|roll`（即 `$FLAB lockbox …`；`flab` = `factorlab research`
+门面，**无 lockbox 子命令**），契约见 `knowledge/contracts/interface.md` §10。
 
 ### 8. 入库
 
@@ -140,6 +142,9 @@ out["job"]["status"], out["job"]["dataset_version"], out["result"]["data"]
      （name/style/reason/added/entry_corr_max/entry_resic_t），空 scale 首只即种子
      （两项 null）。
 1. 对照 `knowledge/handbooks/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
+   **R40 要件**：入库依据的评估窗口若碰锁箱（`date.end > is_end`），该评估必须为
+   `--lockbox final` 且 `lockbox_access` 有对应 final 登记；`admit`/`ref add` 缺登记 →
+   `LOCKBOX_FINAL_REQUIRED`（契约 `knowledge/contracts/interface.md` §10）。
 2. 复制 `$QR/dossiers/factors/_template.md` → `$QR/dossiers/factors/<族>/<stem>.md`，逐节填写：
    验证数据快照自 `runs/platform/<name>/summary.json`（注明快照日期）；
    状态按判定（候选/观察中/无效）；§2 逻辑写变异后的假设表达。

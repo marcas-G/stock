@@ -186,7 +186,8 @@ def test_compose_cross_lockbox_requires_intent(tmp_path, monkeypatch):
     out = strip_ansi(result.output)
     assert result.exit_code != 0
     assert "LOCKBOX_INTENT_REQUIRED" in out
-    assert "lockbox status" in out
+    assert "factorlab lockbox status" in out
+    assert "flab lockbox" not in out
     assert _rows(db) == []
     assert not (runs / "composites" / "cx_lock" / "artifact.json").exists()
 
@@ -459,7 +460,8 @@ def test_strategy_run_registry_and_handler_maps_lockbox_error(tmp_path, monkeypa
         lockbox="exploration", lockbox_reason="摸边界"))
     assert env.ok is False
     assert env.error["code"] == "LOCKBOX_INTENT_REQUIRED", env.error
-    assert "lockbox status" in env.error["hint"]
+    assert "factorlab lockbox status" in env.error["hint"]
+    assert "flab lockbox" not in env.error["hint"]
     assert captured["lockbox_intent"] == "exploration"
     assert captured["lockbox_reason"] == "摸边界"
     assert captured["doc_path"] == doc_path

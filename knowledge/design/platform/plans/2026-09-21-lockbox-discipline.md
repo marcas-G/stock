@@ -905,7 +905,7 @@ def test_execute_registers_exploration_before_heavy_chain(tmp_path: Path, monkey
 
 `app/run.py`：`_run_factor` 的 summary 组装处加 `if getattr(ctx, "guard", None) is not None: ctx.guard.attach(summary)`；`run_dir` 确定后 `ctx.guard.mark_result(str(run_dir))`。分钟链同函数级处理在 T6。
 
-顶层 `@app.command("run")` 与 `research/factor.py::_RUN_PARAMS` 加两参数（代码同前版；`factor_run` 捕获 `LockboxError` 转 `envelope.fail("factor.run", exc.code, exc.message, hint="`flab lockbox status`")`）。
+顶层 `@app.command("run")` 与 `research/factor.py::_RUN_PARAMS` 加两参数（代码同前版；`factor_run` 捕获 `LockboxError` 转 `envelope.fail("factor.run", exc.code, exc.message, hint="`factorlab lockbox status`")`）。
 
 - [ ] **Step 5: 跑绿（含平台全量）**
 
@@ -1149,7 +1149,7 @@ git commit -m "feat(lockbox): health 段与季度提醒（T11）"
 
 ```bash
 # 1) 初始化 + IS 直跑（无登记）
-flab lockbox roll
+factorlab lockbox roll
 flab factor run $QR/factor/...（IS spec）→ summary.sample.role=is；ledger 行数不变
 # 2) 碰箱无 intent → 拒（错误码；产物不存在）
 # 3) exploration → 成功 + 1 行登记 + summary.sample 一致

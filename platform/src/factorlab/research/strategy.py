@@ -329,7 +329,7 @@ def strategy_run(args: Any) -> envelope.Envelope:
                              hint=exc.hint, log=exc.log)
     except LockboxError as exc:
         return envelope.fail("strategy.run", exc.code, exc.message,
-                             hint="`flab lockbox status` 看窗口与配额")
+                             hint="`factorlab lockbox status` 看窗口与配额")
     except ExecutionDataQualityError as exc:
         return envelope.fail(
             "strategy.run", "STRATEGY_FAILED", f"执行数据质量闸拦截: {exc}",

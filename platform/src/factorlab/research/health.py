@@ -139,7 +139,7 @@ def _lockbox() -> tuple[dict[str, Any], list[str]]:
     except Exception as exc:  # noqa: BLE001 —— 损坏库降级，不拖垮探活
         section = _degraded(exc)
         return section, [f"锁箱状态库不可用（health 降级）：{section['degraded']}"
-                         " —— 修复后 `flab lockbox roll`（= `factorlab lockbox roll`）"]
+                         " —— 修复后 `factorlab lockbox roll`"]
     warnings: list[str] = []
     try:
         try:
@@ -159,7 +159,7 @@ def _lockbox() -> tuple[dict[str, Any], list[str]]:
     if not status_doc.get("initialized"):
         warnings.append(
             "锁箱未初始化：与锁箱相交的评估会被拒（LOCKBOX_NO_STATE）——"
-            "先 `flab lockbox roll`（= `factorlab lockbox roll`）")
+            "先 `factorlab lockbox roll`")
         return section, warnings
     try:
         expected = compute_window(as_of=dt.date.today(), trading_days=days,
@@ -170,8 +170,7 @@ def _lockbox() -> tuple[dict[str, Any], list[str]]:
     if section["window_id"] != expected.window_id:
         warnings.append(
             f"锁箱窗口陈旧：state={section['window_id']} 当前季="
-            f"{expected.window_id}——先 `flab lockbox roll`"
-            "（= `factorlab lockbox roll`）对齐（解封旧窗并入 IS）")
+            f"{expected.window_id}——先 `factorlab lockbox roll` 对齐（解封旧窗并入 IS）")
     return section, warnings
 
 

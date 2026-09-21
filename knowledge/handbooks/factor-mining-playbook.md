@@ -214,6 +214,13 @@ formula: |
 | **换手** | `turnover.monthly` | 因子调仓频率 | <50%/月 可实盘化；高换手容量差 |
 | **覆盖** | `coverage.pct_valid` | 有效行比例 | >80% 正常；低覆盖需查 fillna |
 
+**R40 锁箱要件（入库判定）**：入库/结论依据的评估若碰锁箱——spec `date.end` 超过 `is_end`
+（= `factorlab lockbox status --json` 的 `is_end`，即 `window_start` 前一交易日）——必须带
+`--lockbox final --lockbox-reason <理由>` 跑，且在台账 `lockbox_access` 留 final 登记
+（`admit`/`ref add` 缺登记 → `LOCKBOX_FINAL_REQUIRED`）。仅调参探索用 `--lockbox exploration`
+（自动登记、不限额；`exploration` 记录不得作为入库依据）。窗口算法、CLI、错误码与
+`summary.sample` 字段见 `knowledge/contracts/interface.md` §10。
+
 ### 4.2 净值曲线形态判断（serve 详情页）
 
 - **单调分层**：D1 净值向上、D10 向下、中间档有序 → 强因子

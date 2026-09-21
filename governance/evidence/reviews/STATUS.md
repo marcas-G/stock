@@ -1,6 +1,6 @@
 # 总状态表（STATUS）—— 评审轮次 × 方案族 × 完成度
 
-更新：2026-09-19 ｜ 维护：reviewer（本表为**总入口**；状态词：✅ 已交付/已终审；🔶 已交付待收尾/待复查；⏳ 计划就绪待执行；❌ 未计划）
+更新：2026-09-21 ｜ 维护：reviewer（本表为**总入口**；状态词：✅ 已交付/已终审；🔶 已交付待收尾/待复查；⏳ 计划就绪待执行；❌ 未计划）
 
 ## 一、评审轮次（R01-R09）
 
@@ -115,7 +115,10 @@ flab strategy run <yaml>
   （恢复指引见 `reviews/README.md`）。
 - 证据：`governance/evidence/verification/R38/`（01-markers / 02-runner-retire / 03-verify）。
 
-### 挖矿服务（R39，2026-09-21）
+### 挖矿服务（R39，2026-09-21；**已退役**）
+
+> **退役（2026-09-21）**：容器化执行器不再作为生产入口，生产路径 = 研究工作流
+> （Prefect）+ host；本节保留 L1/L2 历史验收留档（见 `R39/README.md` 退役附注）。
 
 - 容器化执行器：镜像 `factorlab-svc:<sha>`（当前 `a9b9bfa`，`stable` 浮动）；systemd user
   `factorlab-svc.service`；API `127.0.0.1:8787`；作业白名单 `factor_run/compose/strategy_run/factor_admit`；
@@ -126,4 +129,16 @@ flab strategy run <yaml>
   `dataset_version` 入作业记录（`vscope20260920_01`）、磁盘预检；
   **OOM 修复**：本机 swap 不受限导致限额触顶不杀进程 → 容器 `--memory-swappiness=0`，
   实测内核 OOM（SIGNAL 9）且服务无损。
-- 挖矿执行入口约定：研究脚本默认走服务（`CONVENTIONS.md` §4）；宿主 `flab` 仅 dev/应急。
+- 挖矿执行入口（现状）：研究工作流（Prefect）+ 宿主 `factorlab`/`flab`；容器化服务已退役（历史见上）。
+
+### 锁箱纪律（R40，2026-09-21）
+
+- **T1–T11 已完成**：窗口数学/roll（T1/T2）、登记/配额/final 唯一（T3）、CLI（T4）、
+  execute 层硬门 + `summary.sample` + 自动登记（T5）、分钟链（T6）、admit/ref add（T7）、
+  compose/strategy（T8）、研究侧 manifest/档案字段（T9）、G-LOCKBOX/G-ANNOTATE（T10）、
+  `flab health` 锁箱段 + 季度提醒（T11）；最新提交 `f7f8a1b`。
+- **T12 进行中**：T12a（`flab lockbox` 文案修正 + 契约/手册/技能同步 + R40 验收证据）
+  本轮完成；T12b（真实台账初始化 + 端到端复验）另派。证据
+  `governance/evidence/verification/R40/`。
+- 运行入口：`factorlab lockbox status|roll`（`flab` = `factorlab research` 门面，
+  **无 lockbox 子命令**）；生产硬门在 execute 层，与容器/服务形态无关。

@@ -3491,6 +3491,10 @@ git 历史；使用指南存档 `teajoin-guide.md`）。duckdb 后端仅保留�
 
 ## 9. 挖矿服务（生产执行入口；R39，2026-09-21）
 
+> **状态（2026-09-21）：容器化挖矿服务已退役**——生产路径 = 研究工作流（Prefect
+> `make xpipe`）+ 宿主 `factorlab`/`flab` CLI；本节为 R39 历史交付留档（部署件不删）。
+> 锁箱硬门在 execute 层，与执行形态无关，见 §10。
+
 **定位**：正式/生产作业跑在**按 git ref 冻结的镜像** + 常驻作业服务内（SQLite 队列 /
 FastAPI `127.0.0.1:8787`），与开发双向不干扰（开发改工作区/宿主 venv 不影响作业结果；
 挖矿限额下 dev 基准劣化 ≤20%）。研究侧统一经客户端提交；宿主 `flab`/`factorlab` 直跑仅
@@ -3556,3 +3560,108 @@ dev/应急。设计与验收：`knowledge/design/platform/specs/2026-09-21-facto
 
 作业与服务同容器：失控**非平台子进程**可能短暂拖慢 API（平台 8GB 作业守卫为一线防线）；
 彻底隔离需作业独立容器/子 cgroup（L3）。
+
+## 10. 锁箱纪律（Rolling Lockbox；R40）
+
+**定位**：全库单一时间锁箱——锁箱窗口 `[window_start, window_end]` 内的数据是未观测测试集；
+一切触碰锁箱的评估**自动登记**（append-only 台账），**终评**另受"每候选每窗唯一 + 每窗配额
+M=20"硬门约束。设计：`knowledge/design/platform/specs/2026-09-21-lockbox-discipline-design.md`；
+实施计划：`knowledge/design/platform/plans/2026-09-21-lockbox-discipline.md`；
+验收证据：`governance/evidence/verification/R40/`。
+
+**部署形态（2026-09-21 切换）**：R39 Docker 挖矿服务已退役（`governance/ops/service/`
+留档），生产路径 = 研究工作流（Prefect）+ 宿主 `factorlab`/`flab` CLI。锁箱硬门位于
+**execute 层**（`factorlab.app.run` / composite / strategy / admit / ref add），与执行形态
+无关——宿主、工作流、容器内同样生效。
+
+### 10.1 窗口
+
+- **滚动 12 个月**：`roll(as_of)` 取 `as_of` 之前最近一个完整日历季末 `Qe`，
+  `window_id=f"{Qe.year}Q{Qe.quarter}"`；`window_start` = 首个 ≥ `(Qe − 1 年 + 1 日)` 的
+  交易日（交易日历）；`window_end` = 最新数据日（随数据自然生长）。
+  例：2026-09-21 roll → `2026Q2`、`window_start=2025-07-01`；2026-10-01 roll → `2026Q3`、
+  `window_start=2025-10-01`（旧窗解封并入 IS）。
+- **`is_end`** = `window_start` 的前一交易日（`lockbox status --json` 直接输出）；
+  挖矿 spec 写 `date.end = is_end` 即不碰箱。
+- **幂等与倒退**：同一 `window_id` 重复 roll 不变更任何行（`--quota-final` 可显式改配额）；
+  窗口倒退 → `LOCKBOX_ROLL_BACKWARD`。跨季未 roll 时任何评估 → `LOCKBOX_WINDOW_STALE`
+  （防静默解封）。
+- 角色判定：面板整段 `< window_start` → `is`（不要求 flag、不登记）；整段
+  `≥ window_start` → `lockbox`；跨边界 → `mixed`（后两者 = 碰箱）。
+
+### 10.2 CLI
+
+```bash
+# 状态：单行 JSON（含 is_end/配额/已用/剩余）；未初始化 → {"initialized": false}，exit 1
+factorlab lockbox status [--json]
+# 季度滚动（幂等；拒绝倒退；--as-of 供验收/复现注入——指过去=正常对齐，指未来=制造 stale）
+factorlab lockbox roll [--as-of YYYY-MM-DD] [--quota-final N]
+```
+
+> `flab` = `factorlab research` 门面，**没有 `lockbox` 子命令**；锁箱运维入口是顶层
+> `factorlab lockbox …`。
+
+run 家族统一参数（Typer，`factorlab` 与 `flab` 同源）：
+
+| 参数 | 语义 |
+|---|---|
+| `--lockbox exploration\|final` | 碰箱评估必需；缺失 → `LOCKBOX_INTENT_REQUIRED`（拒跑在开库/重链前，零产物） |
+| `--lockbox-reason TEXT` | 与 `--lockbox` 配对、必填非空 → 否则 `LOCKBOX_REASON_REQUIRED` |
+
+覆盖命令：`factorlab research factor run`（= `flab factor run`）、`factor compose`、
+`factorlab research strategy run`、`factorlab research factor admit`、`ref add`。
+`admit`/`ref add` 是固化路径：引用的评估窗口碰箱时必须已存在对应 **final** 登记，缺失 →
+`LOCKBOX_FINAL_REQUIRED`（它们可带 `--lockbox-reason` 补登记，走同一唯一性/配额）。
+
+### 10.3 错误码
+
+| code | 触发 |
+|---|---|
+| `LOCKBOX_NO_CALENDAR` | 交易日历无 `window_start` 之后的交易日（响亮失败，不静默放行） |
+| `LOCKBOX_EMPTY_DATA` | 最新数据日早于窗口起点 |
+| `LOCKBOX_NO_STATE` | 碰箱但锁箱未初始化（先 `factorlab lockbox roll`；IS 运行不需要） |
+| `LOCKBOX_WINDOW_STALE` | state 窗口 ≠ 当前季度窗口（跨季未 roll） |
+| `LOCKBOX_ROLL_BACKWARD` | roll 窗口早于 state（拒绝倒退） |
+| `LOCKBOX_INTENT_REQUIRED` | 碰箱无 `--lockbox` |
+| `LOCKBOX_REASON_REQUIRED` | `--lockbox` 无理由/空理由 |
+| `LOCKBOX_FINAL_DUPLICATE` | 同 `(window_id, fingerprint)` 已有 final 登记（登记层严格；同候选 guard 重跑复用不报错） |
+| `LOCKBOX_QUOTA_EXCEEDED` | 窗口 final 数 ≥ `quota_final`（缺省 M=20） |
+| `LOCKBOX_FINAL_REQUIRED` | `admit`/`ref add` 引用的评估窗口碰箱但无 final 登记 |
+
+### 10.4 产物声明 `summary.sample`
+
+碰箱评估的 `summary.json` 追加：
+
+```json
+"sample": {"role": "is|mixed|lockbox", "window_id": "2026Q2",
+            "window_start": "2025-07-01", "window_end": "2026-09-17",
+            "access_id": "01M3..."}
+```
+
+`is` 仅含 `role`；碰箱时 `access_id` 与 `lockbox_access` 登记一致，评估结束回填
+`result_ref`。评估段与分层回测块记录 `date_start/date_end`（样本区间可追溯）。
+
+### 10.5 台账（`<research_root>/data/ledger.sqlite`，WAL；append-only）
+
+- `lockbox_state`（单行）：`window_id/window_start/quota_final/rolled_at`——状态推进只经 roll。
+- `lockbox_access`：`access_id(ULID)`、`ts_utc`、`window_id/window_start/window_end`、
+  `kind(exploration|final)`、`fingerprint`、`artifact`、`params`、`command`、`result_ref`、
+  `reason`、`actor`、`tool`。只增不改不删（触发器强制；唯一允许回填的列 = `result_ref`）。
+- **终评唯一 + 配额**：`(window_id, fingerprint)` 唯一（指纹 = `sha256(canonical({kind,
+  primary_artifact_sha256, params, window_id}))`，改参=新候选）；每窗口 final 计数 ≤ M
+  （缺省 20，roll 时 `--quota-final` 可改）。探索不限额。
+- 写入方只有平台（execute 层 guard）与研究侧 `lab/lockbox.py`；禁手改（同 ledger 纪律）。
+- 库路径/env：`FACTORLAB_LOCKBOX_DB` 覆盖（缺省 `<research_root>/data/ledger.sqlite`）；
+  `FACTORLAB_LOCKBOX=0|off|false` 关闭硬门（直接 IS 放行、不读 state、不登记）——
+  仅供 CI/离线基线，生产不设或设 1。
+
+### 10.6 门与迁移
+
+- **G-LOCKBOX**（`make gates`）：档案/manifest 样本声明字段齐全与格式（与 `window_id`
+  季号一致）；宿主段与台账交叉核对 `access_id` 存在、kind=final、窗口匹配；负向自检
+  （缺字段/空 id/幽灵 id/探索冒充终评/档案缺声明）。
+- **G-ANNOTATE**：新/更新档案必须含 `sample_role`（缺 → 红）。
+- **迁移（只管以后）**：存量 spec（含 175 个 `end=2026-07-31`）在锁箱初始化后被判定碰箱：
+  要么收紧窗口 `date.end = is_end`（`lockbox status --json` 输出），要么显式
+  `--lockbox exploration|final --lockbox-reason …` 意图；存量档案/`_oos2026`/参考库 OOS
+  理由不追溯补登（grandfather）。

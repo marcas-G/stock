@@ -117,7 +117,8 @@ def test_factor_run_forwards_lockbox_and_maps_error(tmp_path: Path, monkeypatch)
                                    lockbox_reason="摸边界"))
     assert not env.ok
     assert env.error["code"] == "LOCKBOX_INTENT_REQUIRED"
-    assert "lockbox status" in env.error["hint"]
+    assert "factorlab lockbox status" in env.error["hint"]
+    assert "flab lockbox" not in env.error["hint"]
     assert captured["lockbox_intent"] == "exploration"
     assert captured["lockbox_reason"] == "摸边界"
 

@@ -113,7 +113,8 @@ def test_admit_locked_without_final_and_reason_is_refused(tmp_path, monkeypatch)
     doc = _doc(result)
     assert result.exit_code != 0
     assert doc["error"]["code"] == "LOCKBOX_FINAL_REQUIRED"
-    assert "lockbox status" in doc["error"]["hint"]
+    assert "factorlab lockbox status" in doc["error"]["hint"]
+    assert "flab lockbox" not in doc["error"]["hint"]
     assert _count(db) == 0
     assert not (settings.results_dir / "refcand" / "panel.parquet").exists()
 

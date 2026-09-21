@@ -292,7 +292,7 @@ def factor_run(args: Any) -> envelope.Envelope:
                              hint=exc.hint, log=exc.log)
     except LockboxError as exc:
         return envelope.fail("factor.run", exc.code, exc.message,
-                             hint="`flab lockbox status` 看窗口与配额")
+                             hint="`factorlab lockbox status` 看窗口与配额")
     except DeadSignalError as exc:
         return envelope.fail("factor.run", "DEAD_SIGNAL", str(exc),
                              hint="评估摘要已落盘（dead_signal=true）供审计；先修取数列/数据面")
@@ -632,7 +632,7 @@ def factor_admit(args: Any) -> envelope.Envelope:
             command="factor admit", tool=f"factorlab {__version__}")
     except LockboxError as exc:
         return envelope.fail("factor.admit", exc.code, exc.message,
-                             hint="`flab lockbox status` 看窗口与配额")
+                             hint="`factorlab lockbox status` 看窗口与配额")
 
     results_dir = Path(settings.results_dir)
     summary_path = results_fs.summary_path(results_dir, name)
@@ -846,7 +846,7 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
                             command="factor ref add", tool=f"factorlab {__version__}")
     except LockboxError as exc:
         return envelope.fail("factor.ref.add", exc.code, exc.message,
-                             hint="`flab lockbox status` 看窗口与配额")
+                             hint="`factorlab lockbox status` 看窗口与配额")
     entry = {
         "name": name, "style": args.style, "reason": args.reason,
         "added": getattr(args, "added", None) or datetime.date.today().isoformat(),
