@@ -1,0 +1,13 @@
+[panel] cache hit /data/students/gaolei/quantresearch/data/cache/panel_42_5y.npz D=770 N=4691 K=42
+[baseline] 平台 composite ref_all42_5y_rk matched=3463855
+[folds] D=770 n_folds=9 train=252 step=63
+[rank_ew] IC=0.0820 tNW=15.18 n=517 | incIC=0.0267 incT=6.62 (41.8s)
+[pca_k3] IC=0.0724 tNW=15.55 n=517 | incIC=0.0215 incT=4.64 (22.9s)
+[pca_k5] IC=0.0682 tNW=16.01 n=517 | incIC=0.0195 incT=3.92 (25.1s)
+[pca_k8] IC=0.0653 tNW=14.81 n=517 | incIC=0.0199 incT=4.38 (26.0s)
+[pls_k1] IC=0.0815 tNW=17.09 n=517 | incIC=0.0393 incT=9.00 (31.5s)
+[ae_k3] IC=0.0675 tNW=12.95 n=517 | incIC=0.0141 incT=3.24 (253.5s)
+[ae_k5] IC=0.0718 tNW=14.69 n=517 | incIC=0.0199 incT=4.30 (273.7s)
+[ae_k8] IC=0.0650 tNW=15.29 n=517 | incIC=0.0195 incT=4.49 (267.5s)
+[null] shifted-AE: IC=0.0016 tNW=1.68 n=517 | incIC=-0.0008 incT=-0.94
+[done] 1257.5s → /data/students/gaolei/quantresearch/results/2026-09-autoencoder-42/metrics.json
