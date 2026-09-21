@@ -1,0 +1,152 @@
+{
+  "EW": {
+    "no_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.1849555323938905,
+      "ann_vol": 0.2240955107907069,
+      "sharpe_net": 0.8704857403229431,
+      "max_drawdown": -0.1766588985184826,
+      "avg_oneway_turnover": 0.6062470593492656,
+      "avg_daily_cost_bp": 8.487458830889718,
+      "ann_benchmark": 0.21309716975356707,
+      "ann_excess": -0.03106283525950393,
+      "ir_excess": -0.3993516714619783,
+      "excess_hit_rate": 0.4700193423597679
+    },
+    "with_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.18307904381226492,
+      "ann_vol": 0.22363219400080328,
+      "sharpe_net": 0.8647478611545224,
+      "max_drawdown": -0.17659080679001926,
+      "avg_oneway_turnover": 0.6057226941509432,
+      "avg_daily_cost_bp": 8.480117718113203,
+      "ann_benchmark": 0.21309716975356707,
+      "ann_excess": -0.03280065528490794,
+      "ir_excess": -0.41439842337764915,
+      "excess_hit_rate": 0.47195357833655704,
+      "blocked_buy_per_day": 0.1102514506769826,
+      "blocked_sell_per_day": 0.8104448742746615
+    }
+  },
+  "PLS": {
+    "no_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.10172811690889416,
+      "ann_vol": 0.2191491510203624,
+      "sharpe_net": 0.5526262836395206,
+      "max_drawdown": -0.18959220852760972,
+      "avg_oneway_turnover": 0.7514504177671913,
+      "avg_daily_cost_bp": 10.520305848740678,
+      "ann_benchmark": 0.21309716975356707,
+      "ann_excess": -0.10016109707713783,
+      "ir_excess": -1.420136344970182,
+      "excess_hit_rate": 0.43520309477756286
+    },
+    "with_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.09851968812928869,
+      "ann_vol": 0.218286692620769,
+      "sharpe_net": 0.5405923978757161,
+      "max_drawdown": -0.19000579285903052,
+      "avg_oneway_turnover": 0.7508307744650833,
+      "avg_daily_cost_bp": 10.511630842511167,
+      "ann_benchmark": 0.21309716975356707,
+      "ann_excess": -0.10311996152517844,
+      "ir_excess": -1.4144040442362682,
+      "excess_hit_rate": 0.43520309477756286,
+      "blocked_buy_per_day": 0.14119922630560927,
+      "blocked_sell_per_day": 0.7717601547388782
+    }
+  },
+  "mix50_50": {
+    "no_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.1505946139402119,
+      "ann_vol": 0.22028311747955667,
+      "sharpe_net": 0.7480925643152736,
+      "max_drawdown": -0.18058954746466516,
+      "avg_oneway_turnover": 0.6811796079025919,
+      "avg_daily_cost_bp": 9.536514510636287,
+      "ann_benchmark": 0.21309716975356707,
+      "ann_excess": -0.06003245557252601,
+      "ir_excess": -0.8066747830915436,
+      "excess_hit_rate": 0.46034816247582205
+    },
+    "with_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.14785218405819145,
+      "ann_vol": 0.2197716414833616,
+      "sharpe_net": 0.7384740197019546,
+      "max_drawdown": -0.18084617549121074,
+      "avg_oneway_turnover": 0.6805865411033368,
+      "avg_daily_cost_bp": 9.528211575446715,
+      "ann_benchmark": 0.21309716975356707,
+      "ann_excess": -0.06249382237475953,
+      "ir_excess": -0.8224365412886926,
+      "excess_hit_rate": 0.46034816247582205,
+      "blocked_buy_per_day": 0.11798839458413926,
+      "blocked_sell_per_day": 0.7485493230174082
+    }
+  },
+  "ae_k5": {
+    "no_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.18403763648075167,
+      "ann_vol": 0.23937170728745363,
+      "sharpe_net": 0.8267139718312504,
+      "max_drawdown": -0.19752023321923307,
+      "avg_oneway_turnover": 0.585335735290719,
+      "avg_daily_cost_bp": 8.194700294070067,
+      "ann_benchmark": 0.21309716975356707,
+      "ann_excess": -0.027993754144289063,
+      "ir_excess": -0.38648407654148914,
+      "excess_hit_rate": 0.4526112185686654
+    },
+    "with_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.18241303545011123,
+      "ann_vol": 0.23896260947909137,
+      "sharpe_net": 0.82199028020164,
+      "max_drawdown": -0.19802641991894476,
+      "avg_oneway_turnover": 0.5846671465759359,
+      "avg_daily_cost_bp": 8.185340052063104,
+      "ann_benchmark": 0.21309716975356707,
+      "ann_excess": -0.029468238280941694,
+      "ir_excess": -0.40378223551796727,
+      "excess_hit_rate": 0.45454545454545453,
+      "blocked_buy_per_day": 0.07543520309477757,
+      "blocked_sell_per_day": 0.8626692456479691
+    }
+  },
+  "pca_k3": {
+    "no_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.18632540141372744,
+      "ann_vol": 0.23919313178440962,
+      "sharpe_net": 0.8352898564296604,
+      "max_drawdown": -0.21930613262213328,
+      "avg_oneway_turnover": 0.6068492717857473,
+      "avg_daily_cost_bp": 8.495889805000461,
+      "ann_benchmark": 0.21309716975356707,
+      "ann_excess": -0.02597833374287095,
+      "ir_excess": -0.37239241271956586,
+      "excess_hit_rate": 0.46808510638297873
+    },
+    "with_limit": {
+      "n_days": 517,
+      "ann_return_net": 0.18490092859578033,
+      "ann_vol": 0.23893045490602435,
+      "sharpe_net": 0.8309270875337682,
+      "max_drawdown": -0.21971482272598797,
+      "avg_oneway_turnover": 0.6061220119057537,
+      "avg_daily_cost_bp": 8.48570816668055,
+      "ann_benchmark": 0.21309716975356707,
+      "ann_excess": -0.027275937075339263,
+      "ir_excess": -0.38550341971789975,
+      "excess_hit_rate": 0.46808510638297873,
+      "blocked_buy_per_day": 0.08704061895551257,
+      "blocked_sell_per_day": 0.9516441005802708
+    }
+  }
+}
