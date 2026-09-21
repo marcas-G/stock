@@ -154,10 +154,17 @@ def current_window(conn: sqlite3.Connection, *, as_of: dt.date,
 
 def status(conn: sqlite3.Connection, *, trading_days: Sequence[dt.date],
            data_end: dt.date) -> dict[str, Any]:
-    """锁箱状态摘要；未初始化（无 state）返回 `{"initialized": False}`。"""
+    """锁箱状态摘要；未初始化（无 state）返回 `{"initialized": False}`。
+
+    `is_end` = window_start 的前一交易日（设计 §12/§13：供挖矿 spec 的
+    `date.end` 直接使用）；日历中无更早交易日时回退 `window_start - 1 天`。
+    """
     state = load_state(conn)
     if state is None:
         return {"initialized": False}
+    start = dt.date.fromisoformat(state["window_start"])
+    earlier = [d for d in trading_days if d < start]
+    is_end = max(earlier) if earlier else start - dt.timedelta(days=1)
     used = final_count(conn, state["window_id"])
     return {
         "initialized": True,
@@ -168,6 +175,7 @@ def status(conn: sqlite3.Connection, *, trading_days: Sequence[dt.date],
         "final_used": used,
         "final_remaining": max(0, int(state["quota_final"]) - used),
         "rolled_at": state["rolled_at"],
+        "is_end": is_end.isoformat(),
     }
 
 

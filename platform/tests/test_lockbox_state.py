@@ -53,6 +53,24 @@ def test_status_shape(tmp_path: Path):
     assert st["window_end"] == "2026-09-18"
     assert st["final_used"] == 0 and st["final_remaining"] == 20
 
+def test_status_is_end_previous_trading_day(tmp_path: Path):
+    """§12/§13：is_end = window_start 前一交易日（非日历前一天）。"""
+    conn = connect(tmp_path / "ledger.sqlite")
+    days = [dt.date(2025, 6, 27), dt.date(2025, 7, 7), DAY]
+    # window_start=2025-07-07（周一）；日历前一天=周日 07-06，前一交易日=周五 06-27
+    roll(conn, window=compute_window(as_of=dt.date(2026, 9, 21), trading_days=days,
+                                     data_end=DAY))
+    st = status(conn, trading_days=days, data_end=DAY)
+    assert st["window_start"] == "2025-07-07" and st["is_end"] == "2025-06-27"
+
+
+def test_status_is_end_fallback_when_no_earlier_trading_day(tmp_path: Path):
+    conn = connect(tmp_path / "ledger.sqlite")
+    roll(conn, window=_window())  # window_start=2025-07-01；序列中无更早交易日
+    st = status(conn, trading_days=DAYS, data_end=DAY)
+    assert st["window_start"] == "2025-07-01" and st["is_end"] == "2025-06-30"
+
+
 def test_state_persists_across_reconnect(tmp_path: Path):
     db = tmp_path / "ledger.sqlite"
     conn = connect(db)

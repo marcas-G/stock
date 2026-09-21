@@ -59,9 +59,6 @@ def lockbox_status(json_out: bool = typer.Option(False, "--json")) -> None:
     conn = store.connect(settings.lockbox_db)
     data_end = _lockbox_data_end() or _lockbox_today()
     doc = store.status(conn, trading_days=_lockbox_published_days(), data_end=data_end)
-    if doc.get("initialized"):
-        doc["is_end"] = (datetime.date.fromisoformat(doc["window_start"])
-                         - datetime.timedelta(days=1)).isoformat()
     if json_out:
         # 原样单行输出：rich console 会折行/美化，破坏"末行可 json.loads"消费契约
         typer.echo(json.dumps(doc, ensure_ascii=False))
