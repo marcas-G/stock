@@ -1,14 +1,11 @@
 from __future__ import annotations
-import datetime as dt, json
+import datetime as dt
 from pathlib import Path
 import pytest
 from factorlab.core.lockbox import (LockboxError, candidate_fingerprint,
                                     compute_window, latest_data_date,
                                     quarter_end_before, role_for,
                                     spec_fingerprint)
-
-def _days(start: dt.date, n: int) -> list[dt.date]:
-    return [start + dt.timedelta(days=i) for i in range(n)]
 
 def test_quarter_end_before():
     assert quarter_end_before(dt.date(2026, 9, 21)) == dt.date(2026, 6, 30)
@@ -24,6 +21,17 @@ def test_compute_window_start_is_first_trading_day_after_cutoff():
     assert w.start == dt.date(2025, 7, 1)
     assert w.end == dt.date(2026, 9, 18)
 
+def test_compute_window_unsorted_calendar_same_as_sorted():
+    sorted_days = [dt.date(2025, 6, 30), dt.date(2025, 7, 1),
+                   dt.date(2025, 7, 2), dt.date(2026, 9, 18)]
+    unsorted_days = [dt.date(2026, 9, 18), dt.date(2025, 7, 2),
+                     dt.date(2025, 6, 30), dt.date(2025, 7, 1)]
+    for days in (sorted_days, unsorted_days):
+        w = compute_window(as_of=dt.date(2026, 9, 21), trading_days=days,
+                           data_end=dt.date(2026, 9, 18))
+        assert (w.window_id, w.start, w.end) == (
+            "2026Q2", dt.date(2025, 7, 1), dt.date(2026, 9, 18))
+
 def test_compute_window_roll_at_next_quarter():
     days = [dt.date(2025, 10, 1), dt.date(2026, 9, 18)]
     w = compute_window(as_of=dt.date(2026, 10, 1), trading_days=days,
@@ -37,11 +45,19 @@ def test_compute_window_rejects_data_before_start():
                        data_end=dt.date(2025, 12, 31))
     assert e.value.code == "LOCKBOX_EMPTY_DATA"
 
+def test_compute_window_rejects_missing_calendar_day():
+    with pytest.raises(LockboxError) as e:
+        compute_window(as_of=dt.date(2026, 9, 21),
+                       trading_days=[dt.date(2025, 6, 30)],
+                       data_end=dt.date(2026, 9, 18))
+    assert e.value.code == "LOCKBOX_NO_CALENDAR"
+
 def test_role_for_boundaries():
     w = compute_window(as_of=dt.date(2026, 9, 21),
                        trading_days=[dt.date(2025, 7, 1)],
                        data_end=dt.date(2026, 9, 18))
     assert role_for(dt.date(2020, 1, 1), dt.date(2025, 6, 30), w) == "is"
+    assert role_for(dt.date(2020, 1, 1), w.start, w) == "mixed"
     assert role_for(dt.date(2025, 6, 1), dt.date(2025, 7, 2), w) == "mixed"
     assert role_for(dt.date(2025, 7, 1), dt.date(2026, 9, 18), w) == "lockbox"
     assert role_for(dt.date(2025, 7, 2), dt.date(2026, 9, 18), w) == "lockbox"

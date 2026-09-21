@@ -22,7 +22,8 @@ _ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 
 class LockboxError(Exception):
-    """锁箱违规（稳定错误码见模块 docstring 的 Global Constraints）。"""
+    """锁箱违规（稳定错误码见设计文档
+    knowledge/design/platform/specs/2026-09-21-lockbox-discipline-design.md）。"""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(f"{code}: {message}")
@@ -59,9 +60,10 @@ def window_sort_key(window_id: str) -> tuple[int, int]:
 
 def compute_window(*, as_of: dt.date, trading_days: Sequence[dt.date],
                    data_end: dt.date) -> LockboxWindow:
+    """窗口起点 = 首个 ≥ cutoff 的交易日；输入序列无需有序（内部排序）。"""
     quarter_end = quarter_end_before(as_of)
     cutoff = quarter_end.replace(year=quarter_end.year - 1) + dt.timedelta(days=1)
-    start = next((d for d in trading_days if d >= cutoff), None)
+    start = next((d for d in sorted(trading_days) if d >= cutoff), None)
     if start is None:
         raise LockboxError("LOCKBOX_NO_CALENDAR", f"交易日历无 ≥ {cutoff} 的交易日")
     if data_end < start:
