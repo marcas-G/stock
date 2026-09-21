@@ -17,6 +17,7 @@
 - **未初始化（无 state）时：IS 运行照常；碰箱运行报 `LOCKBOX_NO_STATE`**（先 `factorlab lockbox roll`）。
 - 登记 append-only（触发器禁 UPDATE/DELETE，`result_ref` 除外）；错误码：`LOCKBOX_INTENT_REQUIRED`/`LOCKBOX_REASON_REQUIRED`/`LOCKBOX_FINAL_DUPLICATE`/`LOCKBOX_QUOTA_EXCEEDED`/`LOCKBOX_FINAL_REQUIRED`/`LOCKBOX_WINDOW_STALE`/`LOCKBOX_NO_STATE`/`LOCKBOX_ROLL_BACKWARD`。
 - 终评默认配额 M=20/窗口；探索不限额。
+- 窗口日历源：`<DATA_ROOT>/health/ashare_daily/*.json` 的发布日期集合（与服务 `dataset_version` 同源、离线可测）；**不用 CH trade_cal**。
 - 测试不得触碰真实 `$QUANTRESEARCH_ROOT/data/ledger.sqlite`：一律 tmp + `FACTORLAB_LOCKBOX_DB`。
 - 每任务收尾：`cd platform && .venv/bin/python -m pytest -q` 相关文件绿 + `make gates` 绿 + 显式文件清单提交（一次一主题）。
 - 源码文件不写注释以外的新依赖；中文 docstring 风格随库。
@@ -629,7 +630,7 @@ DAYS = [dt.date(2025, 7, 1), dt.date(2026, 9, 18)]
 def test_lockbox_roll_then_status(tmp_path: Path, monkeypatch):
     db = tmp_path / "ledger.sqlite"
     monkeypatch.setenv("FACTORLAB_LOCKBOX_DB", str(db))
-    monkeypatch.setattr(cli_main, "_lockbox_trading_days", lambda: DAYS)
+    monkeypatch.setattr(cli_main, "_lockbox_published_days", lambda: DAYS)
     monkeypatch.setattr(cli_main, "_lockbox_data_end", lambda: dt.date(2026, 9, 18))
     monkeypatch.setattr(cli_main, "_lockbox_today", lambda: dt.date(2026, 9, 21))
     runner = CliRunner()
@@ -663,11 +664,18 @@ lockbox_app = typer.Typer(no_args_is_help=True)
 app.add_typer(lockbox_app, name="lockbox")
 
 
-def _lockbox_trading_days() -> list[dt.date]:
-    from factorlab.adapters.read.calendar import trading_calendar
-    from factorlab.surfaces.cli.helpers import read_handle  # 若无则用 open_read
-    with read_handle() as rd:
-        return [d for d in trading_calendar(rd).to_list()]
+def _lockbox_published_days() -> list[dt.date]:
+    """锁箱日历 = health 已发布日期（与服务 dataset_version 同源；离线可测）。"""
+    from factorlab.core.factio.paths import DATA_ROOT
+    from factorlab.core.lockbox import latest_data_date  # noqa: F401  （文档锚）
+    days: list[dt.date] = []
+    root = Path(DATA_ROOT) / "health" / "ashare_daily"
+    for p in sorted(root.glob("*.json")):
+        try:
+            days.append(dt.date.fromisoformat(p.stem))
+        except ValueError:
+            continue
+    return days
 
 
 def _lockbox_data_end() -> dt.date | None:
@@ -686,7 +694,7 @@ def lockbox_status(json_out: bool = typer.Option(False, "--json")) -> None:
     from factorlab.core import lockbox as lb
     conn = lb.connect(settings.lockbox_db)
     data_end = _lockbox_data_end() or _lockbox_today()
-    doc = lb.status(conn, trading_days=_lockbox_trading_days(), data_end=data_end)
+    doc = lb.status(conn, trading_days=_lockbox_published_days(), data_end=data_end)
     if doc.get("initialized"):
         doc["is_end"] = (dt.date.fromisoformat(doc["window_start"])
                          - dt.timedelta(days=1)).isoformat()
@@ -706,7 +714,7 @@ def lockbox_roll(
     """季度滚动（幂等；拒绝倒退）。"""
     from factorlab.core import lockbox as lb
     as_of_date = dt.date.fromisoformat(as_of) if as_of else _lockbox_today()
-    window = lb.compute_window(as_of=as_of_date, trading_days=_lockbox_trading_days(),
+    window = lb.compute_window(as_of=as_of_date, trading_days=_lockbox_published_days(),
                                data_end=_lockbox_data_end() or as_of_date)
     conn = lb.connect(settings.lockbox_db)
     rolled, changed = lb.roll(conn, window=window, quota_final=quota_final)
@@ -727,318 +735,146 @@ git commit -m "feat(lockbox): lockbox_db 配置与 status/roll CLI（T4）"
 
 ---
 
-### Task 5: run 硬门接线（日频）与产物声明
+### Task 5: run 硬门接线（execute 层统一）与产物声明
 
 **Files:**
 - Modify: `platform/src/factorlab/core/lockbox.py`（`RunGuard` + `guard_run`）
-- Modify: `platform/src/factorlab/app/context.py`（`RunContext` 两个字段）
-- Modify: `platform/src/factorlab/app/run.py`（`_run_factor` 日历解析后；summary 组装处）
-- Modify: `platform/src/factorlab/surfaces/cli/main.py`（`execute_run` 透传两参；顶层 `factorlab run` 两选项）
-- Modify: `platform/src/factorlab/research/factor.py`（`_RUN_PARAMS` 两参数；`factor_run` 透传与错误映射）
-- Test: `platform/tests/test_lockbox_guard.py`（单元）、`platform/tests/test_lockbox_run_cli.py`（CLI 沙箱）
+- Modify: `platform/src/factorlab/app/context.py`（`RunContext.guard`）
+- Modify: `platform/src/factorlab/surfaces/cli/main.py`（`execute_run` 在 `spec = load_spec` 之后 guard；顶层 `run` 两选项；复用 T4 helpers）
+- Modify: `platform/src/factorlab/app/run.py`（summary 组装后 `ctx.guard.attach(summary)`；产物落盘后 `ctx.guard.mark_result(str(run_dir))`）
+- Modify: `platform/src/factorlab/research/factor.py`（`_RUN_PARAMS` 两参数；`factor_run` 透传 + `LockboxError` → 信封映射）
+- Test: `platform/tests/test_lockbox_guard.py`、`platform/tests/test_lockbox_run_cli.py`
 
 **Interfaces:**
 - Consumes: T1-T4。
-- Produces: `RunGuard`（属性 `info: dict`、`attach(summary)`、`mark_result(result_ref)`）；`guard_run(*, panel_start, panel_end, intent, reason, spec_doc, artifact, command, tool, db_path, trading_days, data_end) -> RunGuard`；`RunContext.lockbox_intent/lockbox_reason`；`execute_run(..., lockbox_intent=None, lockbox_reason=None)`；`summary["sample"]`。
+- Produces: `RunGuard(info/attach/mark_result/register_final)`；`guard_run(panel_start, panel_end, intent, reason, spec_doc, artifact, command, tool, db_path, trading_days, data_end)->RunGuard`；`RunContext.guard`；`execute_run(..., lockbox_intent=None, lockbox_reason=None)`；`summary["sample"]`。
 
-- [ ] **Step 1: 写失败测试（单元）**
+- [ ] **Step 1: 写失败测试（单元）**（同前 T5 节：`test_lockbox_guard.py` 四个用例保持原样——`guard_run` 直接调用）
 
-```python
-# platform/tests/test_lockbox_guard.py
-from __future__ import annotations
-import datetime as dt
-from pathlib import Path
-import pytest
-from factorlab.core.lockbox import (LockboxError, connect, guard_run, roll,
-                                    compute_window)
-
-DAYS = [dt.date(2025, 7, 1), dt.date(2026, 9, 18)]
-W = compute_window(as_of=dt.date(2026, 9, 21), trading_days=DAYS,
-                   data_end=dt.date(2026, 9, 18))
-
-def _db(tmp_path: Path) -> Path:
-    db = tmp_path / "ledger.sqlite"
-    conn = connect(db); roll(conn, window=W); conn.close()
-    return db
-
-def _guard(tmp_path, *, start, end, intent=None, reason=None):
-    return guard_run(panel_start=start, panel_end=end, intent=intent, reason=reason,
-                     spec_doc={"name": "x"}, artifact="factor/x.yaml",
-                     command="factor run", tool="factorlab test",
-                     db_path=_db(tmp_path), trading_days=DAYS, data_end=W.end)
-
-def test_is_run_needs_no_intent_no_registration(tmp_path: Path):
-    g = _guard(tmp_path, start=dt.date(2024, 1, 1), end=dt.date(2025, 6, 30))
-    assert g.info == {"role": "is"}
-    conn = connect(_db(tmp_path))
-    assert conn.execute("SELECT COUNT(*) FROM lockbox_access").fetchone()[0] == 0
-
-def test_lockbox_run_requires_intent(tmp_path: Path):
-    with pytest.raises(LockboxError) as e:
-        _guard(tmp_path, start=dt.date(2026, 1, 1), end=dt.date(2026, 9, 18))
-    assert e.value.code == "LOCKBOX_INTENT_REQUIRED"
-
-def test_lockbox_run_requires_reason(tmp_path: Path):
-    with pytest.raises(LockboxError) as e:
-        _guard(tmp_path, start=dt.date(2026, 1, 1), end=dt.date(2026, 9, 18),
-               intent="exploration")
-    assert e.value.code == "LOCKBOX_REASON_REQUIRED"
-
-def test_exploration_registers_and_attaches(tmp_path: Path):
-    g = _guard(tmp_path, start=dt.date(2026, 1, 1), end=dt.date(2026, 9, 18),
-               intent="exploration", reason="摸边界")
-    assert g.info["role"] == "lockbox" and g.info["window_id"] == "2026Q2"
-    summary = {}
-    g.attach(summary)
-    assert summary["sample"]["access_id"] == g.info["access_id"]
-    g.mark_result("/quantresearch/results/platform/x")
-    conn = connect(_db(tmp_path))
-    row = conn.execute("SELECT kind, result_ref FROM lockbox_access"
-                       " WHERE access_id=?", (g.info["access_id"],)).fetchone()
-    assert (row["kind"], row["result_ref"]) == (
-        "exploration", "/quantresearch/results/platform/x")
-
-def test_mixed_role(tmp_path: Path):
-    g = _guard(tmp_path, start=dt.date(2025, 6, 1), end=dt.date(2025, 7, 2),
-               intent="exploration", reason="跨界")
-    assert g.info["role"] == "mixed"
-```
-
-- [ ] **Step 2: 写失败测试（CLI 沙箱）**
+- [ ] **Step 2: 写失败测试（execute 层，无 DB 依赖）**
 
 ```python
 # platform/tests/test_lockbox_run_cli.py
-"""真子进程跑 `factorlab run`（沙箱 QR + duckdb 后端不可用场景 → 仅验证门先于重链）。
-
-用 fake spec 文件 + 假交易日历注入（monkeypatch）不适用子进程；改为在进程内调用
-execute_run 之前先断言拒跑：使用 CliRunner 调 `factorlab run`，错误码出现在 JSON 信封，
-且产物目录未创建。
-"""
 from __future__ import annotations
 import datetime as dt, json
 from pathlib import Path
+import pytest
 from typer.testing import CliRunner
+from factorlab.config import settings
+from factorlab.core.lockbox import LockboxError, connect
 from factorlab.surfaces.cli import main as cli_main
-from factorlab.surfaces.cli.main import app
+from factorlab.surfaces.cli.main import app, execute_run
 
-SPEC = "name: x\nformula: close\ndate:\n  start: '2026-01-05'\n  end: '2026-09-18'\n"
+SPEC = ("name: x\nformula: close\ndate:\n  start: '2026-01-05'\n"
+        "  end: '2026-09-18'\n")
 
-def test_run_refuses_without_intent(tmp_path: Path, monkeypatch):
-    qr = tmp_path / "qr"; (qr / "factor" / "demo").mkdir(parents=True)
-    spec = qr / "factor" / "demo" / "x.yaml"; spec.write_text(SPEC, encoding="utf-8")
-    monkeypatch.setenv("QUANTRESEARCH_ROOT", str(qr))
-    monkeypatch.setenv("FACTORLAB_RESEARCH_ROOT", str(qr))
-    monkeypatch.setenv("FACTORLAB_LOCKBOX_DB", str(tmp_path / "ledger.sqlite"))
-    monkeypatch.setattr(cli_main, "_lockbox_trading_days", lambda: [dt.date(2026, 1, 5)])
+def _sandbox(tmp_path: Path, monkeypatch):
+    qr = tmp_path / "qr"
+    (qr / "factor" / "demo").mkdir(parents=True)
+    spec = qr / "factor" / "demo" / "x.yaml"
+    spec.write_text(SPEC, encoding="utf-8")
+    db = tmp_path / "ledger.sqlite"
+    monkeypatch.setattr(settings, "lockbox_db", db)
+    monkeypatch.setattr(cli_main, "_lockbox_published_days",
+                        lambda: [dt.date(2026, 1, 5), dt.date(2026, 9, 18)])
     monkeypatch.setattr(cli_main, "_lockbox_data_end", lambda: dt.date(2026, 9, 18))
     monkeypatch.setattr(cli_main, "_lockbox_today", lambda: dt.date(2026, 9, 21))
-    CliRunner().invoke(app, ["lockbox", "roll"])           # 初始化状态
-    runner = CliRunner()
-    r = runner.invoke(app, ["run", str(spec), "--json"])
-    assert r.exit_code != 0
-    assert "LOCKBOX_INTENT_REQUIRED" in r.output
-    assert not list((qr / "results").glob("**/x"))  # 拒跑先于产物
+    CliRunner().invoke(app, ["lockbox", "roll"])   # 初始化状态
+    return spec, db
+
+def test_execute_refuses_without_intent(tmp_path: Path, monkeypatch):
+    spec, db = _sandbox(tmp_path, monkeypatch)
+    with pytest.raises(LockboxError) as e:
+        execute_run(spec, backtest=False)
+    assert e.value.code == "LOCKBOX_INTENT_REQUIRED"
+    assert connect(db).execute(
+        "SELECT COUNT(*) FROM lockbox_access").fetchone()[0] == 0
+
+def test_execute_refuses_without_reason(tmp_path: Path, monkeypatch):
+    spec, _ = _sandbox(tmp_path, monkeypatch)
+    with pytest.raises(LockboxError) as e:
+        execute_run(spec, backtest=False, lockbox_intent="exploration")
+    assert e.value.code == "LOCKBOX_REASON_REQUIRED"
+
+def test_execute_registers_exploration_before_heavy_chain(tmp_path: Path, monkeypatch):
+    spec, db = _sandbox(tmp_path, monkeypatch)
+    with pytest.raises(Exception):   # 无库 → 后续链路必败；关键看登记已落
+        execute_run(spec, backtest=False, lockbox_intent="exploration",
+                    lockbox_reason="单元验证")
+    row = connect(db).execute(
+        "SELECT kind, window_id FROM lockbox_access").fetchone()
+    assert (row["kind"], row["window_id"]) == ("exploration", "2026Q2")
 ```
 
-- [ ] **Step 3: 见红** — `cd platform && .venv/bin/python -m pytest tests/test_lockbox_guard.py tests/test_lockbox_run_cli.py -q` → `ImportError: guard_run`
+- [ ] **Step 3: 见红** — `cd platform && .venv/bin/python -m pytest tests/test_lockbox_guard.py tests/test_lockbox_run_cli.py -q` → `ImportError: guard_run` / `TypeError: execute_run() got unexpected keyword`
 
 - [ ] **Step 4: 实现**
 
-`core/lockbox.py` 追加：
-
-```python
-class RunGuard:
-    """一次评估的锁箱守卫结果：IS=空登记；碰箱=自动登记 + 可回填 result_ref。"""
-
-    def __init__(self, info: dict[str, Any], *, db_path: Path | None = None) -> None:
-        self.info = info
-        self._db_path = db_path
-
-    @property
-    def access_id(self) -> str | None:
-        return self.info.get("access_id")
-
-    def attach(self, summary: dict[str, Any]) -> None:
-        summary["sample"] = dict(self.info)
-
-    def mark_result(self, result_ref: str) -> None:
-        if self.access_id is None or self._db_path is None:
-            return
-        conn = connect(self._db_path)
-        try:
-            update_result_ref(conn, self.access_id, result_ref)
-        finally:
-            conn.close()
-
-    def register_final(self, *, reason: str, spec_doc: Mapping[str, Any],
-                       artifact: str, params: Mapping[str, Any],
-                       command: str, tool: str,
-                       window: LockboxWindow) -> str:
-        """admit/ref add 在无既有终评时为候选补终评登记（走同一配额/唯一性）。"""
-        assert self._db_path is not None
-        fp = candidate_fingerprint(
-            artifact_sha256=spec_fingerprint(spec_doc), params=params,
-            window_id=window.window_id, kind="final")
-        conn = connect(self._db_path)
-        try:
-            return register_access(conn, kind="final", fingerprint=fp,
-                                   artifact=artifact, params=params,
-                                   command=command, reason=reason, window=window,
-                                   tool=tool)
-        finally:
-            conn.close()
-
-
-def guard_run(*, panel_start: dt.date, panel_end: dt.date,
-              intent: str | None, reason: str | None,
-              spec_doc: Mapping[str, Any], artifact: str, command: str, tool: str,
-              db_path: Path, trading_days: Sequence[dt.date],
-              data_end: dt.date) -> RunGuard:
-    conn = connect(db_path)
-    try:
-        try:
-            window = current_window(conn, as_of=dt.date.today(),
-                                    trading_days=trading_days, data_end=data_end)
-        except LockboxError as exc:
-            if exc.code == "LOCKBOX_NO_STATE":
-                # 未初始化：仅 IS 放行
-                window = compute_window(as_of=dt.date.today(),
-                                        trading_days=trading_days, data_end=data_end)
-            else:
-                raise
-        role = role_for(panel_start, panel_end, window)
-        if role == "is":
-            return RunGuard({"role": "is"})
-        if intent is None:
-            raise LockboxError(
-                "LOCKBOX_INTENT_REQUIRED",
-                f"评估窗口 [{panel_start}~{panel_end}] 与锁箱（{window.window_id}，"
-                f"起点 {window.start}）相交：加 `--lockbox exploration|final` 与"
-                " `--lockbox-reason <理由>`")
-        if intent not in ACCESS_KINDS:
-            raise ValueError(f"--lockbox 取值 {intent!r}；可选 {ACCESS_KINDS}")
-        if not (reason or "").strip():
-            raise LockboxError("LOCKBOX_REASON_REQUIRED", "锁箱访问必须给出非空理由")
-        fp = candidate_fingerprint(artifact_sha256=spec_fingerprint(spec_doc),
-                                   params={"intent": intent}, window_id=window.window_id,
-                                   kind=intent)
-        access_id = register_access(conn, kind=intent, fingerprint=fp,
-                                    artifact=artifact, params={"intent": intent},
-                                    command=command, reason=reason, window=window,
-                                    tool=tool)
-        info = {"role": role, "window_id": window.window_id,
-                "window_start": window.start.isoformat(),
-                "window_end": window.end.isoformat(), "access_id": access_id}
-        return RunGuard(info, db_path=db_path)
-    finally:
-        conn.close()
-```
-
-> 说明：run 阶段登记的指纹以 spec 内容 + intent 为候选键（最终入库指纹由 admit/ref 再算，见 T7；两处都用 `spec_fingerprint`，保持一致）。
+`core/lockbox.py` 追加 `RunGuard`/`guard_run`（代码同本计划上一版：`connect`/`current_window`（NO_STATE 时退回 `compute_window`）/`role_for`/`register_access`；`RunGuard.register_final` 保留给 T7）。
 
 `app/context.py`：
 
 ```python
-    lockbox_intent: str | None = None   # R40：exploration|final（窗口含锁箱时必需）
-    lockbox_reason: str | None = None
+    guard: Any = None   # R40：execute 层锁箱守卫（RunGuard；None=未启用）
 ```
 
-`app/run.py`：`_run_factor` 在 `cal = cal.filter(cal <= today)` 之后、首个重读之前插入：
+`surfaces/cli/main.py::execute_run`：在 `spec = load_spec(spec_path)` + `--set` 覆盖与 `variant` 计算之后、`profiler`/`ctx` 创建之前插入：
 
 ```python
-        from factorlab.core import lockbox as _lb
-        from factorlab.core.factio.paths import DATA_ROOT as _DATA_ROOT
-        _data_end = _lb.latest_data_date(Path(_DATA_ROOT) / "health") or today
-        _guard = _lb.guard_run(
-            panel_start=cal.min(), panel_end=cal.max(),
-            intent=ctx.lockbox_intent, reason=ctx.lockbox_reason,
-            spec_doc=spec.model_dump(mode="json"), artifact=str(spec_path),
-            command="factor run", tool=f"factorlab {__version__}",
-            db_path=settings.lockbox_db,
-            trading_days=list(trading_calendar(rd).to_list()), data_end=_data_end)
+    from factorlab.core import lockbox as _lb
+    _days = _lockbox_published_days()
+    _data_end = _lockbox_data_end() or dt.date.today()
+    _start = (dt.date.fromisoformat(spec.date.start) if spec.date.start
+              else (min(_days) if _days else dt.date(1970, 1, 1)))
+    _end = (dt.date.fromisoformat(spec.date.end) if spec.date.end
+            else _data_end)
+    guard = _lb.guard_run(
+        panel_start=min(_start, _end), panel_end=max(_start, _end),
+        intent=lockbox_intent, reason=lockbox_reason,
+        spec_doc=spec.model_dump(mode="json"), artifact=str(spec_path),
+        command="factor run", tool=f"factorlab {__version__}",
+        db_path=settings.lockbox_db, trading_days=_days, data_end=_data_end)
 ```
 
-> `spec_path` 在当前作用域不可得时用 `ctx` 中已记录的 spec 来源；实现时以最近可用变量为准（`_run_factor` 无 spec 路径入参 → 在 `RunContext` 增 `spec_path: Path | None`，由 `execute_run` 注入；这是本任务唯一需新增的 ctx 字段，加一并在 T5 测试覆盖）。
+（`execute_run` 签名增 `lockbox_intent: str | None = None, lockbox_reason: str | None = None`；`ctx = RunContext(..., guard=guard)`。）
 
-在 summary 组装处（`run.py:639-669` 附近）追加：
+`app/run.py`：`_run_factor` 的 summary 组装处加 `if getattr(ctx, "guard", None) is not None: ctx.guard.attach(summary)`；`run_dir` 确定后 `ctx.guard.mark_result(str(run_dir))`。分钟链同函数级处理在 T6。
 
-```python
-        _guard.attach(summary)
-```
-
-在产物落盘、`run_dir` 确定后追加：
-
-```python
-        _guard.mark_result(str(run_dir))
-```
-
-`surfaces/cli/main.py`：`execute_run(..., lockbox_intent=None, lockbox_reason=None)` 设入 ctx；顶层 `@app.command("run")` 增加：
-
-```python
-    lockbox: str | None = typer.Option(None, "--lockbox",
-                                       help="锁箱意图 exploration|final（窗口含锁箱时必需）"),
-    lockbox_reason: str | None = typer.Option(None, "--lockbox-reason",
-                                              help="锁箱访问理由（非空）"),
-```
-
-`research/factor.py`：`_RUN_PARAMS` 增两个 `registry.ParamSpec`（`lockbox`/`lockbox_reason`），`defaults` 里 `"lockbox": None, "lockbox_reason": None`；`factor_run` 内 `execute_run(..., lockbox_intent=getattr(args,"lockbox",None), lockbox_reason=getattr(args,"lockbox_reason",None))`；并包 `try/except LockboxError as exc: return envelope.fail("factor.run", exc.code, exc.message, hint="`flab lockbox status` 看窗口与配额")`。
+顶层 `@app.command("run")` 与 `research/factor.py::_RUN_PARAMS` 加两参数（代码同前版；`factor_run` 捕获 `LockboxError` 转 `envelope.fail("factor.run", exc.code, exc.message, hint="`flab lockbox status`")`）。
 
 - [ ] **Step 5: 跑绿（含平台全量）**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_lockbox_guard.py tests/test_lockbox_run_cli.py -q && .venv/bin/python -m pytest -q`
-Expected: 全绿（现有测试因 IS 放行/未初始化行为不受影响）
+Expected: 全绿（无 state 时 IS 放行，不影响既有测试）
 
 - [ ] **Step 6: 提交**
 
 ```bash
-git add platform/src/factorlab/core/lockbox.py platform/src/factorlab/app/context.py platform/src/factorlab/app/run.py platform/src/factorlab/surfaces/cli/main.py platform/src/factorlab/research/factor.py platform/tests/test_lockbox_guard.py platform/tests/test_lockbox_run_cli.py
-git commit -m "feat(lockbox): 日频 run 硬门/自动登记/summary.sample（T5）"
+git add platform/src/factorlab/core/lockbox.py platform/src/factorlab/app/context.py platform/src/factorlab/surfaces/cli/main.py platform/src/factorlab/app/run.py platform/src/factorlab/research/factor.py platform/tests/test_lockbox_guard.py platform/tests/test_lockbox_run_cli.py
+git commit -m "feat(lockbox): execute 层硬门/自动登记/summary.sample（T5）"
 ```
 
 ---
 
-### Task 6: 分钟链接线
+### Task 6: 分钟链与其余 run 路径的守卫挂接
 
 **Files:**
-- Modify: `platform/src/factorlab/app/run.py:785`（`run_factor_minute` 日历解析后；产物落盘后）
+- Modify: `platform/src/factorlab/app/run.py`（`run_factor_minute` 的 summary 与产物处）
 - Test: `platform/tests/test_lockbox_minute.py`
 
 **Interfaces:**
-- Consumes: T5（`RunGuard`/`guard_run`/ctx 字段）。
-- Produces: 分钟 run 同样强制与登记（spec 已要求显式窗口）。
+- Consumes: T5（guard 在 `execute_run` 已按 spec 窗口统一执行，日频/分钟同门）。
+- Produces: 分钟链同样落 `summary["sample"]` 与 `result_ref` 回填。
 
-- [ ] **Step 1: 写失败测试**
-
-```python
-# platform/tests/test_lockbox_minute.py
-"""分钟链：窗口含锁箱且无 intent → LOCKBOX_INTENT_REQUIRED（在打开 bars 前）。"""
-from __future__ import annotations
-import datetime as dt
-from pathlib import Path
-import pytest
-from factorlab.core.lockbox import LockboxError, connect, roll, compute_window
-# 复用 T5 的 guard 断言路径：直接调 guard_run（分钟入口内部使用同一函数），
-# 另以 monkeypatch 验证 run_factor_minute 在日历后调用 guard_run。
-```
-
-> 实现说明：分钟链无法在单测里真读 bars_1m；断言策略=**在 `run_factor_minute` 的日历解析后插桩**：
-> （a）monkeypatch `factorlab.core.lockbox.guard_run` 记录被调参数并返回 `RunGuard({"role":"is"})`，
-> 断言 `panel_start/panel_end` 等于 spec 解析出的分钟窗口；
-> （b）`summary["sample"]` 出现在返回 summary；（c）无 state + 窗口碰箱 → 拒于 guard。
-
-- [ ] **Step 2: 见红** — `cd platform && .venv/bin/python -m pytest tests/test_lockbox_minute.py -q` → guard 未被调用/字段缺失
-
-- [ ] **Step 3: 实现**
-
-在 `run_factor_minute` 分钟日历解析后插入与 T5 相同块的调用（`command="factor run (minute)"`），summary/result_ref 同样挂接。
-
-- [ ] **Step 4: 跑绿** — `cd platform && .venv/bin/python -m pytest tests/test_lockbox_minute.py -q && .venv/bin/python -m pytest tests/test_run_minute*.py -q`（若文件名不同以实际为准）
-
+- [ ] **Step 1: 失败测试**：monkeypatch `factorlab.core.lockbox.guard_run` 记录入参，调 `execute_run`（spec 为 `interface: bars_1m`，窗口已知），断言 `panel_start/end` 与 spec.date 一致、`ctx.guard` 非空。
+- [ ] **Step 2: 见红**
+- [ ] **Step 3: 实现**：`run_factor_minute` 与 `_run_factor` 相同两处挂接（attach/mark_result）。
+- [ ] **Step 4: 跑绿**：`cd platform && .venv/bin/python -m pytest tests/test_lockbox_minute.py -q && .venv/bin/python -m pytest -q`
 - [ ] **Step 5: 提交**
 
 ```bash
 git add platform/src/factorlab/app/run.py platform/tests/test_lockbox_minute.py
-git commit -m "feat(lockbox): 分钟链 run 同门（T6）"
+git commit -m "feat(lockbox): 分钟链守卫挂接（T6）"
 ```
 
 ---
@@ -1112,8 +948,8 @@ git commit -m "feat(lockbox): admit/ref add 终评校验（T7）"
 - Test: `platform/tests/test_lockbox_compose_strategy.py`
 
 **Interfaces:**
-- Consumes: T5。
-- Produces: compose/strategy 同样 `--lockbox/--lockbox-reason`；有效窗口=composite 成员 spec 窗口交集 / strategy `doc.date`。
+- Consumes: T5（`guard_run`/`RunGuard`）与 T4 helpers（`_lockbox_published_days/_lockbox_data_end`）。
+- Produces: compose/strategy 同样 `--lockbox/--lockbox-reason`；有效窗口=composite 成员 spec 窗口交集 / strategy `doc.date`；在各自 execute 入口（compose 在 `surfaces/cli/main.py:477` 主体、strategy 在 `app/strategy/run.py`）调用 guard。
 
 - [ ] **Step 1: 失败测试**（成员交集与 doc.date 的角色判定；无 intent 拒、`is` 放行）
 - [ ] **Step 2: 见红**
