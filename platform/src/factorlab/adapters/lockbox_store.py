@@ -331,6 +331,10 @@ def guard_run(*, panel_start: dt.date, panel_end: dt.date,
     不登记）；启用时日历为空/最新数据早于窗口起点由 compute_window 响亮失败
     （LOCKBOX_NO_CALENDAR / LOCKBOX_EMPTY_DATA）。未初始化（无 state）：
     IS 照常放行；碰箱 → LOCKBOX_NO_STATE（先 `factorlab lockbox roll`）。
+
+    final 幂等（T7）：同 `(window_id, fingerprint)` 已有终评 → 复用 access_id，
+    不要求本次 reason、不重复登记；并发竞态（check-then-act 间隙被先到者登记）
+    捕获 DUPLICATE 后回查复用。登记层 `register_access` 语义不变。
     """
     if (os.environ.get("FACTORLAB_LOCKBOX", "1").strip().lower()
             in ("0", "off", "false")):
@@ -363,21 +367,30 @@ def guard_run(*, panel_start: dt.date, panel_end: dt.date,
                 " `--lockbox-reason <理由>`")
         if intent not in ACCESS_KINDS:
             raise ValueError(f"--lockbox 取值 {intent!r}；可选 {ACCESS_KINDS}")
-        if not (reason or "").strip():
-            raise LockboxError("LOCKBOX_REASON_REQUIRED", "锁箱访问必须给出非空理由")
         fp = candidate_fingerprint(artifact_sha256=spec_fingerprint(spec_doc),
                                    params={"intent": intent},
                                    window_id=window.window_id, kind=intent)
-        # T7 幂等：final 已有同 fp 登记 → 复用 access_id（admit/ref add 补终评后
-        # 内部重跑同一候选不得 DUPLICATE）；首次登记仍由 register_access 严把
-        # 唯一性/配额（探索不受影响）。
+        # T7 幂等（修复轮1）：final 先查复用——已有同 fp 登记直接放行，不再要求本次
+        # reason（admit/ref add 补终评后无 reason 重跑同一候选）；仅缺登记时校验
+        # reason 并登记。探索路径不变（reason 必填）。
         access_id = (_final_access_id(conn, window.window_id, fp)
                      if intent == "final" else None)
         if access_id is None:
-            access_id = register_access(conn, kind=intent, fingerprint=fp,
-                                        artifact=artifact, params={"intent": intent},
-                                        command=command, reason=reason, window=window,
-                                        tool=tool)
+            if not (reason or "").strip():
+                raise LockboxError("LOCKBOX_REASON_REQUIRED", "锁箱访问必须给出非空理由")
+            try:
+                access_id = register_access(
+                    conn, kind=intent, fingerprint=fp, artifact=artifact,
+                    params={"intent": intent}, command=command, reason=reason,
+                    window=window, tool=tool)
+            except LockboxError as exc:
+                # 并发竞态（check-then-act 间隙被先到者登记）：final DUPLICATE →
+                # 回查复用；登记层语义保持严格（本回退只发生在 guard 内部）。
+                if intent != "final" or exc.code != "LOCKBOX_FINAL_DUPLICATE":
+                    raise
+                access_id = _final_access_id(conn, window.window_id, fp)
+                if access_id is None:
+                    raise
         info = {"role": role, "window_id": window.window_id,
                 "window_start": window.start.isoformat(),
                 "window_end": window.end.isoformat(), "access_id": access_id}

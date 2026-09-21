@@ -109,6 +109,39 @@ def test_final_intent_reuses_existing_access_id(tmp_path: Path):
     assert _count(_db(tmp_path)) == 1
 
 
+def test_final_intent_reuse_needs_no_reason(tmp_path: Path):
+    """已有终评 + 本次无 reason：复用放行（reason 校验只针对首次登记）。"""
+    first = _guard(tmp_path, start=W.start, end=W.end,
+                   intent="final", reason="首轮终评")
+    again = _guard(tmp_path, start=W.start, end=W.end,
+                   intent="final", reason=None)
+    assert again.info["access_id"] == first.info["access_id"]
+    assert _count(_db(tmp_path)) == 1
+
+
+def test_final_duplicate_race_falls_back_to_reuse(tmp_path: Path, monkeypatch):
+    """check-then-act 竞态：首查未命中而登记时已被先到者占用 → 回查复用不抛。"""
+    from factorlab.adapters import lockbox_store as store
+
+    first = _guard(tmp_path, start=W.start, end=W.end,
+                   intent="final", reason="先到")
+    real = store._final_access_id
+    calls = {"n": 0}
+
+    def flaky(conn, window_id, fingerprint):
+        calls["n"] += 1
+        if calls["n"] == 1:       # 模拟 guard 首查未命中
+            return None
+        return real(conn, window_id, fingerprint)
+
+    monkeypatch.setattr(store, "_final_access_id", flaky)
+    second = _guard(tmp_path, start=W.start, end=W.end,
+                    intent="final", reason="后到")
+    assert calls["n"] >= 3        # 首查 → register 内查（DUPLICATE）→ 回查复用
+    assert second.info["access_id"] == first.info["access_id"]
+    assert _count(_db(tmp_path)) == 1
+
+
 def test_mixed_role(tmp_path: Path):
     g = _guard(tmp_path, start=W.start - dt.timedelta(days=30),
                end=W.start + dt.timedelta(days=2),

@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import datetime as dt
 import json
 from pathlib import Path
 
@@ -151,6 +152,45 @@ def test_admit_second_call_reuses_same_access_id(tmp_path, monkeypatch):
     assert second[0]["access_id"] == first[0]["access_id"]
 
 
+def test_admit_existing_final_without_reason_reuses_and_proceeds(tmp_path, monkeypatch):
+    """已有终评 + 二次 admit 不带 reason + 缺产物（内链重跑）→ 复用放行不索要理由。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    _invoke("factor", "admit", str(spec), "--lockbox-reason", "首轮终评")
+    first = _rows(db)
+    assert len(first) == 1
+    result = _invoke("factor", "admit", str(spec))
+    doc = _doc(result)
+    assert doc["ok"] is False
+    assert not str(doc["error"]["code"]).startswith("LOCKBOX_")
+    rows = _rows(db)
+    assert len(rows) == 1
+    assert rows[0]["access_id"] == first[0]["access_id"]
+
+
+def test_admit_is_window_passes_without_final(tmp_path, monkeypatch):
+    """门层 IS：整段早于 window.start → 无 final 无 reason 照常进入重链，零登记。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    is_spec = spec.parent / "iscand.yaml"
+    is_spec.write_text(_SPEC.format(
+        name="iscand", start=(W.start - dt.timedelta(days=400)).isoformat(),
+        end=(W.start - dt.timedelta(days=1)).isoformat()), encoding="utf-8")
+    result = _invoke("factor", "admit", str(is_spec))
+    doc = _doc(result)
+    assert doc["ok"] is False
+    assert not str(doc["error"]["code"]).startswith("LOCKBOX_")
+    assert _count(db) == 0
+
+
+def test_admit_locked_without_state_is_no_state(tmp_path, monkeypatch):
+    """碰箱 + 未初始化（无 state）→ LOCKBOX_NO_STATE（不是 FINAL_REQUIRED）。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    db.unlink()
+    result = _invoke("factor", "admit", str(spec))
+    doc = _doc(result)
+    assert doc["error"]["code"] == "LOCKBOX_NO_STATE"
+    assert _count(db) == 0
+
+
 # ================================================================
 # ref add：spec 存在（spec 指纹）/ 缺失（ref:<name> 回退指纹）两径
 # ================================================================
@@ -225,6 +265,21 @@ def test_ref_add_missing_spec_with_reason_registers_ref_fingerprint(tmp_path, mo
     assert row["fingerprint"] == _expected_fp(
         {"ref_name": "ghost_factor", "scales": "daily"})
     assert "ghost_factor" in ref.read_text(encoding="utf-8")
+
+
+def test_ref_add_is_window_passes_without_final(tmp_path, monkeypatch):
+    """门层 IS：ref add 整段早于 window.start → 无 final 无 reason 直接入库，零登记。"""
+    spec, db, ref = _sandbox(tmp_path, monkeypatch)
+    is_spec = spec.parent / "iscand.yaml"
+    is_spec.write_text(_SPEC.format(
+        name="iscand", start=(W.start - dt.timedelta(days=400)).isoformat(),
+        end=(W.start - dt.timedelta(days=1)).isoformat()), encoding="utf-8")
+    result = _invoke("factor", "ref", "add", "iscand",
+                     "--style", "量价", "--reason", "入选")
+    doc = _doc(result)
+    assert doc["ok"] is True, doc
+    assert _count(db) == 0
+    assert "iscand" in ref.read_text(encoding="utf-8")
 
 
 # ================================================================
