@@ -7,6 +7,18 @@
 > 重命令 `factor run` / `strategy run` / `study run` 自动过 heavy 闸（2 槽 + 8GB 内存预检 +
 > 线程/nice 注入）：闸满 → `BUSY`（加 `--wait` 阻塞），内存不足 → `MEMORY_GUARD`。
 
+## 生产执行入口（R39：正式作业走挖矿服务）
+
+- **正式/入库结论性作业**一律提交**挖矿服务**（冻结镜像 + 资源限额 + 审计记录；
+  systemd `factorlab-svc`，`127.0.0.1:8787`）：客户端
+  `$QUANTRESEARCH_ROOT/lab/platform_client.py`（纯 stdlib）
+  `PlatformClient().submit_and_wait("factor_run", spec="factor/<族>/<名>.yaml")`；
+  产物落 `$QUANTRESEARCH_ROOT/results/platform/<名>/`（属主 1010），
+  job 记录含 `dataset_version`（claim 当刻冻结）。
+- 本手册的 `flab ...` 命令用于 **dev 调试/查询/lint**；内核/口径与服务工作业一致。
+- 运维方法：`pause()/resume()/jobs()/cancel(id)/log(id)/result(id)`；接口契约见
+  `knowledge/contracts/interface.md` §9。
+
 ## 10 条常用
 
 1. `flab health` —— 连通/内存/磁盘/闸槽/新鲜度一览；任何异常先看它。

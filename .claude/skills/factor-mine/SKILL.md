@@ -110,15 +110,22 @@ general-purpose subagent，输入：变异点记录 + `$QR/factor/<族>/<name>.y
 
 ### 7. 运行
 
-```bash
-FACTORLAB_DATA_BACKEND=ch $FLAB run $QR/factor/<族>/<name>.yaml
-# 报 "exclude_st 需要 stock_st 表" 时：CH 无 stock_st（挖矿口径，见
-# knowledge/contracts/interface.md §4.2）——加 FACTORLAB_ST_DEGRADE=allow 显式降级重跑：
-# FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow $FLAB run $QR/factor/<族>/<name>.yaml
+**正式作业走挖矿服务（R39：冻结镜像 + 资源限额 + 审计记录）；宿主 `flab run` 仅 dev 调试。**
+
+```python
+# 研究脚本内（python；客户端在 $QR/lab/platform_client.py，纯 stdlib）
+import sys; sys.path.insert(0, f"{QR}/lab")
+from platform_client import PlatformClient
+c = PlatformClient()                       # 默认 http://127.0.0.1:8787
+out = c.submit_and_wait("factor_run", spec="factor/<族>/<name>.yaml",
+                        output_dir="results/platform/<name>")   # 相对=研究产物区根；可选
+out["job"]["status"], out["job"]["dataset_version"], out["result"]["data"]
 ```
 
-- 失败：读报错修复重跑（DSL 错误、内存限制、空面板等）。
-- 成功：记录 `runs/platform/<name>/summary.json` 关键指标（`st_degrade: true` = 本次为无 ST 口径）。
+- 失败：`c.log(job_id)` 看日志修复后重交；`c.cancel(id)` / `c.pause()` / `c.resume()` 运维。
+- 产物：`$QR/results/platform/<name>/`（属主 1010）；job 记录带 `dataset_version`。
+- 服务未起/应急时可回退宿主直跑（仅 dev，结论不作数）：
+  `FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow $FLAB run $QR/factor/<族>/<name>.yaml`。
 
 ### 8. 入库
 

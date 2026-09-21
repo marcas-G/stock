@@ -3488,3 +3488,71 @@ git 历史；使用指南存档 `teajoin-guide.md`）。duckdb 后端仅保留�
 - `factorlab.adapters.read.adjust`：`view_prices`（raw/qfq/hfq/pit_qfq 价格视图）、
   `total_return`（HFQ 含分红再投资收益）、审计三查（`lookahead_check` /
   `scale_invariance_check` / `adjustment_sensitivity_check`）。
+
+## 9. 挖矿服务（生产执行入口；R39，2026-09-21）
+
+**定位**：正式/生产作业跑在**按 git ref 冻结的镜像** + 常驻作业服务内（SQLite 队列 /
+FastAPI `127.0.0.1:8787`），与开发双向不干扰（开发改工作区/宿主 venv 不影响作业结果；
+挖矿限额下 dev 基准劣化 ≤20%）。研究侧统一经客户端提交；宿主 `flab`/`factorlab` 直跑仅
+dev/应急。设计与验收：`knowledge/design/platform/specs/2026-09-21-factorlab-service-design.md`、
+`governance/evidence/verification/R39/`。
+
+### 部署与运维
+
+- 构建：`make svc-image REF=<sha|HEAD> [STABLE=1]`（`git archive` → `factorlab-svc:<sha>`，
+  同时更新 `<results>/.service/image.json`）。
+- 安装/启停：`governance/ops/install_svc.sh {install|status|uninstall}`（systemd user
+  `factorlab-svc.service`，Restart=always + linger = 开机自启）。
+- 容器（`governance/ops/service/run-service.sh`）：`--network host --user 1010:1010
+  --cpus=8 --memory=16g --pids-limit=256 --memory-swappiness=0`；挂载
+  `results`/`factor`/`experiments`（rw）、`composites`/`strategy`/`dossiers`/`index`/`lab`（ro）、
+  专属缓存 `<results>/.service/cache`、`data/health`（ro）；不挂源码。
+- **OOM 语义（部署修正）**：本机 cgroup v1 swap 不计限额，须 `--memory-swappiness=0`
+  才能得到「限额触顶 → 内核 OOM 杀失控进程」语义（否则换页抖动、API 卡死；R39 实测）。
+- 版本可证：`/version` → `image_ref/git_sha/uv_lock_hash/built_at`（构建时注入）。
+
+### API
+
+鉴权：token 文件（`~/.config/factorlab/service_token`）存在 → 需 `Authorization: Bearer`；
+不存在 → 仅本机可用。错误信封 `{"error": {code, message}}`（404/409/422/429/401）。
+
+| 端点 | 语义 |
+|---|---|
+| `POST /jobs` | 提交作业（校验白名单；返回 202 + `job_id`） |
+| `GET /jobs` | 列表（`status`/`type`/`limit` 过滤，倒序） |
+| `GET /jobs/{id}` | 详情（含 `dataset_version`、`image_ref`、时间戳） |
+| `GET /jobs/{id}/log?tail=N` | 日志尾部（text/plain） |
+| `GET /jobs/{id}/result` | CLI JSON 信封 + `service` 段（image/git/dataset_version） |
+| `POST /jobs/{id}/cancel` | 取消（queued 立即；running → SIGTERM→10s→SIGKILL） |
+| `POST /queue/pause` / `POST /queue/resume` | 停/启出队（running 不受影响） |
+| `GET /health` / `GET /version` | 存活（busy/queue_depth/sqlite）与版本 |
+
+作业类型与参数白名单（冻结）：`factor_run`（spec/set/universe/output_dir/profile）、
+`compose`（spec）、`strategy_run`（doc/signal/accept_quality/override_reason）、
+`factor_admit`（spec/scales/wait）。路径经 resolve 后必须落在研究产物区白名单根内；
+`FAIL` 质量 opt-in 需 `override_reason`；逃逸/非白名单/非法参数 → 422 不排队。
+
+### 客户端（研究侧推荐入口）
+
+`$QUANTRESEARCH_ROOT/lab/platform_client.py`（纯 stdlib）：
+`health/version/submit/get/jobs/wait/log/result/cancel/pause/resume/submit_and_wait`；
+`submit_and_wait(type, **params)` = submit → wait →（成功时）result，返回
+`{job_id, job, result}`。`spec`/`output_dir` 传**相对研究产物区根**的路径（容器内根
+`/quantresearch`）；`output_dir` 必须在 `<root>/results/` 下。冒烟脚本
+`$QUANTRESEARCH_ROOT/scratch/20260921_service_smoke.py --spec factor/<族>/<名>.yaml`。
+
+### 状态与记录
+
+- 状态机：`queued → running → {succeeded|failed|cancelled}`；服务重启时 running →
+  `interrupted`（**不自动重跑**）；`pause` 后不出队。
+- `dataset_version`：claim 当刻从 health 最新分区冻结入记录（`/jobs/{id}`、`/result.service`、
+  SQLite 三处一致）。
+- CH 账号（L2）：服务以只读账号 `svc` 连 CH（`readonly=2`、`max_threads=8`、8GB 内存、
+  600 查询/时；凭据 `~/.config/factorlab/service.env`，0600 不入 git）；`INSERT/DDL` 被拒。
+  配置方式：`users.xml` + `SYSTEM RELOAD USERS`（本机无 SQL RBAC 存储）。
+- 磁盘预检：`run-service.sh` 启动时检查产物区余量（`FACTORLAB_SVC_DISK_MIN_GB`，缺省 20GB）。
+
+### 已知限制（L3 建议）
+
+作业与服务同容器：失控**非平台子进程**可能短暂拖慢 API（平台 8GB 作业守卫为一线防线）；
+彻底隔离需作业独立容器/子 cgroup（L3）。

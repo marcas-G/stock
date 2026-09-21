@@ -87,8 +87,9 @@ structure() {
               -e "research/tools/extract_sz_cancels/" -e "research/tools/_env" -e "research/tools/lib/")
         # 裸 results/：单条 PCRE（GNU grep 3.1 的 -P 只收单模式，不能与多 -e 混用；
         # git grep 不受此限，统一拆成两路）；后随具体名字，负向后顾排除 platform/results、
-        # runs/results、test_results。
-        pcre='(?<![\w/])results/[A-Za-z0-9_]'
+        # runs/results、test_results；负向前瞻放行规范根 results/platform/（R37/R39：
+        # settings.results_dir 与服务相对 output_dir 的官方前缀，非旧路径）。
+        pcre='(?<![\w/])results/(?!platform/)[A-Za-z0-9_]'
         scope=(. ':!governance/evidence' ':!knowledge/design' ':!platform/docs' ':!research/docs' ':!platform/tools/lob_fact/notes' ':!research/tools/lob_fact/notes') ;;
     esac
     { if [ -n "$pcre" ]; then git grep -nIP "${pats[@]}" -e "$pcre" -- "${scope[@]}" 2>/dev/null
