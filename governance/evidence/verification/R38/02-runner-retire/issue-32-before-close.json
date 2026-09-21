@@ -1,0 +1,99 @@
+{
+  "url": "https://api.github.com/repos/marcas-G/stock/issues/32",
+  "repository_url": "https://api.github.com/repos/marcas-G/stock",
+  "labels_url": "https://api.github.com/repos/marcas-G/stock/issues/32/labels{/name}",
+  "comments_url": "https://api.github.com/repos/marcas-G/stock/issues/32/comments",
+  "events_url": "https://api.github.com/repos/marcas-G/stock/issues/32/events",
+  "html_url": "https://github.com/marcas-G/stock/issues/32",
+  "id": 5522367109,
+  "node_id": "I_kwDOT5NBFM8AAAABSSiihQ",
+  "number": 32,
+  "title": "[nightly] deep verify 失败 2026-09-21",
+  "user": {
+    "login": "marcas-G",
+    "id": 81010100,
+    "node_id": "MDQ6VXNlcjgxMDEwMTAw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/81010100?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/marcas-G",
+    "html_url": "https://github.com/marcas-G",
+    "followers_url": "https://api.github.com/users/marcas-G/followers",
+    "following_url": "https://api.github.com/users/marcas-G/following{/other_user}",
+    "gists_url": "https://api.github.com/users/marcas-G/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/marcas-G/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/marcas-G/subscriptions",
+    "organizations_url": "https://api.github.com/users/marcas-G/orgs",
+    "repos_url": "https://api.github.com/users/marcas-G/repos",
+    "events_url": "https://api.github.com/users/marcas-G/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/marcas-G/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+  },
+  "labels": [
+    {
+      "id": 12263956414,
+      "node_id": "LA_kwDOT5NBFM8AAAAC2v0fvg",
+      "url": "https://api.github.com/repos/marcas-G/stock/labels/status:open",
+      "name": "status:open",
+      "color": "e11d21",
+      "default": false,
+      "description": "review sync",
+      "archived_at": null,
+      "archived_by": null
+    },
+    {
+      "id": 12263963841,
+      "node_id": "LA_kwDOT5NBFM8AAAAC2v08wQ",
+      "url": "https://api.github.com/repos/marcas-G/stock/labels/kind:process",
+      "name": "kind:process",
+      "color": "c5def5",
+      "default": false,
+      "description": "review sync",
+      "archived_at": null,
+      "archived_by": null
+    }
+  ],
+  "state": "open",
+  "locked": false,
+  "assignees": [
+
+  ],
+  "milestone": null,
+  "comments": 0,
+  "created_at": "2026-09-21T03:24:17Z",
+  "updated_at": "2026-09-21T03:24:17Z",
+  "closed_at": null,
+  "assignee": null,
+  "author_association": "OWNER",
+  "active_lock_reason": null,
+  "sub_issues_summary": {
+    "total": 0,
+    "completed": 0,
+    "percent_completed": 0
+  },
+  "issue_dependencies_summary": {
+    "blocked_by": 0,
+    "total_blocked_by": 0,
+    "blocking": 0,
+    "total_blocking": 0
+  },
+  "body": "<!-- nightly:2026-09-21 -->\n\n## nightly deep verify 失败（2026-09-21）\n\n- 退出码：`1`\n- 日志路径：`/data/students/gaolei/quantresearch/results/platform/.nightly/20260921-112419.log`\n- 复现：`make verify-deep`（等价 `bash governance/ops/verify.sh --profile deep`）\n\n### 失败步骤\n\n（日志中无 `[verify] step=... rc=≠0` 行）\n\n<details><summary>日志尾 30 行</summary>\n\n```text\n[nightly] 2026-09-21T11:24:19+08:00 故障注入 NIGHTLY_FORCE_FAIL=1：未执行 verify，构造 rc=1\n```\n\n</details>\n",
+  "closed_by": null,
+  "reactions": {
+    "url": "https://api.github.com/repos/marcas-G/stock/issues/32/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+  },
+  "timeline_url": "https://api.github.com/repos/marcas-G/stock/issues/32/timeline",
+  "performed_via_github_app": null,
+  "state_reason": null,
+  "pinned_comment": null
+}

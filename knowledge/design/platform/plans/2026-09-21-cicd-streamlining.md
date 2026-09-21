@@ -4,6 +4,12 @@
 > 规格：`knowledge/design/platform/specs/2026-09-21-cicd-streamlining-addendum.md`（全权口径）。
 > 纪律：TDD（改排除方式前先证明"排除集等价"）；一次提交一主题；命令真相源=verify.sh。
 
+> **实施状态（2026-09-21 收口）**：T1-T4 完成（`5884724` markers / `3904f79` verify.sh+ci.yml /
+> `ab71eb6` runner 退役+timer / `8e7b3ab` 深检红修复）；fast 干净 clone **6m31s 绿**、deep 宿主
+> **24m26s 绿**、push 后 CI 单 job **success**（run 35563129875）、runner 已注销、timer 已 enable；
+> nightly 补丁（去 heavy.sh，nice+内存预检）；证据 `governance/evidence/verification/R38/`。
+> 遗留：产物区 tidy 预存 16 errors（报告口径，待整改后升硬门）；R31-CODEGEN (#26)/#27/#28 等业务 issue 照旧。
+
 **Goal:** 验证体系降为"1 入口双档位 + 1 workflow + 1 timer"：fast（云端无数据）/ deep（宿主有数据），
 runner 删除，markers 取代硬编码 deselect。
 

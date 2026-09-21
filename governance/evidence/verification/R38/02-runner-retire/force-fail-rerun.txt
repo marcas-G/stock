@@ -1,0 +1,2 @@
+nightly-verify: profile=deep rc=1 log=/data/students/gaolei/quantresearch/results/platform/.nightly/20260921-112432.log
+rc=1

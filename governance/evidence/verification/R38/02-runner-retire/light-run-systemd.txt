@@ -1,0 +1,8 @@
+== start 2026-09-21T11:24:50+08:00 ==
+Job for factorlab-nightly-verify.service failed because the control process exited with error code.
+See "systemctl --user status factorlab-nightly-verify.service" and "journalctl --user -xe" for details.
+
+real	6m57.712s
+user	0m0.180s
+sys	0m0.095s
+start rc=1

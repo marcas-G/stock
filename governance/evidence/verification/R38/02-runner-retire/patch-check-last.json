@@ -1,0 +1,9 @@
+{
+  "rc": 1,
+  "timestamp": "2026-09-21T13:14:55+08:00",
+  "log_path": "/data/students/gaolei/quantresearch/results/platform/.nightly/20260921-130829.log",
+  "profile": "fast",
+  "failed_steps": [
+    "[verify] step=pytest-governance-ops rc=1"
+  ]
+}

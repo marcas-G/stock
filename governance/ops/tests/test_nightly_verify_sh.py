@@ -135,7 +135,11 @@ def test_dry_run_prints_default_frozen_command_and_writes_nothing(stub, tmp_path
     env.pop("NIGHTLY_VERIFY_CMD", None)
     r = _run(env)
     assert r.returncode == 0, r.stderr
-    assert "heavy.sh" in r.stdout
+    # R36 教训：验证腿不得经 heavy.sh（其注入 POLARS/OMP/MAX_MEMORY 污染测试环境）——
+    # 默认命令必须为 nice + verify.sh，且**禁止 heavy.sh 回归**。
+    assert "nice -n 10" in r.stdout
+    assert "verify.sh --profile deep" in r.stdout
+    assert "heavy.sh" not in r.stdout
     assert "bash" in r.stdout
     assert "governance/ops/verify.sh --profile deep" in r.stdout
     assert not (tmp_path / "logs").exists()

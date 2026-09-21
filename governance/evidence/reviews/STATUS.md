@@ -51,12 +51,12 @@
 3. Plan DQ-M2：minutes 三角验证（分钟↔日线↔腾讯）+ 阈值 calibration + 3 条非阻断小项（delta dedup 边界/§3.3 措辞/水位 ISO 校验）——**minutes 属分钟线，不属 tick，不暂停**
 4. open-operators Plan 2/3（如需）与 minute V2（按排期；V2 前置=分钟链性能根因）
 5. spec/plan 入 git 版本化（Plan CX 观察项）
-6. ~~提交门豁免/CX 注释改动~~ → ✅ 已提交（2026-09-19，含 `.github` 套件与自托管 CI）
+6. ~~提交门豁免/CX 注释改动~~ → ✅ 已提交（2026-09-19，含 `.github` 套件；自托管 CI 于 2026-09-21 退役，见 §六）
 
 **已知小项**：
 - `governance/ops/check_*.py` 必须以平台 venv（3.13）运行；系统 `python3`(3.10) 无法解析 `delisted_adj_backfill.py` 的 3.12+ f-string（门脚本已在用 venv，仅手动执行时注意）。
 - **R35 复查发现**：①`check_reviews.py` 裸 `split("|")` 不识别 `\|` 转义 → 已修为未转义切分+转义还原，并修复台账一行被误还原的竖线（`max\|Δ\|=0`）；②CH `circ_mv > total_mv` 3,914 行（0.023%，头部为 2001 年 `total_mv=0` 老行）——M3 候选核对；③R35 `36-task11-spotcheck.txt` 尾部有未捕获 polars `DuplicateError` traceback（数值有效，证据卫生 M）；④`strategy_artifacts.py:82` LSP 静态告警 `SignalTiming`（团队在途面，运行时导入正常）。
-- **未提交改动**：无（2026-09-20 已按主题提交并推送；自托管 runner + CI 全绿）。
+- **未提交改动**：无（2026-09-21 已按主题提交并推送；验证体系见 §六）。
 
 ### 用户（你）
 1. **刷新 Quark cookie**（网盘 sync 412/403，日更全链唯一外部阻断）
@@ -96,3 +96,19 @@ flab strategy run <yaml>
 
 > 同步器：`governance/ops/sync_review_issues.py`（dry-run 默认 / `--apply` 执行；幂等）。
 > V1 只建不关；台账仍为状态源。团队在 issue 回填修复说明；PR 用 `Fixes #N` 关联。
+
+## 六、验证体系（2026-09-21 起：单入口双档位）
+
+- **presubmit（云端，每次 push/PR）**：`make verify-fast`；`.github/workflows/ci.yml` 单 job
+  （干净 checkout、无产物区/无 CH）——结构门离线子集 + platform 全量 + tools/research/governance，
+  markers 精确排除；实测 **6m31s 绿**。
+- **postsubmit（本机，夜间 03:00 + 手动）**：`make verify-deep`（`governance/ops/verify.sh --profile deep`），
+  systemd user `factorlab-nightly-verify.timer` 驱动（**nice + 内存预检，不走 heavy.sh**——R36 教训）；
+  失败自动开 issue（marker `<!-- nightly:日期 -->` 幂等）；实测 **24m26s 绿**。
+- **本地（随手）**：`make gates`（18s，工作区态）。
+- **排除机制 = pytest markers**（`needs_ch / data_on_disk / host_root / tick_paused / inflight / known_red`，
+  各带 issue 号与删标记条件）；**禁止再在 YAML 硬编码 `--deselect`**。
+- **自托管 runner 已退役**（公开仓安全建议）：`actions-runner.service` disabled、runner 注销、
+  旧 `selfhosted-verify.yml` 删除；目录 `/data/students/gaolei/actions-runner` 归档保留
+  （恢复指引见 `reviews/README.md`）。
+- 证据：`governance/evidence/verification/R38/`（01-markers / 02-runner-retire / 03-verify）。

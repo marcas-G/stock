@@ -1,0 +1,7 @@
+[ok] 已安装并启动 factorlab-nightly-verify.timer（每日 03:00；Persistent=true）
+NEXT                         LEFT     LAST PASSED UNIT                           ACTIVATES
+Tue 2026-09-22 03:00:00 CST  15h left n/a  n/a    factorlab-nightly-verify.timer factorlab-nightly-verify.service
+
+1 timers listed.
+Pass --all to see loaded but inactive timers, too.
+验证：systemctl --user status factorlab-nightly-verify.timer； journalctl --user -u factorlab-nightly-verify.service；日志 /data/students/gaolei/quantresearch/results/platform/.nightly

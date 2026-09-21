@@ -1,0 +1,155 @@
+[nightly] 2026-09-21T11:32:51+08:00 profile=fast log=/data/students/gaolei/quantresearch/results/platform/.nightly/20260921-113251.log
+[nightly] cmd: /data/students/gaolei/stock/governance/ops/heavy.sh bash /data/students/gaolei/stock/governance/ops/verify.sh --profile fast
+heavy.sh: slot=1/2 avail=38.1GB  max_memory=8GB oom_score_adj=700 -> bash /data/students/gaolei/stock/governance/ops/verify.sh --profile fast
+[verify] fast 云端等价环境：CH=127.0.0.1:1（不可达）、QUANTRESEARCH_ROOT=/data/students/gaolei/stock/.ci-no-product-area、STOCK_ROOT=/data/students/gaolei/stock
+
+---- [verify] step=gates-offline ----
+== stock gates ==
+[G-OFFLINE] 离线模式：SKIP 依赖研究产物区/台账的门（G-INDEX / G-ANNOTATE / G-REVIEWS / G-REF sidecar；
+[G-OFFLINE] G-LINT 无产物区时 SKIP），静态门照跑；SKIP 原因逐条打印 [G-OFFLINE]。
+[G-COPY] 三方内容不互串 · 契约文档单副本
+    ✓ platform/ 顶层无 factor 目录（tools/ 为数据生产线）
+    ✓ platform/tools 存在（数据生产线工具集）
+    ✓ research/ 顶层无平台 src|tests
+    ✓ knowledge/contracts/interface.md 单副本
+    ✓ knowledge/contracts/catalog.md 单副本
+    ✓ knowledge/contracts/data-ops-playbook.md 单副本
+    ✓ knowledge/contracts/teajoin-guide.md 单副本
+[G-BOUNDARY] platform/ 不得 import research/
+    ✓ 无 platform→research 依赖
+[G-LEGACY] 旧路径/旧仓库名残留 = 0（冻结文档豁免）
+    ✓ 活文件零残留（tracked+untracked；豁免：3 份历史文档 + data-map 归档行 + R17 删除记录行）
+    ✓ 已迁路径活引用零残留（R06-M9+R07：docs/*、runs 旧路径、工具旧路径、emb、裸 results/；tracked+untracked）
+[G-PATHS] pyproject / pytest 路径自洽
+    ✓ platform pythonpath=src
+    ✓ platform/src/factorlab 存在
+    ✓ research 有 testpaths
+    ✓ 根无 pyproject.toml
+[G-IMPORTS] 全仓 factorlab.* 导入可解析（含负向自检）
+    ✓ 自检通过（能抓到迁移遗漏）
+    ✓ G-IMPORTS 通过（扫描 553 个文件）
+[G-INDEX] 因子/策略/composite 索引与生成器一致 · spec↔档案成对
+    [G-OFFLINE] SKIP G-INDEX（三索引 + 成对门） —— 需要研究产物区（spec/档案/索引）：/data/students/gaolei/stock/.ci-no-product-area
+[G-ANNOTATE] 因子档案 snapshot 标注齐备（R21 约定）
+    [G-OFFLINE] SKIP G-ANNOTATE（档案 snapshot） —— 档案在产物区：/data/students/gaolei/stock/.ci-no-product-area/dossiers
+[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）
+    [G-OFFLINE] SKIP G-REVIEWS（评审台账） —— 台账引用 runs/ 产物，干净 checkout/离线不可解析
+[G-LINT] 全库因子 spec lint（单进程批跑；挖矿在途 spec 一并计入）
+    [G-OFFLINE] SKIP G-LINT（全库因子 spec lint） —— 研究产物区不在盘：/data/students/gaolei/stock/.ci-no-product-area/factor
+[G-VENV] 平台 editable 落位断言
+    ✓ factorlab → platform/src ✓
+    ✓ quant_core 独立包已删除（内核并入 factorlab）✓
+
+[G-TOPO] 工具拓扑：依赖方向 / 横向耦合
+  ✓ 0 处（core 不做反向依赖、生产不带诊断、工具不互相 import、lib 是叶子）
+  ✓ 负向自检：四类违规各命中 1 处、合法路径零误报
+
+  ⏸ 暂停豁免：platform/tools/lob_fact（tick 全线暂停，pending-items #23；恢复时移除本豁免并一次修完）
+[G-CONTRACT/工具树分区字面量] ENFORCED：`year=` 只许经 core.factio.partitions
+  ✓ 0 处（AST：非 docstring 字符串常量）
+[G-MARK] ENFORCED：标记/断点名只经 lib.writekit 单点 API
+  ✓ 0 处（注释/print 文案不算；writekit 自身豁免）
+[G-CONTRACT/平台表名字面量] REPORT：71 处（未竟 → governance/workspace/pending-items.md #12①）
+      platform/src/factorlab/adapters/catalog.py:169: 'adj_factor'
+      platform/src/factorlab/adapters/catalog.py:213: 'daily_basic'
+      platform/src/factorlab/adapters/intraday.py:62: 'bars_1m'
+      platform/src/factorlab/adapters/intraday.py:63: 'tick_trades'
+      platform/src/factorlab/adapters/intraday.py:64: 'tick_orders'
+[G-MARK/接线] ENFORCED：用 `W.` 的模块必须导入 lib.writekit
+  ✓ 0 处（漏 import 会在 main() 运行时才炸，门提前拦住）
+[G-READ] ENFORCED：工具树直读 parquet 只允许登记点，且不指向事实库分区
+  ✓ 0 处违规（登记 48 个理由明确的直读点；新增未登记即失败）
+数据接口门：ENFORCED 全绿
+  ✓ 负向自检：分区字面量 3 / 标记直构 3 / 直读 3 / 漏 import 1 处违规被抓到；docstring、writekit API、print 文案、登记过的 manifest 读均不误伤
+
+[G-REF] 参考库基础指标审计
+    [G-OFFLINE] SKIP G-REF（参考库 sidecar/指纹） —— 侧车与产物在产物区：/data/students/gaolei/stock/.ci-no-product-area/results
+
+结构门：全绿
+数据接口门：ENFORCED 判定（AST）+ REPORT 未竟计数（见 governance/ops/check_dataiface.py）
+[verify] step=gates-offline rc=0
+
+---- [verify] step=ci-env ----
+[ci_env] 复用现有 venv（钉版满足）：/data/students/gaolei/stock/platform/.venv
+[ci_env] python=Python 3.13.13；factorlab=/data/students/gaolei/stock/platform/src/factorlab/__init__.py
+[verify] step=ci-env rc=0
+
+---- [verify] step=pytest-platform ----
+....................ss.......................................................ssssssssssss........................ssssss...........s....ssssssssssssssssssssssssssssssssssssssss................. [  4%]
+.............................................................................ss....................................................................................................sssssssssssss [  9%]
+sssssssssssssssssssssssssssssssssssssssssss...................................................................................ssssssssssssss.................................................... [ 14%]
+.......sss....s...........s..ssssssssssssssss.ss...................................................................................................................s........................ssss [ 19%]
+ss.........................................sssss................................................................................................................................................ [ 24%]
+....................................................ssss............................................sssssssssss................................................................................. [ 29%]
+........ss...................................................................................................................................................................................... [ 34%]
+..................................................................................sssssssssssssssssssssssssssssssssss........................................................................... [ 39%]
+..........................................................................................................................ssssssssssssssssss...ssssssssssss..sssssss............................ [ 44%]
+.....................................ssssssssssssssssssssssssssssssss...ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss.ssssss...........ssssss........ [ 49%]
+.........................................ss.sssssssss......ssssssssss..ssssssssssssssssssss....................................................................s................................ [ 54%]
+............................................................................................................ssssssssssssssssssssssssssssssssssssssssssssssss...ss............................... [ 59%]
+...ssssssssss...................................ssss....ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss.......................sssss [ 64%]
+sssssssssssssssssss.ssssssssssss...........................................................................................................................................................ss..s [ 69%]
+sssssss.............ss...........sssssssssssss...................................................................s............ss............................................ssssssssssssssssssss [ 73%]
+ssssssssssssssssssssssssssssssssss.ss.ss.................................................ssss..ss......ssssssss..................ss..ssssssssssss.ssssssssssssssss.............................. [ 78%]
+ssssssssssssssssssss.ssssss..ssssssssssssssssssssssssss...ssssssssssssssssssssssssssss.ssssssssssss...ssssssssssssssssssssssssssssssssssssssssssss............................................ss [ 83%]
+ssssssssssssssssssssssssssssssssssssssssssssssss....ssssssssssssssssssssssssssssssssssssssssssssss.............................................................................................. [ 88%]
+...................................................................................................................ssss......................................................................... [ 93%]
+.........................................................................ssssssssssssssssssss........ssssssssssssssssssssssssssssssssssssssssssssssss...........ssssssssssssssssssss............ [ 98%]
+.....................................................                                                                                                                                            [100%]
+=========================================================================================== warnings summary ===========================================================================================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /data/students/gaolei/stock/platform/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_batch_flock.py: 26 warnings
+  /home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/popen_fork.py:67: DeprecationWarning: This process (pid=25776) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/test_cli.py: 1 warning
+tests/test_correlation.py: 3 warnings
+tests/test_reference_library.py: 2 warnings
+tests/test_research_factor.py: 2 warnings
+tests/test_web.py: 2 warnings
+  /data/students/gaolei/stock/platform/src/factorlab/app/analysis/correlation.py:102: DeprecationWarning: the argument `columns` for `DataFrame.pivot` is deprecated. It was renamed to `on` in version 1.0.0.
+    joined = long.pivot(index=["date", "code"], columns="factor",
+
+tests/test_cli_run.py: 24 warnings
+tests/test_dead_signal.py: 1 warning
+tests/test_plugin_partition_prefix.py: 1 warning
+tests/test_plugin_run_path.py: 1 warning
+tests/test_profile_timing.py: 4 warnings
+  /data/students/gaolei/stock/platform/src/factorlab/app/memory.py:350: RuntimeWarning: RLIMIT_AS 设置失败（not allowed to raise maximum limit）——内存硬上限降级；psutil 软看门狗仍生效
+    return apply_address_space_limit(limit)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2800 passed, 1093 skipped, 1 deselected, 68 warnings in 135.58s (0:02:15)
+[verify] step=pytest-platform rc=0
+
+---- [verify] step=pytest-platform-tools ----
+................................................................................................................................................................................................ [ 21%]
+................................................................................................................................................................................................ [ 42%]
+................................................................................................................................................................................................ [ 63%]
+................................................................................................................................................................................................ [ 84%]
+..................................................................................................................................................                                               [100%]
+914 passed, 7 deselected in 267.93s (0:04:27)
+[verify] step=pytest-platform-tools rc=0
+
+---- [verify] step=pytest-research-tools ----
+sss.........ss..................ssss.........s......................................................                                                                                             [100%]
+90 passed, 10 skipped, 3 deselected in 1.70s
+[verify] step=pytest-research-tools rc=0
+
+---- [verify] step=pytest-governance-ops ----
+.................................................................................................................................                                                                [100%]
+129 passed in 14.56s
+[verify] step=pytest-governance-ops rc=0
+
+== [verify] 汇总（profile=fast root=/data/students/gaolei/stock）==
+  gates-offline            rc=0
+  ci-env                   rc=0
+  pytest-platform          rc=0
+  pytest-platform-tools    rc=0
+  pytest-research-tools    rc=0
+  pytest-governance-ops    rc=0
+== [verify] 结论：rc=0（0 全过 / 1 有失败 / 2 环境不满足）==
+[nightly] verify rc=0

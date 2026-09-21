@@ -1,0 +1,7 @@
+== systemctl --user disable --now actions-runner ==
+Removed /home/gaolei/.config/systemd/user/default.target.wants/actions-runner.service.
+rc=0
+== is-active ==
+inactive
+== is-enabled ==
+disabled

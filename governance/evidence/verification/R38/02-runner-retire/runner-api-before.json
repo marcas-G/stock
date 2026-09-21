@@ -1,0 +1,40 @@
+{
+  "total_count": 1,
+  "runners": [
+    {
+      "id": 21,
+      "name": "gpu-server-1",
+      "os": "Linux",
+      "status": "online",
+      "busy": false,
+      "version": "2.337.0",
+      "labels": [
+        {
+          "id": 0,
+          "name": "self-hosted",
+          "type": "read-only"
+        },
+        {
+          "id": 0,
+          "name": "Linux",
+          "type": "read-only"
+        },
+        {
+          "id": 0,
+          "name": "X64",
+          "type": "read-only"
+        },
+        {
+          "id": 0,
+          "name": "factorlab",
+          "type": "custom"
+        },
+        {
+          "id": 0,
+          "name": "ch",
+          "type": "custom"
+        }
+      ]
+    }
+  ]
+}
