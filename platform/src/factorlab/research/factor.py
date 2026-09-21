@@ -81,6 +81,10 @@ _RUN_PARAMS = (
                             "非空必须同时给 --override-reason；FAIL 不可 opt-in）"),
     registry.ParamSpec("override_reason", kind="str",
                        help="非 PASS 读取门 opt-in 原因（写入 Experiment Manifest）"),
+    registry.ParamSpec("lockbox", kind="str",
+                       help="R40 锁箱意图 exploration|final（评估窗口与锁箱相交时必需）"),
+    registry.ParamSpec("lockbox_reason", kind="str",
+                       help="R40 锁箱访问理由（与 --lockbox 配对，必填非空）"),
 )
 _FACTOR_HINT = ("因子产物缺失先 `flab factor run <spec.yaml>`；"
                 "命令目录 `flab describe --json`")
@@ -237,6 +241,7 @@ def factor_run(args: Any) -> envelope.Envelope:
     from factorlab.app.memory import MemoryLimitExceeded
     from factorlab.core.eval.metrics import DeadSignalError
     from factorlab.core.factor.errors import FactorDSLError
+    from factorlab.core.lockbox import LockboxError
     from factorlab.surfaces.cli.main import execute_run
 
     _ensure()
@@ -277,10 +282,16 @@ def factor_run(args: Any) -> envelope.Envelope:
                 dataset="ashare_daily",
                 accept_quality=quality,
                 override_reason=override_reason,
+                # R40：锁箱硬门透传（窗口相交时必需；guard 内自动登记）
+                lockbox_intent=getattr(args, "lockbox", None),
+                lockbox_reason=getattr(args, "lockbox_reason", None),
             )
     except GuardError as exc:
         return envelope.fail("factor.run", exc.code, exc.message,
                              hint=exc.hint, log=exc.log)
+    except LockboxError as exc:
+        return envelope.fail("factor.run", exc.code, exc.message,
+                             hint="`flab lockbox status` 看窗口与配额")
     except DeadSignalError as exc:
         return envelope.fail("factor.run", "DEAD_SIGNAL", str(exc),
                              hint="评估摘要已落盘（dead_signal=true）供审计；先修取数列/数据面")
@@ -589,7 +600,8 @@ def _run_args(spec_path: Path, **over: Any) -> argparse.Namespace:
                 warmup_days=None, eval_frequency=None, wait=False,
                 chunk_workers=None, no_float32=False, pretty=False,
                 profile=None, no_read_cache=None,
-                accept_quality=None, override_reason=None)
+                accept_quality=None, override_reason=None,
+                lockbox=None, lockbox_reason=None)
     base.update(over)
     return argparse.Namespace(**base)
 
@@ -893,7 +905,8 @@ def _reg_all() -> None:
                   "chunk_days": None, "warmup_days": None, "eval_frequency": None,
                   "wait": False, "chunk_workers": None, "no_float32": False,
                   "profile": False, "no_read_cache": False,
-                  "accept_quality": None, "override_reason": None},
+                  "accept_quality": None, "override_reason": None,
+                  "lockbox": None, "lockbox_reason": None},
         description="计算+评估+分层回测（过 heavy 闸；返回 IC/十分位/换手/覆盖/ic_decay）",
         examples=("flab factor run $QUANTRESEARCH_ROOT/factor/momentum_20d/turnrank_top2.yaml",
                   "flab factor run <spec> --no-backtest --wait"),

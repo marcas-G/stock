@@ -16,6 +16,7 @@ from factorlab.config import settings
 from factorlab.research.cli import research_app
 from factorlab.core.factor.errors import FactorDSLError
 from factorlab.core.factor.ast_gate import validate_formula
+from factorlab.core.lockbox import LockboxError
 from factorlab.core.eval.layered import degenerate_decile_groups
 from factorlab.core.engine.compute import substitute_params
 from factorlab.adapters import plugins
@@ -329,6 +330,8 @@ def execute_run(
     dataset: str | None = "ashare_daily",
     accept_quality: tuple[str, ...] = ("PASS",),
     override_reason: str | None = None,
+    lockbox_intent: str | None = None,
+    lockbox_reason: str | None = None,
 ) -> dict:
     """`factorlab run` 的计算主体（CLI 与 research.factor 门面共用，不打印）。
 
@@ -353,6 +356,11 @@ def execute_run(
 
     R31：`read_cache`（None=env `FACTORLAB_READ_CACHE` 默认开；False=CLI
     `--no-read-cache`）透传 RunContext——分钟链 bars_1m chunk 级磁盘缓存开关。
+
+    R40：`lockbox_intent`（exploration|final）/`lockbox_reason`——面板窗口与
+    锁箱相交时必需（`LOCKBOX_INTENT_REQUIRED`/`LOCKBOX_REASON_REQUIRED` 硬门；
+    env `FACTORLAB_LOCKBOX` 关闭时直接 IS 放行）；命中锁箱时自动登记并把
+    `summary["sample"]` 与 `result_ref` 写入台账。
     """
     from factorlab.app.run import run_factor, run_factor_minute
     from factorlab.app.context import RunContext
@@ -374,6 +382,21 @@ def execute_run(
     if overrides:
         spec.params = {**spec.params, **overrides}
         variant = spec.name + "_" + "_".join(f"{k}{v}" for k, v in overrides.items())
+    from factorlab.adapters import lockbox_store as _lockbox
+    _days = _lockbox_published_days()
+    _data_end = _lockbox_data_end() or (_days[-1] if _days else _lockbox_today())
+    _panel_start = (datetime.date.fromisoformat(spec.date.start)
+                    if spec.date.start
+                    else (min(_days) if _days else datetime.date(1970, 1, 1)))
+    _panel_end = (datetime.date.fromisoformat(spec.date.end)
+                  if spec.date.end else _data_end)
+    guard = _lockbox.guard_run(
+        panel_start=min(_panel_start, _panel_end),
+        panel_end=max(_panel_start, _panel_end),
+        intent=lockbox_intent, reason=lockbox_reason,
+        spec_doc=spec.model_dump(mode="json"), artifact=str(spec_path),
+        command="factor run", tool=f"factorlab {__version__}",
+        db_path=settings.lockbox_db, trading_days=_days, data_end=_data_end)
     profiler = Profiler() if (profile or profile_enabled()) else None
     if profiler is not None:
         profiler.start()
@@ -388,6 +411,7 @@ def execute_run(
         profiler=profiler,
         chunk_workers=chunk_workers,
         read_cache=read_cache,
+        guard=guard,
     )
     # R05-C1：显式 FACTORLAB_MAX_MEMORY 时先落进程级 RLIMIT_AS 硬上限
     # （软看门狗在 run_* 内自动启用；未设 = 不动进程资源）。
@@ -470,13 +494,20 @@ def run_factor_cli(
         None, "--override-reason",
         help="非 PASS 读取门 opt-in 的原因（写入 Experiment Manifest；与 "
              "--accept-quality 配对）"),
+    lockbox: str | None = typer.Option(
+        None, "--lockbox",
+        help="R40 锁箱意图 exploration|final（评估窗口与锁箱相交时必需）"),
+    lockbox_reason: str | None = typer.Option(
+        None, "--lockbox-reason",
+        help="R40 锁箱访问理由（与 --lockbox 配对，必填非空）"),
 ) -> None:
     """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
     --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
     --universe 默认 FACTORLAB_DEFAULT_UNIVERSE。--eval-frequency 覆盖 spec 评估频率
     （daily 默认逐日口径；weekly 为旧口径可选对照）。--profile 输出分段计时。
     --chunk-workers 分钟链 chunk 并行度（默认 1，见 --help）。
-    --accept-quality/--override-reason 读取门 opt-in（N2：DEGRADED/LEGACY 显式接受）。"""
+    --accept-quality/--override-reason 读取门 opt-in（N2：DEGRADED/LEGACY 显式接受）。
+    --lockbox/--lockbox-reason 锁箱硬门（R40：相交窗口必需；命中自动登记）。"""
     try:
         quality = resolve_accept_quality(parse_accept_quality(accept_quality),
                                          override_reason)
@@ -493,9 +524,16 @@ def run_factor_cli(
                           read_cache=False if no_read_cache else None,
                           dataset="ashare_daily",
                           accept_quality=quality,
-                          override_reason=override_reason)
+                          override_reason=override_reason,
+                          lockbox_intent=lockbox,
+                          lockbox_reason=lockbox_reason)
     except DatasetQualityError as exc:
         _print_quality_reject(exc)
+        raise typer.Exit(code=1) from exc
+    except LockboxError as exc:
+        console.print(f"错误: {exc}", soft_wrap=True)
+        console.print("  提示: `factorlab lockbox status` 看窗口与配额；"
+                      "`factorlab lockbox roll` 对齐季度窗口", soft_wrap=True)
         raise typer.Exit(code=1) from exc
     except (ValueError, FileNotFoundError, FactorDSLError) as exc:
         # ValueError 含 pydantic 的 ValidationError（spec 字段非法，如 cost_rate 越界）——

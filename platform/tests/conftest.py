@@ -170,6 +170,28 @@ def _read_cache_disabled(monkeypatch):
 
 
 # ================================================================
+# R40 锁箱隔离：既有测试基线不触发锁箱、不碰真实台账
+#   对话式 run 入口默认启用锁箱（env 缺省=启用）；平台测试无 health 日历/
+#   ledger，统一设 off（guard 直接 IS 放行）并把 settings.lockbox_db 指到
+#   tmp，防意外写入真实 $QUANTRESEARCH_ROOT/data/ledger.sqlite。
+#   锁箱专项测试自行 monkeypatch.setenv("FACTORLAB_LOCKBOX","1") 覆盖。
+# ================================================================
+@pytest.fixture(scope="session", autouse=True)
+def _lockbox_isolated(tmp_path_factory):
+    from factorlab.config import settings
+    prev_env = os.environ.get("FACTORLAB_LOCKBOX")
+    prev_db = settings.lockbox_db
+    os.environ["FACTORLAB_LOCKBOX"] = "off"
+    settings.lockbox_db = tmp_path_factory.mktemp("lockbox") / "ledger.sqlite"
+    yield
+    settings.lockbox_db = prev_db
+    if prev_env is None:
+        os.environ.pop("FACTORLAB_LOCKBOX", None)
+    else:
+        os.environ["FACTORLAB_LOCKBOX"] = prev_env
+
+
+# ================================================================
 # CI 稳定性（R31-ci-fix）：CLI `--help` 文本断言与终端宽度耦合
 #   无 TTY（CI runner）时 click/rich 在**导入期**按 COLUMNS/默认宽度创建
 #   Console（测试内 monkeypatch 太晚）——窄宽度会把 `--universe`/`--chunk-days`

@@ -7,18 +7,22 @@
 - `published_days`/`latest_data_date`：health 已发布日目录扫描
 - `register_access`/`update_result_ref`/`final_count`/`final_exists`/`require_final`：
   登记（append-only）、结果回填、终评唯一性与配额校验
+- `RunGuard`/`guard_run`：execute 层硬门（env 开关 → 角色判定 → 自动登记 +
+  `summary.sample` 声明 + `result_ref` 回填）
 """
 from __future__ import annotations
 
 import datetime as dt
+import os
 import sqlite3
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from factorlab.core.lockbox import (ACCESS_KINDS, DEFAULT_QUOTA_FINAL,
                                     LockboxError, LockboxWindow, _canonical,
-                                    actor, compute_window, new_access_id,
-                                    window_sort_key)
+                                    actor, candidate_fingerprint,
+                                    compute_window, new_access_id, role_for,
+                                    spec_fingerprint, window_sort_key)
 
 _DDL = """
 CREATE TABLE IF NOT EXISTS lockbox_state (
@@ -269,3 +273,108 @@ def require_final(conn: sqlite3.Connection, *, window_id: str,
             f"窗口 {window_id} 缺终评登记（候选 {fingerprint[:12]}…）："
             "先 `flab factor run <spec> --lockbox final --lockbox-reason <理由>`")
     return access_id
+
+
+class RunGuard:
+    """一次评估的锁箱守卫结果：IS=空登记；碰箱=自动登记 + 可回填 result_ref。"""
+
+    def __init__(self, info: dict[str, Any], *,
+                 db_path: Path | None = None) -> None:
+        self.info = info
+        self._db_path = db_path
+
+    @property
+    def access_id(self) -> str | None:
+        return self.info.get("access_id")
+
+    def attach(self, summary: dict[str, Any]) -> None:
+        """产物声明：`summary.sample = {role, window_id, access_id, 窗口端点}`。"""
+        summary["sample"] = dict(self.info)
+
+    def mark_result(self, result_ref: str) -> None:
+        """产物落盘后回填 `result_ref`（唯一允许回填的列；失败=登记保持 NULL）。"""
+        if self.access_id is None or self._db_path is None:
+            return
+        conn = connect(self._db_path)
+        try:
+            update_result_ref(conn, self.access_id, result_ref)
+        finally:
+            conn.close()
+
+    def register_final(self, *, reason: str, spec_doc: Mapping[str, Any],
+                       artifact: str, params: Mapping[str, Any],
+                       command: str, tool: str,
+                       window: LockboxWindow) -> str:
+        """admit/ref add 在无既有终评时为候选补终评登记（走同一配额/唯一性）。"""
+        assert self._db_path is not None
+        fp = candidate_fingerprint(
+            artifact_sha256=spec_fingerprint(spec_doc), params=params,
+            window_id=window.window_id, kind="final")
+        conn = connect(self._db_path)
+        try:
+            return register_access(conn, kind="final", fingerprint=fp,
+                                   artifact=artifact, params=params,
+                                   command=command, reason=reason, window=window,
+                                   tool=tool)
+        finally:
+            conn.close()
+
+
+def guard_run(*, panel_start: dt.date, panel_end: dt.date,
+              intent: str | None, reason: str | None,
+              spec_doc: Mapping[str, Any], artifact: str, command: str,
+              tool: str, db_path: Path, trading_days: Sequence[dt.date],
+              data_end: dt.date) -> RunGuard:
+    """执行层硬门（设计 §7）：按面板区间判定 is/mixed/lockbox 并自动登记。
+
+    env `FACTORLAB_LOCKBOX` 显式为 0/off/false → 直接 IS 放行（不读 state、
+    不登记）；启用时日历为空/最新数据早于窗口起点由 compute_window 响亮失败
+    （LOCKBOX_NO_CALENDAR / LOCKBOX_EMPTY_DATA）。未初始化（无 state）：
+    IS 照常放行；碰箱 → LOCKBOX_NO_STATE（先 `factorlab lockbox roll`）。
+    """
+    if (os.environ.get("FACTORLAB_LOCKBOX", "1").strip().lower()
+            in ("0", "off", "false")):
+        return RunGuard({"role": "is"})
+    conn = connect(db_path)
+    try:
+        no_state = False
+        try:
+            window = current_window(conn, as_of=dt.date.today(),
+                                    trading_days=trading_days, data_end=data_end)
+        except LockboxError as exc:
+            if exc.code != "LOCKBOX_NO_STATE":
+                raise
+            no_state = True
+            window = compute_window(as_of=dt.date.today(),
+                                    trading_days=trading_days, data_end=data_end)
+        role = role_for(panel_start, panel_end, window)
+        if role == "is":
+            return RunGuard({"role": "is"})
+        if no_state:
+            raise LockboxError(
+                "LOCKBOX_NO_STATE",
+                f"评估窗口 [{panel_start}~{panel_end}] 与锁箱（{window.window_id}，"
+                f"起点 {window.start}）相交但锁箱未初始化：先 `factorlab lockbox roll`")
+        if intent is None:
+            raise LockboxError(
+                "LOCKBOX_INTENT_REQUIRED",
+                f"评估窗口 [{panel_start}~{panel_end}] 与锁箱（{window.window_id}，"
+                f"起点 {window.start}）相交：加 `--lockbox exploration|final` 与"
+                " `--lockbox-reason <理由>`")
+        if intent not in ACCESS_KINDS:
+            raise ValueError(f"--lockbox 取值 {intent!r}；可选 {ACCESS_KINDS}")
+        if not (reason or "").strip():
+            raise LockboxError("LOCKBOX_REASON_REQUIRED", "锁箱访问必须给出非空理由")
+        fp = candidate_fingerprint(artifact_sha256=spec_fingerprint(spec_doc),
+                                   params={"intent": intent},
+                                   window_id=window.window_id, kind=intent)
+        access_id = register_access(conn, kind=intent, fingerprint=fp,
+                                    artifact=artifact, params={"intent": intent},
+                                    command=command, reason=reason, window=window,
+                                    tool=tool)
+        info = {"role": role, "window_id": window.window_id,
+                "window_start": window.start.isoformat(),
+                "window_end": window.end.isoformat(), "access_id": access_id}
+        return RunGuard(info, db_path=db_path)
+    finally:
+        conn.close()

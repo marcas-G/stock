@@ -434,6 +434,20 @@ def _sync_profile(ctx: RunContext, prof, summary: dict) -> None:
     results_fs.write_summary(ctx.output_dir, summary)
 
 
+def _lockbox_attach(ctx: RunContext, summary: dict) -> None:
+    """R40：锁箱产物声明（`summary["sample"]`；guard 未接线时零行为变化）。"""
+    guard = getattr(ctx, "guard", None)
+    if guard is not None:
+        guard.attach(summary)
+
+
+def _lockbox_mark_result(ctx: RunContext) -> None:
+    """R40：产物落盘后回填登记 `result_ref`（IS/未启用为 no-op）。"""
+    guard = getattr(ctx, "guard", None)
+    if guard is not None:
+        guard.mark_result(str(ctx.output_dir))
+
+
 def run_factor(spec: FactorSpec, ctx: RunContext) -> FactorResult:
     """M6-03 装配链路：两条独立 runtime——
 
@@ -649,9 +663,11 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
             "float32": ctx.float32,
             "spec_yaml": yaml.safe_dump(spec.model_dump(), allow_unicode=True),
         }
+        _lockbox_attach(ctx, summary)
         with profile_span(prof, "persist"):
             summary = write_factor_artifacts(ctx.output_dir, signal_artifact, label_artifact,
                                              panel, summary)
+        _lockbox_mark_result(ctx)
         _sync_profile(ctx, prof, summary)
         return FactorResult(spec=spec, signal_artifact=signal_artifact,
                             label_artifact=label_artifact, panel=panel, summary=summary)
@@ -680,9 +696,11 @@ def _run_factor(spec: FactorSpec, ctx: RunContext,
         "float32": ctx.float32,
         "spec_yaml": yaml.safe_dump(spec.model_dump(), allow_unicode=True),
     }
+    _lockbox_attach(ctx, summary)
     with profile_span(prof, "persist"):
         summary = write_multi_output_factor_artifacts(ctx.output_dir, signal_frames, meta,
                                                       label_artifact, panel, summary)
+    _lockbox_mark_result(ctx)
     _sync_profile(ctx, prof, summary)
     return FactorResult(spec=spec, signal_artifact=None, label_artifact=label_artifact,
                         panel=panel, summary=summary, signals=signal_frames)
@@ -1050,10 +1068,12 @@ def _run_factor_minute(spec, ctx: RunContext,
             "float32": ctx.float32,
             "spec_yaml": yaml.safe_dump(spec.model_dump(), allow_unicode=True),
         }
+        _lockbox_attach(ctx, summary)
         from factorlab.adapters.parquet_artifacts import write_factor_artifacts
         with profile_span(prof, "persist"):
             summary = write_factor_artifacts(ctx.output_dir, signal_artifact,
                                              label_artifact, panel, summary)
+        _lockbox_mark_result(ctx)
         _sync_profile(ctx, prof, summary)
         return FactorResult(spec=spec, signal_artifact=signal_artifact,
                             label_artifact=label_artifact, panel=panel,
@@ -1084,11 +1104,13 @@ def _run_factor_minute(spec, ctx: RunContext,
         "float32": ctx.float32,
         "spec_yaml": yaml.safe_dump(spec.model_dump(), allow_unicode=True),
     }
+    _lockbox_attach(ctx, summary)
     from factorlab.adapters.parquet_artifacts import write_multi_output_factor_artifacts
     with profile_span(prof, "persist"):
         summary = write_multi_output_factor_artifacts(ctx.output_dir, signal_frames,
                                                       meta, label_artifact, panel,
                                                       summary)
+    _lockbox_mark_result(ctx)
     _sync_profile(ctx, prof, summary)
     return FactorResult(spec=spec, signal_artifact=None,
                         label_artifact=label_artifact, panel=panel,
