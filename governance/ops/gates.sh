@@ -9,7 +9,8 @@
 #          ENFORCED 两项（研究侧分区字面量、标记路径构造）红了即失败；
 #          REPORT 两项（平台表名、研究侧直读）打印未竟计数并指向 pending-items。
 # --offline（R38）：云端/干净 checkout 子集——跳过依赖研究产物区/台账的门
-#   （G-INDEX 产品索引、G-ANNOTATE、G-REVIEWS、G-REF sidecar；G-LINT 无产物区时 SKIP），
+#   （G-INDEX 产品索引、G-ANNOTATE、G-REVIEWS、G-REF sidecar；G-LINT 无产物区时 SKIP，
+#   G-LOCKBOX 离线只做声明格式校验、台账交叉核对 SKIP），
 #   其余静态门照跑；每条 SKIP 打印 [G-OFFLINE] 及原因。不得借此放宽实质检查。
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd); cd "$ROOT"
@@ -160,6 +161,11 @@ structure() {
     skip_offline "G-INDEX（三索引 + 成对门）" "需要研究产物区（spec/档案/索引）：$PRODUCT_ROOT"
     echo "[G-ANNOTATE] 因子档案 snapshot 标注齐备（R21 约定）"
     skip_offline "G-ANNOTATE（档案 snapshot）" "档案在产物区：$PRODUCT_ROOT/dossiers"
+    echo "[G-LOCKBOX] 样本声明与锁箱登记一致（离线：仅格式校验）"
+    if [ ! -d "$PRODUCT_ROOT" ]; then
+      skip_offline "G-LOCKBOX（格式校验）" "研究产物区不在盘：$PRODUCT_ROOT"
+    elif out=$("$PLATFORM/.venv/bin/python" governance/ops/check_lockbox.py --offline --root "$PRODUCT_ROOT" 2>&1); then ok "$out"; else bad "$out"; fi
+    skip_offline "G-LOCKBOX 台账交叉核对（宿主段）" "锁箱登记在 $PRODUCT_ROOT/data/ledger.sqlite（access_id kind/window 核验需宿主）"
     echo "[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）"
     skip_offline "G-REVIEWS（评审台账）" "台账引用 runs/ 产物，干净 checkout/离线不可解析"
   else
@@ -176,6 +182,13 @@ structure() {
     # 脚本原位在 R21/EVID（证据即工具）；只做只读 --check，不写档案。
     # R06-M5：改平台 venv 解释器（原系统 python3=anaconda 3.10，与单解释器声明不符）。
     if out=$("$PLATFORM/.venv/bin/python" governance/evidence/verification/R21/EVID/annotate_factor_archives.py --check 2>&1); then ok "$out"; else bad "$out"; fi
+
+    echo "[G-LOCKBOX] 样本声明与锁箱登记一致"
+    # 权威层 = campaign 级 results/<dir>/manifest.json + dossiers/factors/**；台账 = $PRODUCT_ROOT/data/ledger.sqlite。
+    if out=$("$PLATFORM/.venv/bin/python" governance/ops/check_lockbox.py --root "$PRODUCT_ROOT" 2>&1); then ok "$out"; else bad "$out"; fi
+    if "$PLATFORM/.venv/bin/python" governance/ops/check_lockbox.py --selftest >/dev/null 2>&1; then
+      ok "负向自检通过（缺字段/空 id/幽灵 id/探索冒充终评/档案缺声明；干净样本不误伤）"
+    else bad "G-LOCKBOX 负向自检失败"; fi
 
     echo "[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）"
     if out=$("$PLATFORM/.venv/bin/python" governance/ops/check_reviews.py 2>&1); then

@@ -88,6 +88,42 @@ def test_write_manifest_creates_new_file(tmp_path):
     assert path.read_text(encoding="utf-8").endswith("\n")
 
 
+def test_write_manifest_pair_writes_both_with_same_fields(tmp_path):
+    run = tmp_path / "camp" / "run" / "manifest.json"
+    camp = tmp_path / "camp" / "manifest.json"
+    updates = {"platform_commit": "abc123", "panel_sig": "sig",
+               "window_id": None, "sample_role": "unknown", "access_ids": []}
+    paths = lib.write_manifest_pair(run, camp, updates)
+    assert paths == [run, camp]
+    assert json.loads(run.read_text(encoding="utf-8")) == updates
+    assert json.loads(camp.read_text(encoding="utf-8")) == updates
+
+
+def test_write_manifest_pair_preserves_nonempty_access_ids(tmp_path):
+    run = tmp_path / "camp" / "run" / "manifest.json"
+    camp = tmp_path / "camp" / "manifest.json"
+    run.parent.mkdir(parents=True)
+    run.write_text(json.dumps({"access_ids": ["RUN-1"], "keep": 1}), encoding="utf-8")
+    camp.write_text(json.dumps({"access_ids": ["CAMP-1"]}), encoding="utf-8")
+    lib.write_manifest_pair(run, camp, {"sample_role": "lockbox", "access_ids": []})
+    run_doc = json.loads(run.read_text(encoding="utf-8"))
+    camp_doc = json.loads(camp.read_text(encoding="utf-8"))
+    assert run_doc["access_ids"] == ["RUN-1"], "既有非空 access_ids 不得被 [] 清空"
+    assert camp_doc["access_ids"] == ["CAMP-1"], "既有非空 access_ids 不得被 [] 清空"
+    assert run_doc["sample_role"] == "lockbox" and camp_doc["sample_role"] == "lockbox"
+    assert run_doc["keep"] == 1
+
+
+def test_write_manifest_pair_empty_existing_ids_stay_empty(tmp_path):
+    run = tmp_path / "camp" / "run" / "manifest.json"
+    camp = tmp_path / "camp" / "manifest.json"
+    run.parent.mkdir(parents=True)
+    run.write_text(json.dumps({"access_ids": []}), encoding="utf-8")
+    lib.write_manifest_pair(run, camp, {"access_ids": []})
+    assert json.loads(run.read_text(encoding="utf-8"))["access_ids"] == []
+    assert json.loads(camp.read_text(encoding="utf-8"))["access_ids"] == []
+
+
 def test_lockbox_sample_no_state_is_unknown(tmp_path):
     db = _ledger(tmp_path)
     health = _health(tmp_path, ["2026-07-01", "2026-07-02"])

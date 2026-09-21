@@ -98,6 +98,44 @@ def write_manifest(path: Path, updates: Mapping[str, Any]) -> dict:
     return doc
 
 
+def preserved_access_ids(path: Path) -> list[str]:
+    """manifest 既有 `access_ids`：非空列表原样返回；缺失/空/非法 → []。
+
+    流水线每轮刷新 manifest 时用（T10）：`access_ids` 以 [] 起步，但已回填的
+    非空值不得被覆盖清空。
+    """
+    p = Path(path)
+    if not p.is_file():
+        return []
+    try:
+        doc = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return []
+    ids = doc.get("access_ids") if isinstance(doc, dict) else None
+    return list(ids) if isinstance(ids, list) and ids else []
+
+
+def write_manifest_pair(run_manifest: Path, campaign_manifest: Path,
+                        updates: Mapping[str, Any]) -> list[Path]:
+    """双写 run 级 + campaign 级 manifest（T10）：同字段；既有键保留。
+
+    `access_ids` 特例：各自保留目标文件已有的非空列表（回填后不被流水线清空），
+    否则用 updates 值（通常 []）。同一路径只写一次。
+    """
+    written: list[Path] = []
+    for p in (Path(run_manifest), Path(campaign_manifest)):
+        if p in written:
+            continue
+        merged = dict(updates)
+        if "access_ids" in merged:
+            preserved = preserved_access_ids(p)
+            if preserved:
+                merged["access_ids"] = preserved
+        write_manifest(p, merged)
+        written.append(p)
+    return written
+
+
 def lockbox_sample(*, panel_start: dt.date | None, panel_end: dt.date | None,
                    today: dt.date | None = None, db_path: Path | None = None,
                    health_root: Path | None = None) -> dict:
