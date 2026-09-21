@@ -107,7 +107,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--panel", type=Path, default=QR / "data/cache/panel_42_5y.npz")
     ap.add_argument("--out", type=Path,
-                    default=QR / "results/2026-09-scoremodel")
+                    default=QR / "results/2026-09-xscore")
     ap.add_argument("--models", default="M0a,M0b,M1,M2,M3,M4")
     ap.add_argument("--subsample", type=int, default=40000)
     ap.add_argument("--train-days", type=int, default=252)

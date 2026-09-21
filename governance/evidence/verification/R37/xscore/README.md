@@ -1,7 +1,7 @@
-# R37 scoremodel M0–M4 阶梯（进行中）
+# R37 xscore M0–M4 阶梯（进行中）
 
-模块：`research/tools/scoremodel/`（N/R/A/C + pipeline + run_ladder；32 tests，TDD+突变）
-Spec/计划：`knowledge/design/research/{specs,plans}/2026-09-21-scoremodel*.md`
+模块：`research/tools/xscore/`（N/R/A/C + pipeline + run_ladder；32 tests，TDD+突变）
+Spec/计划：`knowledge/design/research/{specs,plans}/2026-09-21-xscore*.md`
 
 ## 已完成
 - Task1 N/C（robust z 标准化+校准）`39a4ab3`
@@ -57,4 +57,4 @@ Spec/计划：`knowledge/design/research/{specs,plans}/2026-09-21-scoremodel*.md
 | all42 | 0.1016 | 18.4 | 33.2% / +11.0% / 1.24 | 36.8% / +11.1% / 1.55 |
 
 结论：分钟因子为主力；日线组单独几乎无长多超额；合并的增量来自分散化（IR 提升）。
-脚本 `research/tools/scoremodel/run_split.py`。
+脚本 `research/tools/xscore/run_split.py`。

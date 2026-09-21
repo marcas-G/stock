@@ -144,7 +144,7 @@ def main() -> int:
             print(f"{name:9s} {st['mean']:7.4f} {st['t_nw']:6.1f} {label:10s} "
                   f"{r['ann']*100:6.2f}% {r['excess']*100:6.2f}% {r['ir']:5.2f}")
         out[name] = record
-    (QR / "results/2026-09-scoremodel/split_daily_vs_minute.json").write_text(
+    (QR / "results/2026-09-xscore/split_daily_vs_minute.json").write_text(
         json.dumps(out, ensure_ascii=False, indent=2))
     return 0
 

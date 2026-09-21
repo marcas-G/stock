@@ -1,4 +1,4 @@
-# 截面分数聚合模块（scoremodel）设计文档
+# xscore（截面评分器）设计文档
 
 日期：2026-09-21 ｜ 状态：**已拍板**（用户提供设计，2026-09-21）
 边界：**只做 `X_t → s_t`（已有因子值 → 截面分数）**；不碰 DSL、不做因子计算、不做域选择/仓位/执行（属下游）。
@@ -86,5 +86,5 @@ Huber 理由：未来收益 fat-tail，避免极端股主导拟合；δ 明示�
 - **V1**：RobustZScore + Identity/CoreExpansion + HuberRidge/ElasticNet/PLS + 校准
 - **V2**：ExtendedExpansion + SmallMLP + RankAwareHuberRidge
 - **V3**：SupervisedAE
-- 代码位置：`research/tools/scoremodel/`（工具树，TDD；验证后如产品化再提升到平台 `core/score/`）
-- 实验：复用 `lab/autoencoder42/` 的 42 因子 5y 面板与 walkforward；结果 `results/2026-09-scoremodel/`
+- 代码位置：`research/tools/xscore/`（工具树，TDD；验证后如产品化再提升到平台 `core/score/`）
+- 实验：复用 `lab/autoencoder42/` 的 42 因子 5y 面板与 walkforward；结果 `results/2026-09-xscore/`
