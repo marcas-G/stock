@@ -3643,8 +3643,12 @@ run 家族统一参数（Typer，`factorlab` 与 `flab` 同源）：
 `result_ref`。评估段与分层回测块记录 `date_start/date_end`（样本区间可追溯）。
 
 **研究工作流（xscore pipeline）语义对齐**：流水线 **config = 候选**——flow 开始按同一
-窗口/角色判定（无 state → 不登记 `unknown`/`[]`），碰箱即幂等登记 **final**（命中复用
-`access_id`；配额不足 `LOCKBOX_QUOTA_EXCEEDED`，报错指引 `factorlab lockbox status`），
+窗口/角色判定并**钉死候选身份**（`artifact_sha256 = panel 文件签名`、config 部分 = config
+**文件内容 sha**，对齐 spec_fingerprint；收尾复用起点 fp，不重算）。无 state 或
+`FACTORLAB_LOCKBOX=0|off|false` → 不读/不写台账（`unknown`/`[]`）；碰箱即幂等登记
+**final**（命中复用 `access_id`；配额不足 `LOCKBOX_QUOTA_EXCEEDED`，报错指引
+`factorlab lockbox status`）；stale（跨季未 roll）→ `LOCKBOX_WINDOW_STALE` fail-fast
+（指引 `factorlab lockbox roll`），panel 缺失 → 拒以 `artifact_sha256=missing` 登记。
 `access_id` 写入 run 级与 campaign 级 manifest 的 `access_ids`（campaign = 既有 ∪ 新 id），
 `window_id`/`sample_role` 同步为本次真实值，收尾把 `result_ref` 回填为 run 的 out 目录；
 流水线自身不 `roll`、不初始化台账（见 `research/tools/xscore/pipeline/README.md`）。
@@ -3658,7 +3662,8 @@ run 家族统一参数（Typer，`factorlab` 与 `flab` 同源）：
 - **终评唯一 + 配额**：`(window_id, fingerprint)` 唯一（指纹 = `sha256(canonical({kind,
   primary_artifact_sha256, params, window_id}))`，改参=新候选）；每窗口 final 计数 ≤ M
   （缺省 20，roll 时 `--quota-final` 可改）。探索不限额。
-- 写入方只有平台（execute 层 guard）与研究侧 `lab/lockbox.py`；禁手改（同 ledger 纪律）。
+- 写入方只有平台（execute 层 guard）、研究工作流（xscore pipeline 的 final 登记）与研究侧
+  `lab/lockbox.py`；禁手改（同 ledger 纪律）。
 - 库路径/env：`FACTORLAB_LOCKBOX_DB` 覆盖（缺省 `<research_root>/data/ledger.sqlite`）；
   `FACTORLAB_LOCKBOX=0|off|false` 关闭硬门（直接 IS 放行、不读 state、不登记）——
   仅供 CI/离线基线，生产不设或设 1。
@@ -3666,8 +3671,10 @@ run 家族统一参数（Typer，`factorlab` 与 `flab` 同源）：
 ### 10.6 门与迁移
 
 - **G-LOCKBOX**（`make gates`）：档案/manifest 样本声明字段齐全与格式（与 `window_id`
-  季号一致）；宿主段与台账交叉核对 `access_id` 存在、kind=final、窗口匹配；负向自检
-  （缺字段/空 id/幽灵 id/探索冒充终评/档案缺声明）。
+  季号一致）；宿主段与台账交叉核对 `access_id` 存在、kind=final；`lockbox/mixed` 另要求
+  **至少一条 id 的窗口与 manifest 一致**（campaign 并集含历史窗 id 不判违规）；
+  `is/legacy/unknown` 可挂历史真实 final id（引用仍须核验）。负向自检（缺字段/空 id/
+  幽灵 id/探索冒充终评/锁箱仅旧窗 id/档案缺声明）。
 - **G-ANNOTATE**：新/更新档案必须含 `sample_role`（缺 → 红）。
 - **迁移（只管以后）**：存量 spec（含 175 个 `end=2026-07-31`）在锁箱初始化后被判定碰箱：
   要么收紧窗口 `date.end = is_end`（`lockbox status --json` 输出），要么显式

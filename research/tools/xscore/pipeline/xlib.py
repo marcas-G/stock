@@ -6,6 +6,7 @@ Prefect 只做编排，通过 subprocess 调用本目录脚本。
 from __future__ import annotations
 
 import datetime as dt
+import fcntl
 import hashlib
 import json
 import os
@@ -121,15 +122,25 @@ def write_manifest_pair(run_manifest: Path, campaign_manifest: Path,
 
     `access_ids` 特例：与目标文件已有非空列表取**并集**（去重保序；T12b）——
     既有回填不被清空，新登记 id 不丢（campaign 跨 run 累积）。同一路径只写一次。
+
+    并发：读-并-写全程持 `<manifest>.lock` 的 flock（仓内单写者模式），同目标的
+    并行写者串行化；lock 文件为 0 字节哨兵、可再生。
     """
     written: list[Path] = []
     for p in (Path(run_manifest), Path(campaign_manifest)):
         if p in written:
             continue
-        merged = dict(updates)
-        if "access_ids" in merged:
-            merged["access_ids"] = _merged_access_ids(p, merged["access_ids"])
-        write_manifest(p, merged)
+        lock = p.with_name(p.name + ".lock")
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        with open(lock, "a", encoding="utf-8") as fh:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            try:
+                merged = dict(updates)
+                if "access_ids" in merged:
+                    merged["access_ids"] = _merged_access_ids(p, merged["access_ids"])
+                write_manifest(p, merged)
+            finally:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
         written.append(p)
     return written
 
@@ -142,14 +153,31 @@ def _merged_access_ids(path: Path, new_ids: Any) -> list[str]:
     return merged
 
 
+def file_content_sha(path: Path) -> str:
+    """文件内容 sha256（前 16 hex）；缺失 → "missing"。
+
+    候选身份用（对齐平台 `spec_fingerprint` 语义：**改内容=新候选**，改路径/改 mtime 不算）。
+    """
+    p = Path(path)
+    if not p.is_file():
+        return "missing"
+    return hashlib.sha256(p.read_bytes()).hexdigest()[:16]
+
+
+def lockbox_env_disabled() -> bool:
+    """env `FACTORLAB_LOCKBOX` 显式 0/off/false（与平台 `guard_run` 同一开关语义）。"""
+    return os.environ.get("FACTORLAB_LOCKBOX", "1").strip().lower() in ("0", "off", "false")
+
+
 def _lockbox_open(*, panel_start: dt.date | None, panel_end: dt.date | None,
                   today: dt.date | None = None, db_path: Path | None = None,
-                  health_root: Path | None = None):
+                  health_root: Path | None = None, allow_stale: bool = False):
     """连台账并解析 `(conn, state, window, role)`；调用方负责 `conn.close()`。
 
     - 无 state → `(conn, None, None, "unknown")`；
-    - state 陈旧（跨季未 roll，LOCKBOX_WINDOW_STALE）→ 用 state 窗口（与
-      lockbox_sample 同一诚实标注口径，不让流水线收尾失败）；
+    - state 陈旧（跨季未 roll，LOCKBOX_WINDOW_STALE）：`allow_stale=True`（仅 T9
+      `lockbox_sample` 读路径）→ 用 state 窗口诚实标注；登记路径缺省严格原样抛
+      （不静默解封，flow 侧 fail-fast）；
     - panel 区间缺省回退已发布日历 min/max（空日历回退 data_end）。
     """
     _ensure_platform_src()
@@ -176,7 +204,7 @@ def _lockbox_open(*, panel_start: dt.date | None, panel_end: dt.date | None,
         window = store.current_window(conn, as_of=today, trading_days=days,
                                       data_end=data_end)
     except LockboxError as exc:
-        if exc.code != "LOCKBOX_WINDOW_STALE":
+        if exc.code != "LOCKBOX_WINDOW_STALE" or not allow_stale:
             conn.close()
             raise
         window = LockboxWindow(state["window_id"],
@@ -189,7 +217,7 @@ def _lockbox_open(*, panel_start: dt.date | None, panel_end: dt.date | None,
 def lockbox_sample(*, panel_start: dt.date | None, panel_end: dt.date | None,
                    today: dt.date | None = None, db_path: Path | None = None,
                    health_root: Path | None = None) -> dict:
-    """读锁箱台账（SQLite state + health 日历）→ manifest 样本声明。
+    """读锁箱台账（SQLite state + health 日历）→ manifest 样本声明（T9 读路径）。
 
     - 无 state（锁箱未初始化）→ `{"window_id": None, "sample_role": "unknown"}`；
     - 有 state → `current_window` 对账后 `role_for(panel_start, panel_end, window)`
@@ -199,7 +227,7 @@ def lockbox_sample(*, panel_start: dt.date | None, panel_end: dt.date | None,
     """
     conn, state, window, role = _lockbox_open(
         panel_start=panel_start, panel_end=panel_end, today=today,
-        db_path=db_path, health_root=health_root)
+        db_path=db_path, health_root=health_root, allow_stale=True)
     try:
         if state is None:
             return {"window_id": None, "sample_role": "unknown"}
@@ -208,66 +236,106 @@ def lockbox_sample(*, panel_start: dt.date | None, panel_end: dt.date | None,
         conn.close()
 
 
-def lockbox_register_and_manifest(*, run_manifest: Path, campaign_manifest: Path,
-                                  panel: Path, panel_sig: str, config_path: str,
-                                  base_updates: Mapping[str, Any] | None = None,
-                                  db_path: Path | None = None,
-                                  health_root: Path | None = None,
-                                  today: dt.date | None = None,
-                                  result_ref: str | None = None,
-                                  panel_start: dt.date | None = None,
-                                  panel_end: dt.date | None = None) -> dict:
-    """T12b 流水线锁箱接线：角色判定 →（碰箱）幂等 final 登记 → 双写 manifest。
+def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
+                     db_path: Path | None = None, health_root: Path | None = None,
+                     today: dt.date | None = None,
+                     panel_start: dt.date | None = None,
+                     panel_end: dt.date | None = None) -> dict:
+    """T12b flow 起点：钉死候选身份 + 碰箱幂等登记 final；返回收尾 context。
 
-    裁定：流水线 **config = 候选**（一次 config 一次终评）——id 取
-    `candidate_fingerprint(artifact_sha256=file_sig(panel),
-    params={"config": config_path, "panel_sig": panel_sig}, kind="final")`：
+    身份（**起点钉死，收尾不得重算**）：
+    `artifact_sha256 = file_sig(panel)`（stat 签名）、config 部分 = **config 文件内容 sha**
+    （对齐平台 `spec_fingerprint`：改内容=新候选），
+    `candidate_fingerprint(artifact_sha256, params={"config": config_sha,
+    "panel_sig": panel_sig}, window_id, kind="final")`。
 
-    - 无 state：不登记、不初始化（`sample_role="unknown"`、`window_id=null`、
-      `access_ids` 保持既有）；真实台账 roll 由 controller 执行；
-    - `is`（面板整段早于窗口起点）：不登记，`sample_role="is"` + 真实 window_id；
-    - `mixed`/`lockbox`：`require_final` 命中复用 access_id（重跑幂等、不耗配额），
-      否则 `register_access(kind="final", reason="pipeline:<config>")`；
+    - `FACTORLAB_LOCKBOX ∈ {0,off,false}` → 与无 state 同：不读/不写台账、
+      `window_id=None`、`sample_role="unknown"`、`access_id=None`；
+    - 无 state：不登记、不初始化（真实 roll 由 controller 执行）；
+    - `is`（面板整段早于窗口起点）：不登记；`mixed`/`lockbox`：`require_final` 命中
+      复用 access_id，缺失才 `register_access(kind="final", reason="pipeline:<config>")`；
       配额不足 → `LOCKBOX_QUOTA_EXCEEDED`，消息指引 `factorlab lockbox status`；
-    - `result_ref` 非空时回填（flow 结束传 run 的 out 目录）；
-    - 返回 campaign 级 manifest 文档（access_ids = 既有 ∪ 本次 id）。
+    - 碰箱登记而 panel/config 文件缺失（身份=missing）→ `FileNotFoundError`；
+    - stale state → `current_window` 原样抛 `LOCKBOX_WINDOW_STALE`（消息指引
+      `factorlab lockbox roll`），不得按旧窗静默登记。
     """
-    _ensure_platform_src()
-    from factorlab.adapters import lockbox_store as store
-    from factorlab.core.lockbox import LockboxError, candidate_fingerprint
-
     panel = Path(panel)
+    artifact = file_sig(panel)
+    ctx: dict[str, Any] = {"window_id": None, "sample_role": "unknown",
+                           "access_id": None, "fingerprint": None,
+                           "artifact_sha256": artifact,
+                           "config_sha": file_content_sha(config_path),
+                           "panel_sig": str(panel_sig)}
+    if lockbox_env_disabled():
+        return ctx
     if panel_start is None or panel_end is None:
         dates = panel_dates(panel)
         if dates is not None:
             panel_start, panel_end = dates
-    conn, state, window, role = _lockbox_open(
+    conn, _state, window, role = _lockbox_open(
         panel_start=panel_start, panel_end=panel_end, today=today,
         db_path=db_path, health_root=health_root)
     try:
-        access_id: str | None = None
-        if window is not None and role != "is":
-            params = {"config": str(config_path), "panel_sig": str(panel_sig)}
-            fp = candidate_fingerprint(artifact_sha256=file_sig(panel), params=params,
-                                       window_id=window.window_id, kind="final")
-            access_id = _pipeline_final_access(conn, store, fp=fp, params=params,
-                                               panel=panel, config_path=config_path,
-                                               window=window)
-            if result_ref is not None:
-                store.update_result_ref(conn, access_id, result_ref)
-        updates = dict(base_updates or {})
-        updates.update({"window_id": window.window_id if window is not None else None,
-                        "sample_role": role,
-                        "access_ids": [access_id] if access_id else []})
-        write_manifest_pair(run_manifest, campaign_manifest, updates)
-        return json.loads(Path(campaign_manifest).read_text(encoding="utf-8"))
+        if window is not None:
+            ctx["window_id"] = window.window_id
+        ctx["sample_role"] = role
+        if window is None or role == "is":
+            return ctx
+        if artifact == "missing":
+            raise FileNotFoundError(
+                f"panel 文件缺失，拒绝以 artifact_sha256=missing 登记锁箱访问：{panel}")
+        if ctx["config_sha"] == "missing":
+            raise FileNotFoundError(
+                f"config 文件缺失，无法钉死候选指纹：{config_path}")
+        _ensure_platform_src()
+        from factorlab.core.lockbox import candidate_fingerprint
+        params = {"config": ctx["config_sha"], "panel_sig": ctx["panel_sig"]}
+        fp = candidate_fingerprint(artifact_sha256=artifact, params=params,
+                                   window_id=window.window_id, kind="final")
+        ctx["fingerprint"] = fp
+        ctx["access_id"] = _pipeline_final_access(conn, fp=fp, params=params,
+                                                  panel=panel, config_path=config_path,
+                                                  window=window)
+        return ctx
     finally:
         conn.close()
 
 
-def _pipeline_final_access(conn, store, *, fp: str, params: Mapping[str, Any],
+def lockbox_finalize(ctx: Mapping[str, Any], *, run_manifest: Path,
+                     campaign_manifest: Path,
+                     base_updates: Mapping[str, Any] | None = None,
+                     db_path: Path | None = None,
+                     result_ref: str | None = None) -> dict:
+    """T12b flow 收尾：用起点 context 写 manifest（**不重算 fp/角色**）+ 回填 result_ref。
+
+    `access_id` 非空且给出 `result_ref`（flow 传 run 的 out 目录）时回填台账；
+    双写 run/campaign，`access_ids` = 各自既有 ∪ 本次 id。
+    """
+    access_id = ctx.get("access_id")
+    if result_ref is not None and access_id:
+        _ensure_platform_src()
+        from factorlab.adapters import lockbox_store as store
+        if db_path is None:
+            from factorlab.config import settings
+            db_path = settings.lockbox_db
+        conn = store.connect(Path(db_path))
+        try:
+            store.update_result_ref(conn, str(access_id), result_ref)
+        finally:
+            conn.close()
+    updates = dict(base_updates or {})
+    updates.update({"window_id": ctx.get("window_id"),
+                    "sample_role": ctx.get("sample_role"),
+                    "access_ids": [access_id] if access_id else []})
+    write_manifest_pair(run_manifest, campaign_manifest, updates)
+    return json.loads(Path(campaign_manifest).read_text(encoding="utf-8"))
+
+
+def _pipeline_final_access(conn, *, fp: str, params: Mapping[str, Any],
                            panel: Path, config_path: str, window) -> str:
     """流水线 final 登记：先查复用（幂等），缺则登记；配额错误附 status 指引。"""
+    _ensure_platform_src()
+    from factorlab.adapters import lockbox_store as store
     from factorlab.core.lockbox import LockboxError
 
     try:

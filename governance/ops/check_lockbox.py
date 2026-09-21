@@ -5,10 +5,11 @@
 **不递归** run 子目录）：
 - 四键存在与类型复用 `research_tidy._check_manifest_fields`（同一判据，避免漂移）；
 - `sample_role ∈ {lockbox,mixed}` → `access_ids` 非空，每个 id 在
-  `<root>/data/ledger.sqlite` 的 `lockbox_access` 中 `kind='final'` 且 `window_id`
-  与 manifest 一致；台账不存在/无 state → 这些条目 error（`--offline` 跳过台账步）；
-- `sample_role ∈ {is,legacy,unknown}` → `access_ids` 必须为空（诚实性：非锁箱声明
-  不得挂访问登记）。
+  `<root>/data/ledger.sqlite` 的 `lockbox_access` 中 `kind='final'`，且**至少一条 id 的
+  `window_id` 与 manifest 一致**（campaign 并集可含历史窗 id，不因旧 id 假红）；
+  台账不存在/无 state → error（`--offline` 跳过台账步）；
+- `sample_role ∈ {is,legacy,unknown}` → `access_ids` 可空；非空不违规（历史记录=如实
+  披露），但引用亦须存在且 `kind='final'`。
 
 档案 = `dossiers/factors/**/*.md`（`_` 前缀模板/无 front matter 文件跳过）：
 - `updated_ts >= 2026-09-21`（或 front matter 无 updated_ts）视为新/更新档案，必须有
@@ -81,22 +82,32 @@ def load_ledger(root: Path) -> Ledger:
 
 
 def _check_access_refs(*, path: Path, role: str, ids: list, window_id, ledger: Ledger,
-                       offline: bool, where: str) -> list[Finding]:
-    """锁箱声明（manifest/档案）的 access_ids × 台账交叉核对。"""
+                       offline: bool, where: str,
+                       require_nonempty: bool) -> list[Finding]:
+    """锁箱声明（manifest/档案）的 access_ids × 台账交叉核对（T12b 修复轮1 门规则）。
+
+    - `require_nonempty=True`（lockbox/mixed）：非空 + window_id 合法，且**至少一条**
+      引用 id 的 window_id 与声明一致（campaign 并集可含历史窗 id，不逐条判不一致）；
+    - `require_nonempty=False`（is/legacy/unknown）：可空；非空则引用亦须真实 final
+      （历史记录=如实披露，不算违规）。
+    """
     out: list[Finding] = []
-    if not ids:
+    if require_nonempty and not ids:
         out.append(Finding(
             "error", str(path),
             f"sample_role={role} 声明锁箱但 access_ids 为空：锁箱角色必须列出终评登记 id"))
         return out
     window_ok = isinstance(window_id, str) and bool(window_id.strip())
-    if not window_ok:
-        out.append(Finding("error", str(path),
-                           f"{where} 锁箱声明缺 window_id，无法与台账窗口核对"))
-    elif not WINDOW_ID_RE.match(window_id):
-        out.append(Finding("error", str(path),
-                           f"{where} window_id 格式非法：{window_id!r}（应为 YYYYQn）"))
-        window_ok = False
+    if require_nonempty:
+        if not window_ok:
+            out.append(Finding("error", str(path),
+                               f"{where} 锁箱声明缺 window_id，无法与台账窗口核对"))
+        elif not WINDOW_ID_RE.match(window_id):
+            out.append(Finding("error", str(path),
+                               f"{where} window_id 格式非法：{window_id!r}（应为 YYYYQn）"))
+            window_ok = False
+    if not ids:
+        return out
     if offline:
         return out
     if not ledger.has_state:
@@ -105,6 +116,9 @@ def _check_access_refs(*, path: Path, role: str, ids: list, window_id, ledger: L
             "error", str(path),
             f"{hint}（{LEDGER_REL}）：access_ids 无法与终评登记核验"))
         return out
+    matched = False
+    finals = 0
+    seen: set[str] = set()
     for aid in ids:
         row = ledger.access.get(aid)
         if row is None:
@@ -115,9 +129,16 @@ def _check_access_refs(*, path: Path, role: str, ids: list, window_id, ledger: L
         if kind != "final":
             out.append(Finding("error", str(path),
                                f"access_id {aid!r} kind={kind}（探索访问冒充终评）"))
-        if window_ok and wid != window_id:
-            out.append(Finding("error", str(path),
-                               f"access_id {aid!r} window_id={wid!r} 与声明 {window_id!r} 不一致"))
+            continue
+        finals += 1
+        seen.add(wid)
+        if window_ok and wid == window_id:
+            matched = True
+    if require_nonempty and window_ok and finals and not matched:
+        out.append(Finding(
+            "error", str(path),
+            f"{where} window_id={window_id!r} 在 access_ids 中无匹配终评"
+            f"（引用登记窗口：{sorted(seen)!r}）；历史 id 仅可挂 is/legacy/unknown"))
     return out
 
 
@@ -143,11 +164,15 @@ def check_results(root: Path, ledger: Ledger, *, offline: bool) -> list[Finding]
             out.extend(_check_access_refs(path=manifest, role=role, ids=ids,
                                           window_id=doc.get("window_id"),
                                           ledger=ledger, offline=offline,
-                                          where="campaign manifest"))
+                                          where="campaign manifest",
+                                          require_nonempty=True))
         elif role in OPEN_ROLES and ids:
-            out.append(Finding(
-                "error", str(manifest),
-                f"sample_role={role} 但 access_ids 非空（诚实性：非锁箱声明不得挂访问登记）"))
+            # 历史记录=如实披露：非锁箱角色可挂真实 final id（引用仍须核验）
+            out.extend(_check_access_refs(path=manifest, role=role, ids=ids,
+                                          window_id=doc.get("window_id"),
+                                          ledger=ledger, offline=offline,
+                                          where="campaign manifest",
+                                          require_nonempty=False))
     return out
 
 
@@ -196,7 +221,7 @@ def _parse_list(value: str) -> tuple[list[str] | None, str | None]:
     """解析内联列表：`[]` / `[a, b]` → (list, None)；其它 → (None, 原因)。
 
     块状 YAML（`lockbox_access:` 后跟 `- id` 续行，已被 `_front_matter` 拼回）**显式报格式
-    错误**——静默当空列表会绕过「非锁箱角色必须空 / 锁箱角色必须非空」的诚实性判据。
+    错误**——静默当空列表会绕过「锁箱角色必须非空（且窗口匹配）」的判据。
     """
     value = value.strip()
     if value.startswith("-"):
@@ -230,7 +255,8 @@ def _check_dossier(path: Path, fm: dict[str, str], ledger: Ledger,
     if role in LOCKBOX_ROLES:
         out.extend(_check_access_refs(path=path, role=role, ids=ids,
                                       window_id=fm["window_id"],
-                                      ledger=ledger, offline=offline, where="档案"))
+                                      ledger=ledger, offline=offline, where="档案",
+                                      require_nonempty=True))
     elif ids:
         out.append(Finding(
             "error", str(path),
@@ -326,6 +352,7 @@ def selftest() -> int:
         conn.execute("INSERT INTO lockbox_state VALUES (1, '2026Q2', '2025-07-01', 20,"
                      " '2026-09-21T00:00:00Z')")
         conn.execute("INSERT INTO lockbox_access VALUES ('F1', '2026Q2', 'final')")
+        conn.execute("INSERT INTO lockbox_access VALUES ('F0', '2026Q1', 'final')")
         conn.execute("INSERT INTO lockbox_access VALUES ('E1', '2026Q2', 'exploration')")
         conn.commit()
         conn.close()
@@ -341,9 +368,14 @@ def selftest() -> int:
             path.write_text(text, encoding="utf-8")
             return path
 
-        # 干净样本：is 空声明 + 真 final id 的 lockbox 声明
+        # 干净样本：is 空声明 + 真 final 的 lockbox 声明 + campaign 并集（旧窗∪本次窗）
+        # + 非锁箱角色挂历史真 final id（如实披露，T12b 修复轮1 起不违规）
         clean_is_m = put_manifest("clean-is", _manifest_doc("is", [], None))
         clean_lb_m = put_manifest("clean-lb", _manifest_doc("lockbox", ["F1"], "2026Q2"))
+        clean_union_m = put_manifest("clean-union",
+                                     _manifest_doc("lockbox", ["F0", "F1"], "2026Q2"))
+        clean_hist_m = put_manifest("clean-unknown-history",
+                                    _manifest_doc("unknown", ["F1"], "2026Q2"))
         clean_is_d = put_dossier("clean-is.md", _dossier_doc("is", "", "[]"))
         clean_lb_d = put_dossier("clean-lb.md", _dossier_doc("lockbox", "2026Q2", '["F1"]'))
 
@@ -357,8 +389,8 @@ def selftest() -> int:
                 "fake-ghost-id", _manifest_doc("lockbox", ["ghost"], "2026Q2")),
             "探索冒充终评": put_manifest(
                 "fake-explore-id", _manifest_doc("mixed", ["E1"], "2026Q2")),
-            "is 挂访问登记": put_manifest(
-                "fake-is-ids", _manifest_doc("is", ["F1"], "2026Q2")),
+            "lockbox 仅旧窗 id（无本次窗匹配）": put_manifest(
+                "fake-old-window-only", _manifest_doc("lockbox", ["F0"], "2026Q2")),
             "档案缺 sample_role": put_dossier(
                 "fake-no-role.md", _dossier_doc(None, "2026Q2", "[]")),
             "档案 lockbox 幽灵 id": put_dossier(
@@ -366,12 +398,13 @@ def selftest() -> int:
         }
         fakes_offline = {
             "manifest 缺字段", "claim lockbox 但 access_ids 空",
-            "is 挂访问登记", "档案缺 sample_role",
+            "档案缺 sample_role",
         }
 
         online = findings(root, offline=False)
         offline = findings(root, offline=True)
-        clean_paths = {str(p) for p in (clean_is_m, clean_lb_m, clean_is_d, clean_lb_d)}
+        clean_paths = {str(p) for p in (clean_is_m, clean_lb_m, clean_union_m,
+                                        clean_hist_m, clean_is_d, clean_lb_d)}
         online_hit = {str(fakes_online[k]) for k in fakes_online}
         offline_hit = {str(fakes_online[k]) for k in fakes_offline}
 
@@ -397,7 +430,7 @@ def selftest() -> int:
                 print(f"      {line}")
             return 1
         print(f"  ✓ G-LOCKBOX 负向自检：在线 {len(fakes_online)} 类造假各命中"
-              f"（缺字段/空 id/幽灵 id/探索冒充终评/诚实性/档案缺声明）、"
+              f"（缺字段/空 id/幽灵 id/探索冒充终评/旧窗无匹配/档案缺声明）、"
               f"{len(clean_paths)} 干净样本不误伤；离线 {len(fakes_offline)} 类格式造假命中")
         return 0
 

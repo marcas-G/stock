@@ -1,19 +1,22 @@
-"""G-LOCKBOX 检查器单测（T10）：campaign manifest / 档案声明 × 真 tmp 台账。
+"""G-LOCKBOX 检查器单测（T10 + T12b 修复轮1）：campaign manifest / 档案声明 × 真 tmp 台账。
 
-行为要求（T10 裁定）：
+行为要求（T10 裁定 + T12b 修复轮1 门规则）：
 - 权威层 = campaign 级 `results/<dir>/manifest.json`（与 tidy 同层，不递归 run 子目录）：
-  四键存在与类型（复用 research_tidy 判据）；`sample_role ∈ {lockbox,mixed}` →
-  `access_ids` 非空，且每个 id 在 `<root>/data/ledger.sqlite` 中 `kind='final'` 且
-  `window_id` 与 manifest 一致；台账不存在/无 state → 这些条目 error。
-  `sample_role ∈ {is,legacy,unknown}` → `access_ids` 必须为空（诚实性）。
+  四键存在与类型（复用 research_tidy 判据）；
+  - `sample_role ∈ {lockbox,mixed}` → `access_ids` 非空，每个 id 在
+    `<root>/data/ledger.sqlite` 中 `kind='final'`，且**至少一条 id 的 window_id 与
+    manifest 的 window_id 一致**（campaign 并集可含历史窗 id，不判违规）；
+    台账不存在/无 state → error（`--offline` 跳过台账步）；
+  - `sample_role ∈ {is,legacy,unknown}` → access_ids 可空；**非空不违规**（历史记录=如实
+    披露），但引用亦须存在且 kind='final'；
 - 档案 `dossiers/factors/**/*.md`：`updated_ts >= 2026-09-21`（或无 updated_ts）必须声明
-  `sample_role/window_id/lockbox_access`；lockbox/mixed → lockbox_access 非空且 id 在
-  台账中为 final 且 window 一致；is/legacy/unknown → 空列表；更早档案 grandfather；
+  `sample_role/window_id/lockbox_access`；lockbox/mixed → lockbox_access 非空且每个 id
+  在台账中为 final 且 window 一致；is/legacy/unknown → 空列表；更早档案 grandfather；
   无 front matter 与 `_` 前缀文件跳过。
 - `--offline`：仅格式校验，不读台账；`--json`；root 不存在 → SKIP(0)；
   `--selftest` 造假矩阵必抓且干净样本不误伤。
 
-突变必杀：台账交叉核对/字段必填/诚实性/双写任一存根化 → 对应测试失败。
+突变必杀：台账交叉核对/字段必填/窗口至少一匹配/引用真实性任一存根化 → 对应测试失败。
 """
 from __future__ import annotations
 
@@ -185,14 +188,61 @@ def test_lockbox_claim_empty_window_id_is_error(tmp_path):
     assert "window_id" in fs[0].message
 
 
+def _add_final(root: Path, window_id: str, start: dt.date) -> str:
+    """在真 tmp 台账补登记一个历史窗口 final（与 state 窗口不同）。"""
+    db = root / "data" / "ledger.sqlite"
+    conn = store.connect(db)
+    try:
+        win = LockboxWindow(window_id, start, dt.date(2026, 7, 3))
+        return store.register_access(conn, kind="final", fingerprint=f"fp-{window_id}",
+                                     artifact="a.yaml", params={}, command="cmd",
+                                     reason="历史窗", window=win, tool="t")
+    finally:
+        conn.close()
+
+
 @pytest.mark.parametrize("role", ["is", "legacy", "unknown"])
-def test_open_role_with_access_ids_is_error(tmp_path, role):
-    root, final, _ = _root(tmp_path)
-    _put_manifest(root, "bad", _manifest(role, [final], "2026Q2"))
+def test_open_role_with_historical_final_ids_passes(tmp_path, role):
+    """历史记录=如实披露：非锁箱角色挂真实 final id（窗口不一致）不再违规。"""
+    root, _, _ = _root(tmp_path)
+    old = _add_final(root, "2026Q1", dt.date(2024, 7, 1))
+    _put_manifest(root, "ok", _manifest(role, [old], "2026Q2"))
+    assert CL.findings(root) == []
+    assert CL.main(["--root", str(root)]) == 0
+
+
+def test_open_role_with_ghost_id_is_error(tmp_path):
+    root, _, _ = _root(tmp_path)
+    _put_manifest(root, "bad", _manifest("unknown", ["ghost"], None))
     fs = CL.findings(root)
     assert len(fs) == 1
-    assert role in fs[0].message
-    assert "诚实" in fs[0].message
+    assert "ghost" in fs[0].message
+
+
+def test_open_role_with_exploration_id_is_error(tmp_path):
+    root, _, exp = _root(tmp_path)
+    _put_manifest(root, "bad", _manifest("is", [exp], "2026Q2"))
+    fs = CL.findings(root)
+    assert len(fs) == 1
+    assert "exploration" in fs[0].message
+
+
+def test_lockbox_only_old_window_id_is_error(tmp_path):
+    """campaign 并集只含旧窗 id、无本次窗 → 无法证明本次锁箱窗口，报错。"""
+    root, _, _ = _root(tmp_path)
+    old = _add_final(root, "2026Q1", dt.date(2024, 7, 1))
+    _put_manifest(root, "bad", _manifest("lockbox", [old], "2026Q2"))
+    fs = CL.findings(root)
+    assert len(fs) == 1
+    assert "2026Q2" in fs[0].message and "2026Q1" in fs[0].message
+
+
+def test_lockbox_union_old_plus_current_id_passes(tmp_path):
+    """campaign 并集 = 旧窗 id ∪ 本次窗 id → 至少一条匹配即通过。"""
+    root, final, _ = _root(tmp_path)
+    old = _add_final(root, "2026Q1", dt.date(2024, 7, 1))
+    _put_manifest(root, "ok", _manifest("lockbox", [old, final], "2026Q2"))
+    assert CL.findings(root) == []
 
 
 def test_lockbox_claim_without_ledger_is_error(tmp_path):
@@ -329,7 +379,7 @@ def test_dossier_offline_skips_ledger_but_keeps_format(tmp_path):
 
 
 def test_dossier_block_list_is_format_error_online(tmp_path):
-    """块状 YAML 列表（`- id` 续行）不得被静默当 []——否则绕过诚实性判据。"""
+    """块状 YAML 列表（`- id` 续行）不得被静默当 []——否则绕过锁箱角色非空/匹配判据。"""
     root, _, _ = _root(tmp_path)
     _put_dossier(root, "fam/block.md",
                  "---\nxname: x\nupdated_ts: 2026-09-21\nsample_role: is\n"
