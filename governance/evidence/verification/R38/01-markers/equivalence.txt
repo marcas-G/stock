@@ -1,0 +1,47 @@
+== markers 等价性（fast 表达式冻结）: not needs_ch and not data_on_disk and not host_root and not tick_paused and not inflight and not known_red ==
+
+[P1] platform/tests（cwd=platform）
+  ✓ [P1/base] tests/test_factio.py::test_paths_roots_exist_or_skip 被收集（deep）
+  ✓ [P1/old] tests/test_factio.py::test_paths_roots_exist_or_skip 已被排除
+  ✓ [P1/new] tests/test_factio.py::test_paths_roots_exist_or_skip 已被排除
+  ✓ [P1] 收集行数一致：old(--deselect)=3893  new(markers)=3893
+  ✓ [P1/deep] tests/test_factio.py::test_paths_roots_exist_or_skip 被收集（deep）
+  · pytest 摘要：3893/3894 tests collected (1 deselected) in 3.30s
+
+[P2] platform/tools（cwd=仓根）
+  ✓ [P2/base] tools/lob_fact/tests/test_config_paths.py::test_root_exists_on_disk 被收集（deep）
+  ✓ [P2/old] tools/lob_fact/tests/test_config_paths.py::test_root_exists_on_disk 已被排除
+  ✓ [P2/new] tools/lob_fact/tests/test_config_paths.py::test_root_exists_on_disk 已被排除
+  ✓ [P2/base] tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables 被收集（deep）
+  ✓ [P2/old] tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables 已被排除
+  ✓ [P2/new] tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables 已被排除
+  ✓ [P2/base] tools/pan_update/tests/test_config.py::test_pan_update_and_ingest_share_data_roots 被收集（deep）
+  ✓ [P2/old] tools/pan_update/tests/test_config.py::test_pan_update_and_ingest_share_data_roots 已被排除
+  ✓ [P2/new] tools/pan_update/tests/test_config.py::test_pan_update_and_ingest_share_data_roots 已被排除
+  ✓ [P2/base] tools/lob_fact/tests/test_run_lob_batch.py::test_main_cli_e2e_mini_month 被收集（deep）
+  ✓ [P2/old] tools/lob_fact/tests/test_run_lob_batch.py::test_main_cli_e2e_mini_month 已被排除
+  ✓ [P2/new] tools/lob_fact/tests/test_run_lob_batch.py::test_main_cli_e2e_mini_month 已被排除
+  ✓ [P2] 收集行数一致：old(--deselect)=914  new(markers)=914
+  ✓ [P2/deep] tools/lob_fact/tests/test_config_paths.py::test_root_exists_on_disk 被收集（deep）
+  ✓ [P2/deep] tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables 被收集（deep）
+  ✓ [P2/deep] tools/pan_update/tests/test_config.py::test_pan_update_and_ingest_share_data_roots 被收集（deep）
+  ✓ [P2/deep] tools/lob_fact/tests/test_run_lob_batch.py::test_main_cli_e2e_mini_month 已被排除
+  · pytest 摘要：914/921 tests collected (7 deselected) in 3.68s
+
+[R] research/tools（cwd=仓根）
+  ✓ [R/base] tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches 被收集（deep）
+  ✓ [R/old] tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches 已被排除
+  ✓ [R/new] tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches 已被排除
+  ✓ [R/deep] tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches 已被排除
+  ✓ [R/base] tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03 被收集（deep）
+  ✓ [R/old] tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03 已被排除
+  ✓ [R/new] tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03 已被排除
+  ✓ [R/deep] tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03 已被排除
+  ✓ [R/base] tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes 被收集（deep）
+  ✓ [R/old] tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes 已被排除
+  ✓ [R/new] tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes 已被排除
+  ✓ [R/deep] tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes 已被排除
+  ✓ [R] 收集行数一致：old(--deselect)=100  new(markers)=100
+  · pytest 摘要：100/103 tests collected (3 deselected) in 0.66s
+
+markers 等价性：全绿（fast 排除集 = 旧 --deselect 集；deep 按 marker 语义放行/排除）

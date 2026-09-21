@@ -30,6 +30,10 @@ def test_paths_derivation_and_layout():
     assert daily_fact_path().name == "daily_fact.parquet"
 
 
+# data_on_disk（fast 排除 / deep 跑）：断言 tick_fact 目录与 daily_fact 文件在盘。
+# skip 守卫只看 STOCK_ROOT 存在性——CI checkout 里 STOCK_ROOT=checkout（存在）但
+# data/fact 大数据不入库 → 必红；属"宿主在盘数据"假设，非实现缺陷。
+@pytest.mark.data_on_disk
 def test_paths_roots_exist_or_skip():
     if not STOCK_ROOT.is_dir():
         pytest.skip(f"工作区数据不在本机: {STOCK_ROOT}")

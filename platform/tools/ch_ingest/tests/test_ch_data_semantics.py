@@ -173,6 +173,10 @@ def test_stk_limit_ex_date_band_uses_adjusted_pre_close(ch):
 
 
 # ── I7 reconcile 覆盖派生表（收口：daily 层按 clean staging 账本，--source）──
+# data_on_disk（fast 排除 / deep 跑）：真跑 reconcile 子进程，读 paths.DATA_ROOT 下
+# daily_fact parquet / clean staging；无 skip 守卫——数据不在盘即红（本地逐条复现）。
+# 注：本文件其余用例走 ch fixture（CH 不可达自 skip），本条须显式按 markers 排除。
+@pytest.mark.data_on_disk
 def test_reconcile_daily_covers_derived_tables():
     """I1 收口：ingest 消费 clean staging 后，daily 层对账须传 --source（期望=clean），
     rc=0 且输出 explained delta（raw−clean = quarantine + deduped，不判红）。"""

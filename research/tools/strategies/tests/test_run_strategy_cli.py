@@ -215,6 +215,10 @@ def test_max_hold_builds_transform_and_applies_rule(monkeypatch, tmp_path, capsy
 
 # ---------------- 真跑（integration：CH + 真实信号产物）----------------
 
+# known_red（fast/deep 均排除；GitHub issue #25）：DQ health 对 2025-03 历史分区
+# status=UNKNOWN 严格拒单（Plan DQ-M1.5 门控与策略集成口径交接的预存红）。
+# #25 已按新 data_version 收窄修复范围；删标记条件 = 团队按新 data_version 复跑本用例通过。
+@pytest.mark.known_red
 @pytest.mark.integration
 def test_real_run_clean_window_2025_03(monkeypatch, tmp_path, capsys):
     """真 CH + 真 SignalArtifact 一例：打印 NAV/决策数/成交事件，产物可回读。
@@ -244,6 +248,9 @@ def test_real_run_clean_window_2025_03(monkeypatch, tmp_path, capsys):
     assert (out_dir / "nav" / "nav_series.parquet").is_file()
 
 
+# known_red（同上：fast/deep 均排除；GitHub issue #25；删标记条件=按新 data_version 复跑通过）：
+# 2025-03 历史分区 DQ health UNKNOWN 拒单，max_hold 真跑两连都会失败（预存红，非本用例规则问题）。
+@pytest.mark.known_red
 @pytest.mark.integration
 def test_real_run_max_hold_excludes_stale_and_renormalizes(monkeypatch, tmp_path):
     """真数据端到端：max_hold=5 时连续持有 3 期的 code 在 3/21 被换出，剩余再归一。

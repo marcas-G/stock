@@ -1,0 +1,2 @@
+$ cd platform && .venv/bin/python -m pytest -q -m "not tick_paused and not inflight and not known_red" --collect-only 2>&1 | tail -1
+3894 tests collected in 6.30s

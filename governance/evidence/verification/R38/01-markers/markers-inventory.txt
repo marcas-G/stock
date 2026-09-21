@@ -1,0 +1,18 @@
+$ # deep 下 data_on_disk/host_root 被收集的用例（本任务标注的 7 个 node）
+$ (cd platform && .venv/bin/python -m pytest -q -m data_on_disk --collect-only 2>&1 | grep "::")
+tests/test_factio.py::test_paths_roots_exist_or_skip
+$ platform/.venv/bin/python -m pytest platform/tools -q -m "data_on_disk or host_root" --collect-only 2>&1 | grep "::"
+tools/ch_ingest/tests/test_ch_data_semantics.py::test_reconcile_daily_covers_derived_tables
+tools/lob_fact/tests/test_config_paths.py::test_root_exists_on_disk[QUARK_ROOT]
+tools/lob_fact/tests/test_config_paths.py::test_root_exists_on_disk[TICK_FACT_ROOT]
+tools/lob_fact/tests/test_config_paths.py::test_root_exists_on_disk[LOB_FACT_ROOT]
+tools/lob_fact/tests/test_config_paths.py::test_root_exists_on_disk[CALIB_OUT]
+tools/pan_update/tests/test_config.py::test_pan_update_and_ingest_share_data_roots
+
+$ # needs_ch 当前标注数（0：CH 集成腿保留 integration+skip 守卫，无 fast 排除缺口）
+$ (cd platform && .venv/bin/python -m pytest -q -m needs_ch --collect-only 2>&1 | tail -1)
+no tests collected (3894 deselected) in 3.14s
+$ platform/.venv/bin/python -m pytest platform/tools -q -m needs_ch --collect-only 2>&1 | tail -1
+no tests collected (921 deselected) in 4.20s
+$ platform/.venv/bin/python -m pytest research/tools -q -m needs_ch --collect-only 2>&1 | tail -1
+no tests collected (103 deselected) in 0.62s

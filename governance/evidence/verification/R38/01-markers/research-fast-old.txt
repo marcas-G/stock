@@ -1,0 +1,25 @@
+.....................................................................F.. [ 72%]
+............................                                             [100%]
+=================================== FAILURES ===================================
+______________ test_results_dir_default_follows_platform_settings ______________
+
+    def test_results_dir_default_follows_platform_settings():
+        """R24 迁移回归：入口缺省 results 根必须跟随平台 settings.results_dir。
+    
+        旧实现硬编码 R24 迁移前旧落点（`<repo>` 内 results 目录）——迁移到 runs/platform 后
+        策略入口读不到因子结果（R05 式使用验证实测：summary.json 不存在于旧路径）。
+        """
+        args = cli.build_parser().parse_args(["spec.yaml"])
+        assert args.results_dir is None, "缺省应交给平台 settings 解析，不再硬编码"
+        from factorlab.config import settings
+        assert settings.results_dir.name == "platform"
+>       assert settings.results_dir.parent.name == "runs"
+E       AssertionError: assert 'results' == 'runs'
+E         
+E         - runs
+E         + results
+
+research/tools/strategies/tests/test_run_strategy_cli.py:312: AssertionError
+=========================== short test summary info ============================
+FAILED research/tools/strategies/tests/test_run_strategy_cli.py::test_results_dir_default_follows_platform_settings
+1 failed, 99 passed, 3 deselected in 3.43s

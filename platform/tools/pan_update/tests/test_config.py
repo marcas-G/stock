@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from pan_update import config
 
 TOOLS = Path(__file__).resolve().parents[2]        # platform/tools
@@ -48,6 +50,10 @@ def test_categories_match_brief_verbatim():
 
 # ── 数据根单点（I2 终评）：与 ingest/convert 侧 factio.paths 同根 ──────────────
 
+# host_root（fast 排除 / deep 跑）：断言 pan_update 派生根 == core.factio.paths（工作区==宿主根）。
+# 该恒等式只在宿主树有数据语义；CI checkout 里靠 FACTORLAB_STOCK_ROOT 覆盖才成立
+# （factio 默认值硬编码开发机路径）→ checkout 语义不成立；deep 在宿主树跑真口径。
+@pytest.mark.host_root
 def test_pan_update_and_ingest_share_data_roots():
     """守卫：pan_update 派生根 == `core.factio.paths`（ingest/convert 侧唯一单点）。"""
     from factorlab.core.factio import paths

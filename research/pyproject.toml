@@ -31,4 +31,16 @@ packages = []  # 研究树不分发任何包（工具按脚本运行）
 testpaths = ["tools"]
 markers = [
     "integration: 依赖真实数据源（ClickHouse factorlab 库 / 本地事实库）的集成测试（数据源缺失时跳过）",
+    # CI 档位 markers（名字冻结；权威 = knowledge/design/platform/specs/
+    # 2026-09-21-cicd-streamlining-addendum.md §3/§4）：
+    #   fast = not needs_ch and not data_on_disk and not host_root and not tick_paused and not inflight and not known_red
+    #   deep = not tick_paused and not inflight and not known_red
+    # 纪律：每个被标用例的邻近注释必须写原因与关联 issue；新增排除 = 新增带原因的 marker
+    # （不回退硬编码 --deselect）。
+    "needs_ch: 需要真 ClickHouse（fast 排除；deep 跑）——被标用例注释须带原因+issue",
+    "data_on_disk: 依赖宿主在盘数据（data/runs 产物）；CI checkout 无大数据 → fast 排除，deep 在宿主树跑",
+    "host_root: 断言工作区==宿主根（CI checkout 语义不成立）→ fast 排除，deep 在宿主树跑",
+    "tick_paused: tick 全线暂停（GitHub issue #15；恢复时删标记）→ fast/deep 均排除",
+    "inflight: 挖矿在途已知红（档案时效门；owner=挖矿流程；档案补齐即删）→ fast/deep 均排除",
+    "known_red: 预存红（注释须带 issue 号与原因；修复后删标记）→ fast/deep 均排除",
 ]

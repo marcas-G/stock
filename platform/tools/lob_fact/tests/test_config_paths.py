@@ -16,6 +16,10 @@ from core import config as C  # noqa: E402
 ROOTS = ['QUARK_ROOT', 'TICK_FACT_ROOT', 'LOB_FACT_ROOT', 'CALIB_OUT']
 
 
+# data_on_disk（fast 排除 / deep 跑）：四根在盘断言（4 参数：QUARK/TICK_FACT/LOB_FACT/CALIB）。
+# skip 守卫只看 STOCK_ROOT 存在性——CI checkout 里存在但 data/raw|fact|calib 不入库 → 必红；
+# 属"宿主在盘数据"假设，非实现缺陷。
+@pytest.mark.data_on_disk
 @pytest.mark.parametrize('name', ROOTS)
 def test_root_exists_on_disk(name):
     if not os.path.isdir(C.STOCK_ROOT):

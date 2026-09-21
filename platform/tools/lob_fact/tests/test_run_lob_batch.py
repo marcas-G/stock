@@ -864,6 +864,10 @@ def _mk_mini_month(root):
     _write_part_df(root / 'snapshots' / 'year=2026' / 'month=08', df)
 
 
+# tick_paused（fast/deep 均排除；恢复时删标记）：tick 全线暂停（用户 2026-09-19 决定，
+# GitHub issue #15 PLAN-LOB-PAUSED）——本 CLI e2e 依赖 tick 月数据/批算链，随暂停一起冻结
+# （R31-CI 曾用 LOB_BATCH_LOW_WATER_KB 在 CI 放行；暂停后不再要求云端/夜间跑）。
+@pytest.mark.tick_paused
 def test_main_cli_e2e_mini_month(tmp_path, monkeypatch, capsys):
     """CLI 全链四跑: (0) dry-run 零副作用 → (1) 首跑落盘/state/月门/SUCCESS →
     (2) --force 重跑 parity.compared=True 且 ok=True (字节级重跑等) → (3) 无
