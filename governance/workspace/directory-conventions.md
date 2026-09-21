@@ -94,6 +94,10 @@
 
 ## 6. 文档纪律
 
+- **证据收口（方案 A，2026-09-21 用户裁定）**：`governance/evidence/**` 只收**命令 + 结论 + 关键数字 + 指路**；
+  **平台运行产物拷贝（factor/composite/strategy/审计 sidecar 等 JSON/CSV 产物）不得入 git**——产物本体在
+  `quantresearch/`（研究产物）或 `runs/`（平台产物），证据正文引用其路径。诊断性探针的小文本原始输出
+  （probe 脚本、门日志、对照 CSV）可作为证据保留。
 - 新文档入 `knowledge/`（契约 → `contracts/`、设计/计划 → `design/<树>/`、
   长文手册 → `handbooks/`）；**研究档案 → 产物区 `quantresearch/dossiers/`**（R37）；
   **工作区治理与证据入 `governance/`**（约定 → `workspace/`、

@@ -80,6 +80,11 @@ governance/evidence/reviews/
   相等校验 → 后者已立 R36-CI-I1 / issue #20）；故 CI 腿不加 heavy.sh/线程 env，内存由
   memguard 兜底。
 
+## 证据收口（方案 A，2026-09-21）
+
+- 轮次证据只收**命令 + 结论 + 关键数字 + 指路**；运行产物拷贝（factor/composite/strategy/审计 sidecar 的
+  JSON/CSV）**不进 git**——产物本体在 `quantresearch/` 或 `runs/`，证据里引用路径。探针/门的小文本原始输出可留。
+
 ## 流程
 
 1. **reviewer 出报告**：新建轮次目录 + `report.md`；在 `findings.md` 追加本轮全部 finding 行
