@@ -41,6 +41,7 @@ from factorlab.core.lockbox import LockboxWindow  # noqa: E402
 
 def _manifest(role="is", ids=(), window=None, **over):
     doc = {"campaign": "c", "window_id": window, "sample_role": role,
+           "config_path": "research/tools/xscore/pipeline/configs/quick.yaml",
            "access_ids": list(ids), "platform_commit": "abc1234"}
     doc.update(over)
     return doc

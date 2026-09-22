@@ -88,7 +88,7 @@ def ensure_variant_spec(name: str, source_spec: Path, *,
 
 def _member_env() -> dict:
     env = dict(os.environ)
-    env.setdefault("FACTORLAB_DATA_BACKEND", "ch")   # 宿主直跑须显式（flab shim 才默认 ch）
+    env["FACTORLAB_DATA_BACKEND"] = "ch"   # 强制 ch（宿主 flab shim 语义；防外部 env 覆盖）
     env.setdefault("FACTORLAB_ST_DEGRADE", "allow")
     env.setdefault("FACTORLAB_MINUTE_UNCOVERED", "drop")
     return env

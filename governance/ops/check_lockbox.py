@@ -313,7 +313,7 @@ def _json_doc(root: Path, fs: list[Finding], *, offline: bool) -> dict:
 
 
 def _manifest_doc(role: str, ids: list[str], window_id: str | None) -> dict:
-    return {"campaign": "selftest", "window_id": window_id, "sample_role": role,
+    return {"campaign": "selftest", "window_id": window_id, "sample_role": role, "config_path": "research/tools/xscore/pipeline/configs/quick.yaml",
             "access_ids": list(ids), "platform_commit": "selftest"}
 
 
