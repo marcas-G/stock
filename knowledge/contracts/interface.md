@@ -3545,6 +3545,10 @@ dev/应急。设计与验收：`knowledge/design/platform/specs/2026-09-21-facto
 `/quantresearch`）；`output_dir` 必须在 `<root>/results/` 下。冒烟脚本
 `$QUANTRESEARCH_ROOT/scratch/20260921_service_smoke.py --spec factor/<族>/<名>.yaml`。
 
+- 流水线数据准备（`platform/tools` 之外的 `research/tools/xscore/pipeline/data_prep.py`）：默认执行
+  参考库体检与**自动补算**（缺 `_5y` 产物成员 → `flab factor run` + 锁箱 final 登记；缺 spec → fail-fast，
+  `--allow-missing-members` 显式豁免并落 `_ref_sync_excluded.json`）；`--no-ref-sync` 关闭。
+
 ### 状态与记录
 
 - 状态机：`queued → running → {succeeded|failed|cancelled}`；服务重启时 running →

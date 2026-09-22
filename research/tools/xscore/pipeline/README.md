@@ -17,6 +17,19 @@ research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/m0-
   `<out>/scores/.../portfolio_<exec>_<domain>.json(.manifest.json)`、`<out>/REPORT.md`
 - 并发：`--max-workers`（默认 2，尊重内存）；重任务仍建议外层 `governance/ops/heavy.sh`
 
+## 参考库体检与自动补算（ref-sync）
+
+`data_prep` 默认先体检参考库（`factor/_reference.yaml` 全成员）：
+
+- 缺 `results/platform/<name>_5y/signal.parquet` 的成员**自动补算**：复用/生成
+  `experiments/r37_5y/<name>_5y.yaml`（5y 窗口）→ `flab factor run <variant> --no-backtest`
+  （env `FACTORLAB_ST_DEGRADE=allow`、`FACTORLAB_MINUTE_UNCOVERED=drop`）→ 锁箱 **final** 登记
+  （`--lockbox final --lockbox-reason ref-autocompute:<name>`；ref add 已登记者幂等复用）；
+  有补算即**自动重建面板**（无需额外 `--force`）；
+- 缺 spec（`factor/**/<name>.yaml`）→ **fail-fast**：列出成员与原因、面板不重建；
+  `--allow-missing-members` 显式豁免并写 `data/cache/_ref_sync_excluded.json`；
+- 关掉体检：`--no-ref-sync`；幂等（已有产物不重跑）。
+
 ## 配置字段
 
 见 `configs/m0-split.yaml`：`panel` / `out` / `folds` / `subsample` / `groups`（`"*"` 或

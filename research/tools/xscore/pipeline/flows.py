@@ -66,9 +66,21 @@ def _resolve_groups(cfg: dict) -> dict[str, list[int]]:
         elif isinstance(spec, dict) and spec.get("source") == "reference":
             ref = yaml.safe_load((QR / "factor/_reference.yaml").read_text())
             names = [m["name"] for m in ref["scales"][spec["scale"]]]
-            groups[name] = [members.index(n) for n in names if n in members]
+            missing = [n for n in names if n not in members]
+            if missing:
+                raise ValueError(
+                    f"分组 {name!r} 的参考库成员不在面板：{missing}——"
+                    "先 `make xpipe-data`（ref-sync 自动补算；缺 spec 会 fail-fast）")
+            groups[name] = [members.index(n) for n in names]
         else:
-            groups[name] = [members.index(n) for n in spec if n in members]
+            unknown = [n for n in spec if n not in members]
+            if unknown:
+                raise ValueError(
+                    f"分组 {name!r} 含非面板成员：{unknown}——"
+                    f"面板成员共 {len(members)} 个（缺产物先 `make xpipe-data`）")
+            groups[name] = [members.index(n) for n in spec]
+        if not groups[name]:
+            raise ValueError(f"分组 {name!r} 解析为空（检查成员名/参考库 scales）")
     return groups
 
 
