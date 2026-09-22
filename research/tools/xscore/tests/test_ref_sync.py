@@ -292,3 +292,40 @@ def test_normalize_limits_bool_and_nan(tmp_path: Path):
         assert z["locked_up"].dtype == bool and z["locked_dn"].dtype == bool
         assert z["locked_up"].tolist() == [[False, True], [False, False]], "NaN 必须为 False"
         assert z["locked_dn"].tolist() == [[False, False], [True, False]]
+
+
+def test_freshness_gap_and_check():
+    import datetime as dt
+
+    class _FakeCH:
+        def __init__(self, latest, days):
+            self.latest, self.days = latest, days
+
+        def query(self, sql):
+            rows = ([[self.latest]] if "max(trade_date)" in sql
+                    else [[d] for d in self.days])
+            return type("R", (), {"result_rows": rows})()
+
+    cal = [dt.date(2026, 9, 17), dt.date(2026, 9, 18), dt.date(2026, 9, 21)]
+    exp, gap = dp.freshness_gap(data_latest=dt.date(2026, 9, 17), calendar_days=cal)
+    assert exp == dt.date(2026, 9, 21)
+    assert gap == [dt.date(2026, 9, 18), dt.date(2026, 9, 21)]
+    assert dp.freshness_gap(data_latest=None, calendar_days=cal) == (dt.date(2026, 9, 21), [])
+
+    ok = dp.check_freshness(client=_FakeCH(dt.date(2026, 9, 17), cal),
+                            max_lag_days=3, log=lambda _m: None)
+    assert ok["ok"] and ok["lag_days"] == 2
+    assert ok["missing"] == ["2026-09-18", "2026-09-21"]
+    stale = dp.check_freshness(client=_FakeCH(dt.date(2026, 9, 17), cal),
+                               max_lag_days=1, log=lambda _m: None)
+    assert not stale["ok"] and stale["lag_days"] == 2
+
+    # 日历落后（与数据同源）→ 周历近似口径：today=2026-09-22（周二），
+    # 期望=前一工作日 2026-09-21；data=09-17 → 缺 09-18/09-21 = 2
+    approx = dp.check_freshness(client=_FakeCH(dt.date(2026, 9, 17),
+                                               [dt.date(2026, 9, 16), dt.date(2026, 9, 17)]),
+                                max_lag_days=3, today=dt.date(2026, 9, 22),
+                                log=lambda _m: None)
+    assert approx["source"] == "weekday-approx" and approx["approximate"]
+    assert approx["expected_latest"] == "2026-09-21" and approx["lag_days"] == 2
+    assert approx["ok"] is True

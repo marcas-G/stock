@@ -60,3 +60,14 @@ factor_task Cached → data_prep 建子面板 panel_subset_demo.npz（+按网格
    `_normalize_limits` 固化 bool（NaN→False）；另补 `CODE_FILES` 指纹清单（漏 data_prep/flows → 改代码不失效）。
 
 门：`research_tidy` errors=0；`check_lockbox --root` errors=0；测试 68 + tidy 43 全绿。
+
+
+## 数据新鲜度门（同日新增）
+
+- `data_prep` 前置校验：CH `daily` 最新 vs 独立时钟（期望=前一工作日；`trade_cal` 与数据同源会
+  滞后 → 周历近似 `source=weekday-approx`）；`--max-lag-days`（缺省 3 / `data.max_lag_days`）+
+  `--allow-stale-data` 显式豁免；超容忍 fail-fast 提示 `make data-update`。
+- 真实验收（2026-09-22）：CH 最新 2026-09-17、期望 2026-09-21、滞后 2（weekday-approx）；
+  容忍 3 → ok；容忍 0 → `ok=false` 且缺失 `['2026-09-18','2026-09-21']` + 指引。
+- 事实：本机 `pan-data-update.timer` 今日 08:11 已跑，但**源盘最新包即至 2026-09-17**（raw zip），
+  CH/日历同步停在该日——属源滞后，非链故障；门在容忍内放行（默认 3 交易日），严格档可调 0。

@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import subprocess
@@ -42,6 +43,73 @@ def _ch():
         host="127.0.0.1", port=8123, database="factorlab",
         username=os.environ.get("FACTORLAB_CH_USER") or "default",
         password=os.environ.get("FACTORLAB_CH_PASSWORD") or "")
+
+
+def freshness_gap(*, data_latest, calendar_days):
+    """日历口径：返回 (expected_latest, gap_days)（expected=日历最新，gap=日历内 > data_latest 的交易日）。"""
+    days = sorted(d for d in calendar_days if d is not None)
+    expected = days[-1] if days else None
+    if expected is None or data_latest is None:
+        return expected, []
+    return expected, [d for d in days if data_latest < d <= expected]
+
+
+def _last_weekday_before(today):
+    d = today - dt.timedelta(days=1)
+    while d.weekday() >= 5:            # 5=Sat,6=Sun
+        d -= dt.timedelta(days=1)
+    return d
+
+
+def _weekdays_between(lo, hi):
+    out, d = [], lo + dt.timedelta(days=1)
+    while d <= hi:
+        if d.weekday() < 5:
+            out.append(d)
+        d += dt.timedelta(days=1)
+    return out
+
+
+def check_freshness(*, client=None, max_lag_days: int = 3,
+                    today=None, log=print) -> dict:
+    """数据新鲜度门：CH daily 最新 vs **独立时钟**（日历落后时用周历近似）。
+
+    - 日历覆盖期望窗（max(is_open) >= 前一工作日）→ 精确口径（含节假日）；
+    - 否则（日历与数据同源滞后）→ 周历近似（周一~五），`approximate=True`，
+      容忍度吸收节假日误报（长假可调大 max_lag_days）。
+    不自动拉取；过期由调用方 fail-fast 并提示 `make data-update`。
+    """
+    today = today or dt.date.today()
+    cli = client or _ch()
+
+    def one(sql):
+        rows = cli.query(sql).result_rows
+        return rows[0][0] if rows else None
+
+    data_latest = one("SELECT max(trade_date) FROM factorlab.daily")
+    cal_open = [r[0] for r in cli.query(
+        "SELECT DISTINCT cal_date FROM factorlab.trade_cal"
+        " WHERE is_open = 1 ORDER BY cal_date").result_rows]
+    wall = _last_weekday_before(today)
+    cal_max = max(cal_open) if cal_open else None
+    if cal_max is not None and cal_max >= wall:
+        expected = max(d for d in cal_open if d <= wall)
+        gap = [d for d in cal_open if data_latest is not None and data_latest < d <= expected]
+        source = "calendar"
+    else:
+        expected = wall
+        gap = (_weekdays_between(data_latest, expected)
+               if data_latest is not None else [])
+        source = "weekday-approx"
+    info = {"data_latest": str(data_latest), "expected_latest": str(expected),
+            "lag_days": len(gap), "max_lag_days": int(max_lag_days),
+            "missing": [str(d) for d in gap], "source": source,
+            "approximate": source == "weekday-approx",
+            "ok": len(gap) <= int(max_lag_days)}
+    log(f"[freshness] CH daily 最新={info['data_latest']} 期望={info['expected_latest']} "
+        f"滞后={info['lag_days']} 交易日（容忍 {info['max_lag_days']}，{source}）"
+        + ("" if info["ok"] else f" | 缺失：{info['missing']} → 先 `make data-update`"))
+    return info
 
 
 Runner = Callable[[list[str], dict], "subprocess.CompletedProcess"]
@@ -320,6 +388,10 @@ def main() -> int:
     ap.add_argument("--cache-dir", type=Path, default=CACHE)
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--only", default="panel,open_adj,mv,limits,amount")
+    ap.add_argument("--max-lag-days", type=int, default=None,
+                    help="数据新鲜度容忍（交易日；缺省取 config.data.max_lag_days 或 3）")
+    ap.add_argument("--allow-stale-data", action="store_true",
+                    help="显式豁免数据新鲜度门（旧数实验自负）")
     ap.add_argument("--config", type=Path,
                     help="流水线 config：据此推导成员集合（data.members/factors）")
     ap.add_argument("--no-ref-sync", action="store_true",
@@ -332,9 +404,11 @@ def main() -> int:
     config_members: list[str] | None = None
     extra_members: list[tuple[str, Path]] = []
     panel_path = C / "panel_42_5y.npz"
+    _cfg_data: dict = {}
     if args.config is not None:
         import yaml as _yaml
         cfg = _yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
+        _cfg_data = cfg.get("data") or {}
         for entry in cfg.get("factors") or []:
             spec = Path(entry["spec"])
             window = tuple(entry.get("window", REF_WINDOW))
@@ -350,6 +424,19 @@ def main() -> int:
                 config_members.append(n)
         if cfg.get("panel"):
             panel_path = Path(cfg["panel"])   # 自定义成员集写各自面板，避免覆盖共享缓存
+    max_lag = args.max_lag_days
+    if max_lag is None and args.config is not None:
+        max_lag = ((_cfg_data or {}).get("max_lag_days"))
+    max_lag = 3 if max_lag is None else int(max_lag)
+    if "panel" in only and not args.allow_stale_data:
+        try:
+            fresh = check_freshness(max_lag_days=max_lag)
+        except Exception as exc:  # noqa: BLE001 —— CH 不可达时给出明确指引
+            print(f"[freshness] 检查失败（CH 不可达？）：{type(exc).__name__}: {exc}")
+            return 2
+        if not fresh["ok"]:
+            print("→ 数据过期：先 `make data-update`，或 --allow-stale-data 显式豁免")
+            return 2
     exclude: set[str] = set()
     force_panel = args.force
     if "panel" in only and not args.no_ref_sync:

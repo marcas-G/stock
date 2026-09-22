@@ -17,6 +17,12 @@ research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/m0-
   `<out>/scores/.../portfolio_<exec>_<domain>.json(.manifest.json)`、`<out>/REPORT.md`
 - 并发：`--max-workers`（默认 2，尊重内存）；重任务仍建议外层 `governance/ops/heavy.sh`
 
+## 数据新鲜度门（R41）
+
+`data_prep` 前置：CH `daily` 最新交易日 vs 独立时钟（期望=前一工作日；日历落后用周历近似）；
+滞后 > `data.max_lag_days`（缺省 3）→ fail-fast 并提示 `make data-update`；`--allow-stale-data` 豁免。
+拉取链（网盘→CH）仍由 `pan-data-update.timer`/`make data-update` 独立负责。
+
 ## 参考库体检与自动补算（ref-sync）
 
 `data_prep` 默认先体检参考库（`factor/_reference.yaml` 全成员）：
