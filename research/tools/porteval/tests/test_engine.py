@@ -9,7 +9,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-import engine  # noqa: E402
+import pv_engine as engine  # noqa: E402
 
 
 def _ctx(D=8, N=6, seed=0):

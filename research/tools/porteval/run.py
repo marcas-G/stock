@@ -21,7 +21,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from engine import PortfolioConfig, simulate  # noqa: E402
+from pv_engine import PortfolioConfig, simulate  # noqa: E402
 
 QR = Path("/data/students/gaolei/quantresearch")
 STOCK = HERE.parents[3]
