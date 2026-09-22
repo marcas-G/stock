@@ -3549,6 +3549,12 @@ dev/应急。设计与验收：`knowledge/design/platform/specs/2026-09-21-facto
   参考库体检与**自动补算**（缺 `_5y` 产物成员 → `flab factor run` + 锁箱 final 登记；缺 spec → fail-fast，
   `--allow-missing-members` 显式豁免并落 `_ref_sync_excluded.json`）；`--no-ref-sync` 关闭。
 
+- **唯一入口策略（R41）**：正式研究运行必须经研究工作流（`make xpipe` / Prefect UI）；host 直跑
+  `factorlab`/`flab` 仅 dev 调试与 lint；`lab/platform_client.py` 与 R39 容器服务已退役。
+  流水线 config 新字段：`factors`（新因子 spec 清单，自动补算并入面板）与 `data.members`
+  （面板成员显式清单；自定义成员集须用独立 `panel` 路径）；`flows` 对 `factors` 有独立缓存阶段，
+  data_prep 按 config 成员集合体检/建面板。campaign manifest 非 legacy 必含 `config_path`。
+
 ### 状态与记录
 
 - 状态机：`queued → running → {succeeded|failed|cancelled}`；服务重启时 running →

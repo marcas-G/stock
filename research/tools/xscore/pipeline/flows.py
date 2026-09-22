@@ -40,7 +40,8 @@ HERE = Path(__file__).resolve().parent
 STOCK = HERE.parents[3]
 QR = Path("/data/students/gaolei/quantresearch")
 PLATFORM_PY = STOCK / "platform/.venv/bin/python"
-CODE_FILES = [HERE / "xlib.py", HERE / "score_once.py", HERE / "portfolio_once.py",
+CODE_FILES = [HERE / "xlib.py", HERE / "data_prep.py", HERE / "score_once.py",
+              HERE / "portfolio_once.py", HERE / "flows.py",
               HERE.parent / "score_model.py", HERE.parent / "aggregators.py",
               HERE.parent / "expansion.py", HERE.parent / "normalize.py",
               HERE.parent / "calibrate.py"]
@@ -86,13 +87,44 @@ def _resolve_groups(cfg: dict) -> dict[str, list[int]]:
 
 @task(cache_key_fn=lambda ctx, params: params["key"], cache_expiration=timedelta(days=7))
 def data_prep_task(key: str, cfg: dict) -> str:
-    """确保数据/面板缓存存在（幂等；面板构建 ~10min，命中则秒过）。"""
+    """确保数据/面板缓存存在（幂等；成员集合来自 config：data.members ∪ factors）。"""
     if not cfg.get("data", {}).get("ensure", True):
         return "skipped"
     caches = cfg["data"].get("cache_dir", str(QR / "data/cache"))
-    _run([str(HERE / "data_prep.py"), "--cache-dir", caches,
-          "--only", cfg["data"].get("only", "panel,open_adj,mv,limits,amount")])
+    argv = [str(HERE / "data_prep.py"), "--cache-dir", caches,
+            "--only", cfg["data"].get("only", "panel,open_adj,mv,limits,amount")]
+    if cfg.get("config_path"):
+        argv += ["--config", str(cfg["config_path"])]
+    _run(argv)
     return caches
+
+
+def _factor_key(cfg: dict) -> str:
+    import hashlib
+    import json as _json
+    payload = []
+    for entry in cfg.get("factors") or []:
+        spec = Path(entry["spec"])
+        payload.append([str(spec), lib.file_sig(spec),
+                        list(entry.get("window", [])) or None])
+    digest = hashlib.sha256(
+        _json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:16]
+    return f"factor|{digest}|{_code_sig()}"
+
+
+@task(cache_key_fn=lambda ctx, params: params["key"], cache_expiration=timedelta(days=30))
+def factor_task(key: str, cfg: dict) -> str:
+    """按 config.factors 补算缺失 `_5y` 信号（幂等；锁箱 final 登记同源）。"""
+    import data_prep as dp
+    entries = cfg.get("factors") or []
+    if not entries:
+        return "no-factors"
+    extra = [(Path(e["spec"]).stem, Path(e["spec"])) for e in entries]
+    res = dp.compute_missing_members(extra_members=extra,
+                                     member_names=[n for n, _ in extra])
+    if res["errors"]:
+        raise RuntimeError(f"factors 补算失败：{res['errors']}")
+    return f"computed={res['computed']}"
 
 
 def _run(step: list[str]) -> None:
@@ -109,7 +141,8 @@ def _score_key(context, parameters, cfg, group_name, model):
 
 def _portfolio_key(context, parameters, cfg, score_dir, exec_mode, domain):
     sig = lib.file_sig(Path(score_dir) / "signal.npz")
-    return f"{sig}|{exec_mode}|{domain}|{cfg['portfolio']}|{_code_sig()}"
+    return (f"{sig}|{exec_mode}|{domain}|{cfg['portfolio']}|{cfg['panel']}|"
+            f"{_code_sig()}")
 
 
 @task(cache_key_fn=lambda ctx, params: params["key"], cache_expiration=timedelta(days=30))
@@ -125,10 +158,16 @@ def score_task(key: str, name: str, cols: list[int], model: str, cfg: dict) -> s
 
 @task(cache_key_fn=lambda ctx, params: params["key"], cache_expiration=timedelta(days=30))
 def portfolio_task(key: str, score_dir: str, exec_mode: str, domain: str, cfg: dict) -> str:
+    import data_prep as dp
     out = Path(score_dir) / f"portfolio_{exec_mode}_{domain}.json"
     pf = cfg["portfolio"]
+    cache_dir = Path(cfg.get("data", {}).get("cache_dir", QR / "data/cache"))
+    aux = dp.aux_cache_paths(Path(cfg["panel"]), cache_dir)
     _run([str(HERE / "portfolio_once.py"), "--signal", str(Path(score_dir) / "signal.npz"),
           "--exec", exec_mode, "--domain", domain,
+          "--panel", str(aux["panel"]), "--open-cache", str(aux["open_adj"]),
+          "--mv", str(aux["mv"]), "--limits", str(aux["limits"]),
+          "--adv", str(aux["amount"]),
           "--every", str(pf["every"]), "--q", str(pf["q"]),
           "--fee-bps", str(pf["fee_bps"]),
           "--limit-policy", str(pf.get("limit_policy", "block")),
@@ -211,10 +250,23 @@ def xscore_pipeline(config_path: str) -> str:
     cfg.setdefault("portfolio", {"exec": ["open", "close"], "domains": ["all", "Q1Q3"],
                                  "every": 5, "q": 0.1, "fee_bps": 7,
                                  "limit_policy": "block", "min_adv": 0.0})
-    lockbox_ctx = _register_lockbox(cfg)
-    if cfg["data"].get("ensure", True):
-        data_prep_task.submit(key=f"data|{cfg['panel_sig']}|{_code_sig()}",
-                              cfg=cfg).result()
+    # 面板存在则先登记（拒跑先于重链）；自定义成员集首次运行面板尚不存在，
+    # 必须先建面板（factor/data_prep）再登记（登记要求 artifact 非 missing）。
+    def _prepare_data() -> None:
+        if cfg.get("factors"):
+            factor_task.submit(key=_factor_key(cfg), cfg=cfg).result()
+        if cfg["data"].get("ensure", True):
+            data_prep_task.submit(
+                key=f"data|{cfg['panel_sig']}|{lib.file_sig(Path(config_path))}"
+                    f"|{_code_sig()}",
+                cfg=cfg).result()
+
+    if Path(cfg["panel"]).is_file():
+        lockbox_ctx = _register_lockbox(cfg)
+        _prepare_data()
+    else:
+        _prepare_data()
+        lockbox_ctx = _register_lockbox(cfg)
     groups = _resolve_groups(cfg)
     print(f"[groups] " + ", ".join(f"{k}={len(v)}" for k, v in groups.items()))
 

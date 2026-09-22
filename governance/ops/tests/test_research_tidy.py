@@ -33,7 +33,9 @@ REQUIRED = ("window_id", "sample_role", "access_ids", "platform_commit")
 
 def _manifest_doc(**overrides) -> dict:
     doc = {"campaign": "audit", "window_id": None, "sample_role": "legacy",
-           "access_ids": [], "platform_commit": "abc1234"}
+           "access_ids": [], "platform_commit": "abc1234",
+           # R41：非 legacy 须可溯源到流水线 config（默认给一个存在的真 config）
+           "config_path": "research/tools/xscore/pipeline/configs/quick.yaml"}
     doc.update(overrides)
     return doc
 
@@ -264,3 +266,29 @@ def test_checker_does_not_modify_tree(tmp_path):
     before = fingerprint()
     RT.main(["--root", str(root)])
     assert fingerprint() == before
+
+
+def test_manifest_non_legacy_requires_config_path(tmp_path):
+    root = _root(tmp_path)
+    doc = _manifest_doc(sample_role="lockbox")
+    del doc["config_path"]
+    _write_manifest(root / RESULTS / "audit" / MANIFEST, doc)
+    errs = _by_level(_manifest_findings(RT.findings(root)), "error")
+    assert any("config_path" in f.message for f in errs), errs
+
+
+def test_manifest_config_path_must_exist(tmp_path):
+    root = _root(tmp_path)
+    _write_manifest(root / RESULTS / "audit" / MANIFEST,
+                    _manifest_doc(sample_role="is",
+                                  config_path="configs/does-not-exist.yaml"))
+    errs = _by_level(_manifest_findings(RT.findings(root)), "error")
+    assert any("config_path 不存在" in f.message for f in errs), errs
+
+
+def test_manifest_legacy_exempt_from_config_path(tmp_path):
+    root = _root(tmp_path)
+    doc = _manifest_doc(sample_role="legacy")
+    del doc["config_path"]
+    _write_manifest(root / RESULTS / "audit" / MANIFEST, doc)
+    assert _by_level(_manifest_findings(RT.findings(root)), "error") == []

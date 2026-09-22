@@ -1,0 +1,25 @@
+# R41 示例：自定义成员集 + 新增因子（演示唯一入口用法；勿覆盖共享面板）
+name: example-subset
+panel: /data/students/gaolei/quantresearch/data/cache/panel_subset_demo.npz
+out: /data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/example-subset
+
+factors:
+  - spec: /data/students/gaolei/quantresearch/factor/volatility/low_vol_20d.yaml
+
+data:
+  members: [low_vol_20d, reversal_20d]
+
+folds: [252, 63, 63]
+subsample: 20000
+
+groups:
+  pair: [low_vol_20d, reversal_20d]
+
+models: [M0a]
+
+portfolio:
+  exec: [open]
+  domains: [all]
+  every: 5
+  q: 0.1
+  fee_bps: 7

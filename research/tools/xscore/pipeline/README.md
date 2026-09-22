@@ -30,6 +30,15 @@ research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/m0-
   `--allow-missing-members` 显式豁免并写 `data/cache/_ref_sync_excluded.json`；
 - 关掉体检：`--no-ref-sync`；幂等（已有产物不重跑）。
 
+## 因子与成员（R41）
+
+- `factors: [{spec: …/x.yaml}]`：新增因子的 spec 清单；流水线先补算缺失 `_5y` 信号（幂等、锁箱
+  final 登记）再入面板。仅支持 5y 面板窗口。
+- `data.members: [名字…]`：面板成员显式清单（缺省=参考库全量 ∪ factors）；自定义成员集请把
+  `panel` 指向独立 npz（勿覆盖共享面板缓存）。
+- 唯一入口：正式运行只经 `make xpipe`/UI；host `flab factor run` 仅 dev 调试（见
+  `$QR/knowledge/pipeline-usage.md`）。
+
 ## 配置字段
 
 见 `configs/m0-split.yaml`：`panel` / `out` / `folds` / `subsample` / `groups`（`"*"` 或

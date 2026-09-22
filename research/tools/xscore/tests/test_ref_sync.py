@@ -90,6 +90,7 @@ def test_only_missing_runs_with_lockbox_final(tmp_path: Path):
         "--output-dir", str(fx["runs"] / "beta_5y"),
         "--lockbox", "final", "--lockbox-reason", "ref-autocompute:beta"]
     assert env["FACTORLAB_ST_DEGRADE"] == "allow"
+    assert env["FACTORLAB_DATA_BACKEND"] == "ch", "宿主直跑必须显式 ch 后端"
     variant = yaml.safe_load((fx["variants"] / "beta_5y.yaml").read_text())
     assert (variant["date"]["start"], variant["date"]["end"]) == dp.REF_WINDOW
 
@@ -165,3 +166,129 @@ def test_resolve_groups_fail_fast(tmp_path: Path, monkeypatch):
                                "groups": {"daily": {"source": "reference",
                                                     "scale": "daily"}}})
     assert "beta" in str(e2.value) and "xpipe-data" in str(e2.value)
+
+
+def test_member_names_and_extra_factors(tmp_path: Path):
+    fx = _mk_fake(tmp_path)
+    _seed_signal(fx["runs"], "alpha")
+    spec_new = _seed_spec(fx["qr"], "newf")
+    runner = _Runner()
+    res = dp.compute_missing_members(
+        runner=runner, ref_yaml=fx["ref_yaml"], factor_root=fx["qr"] / "factor",
+        runs=fx["runs"], variants_dir=fx["variants"],
+        factorlab_bin=Path("/fake/factorlab"), excluded_log=fx["excluded_log"],
+        member_names=["alpha"], extra_members=[("newf", spec_new)],
+        log=lambda _m: None)
+    assert res["members"] == ["alpha", "newf"]
+    assert res["present"] == ["alpha"] and res["computed"] == ["newf"]
+    assert runner.calls[0][0][4] == str(fx["variants"] / "newf_5y.yaml")
+    assert "ref-autocompute:newf" in runner.calls[0][0]
+
+
+def test_extra_factor_spec_missing_reason(tmp_path: Path):
+    fx = _mk_fake(tmp_path)
+    _seed_signal(fx["runs"], "alpha")
+    res = dp.compute_missing_members(
+        runner=_Runner(), ref_yaml=fx["ref_yaml"], factor_root=fx["qr"] / "factor",
+        runs=fx["runs"], variants_dir=fx["variants"],
+        factorlab_bin=Path("/fake/factorlab"), excluded_log=fx["excluded_log"],
+        member_names=["alpha"], extra_members=[("ghost", tmp_path / "nope.yaml")],
+        log=lambda _m: None)
+    assert res["errors"][0]["member"] == "ghost"
+    assert "config.factors 指定 spec 不存在" in res["errors"][0]["reason"]
+
+
+def test_factor_task_and_key(tmp_path: Path, monkeypatch):
+    flows = _load_flows(monkeypatch)
+    import data_prep as dp_mod
+    captured: dict = {}
+
+    def fake(**kw):
+        captured.update(kw)
+        return {"members": [], "present": [], "computed": ["x"],
+                "excluded": [], "errors": []}
+
+    monkeypatch.setattr(dp_mod, "compute_missing_members", fake)
+    out = flows.factor_task("k", {"factors": [{"spec": str(tmp_path / "x.yaml")}]})
+    assert "computed=" in out
+    assert captured["extra_members"][0][0] == "x"
+    assert captured["member_names"] == ["x"]
+    assert flows.factor_task("k2", {}) == "no-factors"
+
+    spec = tmp_path / "x.yaml"
+    spec.write_text("name: x\n", encoding="utf-8")
+    cfg = {"factors": [{"spec": str(spec)}]}
+    k1 = flows._factor_key(cfg)
+    assert k1 == flows._factor_key(cfg)
+    spec.write_text("name: x\n# changed\n", encoding="utf-8")
+    assert flows._factor_key(cfg) != k1, "spec 内容变 → 新缓存键"
+
+
+def test_flow_builds_absent_panel_before_lockbox(tmp_path: Path, monkeypatch):
+    """自定义成员集首跑：面板缺失时先建面板再登记（不得以 missing 登记）。"""
+    flows = _load_flows(monkeypatch)
+    panel = tmp_path / "panel.npz"
+    cfg_path = tmp_path / "cfg.yaml"
+    cfg_path.write_text(yaml.safe_dump({
+        "name": "t", "panel": str(panel), "out": str(tmp_path / "out"),
+        "data": {"ensure": True},
+        "groups": {"g": ["a"]}, "models": ["M0a"]}), encoding="utf-8")
+
+    def fake_run(argv):
+        assert "data_prep.py" in argv[0]
+        panel.write_bytes(b"npz")          # 模拟 data_prep 产出面板
+
+    seen: dict = {}
+
+    def fake_register(cfg):
+        seen["panel_exists"] = Path(cfg["panel"]).is_file()
+        return {"access_id": None, "window_id": None, "sample_role": "unknown",
+                "window_start": None, "window_end": None}
+
+    class _Stop(Exception):
+        pass
+
+    monkeypatch.setattr(flows, "_run", fake_run)
+    monkeypatch.setattr(flows, "_register_lockbox", fake_register)
+    monkeypatch.setattr(flows, "_resolve_groups",
+                        lambda cfg: (_ for _ in ()).throw(_Stop()))
+    with pytest.raises(_Stop):
+        flows.xscore_pipeline.fn(str(cfg_path))
+    assert seen["panel_exists"] is True, "登记时必须已有面板（先建后登记）"
+
+
+def test_aux_cache_paths_mapping(tmp_path: Path):
+    m = dp.aux_cache_paths(tmp_path / "cache/panel_subset_demo.npz", tmp_path / "cache")
+    assert m["open_adj"] == tmp_path / "cache/open_adj_subset_demo.npz"
+    assert m["limits"] == tmp_path / "cache/limits_subset_demo.npz"
+    d = dp.aux_cache_paths(tmp_path / "cache/panel_42_5y.npz", tmp_path / "cache")
+    assert d["mv"] == tmp_path / "cache/mv_42_5y.npz", "默认命名不变"
+
+
+def test_portfolio_task_passes_panel_aux_paths(tmp_path: Path, monkeypatch):
+    flows = _load_flows(monkeypatch)
+    calls: list[list[str]] = []
+    monkeypatch.setattr(flows, "_run", lambda argv: calls.append(list(argv)))
+    cfg = {"panel": str(tmp_path / "cache/panel_subset_demo.npz"),
+           "portfolio": {"every": 5, "q": 0.1, "fee_bps": 7},
+           "data": {"cache_dir": str(tmp_path / "cache")}}
+    out = flows.portfolio_task("k", str(tmp_path / "scores/g_M0a"), "open", "all", cfg)
+    argv = calls[0]
+    assert argv[argv.index("--panel") + 1] == cfg["panel"]
+    assert argv[argv.index("--open-cache") + 1].endswith("open_adj_subset_demo.npz")
+    assert argv[argv.index("--mv") + 1].endswith("mv_subset_demo.npz")
+    assert argv[argv.index("--limits") + 1].endswith("limits_subset_demo.npz")
+    assert argv[argv.index("--adv") + 1].endswith("amount_subset_demo.npz")
+    assert out.endswith("portfolio_open_all.json")
+
+
+def test_normalize_limits_bool_and_nan(tmp_path: Path):
+    cache = tmp_path / "limits.npz"
+    np.savez_compressed(cache, close=np.array([[1.0, np.nan], [2.0, 3.0]]),
+                        locked_up=np.array([[np.nan, True], [np.nan, np.nan]]),
+                        locked_dn=np.array([[False, np.nan], [True, np.nan]]))
+    dp._normalize_limits(cache)
+    with np.load(cache) as z:
+        assert z["locked_up"].dtype == bool and z["locked_dn"].dtype == bool
+        assert z["locked_up"].tolist() == [[False, True], [False, False]], "NaN 必须为 False"
+        assert z["locked_dn"].tolist() == [[False, False], [True, False]]

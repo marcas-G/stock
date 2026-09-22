@@ -110,16 +110,16 @@ general-purpose subagent，输入：变异点记录 + `$QR/factor/<族>/<name>.y
 
 ### 7. 运行
 
-**正式运行 = 工作流 / 服务目录（现状：工作流为主）**：工作流入口
-`make xpipe CFG=research/tools/xscore/pipeline/configs/<cfg>.yaml`（Prefect 3；目录
-`research/tools/xscore/pipeline/`）；服务目录 `governance/ops/service/` 仅留档（R39
-容器化执行器已退役，生产路径 = 工作流 + 宿主 CLI）。宿主直跑（重任务经
-`governance/ops/heavy.sh`）：
+**R41：正式运行 = 研究工作流（唯一入口）**。新因子写进流水线 config 的 `factors` 清单
+（可同时声明 `data.members/groups/models`），跑
+`make xpipe CFG=research/tools/xscore/pipeline/configs/<cfg>.yaml`（Prefect 3；
+目录 `research/tools/xscore/pipeline/`；UI 127.0.0.1:4200）。完整用法见
+`$QR/knowledge/pipeline-usage.md` 与 `$QR/CONVENTIONS.md` §4。
 
-```bash
-FACTORLAB_DATA_BACKEND=ch FACTORLAB_ST_DEGRADE=allow \
-  $FLAB run $QR/factor/<族>/<name>.yaml [--no-backtest]
-```
+- 唯一允许的宿主直跑 = **dev 调试与 lint**：`$FLAB lint <spec>` / 单因子快速试探（不产出正式结论）；
+  重任务经 `governance/ops/heavy.sh`。宿主直跑碰箱需 `--lockbox exploration|final --lockbox-reason`。
+- 流水线 flow 开始自动做 **final 登记**（config=候选，配额 M=20/窗）；正式结论只认流水线 manifest
+  （`results/<campaign>/manifest.json` 五键含 `config_path`）。
 
 **R40 锁箱（碰箱必声明）**：spec 评估窗口与锁箱相交时必须带
 `--lockbox exploration|final --lockbox-reason <理由>`，否则 `LOCKBOX_INTENT_REQUIRED`

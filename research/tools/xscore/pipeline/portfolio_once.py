@@ -27,6 +27,11 @@ def main() -> int:
     ap.add_argument("--fee-bps", type=float, default=7.0)
     ap.add_argument("--limit-policy", choices=["block", "ignore"], default="block")
     ap.add_argument("--min-adv", type=float, default=0.0)
+    ap.add_argument("--panel", type=Path, default=None)
+    ap.add_argument("--open-cache", type=Path, default=None)
+    ap.add_argument("--mv", type=Path, default=None)
+    ap.add_argument("--limits", type=Path, default=None)
+    ap.add_argument("--adv", type=Path, default=None)
     ap.add_argument("--aum", type=float, default=None)
     ap.add_argument("--participation", type=float, default=0.05)
     ap.add_argument("--out", type=Path, required=True)
@@ -36,6 +41,11 @@ def main() -> int:
            "--every", str(args.every), "--q", str(args.q), "--fee-bps", str(args.fee_bps),
            "--limit-policy", args.limit_policy, "--min-adv", str(args.min_adv),
            "--participation", str(args.participation)]
+    for flag, value in (("--panel", args.panel), ("--open-cache", args.open_cache),
+                        ("--mv", args.mv), ("--limits", args.limits),
+                        ("--adv", args.adv)):
+        if value is not None:
+            cmd += [flag, str(value)]
     if args.aum is not None:
         cmd += ["--aum", str(args.aum)]
     r = subprocess.run(cmd, capture_output=True, text=True)

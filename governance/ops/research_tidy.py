@@ -26,6 +26,9 @@ RESULTS = "results"
 SCRATCH = "scratch"
 MANIFEST = "manifest.json"
 MANIFEST_REQUIRED = ("window_id", "sample_role", "access_ids", "platform_commit")
+# 非 legacy（即有流水线记录）的 campaign 还须有 config_path 且文件存在（R41 强制）。
+MANIFEST_PIPELINE_KEYS = ("config_path",)
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 SAMPLE_ROLES = ("is", "mixed", "lockbox", "legacy", "unknown")
 SCRATCH_RE = re.compile(r"^\d{8}_[A-Za-z0-9][A-Za-z0-9_.-]*\.py$")
 
@@ -99,6 +102,22 @@ def _check_manifest_fields(path: Path) -> list[Finding]:
         value = doc["platform_commit"]
         if not isinstance(value, str) or not value.strip():
             out.append(Finding("error", str(path), "platform_commit 必须是非空字符串"))
+    # R41：非 legacy campaign 必须给出流水线 config 且该文件存在（唯一入口可溯源）。
+    if doc.get("sample_role") != "legacy":
+        for key in MANIFEST_PIPELINE_KEYS:
+            if key not in doc:
+                out.append(Finding(
+                    "error", str(path), f"{MANIFEST} 缺键：{key}（非 legacy 须可溯源到流水线 config）"))
+        value = doc.get("config_path")
+        if value is not None:
+            if not isinstance(value, str) or not value.strip():
+                out.append(Finding("error", str(path), "config_path 必须是非空字符串"))
+            else:
+                cfg = Path(value)
+                resolved = cfg if cfg.is_absolute() else _REPO_ROOT / cfg
+                if not resolved.is_file():
+                    out.append(Finding(
+                        "error", str(path), f"config_path 不存在：{value}（resolve={resolved}）"))
     return out
 
 

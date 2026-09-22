@@ -58,7 +58,11 @@ def load_ctx(panel_path: Path, open_cache: Path, mv_path: Path,
     r_open = np.full_like(hfq, np.nan)
     r_open[:-1] = hfq[1:] / hfq[:-1] - 1.0
     mv = np.load(mv_path)["mv"]
-    adv = np.load(adv_path)["adv"] if adv_path and Path(adv_path).is_file() else np.full_like(mv, np.inf)
+    if adv_path and Path(adv_path).is_file():
+        z_adv = np.load(adv_path)
+        adv = z_adv["adv"] if "adv" in z_adv else z_adv["amount"]  # 兼容旧缓存键
+    else:
+        adv = np.full_like(mv, np.inf)
     if limits_path and Path(limits_path).is_file():
         zz = np.load(limits_path)
         limits = np.stack([zz["locked_up"], zz["locked_dn"]], axis=-1)

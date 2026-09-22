@@ -88,9 +88,21 @@ def ensure_variant_spec(name: str, source_spec: Path, *,
 
 def _member_env() -> dict:
     env = dict(os.environ)
+    env.setdefault("FACTORLAB_DATA_BACKEND", "ch")   # 宿主直跑须显式（flab shim 才默认 ch）
     env.setdefault("FACTORLAB_ST_DEGRADE", "allow")
     env.setdefault("FACTORLAB_MINUTE_UNCOVERED", "drop")
     return env
+
+
+def _member_set(*, ref_yaml: Path, member_names: list[str] | None,
+                extra_members: list[tuple[str, Path]]) -> list[tuple[str, str]]:
+    """成员集合：`member_names` 显式清单优先（scale=custom），否则参考库全量；
+    再并入 `extra_members`（config.factors 显式 spec，scale=factor）。"""
+    members = ([(n, "custom") for n in member_names]
+               if member_names is not None else reference_members(ref_yaml))
+    known = {n for n, _ in members}
+    members += [(n, "factor") for n, _ in extra_members if n not in known]
+    return members
 
 
 def compute_missing_members(*, allow_missing: bool = False,
@@ -101,29 +113,36 @@ def compute_missing_members(*, allow_missing: bool = False,
                             variants_dir: Path = VARIANTS_DIR,
                             factorlab_bin: Path = FACTORLAB_BIN,
                             excluded_log: Path = EXCLUDED_LOG,
+                            member_names: list[str] | None = None,
+                            extra_members: list[tuple[str, Path]] = (),
                             log: Callable[[str], None] = print) -> dict:
-    """参考库体检：缺 `_5y` 产物的成员自动补算（幂等；锁箱 final 登记）。
+    """成员体检：缺 `_5y` 产物的成员自动补算（幂等；锁箱 final 登记）。
 
-    返回 {"present", "computed", "excluded", "errors"}；
-    `allow_missing=True` 时把"缺 spec"成员转入 excluded（并落 excluded_log），
-    其余错误（运行失败/仍缺产物）始终进 errors。
+    - 成员集合 = `member_names`（显式清单，缺省=参考库全量）∪ `extra_members`（config.factors）；
+    - 返回 {"members", "present", "computed", "excluded", "errors"}；
+    - `allow_missing=True` 时把"缺 spec"成员转入 excluded（并落 excluded_log），
+      其余错误（运行失败/仍缺产物）始终进 errors。
     """
-    import yaml
     present, computed, excluded, errors = [], [], [], []
-    for name, scale in reference_members(ref_yaml):
+    explicit = {n: Path(sp) for n, sp in extra_members}
+    members = _member_set(ref_yaml=ref_yaml, member_names=member_names,
+                          extra_members=list(extra_members))
+    for name, scale in members:
         signal = Path(runs) / f"{name}_5y" / "signal.parquet"
         if signal.is_file():
             present.append(name)
             continue
-        spec = find_member_spec(name, factor_root)
-        if spec is None:
+        spec = explicit.get(name) or find_member_spec(name, factor_root)
+        if spec is None or not Path(spec).is_file():
             if allow_missing:
                 excluded.append({"member": name, "scale": scale,
                                  "reason": "spec 缺失（--allow-missing-members 豁免）"})
                 log(f"[ref-sync] 豁免 {name}（{scale}）：factor/ 下无 {name}.yaml")
             else:
-                errors.append({"member": name, "scale": scale,
-                               "reason": f"spec 缺失：{factor_root}/**/{name}.yaml"})
+                where = (f"config.factors 指定 spec 不存在：{explicit[name]}"
+                         if name in explicit else
+                         f"spec 缺失：{factor_root}/**/{name}.yaml")
+                errors.append({"member": name, "scale": scale, "reason": where})
             continue
         variant = ensure_variant_spec(name, spec, variants_dir=variants_dir)
         out_dir = Path(runs) / f"{name}_5y"
@@ -144,12 +163,24 @@ def compute_missing_members(*, allow_missing: bool = False,
         excluded_log.write_text(json.dumps(excluded, ensure_ascii=False, indent=2)
                                 + "\n", encoding="utf-8")
         log(f"[ref-sync] 已豁免 {len(excluded)} 员 → {excluded_log}")
-    return {"present": present, "computed": computed, "excluded": excluded,
-            "errors": errors}
+    return {"members": [n for n, _ in members], "present": present,
+            "computed": computed, "excluded": excluded, "errors": errors}
+
+
+def aux_cache_paths(panel_path: Path, cache_dir: Path) -> dict[str, Path]:
+    """按面板文件名派生辅助缓存路径（panel_42_5y → open_adj_42_5y 等）。"""
+    stem = Path(panel_path).stem
+    suffix = stem[len("panel_"):] if stem.startswith("panel_") else stem
+    return {"panel": Path(panel_path),
+            "open_adj": Path(cache_dir) / f"open_adj_{suffix}.npz",
+            "mv": Path(cache_dir) / f"mv_{suffix}.npz",
+            "limits": Path(cache_dir) / f"limits_{suffix}.npz",
+            "amount": Path(cache_dir) / f"amount_{suffix}.npz"}
 
 
 def ensure_panel(path: Path, *, suffix: str = "_5y", force: bool = False,
-                 exclude: set[str] | None = None) -> None:
+                 exclude: set[str] | None = None,
+                 members: list[str] | None = None) -> None:
     import yaml
     import numpy as np
     if path.is_file() and not force:
@@ -157,9 +188,10 @@ def ensure_panel(path: Path, *, suffix: str = "_5y", force: bool = False,
         return
     sys.path.insert(0, str(QR))
     from lab.autoencoder42 import panel as pm
-    ref = yaml.safe_load((QR / "factor/_reference.yaml").read_text())
-    members = [m["name"] for scale in ref["scales"].values() for m in scale
-               if m["name"] not in (exclude or set())]
+    if members is None:
+        ref = yaml.safe_load((QR / "factor/_reference.yaml").read_text())
+        members = [m["name"] for scale in ref["scales"].values() for m in scale]
+    members = [m for m in members if m not in (exclude or set())]
     if exclude:
         print(f"[panel] 豁免成员不入选：{sorted(exclude)}")
     print(f"[panel] 构建 {len(members)} 成员 × {suffix}")
@@ -169,7 +201,8 @@ def ensure_panel(path: Path, *, suffix: str = "_5y", force: bool = False,
     print(f"[panel] saved {path} D={len(p.dates)} N={len(p.codes)} K={len(p.members)}")
 
 
-def _fetch(cache: Path, force: bool, sql_builder, mapper, **npz_kwargs) -> None:
+def _fetch(cache: Path, force: bool, sql_builder, mapper,
+           panel_path: Path = CACHE / "panel_42_5y.npz", **npz_kwargs) -> None:
     import numpy as np
     if cache.is_file() and not force:
         print(f"[{cache.stem}] 已存在，跳过 {cache}")
@@ -177,7 +210,7 @@ def _fetch(cache: Path, force: bool, sql_builder, mapper, **npz_kwargs) -> None:
     import polars as pl
     sys.path.insert(0, str(QR))
     from lab.autoencoder42 import panel as pm
-    p = pm.load_panel(CACHE / "panel_42_5y.npz")
+    p = pm.load_panel(Path(panel_path))
     D, N = len(p.dates), len(p.codes)
     arrays = {k: np.full((D, N), np.nan) for k in npz_kwargs.get("fields", ("x",))}
     didx = {str(d): i for i, d in enumerate(p.dates)}
@@ -192,7 +225,8 @@ def _fetch(cache: Path, force: bool, sql_builder, mapper, **npz_kwargs) -> None:
     print(f"[{cache.stem}] saved {cache}")
 
 
-def ensure_open_adj(cache: Path, force: bool = False) -> None:
+def ensure_open_adj(cache: Path, force: bool = False, *,
+           panel_path: Path = CACHE / "panel_42_5y.npz") -> None:
     def sql(codes, d0, d1):
         inl = ",".join(repr(c) for c in codes)
         return (f"SELECT d.ts_code AS code, d.trade_date AS date, d.open AS open, "
@@ -206,10 +240,11 @@ def ensure_open_adj(cache: Path, force: bool = False) -> None:
             if i is not None and j is not None:
                 arrays["open"][i, j] = r["open"]; arrays["adj"][i, j] = r["adj"]
 
-    _fetch(cache, force, sql, mapper, fields=("open", "adj"))
+    _fetch(cache, force, sql, mapper, panel_path=panel_path, fields=("open", "adj"))
 
 
-def ensure_mv(cache: Path, force: bool = False) -> None:
+def ensure_mv(cache: Path, force: bool = False, *,
+           panel_path: Path = CACHE / "panel_42_5y.npz") -> None:
     def sql(codes, d0, d1):
         inl = ",".join(repr(c) for c in codes)
         return (f"SELECT ts_code AS code, trade_date AS date, total_mv AS mv "
@@ -222,10 +257,11 @@ def ensure_mv(cache: Path, force: bool = False) -> None:
             if i is not None and j is not None:
                 arrays["mv"][i, j] = r["mv"]
 
-    _fetch(cache, force, sql, mapper, fields=("mv",))
+    _fetch(cache, force, sql, mapper, panel_path=panel_path, fields=("mv",))
 
 
-def ensure_limits(cache: Path, force: bool = False) -> None:
+def ensure_limits(cache: Path, force: bool = False, *,
+           panel_path: Path = CACHE / "panel_42_5y.npz") -> None:
     def sql(codes, d0, d1):
         inl = ",".join(repr(c) for c in codes)
         return (f"SELECT d.ts_code AS code, d.trade_date AS date, d.close AS close, "
@@ -246,10 +282,23 @@ def ensure_limits(cache: Path, force: bool = False) -> None:
             if dn is not None and close <= dn + 1e-6:
                 arrays["locked_dn"][i, j] = True
 
-    _fetch(cache, force, sql, mapper, fields=("close", "locked_up", "locked_dn"))
+    _fetch(cache, force, sql, mapper, panel_path=panel_path,
+           fields=("close", "locked_up", "locked_dn"))
+    _normalize_limits(cache)
 
 
-def ensure_amount(cache: Path, force: bool = False) -> None:
+def _normalize_limits(cache: Path) -> None:
+    """locked_up/dn 固化为 bool（NaN→False）——float+NaN 在布尔索引下恒真（真事故）。"""
+    import numpy as np
+    with np.load(cache) as z:
+        close = z["close"]
+        lu = np.nan_to_num(z["locked_up"], nan=0.0).astype(bool)
+        ld = np.nan_to_num(z["locked_dn"], nan=0.0).astype(bool)
+    np.savez_compressed(cache, close=close, locked_up=lu, locked_dn=ld)
+
+
+def ensure_amount(cache: Path, force: bool = False, *,
+           panel_path: Path = CACHE / "panel_42_5y.npz") -> None:
     def sql(codes, d0, d1):
         inl = ",".join(repr(c) for c in codes)
         return (f"SELECT ts_code AS code, trade_date AS date, amount AS amount "
@@ -260,9 +309,10 @@ def ensure_amount(cache: Path, force: bool = False) -> None:
         for r in df.iter_rows(named=True):
             i = didx.get(str(r["date"])); j = cidx.get(r["code"])
             if i is not None and j is not None:
-                arrays["amount"][i, j] = r["amount"]
+                arrays["adv"][i, j] = r["amount"]
 
-    _fetch(cache, force, sql, mapper, fields=("amount",))
+    # 字段名用 "adv"（porteval 的 ADV 过滤键；旧缓存 "amount" 由 porteval 兼容）
+    _fetch(cache, force, sql, mapper, panel_path=panel_path, fields=("adv",))
 
 
 def main() -> int:
@@ -270,6 +320,8 @@ def main() -> int:
     ap.add_argument("--cache-dir", type=Path, default=CACHE)
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--only", default="panel,open_adj,mv,limits,amount")
+    ap.add_argument("--config", type=Path,
+                    help="流水线 config：据此推导成员集合（data.members/factors）")
     ap.add_argument("--no-ref-sync", action="store_true",
                     help="跳过参考库体检/自动补算（默认执行）")
     ap.add_argument("--allow-missing-members", action="store_true",
@@ -277,10 +329,33 @@ def main() -> int:
     args = ap.parse_args()
     only = {x.strip() for x in args.only.split(",")}
     C = args.cache_dir
+    config_members: list[str] | None = None
+    extra_members: list[tuple[str, Path]] = []
+    panel_path = C / "panel_42_5y.npz"
+    if args.config is not None:
+        import yaml as _yaml
+        cfg = _yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
+        for entry in cfg.get("factors") or []:
+            spec = Path(entry["spec"])
+            window = tuple(entry.get("window", REF_WINDOW))
+            if window != REF_WINDOW:
+                print(f"[ref-sync] factors 仅支持 5y 面板窗口 {REF_WINDOW}：{spec}")
+                return 2
+            extra_members.append((spec.stem, spec))
+        config_members = (cfg.get("data") or {}).get("members")
+        if config_members is None:
+            config_members = [n for n, _ in reference_members()]
+        for n, _sp in extra_members:
+            if n not in config_members:
+                config_members.append(n)
+        if cfg.get("panel"):
+            panel_path = Path(cfg["panel"])   # 自定义成员集写各自面板，避免覆盖共享缓存
     exclude: set[str] = set()
     force_panel = args.force
     if "panel" in only and not args.no_ref_sync:
-        res = compute_missing_members(allow_missing=args.allow_missing_members)
+        res = compute_missing_members(allow_missing=args.allow_missing_members,
+                                      member_names=config_members,
+                                      extra_members=extra_members)
         if res["errors"]:
             print("[ref-sync] 体检失败，未重建面板：")
             for e in res["errors"]:
@@ -291,15 +366,17 @@ def main() -> int:
         if res["computed"]:
             force_panel = True   # 新补算成员须重建面板才可入选
     if "panel" in only:
-        ensure_panel(C / "panel_42_5y.npz", force=force_panel, exclude=exclude)
+        ensure_panel(panel_path, force=force_panel, exclude=exclude,
+                     members=config_members)
+    aux = aux_cache_paths(panel_path, C)
     if "open_adj" in only:
-        ensure_open_adj(C / "open_adj_42_5y.npz", force=args.force)
+        ensure_open_adj(aux["open_adj"], force=args.force, panel_path=panel_path)
     if "mv" in only:
-        ensure_mv(C / "mv_42_5y.npz", force=args.force)
+        ensure_mv(aux["mv"], force=args.force, panel_path=panel_path)
     if "limits" in only:
-        ensure_limits(C / "limits_42_5y.npz", force=args.force)
+        ensure_limits(aux["limits"], force=args.force, panel_path=panel_path)
     if "amount" in only:
-        ensure_amount(C / "amount_42_5y.npz", force=args.force)
+        ensure_amount(aux["amount"], force=args.force, panel_path=panel_path)
     return 0
 
 
