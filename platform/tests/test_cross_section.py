@@ -547,3 +547,7 @@ def test_incremental_date_start_identity_and_invalid(tmp_path):
     with pytest.raises(ValueError, match="date_start"):
         incremental_diagnostics(["a"], tmp_path, base=["b"],
                                 date_start="2024/01/05")
+    # datetime 不是日期口径（防静默截断时间）→ 拒
+    with pytest.raises(ValueError, match="date_start"):
+        incremental_diagnostics(["a"], tmp_path, base=["b"],
+                                date_start=datetime.datetime(2024, 1, 5, 9, 30))

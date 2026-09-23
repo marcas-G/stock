@@ -59,7 +59,9 @@ def _lockbox_guard_for_execute(spec, spec_path: Path, *, final_mode: bool):
     拒跑发生在 ctx/RLIMIT/开库与重链之前；IS 段返回空登记 guard。
     R42：`final_mode`（host 缺省 False；流水线子进程由 `FACTORLAB_PIPELINE=1`
     推导）替代旧 intent/reason 参数——探索碰测试段直接拒；最终测试自动登记
-    （每版本一次，理由从 spec 名合成，审计列不留空）。
+    （每版本一次，审计列不留空）。理由优先消费车道来源
+    `FACTORLAB_LOCKBOX_REASON`（入库车道设置，如 `admit final test: <name>`），
+    否则按 `pipeline final test: <spec.name>` 合成。
     """
     from factorlab.adapters import lockbox_store as store
     days = _lockbox_published_days()
@@ -67,7 +69,9 @@ def _lockbox_guard_for_execute(spec, spec_path: Path, *, final_mode: bool):
     start = (datetime.date.fromisoformat(spec.date.start) if spec.date.start
              else (min(days) if days else datetime.date(1970, 1, 1)))
     end = datetime.date.fromisoformat(spec.date.end) if spec.date.end else data_end
-    reason = f"pipeline final test: {spec.name}" if final_mode else None
+    lane_reason = os.environ.get("FACTORLAB_LOCKBOX_REASON", "").strip()
+    reason = ((lane_reason or f"pipeline final test: {spec.name}")
+              if final_mode else None)
     return store.guard_run(
         panel_start=min(start, end), panel_end=max(start, end),
         final_mode=final_mode, reason=reason,

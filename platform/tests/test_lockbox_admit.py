@@ -81,10 +81,36 @@ def _sandbox(tmp_path: Path, monkeypatch):
     # research 层日历单点（T8）：final gate 走 adapters.run_calendar，不复用 CLI 私有 helper
     monkeypatch.setattr(store, "run_calendar", lambda: (list(DAYS), W.end))
     monkeypatch.setenv("FACTORLAB_REFERENCE", str(ref))
+    # 基座产物预检：参考成员必须有 `<b>_5y/panel.parquet`（否则最终测试零跑零登记）
+    _write_panel(settings.results_dir / "seed_a_5y" / "panel.parquet")
     # heavy 闸（flock/nice/内存预检）与本任务无关：打桩保测试稳定
     monkeypatch.setattr(F, "guard_heavy", lambda argv, wait=False: ({}, "slot"))
     monkeypatch.setattr(F, "release_slots", lambda: None)
     return spec, db, ref
+
+
+def _write_panel(path: Path) -> None:
+    """最小可读 panel.parquet（仅占位；诊断被 fake，不读内容）。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pl.DataFrame({
+        "date": [W.start], "code": ["000001"],
+        "signal": [1.0], "forward_return_5d": [0.0],
+    }).write_parquet(path)
+
+
+def _write_variant(qr: Path, name: str, start: str, end: str) -> Path:
+    """ref-sync 5y 变体：`$QR/experiments/r37_5y/<name>_5y.yaml`（规范候选解析优先）。"""
+    d = qr / "experiments" / "r37_5y"
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / f"{name}_5y.yaml"
+    p.write_text(_SPEC.format(name=name, start=start, end=end), encoding="utf-8")
+    return p
+
+
+def _write_final_products(out_dir: Path) -> None:
+    """最终测试 `_5y` 产物占位（收尾重算路径的存在性判据）。"""
+    _write_panel(out_dir / "panel.parquet")
+    (out_dir / "summary.json").write_text("{}", encoding="utf-8")
 
 
 def _fake_lane(tmp_path: Path, monkeypatch, db: Path, *,
@@ -93,28 +119,25 @@ def _fake_lane(tmp_path: Path, monkeypatch, db: Path, *,
 
     车道语义与流水线一致：调用方（gate）必须显式传 `final_mode=True` 且进程内
     设好 `FACTORLAB_PIPELINE=1`——fake 内直接调用真 `store.guard_run`，两者缺一
-    guard 必然报错（测试即红，防存根蒙混）。
+    guard 必然报错（测试即红，防存根蒙混）。审计理由按 CLI 语义消费
+    `FACTORLAB_LOCKBOX_REASON`（车道来源前缀）。
     """
-    calls: dict = {"run": [], "diag": [], "marker": []}
+    calls: dict = {"run": [], "diag": [], "marker": [], "reason": []}
 
     def fake_execute_run(spec_path, **kw):
         calls["run"].append({"spec_path": Path(spec_path), **kw})
         calls["marker"].append(os.environ.get("FACTORLAB_PIPELINE"))
+        lane_reason = os.environ.get("FACTORLAB_LOCKBOX_REASON")
+        calls["reason"].append(lane_reason)
         assert kw.get("final_mode") is True, "入库车道必须显式 final_mode=True"
         spec_doc = load_spec(Path(spec_path)).model_dump(mode="json")
         store.guard_run(
             panel_start=W.start, panel_end=W.end, final_mode=True,
-            reason=f"pipeline final test: {spec_doc['name']}",
+            reason=lane_reason or f"pipeline final test: {spec_doc['name']}",
             spec_doc=spec_doc, artifact=str(spec_path),
             command="factor run", tool="factorlab test",
             db_path=db, trading_days=list(DAYS), data_end=W.end)
-        out = Path(kw["output_dir"])
-        out.mkdir(parents=True, exist_ok=True)
-        pl.DataFrame({
-            "date": [W.start], "code": ["000001"],
-            "signal": [1.0], "forward_return_5d": [0.0],
-        }).write_parquet(out / "panel.parquet")
-        (out / "summary.json").write_text("{}", encoding="utf-8")
+        _write_final_products(Path(kw["output_dir"]))
         return {"name": spec_doc["name"]}
 
     monkeypatch.setattr(cli_main, "execute_run", fake_execute_run)
@@ -215,9 +238,37 @@ def test_final_test_gate_sets_marker_and_explicit_final_mode(tmp_path, monkeypat
                               reason="测试", command="factor admit")
 
     assert calls["marker"] == ["1"]
+    assert calls["reason"] == ["测试"]
     assert calls["run"][0]["final_mode"] is True
     assert os.environ.get("FACTORLAB_PIPELINE") is None  # 复原（不给宿主留车道身份）
+    assert os.environ.get("FACTORLAB_LOCKBOX_REASON") is None
     assert gate["executed"] is True
+
+
+def test_final_test_gate_restores_host_marker_value(tmp_path, monkeypatch):
+    """宿主已有 `FACTORLAB_PIPELINE` 时：执行期覆盖为 1，退出复原宿主值。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    monkeypatch.setenv("FACTORLAB_PIPELINE", "host")
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+
+    F._final_test_gate(load_spec(spec).model_dump(mode="json"), spec,
+                       reason="测试", command="factor admit")
+
+    assert calls["marker"] == ["1"]
+    assert os.environ.get("FACTORLAB_PIPELINE") == "host"
+
+
+def test_execute_guard_consumes_lane_reason_env(tmp_path, monkeypatch):
+    """`_lockbox_guard_for_execute` 消费 `FACTORLAB_LOCKBOX_REASON`（车道审计前缀）。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    monkeypatch.setattr(cli_main, "_lockbox_published_days", lambda: list(DAYS))
+    monkeypatch.setattr(cli_main, "_lockbox_data_end", lambda: W.end)
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_REASON", "ref add final test: refcand")
+
+    guard = cli_main._lockbox_guard_for_execute(load_spec(spec), spec, final_mode=True)
+
+    assert guard.access_id
+    assert _rows(db)[0]["reason"] == "ref add final test: refcand"
 
 
 # ================================================================
@@ -250,6 +301,7 @@ def test_admit_without_final_executes_final_test_then_proceeds(tmp_path, monkeyp
         "final", WINDOW_ID, "factor run")
     assert row["artifact"] == str(spec)
     assert row["fingerprint"] == _expected_fp(spec)
+    assert row["reason"] == "admit final test: refcand"   # 车道来源前缀进台账
 
     frozen = _read_frozen(tmp_path)
     assert frozen["version_fingerprint"] == row["fingerprint"]
@@ -262,8 +314,11 @@ def test_admit_without_final_executes_final_test_then_proceeds(tmp_path, monkeyp
     assert frozen["created_at"]
 
     assert len(calls["run"]) == 1
-    assert calls["run"][0]["spec_path"] == spec
+    assert calls["run"][0]["spec_path"] == spec           # 无变体 → 回退用户 spec
     assert calls["run"][0]["output_dir"] == settings.results_dir / "refcand_5y"
+    assert calls["reason"] == ["admit final test: refcand"]
+    assert doc["data"]["spec_used"] == str(spec)
+    assert doc["data"]["spec_note"] is None
     assert calls["diag"] == [{"candidates": ["refcand_5y"], "base": ["seed_a_5y"],
                               "date_start": W.start.isoformat(),
                               "results_dir": Path(settings.results_dir)}]
@@ -471,3 +526,139 @@ def test_ref_add_env_off_skips_lockbox_branch(tmp_path, monkeypatch):
     assert doc["data"]["entry"]["entry_corr_max"] == pytest.approx(0.31)
     assert not db.exists()
     assert "refcand" in ref.read_text(encoding="utf-8")
+
+
+# ================================================================
+# 修复轮1：基座预检 / 规范候选 spec 解析 / 异常路径
+# ================================================================
+
+def test_resolve_candidate_spec_prefers_variant_then_source(tmp_path, monkeypatch):
+    """规范解析单点：变体存在优先；否则回退 `factor/**`；都没有 → None。"""
+    spec, _db, _ref = _sandbox(tmp_path, monkeypatch)
+    assert F.resolve_candidate_spec("refcand") == spec
+    variant = _write_variant(settings.research_root, "refcand",
+                             W.start.isoformat(), W.end.isoformat())
+    assert F.resolve_candidate_spec("refcand") == variant
+    assert F.resolve_candidate_spec("ghost_missing") is None
+
+
+def test_admit_uses_canonical_variant_and_matches_ref_sync_fp(tmp_path, monkeypatch):
+    """规范 5y 变体存在 → 指纹/最终测试身份用变体，与 ref-sync guard 登记同 fp。
+
+    源 spec 故意 IS-only（直接用它必 TEST_ONLY_FINAL）。ref-sync 已登记 final 且
+    `_5y` 产物在 → admit 仅收尾重算：零重跑、零新登记、输出注明所用 spec。
+    """
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    spec.write_text(_SPEC.format(
+        name="refcand", start=(W.start - dt.timedelta(days=400)).isoformat(),
+        end=(W.start - dt.timedelta(days=1)).isoformat()), encoding="utf-8")
+    variant = _write_variant(settings.research_root, "refcand",
+                             W.start.isoformat(), W.end.isoformat())
+    store.guard_run(  # 模拟 pipeline ref-sync：变体 spec 登记 final + 产物
+        panel_start=W.start, panel_end=W.end, final_mode=True,
+        reason="pipeline final test: refcand",
+        spec_doc=load_spec(variant).model_dump(mode="json"),
+        artifact=str(variant), command="factor run", tool="factorlab test",
+        db_path=db, trading_days=list(DAYS), data_end=W.end)
+    _write_final_products(settings.results_dir / "refcand_5y")
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+
+    doc = _doc(_invoke("factor", "admit", str(spec)))
+
+    assert doc["ok"] is True, doc
+    assert doc["data"]["ran"] is False                    # ref-sync 已测 → 只收尾
+    assert calls["run"] == []                             # 不触发第二次最终测试
+    assert calls["diag"][0]["date_start"] == W.start.isoformat()
+    rows = _rows(db)
+    assert len(rows) == 1
+    assert rows[0]["fingerprint"] == _expected_fp(variant)  # 同一 helper 复算
+    assert _read_frozen(tmp_path)["version_fingerprint"] == rows[0]["fingerprint"]
+    assert doc["data"]["spec_used"] == str(variant)
+    assert "r37_5y" in (doc["data"]["spec_note"] or "")
+
+
+def test_ref_add_canonical_variant_no_second_final(tmp_path, monkeypatch):
+    """ref add（变体在 + ref-sync 已登记）→ 不触发第二次最终测试，登记行数不变。"""
+    spec, db, ref = _sandbox(tmp_path, monkeypatch)
+    spec.write_text(_SPEC.format(
+        name="refcand", start=(W.start - dt.timedelta(days=400)).isoformat(),
+        end=(W.start - dt.timedelta(days=1)).isoformat()), encoding="utf-8")
+    variant = _write_variant(settings.research_root, "refcand",
+                             W.start.isoformat(), W.end.isoformat())
+    store.guard_run(
+        panel_start=W.start, panel_end=W.end, final_mode=True,
+        reason="pipeline final test: refcand",
+        spec_doc=load_spec(variant).model_dump(mode="json"),
+        artifact=str(variant), command="factor run", tool="factorlab test",
+        db_path=db, trading_days=list(DAYS), data_end=W.end)
+    _write_final_products(settings.results_dir / "refcand_5y")
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+
+    doc = _doc(_invoke("factor", "ref", "add", "refcand",
+                       "--style", "量价", "--reason", "入选"))
+
+    assert doc["ok"] is True, doc
+    assert calls["run"] == []                     # 零重跑
+    assert len(_rows(db)) == 1                    # 零新登记
+    assert doc["data"]["spec"] == str(variant)    # 规范解析结果注明
+    assert doc["data"]["entry"]["entry_corr_max"] == pytest.approx(0.3)
+    assert _read_frozen(tmp_path)["version_fingerprint"] == _rows(db)[0]["fingerprint"]
+    assert "refcand" in ref.read_text(encoding="utf-8")
+
+
+def test_final_test_gate_preflights_base_products(tmp_path, monkeypatch):
+    """执行最终测试前预检基座 `_5y` 产物：缺 → 零跑零登记零冻结（issue #35）。"""
+    spec, db, ref = _sandbox(tmp_path, monkeypatch)
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+    assert not (settings.results_dir / "ghost_base_5y").exists()
+    ref.write_text(_REF_YAML.rstrip("\n")
+                   + "\n    - name: ghost_base\n"
+                     "      style: \"风格G\"\n"
+                     "      reason: \"基座产物缺失\"\n"
+                     "      added: \"2024-01-01\"\n", encoding="utf-8")
+
+    result = _invoke("factor", "admit", str(spec))
+    doc = _doc(result)
+    assert doc["ok"] is False
+    assert doc["error"]["code"] == "DATA"
+    assert "ghost_base" in doc["error"]["message"]
+    assert "xpipe-data" in doc["error"]["hint"]
+    assert calls["run"] == [] and calls["diag"] == []
+    assert _rows(db) == []
+    assert not _frozen(tmp_path).exists()
+
+
+def test_final_test_gate_empty_base_rejected(tmp_path, monkeypatch):
+    """空 base（无可对照成员）→ DATA，零跑零登记零冻结。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+
+    with pytest.raises(F.FinalTestError) as e:
+        F._final_test_gate(load_spec(spec).model_dump(mode="json"), spec,
+                           reason="测试", command="factor admit", base=[])
+
+    assert e.value.code == "DATA" and "为空" in e.value.message
+    assert calls["run"] == [] and _rows(db) == []
+    assert not _frozen(tmp_path).exists()
+
+
+def test_admit_final_run_failure_is_run_failed_without_freeze(tmp_path, monkeypatch):
+    """执行最终测试抛 ValueError → `RUN_FAILED`；无冻结件、无登记。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    _fake_lane(tmp_path, monkeypatch, db)
+    attempts: list = []
+
+    def boom_execute_run(spec_path, **kw):
+        attempts.append(Path(spec_path))
+        raise ValueError("synthetic run failure")
+
+    monkeypatch.setattr(cli_main, "execute_run", boom_execute_run)
+    result = _invoke("factor", "admit", str(spec))
+    doc = _doc(result)
+
+    assert doc["ok"] is False
+    assert doc["error"]["code"] == "RUN_FAILED"
+    assert "synthetic run failure" in doc["error"]["message"]
+    assert attempts == [spec]
+    assert _rows(db) == []
+    assert not _frozen(tmp_path).exists()

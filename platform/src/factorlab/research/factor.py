@@ -549,12 +549,16 @@ class FinalTestError(Exception):
         self.log = log
 
 
-def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool) -> None:
+def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool,
+                        reason: str | None = None) -> None:
     """入库车道执行最终测试：显式 `final_mode=True` + 进程内自设车道标记。
 
-    `FACTORLAB_PIPELINE=1` 只在执行期生效（退出复原）：guard_run 的
-    `LOCKBOX_PIPELINE_REQUIRED` 靠它过；重复登记由 guard_run 权威拒
+    `FACTORLAB_PIPELINE=1` / `FACTORLAB_LOCKBOX_REASON`（审计来源，如
+    `admit final test: <name>`）只在执行期生效（退出复原）：guard_run 的
+    `LOCKBOX_PIPELINE_REQUIRED` 靠 marker 过；重复登记由 guard_run 权威拒
     （`LOCKBOX_FINAL_DUPLICATE` 原样上抛）。run 链错误映射为 `FinalTestError`。
+    基座产物预检由调用方（gate）在**开跑前**完成（零跑零登记，见
+    `_preflight_base_products`）。
     """
     from factorlab.adapters.read.health import DatasetQualityError
     from factorlab.app.memory import MemoryLimitExceeded
@@ -563,8 +567,11 @@ def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool) -> Non
     from factorlab.core.lockbox import LockboxError
     from factorlab.surfaces.cli.main import execute_run
 
-    saved = os.environ.get("FACTORLAB_PIPELINE")
+    saved_pipeline = os.environ.get("FACTORLAB_PIPELINE")
+    saved_reason = os.environ.get("FACTORLAB_LOCKBOX_REASON")
     os.environ["FACTORLAB_PIPELINE"] = "1"
+    if reason:
+        os.environ["FACTORLAB_LOCKBOX_REASON"] = reason
     try:
         with _guard_env(["factor", "run", str(spec_path)], wait=wait):
             execute_run(spec_path, final_mode=True, output_dir=output_dir)
@@ -579,7 +586,7 @@ def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool) -> Non
         raise FinalTestError("MEMORY_GUARD", str(exc),
                              hint="减小 chunk/宇宙，或调大 FACTORLAB_MAX_MEMORY")
     except FileNotFoundError as exc:
-        raise FinalTestError("NOT_FOUND", f"spec 不存在: {exc}", hint=_FACTOR_HINT)
+        raise FinalTestError("NOT_FOUND", f"run 失败: {exc}", hint=_FACTOR_HINT)
     except FactorDSLError as exc:
         raise FinalTestError("LINT", f"spec 校验失败: {exc}",
                              hint="先 `flab factor lint <spec>`")
@@ -591,10 +598,46 @@ def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool) -> Non
         raise FinalTestError("RUN_FAILED", f"{type(exc).__name__}: {exc}",
                              hint="核对 spec/数据面；日志见 artifacts.log")
     finally:
-        if saved is None:
+        if saved_pipeline is None:
             os.environ.pop("FACTORLAB_PIPELINE", None)
         else:
-            os.environ["FACTORLAB_PIPELINE"] = saved
+            os.environ["FACTORLAB_PIPELINE"] = saved_pipeline
+        if saved_reason is None:
+            os.environ.pop("FACTORLAB_LOCKBOX_REASON", None)
+        else:
+            os.environ["FACTORLAB_LOCKBOX_REASON"] = saved_reason
+
+
+def _preflight_base_products(*, base: list[str], results_dir: Path) -> None:
+    """最终测试/重算诊断前的基座预检（零跑零登记，防"烧掉唯一一次最终测试"）。
+
+    - base 空 → `DATA`（无可对照成员，做不了测试段冗余检验）；
+    - 任一参考成员缺 `<results_dir>/<b>_5y/panel.parquet` → `DATA`（列缺失成员；
+      hint 先 `make xpipe-data` 补齐或修成员 spec，issue #35）。
+    """
+    if not base:
+        raise FinalTestError("DATA", "参考库为空，不能做测试段冗余检验")
+    missing = [b for b in base
+               if not (results_dir / f"{b}_5y" / "panel.parquet").is_file()]
+    if missing:
+        raise FinalTestError(
+            "DATA", "参考库成员缺 `_5y` 产物：" + "、".join(missing),
+            hint="先 `make xpipe-data` 补齐参考库成员 `_5y` 产物，"
+                 "或修复该成员 spec（issue #35）")
+
+
+def resolve_candidate_spec(name: str) -> Path | None:
+    """候选因子的**规范 spec 解析单点**（与 pipeline ref-sync 同源约定）。
+
+    优先 `$QR/experiments/r37_5y/<name>_5y.yaml`（ref-sync 生成的 5y 变体——
+    最终测试身份与登记以它为准），否则 `$QR/factor/**/<name>.yaml`（首个排序
+    匹配）；都没有 → None。
+    """
+    root = Path(settings.research_root)
+    variant = root / "experiments" / "r37_5y" / f"{name}_5y.yaml"
+    if variant.is_file():
+        return variant
+    return next(iter(sorted((root / "factor").rglob(f"{name}.yaml"))), None)
 
 
 def _compute_test_diagnostics(*, name: str, base: list[str], window: Any,
@@ -640,7 +683,8 @@ def _final_test_gate(spec_doc: dict[str, Any] | None,
 
     - env `FACTORLAB_LOCKBOX` off → None（纪律未启用；CI/测试走调用方旧径）；
     - IS-only（窗口全在训练段）→ `LOCKBOX_TEST_ONLY_FINAL`（入库必须有测试段结果）；
-    - 无 final 登记 → **执行最终测试**（`execute_run(final_mode=True)`，进程内
+    - 无 final 登记 → **基座预检**（base 非空且 `<b>_5y/panel.parquet` 齐；缺 →
+      `DATA` 零跑零登记）→ **执行最终测试**（`execute_run(final_mode=True)`，进程内
       `FACTORLAB_PIPELINE=1` 车道身份；guard_run 登记）→ 测试段诊断 →
       写冻结件 `<results>/<name>_5y/test_diagnostics.json`；
     - 已有 final → 冻结件存在且版本/窗口一致才放行；缺失但 `_5y` 产物在 →
@@ -711,7 +755,11 @@ def _final_test_gate(spec_doc: dict[str, Any] | None,
             access_id = None
         executed = False
         if access_id is None:
-            _execute_final_test(spec_path, output_dir=out_dir, wait=wait)
+            # 预检先于开跑：缺基座产物 → 零登记零跑（防烧掉唯一一次最终测试）
+            _preflight_base_products(base=base,
+                                     results_dir=Path(settings.results_dir))
+            _execute_final_test(spec_path, output_dir=out_dir, wait=wait,
+                                reason=reason)
             access_id = store.require_final(conn, window_id=window.window_id,
                                             fingerprint=fp)
             diag, frozen_path = _compute_test_diagnostics(
@@ -728,6 +776,8 @@ def _final_test_gate(spec_doc: dict[str, Any] | None,
                     "重建最终测试与冻结件")
         elif (out_dir / "panel.parquet").is_file():
             # 已有 final、冻结件缺失但 `_5y` 产物在：同一次测试收尾，仅重算诊断
+            _preflight_base_products(base=base,
+                                     results_dir=Path(settings.results_dir))
             diag, frozen_path = _compute_test_diagnostics(
                 name=name, base=base, window=window, fingerprint=fp)
         else:
@@ -757,15 +807,29 @@ def factor_admit(args: Any) -> envelope.Envelope:
     from factorlab.core.spec import load_spec
 
     _ensure()
-    spec_path = Path(args.spec_path)
-    results, failures = _lint_paths([spec_path])
+    user_spec_path = Path(args.spec_path)
+    results, failures = _lint_paths([user_spec_path])
     if failures:
         return envelope.fail(
             "factor.admit", "LINT",
-            f"{spec_path}: {failures[0][1]}",
+            f"{user_spec_path}: {failures[0][1]}",
             hint="先 `flab factor lint <spec>` 修 spec")
     name = results[0]["name"]
-    spec = load_spec(spec_path)
+    # 规范候选 spec 解析（R42 修复轮1）：变体优先——指纹/最终测试身份与 ref-sync 同源；
+    # 用户显式传入的 spec 仅作 fallback，替换时在输出注明（spec_used/spec_note）。
+    spec_path = resolve_candidate_spec(name)
+    spec_note: str | None = None
+    if spec_path is not None and spec_path.resolve() != user_spec_path.resolve():
+        spec_note = f"使用规范 5y 变体 spec：{spec_path}"
+    if spec_path is None:
+        spec_path = user_spec_path
+    try:
+        spec = load_spec(spec_path)
+        if spec.name != name:  # 规范件与 lint 名不符（手改变体）→ 回退用户 spec
+            raise ValueError(f"规范 spec 名 {spec.name!r} != {name!r}")
+    except (OSError, ValueError, yaml.YAMLError):
+        spec_path, spec_note = user_spec_path, None
+        spec = load_spec(user_spec_path)
     scales = getattr(args, "scales", None) or "daily"
     try:
         base = [b for b in reference_names(scales) if b != name]
@@ -829,6 +893,7 @@ def factor_admit(args: Any) -> envelope.Envelope:
                       "n_weeks": cand["n_weeks"]},
             "d10_verdict": cand["verdict"],
             "test_diagnostics": None,
+            "spec_used": str(spec_path), "spec_note": spec_note,
             "verdict": verdict,
             "建议": _ADVICE[verdict],
         }
@@ -842,6 +907,7 @@ def factor_admit(args: Any) -> envelope.Envelope:
             "resic": {"mean": d["resic_mean"], "t": d["resic_t"],
                       "n_weeks": d["n_weeks"]},
             "test_diagnostics": gate["path"],
+            "spec_used": str(spec_path), "spec_note": spec_note,
             "verdict": verdict,
             "建议": _ADVICE[verdict],
         }
@@ -992,8 +1058,8 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
     from factorlab.core.lockbox import LockboxError
     from factorlab.core.spec import load_spec
 
-    spec_path = next(iter(sorted(
-        (Path(settings.research_root) / "factor").rglob(f"{name}.yaml"))), None)
+    # 规范候选 spec 解析单点（变体优先；与 admit/ref-sync 同身份）
+    spec_path = resolve_candidate_spec(name)
     gate_spec: Any = None
     if spec_path is not None:
         try:
@@ -1053,6 +1119,7 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
     return envelope.ok("factor.ref.add",
                        {"name": name, "scales": scales, "path": str(path),
                         "backup": str(backup), "entry": _jsonify(entry),
+                        "spec": str(spec_path) if spec_path else None,
                         "test_diagnostics": test_diagnostics},
                        artifacts=artifacts)
 
@@ -1330,6 +1397,7 @@ def _reg_all() -> None:
         output_schema={"type": "object", "properties": {
             "name": {"type": "string"}, "scales": {"type": "string"},
             "path": {"type": "string"}, "backup": {"type": "string"},
+            "spec": {"type": ["string", "null"]},
             "test_diagnostics": {"type": ["string", "null"]}}},
     )
     _register(
@@ -1360,6 +1428,8 @@ def _reg_all() -> None:
             "corr_max": {"type": "number"}, "r2_lib": {"type": "number"},
             "resic": {"type": "object"},
             "test_diagnostics": {"type": ["string", "null"]},
+            "spec_used": {"type": "string"},
+            "spec_note": {"type": ["string", "null"]},
             "建议": {"type": "string"}}},
     )
     _register(
@@ -1437,4 +1507,5 @@ __all__ = [
     "factor_run",
     "factor_show",
     "factor_svd",
+    "resolve_candidate_spec",
 ]

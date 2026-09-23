@@ -65,8 +65,14 @@ def _ensure_date(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def parse_date_start(date_start: str | datetime.date | None) -> datetime.date | None:
-    """`date_start`（ISO 字符串/`datetime.date`）→ `datetime.date`；None 原样；非法 → ValueError。"""
-    if date_start is None or isinstance(date_start, datetime.date):
+    """`date_start`（ISO 字符串/纯 `datetime.date`）→ `datetime.date`；None 原样。
+
+    `datetime.datetime` 不是日期口径（防静默截断时间）→ ValueError；非法串同。
+    """
+    if date_start is None:
+        return None
+    if isinstance(date_start, datetime.date) and not isinstance(
+            date_start, datetime.datetime):
         return date_start
     try:
         return datetime.date.fromisoformat(str(date_start))
