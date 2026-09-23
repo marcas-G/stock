@@ -3555,13 +3555,14 @@ dev/应急。设计与验收：`knowledge/design/platform/specs/2026-09-21-facto
   （面板成员显式清单；自定义成员集须用独立 `panel` 路径）；`flows` 对 `factors` 有独立缓存阶段，
   data_prep 按 config 成员集合体检/建面板。campaign manifest 非 legacy 必含 `config_path`。
 
-- **入口强制（R41 加固）**：流水线子进程与 flow 进程统一打标 `FACTORLAB_PIPELINE=1`；
-  host 直跑 `factor run --lockbox final` **新登记**在无标记时拒绝（`LOCKBOX_PIPELINE_REQUIRED`，
-  hint 指路 `make xpipe` 或 `flab factor admit/ref add`）；已登记候选的复用不受限（入库车道可重跑）。
-  `factorlab lockbox roll --quota-final` 需操作员标记 `FACTORLAB_LOCKBOX_ADMIN=1`；
-  `lockbox_state` 表禁 DELETE/REPLACE（触发器）；`FACTORLAB_LOCKBOX=off` 时流水线 manifest 显式记
-  `lockbox_off=true`；kernel 脚本（run_ladder/run_split/score_once/portfolio_once/porteval）直跑打印
-  "非流水线运行"警示。详见 `governance/evidence/verification/R41/`。
+- **入口强制（R41 加固 → R42 简化）**：流水线子进程与 flow 进程统一打标 `FACTORLAB_PIPELINE=1`；
+  host 直跑 final 登记（无标记）→ `LOCKBOX_PIPELINE_REQUIRED`（hint 指路 `make xpipe` 或
+  `flab factor admit/ref add`）；入库车道执行最终测试时进程内自设该标记。`lockbox_state` 表
+  禁 DELETE/REPLACE（触发器）；`FACTORLAB_LOCKBOX=off` 时不读/不写台账（manifest 记
+  `unknown`/`[]`，无 `lockbox_off` 字段）；kernel 脚本（run_ladder/run_split/score_once/
+  portfolio_once/porteval）直跑打印"非流水线运行"警示。R40 配额/admin 开关已删除；
+  历史证据见 `governance/evidence/verification/R41/`，现行口径见 §10 与
+  `governance/evidence/verification/R42/`。
 
 ### 状态与记录
 
@@ -3579,127 +3580,181 @@ dev/应急。设计与验收：`knowledge/design/platform/specs/2026-09-21-facto
 作业与服务同容器：失控**非平台子进程**可能短暂拖慢 API（平台 8GB 作业守卫为一线防线）；
 彻底隔离需作业独立容器/子 cgroup（L3）。
 
-## 10. 锁箱纪律（Rolling Lockbox；R40）
+## 10. 锁箱纪律（Final-Test-Once；R42）
 
-**定位**：全库单一时间锁箱——锁箱窗口 `[window_start, window_end]` 内的数据是未观测测试集；
-一切触碰锁箱的评估**自动登记**（append-only 台账），**终评**另受"每候选每窗唯一 + 每窗配额
-M=20"硬门约束。设计：`knowledge/design/platform/specs/2026-09-21-lockbox-discipline-design.md`；
-实施计划：`knowledge/design/platform/plans/2026-09-21-lockbox-discipline.md`；
-验收证据：`governance/evidence/verification/R40/`。
+**定位**：全库单一时间锁箱，数据分两段：**训练段**（IS，`< window_start`，到 `is_end`）
+随便看、随便调；**测试段**（`[window_start, 最新数据日]`）平时看不见，只有**最终测试**
+一条路能看。**探索只准训练段**（碰测试段直接拒）；**最终测试每版本只跑一次**；
+**入库只看测试段冻结结果**。R40 的探索登记/每窗 20 配额/管理员门已删除（旧行只读）。
+设计：`knowledge/design/platform/specs/2026-09-24-final-test-once-discipline-design.md`；
+实施计划：`knowledge/design/platform/plans/2026-09-24-final-test-once.md`；
+验收证据：`governance/evidence/verification/R42/`。
 
-**部署形态（2026-09-21 切换）**：R39 Docker 挖矿服务已退役（`governance/ops/service/`
+**部署形态（2026-09-21 切换，R42 沿用）**：R39 Docker 挖矿服务已退役（`governance/ops/service/`
 留档），生产路径 = 研究工作流（Prefect）+ 宿主 `factorlab`/`flab` CLI。锁箱硬门位于
 **execute 层**（`factorlab.app.run` / composite / strategy / admit / ref add），与执行形态
-无关——宿主、工作流、容器内同样生效。
+无关——宿主、工作流、容器内同样生效；最终测试另受"必须经流水线或入库车道"约束（§10.2）。
 
-### 10.1 窗口
+### 10.1 窗口与数据两段
 
 - **滚动 12 个月**：`roll(as_of)` 取 `as_of` 之前最近一个完整日历季末 `Qe`，
   `window_id=f"{Qe.year}Q{Qe.quarter}"`；`window_start` = 首个 ≥ `(Qe − 1 年 + 1 日)` 的
   交易日（交易日历）；`window_end` = 最新数据日（随数据自然生长）。
   例：2026-09-21 roll → `2026Q2`、`window_start=2025-07-01`；2026-10-01 roll → `2026Q3`、
-  `window_start=2025-10-09`（2025-10-01~08 休市，首个交易日为 2025-10-09；旧窗解封并入 IS）。
+  `window_start=2025-10-09`（2025-10-01~08 休市，首个交易日为 2025-10-09；旧窗解封并入训练段）。
 - **`is_end`** = `window_start` 的前一交易日（`lockbox status --json` 直接输出）；
-  挖矿 spec 写 `date.end = is_end` 即不碰箱。
-- **幂等与倒退**：同一 `window_id` 重复 roll 不变更任何行（`--quota-final` 可显式改配额）；
+  挖矿 spec 写 `date.end = is_end` 即纯训练段。
+- **幂等与倒退**：同一 `window_id` 重复 roll 不变更任何行（CLI 已无配额参数）；
   窗口倒退 → `LOCKBOX_ROLL_BACKWARD`。跨季未 roll 时任何评估 → `LOCKBOX_WINDOW_STALE`
   （防静默解封）。
-- 角色判定：面板整段 `< window_start` → `is`（不要求 flag、不登记）；整段
-  `≥ window_start` → `lockbox`；跨边界 → `mixed`（后两者 = 碰箱）。
+- 角色判定：面板整段 `< window_start` → `is`（不要求标记、不登记）；整段
+  `≥ window_start` → `lockbox`；跨边界 → `mixed`（后两者 = 碰测试段）。
 
-### 10.2 CLI
+### 10.2 规则（核心四条）
+
+1. **探索只准训练段**：任何非最终测试的评估若窗口 `date.end > is_end` → **直接拒绝**
+   （`LOCKBOX_TEST_ONLY_FINAL`），零产物零登记；不存在"登记一下就能看测试段"。
+   想看测试段 → 走最终测试（§10.3）。
+2. **最终测试每版本一次**：
+   - 版本 = spec 内容 + 参数 + 面板指纹 + `window_id`（任一变化 = 新版本）；
+   - 同版本第二次最终测试 → 拒绝（`LOCKBOX_FINAL_DUPLICATE`）；改参数 = 新版本，可再测；
+   - 最终测试必须经**流水线**（`make xpipe`；进程带 `FACTORLAB_PIPELINE=1`）或**入库车道**
+     （`flab factor admit` / `ref add`，执行期自设该标记）；host 直跑 final 登记 →
+     `LOCKBOX_PIPELINE_REQUIRED`；
+   - 操作员逃生：`FACTORLAB_RE_FINAL=1` 允许同版本重测（新登记行，`reason` 追加
+     `|re-final` 审计标记；仅已有登记时生效，首测不产生假标记）。
+3. **最终测试产出冻结**（不复算）：测试段上的评估指标 + **测试段冗余检验**（对照参考库
+   `corr_max / r2_lib / resic_t`），冻结件 `<results_dir>/<name>_5y/test_diagnostics.json`
+   （字段见 §10.4）；同时 append-only 登记台账（谁、何时、哪个版本、哪次访问）。
+4. **入库只看测试段那份**：`admit` / `ref add` 必须引用该版本的最终测试登记与测试段冗余
+   结果；训练段冗余检验仅供开发参考，**不作入库依据**；IS-only 因子不可入库（§10.3）。
+
+### 10.3 CLI 与执行入口
 
 ```bash
-# 状态：单行 JSON（含 is_end/配额/已用/剩余）；未初始化 → {"initialized": false}，exit 1
+# 状态：单行 JSON（六字段 initialized/window_id/window_start/window_end/is_end/finals_total）；
+# 未初始化 → {"initialized": false}，exit 1
 factorlab lockbox status [--json]
-# 季度滚动（幂等；拒绝倒退；--as-of 供验收/复现注入——指过去=正常对齐，指未来=制造 stale）
-factorlab lockbox roll [--as-of YYYY-MM-DD] [--quota-final N]
+# 季度滚动（幂等；拒绝倒退；无配额参数；--as-of 供验收/复现注入——指过去=正常对齐，指未来=制造 stale）
+factorlab lockbox roll [--as-of YYYY-MM-DD]
 ```
 
 > `flab` = `factorlab research` 门面，**没有 `lockbox` 子命令**；锁箱运维入口是顶层
 > `factorlab lockbox …`。
 
-run 家族统一参数（Typer，`factorlab` 与 `flab` 同源）：
+- **run 家族无锁箱参数**（R42 已删 `--lockbox*`/`--quota-final`/admin 开关）：`factorlab run`、
+  `factorlab compose`、`factorlab research factor run`（= `flab factor run`）、`strategy run`
+  由 `FACTORLAB_PIPELINE=1` 推导 `final_mode`（host 直跑缺省 False）；碰测试段非 final →
+  `LOCKBOX_TEST_ONLY_FINAL`（拒跑在开库/重链前，零产物）；final 自动登记，理由
+  `pipeline final test: <名字>`（或消费车道环境 `FACTORLAB_LOCKBOX_REASON`）。
+- **入库车道**（`flab factor admit` / `flab factor ref add`）：
+  - 规范 spec 解析（变体优先，`resolve_candidate_spec`）：优先
+    `$QR/experiments/r37_5y/<name>_5y.yaml`（ref-sync 生成的 5y 变体），否则
+    `$QR/factor/**/<name>.yaml`——最终测试身份/指纹以规范件为准（输出 `spec_used`/`spec_note`）；
+  - **无该版本 final 登记** → 门内**执行那次唯一最终测试**：基座预检（任一参考成员缺
+    `<results_dir>/<b>_5y/panel.parquet` → `DATA`，零跑零登记）→ `execute_run(final_mode=True)`
+    （进程内自设 `FACTORLAB_PIPELINE=1` 作车道身份；`guard_run` 权威登记，重复 →
+    `LOCKBOX_FINAL_DUPLICATE`）→ 测试段诊断（`date_start=window_start`）→ 写冻结件；
+  - **已有 final** → 只读冻结件：版本指纹/`window_id` 一致才放行（二次 admit 零重跑、
+    零重算、零新登记）；冻结件缺失但 `_5y/panel.parquet` 在 → 仅重算诊断（同一次测试收尾，
+    不重跑因子）；版本不符或两者都缺 → `LOCKBOX_FINAL_REQUIRED`（提示 `make xpipe` 重建）；
+  - 判决吃冻结件测试段数：`corr_max≥0.95` 重复；`r2_lib≥0.8` 且 `resic_t` 不显著（|t|<2）
+    冗余；否则可加入。`ref add` 的 `entry_corr_max/entry_resic_t` 取冻结值。
+- **IS-only 不可入库**：窗口全在训练段 → `LOCKBOX_TEST_ONLY_FINAL`（把 spec 窗口延伸到
+  测试段，或先经 `make xpipe` 产出 `_5y` 变体后以变体入库）。
 
-| 参数 | 语义 |
-|---|---|
-| `--lockbox exploration\|final` | 碰箱评估必需；缺失 → `LOCKBOX_INTENT_REQUIRED`（拒跑在开库/重链前，零产物） |
-| `--lockbox-reason TEXT` | 与 `--lockbox` 配对、必填非空 → 否则 `LOCKBOX_REASON_REQUIRED` |
+### 10.4 冻结件与产物声明
 
-覆盖命令：`factorlab run`、`factorlab compose`、`factorlab research factor run`
-（= `flab factor run`）、`factorlab research strategy run`（均带 `--lockbox`/`--lockbox-reason`）；
-固化路径 `factorlab research factor admit`、`factorlab research factor ref add` 只带
-`--lockbox-reason`（用于补登记），且要求已存在对应 **final** 登记，缺失 →
-`LOCKBOX_FINAL_REQUIRED`（走同一唯一性/配额）。**实现裁定（2026-09-21）**：固化门仅
-上述 admit/ref add；`compose`/`strategy run` 产物 = 运行记录——其 manifest 的
-`sample.conclusion_eligible` 标注能否作结论证据（`--lockbox final` → true；
-exploration → false；`is`/env off → true）。
+最终测试冻结件 `<results_dir>/<name>_5y/test_diagnostics.json`（`results_dir` 缺省 =
+平台产物根 `$QR/results/platform`）：
 
-### 10.3 错误码
+```json
+{"version_fingerprint": "…", "window_id": "2026Q2",
+ "window_start": "2025-07-01", "date_start": "2025-07-01", "date_end": "2026-09-17",
+ "corr_max": 0.87, "r2_lib": 0.61, "resic_t": 3.2, "resic_mean": 0.0012,
+ "n_weeks": 58, "created_at": "2026-09-24T…Z"}
+```
+
+碰测试段评估（final）的 `summary.json` 追加：
+
+```json
+"sample": {"role": "is|mixed|lockbox", "window_id": "2026Q2",
+            "window_start": "2025-07-01", "window_end": "2026-09-17",
+            "access_id": "01M3…"}
+```
+
+`is` 仅含 `role`；final 时 `access_id` 与 `lockbox_access` 登记一致，评估结束回填
+`result_ref`。评估段与分层回测块记录 `date_start/date_end`（样本区间可追溯）。
+`compose`/`strategy run` 产物 manifest 的 `sample` 追加 `conclusion_eligible`——能过门的
+路（is/off/final）恒 true；是否可作结论仍由 `admit`/`ref add` 裁定。
+
+**研究工作流（xscore pipeline）语义**：流水线 **config = 版本**——flow 开始按面板区间
+（panel npz 首末日期）判定角色并**钉死版本身份**（`fingerprint = candidate_fingerprint(
+artifact_sha256=panel 文件签名, params={config 内容 sha, panel_sig}, window_id)`；收尾复用
+起点 fp，不重算）。碰测试段即登记 **final**（理由 `pipeline:<config>`）：
+
+- 同版本已有登记：**run 产物已在**（`<out>/manifest.json`）→ **replay 复用**既有
+  `access_id`（零新增、不报错；不算新一次测试）；产物被删 → 响亮拒绝
+  `LOCKBOX_FINAL_DUPLICATE`；`FACTORLAB_RE_FINAL=1` 优先于 replay → 新登记
+  （`reason` 追加 `|re-final` 审计标记）；
+- 无 state 或 `FACTORLAB_LOCKBOX=0|off|false` → 不读/不写台账：manifest 记
+  `window_id: null` / `sample_role: unknown` / `access_ids: []`（**无** `lockbox_off`
+  留痕字段；真实台账 `roll` 由 controller 执行）；
+- stale（跨季未 roll）→ flow 在计算前抛 `LOCKBOX_WINDOW_STALE`（指引
+  `factorlab lockbox roll`）；panel 缺失 → 拒绝以 `artifact_sha256=missing` 登记。
+
+`access_id` 写入 run 级与 campaign 级 manifest 的 `access_ids`（campaign = 既有 ∪ 新 id，
+不丢旧；双写持 `<manifest>.lock` flock 串行化）；`window_id`/`sample_role` 为本次真实值；
+flow 收尾把 `result_ref` 回填为 run 的 `out` 目录；流水线自身**不 roll、不初始化**台账
+（见 `research/tools/xscore/pipeline/README.md`）。
+
+### 10.5 错误码
 
 | code | 触发 |
 |---|---|
 | `LOCKBOX_NO_CALENDAR` | 交易日历无 `window_start` 之后的交易日（响亮失败，不静默放行） |
 | `LOCKBOX_EMPTY_DATA` | 最新数据日早于窗口起点 |
-| `LOCKBOX_NO_STATE` | 碰箱但锁箱未初始化（先 `factorlab lockbox roll`；IS 运行不需要） |
+| `LOCKBOX_NO_STATE` | 碰测试段但锁箱未初始化（先 `factorlab lockbox roll`；IS 运行不需要） |
 | `LOCKBOX_WINDOW_STALE` | state 窗口 ≠ 当前季度窗口（跨季未 roll） |
 | `LOCKBOX_ROLL_BACKWARD` | roll 窗口早于 state（拒绝倒退） |
-| `LOCKBOX_INTENT_REQUIRED` | 碰箱无 `--lockbox` |
-| `LOCKBOX_REASON_REQUIRED` | `--lockbox` 无理由/空理由 |
-| `LOCKBOX_FINAL_DUPLICATE` | 同 `(window_id, fingerprint)` 已有 final 登记（登记层严格；同候选 guard 重跑复用不报错） |
-| `LOCKBOX_QUOTA_EXCEEDED` | 窗口 final 数 ≥ `quota_final`（缺省 M=20） |
-| `LOCKBOX_FINAL_REQUIRED` | `admit`/`ref add` 引用的评估窗口碰箱但无 final 登记 |
+| `LOCKBOX_TEST_ONLY_FINAL` | 非最终测试的评估碰测试段（`date.end > is_end`）；IS-only 因子入库同码 |
+| `LOCKBOX_REASON_REQUIRED` | final 登记无理由/空理由（登记层校验；CLI 已无 `--lockbox-reason`） |
+| `LOCKBOX_PIPELINE_REQUIRED` | 新 final 登记缺 `FACTORLAB_PIPELINE=1` 标记（host 直跑；入库车道自设） |
+| `LOCKBOX_FINAL_DUPLICATE` | 同 `(window_id, fingerprint)` 版本已有 final（未设 `FACTORLAB_RE_FINAL=1`）；pipeline 产物被删亦同 |
+| `LOCKBOX_FINAL_REQUIRED` | `admit`/`ref add` 无该版本最终测试登记，或冻结件缺失/版本不符 |
 
-### 10.4 产物声明 `summary.sample`
+### 10.6 台账（`<research_root>/data/ledger.sqlite`，WAL；append-only）
 
-碰箱评估的 `summary.json` 追加：
-
-```json
-"sample": {"role": "is|mixed|lockbox", "window_id": "2026Q2",
-            "window_start": "2025-07-01", "window_end": "2026-09-17",
-            "access_id": "01M3..."}
-```
-
-`is` 仅含 `role`；碰箱时 `access_id` 与 `lockbox_access` 登记一致，评估结束回填
-`result_ref`。评估段与分层回测块记录 `date_start/date_end`（样本区间可追溯）。
-`compose`/`strategy run` 产物 manifest 的 `sample` 追加 `conclusion_eligible`——实现
-裁定（2026-09-21）：仅 admit/ref add 是固化门，composite/strategy 产物 = 运行记录。
-
-**研究工作流（xscore pipeline）语义对齐**：流水线 **config = 候选**——flow 开始按同一
-窗口/角色判定并**钉死候选身份**（`artifact_sha256 = panel 文件签名`、config 部分 = config
-**文件内容 sha**，对齐 spec_fingerprint；收尾复用起点 fp，不重算）。无 state 或
-`FACTORLAB_LOCKBOX=0|off|false` → 不读/不写台账（`unknown`/`[]`）；碰箱即幂等登记
-**final**（命中复用 `access_id`；配额不足 `LOCKBOX_QUOTA_EXCEEDED`，报错指引
-`factorlab lockbox status`）；stale（跨季未 roll）→ `LOCKBOX_WINDOW_STALE` fail-fast
-（指引 `factorlab lockbox roll`），panel 缺失 → 拒以 `artifact_sha256=missing` 登记。
-`access_id` 写入 run 级与 campaign 级 manifest 的 `access_ids`（campaign = 既有 ∪ 新 id），
-`window_id`/`sample_role` 同步为本次真实值，收尾把 `result_ref` 回填为 run 的 out 目录；
-流水线自身不 `roll`、不初始化台账（见 `research/tools/xscore/pipeline/README.md`）。
-
-### 10.5 台账（`<research_root>/data/ledger.sqlite`，WAL；append-only）
-
-- `lockbox_state`（单行）：`window_id/window_start/quota_final/rolled_at`——状态推进只经 roll。
+- `lockbox_state`（单行）：`window_id/window_start/rolled_at`——状态推进只经 roll
+  （`window_end` = 最新数据日，现算；历史 `quota_final` 列保留仅为旧库迁移兼容，
+  活代码不读不写）。
 - `lockbox_access`：`access_id(ULID)`、`ts_utc`、`window_id/window_start/window_end`、
-  `kind(exploration|final)`、`fingerprint`、`artifact`、`params`、`command`、`result_ref`、
-  `reason`、`actor`、`tool`。只增不改不删（触发器强制；唯一允许回填的列 = `result_ref`）。
-- **终评唯一 + 配额**：`(window_id, fingerprint)` 唯一（指纹 = `sha256(canonical({kind,
-  artifact, params, window_id}))`，改参=新候选）；每窗口 final 计数 ≤ M
-  （缺省 20，roll 时 `--quota-final` 可改）。探索不限额。
+  `kind`（R42 起新登记仅 `final`；历史 `exploration` 行只读）、`fingerprint`、`artifact`、
+  `params`、`command`、`result_ref`、`reason`、`actor`、`tool`。只增不改不删（触发器强制；
+  唯一允许回填的列 = `result_ref`）。
+- **版本与唯一性**：指纹 = `sha256(canonical({kind, artifact, params, window_id}))`，
+  改参 = 新版本；"每版本一次"由登记层 `BEGIN IMMEDIATE` 原子检查实施
+  （`uq_lockbox_final` 唯一索引已 DROP，见 §10.7 迁移）；`FACTORLAB_RE_FINAL=1`
+  的再登记以最新行为准，`reason` 带 `|re-final` 审计标记。
 - 写入方只有平台（execute 层 guard）、研究工作流（xscore pipeline 的 final 登记）与研究侧
   `lab/lockbox.py`；禁手改（同 ledger 纪律）。
 - 库路径/env：`FACTORLAB_LOCKBOX_DB` 覆盖（缺省 `<research_root>/data/ledger.sqlite`）；
   `FACTORLAB_LOCKBOX=0|off|false` 关闭硬门（直接 IS 放行、不读 state、不登记）——
   仅供 CI/离线基线，生产不设或设 1。
 
-### 10.6 门与迁移
+### 10.7 门与迁移
 
 - **G-LOCKBOX**（`make gates`）：档案/manifest 样本声明字段齐全与格式（与 `window_id`
   季号一致）；宿主段与台账交叉核对 `access_id` 存在、kind=final；`lockbox/mixed` 另要求
   **至少一条 id 的窗口与 manifest 一致**（campaign 并集含历史窗 id 不判违规）；
   `is/legacy/unknown` 可挂历史真实 final id（引用仍须核验）。负向自检（缺字段/空 id/
-  幽灵 id/探索冒充终评/锁箱仅旧窗 id/档案缺声明）。
+  幽灵 id/非 final 行冒充终评/锁箱仅旧窗 id/档案缺声明）。
 - **G-ANNOTATE**：新/更新档案必须含 `sample_role`（缺 → 红）。
-- **迁移（只管以后）**：存量 spec（含 175 个 `end=2026-07-31`）在锁箱初始化后被判定碰箱：
-  要么收紧窗口 `date.end = is_end`（`lockbox status --json` 输出），要么显式
-  `--lockbox exploration|final --lockbox-reason …` 意图；存量档案/`_oos2026`/参考库 OOS
-  理由不追溯补登（grandfather）。
+- **迁移（只管以后；R42）**：
+  - `uq_lockbox_final` 唯一索引已 DROP（允许 `FACTORLAB_RE_FINAL=1` 同版本再登记）；
+    恢复 SQL 见 `governance/evidence/verification/R42/`。历史行保留**只读**。
+  - **旧 final 行不续接新纪律**：历史窗口的 final 登记不抑制新版本的最终测试，也不满足
+    新版本的入库引用（无冻结件 → `LOCKBOX_FINAL_REQUIRED`；需经 `make xpipe` 重建）。
+  - 存量 spec（含历史 `end` 越过 `is_end` 者）：开发用途收紧为 `date.end = is_end`
+    （`lockbox status --json` 输出）；要入库则走测试段最终测试（§10.3）。存量档案/
+    `_oos2026`/参考库 OOS 理由不追溯补登（grandfather）。

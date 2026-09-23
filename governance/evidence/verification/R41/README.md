@@ -1,5 +1,12 @@
 # R41：工作流完善——参考库体检/自动补算（ref-sync）证据
 
+> **R42（2026-09-24）supersede 注记**：本文件中的配额（M=20 / `--quota-final` /
+> `FACTORLAB_LOCKBOX_ADMIN`）、探索登记、`lockbox_off` 留痕、`--lockbox*` CLI 参数与
+> "manifest 复用/配额门"等描述已被 R42 取代或删除——现行口径见
+> `knowledge/design/platform/specs/2026-09-24-final-test-once-discipline-design.md`
+> 与 `knowledge/contracts/interface.md` §10（每版本最终测试一次；入库只看测试段冻结件）。
+> 其余内容（ref-sync / 新鲜度门 / 唯一入口 / 演练记录）仍有效，作为历史证据保留。
+
 用户裁定：入参考库应自动跑出数据；缺 spec → fail-fast + 显式豁免。
 
 ## 实现

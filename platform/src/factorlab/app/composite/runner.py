@@ -137,7 +137,7 @@ def _lockbox_attach(guard, summary: dict) -> None:
 
 
 def _lockbox_mark_result(guard, out_dir: Path) -> None:
-    """R40：产物落盘后回填 `result_ref`（guard 未接线/IS 时 no-op）。"""
+    """R42：产物落盘后回填 `result_ref`（guard 未接线/IS 时 no-op）。"""
     if guard is not None:
         guard.mark_result(str(out_dir))
 
@@ -149,7 +149,7 @@ def run_composite(spec_path: str | Path, *, results_dir: str | Path | None = Non
     `results_dir` 缺省 = `settings.results_dir`（`runs/platform`）；
     `out_dir` 缺省 = `<results_dir>/composites/<spec.name>`（design §14 落点）。
 
-    R40：`guard`（`adapters.lockbox_store.RunGuard`，由 CLI compose 在重链前
+    R42：`guard`（`adapters.lockbox_store.RunGuard`，由 CLI compose 在重链前
     构造）非 None 时——summary 落盘前 attach `sample`，产物写完后 `mark_result`；
     cache 命中同样声明本次访问并回填。缺省 None = 直接 API 调用零行为变化。
     """

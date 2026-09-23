@@ -118,6 +118,11 @@ PREFECT_API_URL=http://127.0.0.1:4200/api research/.venv/bin/prefect deployment 
 - **台账挂接**：只连 `<research_root>/data/ledger.sqlite`（`FACTORLAB_LOCKBOX_DB` 可覆盖）；
   登记 final 是流水线**唯一**的台账写入（append-only，`result_ref` 回填），流水线自身
   **不 roll、不初始化**。
+- **入库判定**（`flab factor admit` / `ref add`）：不看探索结果——无该版本 final 时**执行
+  那次唯一最终测试**（车道内自设 `FACTORLAB_PIPELINE=1`）并冻结
+  `<results>/<name>_5y/test_diagnostics.json`（测试段 `corr_max/r2_lib/resic_t`），二次
+  admit 只读冻结件；IS-only 因子不可入库。见 `$QR/knowledge/pipeline-usage.md` §4 与
+  `knowledge/contracts/interface.md` §10。
 
 ### 缓存语义
 

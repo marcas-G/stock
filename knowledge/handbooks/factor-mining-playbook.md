@@ -202,7 +202,7 @@ formula: |
 
 ### 4.1 核心指标与参考阈值
 
-> R41：正式评估一律经研究工作流（config 的 `factors/groups/models`），见 `$QR/knowledge/pipeline-usage.md`；宿主直跑仅 dev 调试。碰箱评估必须 final 登记（R40）。
+> R41：正式评估一律经研究工作流（config 的 `factors/groups/models`），见 `$QR/knowledge/pipeline-usage.md`；宿主直跑仅 dev 调试。测试段评估只经最终测试（R42：每版本一次）。
 
 | 指标 | 字段 | 解读 | 参考（A 股周频） |
 |------|------|------|-----------------|
@@ -216,12 +216,14 @@ formula: |
 | **换手** | `turnover.monthly` | 因子调仓频率 | <50%/月 可实盘化；高换手容量差 |
 | **覆盖** | `coverage.pct_valid` | 有效行比例 | >80% 正常；低覆盖需查 fillna |
 
-**R40 锁箱要件（入库判定）**：入库/结论依据的评估若碰锁箱——spec `date.end` 超过 `is_end`
-（= `factorlab lockbox status --json` 的 `is_end`，即 `window_start` 前一交易日）——必须带
-`--lockbox final --lockbox-reason <理由>` 跑，且在台账 `lockbox_access` 留 final 登记
-（`admit`/`ref add` 缺登记 → `LOCKBOX_FINAL_REQUIRED`）。仅调参探索用 `--lockbox exploration`
-（自动登记、不限额；`exploration` 记录不得作为入库依据）。窗口算法、CLI、错误码与
-`summary.sample` 字段见 `knowledge/contracts/interface.md` §10。
+**R42 锁箱要件（入库判定）**：数据分训练段（`date.end ≤ is_end`）与测试段（平时看不见）；
+探索只准训练段（碰测试段直接拒 `LOCKBOX_TEST_ONLY_FINAL`）。入库只看**测试段冻结结果**：
+`flab factor admit` 无该版本最终测试登记时会**执行那次唯一最终测试**并冻结
+`<results>/<name>_5y/test_diagnostics.json`（测试段 `corr_max/r2_lib/resic_t`），二次 admit
+只读冻结件；IS-only 因子不可入库（需把窗口延伸到测试段，或用 `make xpipe` 产出的 `_5y`
+变体——admit 优先解析它）。最终测试每版本一次（同版本重复 → `LOCKBOX_FINAL_DUPLICATE`；
+操作员 `FACTORLAB_RE_FINAL=1` 重测留痕）。窗口算法、CLI、错误码与 `summary.sample` 字段见
+`knowledge/contracts/interface.md` §10。
 
 ### 4.2 净值曲线形态判断（serve 详情页）
 

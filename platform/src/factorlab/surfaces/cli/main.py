@@ -31,8 +31,8 @@ op_app = typer.Typer(no_args_is_help=True)
 app.add_typer(op_app, name="op")
 # R31：研究员统一门面（flab 短入口的落点；命令注册单点在 factorlab.research.registry）
 app.add_typer(research_app, name="research")
-# R40 锁箱纪律（设计 knowledge/design/platform/specs/2026-09-21-lockbox-discipline-design.md）：
-# 窗口/配额/终评唯一的运维入口；纯窗口数学在 core.lockbox，IO 在 adapters.lockbox_store。
+# R42 锁箱纪律（设计 knowledge/design/platform/specs/2026-09-24-final-test-once-discipline-design.md）：
+# 窗口/最终测试（每版本一次）的运维入口；纯窗口数学在 core.lockbox，IO 在 adapters.lockbox_store。
 lockbox_app = typer.Typer(no_args_is_help=True)
 app.add_typer(lockbox_app, name="lockbox")
 

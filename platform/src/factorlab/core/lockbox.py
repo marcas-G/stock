@@ -26,7 +26,7 @@ _ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 class LockboxError(Exception):
     """锁箱违规（稳定错误码见设计文档
-    knowledge/design/platform/specs/2026-09-21-lockbox-discipline-design.md）。"""
+    knowledge/design/platform/specs/2026-09-24-final-test-once-discipline-design.md）。"""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(f"{code}: {message}")

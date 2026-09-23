@@ -117,17 +117,19 @@ general-purpose subagent，输入：变异点记录 + `$QR/factor/<族>/<name>.y
 `$QR/knowledge/pipeline-usage.md` 与 `$QR/CONVENTIONS.md` §4。
 
 - 唯一允许的宿主直跑 = **dev 调试与 lint**：`$FLAB lint <spec>` / 单因子快速试探（不产出正式结论）；
-  重任务经 `governance/ops/heavy.sh`。宿主直跑碰箱需 `--lockbox exploration|final --lockbox-reason`。
-- 流水线 flow 开始自动做 **final 登记**（config=候选，配额 M=20/窗）；正式结论只认流水线 manifest
-  （`results/<campaign>/manifest.json` 五键含 `config_path`）。
+  重任务经 `governance/ops/heavy.sh`。宿主直跑碰测试段会被 `LOCKBOX_TEST_ONLY_FINAL` 拒。
+- 流水线 flow 开始自动做 **final 登记**（R42：config = 版本，每版本最终测试一次；同 config 重跑
+  replay 复用）；正式结论只认流水线 manifest（`results/<campaign>/manifest.json` 五键含 `config_path`）。
 
-**R40 锁箱（碰箱必声明）**：spec 评估窗口与锁箱相交时必须带
-`--lockbox exploration|final --lockbox-reason <理由>`，否则 `LOCKBOX_INTENT_REQUIRED`
-拒跑（无产物）；`exploration` 自动登记、不限额，`final` 每候选每窗一次 + 每窗配额
-M=20（入库/结论依据）。`date.end ≤ is_end`（`factorlab lockbox status --json` 的 `is_end`
-= `window_start` 前一交易日）在 IS 内，无需 flag。锁箱运维入口 = 顶层
-`factorlab lockbox status|roll`（即 `$FLAB lockbox …`；`flab` = `factorlab research`
-门面，**无 lockbox 子命令**），契约见 `knowledge/contracts/interface.md` §10。
+**R42 锁箱（两段 + 最终测试一次）**：数据分训练段（`date.end ≤ is_end`，随便调）与测试段
+（`date.end > is_end`，平时看不见）。**探索只准训练段**：非最终测试的评估碰测试段直接拒
+（`LOCKBOX_TEST_ONLY_FINAL`，无产物零登记）；想看测试段 → 走流水线或入库车道。**最终测试每
+版本一次**（版本 = spec 内容 + 参数 + 面板指纹 + `window_id`；同版本重复 → `LOCKBOX_FINAL_DUPLICATE`；
+改参数=新版本可再测；操作员 `FACTORLAB_RE_FINAL=1` 重测留痕），且必须经流水线（自动标记
+`FACTORLAB_PIPELINE=1`）或入库车道（host 直跑 final 登记 → `LOCKBOX_PIPELINE_REQUIRED`）。
+窗口与 `is_end` 查 `factorlab lockbox status --json`（`is_end` = `window_start` 前一交易日，
+可直接写进 spec `date.end`）。锁箱运维入口 = 顶层 `factorlab lockbox status|roll`（`flab` =
+`factorlab research` 门面，**无 lockbox 子命令**），契约见 `knowledge/contracts/interface.md` §10。
 
 ### 8. 入库
 
@@ -142,9 +144,13 @@ M=20（入库/结论依据）。`date.end ≤ is_end`（`factorlab lockbox statu
      （name/style/reason/added/entry_corr_max/entry_resic_t），空 scale 首只即种子
      （两项 null）。
 1. 对照 `knowledge/handbooks/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
-   **R40 要件**：入库依据的评估窗口若碰锁箱（`date.end > is_end`），该评估必须为
-   `--lockbox final` 且 `lockbox_access` 有对应 final 登记；`admit`/`ref add` 缺登记 →
-   `LOCKBOX_FINAL_REQUIRED`（契约 `knowledge/contracts/interface.md` §10）。
+   **R42 要件（入库只看测试段冻结结果）**：`flab factor admit <spec>` 会先过最终测试门——
+   无该版本最终测试登记则**执行那次唯一最终测试**并冻结
+   `$QR/results/platform/<name>_5y/test_diagnostics.json`（测试段 `corr_max/r2_lib/resic_t`），
+   二次 admit 只读冻结件；IS-only 因子（窗口全在训练段）不可入库（`LOCKBOX_TEST_ONLY_FINAL`，
+   先经 `make xpipe` 产出/使用 `_5y` 变体，admit 会优先解析它）。判决阈值：`corr_max≥0.95`
+   重复；`r2_lib≥0.8` 且 `resic_t` 不显著（|t|<2）冗余；否则可加入。训练段冗余检验仅供
+   开发参考（契约 `knowledge/contracts/interface.md` §10）。
 2. 复制 `$QR/dossiers/factors/_template.md` → `$QR/dossiers/factors/<族>/<stem>.md`，逐节填写：
    验证数据快照自 `runs/platform/<name>/summary.json`（注明快照日期）；
    状态按判定（候选/观察中/无效）；§2 逻辑写变异后的假设表达。
