@@ -15,6 +15,7 @@ Pearson（也按周快照、逐对剔除 NaN）。供 `factorlab corr` 与 Web �
 """
 from __future__ import annotations
 
+import datetime
 import pathlib
 import re
 
@@ -63,6 +64,24 @@ def _ensure_date(df: pl.DataFrame) -> pl.DataFrame:
     return df.with_columns(pl.col("date").cast(pl.Date, strict=False))
 
 
+def parse_date_start(date_start: str | datetime.date | None) -> datetime.date | None:
+    """`date_start`（ISO 字符串/`datetime.date`）→ `datetime.date`；None 原样；非法 → ValueError。"""
+    if date_start is None or isinstance(date_start, datetime.date):
+        return date_start
+    try:
+        return datetime.date.fromisoformat(str(date_start))
+    except ValueError as exc:
+        raise ValueError(
+            f"date_start 应为 ISO 日期（YYYY-MM-DD）: {date_start!r}") from exc
+
+
+def _filter_date_start(df: pl.DataFrame, date_start: datetime.date | None) -> pl.DataFrame:
+    """周快照过滤到 `date >= date_start`（None = 不过滤，现行为）。"""
+    if date_start is None:
+        return df
+    return df.filter(pl.col("date") >= date_start)
+
+
 def _spearman(x: np.ndarray, y: np.ndarray) -> float:
     """average-rank Spearman（调用方已完成 NaN 逐对剔除）。
 
@@ -76,7 +95,8 @@ def _spearman(x: np.ndarray, y: np.ndarray) -> float:
 
 
 def _join_panels(names: list[str], results_dir: pathlib.Path,
-                 sample_weeks: int | None = None, seed: int = 42) -> pl.DataFrame:
+                 sample_weeks: int | None = None, seed: int = 42,
+                 date_start: datetime.date | None = None) -> pl.DataFrame:
     """按 date+code 合并多因子 signal → 宽表（ISO 周最后交易日快照）。
 
     - sample_weeks 非 None：先抽 sample_weeks 个**交易周**（每 ISO 周取最后
@@ -84,6 +104,8 @@ def _join_panels(names: list[str], results_dir: pathlib.Path,
       偶发段错误，pivot 规避）。
     - None：全量 join → `align_weekly` 周快照 + 每周等距 stride 降采样护栏
       （`factor_correlation` 路径）。
+    - `date_start` 非 None：周快照过滤到 `date >= date_start`（R42 测试段切片；
+      缺省 None = 现行为逐值不变）。
     """
     if sample_weeks:
         # 抽样周：先轻量读第一因子 date 列 → 折周 → 抽周 → 各因子 lazy 过滤读
@@ -102,12 +124,14 @@ def _join_panels(names: list[str], results_dir: pathlib.Path,
         joined = long.pivot(index=["date", "code"], columns="factor",
                             values="value", aggregate_function="first")
         # 列序固定为 names（pivot 列序可能乱）
-        return align_weekly(_ensure_date(joined.select(["date", "code", *names])))
+        joined = align_weekly(_ensure_date(joined.select(["date", "code", *names])))
+        return _filter_date_start(joined, date_start)
     signals = [_load_signal(results_dir, name) for name in names]
     joined = signals[0]
     for d in signals[1:]:
         joined = joined.join(d, on=["date", "code"], how="inner")
     joined = align_weekly(_ensure_date(joined))
+    joined = _filter_date_start(joined, date_start)
     if joined.height > MAX_JOINED_ROWS:
         # 每周最多 WEEKLY_SAMPLE_STOCKS 只：等距 stride 覆盖整帧（不是取前 N 行）
         joined = (joined
@@ -143,6 +167,7 @@ def factor_correlation(names: list[str], results_dir: str | pathlib.Path,
                        sample_weeks: int | None = None, seed: int = 42,
                        against: str | None = None,
                        reference_path: pathlib.Path | None = None,
+                       date_start: str | datetime.date | None = None,
                        ) -> pl.DataFrame:
     """两两相关矩阵：周度横截面秩相关均值 + 全局 Pearson（同周快照）。
 
@@ -158,6 +183,8 @@ def factor_correlation(names: list[str], results_dir: str | pathlib.Path,
     sample_weeks 非 None：抽样交易周（Web 全库热力图等大量因子场景的省内存路径）。
     against 非 None（D10）：把 `--against` 解析出的对照成员并入 names（去重保序），
     空 names + `against="reference"` 即"参考库自成矩阵"。
+    date_start 非 None（R42 测试段）：周快照过滤到 `date >= date_start`（缺省 None =
+    现行为逐值不变）；非法 ISO 串 → ValueError。
     """
     merged = list(names or [])
     if against is not None:
@@ -168,7 +195,8 @@ def factor_correlation(names: list[str], results_dir: str | pathlib.Path,
     if len(names) < 2:
         raise ValueError("至少需要 2 个因子")
     joined = _join_panels(names, pathlib.Path(results_dir),
-                          sample_weeks=sample_weeks, seed=seed)
+                          sample_weeks=sample_weeks, seed=seed,
+                          date_start=parse_date_start(date_start))
     if joined.height == 0:
         raise ValueError("因子间无公共日期行（(date, code) 交集为空，请核对数据区间）")
     n = len(names)

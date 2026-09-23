@@ -286,10 +286,21 @@ def _incremental_verdict(corr_max: float, r2_lib: float, resic_t: float,
 
 
 def _incremental_one(name: str, base: list[str], rd: pathlib.Path,
-                     fwd_col: str, min_stocks: int) -> dict:
-    """单候选：rank 残差回归（r2_lib/resIC/retention）+ 与库成员 |ρ| + verdict。"""
-    from factorlab.app.analysis.correlation import factor_correlation
+                     fwd_col: str, min_stocks: int,
+                     date_start: str | None = None) -> dict:
+    """单候选：rank 残差回归（r2_lib/resIC/retention）+ 与库成员 |ρ| + verdict。
+
+    `date_start` 非 None：候选/参考面板过滤到 `date >= date_start`（R42 测试段
+    切片；corr 与 resIC 同口径过滤），缺省 None = 现行为逐值不变。
+    """
+    from factorlab.app.analysis.correlation import (factor_correlation,
+                                                     parse_date_start)
+    start = parse_date_start(date_start)
     wide = _join_weekly_wide([name, *base], rd, fwd_col, carrier=name)
+    if start is not None:
+        wide = wide.filter(pl.col("date") >= start)
+        if wide.height == 0:
+            raise ValueError(f"date_start={date_start} 过滤后无数据（候选 {name}）")
     k = len(base)
     m = max(min_stocks, k + 2)
     resics: list[float] = []
@@ -316,7 +327,7 @@ def _incremental_one(name: str, base: list[str], rd: pathlib.Path,
     retention = (float(resic_mean / ic_mean)
                  if ic_mean == ic_mean and ic_mean != 0 else float("nan"))
     # 与库成员的相关（复用唯二实现：周度横截面 average-rank Spearman）
-    mtx = factor_correlation([name, *base], rd)
+    mtx = factor_correlation([name, *base], rd, date_start=start)
     vals = [abs(float(v)) for v in
             mtx.filter((pl.col("factor_a") == name) | (pl.col("factor_b") == name))
             ["rank_corr"].to_list() if v == v]
@@ -338,13 +349,16 @@ def incremental_diagnostics(candidates: list[str],
                             results_dir: str | pathlib.Path,
                             base: list[str],
                             fwd_col: str = "forward_return_5d",
-                            min_stocks: int = MIN_STOCKS) -> dict:
+                            min_stocks: int = MIN_STOCKS,
+                            date_start: str | None = None) -> dict:
     """D10 增量信息评估：候选（库外）对基准库的 corr_max/mean、r2_lib、resIC、
     retention、verdict（spec §3b 表）。
 
     - `corr_*` 与 target 无关（signal-only，复用 factor_correlation）；resIC/r2_lib
       在指定 `fwd_col` 下计算（rank 空间逐周 OLS 残差 → 残差 rankIC）；
     - `retention = resIC.mean / raw rankIC.mean`（原始 IC 用同一批有效周）；
+    - `date_start` 非 None（R42 测试段诊断）：候选/参考面板过滤到
+      `date >= date_start`（corr 与 resIC 同口径），缺省 None = 现行为逐值不变；
     - 候选 ∈ 基准 → ValueError（基准应排除候选本身）；base 空 → ValueError。
     返回 {"kind": "incremental", "base": [...], "candidates": [{...}]}。
     """
@@ -356,5 +370,6 @@ def incremental_diagnostics(candidates: list[str],
     for name in candidates:
         if name in base:
             raise ValueError(f"候选 {name} 在基准组内——基准应排除候选本身")
-        out.append(_incremental_one(name, base, rd, fwd_col, min_stocks))
+        out.append(_incremental_one(name, base, rd, fwd_col, min_stocks,
+                                    date_start=date_start))
     return {"kind": "incremental", "base": base, "candidates": out}

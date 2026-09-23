@@ -11,7 +11,9 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlab.app.analysis.cross_section import cs_r2, joint_diagnostics, orthogonalized_ic
+from factorlab.app.analysis.cross_section import (cs_r2, incremental_diagnostics,
+                                                  joint_diagnostics,
+                                                  orthogonalized_ic)
 from factorlab.core.eval.ic_series import weekly_ic
 
 N = 40  # 默认股票数（≥ MIN_STOCKS 30）
@@ -475,3 +477,73 @@ def test_joint_wide_row_guard_violation_raises(tmp_path, monkeypatch):
     monkeypatch.setattr(cs_mod, "MAX_WIDE_ROWS", 5)
     with pytest.raises(ValueError, match="护栏"):
         joint_diagnostics(["a", "b"], tmp_path)
+
+
+# ---------- incremental_diagnostics：date_start 测试段切片 ----------
+
+def _incremental_cand(root: Path, name: str, **kw) -> dict:
+    return incremental_diagnostics([name], root, base=["b"], **kw)["candidates"][0]
+
+
+def test_incremental_date_start_slices_panels_and_matches_post_only(tmp_path):
+    """`date_start` 把候选/参考面板过滤到 date >= date_start（T4 测试段诊断）。
+
+    独立参照（不从实现推导）：同一份周数据只保留后段写成另一个 results 根，
+    不带过滤调用——过滤调用的每个指标必须与"后段-only"根逐值一致。
+    构造使前段/后段符号翻转：全窗 corr/resIC 前后相消，后段-only 显著非零。
+    """
+    weeks = 6
+    x, w = _ortho_vectors(N)
+    dates = _dates(weeks)
+    flip = np.tile(w, (weeks, 1))
+    flip[3:] = -flip[3:]                       # 后段 corr(signal, base) 反号
+    resid = np.tile(w + 0.2 * x, (weeks, 1))   # 恒定；fwd 后段反号 → resIC 反号
+    fwd = np.tile(0.5 * x, (weeks, 1))
+    fwd[3:] = -fwd[3:]
+    b = np.tile(w, (weeks, 1))
+
+    full_root, post_root = tmp_path / "full", tmp_path / "post"
+    for root, sl in ((full_root, slice(None)), (post_root, slice(3, None))):
+        d = dates[sl]
+        _write_panel(root, "flip", d, _codes(), flip[sl], fwd[sl])
+        _write_panel(root, "resid", d, _codes(), resid[sl], fwd[sl])
+        _write_panel(root, "b", d, _codes(), b[sl], fwd[sl])
+    cut = dates[3].isoformat()
+
+    for name in ("flip", "resid"):
+        sliced = _incremental_cand(full_root, name, date_start=cut)
+        post_only = _incremental_cand(post_root, name)
+        for key in ("corr_max", "r2_lib", "resic_mean", "resic_t", "n_weeks"):
+            assert sliced[key] == pytest.approx(post_only[key], nan_ok=True), (name, key)
+    assert _incremental_cand(full_root, "resid", date_start=cut)["n_weeks"] == 3
+
+    full_flip = _incremental_cand(full_root, "flip")
+    sliced_flip = _incremental_cand(full_root, "flip", date_start=cut)
+    assert abs(full_flip["corr_max"]) < 1e-9     # 前段 +1 / 后段 −1：全窗均值 0
+    assert sliced_flip["corr_max"] == pytest.approx(1.0, abs=1e-9)
+
+    full_resid = _incremental_cand(full_root, "resid")
+    sliced_resid = _incremental_cand(full_root, "resid", date_start=cut)
+    assert full_resid["resic_mean"] == pytest.approx(0.0, abs=1e-9)  # 前后相消
+    assert sliced_resid["resic_mean"] < -0.2                         # 后段 fwd 反号
+    assert full_resid["n_weeks"] == 6
+
+
+def test_incremental_date_start_identity_and_invalid(tmp_path):
+    """缺省/首日 date_start 与不传逐值一致；非法日期串 → ValueError。"""
+    weeks = 3
+    x, _w = _ortho_vectors(N)
+    a = np.tile(x, (weeks, 1))
+    b = np.tile(x + 0.3 * _ortho_basis(2, n=N)[1], (weeks, 1))
+    fwd = 0.4 * a + 0.1 * b
+    _write_panel(tmp_path, "a", _dates(weeks), _codes(), a, fwd)
+    _write_panel(tmp_path, "b", _dates(weeks), _codes(), b, fwd)
+
+    base = _incremental_cand(tmp_path, "a")
+    first = _incremental_cand(tmp_path, "a", date_start=_dates(1)[0].isoformat())
+    for key in ("corr_max", "r2_lib", "resic_mean", "resic_t", "n_weeks"):
+        assert first[key] == pytest.approx(base[key], nan_ok=True), key
+
+    with pytest.raises(ValueError, match="date_start"):
+        incremental_diagnostics(["a"], tmp_path, base=["b"],
+                                date_start="2024/01/05")

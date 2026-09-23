@@ -10,9 +10,10 @@
 - ref：`app.analysis.reference` 加载 + 本模块安全写（备份/校验/原子/注释保留）；
 - op/catalog：`adapters.plugins` / `adapters.catalog` / `core.ops.registration`。
 
-`admit` = lint →（缺产物则 run，经闸）→ 对参考库 corr+resic → verdict：
-corr_max≥0.95 → 重复；r2_lib≥0.8 且 resic 不显著 → 冗余；否则 → 可加入
-（指标计算走 D10 `incremental_diagnostics` 单点）。
+`admit` / `ref add` = lint → 最终测试门（R42：无 final 登记则经入库车道执行
+测试段最终测试并冻结 `test_diagnostics.json`；IS-only/冻结件缺失即拒）→ verdict
+吃冻结件测试段数：corr_max≥0.95 → 重复；r2_lib≥0.8 且 resic 不显著 → 冗余；
+否则 → 可加入（指标计算走 D10 `incremental_diagnostics` 单点 + `date_start` 切片）。
 
 错误码（spec §4）：USAGE/LINT/MEMORY_GUARD/DEAD_SIGNAL/RUN_FAILED/DATA/NOT_FOUND/BUSY。
 """
@@ -32,7 +33,6 @@ from typing import Any, Iterator
 
 import yaml
 
-from factorlab import __version__
 from factorlab.adapters.atomicio import atomic_write_text
 # Plan DQ-M1 终审修复 N2：读取门 opt-in（入口参数校验 + DATA 信封映射）
 from factorlab.adapters.read.health import (DatasetQualityError,
@@ -500,7 +500,7 @@ def factor_svd(args: Any) -> envelope.Envelope:
 
 
 # ================================================================
-# admit（lint →（缺产物则 run，经闸）→ 参考库 corr+resic → verdict）
+# 入库门 + admit（lint → 最终测试门/冻结件 → verdict 吃测试段数）
 # ================================================================
 
 _VERDICT_JOIN = "可加入"
@@ -526,18 +526,128 @@ _ADVICE = {
 }
 
 
-def _lockbox_final_gate(*, spec: Any = None,
-                        fingerprint_doc: dict[str, Any] | None = None,
-                        artifact: str, reason: str | None, command: str,
-                        tool: str) -> str | None:
-    """admit / ref add 的终评硬门（设计 §6/§7）：窗口碰箱须有 final 登记。
+def _lockbox_hint(exc: Any) -> str:
+    """入库门 LockboxError → 稳定指引（错误码特定 + status 单点）。"""
+    base = "`factorlab lockbox status` 看窗口与训练段端点（is_end）"
+    if exc.code == "LOCKBOX_TEST_ONLY_FINAL":
+        return ("入库只看测试段最终测试结果：把 spec 窗口延伸到测试段（window_start "
+                "之后）再试，或先经 `make xpipe` 产出 `_5y` 变体；" + base)
+    if exc.code == "LOCKBOX_FINAL_REQUIRED":
+        return "先经 `make xpipe`（pipeline final）重建最终测试与冻结件；" + base
+    return base
 
-    与 execute 层 `_lockbox_guard_for_execute` 同口径：窗口端点取 spec.date
-    （缺失回退日历边界；ref add 无 spec 时以 `fingerprint_doc` 为指纹基）。
-    IS 段/未初始化-IS 直接放行（返回 None）；env `FACTORLAB_LOCKBOX` 关闭时
-    不读台账、不登记。缺终评 + 非空 reason → 补登记（唯一性/配额仍由
-    `register_access` 严把）；缺终评且无 reason → `LOCKBOX_FINAL_REQUIRED`。
-    返回既有/新建的 final access_id。
+
+class FinalTestError(Exception):
+    """入库车道执行最终测试的 run 链失败（→ admit / ref add 稳定错误码）。"""
+
+    def __init__(self, code: str, message: str, *,
+                 hint: str | None = None, log: str | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.hint = hint
+        self.log = log
+
+
+def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool) -> None:
+    """入库车道执行最终测试：显式 `final_mode=True` + 进程内自设车道标记。
+
+    `FACTORLAB_PIPELINE=1` 只在执行期生效（退出复原）：guard_run 的
+    `LOCKBOX_PIPELINE_REQUIRED` 靠它过；重复登记由 guard_run 权威拒
+    （`LOCKBOX_FINAL_DUPLICATE` 原样上抛）。run 链错误映射为 `FinalTestError`。
+    """
+    from factorlab.adapters.read.health import DatasetQualityError
+    from factorlab.app.memory import MemoryLimitExceeded
+    from factorlab.core.eval.metrics import DeadSignalError
+    from factorlab.core.factor.errors import FactorDSLError
+    from factorlab.core.lockbox import LockboxError
+    from factorlab.surfaces.cli.main import execute_run
+
+    saved = os.environ.get("FACTORLAB_PIPELINE")
+    os.environ["FACTORLAB_PIPELINE"] = "1"
+    try:
+        with _guard_env(["factor", "run", str(spec_path)], wait=wait):
+            execute_run(spec_path, final_mode=True, output_dir=output_dir)
+    except LockboxError:
+        raise
+    except GuardError as exc:
+        raise FinalTestError(exc.code, exc.message, hint=exc.hint, log=exc.log)
+    except DeadSignalError as exc:
+        raise FinalTestError("DEAD_SIGNAL", str(exc),
+                             hint="评估摘要已落盘（dead_signal=true）供审计；先修取数列/数据面")
+    except MemoryLimitExceeded as exc:
+        raise FinalTestError("MEMORY_GUARD", str(exc),
+                             hint="减小 chunk/宇宙，或调大 FACTORLAB_MAX_MEMORY")
+    except FileNotFoundError as exc:
+        raise FinalTestError("NOT_FOUND", f"spec 不存在: {exc}", hint=_FACTOR_HINT)
+    except FactorDSLError as exc:
+        raise FinalTestError("LINT", f"spec 校验失败: {exc}",
+                             hint="先 `flab factor lint <spec>`")
+    except DatasetQualityError as exc:
+        raise FinalTestError("DATA", f"读取门拒绝: {exc}",
+                             hint="如需探索性读取非 PASS 分区：--accept-quality "
+                                  "PASS,DEGRADED --override-reason <原因>")
+    except (ValueError, OSError) as exc:
+        raise FinalTestError("RUN_FAILED", f"{type(exc).__name__}: {exc}",
+                             hint="核对 spec/数据面；日志见 artifacts.log")
+    finally:
+        if saved is None:
+            os.environ.pop("FACTORLAB_PIPELINE", None)
+        else:
+            os.environ["FACTORLAB_PIPELINE"] = saved
+
+
+def _compute_test_diagnostics(*, name: str, base: list[str], window: Any,
+                              fingerprint: str) -> tuple[dict[str, Any], Path]:
+    """测试段诊断（`date_start=window_start`）→ 写 `<results>/<name>_5y/test_diagnostics.json`。
+
+    读最终测试 `_5y` 产物（候选 `<name>_5y` 对参考库 `<base>_5y`），只取
+    `date >= window_start` 的测试段面板；返回 `(冻结件 doc, 路径)`。
+    """
+    from factorlab.app.analysis.cross_section import incremental_diagnostics
+    results_dir = Path(settings.results_dir)
+    r = incremental_diagnostics(
+        [f"{name}_5y"], results_dir, base=[f"{b}_5y" for b in base],
+        date_start=window.start.isoformat())
+    cand = r["candidates"][0]
+    doc: dict[str, Any] = {
+        "version_fingerprint": fingerprint,
+        "window_id": window.window_id,
+        "window_start": window.start.isoformat(),
+        "date_start": window.start.isoformat(),
+        "date_end": window.end.isoformat(),
+        "corr_max": cand["corr_max"],
+        "r2_lib": cand["r2_lib"],
+        "resic_t": cand["resic_t"],
+        "resic_mean": cand["resic_mean"],
+        "n_weeks": cand["n_weeks"],
+        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(
+            timespec="seconds"),
+    }
+    path = results_dir / f"{name}_5y" / "test_diagnostics.json"
+    atomic_write_text(path, json.dumps(_jsonify(doc), ensure_ascii=False,
+                                       indent=2) + "\n")
+    return doc, path
+
+
+def _final_test_gate(spec_doc: dict[str, Any] | None,
+                     spec_path: Path | None, *,
+                     reason: str | None, command: str,
+                     scales: str = "daily",
+                     base: list[str] | None = None,
+                     wait: bool = False) -> dict[str, Any] | None:
+    """admit / ref add 共用的最终测试硬门（设计 §3.3/§3.4）：入库只看测试段冻结结果。
+
+    - env `FACTORLAB_LOCKBOX` off → None（纪律未启用；CI/测试走调用方旧径）；
+    - IS-only（窗口全在训练段）→ `LOCKBOX_TEST_ONLY_FINAL`（入库必须有测试段结果）；
+    - 无 final 登记 → **执行最终测试**（`execute_run(final_mode=True)`，进程内
+      `FACTORLAB_PIPELINE=1` 车道身份；guard_run 登记）→ 测试段诊断 →
+      写冻结件 `<results>/<name>_5y/test_diagnostics.json`；
+    - 已有 final → 冻结件存在且版本/窗口一致才放行；缺失但 `_5y` 产物在 →
+      仅重算诊断（同一次测试收尾，不重跑因子）；缺失且产物没了/版本不符 →
+      `LOCKBOX_FINAL_REQUIRED`（提示先经 `make xpipe` 重建）。
+    返回 {"version_fingerprint", "window_id", "window_start", "access_id",
+    "executed", "base", "diagnostics", "path", "reason"}。
     """
     if os.environ.get("FACTORLAB_LOCKBOX", "1").strip().lower() in (
             "0", "off", "false"):
@@ -545,19 +655,27 @@ def _lockbox_final_gate(*, spec: Any = None,
     from factorlab.adapters import lockbox_store as store
     from factorlab.core import lockbox as lb
 
+    if spec_doc is None or spec_path is None:
+        raise lb.LockboxError(
+            "LOCKBOX_FINAL_REQUIRED",
+            f"参考库成员缺 spec（{command}）：无法执行最终测试——补齐 spec 后重试"
+            "（入库必须有测试段最终测试结果）")
+    name = str(spec_doc.get("name") or Path(spec_path).stem)
+    if base is None:
+        from factorlab.app.analysis.reference import reference_names
+        base = [b for b in reference_names(scales) if b != name]
+    base = list(base)
     # T8 日历单点：adapters.run_calendar（缺省 DATA_ROOT/health，空日历回退 today）
     days, data_end = store.run_calendar()
-    if spec is not None:
-        spec_doc = spec.model_dump(mode="json")
-        start = (datetime.date.fromisoformat(spec.date.start) if spec.date.start
-                 else (min(days) if days else datetime.date(1970, 1, 1)))
-        end = (datetime.date.fromisoformat(spec.date.end) if spec.date.end
-               else data_end)
-    else:
-        spec_doc = dict(fingerprint_doc or {})
-        start = min(days) if days else datetime.date(1970, 1, 1)
-        end = data_end
+    date_doc = spec_doc.get("date") or {}
+    start = (datetime.date.fromisoformat(str(date_doc["start"]))
+             if date_doc.get("start")
+             else (min(days) if days else datetime.date(1970, 1, 1)))
+    end = (datetime.date.fromisoformat(str(date_doc["end"]))
+           if date_doc.get("end") else data_end)
     panel_start, panel_end = min(start, end), max(start, end)
+    out_dir = Path(settings.results_dir) / f"{name}_5y"
+    frozen_path = out_dir / "test_diagnostics.json"
     conn = store.connect(settings.lockbox_db)
     try:
         no_state = False
@@ -570,40 +688,70 @@ def _lockbox_final_gate(*, spec: Any = None,
             no_state = True
             window = lb.compute_window(as_of=datetime.date.today(),
                                        trading_days=days, data_end=data_end)
-        if lb.role_for(panel_start, panel_end, window) == "is":
-            return None
+        role = lb.role_for(panel_start, panel_end, window)
+        if role == "is":
+            raise lb.LockboxError(
+                "LOCKBOX_TEST_ONLY_FINAL",
+                f"因子 {name} 窗口 [{panel_start}~{panel_end}] 全在训练段：入库只看"
+                "测试段最终测试结果——把 spec 窗口延伸到测试段"
+                f"（window_start={window.start}）后再试")
         if no_state:
             raise lb.LockboxError(
                 "LOCKBOX_NO_STATE",
                 f"评估窗口 [{panel_start}~{panel_end}] 与锁箱（{window.window_id}，"
                 f"起点 {window.start}）相交但锁箱未初始化：先 `factorlab lockbox roll`")
-        fp = lb.candidate_fingerprint(
-            artifact_sha256=lb.spec_fingerprint(spec_doc),
-            params={"intent": "final"}, window_id=window.window_id, kind="final")
+        fp = store.final_version_fingerprint(spec_doc=spec_doc,
+                                             window_id=window.window_id)
         try:
-            return store.require_final(conn, window_id=window.window_id,
-                                       fingerprint=fp)
+            access_id: str | None = store.require_final(
+                conn, window_id=window.window_id, fingerprint=fp)
         except lb.LockboxError as exc:
             if exc.code != "LOCKBOX_FINAL_REQUIRED":
                 raise
-            if not (reason or "").strip():
+            access_id = None
+        executed = False
+        if access_id is None:
+            _execute_final_test(spec_path, output_dir=out_dir, wait=wait)
+            access_id = store.require_final(conn, window_id=window.window_id,
+                                            fingerprint=fp)
+            diag, frozen_path = _compute_test_diagnostics(
+                name=name, base=base, window=window, fingerprint=fp)
+            executed = True
+        elif frozen_path.is_file():
+            diag = json.loads(frozen_path.read_text(encoding="utf-8"))
+            if (diag.get("version_fingerprint") != fp
+                    or diag.get("window_id") != window.window_id):
                 raise lb.LockboxError(
                     "LOCKBOX_FINAL_REQUIRED",
-                    f"窗口 {window.window_id} 缺终评登记（候选 {fp[:12]}…）：先 "
-                    "`flab factor run <spec> --lockbox final --lockbox-reason <理由>`，"
-                    "或本次加 `--lockbox-reason <理由>` 补终评") from None
-            return store.register_access(
-                conn, kind="final", fingerprint=fp, artifact=artifact,
-                params={"intent": "final"}, command=command, reason=reason,
-                window=window, tool=tool)
+                    f"冻结件 {frozen_path} 与登记（版本 {fp[:12]}… / 窗口 "
+                    f"{window.window_id}）不符：先经 `make xpipe`（pipeline final）"
+                    "重建最终测试与冻结件")
+        elif (out_dir / "panel.parquet").is_file():
+            # 已有 final、冻结件缺失但 `_5y` 产物在：同一次测试收尾，仅重算诊断
+            diag, frozen_path = _compute_test_diagnostics(
+                name=name, base=base, window=window, fingerprint=fp)
+        else:
+            raise lb.LockboxError(
+                "LOCKBOX_FINAL_REQUIRED",
+                f"窗口 {window.window_id} 已有最终测试登记（版本 {fp[:12]}…）但冻结件"
+                f"（{frozen_path}）与 `_5y` 产物均缺失：先经 `make xpipe`（pipeline "
+                "final）重建最终测试与冻结件")
+        return {"version_fingerprint": fp, "window_id": window.window_id,
+                "window_start": window.start.isoformat(), "access_id": access_id,
+                "executed": executed, "base": base, "reason": reason,
+                "diagnostics": diag, "path": str(frozen_path)}
     finally:
         conn.close()
 
 
 def factor_admit(args: Any) -> envelope.Envelope:
-    """一键入库检验：lint →（缺产物则 run，经闸）→ 参考库 corr+resic → verdict。"""
+    """一键入库检验：lint → 最终测试门 → 判决吃测试段冻结件数。
+
+    R42：入库只看测试段结果——无 final 登记时门内执行最终测试（测试段车道）
+    并写 `test_diagnostics.json`；已有 final 只读冻结件（版本不符/缺失即拒）。
+    判决输入为冻结件 `corr_max/r2_lib/resic_t`，不再现算全窗。
+    """
     from factorlab.adapters import results_fs
-    from factorlab.app.analysis.cross_section import incremental_diagnostics
     from factorlab.app.analysis.reference import reference_names
     from factorlab.core.lockbox import LockboxError
     from factorlab.core.spec import load_spec
@@ -617,29 +765,7 @@ def factor_admit(args: Any) -> envelope.Envelope:
             f"{spec_path}: {failures[0][1]}",
             hint="先 `flab factor lint <spec>` 修 spec")
     name = results[0]["name"]
-    try:
-        _lockbox_final_gate(
-            spec=load_spec(spec_path), artifact=str(spec_path),
-            reason=getattr(args, "lockbox_reason", None),
-            command="factor admit", tool=f"factorlab {__version__}")
-    except LockboxError as exc:
-        return envelope.fail("factor.admit", exc.code, exc.message,
-                             hint="`factorlab lockbox status` 看窗口与配额")
-
-    results_dir = Path(settings.results_dir)
-    summary_path = results_fs.summary_path(results_dir, name)
-    panel_path = results_fs.panel_path(results_dir, name)
-    ran = False
-    if not (summary_path.is_file() and panel_path.is_file()):
-        run_env = factor_run(_run_args(
-            spec_path, wait=bool(getattr(args, "wait", False))))
-        if not run_env.ok:
-            err = run_env.error or {}
-            return envelope.fail("factor.admit", err.get("code", "RUN_FAILED"),
-                                 err.get("message", "候选 run 失败"),
-                                 hint=err.get("hint"), log=err.get("log"))
-        ran = True
-
+    spec = load_spec(spec_path)
     scales = getattr(args, "scales", None) or "daily"
     try:
         base = [b for b in reference_names(scales) if b != name]
@@ -653,25 +779,75 @@ def factor_admit(args: Any) -> envelope.Envelope:
                              f"参考库 {scales} 组为空（或仅含候选自身）——无可对照成员",
                              hint="先 `flab factor ref add` 入库种子因子")
     try:
-        r = incremental_diagnostics([name], results_dir, base=base)
+        gate = _final_test_gate(
+            spec.model_dump(mode="json"), spec_path,
+            reason=f"admit final test: {name}", command="factor admit",
+            scales=scales, base=base, wait=bool(getattr(args, "wait", False)))
+    except LockboxError as exc:
+        return envelope.fail("factor.admit", exc.code, exc.message,
+                             hint=_lockbox_hint(exc))
+    except FinalTestError as exc:
+        return envelope.fail("factor.admit", exc.code, exc.message,
+                             hint=exc.hint, log=exc.log)
     except FileNotFoundError as exc:
         return envelope.fail("factor.admit", "NOT_FOUND", str(exc), hint=_FACTOR_HINT)
     except ValueError as exc:
         return envelope.fail("factor.admit", "DATA", str(exc))
-    cand = r["candidates"][0]
-    verdict = _admit_verdict(cand["corr_max"], cand["r2_lib"], cand["resic_t"])
-    data = {
-        "name": name, "scales": scales, "ran": ran, "base": base,
-        "corr_max": cand["corr_max"], "r2_lib": cand["r2_lib"],
-        "retention": cand["retention"],
-        "resic": {"mean": cand["resic_mean"], "t": cand["resic_t"],
-                  "n_weeks": cand["n_weeks"]},
-        "d10_verdict": cand["verdict"],
-        "verdict": verdict,
-        "建议": _ADVICE[verdict],
-    }
-    return envelope.ok("factor.admit", _jsonify(data),
-                       artifacts={"summary": str(summary_path)})
+
+    results_dir = Path(settings.results_dir)
+    artifacts: dict[str, str] = {}
+    if gate is None:
+        # 纪律未启用（FACTORLAB_LOCKBOX=off，CI/测试兜底）：旧径——缺产物则 run，
+        # 全窗诊断（无测试段冻结件；判决不可作正式入库依据）
+        from factorlab.app.analysis.cross_section import incremental_diagnostics
+        summary_path = results_fs.summary_path(results_dir, name)
+        panel_path = results_fs.panel_path(results_dir, name)
+        ran = False
+        if not (summary_path.is_file() and panel_path.is_file()):
+            run_env = factor_run(_run_args(
+                spec_path, wait=bool(getattr(args, "wait", False))))
+            if not run_env.ok:
+                err = run_env.error or {}
+                return envelope.fail("factor.admit", err.get("code", "RUN_FAILED"),
+                                     err.get("message", "候选 run 失败"),
+                                     hint=err.get("hint"), log=err.get("log"))
+            ran = True
+        try:
+            r = incremental_diagnostics([name], results_dir, base=base)
+        except FileNotFoundError as exc:
+            return envelope.fail("factor.admit", "NOT_FOUND", str(exc),
+                                 hint=_FACTOR_HINT)
+        except ValueError as exc:
+            return envelope.fail("factor.admit", "DATA", str(exc))
+        cand = r["candidates"][0]
+        verdict = _admit_verdict(cand["corr_max"], cand["r2_lib"], cand["resic_t"])
+        data = {
+            "name": name, "scales": scales, "ran": ran, "base": base,
+            "corr_max": cand["corr_max"], "r2_lib": cand["r2_lib"],
+            "retention": cand["retention"],
+            "resic": {"mean": cand["resic_mean"], "t": cand["resic_t"],
+                      "n_weeks": cand["n_weeks"]},
+            "d10_verdict": cand["verdict"],
+            "test_diagnostics": None,
+            "verdict": verdict,
+            "建议": _ADVICE[verdict],
+        }
+        artifacts["summary"] = str(summary_path)
+    else:
+        d = gate["diagnostics"]
+        verdict = _admit_verdict(d["corr_max"], d["r2_lib"], d["resic_t"])
+        data = {
+            "name": name, "scales": scales, "ran": gate["executed"], "base": base,
+            "corr_max": d["corr_max"], "r2_lib": d["r2_lib"],
+            "resic": {"mean": d["resic_mean"], "t": d["resic_t"],
+                      "n_weeks": d["n_weeks"]},
+            "test_diagnostics": gate["path"],
+            "verdict": verdict,
+            "建议": _ADVICE[verdict],
+        }
+        artifacts["test_diagnostics"] = gate["path"]
+        artifacts["run_dir"] = str(Path(gate["path"]).parent)
+    return envelope.ok("factor.admit", _jsonify(data), artifacts=artifacts)
 
 
 def _run_args(spec_path: Path, **over: Any) -> argparse.Namespace:
@@ -812,36 +988,55 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
         return envelope.fail("factor.ref.add", "LINT",
                              f"参考库已存在: {name}（近亲/重复登记会污染对照集）",
                              hint=f"如需替换先 `flab factor ref remove {name}`")
+    from factorlab.app.analysis.reference import reference_names
     from factorlab.core.lockbox import LockboxError
     from factorlab.core.spec import load_spec
 
     spec_path = next(iter(sorted(
         (Path(settings.research_root) / "factor").rglob(f"{name}.yaml"))), None)
     gate_spec: Any = None
-    artifact = f"ref:{name}"
-    fingerprint_doc: dict[str, Any] | None = None
     if spec_path is not None:
         try:
             gate_spec = load_spec(spec_path)
         except (OSError, ValueError, yaml.YAMLError):
             gate_spec = None
-        else:
-            artifact = str(spec_path)
-    if gate_spec is None:
-        fingerprint_doc = {"ref_name": name, "scales": scales}
     try:
-        _lockbox_final_gate(spec=gate_spec, fingerprint_doc=fingerprint_doc,
-                            artifact=artifact,
-                            reason=getattr(args, "lockbox_reason", None),
-                            command="factor ref add", tool=f"factorlab {__version__}")
+        base = [b for b in reference_names(scales) if b != name]
+    except FileNotFoundError as exc:
+        return envelope.fail("factor.ref.add", "NOT_FOUND", f"参考库不可用（{exc}）",
+                             hint=_FACTOR_HINT)
+    except ValueError as exc:
+        return envelope.fail("factor.ref.add", "DATA", f"参考库非法: {exc}")
+    try:
+        gate = _final_test_gate(
+            (gate_spec.model_dump(mode="json") if gate_spec is not None else None),
+            (spec_path if gate_spec is not None else None),
+            reason=f"ref add final test: {name}", command="factor ref add",
+            scales=scales, base=base)
     except LockboxError as exc:
         return envelope.fail("factor.ref.add", exc.code, exc.message,
-                             hint="`factorlab lockbox status` 看窗口与配额")
+                             hint=_lockbox_hint(exc))
+    except FinalTestError as exc:
+        return envelope.fail("factor.ref.add", exc.code, exc.message,
+                             hint=exc.hint, log=exc.log)
+    except FileNotFoundError as exc:
+        return envelope.fail("factor.ref.add", "NOT_FOUND", str(exc), hint=_FACTOR_HINT)
+    except ValueError as exc:
+        return envelope.fail("factor.ref.add", "DATA", str(exc))
+    test_diagnostics: str | None = None
+    if gate is None:
+        entry_corr_max = getattr(args, "entry_corr_max", None)
+        entry_resic_t = getattr(args, "entry_resic_t", None)
+    else:
+        # R42：entry 字段语义 = 测试段冻结件（不看训练段/全窗）
+        entry_corr_max = gate["diagnostics"]["corr_max"]
+        entry_resic_t = gate["diagnostics"]["resic_t"]
+        test_diagnostics = gate["path"]
     entry = {
         "name": name, "style": args.style, "reason": args.reason,
         "added": getattr(args, "added", None) or datetime.date.today().isoformat(),
-        "entry_corr_max": getattr(args, "entry_corr_max", None),
-        "entry_resic_t": getattr(args, "entry_resic_t", None),
+        "entry_corr_max": entry_corr_max,
+        "entry_resic_t": entry_resic_t,
     }
     try:
         new_text = _insert_reference_entry(path.read_text(encoding="utf-8"), scales, entry)
@@ -852,10 +1047,14 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
     backup = path.with_name(path.name + ".bak")
     shutil.copy2(path, backup)
     atomic_write_text(path, new_text)
+    artifacts = {"reference": str(path), "backup": str(backup)}
+    if test_diagnostics is not None:
+        artifacts["test_diagnostics"] = test_diagnostics
     return envelope.ok("factor.ref.add",
                        {"name": name, "scales": scales, "path": str(path),
-                        "backup": str(backup), "entry": _jsonify(entry)},
-                       artifacts={"reference": str(path), "backup": str(backup)})
+                        "backup": str(backup), "entry": _jsonify(entry),
+                        "test_diagnostics": test_diagnostics},
+                       artifacts=artifacts)
 
 
 def factor_ref_remove(args: Any) -> envelope.Envelope:
@@ -1119,19 +1318,19 @@ def _reg_all() -> None:
                 registry.ParamSpec("reason", kind="str", required=True, help="入库理由"),
                 registry.ParamSpec("added", kind="str", help="加入日期（缺省今天）"),
                 registry.ParamSpec("entry_corr_max", kind="float",
-                                   help="入库时对库内其余成员 max|ρ|"),
+                                   help="入库时对库内其余成员 max|ρ|（锁箱关闭时的兜底；"
+                                        "启用时以测试段冻结件为准）"),
                 registry.ParamSpec("entry_resic_t", kind="float",
-                                   help="入库时对库内其余成员残差 t（有符号）"),
-                registry.ParamSpec("lockbox_reason", kind="str",
-                                   help="R40 锁箱终评理由（窗口碰箱且无既有终评时补登记，走配额）"),
+                                   help="入库时对库内其余成员残差 t（同上）"),
                 _JSON, _PRETTY),
         defaults={"scales": "daily", "added": None, "entry_corr_max": None,
-                  "entry_resic_t": None, "lockbox_reason": None},
-        description="参考库入库（备份/校验 scales/原子写；重名 → LINT）",
+                  "entry_resic_t": None},
+        description="参考库入库（最终测试门 + 测试段冻结件；备份/校验 scales/原子写）",
         examples=("flab factor ref add my_factor --style 量价 --reason '独立增量'",),
         output_schema={"type": "object", "properties": {
             "name": {"type": "string"}, "scales": {"type": "string"},
-            "path": {"type": "string"}, "backup": {"type": "string"}}},
+            "path": {"type": "string"}, "backup": {"type": "string"},
+            "test_diagnostics": {"type": ["string", "null"]}}},
     )
     _register(
         "factor.ref.remove", handler=factor_ref_remove,
@@ -1150,17 +1349,17 @@ def _reg_all() -> None:
                                    required=True, help="候选因子 spec YAML"),
                 registry.ParamSpec("scales", kind="str", help="参考库分组（缺省 daily）"),
                 registry.ParamSpec("wait", kind="bool",
-                                   help="缺产物需 run 时，闸满阻塞等槽"),
-                registry.ParamSpec("lockbox_reason", kind="str",
-                                   help="R40 锁箱终评理由（窗口碰箱且无既有终评时补登记，走配额）"),
+                                   help="执行最终测试时，闸满阻塞等槽"),
                 _JSON, _PRETTY),
-        defaults={"scales": "daily", "wait": False, "lockbox_reason": None},
-        description="一键入库检验：lint→（缺产物则 run）→参考库 corr+resic→verdict",
+        defaults={"scales": "daily", "wait": False},
+        description=("一键入库检验：lint→最终测试门（无 final 则执行测试段最终测试并"
+                     "冻结）→判决吃测试段 corr_max/r2_lib/resic_t"),
         examples=("flab factor admit $QUANTRESEARCH_ROOT/factor/volatility/max_effect_20d.yaml",),
         output_schema={"type": "object", "properties": {
             "verdict": {"type": "string", "enum": ["可加入", "冗余", "重复"]},
             "corr_max": {"type": "number"}, "r2_lib": {"type": "number"},
-            "retention": {"type": "number"}, "resic": {"type": "object"},
+            "resic": {"type": "object"},
+            "test_diagnostics": {"type": ["string", "null"]},
             "建议": {"type": "string"}}},
     )
     _register(

@@ -215,6 +215,18 @@ def final_count(conn: sqlite3.Connection, window_id: str) -> int:
     return int(row[0])
 
 
+def final_version_fingerprint(*, spec_doc: Mapping[str, Any],
+                              window_id: str) -> str:
+    """最终测试版本指纹（单点）：spec 内容 sha + `final_test` 参数 + window_id。
+
+    execute 层 `guard_run` 与入库车道冻结件（`test_diagnostics.json`）同源调用，
+    防"登记指纹与冻结件指纹漂移"（改了 spec 内容 = 新版本 = 新指纹）。
+    """
+    return candidate_fingerprint(
+        artifact_sha256=spec_fingerprint(spec_doc),
+        params={"final_test": True}, window_id=window_id, kind="final")
+
+
 def _insert_access(conn: sqlite3.Connection, *, kind: str, fingerprint: str,
                    artifact: str, params: Mapping[str, Any], command: str,
                    reason: str, window: LockboxWindow, tool: str,
@@ -403,9 +415,8 @@ def guard_run(*, panel_start: dt.date, panel_end: dt.date,
                 "LOCKBOX_NO_STATE",
                 f"评估窗口 [{panel_start}~{panel_end}] 与测试段（{window.window_id}，"
                 f"起点 {window.start}）相交但锁箱未初始化：先 `factorlab lockbox roll`")
-        fp = candidate_fingerprint(artifact_sha256=spec_fingerprint(spec_doc),
-                                   params={"final_test": True},
-                                   window_id=window.window_id, kind="final")
+        fp = final_version_fingerprint(spec_doc=spec_doc,
+                                       window_id=window.window_id)
         re_final = os.environ.get("FACTORLAB_RE_FINAL", "").strip() == "1"
         exists = final_exists(conn, window.window_id, fp)
         if exists and not re_final:
