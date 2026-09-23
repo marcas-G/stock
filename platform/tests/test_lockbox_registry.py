@@ -48,6 +48,14 @@ def test_final_unique_per_fingerprint(tmp_path: Path):
     assert e.value.code == "LOCKBOX_FINAL_DUPLICATE"
     assert final_count(conn, W.window_id) == 1, "重复被拒不得计入"
 
+def test_re_final_override_first_registration_adds_no_marker(tmp_path: Path):
+    """`re_final=True` 直接首次登记：无既有登记=普通登记，不得产生假审计标记。"""
+    conn = connect(tmp_path / "ledger.sqlite")
+    _reg(conn, fp="fpA", reason="首测", re_final=True)
+    reasons = [r[0] for r in conn.execute("SELECT reason FROM lockbox_access")]
+    assert reasons == ["首测"]
+    assert final_count(conn, W.window_id) == 1
+
 def test_final_re_final_override_appends_audit_marker(tmp_path: Path):
     """操作员逃生：同版本可重测；旧行保留，新行 reason 带 `|re-final`。"""
     conn = connect(tmp_path / "ledger.sqlite")

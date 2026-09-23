@@ -248,28 +248,33 @@ def register_access(conn: sqlite3.Connection, *, kind: str, fingerprint: str,
                     re_final: bool = False) -> str:
     """登记一次访问（append-only）。R42：新登记仅 `kind="final"`，无配额。
 
-    - 同 `(window_id, fingerprint)` final 已存在 → `LOCKBOX_FINAL_DUPLICATE`
-      （每版本一次）；`re_final=True`（操作员 `FACTORLAB_RE_FINAL=1`）允许再登记，
-      `reason` 追加 `|re-final` 审计标记（历史行保留，新行为准）。
-    - 唯一性检查与插入必须原子：`BEGIN IMMEDIATE` 拿写锁后再读。
+    - 同 `(window_id, fingerprint)` final 已存在且非 `re_final` →
+      `LOCKBOX_FINAL_DUPLICATE`（每版本一次）；
+    - `re_final=True`（操作员 `FACTORLAB_RE_FINAL=1`）仅在**已有同版本登记**时
+      放行再登记并给 `reason` 追加 `|re-final` 审计标记；无既有登记视为首次登记，
+      不得产生假审计标记（历史行保留，新行为准）。
+    - 既有判定与插入必须原子：`BEGIN IMMEDIATE` 拿写锁后再读（本函数是
+      re_final 权威语义所在，调用方预检不作为依据）。
     """
     if kind not in ACCESS_KINDS:
         raise ValueError(
             f"新登记仅支持 final（历史 exploration 行只读）；收到 {kind!r}")
     if not (reason or "").strip():
         raise LockboxError("LOCKBOX_REASON_REQUIRED", "锁箱访问必须给出非空理由")
-    if re_final:
-        reason = f"{reason.strip()}|re-final"
-    insert = dict(kind=kind, fingerprint=fingerprint, artifact=artifact,
-                  params=params, command=command, reason=reason, window=window,
-                  tool=tool, result_ref=result_ref)
+    reason = reason.strip()
     conn.execute("BEGIN IMMEDIATE")
     try:
-        if not re_final and final_exists(conn, window.window_id, fingerprint):
-            raise LockboxError("LOCKBOX_FINAL_DUPLICATE",
-                               f"版本 {fingerprint[:12]}… 在窗口 {window.window_id}"
-                               " 已做过最终测试（每版本一次）")
-        access_id = _insert_access(conn, **insert)
+        existed = final_exists(conn, window.window_id, fingerprint)
+        if existed:
+            if not re_final:
+                raise LockboxError("LOCKBOX_FINAL_DUPLICATE",
+                                   f"版本 {fingerprint[:12]}… 在窗口"
+                                   f" {window.window_id} 已做过最终测试（每版本一次）")
+            reason = f"{reason}|re-final"
+        access_id = _insert_access(
+            conn, kind=kind, fingerprint=fingerprint, artifact=artifact,
+            params=params, command=command, reason=reason, window=window,
+            tool=tool, result_ref=result_ref)
     except LockboxError:
         conn.execute("ROLLBACK")
         raise
@@ -409,10 +414,11 @@ def guard_run(*, panel_start: dt.date, panel_end: dt.date,
                 f"版本 {fp[:12]}… 在窗口 {window.window_id} 已做过最终测试"
                 "（每版本一次）：改 spec 内容/参数=新版本可再测；操作员重测设"
                 " FACTORLAB_RE_FINAL=1（审计留痕）")
+        # 预检只为错误文案；`re_final` 是否生效由 register_access 事务内权威判定
         access_id = register_access(
             conn, kind="final", fingerprint=fp, artifact=artifact,
             params={"final_test": True}, command=command, reason=reason,
-            window=window, tool=tool, re_final=exists and re_final)
+            window=window, tool=tool, re_final=re_final)
         info = {"role": role, "window_id": window.window_id,
                 "window_start": window.start.isoformat(),
                 "window_end": window.end.isoformat(), "access_id": access_id}
