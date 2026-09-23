@@ -1,7 +1,11 @@
-"""锁箱纪律内核（设计：knowledge/design/platform/specs/2026-09-21-lockbox-discipline-design.md）。
+"""锁箱纪律内核（设计：knowledge/design/platform/specs/2026-09-24-final-test-once-discipline-design.md）。
+
+数据两段：训练段 `< window_start`（is_end）；测试段 `[window_start, 数据日]`。
+探索只准训练段（碰测试段 → `LOCKBOX_TEST_ONLY_FINAL`）；每个版本最终测试一次
+（`LOCKBOX_FINAL_DUPLICATE`，操作员 `FACTORLAB_RE_FINAL=1` 可重测留痕）。
 
 窗口：`[window_start, window_end]`（含边界）。window_start 只在季末 roll 时前移；
-window_end = 最新数据日。登记 append-only（见 Task 3）。
+window_end = 最新数据日。登记 append-only（见 adapters.lockbox_store）。
 """
 from __future__ import annotations
 
@@ -15,8 +19,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-ACCESS_KINDS = ("exploration", "final")
-DEFAULT_QUOTA_FINAL = 20
+# 历史账本含 exploration 行（只读）；R42 起新登记仅允许 final。
+ACCESS_KINDS = ("final",)
 _ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 

@@ -1,15 +1,17 @@
-"""锁箱存储（SQLite）：状态表 + 季度 roll + 登记表 schema。
+"""锁箱存储（SQLite）：状态表 + 季度 roll + 登记表 schema（R42 最终测试一次语义）。
 
 窗口数学/指纹在 `core.lockbox`（纯核）；本模块只做文件/DB IO：
-- `connect`：WAL + schema（`lockbox_state` 单行 + `lockbox_access` append-only）
-- `roll`：状态推进（拒绝倒退；同窗幂等，配额可显式更新）
+- `connect`：WAL + schema（`lockbox_state` 单行 + `lockbox_access` append-only；
+  旧版 `uq_lockbox_final` 唯一索引在连接时迁移删除——唯一性改由登记层按
+  "每版本一次 + `re_final` 逃生" 实施）
+- `roll`：状态推进（拒绝倒退；同窗幂等；`quota_final` 列保留但不再读写）
 - `current_window`：state 与当前季度一致性检查（无 state/陈旧各有稳定错误码）
 - `published_days`/`latest_data_date`/`run_calendar`：health 已发布日目录扫描
   （执行层日历单点）
 - `register_access`/`update_result_ref`/`final_count`/`final_exists`/`require_final`：
-  登记（append-only）、结果回填、终评唯一性与配额校验
-- `RunGuard`/`guard_run`：execute 层硬门（env 开关 → 角色判定 → 自动登记 +
-  `summary.sample` 声明 + `result_ref` 回填）
+  登记（append-only，新登记仅 final）、结果回填、每版本一次唯一性（无配额）
+- `RunGuard`/`guard_run`：execute 层硬门（env 开关 → 角色判定 → 探索碰测试段拒 +
+  最终测试自动登记 + `summary.sample` 声明 + `result_ref` 回填）
 """
 from __future__ import annotations
 
@@ -19,9 +21,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from factorlab.core.lockbox import (ACCESS_KINDS, DEFAULT_QUOTA_FINAL,
-                                    LockboxError, LockboxWindow, _canonical,
-                                    actor, candidate_fingerprint,
+from factorlab.core.lockbox import (ACCESS_KINDS, LockboxError, LockboxWindow,
+                                    _canonical, actor, candidate_fingerprint,
                                     compute_window, new_access_id, role_for,
                                     spec_fingerprint, window_sort_key)
 
@@ -51,8 +52,9 @@ CREATE TABLE IF NOT EXISTS lockbox_access (
 );
 CREATE INDEX IF NOT EXISTS idx_lockbox_win_kind_fp
     ON lockbox_access(window_id, kind, fingerprint);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_lockbox_final
-    ON lockbox_access(window_id, fingerprint) WHERE kind = 'final';
+-- R42 迁移：旧"每候选每窗一次"的 DB 级唯一索引删除（历史行保留）；
+-- "每版本一次最终测试"改由 register_access 原子检查（re_final 逃生=操作员留痕重测）。
+DROP INDEX IF EXISTS uq_lockbox_final;
 CREATE TRIGGER IF NOT EXISTS lockbox_access_no_delete
     BEFORE DELETE ON lockbox_access
     BEGIN SELECT RAISE(ABORT, 'lockbox_access is append-only'); END;
@@ -130,37 +132,36 @@ def load_state(conn: sqlite3.Connection) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
 
 
-def roll(conn: sqlite3.Connection, *, window: LockboxWindow,
-         quota_final: int | None = None,
+def roll(conn: sqlite3.Connection, *,
+         window: LockboxWindow,
          now: dt.datetime | None = None) -> tuple[LockboxWindow, bool]:
+    """状态推进（拒绝倒退；同窗幂等）。
+
+    R42：`quota_final` 参数与语义删除（列保留仅供历史行迁移兼容，不读不写）。
+    """
     state = load_state(conn)
     if state is not None:
         if window_sort_key(window.window_id) < window_sort_key(state["window_id"]):
             raise LockboxError("LOCKBOX_ROLL_BACKWARD",
                                f"窗口倒退：state={state['window_id']} < roll={window.window_id}")
         if window.window_id == state["window_id"]:
-            if quota_final is None or int(quota_final) == int(state["quota_final"]):
-                return LockboxWindow(state["window_id"],
-                                     dt.date.fromisoformat(state["window_start"]),
-                                     window.end), False
-            window = LockboxWindow(state["window_id"],
-                                   dt.date.fromisoformat(state["window_start"]),
-                                   window.end)
-    quota = int(quota_final if quota_final is not None
-                else (state or {}).get("quota_final", DEFAULT_QUOTA_FINAL))
+            return LockboxWindow(state["window_id"],
+                                 dt.date.fromisoformat(state["window_start"]),
+                                 window.end), False
     now = now or dt.datetime.now(dt.timezone.utc)
     if state is None:
+        # quota_final 列走 DDL DEFAULT，不显式写（迁移兼容）
         conn.execute(
             "INSERT INTO lockbox_state"
-            " (id, window_id, window_start, quota_final, rolled_at) VALUES (1,?,?,?,?)",
-            (window.window_id, window.start.isoformat(), quota,
+            " (id, window_id, window_start, rolled_at) VALUES (1,?,?,?)",
+            (window.window_id, window.start.isoformat(),
              now.isoformat(timespec="seconds")))
     else:
-        # state 禁 DELETE/REPLACE（触发器）；滚动/配额变更走 UPDATE
+        # state 禁 DELETE/REPLACE（触发器）；滚动走 UPDATE（不触碰 quota_final 列）
         conn.execute(
-            "UPDATE lockbox_state SET window_id=?, window_start=?, quota_final=?,"
-            " rolled_at=? WHERE id=1",
-            (window.window_id, window.start.isoformat(), quota,
+            "UPDATE lockbox_state SET window_id=?, window_start=?, rolled_at=?"
+            " WHERE id=1",
+            (window.window_id, window.start.isoformat(),
              now.isoformat(timespec="seconds")))
     return window, True
 
@@ -187,7 +188,8 @@ def status(conn: sqlite3.Connection, *, trading_days: Sequence[dt.date],
            data_end: dt.date) -> dict[str, Any]:
     """锁箱状态摘要；未初始化（无 state）返回 `{"initialized": False}`。
 
-    `is_end` = window_start 的前一交易日（设计 §12/§13：供挖矿 spec 的
+    R42：仅 `initialized/window_id/window_start/window_end/is_end/finals_total`
+    （配额/探索计数删除）。`is_end` = window_start 的前一交易日（供挖矿 spec 的
     `date.end` 直接使用）；日历中无更早交易日时回退 `window_start - 1 天`。
     """
     state = load_state(conn)
@@ -196,31 +198,19 @@ def status(conn: sqlite3.Connection, *, trading_days: Sequence[dt.date],
     start = dt.date.fromisoformat(state["window_start"])
     earlier = [d for d in trading_days if d < start]
     is_end = max(earlier) if earlier else start - dt.timedelta(days=1)
-    used = final_count(conn, state["window_id"])
     return {
         "initialized": True,
         "window_id": state["window_id"],
         "window_start": state["window_start"],
         "window_end": data_end.isoformat(),
-        "quota_final": int(state["quota_final"]),
-        "final_used": used,
-        "exploration_used": exploration_count(conn, state["window_id"]),
-        "final_remaining": max(0, int(state["quota_final"]) - used),
-        "rolled_at": state["rolled_at"],
         "is_end": is_end.isoformat(),
+        "finals_total": final_count(conn, state["window_id"]),
     }
 
 
 def final_count(conn: sqlite3.Connection, window_id: str) -> int:
     row = conn.execute(
         "SELECT COUNT(*) FROM lockbox_access WHERE window_id = ? AND kind = 'final'",
-        (window_id,)).fetchone()
-    return int(row[0])
-
-
-def exploration_count(conn: sqlite3.Connection, window_id: str) -> int:
-    row = conn.execute(
-        "SELECT COUNT(*) FROM lockbox_access WHERE window_id = ? AND kind = 'exploration'",
         (window_id,)).fetchone()
     return int(row[0])
 
@@ -243,45 +233,46 @@ def _insert_access(conn: sqlite3.Connection, *, kind: str, fingerprint: str,
 
 def _final_access_id(conn: sqlite3.Connection, window_id: str,
                      fingerprint: str) -> str | None:
+    """同版本 final 的最新一次登记（`re-final` 重测后以新行为准）。"""
     row = conn.execute(
         "SELECT access_id FROM lockbox_access WHERE window_id = ? AND kind = 'final'"
-        " AND fingerprint = ? LIMIT 1", (window_id, fingerprint)).fetchone()
+        " AND fingerprint = ? ORDER BY rowid DESC LIMIT 1",
+        (window_id, fingerprint)).fetchone()
     return str(row[0]) if row is not None else None
 
 
 def register_access(conn: sqlite3.Connection, *, kind: str, fingerprint: str,
                     artifact: str, params: Mapping[str, Any], command: str,
                     reason: str, window: LockboxWindow, tool: str,
-                    result_ref: str | None = None) -> str:
+                    result_ref: str | None = None,
+                    re_final: bool = False) -> str:
+    """登记一次访问（append-only）。R42：新登记仅 `kind="final"`，无配额。
+
+    - 同 `(window_id, fingerprint)` final 已存在 → `LOCKBOX_FINAL_DUPLICATE`
+      （每版本一次）；`re_final=True`（操作员 `FACTORLAB_RE_FINAL=1`）允许再登记，
+      `reason` 追加 `|re-final` 审计标记（历史行保留，新行为准）。
+    - 唯一性检查与插入必须原子：`BEGIN IMMEDIATE` 拿写锁后再读。
+    """
     if kind not in ACCESS_KINDS:
-        raise ValueError(f"未知访问类型 {kind!r}；可选 {ACCESS_KINDS}")
+        raise ValueError(
+            f"新登记仅支持 final（历史 exploration 行只读）；收到 {kind!r}")
     if not (reason or "").strip():
         raise LockboxError("LOCKBOX_REASON_REQUIRED", "锁箱访问必须给出非空理由")
+    if re_final:
+        reason = f"{reason.strip()}|re-final"
     insert = dict(kind=kind, fingerprint=fingerprint, artifact=artifact,
                   params=params, command=command, reason=reason, window=window,
                   tool=tool, result_ref=result_ref)
-    if kind != "final":
-        return _insert_access(conn, **insert)
-    # final 唯一性+配额检查与插入必须原子：BEGIN IMMEDIATE 拿写锁后再读。
     conn.execute("BEGIN IMMEDIATE")
     try:
-        if final_exists(conn, window.window_id, fingerprint):
+        if not re_final and final_exists(conn, window.window_id, fingerprint):
             raise LockboxError("LOCKBOX_FINAL_DUPLICATE",
-                               f"候选 {fingerprint[:12]}… 在窗口 {window.window_id} 已有终评")
-        state = load_state(conn)
-        quota = int((state or {}).get("quota_final", DEFAULT_QUOTA_FINAL))
-        if final_count(conn, window.window_id) >= quota:
-            raise LockboxError("LOCKBOX_QUOTA_EXCEEDED",
-                               f"窗口 {window.window_id} 终评配额 {quota} 已用尽")
+                               f"版本 {fingerprint[:12]}… 在窗口 {window.window_id}"
+                               " 已做过最终测试（每版本一次）")
         access_id = _insert_access(conn, **insert)
     except LockboxError:
         conn.execute("ROLLBACK")
         raise
-    except sqlite3.IntegrityError as e:
-        conn.execute("ROLLBACK")
-        raise LockboxError(
-            "LOCKBOX_FINAL_DUPLICATE",
-            f"候选 {fingerprint[:12]}… 在窗口 {window.window_id} 已有终评") from e
     conn.execute("COMMIT")
     return access_id
 
@@ -305,20 +296,18 @@ def require_final(conn: sqlite3.Connection, *, window_id: str,
     if access_id is None:
         raise LockboxError(
             "LOCKBOX_FINAL_REQUIRED",
-            f"窗口 {window_id} 缺终评登记（候选 {fingerprint[:12]}…）："
-            "先 `flab factor run <spec> --lockbox final --lockbox-reason <理由>`")
+            f"窗口 {window_id} 缺最终测试登记（版本 {fingerprint[:12]}…）："
+            "走流水线 `make xpipe` 或入库车道 `flab factor admit`")
     return access_id
 
 
 class RunGuard:
-    """一次评估的锁箱守卫结果：IS=空登记；碰箱=自动登记 + 可回填 result_ref。"""
+    """一次评估的锁箱守卫结果：IS=空登记；最终测试=自动登记 + 可回填 result_ref。"""
 
     def __init__(self, info: dict[str, Any], *,
-                 db_path: Path | None = None,
-                 intent: str | None = None) -> None:
+                 db_path: Path | None = None) -> None:
         self.info = info
         self._db_path = db_path
-        self._intent = intent
 
     @property
     def access_id(self) -> str | None:
@@ -326,12 +315,12 @@ class RunGuard:
 
     @property
     def conclusion_eligible(self) -> bool:
-        """产物是否可作结论证据（终审裁定：仅 admit/ref add 是固化门）。
+        """产物是否可作结论证据（仅 admit/ref add 是固化门）。
 
-        `intent=="final"` → True；exploration（mixed/lockbox 碰箱非终评）→ False；
-        `is`/env off（无访问意图）→ True。
+        R42：探索碰测试段已被 guard 直接拒绝，能过门的路（is/off/final）产物
+        均为运行记录（是否可作结论仍由 admit/ref add 裁定）→ 恒 True。
         """
-        return self._intent != "exploration"
+        return True
 
     def attach(self, summary: dict[str, Any]) -> None:
         """产物声明：`summary.sample = {role, window_id, access_id, 窗口端点}`。"""
@@ -353,24 +342,29 @@ class RunGuard:
 
 
 def guard_run(*, panel_start: dt.date, panel_end: dt.date,
-              intent: str | None, reason: str | None,
+              final_mode: bool, reason: str | None,
               spec_doc: Mapping[str, Any], artifact: str, command: str,
               tool: str, db_path: Path, trading_days: Sequence[dt.date],
               data_end: dt.date) -> RunGuard:
-    """执行层硬门（设计 §7）：按面板区间判定 is/mixed/lockbox 并自动登记。
+    """执行层硬门（R42 设计 §3）：按面板区间判定段角色，最终测试一次登记。
 
-    env `FACTORLAB_LOCKBOX` 显式为 0/off/false → 直接 IS 放行（不读 state、
-    不登记）；启用时日历为空/最新数据早于窗口起点由 compute_window 响亮失败
-    （LOCKBOX_NO_CALENDAR / LOCKBOX_EMPTY_DATA）。未初始化（无 state）：
-    IS 照常放行；碰箱 → LOCKBOX_NO_STATE（先 `factorlab lockbox roll`）。
-
-    final 幂等（T7）：同 `(window_id, fingerprint)` 已有终评 → 复用 access_id，
-    不要求本次 reason、不重复登记；并发竞态（check-then-act 间隙被先到者登记）
-    捕获 DUPLICATE 后回查复用。登记层 `register_access` 语义不变。
+    - `FACTORLAB_LOCKBOX ∈ {0,off,false}` → 短路不读不写台账，
+      返回 `{"role": "unknown"}`（诚实标注：纪律未启用）；
+    - `role=="is"`（整段训练段）→ 放行不登记；
+    - `role!="is"` 且 `final_mode=False` → `LOCKBOX_TEST_ONLY_FINAL`（探索/调试
+      只准训练段；想看测试段 → 最终测试，每版本一次，走流水线/入库车道）；
+    - `final_mode=True`：要求 `FACTORLAB_PIPELINE=1`（否则
+      `LOCKBOX_PIPELINE_REQUIRED`）→ 版本指纹（spec 内容 + `final_test` 参数 +
+      window_id）→ 已有登记默认 `LOCKBOX_FINAL_DUPLICATE`；操作员
+      `FACTORLAB_RE_FINAL=1` 允许再登记（`reason` 追加 `|re-final` 审计标记）→
+      否则 `register_access(kind="final")`（无配额）。最终测试无复用语义：
+      重复即拒，不自动回查旧登记。
+    - 未初始化（无 state）：IS 照常放行；碰测试段非 final → TEST_ONLY_FINAL；
+      final 登记 → `LOCKBOX_NO_STATE`（先 `factorlab lockbox roll`）。
     """
     if (os.environ.get("FACTORLAB_LOCKBOX", "1").strip().lower()
             in ("0", "off", "false")):
-        return RunGuard({"role": "is"})
+        return RunGuard({"role": "unknown"})
     conn = connect(db_path)
     try:
         no_state = False
@@ -386,53 +380,42 @@ def guard_run(*, panel_start: dt.date, panel_end: dt.date,
         role = role_for(panel_start, panel_end, window)
         if role == "is":
             return RunGuard({"role": "is"})
+        if not final_mode:
+            raise LockboxError(
+                "LOCKBOX_TEST_ONLY_FINAL",
+                f"评估窗口 [{panel_start}~{panel_end}] 与测试段（{window.window_id}，"
+                f"起点 {window.start}）相交：探索只准训练段（`factorlab lockbox "
+                "status` 的 is_end 可直接写进 spec.date.end）。测试段只准最终测试"
+                "（每版本一次）：走流水线 `make xpipe` 或入库车道 `flab factor admit`")
+        if os.environ.get("FACTORLAB_PIPELINE", "").strip() != "1":
+            raise LockboxError(
+                "LOCKBOX_PIPELINE_REQUIRED",
+                "最终测试必须经研究工作流（make xpipe / UI 4200）或入库车道执行"
+                "（flab factor admit）；host 直跑不算（FACTORLAB_PIPELINE=1 由流水线"
+                "子进程注入）。见 $QUANTRESEARCH_ROOT/knowledge/pipeline-usage.md")
         if no_state:
             raise LockboxError(
                 "LOCKBOX_NO_STATE",
-                f"评估窗口 [{panel_start}~{panel_end}] 与锁箱（{window.window_id}，"
+                f"评估窗口 [{panel_start}~{panel_end}] 与测试段（{window.window_id}，"
                 f"起点 {window.start}）相交但锁箱未初始化：先 `factorlab lockbox roll`")
-        if intent is None:
-            raise LockboxError(
-                "LOCKBOX_INTENT_REQUIRED",
-                f"评估窗口 [{panel_start}~{panel_end}] 与锁箱（{window.window_id}，"
-                f"起点 {window.start}）相交：加 `--lockbox exploration|final` 与"
-                " `--lockbox-reason <理由>`")
-        if intent not in ACCESS_KINDS:
-            raise ValueError(f"--lockbox 取值 {intent!r}；可选 {ACCESS_KINDS}")
         fp = candidate_fingerprint(artifact_sha256=spec_fingerprint(spec_doc),
-                                   params={"intent": intent},
-                                   window_id=window.window_id, kind=intent)
-        # T7 幂等（修复轮1）：final 先查复用——已有同 fp 登记直接放行，不再要求本次
-        # reason（admit/ref add 补终评后无 reason 重跑同一候选）；仅缺登记时校验
-        # reason 并登记。探索路径不变（reason 必填）。
-        access_id = (_final_access_id(conn, window.window_id, fp)
-                     if intent == "final" else None)
-        if access_id is None:
-            if not (reason or "").strip():
-                raise LockboxError("LOCKBOX_REASON_REQUIRED", "锁箱访问必须给出非空理由")
-            if (intent == "final" and str(command).startswith("factor")
-                    and os.environ.get("FACTORLAB_PIPELINE", "").strip() != "1"):
-                raise LockboxError(
-                    "LOCKBOX_PIPELINE_REQUIRED",
-                    "正式终评（final）必须经研究工作流（make xpipe / UI 4200）或入库车道"
-                    "（flab factor admit / ref add）；host 直跑仅 exploration（dev 调试）。"
-                    "见 $QUANTRESEARCH_ROOT/knowledge/pipeline-usage.md")
-            try:
-                access_id = register_access(
-                    conn, kind=intent, fingerprint=fp, artifact=artifact,
-                    params={"intent": intent}, command=command, reason=reason,
-                    window=window, tool=tool)
-            except LockboxError as exc:
-                # 并发竞态（check-then-act 间隙被先到者登记）：final DUPLICATE →
-                # 回查复用；登记层语义保持严格（本回退只发生在 guard 内部）。
-                if intent != "final" or exc.code != "LOCKBOX_FINAL_DUPLICATE":
-                    raise
-                access_id = _final_access_id(conn, window.window_id, fp)
-                if access_id is None:
-                    raise
+                                   params={"final_test": True},
+                                   window_id=window.window_id, kind="final")
+        re_final = os.environ.get("FACTORLAB_RE_FINAL", "").strip() == "1"
+        exists = final_exists(conn, window.window_id, fp)
+        if exists and not re_final:
+            raise LockboxError(
+                "LOCKBOX_FINAL_DUPLICATE",
+                f"版本 {fp[:12]}… 在窗口 {window.window_id} 已做过最终测试"
+                "（每版本一次）：改 spec 内容/参数=新版本可再测；操作员重测设"
+                " FACTORLAB_RE_FINAL=1（审计留痕）")
+        access_id = register_access(
+            conn, kind="final", fingerprint=fp, artifact=artifact,
+            params={"final_test": True}, command=command, reason=reason,
+            window=window, tool=tool, re_final=exists and re_final)
         info = {"role": role, "window_id": window.window_id,
                 "window_start": window.start.isoformat(),
                 "window_end": window.end.isoformat(), "access_id": access_id}
-        return RunGuard(info, db_path=db_path, intent=intent)
+        return RunGuard(info, db_path=db_path)
     finally:
         conn.close()

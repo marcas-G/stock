@@ -29,6 +29,12 @@ def test_roll_rejects_backward(tmp_path: Path):
         roll(conn, window=_window())
     assert e.value.code == "LOCKBOX_ROLL_BACKWARD"
 
+def test_roll_no_longer_accepts_quota_final(tmp_path: Path):
+    """R42：配额参数已删除（`--quota-final` 在 CLI 侧同步移除）。"""
+    conn = connect(tmp_path / "ledger.sqlite")
+    with pytest.raises(TypeError):
+        roll(conn, window=_window(), quota_final=5)
+
 def test_current_window_requires_state(tmp_path: Path):
     conn = connect(tmp_path / "ledger.sqlite")
     with pytest.raises(LockboxError) as e:
@@ -45,13 +51,39 @@ def test_current_window_stale_across_quarter(tmp_path: Path):
     assert e.value.code == "LOCKBOX_WINDOW_STALE"
 
 def test_status_shape(tmp_path: Path):
+    """R42：仅 initialized/window_id/window_start/window_end/is_end/finals_total。"""
     conn = connect(tmp_path / "ledger.sqlite")
     roll(conn, window=_window())
     st = status(conn, trading_days=DAYS, data_end=DAY)
-    assert st["window_id"] == "2026Q2" and st["quota_final"] == 20
+    assert set(st) == {"initialized", "window_id", "window_start", "window_end",
+                       "is_end", "finals_total"}
+    assert st["initialized"] is True and st["window_id"] == "2026Q2"
     assert st["window_start"] == "2025-07-01"
     assert st["window_end"] == "2026-09-18"
-    assert st["final_used"] == 0 and st["final_remaining"] == 20
+    assert st["finals_total"] == 0
+
+def test_status_uninitialized(tmp_path: Path):
+    conn = connect(tmp_path / "ledger.sqlite")
+    assert status(conn, trading_days=DAYS, data_end=DAY) == {"initialized": False}
+
+def test_status_finals_total_counts_final_only(tmp_path: Path):
+    """历史 exploration 行保留（只读）；终评计数只认 final，无配额剩余概念。"""
+    conn = connect(tmp_path / "ledger.sqlite")
+    roll(conn, window=_window())
+    conn.execute(
+        "INSERT INTO lockbox_access (access_id, ts_utc, window_id, window_start,"
+        " window_end, kind, fingerprint, artifact, params, command, result_ref,"
+        " reason, actor, tool) VALUES ('E1','2026-09-21T00:00:00+00:00','2026Q2',"
+        " '2025-07-01','2026-09-18','exploration','fp-e','a','{}','cmd',NULL,"
+        " '历史探索','u@h','test')")
+    conn.execute(
+        "INSERT INTO lockbox_access (access_id, ts_utc, window_id, window_start,"
+        " window_end, kind, fingerprint, artifact, params, command, result_ref,"
+        " reason, actor, tool) VALUES ('F1','2026-09-21T00:00:01+00:00','2026Q2',"
+        " '2025-07-01','2026-09-18','final','fp-f','a','{}','cmd',NULL,"
+        " '终评','u@h','test')")
+    st = status(conn, trading_days=DAYS, data_end=DAY)
+    assert st["finals_total"] == 1
 
 def test_status_is_end_previous_trading_day(tmp_path: Path):
     """§12/§13：is_end = window_start 前一交易日（非日历前一天）。"""
@@ -74,29 +106,25 @@ def test_status_is_end_fallback_when_no_earlier_trading_day(tmp_path: Path):
 def test_state_persists_across_reconnect(tmp_path: Path):
     db = tmp_path / "ledger.sqlite"
     conn = connect(db)
-    roll(conn, window=_window(), quota_final=7)
+    roll(conn, window=_window())
     conn.close()
     assert db.exists()
     conn2 = connect(db)
     assert load_state(conn2)["window_id"] == "2026Q2"
     st = status(conn2, trading_days=DAYS, data_end=DAY)
-    assert st["window_id"] == "2026Q2" and st["quota_final"] == 7
+    assert st["window_id"] == "2026Q2" and st["finals_total"] == 0
 
-def test_roll_quota_final_override(tmp_path: Path):
-    conn = connect(tmp_path / "ledger.sqlite")
-    roll(conn, window=_window(), quota_final=5)
-    assert status(conn, trading_days=DAYS, data_end=DAY)["quota_final"] == 5
 
-def test_same_window_roll_with_new_quota(tmp_path: Path):
+def test_roll_leaves_legacy_quota_column_untouched(tmp_path: Path):
+    """迁移兼容：state 表 quota_final 列保留但 roll 不读不写。"""
     conn = connect(tmp_path / "ledger.sqlite")
-    roll(conn, window=_window())
-    w2, changed = roll(conn, window=_window(), quota_final=5)
-    assert changed and w2.window_id == "2026Q2"
-    st = status(conn, trading_days=DAYS, data_end=DAY)
-    assert st["quota_final"] == 5 and st["final_remaining"] == 5
-    _, changed2 = roll(conn, window=_window())
-    assert not changed2
-    assert status(conn, trading_days=DAYS, data_end=DAY)["quota_final"] == 5
+    conn.execute(
+        "INSERT INTO lockbox_state (id, window_id, window_start, quota_final,"
+        " rolled_at) VALUES (1,'2026Q2','2025-07-01',7,'2026-09-21T00:00:00+00:00')")
+    w_next, changed = roll(conn, window=_window(as_of=dt.date(2026, 10, 2)))
+    assert changed and w_next.window_id == "2026Q3"
+    assert load_state(conn)["quota_final"] == 7, "历史配额值不得被 roll 改写"
+
 
 def test_forward_roll(tmp_path: Path):
     conn = connect(tmp_path / "ledger.sqlite")
@@ -181,7 +209,7 @@ def test_published_days_and_latest_data_date(tmp_path: Path):
 
 
 def test_state_delete_and_replace_abort(tmp_path: Path):
-    """E3：state 禁 DELETE/REPLACE（防手改窗口/配额直删）。"""
+    """E3：state 禁 DELETE/REPLACE（防手改窗口直删）。"""
     import sqlite3
     conn = connect(tmp_path / "ledger.sqlite")
     roll(conn, window=_window())
