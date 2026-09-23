@@ -1,0 +1,70 @@
+research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/example-subset.yaml
+04:54:57.785 | INFO    | Flow run 'winged-vulture' - Beginning flow run 'winged-vulture' for flow 'xscore-pipeline'
+04:54:57.798 | INFO    | Flow run 'winged-vulture' - View at http://127.0.0.1:4200/runs/flow-run/77938e2b-2304-43f4-8713-8ffbc1a983bf
+04:54:58.811 | ERROR   | Flow run 'winged-vulture' - Encountered exception during execution: LockboxError('LOCKBOX_FINAL_DUPLICATE: 版本 fea6d4ca7ab2… 在窗口 2026Q2 已做过最终测试（每版本一次）：改 config/参数=新版本可再测；或设 FACTORLAB_RE_FINAL=1 重测（审计留痕）')
+Traceback (most recent call last):
+  File "/data/students/gaolei/stock/research/.venv/lib/python3.13/site-packages/prefect/flow_engine.py", line 1319, in run_context
+    yield self
+  File "/data/students/gaolei/stock/research/.venv/lib/python3.13/site-packages/prefect/flow_engine.py", line 2089, in run_flow_sync
+    engine.call_flow_fn()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "/data/students/gaolei/stock/research/.venv/lib/python3.13/site-packages/prefect/flow_engine.py", line 1339, in call_flow_fn
+    result = call_with_parameters(self.flow.fn, self.parameters)
+  File "/data/students/gaolei/stock/research/.venv/lib/python3.13/site-packages/prefect/utilities/callables/__init__.py", line 348, in call_with_parameters
+    return fn(*args, **kwargs)
+  File "/data/students/gaolei/stock/research/tools/xscore/pipeline/flows.py", line 276, in xscore_pipeline
+    lockbox_ctx = _register_lockbox(cfg)
+  File "/data/students/gaolei/stock/research/tools/xscore/pipeline/flows.py", line 227, in _register_lockbox
+    ctx = lib.lockbox_register(panel=Path(cfg["panel"]), panel_sig=cfg["panel_sig"],
+                               config_path=cfg["config_path"],
+                               replay_ok=(out / "manifest.json").is_file())
+  File "/data/students/gaolei/stock/research/tools/xscore/pipeline/xlib.py", line 311, in lockbox_register
+    raise LockboxError(
+    ...<3 lines>...
+        "FACTORLAB_RE_FINAL=1 重测（审计留痕）")
+factorlab.core.lockbox.LockboxError: LOCKBOX_FINAL_DUPLICATE: 版本 fea6d4ca7ab2… 在窗口 2026Q2 已做过最终测试（每版本一次）：改 config/参数=新版本可再测；或设 FACTORLAB_RE_FINAL=1 重测（审计留痕）
+04:54:58.988 | INFO    | Flow run 'winged-vulture' - Finished in state Failed('Flow run encountered an exception: LockboxError: LOCKBOX_FINAL_DUPLICATE: 版本 fea6d4ca7ab2… 在窗口 2026Q2 已做过最终测试（每版本一次）：改 config/参数=新版本可再测；或设 FACTORLAB_RE_FINAL=1 重测（审计留痕）')
+Traceback (most recent call last):
+  File "/data/students/gaolei/stock/research/tools/xscore/pipeline/flows.py", line 317, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/data/students/gaolei/stock/research/tools/xscore/pipeline/flows.py", line 311, in main
+    xscore_pipeline.with_options(task_runner=ThreadPoolTaskRunner(max_workers=args.max_workers))(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        args.config)
+        ^^^^^^^^^^^^
+  File "/data/students/gaolei/stock/research/.venv/lib/python3.13/site-packages/prefect/flows.py", line 1887, in __call__
+    return run_flow(
+        flow=self,
+    ...<2 lines>...
+        return_type=return_type,
+    )
+  File "/data/students/gaolei/stock/research/.venv/lib/python3.13/site-packages/prefect/flow_engine.py", line 2246, in run_flow
+    ret_val = run_flow_sync(**kwargs)
+  File "/data/students/gaolei/stock/research/.venv/lib/python3.13/site-packages/prefect/flow_engine.py", line 2091, in run_flow_sync
+    return engine.state if return_type == "state" else engine.result()
+                                                       ~~~~~~~~~~~~~^^
+  File "/data/students/gaolei/stock/research/.venv/lib/python3.13/site-packages/prefect/flow_engine.py", line 788, in result
+    raise self._raised
+  File "/data/students/gaolei/stock/research/.venv/lib/python3.13/site-packages/prefect/flow_engine.py", line 1319, in run_context
+    yield self
+  File "/data/students/gaolei/stock/research/.venv/lib/python3.13/site-packages/prefect/flow_engine.py", line 2089, in run_flow_sync
+    engine.call_flow_fn()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "/data/students/gaolei/stock/research/.venv/lib/python3.13/site-packages/prefect/flow_engine.py", line 1339, in call_flow_fn
+    result = call_with_parameters(self.flow.fn, self.parameters)
+  File "/data/students/gaolei/stock/research/.venv/lib/python3.13/site-packages/prefect/utilities/callables/__init__.py", line 348, in call_with_parameters
+    return fn(*args, **kwargs)
+  File "/data/students/gaolei/stock/research/tools/xscore/pipeline/flows.py", line 276, in xscore_pipeline
+    lockbox_ctx = _register_lockbox(cfg)
+  File "/data/students/gaolei/stock/research/tools/xscore/pipeline/flows.py", line 227, in _register_lockbox
+    ctx = lib.lockbox_register(panel=Path(cfg["panel"]), panel_sig=cfg["panel_sig"],
+                               config_path=cfg["config_path"],
+                               replay_ok=(out / "manifest.json").is_file())
+  File "/data/students/gaolei/stock/research/tools/xscore/pipeline/xlib.py", line 311, in lockbox_register
+    raise LockboxError(
+    ...<3 lines>...
+        "FACTORLAB_RE_FINAL=1 重测（审计留痕）")
+factorlab.core.lockbox.LockboxError: LOCKBOX_FINAL_DUPLICATE: 版本 fea6d4ca7ab2… 在窗口 2026Q2 已做过最终测试（每版本一次）：改 config/参数=新版本可再测；或设 FACTORLAB_RE_FINAL=1 重测（审计留痕）
+Makefile:120: recipe for target 'xpipe' failed
+make: *** [xpipe] Error 1

@@ -526,13 +526,19 @@ _ADVICE = {
 }
 
 
-def _lockbox_hint(exc: Any) -> str:
-    """入库门 LockboxError → 稳定指引（错误码特定 + status 单点）。"""
+def _lockbox_hint(exc: Any, *, spec_missing: bool = False) -> str:
+    """入库门 LockboxError → 稳定指引（错误码特定 + status 单点）。
+
+    `spec_missing=True`：`LOCKBOX_FINAL_REQUIRED` 因候选 spec 缺失——指引先补 spec
+    （`make xpipe` 重建冻结件也无源可跑）。
+    """
     base = "`factorlab lockbox status` 看窗口与训练段端点（is_end）"
     if exc.code == "LOCKBOX_TEST_ONLY_FINAL":
         return ("入库只看测试段最终测试结果：把 spec 窗口延伸到测试段（window_start "
                 "之后）再试，或先经 `make xpipe` 产出 `_5y` 变体；" + base)
     if exc.code == "LOCKBOX_FINAL_REQUIRED":
+        if spec_missing:
+            return "先补 spec（`factor/**/<name>.yaml`）后再做最终测试；" + base
         return "先经 `make xpipe`（pipeline final）重建最终测试与冻结件；" + base
     return base
 
@@ -549,13 +555,16 @@ class FinalTestError(Exception):
         self.log = log
 
 
-# 入库车道 = 生产车道：挖矿标准 env 默认（与 pipeline `data_prep._member_env` 同口径；
-# `setdefault` 语义——显式已设值优先；执行后复原，不污染宿主）。
+# 入库车道 = 生产车道：挖矿标准 env 口径（与 pipeline `data_prep._member_env` 同口径）。
+# `FACTORLAB_DATA_BACKEND` **强制 ch**（显式值也不放行——车道内 duckdb 库不存在，
+# 放行会让最终测试在半口径下跑并占版本）；其余两键 setdefault（显式值优先）。
+# 执行后复原，不污染宿主。
 _LANE_ENV_DEFAULTS = {
     "FACTORLAB_DATA_BACKEND": "ch",
     "FACTORLAB_ST_DEGRADE": "allow",
     "FACTORLAB_MINUTE_UNCOVERED": "drop",
 }
+_LANE_ENV_FORCED = ("FACTORLAB_DATA_BACKEND",)
 
 
 def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool,
@@ -565,8 +574,9 @@ def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool,
     `FACTORLAB_PIPELINE=1` / `FACTORLAB_LOCKBOX_REASON`（审计来源，如
     `admit final test: <name>`）只在执行期生效（退出复原）：guard_run 的
     `LOCKBOX_PIPELINE_REQUIRED` 靠 marker 过；重复登记由 guard_run 权威拒
-    （`LOCKBOX_FINAL_DUPLICATE` 原样上抛）。挖矿标准 env 默认
-    （`_LANE_ENV_DEFAULTS`，setdefault 不覆盖显式值）同样执行期生效、退出复原。
+    （`LOCKBOX_FINAL_DUPLICATE` 原样上抛）。挖矿标准 env（`_LANE_ENV_DEFAULTS`；
+    `FACTORLAB_DATA_BACKEND` 强制 `ch`，其余两键 setdefault 不覆盖显式值）
+    同样执行期生效、退出复原。
     run 链错误映射为 `FinalTestError`。基座产物预检由调用方（gate）在**开跑前**
     完成（零跑零登记，见 `_preflight_base_products`）。
     """
@@ -584,7 +594,10 @@ def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool,
     if reason:
         os.environ["FACTORLAB_LOCKBOX_REASON"] = reason
     for key, value in _LANE_ENV_DEFAULTS.items():
-        os.environ.setdefault(key, value)
+        if key in _LANE_ENV_FORCED:
+            os.environ[key] = value
+        else:
+            os.environ.setdefault(key, value)
     try:
         with _guard_env(["factor", "run", str(spec_path)], wait=wait):
             execute_run(spec_path, final_mode=True, output_dir=output_dir)
@@ -644,6 +657,26 @@ def _preflight_base_products(*, base: list[str], results_dir: Path) -> None:
                  "或修复该成员 spec（issue #35）")
 
 
+def _source_spec_path(name: str) -> Path | None:
+    """源 spec（`$QR/factor/**/<name>.yaml` 首个排序匹配）；缺失 → None。
+
+    与 `resolve_candidate_spec` 的回退同口径——变体/源漂移检查（M1）用。
+    """
+    root = Path(settings.research_root)
+    return next(iter(sorted((root / "factor").rglob(f"{name}.yaml"))), None)
+
+
+def _drift_fingerprint(spec_doc: dict[str, Any]) -> str:
+    """变体/源一致性比对指纹（M1）：剔除系统性差异键（`name`/`date`——ref-sync
+    变体口径）后取 `spec_fingerprint`，只留 formula/params/universe 等实质内容。
+
+    不剔除则变体与源必然"不同"（name/date 系统性改写），警告会变成恒真噪声。
+    """
+    from factorlab.core.lockbox import spec_fingerprint
+    payload = {k: v for k, v in spec_doc.items() if k not in ("name", "date")}
+    return spec_fingerprint(payload)
+
+
 def resolve_candidate_spec(name: str) -> Path | None:
     """候选因子的**规范 spec 解析单点**（与 pipeline ref-sync 同源约定）。
 
@@ -655,7 +688,7 @@ def resolve_candidate_spec(name: str) -> Path | None:
     variant = root / "experiments" / "r37_5y" / f"{name}_5y.yaml"
     if variant.is_file():
         return variant
-    return next(iter(sorted((root / "factor").rglob(f"{name}.yaml"))), None)
+    return _source_spec_path(name)
 
 
 def _compute_test_diagnostics(*, name: str, base: list[str], window: Any,
@@ -845,6 +878,25 @@ def factor_admit(args: Any) -> envelope.Envelope:
         spec = load_spec(spec_path)
         if spec.name != name:  # 规范件与 lint 名不符（手改变体）→ 回退用户 spec
             raise ValueError(f"规范 spec 名 {spec.name!r} != {name!r}")
+        # M1：规范解析选中 5y 变体时，检查源 spec 是否已更新（name/date 之外的实质
+        # 内容漂移）→ spec_note 追加警告，不阻断（身份/冻结件仍以变体为准）。
+        variant_path = (Path(settings.research_root)
+                        / "experiments" / "r37_5y" / f"{name}_5y.yaml")
+        if spec_path.resolve() == variant_path.resolve():
+            source_path = _source_spec_path(name)
+            source_doc = None
+            if (source_path is not None
+                    and source_path.resolve() != spec_path.resolve()):
+                try:
+                    source_doc = load_spec(source_path).model_dump(mode="json")
+                except (OSError, ValueError, yaml.YAMLError):
+                    source_doc = None
+            if source_doc is not None and (
+                    _drift_fingerprint(source_doc)
+                    != _drift_fingerprint(spec.model_dump(mode="json"))):
+                if spec_note is None:
+                    spec_note = f"使用规范 5y 变体 spec：{spec_path}"
+                spec_note += "；变体与源 spec 内容不一致（源已更新？）"
     except (OSError, ValueError, yaml.YAMLError):
         spec_path, spec_note = user_spec_path, None
         spec = load_spec(user_spec_path)
@@ -1099,7 +1151,7 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
             scales=scales, base=base)
     except LockboxError as exc:
         return envelope.fail("factor.ref.add", exc.code, exc.message,
-                             hint=_lockbox_hint(exc))
+                             hint=_lockbox_hint(exc, spec_missing=gate_spec is None))
     except FinalTestError as exc:
         return envelope.fail("factor.ref.add", exc.code, exc.message,
                              hint=exc.hint, log=exc.log)

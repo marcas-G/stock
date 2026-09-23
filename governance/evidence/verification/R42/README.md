@@ -23,11 +23,12 @@
 - **旧 final 行不续接新纪律**（只管以后）：版本指纹由 `{"final_test": True}` 生成，旧 `{"intent":"final"}` 行不抑制新版本首测。
 - 流水线 replay 语义 = "该 out 目录起过 flow"（代理），报告已披露；外部删除 manifest → 视为重复版本拒。
 - 尺度不入版本身份：daily/minute 入库共享同一冻结件（入库对象=因子版本；scale 只决定对照基）。
-- 入库车道自带挖矿标准 env 默认（`ch`/`ST_DEGRADE=allow`/`MINUTE_UNCOVERED=drop`，显式值优先，执行后复原）——T7 真实验收发现的缺口，修复轮 2 落地。
+- 入库车道自带挖矿标准 env（`FACTORLAB_DATA_BACKEND` **强制 `ch`**（I1 终审修复：显式 duckdb 也不放行）；`ST_DEGRADE=allow`/`MINUTE_UNCOVERED=drop` 显式值优先；执行后复原）——T7 真实验收发现的缺口，修复轮 2 落地、终审波对齐 pipeline `_member_env` 口径。
 - 新鲜度门：源盘滞后 4 交易日（数据 09-17）→ 真跑需 `data.max_lag_days` 显式配置（验收在 example-subset 设 10）；生产按数据节奏配置。
 
 ## 指路（本体不进 git）
 
-- 命令输出：`/tmp/r42-{a.json,b.log,c.log,d.log,e.log,f2.json,f3.json,f4.json,f5.json}`
+- 命令输出（已持久化，原样拷入）：`raw/r42-{a.json,b.log,c.log,d.log,e.log,f2.json,f5.json}`
+- 未持久化输出（可选，仍在 /tmp）：`/tmp/r42-{f3.json,f4.json,f.json}`
 - 冻结件样例：`~/quantresearch/results/platform/low_vol_20d_5y/test_diagnostics.json`
 - 台账：`~/quantresearch/data/ledger.sqlite`（`lockbox_access`）

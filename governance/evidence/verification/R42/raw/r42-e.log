@@ -1,0 +1,11 @@
+research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/example-subset.yaml
+04:55:00.952 | INFO    | Flow run 'smart-wombat' - Beginning flow run 'smart-wombat' for flow 'xscore-pipeline'
+04:55:00.963 | INFO    | Flow run 'smart-wombat' - View at http://127.0.0.1:4200/runs/flow-run/e72772ae-4f97-47ba-82d7-8e6f0744b8c6
+04:55:01.188 | INFO    | Task run 'factor_task-b47' - Finished in state Cached(type=COMPLETED)
+04:55:01.203 | INFO    | Task run 'data_prep_task-2f3' - Finished in state Cached(type=COMPLETED)
+04:55:01.209 | INFO    | Flow run 'smart-wombat' - [groups] pair=2
+04:55:01.217 | INFO    | Task run 'score_task-e01' - Finished in state Cached(type=COMPLETED)
+04:55:01.230 | INFO    | Task run 'portfolio_task-aa6' - Finished in state Cached(type=COMPLETED)
+04:55:01.245 | INFO    | Task run 'report_task-12c' - Finished in state Completed()
+04:55:01.285 | INFO    | Flow run 'smart-wombat' - [done] /data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/example-subset/REPORT.md manifest=/data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/example-subset/manifest.json /data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/manifest.json
+04:55:01.984 | INFO    | Flow run 'smart-wombat' - Finished in state Completed()

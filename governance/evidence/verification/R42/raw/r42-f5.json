@@ -1,0 +1,1 @@
+{"ok": false, "schema_version": 1, "command": "factor.admit", "data": null, "artifacts": {}, "warnings": [], "error": {"code": "DATA", "message": "参考库成员缺 `_5y` 产物：industry_lag_beta_1m", "hint": "先 `make xpipe-data` 补齐参考库成员 `_5y` 产物，或修复该成员 spec（issue #35）", "log": null}}

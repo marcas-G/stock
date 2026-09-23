@@ -3622,7 +3622,9 @@ dev/应急。设计与验收：`knowledge/design/platform/specs/2026-09-21-facto
      （`flab factor admit` / `ref add`，执行期自设该标记）；host 直跑 final 登记 →
      `LOCKBOX_PIPELINE_REQUIRED`；
    - 操作员逃生：`FACTORLAB_RE_FINAL=1` 允许同版本重测（新登记行，`reason` 追加
-     `|re-final` 审计标记；仅已有登记时生效，首测不产生假标记）。
+     `|re-final` 审计标记；仅已有登记时生效，首测不产生假标记）。该逃生仅作用于
+     流水线/guard 的新登记路径；已有冻结件的 `admit`/`ref add` 只读冻结件——重测需
+     删除冻结件，或在流水线侧 `FACTORLAB_RE_FINAL=1` 重建后再走入库。
 3. **最终测试产出冻结**（不复算）：测试段上的评估指标 + **测试段冗余检验**（对照参考库
    `corr_max / r2_lib / resic_t`），冻结件 `<results_dir>/<name>_5y/test_diagnostics.json`
    （字段见 §10.4）；同时 append-only 登记台账（谁、何时、哪个版本、哪次访问）。

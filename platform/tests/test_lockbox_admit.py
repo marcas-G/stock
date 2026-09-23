@@ -306,6 +306,20 @@ def test_final_test_lane_keeps_explicit_mining_env(tmp_path, monkeypatch):
     assert calls["env"][0]["FACTORLAB_MINUTE_UNCOVERED"] == "drop"
 
 
+def test_final_test_lane_forces_backend_ch_over_explicit_env(tmp_path, monkeypatch):
+    """I1：`FACTORLAB_DATA_BACKEND` **强制 ch**（pipeline `_member_env` 同口径）——
+    显式 duckdb 也不得放行（否则最终测试在半口径下跑并占版本）；宿主值执行后复原。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    monkeypatch.setenv("FACTORLAB_DATA_BACKEND", "duckdb")
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+
+    F._final_test_gate(load_spec(spec).model_dump(mode="json"), spec,
+                       reason="测试", command="factor admit")
+
+    assert calls["env"][0]["FACTORLAB_DATA_BACKEND"] == "ch"
+    assert os.environ.get("FACTORLAB_DATA_BACKEND") == "duckdb"  # 复原宿主值
+
+
 def test_final_test_lane_restores_mining_env_after_run(tmp_path, monkeypatch):
     """执行返回后宿主 env 复原（三键回到调用前状态；默认注入不残留）。"""
     spec, db, _ref = _sandbox(tmp_path, monkeypatch)
@@ -540,6 +554,9 @@ def test_ref_add_missing_spec_rejected(tmp_path, monkeypatch):
     assert doc["ok"] is False
     assert doc["error"]["code"] == "LOCKBOX_FINAL_REQUIRED"
     assert "spec" in doc["error"]["message"]
+    # M9：缺 spec 的指引必须是"补 spec"（而非 `make xpipe` 重建冻结件）
+    assert "补 spec" in doc["error"]["hint"]
+    assert "factor/**" in doc["error"]["hint"]
     assert calls["run"] == [] and _rows(db) == []
     assert ref.read_text(encoding="utf-8") == before
 
@@ -629,6 +646,34 @@ def test_admit_uses_canonical_variant_and_matches_ref_sync_fp(tmp_path, monkeypa
     assert _read_frozen(tmp_path)["version_fingerprint"] == rows[0]["fingerprint"]
     assert doc["data"]["spec_used"] == str(variant)
     assert "r37_5y" in (doc["data"]["spec_note"] or "")
+    # M1 负向：name/date 口径差异不算漂移（内容一致 → 无警告）
+    assert "内容不一致" not in (doc["data"]["spec_note"] or "")
+
+
+def test_admit_warns_when_source_spec_drifted_from_variant(tmp_path, monkeypatch):
+    """M1：变体生成后源 spec 实质更新（name/date 之外）→ `spec_note` 追加警告，不阻断。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    variant = _write_variant(settings.research_root, "refcand",
+                             W.start.isoformat(), W.end.isoformat())
+    store.guard_run(  # ref-sync 已登记 + 产物：admit 只读冻结件
+        panel_start=W.start, panel_end=W.end, final_mode=True,
+        reason="pipeline final test: refcand",
+        spec_doc=load_spec(variant).model_dump(mode="json"),
+        artifact=str(variant), command="factor run", tool="factorlab test",
+        db_path=db, trading_days=list(DAYS), data_end=W.end)
+    _write_final_products(settings.results_dir / "refcand_5y")
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+    spec.write_text(_SPEC.format(name="refcand", start=W.start.isoformat(),
+                                 end=W.end.isoformat())
+                    .replace("signal = close", "signal = close * -1"),
+                    encoding="utf-8")  # 源 spec 在变体生成后更新（公式变化）
+
+    doc = _doc(_invoke("factor", "admit", str(spec)))
+
+    assert doc["ok"] is True, doc
+    assert calls["run"] == []            # 警告不阻断、不重跑
+    assert len(_rows(db)) == 1
+    assert "内容不一致" in (doc["data"]["spec_note"] or "")
 
 
 def test_ref_add_canonical_variant_no_second_final(tmp_path, monkeypatch):

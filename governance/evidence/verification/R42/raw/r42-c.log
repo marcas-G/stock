@@ -1,0 +1,12 @@
+research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/example-subset.yaml
+04:54:54.571 | INFO    | Flow run 'hopping-elephant' - Beginning flow run 'hopping-elephant' for flow 'xscore-pipeline'
+04:54:54.582 | INFO    | Flow run 'hopping-elephant' - View at http://127.0.0.1:4200/runs/flow-run/11ca630f-c31a-4dcd-a74c-53abb3fe9d73
+04:54:54.759 | INFO    | Flow run 'hopping-elephant' - [lockbox] 复用既有最终测试（replay）：window=2026Q2 access_id=01M380RR83ZE2PS2F5CSDQWJKZ
+04:54:54.821 | INFO    | Task run 'factor_task-7b4' - Finished in state Cached(type=COMPLETED)
+04:54:54.834 | INFO    | Task run 'data_prep_task-d5a' - Finished in state Cached(type=COMPLETED)
+04:54:54.839 | INFO    | Flow run 'hopping-elephant' - [groups] pair=2
+04:54:54.847 | INFO    | Task run 'score_task-6ca' - Finished in state Cached(type=COMPLETED)
+04:54:54.859 | INFO    | Task run 'portfolio_task-97f' - Finished in state Cached(type=COMPLETED)
+04:54:54.875 | INFO    | Task run 'report_task-653' - Finished in state Completed()
+04:54:54.914 | INFO    | Flow run 'hopping-elephant' - [done] /data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/example-subset/REPORT.md manifest=/data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/example-subset/manifest.json /data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/manifest.json
+04:54:55.604 | INFO    | Flow run 'hopping-elephant' - Finished in state Completed()

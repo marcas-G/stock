@@ -1,0 +1,19 @@
+research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/example-subset.yaml
+04:54:27.134 | INFO    | Flow run 'rainbow-jacamar' - Beginning flow run 'rainbow-jacamar' for flow 'xscore-pipeline'
+04:54:27.147 | INFO    | Flow run 'rainbow-jacamar' - View at http://127.0.0.1:4200/runs/flow-run/d0cc57e9-2217-4d43-99f9-f5b1d74df3fc
+04:54:27.397 | INFO    | Task run 'factor_task-5db' - Finished in state Completed()
+04:54:33.638 | INFO    | Task run 'data_prep_task-12d' - [freshness] CH daily 最新=2026-09-17 期望=2026-09-23 滞后=4 交易日（容忍 10，weekday-approx）
+[panel] 已存在，跳过 /data/students/gaolei/quantresearch/data/cache/panel_subset_demo.npz
+[open_adj_subset_demo] 已存在，跳过 /data/students/gaolei/quantresearch/data/cache/open_adj_subset_demo.npz
+[mv_subset_demo] 已存在，跳过 /data/students/gaolei/quantresearch/data/cache/mv_subset_demo.npz
+[limits_subset_demo] 已存在，跳过 /data/students/gaolei/quantresearch/data/cache/limits_subset_demo.npz
+[amount_subset_demo] 已存在，跳过 /data/students/gaolei/quantresearch/data/cache/amount_subset_demo.npz
+04:54:33.647 | INFO    | Task run 'data_prep_task-12d' - Finished in state Completed()
+04:54:33.653 | INFO    | Flow run 'rainbow-jacamar' - [groups] pair=2
+04:54:42.524 | INFO    | Task run 'score_task-fdb' - [score:pair_M0a] IC=0.0548 tNW=7.8 → /data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/example-subset/scores/pair_M0a (8.6s)
+04:54:42.532 | INFO    | Task run 'score_task-fdb' - Finished in state Completed()
+04:54:45.305 | INFO    | Task run 'portfolio_task-401' - [porteval:pair_M0a|open|all] ann=12.44% excess=-1.66% IR=-0.04 expo=99.9% pos=505
+04:54:45.317 | INFO    | Task run 'portfolio_task-401' - Finished in state Completed()
+04:54:45.333 | INFO    | Task run 'report_task-a2a' - Finished in state Completed()
+04:54:45.374 | INFO    | Flow run 'rainbow-jacamar' - [done] /data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/example-subset/REPORT.md manifest=/data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/example-subset/manifest.json /data/students/gaolei/quantresearch/results/2026-09-xscore-pipeline/manifest.json
+04:54:46.162 | INFO    | Flow run 'rainbow-jacamar' - Finished in state Completed()
