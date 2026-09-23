@@ -32,9 +32,11 @@ def test_lockbox_roll_then_status(tmp_path: Path, monkeypatch):
     r2 = runner.invoke(app, ["lockbox", "status", "--json"])
     assert r2.exit_code == 0, r2.output
     doc = json.loads(r2.output.strip().splitlines()[-1])
-    assert doc["window_id"] == "2026Q2" and doc["final_remaining"] == 20
+    assert set(doc) == {"initialized", "window_id", "window_start", "window_end",
+                        "is_end", "finals_total"}
+    assert doc["window_id"] == "2026Q2" and doc["finals_total"] == 0
     assert doc["is_end"] == "2025-06-30"
-    assert doc["window_end"] == "2026-09-18" and doc["final_used"] == 0
+    assert doc["window_end"] == "2026-09-18"
     # 幂等：同窗再 roll 不改状态行（手工改旧 rolled_at，第二次 roll 必须不重写）
     conn = store.connect(db)
     conn.execute("UPDATE lockbox_state SET rolled_at = ? WHERE id = 1",
@@ -76,26 +78,26 @@ def test_lockbox_status_uninitialized_exits_1(tmp_path: Path, monkeypatch):
     assert store.load_state(conn) is None
 
 
-def test_lockbox_roll_as_of_and_quota_final(tmp_path: Path, monkeypatch):
-    monkeypatch.setenv("FACTORLAB_LOCKBOX_ADMIN", "1")
+def test_lockbox_roll_as_of_advances_window(tmp_path: Path, monkeypatch):
+    """`--as-of` 把窗口推进到对应季度；state 真实落库，quota 列不读不写。"""
     db = tmp_path / "ledger.sqlite"
     monkeypatch.setattr(cli_main.settings, "lockbox_db", db)
     _patch_cli(monkeypatch, DAYS_Q3, dt.date(2026, 9, 18), dt.date(2026, 9, 21))
     runner = CliRunner()
-    r = runner.invoke(app, ["lockbox", "roll", "--as-of", "2026-10-01",
-                            "--quota-final", "5"])
+    r = runner.invoke(app, ["lockbox", "roll", "--as-of", "2026-10-01"])
     assert r.exit_code == 0, r.output
     # 状态真实落库（非仅打印）
     conn = store.connect(db)
     state = store.load_state(conn)
-    assert state["window_id"] == "2026Q3" and int(state["quota_final"]) == 5
+    assert state["window_id"] == "2026Q3" and state["window_start"] == "2025-10-01"
+    assert int(state["quota_final"]) == 20, "quota_final 列保留但不得被写入"
     r2 = runner.invoke(app, ["lockbox", "status", "--json"])
     assert r2.exit_code == 0, r2.output
     doc = json.loads(r2.output.strip().splitlines()[-1])
     assert doc["window_id"] == "2026Q3" and doc["window_start"] == "2025-10-01"
-    assert doc["quota_final"] == 5 and doc["final_remaining"] == 5
     # is_end=start 前最后一个交易日（稀疏日历中为 2025-07-01）
     assert doc["is_end"] == "2025-07-01"
+    assert doc["finals_total"] == 0
 
 
 def test_default_lockbox_db_and_env_override(tmp_path: Path, monkeypatch):
@@ -109,13 +111,17 @@ def test_default_lockbox_db_and_env_override(tmp_path: Path, monkeypatch):
     assert Settings().lockbox_db == override
 
 
-def test_quota_final_requires_admin(tmp_path: Path, monkeypatch):
-    """E3：配额变更需操作员标记。"""
+def test_quota_final_flag_removed_and_admin_has_no_effect(tmp_path: Path,
+                                                          monkeypatch):
+    """R42：`--quota-final` 与 `FACTORLAB_LOCKBOX_ADMIN` 一并删除——未知参数拒收；
+    即便设了 admin 环境变量也不产生任何 write（参数解析失败先于 connect）。"""
     db = tmp_path / "l.sqlite"
-    monkeypatch.setenv("FACTORLAB_LOCKBOX_DB", str(db))
+    monkeypatch.setattr(cli_main.settings, "lockbox_db", db)
     monkeypatch.setattr(cli_main, "_lockbox_published_days", lambda: DAYS)
-    monkeypatch.setattr(cli_main, "_lockbox_data_end", lambda: W.end)
-    monkeypatch.setattr(cli_main, "_lockbox_today", lambda: TODAY)
-    monkeypatch.delenv("FACTORLAB_LOCKBOX_ADMIN", raising=False)
+    monkeypatch.setattr(cli_main, "_lockbox_data_end", lambda: dt.date(2026, 9, 18))
+    monkeypatch.setattr(cli_main, "_lockbox_today", lambda: dt.date(2026, 9, 21))
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_ADMIN", "1")
     r = CliRunner().invoke(app, ["lockbox", "roll", "--quota-final", "99"])
-    assert r.exit_code != 0 and "ADMIN" in r.output
+    assert r.exit_code == 2, r.output
+    assert "--quota-final" in r.output
+    assert not db.exists(), "参数拒收不得创建/触碰台账"

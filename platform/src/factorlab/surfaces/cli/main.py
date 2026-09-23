@@ -53,11 +53,13 @@ def _lockbox_data_end() -> datetime.date | None:
     return store.latest_data_date(_lockbox_health_root())
 
 
-def _lockbox_guard_for_execute(spec, spec_path: Path, *, intent: str | None,
-                               reason: str | None):
+def _lockbox_guard_for_execute(spec, spec_path: Path, *, final_mode: bool):
     """执行前锁箱硬门（execute 层统一）：窗口端点取 spec.date，缺失回退日历边界。
 
     拒跑发生在 ctx/RLIMIT/开库与重链之前；IS 段返回空登记 guard。
+    R42：`final_mode`（host 缺省 False；流水线子进程由 `FACTORLAB_PIPELINE=1`
+    推导）替代旧 intent/reason 参数——探索碰测试段直接拒；最终测试自动登记
+    （每版本一次，理由从 spec 名合成，审计列不留空）。
     """
     from factorlab.adapters import lockbox_store as store
     days = _lockbox_published_days()
@@ -65,9 +67,10 @@ def _lockbox_guard_for_execute(spec, spec_path: Path, *, intent: str | None,
     start = (datetime.date.fromisoformat(spec.date.start) if spec.date.start
              else (min(days) if days else datetime.date(1970, 1, 1)))
     end = datetime.date.fromisoformat(spec.date.end) if spec.date.end else data_end
+    reason = f"pipeline final test: {spec.name}" if final_mode else None
     return store.guard_run(
         panel_start=min(start, end), panel_end=max(start, end),
-        intent=intent, reason=reason,
+        final_mode=final_mode, reason=reason,
         spec_doc=spec.model_dump(mode="json"), artifact=str(spec_path),
         command="factor run", tool=f"factorlab {__version__}",
         db_path=settings.lockbox_db, trading_days=days, data_end=data_end)
@@ -75,6 +78,11 @@ def _lockbox_guard_for_execute(spec, spec_path: Path, *, intent: str | None,
 
 def _lockbox_today() -> datetime.date:
     return datetime.date.today()
+
+
+def _pipeline_final_mode() -> bool:
+    """`FACTORLAB_PIPELINE=1`（流水线子进程标记）→ 最终测试模式；host 直跑 False。"""
+    return os.environ.get("FACTORLAB_PIPELINE", "").strip() == "1"
 
 
 def _member_spec_window(kind: str, name: str, results_dir: Path
@@ -138,11 +146,12 @@ def _compose_effective_window(spec, results_dir: Path
 
 
 def _lockbox_guard_for_compose(spec, spec_path: Path, results_dir: Path, *,
-                               intent: str | None, reason: str | None):
+                               final_mode: bool):
     """compose 执行前锁箱硬门（成员交集窗口；与 factor execute 同口径）。
 
     有效窗口取成员 spec date 交集；缺 date/交集为空 → 回退已发布日历全域。
     `spec_doc`=composite spec 的 model_dump，`artifact`=composite spec 路径。
+    R42：`final_mode` 语义同 `_lockbox_guard_for_execute`。
     """
     from factorlab.adapters import lockbox_store as store
     days = _lockbox_published_days()
@@ -153,8 +162,9 @@ def _lockbox_guard_for_compose(spec, spec_path: Path, results_dir: Path, *,
         end = data_end
     else:
         start, end = window
+    reason = f"pipeline final test: composite {spec.name}" if final_mode else None
     return store.guard_run(
-        panel_start=start, panel_end=end, intent=intent, reason=reason,
+        panel_start=start, panel_end=end, final_mode=final_mode, reason=reason,
         spec_doc=spec.model_dump(mode="json"), artifact=str(spec_path),
         command="compose", tool=f"factorlab {__version__}",
         db_path=settings.lockbox_db, trading_days=days, data_end=data_end)
@@ -162,7 +172,7 @@ def _lockbox_guard_for_compose(spec, spec_path: Path, results_dir: Path, *,
 
 @lockbox_app.command("status")
 def lockbox_status(json_out: bool = typer.Option(False, "--json")) -> None:
-    """锁箱窗口/配额/剩余（未初始化时 initialized=false）。"""
+    """锁箱窗口/训练段端点/终评数（未初始化时 initialized=false）。"""
     from contextlib import closing
     from factorlab.adapters import lockbox_store as store
     data_end = _lockbox_data_end() or _lockbox_today()
@@ -181,15 +191,8 @@ def lockbox_status(json_out: bool = typer.Option(False, "--json")) -> None:
 @lockbox_app.command("roll")
 def lockbox_roll(
     as_of: str | None = typer.Option(None, "--as-of", help="ISO 日期（缺省今天）"),
-    quota_final: int | None = typer.Option(None, "--quota-final", min=1),
 ) -> None:
-    """季度滚动（幂等；拒绝倒退）；`--quota-final` 需操作员标记
-    `FACTORLAB_LOCKBOX_ADMIN=1`。"""
-    if quota_final is not None and os.environ.get(
-            "FACTORLAB_LOCKBOX_ADMIN", "").strip() != "1":
-        console.print("[lockbox] 拒绝：修改 final 配额是操作员动作，"
-                      "需显式 FACTORLAB_LOCKBOX_ADMIN=1", markup=False)
-        raise typer.Exit(code=2)
+    """季度滚动（幂等；拒绝倒退）。R42：配额/admin 开关已删除。"""
     from contextlib import closing
     from factorlab.adapters import lockbox_store as store
     from factorlab.core.lockbox import compute_window
@@ -198,7 +201,7 @@ def lockbox_roll(
                             trading_days=_lockbox_published_days(),
                             data_end=_lockbox_data_end() or as_of_date)
     with closing(store.connect(settings.lockbox_db)) as conn:
-        rolled, changed = store.roll(conn, window=window, quota_final=quota_final)
+        rolled, changed = store.roll(conn, window=window)
     console.print(f"[lockbox] window={rolled.window_id} start={rolled.start} "
                   f"end={rolled.end} {'已更新' if changed else '无变化（幂等）'}",
                   markup=False)
@@ -447,8 +450,7 @@ def execute_run(
     dataset: str | None = "ashare_daily",
     accept_quality: tuple[str, ...] = ("PASS",),
     override_reason: str | None = None,
-    lockbox_intent: str | None = None,
-    lockbox_reason: str | None = None,
+    final_mode: bool | None = None,
 ) -> dict:
     """`factorlab run` 的计算主体（CLI 与 research.factor 门面共用，不打印）。
 
@@ -474,9 +476,9 @@ def execute_run(
     R31：`read_cache`（None=env `FACTORLAB_READ_CACHE` 默认开；False=CLI
     `--no-read-cache`）透传 RunContext——分钟链 bars_1m chunk 级磁盘缓存开关。
 
-    R40：`lockbox_intent`（exploration|final）/`lockbox_reason`——面板窗口与
-    锁箱相交时必需（`LOCKBOX_INTENT_REQUIRED`/`LOCKBOX_REASON_REQUIRED` 硬门；
-    env `FACTORLAB_LOCKBOX` 关闭时直接 IS 放行）；命中锁箱时自动登记并把
+    R42：`final_mode`（None → `FACTORLAB_PIPELINE=1` 推导；host 缺省 False）——
+    探索碰测试段直接拒（`LOCKBOX_TEST_ONLY_FINAL`）；最终测试（仅流水线/入库
+    车道）自动登记，每版本一次（`LOCKBOX_FINAL_DUPLICATE`）；命中锁箱时把
     `summary["sample"]` 与 `result_ref` 写入台账。
     """
     from factorlab.app.run import run_factor, run_factor_minute
@@ -499,8 +501,9 @@ def execute_run(
     if overrides:
         spec.params = {**spec.params, **overrides}
         variant = spec.name + "_" + "_".join(f"{k}{v}" for k, v in overrides.items())
-    guard = _lockbox_guard_for_execute(spec, spec_path, intent=lockbox_intent,
-                                       reason=lockbox_reason)
+    if final_mode is None:
+        final_mode = _pipeline_final_mode()
+    guard = _lockbox_guard_for_execute(spec, spec_path, final_mode=final_mode)
     profiler = Profiler() if (profile or profile_enabled()) else None
     if profiler is not None:
         profiler.start()
@@ -598,12 +601,6 @@ def run_factor_cli(
         None, "--override-reason",
         help="非 PASS 读取门 opt-in 的原因（写入 Experiment Manifest；与 "
              "--accept-quality 配对）"),
-    lockbox: str | None = typer.Option(
-        None, "--lockbox",
-        help="R40 锁箱意图 exploration|final（评估窗口与锁箱相交时必需）"),
-    lockbox_reason: str | None = typer.Option(
-        None, "--lockbox-reason",
-        help="R40 锁箱访问理由（与 --lockbox 配对，必填非空）"),
 ) -> None:
     """计算因子并评估（平台库）。--backtest 默认产出分层回测；--no-backtest 关闭（快速评估）。
     --groups 分层档数（>=2）。--set k=v 覆盖 spec.params 生成变体（results 独立目录）。
@@ -611,7 +608,8 @@ def run_factor_cli(
     （daily 默认逐日口径；weekly 为旧口径可选对照）。--profile 输出分段计时。
     --chunk-workers 分钟链 chunk 并行度（默认 1，见 --help）。
     --accept-quality/--override-reason 读取门 opt-in（N2：DEGRADED/LEGACY 显式接受）。
-    --lockbox/--lockbox-reason 锁箱硬门（R40：相交窗口必需；命中自动登记）。"""
+    R42：探索碰测试段直接拒（`LOCKBOX_TEST_ONLY_FINAL`）；最终测试只走流水线
+    （`FACTORLAB_PIPELINE=1` 子进程）/入库车道，host 无锁箱开关。"""
     try:
         quality = resolve_accept_quality(parse_accept_quality(accept_quality),
                                          override_reason)
@@ -628,16 +626,14 @@ def run_factor_cli(
                           read_cache=False if no_read_cache else None,
                           dataset="ashare_daily",
                           accept_quality=quality,
-                          override_reason=override_reason,
-                          lockbox_intent=lockbox,
-                          lockbox_reason=lockbox_reason)
+                          override_reason=override_reason)
     except DatasetQualityError as exc:
         _print_quality_reject(exc)
         raise typer.Exit(code=1) from exc
     except LockboxError as exc:
         console.print(f"错误: {exc}", soft_wrap=True)
-        console.print("  提示: `factorlab lockbox status` 看窗口与配额；"
-                      "`factorlab lockbox roll` 对齐季度窗口", soft_wrap=True)
+        console.print("  提示: `factorlab lockbox status` 看窗口与训练段端点"
+                      "（is_end）；`factorlab lockbox roll` 对齐季度窗口", soft_wrap=True)
         raise typer.Exit(code=1) from exc
     except (ValueError, FileNotFoundError, FactorDSLError) as exc:
         # ValueError 含 pydantic 的 ValidationError（spec 字段非法，如 cost_rate 越界）——
@@ -680,19 +676,14 @@ def compose(
     out_dir: Path | None = typer.Option(
         None, "--out-dir",
         help="产物目录（缺省 <results-dir>/composites/<name>）"),
-    lockbox: str | None = typer.Option(
-        None, "--lockbox",
-        help="R40 锁箱意图 exploration|final（成员有效窗口与锁箱相交时必需）"),
-    lockbox_reason: str | None = typer.Option(
-        None, "--lockbox-reason",
-        help="R40 锁箱访问理由（与 --lockbox 配对，必填非空）"),
 ) -> None:
     """运行 Composite spec：成员 artifact×K → X → Python compute → 评估 → 落盘。
 
     薄壳（Plan CX-C1 §14）：全链在 app.composite.runner；本命令只做参数透传与
     ValueError/FileNotFoundError → 友好文案 + exit 1（缺成员/交集为空/NaN 输出等）。
-    R40：有效窗口=成员 spec date 交集（缺/空回退已发布日历全域），重链前过
-    锁箱硬门；命中自动登记并写 `summary.sample`/回填 `result_ref`。
+    R42：有效窗口=成员 spec date 交集（缺/空回退已发布日历全域），重链前过
+    锁箱硬门（探索碰测试段直接拒；最终测试只走流水线标记）；命中自动登记并写
+    `summary.sample`/回填 `result_ref`。
     """
     from factorlab.app.composite.runner import run_composite
     from factorlab.core.composite import load_composite_spec
@@ -702,13 +693,13 @@ def compose(
     try:
         spec = load_composite_spec(spec_path)
         guard = _lockbox_guard_for_compose(spec, spec_path, results,
-                                           intent=lockbox, reason=lockbox_reason)
+                                           final_mode=_pipeline_final_mode())
         result = run_composite(spec_path, results_dir=results_dir, out_dir=out_dir,
                                guard=guard)
     except LockboxError as exc:
         console.print(f"错误: {exc}", soft_wrap=True)
-        console.print("  提示: `factorlab lockbox status` 看窗口与配额；"
-                      "`factorlab lockbox roll` 对齐季度窗口", soft_wrap=True)
+        console.print("  提示: `factorlab lockbox status` 看窗口与训练段端点"
+                      "（is_end）；`factorlab lockbox roll` 对齐季度窗口", soft_wrap=True)
         raise typer.Exit(code=1) from exc
     except (ValueError, FileNotFoundError) as exc:
         console.print(f"错误: {exc}")

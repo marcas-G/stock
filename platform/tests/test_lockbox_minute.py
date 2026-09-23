@@ -70,9 +70,8 @@ class _RecordingGuard:
         self.marked.append(result_ref)
 
 
-def test_execute_minute_guard_window_and_ctx(tmp_path, monkeypatch):
-    """guard 端点 == spec.date 窗口；哨兵 guard 原样进 fake 分钟链（同门）。"""
-    monkeypatch.setenv("FACTORLAB_LOCKBOX", "1")
+def _execute_with_fake_guard(tmp_path, monkeypatch, **execute_kw):
+    """execute_run 链入口全替换为 fake（guard 记录 + 哨兵短路），返回 (calls, seen)。"""
     spec_path = tmp_path / "minute.yaml"
     spec_path.write_text(SPEC_TEXT, encoding="utf-8")
     sentinel = _RecordingGuard()
@@ -93,25 +92,46 @@ def test_execute_minute_guard_window_and_ctx(tmp_path, monkeypatch):
         raise _StopChain
 
     monkeypatch.setattr(app_run, "run_factor_minute", fake_minute)
-
     with pytest.raises(_StopChain):
         execute_run(spec_path, backtest=False, output_dir=tmp_path / "out",
-                    lockbox_intent="exploration", lockbox_reason="T6 单元验证")
+                    **execute_kw)
+    assert len(calls) == 1 and len(seen) == 1
+    return calls[0], seen[0], spec_path, sentinel
 
-    assert len(calls) == 1
-    kw = calls[0]
+
+def test_execute_minute_guard_window_and_final_mode(tmp_path, monkeypatch):
+    """guard 端点 == spec.date 窗口；`final_mode=True`+marker → 同门透传。"""
+    spec_path = tmp_path / "minute.yaml"
+
+    monkeypatch.setenv("FACTORLAB_LOCKBOX", "1")
+    monkeypatch.setenv("FACTORLAB_PIPELINE", "1")
+    kw, (spec, ctx), spec_path, sentinel = _execute_with_fake_guard(
+        tmp_path, monkeypatch, final_mode=True)
+
     assert (kw["panel_start"], kw["panel_end"]) == (FIXED_START, FIXED_END)
-    assert kw["intent"] == "exploration"
-    assert kw["reason"] == "T6 单元验证"
+    assert kw["final_mode"] is True
+    assert "intent" not in kw, "intent 参数面已删除"
+    assert isinstance(kw["reason"], str) and kw["reason"].strip(), \
+        "最终测试登记必须带非空理由"
     assert kw["spec_doc"]["name"] == "lockbox_minute"
     assert kw["artifact"] == str(spec_path)
     assert kw["command"] == "factor run"
     assert kw["trading_days"] == FIXED_DAYS
     assert kw["data_end"] == FIXED_END
-    assert len(seen) == 1
-    spec, ctx = seen[0]
     assert spec.interface == "bars_1m"
     assert ctx.guard is sentinel
+
+
+def test_execute_minute_host_derives_final_mode_false(tmp_path, monkeypatch):
+    """host（无 marker）缺省 → `final_mode=False`、`reason=None`（探索/训练段语义）。"""
+    monkeypatch.setenv("FACTORLAB_LOCKBOX", "1")
+    monkeypatch.delenv("FACTORLAB_PIPELINE", raising=False)
+
+    kw, _, _, sentinel = _execute_with_fake_guard(tmp_path, monkeypatch)
+
+    assert kw["final_mode"] is False
+    assert kw["reason"] is None
+    assert "intent" not in kw
 
 
 def test_lockbox_attach_delegates_summary(tmp_path):

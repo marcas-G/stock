@@ -1,12 +1,12 @@
-"""R40 T8：compose / strategy 锁箱接线（硬门 + 产物样本声明）。
+"""R42 T2：compose / strategy 锁箱接线（最终测试一次语义 + 参数面收敛）。
 
-断言来源：设计 `2026-09-21-lockbox-discipline-design.md` §7（覆盖命令
-`factor compose`/`research strategy run`；相交缺 flag → `LOCKBOX_INTENT_REQUIRED`）、
-§10-3（exploration 登记 + `summary.sample.access_id` 与登记一致）、
-§10-1（IS 直跑、零登记）与 T8 brief：
+断言来源：设计 `2026-09-24-final-test-once-discipline-design.md` §3/§5 + T2 brief：
 - compose 有效窗口 = 成员 spec `date` 交集；成员缺 date 或交集为空 → 回退已发布日历；
 - strategy 有效窗口 = `doc.date`；`run_strategy` 在信号加载前过 guard；
-- registry/CLI 暴露 `--lockbox/--lockbox-reason`；`LockboxError` → 稳定错误码 + 指引；
+- host（无 `FACTORLAB_PIPELINE`）碰测试段 → `LOCKBOX_TEST_ONLY_FINAL`（零登记零产物）；
+- 流水线标记（`FACTORLAB_PIPELINE=1`）→ 每版本登记 1 行 final；同版本二次拒
+  （`LOCKBOX_FINAL_DUPLICATE`）；`FACTORLAB_RE_FINAL=1` 重测（cache 命中也声明本次访问）；
+- registry/CLI 不再暴露 `--lockbox/--lockbox-reason`；`LockboxError` → 稳定错误码 + 指引；
 - 产物挂 `sample`，`mark_result` 回填 `result_ref`。
 
 真实度：真 SQLite（沙箱 tmp）+ 真 CLI/registry/run 链；成员/信号产物为本地合成
@@ -50,7 +50,8 @@ _END = W.end
 @pytest.fixture(autouse=True)
 def _lockbox_enabled(monkeypatch):
     monkeypatch.setenv("FACTORLAB_LOCKBOX", "1")
-    monkeypatch.setenv("FACTORLAB_PIPELINE", "1")
+    monkeypatch.delenv("FACTORLAB_PIPELINE", raising=False)
+    monkeypatch.delenv("FACTORLAB_RE_FINAL", raising=False)
 
 
 # ================================================================
@@ -158,9 +159,9 @@ def test_compose_effective_window_is_member_intersection(tmp_path, monkeypatch):
     assert cli_main._compose_effective_window(spec, runs) is None
 
 
-def test_compose_member_intersection_is_role_passes_without_registration(
+def test_compose_member_intersection_is_passes_without_registration(
         tmp_path, monkeypatch):
-    """交集整段 < window_start → IS 放行、无 flag、零登记（union 口径会红）。"""
+    """交集整段 < window_start → IS 放行、零登记（union 口径会红）。"""
     spec_path, runs, db = _compose_world(
         tmp_path, monkeypatch,
         a=(_START - dt.timedelta(days=400), _START - dt.timedelta(days=100)),
@@ -173,12 +174,15 @@ def test_compose_member_intersection_is_role_passes_without_registration(
     summary = json.loads((runs / "composites" / "cx_lock" / "summary.json")
                          .read_text(encoding="utf-8"))
     assert summary["sample"]["role"] == "is"
-    # 终审裁定：is/off → 产物为结论证据（无需 final 登记）
     assert summary["sample"]["conclusion_eligible"] is True
 
 
-def test_compose_cross_lockbox_requires_intent(tmp_path, monkeypatch):
-    """有效窗口（交集）跨锁箱且无 --lockbox → 非零退出 + 稳定错误码 + 零产物/零登记。"""
+# ================================================================
+# host 碰测试段：拒（零登记零产物）
+# ================================================================
+
+def test_compose_host_test_segment_rejected_test_only_final(tmp_path, monkeypatch):
+    """有效窗口（交集）跨测试段且无流水线标记 → 稳定错误码 + 零产物/零登记。"""
     spec_path, runs, db = _compose_world(
         tmp_path, monkeypatch,
         a=(_START - dt.timedelta(days=401), _START + dt.timedelta(days=50)),
@@ -188,26 +192,26 @@ def test_compose_cross_lockbox_requires_intent(tmp_path, monkeypatch):
 
     out = strip_ansi(result.output)
     assert result.exit_code != 0
-    assert "LOCKBOX_INTENT_REQUIRED" in out
+    assert "LOCKBOX_TEST_ONLY_FINAL" in out
+    assert "xpipe" in out and "admit" in out
     assert "factorlab lockbox status" in out
     assert "flab lockbox" not in out
     assert _rows(db) == []
     assert not (runs / "composites" / "cx_lock" / "artifact.json").exists()
 
 
-def test_compose_requires_intent_when_member_window_missing(tmp_path, monkeypatch):
-    """成员缺 date → 回退 published days min/max（跨窗）→ 仍须 flag。"""
+def test_compose_requires_final_when_member_window_missing(tmp_path, monkeypatch):
+    """成员缺 date → 回退 published days min/max（跨窗）→ host 仍拒。"""
     spec_path, runs, db = _compose_world(tmp_path, monkeypatch, a=None, b=None)
 
     result = _compose(spec_path, runs)
 
-    out = strip_ansi(result.output)
     assert result.exit_code != 0
-    assert "LOCKBOX_INTENT_REQUIRED" in out
+    assert "LOCKBOX_TEST_ONLY_FINAL" in strip_ansi(result.output)
     assert _rows(db) == []
 
 
-def test_compose_requires_intent_when_member_windows_disjoint(tmp_path, monkeypatch):
+def test_compose_requires_final_when_member_windows_disjoint(tmp_path, monkeypatch):
     """成员 date 交集为空 → 同样回退全域（不静默取 union/一点）。"""
     spec_path, runs, db = _compose_world(
         tmp_path, monkeypatch,
@@ -217,75 +221,80 @@ def test_compose_requires_intent_when_member_windows_disjoint(tmp_path, monkeypa
     result = _compose(spec_path, runs)
 
     assert result.exit_code != 0
-    assert "LOCKBOX_INTENT_REQUIRED" in strip_ansi(result.output)
+    assert "LOCKBOX_TEST_ONLY_FINAL" in strip_ansi(result.output)
     assert _rows(db) == []
 
 
-def test_compose_exploration_registers_and_persists_sample(tmp_path, monkeypatch):
-    """exploration：登记行（command=compose）+ 盘上 summary.sample + result_ref。"""
+# ================================================================
+# 流水线标记：最终测试登记（每版本一次 + re-final 重测）
+# ================================================================
+
+def test_compose_pipeline_marker_registers_final_and_persists_sample(
+        tmp_path, monkeypatch):
+    """marker：登记行（command=compose）+ 盘上 summary.sample + result_ref。"""
+    monkeypatch.setenv("FACTORLAB_PIPELINE", "1")
     spec_path, runs, db = _compose_world(
         tmp_path, monkeypatch, a=(_START, _END), b=(_START, _END))
 
-    result = _compose(spec_path, runs, "--lockbox", "exploration",
-                      "--lockbox-reason", "摸边界")
+    result = _compose(spec_path, runs)
 
     assert result.exit_code == 0, result.output
     rows = _rows(db)
     assert len(rows) == 1
     row = rows[0]
     assert (row["kind"], row["window_id"], row["command"]) == (
-        "exploration", WINDOW_ID, "compose")
+        "final", WINDOW_ID, "compose")
     assert row["artifact"] == str(spec_path)
     out_dir = runs / "composites" / "cx_lock"
     summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
     assert summary["sample"]["access_id"] == row["access_id"]
     assert summary["sample"]["role"] == "lockbox"
-    # 终审裁定：exploration 产物 = 运行记录，不作为结论证据
-    assert summary["sample"]["conclusion_eligible"] is False
+    assert summary["sample"]["conclusion_eligible"] is True
     assert row["result_ref"] == str(out_dir)
 
 
-def test_compose_final_intent_marks_conclusion_eligible(tmp_path, monkeypatch):
-    """final：manifest sample.conclusion_eligible=true（与 exploration 反证）。"""
+def test_compose_same_version_second_final_rejected(tmp_path, monkeypatch):
+    """同版本第二次最终测试 → `LOCKBOX_FINAL_DUPLICATE`，登记行数不变。"""
+    monkeypatch.setenv("FACTORLAB_PIPELINE", "1")
     spec_path, runs, db = _compose_world(
         tmp_path, monkeypatch, a=(_START, _END), b=(_START, _END))
 
-    result = _compose(spec_path, runs, "--lockbox", "final",
-                      "--lockbox-reason", "固化终评")
+    first = _compose(spec_path, runs)
+    assert first.exit_code == 0, first.output
+    assert len(_rows(db)) == 1
 
-    assert result.exit_code == 0, result.output
-    rows = _rows(db)
-    assert len(rows) == 1 and rows[0]["kind"] == "final"
-    summary = json.loads((runs / "composites" / "cx_lock" / "summary.json")
-                         .read_text(encoding="utf-8"))
-    assert summary["sample"]["role"] == "lockbox"
-    assert summary["sample"]["conclusion_eligible"] is True
+    second = _compose(spec_path, runs)
+
+    assert second.exit_code != 0
+    assert "LOCKBOX_FINAL_DUPLICATE" in strip_ansi(second.output)
+    assert len(_rows(db)) == 1
 
 
-def test_compose_cache_hit_declares_current_access(tmp_path, monkeypatch):
-    """cache 命中（第二次 CLI compose）：盘上 sample 指向本次新登记，且本次回填
-    result_ref；首次登记行不被改写。整块 cache 分支去接线即红（summary 仍是首跑
-    access_id；随机 ULID 使硬编码必败）。"""
+def test_compose_re_final_cache_hit_declares_current_access(tmp_path, monkeypatch):
+    """`re-final` 重测（第二次 CLI compose）：登记新行 + cache 命中盘上 sample
+    指向本次新登记，且本次回填 result_ref；首次登记行不被改写。整块 cache 分支
+    去接线即红（summary 仍是首跑 access_id；随机 ULID 使硬编码必败）。"""
+    monkeypatch.setenv("FACTORLAB_PIPELINE", "1")
     spec_path, runs, db = _compose_world(
         tmp_path, monkeypatch, a=(_START, _END), b=(_START, _END))
     out_dir = runs / "composites" / "cx_lock"
 
-    first = _compose(spec_path, runs, "--lockbox", "exploration",
-                     "--lockbox-reason", "首跑")
+    first = _compose(spec_path, runs)
     assert first.exit_code == 0, first.output
     rows_first = _rows(db)
-    assert len(rows_first) == 1
+    assert len(rows_first) == 1 and rows_first[0]["kind"] == "final"
     assert rows_first[0]["result_ref"] == str(out_dir)
 
-    second = _compose(spec_path, runs, "--lockbox", "exploration",
-                      "--lockbox-reason", "缓存命中")
+    monkeypatch.setenv("FACTORLAB_RE_FINAL", "1")
+    second = _compose(spec_path, runs)
+
     assert second.exit_code == 0, second.output
     assert "cached=True" in strip_ansi(second.output)
-
     rows = _rows(db)
     assert len(rows) == 2
     current = rows[1]["access_id"]
     assert current != rows[0]["access_id"]
+    assert rows[1]["reason"].endswith("|re-final")
     summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
     assert summary["sample"]["access_id"] == current
     assert rows[1]["result_ref"] == str(out_dir)      # cache 路径同样回填本次产物
@@ -307,7 +316,7 @@ def test_compose_nested_composite_member_falls_back_to_full_calendar(
 
     out = strip_ansi(result.output)
     assert result.exit_code != 0
-    assert "LOCKBOX_INTENT_REQUIRED" in out
+    assert "LOCKBOX_TEST_ONLY_FINAL" in out
     # 回退窗口 = [min(published days) ~ data_end]；若按"跳过 composite 成员"
     # 只取 factor_A 会在 [W.start~W.end] 判窗——此处两个端点断言即反证。
     assert str(min(DAYS)) in out
@@ -365,7 +374,8 @@ def test_run_calendar_defaults_to_platform_health_root(tmp_path, monkeypatch):
 # strategy：doc.date 窗口与产物声明
 # ================================================================
 
-def test_strategy_cross_lockbox_requires_intent(tmp_path, monkeypatch):
+def test_strategy_host_test_segment_rejected(tmp_path, monkeypatch):
+    """host 碰测试段：信号加载前直接拒，零登记。"""
     db = _strategy_sandbox(tmp_path, monkeypatch)
     doc_path = _strategy_doc_file(tmp_path, start=_START - dt.timedelta(days=10),
                                   end=_END)
@@ -376,36 +386,33 @@ def test_strategy_cross_lockbox_requires_intent(tmp_path, monkeypatch):
         run_strategy(doc, None, dataset=None, results_dir=tmp_path / "results",
                      doc_path=doc_path)
 
-    assert e.value.code == "LOCKBOX_INTENT_REQUIRED"
+    assert e.value.code == "LOCKBOX_TEST_ONLY_FINAL"
     assert _rows(db) == []
 
 
-def test_strategy_exploration_registers_window(tmp_path, monkeypatch):
-    """带 exploration：登记先于信号加载落库（后续因无产物必败，非锁箱异常）。"""
+def test_strategy_explicit_final_mode_without_marker_rejected(
+        tmp_path, monkeypatch):
+    """显式 final_mode=True 但缺流水线标记 → `LOCKBOX_PIPELINE_REQUIRED`，零登记。"""
     db = _strategy_sandbox(tmp_path, monkeypatch)
     doc_path = _strategy_doc_file(tmp_path, start=_START, end=_END)
     doc = load_strategy_doc(doc_path)
 
     from factorlab.app.strategy.run import run_strategy
-    with pytest.raises(ValueError):   # 信号产物缺失（非 LockboxError）
+    with pytest.raises(LockboxError) as e:
         run_strategy(doc, None, dataset=None, results_dir=tmp_path / "results",
-                     doc_path=doc_path,
-                     lockbox_intent="exploration", lockbox_reason="单元验证")
+                     doc_path=doc_path, final_mode=True)
 
-    rows = _rows(db)
-    assert len(rows) == 1
-    row = rows[0]
-    assert (row["kind"], row["window_id"], row["command"]) == (
-        "exploration", WINDOW_ID, "strategy run")
-    assert row["artifact"] == str(doc_path)
-    assert row["result_ref"] is None
+    assert e.value.code == "LOCKBOX_PIPELINE_REQUIRED"
+    assert _rows(db) == []
 
 
-def test_strategy_exploration_manifest_sample_and_result_ref(tmp_path, monkeypatch):
-    """真链（M8 回测边界替换为记录桩）：策略 manifest 挂 sample + result_ref 回填。"""
+def test_strategy_final_mode_manifest_sample_and_result_ref(tmp_path, monkeypatch):
+    """marker：真链（M8 回测边界替换为记录桩）——final 登记 + manifest sample
+    挂载 + result_ref 回填。"""
     import factorlab.app.strategy.run as SR
     from factorlab.app.strategy.run import run_strategy
 
+    monkeypatch.setenv("FACTORLAB_PIPELINE", "1")
     db = _strategy_sandbox(tmp_path, monkeypatch)
     results = tmp_path / "results"
     signal_dates = (_START, _START + dt.timedelta(days=1), _START + dt.timedelta(days=2))
@@ -424,63 +431,34 @@ def test_strategy_exploration_manifest_sample_and_result_ref(tmp_path, monkeypat
                         lambda backtest, out_dir: called.setdefault("saved", out_dir))
 
     res = run_strategy(doc, None, dataset=None, results_dir=results,
-                       doc_path=doc_path, lockbox_intent="exploration",
-                       lockbox_reason="单元验证")
+                       doc_path=doc_path)
 
     manifest = json.loads((res.out_dir / "strategy_manifest.json")
                           .read_text(encoding="utf-8"))
     rows = _rows(db)
     assert len(rows) == 1
+    assert (rows[0]["kind"], rows[0]["command"]) == ("final", "strategy run")
+    assert rows[0]["window_id"] == WINDOW_ID
     assert manifest["sample"]["access_id"] == rows[0]["access_id"]
     assert manifest["sample"]["role"] == "lockbox"
     assert manifest["sample"]["window_id"] == WINDOW_ID
-    # 终审裁定：exploration 策略产物 = 运行记录，不作为结论证据
-    assert manifest["sample"]["conclusion_eligible"] is False
+    assert manifest["sample"]["conclusion_eligible"] is True
     assert rows[0]["result_ref"] == str(res.out_dir)
     assert called["saved"] == res.out_dir   # 回填发生在全部产物落盘之后
 
 
-def test_strategy_final_intent_marks_conclusion_eligible(tmp_path, monkeypatch):
-    """final：策略 manifest sample.conclusion_eligible=true（与 exploration 反证）。"""
-    import factorlab.app.strategy.run as SR
-    from factorlab.app.strategy.run import run_strategy
-
-    db = _strategy_sandbox(tmp_path, monkeypatch)
-    results = tmp_path / "results"
-    signal_dates = (_START, _START + dt.timedelta(days=1), _START + dt.timedelta(days=2))
-    fx.write_factor(results, "ws7_doc_chain", dates=signal_dates)
-    doc_path = _strategy_doc_file(tmp_path, start=_START, end=_END)
-    doc = load_strategy_doc(doc_path)
-
-    monkeypatch.setattr(SR, "run_backtest", lambda target, execution, rd, **kw: (
-        SimpleNamespace(nav_series=None, artifacts=[])))
-    monkeypatch.setattr(SR, "save_backtest_result",
-                        lambda backtest, out_dir: None)
-
-    res = run_strategy(doc, None, dataset=None, results_dir=results,
-                       doc_path=doc_path, lockbox_intent="final",
-                       lockbox_reason="固化终评")
-
-    manifest = json.loads((res.out_dir / "strategy_manifest.json")
-                          .read_text(encoding="utf-8"))
-    assert manifest["sample"]["role"] == "lockbox"
-    assert manifest["sample"]["conclusion_eligible"] is True
-    rows = _rows(db)
-    assert len(rows) == 1 and rows[0]["kind"] == "final"
-
-
-def test_strategy_run_registry_and_handler_maps_lockbox_error(tmp_path, monkeypatch):
-    """registry 暴露/解析两参数；handler 捕获 LockboxError → 信封稳定错误码 + 指引。"""
+def test_strategy_run_registry_has_no_lockbox_knobs_and_maps_error(
+        tmp_path, monkeypatch):
+    """registry 不暴露锁箱参数；parser 拒收；handler 捕获 LockboxError → 稳定错误码。"""
     from factorlab.research import registry
     from factorlab.research import strategy as S
 
     spec = registry.COMMANDS["strategy.run"]
-    assert {"lockbox", "lockbox_reason"} <= {p.name for p in spec.params}
-    assert spec.defaults["lockbox"] is None
-    assert spec.defaults["lockbox_reason"] is None
-    ns = registry.build_parser(spec).parse_args(
-        ["d.yaml", "--lockbox", "exploration", "--lockbox-reason", "摸边界"])
-    assert (ns.lockbox, ns.lockbox_reason) == ("exploration", "摸边界")
+    assert not [p for p in spec.params if "lockbox" in p.name]
+    assert "lockbox" not in spec.defaults and "lockbox_reason" not in spec.defaults
+    parser = registry.build_parser(spec)
+    with pytest.raises(SystemExit):
+        parser.parse_args(["d.yaml", "--lockbox", "final"])
 
     results = tmp_path / "results"
     (results / "x").mkdir(parents=True)
@@ -493,7 +471,7 @@ def test_strategy_run_registry_and_handler_maps_lockbox_error(tmp_path, monkeypa
 
     def fake_run_strategy(doc, rd, **kw):
         captured.update(kw)
-        raise LockboxError("LOCKBOX_INTENT_REQUIRED", "评估窗口与锁箱相交")
+        raise LockboxError("LOCKBOX_TEST_ONLY_FINAL", "评估窗口与锁箱相交")
 
     monkeypatch.setattr(S, "run_strategy", fake_run_strategy)
     monkeypatch.setattr(S, "guard_heavy", lambda argv, *, wait=False: ({}, "slot"))
@@ -509,14 +487,12 @@ def test_strategy_run_registry_and_handler_maps_lockbox_error(tmp_path, monkeypa
 
     env = S.strategy_run(argparse.Namespace(
         doc_path=doc_path, signal=None, dry_run=False, out_dir=None, wait=False,
-        json=True, pretty=False, accept_quality=None, override_reason=None,
-        lockbox="exploration", lockbox_reason="摸边界"))
+        json=True, pretty=False, accept_quality=None, override_reason=None))
     assert env.ok is False
-    assert env.error["code"] == "LOCKBOX_INTENT_REQUIRED", env.error
+    assert env.error["code"] == "LOCKBOX_TEST_ONLY_FINAL", env.error
     assert "factorlab lockbox status" in env.error["hint"]
     assert "flab lockbox" not in env.error["hint"]
-    assert captured["lockbox_intent"] == "exploration"
-    assert captured["lockbox_reason"] == "摸边界"
+    assert "lockbox_intent" not in captured and "lockbox_reason" not in captured
     assert captured["doc_path"] == doc_path
 
 
@@ -531,7 +507,7 @@ def test_env_off_skips_compose_and_strategy(tmp_path, monkeypatch):
         a=(_START - dt.timedelta(days=401), _START + dt.timedelta(days=50)),
         b=(_START - dt.timedelta(days=100), _START + dt.timedelta(days=50)))
 
-    result = _compose(spec_path, runs)   # 跨箱无 flag：off → 直接 IS 放行
+    result = _compose(spec_path, runs)   # 跨箱无 marker：off → 直接 IS 放行
     assert result.exit_code == 0, result.output
     assert _rows(db) == []
 
