@@ -185,7 +185,7 @@ def compute_missing_members(*, allow_missing: bool = False,
                             member_names: list[str] | None = None,
                             extra_members: list[tuple[str, Path]] = (),
                             log: Callable[[str], None] = print) -> dict:
-    """成员体检：缺 `_5y` 产物的成员自动补算（幂等；锁箱 final 登记）。
+    """成员体检：缺 `_5y` 产物的成员自动补算（幂等；流水线标记 → CLI 自动 final 登记）。
 
     - 成员集合 = `member_names`（显式清单，缺省=参考库全量）∪ `extra_members`（config.factors）；
     - 返回 {"members", "present", "computed", "excluded", "errors"}；
@@ -215,10 +215,10 @@ def compute_missing_members(*, allow_missing: bool = False,
             continue
         variant = ensure_variant_spec(name, spec, variants_dir=variants_dir)
         out_dir = Path(runs) / f"{name}_5y"
+        # R42/T2：CLI 已无 `--lockbox*`；final_mode/理由由 `FACTORLAB_PIPELINE=1`
+        # （`_member_env`）推导，CLI 侧自动登记 `pipeline final test: <name>`。
         argv = [str(factorlab_bin), "research", "factor", "run", str(variant),
-                "--no-backtest", "--output-dir", str(out_dir),
-                "--lockbox", "final",
-                "--lockbox-reason", f"ref-autocompute:{name}"]
+                "--no-backtest", "--output-dir", str(out_dir)]
         log(f"[ref-sync] 补算 {name}（{scale}）：{' '.join(argv)}")
         proc = runner(argv, _member_env())
         if getattr(proc, "returncode", 1) != 0 or not signal.is_file():

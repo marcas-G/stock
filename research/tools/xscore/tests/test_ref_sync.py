@@ -74,7 +74,9 @@ def _call(fx: dict, runner) -> dict:
         log=lambda _m: None)
 
 
-def test_only_missing_runs_with_lockbox_final(tmp_path: Path):
+def test_only_missing_runs_via_pipeline_marker(tmp_path: Path):
+    """缺产物成员补算：argv 无 `--lockbox*`（T2 已删该 flag）；final 登记靠
+    `FACTORLAB_PIPELINE=1`（CLI 自动 final_mode，理由 `pipeline final test: <name>`）。"""
     fx = _mk_fake(tmp_path)
     _seed_signal(fx["runs"], "alpha")          # 已有 → 跳过
     _seed_spec(fx["qr"], "beta")               # 缺产物 + 有 spec → 补算
@@ -87,11 +89,12 @@ def test_only_missing_runs_with_lockbox_final(tmp_path: Path):
     assert argv == [
         "/fake/factorlab", "research", "factor", "run",
         str(fx["variants"] / "beta_5y.yaml"), "--no-backtest",
-        "--output-dir", str(fx["runs"] / "beta_5y"),
-        "--lockbox", "final", "--lockbox-reason", "ref-autocompute:beta"]
+        "--output-dir", str(fx["runs"] / "beta_5y")]
+    assert not any(a.startswith("--lockbox") for a in argv), \
+        "CLI 已无 --lockbox*；不得再拼该 flag（否则 USAGE 拒绝，补算链路断）"
     assert env["FACTORLAB_ST_DEGRADE"] == "allow"
     assert env["FACTORLAB_DATA_BACKEND"] == "ch", "宿主直跑必须显式 ch 后端"
-    assert env["FACTORLAB_PIPELINE"] == "1", "流水线补算必须打标（E1）"
+    assert env["FACTORLAB_PIPELINE"] == "1", "流水线补算必须打标（final_mode 推导依据）"
     variant = yaml.safe_load((fx["variants"] / "beta_5y.yaml").read_text())
     assert (variant["date"]["start"], variant["date"]["end"]) == dp.REF_WINDOW
 
@@ -183,7 +186,7 @@ def test_member_names_and_extra_factors(tmp_path: Path):
     assert res["members"] == ["alpha", "newf"]
     assert res["present"] == ["alpha"] and res["computed"] == ["newf"]
     assert runner.calls[0][0][4] == str(fx["variants"] / "newf_5y.yaml")
-    assert "ref-autocompute:newf" in runner.calls[0][0]
+    assert not any(a.startswith("--lockbox") for a in runner.calls[0][0])
 
 
 def test_extra_factor_spec_missing_reason(tmp_path: Path):

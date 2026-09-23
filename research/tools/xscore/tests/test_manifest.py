@@ -9,18 +9,21 @@
   有 state → 按 panel 区间与窗口起点判 is/mixed/lockbox，window_id 取台账 state；
   panel 区间不可得 → 回退已发布日历 min/max；
   state 窗口陈旧（跨季未 roll）→ 用 state 窗口声明而非报错；
-- `lockbox_register` / `lockbox_finalize`（T12b + 修复轮1）：流水线 config=候选——
-  起点钉死身份（panel `file_sig` + config **内容 sha**），碰箱（is 除外）幂等登记 final
-  （同候选复用 access_id；配额不足响亮报错并指引 `factorlab lockbox status`）；
+- `lockbox_register` / `lockbox_finalize`（R42 final-test-once）：流水线 config=候选——
+  起点钉死身份（panel `file_sig` + config **内容 sha**），碰箱（is 除外）登记 final
+  （每版本一次：同版本重复时 `replay_ok`（run 产物已在）→ 复用既有 access_id、
+  零新增、留"复用"日志；否则 `LOCKBOX_FINAL_DUPLICATE` 并提示改版本/`FACTORLAB_RE_FINAL=1`；
+  `FACTORLAB_RE_FINAL=1` → 操作员重测：新登记行 + reason 追加 `|re-final`）；
   收尾用起点 context 写 manifest（**不得重算 fp**：首尾之间 panel 变化仍单登记单 id）；
   access_id 写入 run/campaign manifest 的 `access_ids`（campaign 既有 ∪ 新 id，不丢旧），
   `result_ref` 回填 run out 目录；`FACTORLAB_LOCKBOX=off`/无 state → 不读不写台账
-  （unknown/null/[]）；stale state → 抛 `LOCKBOX_WINDOW_STALE`（不静默解封）；
-  panel 缺失 → 拒以 `artifact_sha256=missing` 登记（fail-fast）；is 窗口 → 零登记；
+  （unknown/null/[]，manifest **无** `lockbox_off` 留痕键）；stale state → 抛
+  `LOCKBOX_WINDOW_STALE`（不静默解封）；panel 缺失 → 拒以 `artifact_sha256=missing`
+  登记（fail-fast）；is 窗口 → 零登记；
 - 禁止行为：结果不得是硬编码——roll 前后、不同面板区间输出必须变化。
 
 突变必杀：`lockbox_sample` 换成返回常量、`write_manifest` 不落盘、
-`lockbox_register` 不登记/收尾重算 fp/写 ids 丢新 id → 对应测试失败。
+`lockbox_register` 不登记/收尾重算 fp/写 ids 丢新 id/重复版本静默复用 → 对应测试失败。
 """
 from __future__ import annotations
 
@@ -202,12 +205,13 @@ def _config(tmp_path, name="a.yaml", body="model: m0\n") -> pathlib.Path:
 
 
 def _begin(tmp_path, db, health, *, config="a.yaml", body="model: m0\n",
-           panel_sig="sig-1", panel=None, today=dt.date(2026, 9, 21)) -> dict:
+           panel_sig="sig-1", panel=None, today=dt.date(2026, 9, 21),
+           replay_ok=False) -> dict:
     panel = panel or _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
     return lib.lockbox_register(
         panel=panel, panel_sig=panel_sig,
         config_path=_config(tmp_path, config, body),
-        db_path=db, health_root=health, today=today)
+        db_path=db, health_root=health, today=today, replay_ok=replay_ok)
 
 
 def _finish(db, *, out, ctx, result_ref=None) -> dict:
@@ -256,7 +260,8 @@ def test_lockbox_register_finalize_registers_final_and_merges_ids(tmp_path):
     assert json.loads(campaign.read_text(encoding="utf-8")) == doc
 
 
-def test_lockbox_register_finalize_idempotent_reuses_id(tmp_path):
+def test_lockbox_register_replay_reuses_id_without_new_registration(tmp_path, capsys):
+    """产物已在（replay_ok）→ 复用既有 access_id：零新增、不报错、日志含复用。"""
     health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
     db = _ledger(tmp_path, LockboxWindow("2026Q2", dt.date(2025, 7, 1),
                                          dt.date(2026, 7, 3)))
@@ -264,18 +269,57 @@ def test_lockbox_register_finalize_idempotent_reuses_id(tmp_path):
     out = tmp_path / "camp" / "run"
 
     ctx1 = _begin(tmp_path, db, health)
-    _finish(db, out=out, ctx=ctx1)
+    _finish(db, out=out, ctx=ctx1, result_ref=str(out))
     rows1 = _rows(db)
     assert len(rows1) == 1
-    ctx2 = _begin(tmp_path, db, health)
-    doc2 = _finish(db, out=out, ctx=ctx2, result_ref=str(out))
-    rows2 = _rows(db)
+    capsys.readouterr()
 
-    assert len(rows2) == 1, "同候选第二次调用不得新增登记行"
+    ctx2 = _begin(tmp_path, db, health, replay_ok=True)
+    rows2 = _rows(db)
+    assert len(rows2) == 1, "replay 不得新增登记行"
     assert ctx2["access_id"] == ctx1["access_id"] == rows1[0]["access_id"], "复用 access_id"
+    assert "复用" in capsys.readouterr().out, "replay 必须留可观察日志"
+    doc2 = _finish(db, out=out, ctx=ctx2, result_ref=str(out))
     assert rows2[0]["result_ref"] == str(out)
     assert doc2["access_ids"] == ["OLD-1", rows1[0]["access_id"]]
     assert doc2["access_ids"].count(rows1[0]["access_id"]) == 1, "不得重复计入 id"
+
+
+def test_lockbox_register_duplicate_without_products_raises(tmp_path):
+    """同版本二跑且产物不在（非 replay）→ LOCKBOX_FINAL_DUPLICATE（指引重测），零新增。"""
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    db = _ledger(tmp_path, LockboxWindow("2026Q2", dt.date(2025, 7, 1),
+                                         dt.date(2026, 7, 3)))
+
+    ctx1 = _begin(tmp_path, db, health)
+    assert ctx1["access_id"] and len(_rows(db)) == 1
+
+    with pytest.raises(LockboxError) as ei:
+        _begin(tmp_path, db, health)
+    assert ei.value.code == "LOCKBOX_FINAL_DUPLICATE"
+    assert "FACTORLAB_RE_FINAL=1" in str(ei.value), "重复拒绝必须给出重测逃生提示"
+    assert len(_rows(db)) == 1, "重复拒绝不得写入新登记"
+
+
+def test_lockbox_register_re_final_env_appends_audit_row(tmp_path, monkeypatch):
+    """FACTORLAB_RE_FINAL=1（操作员重测）：即使产物在也新登记一行，reason 带 |re-final。"""
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    db = _ledger(tmp_path, LockboxWindow("2026Q2", dt.date(2025, 7, 1),
+                                         dt.date(2026, 7, 3)))
+    _campaign(tmp_path)
+    out = tmp_path / "camp" / "run"
+
+    ctx1 = _begin(tmp_path, db, health)
+    _finish(db, out=out, ctx=ctx1, result_ref=str(out))
+
+    monkeypatch.setenv("FACTORLAB_RE_FINAL", "1")
+    ctx2 = _begin(tmp_path, db, health, replay_ok=True)
+    rows = _rows(db)
+
+    assert len(rows) == 2, "RE_FINAL 优先于 replay：显式重测必须新增登记行"
+    assert ctx2["access_id"] != ctx1["access_id"]
+    assert rows[-1]["reason"].endswith("|re-final"), "重测登记必须留审计标记"
+    assert rows[-1]["fingerprint"] == ctx1["fingerprint"], "仍是同版本重测"
 
 
 def test_lockbox_register_finalize_pins_identity_across_panel_rewrite(tmp_path):
@@ -299,27 +343,6 @@ def test_lockbox_register_finalize_pins_identity_across_panel_rewrite(tmp_path):
     assert rows[0]["access_id"] == ctx["access_id"]
     assert doc["access_ids"] == ["OLD-1", ctx["access_id"]]
     assert doc["access_ids"].count(ctx["access_id"]) == 1
-
-
-def test_lockbox_register_quota_exhausted_raises_with_status_hint(tmp_path):
-    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
-    db = tmp_path / "ledger.sqlite"
-    conn = store.connect(db)
-    store.roll(conn, window=LockboxWindow("2026Q2", dt.date(2025, 7, 1),
-                                          dt.date(2026, 7, 3)), quota_final=1)
-    conn.close()
-
-    out1 = tmp_path / "c1" / "run"
-    _finish(db, out=out1, ctx=_begin(tmp_path, db, health, body="a: 1\n"))
-    assert len(_rows(db)) == 1
-
-    out2 = tmp_path / "c2" / "run"
-    with pytest.raises(LockboxError) as ei:
-        _begin(tmp_path, db, health, config="second.yaml", body="b: 2\n")
-    assert ei.value.code == "LOCKBOX_QUOTA_EXCEEDED"
-    assert "factorlab lockbox status" in str(ei.value), "配额报错必须指引 status 命令"
-    assert len(_rows(db)) == 1, "配额耗尽不得写入新登记"
-    assert not (out2 / "manifest.json").is_file(), "登记失败不得落 manifest"
 
 
 def test_lockbox_register_no_state_unknown_zero_registration(tmp_path):
@@ -367,8 +390,9 @@ def test_lockbox_register_missing_panel_fails_fast(tmp_path):
     assert _rows(db) == []
 
 
-def test_lockbox_env_off_skips_ledger_io(tmp_path, monkeypatch):
-    """FACTORLAB_LOCKBOX=off → 与无 state 同：不读/不写台账、unknown/null/[]。"""
+def test_lockbox_env_off_skips_ledger_io_without_trace_field(tmp_path, monkeypatch):
+    """FACTORLAB_LOCKBOX=off → 与无 state 同：不读/不写台账、unknown/null/[]；
+    R42 起不再写 `lockbox_off` 留痕键（ctx/manifest 均无）。"""
     health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
     db = tmp_path / "never-created.sqlite"
     monkeypatch.setenv("FACTORLAB_LOCKBOX", "off")
@@ -379,8 +403,12 @@ def test_lockbox_env_off_skips_ledger_io(tmp_path, monkeypatch):
 
     assert ctx["window_id"] is None and ctx["sample_role"] == "unknown"
     assert ctx["access_id"] is None
+    assert "lockbox_off" not in ctx, "off 留痕字段已删（R42）"
     assert not db.exists(), "off 不得连台账（connect 会建 schema/文件）"
     assert doc["access_ids"] == [] and doc["sample_role"] == "unknown"
+    assert "lockbox_off" not in doc, "manifest 不得再写 lockbox_off"
+    run_doc = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert "lockbox_off" not in run_doc
 
 
 def test_lockbox_register_stale_state_fails_with_roll_hint(tmp_path):
@@ -625,6 +653,46 @@ def test_flows_pins_candidate_across_panel_rewrite(tmp_path, monkeypatch):
     camp_doc = json.loads(campaign.read_text(encoding="utf-8"))
     assert camp_doc["access_ids"] == ["OLD-1", rows[0]["access_id"]]
     assert camp_doc["access_ids"].count(rows[0]["access_id"]) == 1
+
+
+def test_flows_replay_duplicate_and_re_final(tmp_path, monkeypatch, capsys):
+    """流水线接线（R42）：首跑登记 1 行；同 config 二跑（产物在）→ replay 零新增 + 日志复用；
+    产物被删后二跑 → DUPLICATE；`FACTORLAB_RE_FINAL=1` → 新增行（reason 带 |re-final）。"""
+    flows = _load_flows(monkeypatch)
+    monkeypatch.setattr(flows.lib, "git_commit", lambda: "feedface")
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    db = _ledger(tmp_path, LockboxWindow("2026Q2", dt.date(2025, 7, 1),
+                                         dt.date(2026, 7, 3)))
+    _wire_ledger(monkeypatch, flows, db, health)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    out = tmp_path / "camp" / "run"
+    out.mkdir(parents=True)
+    cfg_path = tmp_path / "cfg.yaml"
+    cfg_path.write_text(yaml.safe_dump(
+        {"panel": str(panel), "out": str(out), "data": {"ensure": False},
+         "groups": {"g": "*"}, "models": ["M0a"]}), encoding="utf-8")
+    monkeypatch.setattr(flows, "_run", lambda step: None)
+    monkeypatch.setattr(flows, "_resolve_groups", lambda cfg: {"g": [0]})
+
+    flows.xscore_pipeline(str(cfg_path))
+    assert len(_rows(db)) == 1, "首跑登记 final 1 行"
+
+    capsys.readouterr()
+    flows.xscore_pipeline(str(cfg_path))
+    assert len(_rows(db)) == 1, "产物在：同 config 二跑 replay 零新增"
+    assert "复用" in capsys.readouterr().out, "replay 必须留日志（可观察）"
+
+    (out / "manifest.json").unlink()
+    with pytest.raises(LockboxError) as ei:
+        flows.xscore_pipeline(str(cfg_path))
+    assert ei.value.code == "LOCKBOX_FINAL_DUPLICATE"
+    assert len(_rows(db)) == 1, "产物被删的重复版本不得静默复用"
+
+    monkeypatch.setenv("FACTORLAB_RE_FINAL", "1")
+    flows.xscore_pipeline(str(cfg_path))
+    rows = _rows(db)
+    assert len(rows) == 2, "RE_FINAL 操作员重测：新增登记行"
+    assert rows[-1]["reason"].endswith("|re-final")
 
 
 def test_flows_stale_state_fails_before_compute(tmp_path, monkeypatch):

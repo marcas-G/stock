@@ -8,10 +8,12 @@ DAG：
 - portfolio 节点对信号做周频长多评估（T+1 开盘 / T 日收盘 × 全市场 / Q1-Q3）；
 - Prefect 缓存键 = 面板指纹 + 分组列 + 模型 + 折参数 + 代码指纹 → 输入不变则秒级跳过；
 - 计算 step 以 **platform venv** 子进程执行（依赖隔离）；本流程只编排；
-- flow 开始锁箱判定（T12b）：config=候选，起点钉死身份（panel 签名 + config **内容 sha**），
-  碰箱即登记 **final**（同候选幂等复用；收尾复用起点 fp，不重算）；
+- flow 开始锁箱判定（R42）：config=版本，起点钉死身份（panel 签名 + config **内容 sha**），
+  碰箱即登记 **final**（每版本一次）：同版本重复时 run 产物已在 → **replay 复用**
+  （零新增、留日志），产物被删 → `LOCKBOX_FINAL_DUPLICATE`；`FACTORLAB_RE_FINAL=1`
+  操作员重测 → 新登记留 `|re-final` 审计（收尾复用起点 fp，不重算）；
   `off`/无 state 不读不写台账（unknown/[]；roll 由 controller 执行）；
-  配额不足/stale/panel 缺失均在计算前 fail fast（指引 `factorlab lockbox status`/`roll`）；
+  stale/panel 缺失均在计算前 fail fast（指引 `factorlab lockbox status`/`roll`）；
 - flow 收尾写/刷新 `<out>/manifest.json` **并双写 campaign 级 `<out>/../manifest.json`**
   （T10 锁箱纪律：platform_commit/panel_sig/config_path/window_id/sample_role/access_ids；
   已有字段保留，`access_ids` = 既有 ∪ 本次登记 id），并把 `result_ref` 回填为该 run 目录。
@@ -212,14 +214,19 @@ def _base_updates(cfg: dict) -> dict:
 
 def _register_lockbox(cfg: dict) -> dict:
     """flow 开始：钉死候选身份（panel 签名 + config 内容 sha）→ 碰箱登记 final →
-    写 manifest（fail-fast：配额/stale/panel 缺失都在计算前报错）。
+    写 manifest（fail-fast：stale/重复版本/panel 缺失都在计算前报错）。
+
+    replay 判定：`<out>/manifest.json` 已在（本 config 跑过并有产物）→ 传
+    `replay_ok=True`，同版本复用既有登记（不新增行）；产物被删 → strict
+    `LOCKBOX_FINAL_DUPLICATE`；`FACTORLAB_RE_FINAL=1` 优先（操作员重测留痕）。
 
     返回起点 context；收尾 `_write_manifest(cfg, ctx)` **必须复用**（不得重算 fp，
-    否则首尾之间 panel 变化会双登记/双耗配额）。
+    否则首尾之间 panel 变化会双登记）。
     """
     out = Path(cfg["out"])
     ctx = lib.lockbox_register(panel=Path(cfg["panel"]), panel_sig=cfg["panel_sig"],
-                               config_path=cfg["config_path"])
+                               config_path=cfg["config_path"],
+                               replay_ok=(out / "manifest.json").is_file())
     lib.lockbox_finalize(ctx, run_manifest=out / "manifest.json",
                          campaign_manifest=out.parent / "manifest.json",
                          base_updates=_base_updates(cfg))

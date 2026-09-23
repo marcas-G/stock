@@ -237,11 +237,12 @@ def lockbox_sample(*, panel_start: dt.date | None, panel_end: dt.date | None,
 
 
 def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
+                     replay_ok: bool = False,
                      db_path: Path | None = None, health_root: Path | None = None,
                      today: dt.date | None = None,
                      panel_start: dt.date | None = None,
                      panel_end: dt.date | None = None) -> dict:
-    """T12b flow 起点：钉死候选身份 + 碰箱幂等登记 final；返回收尾 context。
+    """R42 flow 起点：钉死候选身份 + 碰箱登记 final（每版本一次；replay 复用）。
 
     身份（**起点钉死，收尾不得重算**）：
     `artifact_sha256 = file_sig(panel)`（stat 签名）、config 部分 = **config 文件内容 sha**
@@ -250,11 +251,16 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
     "panel_sig": panel_sig}, window_id, kind="final")`。
 
     - `FACTORLAB_LOCKBOX ∈ {0,off,false}` → 与无 state 同：不读/不写台账、
-      `window_id=None`、`sample_role="unknown"`、`access_id=None`；
+      `window_id=None`、`sample_role="unknown"`、`access_id=None`（不再写 `lockbox_off`）；
     - 无 state：不登记、不初始化（真实 roll 由 controller 执行）；
-    - `is`（面板整段早于窗口起点）：不登记；`mixed`/`lockbox`：`require_final` 命中
-      复用 access_id，缺失才 `register_access(kind="final", reason="pipeline:<config>")`；
-      配额不足 → `LOCKBOX_QUOTA_EXCEEDED`，消息指引 `factorlab lockbox status`；
+    - `is`（面板整段早于窗口起点）：不登记；
+    - `mixed`/`lockbox`：同版本已有 final 登记时——
+      ① `FACTORLAB_RE_FINAL=1` → 操作员重测：新登记（`reason` 追加 `|re-final`）；
+      ② 否则 `replay_ok=True`（run 产物已在）→ 复用既有 `access_id`：不登记、不报错，
+        打印"复用既有最终测试（replay）"；
+      ③ 否则 → `LOCKBOX_FINAL_DUPLICATE`（改 config/参数=新版本，或
+        `FACTORLAB_RE_FINAL=1` 重测）；未命中 → `register_access(kind="final",
+      reason="pipeline:<config>")`（无配额）；
     - 碰箱登记而 panel/config 文件缺失（身份=missing）→ `FileNotFoundError`；
     - stale state → `current_window` 原样抛 `LOCKBOX_WINDOW_STALE`（消息指引
       `factorlab lockbox roll`），不得按旧窗静默登记。
@@ -267,7 +273,6 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
                            "config_sha": file_content_sha(config_path),
                            "panel_sig": str(panel_sig)}
     if lockbox_env_disabled():
-        ctx["lockbox_off"] = True   # E5：纪律关闭显式留痕
         return ctx
     if panel_start is None or panel_end is None:
         dates = panel_dates(panel)
@@ -289,14 +294,28 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
             raise FileNotFoundError(
                 f"config 文件缺失，无法钉死候选指纹：{config_path}")
         _ensure_platform_src()
-        from factorlab.core.lockbox import candidate_fingerprint
+        from factorlab.adapters import lockbox_store as store
+        from factorlab.core.lockbox import LockboxError, candidate_fingerprint
         params = {"config": ctx["config_sha"], "panel_sig": ctx["panel_sig"]}
         fp = candidate_fingerprint(artifact_sha256=artifact, params=params,
                                    window_id=window.window_id, kind="final")
         ctx["fingerprint"] = fp
+        re_final = os.environ.get("FACTORLAB_RE_FINAL", "").strip() == "1"
+        if store.final_exists(conn, window.window_id, fp) and not re_final:
+            if replay_ok:
+                ctx["access_id"] = store.require_final(
+                    conn, window_id=window.window_id, fingerprint=fp)
+                print(f"[lockbox] 复用既有最终测试（replay）：window="
+                      f"{window.window_id} access_id={ctx['access_id']}")
+                return ctx
+            raise LockboxError(
+                "LOCKBOX_FINAL_DUPLICATE",
+                f"版本 {fp[:12]}… 在窗口 {window.window_id} 已做过最终测试"
+                "（每版本一次）：改 config/参数=新版本可再测；或设 "
+                "FACTORLAB_RE_FINAL=1 重测（审计留痕）")
         ctx["access_id"] = _pipeline_final_access(conn, fp=fp, params=params,
                                                   panel=panel, config_path=config_path,
-                                                  window=window)
+                                                  window=window, re_final=re_final)
         return ctx
     finally:
         conn.close()
@@ -328,37 +347,34 @@ def lockbox_finalize(ctx: Mapping[str, Any], *, run_manifest: Path,
     updates.update({"window_id": ctx.get("window_id"),
                     "sample_role": ctx.get("sample_role"),
                     "access_ids": [access_id] if access_id else []})
-    if ctx.get("lockbox_off"):
-        updates["lockbox_off"] = True
     write_manifest_pair(run_manifest, campaign_manifest, updates)
     return json.loads(Path(campaign_manifest).read_text(encoding="utf-8"))
 
 
 def _pipeline_final_access(conn, *, fp: str, params: Mapping[str, Any],
-                           panel: Path, config_path: str, window) -> str:
-    """流水线 final 登记：先查复用（幂等），缺则登记；配额错误附 status 指引。"""
+                           panel: Path, config_path: str, window,
+                           re_final: bool = False) -> str:
+    """流水线 final 登记（strict 每版本一次；`re_final` 操作员重测审计留痕）。
+
+    同版本已有登记且非 `re_final` → 原样抛 `LOCKBOX_FINAL_DUPLICATE`（附
+    改版本/`FACTORLAB_RE_FINAL=1` 重测指引）；重复即拒，不自动回查复用。
+    """
     _ensure_platform_src()
     from factorlab.adapters import lockbox_store as store
     from factorlab.core.lockbox import LockboxError
 
     try:
-        return store.require_final(conn, window_id=window.window_id, fingerprint=fp)
-    except LockboxError as exc:
-        if exc.code != "LOCKBOX_FINAL_REQUIRED":
-            raise
-    try:
         return store.register_access(
             conn, kind="final", fingerprint=fp, artifact=str(panel), params=params,
             command=f"xscore-pipeline config={config_path}",
-            reason=f"pipeline:{config_path}", window=window, tool="xscore-pipeline")
+            reason=f"pipeline:{config_path}", window=window, tool="xscore-pipeline",
+            re_final=re_final)
     except LockboxError as exc:
-        if exc.code == "LOCKBOX_FINAL_DUPLICATE":  # 并发竞态：回查复用（同 guard）
-            return store.require_final(conn, window_id=window.window_id, fingerprint=fp)
-        if exc.code == "LOCKBOX_QUOTA_EXCEEDED":
+        if exc.code == "LOCKBOX_FINAL_DUPLICATE":
             raise LockboxError(
                 exc.code,
-                f"{exc.message}；运行 `factorlab lockbox status` 查看配额/已用"
-                "（必要时经 `factorlab lockbox roll` 对齐窗口）") from exc
+                f"{exc.message}；改 config/参数=新版本可再测；或设 "
+                "FACTORLAB_RE_FINAL=1 重测（审计留痕）") from exc
         raise
 
 

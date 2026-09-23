@@ -29,8 +29,9 @@ research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/m0-
 
 - 缺 `results/platform/<name>_5y/signal.parquet` 的成员**自动补算**：复用/生成
   `experiments/r37_5y/<name>_5y.yaml`（5y 窗口）→ `flab factor run <variant> --no-backtest`
-  （env `FACTORLAB_ST_DEGRADE=allow`、`FACTORLAB_MINUTE_UNCOVERED=drop`）→ 锁箱 **final** 登记
-  （`--lockbox final --lockbox-reason ref-autocompute:<name>`；ref add 已登记者幂等复用）；
+  （env `FACTORLAB_ST_DEGRADE=allow`、`FACTORLAB_MINUTE_UNCOVERED=drop`、
+  `FACTORLAB_PIPELINE=1`；CLI 按 marker 自动 final_mode 登记，理由
+  `pipeline final test: <name>`——CLI 已无 `--lockbox*` 参数）；
   有补算即**自动重建面板**（无需额外 `--force`）；
 - 缺 spec（`factor/**/<name>.yaml`）→ **fail-fast**：列出成员与原因、面板不重建；
   `--allow-missing-members` 显式豁免并写 `data/cache/_ref_sync_excluded.json`；
@@ -38,8 +39,8 @@ research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/m0-
 
 ## 因子与成员（R41）
 
-- `factors: [{spec: …/x.yaml}]`：新增因子的 spec 清单；流水线先补算缺失 `_5y` 信号（幂等、锁箱
-  final 登记）再入面板。仅支持 5y 面板窗口。
+- `factors: [{spec: …/x.yaml}]`：新增因子的 spec 清单；流水线先补算缺失 `_5y` 信号（幂等、以
+  流水线标记登记 final）再入面板。仅支持 5y 面板窗口。
 - `data.members: [名字…]`：面板成员显式清单（缺省=参考库全量 ∪ factors）；自定义成员集请把
   `panel` 指向独立 npz（勿覆盖共享面板缓存）。
 - 唯一入口：正式运行只经 `make xpipe`/UI；host `flab factor run` 仅 dev 调试（见
@@ -90,24 +91,26 @@ PREFECT_API_URL=http://127.0.0.1:4200/api research/.venv/bin/prefect deployment 
 触发方式三选一：UI `Deployments → Run`；`prefect deployment run 'xscore-pipeline/xscore-quick'`；
 `make xpipe CFG=...`（直跑不入 deployment）。
 
-### 锁箱登记（R40）
+### 锁箱登记（R42：最终测试只跑一次）
 
-流水线按 R40 锁箱纪律自动登记：**config = 候选**——一次 config 一次终评。
+流水线按 R42 纪律自动登记：**config = 版本**——同版本最终测试只跑一次；探索只准训练段
+（`date.end > is_end` 直接拒），碰测试段必须经流水线/入库车道。
 
 - flow 开始按面板区间（panel npz 首末日期，缺省回退已发布日历 min/max）判定角色，
-  并**钉死候选身份**：`fingerprint = candidate_fingerprint(artifact_sha256=panel 文件签名,
+  并**钉死版本身份**：`fingerprint = candidate_fingerprint(artifact_sha256=panel 文件签名,
   params={config 内容 sha, panel_sig}, window_id)`；收尾复用起点 fp/access_id，**不重算**
-  （首尾之间 panel 变化不会重复登记/重复耗配额）；
+  （首尾之间 panel 变化不会重复登记）；
   - `is`（面板整段早于窗口起点）→ 不登记，manifest `sample_role: is`；
-  - `mixed` / `lockbox` → 自动登记 **final**（`kind=final`），受配额 M=20/window 约束；
+  - `mixed` / `lockbox` → 登记 **final**（`kind=final`，无配额），理由 `pipeline:<config>`；
+    同版本已有登记：**run 产物已在**（`<out>/manifest.json`）→ **replay 复用**既有
+    `access_id`（零新增、不报错、日志"复用既有最终测试（replay）"）；产物被删 → 响亮拒绝
+    `LOCKBOX_FINAL_DUPLICATE`；操作员设 `FACTORLAB_RE_FINAL=1` 可重测（新登记行，
+    `reason` 追加 `|re-final` 审计标记，优先于 replay）；
   - **无 state 或 `FACTORLAB_LOCKBOX=0|off|false`**→ 不读/不写台账：manifest 记
-    `window_id: null` / `sample_role: unknown` / `access_ids: []`（真实台账 `roll` 由
-    controller 执行）；
+    `window_id: null` / `sample_role: unknown` / `access_ids: []`（无 `lockbox_off`
+    留痕字段；真实台账 `roll` 由 controller 执行）；
   - stale（跨季未 roll）→ flow 在计算前抛 `LOCKBOX_WINDOW_STALE`（指引
     `factorlab lockbox roll`）；panel 缺失 → 拒绝以 `artifact_sha256=missing` 登记。
-- **幂等**：同 config（内容不变）重跑（含 Prefect 缓存命中）复用既有 `access_id`，
-  不耗配额、不增行；配额用尽 → flow 开始即 fail fast（`LOCKBOX_QUOTA_EXCEEDED`），
-  先看 `factorlab lockbox status`（输出 `window_id`/`is_end`/已用/剩余）。
 - **manifest**：`access_id` 写入 run 级与 campaign 级 `access_ids`（campaign = 既有 ∪ 新 id，
   不丢旧；双写持 `<manifest>.lock` flock 串行化）；`window_id`/`sample_role` 为本次真实值；
   flow 收尾把 `result_ref` 回填为 run 的 `out` 目录。G-LOCKBOX（`make gates`）依此与台账
