@@ -549,6 +549,15 @@ class FinalTestError(Exception):
         self.log = log
 
 
+# 入库车道 = 生产车道：挖矿标准 env 默认（与 pipeline `data_prep._member_env` 同口径；
+# `setdefault` 语义——显式已设值优先；执行后复原，不污染宿主）。
+_LANE_ENV_DEFAULTS = {
+    "FACTORLAB_DATA_BACKEND": "ch",
+    "FACTORLAB_ST_DEGRADE": "allow",
+    "FACTORLAB_MINUTE_UNCOVERED": "drop",
+}
+
+
 def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool,
                         reason: str | None = None) -> None:
     """入库车道执行最终测试：显式 `final_mode=True` + 进程内自设车道标记。
@@ -556,9 +565,10 @@ def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool,
     `FACTORLAB_PIPELINE=1` / `FACTORLAB_LOCKBOX_REASON`（审计来源，如
     `admit final test: <name>`）只在执行期生效（退出复原）：guard_run 的
     `LOCKBOX_PIPELINE_REQUIRED` 靠 marker 过；重复登记由 guard_run 权威拒
-    （`LOCKBOX_FINAL_DUPLICATE` 原样上抛）。run 链错误映射为 `FinalTestError`。
-    基座产物预检由调用方（gate）在**开跑前**完成（零跑零登记，见
-    `_preflight_base_products`）。
+    （`LOCKBOX_FINAL_DUPLICATE` 原样上抛）。挖矿标准 env 默认
+    （`_LANE_ENV_DEFAULTS`，setdefault 不覆盖显式值）同样执行期生效、退出复原。
+    run 链错误映射为 `FinalTestError`。基座产物预检由调用方（gate）在**开跑前**
+    完成（零跑零登记，见 `_preflight_base_products`）。
     """
     from factorlab.adapters.read.health import DatasetQualityError
     from factorlab.app.memory import MemoryLimitExceeded
@@ -569,9 +579,12 @@ def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool,
 
     saved_pipeline = os.environ.get("FACTORLAB_PIPELINE")
     saved_reason = os.environ.get("FACTORLAB_LOCKBOX_REASON")
+    saved_lane_env = {key: os.environ.get(key) for key in _LANE_ENV_DEFAULTS}
     os.environ["FACTORLAB_PIPELINE"] = "1"
     if reason:
         os.environ["FACTORLAB_LOCKBOX_REASON"] = reason
+    for key, value in _LANE_ENV_DEFAULTS.items():
+        os.environ.setdefault(key, value)
     try:
         with _guard_env(["factor", "run", str(spec_path)], wait=wait):
             execute_run(spec_path, final_mode=True, output_dir=output_dir)
@@ -606,6 +619,11 @@ def _execute_final_test(spec_path: Path, *, output_dir: Path, wait: bool,
             os.environ.pop("FACTORLAB_LOCKBOX_REASON", None)
         else:
             os.environ["FACTORLAB_LOCKBOX_REASON"] = saved_reason
+        for key, previous in saved_lane_env.items():
+            if previous is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = previous
 
 
 def _preflight_base_products(*, base: list[str], results_dir: Path) -> None:

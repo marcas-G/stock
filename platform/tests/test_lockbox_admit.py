@@ -122,13 +122,16 @@ def _fake_lane(tmp_path: Path, monkeypatch, db: Path, *,
     guard 必然报错（测试即红，防存根蒙混）。审计理由按 CLI 语义消费
     `FACTORLAB_LOCKBOX_REASON`（车道来源前缀）。
     """
-    calls: dict = {"run": [], "diag": [], "marker": [], "reason": []}
+    calls: dict = {"run": [], "diag": [], "marker": [], "reason": [], "env": []}
+    lane_env_keys = ("FACTORLAB_DATA_BACKEND", "FACTORLAB_ST_DEGRADE",
+                     "FACTORLAB_MINUTE_UNCOVERED")
 
     def fake_execute_run(spec_path, **kw):
         calls["run"].append({"spec_path": Path(spec_path), **kw})
         calls["marker"].append(os.environ.get("FACTORLAB_PIPELINE"))
         lane_reason = os.environ.get("FACTORLAB_LOCKBOX_REASON")
         calls["reason"].append(lane_reason)
+        calls["env"].append({k: os.environ.get(k) for k in lane_env_keys})
         assert kw.get("final_mode") is True, "入库车道必须显式 final_mode=True"
         spec_doc = load_spec(Path(spec_path)).model_dump(mode="json")
         store.guard_run(
@@ -269,6 +272,57 @@ def test_execute_guard_consumes_lane_reason_env(tmp_path, monkeypatch):
 
     assert guard.access_id
     assert _rows(db)[0]["reason"] == "ref add final test: refcand"
+
+
+def test_final_test_lane_sets_mining_env_defaults(tmp_path, monkeypatch):
+    """入库车道 = 生产车道：未设挖矿口径 env 时按 `_member_env` 同口径默认。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    for key in ("FACTORLAB_DATA_BACKEND", "FACTORLAB_ST_DEGRADE",
+                "FACTORLAB_MINUTE_UNCOVERED"):
+        monkeypatch.delenv(key, raising=False)
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+
+    F._final_test_gate(load_spec(spec).model_dump(mode="json"), spec,
+                       reason="测试", command="factor admit")
+
+    assert calls["env"] == [{"FACTORLAB_DATA_BACKEND": "ch",
+                             "FACTORLAB_ST_DEGRADE": "allow",
+                             "FACTORLAB_MINUTE_UNCOVERED": "drop"}]
+
+
+def test_final_test_lane_keeps_explicit_mining_env(tmp_path, monkeypatch):
+    """显式已设值优先（setdefault 语义）：`FACTORLAB_ST_DEGRADE=off` 不得被覆盖。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    monkeypatch.setenv("FACTORLAB_ST_DEGRADE", "off")
+    monkeypatch.delenv("FACTORLAB_DATA_BACKEND", raising=False)
+    monkeypatch.delenv("FACTORLAB_MINUTE_UNCOVERED", raising=False)
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+
+    F._final_test_gate(load_spec(spec).model_dump(mode="json"), spec,
+                       reason="测试", command="factor admit")
+
+    assert calls["env"][0]["FACTORLAB_ST_DEGRADE"] == "off"
+    assert calls["env"][0]["FACTORLAB_DATA_BACKEND"] == "ch"
+    assert calls["env"][0]["FACTORLAB_MINUTE_UNCOVERED"] == "drop"
+
+
+def test_final_test_lane_restores_mining_env_after_run(tmp_path, monkeypatch):
+    """执行返回后宿主 env 复原（三键回到调用前状态；默认注入不残留）。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    monkeypatch.delenv("FACTORLAB_DATA_BACKEND", raising=False)
+    monkeypatch.setenv("FACTORLAB_ST_DEGRADE", "off")
+    monkeypatch.setenv("FACTORLAB_MINUTE_UNCOVERED", "keep")
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+
+    F._final_test_gate(load_spec(spec).model_dump(mode="json"), spec,
+                       reason="测试", command="factor admit")
+
+    assert calls["env"] == [{"FACTORLAB_DATA_BACKEND": "ch",
+                             "FACTORLAB_ST_DEGRADE": "off",
+                             "FACTORLAB_MINUTE_UNCOVERED": "keep"}]
+    assert os.environ.get("FACTORLAB_DATA_BACKEND") is None
+    assert os.environ.get("FACTORLAB_ST_DEGRADE") == "off"
+    assert os.environ.get("FACTORLAB_MINUTE_UNCOVERED") == "keep"
 
 
 # ================================================================
