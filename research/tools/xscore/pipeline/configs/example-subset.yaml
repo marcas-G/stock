@@ -7,6 +7,7 @@ factors:
   - spec: /data/students/gaolei/quantresearch/factor/volatility/low_vol_20d.yaml
 
 data:
+  max_lag_days: 10   # R42 验收：源盘滞后容忍（生产按数据节奏配置）
   members: [low_vol_20d, reversal_20d]
 
 folds: [252, 63, 63]
