@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from datetime import timedelta
@@ -128,7 +129,9 @@ def factor_task(key: str, cfg: dict) -> str:
 
 
 def _run(step: list[str]) -> None:
-    r = subprocess.run([str(PLATFORM_PY), *step], capture_output=True, text=True)
+    env = {**os.environ, "FACTORLAB_PIPELINE": "1"}   # E1：流水线标记（子进程）
+    r = subprocess.run([str(PLATFORM_PY), *step], capture_output=True, text=True,
+                       env=env)
     if r.returncode != 0:
         raise RuntimeError(f"step 失败 rc={r.returncode}\n{r.stdout[-2000:]}\n{r.stderr[-2000:]}")
     print(r.stdout.strip())
@@ -240,6 +243,7 @@ def _write_manifest(cfg: dict, ctx: dict | None = None) -> str:
 
 @flow(name="xscore-pipeline", log_prints=True)
 def xscore_pipeline(config_path: str) -> str:
+    os.environ.setdefault("FACTORLAB_PIPELINE", "1")   # E1：进程内（xlib 登记/子进程继承）
     cfg = yaml.safe_load(Path(config_path).read_text())
     cfg["config_path"] = str(config_path)
     cfg["panel_sig"] = lib.file_sig(Path(cfg["panel"]))

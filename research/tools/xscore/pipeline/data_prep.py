@@ -157,6 +157,7 @@ def ensure_variant_spec(name: str, source_spec: Path, *,
 def _member_env() -> dict:
     env = dict(os.environ)
     env["FACTORLAB_DATA_BACKEND"] = "ch"   # 强制 ch（宿主 flab shim 语义；防外部 env 覆盖）
+    env["FACTORLAB_PIPELINE"] = "1"        # E1：ref-sync 补算属流水线动作
     env.setdefault("FACTORLAB_ST_DEGRADE", "allow")
     env.setdefault("FACTORLAB_MINUTE_UNCOVERED", "drop")
     return env

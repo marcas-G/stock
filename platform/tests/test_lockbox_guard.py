@@ -28,6 +28,7 @@ from factorlab.core.lockbox import LockboxError
 @pytest.fixture(autouse=True)
 def _lockbox_enabled(monkeypatch):
     monkeypatch.setenv("FACTORLAB_LOCKBOX", "1")
+    monkeypatch.setenv("FACTORLAB_PIPELINE", "1")
 
 
 
@@ -181,3 +182,21 @@ def test_empty_calendar_is_loud(tmp_path: Path):
         _guard(tmp_path, start=W.start, end=W.end, days=[])
     assert e.value.code == "LOCKBOX_NO_CALENDAR"
     assert _count(_db(tmp_path)) == 0
+
+
+def test_new_final_requires_pipeline_marker(tmp_path: Path, monkeypatch):
+    """E2：host 直跑新登记 final → 拒（正式终评须经流水线/入库车道）。"""
+    monkeypatch.delenv("FACTORLAB_PIPELINE", raising=False)
+    with pytest.raises(LockboxError) as e:
+        _guard(tmp_path, start=W.start, end=W.end, intent="final", reason="直跑终评")
+    assert e.value.code == "LOCKBOX_PIPELINE_REQUIRED"
+    assert _count(_db(tmp_path)) == 0
+
+
+def test_existing_final_reused_without_marker(tmp_path: Path, monkeypatch):
+    """E2：入库车道已登记 final 后，同一候选复用不受标记限制。"""
+    g1 = _guard(tmp_path, start=W.start, end=W.end, intent="final", reason="入库登记")
+    monkeypatch.delenv("FACTORLAB_PIPELINE", raising=False)
+    g2 = _guard(tmp_path, start=W.start, end=W.end, intent="final", reason="复用")
+    assert g2.info["access_id"] == g1.info["access_id"]
+    assert _count(_db(tmp_path)) == 1

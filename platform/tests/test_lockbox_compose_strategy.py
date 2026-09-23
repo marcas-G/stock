@@ -50,6 +50,7 @@ _END = W.end
 @pytest.fixture(autouse=True)
 def _lockbox_enabled(monkeypatch):
     monkeypatch.setenv("FACTORLAB_LOCKBOX", "1")
+    monkeypatch.setenv("FACTORLAB_PIPELINE", "1")
 
 
 # ================================================================

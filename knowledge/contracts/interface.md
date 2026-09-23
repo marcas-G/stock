@@ -3555,6 +3555,14 @@ dev/应急。设计与验收：`knowledge/design/platform/specs/2026-09-21-facto
   （面板成员显式清单；自定义成员集须用独立 `panel` 路径）；`flows` 对 `factors` 有独立缓存阶段，
   data_prep 按 config 成员集合体检/建面板。campaign manifest 非 legacy 必含 `config_path`。
 
+- **入口强制（R41 加固）**：流水线子进程与 flow 进程统一打标 `FACTORLAB_PIPELINE=1`；
+  host 直跑 `factor run --lockbox final` **新登记**在无标记时拒绝（`LOCKBOX_PIPELINE_REQUIRED`，
+  hint 指路 `make xpipe` 或 `flab factor admit/ref add`）；已登记候选的复用不受限（入库车道可重跑）。
+  `factorlab lockbox roll --quota-final` 需操作员标记 `FACTORLAB_LOCKBOX_ADMIN=1`；
+  `lockbox_state` 表禁 DELETE/REPLACE（触发器）；`FACTORLAB_LOCKBOX=off` 时流水线 manifest 显式记
+  `lockbox_off=true`；kernel 脚本（run_ladder/run_split/score_once/portfolio_once/porteval）直跑打印
+  "非流水线运行"警示。详见 `governance/evidence/verification/R41/`。
+
 ### 状态与记录
 
 - 状态机：`queued → running → {succeeded|failed|cancelled}`；服务重启时 running →

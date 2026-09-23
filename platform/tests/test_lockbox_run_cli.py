@@ -34,6 +34,7 @@ from factorlab.surfaces.cli.main import app, execute_run
 @pytest.fixture(autouse=True)
 def _lockbox_enabled(monkeypatch):
     monkeypatch.setenv("FACTORLAB_LOCKBOX", "1")
+    monkeypatch.setenv("FACTORLAB_PIPELINE", "1")
 
 SPEC = ("name: x\ncategory: custom\ndirection: 1\n"
         "universe:\n  codes: [\"000001.SZ\"]\n"

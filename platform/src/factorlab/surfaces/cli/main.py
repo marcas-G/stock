@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 import re
 from pathlib import Path
 
@@ -182,7 +183,13 @@ def lockbox_roll(
     as_of: str | None = typer.Option(None, "--as-of", help="ISO 日期（缺省今天）"),
     quota_final: int | None = typer.Option(None, "--quota-final", min=1),
 ) -> None:
-    """季度滚动（幂等；拒绝倒退）。"""
+    """季度滚动（幂等；拒绝倒退）；`--quota-final` 需操作员标记
+    `FACTORLAB_LOCKBOX_ADMIN=1`。"""
+    if quota_final is not None and os.environ.get(
+            "FACTORLAB_LOCKBOX_ADMIN", "").strip() != "1":
+        console.print("[lockbox] 拒绝：修改 final 配额是操作员动作，"
+                      "需显式 FACTORLAB_LOCKBOX_ADMIN=1", markup=False)
+        raise typer.Exit(code=2)
     from contextlib import closing
     from factorlab.adapters import lockbox_store as store
     from factorlab.core.lockbox import compute_window

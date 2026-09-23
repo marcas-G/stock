@@ -72,6 +72,9 @@ CREATE TRIGGER IF NOT EXISTS lockbox_access_no_update
       OR NEW.actor != OLD.actor
       OR NEW.tool != OLD.tool
     BEGIN SELECT RAISE(ABORT, 'lockbox_access is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS lockbox_state_no_delete
+    BEFORE DELETE ON lockbox_state
+    BEGIN SELECT RAISE(ABORT, 'lockbox_state protected (no delete/replace)'); END;
 """
 
 
@@ -146,11 +149,19 @@ def roll(conn: sqlite3.Connection, *, window: LockboxWindow,
     quota = int(quota_final if quota_final is not None
                 else (state or {}).get("quota_final", DEFAULT_QUOTA_FINAL))
     now = now or dt.datetime.now(dt.timezone.utc)
-    conn.execute(
-        "INSERT OR REPLACE INTO lockbox_state"
-        " (id, window_id, window_start, quota_final, rolled_at) VALUES (1,?,?,?,?)",
-        (window.window_id, window.start.isoformat(), quota,
-         now.isoformat(timespec="seconds")))
+    if state is None:
+        conn.execute(
+            "INSERT INTO lockbox_state"
+            " (id, window_id, window_start, quota_final, rolled_at) VALUES (1,?,?,?,?)",
+            (window.window_id, window.start.isoformat(), quota,
+             now.isoformat(timespec="seconds")))
+    else:
+        # state 禁 DELETE/REPLACE（触发器）；滚动/配额变更走 UPDATE
+        conn.execute(
+            "UPDATE lockbox_state SET window_id=?, window_start=?, quota_final=?,"
+            " rolled_at=? WHERE id=1",
+            (window.window_id, window.start.isoformat(), quota,
+             now.isoformat(timespec="seconds")))
     return window, True
 
 
@@ -399,6 +410,13 @@ def guard_run(*, panel_start: dt.date, panel_end: dt.date,
         if access_id is None:
             if not (reason or "").strip():
                 raise LockboxError("LOCKBOX_REASON_REQUIRED", "锁箱访问必须给出非空理由")
+            if (intent == "final" and str(command).startswith("factor")
+                    and os.environ.get("FACTORLAB_PIPELINE", "").strip() != "1"):
+                raise LockboxError(
+                    "LOCKBOX_PIPELINE_REQUIRED",
+                    "正式终评（final）必须经研究工作流（make xpipe / UI 4200）或入库车道"
+                    "（flab factor admit / ref add）；host 直跑仅 exploration（dev 调试）。"
+                    "见 $QUANTRESEARCH_ROOT/knowledge/pipeline-usage.md")
             try:
                 access_id = register_access(
                     conn, kind=intent, fingerprint=fp, artifact=artifact,

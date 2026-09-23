@@ -71,3 +71,20 @@ factor_task Cached → data_prep 建子面板 panel_subset_demo.npz（+按网格
   容忍 3 → ok；容忍 0 → `ok=false` 且缺失 `['2026-09-18','2026-09-21']` + 指引。
 - 事实：本机 `pan-data-update.timer` 今日 08:11 已跑，但**源盘最新包即至 2026-09-17**（raw zip），
   CH/日历同步停在该日——属源滞后，非链故障；门在容忍内放行（默认 3 交易日），严格档可调 0。
+
+
+## 唯一入口穿透审计与加固（E1–E5）
+
+审计发现 5 条真实旁路：① host CLI 可裸登记 final；② 内核脚本裸跑（score/portfolio 无门）；
+③ 配额自助改；④ lockbox_state 可 SQL 删改；⑤ FACTORLAB_LOCKBOX=off 全局关闸。加固如下：
+
+| 加固 | 实现 | 测试 |
+|---|---|---|
+| E1 流水线打标 | `flows._run`/flow 进程/`data_prep._member_env` 置 `FACTORLAB_PIPELINE=1` | ref_sync 断言 env |
+| E2 final 需标记 | `guard_run` 新 final 无标记 → `LOCKBOX_PIPELINE_REQUIRED`（复用/入库车道不受限） | guard 两例（新增/复用） |
+| E3 配额门 + state 防护 | CLI `--quota-final` 需 `FACTORLAB_LOCKBOX_ADMIN=1`；state 禁 DELETE/REPLACE（roll 改 UPDATE） | CLI 拒/许 + state 触发器 |
+| E4 裸跑警示 | 5 个脚本 `__main__` 打印"非流水线运行（dev only）" | 源码清单 + porteval 实跑 |
+| E5 off 留痕 | xlib off → manifest `lockbox_off=true` | xlib/flows off 测试 |
+
+全量：xscore+governance+platform lockbox+architecture **402 passed**；`make gates`/tidy/check_lockbox 全绿。
+残留（需审计，非机械可杜绝）：手写伪造 manifest、绕过平台直读 CH、手改 results。

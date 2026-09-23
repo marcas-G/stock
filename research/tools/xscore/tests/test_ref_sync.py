@@ -91,6 +91,7 @@ def test_only_missing_runs_with_lockbox_final(tmp_path: Path):
         "--lockbox", "final", "--lockbox-reason", "ref-autocompute:beta"]
     assert env["FACTORLAB_ST_DEGRADE"] == "allow"
     assert env["FACTORLAB_DATA_BACKEND"] == "ch", "宿主直跑必须显式 ch 后端"
+    assert env["FACTORLAB_PIPELINE"] == "1", "流水线补算必须打标（E1）"
     variant = yaml.safe_load((fx["variants"] / "beta_5y.yaml").read_text())
     assert (variant["date"]["start"], variant["date"]["end"]) == dp.REF_WINDOW
 
@@ -313,11 +314,13 @@ def test_freshness_gap_and_check():
     assert dp.freshness_gap(data_latest=None, calendar_days=cal) == (dt.date(2026, 9, 21), [])
 
     ok = dp.check_freshness(client=_FakeCH(dt.date(2026, 9, 17), cal),
-                            max_lag_days=3, log=lambda _m: None)
+                            max_lag_days=3, today=dt.date(2026, 9, 22),
+                            log=lambda _m: None)
     assert ok["ok"] and ok["lag_days"] == 2
     assert ok["missing"] == ["2026-09-18", "2026-09-21"]
     stale = dp.check_freshness(client=_FakeCH(dt.date(2026, 9, 17), cal),
-                               max_lag_days=1, log=lambda _m: None)
+                               max_lag_days=1, today=dt.date(2026, 9, 22),
+                               log=lambda _m: None)
     assert not stale["ok"] and stale["lag_days"] == 2
 
     # 日历落后（与数据同源）→ 周历近似口径：today=2026-09-22（周二），

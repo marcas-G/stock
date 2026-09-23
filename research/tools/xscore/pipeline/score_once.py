@@ -68,5 +68,16 @@ def main() -> int:
     return 0
 
 
+def _dev_banner() -> None:
+    """非流水线运行警示（E4）：正式结论必须经 make xpipe/UI，产物须 manifest 溯源。"""
+    import os as _os
+    import sys as _sys
+    if _os.environ.get("FACTORLAB_PIPELINE", "").strip() != "1":
+        print("[WARN] 非流水线运行（dev only）：正式结论必须经研究工作流"
+              "（make xpipe / UI 4200，manifest 五键溯源）；见 "
+              "$QUANTRESEARCH_ROOT/knowledge/pipeline-usage.md", file=_sys.stderr)
+
+
 if __name__ == "__main__":
+    _dev_banner()
     raise SystemExit(main())

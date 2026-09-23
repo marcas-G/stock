@@ -77,6 +77,7 @@ def test_lockbox_status_uninitialized_exits_1(tmp_path: Path, monkeypatch):
 
 
 def test_lockbox_roll_as_of_and_quota_final(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_ADMIN", "1")
     db = tmp_path / "ledger.sqlite"
     monkeypatch.setattr(cli_main.settings, "lockbox_db", db)
     _patch_cli(monkeypatch, DAYS_Q3, dt.date(2026, 9, 18), dt.date(2026, 9, 21))
@@ -106,3 +107,15 @@ def test_default_lockbox_db_and_env_override(tmp_path: Path, monkeypatch):
     override = tmp_path / "custom" / "ledger.sqlite"
     monkeypatch.setenv("FACTORLAB_LOCKBOX_DB", str(override))
     assert Settings().lockbox_db == override
+
+
+def test_quota_final_requires_admin(tmp_path: Path, monkeypatch):
+    """E3：配额变更需操作员标记。"""
+    db = tmp_path / "l.sqlite"
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_DB", str(db))
+    monkeypatch.setattr(cli_main, "_lockbox_published_days", lambda: DAYS)
+    monkeypatch.setattr(cli_main, "_lockbox_data_end", lambda: W.end)
+    monkeypatch.setattr(cli_main, "_lockbox_today", lambda: TODAY)
+    monkeypatch.delenv("FACTORLAB_LOCKBOX_ADMIN", raising=False)
+    r = CliRunner().invoke(app, ["lockbox", "roll", "--quota-final", "99"])
+    assert r.exit_code != 0 and "ADMIN" in r.output

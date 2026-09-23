@@ -267,6 +267,7 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
                            "config_sha": file_content_sha(config_path),
                            "panel_sig": str(panel_sig)}
     if lockbox_env_disabled():
+        ctx["lockbox_off"] = True   # E5：纪律关闭显式留痕
         return ctx
     if panel_start is None or panel_end is None:
         dates = panel_dates(panel)
@@ -327,6 +328,8 @@ def lockbox_finalize(ctx: Mapping[str, Any], *, run_manifest: Path,
     updates.update({"window_id": ctx.get("window_id"),
                     "sample_role": ctx.get("sample_role"),
                     "access_ids": [access_id] if access_id else []})
+    if ctx.get("lockbox_off"):
+        updates["lockbox_off"] = True
     write_manifest_pair(run_manifest, campaign_manifest, updates)
     return json.loads(Path(campaign_manifest).read_text(encoding="utf-8"))
 

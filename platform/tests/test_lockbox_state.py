@@ -178,3 +178,16 @@ def test_published_days_and_latest_data_date(tmp_path: Path):
     assert latest_data_date(tmp_path) == dt.date(2026, 9, 18)
     assert published_days(tmp_path / "missing") == []
     assert latest_data_date(tmp_path / "missing") is None
+
+
+def test_state_delete_and_replace_abort(tmp_path: Path):
+    """E3：state 禁 DELETE/REPLACE（防手改窗口/配额直删）。"""
+    import sqlite3
+    conn = connect(tmp_path / "ledger.sqlite")
+    roll(conn, window=_window())
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("DELETE FROM lockbox_state")
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("INSERT OR REPLACE INTO lockbox_state"
+                     " VALUES (1, '2020Q1', '2020-01-01', 99, 'x')")
+    assert load_state(conn)["window_id"] == "2026Q2"
