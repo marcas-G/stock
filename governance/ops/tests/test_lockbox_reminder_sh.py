@@ -51,16 +51,14 @@ def _run(bindir: Path) -> subprocess.CompletedProcess:
 
 
 def _fresh_payload(**overrides) -> dict:
+    """R42 `lockbox status` 输出：六字段，无配额/探索计数。"""
     payload = {
         "initialized": True,
         "window_id": window_id_of(quarter_end_before(dt.date.today())),
         "window_start": "2025-07-01",
         "window_end": "2026-09-18",
-        "quota_final": 20,
-        "final_used": 0,
-        "final_remaining": 20,
-        "rolled_at": "2026-09-21T00:00:00+00:00",
         "is_end": "2025-06-30",
+        "finals_total": 1,
     }
     payload.update(overrides)
     return payload
@@ -111,9 +109,11 @@ def test_fresh_window_prints_summary_and_exits_0(tmp_path):
     assert f"window={payload['window_id']}" in out
     assert f"start={payload['window_start']}" in out
     assert f"end={payload['window_end']}" in out
-    assert "quota_final=20" in out
-    assert "final_remaining=20" in out
+    assert f"finals_total={payload['finals_total']}" in out
     assert f"is_end={payload['is_end']}" in out
+    for stale in ("quota_final", "final_used", "final_remaining",
+                  "exploration_used"):
+        assert stale not in out, f"配额/探索旧字段不得再打印：{stale}"
 
 
 INSTALL = OPS / "install_lockbox_timer.sh"

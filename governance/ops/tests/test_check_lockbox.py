@@ -1,6 +1,6 @@
-"""G-LOCKBOX 检查器单测（T10 + T12b 修复轮1）：campaign manifest / 档案声明 × 真 tmp 台账。
+"""G-LOCKBOX 检查器单测（T10 + T12b 修复轮1 + R42 语义同步）：manifest / 档案 × 真 tmp 台账。
 
-行为要求（T10 裁定 + T12b 修复轮1 门规则）：
+行为要求（T10 裁定 + T12b 修复轮1 门规则，R42 后不变）：
 - 权威层 = campaign 级 `results/<dir>/manifest.json`（与 tidy 同层，不递归 run 子目录）：
   四键存在与类型（复用 research_tidy 判据）；
   - `sample_role ∈ {lockbox,mixed}` → `access_ids` 非空，每个 id 在
@@ -15,6 +15,9 @@
   无 front matter 与 `_` 前缀文件跳过。
 - `--offline`：仅格式校验，不读台账；`--json`；root 不存在 → SKIP(0)；
   `--selftest` 造假矩阵必抓且干净样本不误伤。
+
+R42：探索不再登记（store 拒收），`exploration` 行只作为**历史遗留只读行**存在——
+用原始 SQL 直接写入模拟；检查器仍禁止其冒充 final 引用。
 
 突变必杀：台账交叉核对/字段必填/窗口至少一匹配/引用真实性任一存根化 → 对应测试失败。
 """
@@ -79,7 +82,12 @@ def _put_dossier(root: Path, rel: str, text: str) -> Path:
 
 
 def _ledger(root: Path, window_id="2026Q2", *, with_state=True):
-    """真 tmp 台账（平台 store 写 schema/state/登记）；返回 (final_id, exploration_id)。"""
+    """真 tmp 台账（平台 store 写 schema/state/final 登记）；返回 (final_id, legacy_exp_id)。
+
+    R42：store 拒收新 exploration 登记（历史行只读）；`exp` 用原始 SQL 直写一条
+    `kind='exploration'` 遗留行，供"探索行冒充终评引用"的检查用例（禁删改触发器
+    只挡 UPDATE/DELETE，INSERT 合法）。
+    """
     db = root / "data" / "ledger.sqlite"
     db.parent.mkdir(parents=True, exist_ok=True)
     conn = store.connect(db)
@@ -91,9 +99,15 @@ def _ledger(root: Path, window_id="2026Q2", *, with_state=True):
             final = store.register_access(conn, kind="final", fingerprint="fp-final",
                                           artifact="a.yaml", params={}, command="cmd",
                                           reason="终评", window=win, tool="t")
-            exp = store.register_access(conn, kind="exploration", fingerprint="fp-exp",
-                                        artifact="a.yaml", params={}, command="cmd",
-                                        reason="探索", window=win, tool="t")
+            exp = f"LEGACY-EXP-{window_id}"
+            conn.execute(
+                "INSERT INTO lockbox_access (access_id, ts_utc, window_id,"
+                " window_start, window_end, kind, fingerprint, artifact, params,"
+                " command, result_ref, reason, actor, tool)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (exp, "2024-01-01T00:00:00+00:00", window_id, "2025-07-01",
+                 "2026-07-03", "exploration", "fp-exp", "a.yaml", "{}", "cmd",
+                 None, "历史探索（R42 前遗留）", "u@h", "test"))
     finally:
         conn.close()
     return final, exp
@@ -164,7 +178,8 @@ def test_lockbox_claim_unknown_access_id_is_error(tmp_path):
     assert "台账" in fs[0].message
 
 
-def test_exploration_id_masquerading_as_final_is_error(tmp_path):
+def test_legacy_exploration_id_masquerading_as_final_is_error(tmp_path):
+    """R42：探索不再登记，但历史 exploration 行仍不得冒充终评引用。"""
     root, _, exp = _root(tmp_path)
     _put_manifest(root, "bad", _manifest("mixed", [exp], "2026Q2"))
     fs = CL.findings(root)
@@ -220,7 +235,8 @@ def test_open_role_with_ghost_id_is_error(tmp_path):
     assert "ghost" in fs[0].message
 
 
-def test_open_role_with_exploration_id_is_error(tmp_path):
+def test_open_role_with_legacy_exploration_id_is_error(tmp_path):
+    """非锁箱角色可挂历史真实 final id；历史 exploration 行仍非法。"""
     root, _, exp = _root(tmp_path)
     _put_manifest(root, "bad", _manifest("is", [exp], "2026Q2"))
     fs = CL.findings(root)
@@ -360,7 +376,7 @@ def test_dossier_lockbox_empty_or_ghost_id_is_error(tmp_path):
     assert any("ghost" in f.message for f in fs)
 
 
-def test_dossier_lockbox_exploration_id_is_error(tmp_path):
+def test_dossier_lockbox_legacy_exploration_id_is_error(tmp_path):
     root, _, exp = _root(tmp_path)
     _put_dossier(root, "fam/a.md",
                  _dossier_text(role="lockbox", window="2026Q2", lockbox=f'["{exp}"]'))

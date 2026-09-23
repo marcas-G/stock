@@ -113,14 +113,13 @@ def _read_cache() -> tuple[dict[str, Any], str | None]:
     return ({key: stats[key] for key in _RC_KEYS}, stats.get("degraded"))
 
 
-# R40：锁箱段公开字段（与 `lockbox status` 同源，含 is_end 与探索计数）
+# R42：锁箱段公开字段（与 `lockbox status` 同源；无配额/探索计数）
 _LOCKBOX_KEYS = ("initialized", "window_id", "window_start", "window_end",
-                 "quota_final", "final_used", "exploration_used",
-                 "final_remaining", "is_end")
+                 "is_end", "finals_total")
 
 
 def _lockbox() -> tuple[dict[str, Any], list[str]]:
-    """锁箱状态段（R40 §12）：state 摘要 + 陈旧判定。
+    """锁箱状态段（R42 §5：无配额/探索计数）：state 摘要 + 陈旧判定。
 
     日历/数据日与 CLI `factorlab lockbox status` 同源（`adapters.lockbox_store`
     扫 `DATA_ROOT/health`，非 main.py 私有函数）。DB 打不开/损坏 → 该段降级为
@@ -253,18 +252,15 @@ registry.register(
                     "fallbacks": {"type": "integer"}}},
             "lockbox": {
                 "type": "object",
-                "description": "锁箱窗口状态（R40；与 `factorlab lockbox status`"
+                "description": "锁箱窗口状态（R42；与 `factorlab lockbox status`"
                                " 同源；未初始化/陈旧/库损坏见 warnings）",
                 "properties": {
                     "initialized": {"type": "boolean"},
                     "window_id": {"type": "string"},
                     "window_start": {"type": "string"},
                     "window_end": {"type": "string"},
-                    "quota_final": {"type": "integer"},
-                    "final_used": {"type": "integer"},
-                    "exploration_used": {"type": "integer"},
-                    "final_remaining": {"type": "integer"},
                     "is_end": {"type": "string"},
+                    "finals_total": {"type": "integer"},
                     "degraded": {"type": "string"}}},
         }},
     ),

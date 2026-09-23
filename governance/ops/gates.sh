@@ -167,7 +167,7 @@ structure() {
     elif out=$("$PLATFORM/.venv/bin/python" governance/ops/check_lockbox.py --offline --root "$PRODUCT_ROOT" 2>&1); then ok "$out"; else bad "$out"; fi
     # 负向自检自带 tmp 产物区，离线/干净 checkout 同样生效（不依赖台账）
     if "$PLATFORM/.venv/bin/python" governance/ops/check_lockbox.py --selftest >/dev/null 2>&1; then
-      ok "负向自检通过（缺字段/空 id/幽灵 id/探索冒充终评/档案缺声明；干净样本不误伤）"
+      ok "负向自检通过（缺字段/空 id/幽灵 id/历史探索行冒充终评/档案缺声明；干净样本不误伤）"
     else bad "G-LOCKBOX 负向自检失败"; fi
     skip_offline "G-LOCKBOX 台账交叉核对（宿主段）" "锁箱登记在 $PRODUCT_ROOT/data/ledger.sqlite（access_id kind/window 核验需宿主）"
     echo "[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）"
@@ -191,7 +191,7 @@ structure() {
     # 权威层 = campaign 级 results/<dir>/manifest.json + dossiers/factors/**；台账 = $PRODUCT_ROOT/data/ledger.sqlite。
     if out=$("$PLATFORM/.venv/bin/python" governance/ops/check_lockbox.py --root "$PRODUCT_ROOT" 2>&1); then ok "$out"; else bad "$out"; fi
     if "$PLATFORM/.venv/bin/python" governance/ops/check_lockbox.py --selftest >/dev/null 2>&1; then
-      ok "负向自检通过（缺字段/空 id/幽灵 id/探索冒充终评/档案缺声明；干净样本不误伤）"
+      ok "负向自检通过（缺字段/空 id/幽灵 id/历史探索行冒充终评/档案缺声明；干净样本不误伤）"
     else bad "G-LOCKBOX 负向自检失败"; fi
 
     echo "[G-REVIEWS] 评审台账口径（ID 唯一/状态词表/引用路径/统计实计）"

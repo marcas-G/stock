@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS lockbox_state (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     window_id TEXT NOT NULL,
     window_start TEXT NOT NULL,
+    -- R42 历史列：保留以兼容既有台账（活代码不读不写；迁移见模块 docstring）
     quota_final INTEGER NOT NULL DEFAULT 20,
     rolled_at TEXT NOT NULL
 );
@@ -40,6 +41,7 @@ CREATE TABLE IF NOT EXISTS lockbox_access (
     window_id TEXT NOT NULL,
     window_start TEXT NOT NULL,
     window_end TEXT NOT NULL,
+    -- R42：'exploration' 仅为历史行兼容（新登记由 register_access 限 final）
     kind TEXT NOT NULL CHECK (kind IN ('exploration','final')),
     fingerprint TEXT NOT NULL,
     artifact TEXT NOT NULL,

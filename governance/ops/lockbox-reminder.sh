@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lockbox-reminder.sh —— 季度锁箱 roll 提醒（R40 设计 §12）。
+# lockbox-reminder.sh —— 季度锁箱 roll 提醒（R40 §12；R42 §5 保留）。
 #
 # 季度首月 1 日 09:00 由 user timer `factorlab-lockbox-reminder.timer` 触发
 # （安装：`bash governance/ops/install_lockbox_timer.sh install`）。
@@ -82,6 +82,5 @@ if problems:
 
 print(f"[lockbox-reminder] 锁箱窗口正常 window={doc['window_id']} "
       f"start={doc['window_start']} end={doc['window_end']} "
-      f"quota_final={doc['quota_final']} final_used={doc['final_used']} "
-      f"final_remaining={doc['final_remaining']} is_end={doc.get('is_end')}")
+      f"is_end={doc.get('is_end')} finals_total={doc.get('finals_total')}")
 PY

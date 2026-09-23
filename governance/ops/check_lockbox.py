@@ -128,7 +128,7 @@ def _check_access_refs(*, path: Path, role: str, ids: list, window_id, ledger: L
         kind, wid = row
         if kind != "final":
             out.append(Finding("error", str(path),
-                               f"access_id {aid!r} kind={kind}（探索访问冒充终评）"))
+                               f"access_id {aid!r} kind={kind}（非 final 行冒充终评）"))
             continue
         finals += 1
         seen.add(wid)
@@ -339,17 +339,17 @@ def selftest() -> int:
         docs = root / "dossiers" / "factors" / "fam"
         docs.mkdir(parents=True)
 
-        # 真 tmp 台账：state + 1 final（F1）+ 1 exploration（E1）
+        # 真 tmp 台账（最小列）：state + 2 final（F1 本次窗 / F0 旧窗）
+        # + 1 历史 exploration 行（E1；R42 起不再产生，只读遗留）
         db = root / LEDGER_REL
         db.parent.mkdir(parents=True)
         conn = sqlite3.connect(db)
         conn.executescript(
             "CREATE TABLE lockbox_state (id INTEGER PRIMARY KEY, window_id TEXT NOT NULL,"
-            " window_start TEXT NOT NULL, quota_final INTEGER NOT NULL DEFAULT 20,"
-            " rolled_at TEXT NOT NULL);"
+            " window_start TEXT NOT NULL, rolled_at TEXT NOT NULL);"
             "CREATE TABLE lockbox_access (access_id TEXT PRIMARY KEY,"
             " window_id TEXT NOT NULL, kind TEXT NOT NULL);")
-        conn.execute("INSERT INTO lockbox_state VALUES (1, '2026Q2', '2025-07-01', 20,"
+        conn.execute("INSERT INTO lockbox_state VALUES (1, '2026Q2', '2025-07-01',"
                      " '2026-09-21T00:00:00Z')")
         conn.execute("INSERT INTO lockbox_access VALUES ('F1', '2026Q2', 'final')")
         conn.execute("INSERT INTO lockbox_access VALUES ('F0', '2026Q1', 'final')")
@@ -387,7 +387,7 @@ def selftest() -> int:
                 "fake-empty-ids", _manifest_doc("lockbox", [], "2026Q2")),
             "claim lockbox 幽灵 id": put_manifest(
                 "fake-ghost-id", _manifest_doc("lockbox", ["ghost"], "2026Q2")),
-            "探索冒充终评": put_manifest(
+            "历史探索行冒充终评": put_manifest(
                 "fake-explore-id", _manifest_doc("mixed", ["E1"], "2026Q2")),
             "lockbox 仅旧窗 id（无本次窗匹配）": put_manifest(
                 "fake-old-window-only", _manifest_doc("lockbox", ["F0"], "2026Q2")),
@@ -430,7 +430,7 @@ def selftest() -> int:
                 print(f"      {line}")
             return 1
         print(f"  ✓ G-LOCKBOX 负向自检：在线 {len(fakes_online)} 类造假各命中"
-              f"（缺字段/空 id/幽灵 id/探索冒充终评/旧窗无匹配/档案缺声明）、"
+              f"（缺字段/空 id/幽灵 id/历史探索行冒充终评/旧窗无匹配/档案缺声明）、"
               f"{len(clean_paths)} 干净样本不误伤；离线 {len(fakes_offline)} 类格式造假命中")
         return 0
 

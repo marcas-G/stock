@@ -126,11 +126,11 @@ def _read_cached_summary(summary_path: Path, spec: CompositeSpec, *,
 
 
 def _lockbox_attach(guard, summary: dict) -> None:
-    """R40：锁箱产物声明（`summary["sample"]`；guard 未接线时零行为变化）。
+    """R42：锁箱产物声明（`summary["sample"]`；guard 未接线时零行为变化）。
 
-    终审裁定：composite 产物 = 运行记录（固化门仅 admit/ref add）——
-    `sample.conclusion_eligible` 标注是否可作结论证据（final/is/off → true，
-    exploration → false）。
+    composite 产物 = 运行记录（固化门仅 admit/ref add）——探索碰测试段已被
+    guard 直接拒（LOCKBOX_TEST_ONLY_FINAL），能过门的路（is/off/final）产物
+    `conclusion_eligible` 恒 true；是否可作结论仍由 admit/ref add 裁定。
     """
     if guard is not None:
         summary["sample"] = guard.sample()
