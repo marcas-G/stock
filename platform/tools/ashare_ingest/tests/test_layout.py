@@ -18,7 +18,7 @@ TOOL = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOL))            # 工具目录（与 ch_ingest 测试同款）
 
 import datapaths   # noqa: E402
-import contracts   # noqa: E402
+import ashare_ingest_contracts as contracts  # noqa: E402
 import import_daily  # noqa: E402
 
 

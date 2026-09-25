@@ -463,9 +463,11 @@ register_data(
 
 register_data(
     "data.status",
-    params=(),
+    params=(registry.ParamSpec("pretty", kind="bool", help="缩进 JSON（人读）"),),
     description="数据新鲜度：各表 max(日期列) + trade_cal 交易日缺口",
-    examples=("factorlab research data status --json",),
+    defaults={"pretty": False},
+    examples=("factorlab research data status --json",
+              "factorlab research data status --pretty"),
     handler=data_status,
 )
 

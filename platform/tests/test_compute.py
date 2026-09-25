@@ -1,3 +1,5 @@
+import datetime as dt
+
 import pytest
 import polars as pl
 
@@ -237,6 +239,71 @@ def test_gp_key_with_values_ok():
     # 组内排名：银行组 a=1,b=2；白酒组 c=1,d=2（每日各两组独立）
     day0 = out.filter(pl.col("date") == "2024-01-01").sort("code")["signal"].to_list()
     assert day0 == [1.0, 2.0, 1.0, 2.0]
+
+
+# ---------- R31-CODEGEN-I1：嵌套窗口对照与全 NaN fail-loud ----------
+
+
+def _nested_window_panel(n_days=320):
+    """小型双资产面板：窗口足够预热，且每个资产都有不同、非平坦的输入。"""
+    rows = []
+    start = dt.date(2025, 1, 1)
+    for i in range(n_days):
+        day = start + dt.timedelta(days=i)
+        for code, phase in (("A", 0), ("B", 7)):
+            turnover = float(
+                1000 + ((i * 37 + phase) % 173) + ((i * i + phase) % 19))
+            rows.append({"date": day, "code": code, "turnover": turnover})
+    return pl.DataFrame(rows)
+
+
+def test_nested_window_intermediate_matches_materialized_control():
+    """R31-CODEGEN-I1：组合公式的嵌套滚动应与中间窗口列物化后逐值一致。"""
+    panel = _nested_window_panel()
+    prefix = """from polars_ta.prefix.wq import ts_rank, ts_delta, ts_count
+def oi_energy(x, n):
+    _e = ts_rank(ts_delta(x, 1).abs(), n)
+    return sqrt(_e * (1 - _e))
+_energy = oi_energy(turnover, 200)
+_rl = ts_count(sign(ts_delta(turnover, 1)) != 0, 120)
+"""
+    direct = compute_formula(
+        panel, prefix + "_rlr = ts_rank(_rl, 120)\nsignal = -_rlr * _energy * 2.0")
+
+    # 独立中间列是 issue 报告中确认可恢复的控制路径：先物化窗口输入，
+    # 再对该列做下一层窗口，最后组合两个已计算特征。
+    materialized = compute_formula(
+        panel, prefix + "energy_base = _energy\nrl_base = _rl",
+        outputs=["energy_base", "rl_base"])
+    control = compute_formula(
+        materialized,
+        "_rlr = ts_rank(rl_base, 120)\n"
+        "signal = -_rlr * energy_base * 2.0",
+    )
+
+    assert direct["signal"].is_finite().sum() > 0
+    assert direct["signal"].equals(control["signal"])
+
+
+def test_compute_formula_rejects_all_nan_output_but_allows_null_warmup():
+    """全 NaN 是编译产物错误；短窗口产生的全 null 仍是合法预热结果。"""
+    panel = _guard_panel()
+    with pytest.raises(FactorDSLError, match="全 NaN") as exc:
+        compute_formula(
+            panel, "signal = sqrt(-close * close)", outputs=["signal"])
+    assert "signal" in str(exc.value)
+
+    # 即使前几行是窗口 null，只要所有非 null 结果都是 NaN，仍是死输出。
+    with pytest.raises(FactorDSLError, match="全 NaN"):
+        compute_formula(
+            panel,
+            "signal = sqrt(-ts_mean(close, 2) * ts_mean(close, 2))",
+            outputs=["signal"],
+        )
+
+    # 已有契约：窗口尚未预热时全 null 不应误判成全 NaN。
+    delayed = compute_formula(panel, "signal = ts_delay(close, 10)", outputs=["signal"])
+    assert delayed["signal"].null_count() == panel.height
 
 
 # ---------- R05-I1：非标量（Struct/多列）返回算子静态拒绝 ----------

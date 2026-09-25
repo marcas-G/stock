@@ -10,6 +10,8 @@ T4 brief + 用户裁定：
   仅重算诊断（同一次测试收尾，不重跑因子）；缺失且产物没了/版本不符 → `LOCKBOX_FINAL_REQUIRED`；
 - **判决吃冻结件数**：`factor_admit`/`factor_ref_add` 的 corr_max/r2_lib/resic_t
   来自冻结件（篡改冻结件即可改判决 → 证明不是现算全窗）；ref add 的 entry 字段同源。
+- **参考库准入**：|resIC t|≥3、corr_max<0.7、retention≥0.5 必须同时满足；
+  手工 entry 参数不能绕过判决，也不能在备份前写入观察候选。
 
 T2 遗留 3 红（`test_admit_with_reason_registers_final_then_proceeds` /
 `test_admit_second_call_reuses_same_access_id` /
@@ -114,7 +116,8 @@ def _write_final_products(out_dir: Path) -> None:
 
 
 def _fake_lane(tmp_path: Path, monkeypatch, db: Path, *,
-               diag: tuple = (0.3, 0.4, 3.0, 0.5, 8)) -> dict:
+               diag: tuple = (0.3, 0.4, 3.0, 0.5, 8),
+               retention: float = 0.8) -> dict:
     """假执行车道：monkeypatch `cli_main.execute_run`（真 guard_run 登记 + 写 _5y 产物）。
 
     车道语义与流水线一致：调用方（gate）必须显式传 `final_mode=True` 且进程内
@@ -146,15 +149,17 @@ def _fake_lane(tmp_path: Path, monkeypatch, db: Path, *,
     monkeypatch.setattr(cli_main, "execute_run", fake_execute_run)
 
     def fake_diag(candidates, results_dir, base, fwd_col="forward_return_5d",
-                  min_stocks=30, date_start=None):
+                  min_stocks=30, date_start=None, frequency="weekly"):
         calls["diag"].append({"candidates": list(candidates), "base": list(base),
                               "date_start": date_start,
+                              "fwd_col": fwd_col, "frequency": frequency,
                               "results_dir": Path(results_dir)})
         corr_max, r2_lib, resic_t, resic_mean, n_weeks = diag
         return {"kind": "incremental", "base": list(base), "candidates": [{
             "name": candidates[0], "base": list(base),
             "corr_max": corr_max, "r2_lib": r2_lib, "resic_t": resic_t,
-            "resic_mean": resic_mean, "n_weeks": n_weeks}]}
+            "resic_mean": resic_mean, "n_weeks": n_weeks,
+            "retention": retention}]}
 
     monkeypatch.setattr(
         "factorlab.app.analysis.cross_section.incremental_diagnostics", fake_diag)
@@ -377,6 +382,9 @@ def test_admit_without_final_executes_final_test_then_proceeds(tmp_path, monkeyp
     assert frozen["window_start"] == W.start.isoformat()
     assert frozen["date_start"] == W.start.isoformat()
     assert frozen["date_end"] == W.end.isoformat()
+    assert frozen["diagnostics_schema"] == F._TEST_DIAGNOSTICS_SCHEMA
+    assert frozen["frequency"] == "daily"
+    assert frozen["fwd_col"] == "forward_return_1d"
     assert (frozen["corr_max"], frozen["r2_lib"], frozen["resic_t"]) == (0.3, 0.4, 3.0)
     assert frozen["resic_mean"] == 0.5 and frozen["n_weeks"] == 8
     assert frozen["created_at"]
@@ -389,6 +397,8 @@ def test_admit_without_final_executes_final_test_then_proceeds(tmp_path, monkeyp
     assert doc["data"]["spec_note"] is None
     assert calls["diag"] == [{"candidates": ["refcand_5y"], "base": ["seed_a_5y"],
                               "date_start": W.start.isoformat(),
+                              "fwd_col": "forward_return_1d",
+                              "frequency": "daily",
                               "results_dir": Path(settings.results_dir)}]
 
 
@@ -475,14 +485,43 @@ def test_admit_verdict_follows_frozen_diagnostics(tmp_path, monkeypatch):
     first = _doc(_invoke("factor", "admit", str(spec)))
     assert first["data"]["verdict"] == "重复"         # corr_max 0.97 ≥ 0.95
     frozen = _read_frozen(tmp_path)
+    # 用户选择的操作门槛是 |t| >= 3；冻结 t=2.5 必须判为观察。
     frozen.update({"corr_max": 0.2, "r2_lib": 0.1, "resic_t": 2.5})
     _frozen(tmp_path).write_text(json.dumps(frozen), encoding="utf-8")
     second = _doc(_invoke("factor", "admit", str(spec)))
 
     assert second["ok"] is True
     assert second["data"]["corr_max"] == pytest.approx(0.2)
-    assert second["data"]["verdict"] == "可加入"
+    assert second["data"]["verdict"] == "观察"
     assert len(calls["diag"]) == 1                    # 从未重算
+
+
+def test_admit_migrates_old_frozen_diagnostics_without_retesting(
+        tmp_path, monkeypatch):
+    """旧冻结件即使已有 retention，也要按新 cadence metadata 重算。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+
+    first = _doc(_invoke("factor", "admit", str(spec)))
+    assert first["ok"] is True
+    frozen = _read_frozen(tmp_path)
+    frozen.update({
+        "diagnostics_schema": 1,
+        "frequency": "weekly",
+        "fwd_col": "forward_return_5d",
+    })
+    _frozen(tmp_path).write_text(json.dumps(frozen), encoding="utf-8")
+
+    second = _doc(_invoke("factor", "admit", str(spec)))
+
+    assert second["ok"] is True
+    assert second["data"]["retention"] == pytest.approx(0.8)
+    assert second["data"]["verdict"] == "可加入"
+    assert _read_frozen(tmp_path)["frequency"] == "daily"
+    assert _read_frozen(tmp_path)["fwd_col"] == "forward_return_1d"
+    assert len(calls["run"]) == 1
+    assert len(calls["diag"]) == 2       # 仅重算诊断，不重跑 final
+    assert len(_rows(db)) == 1
 
 
 def test_admit_is_only_window_rejected(tmp_path, monkeypatch):
@@ -542,6 +581,50 @@ def test_ref_add_entry_fields_come_from_frozen_segment(tmp_path, monkeypatch):
     assert entry.entry_resic_t == pytest.approx(3.0)
 
 
+def test_ref_add_subthreshold_frozen_diagnostics_reject_before_write(
+        tmp_path, monkeypatch):
+    """最终测试冻结件低于 |t|=3 门槛时，不得备份或改写参考库。"""
+    spec, db, ref = _sandbox(tmp_path, monkeypatch)
+    calls = _fake_lane(tmp_path, monkeypatch, db,
+                       diag=(0.3, 0.4, 2.999, 0.5, 8))
+    before = ref.read_text(encoding="utf-8")
+
+    result = _invoke("factor", "ref", "add", "refcand",
+                     "--style", "量价", "--reason", "入选")
+    doc = _doc(result)
+
+    assert doc["ok"] is False
+    assert doc["error"]["code"] == "DATA"
+    assert "要求 ≥3" in doc["error"]["message"]
+    assert len(calls["run"]) == 1 and len(_rows(db)) == 1
+    assert ref.read_text(encoding="utf-8") == before
+    assert not ref.with_name(ref.name + ".bak").exists()
+
+
+@pytest.mark.parametrize(
+    "diag, retention",
+    [
+        ((0.8, 0.1, 3.2, 0.5, 8), 0.8),
+        ((0.3, 0.1, 3.2, 0.5, 8), 0.49),
+    ],
+)
+def test_ref_add_observational_d10_verdict_rejects_before_write(
+        tmp_path, monkeypatch, diag, retention):
+    """t≥3 仍需满足 D10 独立性及 retention；观察候选不得进入库。"""
+    _spec, db, ref = _sandbox(tmp_path, monkeypatch)
+    _fake_lane(tmp_path, monkeypatch, db, diag=diag, retention=retention)
+    before = ref.read_text(encoding="utf-8")
+
+    doc = _doc(_invoke("factor", "ref", "add", "refcand",
+                       "--style", "量价", "--reason", "入选"))
+
+    assert doc["ok"] is False
+    assert doc["error"]["code"] == "DATA"
+    assert "verdict=观察" in doc["error"]["message"]
+    assert ref.read_text(encoding="utf-8") == before
+    assert not ref.with_name(ref.name + ".bak").exists()
+
+
 def test_ref_add_missing_spec_rejected(tmp_path, monkeypatch):
     """无 spec 的幽灵成员无法执行最终测试 → `LOCKBOX_FINAL_REQUIRED`，零写入。"""
     _spec, db, ref = _sandbox(tmp_path, monkeypatch)
@@ -587,6 +670,7 @@ def test_ref_add_is_only_rejected(tmp_path, monkeypatch):
 def test_ref_add_env_off_skips_lockbox_branch(tmp_path, monkeypatch):
     _spec, db, ref = _sandbox(tmp_path, monkeypatch)
     monkeypatch.setenv("FACTORLAB_LOCKBOX", "off")
+    _fake_lane(tmp_path, monkeypatch, db)
     db.unlink()
     result = _invoke("factor", "ref", "add", "refcand",
                      "--style", "量价", "--reason", "入选",
@@ -594,9 +678,32 @@ def test_ref_add_env_off_skips_lockbox_branch(tmp_path, monkeypatch):
     doc = _doc(result)
     assert doc["ok"] is True, doc
     assert doc["data"]["test_diagnostics"] is None
-    assert doc["data"]["entry"]["entry_corr_max"] == pytest.approx(0.31)
+    assert doc["data"]["entry"]["entry_corr_max"] == pytest.approx(0.3)
+    assert doc["data"]["entry"]["entry_resic_t"] == pytest.approx(3.0)
     assert not db.exists()
     assert "refcand" in ref.read_text(encoding="utf-8")
+
+
+def test_ref_add_env_off_manual_entry_cannot_bypass_admission_floor(
+        tmp_path, monkeypatch):
+    _spec, db, ref = _sandbox(tmp_path, monkeypatch)
+    monkeypatch.setenv("FACTORLAB_LOCKBOX", "off")
+    _fake_lane(tmp_path, monkeypatch, db,
+               diag=(0.3, 0.4, 2.999, 0.5, 8))
+    db.unlink()
+    before = ref.read_text(encoding="utf-8")
+
+    result = _invoke("factor", "ref", "add", "refcand",
+                     "--style", "量价", "--reason", "入选",
+                     "--entry-corr-max", "0.1", "--entry-resic-t", "99.0")
+    doc = _doc(result)
+
+    assert doc["ok"] is False
+    assert doc["error"]["code"] == "DATA"
+    assert "要求 ≥3" in doc["error"]["message"]
+    assert ref.read_text(encoding="utf-8") == before
+    assert not ref.with_name(ref.name + ".bak").exists()
+    assert not db.exists()
 
 
 # ================================================================

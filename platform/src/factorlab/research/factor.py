@@ -12,8 +12,11 @@
 
 `admit` / `ref add` = lint → 最终测试门（R42：无 final 登记则经入库车道执行
 测试段最终测试并冻结 `test_diagnostics.json`；IS-only/冻结件缺失即拒）→ verdict
-吃冻结件测试段数：corr_max≥0.95 → 重复；r2_lib≥0.8 且 resic 不显著 → 冗余；
-否则 → 可加入（指标计算走 D10 `incremental_diagnostics` 单点 + `date_start` 切片）。
+吃冻结件测试段数：corr_max≥0.95 → 重复；corr_max≥0.9、r2_lib≥0.9、
+retention<0.2，或 r2_lib≥0.8 且 |resIC t|<2 → 冗余；只有同时满足
+|resIC t|≥3、corr_max<0.7、retention≥0.5 才可加入，其余 → 观察。
+3.0 是用户选定的操作门槛；99 项试验、B=300 的联合 max-T 估计临界值约 3.45，
+因此不声称已控制 FWER。诊断走 `incremental_diagnostics`，并以 `date_start` 切片。
 
 错误码（spec §4）：USAGE/LINT/MEMORY_GUARD/DEAD_SIGNAL/RUN_FAILED/DATA/NOT_FOUND/BUSY。
 """
@@ -421,6 +424,14 @@ def _strip_weekly(d: dict) -> dict:
     return {k: v for k, v in d.items() if k != "weekly"}
 
 
+def _resic_payload(d: dict, frequency: str) -> dict:
+    """Remove internal frames and name the per-period count for daily callers."""
+    out = _strip_weekly(d)
+    if frequency == "daily" and "n_weeks" in out:
+        out["n_periods"] = out["n_weeks"]
+    return out
+
+
 def factor_resic(args: Any) -> envelope.Envelope:
     """增量信息（--against 参考库）或组内互评（resIC/R²/verdict）。"""
     from factorlab.app.analysis.correlation import resolve_against
@@ -430,6 +441,31 @@ def factor_resic(args: Any) -> envelope.Envelope:
     target = getattr(args, "target", None)
     against = getattr(args, "against", None)
     min_stocks = getattr(args, "min_stocks", None) or 30
+    frequency = getattr(args, "frequency", None)
+    if frequency is None:
+        frequency = "weekly"
+    if frequency not in ("daily", "weekly"):
+        return envelope.fail(
+            "factor.resic", "USAGE",
+            f"frequency 只能是 daily 或 weekly（收到 {frequency!r}）",
+            hint="flab factor resic <candidate> --frequency daily --horizon 1")
+    horizon = getattr(args, "horizon", None)
+    if horizon is not None and (
+            isinstance(horizon, bool) or not isinstance(horizon, int) or horizon < 1):
+        return envelope.fail(
+            "factor.resic", "USAGE",
+            f"horizon 必须是正整数（收到 {horizon!r}）",
+            hint="flab factor resic <candidate> --horizon 1")
+    fwd_col = getattr(args, "fwd_col", None)
+    if fwd_col is not None:
+        if not isinstance(fwd_col, str) or not fwd_col.strip():
+            return envelope.fail(
+                "factor.resic", "USAGE", "fwd_col 必须是非空列名",
+                hint="用 --fwd-col forward_return_1d 选择标签列")
+        fwd_col = fwd_col.strip()
+    else:
+        default_horizon = 1 if frequency == "daily" else 5
+        fwd_col = f"forward_return_{horizon if horizon is not None else default_horizon}d"
     if against is None and target is None and len(names) < 2:
         return envelope.fail("factor.resic", "USAGE",
                              "组内互评至少需要 2 个因子（或 --target/--against）",
@@ -444,14 +480,23 @@ def factor_resic(args: Any) -> envelope.Envelope:
             base = [b for b in resolve_against(against, settings.results_dir)
                     if b not in candidates]
             r = incremental_diagnostics(candidates, settings.results_dir, base=base,
-                                        min_stocks=min_stocks)
-            data = {"mode": "incremental", "base": r["base"],
-                    "candidates": [_strip_weekly(c) for c in r["candidates"]]}
+                                        min_stocks=min_stocks, fwd_col=fwd_col,
+                                        frequency=frequency)
+            data = {
+                "mode": "incremental", "frequency": frequency,
+                "fwd_col": fwd_col, "base": r["base"],
+                "candidates": [_resic_payload(c, frequency)
+                               for c in r["candidates"]],
+            }
         else:
             r = joint_diagnostics(names, settings.results_dir, target=target,
-                                  min_stocks=min_stocks)
-            data = {"mode": r["mode"], "group": _strip_weekly(r["group"]),
-                    "factors": [_strip_weekly(f) for f in r["factors"]]}
+                                  min_stocks=min_stocks, fwd_col=fwd_col,
+                                  frequency=frequency)
+            data = {
+                "mode": r["mode"], "frequency": frequency, "fwd_col": fwd_col,
+                "group": _resic_payload(r["group"], frequency),
+                "factors": [_resic_payload(f, frequency) for f in r["factors"]],
+            }
     except FileNotFoundError as exc:
         return envelope.fail("factor.resic", "NOT_FOUND", str(exc), hint=_FACTOR_HINT)
     except ValueError as exc:
@@ -504,23 +549,39 @@ def factor_svd(args: Any) -> envelope.Envelope:
 # ================================================================
 
 _VERDICT_JOIN = "可加入"
+_VERDICT_WATCH = "观察"
 _VERDICT_REDUNDANT = "冗余"
 _VERDICT_DUPLICATE = "重复"
+_VERDICT_SEED = "种子"
 
 
-def _admit_verdict(corr_max: float, r2_lib: float, resic_t: float) -> str:
-    """plan Task 4 判决：corr_max≥0.95 重复；r2_lib≥0.8 且 resic 不显著 冗余；
-    否则可加入（resic 显著 = |t|≥2，与 D10 `_incremental_verdict` 同门槛）。"""
+def _admit_verdict(corr_max: float, r2_lib: float, resic_t: float,
+                   retention: float | None) -> str:
+    """D10 入库判决：先判重复/冗余，再要求 t、相关性与 retention 均达标。"""
+    from factorlab.app.analysis.cross_section import (
+        REFERENCE_ADMISSION_MIN_ABS_RESIC_T,
+    )
+
     if _finite(corr_max) and corr_max >= 0.95:
         return _VERDICT_DUPLICATE
-    if _finite(r2_lib) and r2_lib >= 0.8 and not (
-            _finite(resic_t) and abs(resic_t) >= 2.0):
+    if ((_finite(corr_max) and corr_max >= 0.9)
+            or (_finite(r2_lib) and r2_lib >= 0.9)
+            or (_finite(retention) and retention < 0.2)
+            or (_finite(r2_lib) and r2_lib >= 0.8 and not (
+                _finite(resic_t) and abs(resic_t) >= 2.0))):
         return _VERDICT_REDUNDANT
-    return _VERDICT_JOIN
+    if (_finite(resic_t)
+            and abs(resic_t) >= REFERENCE_ADMISSION_MIN_ABS_RESIC_T
+            and _finite(corr_max) and corr_max < 0.7
+            and _finite(retention) and retention >= 0.5):
+        return _VERDICT_JOIN
+    return _VERDICT_WATCH
 
 
 _ADVICE = {
     _VERDICT_JOIN: "残差信息显著/独立——可加入参考库；补风格档案后 `flab factor ref add`",
+    _VERDICT_SEED: "该 scales 组为空，作为首个种子登记；后续候选需经过 D10 增量准入门",
+    _VERDICT_WATCH: "D10 增量准入条件未全部满足（|resIC t|≥3、corr_max<0.7、retention≥50%）——继续观察",
     _VERDICT_REDUNDANT: "与参考库近亲（r2_lib 高且残差无显著增量）——不建议加入；考虑合并或替换库内近亲",
     _VERDICT_DUPLICATE: "与参考库成员高度相关（corr_max≥0.95）——重复，不加入",
 }
@@ -691,18 +752,48 @@ def resolve_candidate_spec(name: str) -> Path | None:
     return _source_spec_path(name)
 
 
+_TEST_DIAGNOSTICS_SCHEMA = 2
+
+
+def _diagnostic_options(spec_doc: dict[str, Any] | None) -> tuple[str, str]:
+    """Resolve the resIC cadence from the candidate spec.
+
+    D11 fixes daily evaluation to the one-day forward label; weekly keeps the
+    spec's explicit target.  A missing spec is only possible on the legacy
+    lockbox-off ref-add path, where the historical weekly/5d defaults remain
+    explicit in the resulting diagnostics.
+    """
+    if spec_doc is None:
+        return "weekly", "forward_return_5d"
+    frequency = str(spec_doc.get("evaluation_frequency") or "daily")
+    if frequency == "daily":
+        return frequency, "forward_return_1d"
+    if frequency == "weekly":
+        target = str(spec_doc.get("target") or "forward_return_5d")
+        return frequency, target
+    raise ValueError(
+        f"evaluation_frequency 只能是 daily 或 weekly（收到 {frequency!r}）")
+
+
 def _compute_test_diagnostics(*, name: str, base: list[str], window: Any,
-                              fingerprint: str) -> tuple[dict[str, Any], Path]:
+                              fingerprint: str,
+                              spec_doc: dict[str, Any] | None = None,
+                              frequency: str | None = None,
+                              fwd_col: str | None = None
+                              ) -> tuple[dict[str, Any], Path]:
     """测试段诊断（`date_start=window_start`）→ 写 `<results>/<name>_5y/test_diagnostics.json`。
 
     读最终测试 `_5y` 产物（候选 `<name>_5y` 对参考库 `<base>_5y`），只取
     `date >= window_start` 的测试段面板；返回 `(冻结件 doc, 路径)`。
     """
     from factorlab.app.analysis.cross_section import incremental_diagnostics
+    if frequency is None or fwd_col is None:
+        frequency, fwd_col = _diagnostic_options(spec_doc)
     results_dir = Path(settings.results_dir)
     r = incremental_diagnostics(
         [f"{name}_5y"], results_dir, base=[f"{b}_5y" for b in base],
-        date_start=window.start.isoformat())
+        date_start=window.start.isoformat(), frequency=frequency,
+        fwd_col=fwd_col)
     cand = r["candidates"][0]
     doc: dict[str, Any] = {
         "version_fingerprint": fingerprint,
@@ -710,8 +801,12 @@ def _compute_test_diagnostics(*, name: str, base: list[str], window: Any,
         "window_start": window.start.isoformat(),
         "date_start": window.start.isoformat(),
         "date_end": window.end.isoformat(),
+        "diagnostics_schema": _TEST_DIAGNOSTICS_SCHEMA,
+        "frequency": frequency,
+        "fwd_col": fwd_col,
         "corr_max": cand["corr_max"],
         "r2_lib": cand["r2_lib"],
+        "retention": cand["retention"],
         "resic_t": cand["resic_t"],
         "resic_mean": cand["resic_mean"],
         "n_weeks": cand["n_weeks"],
@@ -797,6 +892,7 @@ def _final_test_gate(spec_doc: dict[str, Any] | None,
                 f"起点 {window.start}）相交但锁箱未初始化：先 `factorlab lockbox roll`")
         fp = store.final_version_fingerprint(spec_doc=spec_doc,
                                              window_id=window.window_id)
+        diagnostic_frequency, diagnostic_fwd_col = _diagnostic_options(spec_doc)
         try:
             access_id: str | None = store.require_final(
                 conn, window_id=window.window_id, fingerprint=fp)
@@ -814,7 +910,9 @@ def _final_test_gate(spec_doc: dict[str, Any] | None,
             access_id = store.require_final(conn, window_id=window.window_id,
                                             fingerprint=fp)
             diag, frozen_path = _compute_test_diagnostics(
-                name=name, base=base, window=window, fingerprint=fp)
+                name=name, base=base, window=window, fingerprint=fp,
+                spec_doc=spec_doc, frequency=diagnostic_frequency,
+                fwd_col=diagnostic_fwd_col)
             executed = True
         elif frozen_path.is_file():
             diag = json.loads(frozen_path.read_text(encoding="utf-8"))
@@ -825,12 +923,26 @@ def _final_test_gate(spec_doc: dict[str, Any] | None,
                     f"冻结件 {frozen_path} 与登记（版本 {fp[:12]}… / 窗口 "
                     f"{window.window_id}）不符：先经 `make xpipe`（pipeline final）"
                     "重建最终测试与冻结件")
+            if (diag.get("diagnostics_schema") != _TEST_DIAGNOSTICS_SCHEMA
+                    or diag.get("frequency") != diagnostic_frequency
+                    or diag.get("fwd_col") != diagnostic_fwd_col
+                    or "retention" not in diag):
+                # Recompute diagnostics from the existing final panel when the
+                # metric schema or cadence changed; never rerun/re-register final.
+                _preflight_base_products(
+                    base=base, results_dir=Path(settings.results_dir))
+                diag, frozen_path = _compute_test_diagnostics(
+                    name=name, base=base, window=window, fingerprint=fp,
+                    spec_doc=spec_doc, frequency=diagnostic_frequency,
+                    fwd_col=diagnostic_fwd_col)
         elif (out_dir / "panel.parquet").is_file():
             # 已有 final、冻结件缺失但 `_5y` 产物在：同一次测试收尾，仅重算诊断
             _preflight_base_products(base=base,
                                      results_dir=Path(settings.results_dir))
             diag, frozen_path = _compute_test_diagnostics(
-                name=name, base=base, window=window, fingerprint=fp)
+                name=name, base=base, window=window, fingerprint=fp,
+                spec_doc=spec_doc, frequency=diagnostic_frequency,
+                fwd_col=diagnostic_fwd_col)
         else:
             raise lb.LockboxError(
                 "LOCKBOX_FINAL_REQUIRED",
@@ -850,7 +962,7 @@ def factor_admit(args: Any) -> envelope.Envelope:
 
     R42：入库只看测试段结果——无 final 登记时门内执行最终测试（测试段车道）
     并写 `test_diagnostics.json`；已有 final 只读冻结件（版本不符/缺失即拒）。
-    判决输入为冻结件 `corr_max/r2_lib/resic_t`，不再现算全窗。
+    判决输入为冻结件 `corr_max/r2_lib/resic_t/retention`，不再现算全窗。
     """
     from factorlab.adapters import results_fs
     from factorlab.app.analysis.reference import reference_names
@@ -900,7 +1012,9 @@ def factor_admit(args: Any) -> envelope.Envelope:
     except (OSError, ValueError, yaml.YAMLError):
         spec_path, spec_note = user_spec_path, None
         spec = load_spec(user_spec_path)
-    scales = getattr(args, "scales", None) or "daily"
+    scales = getattr(args, "scales", None)
+    if scales is None:
+        scales = "minute" if spec.interface == "bars_1m" else "daily"
     try:
         base = [b for b in reference_names(scales) if b != name]
     except FileNotFoundError as exc:
@@ -931,9 +1045,11 @@ def factor_admit(args: Any) -> envelope.Envelope:
     results_dir = Path(settings.results_dir)
     artifacts: dict[str, str] = {}
     if gate is None:
-        # 纪律未启用（FACTORLAB_LOCKBOX=off，CI/测试兜底）：旧径——缺产物则 run，
-        # 全窗诊断（无测试段冻结件；判决不可作正式入库依据）
+        # 纪律未启用（FACTORLAB_LOCKBOX=off，CI/测试兜底）：缺产物则 run，
+        # 全窗诊断（无测试段冻结件；判决不可作正式入库依据）。
         from factorlab.app.analysis.cross_section import incremental_diagnostics
+        diagnostic_frequency, diagnostic_fwd_col = _diagnostic_options(
+            spec.model_dump(mode="json"))
         summary_path = results_fs.summary_path(results_dir, name)
         panel_path = results_fs.panel_path(results_dir, name)
         ran = False
@@ -947,18 +1063,24 @@ def factor_admit(args: Any) -> envelope.Envelope:
                                      hint=err.get("hint"), log=err.get("log"))
             ran = True
         try:
-            r = incremental_diagnostics([name], results_dir, base=base)
+            r = incremental_diagnostics(
+                [name], results_dir, base=base,
+                frequency=diagnostic_frequency, fwd_col=diagnostic_fwd_col)
         except FileNotFoundError as exc:
             return envelope.fail("factor.admit", "NOT_FOUND", str(exc),
                                  hint=_FACTOR_HINT)
         except ValueError as exc:
             return envelope.fail("factor.admit", "DATA", str(exc))
         cand = r["candidates"][0]
-        verdict = _admit_verdict(cand["corr_max"], cand["r2_lib"], cand["resic_t"])
+        verdict = _admit_verdict(
+            cand["corr_max"], cand["r2_lib"], cand["resic_t"],
+            cand["retention"])
         data = {
             "name": name, "scales": scales, "ran": ran, "base": base,
             "corr_max": cand["corr_max"], "r2_lib": cand["r2_lib"],
             "retention": cand["retention"],
+            "diagnostic_frequency": diagnostic_frequency,
+            "diagnostic_fwd_col": diagnostic_fwd_col,
             "resic": {"mean": cand["resic_mean"], "t": cand["resic_t"],
                       "n_weeks": cand["n_weeks"]},
             "d10_verdict": cand["verdict"],
@@ -970,10 +1092,12 @@ def factor_admit(args: Any) -> envelope.Envelope:
         artifacts["summary"] = str(summary_path)
     else:
         d = gate["diagnostics"]
-        verdict = _admit_verdict(d["corr_max"], d["r2_lib"], d["resic_t"])
+        verdict = _admit_verdict(
+            d["corr_max"], d["r2_lib"], d["resic_t"], d.get("retention"))
         data = {
             "name": name, "scales": scales, "ran": gate["executed"], "base": base,
             "corr_max": d["corr_max"], "r2_lib": d["r2_lib"],
+            "retention": d.get("retention"),
             "resic": {"mean": d["resic_mean"], "t": d["resic_t"],
                       "n_weeks": d["n_weeks"]},
             "test_diagnostics": gate["path"],
@@ -1144,7 +1268,7 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
     except ValueError as exc:
         return envelope.fail("factor.ref.add", "DATA", f"参考库非法: {exc}")
     try:
-        gate = _final_test_gate(
+        gate = None if not base else _final_test_gate(
             (gate_spec.model_dump(mode="json") if gate_spec is not None else None),
             (spec_path if gate_spec is not None else None),
             reason=f"ref add final test: {name}", command="factor ref add",
@@ -1161,13 +1285,57 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
         return envelope.fail("factor.ref.add", "DATA", str(exc))
     test_diagnostics: str | None = None
     if gate is None:
-        entry_corr_max = getattr(args, "entry_corr_max", None)
-        entry_resic_t = getattr(args, "entry_resic_t", None)
+        # Lockbox-off (primarily tests/CI) still uses measured diagnostics for the
+        # same admission floor. Manual --entry-* values cannot bypass this gate.
+        from factorlab.app.analysis.cross_section import incremental_diagnostics
+        if not base:
+            # An empty scale is initialized by a seed. There is no comparison
+            # set yet, so the operator-supplied entry fields remain nullable.
+            diagnostics = {
+                "corr_max": getattr(args, "entry_corr_max", None),
+                "r2_lib": None,
+                "resic_t": getattr(args, "entry_resic_t", None),
+                "retention": None,
+            }
+            verdict = _VERDICT_SEED
+        else:
+            diagnostic_frequency, diagnostic_fwd_col = _diagnostic_options(
+                gate_spec.model_dump(mode="json") if gate_spec is not None else None)
+            try:
+                result = incremental_diagnostics(
+                    [name], settings.results_dir, base=base,
+                    frequency=diagnostic_frequency, fwd_col=diagnostic_fwd_col)
+            except FileNotFoundError as exc:
+                return envelope.fail("factor.ref.add", "NOT_FOUND", str(exc),
+                                     hint=_FACTOR_HINT)
+            except ValueError as exc:
+                return envelope.fail("factor.ref.add", "DATA", str(exc))
+            diagnostics = result["candidates"][0]
+            verdict = _admit_verdict(
+                diagnostics["corr_max"], diagnostics["r2_lib"],
+                diagnostics["resic_t"], diagnostics.get("retention"))
     else:
         # R42：entry 字段语义 = 测试段冻结件（不看训练段/全窗）
-        entry_corr_max = gate["diagnostics"]["corr_max"]
-        entry_resic_t = gate["diagnostics"]["resic_t"]
+        diagnostics = gate["diagnostics"]
         test_diagnostics = gate["path"]
+        verdict = _admit_verdict(
+            diagnostics["corr_max"], diagnostics["r2_lib"],
+            diagnostics["resic_t"], diagnostics.get("retention"))
+    if verdict != _VERDICT_JOIN:
+        resic_t = diagnostics.get("resic_t")
+        shown_t = abs(resic_t) if _finite(resic_t) else "不可用"
+        corr_max = diagnostics.get("corr_max")
+        retention = diagnostics.get("retention")
+        return envelope.fail(
+            "factor.ref.add", "DATA",
+            f"候选 {name} 未达到参考库准入门：verdict={verdict}，"
+            f"|resIC t|={shown_t}（要求 ≥3），corr_max={corr_max}（要求 <0.7），"
+            f"retention={retention}（要求 ≥0.5）",
+            hint="先运行 `flab factor admit <spec>` 查看完整判决；满足准入门后再添加")
+    entry_corr_max = (float(diagnostics["corr_max"])
+                      if _finite(diagnostics["corr_max"]) else None)
+    entry_resic_t = (float(diagnostics["resic_t"])
+                     if _finite(diagnostics["resic_t"]) else None)
     entry = {
         "name": name, "style": args.style, "reason": args.reason,
         "added": getattr(args, "added", None) or datetime.date.today().isoformat(),
@@ -1190,7 +1358,8 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
                        {"name": name, "scales": scales, "path": str(path),
                         "backup": str(backup), "entry": _jsonify(entry),
                         "spec": str(spec_path) if spec_path else None,
-                        "test_diagnostics": test_diagnostics},
+                        "test_diagnostics": test_diagnostics,
+                        "verdict": verdict},
                        artifacts=artifacts)
 
 
@@ -1412,13 +1581,25 @@ def _reg_all() -> None:
                 registry.ParamSpec("min_stocks", kind="int", help="每周最少股票数（缺省 30）"),
                 registry.ParamSpec("against", kind="str",
                                    help="D10 增量信息模式 reference|all|逗号名单"),
+                registry.ParamSpec("frequency", kind="str",
+                                   help="daily|weekly；不传新参数沿用旧 weekly/5d，显式 daily 默认 1d"),
+                registry.ParamSpec("horizon", kind="int",
+                                   help="标签 horizon 正整数，映射 forward_return_<N>d；缺省 5"),
+                registry.ParamSpec("fwd_col", kind="str",
+                                   help="显式标签列名；提供时优先于 --horizon"),
                 _JSON, _PRETTY),
-        defaults={"names": [], "target": None, "min_stocks": None, "against": None},
-        description="增量信息/正交化残差 IC（resIC/r2_lib/retention/verdict）",
+        defaults={"names": [], "target": None, "min_stocks": None, "against": None,
+                  "frequency": None, "horizon": None, "fwd_col": None},
+        description="增量信息/正交化残差 IC（resIC/r2_lib/retention/verdict）；"
+                    "不传新参数兼容旧 weekly/5d，显式 daily 默认 1d；horizon/fwd-col 可选",
         examples=("flab factor resic cand --against reference",
+                  "flab factor resic cand --against reference --frequency daily",
+                  "flab factor resic cand --against reference --frequency daily --horizon 20",
+                  "flab factor resic cand --against reference --fwd-col forward_return_1d",
                   "flab factor resic a b c"),
         output_schema={"type": "object", "properties": {
-            "mode": {"type": "string"}, "base": {"type": "array"},
+            "mode": {"type": "string"}, "frequency": {"type": "string"},
+            "fwd_col": {"type": "string"}, "base": {"type": "array"},
             "candidates": {"type": "array"}, "factors": {"type": "array"}}},
     )
     _register(
@@ -1455,20 +1636,21 @@ def _reg_all() -> None:
                 registry.ParamSpec("reason", kind="str", required=True, help="入库理由"),
                 registry.ParamSpec("added", kind="str", help="加入日期（缺省今天）"),
                 registry.ParamSpec("entry_corr_max", kind="float",
-                                   help="入库时对库内其余成员 max|ρ|（锁箱关闭时的兜底；"
-                                        "启用时以测试段冻结件为准）"),
+                                   help="兼容旧参数；准入及 entry 值始终由实际诊断计算"),
                 registry.ParamSpec("entry_resic_t", kind="float",
-                                   help="入库时对库内其余成员残差 t（同上）"),
+                                   help="兼容旧参数；不能覆盖实际诊断或绕过准入门"),
                 _JSON, _PRETTY),
         defaults={"scales": "daily", "added": None, "entry_corr_max": None,
                   "entry_resic_t": None},
-        description="参考库入库（最终测试门 + 测试段冻结件；备份/校验 scales/原子写）",
+        description=("参考库入库（最终测试门 + D10 增量判决：|resIC t|≥3、"
+                     "corr_max<0.7、retention≥0.5；entry 值取权威诊断）"),
         examples=("flab factor ref add my_factor --style 量价 --reason '独立增量'",),
         output_schema={"type": "object", "properties": {
             "name": {"type": "string"}, "scales": {"type": "string"},
             "path": {"type": "string"}, "backup": {"type": "string"},
             "spec": {"type": ["string", "null"]},
-            "test_diagnostics": {"type": ["string", "null"]}}},
+            "test_diagnostics": {"type": ["string", "null"]},
+            "verdict": {"type": "string", "enum": ["可加入"]}}},
     )
     _register(
         "factor.ref.remove", handler=factor_ref_remove,
@@ -1485,17 +1667,22 @@ def _reg_all() -> None:
         "factor.admit", handler=factor_admit,
         params=(registry.ParamSpec("spec_path", kind="path", positional=True,
                                    required=True, help="候选因子 spec YAML"),
-                registry.ParamSpec("scales", kind="str", help="参考库分组（缺省 daily）"),
+                registry.ParamSpec(
+                    "scales", kind="str",
+                    help="未传时按 spec interface 自动：bars_1m→minute，其余/缺省→daily；"
+                         "显式 --scales 覆盖自动选择"),
                 registry.ParamSpec("wait", kind="bool",
                                    help="执行最终测试时，闸满阻塞等槽"),
                 _JSON, _PRETTY),
-        defaults={"scales": "daily", "wait": False},
+        defaults={"scales": None, "wait": False},
         description=("一键入库检验：lint→最终测试门（无 final 则执行测试段最终测试并"
-                     "冻结）→判决吃测试段 corr_max/r2_lib/resic_t"),
+                     "冻结）→判决吃测试段 corr_max/r2_lib/resic_t；scales 默认按 spec "
+                     "interface 自动选择（bars_1m→minute，其余/缺省→daily）"),
         examples=("flab factor admit $QUANTRESEARCH_ROOT/factor/volatility/max_effect_20d.yaml",),
         output_schema={"type": "object", "properties": {
-            "verdict": {"type": "string", "enum": ["可加入", "冗余", "重复"]},
+            "verdict": {"type": "string", "enum": ["可加入", "观察", "冗余", "重复"]},
             "corr_max": {"type": "number"}, "r2_lib": {"type": "number"},
+            "retention": {"type": ["number", "null"]},
             "resic": {"type": "object"},
             "test_diagnostics": {"type": ["string", "null"]},
             "spec_used": {"type": "string"},

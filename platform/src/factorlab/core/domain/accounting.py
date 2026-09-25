@@ -24,6 +24,17 @@ from factorlab.core.domain.codes import is_canonical_stock_code
 from factorlab.core.domain.execution import PortfolioStatePhase
 
 
+_CASH_BRIDGE_REL_TOL = 1e-12
+_CASH_BRIDGE_ABS_TOL = 1e-9
+
+
+def cash_bridge_matches(actual: float, expected: float) -> bool:
+    """比较现金桥两侧，容差为 rel=1e-12 / abs=1e-9。"""
+    return math.isclose(actual, expected,
+                        rel_tol=_CASH_BRIDGE_REL_TOL,
+                        abs_tol=_CASH_BRIDGE_ABS_TOL)
+
+
 def _require_date(value, field: str) -> datetime.date:
     if not isinstance(value, datetime.date) or isinstance(value, datetime.datetime):
         raise ValueError(

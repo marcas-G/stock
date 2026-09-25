@@ -653,6 +653,33 @@ def test_cli_research_data_tables_single_json(monkeypatch):
     assert [r["table"] for r in doc["data"]["rows"]] == ["daily"]
 
 
+def test_cli_research_data_status_accepts_pretty(env, monkeypatch, tmp_path):
+    env.seed(_FRESH_SEED)
+    patch_read(monkeypatch, env.rd)
+
+    result = runner.invoke(cli_app, ["research", "data", "status", "--pretty"])
+
+    assert result.exit_code == 0, result.stdout
+    assert len(result.stdout.strip().splitlines()) > 1
+    doc = json.loads(result.stdout)
+    assert doc["ok"] is True and doc["command"] == "data.status"
+    rows = {row["table"]: row for row in doc["data"]["rows"]}
+    assert rows["daily"]["behind_trading_days"] == 2
+
+
+def test_describe_data_status_documents_pretty_flag():
+    result = runner.invoke(
+        cli_app,
+        ["research", "describe", "--command", "data.status", "--json"],
+    )
+
+    assert result.exit_code == 0
+    doc = json.loads(result.stdout)
+    assert doc["ok"] is True
+    assert any(param["name"] == "pretty" and param["kind"] == "bool"
+               for param in doc["data"]["params"])
+
+
 def test_cli_research_data_missing_table_exit_8(env, monkeypatch, tmp_path):
     env.seed({"stock_basic": _stock_basic()})
     patch_read(monkeypatch, env.rd)

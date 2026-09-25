@@ -161,6 +161,7 @@ def test_strategy_run_real_chain_passes_guard_and_persists(env, tmp_path,
                                                            monkeypatch):
     doc_path, results = _setup(env, tmp_path, monkeypatch)
     calls = _mock_guard(monkeypatch, tmp_path)
+    max_memory_before = settings.max_memory
 
     t0 = time.time()
     e = S.strategy_run(_run_args(doc_path))
@@ -168,7 +169,7 @@ def test_strategy_run_real_chain_passes_guard_and_persists(env, tmp_path,
     assert e.ok, e.error
     assert calls[0] == ("guard", ["strategy", "run", str(doc_path)], False)
     assert ("release",) in calls, "run 结束必须释放槽"
-    assert settings.max_memory is None  # 闸 env 退出复原
+    assert settings.max_memory == max_memory_before  # 闸退出后恢复进入前配置
 
     # 真产物（硬编码/旧数据必败：mtime + load 回读 + 与返回值一致）
     out = Path(e.artifacts["strategy_dir"])

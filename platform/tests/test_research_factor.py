@@ -8,7 +8,7 @@
 - plan `knowledge/design/platform/plans/2026-09-18-research-api.md` Task 4：
   `factor run` 过 `_guard.guard_heavy`；`factor admit` = lint→（缺产物则 run，经闸）
   →对参考库 corr+resic→verdict（重复 corr_max≥0.95 / 冗余 r2_lib≥0.8 且 resic 不显著
-  / 否则可加入）；`ref add/remove` 对参考库文件安全写（备份/校验/注释保留）。
+  / |resIC t|<3 时观察 / 达到门槛后可加入）；`ref add/remove` 对参考库文件安全写。
 
 禁止行为证明：run 用真引擎（build_db tmp duckdb）写新 summary（mtime 断言）+
 IC 数值；admit 判决来自合成面板真实回归（硬编码 verdict 必败）；ref 写盘后
@@ -113,8 +113,9 @@ def _tile(v, weeks=WEEKS):
 
 
 def _write_panel(root: Path, name: str, signal: np.ndarray,
-                 fwd: np.ndarray | None = None) -> None:
-    """results/<name>/panel.parquet：signal (+ forward_return_5d) (W, N) 矩阵。"""
+                 fwd: np.ndarray | None = None, *,
+                 include_daily_label: bool = True) -> None:
+    """results/<name>/panel.parquet：signal + both test label aliases (W, N)."""
     d = Path(root) / name
     d.mkdir(parents=True, exist_ok=True)
     data = {
@@ -123,8 +124,24 @@ def _write_panel(root: Path, name: str, signal: np.ndarray,
         "signal": [float(v) for v in signal.ravel()],
     }
     if fwd is not None:
+        if include_daily_label:
+            data["forward_return_1d"] = [float(v) for v in fwd.ravel()]
         data["forward_return_5d"] = [float(v) for v in fwd.ravel()]
     pl.DataFrame(data).write_parquet(d / "panel.parquet")
+
+
+def _write_daily_resic_panel(root: Path, name: str, dates: list[datetime.date],
+                             signal: np.ndarray, forward: np.ndarray) -> None:
+    """Write daily signal and 1d-label panels for resIC cadence tests."""
+    d = Path(root) / name
+    d.mkdir(parents=True, exist_ok=True)
+    pl.DataFrame({
+        "date": [dt for dt in dates for _ in _codes()],
+        "code": _codes() * len(dates),
+        "signal": signal.ravel(),
+        "forward_return_1d": forward.ravel(),
+        "forward_return_5d": forward.ravel(),
+    }).write_parquet(d / "panel.parquet")
 
 
 def _write_summary(results_dir: Path, name: str, *, ic=0.05, spread=0.02,
@@ -166,7 +183,8 @@ def _fixture_ref(tmp_path: Path) -> Path:
     return p
 
 
-def _admit_spec(tmp_path: Path, name="cand", formula="signal = close") -> Path:
+def _admit_spec(tmp_path: Path, name="cand", formula="signal = close",
+                interface: str | None = None) -> Path:
     spec = tmp_path / f"{name}.yaml"
     spec.write_text(f"""
 name: {name}
@@ -177,6 +195,7 @@ universe:
 date:
   start: "2024-01-02"
   end: "2024-01-12"
+{f"interface: {interface}" if interface is not None else ""}
 formula: |
   {formula}
 """, encoding="utf-8")
@@ -184,9 +203,27 @@ formula: |
 
 
 def _admit_args(spec_path, **over):
-    base = dict(spec_path=spec_path, scales="daily", wait=False, pretty=False)
+    base = dict(spec_path=spec_path, scales=None, wait=False, pretty=False)
     base.update(over)
     return argparse.Namespace(**base)
+
+
+@pytest.mark.parametrize(
+    "spec_doc, expected",
+    [
+        ({"evaluation_frequency": "daily", "target": "forward_return_20d"},
+         ("daily", "forward_return_1d")),
+        ({"evaluation_frequency": "weekly", "target": "forward_return_20d"},
+         ("weekly", "forward_return_20d")),
+        ({"evaluation_frequency": "weekly"},
+         ("weekly", "forward_return_5d")),
+        ({"evaluation_frequency": "daily", "interface": "bars_1m"},
+         ("daily", "forward_return_1d")),
+        (None, ("weekly", "forward_return_5d")),
+    ],
+)
+def test_admission_diagnostic_options_follow_spec_cadence(spec_doc, expected):
+    assert F._diagnostic_options(spec_doc) == expected
 
 
 # ================================================================
@@ -483,6 +520,144 @@ def test_factor_resic_mutual_mode(tmp_path, monkeypatch):
     _strict_json(env)
 
 
+def test_factor_resic_daily_horizon_uses_each_date_and_weekly_remains_default(
+        tmp_path, monkeypatch):
+    """1d resIC must use daily panels when requested; omitted frequency stays weekly."""
+    rd = tmp_path / "results"
+    monkeypatch.setattr(settings, "results_dir", rd)
+    dates = [
+        datetime.date(2024, 1, 8) + datetime.timedelta(days=i)
+        for i in (0, 1, 2, 3, 4, 7, 8, 9, 10, 11)
+    ]
+    vs = _basis(3)
+    base = np.tile(vs[0], (len(dates), 1))
+    candidate = np.tile(vs[0] + vs[1], (len(dates), 1))
+    forward = np.tile(0.4 * vs[1] + 0.1 * vs[2], (len(dates), 1))
+    _write_daily_resic_panel(rd, "base", dates, base, forward)
+    _write_daily_resic_panel(rd, "candidate", dates, candidate, forward)
+
+    daily = F.factor_resic(_args(
+        names=["base"], target="candidate", against=None, min_stocks=30,
+        frequency="daily"))
+    assert daily.ok, daily.error
+    assert daily.data["frequency"] == "daily"
+    assert daily.data["fwd_col"] == "forward_return_1d"
+    assert daily.data["factors"][0]["n_periods"] == len(dates)
+
+    # Existing callers without the new options retain the old weekly/5d behavior.
+    weekly = F.factor_resic(_args(
+        names=["base"], target="candidate", against=None, min_stocks=30))
+    assert weekly.ok, weekly.error
+    assert weekly.data["frequency"] == "weekly"
+    assert weekly.data["fwd_col"] == "forward_return_5d"
+    assert weekly.data["factors"][0]["n_weeks"] == 2
+
+    explicit_weekly = F.factor_resic(_args(
+        names=["base"], target="candidate", against=None, min_stocks=30,
+        frequency="weekly"))
+    assert explicit_weekly.ok, explicit_weekly.error
+    assert explicit_weekly.data["frequency"] == "weekly"
+    assert explicit_weekly.data["fwd_col"] == "forward_return_5d"
+
+
+def test_factor_resic_explicit_horizon_selects_forward_column(tmp_path, monkeypatch):
+    rd = tmp_path / "results"
+    monkeypatch.setattr(settings, "results_dir", rd)
+    dates = [datetime.date(2024, 1, 8) + datetime.timedelta(days=i)
+             for i in (0, 1, 2, 3, 4)]
+    vs = _basis(2)
+    forward = np.tile(vs[1], (len(dates), 1))
+    _write_daily_resic_panel(rd, "base", dates,
+                             np.tile(vs[0], (len(dates), 1)), forward)
+    _write_daily_resic_panel(rd, "candidate", dates,
+                             np.tile(vs[0] + vs[1], (len(dates), 1)), forward)
+
+    env = F.factor_resic(_args(
+        names=["base"], target="candidate", against=None, min_stocks=30,
+        frequency="daily", horizon=5, fwd_col=None))
+    assert env.ok, env.error
+    assert env.data["fwd_col"] == "forward_return_5d"
+    assert env.data["factors"][0]["n_periods"] == len(dates)
+
+
+def test_factor_resic_forward_col_overrides_horizon(tmp_path, monkeypatch):
+    rd = tmp_path / "results"
+    monkeypatch.setattr(settings, "results_dir", rd)
+    dates = [datetime.date(2024, 1, 8) + datetime.timedelta(days=i)
+             for i in (0, 1, 2, 3, 4)]
+    vs = _basis(2)
+    forward = np.tile(vs[1], (len(dates), 1))
+    _write_daily_resic_panel(rd, "base", dates,
+                             np.tile(vs[0], (len(dates), 1)), forward)
+    _write_daily_resic_panel(rd, "candidate", dates,
+                             np.tile(vs[0] + vs[1], (len(dates), 1)), forward)
+
+    env = F.factor_resic(_args(
+        names=["base"], target="candidate", against=None, min_stocks=30,
+        frequency="daily", horizon=5, fwd_col="forward_return_1d"))
+    assert env.ok, env.error
+    assert env.data["fwd_col"] == "forward_return_1d"
+    assert env.data["factors"][0]["n_periods"] == len(dates)
+
+
+def test_factor_resic_against_reference_accepts_daily_1d_mode(tmp_path, monkeypatch):
+    ref = _fixture_ref(tmp_path)
+    monkeypatch.setenv("FACTORLAB_REFERENCE", str(ref))
+    rd = tmp_path / "results"
+    monkeypatch.setattr(settings, "results_dir", rd)
+    dates = [
+        datetime.date(2024, 1, 8) + datetime.timedelta(days=i)
+        for i in (0, 1, 2, 3, 4, 7, 8, 9, 10, 11)
+    ]
+    vs = _basis(3)
+    forward = np.tile(0.4 * vs[2] + 0.1 * vs[1], (len(dates), 1))
+    for name, signal in (
+            ("base_a", np.tile(vs[0], (len(dates), 1))),
+            ("base_b", np.tile(vs[1], (len(dates), 1))),
+            ("cand", np.tile(vs[2], (len(dates), 1)))):
+        _write_daily_resic_panel(rd, name, dates, signal, forward)
+
+    env = F.factor_resic(_args(
+        names=["cand"], target=None, min_stocks=30, against="reference",
+        frequency="daily"))
+    assert env.ok, env.error
+    assert env.data["base"] == ["base_a", "base_b"]
+    assert env.data["frequency"] == "daily"
+    assert env.data["fwd_col"] == "forward_return_1d"
+    assert env.data["candidates"][0]["n_periods"] == len(dates)
+
+
+@pytest.mark.parametrize("kwargs, message", [
+    ({"horizon": 0}, "horizon"),
+    ({"frequency": "monthly"}, "frequency"),
+])
+def test_factor_resic_rejects_invalid_horizon_or_frequency(
+        tmp_path, monkeypatch, kwargs, message):
+    monkeypatch.setattr(settings, "results_dir", tmp_path / "results")
+    args = dict(names=["a"], target="b", against=None, min_stocks=None,
+                frequency="weekly", horizon=None, fwd_col=None)
+    args.update(kwargs)
+    env = F.factor_resic(_args(**args))
+    assert not env.ok
+    assert env.error["code"] == "USAGE"
+    assert message in env.error["message"]
+
+
+def test_factor_resic_rejects_missing_forward_column(tmp_path, monkeypatch):
+    rd = tmp_path / "results"
+    monkeypatch.setattr(settings, "results_dir", rd)
+    _write_panel(rd, "base", _tile(_basis(1)[0]), np.zeros((WEEKS, N)),
+                 include_daily_label=False)
+    _write_panel(rd, "candidate", _tile(_basis(1)[0]), np.zeros((WEEKS, N)),
+                 include_daily_label=False)
+    env = F.factor_resic(_args(
+        names=["base"], target="candidate", against=None, min_stocks=None,
+        frequency="daily", horizon=None, fwd_col="forward_return_1d"))
+    assert not env.ok
+    assert env.error["code"] == "DATA"
+    assert "forward_return_1d" in env.error["message"]
+
+
 def test_factor_svd_reference_default_and_all(tmp_path, monkeypatch):
     ref = _fixture_ref(tmp_path)
     monkeypatch.setenv("FACTORLAB_REFERENCE", str(ref))
@@ -520,6 +695,45 @@ def _admit_setup(tmp_path, monkeypatch, *, cand_signal, fwd, vs):
     return _admit_spec(tmp_path)
 
 
+@pytest.mark.parametrize(
+    "interface, requested_scales, expected_scales",
+    [
+        (None, None, "daily"),
+        ("daily", None, "daily"),
+        ("bars_1m", None, "minute"),
+        ("bars_1m", "daily", "daily"),
+        ("daily", "minute", "minute"),
+    ],
+)
+def test_factor_admit_scales_follow_spec_interface_unless_explicit(
+        tmp_path, monkeypatch, interface, requested_scales, expected_scales):
+    """Scale inference must not enter the lockbox final-test lane in this test."""
+    monkeypatch.setenv("FACTORLAB_REFERENCE", str(_fixture_ref(tmp_path)))
+    spec = _admit_spec(tmp_path, name="admit_scale_probe", interface=interface)
+    called = {}
+
+    def fake_final_test_gate(spec_doc, spec_path, *, reason, command,
+                             scales, base, wait):
+        called["scales"] = scales
+        called["base"] = base
+        return {
+            "diagnostics": {
+                "corr_max": 0.1, "r2_lib": 0.1,
+                "resic_t": 3.0, "resic_mean": 0.1, "n_weeks": 4,
+            },
+            "executed": False,
+            "path": str(tmp_path / "test_diagnostics.json"),
+        }
+
+    monkeypatch.setattr(F, "_final_test_gate", fake_final_test_gate)
+    env = F.factor_admit(_admit_args(spec, scales=requested_scales))
+    assert env.ok, env.error
+    assert called["scales"] == expected_scales
+    assert env.data["scales"] == expected_scales
+    expected_base = ["min_x"] if expected_scales == "minute" else ["base_a", "base_b"]
+    assert called["base"] == expected_base
+
+
 def test_factor_admit_independent_is_can_join(tmp_path, monkeypatch):
     vs = _basis(4)
     rng = np.random.default_rng(11)
@@ -534,9 +748,60 @@ def test_factor_admit_independent_is_can_join(tmp_path, monkeypatch):
     assert env.data["verdict"] == "可加入"
     assert env.data["corr_max"] < 0.7
     assert env.data["r2_lib"] < 0.8
-    assert env.data["resic"]["t"] >= 2.0
+    assert env.data["resic"]["t"] >= 3.0
     assert env.data["建议"]
     _strict_json(env)
+
+
+@pytest.mark.parametrize(
+    "resic_t, expected",
+    [
+        (2.999, "观察"),
+        (3.0, "可加入"),
+        (-3.0, "可加入"),
+        (float("nan"), "观察"),
+        (float("inf"), "观察"),
+        (float("-inf"), "观察"),
+    ],
+)
+def test_admit_verdict_uses_absolute_admission_floor(resic_t, expected):
+    assert F._admit_verdict(corr_max=0.1, r2_lib=0.1,
+                            resic_t=resic_t, retention=0.8) == expected
+
+
+@pytest.mark.parametrize(
+    "corr_max, retention, expected",
+    [
+        (0.8, 0.8, "观察"),
+        (0.1, 0.49, "观察"),
+    ],
+)
+def test_admit_requires_d10_independence_and_retention(
+        corr_max, retention, expected):
+    assert F._admit_verdict(corr_max=corr_max, r2_lib=0.1,
+                            resic_t=3.0, retention=retention) == expected
+
+
+def test_factor_admit_reports_watch_below_reference_admission_floor(
+        tmp_path, monkeypatch):
+    spec = _admit_spec(tmp_path)
+    monkeypatch.setenv("FACTORLAB_REFERENCE", str(_fixture_ref(tmp_path)))
+    monkeypatch.setattr(settings, "results_dir", tmp_path / "results")
+
+    def fake_final_test_gate(*args, **kwargs):
+        return {
+            "diagnostics": {
+                "corr_max": 0.1, "r2_lib": 0.1, "resic_t": 2.999,
+                "resic_mean": 0.01, "n_weeks": 8, "retention": 0.8,
+            },
+            "executed": False,
+            "path": str(tmp_path / "test_diagnostics.json"),
+        }
+
+    monkeypatch.setattr(F, "_final_test_gate", fake_final_test_gate)
+    env = F.factor_admit(_admit_args(spec))
+    assert env.ok, env.error
+    assert env.data["verdict"] == "观察"
 
 
 def test_factor_admit_near_relative_is_redundant(tmp_path, monkeypatch):
@@ -640,10 +905,20 @@ def test_factor_ref_add_backup_comment_and_roundtrip(tmp_path, monkeypatch):
     ref = tmp_path / "_reference.yaml"
     ref.write_text(_REF_YAML, encoding="utf-8")
     monkeypatch.setenv("FACTORLAB_REFERENCE", str(ref))
+    rd = tmp_path / "results"
+    monkeypatch.setattr(settings, "results_dir", rd)
+    vs = _basis(3)
+    cand = _tile(vs[1])
+    rng = np.random.default_rng(11)
+    fwd = 0.5 * cand + rng.uniform(-20.0, 20.0, size=(WEEKS, N))
+    _write_panel(rd, "base_a", _tile(vs[0]), fwd)
+    _write_panel(rd, "new_f", cand, fwd)
+    from factorlab.app.analysis.cross_section import incremental_diagnostics
+    expected = incremental_diagnostics(["new_f"], rd, base=["base_a"])["candidates"][0]
     ns = registry.build_parser(registry.COMMANDS["factor.ref.add"]).parse_args([
         "new_f", "--style", "新风格", "--reason", "入选理由",
-        "--added", "2026-09-18", "--entry-corr-max", "0.31",
-        "--entry-resic-t", "2.4"])
+        "--added", "2026-09-25", "--entry-corr-max", "0.31",
+        "--entry-resic-t", "99.0"])
     env = F.factor_ref_add(ns)
     assert env.ok, env.error
     assert env.data["name"] == "new_f" and env.data["scales"] == "daily"
@@ -656,9 +931,10 @@ def test_factor_ref_add_backup_comment_and_roundtrip(tmp_path, monkeypatch):
     assert [e.name for e in ref_map["daily"]] == ["base_a", "new_f"]
     e = ref_map["daily"][1]
     assert e.style == "新风格" and e.reason == "入选理由"
-    assert e.added == "2026-09-18"
-    assert e.entry_corr_max == pytest.approx(0.31)
-    assert e.entry_resic_t == pytest.approx(2.4)
+    assert e.added == "2026-09-25"
+    assert e.entry_corr_max == pytest.approx(expected["corr_max"])
+    assert e.entry_resic_t == pytest.approx(expected["resic_t"])
+    assert e.entry_resic_t >= 3.0
     assert [x.name for x in ref_map["minute"]] == ["min_x"]
 
 
@@ -789,6 +1065,13 @@ def test_factor_commands_registered_with_schemas():
         assert doc["description"], name
         assert doc["examples"], name
         assert doc["output_schema"], name
+    resic = registry.COMMANDS["factor.resic"].to_doc()
+    assert {p["name"] for p in resic["params"]} >= {
+        "frequency", "horizon", "fwd_col"}
+    assert resic["defaults"]["frequency"] is None
+    admit = registry.COMMANDS["factor.admit"].to_doc()
+    assert admit["defaults"]["scales"] is None
+    assert "bars_1m" in admit["description"]
 
 
 def test_factor_run_positional_and_flags_parse():
@@ -828,6 +1111,65 @@ def test_cli_research_factor_show_missing_positional_is_usage():
     result = runner.invoke(cli_app, ["research", "factor", "show", "--json"])
     assert result.exit_code == EXIT_CODES["USAGE"]
     assert json.loads(result.stdout)["error"]["code"] == "USAGE"
+
+
+def test_cli_research_factor_resic_daily_flags_and_self_description(
+        tmp_path, monkeypatch):
+    rd = tmp_path / "results"
+    monkeypatch.setattr(settings, "results_dir", rd)
+    dates = [
+        datetime.date(2024, 1, 8) + datetime.timedelta(days=i)
+        for i in (0, 1, 2, 3, 4, 7, 8, 9, 10, 11)
+    ]
+    vs = _basis(2)
+    forward = np.tile(vs[1], (len(dates), 1))
+    _write_daily_resic_panel(rd, "base", dates,
+                             np.tile(vs[0], (len(dates), 1)), forward)
+    _write_daily_resic_panel(rd, "candidate", dates,
+                             np.tile(vs[0] + vs[1], (len(dates), 1)), forward)
+
+    result = runner.invoke(cli_app, [
+        "research", "factor", "resic", "base", "--target", "candidate",
+        "--frequency", "daily", "--json",
+    ])
+    assert result.exit_code == 0, result.output
+    doc = json.loads(result.stdout)
+    assert doc["data"]["frequency"] == "daily"
+    assert doc["data"]["fwd_col"] == "forward_return_1d"
+    assert doc["data"]["factors"][0]["n_periods"] == len(dates)
+
+    describe = runner.invoke(cli_app, [
+        "research", "describe", "--json", "--command", "factor.resic"])
+    assert describe.exit_code == 0, describe.output
+    described = json.loads(describe.stdout)["data"]
+    assert {p["name"] for p in described["params"]} >= {
+        "frequency", "horizon", "fwd_col"}
+    assert described["defaults"]["frequency"] is None
+
+
+def test_cli_research_factor_admit_help_and_describe_scale_autodetect():
+    from factorlab.research import registry
+
+    parser = registry.build_parser(registry.COMMANDS["factor.admit"])
+    assert parser.parse_args(["candidate.yaml"]).scales is None
+    assert parser.parse_args(
+        ["candidate.yaml", "--scales", "minute"]).scales == "minute"
+
+    help_result = runner.invoke(cli_app, [
+        "research", "factor", "admit", "--help"])
+    assert help_result.exit_code == 0, help_result.output
+    assert "bars_1m" in help_result.stdout
+    assert "minute" in help_result.stdout
+    assert "显式 --scales" in help_result.stdout
+
+    describe = runner.invoke(cli_app, [
+        "research", "describe", "--json", "--command", "factor.admit"])
+    assert describe.exit_code == 0, describe.output
+    doc = json.loads(describe.stdout)["data"]
+    assert doc["defaults"]["scales"] is None
+    scales = next(p for p in doc["params"] if p["name"] == "scales")
+    assert "bars_1m" in scales["help"]
+    assert "minute" in scales["help"]
 
 
 def test_cli_research_describe_factor_run():
