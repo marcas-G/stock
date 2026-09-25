@@ -14,7 +14,8 @@
 | `../knowledge/design/research/` | **研究独有**的 spec/plan（平台 spec 在 `../knowledge/design/platform/`，单副本）|
 | `tools/xscore/`（截面评分器）| 多因子值 → 截面分数（N→R→A→C；M0–M6 阶梯；测试 `pytest research/tools/xscore/tests`）|
 | `tools/porteval/`（组合评估器）| 分数 → 仅多头组合 → 评估（T+1 开盘默认；容量默认关；spec 见 knowledge/design/research/specs/2026-09-21-porteval-design.md）|
-| `tools/xscore/pipeline/`（研究实验流水线）| Prefect 3：`data_prep → score → porteval → report`；`make xpipe CFG=...`；UI http://127.0.0.1:4200 |
+| `tools/research_flows/`（正式研究流程）| Prefect 3：因子挖掘 → xscore/CompositeArtifact → 策略 M7/M8；单步 `make research-flow FLOW_NAME=... FLOW_CFG=...`，使用手册见 `$QUANTRESEARCH_ROOT/knowledge/pipeline-usage.md` |
+| `tools/xscore/pipeline/`（旧版兼容流水线）| 裸 NPZ `data_prep → score → porteval → report`；`make xpipe CFG=...`，不是新 ArtifactRef 三段流程 |
 | `../platform/tools/lib/` | 数据生产线共享库（R27 归位）：`tickdata`（读单点薄封装）· `writekit`（标记·锁·state·原子写·流式月写入器）· `tickkit`（转换小件）· `monthflow`（月分片写入骨架）|
 | `../platform/tools/lob_fact/` | tick 订单簿重建工具链（引擎/锚定/因子面板/批算/QA/校准；192 tests + 金样 pins）|
 | `../platform/tools/ch_ingest/` | 事实库 → ClickHouse 灌入与对账（**唯一对账入口** `reconcile.py`）；职责三分：`ch_source`（源侧只读）/ `ch_state`（断点）/ `ch_write`（灌入+编排+对账），`ingest_common` 只转发 |
@@ -25,7 +26,7 @@
 | `../platform/tools/universe_stages/` | 股票池分层（R20 收编）：按因子值多级构建股票池（layer1-3 + 10/11/20/30/40）|
 | `tools/strategies/` | 策略回测脚本（crash_bottom / wait_crash）——留研究（策略 = 成果）|
 | `tools/factor_lib/` | 因子库工具：索引生成器（factor/strategy/composite，`--check` 门）+ `dossier_freshness` + `quantresearch_paths`（产物区根单点）——R37 起全部对 `QUANTRESEARCH_ROOT` 读写 |
-| `platform/tools/*/tests/` + `tools/*/tests/` | 各工具测试（**单解释器现测**，2026-09-16）：`platform/tools` **337**（`lob_fact` 192（金样 pins）· `ch_ingest` 37 · `universe_stages` 30 · `lib` 28 · `ashare_ingest` 25 · `converters` 11 · `quark_download` 9 · `1m_features` 5）；`research/tools` **60 collected = 58 passed / 2 skipped**（`strategies` 47 · `factor_lib` 13）。原始输出 `../governance/evidence/verification/R24/12-acceptance/test-research.txt` |
+| `platform/tools/*/tests/` + `tools/*/tests/` | 各工具测试（**单解释器快照**，R43 @ `a48ff57`，2026-09-25）：`platform/tools` **920 passed / 1 deselected**；`research/tools` **184 passed / 3 deselected**；治理门 **219 passed**。这不是当前未提交工作树的验证结果；原始输出 `../governance/evidence/verification/R43/tester/verify-deep-2026-09-25.log` |
 
 ## 共享核与解释器（重要）
 
@@ -39,9 +40,10 @@
 ## 测试
 
 ```bash
-# 工具/研究全量（单解释器；最近验收实测 337 + 58/2skip，2026-09-16 R24；= make test-research）
-platform/.venv/bin/python -m pytest platform/tools -q     # 337（数据生产线，R27 归位）
-platform/.venv/bin/python -m pytest research/tools -q     # 58 passed / 2 skipped（strategies 47 · factor_lib 13）
+# 工具/研究/治理全量（单解释器；R43 深验证，= make test-research）
+platform/.venv/bin/python -m pytest platform/tools -q     # 920 passed / 1 deselected
+platform/.venv/bin/python -m pytest research/tools -q     # 184 passed / 3 deselected
+platform/.venv/bin/python -m pytest governance/ops -q     # 219 passed
 
 # 分钟面 × 本地 parquet 逐值对拍（真 CH）
 FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python platform/tools/1m_features/run_1m_feature.py check-day 2024-01-15

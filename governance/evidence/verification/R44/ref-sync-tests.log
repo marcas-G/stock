@@ -1,0 +1,4 @@
+$ governance/ops/heavy.sh platform/.venv/bin/python -m pytest research/tools/xscore/tests/test_ref_sync.py research/tools/xscore/tests/test_manifest.py -q
+heavy.sh: slot=1/2 avail=62.0GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python -m pytest research/tools/xscore/tests/test_ref_sync.py research/tools/xscore/tests/test_manifest.py -q
+...............................................                          [100%]
+47 passed in 0.77s

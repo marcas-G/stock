@@ -112,12 +112,24 @@ clean:
 	find . -name .pytest_cache -type d -prune -exec rm -rf {} + 2>/dev/null || true
 
 
-# ── 研究实验流水线（Prefect 3；R37）────────────────────────────────────────────
+# ── 旧版 xscore 流水线（保留兼容；新研究请用 research-flows）────────────────────
 # 用法: make xpipe CFG=research/tools/xscore/pipeline/configs/quick.yaml
 CFG ?= research/tools/xscore/pipeline/configs/quick.yaml
 
 xpipe:
 	research/tools/xscore/pipeline/run.sh $(CFG)
+
+# ── 因子 → xscore → 策略 Prefect flows ──────────────────────────────────────────
+# 示例:
+# make research-flow FLOW_NAME=factor-mining/factor-mining FLOW_CFG=/path/factor.yaml
+FLOW_NAME ?=
+FLOW_CFG ?=
+
+research-flow:
+	@test -n "$(FLOW_NAME)" -a -n "$(FLOW_CFG)" || \
+	  { echo "请设置 FLOW_NAME 和 FLOW_CFG"; exit 2; }
+	PYTHONPATH=research/tools research/.venv/bin/python -m research_flows.run \
+	  "$(FLOW_NAME)" "$(FLOW_CFG)"
 
 xpipe-data:
 	platform/.venv/bin/python research/tools/xscore/pipeline/data_prep.py

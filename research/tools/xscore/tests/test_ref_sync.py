@@ -52,10 +52,12 @@ def _seed_spec(qr: Path, name: str) -> Path:
 
 
 class _Runner:
-    def __init__(self, *, ok: bool = True, write_signal: bool = True):
+    def __init__(self, *, ok: bool = True, write_signal: bool = True,
+                 data_version: str = "data-v1"):
         self.calls: list[tuple[list[str], dict]] = []
         self.ok = ok
         self.write_signal = write_signal
+        self.data_version = data_version
 
     def __call__(self, argv, env):
         self.calls.append((list(argv), dict(env)))
@@ -63,22 +65,37 @@ class _Runner:
             out = Path(argv[argv.index("--output-dir") + 1])
             out.mkdir(parents=True, exist_ok=True)
             (out / "signal.parquet").write_bytes(b"fresh")
+            spec = yaml.safe_load(Path(argv[4]).read_text(encoding="utf-8"))
+            (out / "summary.json").write_text(json.dumps({
+                "name": spec["name"],
+                "spec_yaml": yaml.safe_dump(spec, allow_unicode=True),
+                "data_quality": {"dataset_version": self.data_version},
+            }), encoding="utf-8")
         return type("P", (), {"returncode": 0 if self.ok else 1, "stderr": ""})()
 
 
-def _call(fx: dict, runner) -> dict:
+def _call(fx: dict, runner, *, member_names=None, data_version_fn=None) -> dict:
     return dp.compute_missing_members(
         runner=runner, ref_yaml=fx["ref_yaml"], factor_root=fx["qr"] / "factor",
         runs=fx["runs"], variants_dir=fx["variants"],
         factorlab_bin=Path("/fake/factorlab"), excluded_log=fx["excluded_log"],
+        member_names=member_names,
+        data_version_fn=data_version_fn or (lambda: "data-v1"),
         log=lambda _m: None)
+
+
+def _prime_members(fx: dict, *names: str) -> None:
+    for name in names:
+        _seed_spec(fx["qr"], name)
+    res = _call(fx, _Runner(), member_names=list(names))
+    assert res["computed"] == list(names) and not res["errors"]
 
 
 def test_only_missing_runs_via_pipeline_marker(tmp_path: Path):
     """缺产物成员补算：argv 无 `--lockbox*`（T2 已删该 flag）；final 登记靠
     `FACTORLAB_PIPELINE=1`（CLI 自动 final_mode，理由 `pipeline final test: <name>`）。"""
     fx = _mk_fake(tmp_path)
-    _seed_signal(fx["runs"], "alpha")          # 已有 → 跳过
+    _prime_members(fx, "alpha")                # 已有且可验证 → 跳过
     _seed_spec(fx["qr"], "beta")               # 缺产物 + 有 spec → 补算
     runner = _Runner()
     res = _call(fx, runner)
@@ -102,27 +119,27 @@ def test_only_missing_runs_via_pipeline_marker(tmp_path: Path):
     runner2 = _Runner()
     res2 = _call(fx, runner2)
     assert res2["computed"] == [] and runner2.calls == []
+    assert [e["member"] for e in res2["errors"]] == ["gamma"]
 
 
 def test_missing_spec_fail_fast_then_explicit_exemption(tmp_path: Path):
     fx = _mk_fake(tmp_path)
-    _seed_signal(fx["runs"], "alpha")
     _seed_spec(fx["qr"], "beta")
     runner = _Runner()
-    res = _call(fx, runner)
+    res = _call(fx, runner, member_names=["beta", "gamma"])
     # 补 beta 后 gamma 缺 spec（无 allow）→ errors
     assert res["computed"] == ["beta"]
     assert [e["member"] for e in res["errors"]] == ["gamma"]
 
     fx2 = _mk_fake(tmp_path / "case2")
-    _seed_signal(fx2["runs"], "alpha")
     _seed_spec(fx2["qr"], "beta")
     runner2 = _Runner()
     res2 = dp.compute_missing_members(
         allow_missing=True, runner=runner2, ref_yaml=fx2["ref_yaml"],
         factor_root=fx2["qr"] / "factor", runs=fx2["runs"],
         variants_dir=fx2["variants"], factorlab_bin=Path("/fake/factorlab"),
-        excluded_log=fx2["excluded_log"], log=lambda _m: None)
+        excluded_log=fx2["excluded_log"], member_names=["beta", "gamma"],
+        data_version_fn=lambda: "data-v1", log=lambda _m: None)
     assert res2["errors"] == []
     assert [e["member"] for e in res2["excluded"]] == ["gamma"]
     doc = json.loads(fx2["excluded_log"].read_text(encoding="utf-8"))
@@ -131,13 +148,104 @@ def test_missing_spec_fail_fast_then_explicit_exemption(tmp_path: Path):
 
 def test_run_failure_records_error(tmp_path: Path):
     fx = _mk_fake(tmp_path)
-    _seed_signal(fx["runs"], "alpha")
     _seed_spec(fx["qr"], "beta")
-    res = _call(fx, _Runner(ok=False))
+    res = _call(fx, _Runner(ok=False), member_names=["beta"])
     assert res["computed"] == []
     assert [e["member"] for e in res["errors"]] == ["beta"] + [] or \
         res["errors"][0]["member"] == "beta"
     assert "补算失败" in res["errors"][0]["reason"]
+
+
+@pytest.mark.parametrize("changed_identity", ["spec", "code", "data"])
+def test_existing_signal_recomputes_when_input_identity_changes(
+    tmp_path: Path, monkeypatch, changed_identity: str
+):
+    fx = _mk_fake(tmp_path)
+    spec = _seed_spec(fx["qr"], "beta")
+    if changed_identity == "code":
+        monkeypatch.setattr(dp, "_factorlab_code_fingerprint", lambda: "code-v1")
+    first = _call(fx, _Runner(), member_names=["beta"])
+    assert first["computed"] == ["beta"]
+
+    data_version = "data-v1"
+    if changed_identity == "spec":
+        spec.write_text(yaml.safe_dump({
+            "name": "beta", "formula": "close + 1",
+            "date": {"start": "2023-01-01", "end": "2026-07-31"},
+        }), encoding="utf-8")
+    elif changed_identity == "code":
+        monkeypatch.setattr(dp, "_factorlab_code_fingerprint", lambda: "code-v2")
+    else:
+        data_version = "data-v2"
+
+    res = _call(
+        fx, runner := _Runner(data_version=data_version), member_names=["beta"],
+        data_version_fn=lambda: data_version)
+    assert res["computed"] == ["beta"]
+    assert len(runner.calls) == 1
+    if changed_identity == "spec":
+        variant = yaml.safe_load((fx["variants"] / "beta_5y.yaml").read_text())
+        assert variant["formula"] == "close + 1", "源 Spec 更新必须刷新 5y 变体"
+
+
+def test_legacy_signal_without_version_sidecar_is_recomputed(tmp_path: Path):
+    fx = _mk_fake(tmp_path)
+    _seed_spec(fx["qr"], "beta")
+    _seed_signal(fx["runs"], "beta")  # 旧缓存没有身份和产物哈希证明
+
+    runner = _Runner()
+    res = _call(fx, runner, member_names=["beta"])
+
+    assert res["computed"] == ["beta"]
+    assert len(runner.calls) == 1
+
+
+def test_changed_signal_bytes_invalidate_version_sidecar(tmp_path: Path):
+    fx = _mk_fake(tmp_path)
+    _seed_spec(fx["qr"], "beta")
+    assert _call(fx, _Runner(), member_names=["beta"])["computed"] == ["beta"]
+    (fx["runs"] / "beta_5y" / "signal.parquet").write_bytes(b"tampered")
+
+    runner = _Runner()
+    res = _call(fx, runner, member_names=["beta"])
+    assert res["computed"] == ["beta"]
+    assert len(runner.calls) == 1
+
+
+def test_unknown_data_version_fails_closed(tmp_path: Path):
+    fx = _mk_fake(tmp_path)
+    _seed_spec(fx["qr"], "beta")
+    runner = _Runner()
+
+    res = _call(
+        fx, runner, member_names=["beta"], data_version_fn=lambda: None)
+
+    assert not runner.calls
+    assert res["computed"] == []
+    assert "data_version" in res["errors"][0]["reason"]
+
+
+def test_factorlab_code_fingerprint_tracks_engine_and_plugins(
+    tmp_path: Path, monkeypatch
+):
+    from factorlab.config import settings
+
+    stock = tmp_path / "stock"
+    source = stock / "platform/src/factorlab/core/engine.py"
+    source.parent.mkdir(parents=True)
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    plugins = tmp_path / "plugins"
+    plugins.mkdir()
+    monkeypatch.setattr(dp, "STOCK", stock)
+    monkeypatch.setattr(settings, "plugin_dir", plugins)
+
+    first = dp._factorlab_code_fingerprint()
+    source.write_text("VALUE = 2\n", encoding="utf-8")
+    second = dp._factorlab_code_fingerprint()
+    assert second != first
+    (plugins / "plugin.py").write_text("VALUE = 3\n", encoding="utf-8")
+    third = dp._factorlab_code_fingerprint()
+    assert third != second
 
 
 def _load_flows(monkeypatch):
@@ -174,7 +282,7 @@ def test_resolve_groups_fail_fast(tmp_path: Path, monkeypatch):
 
 def test_member_names_and_extra_factors(tmp_path: Path):
     fx = _mk_fake(tmp_path)
-    _seed_signal(fx["runs"], "alpha")
+    _prime_members(fx, "alpha")
     spec_new = _seed_spec(fx["qr"], "newf")
     runner = _Runner()
     res = dp.compute_missing_members(
@@ -182,6 +290,7 @@ def test_member_names_and_extra_factors(tmp_path: Path):
         runs=fx["runs"], variants_dir=fx["variants"],
         factorlab_bin=Path("/fake/factorlab"), excluded_log=fx["excluded_log"],
         member_names=["alpha"], extra_members=[("newf", spec_new)],
+        data_version_fn=lambda: "data-v1",
         log=lambda _m: None)
     assert res["members"] == ["alpha", "newf"]
     assert res["present"] == ["alpha"] and res["computed"] == ["newf"]
@@ -191,12 +300,12 @@ def test_member_names_and_extra_factors(tmp_path: Path):
 
 def test_extra_factor_spec_missing_reason(tmp_path: Path):
     fx = _mk_fake(tmp_path)
-    _seed_signal(fx["runs"], "alpha")
     res = dp.compute_missing_members(
         runner=_Runner(), ref_yaml=fx["ref_yaml"], factor_root=fx["qr"] / "factor",
         runs=fx["runs"], variants_dir=fx["variants"],
         factorlab_bin=Path("/fake/factorlab"), excluded_log=fx["excluded_log"],
-        member_names=["alpha"], extra_members=[("ghost", tmp_path / "nope.yaml")],
+        member_names=[], extra_members=[("ghost", tmp_path / "nope.yaml")],
+        data_version_fn=lambda: "data-v1",
         log=lambda _m: None)
     assert res["errors"][0]["member"] == "ghost"
     assert "config.factors 指定 spec 不存在" in res["errors"][0]["reason"]
@@ -267,6 +376,53 @@ def test_aux_cache_paths_mapping(tmp_path: Path):
     assert m["limits"] == tmp_path / "cache/limits_subset_demo.npz"
     d = dp.aux_cache_paths(tmp_path / "cache/panel_42_5y.npz", tmp_path / "cache")
     assert d["mv"] == tmp_path / "cache/mv_42_5y.npz", "默认命名不变"
+
+
+def test_auxiliary_data_prep_never_resolves_or_computes_factor_members(
+    tmp_path: Path, monkeypatch
+):
+    panel = tmp_path / "panel_version.npz"
+    panel.write_bytes(b"panel")
+    config = tmp_path / "xscore.yaml"
+    config.write_text(yaml.safe_dump({
+        "panel": str(panel),
+        "data": {"ensure": True},
+    }), encoding="utf-8")
+    calls = []
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("auxiliary data prep must not inspect or compute factors")
+
+    monkeypatch.setattr(dp, "reference_members", forbidden)
+    monkeypatch.setattr(dp, "compute_missing_members", forbidden)
+    monkeypatch.setattr(dp, "ensure_open_adj",
+                        lambda path, **kw: calls.append(("open_adj", path, kw)))
+    monkeypatch.setattr(dp, "ensure_mv",
+                        lambda path, **kw: calls.append(("mv", path, kw)))
+    monkeypatch.setattr(dp, "ensure_limits",
+                        lambda path, **kw: calls.append(("limits", path, kw)))
+    monkeypatch.setattr(dp, "ensure_amount",
+                        lambda path, **kw: calls.append(("amount", path, kw)))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "data_prep.py",
+            "--config",
+            str(config),
+            "--cache-dir",
+            str(tmp_path / "cache"),
+            "--only",
+            "open_adj,mv,limits,amount",
+            "--no-ref-sync",
+        ],
+    )
+
+    assert dp.main() == 0
+    assert [name for name, _, _ in calls] == [
+        "open_adj", "mv", "limits", "amount"
+    ]
+    assert all(kw["panel_path"] == panel for _, _, kw in calls)
 
 
 def test_portfolio_task_passes_panel_aux_paths(tmp_path: Path, monkeypatch):

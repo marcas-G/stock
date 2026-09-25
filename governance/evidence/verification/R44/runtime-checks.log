@@ -1,0 +1,5 @@
+$ PYTHONPATH=research/tools research/.venv/bin/python -c ... create_deployments()
+['factor-mining', 'xscore', 'strategy-execution', 'research-campaign']
+$ platform/.venv/bin/python -m py_compile research/tools/research_flows/*.py research/tools/research_flows/tests/*.py research/tools/xscore/pipeline/data_prep.py
+$ bash -n governance/ops/install_prefect_runner.sh
+$ git diff --check

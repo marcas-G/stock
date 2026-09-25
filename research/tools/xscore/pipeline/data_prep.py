@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import subprocess
@@ -137,21 +138,133 @@ def find_member_spec(name: str, factor_root: Path = FACTOR_ROOT) -> Path | None:
 def ensure_variant_spec(name: str, source_spec: Path, *,
                         variants_dir: Path = VARIANTS_DIR,
                         window: tuple[str, str] = REF_WINDOW) -> Path:
-    """5y 变体 spec：复用既有；否则由源 spec 覆写 date 后生成到 variants_dir。"""
+    """5y 变体 spec：源 spec 或窗口变更时重新生成。"""
     import yaml
     variants_dir = Path(variants_dir)
     target = variants_dir / f"{name}_5y.yaml"
-    if target.is_file():
-        return target
     doc = yaml.safe_load(Path(source_spec).read_text(encoding="utf-8"))
     doc.setdefault("date", {})
     doc["date"]["start"], doc["date"]["end"] = window
     variants_dir.mkdir(parents=True, exist_ok=True)
     body = yaml.safe_dump(doc, allow_unicode=True, sort_keys=False)
-    target.write_text(
-        f"# 自动生成（data_prep ref-sync）：{name} 的 5y 变体，勿手改\n{body}",
-        encoding="utf-8")
+    rendered = (
+        f"# 自动生成（data_prep ref-sync）：{name} 的 5y 变体，勿手改\n{body}"
+    )
+    if not target.is_file() or target.read_text(encoding="utf-8") != rendered:
+        target.write_text(rendered, encoding="utf-8")
     return target
+
+
+def _current_data_version() -> str | None:
+    """读取平台发布的 ashare_daily 数据版本；缺失时不能安全复用因子缓存。"""
+    from factorlab.core.factio.paths import DATA_ROOT
+    from factorlab.surfaces.service.runner import current_dataset_version
+
+    return current_dataset_version(Path(DATA_ROOT) / "health")
+
+
+def _factorlab_code_fingerprint() -> str:
+    """对因子计算代码、补算入口和已安装算子插件做保守内容指纹。"""
+    from factorlab.config import settings
+
+    source_root = STOCK / "platform/src/factorlab"
+    if not source_root.is_dir():
+        raise FileNotFoundError(f"FactorLab 源码目录不存在: {source_root}")
+    files = [(p.relative_to(source_root).as_posix(), p)
+             for p in source_root.rglob("*.py") if p.is_file()]
+    pipeline_root = Path(__file__).resolve().parent
+    files.extend(
+        (f"xscore_pipeline/{p.name}", p)
+        for p in (pipeline_root / "data_prep.py", pipeline_root / "flows.py")
+        if p.is_file()
+    )
+    plugin_root = Path(settings.plugin_dir)
+    if plugin_root.is_dir():
+        files.extend(
+            (f"plugins/{p.relative_to(plugin_root).as_posix()}", p)
+            for p in plugin_root.rglob("*")
+            if p.is_file() and (p.suffix == ".py" or p.name == "manifest.json")
+        )
+    h = hashlib.sha256()
+    for relative, path in sorted(files, key=lambda item: item[0]):
+        h.update(relative.encode("utf-8"))
+        h.update(b"\0")
+        h.update(path.read_bytes())
+        h.update(b"\0")
+    return h.hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with Path(path).open("rb") as f:
+        for block in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def _ref_sync_manifest_path(output_dir: Path) -> Path:
+    return Path(output_dir) / "ref_sync_manifest.json"
+
+
+def _summary_matches_inputs(summary_doc: object, *, name: str,
+                            variant: Path, data_version: str) -> bool:
+    if not isinstance(summary_doc, dict):
+        return False
+    spec_yaml = summary_doc.get("spec_yaml")
+    quality = summary_doc.get("data_quality")
+    if (summary_doc.get("name") != name
+            or not isinstance(spec_yaml, str)
+            or not spec_yaml.strip()
+            or not isinstance(quality, dict)
+            or quality.get("dataset_version") != data_version):
+        return False
+    try:
+        import yaml
+        actual_spec = yaml.safe_load(spec_yaml)
+        expected_spec = yaml.safe_load(Path(variant).read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return False
+    return (
+        isinstance(actual_spec, dict)
+        and isinstance(expected_spec, dict)
+        and all(actual_spec.get(key) == value
+                for key, value in expected_spec.items())
+    )
+
+
+def _cache_matches(signal: Path, *, identity: dict, variant: Path) -> bool:
+    """只有输入指纹和信号文件哈希都匹配时才跳过补算。"""
+    sidecar = _ref_sync_manifest_path(signal.parent)
+    summary = signal.parent / "summary.json"
+    if not signal.is_file() or not summary.is_file() or not sidecar.is_file():
+        return False
+    try:
+        manifest = json.loads(sidecar.read_text(encoding="utf-8"))
+        summary_doc = json.loads(summary.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return (
+        isinstance(manifest, dict)
+        and manifest.get("schema_version") == 1
+        and manifest.get("identity") == identity
+        and manifest.get("signal_sha256") == _sha256_file(signal)
+        and manifest.get("summary_sha256") == _sha256_file(summary)
+        and _summary_matches_inputs(
+            summary_doc, name=identity["name"], variant=variant,
+            data_version=identity["data_version"])
+    )
+
+
+def _write_ref_sync_manifest(output_dir: Path, *, identity: dict,
+                             signal: Path, summary: Path) -> None:
+    doc = {"schema_version": 1, "identity": identity,
+           "signal_sha256": _sha256_file(signal),
+           "summary_sha256": _sha256_file(summary)}
+    path = _ref_sync_manifest_path(output_dir)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(doc, ensure_ascii=False, sort_keys=True, indent=2)
+                   + "\n", encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def _member_env() -> dict:
@@ -184,8 +297,9 @@ def compute_missing_members(*, allow_missing: bool = False,
                             excluded_log: Path = EXCLUDED_LOG,
                             member_names: list[str] | None = None,
                             extra_members: list[tuple[str, Path]] = (),
+                            data_version_fn: Callable[[], str | None] | None = None,
                             log: Callable[[str], None] = print) -> dict:
-    """成员体检：缺 `_5y` 产物的成员自动补算（幂等；流水线标记 → CLI 自动 final 登记）。
+    """成员体检：缺少当前输入版本产物的成员自动补算。
 
     - 成员集合 = `member_names`（显式清单，缺省=参考库全量）∪ `extra_members`（config.factors）；
     - 返回 {"members", "present", "computed", "excluded", "errors"}；
@@ -196,11 +310,24 @@ def compute_missing_members(*, allow_missing: bool = False,
     explicit = {n: Path(sp) for n, sp in extra_members}
     members = _member_set(ref_yaml=ref_yaml, member_names=member_names,
                           extra_members=list(extra_members))
+    try:
+        data_version = (data_version_fn or _current_data_version)()
+    except Exception as exc:  # noqa: BLE001 — 不明数据版本时不复用旧缓存
+        data_version = None
+        data_version_error = f"读取 data_version 失败: {type(exc).__name__}: {exc}"
+    else:
+        data_version_error = "当前数据 data_version 不可用"
+    try:
+        code_fingerprint = _factorlab_code_fingerprint()
+    except Exception as exc:  # noqa: BLE001 — 不明代码身份时不复用旧缓存
+        code_fingerprint = None
+        code_fingerprint_error = (
+            f"读取 FactorLab 代码指纹失败: {type(exc).__name__}: {exc}"
+        )
+    else:
+        code_fingerprint_error = ""
     for name, scale in members:
         signal = Path(runs) / f"{name}_5y" / "signal.parquet"
-        if signal.is_file():
-            present.append(name)
-            continue
         spec = explicit.get(name) or find_member_spec(name, factor_root)
         if spec is None or not Path(spec).is_file():
             if allow_missing:
@@ -213,7 +340,25 @@ def compute_missing_members(*, allow_missing: bool = False,
                          f"spec 缺失：{factor_root}/**/{name}.yaml")
                 errors.append({"member": name, "scale": scale, "reason": where})
             continue
+        if not data_version:
+            errors.append({"member": name, "scale": scale,
+                           "reason": data_version_error})
+            continue
+        if not code_fingerprint:
+            errors.append({"member": name, "scale": scale,
+                           "reason": code_fingerprint_error})
+            continue
         variant = ensure_variant_spec(name, spec, variants_dir=variants_dir)
+        identity = {
+            "name": name,
+            "source_spec_sha256": _sha256_file(Path(spec)),
+            "variant_spec_sha256": _sha256_file(variant),
+            "factorlab_code_sha256": code_fingerprint,
+            "data_version": str(data_version),
+        }
+        if _cache_matches(signal, identity=identity, variant=variant):
+            present.append(name)
+            continue
         out_dir = Path(runs) / f"{name}_5y"
         # R42/T2：CLI 已无 `--lockbox*`；final_mode/理由由 `FACTORLAB_PIPELINE=1`
         # （`_member_env`）推导，CLI 侧自动登记 `pipeline final test: <name>`。
@@ -226,6 +371,25 @@ def compute_missing_members(*, allow_missing: bool = False,
                            "reason": f"补算失败 rc={getattr(proc, 'returncode', '?')}"
                                      f"（{'stderr: ' + (proc.stderr or '')[-200:] if getattr(proc, 'stderr', None) else '无 stderr'}）"})
             continue
+        if not (out_dir / "summary.json").is_file():
+            errors.append({"member": name, "scale": scale,
+                           "reason": "补算未生成 summary.json，不能确认 FactorLab 产物完整"})
+            continue
+        try:
+            summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append({"member": name, "scale": scale,
+                           "reason": f"补算 summary.json 不可读: {exc}"})
+            continue
+        if not _summary_matches_inputs(
+                summary, name=name, variant=variant,
+                data_version=str(data_version)):
+            errors.append({"member": name, "scale": scale,
+                           "reason": "补算 summary.json 缺少匹配的 Spec/data_version 证据"})
+            continue
+        _write_ref_sync_manifest(
+            out_dir, identity=identity, signal=signal,
+            summary=out_dir / "summary.json")
         computed.append(name)
     if excluded:
         excluded_log.parent.mkdir(parents=True, exist_ok=True)
@@ -410,21 +574,25 @@ def main() -> int:
         import yaml as _yaml
         cfg = _yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
         _cfg_data = cfg.get("data") or {}
-        for entry in cfg.get("factors") or []:
-            spec = Path(entry["spec"])
-            window = tuple(entry.get("window", REF_WINDOW))
-            if window != REF_WINDOW:
-                print(f"[ref-sync] factors 仅支持 5y 面板窗口 {REF_WINDOW}：{spec}")
-                return 2
-            extra_members.append((spec.stem, spec))
-        config_members = (cfg.get("data") or {}).get("members")
-        if config_members is None:
-            config_members = [n for n, _ in reference_members()]
-        for n, _sp in extra_members:
-            if n not in config_members:
-                config_members.append(n)
         if cfg.get("panel"):
             panel_path = Path(cfg["panel"])   # 自定义成员集写各自面板，避免覆盖共享缓存
+        # Auxiliary-cache preparation must be usable by xscore with an explicit
+        # FactorArtifact-built panel and must not inspect the legacy factor
+        # registry. Resolve factor members only when rebuilding that panel.
+        if "panel" in only:
+            for entry in cfg.get("factors") or []:
+                spec = Path(entry["spec"])
+                window = tuple(entry.get("window", REF_WINDOW))
+                if window != REF_WINDOW:
+                    print(f"[ref-sync] factors 仅支持 5y 面板窗口 {REF_WINDOW}：{spec}")
+                    return 2
+                extra_members.append((spec.stem, spec))
+            config_members = (cfg.get("data") or {}).get("members")
+            if config_members is None:
+                config_members = [n for n, _ in reference_members()]
+            for n, _sp in extra_members:
+                if n not in config_members:
+                    config_members.append(n)
     max_lag = args.max_lag_days
     if max_lag is None and args.config is not None:
         max_lag = ((_cfg_data or {}).get("max_lag_days"))

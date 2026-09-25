@@ -207,7 +207,12 @@ def _config(tmp_path, name="a.yaml", body="model: m0\n") -> pathlib.Path:
 def _begin(tmp_path, db, health, *, config="a.yaml", body="model: m0\n",
            panel_sig="sig-1", panel=None, today=dt.date(2026, 9, 21),
            replay_ok=False) -> dict:
-    panel = panel or _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    if panel is None:
+        panel = tmp_path / "panel.npz"
+        if not panel.is_file():
+            panel = _panel(
+                panel, ["2025-08-01", "2026-01-01"]
+            )
     return lib.lockbox_register(
         panel=panel, panel_sig=panel_sig,
         config_path=_config(tmp_path, config, body),

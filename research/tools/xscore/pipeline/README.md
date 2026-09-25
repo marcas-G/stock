@@ -1,6 +1,13 @@
-# xscore 流水线（Prefect 3）
+# 旧版 xscore 批处理流水线（Prefect 3）
+
+> 本文只介绍兼容保留的旧版 `make xpipe`：裸 NPZ 面板 → xscore → 研究组合评估。
+> 它不是新的因子/聚合信号/策略三段流程，也不生成三段流程约定的 immutable ArtifactRef。
+> 新研究流程的输入、输出和 Prefect 部署见
+> `$QUANTRESEARCH_ROOT/knowledge/pipeline-usage.md`。
 
 `数据/面板 → score(分组×模型) → portfolio(执行口径×域) → report` 的文件级 DAG。
+
+以下配置、缓存和锁箱说明都只针对这个旧版 NPZ 流水线；旧版 ref-sync 的补算结果不能直接作为新 Flow 的正式 FactorArtifact。
 
 ## 运行
 
@@ -44,7 +51,7 @@ research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/m0-
 - `data.members: [名字…]`：面板成员显式清单（缺省=参考库全量 ∪ factors）；自定义成员集请把
   `panel` 指向独立 npz（勿覆盖共享面板缓存）。
 - 唯一入口：正式运行只经 `make xpipe`/UI；host `flab factor run` 仅 dev 调试（见
-  `$QR/knowledge/pipeline-usage.md`）。
+  `$QUANTRESEARCH_ROOT/knowledge/pipeline-usage-xpipe-legacy.md`）。
 
 ## 配置字段
 
@@ -121,7 +128,7 @@ PREFECT_API_URL=http://127.0.0.1:4200/api research/.venv/bin/prefect deployment 
 - **入库判定**（`flab factor admit` / `ref add`）：不看探索结果——无该版本 final 时**执行
   那次唯一最终测试**（车道内自设 `FACTORLAB_PIPELINE=1`）并冻结
   `<results>/<name>_5y/test_diagnostics.json`（测试段 `corr_max/r2_lib/resic_t`），二次
-  admit 只读冻结件；IS-only 因子不可入库。见 `$QR/knowledge/pipeline-usage.md` §4 与
+  admit 只读冻结件；IS-only 因子不可入库。见 `$QUANTRESEARCH_ROOT/knowledge/pipeline-usage-xpipe-legacy.md` §4 与
   `knowledge/contracts/interface.md` §10。
 
 ### 缓存语义

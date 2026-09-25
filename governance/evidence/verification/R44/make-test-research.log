@@ -1,0 +1,85 @@
+$ governance/ops/heavy.sh make test-research
+heavy.sh: slot=1/2 avail=62.0GB  max_memory=8GB oom_score_adj=700 -> make test-research
+platform/.venv/bin/python -m pytest platform/tools -q
+........................................................................ [  7%]
+........................................................................ [ 15%]
+........................................................................ [ 23%]
+........................................................................ [ 31%]
+........................................................................ [ 39%]
+........................................................................ [ 46%]
+........................................................................ [ 54%]
+........................................................................ [ 62%]
+........................................................................ [ 70%]
+........................................................................ [ 78%]
+........................................................................ [ 85%]
+........................................................................ [ 93%]
+.........................................................                [100%]
+921 passed in 106.42s (0:01:46)
+platform/.venv/bin/python -m pytest research/tools -q
+.................................F...................................... [ 27%]
+........................................................................ [ 55%]
+........................................................................ [ 83%]
+..........................................                               [100%]
+=================================== FAILURES ===================================
+_______________ test_every_yaml_has_mirror_doc_and_name_matches ________________
+
+    @pytest.mark.inflight
+    def test_every_yaml_has_mirror_doc_and_name_matches():
+        """yaml ↔ md 一一镜像；档案 front-matter 的 xname 必须等于 spec.name。
+
+        缺档案时效门（R31 ③）：yaml 提交 < 72h / 无历史 → PENDING（警告放行）；
+        超期或 git 无法判定 → `dossier_freshness` 抛错 = 门红。
+        """
+        specs = BI.load_specs()
+        # 原集 ≥152（只增不删——挖矿循环持续新增因子并逐轮归档；低于 152 说明有删除，
+        # 必须显式确认。R04 后 `_` 前缀目录/文件为元数据，不计入）
+        assert len(specs) >= 152, f"因子数少于原集 152（{len(specs)}）——有删除？"
+>       pending = DF.require_mirror_docs(specs, root=ROOT)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+research/tools/factor_lib/tests/test_index.py:55:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+specs = [{'name': 'crash_bottom_leader_adv20', 'family': 'crash_bottom_leader', 'stem': 'adv20', 'direction': 1, ...}, {'name'.....}, {'name': 'crash_bottom_leader_timed', 'family': 'crash_bottom_leader', 'stem': 'timed', 'direction': 1, ...}, ...]
+root = PosixPath('/data/students/gaolei/quantresearch'), now = None
+grace_hours = 72.0, commit_ts_fn = <function resolve_ts at 0x7f7eea5f5e40>
+
+    def require_mirror_docs(specs: list[dict], *, root: Path | str,
+                            now: float | None = None,
+                            grace_hours: float = GRACE_HOURS,
+                            commit_ts_fn: CommitTsFn = resolve_ts
+                            ) -> list[MirrorVerdict]:
+        """逐 spec 判定；STALE → AssertionError（门红），返回 PENDING 列表。
+
+        PENDING 由调用方打印警告；git 无法判定（RuntimeError）原样上抛 = 门失败。
+        """
+        pending: list[MirrorVerdict] = []
+        stale: list[MirrorVerdict] = []
+        for s in specs:
+            v = assess_spec(s, root=root, now=now, grace_hours=grace_hours,
+                            commit_ts_fn=commit_ts_fn)
+            if v.state == PENDING:
+                pending.append(v)
+            elif v.state == STALE:
+                stale.append(v)
+        if stale:
+            detail = "；".join(
+                f"{v.spec_name}: {v.yaml} 最近提交 {time.strftime('%Y-%m-%d %H:%M', time.localtime(v.commit_ts))}"
+                for v in stale)
+>           raise AssertionError(
+                f"缺档案超 {grace_hours:g}h 宽限（STALE）: {detail}")
+E           AssertionError: 缺档案超 72h 宽限（STALE）: intraday_amihud_autocorr: factor/intraday/amihud_autocorr.yaml 最近提交 2026-09-21 09:09；intraday_amihud_drift: factor/intraday/amihud_drift.yaml 最近提交 2026-09-20 01:27；intraday_amihud_entropy: factor/intraday/amihud_entropy.yaml 最近提交 2026-09-20 09:48；intraday_amihud_max: factor/intraday/amihud_max.yaml 最近提交 2026-09-19 02:12；intraday_gallais_noise: factor/intraday/gallais_noise.yaml 最近提交 2026-09-20 01:27；intraday_jump_state_seg: factor/intraday/intraday_jump_state_seg.yaml 最近提交 2026-09-22 22:43；intraday_open30_quiet_rest_20d: factor/intraday/intraday_open30_quiet_rest_20d.yaml 最近提交 2026-09-22 19:18；intraday_kyle_lambda: factor/intraday/kyle_lambda.yaml 最近提交 2026-09-20 00:09；intraday_parkinson_ratio: factor/intraday/parkinson_ratio.yaml 最近提交 2026-09-19 02:12；intraday_premium_x_closepos: factor/intraday/premium_x_closepos.yaml 最近提交 2026-09-20 19:56；intraday_premium_x_imp: factor/intraday/premium_x_imp.yaml 最近提交 2026-09-20 19:56；intraday_premium_x_ret: factor/intraday/premium_x_ret.yaml 最近提交 2026-09-20 18:21；intraday_range_autocorr: factor/intraday/range_autocorr.yaml 最近提交 2026-09-20 09:48；intraday_range_entropy: factor/intraday/range_entropy.yaml 最近提交 2026-09-20 11:23；intraday_range_timing: factor/intraday/range_timing.yaml 最近提交 2026-09-20 12:55；intraday_ret_conc_lasthour: factor/intraday/ret_conc_lasthour.yaml 最近提交 2026-09-20 05:38；intraday_ret_entropy: factor/intraday/ret_entropy.yaml 最近提交 2026-09-20 06:36；intraday_ret_var_last30: factor/intraday/ret_var_last30.yaml 最近提交 2026-09-20 12:55；intraday_sign_flips: factor/intraday/sign_flips.yaml 最近提交 2026-09-19 02:17；intraday_spread_trend: factor/intraday/spread_trend.yaml 最近提交 2026-09-20 04:04；intraday_tail_amihud: factor/intraday/tail_amihud.yaml 最近提交 2026-09-20 00:08；intraday_tail_volume_share: factor/intraday/tail_volume_share.yaml 最近提交 2026-09-20 07:42；intraday_time_of_imp_max: factor/intraday/time_of_imp_max.yaml 最近提交 2026-09-20 17:48；intraday_time_of_range_max: factor/intraday/time_of_range_max.yaml 最近提交 2026-09-20 17:48；intraday_turnover_cv: factor/intraday/turnover_cv.yaml 最近提交 2026-09-19 02:12；intraday_updown_breadth: factor/intraday/updown_breadth.yaml 最近提交 2026-09-19 02:17；intraday_var_volume_lead: factor/intraday/var_volume_lead.yaml 最近提交 2026-09-20 09:48；intraday_vol_autocorr: factor/intraday/vol_autocorr.yaml 最近提交 2026-09-20 04:04；intraday_vol_persist: factor/intraday/vol_persist.yaml 最近提交 2026-09-19 02:17；intraday_vola_weighted_time: factor/intraday/vola_weighted_time.yaml 最近提交 2026-09-20 07:42；intraday_volmaxtime_x_ret: factor/intraday/volmaxtime_x_ret.yaml 最近提交 2026-09-20 19:56；intraday_volofvol: factor/intraday/volofvol.yaml 最近提交 2026-09-20 00:08；intraday_volret_lead: factor/intraday/volret_lead.yaml 最近提交 2026-09-20 11:23；intraday_volume_autocorr: factor/intraday/volume_autocorr.yaml 最近提交 2026-09-21 09:09；intraday_volume_autocorr_lag20: factor/intraday/volume_autocorr_lag20.yaml 最近提交 2026-09-20 12:55；intraday_volume_autocorr_lag5: factor/intraday/volume_autocorr_lag5.yaml 最近提交 2026-09-20 07:42；intraday_volume_entropy: factor/intraday/volume_entropy.yaml 最近提交 2026-09-20 06:36；intraday_volumehhi: factor/intraday/volumehhi.yaml 最近提交 2026-09-20 04:04；volume_ratio_ownquiet_20d: factor/liquidity/volume_ratio_ownquiet_20d.yaml 最近提交 2026-09-22 21:19；volume_ratio_quiet_surge_20d: factor/liquidity/volume_ratio_quiet_surge_20d.yaml 最近提交 2026-09-22 16:08；volume_ratio_quiet_surge_signed_20d: factor/liquidity/volume_ratio_quiet_surge_signed_20d.yaml 最近提交 2026-09-22 17:15；autoloop_smoke_mom20: factor/misc/autoloop_smoke_mom20.yaml 最近提交 2026-09-22 10:04；momentum_20d_turnrank_top2: factor/momentum_20d/turnrank_top2.yaml 最近提交 2026-09-16 18:27；momentum_20d_turnrank_top5: factor/momentum_20d/turnrank_top5.yaml 最近提交 2026-09-16 18:25
+
+research/tools/factor_lib/dossier_freshness.py:161: AssertionError
+=============================== warnings summary ===============================
+tools/strategies/tests/test_run_strategy_cli.py::test_real_run_clean_window_2025_03
+tools/strategies/tests/test_run_strategy_cli.py::test_real_run_max_hold_excludes_stale_and_renormalizes
+  /data/students/gaolei/stock/platform/src/factorlab/app/memory.py:350: RuntimeWarning: RLIMIT_AS 设置失败（not allowed to raise maximum limit）——内存硬上限降级；psutil 软看门狗仍生效
+    return apply_address_space_limit(limit)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED research/tools/factor_lib/tests/test_index.py::test_every_yaml_has_mirror_doc_and_name_matches
+1 failed, 257 passed, 2 warnings in 36.60s
+Makefile:30: recipe for target 'test-research' failed
+make: *** [test-research] Error 1
