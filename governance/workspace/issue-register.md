@@ -1,6 +1,6 @@
 # GitHub Issue 台账
 
-更新：2026-09-26 Asia/Shanghai（对应 GitHub 2026-09-25 UTC 状态）。来源：GitHub `marcas-G/stock` Issues 当前状态、issue 正文/评论，以及仓内评审和验证记录。
+更新：2026-09-25 UTC。来源：GitHub `marcas-G/stock` Issues 当前状态、issue 正文/评论，以及仓内评审和验证记录。
 
 本次同步后盘点到 **17 个 open、17 个 closed issue**；PR #1–#4、#42、#43 不列入 issue。GitHub 负责对外状态和讨论；`findings.md` 是评审问题的证据状态源，`pending-items.md` 是工作区未决事项源。本页作为索引和处理摘要，不替代二者，也不把 GitHub 的 closed 自动等同于修复完成。
 
