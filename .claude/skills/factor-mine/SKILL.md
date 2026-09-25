@@ -137,25 +137,32 @@ general-purpose subagent，输入：变异点记录 + `$QR/factor/<族>/<name>.y
    `$QR/factor/_reference.yaml`（`factorlab ref list`）与同批全部候选：
    - `factorlab corr <候选们>`：任一对 |ρ|≥0.9 → 冗余，同族只留最强一只入库；
      |ρ|≥0.7 不得同时入库；跨 scales 不混用对照。
-   - `factorlab resic`（组内互评或 `--target <候选> --against <库成员名单>`）：
-     残差 |t|≥2 且 retention≥50% → 可加入；否则观察（近共线对先跑 corr 排除，
-     避免 resIC 数值噪声）。
+   - `flab factor resic`（组内互评或 `--target <候选> --against <库成员名单>`）：
+     daily spec 使用逐日 `forward_return_1d`，weekly spec 使用其 `target`；命令行可用
+     `--frequency/--horizon/--fwd-col` 显式覆盖，未传新参数保留 weekly/5d 兼容口径。
+     当前参考库准入要求残差 |t|≥3 且 max|ρ|<0.7、retention≥50%；否则观察
+     （近共线对先跑 corr 排除，避免 resIC 数值噪声）。3.0 是用户选定的操作门槛；
+     99 项试验、B=300 的联合 max-T 审计临界值约 3.45，因此不声称已控制 FWER。
    - 结果写候选档案 §备注；正式入 **库** 时同步 `_reference.yaml`
      （name/style/reason/added/entry_corr_max/entry_resic_t），空 scale 首只即种子
      （两项 null）。
 1. 对照 `knowledge/handbooks/factor-mining-playbook.md` §4.1 阈值判定（显著/边际/无效）。
    **R42 要件（入库只看测试段冻结结果）**：`flab factor admit <spec>` 会先过最终测试门——
    无该版本最终测试登记则**执行那次唯一最终测试**并冻结
-   `$QR/results/platform/<name>_5y/test_diagnostics.json`（测试段 `corr_max/r2_lib/resic_t`），
+   `$QR/results/platform/<name>_5y/test_diagnostics.json`（测试段
+   `diagnostics_schema/frequency/fwd_col/corr_max/r2_lib/resic_t/retention`），
    二次 admit 只读冻结件；IS-only 因子（窗口全在训练段）不可入库（`LOCKBOX_TEST_ONLY_FINAL`，
-   先经 `make xpipe` 产出/使用 `_5y` 变体，admit 会优先解析它）。判决阈值：`corr_max≥0.95`
-   重复；`r2_lib≥0.8` 且 `resic_t` 不显著（|t|<2）冗余；否则可加入。训练段冗余检验仅供
-   开发参考（契约 `knowledge/contracts/interface.md` §10）。
+   先经 `make xpipe` 产出/使用 `_5y` 变体，admit 会优先解析它）。判决阈值：
+   `corr_max≥0.95` 重复；`corr_max≥0.9`、`r2_lib≥0.9`、`retention<0.2`，
+   或 `r2_lib≥0.8` 且 `|resic_t|<2` 为冗余；其余只有同时满足
+   `|resic_t|≥3`、`corr_max<0.7`、`retention≥0.5` 才可加入，否则观察。
+   `ref add` 会在备份/写入前复核，entry 手工参数不能绕过。
+   训练段冗余检验仅供开发参考（契约 `knowledge/contracts/interface.md` §10）。
 2. 复制 `$QR/dossiers/factors/_template.md` → `$QR/dossiers/factors/<族>/<stem>.md`，逐节填写：
    验证数据快照自 `runs/platform/<name>/summary.json`（注明快照日期）；
    状态按判定（候选/观察中/无效）；§2 逻辑写变异后的假设表达。
 3. 种子档案 `$QR/dossiers/factors/<族>/<stem>.md` §5 迭代历史加一行（日期/新因子/变异点/结果/结论）。
-4. 互链：新档案 §6 备注链接 `[<seed>.md](<seed>.md)`；种子档案对应行注明新档案。
+4. 互链：新档案 §6 备注写入种子档案路径 `<seed>.md`；种子档案对应行注明新档案。
 5. **入库前跑门（R07-MIG-I1/I2 纪律；R37 起对产物区）**：
    `platform/.venv/bin/python research/tools/factor_lib/build_index.py`（重生索引）+
    `make index-check` + `bash governance/ops/gates.sh --structure --topo`

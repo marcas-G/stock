@@ -92,7 +92,7 @@ M4a 打通「平台库数据 → 因子计算 → 复权视图 → 周频评估�
 | `factorlab show <name>` | 查看单因子完整摘要（spec 原文/评估/分层回测） |
 | `factorlab corr <name1> <name2> ... [--against reference\|all\|<names>]` | 因子两两相关性（≥2 个）：周度横截面秩相关均值 + 全局 Pearson；任一因子无 results 报错（数据源 `<results_dir>/<name>/panel.parquet`（默认 `runs/platform/`） 的 signal，按 date+code inner join；join 后超 2000 万行每周降采样 5000 只）。`--against reference`（D10）= 与参考库 `$QUANTRESEARCH_ROOT/factor/_reference.yaml` daily 组成员的并集矩阵（names 可省略=库内自相关矩阵；只读库清单，不扫全库、不跨 scales）；`--against all`= 显式扫全库；`--against a,b`= 显式名单 |
 | `factorlab svd [name1 ...] [--weeks 15] [--all]` | 因子库 SVD 分解：奇异值谱 + 主成分载荷（因子结构/有效维度分析）；缺省 names = **参考库 daily 组**（D10，读 `_reference.yaml`）；`--all` = 全部有 panel 因子（排除验证目录，D10 前旧默认，显式 opt-in）；抽样 weeks 个交易周（concat+pivot 单次操作，规避多 join 段错误） |
-| `factorlab resic <name1> <name2> ... [--target 名] [--min-stocks 30] [--against reference\|all\|<names>]` | 横截面联合诊断：组内互评（默认，≥2 因子）或 `--target` 显式候选（可不在 names 中，基准应排除 target）。输出整组联合回归 R²（fwd ~ 整组逐周 OLS 均值）与每因子正交化残差 IC（resIC = 候选对基准逐周 OLS 残差 vs fwd 的周频 rankIC 均值/t 值 + 被基准解释 R²）。数据源 = results 多 run 单输出 panel 按周频对齐汇聚；每周样本 < max(min_stocks, 基准数+2) 剔除；错误路径 Exit 1（含"无结果"/"公共周"/多输出 panel 文案）。`--against`（D10）= 库外候选对参考库的**增量信息评估**（候选取 names 或 `--target`；输出 `corr_max/corr_mean/r2_lib/resIC/retention/verdict`，见 §D10）——候选 ∈ 基准报错。近共线因子建议先跑 corr/svd |
+| `factorlab resic <name1> <name2> ... [--target 名] [--min-stocks 30] [--against reference\|all\|<names>] [--frequency daily\|weekly] [--horizon N] [--fwd-col COL]` | 横截面联合诊断：组内互评（默认，≥2 因子）或 `--target` 显式候选。显式 `daily` 保留每日截面并默认 `forward_return_1d`；显式 `weekly` 使用周对齐并默认 `forward_return_5d`；`--horizon` 映射 `forward_return_<N>d`，`--fwd-col` 优先。未传新参数沿用 weekly/5d 兼容口径。`--against`（D10）输出 `corr_max/corr_mean/r2_lib/resIC/retention/verdict`；候选 ∈ 基准报错。近共线因子建议先跑 corr/svd |
 | `factorlab ref list [--scales daily\|minute]` | 参考库成员清单（D10；读 `$QUANTRESEARCH_ROOT/factor/_reference.yaml`）：按 scales 组打印 name/style/加入日期/entry corr_max/resic_t/理由；文件缺失/格式错 Exit 1 |
 | `factorlab op list [--catalog]` | 列出已注册算子；`--catalog` 列**分类表全集**（含未注册库函数：name/partition/window/source/returns） |
 | `factorlab op doc <name>` | 查看算子名称、类别、版本与 docstring；未注册但在分类表 → 回退打印分类元数据（partition/window/source/returns） |
@@ -1094,14 +1094,16 @@ t 推断仍以主 `ic`（D3 不重叠采样）为准；主口径仍固定 1 日 
   forward）。每项字段：`name / style / reason / added / entry_corr_max / entry_resic_t`
   （后两项=入库时对库内 max|ρ| 与残差 t；种子为 null）。初始库=daily 10 只
   （种子 `momentum_20d_turnrank_top2`；每风格一只），minute 组待合格分钟因子另立。
-  入库标准（建议值，真实对照后校准）：显著 |t|≥2 且 |IR|≥0.1；独立 max|ρ|<0.7；
-  风格覆盖；可复跑（产物+档案）。
+  初筛参考：单因子 |IC t|≥2 且 |IR|≥0.1。当前参考库准入要求增量检验
+  |resIC t|≥3、独立 max|ρ|<0.7、retention≥50%，并满足风格覆盖与可复跑
+  （产物+档案）。`3.0` 是用户选定的操作门槛；99 项试验、B=300 的联合 max-T
+  审计临界值约 `3.45`，所以该门槛不代表已控制 FWER。
 - `load_reference(path=None) -> {scales: [ReferenceEntry]}`；未知 scales/缺字段/
   组内 name 重复 → ValueError。`reference_names(scales="daily", path=None) -> [name]`。
 - `correlation.resolve_against(spec, results_dir, reference_path=None)`：解析
   `--against`——`reference`（读 yaml daily 组；**不扫全库、不跨 scales**，禁止行为
   由测试锁）/ `all`（显式扫全库）/ 逗号空白分隔名单。
-- `cross_section.incremental_diagnostics(candidates, results_dir, base, fwd_col=..., min_stocks=30) -> dict`
+- `cross_section.incremental_diagnostics(candidates, results_dir, base, fwd_col=..., min_stocks=30, frequency=...) -> dict`
   库外候选对基准库（参考库）的**增量信息评估**（spec §3b 表）：
   - `corr_max` / `corr_mean`：与库成员的周度截面秩相关 |ρ| 的最大/均值（signal-only，
     与 target 无关——同一实现 `factor_correlation` 提取候选对）；
@@ -1110,7 +1112,7 @@ t 推断仍以主 `ic`（D3 不重叠采样）为准；主口径仍固定 1 日 
   - `resic_mean/std/t`：回归残差的 rankIC（正交化后仍存的预测力）周均值/t；
   - `ic_mean/std/t`：候选原始 rankIC（同一批有效周，用于 retention 分母）；
   - `retention = resic_mean / ic_mean`（残差 IC 保留率）；
-  - `verdict`：**可加入**（残差 t≥2 且 max|ρ|<0.7 且 retention≥50%）/ **冗余**
+  - `verdict`：**可加入**（|resIC t|≥3 且 max|ρ|<0.7 且 retention≥50%）/ **冗余**
     （max|ρ|≥0.9 或 r2_lib≥0.9 或 retention<20%）/ **观察**（其余）；
   - 候选 ∈ 基准 → ValueError（基准应排除候选本身）；base 空 → ValueError。
   返回 `{"kind": "incremental", "base": [...], "candidates": [{...}]}`。
@@ -2877,10 +2879,15 @@ deterministic accounting convention，不是交易所微观顺序声明
 非齐次，可能需多轮；无 progress → RuntimeError；全投影 0 即移除；**无
 greedy redistribution / 无 code-order favoritism**；残余现金不二次分配）。
 
-**Slippage legal-bound Gate**：slippage 产生的 execution_price 必须
-down <= price <= up（越界 → 普通 ValueError：raw market 数据合法，问题在
-cost/slippage 配置——**不是 ExecutionDataQualityError**；禁止 clipping，
-bounded-at-limit slippage model 尚未实现）。
+**NEXT_OPEN slippage legal-bound**：先按 cost model 计算滑点价；若越过价带，
+BUY execution_price 封顶为 up_limit，SELL execution_price 封底为 down_limit。
+价带内及恰好等于边界时保持原价。封顶后再次调用唯一成本 authority
+`compute_execution_cost`，以最终成交价重算 gross、fees 和 effective cash delta；
+BUY 的 affordability probe、迭代 required cost 与最终 FillBatch 必须使用同一
+封顶语义。此规则只修正成交价，不改变上游 `OpenFillAssessment` 的市场阻断状态。
+
+**NEXT_WINDOW** 继续使用分钟成交模拟及原日级限价一致性检查；本段封顶规则
+属于 NEXT_OPEN realized fills。
 
 **模型边界**：
 
@@ -2906,8 +2913,9 @@ POST_EXECUTION PortfolioState（新 immutable state）
 ```
 POST cash = PRE cash + Σ FillBatch.effective_cash_delta
 （与 M8-04C 同一 Float64 表达；无 Decimal/round/fsum 分支；
- empty FillBatch → cash 不变；finite >= 0 严格，无 tolerance/clamp——
- 不一致 → ValueError "FillBatch is not cash-consistent ..."）
+ empty FillBatch → cash 不变；finite >= 0 严格，无 clamp；
+ 下游 cash bridge 比较允许有限浮点归约噪声，超出容差仍报
+ ValueError "FillBatch is not cash-consistent ..."）
 ```
 
 **BUY inventory**（A 股 T+1 核心）：
@@ -3031,8 +3039,9 @@ cash_before = PRE state.cash（唯一 authority）
 net_cash_delta = Σ FillBatch.effective_cash_delta（唯一 authority——
   与 M8-04D 同一 Float64 reduction path，禁止 Decimal/round/clamp）
 cash_after = POST state.cash
-**cash bridge 严格**：POST cash == PRE cash + Σ delta（否则 ValueError
-  "POST cash is inconsistent with PRE cash + FillBatch effective_cash_delta"）
+**cash bridge 容差校验**：POST cash 与 PRE cash + Σ delta 满足
+`math.isclose(rel_tol=1e-12, abs_tol=1e-9)`；超出容差则 ValueError
+  "POST cash is inconsistent with PRE cash + FillBatch effective_cash_delta"
 buy/sell gross 与四项费用直接聚合 FillBatch 列；total_fees 按固定顺序
   = commission + stamp_tax + transfer_fee（禁止按 rates 反算——不接收
   ExecutionCostSpec）
@@ -3626,7 +3635,7 @@ dev/应急。设计与验收：`knowledge/design/platform/specs/2026-09-21-facto
      流水线/guard 的新登记路径；已有冻结件的 `admit`/`ref add` 只读冻结件——重测需
      删除冻结件，或在流水线侧 `FACTORLAB_RE_FINAL=1` 重建后再走入库。
 3. **最终测试产出冻结**（不复算）：测试段上的评估指标 + **测试段冗余检验**（对照参考库
-   `corr_max / r2_lib / resic_t`），冻结件 `<results_dir>/<name>_5y/test_diagnostics.json`
+   `corr_max / r2_lib / resic_t / retention`），冻结件 `<results_dir>/<name>_5y/test_diagnostics.json`
    （字段见 §10.4）；同时 append-only 登记台账（谁、何时、哪个版本、哪次访问）。
 4. **入库只看测试段那份**：`admit` / `ref add` 必须引用该版本的最终测试登记与测试段冗余
    结果；训练段冗余检验仅供开发参考，**不作入库依据**；IS-only 因子不可入库（§10.3）。
@@ -3657,11 +3666,17 @@ factorlab lockbox roll [--as-of YYYY-MM-DD]
     `<results_dir>/<b>_5y/panel.parquet` → `DATA`，零跑零登记）→ `execute_run(final_mode=True)`
     （进程内自设 `FACTORLAB_PIPELINE=1` 作车道身份；`guard_run` 权威登记，重复 →
     `LOCKBOX_FINAL_DUPLICATE`）→ 测试段诊断（`date_start=window_start`）→ 写冻结件；
-  - **已有 final** → 只读冻结件：版本指纹/`window_id` 一致才放行（二次 admit 零重跑、
-    零重算、零新登记）；冻结件缺失但 `_5y/panel.parquet` 在 → 仅重算诊断（同一次测试收尾，
-    不重跑因子）；版本不符或两者都缺 → `LOCKBOX_FINAL_REQUIRED`（提示 `make xpipe` 重建）；
-  - 判决吃冻结件测试段数：`corr_max≥0.95` 重复；`r2_lib≥0.8` 且 `resic_t` 不显著（|t|<2）
-    冗余；否则可加入。`ref add` 的 `entry_corr_max/entry_resic_t` 取冻结值。
+  - **已有 final** → 只读冻结件：版本指纹/`window_id` 一致且诊断 schema、频率、
+    forward 标签与 spec 一致才直接放行（二次 admit 零重跑、零重算、零新登记）；
+    旧冻结件缺少这些元数据，或 `_5y/panel.parquet` 在但冻结件缺失 → 仅从现有面板重算诊断
+    （同一次测试收尾，不重跑因子、不重新登记 final）；版本不符或冻结件与产物都缺 →
+    `LOCKBOX_FINAL_REQUIRED`（提示 `make xpipe` 重建）；
+  - 判决吃冻结件测试段数：`corr_max≥0.95` 重复；`corr_max≥0.9`、
+    `r2_lib≥0.9` 或 `retention<0.2` 冗余；兼容原规则的
+    `r2_lib≥0.8 且 |resic_t|<2` 也判冗余。
+    只有 `|resic_t|≥3`、`corr_max<0.7`、`retention≥0.5` 才可加入，其余候选为观察。
+    `ref add` 必须用同一诊断重新检查判决，在备份/写入前拒绝非“可加入”候选；
+    `entry_corr_max/entry_resic_t` 始终来自权威诊断，忽略旧版手工参数。
 - **IS-only 不可入库**：窗口全在训练段 → `LOCKBOX_TEST_ONLY_FINAL`（把 spec 窗口延伸到
   测试段，或先经 `make xpipe` 产出 `_5y` 变体后以变体入库）。
 
@@ -3673,7 +3688,9 @@ factorlab lockbox roll [--as-of YYYY-MM-DD]
 ```json
 {"version_fingerprint": "…", "window_id": "2026Q2",
  "window_start": "2025-07-01", "date_start": "2025-07-01", "date_end": "2026-09-17",
- "corr_max": 0.87, "r2_lib": 0.61, "resic_t": 3.2, "resic_mean": 0.0012,
+ "diagnostics_schema": 2, "frequency": "daily", "fwd_col": "forward_return_1d",
+ "corr_max": 0.42, "r2_lib": 0.61, "retention": 0.72,
+ "resic_t": 3.2, "resic_mean": 0.0012,
  "n_weeks": 58, "created_at": "2026-09-24T…Z"}
 ```
 

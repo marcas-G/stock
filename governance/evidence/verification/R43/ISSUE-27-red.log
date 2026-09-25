@@ -1,0 +1,91 @@
+heavy.sh: slot=1/2 avail=62.2GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python -m pytest platform/tests/test_backtest_fills.py -k buy_slippage_crosses_upper_is_capped or sell_slippage_crosses_lower_is_capped -q
+FF                                                                                                                                                                                               [100%]
+=============================================================================================== FAILURES ===============================================================================================
+__________________________________________________________________ test_buy_slippage_crosses_upper_is_capped_and_recosted_for_funding __________________________________________________________________
+
+    def test_buy_slippage_crosses_upper_is_capped_and_recosted_for_funding():
+        o = _orders([("000001.SZ", "buy", 100)])
+        a = _assessment([("000001.SZ", "buy", 100, "fillable", 10.0)])
+        s = _snap([_normal_row(open_=10.0, up=10.04, dn=9.9)])
+        # Uncapped cost at 10.05 is 1010.05 and cannot fit; the legal 10.04
+        # execution costs 1009, so this full board lot remains affordable.
+        c = _cost(slippage_bps=50, commission_rate=0.001, minimum_commission=5.0)
+>       b = _realize(orders=o, assessment=a, state=_state(1009.5, []),
+                     snapshot=s, cost=c)
+
+platform/tests/test_backtest_fills.py:665: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_backtest_fills.py:181: in _realize
+    return realize_open_fills(o, a, st, s, r, c)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/backtest/fills.py:242: in realize_open_fills
+    _check_price_bounds(probe, code, up, dn)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+breakdown = ExecutionCostBreakdown(gross_notional=10.049999999999999, commission=5.0, stamp_tax=0.0, transfer_fee=0.0, total_fees=5.0, effective_cash_delta=-15.049999999999999, execution_price=10.049999999999999)
+code = '000001.SZ', up_limit = 10.04, down_limit = 9.9
+
+    def _check_price_bounds(breakdown, code: str, up_limit: float,
+                            down_limit: float) -> None:
+        """slippage 产生的 execution_price 必须落在合法 market limits 内。
+    
+        越界 → 普通 ValueError（raw market 数据合法，问题在 cost/slippage model
+        配置——不是 ExecutionDataQualityError）；禁止 clipping（bounded slippage
+        model 未实现）。
+        """
+        p = breakdown.execution_price
+        if p > up_limit or p < down_limit:
+>           raise ValueError(
+                f"{code} cost-model slippage crosses legal market limit："
+                f"execution_price={p} 不在 [down={down_limit}, up={up_limit}]——"
+                f"bounded slippage model is not implemented（不 clipping）")
+E           ValueError: 000001.SZ cost-model slippage crosses legal market limit：execution_price=10.049999999999999 不在 [down=9.9, up=10.04]——bounded slippage model is not implemented（不 clipping）
+
+platform/src/factorlab/app/backtest/fills.py:78: ValueError
+_______________________________________________________________________ test_sell_slippage_crosses_lower_is_capped_and_recosted ________________________________________________________________________
+
+    def test_sell_slippage_crosses_lower_is_capped_and_recosted():
+        o = _orders([("000001.SZ", "sell", 100)])
+        a = _assessment([("000001.SZ", "sell", 100, "fillable", 10.0)])
+        st = _state(0.0, [("000001.SZ", 100, 100)])
+        s = _snap([_normal_row(open_=10.0, up=10.04, dn=9.96)])
+        c = _cost(slippage_bps=50, commission_rate=0.001,
+                  stamp_tax_sell_rate=0.001, transfer_fee_rate=0.0001)
+>       b = _realize(orders=o, assessment=a, state=st, snapshot=s, cost=c)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_backtest_fills.py:705: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_backtest_fills.py:181: in _realize
+    return realize_open_fills(o, a, st, s, r, c)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/backtest/fills.py:218: in realize_open_fills
+    _check_price_bounds(breakdown, code, up, dn)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+breakdown = ExecutionCostBreakdown(gross_notional=994.9999999999999, commission=0.9949999999999999, stamp_tax=0.9949999999999999, ...r_fee=0.09949999999999999, total_fees=2.0894999999999997, effective_cash_delta=992.9104999999998, execution_price=9.95)
+code = '000001.SZ', up_limit = 10.04, down_limit = 9.96
+
+    def _check_price_bounds(breakdown, code: str, up_limit: float,
+                            down_limit: float) -> None:
+        """slippage 产生的 execution_price 必须落在合法 market limits 内。
+    
+        越界 → 普通 ValueError（raw market 数据合法，问题在 cost/slippage model
+        配置——不是 ExecutionDataQualityError）；禁止 clipping（bounded slippage
+        model 未实现）。
+        """
+        p = breakdown.execution_price
+        if p > up_limit or p < down_limit:
+>           raise ValueError(
+                f"{code} cost-model slippage crosses legal market limit："
+                f"execution_price={p} 不在 [down={down_limit}, up={up_limit}]——"
+                f"bounded slippage model is not implemented（不 clipping）")
+E           ValueError: 000001.SZ cost-model slippage crosses legal market limit：execution_price=9.95 不在 [down=9.96, up=10.04]——bounded slippage model is not implemented（不 clipping）
+
+platform/src/factorlab/app/backtest/fills.py:78: ValueError
+======================================================================================= short test summary info ========================================================================================
+FAILED platform/tests/test_backtest_fills.py::test_buy_slippage_crosses_upper_is_capped_and_recosted_for_funding - ValueError: 000001.SZ cost-model slippage crosses legal market limit：execution_pr...
+FAILED platform/tests/test_backtest_fills.py::test_sell_slippage_crosses_lower_is_capped_and_recosted - ValueError: 000001.SZ cost-model slippage crosses legal market limit：execution_price=9.95 不...
+2 failed, 75 deselected in 1.81s
+
+Observed pytest exit code: 1

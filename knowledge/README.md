@@ -1,7 +1,8 @@
 # knowledge —— 文档与知识的唯一入口
 
-> R24 顶层目录重整（方案 A）：所有**文档/知识**从三处（根 `docs/`、`platform/docs/`、
-> `research/docs/`）收敛到这里。迁移台账：`../governance/workspace/migration-r04.md`。
+> R24 顶层目录重整（方案 A）：历史文档按用途归入 `knowledge/`（契约、设计、手册）
+> 和 `governance/`（工作区规范、证据、评审）。
+> 迁移台账：`../governance/workspace/migration-r04.md`。
 
 ## 我要找 X → 去哪
 

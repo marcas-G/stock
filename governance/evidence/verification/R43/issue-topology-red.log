@@ -1,0 +1,21 @@
+heavy.sh: slot=1/2 avail=61.8GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python -m pytest -q governance/ops/tests/test_check_tool_layering_regressions.py
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_ashare_ingest_check_inputs_does_not_import_colliding_module _______
+
+    def test_ashare_ingest_check_inputs_does_not_import_colliding_module():
+        """数据自检脚本的契约模块名不得与其他工具同名。"""
+        findings = [
+            finding for finding in check_tool_layering.check()
+            if finding.startswith("platform/tools/ashare_ingest/check_inputs.py:")
+        ]
+>       assert findings == []
+E       assert ['platform/to...共享代码请落 lib/）'] == []
+E         
+E         Left contains one more item: "platform/tools/ashare_ingest/check_inputs.py: import 'contracts' → research_flows（跨工具 import；共享代码请落 lib/）"
+E         Use -v to get more diff
+
+governance/ops/tests/test_check_tool_layering_regressions.py:12: AssertionError
+=========================== short test summary info ============================
+FAILED governance/ops/tests/test_check_tool_layering_regressions.py::test_ashare_ingest_check_inputs_does_not_import_colliding_module
+1 failed in 0.94s

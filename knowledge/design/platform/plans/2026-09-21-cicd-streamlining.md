@@ -1,6 +1,6 @@
 # CI/CD 精简实施计划（presubmit/postsubmit + build-once）
 
-> **For agentic workers:** 用 superpowers:subagent-driven-development 逐任务执行；步骤 `- [ ]` 跟踪。
+> **For agentic workers:** 用 superpowers:subagent-driven-development 逐任务执行；步骤 `- [x]` 跟踪。
 > 规格：`knowledge/design/platform/specs/2026-09-21-cicd-streamlining-addendum.md`（全权口径）。
 > 纪律：TDD（改排除方式前先证明"排除集等价"）；一次提交一主题；命令真相源=verify.sh。
 
@@ -39,13 +39,13 @@ runner 删除，markers 取代硬编码 deselect。
 - CH 集成相关（deep 要跑的）→ `needs_ch`（对现有 `pytest.mark.integration` 不强制替换；仅给 fast 需排除但无 integration 标记的用例补标）
 
 **验收（命令+期望）：**
-- [ ] `pytest platform -q -m "<fast>" --collect-only | tail -1` 与旧 `--deselect` 集**逐条等价**（写对照脚本 `governance/ops/tests/test_markers_equivalence.sh`，对每个被 deselect 的 nodeid 断言：出现在 marker 排除集、且不在 fast 收集结果中）；
-- [ ] `pytest platform -q -m "<fast>"` 与 旧命令（含 deselect）**通过数一致**（记录前后 count）；
-- [ ] deep 表达式下，`data_on_disk`/`needs_ch`/`host_root` 用例被收集（`--collect-only` 列出）。
+- [x] `pytest platform -q -m "<fast>" --collect-only | tail -1` 与旧 `--deselect` 集**逐条等价**（写对照脚本 `governance/ops/tests/test_markers_equivalence.sh`，对每个被 deselect 的 nodeid 断言：出现在 marker 排除集、且不在 fast 收集结果中）；
+- [x] `pytest platform -q -m "<fast>"` 与 旧命令（含 deselect）**通过数一致**（记录前后 count）；
+- [x] deep 表达式下，`data_on_disk`/`needs_ch`/`host_root` 用例被收集（`--collect-only` 列出）。
 
 **Interfaces（Produces）:** marker 名与表达式（规格 §3/§4），Task 2 直接引用。
 
-- [ ] 提交：`test(markers): 以 markers 取代硬编码 deselect（fast/deep 双档位等价）+ 原因/issue 关联`
+- [x] 提交：`test(markers): 以 markers 取代硬编码 deselect（fast/deep 双档位等价）+ 原因/issue 关联`
 
 ### Task 2: `verify.sh` + `ci_env.sh` + Makefile（单一入口）
 
@@ -62,19 +62,19 @@ governance/ops/ci_env.sh [--dir DIR]                        # 幂等建 venv + �
   + 带数据 tools/research（deep 表达式）+ 研究产物门（lint/index/dossier/tidy）；
 - 每一步输出 `[verify] step=... rc=...`；失败不早退（收集全部再汇总，便于夜间 issue）。
 
-- [ ] 写 `verify.sh` + `ci_env.sh`；`make verify-fast`/`verify-deep` 薄壳；
-- [ ] fast 在**干净 clone**（`git clone --depth 1 . /tmp/opencode/verify-clone && cd 那里 && verify.sh --profile fast`）退出 0；
-- [ ] deep 在宿主退出 0（记录总耗时）；
-- [ ] 提交：`feat(ci): 单一入口 verify.sh（fast/deep）+ ci_env 钉版单页 + make 薄壳`
+- [x] 写 `verify.sh` + `ci_env.sh`；`make verify-fast`/`verify-deep` 薄壳；
+- [x] fast 在**干净 clone**（`git clone --depth 1 . /tmp/opencode/verify-clone && cd 那里 && verify.sh --profile fast`）退出 0；
+- [x] deep 在宿主退出 0（记录总耗时）；
+- [x] 提交：`feat(ci): 单一入口 verify.sh（fast/deep）+ ci_env 钉版单页 + make 薄壳`
 
 ### Task 3: `gates.sh --offline` + `ci.yml` 重写（薄壳）
 
 **Files:** Modify `governance/ops/gates.sh`（新增 `--offline` 模式：跳过需要产物区/台账的 G-INDEX-产品/G-ANNOTATE/G-REVIEWS，其余照跑）；Rewrite `.github/workflows/ci.yml`：
 一个 job（`verify-fast`）三步：checkout(fetch-depth 0) → `ci_env.sh` → `verify.sh --profile fast`；
 失败注解逻辑保留（从 verify 输出提取 FAILED 行发 `::error::`）。
-- [ ] 本地：`gates.sh --offline` 在干净 clone 绿；`gates.sh`（全量）在宿主仍绿；
-- [ ] push 后 workflow 单 job 绿（含 annotations）；旧三 job 逻辑中的"排除清单注释"删除（迁 markers）；
-- [ ] 提交：`ci: ci.yml 薄壳化（调用 verify-fast）+ gates --offline；删除重复钉版/排除清单`
+- [x] 本地：`gates.sh --offline` 在干净 clone 绿；`gates.sh`（全量）在宿主仍绿；
+- [x] push 后 workflow 单 job 绿（含 annotations）；旧三 job 逻辑中的"排除清单注释"删除（迁 markers）；
+- [x] 提交：`ci: ci.yml 薄壳化（调用 verify-fast）+ gates --offline；删除重复钉版/排除清单`
 
 ### Task 4: 删除自托管 runner + 夜间 timer + 失败通知
 
@@ -96,11 +96,11 @@ governance/ops/ci_env.sh [--dir DIR]                        # 幂等建 venv + �
 
 ### Task 5: 验收与收口（控制器）
 
-- [ ] fast：干净 clone 绿 + 上传到 GitHub（push 后 CI 绿）；
-- [ ] deep：宿主实跑绿（含 CH 集成腿、研究产物门），耗时与排除清单记录在 `governance/evidence/verification/R38/`；
-- [ ] 故障注入：`NIGHTLY_FORCE_FAIL=1` 走通 issue 创建（随后 close）；
-- [ ] `make gates` 绿；runner 列表为空；旧 workflow 不存在；
-- [ ] 更新 `STATUS.md`（验证体系一页）；提交证据。
+- [x] fast：干净 clone 绿 + 上传到 GitHub（push 后 CI 绿）；
+- [x] deep：宿主实跑绿（含 CH 集成腿、研究产物门），耗时与排除清单记录在 `governance/evidence/verification/R38/`；
+- [x] 故障注入：`NIGHTLY_FORCE_FAIL=1` 走通 issue 创建（随后 close）；
+- [x] `make gates` 绿；runner 列表为空；旧 workflow 不存在；
+- [x] 更新 `STATUS.md`（验证体系一页）；提交证据。
 
 ## Self-Review
 

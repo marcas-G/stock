@@ -641,7 +641,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 **Files:**
 - Modify: `factor/crash_bottom_leader_timed.yaml`（`start: "2023-01-01"` → `"2015-01-01"`）
-- Modify: `docs/factors/crash_bottom_leader_timed.md`（扩样后更新验证数据）
+- Modify: `$QUANTRESEARCH_ROOT/dossiers/factors/crash_bottom_leader_timed.md`（扩样后更新验证数据）
 
 - [ ] **Step 1: 全量测试**
 
@@ -663,16 +663,12 @@ $FLAB run factor/crash_bottom_leader_timed.yaml --chunk-days 500
 
 Expected: 跑通（2015-2026 ≈ 2806 交易日 → ~6 块），无段错误；`results/crash_bottom_leader_timed/summary.json` 的 `n_weeks` 显著大于 14（2015 股灾/2016 熔断/2018 熊市/2024 微盘/2025 关税/2026 多段均应触发）。若某块失败，读报错修复重跑。
 
-- [ ] **Step 3: 更新策略档案** `docs/factors/crash_bottom_leader_timed.md`：替换 §4 验证数据快照为扩样结果（触发周数、IC、分层、long_short 年化/Sharpe），注明"分块计算（--chunk-days 500）"与快照日期。
+- [ ] **Step 3: 更新策略档案** `$QUANTRESEARCH_ROOT/dossiers/factors/crash_bottom_leader_timed.md`：替换 §4 验证数据快照为扩样结果（触发周数、IC、分层、long_short 年化/Sharpe），注明"分块计算（--chunk-days 500）"与快照日期。
 
-- [ ] **Step 4: 提交**
+- [ ] **Step 4: 保存结果**
 
-```bash
-git add factor/crash_bottom_leader_timed.yaml docs/factors/crash_bottom_leader_timed.md
-git commit -m "feat(strategy): extend crash-bottom sample to 2015 with chunked compute
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
-```
+spec 与档案位于主仓外的研究产物区 `$QUANTRESEARCH_ROOT`，不对这些文件执行主仓
+`git add` / `git commit`。若实现同时修改仓内平台代码或工具，按目录公约分别提交仓内改动。
 
 ---
 

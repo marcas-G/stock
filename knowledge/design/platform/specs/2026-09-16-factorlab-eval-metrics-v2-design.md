@@ -63,15 +63,18 @@
 近亲（如 `momentum_20d_turnrank_top2/top5/top10`）会人为抬高相关性、掩盖真实增量信息。
 参考库 = **择优最小独立集**，作为"库外因子相对库内现状"的基准。
 
-**登记**：`research/factor/_reference.yaml`（`_` 前缀=非因子/非族的既有约定），
+**登记**：`$QUANTRESEARCH_ROOT/factor/_reference.yaml`（`_` 前缀=非因子/非族的既有约定），
 **按信号来源分库**（`scales: daily / minute`——对应现有两类因子：日线原生信号 与 分钟聚合信号；
 两类语义不同、不混用对照）。**评估目标（holding horizon）是评估参数而非库分组**：
 **因子评估固定用 1 日 forward（`forward_return_1d`，2026-09-16 用户拍板）**；`--target` 仅供
 扩展评估（如 20d 研究）时显式指定；`corr` 与 target 无关（只看信号），`resIC` 在指定 target 下计算。每项字段：`name / style / 入选理由 / 加入日期 / 加入时 corr 与残差 t`。
 人工确认后添加。
 
-**入选标准（建议）**：① 显著（|t|≥2 且 |IR|≥0.1）；② 独立（与库内成员 max|ρ|<0.7）；
-③ 风格覆盖（动量/反转/波动/彩票/流动性/日内/资金流…）；④ 可复跑（有产物+档案）。
+**入选标准**：① 单因子初筛 |IC t|≥2 且 |IR|≥0.1；② 对参考库的增量检验
+|resIC t|≥3、max|ρ|<0.7 且 retention≥50%；③ 风格覆盖
+（动量/反转/波动/彩票/流动性/日内/资金流…）；④ 可复跑（有产物+档案）。
+其中 `|resIC t|≥3` 是用户选定的参考库准入操作门槛。99 项试验、B=300 的联合
+max-T 审计估计临界值约 `3.45`；因此 `3.0` 不是已控制 FWER 的校准值。
 
 **增量信息指标（库外新因子 vs 参考库）**：
 | 指标 | 定义 |
@@ -80,13 +83,13 @@
 | `r2_lib` | 新因子被库成员截面回归（rank）解释的比例 |
 | `resic` | 回归残差的 IC（正交化后仍存的预测力） |
 | `retention` | 残差 IC / 原始 IC 保留率 |
-| `verdict` | 建议：可加入（残差 t≥2 且 max\|ρ\|<0.7 且 retention≥50%）/ 观察 / 冗余 |
+| `verdict` | 可加入（|resIC t|≥3 且 max\|ρ\|<0.7 且 retention≥50%）/ 观察 / 冗余 |
 
 **CLI**：`factorlab corr|resic --against reference|all|<names…>`；`svd` 默认 reference 并支持 `--all`；
 最小查看入口 `factorlab ref list`（读 `_reference.yaml`）。
 
 **初始库 = 单因子指标最好的一只作种子**：`momentum_20d_turnrank_top2`（|t|=12.58、IR=0.94；
-近亲 `top5/top10` 不重复入），随后**按入库流程逐个添加**（先用建议阈值：|ρ|max<0.7 且 残差 t≥2 且
+近亲 `top5/top10` 不重复入），随后**按入库流程逐个添加**（准入阈值：|ρ|max<0.7 且 |resIC t|≥3 且
 retention≥50%，真实对照后校准）。同风格次优仅在 |ρ| 复核超限时替换；`minute` 库待有合格分钟因子时另立
 （不与 `daily` 库混用对照）。
 

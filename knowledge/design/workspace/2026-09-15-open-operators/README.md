@@ -1,15 +1,19 @@
 # 开放算子详细方案（2026-09-15）
 
 **这是什么**：FactorLab「拆除算子白名单、库函数全开放 + 语义推断保证」的详细设计与实施计划。
-**给谁**：开发团队按此实施；后续复查走 `docs/reviews/README.md` 的评审流程。
-**状态**：设计已评审；实施计划待开发团队执行（Plan 1 共 9 个任务，TDD，逐任务可独立验收）。
+**给谁**：查阅开放算子设计、Plan 1 实施记录与后续缺口；评审流程见
+[`governance/evidence/reviews/README.md`](../../../../governance/evidence/reviews/README.md)。
+**状态**：设计已评审；Plan 1 的 9 个任务已于 R22 实施并验收。
+结果索引：[R22 开放算子证据](../../../../governance/evidence/verification/R22/open-operators-summary.md)。
+Plan 2/3 尚未排期，分别跟踪在 [GitHub Issue #10](https://github.com/marcas-G/stock/issues/10)
+和 [GitHub Issue #11](https://github.com/marcas-G/stock/issues/11)。
 
 ## 文件
 
 | 文件 | 内容 |
 |---|---|
 | `design.md` | 设计规格：开放面 / 算子生命周期 / 截面表达（建议）/ 保证体系 / 差距 G1-G9 / 验收标准 + §13 Spike 实测 |
-| `plan.md` | 实施计划 Plan 1（开放算子底座）：9 个任务，含精确文件路径、失败测试代码、最小实现、提交步骤 |
+| `plan.md` | Plan 1 历史实施清单：9 个任务；完成状态与偏差以 R22 证据索引为准 |
 | `evidence/` | 三个验证 spike 的可复跑脚本（算子可用率 / polars 方法面 / 截断重放） |
 
 ## 关键结论（先读这个）

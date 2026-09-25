@@ -28,8 +28,8 @@ governance/evidence/reviews/
 | 1 | **工具迁移**（8 工具+lib → `platform/tools/`；T1/T2 合并单解释器） | ✅ 已实施（R24 批次） | `r04-efficiency-2026-09-16/tools-migration-plan.md` |
 | 2 | **策略配置化 Plan S**（六层 + YAML + L5） | ✅ 已实施并验收（R27 实现 / R28 验收；R06 复核） | `knowledge/design/workspace/2026-09-16-strategy-decomposition/plan.md` |
 | 3 | **目录重整 R24**（契约/档案/治理/证据单点化） | ✅ 已实施（验收 `governance/evidence/verification/R24/`） | `r04-efficiency-2026-09-16/structure-plan.md` |
-| 4 | **缺口整改 Plan G**（R07：门回绿/判据加固/契约同步/数据三件/口子收口） | 待执行 | `r07-2026-09-16-gap-audit/improvement-plan.md` |
-| 5 | **评估指标 v2**（口径修订 + 增强） | **已拍板**（D1=B；D2/D4/D5/D6 批；D3 本质；D7 垃圾不保存；D8 补灌；**D9 逐日默认+周频可选**；**D10 参考库 daily/minute**；**D11 因子侧纯净：forward 固定 1d、E3/E4 归策略层**；**D12 去 Rust 叙事+Task13 合并单一实现**；E 顺序 E4→E3→E2→E1）；待执行 | `knowledge/design/platform/{specs,plans}/2026-09-16-factorlab-eval-metrics-v2*` |
+| 4 | **缺口整改 Plan G**（R07：门回绿/判据加固/契约同步/数据三件/口子收口） | ✅ 已实施（R29）；后续数据事项见对应计划与 Issue | `r07-2026-09-16-gap-audit/improvement-plan.md` |
+| 5 | **评估指标 v2**（口径修订 + 增强） | ✅ 已实施（R30）；E5 多重检验不在该计划范围，校准尾项按当前 issue/设计跟踪 | `knowledge/design/platform/{specs,plans}/2026-09-16-factorlab-eval-metrics-v2*` |
 | 6 | **同花顺模拟炒股接入 Plan T**（网页接口：盘后算单→次日开盘模拟下单→台账对账；参考 `Cfu4536/ths_simulated_API`） | 立项（设计+计划就绪，待执行） | `knowledge/design/research/{specs,plans}/2026-09-17-ths-simulated-api*` |
 | 7 | **数据质量与清洗流水线 Plan DQ**（FATAL/ERROR/WARN + 分区门 PASS/DEGRADED/FAIL + health 双维度 + 读取 fail-closed + 全史体检只审不改） | **M1 终审通过；M1.5 完成（acceptance ①②③ PASS + M1.5c 解阻断）**：18 日 RCA（3 恢复/4 隔离/11 例外）、adj 字段级（8,235 回补）、1.25M 分群（SOURCE 1.15M/EXPECTED 104k）；门控作用域=更新增量 + `quality_backlog` 披露；`make data-update`（daily）**rc=0**、health PASS、verify rc=0；**残余 3,828 挂 M3，Quark cookie 待刷新（外部）**；证据 R32/R33 | `knowledge/design/platform/{specs,plans}/2026-09-18-data-quality-pipeline*` |
 | — | open-operators Plan 1（开放算子底座） | ✅ 已实施（R22） | `knowledge/design/workspace/2026-09-15-open-operators/`；Plan 2/3 计划未写 |

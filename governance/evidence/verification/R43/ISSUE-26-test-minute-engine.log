@@ -1,0 +1,3 @@
+heavy.sh: slot=1/2 avail=61.7GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python -m pytest platform/tests/test_minute_engine.py -q
+............................................                                                                                                                                                     [100%]
+44 passed in 25.39s

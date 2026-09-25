@@ -1,9 +1,13 @@
 # FactorLab 开放算子与截面表达设计
 
 日期：2026-09-15
-状态：设计已评审（2026-09-15）；**实施由开发团队执行**，实施计划见 `docs/reviews/2026-09-15-open-operators/plan.md`（Plan 1：开放算子底座；Plan 2/3 随后另立）
-前置：R01 严格 review（`docs/reviews/r01-2026-09-15-strict-review/`）、`2026-09-06-factorlab-dsl-shape-design.md`、`2026-09-12-mining-system-refactor-design.md`
-权威文档：`platform/docs/interface.md`、`platform/docs/catalog.md`
+状态：设计已评审（2026-09-15）；**Plan 1 已于 R22 实施并验收**，见
+[`R22 开放算子证据`](../../../../governance/evidence/verification/R22/open-operators-summary.md)；
+实施清单见同目录 `plan.md`。Plan 2/3 尚未排期，分别跟踪于 GitHub Issues #10/#11。
+前置：R01 严格 review（`governance/evidence/reviews/r01-2026-09-15-strict-review/`）、
+`knowledge/design/platform/specs/2026-09-06-factorlab-dsl-shape-design.md`、
+`knowledge/design/platform/specs/2026-09-12-mining-system-refactor-design.md`
+权威文档：`knowledge/contracts/interface.md`、`knowledge/contracts/catalog.md`
 
 > 本规格分两部分：**§0~§2 为用户已确认的决策与目标**；**§3 之后为设计建议（待评审）**，其中
 > §6 截面表达与 §7 因子扩展形态为用户尚未最终拍板的部分，已标注状态。
@@ -364,7 +368,7 @@ ts_mean(close, 20)      → agg(mean, by=股票, order=日期, window=20)
 
 - **`ts_quantile` 不存在于 polars_ta 0.5.17**（三库 vars 实测；R05 复核 `ImportError: cannot import name 'ts_quantile'`）。
   §1.1 的实测举例"`ts_quantile`、`BBANDS` 均报未知"中，`ts_quantile` 应更正为**真实存在但当时未接出**的库函数
-  （团队 R22 实施时已记录偏差：`docs/verification/R22/open-operators-summary.md` §偏差 1、
+  （团队 R22 实施时已记录偏差：`governance/evidence/verification/R22/open-operators-summary.md` §偏差 1、
   `R22/02-ta-catalog/README.md:29-32`，替换用例 `ts_arg_max`/`ts_corr`/`ts_weighted_mean`/`BBANDS`）。
 - `BBANDS` 返回 **Struct（upperband/middleband/lowerband）**，非标量信号：无 process 时 artifact 边界报错清晰，
   带 process 时错误晦涩（见 R05-I1）——catalog/conformance 应标注返回形态。

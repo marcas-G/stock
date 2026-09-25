@@ -55,7 +55,7 @@ _DAILY_BASIC_MAP = {
 
 ## 3. 经典因子种子（10 个新家族）
 
-每个 = factor/*.yaml + docs/factors/*.md 档案（成为挖因子新种子池）。
+每个 = factor/*.yaml + $QUANTRESEARCH_ROOT/dossiers/factors/*.md 档案（成为挖因子新种子池）。
 direction 依据经典文献预设，跑出结果后档案记录实际表现（差也可）。
 
 | # | 因子 | 公式（polars_ta 表达） | direction | 维度 |

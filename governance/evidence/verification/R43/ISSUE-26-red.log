@@ -1,0 +1,18 @@
+.F                                                                                                                                                                                               [100%]
+=============================================================================================== FAILURES ===============================================================================================
+__________________________________________________________________ test_compute_formula_rejects_all_nan_output_but_allows_null_warmup __________________________________________________________________
+
+    def test_compute_formula_rejects_all_nan_output_but_allows_null_warmup():
+        """全 NaN 是编译产物错误；短窗口产生的全 null 仍是合法预热结果。"""
+        panel = _guard_panel()
+>       with pytest.raises(FactorDSLError, match="全 NaN") as exc:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE FactorDSLError
+
+platform/tests/test_compute.py:291: Failed
+----------------------------------------------------------------------------------------- Captured stderr call -----------------------------------------------------------------------------------------
+2026-09-26 01:53:28.725 | INFO     | expr_codegen.tool:all:292 - polars code is generated
+2026-09-26 01:53:28.748 | INFO     | expr_codegen.tool:_get_func_from_code_py:348 - get func from code py
+======================================================================================= short test summary info ========================================================================================
+FAILED platform/tests/test_compute.py::test_compute_formula_rejects_all_nan_output_but_allows_null_warmup - Failed: DID NOT RAISE FactorDSLError
+1 failed, 1 passed, 26 deselected in 2.39s

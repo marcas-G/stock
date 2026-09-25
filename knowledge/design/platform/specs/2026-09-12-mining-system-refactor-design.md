@@ -1,7 +1,7 @@
 # 策略挖掘系统 · 深度重构 + 端口化设计（P0-P4）
 
 > 状态：**WS0-WS8 完成（2026-09-12），P8 Mission satisfied**；剩余项见 pending-items #11。设计方法 = 《递归式需求驱动系统工程开发手册
-> （NASA SE × V-Model）》P0-P4 递归分解；本文即 workspace `docs/pending-items.md` #5
+> （NASA SE × V-Model）》P0-P4 递归分解；本文即 workspace `governance/workspace/pending-items.md` #5
 > 「仓库内部重构」递归子树的 P0-P4 文档。
 > 执行计划与阶段门见 workspace `docs/verification/WS*/` 证据目录与同批 plan 文档。
 

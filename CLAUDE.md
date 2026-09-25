@@ -32,11 +32,12 @@
 **测试**：
 - TDD：先写失败测试再实现；覆盖正常/边界/错误路径；断言真实行为，不用 mock 糊弄。
 - 依赖外部资源（CH / 本地事实库）的测试：环境缺失时 **skip 而非假通过**。
-- 提交前跑对应测试：平台 `cd platform && .venv/bin/python -m pytest -q`（最近基线 **3150 passed / 13 skipped**，
-  2026-09-16 R24 采集，原始输出 `governance/evidence/verification/R24/00-baseline/platform-pytest.txt`；
-  新基线以最新一轮 `governance/evidence/verification/R2x/` 为准）；工具/研究 `make test-research`
-  （= `platform/tools` **337** + `research/tools` **58 passed / 2 skipped**，R24 验收实测：
-  `governance/evidence/verification/R24/12-acceptance/test-research.txt`；**单解释器**（平台 venv 3.13））。
+- 提交前跑对应测试：平台 `cd platform && .venv/bin/python -m pytest -q`（R43 @ `a48ff57` 快照
+  **4128 passed / 17 skipped**；这不是当前未提交工作树的验证结果）；工具/研究 `make test-research`
+  （R43 深验证：`platform/tools` **920 passed / 1 deselected**、
+  `research/tools` **184 passed / 3 deselected**、`governance/ops` **219 passed**；
+  原始输出 `governance/evidence/verification/R43/tester/verify-deep-2026-09-25.log`；
+  **单解释器**（平台 venv 3.13））。
   （旧 T1/T2 两腿口径（emb + 平台 venv）已退役；`emb` 不再是工具依赖。）
 - 工具拓扑门：`python governance/ops/check_tool_layering.py`（core 不反依赖 / 生产不带诊断 /
   工具不互相 import / lib 是叶子）+ `--selftest`。

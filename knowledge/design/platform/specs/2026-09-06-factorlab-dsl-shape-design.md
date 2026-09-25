@@ -90,7 +90,7 @@ DSL（模板语言）= **受限 Python 子集**，写在 FactorSpec 的字段里
 
 ### 3.3 档案/回测交互（语义声明）
 
-研究档案按输出名 1:1 落库（factor/、results/、docs/factors/，research 侧）；
+研究档案按输出名 1:1 落库（factor/、results/、$QUANTRESEARCH_ROOT/dossiers/factors/，research 侧）；
 平台侧 `write_factor_artifacts` 支持按输出名产出（`<spec.name>__<output>`）。
 
 ## 4. 定稿语义 ②：股票池完全由公式决定

@@ -1,0 +1,3 @@
+heavy.sh: slot=1/2 avail=61.8GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python -m pytest -q governance/ops/tests/test_check_tool_layering_regressions.py platform/tools/ashare_ingest/tests/test_layout.py
+......                                                                   [100%]
+6 passed in 1.74s

@@ -219,11 +219,16 @@ formula: |
 **R42 锁箱要件（入库判定）**：数据分训练段（`date.end ≤ is_end`）与测试段（平时看不见）；
 探索只准训练段（碰测试段直接拒 `LOCKBOX_TEST_ONLY_FINAL`）。入库只看**测试段冻结结果**：
 `flab factor admit` 无该版本最终测试登记时会**执行那次唯一最终测试**并冻结
-`<results>/<name>_5y/test_diagnostics.json`（测试段 `corr_max/r2_lib/resic_t`），二次 admit
+`<results>/<name>_5y/test_diagnostics.json`（测试段 `corr_max/r2_lib/resic_t/retention`），二次 admit
 只读冻结件；IS-only 因子不可入库（需把窗口延伸到测试段，或用 `make xpipe` 产出的 `_5y`
 变体——admit 优先解析它）。最终测试每版本一次（同版本重复 → `LOCKBOX_FINAL_DUPLICATE`；
-操作员 `FACTORLAB_RE_FINAL=1` 重测留痕）。窗口算法、CLI、错误码与 `summary.sample` 字段见
-`knowledge/contracts/interface.md` §10。
+操作员 `FACTORLAB_RE_FINAL=1` 重测留痕）。参考库实际准入还要求测试段
+`|resIC t|≥3`、`corr_max<0.7`、`retention≥0.5`；冗余条件未命中但准入条件未全满足的
+候选为“观察”。`ref add` 会在备份/写入前拒绝，旧版手工 entry 参数不能绕过诊断。
+旧冻结件缺 retention 时从同一最终测试产物补算，不重跑 final。普通单因子 `IC t_stat`
+的解读阈值仍见上表，不与增量 `resIC t` 门槛混淆。
+3.0 是用户选定的操作门槛，低于 99 项试验联合 max-T 估计临界值约 3.45，不代表 FWER 已受控。
+窗口算法、CLI、错误码与 `summary.sample` 字段见 `knowledge/contracts/interface.md` §10。
 
 ### 4.2 净值曲线形态判断（serve 详情页）
 

@@ -2,7 +2,7 @@
 
 日期：2026-08-17
 状态：待评审
-前置：M1-M5 + 自由代码公式 + 因子档案体系（`docs/factors/`）
+前置：M1-M5 + 自由代码公式 + 因子档案体系（`$QUANTRESEARCH_ROOT/dossiers/factors/`）
 
 ## 1. 背景与目标
 
@@ -43,7 +43,7 @@
 ## 3. 每轮流程（8 步）
 
 ```
-1. 种子选择   docs/factors/*.md 随机选一个（连续轮次互不重复）
+1. 种子选择   $QUANTRESEARCH_ROOT/dossiers/factors/*.md 随机选一个（连续轮次互不重复）
 2. 假设分析   自由分析种子因子的隐含假设（不分类，创造力为主）：
               枚举每个实现选择背后的隐含假设——窗口长度/口径/权重/股票同质性/
               数据字段/调仓频率/处理链……每一个"为什么"都是一条隐含假设；
@@ -65,7 +65,7 @@
               · 变异点之外与种子因子逻辑一致（只该变的变了）
 7. 运行       factorlab run factor/<name>.yaml；失败修复重跑
 8. 入库       对照 factor-mining-playbook §4.1 阈值判定 →
-              docs/factors/<name>.md（_template.md 模板，验证数据快照）→
+              $QUANTRESEARCH_ROOT/dossiers/factors/<name>.md（_template.md 模板，验证数据快照）→
               种子档案 §5 迭代历史加一行 → 互相链接 → git 提交
 ```
 

@@ -2,7 +2,7 @@
 
 日期：2026-08-17
 状态：已实现（自由代码 formula 表达已交付；原"待评审"为文档漂移，R21 补正。现状见
-      `platform/docs/interface.md` §DSL）
+      `knowledge/contracts/interface.md` §DSL）
 前置：M1-M5（引擎/评估/回测/Web 全链路）
 
 ## 1. 背景与目标
