@@ -1,0 +1,130 @@
+F.FFF                                                                                                                                                                                            [100%]
+=============================================================================================== FAILURES ===============================================================================================
+______________________________________________________________ test_factor_resic_daily_horizon_uses_each_date_and_weekly_remains_default _______________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4066/test_factor_resic_daily_horizo0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fac81b54510>
+
+    def test_factor_resic_daily_horizon_uses_each_date_and_weekly_remains_default(
+            tmp_path, monkeypatch):
+        """1d resIC must use daily panels when requested; omitted frequency stays weekly."""
+        rd = tmp_path / "results"
+        monkeypatch.setattr(settings, "results_dir", rd)
+        dates = [
+            datetime.date(2024, 1, 8) + datetime.timedelta(days=i)
+            for i in (0, 1, 2, 3, 4, 7, 8, 9, 10, 11)
+        ]
+        vs = _basis(3)
+        base = np.tile(vs[0], (len(dates), 1))
+        candidate = np.tile(vs[0] + vs[1], (len(dates), 1))
+        forward = np.tile(0.4 * vs[1] + 0.1 * vs[2], (len(dates), 1))
+        _write_daily_resic_panel(rd, "base", dates, base, forward)
+        _write_daily_resic_panel(rd, "candidate", dates, candidate, forward)
+    
+        daily = F.factor_resic(_args(
+            names=["base"], target="candidate", against=None, min_stocks=30,
+            frequency="daily"))
+        assert daily.ok, daily.error
+        assert daily.data["frequency"] == "daily"
+>       assert daily.data["fwd_col"] == "forward_return_1d"
+E       AssertionError: assert 'forward_return_5d' == 'forward_return_1d'
+E         
+E         - forward_return_1d
+E         ?                ^
+E         + forward_return_5d
+E         ?                ^
+
+platform/tests/test_research_factor.py:521: AssertionError
+______________________________________________________________________ test_factor_resic_against_reference_accepts_daily_1d_mode _______________________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4066/test_factor_resic_against_refe0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fac81b4f770>
+
+    def test_factor_resic_against_reference_accepts_daily_1d_mode(tmp_path, monkeypatch):
+        ref = _fixture_ref(tmp_path)
+        monkeypatch.setenv("FACTORLAB_REFERENCE", str(ref))
+        rd = tmp_path / "results"
+        monkeypatch.setattr(settings, "results_dir", rd)
+        dates = [
+            datetime.date(2024, 1, 8) + datetime.timedelta(days=i)
+            for i in (0, 1, 2, 3, 4, 7, 8, 9, 10, 11)
+        ]
+        vs = _basis(3)
+        forward = np.tile(0.4 * vs[2] + 0.1 * vs[1], (len(dates), 1))
+        for name, signal in (
+                ("base_a", np.tile(vs[0], (len(dates), 1))),
+                ("base_b", np.tile(vs[1], (len(dates), 1))),
+                ("cand", np.tile(vs[2], (len(dates), 1)))):
+            _write_daily_resic_panel(rd, name, dates, signal, forward)
+    
+        env = F.factor_resic(_args(
+            names=["cand"], target=None, min_stocks=30, against="reference",
+            frequency="daily"))
+        assert env.ok, env.error
+        assert env.data["base"] == ["base_a", "base_b"]
+        assert env.data["frequency"] == "daily"
+>       assert env.data["fwd_col"] == "forward_return_1d"
+E       AssertionError: assert 'forward_return_5d' == 'forward_return_1d'
+E         
+E         - forward_return_1d
+E         ?                ^
+E         + forward_return_5d
+E         ?                ^
+
+platform/tests/test_research_factor.py:603: AssertionError
+_____________________________________________________________________________ test_factor_commands_registered_with_schemas _____________________________________________________________________________
+
+    def test_factor_commands_registered_with_schemas():
+        from factorlab.research import registry
+        assert FACTOR_COMMANDS <= set(registry.COMMANDS)
+        for name in sorted(FACTOR_COMMANDS):
+            doc = registry.COMMANDS[name].to_doc()
+            assert doc["description"], name
+            assert doc["examples"], name
+            assert doc["output_schema"], name
+        resic = registry.COMMANDS["factor.resic"].to_doc()
+        assert {p["name"] for p in resic["params"]} >= {
+            "frequency", "horizon", "fwd_col"}
+>       assert resic["defaults"]["frequency"] is None
+E       AssertionError: assert 'weekly' is None
+
+platform/tests/test_research_factor.py:945: AssertionError
+___________________________________________________________________ test_cli_research_factor_resic_daily_flags_and_self_description ____________________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4066/test_cli_research_factor_resic0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fac81b22580>
+
+    def test_cli_research_factor_resic_daily_flags_and_self_description(
+            tmp_path, monkeypatch):
+        rd = tmp_path / "results"
+        monkeypatch.setattr(settings, "results_dir", rd)
+        dates = [
+            datetime.date(2024, 1, 8) + datetime.timedelta(days=i)
+            for i in (0, 1, 2, 3, 4, 7, 8, 9, 10, 11)
+        ]
+        vs = _basis(2)
+        forward = np.tile(vs[1], (len(dates), 1))
+        _write_daily_resic_panel(rd, "base", dates,
+                                 np.tile(vs[0], (len(dates), 1)), forward)
+        _write_daily_resic_panel(rd, "candidate", dates,
+                                 np.tile(vs[0] + vs[1], (len(dates), 1)), forward)
+    
+        result = runner.invoke(cli_app, [
+            "research", "factor", "resic", "base", "--target", "candidate",
+            "--frequency", "daily", "--json",
+        ])
+        assert result.exit_code == 0, result.output
+        doc = json.loads(result.stdout)
+        assert doc["data"]["frequency"] == "daily"
+>       assert doc["data"]["fwd_col"] == "forward_return_1d"
+E       AssertionError: assert 'forward_return_5d' == 'forward_return_1d'
+E         
+E         - forward_return_1d
+E         ?                ^
+E         + forward_return_5d
+E         ?                ^
+
+platform/tests/test_research_factor.py:1009: AssertionError
+======================================================================================= short test summary info ========================================================================================
+FAILED platform/tests/test_research_factor.py::test_factor_resic_daily_horizon_uses_each_date_and_weekly_remains_default - AssertionError: assert 'forward_return_5d' == 'forward_return_1d'
+FAILED platform/tests/test_research_factor.py::test_factor_resic_against_reference_accepts_daily_1d_mode - AssertionError: assert 'forward_return_5d' == 'forward_return_1d'
+FAILED platform/tests/test_research_factor.py::test_factor_commands_registered_with_schemas - AssertionError: assert 'weekly' is None
+FAILED platform/tests/test_research_factor.py::test_cli_research_factor_resic_daily_flags_and_self_description - AssertionError: assert 'forward_return_5d' == 'forward_return_1d'
+4 failed, 1 passed, 41 deselected in 2.55s

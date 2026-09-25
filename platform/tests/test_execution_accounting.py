@@ -2,7 +2,7 @@
 ExecutionAccountingSummary。
 
 只聚合 FillBatch（唯一成本/cash authority），不做任何重算：
-cash bridge = PRE cash + Σ effective_cash_delta == POST cash（严格）。
+cash bridge = PRE cash + Σ effective_cash_delta ≈ POST cash（浮点容差）。
 """
 
 import datetime
@@ -169,6 +169,18 @@ def test_cash_bridge_strict():
     s = _summary(pre, f, post)
     assert s.net_cash_delta == -500.0
     assert s.cash_before == 100_000.0 and s.cash_after == 99_500.0
+
+
+def test_cash_bridge_allows_float_reduction_noise():
+    """并行浮点归约的 ulp 噪声不应破坏 cash bridge。"""
+    delta = 705.175882500027
+    f = _fills([_fill_row("600000.SH", "sell", delta, 0.0, 0.0, 0.0,
+                          delta, qty=1)])
+    pre = _pre(70.5442530000746)
+    post = _post(775.7201355000889)
+    s = _summary(pre, f, post)
+    assert s.net_cash_delta == delta
+    assert s.cash_after == post.cash
 
 
 def test_cash_corruption_fails():

@@ -15,6 +15,37 @@ import numpy as np
 __all__ = ["PortfolioConfig", "simulate", "run_from_npz"]
 
 
+def _json_default(value):
+    """Convert numpy scalar values without hiding unsupported objects."""
+    if isinstance(value, np.generic):
+        return value.item()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def _strict_json_dumps(value, *, indent: int | None = 2) -> str:
+    """Serialize a porteval artifact as standards-compliant JSON.
+
+    ``json.dumps`` otherwise emits Python's non-standard ``NaN``/``Infinity``
+    constants by default.  ``allow_nan=False`` makes any missed non-finite
+    value fail at the artifact boundary instead of writing an unreadable file.
+    """
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        indent=indent,
+        allow_nan=False,
+        default=_json_default,
+    )
+
+
+def _annualized_ratio(mean: float, std: float) -> float | None:
+    """Return an annualized ratio, or JSON-nullable ``None`` if undefined."""
+    if not np.isfinite(mean) or not np.isfinite(std) or std <= 0.0:
+        return None
+    value = mean / std * np.sqrt(252)
+    return float(value) if np.isfinite(value) else None
+
+
 @dataclass
 class PortfolioConfig:
     # 域
@@ -185,9 +216,12 @@ def simulate(*, sig, ret_close, ret_open, valid, mv, adv, limits, dates,
         "ann": float(nav[-1] ** (252.0 / len(x)) - 1),
         "bench": float(bnav[-1] ** (252.0 / len(x)) - 1),
         "excess": float((1 + ex).prod() ** (252.0 / len(ex)) - 1),
-        "ir": float(ex.mean() / ex.std(ddof=1) * np.sqrt(252)),
+        # A zero standard deviation makes IR/Sharpe undefined.  Keep the
+        # finite zero volatility metric, and use JSON null for undefined
+        # ratios so the artifact remains standards-compliant.
+        "ir": _annualized_ratio(float(ex.mean()), float(ex.std(ddof=1))),
         "vol": float(x.std(ddof=1) * np.sqrt(252)),
-        "sharpe": float(x.mean() / x.std(ddof=1) * np.sqrt(252)),
+        "sharpe": _annualized_ratio(float(x.mean()), float(x.std(ddof=1))),
         "max_drawdown": float((nav / peak - 1).min()),
         "turnover": float(turn[first:][ok].mean()),
         "avg_cost_bp": float(turn[first:][ok].mean() * 2 * cfg.fee_bps),
@@ -228,5 +262,5 @@ def run_from_npz(signal_path: Path, panel_path: Path, open_cache: Path, mv_path:
                    adv=adv, limits=limits, dates=p.dates, cfg=cfg)
     res["config"] = asdict(cfg)
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(out_path).write_text(json.dumps(res, ensure_ascii=False, indent=2, default=str))
+    Path(out_path).write_text(_strict_json_dumps(res))
     return res

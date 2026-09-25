@@ -112,12 +112,12 @@
 ### Task 14：参考库与增量信息评估（D10）
 
 **Files:**
-- Create: `research/factor/_reference.yaml`（初始 10 只，每风格一只 + 理由）
+- Create: `$QUANTRESEARCH_ROOT/factor/_reference.yaml`（初始 10 只，每风格一只 + 理由）
 - Modify: `platform/src/factorlab/app/analysis/correlation.py`（reference loader + `--against` + 残差 IC/R²/保留率）
 - Modify: `platform/src/factorlab/surfaces/cli/main.py`（`corr/resic --against reference|all|<names>`；`ref list`；`svd` 默认 reference）
 - Test: `platform/tests/test_reference_library.py`；文档 `knowledge/contracts/interface.md`
 
-- [ ] **Step 1: 建初始库** `research/factor/_reference.yaml`：**种子=单因子指标最好的一只** `momentum_20d_turnrank_top2`（|t|=12.58、IR=0.94；近亲 top5/top10 不重复入）；文件**按信号来源分组**（`scales: daily / minute`，初始仅 `daily`；`--target` 为评估参数默认 5d，**不按 target 分库**）；后续按入库流程添加（阈值先用建议值，真实对照后校准）。
+- [ ] **Step 1: 建初始库** `$QUANTRESEARCH_ROOT/factor/_reference.yaml`：**种子=单因子指标最好的一只** `momentum_20d_turnrank_top2`（|t|=12.58、IR=0.94；近亲 top5/top10 不重复入）；文件**按信号来源分组**（`scales: daily / minute`，初始仅 `daily`；`--target` 为评估参数默认 5d，**不按 target 分库**）；后续按入库流程添加（阈值先用建议值，真实对照后校准）。
 - [ ] **Step 2: 失败测试**：合成面板——独立因子 max|ρ|≈0 → `verdict=可加入`；近亲因子（复制+噪声）→ `r2_lib` 高、`resic` 不显著 → `verdict=冗余`；`--against reference` 只读 `_reference.yaml` 对应 `scales` 清单（**禁止行为断言**：不得扫全库、不得跨 scales 取对照）；`--target` 切换只影响 resIC、不影响 corr。
 - [ ] **Step 3: 实现** reference loader + `--against` + `resic` 扩展（rank 残差回归 → `r2_lib/resic/retention/verdict`）+ `ref list`。
 - [ ] **Step 4: 真实对照留证**：取一只库外因子（如 `reversal_20d_netflow_vol`）对参考库跑一次，产报告（corr 矩阵/残差 IC/建议）→ `governance/evidence/verification/R30/`。

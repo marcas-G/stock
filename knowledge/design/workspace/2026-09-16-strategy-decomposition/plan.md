@@ -2,9 +2,9 @@
 
 > **实施状态（2026-09-16 收口）**：**已完成**——实现 `7e03acb`/`126def4`（契约+YAML 加载器 / 运行器 /
 > 研究入口 / 档案+策略索引门 / 首例 / L5 `max_hold`）；验收 `governance/evidence/verification/R28/`（R06 复查复核通过）。
-> 本文件保留为原始计划文本（Step 勾选未回填）；后续维护以现行代码与文档为准。
+> 计划步骤已按 R28 验收证据补记完成；后续维护以现行代码与文档为准。
 
-> **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 策略像因子一样"一处定义（YAML）、机器可跑、人可阅读、可版本化"：L0-L5 六层漏斗中，
 L3 由因子提供、L4 走 M7、L5 走 M8；策略 YAML 声明六层映射并一键跑出回测与证据。
@@ -44,13 +44,13 @@ D4 草案 §6；决策 D1/D2/D4 已拍板）。
 | 修改 | `platform/src/factorlab/core/strategy/__init__.py` | 导出 `StrategyDoc`/`load_strategy_doc`（`run_strategy` 走 `app`） |
 | 新建 | `platform/tests/test_strategy_doc.py` | 契约 + 加载器测试（含未知键/类型/边界） |
 | 新建 | `platform/tests/test_run_strategy.py` | 运行器端到端（合成数据，逐值断言 + 禁止行为断言） |
-| 新建 | `research/strategy/low_lottery_top30_weekly.yaml` | 首例策略 spec |
+| 新建 | `$QUANTRESEARCH_ROOT/strategy/low_lottery_top30_weekly.yaml` | 首例策略 spec |
 | 新建 | `research/tools/strategies/run_strategy.py` | 研究侧薄入口（参数=spec 路径；打印 run 摘要） |
 | 新建 | `research/tools/strategies/l5_rules.py` | L5 规则层（V1：`max_hold` 强制换出） |
-| 新建 | `research/docs/strategies/_template.md` | 策略档案模板（从 `crash_bottom_leader_strategy.md` 提炼） |
-| 新建 | `research/tools/factor_lib/build_strategy_index.py` | `docs/index/strategies.md` 生成 + `--check`（与因子索引同模式） |
+| 新建 | `$QUANTRESEARCH_ROOT/dossiers/strategies/_template.md` | 策略档案模板（从 `crash_bottom_leader_strategy.md` 提炼） |
+| 新建 | `research/tools/factor_lib/build_strategy_index.py` | `$QUANTRESEARCH_ROOT/index/strategies.md` 生成 + `--check`（与因子索引同模式） |
 | 修改 | `Makefile` / `scripts/gates.sh` | `index` 目标与 G-INDEX 扩展策略索引 |
-| 新建 | `docs/index/strategies.md` | 生成产物（机器生成，不进人读改） |
+| 新建 | `$QUANTRESEARCH_ROOT/index/strategies.md` | 生成产物（机器生成，不进人读改） |
 
 ---
 
@@ -92,10 +92,13 @@ universe_override: null            # L1：可选 codes 列表；null = 随因子
 **2) 平台 API（Python）**
 
 ```python
+from factorlab.config import settings
 from factorlab.core.strategy import StrategyDoc, load_strategy_doc
 from factorlab.app.strategy import run_strategy
 
-doc: StrategyDoc = load_strategy_doc("research/strategy/<name>.yaml")
+doc: StrategyDoc = load_strategy_doc(
+    settings.research_root / "strategy/<name>.yaml"
+)
 assert isinstance(doc.strategy, StrategySpec)     # property：YAML 映射构造（逐字段）
 assert isinstance(doc.execution, ExecutionSpec)   # property：execution.* 直通
 result = run_strategy(doc, rd)                    # rd = open_read(data_backend=...)
@@ -115,7 +118,7 @@ result.nav_series, result.out_dir, result.backtest, result.target
 ```bash
 FACTORLAB_DATA_BACKEND=ch FACTORLAB_MAX_MEMORY=8GB \
   platform/.venv/bin/python research/tools/strategies/run_strategy.py \
-  research/strategy/low_lottery_top30_weekly.yaml [--dry-run] [--out-dir DIR]
+  $QUANTRESEARCH_ROOT/strategy/low_lottery_top30_weekly.yaml [--dry-run] [--out-dir DIR]
 ```
 
 - `--dry-run`：只打印六层解析结果（**不触 CH**，供秒级自检）；
@@ -125,7 +128,7 @@ FACTORLAB_DATA_BACKEND=ch FACTORLAB_MAX_MEMORY=8GB \
 
 ## Task 1: `StrategyDoc` 契约 + YAML 加载器
 
-- [ ] **Step 1: 写失败测试**（`platform/tests/test_strategy_doc.py`）
+- [x] **Step 1: 写失败测试**（`platform/tests/test_strategy_doc.py`）
   - 合法 YAML（完整六层）→ `doc.strategy` 是 `StrategySpec`、`doc.execution` 是 `ExecutionSpec`、
     `doc.date` 窗口、`doc.regime.mode == "signal_gate"`；断言 `doc.strategy.name == "low_lottery_top30_weekly"`、
     `doc.execution.execution_timing` 映射正确（**不是**检查 `len(doc) == 3` 这类格式断言）。
@@ -136,18 +139,18 @@ FACTORLAB_DATA_BACKEND=ch FACTORLAB_MAX_MEMORY=8GB \
   - `rules.stop_loss` 非 null → `NotImplementedError`（V1：L5 复杂规则未落地，见 Task 6 解除）；
   - `universe_override: ["000001.SZ", ...]` → 通过且原样保存；`rebalance_frequency: weekly` 生效；
   - 缺文件/SyntaxError → 明确报错含路径。
-- [ ] **Step 2: 跑测试确认失败**（`cd platform && .venv/bin/python -m pytest tests/test_strategy_doc.py -q`）
-- [ ] **Step 3: 实现**
+- [x] **Step 2: 跑测试确认失败**（`cd platform && .venv/bin/python -m pytest tests/test_strategy_doc.py -q`）
+- [x] **Step 3: 实现**
   - `doc.py`：`DateRange`、`RegimeSpec(mode: Literal["signal_gate"])`、`RulesSpec(stop_loss/take_profit/max_hold: ... | None)`
     （全部 `extra="forbid", frozen=True`）；`StrategyDoc(strategy, execution, date, universe_override, regime, rules)`
     的 `model_validator(mode="after")` 做跨字段约束（rules 非 null → V1 `NotImplementedError`）。
   - `spec_io.py`：`yaml.safe_load` + `path` 注入错误信息；与 `core/spec.py::load_spec` 同模式。
-- [ ] **Step 4: 跑测试确认通过** + `pytest tests/test_strategy_spec.py tests/test_portfolio_constructor.py -q`（零回归）
-- [ ] **Step 5: 提交** `feat(platform): 策略文档契约与 YAML 加载器（Plan S Task 1）`
+- [x] **Step 4: 跑测试确认通过** + `pytest tests/test_strategy_spec.py tests/test_portfolio_constructor.py -q`（零回归）
+- [x] **Step 5: 提交** `feat(platform): 策略文档契约与 YAML 加载器（Plan S Task 1）`
 
 ## Task 2: 策略运行器（app）——一键链
 
-- [ ] **Step 1: 写失败测试**（`platform/tests/test_run_strategy.py`，合成数据参照 `test_execution_signal_chain.py`）
+- [x] **Step 1: 写失败测试**（`platform/tests/test_run_strategy.py`，合成数据参照 `test_execution_signal_chain.py`）
   - 断言真实行为：按 `doc.strategy.signal_name` 从 results 单点读 SignalArtifact → `construct_target_portfolio`
     收到 `direction/k/gross_exposure/frequency` 逐值一致 → `run_backtest` 收到 `ExecutionSpec` 逐值一致 →
     产物经 `save_backtest_result` 可 `load` 回读且 `nav_series` 与返回一致；
@@ -158,53 +161,53 @@ FACTORLAB_DATA_BACKEND=ch FACTORLAB_MAX_MEMORY=8GB \
     `save_backtest_result` 往返可读（`load_strategy_artifacts`/`load_backtest_result`）；
   - `StrategyRunResult` 字段：`out_dir / target / backtest / nav_series / signal_name / decision_count`；
   - CA Gate 失败时原样抛 `ExecutionDataQualityError`（不吞、不自动重试）。
-- [ ] **Step 2: 跑测试确认失败**
-- [ ] **Step 3: 实现** `app/strategy/run.py`：`run_strategy(doc, rd, results_dir=None) -> StrategyRunResult`
+- [x] **Step 2: 跑测试确认失败**
+- [x] **Step 3: 实现** `app/strategy/run.py`：`run_strategy(doc, rd, results_dir=None) -> StrategyRunResult`
   （`open_read` 由调用方注入或内部 bootstrap；results 单点用 `adapters.results_fs`/`panel_store`）。
-- [ ] **Step 4: 跑测试确认通过** + `pytest tests/test_execution_signal_chain.py tests/test_backtest_runtime.py -q`
-- [ ] **Step 5: 提交** `feat(platform): run_strategy 运行器（信号→组合→回测→持久化）`
+- [x] **Step 4: 跑测试确认通过** + `pytest tests/test_execution_signal_chain.py tests/test_backtest_runtime.py -q`
+- [x] **Step 5: 提交** `feat(platform): run_strategy 运行器（信号→组合→回测→持久化）`
 
 ## Task 3: 研究侧薄入口
 
-- [ ] **Step 1: 写失败测试**（`research/tools/strategies/tests/test_run_strategy_cli.py`）
+- [x] **Step 1: 写失败测试**（`research/tools/strategies/tests/test_run_strategy_cli.py`）
   - `--dry-run` 打印解析后的六层映射（含 date/rules），exit 0 且**不触碰 CH**（断言 `open_read` 未被调用）；
   - 缺参数/坏 YAML → exit≠0 且错误可读；
   - 真跑标记 `integration`（CH 后端），只做 1 个干净窗口。
-- [ ] **Step 2-4: 红 → 实现 `run_strategy.py`（薄封装 `load_strategy_doc` + `run_strategy`）→ 绿**
-- [ ] **Step 5: 提交** `feat(research): 策略 YAML 薄入口 run_strategy.py`
+- [x] **Step 2-4: 红 → 实现 `run_strategy.py`（薄封装 `load_strategy_doc` + `run_strategy`）→ 绿**
+- [x] **Step 5: 提交** `feat(research): 策略 YAML 薄入口 run_strategy.py`
 
 ## Task 4: 策略档案 + 索引门（D4 建档）
 
-- [ ] **Step 1: 写失败测试**（`research/tools/factor_lib/tests/test_strategy_index.py`）
-  - 由 `research/strategy/*.yaml` + `research/docs/strategies/*.md` 生成 `docs/index/strategies.md`；
+- [x] **Step 1: 写失败测试**（`research/tools/factor_lib/tests/test_strategy_index.py`）
+  - 由 `$QUANTRESEARCH_ROOT/strategy/*.yaml` + `$QUANTRESEARCH_ROOT/dossiers/strategies/*.md` 生成 `$QUANTRESEARCH_ROOT/index/strategies.md`；
     字节级一致：重生成 → `--check` 通过；手改索引 → `--check` exit≠0；
   - spec 缺档案（或档案缺 spec）→ 门红并列出缺失名（不是静默跳过）；
   - 档案 front matter 必须含 spec 路径与回测窗口字段（模板约定）。
-- [ ] **Step 2-4: 红 → 实现 `build_strategy_index.py` + `Makefile index` 与 `gates.sh` G-INDEX 扩展 → 绿**
-- [ ] **Step 5: 提交** `feat(research): 策略索引生成与 --check 门 + 档案模板`
+- [x] **Step 2-4: 红 → 实现 `build_strategy_index.py` + `Makefile index` 与 `gates.sh` G-INDEX 扩展 → 绿**
+- [x] **Step 5: 提交** `feat(research): 策略索引生成与 --check 门 + 档案模板`
 
 ## Task 5: 首例落地与端到端证据
 
-- [ ] `research/strategy/low_lottery_top30_weekly.yaml`（`max_effect_20d_high`、direction=-1、
+- [x] `$QUANTRESEARCH_ROOT/strategy/low_lottery_top30_weekly.yaml`（`max_effect_20d_high`、direction=-1、
   top_k=30、等权、weekly、NEXT_OPEN、默认 A 股成本；date 用干净窗口 2025-03）；
-- [ ] `research/docs/strategies/low_lottery_top30_weekly.md`（模板：假设/规格全文/窗口筛选过程
+- [x] `$QUANTRESEARCH_ROOT/dossiers/strategies/low_lottery_top30_weekly.md`（模板：假设/规格全文/窗口筛选过程
   （CA Gate 记录）/结果 NAV 与回撤/迭代历史/风险）；
-- [ ] 生成索引 → `--check` 绿；真跑一次（真 CH + 内存护栏）留原始输出；
-- [ ] **实际测试验收（用户可自己跑）**：`run_strategy.py research/strategy/low_lottery_top30_weekly.yaml`
+- [x] 生成索引 → `--check` 绿；真跑一次（真 CH + 内存护栏）留原始输出；
+- [x] **实际测试验收（用户可自己跑）**：`run_strategy.py $QUANTRESEARCH_ROOT/strategy/low_lottery_top30_weekly.yaml`
   → 打印 NAV/决策数/成交事件；与手工 demo 对照同窗口参数一致
   （基准见 `r05-usage-2026-09-16/strategy-backtest-manual.md`，防"跑通但口径漂移"）；
-- [ ] 证据落 `docs/verification/R28/strategy-first-example/`（命令 + 输出 + 门结果）；
-- [ ] 提交 `feat(research): 首例策略配置化（low_lottery_top30_weekly）`
+- [x] 证据落 `docs/verification/R28/strategy-first-example/`（命令 + 输出 + 门结果）；
+- [x] 提交 `feat(research): 首例策略配置化（low_lottery_top30_weekly）`
 
 ## Task 6: L5 规则层（V1：研究侧）
 
-- [ ] **Step 1: 写失败测试**（`research/tools/strategies/tests/test_l5_rules.py`）
+- [x] **Step 1: 写失败测试**（`research/tools/strategies/tests/test_l5_rules.py`）
   - `max_hold=60`：目标组合历史中连续持有超 60 交易日的 code 在调仓日被强制换出（合成 3 只 × 100 日，
     断言被换出的 code/日期逐值；硬编码返回必败）；
   - `max_hold=None` → 输出与输入 target 逐值相同（零行为变化）；
   - `stop_loss/take_profit` 非 null：本版明确 `NotImplementedError`（含"平台化另立"指引）。
-- [ ] **Step 2-4: 红 → 实现 `l5_rules.py`（基于目标组合历史的近似；文档注明"非成交明细级"）→ 绿**
-- [ ] **Step 5: 文档化边界**：design.md §4-G3 更新为"V1 近似（调仓日粒度）+ 平台化触发条件"；
+- [x] **Step 2-4: 红 → 实现 `l5_rules.py`（基于目标组合历史的近似；文档注明"非成交明细级"）→ 绿**
+- [x] **Step 5: 文档化边界**：design.md §4-G3 更新为"V1 近似（调仓日粒度）+ 平台化触发条件"；
   提交 `feat(research): L5 持有上限规则（V1 近似）+ 边界文档`
 
 ## Task 7: 后置与触发条件（登记，不在本计划实施）

@@ -1,0 +1,5 @@
+heavy.sh: slot=1/2 avail=62.0GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python -m pytest platform/tests/test_backtest_fills.py -k buy_slippage_crosses_upper_is_capped or sell_slippage_crosses_lower_is_capped -q
+..                                                                                                                                                                                               [100%]
+2 passed, 75 deselected in 1.61s
+
+Observed pytest exit code: 0

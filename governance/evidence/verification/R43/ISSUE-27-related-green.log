@@ -1,0 +1,6 @@
+heavy.sh: slot=1/2 avail=62.0GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python -m pytest platform/tests/test_backtest_fills.py platform/tests/test_execution_costs.py platform/tests/test_execution_accounting.py platform/tests/test_backtest_runtime.py platform/tests/test_window_fills.py -q
+................................................................................................................................................................................................ [ 78%]
+......................................................                                                                                                                                           [100%]
+246 passed in 6.05s
+
+Observed pytest exit code: 0

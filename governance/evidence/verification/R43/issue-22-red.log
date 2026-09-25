@@ -1,0 +1,274 @@
+FFFFF                                                                                                                                                                                            [100%]
+=============================================================================================== FAILURES ===============================================================================================
+______________________________________________________________ test_factor_resic_daily_horizon_uses_each_date_and_weekly_remains_default _______________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4043/test_factor_resic_daily_horizo0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f85bc8d88a0>
+
+    def test_factor_resic_daily_horizon_uses_each_date_and_weekly_remains_default(
+            tmp_path, monkeypatch):
+        """1d resIC must use daily panels when requested; omitted frequency stays weekly."""
+        rd = tmp_path / "results"
+        monkeypatch.setattr(settings, "results_dir", rd)
+        dates = [
+            datetime.date(2024, 1, 8) + datetime.timedelta(days=i)
+            for i in (0, 1, 2, 3, 4, 7, 8, 9, 10, 11)
+        ]
+        vs = _basis(3)
+        base = np.tile(vs[0], (len(dates), 1))
+        candidate = np.tile(vs[0] + vs[1], (len(dates), 1))
+        forward = np.tile(0.4 * vs[1] + 0.1 * vs[2], (len(dates), 1))
+        _write_daily_resic_panel(rd, "base", dates, base, forward)
+        _write_daily_resic_panel(rd, "candidate", dates, candidate, forward)
+    
+>       daily = F.factor_resic(_args(
+            names=["base"], target="candidate", against=None, min_stocks=30,
+            frequency="daily", horizon=1, fwd_col=None))
+
+platform/tests/test_research_factor.py:515: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/src/factorlab/research/factor.py:451: in factor_resic
+    r = joint_diagnostics(names, settings.results_dir, target=target,
+platform/src/factorlab/app/analysis/cross_section.py:237: in joint_diagnostics
+    wide = _join_weekly_wide(all_names, rd, fwd_col, carrier=carrier)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/analysis/cross_section.py:184: in _join_weekly_wide
+    df = _read_aligned_panel(results_dir, name, fwd_col, keep_fwd=keep)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/analysis/cross_section.py:167: in _read_aligned_panel
+    df = ParquetPanelStore().read_aligned_panel(results_dir, name, fwd_col, keep_fwd)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/adapters/panel_store.py:75: in read_aligned_panel
+    df = pl.scan_parquet(p).select(cols).collect().rename({"signal": name})
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/.venv/lib/python3.13/site-packages/polars/_utils/deprecation.py:97: in wrapper
+    return function(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/.venv/lib/python3.13/site-packages/polars/lazyframe/opt_flags.py:361: in wrapper
+    return function(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/.venv/lib/python3.13/site-packages/polars/lazyframe/frame.py:2591: in collect
+    return engine_.collect(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = _AutoEngine(), lf = <LazyFrame at 0x7F85AC100FA0>, optimizations = <polars.lazyframe.opt_flags.QueryOptFlags object at 0x7f85ac101090>, background = False, post_opt_callback = None
+
+    def collect(
+        self,
+        lf: LazyFrame,
+        *,
+        optimizations: QueryOptFlags,
+        background: bool = False,
+        post_opt_callback: PostOptCallback | None = None,
+    ) -> DataFrame | InProcessQuery:
+        callback = self._post_opt_callback(
+            background=background, eager=optimizations._pyoptflags.eager
+        )
+        optimizations = self._with_monitoring(optimizations)
+    
+        ldf = lf._ldf.with_optimizations(optimizations._pyoptflags)
+        if background:
+            issue_unstable_warning("background mode is considered unstable.")
+            return InProcessQuery(ldf.collect_concurrently())
+    
+        if post_opt_callback is not None:
+            callback = post_opt_callback
+>       return wrap_df(ldf.collect(self.name, callback))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       polars.exceptions.ColumnNotFoundError: unable to find column "forward_return_5d"; valid columns: ["date", "code", "signal", "forward_return_1d"]
+E       
+E       Did you mean "forward_return_1d"?
+E       
+E       Resolved plan until failure:
+E       
+E       	---> FAILED HERE RESOLVING 'select' <---
+E       Parquet SCAN [/tmp/pytest-of-gaolei/pytest-4043/test_factor_resic_daily_horizo0/results/candidate/panel.parquet]
+E       PROJECT */4 COLUMNS
+E       ESTIMATED ROWS: 600
+E       
+E       This error occurred with the following context stack:
+E       	[1] 'select'
+
+platform/.venv/lib/python3.13/site-packages/polars/lazyframe/engine.py:435: ColumnNotFoundError
+___________________________________________________________________________ test_factor_resic_forward_col_overrides_horizon ____________________________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4043/test_factor_resic_forward_col_0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f85bc8d8640>
+
+    def test_factor_resic_forward_col_overrides_horizon(tmp_path, monkeypatch):
+        rd = tmp_path / "results"
+        monkeypatch.setattr(settings, "results_dir", rd)
+        dates = [datetime.date(2024, 1, 8) + datetime.timedelta(days=i)
+                 for i in (0, 1, 2, 3, 4)]
+        vs = _basis(2)
+        forward = np.tile(vs[1], (len(dates), 1))
+>       _write_daily_resic_panel(rd, "base", dates, _tile(vs[0]), forward)
+
+platform/tests/test_research_factor.py:539: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_factor.py:135: in _write_daily_resic_panel
+    pl.DataFrame({
+platform/.venv/lib/python3.13/site-packages/polars/dataframe/frame.py:407: in __init__
+    self._df = dict_to_pydf(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data = {'date': [datetime.date(2024, 1, 8), datetime.date(2024, 1, 8), datetime.date(2024, 1, 8), datetime.date(2024, 1, 8), ...-3.1944775 ,   1.25866239,   6.31116533,  11.98853612,
+        18.31627957,  25.3199005 ,  33.02490371,  41.45679402])}
+schema = None, schema_overrides = {}, strict = True, nan_to_null = False, allow_multithreaded = True
+
+    def dict_to_pydf(
+        data: Mapping[str, ArrayLike | NonNestedLiteral | None],
+        schema: SchemaDefinition | None = None,
+        *,
+        schema_overrides: SchemaDict | None = None,
+        strict: bool = True,
+        nan_to_null: bool = False,
+        allow_multithreaded: bool = True,
+    ) -> PyDataFrame:
+        """Construct a PyDataFrame from a dictionary of sequences."""
+        if isinstance(schema, Mapping) and data:
+            if not all((col in schema) for col in data):
+                msg = "the given column-schema names do not match the data dictionary"
+                raise ValueError(msg)
+            data = {col: data[col] for col in schema}
+    
+        column_names, schema_overrides = _unpack_schema(
+            schema, lookup_names=data.keys(), schema_overrides=schema_overrides
+        )
+        if not column_names:
+            column_names = list(data)
+    
+        if data and _NUMPY_AVAILABLE:
+            # if there are 3 or more numpy arrays of sufficient size, we multi-thread:
+            count_numpy = sum(
+                int(
+                    allow_multithreaded
+                    and _check_for_numpy(val)
+                    and isinstance(val, np.ndarray)
+                    and len(val) > _MIN_NUMPY_SIZE_FOR_MULTITHREADING
+                    # integers and non-nan floats are zero-copy
+                    and nan_to_null
+                    and val.dtype in (np.float32, np.float64)
+                )
+                for val in data.values()
+            )
+            if count_numpy >= 3:
+                # yes, multi-threading was easier in python here; we cannot have multiple
+                # threads running python and release the gil in pyo3 (it will deadlock).
+                from concurrent.futures import ThreadPoolExecutor
+    
+                pool_size = thread_pool_size()
+                with ThreadPoolExecutor(max_workers=pool_size) as pool:
+                    data = dict(
+                        zip(
+                            column_names,
+                            pool.map(
+                                lambda t: (
+                                    pl.Series(t[0], t[1], nan_to_null=nan_to_null)
+                                    if isinstance(t[1], np.ndarray)
+                                    else t[1]
+                                ),
+                                list(data.items()),
+                            ),
+                            strict=True,
+                        )
+                    )
+    
+        if not data and schema_overrides:
+            data_series = [
+                pl.Series(
+                    name,
+                    [],
+                    dtype=schema_overrides.get(name),
+                    strict=strict,
+                    nan_to_null=nan_to_null,
+                )._s
+                for name in column_names
+            ]
+        else:
+            data_series = [
+                s._s
+                for s in _expand_dict_values(
+                    data,
+                    schema_overrides=schema_overrides,
+                    strict=strict,
+                    nan_to_null=nan_to_null,
+                ).values()
+            ]
+    
+        data_series = _handle_columns_arg(data_series, columns=column_names, from_dict=True)
+>       pydf = PyDataFrame(data_series)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       polars.exceptions.ShapeError: could not create a new DataFrame: height of column 'signal' (480) does not match height of column 'date' (300)
+
+platform/.venv/lib/python3.13/site-packages/polars/_utils/construction/dataframe.py:160: ShapeError
+_______________________________________________________________ test_factor_resic_rejects_invalid_horizon_or_frequency[kwargs0-horizon] ________________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4043/test_factor_resic_rejects_inva0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f85bc904950>, kwargs = {'horizon': 0}
+message = 'horizon'
+
+    @pytest.mark.parametrize("kwargs, message", [
+        ({"horizon": 0}, "horizon"),
+        ({"frequency": "monthly"}, "frequency"),
+    ])
+    def test_factor_resic_rejects_invalid_horizon_or_frequency(
+            tmp_path, monkeypatch, kwargs, message):
+        monkeypatch.setattr(settings, "results_dir", tmp_path / "results")
+        args = dict(names=["a"], target="b", against=None, min_stocks=None,
+                    frequency="weekly", horizon=None, fwd_col=None)
+        args.update(kwargs)
+        env = F.factor_resic(_args(**args))
+        assert not env.ok
+>       assert env.error["code"] == "USAGE"
+E       AssertionError: assert 'NOT_FOUND' == 'USAGE'
+E         
+E         - USAGE
+E         + NOT_FOUND
+
+platform/tests/test_research_factor.py:562: AssertionError
+______________________________________________________________ test_factor_resic_rejects_invalid_horizon_or_frequency[kwargs1-frequency] _______________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4043/test_factor_resic_rejects_inva1'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f85bc8ea7a0>, kwargs = {'frequency': 'monthly'}
+message = 'frequency'
+
+    @pytest.mark.parametrize("kwargs, message", [
+        ({"horizon": 0}, "horizon"),
+        ({"frequency": "monthly"}, "frequency"),
+    ])
+    def test_factor_resic_rejects_invalid_horizon_or_frequency(
+            tmp_path, monkeypatch, kwargs, message):
+        monkeypatch.setattr(settings, "results_dir", tmp_path / "results")
+        args = dict(names=["a"], target="b", against=None, min_stocks=None,
+                    frequency="weekly", horizon=None, fwd_col=None)
+        args.update(kwargs)
+        env = F.factor_resic(_args(**args))
+        assert not env.ok
+>       assert env.error["code"] == "USAGE"
+E       AssertionError: assert 'NOT_FOUND' == 'USAGE'
+E         
+E         - USAGE
+E         + NOT_FOUND
+
+platform/tests/test_research_factor.py:562: AssertionError
+___________________________________________________________________________ test_factor_resic_rejects_missing_forward_column ___________________________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4043/test_factor_resic_rejects_miss0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f85bc8eacf0>
+
+    def test_factor_resic_rejects_missing_forward_column(tmp_path, monkeypatch):
+        rd = tmp_path / "results"
+        monkeypatch.setattr(settings, "results_dir", rd)
+        _write_panel(rd, "base", _tile(_basis(1)[0]), np.zeros((WEEKS, N)))
+        _write_panel(rd, "candidate", _tile(_basis(1)[0]), np.zeros((WEEKS, N)))
+        env = F.factor_resic(_args(
+            names=["base"], target="candidate", against=None, min_stocks=None,
+            frequency="daily", horizon=None, fwd_col="forward_return_1d"))
+>       assert not env.ok
+E       AssertionError: assert not True
+E        +  where True = Envelope(ok=True, schema_version=1, command='factor.resic', data={'mode': 'target', 'group': {'mean': None, 'n_weeks':..., 'std': None, 't_stat': None, 'n_weeks': 0, 'obs': None, 'r2_absorbed': 1.0}]}, artifacts={}, warnings=(), error=None).ok
+
+platform/tests/test_research_factor.py:574: AssertionError
+======================================================================================= short test summary info ========================================================================================
+FAILED platform/tests/test_research_factor.py::test_factor_resic_daily_horizon_uses_each_date_and_weekly_remains_default - polars.exceptions.ColumnNotFoundError: unable to find column "forward_retu...
+FAILED platform/tests/test_research_factor.py::test_factor_resic_forward_col_overrides_horizon - polars.exceptions.ShapeError: could not create a new DataFrame: height of column 'signal' (480) does...
+FAILED platform/tests/test_research_factor.py::test_factor_resic_rejects_invalid_horizon_or_frequency[kwargs0-horizon] - AssertionError: assert 'NOT_FOUND' == 'USAGE'
+FAILED platform/tests/test_research_factor.py::test_factor_resic_rejects_invalid_horizon_or_frequency[kwargs1-frequency] - AssertionError: assert 'NOT_FOUND' == 'USAGE'
+FAILED platform/tests/test_research_factor.py::test_factor_resic_rejects_missing_forward_column - AssertionError: assert not True
+5 failed, 38 deselected in 2.42s

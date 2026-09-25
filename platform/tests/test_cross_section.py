@@ -11,9 +11,13 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlab.app.analysis.cross_section import (cs_r2, incremental_diagnostics,
-                                                  joint_diagnostics,
-                                                  orthogonalized_ic)
+from factorlab.app.analysis.cross_section import (
+    _incremental_verdict,
+    cs_r2,
+    incremental_diagnostics,
+    joint_diagnostics,
+    orthogonalized_ic,
+)
 from factorlab.core.eval.ic_series import weekly_ic
 
 N = 40  # 默认股票数（≥ MIN_STOCKS 30）
@@ -279,6 +283,47 @@ def test_resic_t_stat_formula_exact_small_series():
     assert res["mean"] == pytest.approx(mean, abs=1e-12)
     # ddof=1: var = (0.8² + 1.2² + 0.4²)/2 = 1.12；t = mean / √(var/3)
     assert res["t_stat"] == pytest.approx(mean / math.sqrt(1.12 / 3), rel=1e-9)
+
+
+@pytest.mark.parametrize(
+    "resic_t, expected",
+    [
+        (2.999, "观察"),
+        (3.0, "可加入"),
+        (-3.0, "可加入"),
+        (float("nan"), "观察"),
+        (float("inf"), "观察"),
+        (float("-inf"), "观察"),
+    ],
+)
+def test_reference_verdict_uses_absolute_joint_max_t_admission_floor(
+        resic_t, expected):
+    assert _incremental_verdict(
+        corr_max=0.1, r2_lib=0.1, resic_t=resic_t, retention=0.8
+    ) == expected
+
+
+@pytest.mark.parametrize(
+    "corr_max, r2_lib, resic_t, retention, expected",
+    [
+        (0.95, 0.0, 3.0, 0.8, "重复"),
+        (0.85, 0.80, 1.999, 0.8, "冗余"),
+        (0.85, 0.80, 2.0, 0.8, "观察"),
+        (0.65, 0.79, 3.0, 0.8, "可加入"),
+    ],
+)
+def test_d10_verdict_matches_admit_redundancy_precedence(
+        corr_max, r2_lib, resic_t, retention, expected):
+    assert _incremental_verdict(
+        corr_max=corr_max, r2_lib=r2_lib,
+        resic_t=resic_t, retention=retention
+    ) == expected
+
+
+def test_d10_verdict_rejects_boolean_diagnostics_as_numeric():
+    assert _incremental_verdict(
+        corr_max=0.1, r2_lib=0.1, resic_t=3.0, retention=True
+    ) == "观察"
 
 
 def test_resic_fwd_null_week_and_rows_excluded():

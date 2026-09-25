@@ -200,15 +200,15 @@ def test_incremental_independent_factor_verdict_can_join(tmp_path):
     f = r["candidates"][0]
     assert f["name"] == "y" and f["base"] == ["x"]
     assert abs(f["corr_max"]) < 0.7, f"独立因子 corr_max 过高: {f['corr_max']}"
-    assert f["resic_t"] >= 2.0, f"残差 t 应显著: {f['resic_t']}"
+    assert f["resic_t"] >= 3.0, f"参考库准入残差 t 应达到 3: {f['resic_t']}"
     assert f["retention"] >= 0.5, f"保留率应 ≥50%: {f['retention']}"
     assert f["verdict"] == "可加入", f
     # 禁止硬编码：resIC 必须来自真实回归（去信号后应≈0）
     assert f["r2_lib"] < 0.9
 
 
-def test_incremental_kin_factor_verdict_redundant(tmp_path):
-    """近亲因子（复制+噪声）→ r2_lib 高、resic 不显著 → verdict=冗余。"""
+def test_incremental_kin_factor_verdict_duplicate(tmp_path):
+    """高度相关因子（复制+噪声）→ corr_max≥0.95 → verdict=重复。"""
     vs = _basis(3)
     rng = np.random.default_rng(3)
     base_x = _tile(vs[0])
@@ -220,7 +220,7 @@ def test_incremental_kin_factor_verdict_redundant(tmp_path):
     f = incremental_diagnostics(["z"], tmp_path, base=["x"])["candidates"][0]
     assert f["corr_max"] >= 0.9, f"近亲 corr_max 应接近 1: {f['corr_max']}"
     assert f["r2_lib"] >= 0.9, f"近亲 r2_lib 应高: {f['r2_lib']}"
-    assert f["verdict"] == "冗余", f
+    assert f["verdict"] == "重复", f
 
 
 def test_corr_independent_of_target(tmp_path):
@@ -303,5 +303,6 @@ def test_interface_reference_library_contract():
     interface = (Path(__file__).resolve().parents[2]
                  / "knowledge" / "contracts" / "interface.md").read_text(encoding="utf-8")
     for token in ("_reference.yaml", "--against", "r2_lib", "retention",
-                  "corr_max", "verdict", "可加入", "冗余", "ref list"):
+                  "corr_max", "verdict", "可加入", "冗余", "ref list",
+                  "|resIC t|≥3", "FWER", "3.45"):
         assert token in interface, f"interface 缺 D10 契约字段/语义: {token}"

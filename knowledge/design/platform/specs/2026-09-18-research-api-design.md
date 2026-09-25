@@ -55,7 +55,7 @@ venv/环境变量、表名映射、内存护栏、heavy 闸等概念；`import f
 | `flab factor list` / `show <name>` / `export <name> [--format]` | 浏览 / 单因子摘要 / 产物导出 |
 | `flab factor corr` / `resic` / `svd` | 相关性 / 增量信息 / 结构维度 |
 | `flab factor ref list\|add\|remove` | 参考库管理 |
-| `flab factor admit <spec.yaml>` | 一键入库检验：lint→(缺产物则 run)→对参考库 corr+resic→`verdict: 可加入\|冗余\|重复` |
+| `flab factor admit <spec.yaml>` | 一键入库检验：lint→(缺产物则 run)→对参考库 corr+resic→`verdict: 可加入\|观察\|冗余\|重复`；参考库准入要求测试段 `|resIC t|≥3`、`corr_max<0.7`、`retention≥0.5` |
 | `flab factor op list\|doc\|add\|remove` / `catalog` | 算子/活文档 |
 
 **strategy**

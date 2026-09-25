@@ -1,0 +1,51 @@
+heavy.sh: slot=1/2 avail=61.8GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python -m pytest -q platform/tests/test_execution_accounting.py platform/tests/test_backtest_runtime.py platform/tests/test_run_strategy.py platform/tests/test_research_strategy_report.py
+..................................................................................FF.......................................                                                                      [100%]
+=============================================================================================== FAILURES ===============================================================================================
+____________________________________________________________________ test_strategy_run_real_chain_passes_guard_and_persists[duckdb] ____________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7fa5bbf87ed0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4016/test_strategy_run_real_chain_p0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fa5bbfb2cf0>
+
+    def test_strategy_run_real_chain_passes_guard_and_persists(env, tmp_path,
+                                                               monkeypatch):
+        doc_path, results = _setup(env, tmp_path, monkeypatch)
+        calls = _mock_guard(monkeypatch, tmp_path)
+    
+        t0 = time.time()
+        e = S.strategy_run(_run_args(doc_path))
+    
+        assert e.ok, e.error
+        assert calls[0] == ("guard", ["strategy", "run", str(doc_path)], False)
+        assert ("release",) in calls, "run 结束必须释放槽"
+>       assert settings.max_memory is None  # 闸 env 退出复原
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert '8GB' is None
+E        +  where '8GB' = Settings(data_backend='duckdb', platform_db=PosixPath('data/factorlab.duckdb'), ch_host='127.0.0.1', ch_port=8123, ch_...e_queue_limit=32, service_state_dir=None, service_token_path=PosixPath('/home/gaolei/.config/factorlab/service_token')).max_memory
+
+platform/tests/test_research_strategy_report.py:171: AssertionError
+______________________________________________________________________ test_strategy_run_real_chain_passes_guard_and_persists[ch] ______________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7fa4d078bf50>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4016/test_strategy_run_real_chain_p1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fa5bbf720b0>
+
+    def test_strategy_run_real_chain_passes_guard_and_persists(env, tmp_path,
+                                                               monkeypatch):
+        doc_path, results = _setup(env, tmp_path, monkeypatch)
+        calls = _mock_guard(monkeypatch, tmp_path)
+    
+        t0 = time.time()
+        e = S.strategy_run(_run_args(doc_path))
+    
+        assert e.ok, e.error
+        assert calls[0] == ("guard", ["strategy", "run", str(doc_path)], False)
+        assert ("release",) in calls, "run 结束必须释放槽"
+>       assert settings.max_memory is None  # 闸 env 退出复原
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert '8GB' is None
+E        +  where '8GB' = Settings(data_backend='duckdb', platform_db=PosixPath('data/factorlab.duckdb'), ch_host='127.0.0.1', ch_port=8123, ch_...e_queue_limit=32, service_state_dir=None, service_token_path=PosixPath('/home/gaolei/.config/factorlab/service_token')).max_memory
+
+platform/tests/test_research_strategy_report.py:171: AssertionError
+======================================================================================= short test summary info ========================================================================================
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_run_real_chain_passes_guard_and_persists[duckdb] - AssertionError: assert '8GB' is None
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_run_real_chain_passes_guard_and_persists[ch] - AssertionError: assert '8GB' is None
+2 failed, 121 passed in 57.34s

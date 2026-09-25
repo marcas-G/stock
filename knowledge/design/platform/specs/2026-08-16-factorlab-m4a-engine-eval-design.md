@@ -2,7 +2,7 @@
 
 日期：2026-08-16
 状态：已实现（M4a 引擎接入与评估已交付；原"待评审"为文档漂移，R21 补正。现状见
-      `platform/docs/interface.md`）
+      `knowledge/contracts/interface.md`）
 依赖主设计：`docs/superpowers/specs/2026-08-15-factor-dsl-platform-design.md`
 前置里程碑：M1/M2（骨架/引擎）、M3a（数据层本地核心）、M3b（平台数据平台）
 

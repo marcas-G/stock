@@ -1,0 +1,3123 @@
+heavy.sh: slot=1/2 avail=61.8GB  max_memory=none oom_score_adj=700 -> platform/.venv/bin/python -m pytest -q platform/tests/test_execution_accounting.py platform/tests/test_backtest_runtime.py platform/tests/test_run_strategy.py platform/tests/test_research_strategy_report.py
+......................................FFFFFFFFFFFFFFFFFFFFFFFF..........FFFFFFFFFFFF....FF....FFFF.FFFFFFFFFFFFFFFF........                                                                      [100%]
+=============================================================================================== FAILURES ===============================================================================================
+_____________________________________________________________________ test_run_strategy_matches_manual_chain_and_persists[duckdb] ______________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f4299300440>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_run_strategy_matches_manu0')
+
+    def test_run_strategy_matches_manual_chain_and_persists(env, tmp_path):
+        """run_strategy 结果 == 手工链（同 fixture）逐值：target/nav 帧相等 + 落盘往返。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:182: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_______________________________________________________________________ test_run_strategy_matches_manual_chain_and_persists[ch] ________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418de9c2f0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_run_strategy_matches_manu1')
+
+    def test_run_strategy_matches_manual_chain_and_persists(env, tmp_path):
+        """run_strategy 结果 == 手工链（同 fixture）逐值：target/nav 帧相等 + 落盘往返。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:182: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_________________________________________________________________________ test_nav_parquet_sha256_matches_manual_chain[duckdb] _________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418dde2210>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_nav_parquet_sha256_matche0')
+
+    def test_nav_parquet_sha256_matches_manual_chain(env, tmp_path):
+        """默认 NEXT_OPEN 路径与既有链逐字节一致：nav parquet sha256 相同。
+    
+        手工链落盘到另一目录后比对——防"跑通但口径漂移"（R05-C 教训）。
+        """
+        from factorlab.app.strategy import run_strategy
+        from factorlab.app.backtest import save_backtest_result
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:226: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+___________________________________________________________________________ test_nav_parquet_sha256_matches_manual_chain[ch] ___________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418dde2710>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_nav_parquet_sha256_matche1')
+
+    def test_nav_parquet_sha256_matches_manual_chain(env, tmp_path):
+        """默认 NEXT_OPEN 路径与既有链逐字节一致：nav parquet sha256 相同。
+    
+        手工链落盘到另一目录后比对——防"跑通但口径漂移"（R05-C 教训）。
+        """
+        from factorlab.app.strategy import run_strategy
+        from factorlab.app.backtest import save_backtest_result
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:226: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+______________________________________________________________________ test_constructor_and_backtest_receive_exact_specs[duckdb] _______________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418dde2ad0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_constructor_and_backtest_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f42982e17f0>
+
+    def test_constructor_and_backtest_receive_exact_specs(env, tmp_path, monkeypatch):
+        import factorlab.app.strategy.run as R
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:255: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+________________________________________________________________________ test_constructor_and_backtest_receive_exact_specs[ch] _________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418dde2c10>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_constructor_and_backtest_1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f42982e1cc0>
+
+    def test_constructor_and_backtest_receive_exact_specs(env, tmp_path, monkeypatch):
+        import factorlab.app.strategy.run as R
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:255: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+______________________________________________________________________ test_window_filter_leaves_only_in_window_decisions[duckdb] ______________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418dea90f0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_window_filter_leaves_only0')
+
+    def test_window_filter_leaves_only_in_window_decisions(env, tmp_path):
+        """doc.date 先过滤 signal：窗口 01-04~01-09 → decision 只剩 d3/d4。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:292: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+________________________________________________________________________ test_window_filter_leaves_only_in_window_decisions[ch] ________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418dea9350>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_window_filter_leaves_only1')
+
+    def test_window_filter_leaves_only_in_window_decisions(env, tmp_path):
+        """doc.date 先过滤 signal：窗口 01-04~01-09 → decision 只剩 d3/d4。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:292: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+____________________________________________________________________________ test_default_out_dir_under_results_dir[duckdb] ____________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418dea8640>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_default_out_dir_under_res0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f42982e3000>
+
+    def test_default_out_dir_under_results_dir(env, tmp_path, monkeypatch):
+        """results_dir 缺省 = settings.results_dir；out_dir = <root>/strategies/<name>。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:307: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+______________________________________________________________________________ test_default_out_dir_under_results_dir[ch] ______________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418dea8e90>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_default_out_dir_under_res1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f42982e3310>
+
+    def test_default_out_dir_under_results_dir(env, tmp_path, monkeypatch):
+        """results_dir 缺省 = settings.results_dir；out_dir = <root>/strategies/<name>。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:307: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+________________________________________________________________________________ test_explicit_out_dir_override[duckdb] ________________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f420c04ee70>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_explicit_out_dir_override0')
+
+    def test_explicit_out_dir_override(env, tmp_path):
+        """out_dir 显式覆盖（研究 CLI --out-dir 的落点）——不写默认 strategies/ 目录。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:321: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+__________________________________________________________________________________ test_explicit_out_dir_override[ch] __________________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f420c04eb10>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_explicit_out_dir_override1')
+
+    def test_explicit_out_dir_override(env, tmp_path):
+        """out_dir 显式覆盖（研究 CLI --out-dir 的落点）——不写默认 strategies/ 目录。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:321: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+__________________________________________________________________ test_target_transform_applies_before_persist_and_backtest[duckdb] ___________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418de49480>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_target_transform_applies_0')
+
+    def test_target_transform_applies_before_persist_and_backtest(env, tmp_path):
+        """L5 研究侧规则（如 max_hold）经 target_transform 钩子注入：变换后落盘/回测。
+    
+        变换返回 TargetPortfolio（研究侧 V1 近似保持 decision_dates/gross 不变）。
+        """
+        from factorlab.app.strategy import run_strategy
+        from factorlab.core.domain.portfolio import TargetPortfolio
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:340: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+____________________________________________________________________ test_target_transform_applies_before_persist_and_backtest[ch] _____________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418de4a360>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_target_transform_applies_1')
+
+    def test_target_transform_applies_before_persist_and_backtest(env, tmp_path):
+        """L5 研究侧规则（如 max_hold）经 target_transform 钩子注入：变换后落盘/回测。
+    
+        变换返回 TargetPortfolio（研究侧 V1 近似保持 decision_dates/gross 不变）。
+        """
+        from factorlab.app.strategy import run_strategy
+        from factorlab.core.domain.portfolio import TargetPortfolio
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:340: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_______________________________________________________________________ test_empty_window_fails_fast_with_readable_error[duckdb] _______________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418de4b240>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_empty_window_fails_fast_w0')
+
+    def test_empty_window_fails_fast_with_readable_error(env, tmp_path):
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:364: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_________________________________________________________________________ test_empty_window_fails_fast_with_readable_error[ch] _________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418de49260>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_empty_window_fails_fast_w1')
+
+    def test_empty_window_fails_fast_with_readable_error(env, tmp_path):
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:364: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+__________________________________________________________________ test_universe_override_filters_signal_before_construction[duckdb] ___________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f4187165250>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_universe_override_filters0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f42982a23c0>
+
+    def test_universe_override_filters_signal_before_construction(env, tmp_path, monkeypatch):
+        """override 子集 → 信号帧先被过滤，target 只含该子集 code（不是构造后筛选）。"""
+        import factorlab.app.strategy.run as R
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:382: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+____________________________________________________________________ test_universe_override_filters_signal_before_construction[ch] _____________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f4187166950>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_universe_override_filters1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f42982a34d0>
+
+    def test_universe_override_filters_signal_before_construction(env, tmp_path, monkeypatch):
+        """override 子集 → 信号帧先被过滤，target 只含该子集 code（不是构造后筛选）。"""
+        import factorlab.app.strategy.run as R
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:382: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+______________________________________________________________________ test_universe_override_no_intersection_fails_fast[duckdb] _______________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f4187166d50>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_universe_override_no_inte0')
+
+    def test_universe_override_no_intersection_fails_fast(env, tmp_path):
+        """override 与窗口内 signal codes 无交集 → 明确报错、不落任何产物。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:407: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+________________________________________________________________________ test_universe_override_no_intersection_fails_fast[ch] _________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f4187166450>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_universe_override_no_inte1')
+
+    def test_universe_override_no_intersection_fails_fast(env, tmp_path):
+        """override 与窗口内 signal codes 无交集 → 明确报错、不落任何产物。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:407: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_____________________________________________________________________ test_universe_override_null_is_zero_behavior_change[duckdb] ______________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418dd22120>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_universe_override_null_is0')
+
+    def test_universe_override_null_is_zero_behavior_change(env, tmp_path):
+        """override=null（缺省）→ 与既有链逐帧一致（零行为变化保护）。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:422: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_______________________________________________________________________ test_universe_override_null_is_zero_behavior_change[ch] ________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418dcec500>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_universe_override_null_is1')
+
+    def test_universe_override_null_is_zero_behavior_change(env, tmp_path):
+        """override=null（缺省）→ 与既有链逐帧一致（零行为变化保护）。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:422: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+__________________________________________________________________________ test_run_strategy_buffered_yaml_end_to_end[duckdb] __________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418dd214f0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_run_strategy_buffered_yam0')
+
+    def test_run_strategy_buffered_yaml_end_to_end(env, tmp_path):
+        """YAML `method: top_k_buffered` → SelectionSpec → run_strategy 全链。
+    
+        close 信号：同参 top_k 在 D4 换仓 {A,B}；buffered（enter_k=2, retain_k=3）
+        保留 C（rank3 在缓冲带内）→ 若 YAML 未接入 buffered 或退化为 top_k，断言必红。
+        """
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:443: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+____________________________________________________________________________ test_run_strategy_buffered_yaml_end_to_end[ch] ____________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418dd23110>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_run_strategy_buffered_yam1')
+
+    def test_run_strategy_buffered_yaml_end_to_end(env, tmp_path):
+        """YAML `method: top_k_buffered` → SelectionSpec → run_strategy 全链。
+    
+        close 信号：同参 top_k 在 D4 换仓 {A,B}；buffered（enter_k=2, retain_k=3）
+        保留 C（rank3 在缓冲带内）→ 若 YAML 未接入 buffered 或退化为 top_k，断言必红。
+        """
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:443: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_______________________________________________________________________ test_run_strategy_market_cap_weighted_end_to_end[duckdb] _______________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418dce6db0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_run_strategy_market_cap_w0')
+
+    def test_run_strategy_market_cap_weighted_end_to_end(env, tmp_path):
+        """signal=close 选 Top-2；mv 逐日变化 → 权重 = gross×mv_i/Σmv 手算一致。
+    
+        选择：D1 {A,C} / D2 {A,C} / D3 {A,C} / D4 {A,B}；mv 每日异值。
+        若 join 错位（如取错日期/拿错 code）或权重未按 mv 归一 → 逐值断言必红。
+        """
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor_with_mv(env, tmp_path, results, _MV_BY_DAY)
+
+platform/tests/test_run_strategy.py:653: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:638: in _seed_and_run_factor_with_mv
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_________________________________________________________________________ test_run_strategy_market_cap_weighted_end_to_end[ch] _________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418dce7c20>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_run_strategy_market_cap_w1')
+
+    def test_run_strategy_market_cap_weighted_end_to_end(env, tmp_path):
+        """signal=close 选 Top-2；mv 逐日变化 → 权重 = gross×mv_i/Σmv 手算一致。
+    
+        选择：D1 {A,C} / D2 {A,C} / D3 {A,C} / D4 {A,B}；mv 每日异值。
+        若 join 错位（如取错日期/拿错 code）或权重未按 mv 归一 → 逐值断言必红。
+        """
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor_with_mv(env, tmp_path, results, _MV_BY_DAY)
+
+platform/tests/test_run_strategy.py:653: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:638: in _seed_and_run_factor_with_mv
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+____________________________________________________________________ test_run_strategy_market_cap_missing_selected_mv_fails[duckdb] ____________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418dce6db0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_run_strategy_market_cap_m0')
+
+    def test_run_strategy_market_cap_missing_selected_mv_fails(env, tmp_path):
+        """选中股当日无 mv 行 → 显式 ValueError（点名 date+code），策略产物不落盘。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+        mv = dict(_MV_BY_DAY)
+        del mv[(_D1, _C)]      # D1 选中 {A, C}，C 缺市值
+>       _seed_and_run_factor_with_mv(env, tmp_path, results, mv)
+
+platform/tests/test_run_strategy.py:686: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:638: in _seed_and_run_factor_with_mv
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+______________________________________________________________________ test_run_strategy_market_cap_missing_selected_mv_fails[ch] ______________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f42982cc100>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_run_strategy_market_cap_m1')
+
+    def test_run_strategy_market_cap_missing_selected_mv_fails(env, tmp_path):
+        """选中股当日无 mv 行 → 显式 ValueError（点名 date+code），策略产物不落盘。"""
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+        mv = dict(_MV_BY_DAY)
+        del mv[(_D1, _C)]      # D1 选中 {A, C}，C 缺市值
+>       _seed_and_run_factor_with_mv(env, tmp_path, results, mv)
+
+platform/tests/test_run_strategy.py:686: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:638: in _seed_and_run_factor_with_mv
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+____________________________________________________________________ test_run_strategy_equal_weight_never_reads_market_cap[duckdb] _____________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f42982d7250>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_run_strategy_equal_weight0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f4187176b30>
+
+    def test_run_strategy_equal_weight_never_reads_market_cap(env, tmp_path, monkeypatch):
+        """禁止行为：非 market_cap_weighted 不得取市值数据（每日多读一表即门红）。"""
+        import factorlab.app.strategy.run as R
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:701: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+______________________________________________________________________ test_run_strategy_equal_weight_never_reads_market_cap[ch] _______________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f42982d6df0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_run_strategy_equal_weight1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f41871777e0>
+
+    def test_run_strategy_equal_weight_never_reads_market_cap(env, tmp_path, monkeypatch):
+        """禁止行为：非 market_cap_weighted 不得取市值数据（每日多读一表即门红）。"""
+        import factorlab.app.strategy.run as R
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:701: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_________________________________________________________________________ test_ca_gate_error_propagates_without_retry[duckdb] __________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f42982d5e50>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_ca_gate_error_propagates_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f4187175be0>
+
+    def test_ca_gate_error_propagates_without_retry(env, tmp_path, monkeypatch):
+        """持仓跨除权 → run_backtest 抛 ExecutionDataQualityError；run_strategy 原样抛。
+    
+        A 在 d3（窗口 (d2, d3] 内）除权且 d2 后持有 → Gate 拦截。计数 spy 证明
+        run_backtest 只被调用一次（没有自动重试/吞错），backtest 产物未落盘。
+        """
+        import factorlab.app.strategy.run as R
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+        env.seed(_tables(adj_events=[(_A, _D3.strftime("%Y%m%d"))]))
+        from factorlab.core.spec import load_spec
+>       run_factor(load_spec(_factor_spec(tmp_path)),
+                   RunContext(data_backend=env.backend,
+                              output_dir=results / _SIGNAL_NAME,
+                              db_path=getattr(env, "path", None)))
+
+platform/tests/test_run_strategy.py:727: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+___________________________________________________________________________ test_ca_gate_error_propagates_without_retry[ch] ____________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f42982d72f0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_ca_gate_error_propagates_1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f4187174ec0>
+
+    def test_ca_gate_error_propagates_without_retry(env, tmp_path, monkeypatch):
+        """持仓跨除权 → run_backtest 抛 ExecutionDataQualityError；run_strategy 原样抛。
+    
+        A 在 d3（窗口 (d2, d3] 内）除权且 d2 后持有 → Gate 拦截。计数 spy 证明
+        run_backtest 只被调用一次（没有自动重试/吞错），backtest 产物未落盘。
+        """
+        import factorlab.app.strategy.run as R
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+        env.seed(_tables(adj_events=[(_A, _D3.strftime("%Y%m%d"))]))
+        from factorlab.core.spec import load_spec
+>       run_factor(load_spec(_factor_spec(tmp_path)),
+                   RunContext(data_backend=env.backend,
+                              output_dir=results / _SIGNAL_NAME,
+                              db_path=getattr(env, "path", None)))
+
+platform/tests/test_run_strategy.py:727: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+________________________________________________________________ test_run_strategy_records_data_quality_five_fields_in_manifest[duckdb] ________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f42982ac170>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_run_strategy_records_data0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f4187176820>
+
+    def test_run_strategy_records_data_quality_five_fields_in_manifest(
+            env, tmp_path, monkeypatch):
+        """真实入口（run_strategy）传 dataset 给 run_backtest；五字段落 manifest +
+        result + usage sidecar（F4；假 health = 合成库专用，真实门矩阵见
+        test_require_dataset.py）。"""
+        import json
+    
+        import factorlab.app.backtest.backtest as bt_mod
+        from factorlab.adapters.read.health import DatasetGate
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:765: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+__________________________________________________________________ test_run_strategy_records_data_quality_five_fields_in_manifest[ch] __________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f42982af020>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_run_strategy_records_data1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f42982a18d0>
+
+    def test_run_strategy_records_data_quality_five_fields_in_manifest(
+            env, tmp_path, monkeypatch):
+        """真实入口（run_strategy）传 dataset 给 run_backtest；五字段落 manifest +
+        result + usage sidecar（F4；假 health = 合成库专用，真实门矩阵见
+        test_require_dataset.py）。"""
+        import json
+    
+        import factorlab.app.backtest.backtest as bt_mod
+        from factorlab.adapters.read.health import DatasetGate
+        from factorlab.app.strategy import run_strategy
+    
+        results = _results_dir(tmp_path)
+>       _seed_and_run_factor(env, tmp_path, results)
+
+platform/tests/test_run_strategy.py:765: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_run_strategy.py:158: in _seed_and_run_factor
+    run_factor(spec, RunContext(data_backend=env.backend,
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+____________________________________________________________________ test_strategy_run_real_chain_passes_guard_and_persists[duckdb] ____________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418dd9add0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_run_real_chain_p0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f4187174750>
+
+    def test_strategy_run_real_chain_passes_guard_and_persists(env, tmp_path,
+                                                               monkeypatch):
+>       doc_path, results = _setup(env, tmp_path, monkeypatch)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+______________________________________________________________________ test_strategy_run_real_chain_passes_guard_and_persists[ch] ______________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418dd9aa50>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_run_real_chain_p1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c14fe70>
+
+    def test_strategy_run_real_chain_passes_guard_and_persists(env, tmp_path,
+                                                               monkeypatch):
+>       doc_path, results = _setup(env, tmp_path, monkeypatch)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+____________________________________________________________________ test_strategy_run_signal_override_uses_named_artifact[duckdb] _____________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418c111710>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_run_signal_overr0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c111860>
+
+    def test_strategy_run_signal_override_uses_named_artifact(env, tmp_path,
+                                                              monkeypatch):
+        from test_run_strategy import _doc_yaml
+>       doc_path, _results = _setup(
+            env, tmp_path, monkeypatch,
+            doc_text=_doc_yaml().replace("signal: ws7_doc_chain",
+                                         "signal: ghost_signal"))
+
+platform/tests/test_research_strategy_report.py:238: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+______________________________________________________________________ test_strategy_run_signal_override_uses_named_artifact[ch] _______________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418c113d20>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_run_signal_overr1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c111e80>
+
+    def test_strategy_run_signal_override_uses_named_artifact(env, tmp_path,
+                                                              monkeypatch):
+        from test_run_strategy import _doc_yaml
+>       doc_path, _results = _setup(
+            env, tmp_path, monkeypatch,
+            doc_text=_doc_yaml().replace("signal: ws7_doc_chain",
+                                         "signal: ghost_signal"))
+
+platform/tests/test_research_strategy_report.py:238: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+________________________________________________________________________ test_strategy_run_dry_run_has_no_side_effects[duckdb] _________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418c1ee990>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_run_dry_run_has_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f4187174ec0>
+
+    def test_strategy_run_dry_run_has_no_side_effects(env, tmp_path, monkeypatch):
+>       doc_path, results = _setup(env, tmp_path, monkeypatch)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:304: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+__________________________________________________________________________ test_strategy_run_dry_run_has_no_side_effects[ch] ___________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418c1ef050>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_run_dry_run_has_1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c1116a0>
+
+    def test_strategy_run_dry_run_has_no_side_effects(env, tmp_path, monkeypatch):
+>       doc_path, results = _setup(env, tmp_path, monkeypatch)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:304: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+____________________________________________________________________________ test_strategy_run_max_hold_fails_loud[duckdb] _____________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418c1ef4d0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_run_max_hold_fai0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c112c10>
+
+    def test_strategy_run_max_hold_fails_loud(env, tmp_path, monkeypatch):
+        from test_run_strategy import _doc_yaml
+        text = _doc_yaml() + "rules: {stop_loss: null, take_profit: null, max_hold: 2}\n"
+>       doc_path, _results = _setup(env, tmp_path, monkeypatch, doc_text=text)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:328: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+______________________________________________________________________________ test_strategy_run_max_hold_fails_loud[ch] _______________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418c1c99d0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_run_max_hold_fai1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c113150>
+
+    def test_strategy_run_max_hold_fails_loud(env, tmp_path, monkeypatch):
+        from test_run_strategy import _doc_yaml
+        text = _doc_yaml() + "rules: {stop_loss: null, take_profit: null, max_hold: 2}\n"
+>       doc_path, _results = _setup(env, tmp_path, monkeypatch, doc_text=text)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:328: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_______________________________________________________________________ test_strategy_list_reflects_artifacts_and_empty[duckdb] ________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418c1ef2f0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_list_reflects_ar0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c113bd0>
+
+    def test_strategy_list_reflects_artifacts_and_empty(env, tmp_path, monkeypatch):
+>       e_run, _doc, results = _run_ok(env, tmp_path, monkeypatch)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:367: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_________________________________________________________________________ test_strategy_list_reflects_artifacts_and_empty[ch] __________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418c1c8ad0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_list_reflects_ar1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c113460>
+
+    def test_strategy_list_reflects_artifacts_and_empty(env, tmp_path, monkeypatch):
+>       e_run, _doc, results = _run_ok(env, tmp_path, monkeypatch)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:367: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_________________________________________________________________ test_strategy_show_reads_artifacts_and_missing_is_not_found[duckdb] __________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418c1c9250>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_show_reads_artif0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c1106e0>
+
+    def test_strategy_show_reads_artifacts_and_missing_is_not_found(
+            env, tmp_path, monkeypatch):
+>       e_run, _doc, results = _run_ok(env, tmp_path, monkeypatch)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:390: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+___________________________________________________________________ test_strategy_show_reads_artifacts_and_missing_is_not_found[ch] ____________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418c1caa50>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_show_reads_artif1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c112430>
+
+    def test_strategy_show_reads_artifacts_and_missing_is_not_found(
+            env, tmp_path, monkeypatch):
+>       e_run, _doc, results = _run_ok(env, tmp_path, monkeypatch)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:390: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+___________________________________________________________________________ test_strategy_export_nav_formats[duckdb-parquet] ___________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418c1cbb30>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_export_nav_forma0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c1120b0>, fmt = 'parquet'
+
+    @pytest.mark.parametrize("fmt", ["parquet", "csv", "json"])
+    def test_strategy_export_nav_formats(env, tmp_path, monkeypatch, fmt):
+>       _e, _doc, _results = _run_ok(env, tmp_path, monkeypatch)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:411: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_____________________________________________________________________________ test_strategy_export_nav_formats[duckdb-csv] _____________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418c1c9730>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_export_nav_forma1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c112900>, fmt = 'csv'
+
+    @pytest.mark.parametrize("fmt", ["parquet", "csv", "json"])
+    def test_strategy_export_nav_formats(env, tmp_path, monkeypatch, fmt):
+>       _e, _doc, _results = _run_ok(env, tmp_path, monkeypatch)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:411: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+____________________________________________________________________________ test_strategy_export_nav_formats[duckdb-json] _____________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418c1cbc50>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_export_nav_forma2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f42982a1240>, fmt = 'json'
+
+    @pytest.mark.parametrize("fmt", ["parquet", "csv", "json"])
+    def test_strategy_export_nav_formats(env, tmp_path, monkeypatch, fmt):
+>       _e, _doc, _results = _run_ok(env, tmp_path, monkeypatch)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:411: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_____________________________________________________________________________ test_strategy_export_nav_formats[ch-parquet] _____________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418c1c8650>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_export_nav_forma3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f42982e2820>, fmt = 'parquet'
+
+    @pytest.mark.parametrize("fmt", ["parquet", "csv", "json"])
+    def test_strategy_export_nav_formats(env, tmp_path, monkeypatch, fmt):
+>       _e, _doc, _results = _run_ok(env, tmp_path, monkeypatch)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:411: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_______________________________________________________________________________ test_strategy_export_nav_formats[ch-csv] _______________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418c1c99d0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_export_nav_forma4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c16c2f0>, fmt = 'csv'
+
+    @pytest.mark.parametrize("fmt", ["parquet", "csv", "json"])
+    def test_strategy_export_nav_formats(env, tmp_path, monkeypatch, fmt):
+>       _e, _doc, _results = _run_ok(env, tmp_path, monkeypatch)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:411: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+______________________________________________________________________________ test_strategy_export_nav_formats[ch-json] _______________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418dcf4d70>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_export_nav_forma5')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c16cb40>, fmt = 'json'
+
+    @pytest.mark.parametrize("fmt", ["parquet", "csv", "json"])
+    def test_strategy_export_nav_formats(env, tmp_path, monkeypatch, fmt):
+>       _e, _doc, _results = _run_ok(env, tmp_path, monkeypatch)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:411: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+____________________________________________________________________________ test_strategy_export_target_and_usage[duckdb] _____________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418dcf6750>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_export_target_an0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c16db70>
+
+    def test_strategy_export_target_and_usage(env, tmp_path, monkeypatch):
+>       _e, _doc, _results = _run_ok(env, tmp_path, monkeypatch)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:426: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+______________________________________________________________________________ test_strategy_export_target_and_usage[ch] _______________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418dd9ec90>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_export_target_an1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c16e900>
+
+    def test_strategy_export_target_and_usage(env, tmp_path, monkeypatch):
+>       _e, _doc, _results = _run_ok(env, tmp_path, monkeypatch)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:426: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_______________________________________________________________________ test_strategy_capacity_real_amount_and_turnover[duckdb] ________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418c1c8530>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_capacity_real_am0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c16e510>
+
+    def test_strategy_capacity_real_amount_and_turnover(env, tmp_path, monkeypatch):
+>       _e, _doc, results = _run_ok(env, tmp_path, monkeypatch)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:447: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_________________________________________________________________________ test_strategy_capacity_real_amount_and_turnover[ch] __________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418dcf5130>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_capacity_real_am1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c16cbb0>
+
+    def test_strategy_capacity_real_amount_and_turnover(env, tmp_path, monkeypatch):
+>       _e, _doc, results = _run_ok(env, tmp_path, monkeypatch)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:447: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+___________________________________________________________________________ test_strategy_cost_real_cost_net_report[duckdb] ____________________________________________________________________________
+
+env = <conftest._EnvDuck object at 0x7f418c1b59d0>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_cost_real_cost_n0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c16e2e0>
+
+    def test_strategy_cost_real_cost_net_report(env, tmp_path, monkeypatch):
+>       e_run, _doc, _results = _run_ok(env, tmp_path, monkeypatch)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:483: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+_____________________________________________________________________________ test_strategy_cost_real_cost_net_report[ch] ______________________________________________________________________________
+
+env = <conftest._EnvCh object at 0x7f418c1b4e90>, tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4017/test_strategy_cost_real_cost_n1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f418c16d080>
+
+    def test_strategy_cost_real_cost_net_report(env, tmp_path, monkeypatch):
+>       e_run, _doc, _results = _run_ok(env, tmp_path, monkeypatch)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+platform/tests/test_research_strategy_report.py:483: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+platform/tests/test_research_strategy_report.py:122: in _run_ok
+    doc_path, results = _setup(env, tmp_path, monkeypatch, **setup_kw)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/tests/test_research_strategy_report.py:109: in _setup
+    run_factor(load_spec(_factor_spec(tmp_path)),
+platform/src/factorlab/app/run.py:464: in run_factor
+    wd = memory_watchdog_from_settings()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+platform/src/factorlab/app/memory.py:232: in memory_watchdog_from_settings
+    max_rss = parse_memory(getattr(s, "max_memory", None))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'none'
+
+    def parse_memory(value: str | int | None) -> int | None:
+        """解析内存规格 → 字节数；None/空白串 = 未设置（返回 None）。
+    
+        支持 "8GB"/"512MB"/"1kb"/"1.5GiB"/纯字节数（int 或数字串）；KB/MB/GB/TB
+        按 1024 进制（与 prlimit/safe_run.sh 口径一致）。非法值 → ValueError
+        （配置错误 fail loud，不静默取默认）。
+        """
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"内存规格非法: {value!r}——支持 '8GB'/'512MB'/纯字节数；"
+                             f"不启用请留空")
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"内存规格必须为正数（收到 {value!r}）；不启用请留空")
+            return value
+        s = str(value).strip().lower()
+        if not s:
+            return None
+        m = _MEMORY_RE.fullmatch(s)
+        if not m or m.group(2) not in _UNIT_BYTES:
+>           raise ValueError(f"无法解析内存规格 {value!r}——支持 '8GB'/'512MB'/'1kb'/"
+                             f"纯字节数（bytes）；不启用请留空")
+E           ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+
+platform/src/factorlab/app/memory.py:92: ValueError
+======================================================================================= short test summary info ========================================================================================
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_matches_manual_chain_and_persists[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_matches_manual_chain_and_persists[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_nav_parquet_sha256_matches_manual_chain[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_nav_parquet_sha256_matches_manual_chain[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_constructor_and_backtest_receive_exact_specs[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_constructor_and_backtest_receive_exact_specs[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_window_filter_leaves_only_in_window_decisions[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_window_filter_leaves_only_in_window_decisions[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_default_out_dir_under_results_dir[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_default_out_dir_under_results_dir[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_explicit_out_dir_override[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_explicit_out_dir_override[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_target_transform_applies_before_persist_and_backtest[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启...
+FAILED platform/tests/test_run_strategy.py::test_target_transform_applies_before_persist_and_backtest[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请...
+FAILED platform/tests/test_run_strategy.py::test_empty_window_fails_fast_with_readable_error[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_empty_window_fails_fast_with_readable_error[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_universe_override_filters_signal_before_construction[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启...
+FAILED platform/tests/test_run_strategy.py::test_universe_override_filters_signal_before_construction[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请...
+FAILED platform/tests/test_run_strategy.py::test_universe_override_no_intersection_fails_fast[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_universe_override_no_intersection_fails_fast[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_universe_override_null_is_zero_behavior_change[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_universe_override_null_is_zero_behavior_change[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_buffered_yaml_end_to_end[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_buffered_yaml_end_to_end[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_market_cap_weighted_end_to_end[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_market_cap_weighted_end_to_end[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_market_cap_missing_selected_mv_fails[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用...
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_market_cap_missing_selected_mv_fails[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_equal_weight_never_reads_market_cap[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请...
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_equal_weight_never_reads_market_cap[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_ca_gate_error_propagates_without_retry[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_ca_gate_error_propagates_without_retry[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_records_data_quality_five_fields_in_manifest[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）...
+FAILED platform/tests/test_run_strategy.py::test_run_strategy_records_data_quality_five_fields_in_manifest[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_run_real_chain_passes_guard_and_persists[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（byte...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_run_real_chain_passes_guard_and_persists[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_run_signal_override_uses_named_artifact[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_run_signal_override_uses_named_artifact[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_run_dry_run_has_no_side_effects[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_run_dry_run_has_no_side_effects[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_run_max_hold_fails_loud[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_run_max_hold_fails_loud[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_list_reflects_artifacts_and_empty[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_list_reflects_artifacts_and_empty[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_show_reads_artifacts_and_missing_is_not_found[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_show_reads_artifacts_and_missing_is_not_found[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（byt...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_export_nav_formats[duckdb-parquet] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_export_nav_formats[duckdb-csv] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_export_nav_formats[duckdb-json] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_export_nav_formats[ch-parquet] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_export_nav_formats[ch-csv] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_export_nav_formats[ch-json] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_export_target_and_usage[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_export_target_and_usage[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_capacity_real_amount_and_turnover[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_capacity_real_amount_and_turnover[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用...
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_cost_real_cost_net_report[duckdb] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+FAILED platform/tests/test_research_strategy_report.py::test_strategy_cost_real_cost_net_report[ch] - ValueError: 无法解析内存规格 'none'——支持 '8GB'/'512MB'/'1kb'/纯字节数（bytes）；不启用请留空
+58 failed, 65 passed in 27.26s

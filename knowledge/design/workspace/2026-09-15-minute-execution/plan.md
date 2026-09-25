@@ -1,6 +1,10 @@
 # 分钟级执行 实施计划（M8 扩展）
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **状态（R22）**：本计划 7 个任务均已实施并验收。原任务复选框已依据
+> [R22 完成证据](../../../../governance/evidence/verification/R22/minute-execution/SUMMARY.md)
+> 补记；分钟 NAV、量能触发与盘中临停规则不属于本计划 V1。
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** M8 执行层支持「日频信号 + 次日分钟窗口成交」：窗口/价格口径/分批/参与率/价格触发/兜底全部可配；默认 `NEXT_OPEN` 行为逐值不变。
 
@@ -8,7 +12,7 @@
 
 **Tech Stack:** Python 3.13 / polars / pydantic v2 / pytest；平台五层架构（core 纯净、I/O 在 adapters）。
 
-**Spec:** `docs/reviews/2026-09-15-minute-execution/design.md`（配置面 / 语义 / 接口 / 验收）
+**Spec:** `knowledge/design/workspace/2026-09-15-minute-execution/design.md`（配置面 / 语义 / 接口 / 验收）
 
 ## Global Constraints（来自 spec 与仓库纪律）
 
@@ -66,7 +70,7 @@
   - `slices` 非空时：按 start 升序、互不重叠、落在 [start,end] 内、权重和 = 1（容差 1e-9）、每个 weight > 0；
   - `offset_bps` finite（负=买更低价/卖更高价，语义在 Task 2 固定）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 # platform/tests/test_window_spec.py
@@ -131,21 +135,21 @@ def test_trigger_validation():
         TriggerSpec(mode="magic")
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_window_spec.py -q`
 Expected: FAIL（`NEXT_WINDOW` 不存在 / spec 模型不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `timing.py` 增 `NEXT_WINDOW = "next_window"`；`spec.py` 按 Interfaces 增加三个模型与 `ExecutionSpec` 字段/校验（pydantic `model_validator(mode="after")` 做跨字段校验；`extra="forbid"`、`frozen=True` 沿用现有风格）。
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_window_spec.py -q`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add platform/src/factorlab/core/domain/timing.py platform/src/factorlab/core/execution/spec.py platform/tests/test_window_spec.py
@@ -177,7 +181,7 @@ git commit -m "feat(platform): 分钟执行配置域（NEXT_WINDOW + 窗口/切�
   - `fallback="close"`：窗口结束仍有剩余 → 取最后**已成交或窗口内最后一根有价 bar**的 close 一次性补足（不参与率约束，标注 fallback 成交）；`fallback="none"` → `unfilled_qty` 如实返回；
   - 全程不读未来：仅用当前及更早分钟。
 
-- [ ] **Step 1: 写失败测试（表驱动手算）**
+- [x] **Step 1: 写失败测试（表驱动手算）**
 
 ```python
 # platform/tests/test_minute_window.py
@@ -255,19 +259,19 @@ def test_slices_weight_split_and_tail_to_last():
     assert sum(f.quantity for f in r.fills) == 101
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_minute_window.py -q`
 Expected: FAIL（模块不存在）
 
-- [ ] **Step 3: 实现**（纯函数、无 IO；金额单位：`amount=元`、`volume=股` → vwap = amount/volume）
+- [x] **Step 3: 实现**（纯函数、无 IO；金额单位：`amount=元`、`volume=股` → vwap = amount/volume）
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_minute_window.py -q`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add platform/src/factorlab/core/execution/minute_window.py platform/tests/test_minute_window.py
@@ -290,7 +294,7 @@ git commit -m "feat(platform): 纯分钟窗口成交引擎（VWAP/触发/参与�
   - 校验：`minute_index` 重复即 ValueError；`open/high/low/close` 出现 null 的分钟直接保留（由 Task 2 跳过），但 `volume<0`/`amount<0` 即 ValueError；
   - `rd.backend == "duckdb"` → `NotImplementedError("分钟数据仅 CH 后端提供")`（与 `adapters/intraday.py` 既有腿一致，fail fast）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 # platform/tests/test_read_minute_window.py
@@ -342,11 +346,11 @@ def test_negative_volume_rejected():
         load_execution_window(FakeRd("ch", bad), ["000001"], "2024-01-02", 0, 10)
 ```
 
-- [ ] **Step 2-4: 红 → 实现 → 绿**
+- [x] **Step 2-4: 红 → 实现 → 绿**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_read_minute_window.py -q`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add platform/src/factorlab/adapters/read/minute_window.py platform/tests/test_read_minute_window.py
@@ -370,13 +374,13 @@ git commit -m "feat(platform): 分钟执行窗口读取适配（CH only + 契约
   - 现金约束：成交金额+费用不得使现金 < 0（沿用既有缩减逻辑，按分钟递增缩减）；
   - 成本：每笔成交调用 `compute_execution_cost`（slippage 作用于成交价；佣金/印花税/过户费照旧）。
 
-- [ ] **Step 1: 写失败测试**（合成 1 只股票 3 分钟）+ 成本和现金约束用例；断言 `detail` 分钟粒度与 `fill_batch` 汇总一致；断言 SELL 在前。
-- [ ] **Step 2-4: 红 → 实现 → 绿**
+- [x] **Step 1: 写失败测试**（合成 1 只股票 3 分钟）+ 成本和现金约束用例；断言 `detail` 分钟粒度与 `fill_batch` 汇总一致；断言 SELL 在前。
+- [x] **Step 2-4: 红 → 实现 → 绿**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_window_fills.py tests/test_backtest_fills.py -q`
 （后半为目标回归：`NEXT_OPEN` 成交测试不受影响）
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add platform/src/factorlab/app/backtest/fills.py platform/tests/test_window_fills.py
@@ -400,7 +404,7 @@ git commit -m "feat(platform): 窗口成交实现（明细/未成交/成本/现�
     `schedule（严格 > decision 的下一交易日）→ daily snapshot（既有）→ load_execution_window → orders（规划参考价 = 窗口首分钟 open）→ 日级 fillability（既有闸门）→ realize_window_fills → apply_fill_batch → accounting → value_portfolio(WINDOW_END_BASED) → overnight`；
   - `NEXT_OPEN` 分支代码路径零改动；`NEXT_CLOSE` 保持显式 `NotImplementedError`（7 处不动）。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 # 核心断言示例（完整文件按既有 test_backtest_runtime.py 的 fixture 模式组织）
@@ -420,11 +424,11 @@ def test_next_close_still_rejected():
         ...  # NEXT_CLOSE 路径
 ```
 
-- [ ] **Step 2-4: 红 → 实现 → 绿（含既有 M8 全量回归）**
+- [x] **Step 2-4: 红 → 实现 → 绿（含既有 M8 全量回归）**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_backtest_window_runtime.py tests/test_backtest_runtime.py tests/test_backtest_orders.py tests/test_backtest_fills.py tests/test_backtest_overnight.py tests/test_execution_accounting.py tests/test_execution_valuation.py -q`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add platform/src/factorlab/app/backtest/backtest.py platform/src/factorlab/app/backtest/orders.py platform/tests/test_backtest_window_runtime.py
@@ -445,12 +449,12 @@ git commit -m "feat(platform): run_backtest 支持 NEXT_WINDOW（窗口执行 + 
   - 新增 artifact：`window_fills.parquet`（列同 Task 4 `detail`），仅 `NEXT_WINDOW` 运行时产出；
   - **向后兼容**：旧版本（无窗口字段）加载不受影响；`NEXT_WINDOW` 产物缺 `window_fills.parquet` → fail closed（`ValueError`，说明期望路径）；格式版本号递增（沿用现有版本常量机制，具体常量名以实现为准，禁止发明第二套）。
 
-- [ ] **Step 1: 写失败测试**：round-trip（写入 NEXT_WINDOW 结果 → 加载 → `window_fills` 与 spec 字段逐值一致）；旧版本 fixture 加载；坏产物（删明细文件）→ ValueError。
-- [ ] **Step 2-4: 红 → 实现 → 绿**
+- [x] **Step 1: 写失败测试**：round-trip（写入 NEXT_WINDOW 结果 → 加载 → `window_fills` 与 spec 字段逐值一致）；旧版本 fixture 加载；坏产物（删明细文件）→ ValueError。
+- [x] **Step 2-4: 红 → 实现 → 绿**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_execution_store_window.py tests/test_backtest_persistence.py -q`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add platform/src/factorlab/adapters/execution_store.py platform/tests/test_execution_store_window.py
@@ -463,9 +467,9 @@ git commit -m "feat(platform): 执行产物持久化扩展（窗口元数据 + �
 
 **Files:**
 - Test: `platform/tests/test_minute_execution_e2e.py`（`@pytest.mark.integration`）
-- 证据：`docs/verification/R22/`（命令 + 原始输出 + 门结果）
+- 证据：`governance/evidence/verification/R22/minute-execution/`（命令 + 原始输出 + 门结果）
 
-- [ ] **Step 1: 写集成测试**
+- [x] **Step 1: 写集成测试**
 
 ```python
 import pytest
@@ -481,20 +485,22 @@ def test_sealed_limit_case_on_ch():
     ...
 ```
 
-- [ ] **Step 2: 跑集成 + 手算对拍**
+- [x] **Step 2: 跑集成 + 手算对拍**
 
 Run: `cd platform && FACTORLAB_DATA_BACKEND=ch .venv/bin/python -m pytest tests/test_minute_execution_e2e.py -q`
 
-- [ ] **Step 3: 全门回归**
+- [x] **Step 3: 全门回归**
 
 Run: `make gates && cd platform && .venv/bin/python -m pytest -q`
 Expected: gates 全绿；≥ 2570 passed / 13 skipped
 
-- [ ] **Step 4: 证据与提交**
+- [x] **Step 4: 证据与提交**
 
 ```bash
-# docs/verification/R22/：命令、原始输出、门结果
-git add platform/tests/test_minute_execution_e2e.py docs/verification/R22
+# governance/evidence/verification/R22/minute-execution/：命令、原始输出、门结果
+# 按目录公约分别提交 platform/ 与 governance/ 改动
+git add platform/tests/test_minute_execution_e2e.py
+git add governance/evidence/verification/R22/minute-execution
 git commit -m "test(platform): R22 分钟执行端到端验收（CH 小样本 + 手算对拍 + 全门）"
 ```
 

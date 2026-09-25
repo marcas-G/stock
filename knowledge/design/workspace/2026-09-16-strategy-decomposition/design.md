@@ -84,7 +84,7 @@ L5 执行与风控（怎么交易）      M8（执行）+ 策略规则（路径�
 **目标**：策略像因子一样"一处定义、机器可跑、人可阅读、可版本化"。
 
 ```
-research/strategy/<name>.yaml        # 策略 spec（机器执行）——六层映射：
+$QUANTRESEARCH_ROOT/strategy/<name>.yaml        # 策略 spec（机器执行）——六层映射：
   name: low_lottery_top30_weekly
   signal: max_effect_20d_high        # L3：引用已入库因子（策略不重定义公式）
   direction: -1                      #    消费方向（与因子 direction 对齐校验）
@@ -102,9 +102,9 @@ research/strategy/<name>.yaml        # 策略 spec（机器执行）——六层
   date: {start: ..., end: ...}       # 回测评估窗口（独立于因子样本）
   universe_override: null            # L1：可选覆盖（默认随因子）
 
-research/docs/strategies/<name>.md   # 策略档案（与人读档案模板同构：
+$QUANTRESEARCH_ROOT/dossiers/strategies/<name>.md   # 策略档案（与人读档案模板同构：
                                      #   假设 / 规格全文 / 回测结果 / 迭代历史 / 风险）
-docs/index/strategies.md             # 策略索引（由 spec+档案生成，--check 门锁）
+$QUANTRESEARCH_ROOT/index/strategies.md             # 策略索引（由 spec+档案生成，--check 门锁）
 ```
 
 **现状缺口（平台侧）**：`StrategySpec` 目前只能由 Python 构造，**没有 YAML 加载器**；
@@ -112,8 +112,8 @@ docs/index/strategies.md             # 策略索引（由 spec+档案生成，--
 1. 平台：`load_strategy_spec(path) -> StrategySpec`（含 direction 与因子 artifact 的对齐校验、
    `universe_override` 语义、execution.rules 的"研究侧执行"边界声明）——**按 §5 收口改为加载器
    组合 `StrategyDoc{StrategySpec + ExecutionSpec}`**（StrategySpec 禁 execution 字段，不可合并）；
-2. 研究侧：`research/strategy/` 目录 + 策略档案模板（可从现有
-   `crash_bottom_leader_strategy.md` 提炼）+ `docs/index/strategies.md` 索引与 `--check` 门；
+2. 研究侧：`$QUANTRESEARCH_ROOT/strategy/` 目录 + 策略档案模板（可从现有
+   `crash_bottom_leader_strategy.md` 提炼）+ `$QUANTRESEARCH_ROOT/index/strategies.md` 索引与 `--check` 门；
 3. 首例：把 `crash_bottom_leader` 转为策略 spec（需数据前置：index_daily/stock_st/duckdb），
    或先用可跑的因子（如 `max_effect_20d_high`）落一个示例。
 

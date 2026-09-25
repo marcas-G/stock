@@ -63,8 +63,8 @@ FACTORLAB_DATA_BACKEND=ch .venv/bin/factorlab run "$QR/factor/<族>/<名>.yaml"
 ## 跑测试与门
 
 ```bash
-make test-platform        # 平台全量（约 13 分钟；最近基线 3150/13 见 governance/evidence/verification/R24/00-baseline/）
-make test-research        # 工具/研究测试（单解释器：平台 venv 3.13；最近实测 337 + 58/2skip 见 R24/12-acceptance/）
+make test-platform        # R43 @ a48ff57 快照：4128 passed / 17 skipped；非当前未提交工作树的验证结果
+make test-research        # R43 @ a48ff57 快照：platform tools 920、research tools 184、governance ops 219 passed
 make gates                # 结构/契约/标记/旧路径/索引/台账口径 全套常驻门（governance/ops/gates.sh）
 ```
 
@@ -82,6 +82,10 @@ make gates                # 结构/契约/标记/旧路径/索引/台账口径 �
 
 | 目录 | 内容 |
 |---|---|
-| `knowledge/` | **文档与知识唯一入口**：契约（contracts/）、设计（design/）、因子/策略档案（dossiers/）、手册（handbooks/）、索引（index/） |
-| `governance/` | **治理与证据**：门与脚本（ops/）、工作区约定与台账（workspace/）、验证与评审（evidence/） |
+| `knowledge/` | **文档与知识唯一入口**：契约（contracts/）、设计（design/）、手册（handbooks/） |
+| `governance/` | **治理与证据**：门与脚本（ops/）、工作区约定、文档目录与台账（workspace/）、验证与评审（evidence/） |
 | `platform/`、`research/` | 代码树（README/CLAUDE 各自环境事实）；R24 后 `platform/docs`、`research/docs` 仅留指针壳（D2） |
+
+全库文档分类清单与审计快照见
+[`governance/workspace/document-catalog.md`](governance/workspace/document-catalog.md)；
+发现文档问题时先提交 GitHub Issue，并在修复后更新目录。
