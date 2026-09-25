@@ -29,6 +29,7 @@ import json
 import os
 from pathlib import Path
 
+import numpy as np
 import polars as pl
 import pytest
 from _lockbox import DAYS, WINDOW as W, WINDOW_ID
@@ -553,6 +554,119 @@ def test_admit_migrates_old_frozen_diagnostics_without_retesting(
     assert len(calls["run"]) == 1
     assert len(calls["diag"]) == 2       # 仅重算诊断，不重跑 final
     assert len(_rows(db)) == 1
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    [
+        "boolean_retention",
+        "string_retention",
+        "nan_resic_t",
+        "infinite_r2_lib",
+        "missing_corr_max",
+        "missing_r2_lib",
+        "missing_retention",
+        "missing_resic_t",
+        "missing_resic_mean",
+        "missing_n_weeks",
+    ],
+)
+def test_admit_recomputes_malformed_frozen_diagnostics(
+        tmp_path, monkeypatch, corruption):
+    """坏缓存不能绕过数值准入，也不能让缺字段变成 KeyError。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+
+    first = _doc(_invoke("factor", "admit", str(spec)))
+    assert first["ok"] is True
+    frozen = _read_frozen(tmp_path)
+    if corruption == "boolean_retention":
+        # bool 是 Python int 的子类，也是 JSON 合法值；不能当有限数值准入。
+        frozen["retention"] = True
+    elif corruption == "string_retention":
+        frozen["retention"] = "0.8"
+    elif corruption == "nan_resic_t":
+        frozen["resic_t"] = float("nan")
+    elif corruption == "infinite_r2_lib":
+        frozen["r2_lib"] = float("inf")
+    else:
+        field = corruption.removeprefix("missing_")
+        del frozen[field]
+    _frozen(tmp_path).write_text(json.dumps(frozen), encoding="utf-8")
+
+    second = _doc(_invoke("factor", "admit", str(spec)))
+
+    assert second["ok"] is True
+    assert second["data"]["verdict"] == "可加入"
+    assert second["data"]["retention"] == pytest.approx(0.8)
+    assert len(calls["run"]) == 1
+    assert len(calls["diag"]) == 2  # 复用同次 final，只重算诊断
+    assert len(_rows(db)) == 1
+    repaired = _read_frozen(tmp_path)
+    assert repaired["retention"] == pytest.approx(0.8)
+    assert repaired["n_weeks"] == 8
+
+
+def test_admit_damaged_frozen_json_returns_controlled_refusal(
+        tmp_path, monkeypatch):
+    """无法解析的冻结件受控拒绝，不泄漏 JSONDecodeError/不误判准入。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+
+    assert _doc(_invoke("factor", "admit", str(spec)))["ok"] is True
+    _frozen(tmp_path).write_text("{broken", encoding="utf-8")
+
+    doc = _doc(_invoke("factor", "admit", str(spec)))
+
+    assert doc["ok"] is False
+    assert doc["error"]["code"] == "LOCKBOX_FINAL_REQUIRED"
+    assert "冻结诊断文件损坏" in doc["error"]["message"]
+    assert len(calls["run"]) == 1
+    assert len(calls["diag"]) == 1
+    assert len(_rows(db)) == 1
+
+
+def test_admit_rejects_recomputed_nonfinite_diagnostics(
+        tmp_path, monkeypatch):
+    """诊断重算仍含 NaN/Inf 时受控拒绝，不能进入 JOIN。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    calls = _fake_lane(
+        tmp_path, monkeypatch, db, diag=(0.3, 0.4, float("nan"), 0.5, 8))
+
+    doc = _doc(_invoke("factor", "admit", str(spec)))
+
+    assert doc["ok"] is False
+    assert doc["error"]["code"] == "DATA"
+    assert "非有限数值" in doc["error"]["message"]
+    assert len(calls["run"]) == 1
+    assert len(calls["diag"]) == 1
+    assert len(_rows(db)) == 1
+    assert not _frozen(tmp_path).exists()
+
+
+def test_test_diagnostics_validation_accepts_numpy_numeric_scalars():
+    """Real resIC calculations may yield NumPy floats; JSON-safe schema accepts them."""
+    doc = F._jsonify({
+        "version_fingerprint": "fingerprint",
+        "window_id": WINDOW_ID,
+        "window_start": W.start.isoformat(),
+        "date_start": W.start.isoformat(),
+        "date_end": W.end.isoformat(),
+        "diagnostics_schema": F._TEST_DIAGNOSTICS_SCHEMA,
+        "frequency": "daily",
+        "fwd_col": "forward_return_1d",
+        "corr_max": np.float64(0.3),
+        "r2_lib": np.float64(0.4),
+        "retention": np.float64(0.8),
+        "resic_t": np.float64(3.2),
+        "resic_mean": np.float64(0.1),
+        "n_weeks": np.int64(8),
+        "created_at": "2026-09-25T00:00:00+00:00",
+    })
+
+    assert F._test_diagnostics_valid(
+        doc, fingerprint="fingerprint", window=W,
+        frequency="daily", fwd_col="forward_return_1d")
 
 
 def test_admit_is_only_window_rejected(tmp_path, monkeypatch):

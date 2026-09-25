@@ -27,6 +27,7 @@ import argparse
 import dataclasses
 import datetime
 import json
+import math
 import os
 import re
 import shutil
@@ -121,7 +122,8 @@ def _jsonify(value: Any) -> Any:
 
 
 def _finite(x: Any) -> bool:
-    return isinstance(x, (int, float)) and x == x and abs(x) != float("inf")
+    return (not isinstance(x, bool) and isinstance(x, (int, float))
+            and x == x and abs(x) != float("inf"))
 
 
 def _ensure() -> None:
@@ -573,6 +575,7 @@ def _admit_verdict(corr_max: float, r2_lib: float, resic_t: float,
     if (_finite(resic_t)
             and abs(resic_t) >= REFERENCE_ADMISSION_MIN_ABS_RESIC_T
             and _finite(corr_max) and corr_max < 0.7
+            and _finite(r2_lib)
             and _finite(retention) and retention >= 0.5):
         return _VERDICT_JOIN
     return _VERDICT_WATCH
@@ -755,6 +758,48 @@ def resolve_candidate_spec(name: str) -> Path | None:
 _TEST_DIAGNOSTICS_SCHEMA = 2
 
 
+def _test_diagnostics_valid(doc: Any, *, fingerprint: str, window: Any,
+                           frequency: str, fwd_col: str) -> bool:
+    """Validate the complete frozen diagnostic payload before it can drive admission.
+
+    Undefined diagnostics are serialized as JSON null. They are not valid for a
+    frozen admission decision, so the caller must recompute or refuse. In
+    particular, bool is excluded even though Python treats it as an int.
+    """
+    if not isinstance(doc, dict):
+        return False
+    string_fields = (
+        "version_fingerprint", "window_id", "window_start", "date_start",
+        "date_end", "frequency", "fwd_col", "created_at",
+    )
+    if any(type(doc.get(key)) is not str or not doc[key].strip()
+           for key in string_fields):
+        return False
+    if (doc["version_fingerprint"] != fingerprint
+            or doc["window_id"] != window.window_id
+            or doc["window_start"] != window.start.isoformat()
+            or doc["date_start"] != window.start.isoformat()
+            or doc["date_end"] != window.end.isoformat()
+            or doc["frequency"] != frequency
+            or doc["fwd_col"] != fwd_col):
+        return False
+    if (type(doc.get("diagnostics_schema")) is not int
+            or doc["diagnostics_schema"] != _TEST_DIAGNOSTICS_SCHEMA):
+        return False
+
+    for key in ("corr_max", "r2_lib", "retention", "resic_t", "resic_mean"):
+        value = doc.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return False
+        try:
+            if not math.isfinite(float(value)):
+                return False
+        except (OverflowError, TypeError, ValueError):
+            return False
+    n_periods = doc.get("n_weeks")
+    return type(n_periods) is int and n_periods >= 0
+
+
 def _diagnostic_options(spec_doc: dict[str, Any] | None) -> tuple[str, str]:
     """Resolve the resIC cadence from the candidate spec.
 
@@ -813,10 +858,17 @@ def _compute_test_diagnostics(*, name: str, base: list[str], window: Any,
         "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(
             timespec="seconds"),
     }
+    frozen_doc = _jsonify(doc)
+    if not _test_diagnostics_valid(
+            frozen_doc, fingerprint=fingerprint, window=window,
+            frequency=frequency, fwd_col=fwd_col):
+        raise ValueError(
+            "最终测试段诊断缺少必需字段、类型无效或包含非有限数值；"
+            "拒绝生成可用于准入的冻结件")
     path = results_dir / f"{name}_5y" / "test_diagnostics.json"
-    atomic_write_text(path, json.dumps(_jsonify(doc), ensure_ascii=False,
+    atomic_write_text(path, json.dumps(frozen_doc, ensure_ascii=False,
                                        indent=2) + "\n")
-    return doc, path
+    return frozen_doc, path
 
 
 def _final_test_gate(spec_doc: dict[str, Any] | None,
@@ -915,7 +967,18 @@ def _final_test_gate(spec_doc: dict[str, Any] | None,
                 fwd_col=diagnostic_fwd_col)
             executed = True
         elif frozen_path.is_file():
-            diag = json.loads(frozen_path.read_text(encoding="utf-8"))
+            try:
+                diag = json.loads(frozen_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise lb.LockboxError(
+                    "LOCKBOX_FINAL_REQUIRED",
+                    f"冻结诊断文件损坏（{frozen_path}）：{exc}；"
+                    "拒绝使用该文件，请经 `make xpipe` 重建最终测试与冻结件")
+            if not isinstance(diag, dict):
+                raise lb.LockboxError(
+                    "LOCKBOX_FINAL_REQUIRED",
+                    f"冻结诊断文件格式无效（{frozen_path}）：顶层必须是 JSON 对象；"
+                    "拒绝使用该文件，请经 `make xpipe` 重建最终测试与冻结件")
             if (diag.get("version_fingerprint") != fp
                     or diag.get("window_id") != window.window_id):
                 raise lb.LockboxError(
@@ -923,12 +986,13 @@ def _final_test_gate(spec_doc: dict[str, Any] | None,
                     f"冻结件 {frozen_path} 与登记（版本 {fp[:12]}… / 窗口 "
                     f"{window.window_id}）不符：先经 `make xpipe`（pipeline final）"
                     "重建最终测试与冻结件")
-            if (diag.get("diagnostics_schema") != _TEST_DIAGNOSTICS_SCHEMA
-                    or diag.get("frequency") != diagnostic_frequency
-                    or diag.get("fwd_col") != diagnostic_fwd_col
-                    or "retention" not in diag):
+            if not _test_diagnostics_valid(
+                    diag, fingerprint=fp, window=window,
+                    frequency=diagnostic_frequency,
+                    fwd_col=diagnostic_fwd_col):
                 # Recompute diagnostics from the existing final panel when the
-                # metric schema or cadence changed; never rerun/re-register final.
+                # payload shape, numeric types, or cadence changed; never
+                # rerun/re-register final.
                 _preflight_base_products(
                     base=base, results_dir=Path(settings.results_dir))
                 diag, frozen_path = _compute_test_diagnostics(
@@ -1177,10 +1241,22 @@ def _insert_reference_entry(text: str, scales: str, entry: dict) -> str:
     """在 `  <scales>:` 组尾部插入条目（文本级——保留既有注释/顺序）。"""
     lines = text.splitlines(keepends=True)
     start = None
+    empty_inline = None
+    empty_inline_comment = ""
     for i, line in enumerate(lines):
         if line.rstrip("\n") == f"  {scales}:":
             start = i + 1
             break
+        match = re.match(
+            rf"^  {re.escape(scales)}:\s*\[\s*\](\s+#.*)?$",
+            line.rstrip("\n"))
+        if match:
+            empty_inline = i
+            empty_inline_comment = match.group(1) or ""
+            break
+    if start is None and empty_inline is not None:
+        lines[empty_inline] = f"  {scales}:{empty_inline_comment}\n"
+        start = empty_inline + 1
     if start is None:
         raise ValueError(f"参考库缺 scales 组: {scales}")
     end = len(lines)
@@ -1234,10 +1310,6 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
     if not path.is_file():
         return envelope.fail("factor.ref.add", "NOT_FOUND", f"参考库不存在: {path}",
                              hint="先建 `$QUANTRESEARCH_ROOT/factor/_reference.yaml`（scales: daily/minute）")
-    scales = getattr(args, "scales", None) or "daily"
-    if scales not in REFERENCE_SCALES:
-        return envelope.fail("factor.ref.add", "LINT",
-                             f"未知 scales {scales}（只允许 {list(REFERENCE_SCALES)}）")
     try:
         ref = load_reference(path)
     except ValueError as exc:
@@ -1260,6 +1332,13 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
             gate_spec = load_spec(spec_path)
         except (OSError, ValueError, yaml.YAMLError):
             gate_spec = None
+    requested_scales = getattr(args, "scales", None)
+    scales = requested_scales or (
+        "minute" if gate_spec is not None and gate_spec.interface == "bars_1m"
+        else "daily")
+    if scales not in REFERENCE_SCALES:
+        return envelope.fail("factor.ref.add", "LINT",
+                             f"未知 scales {scales}（只允许 {list(REFERENCE_SCALES)}）")
     try:
         base = [b for b in reference_names(scales) if b != name]
     except FileNotFoundError as exc:
@@ -1290,11 +1369,12 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
         from factorlab.app.analysis.cross_section import incremental_diagnostics
         if not base:
             # An empty scale is initialized by a seed. There is no comparison
-            # set yet, so the operator-supplied entry fields remain nullable.
+            # set yet, so legacy manual entry values are ignored and metrics stay
+            # nullable.
             diagnostics = {
-                "corr_max": getattr(args, "entry_corr_max", None),
+                "corr_max": None,
                 "r2_lib": None,
-                "resic_t": getattr(args, "entry_resic_t", None),
+                "resic_t": None,
                 "retention": None,
             }
             verdict = _VERDICT_SEED
@@ -1321,7 +1401,7 @@ def factor_ref_add(args: Any) -> envelope.Envelope:
         verdict = _admit_verdict(
             diagnostics["corr_max"], diagnostics["r2_lib"],
             diagnostics["resic_t"], diagnostics.get("retention"))
-    if verdict != _VERDICT_JOIN:
+    if verdict not in (_VERDICT_JOIN, _VERDICT_SEED):
         resic_t = diagnostics.get("resic_t")
         shown_t = abs(resic_t) if _finite(resic_t) else "不可用"
         corr_max = diagnostics.get("corr_max")
@@ -1631,7 +1711,10 @@ def _reg_all() -> None:
         "factor.ref.add", handler=factor_ref_add,
         params=(registry.ParamSpec("name", kind="str", positional=True, required=True,
                                    help="成员因子名"),
-                registry.ParamSpec("scales", kind="str", help="daily|minute（缺省 daily）"),
+                registry.ParamSpec(
+                    "scales", kind="str",
+                    help="未传时按候选 spec interface 自动：bars_1m→minute，其余/缺省→daily；"
+                         "显式 --scales 覆盖自动选择"),
                 registry.ParamSpec("style", kind="str", required=True, help="风格标签"),
                 registry.ParamSpec("reason", kind="str", required=True, help="入库理由"),
                 registry.ParamSpec("added", kind="str", help="加入日期（缺省今天）"),
@@ -1640,17 +1723,19 @@ def _reg_all() -> None:
                 registry.ParamSpec("entry_resic_t", kind="float",
                                    help="兼容旧参数；不能覆盖实际诊断或绕过准入门"),
                 _JSON, _PRETTY),
-        defaults={"scales": "daily", "added": None, "entry_corr_max": None,
+        defaults={"scales": None, "added": None, "entry_corr_max": None,
                   "entry_resic_t": None},
-        description=("参考库入库（最终测试门 + D10 增量判决：|resIC t|≥3、"
-                     "corr_max<0.7、retention≥0.5；entry 值取权威诊断）"),
-        examples=("flab factor ref add my_factor --style 量价 --reason '独立增量'",),
+        description=("参考库入库：候选 spec 决定 daily/minute 分组（显式 scales 优先）；"
+                     "非空组须通过最终测试门和 D10（|resIC t|≥3、corr_max<0.7、"
+                     "retention≥0.5）；空组允许以 seed 初始化，诊断值为空"),
+        examples=("flab factor ref add my_factor --style 量价 --reason '独立增量'",
+                  "flab factor ref add minute_factor --style 分钟 --reason '分钟种子'"),
         output_schema={"type": "object", "properties": {
             "name": {"type": "string"}, "scales": {"type": "string"},
             "path": {"type": "string"}, "backup": {"type": "string"},
             "spec": {"type": ["string", "null"]},
             "test_diagnostics": {"type": ["string", "null"]},
-            "verdict": {"type": "string", "enum": ["可加入"]}}},
+            "verdict": {"type": "string", "enum": ["可加入", "种子"]}}},
     )
     _register(
         "factor.ref.remove", handler=factor_ref_remove,

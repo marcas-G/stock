@@ -264,6 +264,7 @@ def joint_diagnostics(names: list[str], results_dir: str | pathlib.Path,
 VERDICT_JOIN = "可加入"
 VERDICT_WATCH = "观察"
 VERDICT_REDUNDANT = "冗余"
+VERDICT_DUPLICATE = "重复"
 
 # User-selected operational admission floor. The max-T audit estimated a joint
 # critical value near 3.45; using 3.0 is not a claim of FWER control.
@@ -282,6 +283,8 @@ def _series_stats(xs: list[float]) -> tuple[float, float, float]:
 
 def _finite_scalar(value: float) -> bool:
     """True only for finite numeric diagnostics; malformed/non-finite values fail closed."""
+    if isinstance(value, bool):
+        return False
     try:
         return bool(np.isfinite(value))
     except (TypeError, ValueError):
@@ -292,20 +295,27 @@ def _incremental_verdict(corr_max: float, r2_lib: float, resic_t: float,
                          retention: float) -> str:
     """D10 参考库判决（用户选定的 resIC 绝对 t 准入门槛为 3.0）：
 
-    - **冗余**：max|ρ| ≥ 0.9 或 r2_lib ≥ 0.9 或 retention < 20%（近亲/几乎被库解释）；
+    - **重复**：max|ρ| ≥ 0.95；
+    - **冗余**：0.9 ≤ max|ρ| < 0.95、r2_lib ≥ 0.9、retention < 20%，或
+      r2_lib ≥ 0.8 且 |resIC t| < 2（近亲/几乎被库解释）；
     - **可加入**：残差 |t| ≥ 3 且 max|ρ| < 0.7 且 retention ≥ 50%；
     - 其余 → **观察**。
 
     3.0 是操作性门槛；99 项试验、B=300 的联合 max-T 校准估计临界值约
     3.45，因此此门槛不声称已控制 FWER。
     """
+    if _finite_scalar(corr_max) and corr_max >= 0.95:
+        return VERDICT_DUPLICATE
     if ((_finite_scalar(corr_max) and corr_max >= 0.9)
             or (_finite_scalar(r2_lib) and r2_lib >= 0.9)
-            or (_finite_scalar(retention) and retention < 0.2)):
+            or (_finite_scalar(retention) and retention < 0.2)
+            or (_finite_scalar(r2_lib) and r2_lib >= 0.8
+                and not (_finite_scalar(resic_t) and abs(resic_t) >= 2.0))):
         return VERDICT_REDUNDANT
     if (_finite_scalar(resic_t)
             and abs(resic_t) >= REFERENCE_ADMISSION_MIN_ABS_RESIC_T
             and _finite_scalar(corr_max) and corr_max < 0.7
+            and _finite_scalar(r2_lib)
             and _finite_scalar(retention) and retention >= 0.5):
         return VERDICT_JOIN
     return VERDICT_WATCH

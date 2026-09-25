@@ -774,6 +774,23 @@ def test_admit_verdict_uses_absolute_admission_floor(resic_t, expected):
 
 
 @pytest.mark.parametrize(
+    "field, diagnostics",
+    [
+        ("corr_max", {"corr_max": True, "r2_lib": 0.1,
+                      "resic_t": 3.0, "retention": 0.8}),
+        ("r2_lib", {"corr_max": 0.1, "r2_lib": True,
+                    "resic_t": 3.0, "retention": 0.8}),
+        ("resic_t", {"corr_max": 0.1, "r2_lib": 0.1,
+                     "resic_t": True, "retention": 0.8}),
+        ("retention", {"corr_max": 0.1, "r2_lib": 0.1,
+                       "resic_t": 3.0, "retention": True}),
+    ],
+)
+def test_admit_verdict_rejects_boolean_diagnostics(field, diagnostics):
+    assert F._admit_verdict(**diagnostics) == "观察", field
+
+
+@pytest.mark.parametrize(
     "corr_max, retention, expected",
     [
         (0.8, 0.8, "观察"),
@@ -1038,6 +1055,95 @@ def test_factor_ref_add_lockbox_off_uses_spec_cadence_and_target(
     assert reference.load_reference(ref)["daily"][-1].name == "weekly_cand"
 
 
+@pytest.mark.parametrize(
+    "requested_scales, expected_scales",
+    [
+        (None, "minute"),
+        ("daily", "daily"),
+    ],
+)
+def test_factor_ref_add_scale_follows_spec_interface_unless_explicit(
+        tmp_path, monkeypatch, requested_scales, expected_scales):
+    from factorlab import config
+    from factorlab.app.analysis import reference
+    from factorlab.research import registry
+
+    monkeypatch.setenv("FACTORLAB_LOCKBOX", "on")
+    ref = _fixture_ref(tmp_path)
+    monkeypatch.setenv("FACTORLAB_REFERENCE", str(ref))
+    qr = tmp_path / "qr"
+    spec_dir = qr / "factor" / "demo"
+    spec_dir.mkdir(parents=True)
+    spec = _admit_spec(tmp_path, name="minute_cand", interface="bars_1m")
+    (spec_dir / "minute_cand.yaml").write_text(
+        spec.read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.setattr(config.settings, "research_root", qr)
+
+    seen = {}
+
+    def fake_final_test_gate(spec_doc, spec_path, *, reason, command,
+                             scales, base, wait=False):
+        seen.update(scales=scales, base=base)
+        return {
+            "diagnostics": {
+                "corr_max": 0.1, "r2_lib": 0.1, "resic_t": 3.2,
+                "retention": 0.8,
+            },
+            "executed": False,
+            "path": str(tmp_path / "test_diagnostics.json"),
+        }
+
+    monkeypatch.setattr(F, "_final_test_gate", fake_final_test_gate)
+    parser = registry.build_parser(registry.COMMANDS["factor.ref.add"])
+    argv = ["minute_cand", "--style", "分钟", "--reason", "独立候选"]
+    if requested_scales is not None:
+        argv.extend(["--scales", requested_scales])
+    ns = parser.parse_args(argv)
+
+    env = F.factor_ref_add(ns)
+
+    assert env.ok, env.error
+    assert seen["scales"] == expected_scales
+    expected_base = ["min_x"] if expected_scales == "minute" else ["base_a", "base_b"]
+    assert seen["base"] == expected_base
+    assert env.data["scales"] == expected_scales
+    assert reference.load_reference(ref)[expected_scales][-1].name == "minute_cand"
+
+
+def test_factor_ref_add_can_initialize_empty_scale_as_seed(
+        tmp_path, monkeypatch):
+    from factorlab.app.analysis.reference import load_reference
+    from factorlab.research import registry
+
+    ref = tmp_path / "_reference.yaml"
+    ref.write_text(
+        'updated: "2024-01-01"\n'
+        "scales:\n"
+        "  daily:\n"
+        "    - name: base_a\n"
+        "      style: 日线\n"
+        "      reason: fixture\n"
+        '      added: "2024-01-01"\n'
+        "  minute: [] # empty group\n",
+        encoding="utf-8")
+    monkeypatch.setenv("FACTORLAB_REFERENCE", str(ref))
+    parser = registry.build_parser(registry.COMMANDS["factor.ref.add"])
+    ns = parser.parse_args([
+        "minute_seed", "--scales", "minute", "--style", "分钟种子",
+        "--reason", "初始化分钟参考组",
+        "--entry-corr-max", "0.99", "--entry-resic-t", "99"])
+
+    env = F.factor_ref_add(ns)
+
+    assert env.ok, env.error
+    assert env.data["verdict"] == "种子"
+    minute = load_reference(ref)["minute"]
+    assert [entry.name for entry in minute] == ["minute_seed"]
+    assert minute[0].entry_corr_max is None
+    assert minute[0].entry_resic_t is None
+    assert "# empty group" in ref.read_text(encoding="utf-8")
+
+
 def test_factor_ref_add_rejects_bad_scale_and_duplicate(tmp_path, monkeypatch):
     from factorlab.app.analysis.reference import load_reference
     from factorlab.research import registry
@@ -1264,6 +1370,30 @@ def test_cli_research_factor_admit_help_and_describe_scale_autodetect():
 
     describe = runner.invoke(cli_app, [
         "research", "describe", "--json", "--command", "factor.admit"])
+    assert describe.exit_code == 0, describe.output
+    doc = json.loads(describe.stdout)["data"]
+    assert doc["defaults"]["scales"] is None
+    scales = next(p for p in doc["params"] if p["name"] == "scales")
+    assert "bars_1m" in scales["help"]
+    assert "minute" in scales["help"]
+
+
+def test_cli_research_factor_ref_add_help_and_describe_scale_autodetect():
+    from factorlab.research import registry
+
+    parser = registry.build_parser(registry.COMMANDS["factor.ref.add"])
+    assert parser.parse_args([
+        "candidate", "--style", "分钟", "--reason", "独立候选"]).scales is None
+
+    help_result = runner.invoke(cli_app, [
+        "research", "factor", "ref", "add", "--help"])
+    assert help_result.exit_code == 0, help_result.output
+    assert "bars_1m" in help_result.stdout
+    assert "minute" in help_result.stdout
+    assert "显式 --scales" in help_result.stdout
+
+    describe = runner.invoke(cli_app, [
+        "research", "describe", "--json", "--command", "factor.ref.add"])
     assert describe.exit_code == 0, describe.output
     doc = json.loads(describe.stdout)["data"]
     assert doc["defaults"]["scales"] is None

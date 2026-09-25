@@ -2,7 +2,7 @@
 
 更新：2026-09-25 UTC。来源：GitHub `marcas-G/stock` Issues 当前状态、issue 正文/评论，以及仓内评审和验证记录。
 
-本次盘点到 **27 个 open、6 个 closed issue**；PR #1–#4 不列入 issue。GitHub 负责对外状态和讨论；`findings.md` 是评审问题的证据状态源，`pending-items.md` 是工作区未决事项源。本页作为索引和处理摘要，不替代二者，也不把 GitHub 的 closed 自动等同于修复完成。
+本次同步后盘点到 **18 个 open、16 个 closed issue**；PR #1–#4、#42、#43 不列入 issue。GitHub 负责对外状态和讨论；`findings.md` 是评审问题的证据状态源，`pending-items.md` 是工作区未决事项源。本页作为索引和处理摘要，不替代二者，也不把 GitHub 的 closed 自动等同于修复完成。
 
 状态标记：
 
@@ -20,6 +20,7 @@
 | [#5 R08-MET-I1](https://github.com/marcas-G/stock/issues/5) | **待补证/收尾**。历史产物口径与当前不一致；R35 记录 `intraday_high_time` 已更新，`max_effect_20d_high` 仍为 v1 旧口径且当时属于挖矿在途例外。 | 在在途任务结束后重跑或处置该产物，回填 commit、命令和证据，再由 reviewer 复查。详见 `findings.md`、`governance/evidence/verification/R35/README.md`。 |
 | [#6 R08-DATA-I2](https://github.com/marcas-G/stock/issues/6) | **实现范围已补证，仍待评审/回填**。退市股 `adj_factor` sidecar 与回灌工具覆盖 2022+；R35 抽查 5 码一致，评估窗 NULL 从 41,984 降至 157。明确尚有 5 码漂移拒绝、157 行/10 码窗口 NULL，以及 2022 年前未覆盖。 | 回填 R30 Task 12 实现和复验记录；按原 issue 验收口径决定 157 行及历史尾项是否阻止关单。详见 [`R43/ISSUE-6.md`](../evidence/verification/R43/ISSUE-6.md)。 |
 | [#26 R31-CODEGEN-I1](https://github.com/marcas-G/stock/issues/26) | **部分处理，仍 open**。已增加编译输出全 NaN fail-loud 守卫；本地双资产嵌套窗口合成测试通过，但未复现原 CH 缺陷，不能确认嵌套 codegen 已修。 | 完成 DQ 门后用 issue spec 真 CH 复现/验收；当前保留 open。RED/GREEN、28+44 条测试与 live gate 限制见 [`R43/ISSUE-26.md`](../evidence/verification/R43/ISSUE-26.md)。 |
+| [#27 R37-EXEC-I1](https://github.com/marcas-G/stock/issues/27) | **实现已提交，长窗口 CH 验收待补**。用户选择将 NEXT_OPEN 执行价封顶到涨跌停价，并按封顶价重算成本。 | `7d3a2b9` 已提交 BUY/SELL 封顶与成本重算；BUY/SELL 边界、资金约束、账务/NAV 及相关测试 246 passed。原五年 CH 策略仍未重跑，故暂不关单。证据见 [`R43/ISSUE-27.md`](../evidence/verification/R43/ISSUE-27.md)。 |
 | [#28 R37-EXEC-I2](https://github.com/marcas-G/stock/issues/28) | **阻塞：生产端制度日期口径未定**。执行端契约明确为缺 `stk_limit` 行即无涨跌幅并可成交；但现有数据不能权威区分复牌日、退市整理期起始日，且 R37 既有文档将 stale `pre_close` 近似列为 v1 接受项，与 issue 要求冲突。 | 先裁决权威日期/限价数据源，或明确支持的事件范围及不可识别时的处理政策；口径未定前不推断改码。证据、当前行为测试与解除阻塞条件见 [`R43/ISSUE-28.md`](../evidence/verification/R43/ISSUE-28.md)。 |
 | [#31 R37-REF-I2](https://github.com/marcas-G/stock/issues/31) | **待处理**。参考库入库标准需覆盖裸指标过滤、底座质量和方向/持有期口径。issue 已记录从 42 员过滤为 37 员的审计结果，但修复说明与 reviewer 复查尚未填写。 | 固化准入判据、补全记录并复查；#29/#30 的重新归类结论已并入本 issue。详见 `governance/evidence/verification/R37/acceptance/ref10/`。 |
 | [#35 ref-sync](https://github.com/marcas-G/stock/issues/35) | **阻塞：现有分钟 DSL/engine 无法表达原算法**。已找到 M28 原始脚本和研究结论；但没有 FactorLab spec 或五年产物，现存 backfill 只有 2023–2025 数据且缺 evaluation 元数据。 | 先设计并验收分钟 PIT 行业键、按行业/分钟 LOO 聚合与滞后配对回归能力；再逐值迁移、运行五年流水线。不可把 backfill/NPZ 缓存当作 spec 或 ref-sync 产物。详见 [`R43/ISSUE-35.md`](../evidence/verification/R43/ISSUE-35.md)、`governance/evidence/verification/R41/README.md` 和 R42 §G。 |
@@ -31,6 +32,7 @@
 
 | Issue | 失败日期与步骤 | 下一步 |
 |---|---|---|
+| [#41](https://github.com/marcas-G/stock/issues/41) | **nightly deep verify 失败，待处理**。G-TOPO 检出 `research_flows` 跨工具导入和未登记 parquet 直读；platform architecture 测试发现工具直接注入平台路径；research-tools 回放测试的输出根路径不符合约束。 | 失败来自独立 Prefect PR #42 所在工作区状态，日志 `/data/students/gaolei/quantresearch/results/platform/.nightly/20260926-030000.log`；由 PR #42 责任分支修复并复验。本项不属于本次 issue 修复 MR。 |
 
 ### 计划、决策与外部动作
 
@@ -52,9 +54,8 @@
 |---|---|---|
 | [#20 R36-CI-I1](https://github.com/marcas-G/stock/issues/20) | **修复完成** | `7d3a2b9` 将 cash bridge 比较统一为 `rel_tol=1e-12, abs_tol=1e-9`；账务/artifact 39 passed、策略回归 85 passed。证据 [`R43/ISSUE-20.md`](../evidence/verification/R43/ISSUE-20.md)。|
 | [#22 R31-API-I1](https://github.com/marcas-G/stock/issues/22) | **修复完成** | `7d3a2b9` 增加 `resic` 的 daily/weekly、horizon、forward 列选择；`9d61058` 覆盖 admit/ref-add/final-test cadence；相关套件 147 passed。证据 [`R43/ISSUE-22.md`](../evidence/verification/R43/ISSUE-22.md)。|
-| [#23 R31-API-M1](https://github.com/marcas-G/stock/issues/23) | **修复完成** | `bars_1m` 候选自动选择 minute 参考组，其余默认 daily，显式 `--scales` 优先；相关回归与锁箱接线已覆盖。证据 [`R43/ISSUE-23.md`](../evidence/verification/R43/ISSUE-23.md)。|
-| [#24 R31-STAT-I1](https://github.com/marcas-G/stock/issues/24) | **操作口径裁定后关闭** | 用户选择 `|resIC t|≥3` 作为当前候选准入操作门；`D10`、`admit`、`ref add` 已同步。99 项/B=300 估计临界值约 3.45，FWER 多重性尾项继续由 review finding 跟踪。证据 [`R43/ISSUE-24.md`](../evidence/verification/R43/ISSUE-24.md)。|
-| [#27 R37-EXEC-I1](https://github.com/marcas-G/stock/issues/27) | **实现完成** | 用户选择 NEXT_OPEN 滑点越界封顶到涨跌停价；BUY/SELL、资金边界、账务/NAV 回归 246 passed。五年 CH live acceptance 作为后续补证，不阻止本实现 issue 关闭。证据 [`R43/ISSUE-27.md`](../evidence/verification/R43/ISSUE-27.md)。|
+| [#23 R31-API-M1](https://github.com/marcas-G/stock/issues/23) | **修复完成** | `factor admit` 与 `factor ref add` 按候选 spec 自动选择 daily/minute 组，显式 `--scales` 优先；空组可用 seed 初始化。 cadence/label 诊断仍按 spec 独立选择。证据 [`R43/ISSUE-23.md`](../evidence/verification/R43/ISSUE-23.md) 与 [`ISSUE-24-followup.md`](../evidence/verification/R43/ISSUE-24-followup.md)。|
+| [#24 R31-STAT-I1](https://github.com/marcas-G/stock/issues/24) | **用户裁定后的操作门已实现** | 当前候选准入按用户选择 `|resIC t|≥3`；D10/admit/ref-add 分类统一，冻结件做完整 schema/type/finite 校验，坏缓存重算或受控拒绝。99 项/B=300 估计临界值约 3.45，FWER 仍未证明并继续由 review finding 跟踪。证据 [`R43/ISSUE-24.md`](../evidence/verification/R43/ISSUE-24.md) 与 [`ISSUE-24-followup.md`](../evidence/verification/R43/ISSUE-24-followup.md)。|
 | [#33 G-TOPO](https://github.com/marcas-G/stock/issues/33) | **拓扑修复** | `dfbb59f` 将 porteval `engine.py` 改名为 `pv_engine.py`，G-TOPO 为 0。证据 [`R43/ISSUE-33.md`](../evidence/verification/R43/ISSUE-33.md)。|
 | [#34](https://github.com/marcas-G/stock/issues/34) | **历史 nightly 故障修复** | `dfbb59f` 消除 porteval 与 lob_fact 的模块冲突；R43 deep verify 全链通过。证据 [`R43/ISSUE-34-36-38.md`](../evidence/verification/R43/ISSUE-34-36-38.md)。|
 | [#36](https://github.com/marcas-G/stock/issues/36) | **历史 nightly 故障修复** | `2907409` 固定 freshness 测试时钟，索引重生成后检查通过；定向 2 passed，R43 deep verify 全链通过。证据 [`R43/ISSUE-34-36-38.md`](../evidence/verification/R43/ISSUE-34-36-38.md)。|

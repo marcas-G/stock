@@ -207,8 +207,8 @@ def test_incremental_independent_factor_verdict_can_join(tmp_path):
     assert f["r2_lib"] < 0.9
 
 
-def test_incremental_kin_factor_verdict_redundant(tmp_path):
-    """近亲因子（复制+噪声）→ r2_lib 高、resic 不显著 → verdict=冗余。"""
+def test_incremental_kin_factor_verdict_duplicate(tmp_path):
+    """高度相关因子（复制+噪声）→ corr_max≥0.95 → verdict=重复。"""
     vs = _basis(3)
     rng = np.random.default_rng(3)
     base_x = _tile(vs[0])
@@ -220,7 +220,7 @@ def test_incremental_kin_factor_verdict_redundant(tmp_path):
     f = incremental_diagnostics(["z"], tmp_path, base=["x"])["candidates"][0]
     assert f["corr_max"] >= 0.9, f"近亲 corr_max 应接近 1: {f['corr_max']}"
     assert f["r2_lib"] >= 0.9, f"近亲 r2_lib 应高: {f['r2_lib']}"
-    assert f["verdict"] == "冗余", f
+    assert f["verdict"] == "重复", f
 
 
 def test_corr_independent_of_target(tmp_path):
