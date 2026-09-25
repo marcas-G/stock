@@ -402,6 +402,37 @@ def test_admit_without_final_executes_final_test_then_proceeds(tmp_path, monkeyp
                               "results_dir": Path(settings.results_dir)}]
 
 
+def test_final_test_diagnostics_follow_weekly_spec_target(
+        tmp_path, monkeypatch):
+    """最终测试冻结件沿用 weekly spec.target，而不是默认 5d 标签。"""
+    spec, db, _ref = _sandbox(tmp_path, monkeypatch)
+    spec.write_text(
+        _SPEC.format(name="refcand", start=W.start.isoformat(),
+                     end=W.end.isoformat())
+        + "\ntarget: forward_return_20d\n"
+          "evaluation_frequency: weekly\n",
+        encoding="utf-8",
+    )
+    calls = _fake_lane(tmp_path, monkeypatch, db)
+
+    result = _invoke("factor", "admit", str(spec))
+    doc = _doc(result)
+
+    assert doc["ok"] is True, doc
+    assert calls["diag"] == [{
+        "candidates": ["refcand_5y"], "base": ["seed_a_5y"],
+        "date_start": W.start.isoformat(),
+        "fwd_col": "forward_return_20d",
+        "frequency": "weekly",
+        "results_dir": Path(settings.results_dir),
+    }]
+    frozen = _read_frozen(tmp_path)
+    assert frozen["frequency"] == "weekly"
+    assert frozen["fwd_col"] == "forward_return_20d"
+    assert len(calls["run"]) == 1
+    assert len(_rows(db)) == 1
+
+
 def test_admit_second_call_reuses_same_access_id(tmp_path, monkeypatch):
     """T2 遗留红 ②：二次 admit 只读冻结件——零新登记、零重跑、零重算。"""
     spec, db, _ref = _sandbox(tmp_path, monkeypatch)

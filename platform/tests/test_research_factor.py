@@ -184,7 +184,9 @@ def _fixture_ref(tmp_path: Path) -> Path:
 
 
 def _admit_spec(tmp_path: Path, name="cand", formula="signal = close",
-                interface: str | None = None) -> Path:
+                interface: str | None = None,
+                target: str | None = None,
+                evaluation_frequency: str | None = None) -> Path:
     spec = tmp_path / f"{name}.yaml"
     spec.write_text(f"""
 name: {name}
@@ -196,6 +198,8 @@ date:
   start: "2024-01-02"
   end: "2024-01-12"
 {f"interface: {interface}" if interface is not None else ""}
+{f"target: {target}" if target is not None else ""}
+{f"evaluation_frequency: {evaluation_frequency}" if evaluation_frequency is not None else ""}
 formula: |
   {formula}
 """, encoding="utf-8")
@@ -867,6 +871,49 @@ def test_factor_admit_runs_when_artifact_missing(tmp_path, monkeypatch):
     assert env.data["ran"] is True
 
 
+def test_factor_admit_lockbox_off_uses_spec_cadence_and_target(
+        tmp_path, monkeypatch):
+    """关闭锁箱时，准入诊断仍须遵循候选 spec 的 weekly/target 口径。"""
+    monkeypatch.setenv("FACTORLAB_LOCKBOX", "off")
+    monkeypatch.setenv("FACTORLAB_REFERENCE", str(_fixture_ref(tmp_path)))
+    rd = tmp_path / "results"
+    monkeypatch.setattr(settings, "results_dir", rd)
+    vs = _basis(3)
+    fwd = np.tile(vs[1], (WEEKS, 1))
+    for name, signal in (
+            ("base_a", _tile(vs[0])),
+            ("base_b", _tile(vs[2])),
+            ("cand", _tile(vs[1]))):
+        _write_panel(rd, name, signal, fwd)
+    _write_summary(rd, "cand")
+    spec = _admit_spec(
+        tmp_path, target="forward_return_20d", evaluation_frequency="weekly")
+
+    seen: dict[str, object] = {}
+
+    def fake_diag(candidates, results_dir, base, **kwargs):
+        seen.update(candidates=list(candidates), results_dir=Path(results_dir),
+                    base=list(base), **kwargs)
+        return {"kind": "incremental", "base": list(base), "candidates": [{
+            "name": candidates[0], "base": list(base), "corr_max": 0.1,
+            "r2_lib": 0.1, "resic_t": 3.2, "resic_mean": 0.2,
+            "n_weeks": 8, "retention": 0.8, "verdict": "可加入",
+        }]}
+
+    monkeypatch.setattr(
+        "factorlab.app.analysis.cross_section.incremental_diagnostics", fake_diag)
+
+    env = F.factor_admit(_admit_args(spec))
+
+    assert env.ok, env.error
+    assert env.data["diagnostic_frequency"] == "weekly"
+    assert env.data["diagnostic_fwd_col"] == "forward_return_20d"
+    assert seen["candidates"] == ["cand"]
+    assert seen["base"] == ["base_a", "base_b"]
+    assert seen["frequency"] == "weekly"
+    assert seen["fwd_col"] == "forward_return_20d"
+
+
 # ================================================================
 # factor ref list/add/remove（安全写）
 # ================================================================
@@ -936,6 +983,59 @@ def test_factor_ref_add_backup_comment_and_roundtrip(tmp_path, monkeypatch):
     assert e.entry_resic_t == pytest.approx(expected["resic_t"])
     assert e.entry_resic_t >= 3.0
     assert [x.name for x in ref_map["minute"]] == ["min_x"]
+
+
+def test_factor_ref_add_lockbox_off_uses_spec_cadence_and_target(
+        tmp_path, monkeypatch):
+    """lockbox-off ref add 也不能退回 weekly/5d 默认诊断。"""
+    from factorlab import config
+    from factorlab.app.analysis import reference
+    from factorlab.research import registry
+
+    monkeypatch.setenv("FACTORLAB_LOCKBOX", "off")
+    ref = _fixture_ref(tmp_path)
+    monkeypatch.setenv("FACTORLAB_REFERENCE", str(ref))
+    qr = tmp_path / "qr"
+    spec_dir = qr / "factor" / "demo"
+    spec_dir.mkdir(parents=True)
+    spec = _admit_spec(
+        tmp_path, name="weekly_cand", target="forward_return_20d",
+        evaluation_frequency="weekly")
+    canonical = spec_dir / "weekly_cand.yaml"
+    canonical.write_text(spec.read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.setattr(config.settings, "research_root", qr)
+    rd = tmp_path / "results"
+    monkeypatch.setattr(settings, "results_dir", rd)
+    vs = _basis(3)
+    fwd = np.tile(vs[1], (WEEKS, 1))
+    _write_panel(rd, "base_a", _tile(vs[0]), fwd)
+    _write_panel(rd, "base_b", _tile(vs[2]), fwd)
+    _write_panel(rd, "weekly_cand", _tile(vs[1]), fwd)
+
+    seen: dict[str, object] = {}
+
+    def fake_diag(candidates, results_dir, base, **kwargs):
+        seen.update(candidates=list(candidates), results_dir=Path(results_dir),
+                    base=list(base), **kwargs)
+        return {"kind": "incremental", "base": list(base), "candidates": [{
+            "name": candidates[0], "base": list(base), "corr_max": 0.1,
+            "r2_lib": 0.1, "resic_t": 3.2, "resic_mean": 0.2,
+            "n_weeks": 8, "retention": 0.8, "verdict": "可加入",
+        }]}
+
+    monkeypatch.setattr(
+        "factorlab.app.analysis.cross_section.incremental_diagnostics", fake_diag)
+    ns = registry.build_parser(registry.COMMANDS["factor.ref.add"]).parse_args([
+        "weekly_cand", "--style", "新风格", "--reason", "入选理由"])
+
+    env = F.factor_ref_add(ns)
+
+    assert env.ok, env.error
+    assert seen["candidates"] == ["weekly_cand"]
+    assert seen["base"] == ["base_a", "base_b"]
+    assert seen["frequency"] == "weekly"
+    assert seen["fwd_col"] == "forward_return_20d"
+    assert reference.load_reference(ref)["daily"][-1].name == "weekly_cand"
 
 
 def test_factor_ref_add_rejects_bad_scale_and_duplicate(tmp_path, monkeypatch):
