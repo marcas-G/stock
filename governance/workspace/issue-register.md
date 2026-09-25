@@ -1,8 +1,8 @@
 # GitHub Issue 台账
 
-更新：2026-09-25 UTC。来源：GitHub `marcas-G/stock` Issues 当前状态、issue 正文/评论，以及仓内评审和验证记录。
+更新：2026-09-26 Asia/Shanghai（对应 GitHub 2026-09-25 UTC 状态）。来源：GitHub `marcas-G/stock` Issues 当前状态、issue 正文/评论，以及仓内评审和验证记录。
 
-本次同步后盘点到 **18 个 open、16 个 closed issue**；PR #1–#4、#42、#43 不列入 issue。GitHub 负责对外状态和讨论；`findings.md` 是评审问题的证据状态源，`pending-items.md` 是工作区未决事项源。本页作为索引和处理摘要，不替代二者，也不把 GitHub 的 closed 自动等同于修复完成。
+本次同步后盘点到 **17 个 open、17 个 closed issue**；PR #1–#4、#42、#43 不列入 issue。GitHub 负责对外状态和讨论；`findings.md` 是评审问题的证据状态源，`pending-items.md` 是工作区未决事项源。本页作为索引和处理摘要，不替代二者，也不把 GitHub 的 closed 自动等同于修复完成。
 
 状态标记：
 
@@ -53,7 +53,7 @@
 | Issue | 关闭类别 | 处理经过与结果 |
 |---|---|---|
 | [#20 R36-CI-I1](https://github.com/marcas-G/stock/issues/20) | **修复完成** | `7d3a2b9` 将 cash bridge 比较统一为 `rel_tol=1e-12, abs_tol=1e-9`；账务/artifact 39 passed、策略回归 85 passed。证据 [`R43/ISSUE-20.md`](../evidence/verification/R43/ISSUE-20.md)。|
-| [#22 R31-API-I1](https://github.com/marcas-G/stock/issues/22) | **修复完成** | `7d3a2b9` 增加 `resic` 的 daily/weekly、horizon、forward 列选择；`9d61058` 覆盖 admit/ref-add/final-test cadence；相关套件 147 passed。证据 [`R43/ISSUE-22.md`](../evidence/verification/R43/ISSUE-22.md)。|
+| [#22 R31-API-I1](https://github.com/marcas-G/stock/issues/22) | **修复完成** | `7d3a2b9` 增加 `resic` 的 daily/weekly、horizon、forward 列选择；`9d61058` 覆盖 admit/ref-add/final-test cadence；D10 契约与设计已统一为按候选 spec cadence（daily=1d，weekly=spec.target），相关套件 173 passed。证据 [`R43/ISSUE-22.md`](../evidence/verification/R43/ISSUE-22.md)。|
 | [#23 R31-API-M1](https://github.com/marcas-G/stock/issues/23) | **修复完成** | `factor admit` 与 `factor ref add` 按候选 spec 自动选择 daily/minute 组，显式 `--scales` 优先；空组可用 seed 初始化。 cadence/label 诊断仍按 spec 独立选择。证据 [`R43/ISSUE-23.md`](../evidence/verification/R43/ISSUE-23.md) 与 [`ISSUE-24-followup.md`](../evidence/verification/R43/ISSUE-24-followup.md)。|
 | [#24 R31-STAT-I1](https://github.com/marcas-G/stock/issues/24) | **用户裁定后的操作门已实现** | 当前候选准入按用户选择 `|resIC t|≥3`；D10/admit/ref-add 分类统一，冻结件做完整 schema/type/finite 校验，坏缓存重算或受控拒绝。99 项/B=300 估计临界值约 3.45，FWER 仍未证明并继续由 review finding 跟踪。证据 [`R43/ISSUE-24.md`](../evidence/verification/R43/ISSUE-24.md) 与 [`ISSUE-24-followup.md`](../evidence/verification/R43/ISSUE-24-followup.md)。|
 | [#33 G-TOPO](https://github.com/marcas-G/stock/issues/33) | **拓扑修复** | `dfbb59f` 将 porteval `engine.py` 改名为 `pv_engine.py`，G-TOPO 为 0。证据 [`R43/ISSUE-33.md`](../evidence/verification/R43/ISSUE-33.md)。|

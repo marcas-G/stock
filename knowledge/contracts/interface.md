@@ -1090,8 +1090,11 @@ t 推断仍以主 `ic`（D3 不重叠采样）为准；主口径仍固定 1 日 
 - 登记：`$QUANTRESEARCH_ROOT/factor/_reference.yaml`（`_` 前缀=非因子/非族既有约定；
   `FACTORLAB_REFERENCE` 可覆盖路径）。顶层 `scales` 映射**按信号来源**分组：
   `daily`（日线原生信号）/ `minute`（分钟聚合信号）——两类语义不同、**不混用对照**；
-  `--target`（holding horizon）是评估参数，**不按 target 分库**（因子评估固定 1 日
-  forward）。每项字段：`name / style / reason / added / entry_corr_max / entry_resic_t`
+  `--target`（holding horizon）是评估参数，**不按 target 分库**。D10 准入诊断按候选
+  spec 的 `evaluation_frequency` 与 `target` 选择口径：daily 用逐日截面和
+  `forward_return_1d`；weekly 用周频对齐和 spec 的 `target`。这只规定入库增量诊断；
+  常规因子 summary 仍遵循 D11。缺少 spec 的旧式 `ref add` 保留 weekly/5d 兼容口径。
+  每项字段：`name / style / reason / added / entry_corr_max / entry_resic_t`
   （后两项=入库时对库内 max|ρ| 与残差 t；种子为 null）。初始库=daily 10 只
   （种子 `momentum_20d_turnrank_top2`；每风格一只），minute 组待合格分钟因子另立。
   初筛参考：单因子 |IC t|≥2 且 |IR|≥0.1。当前参考库准入要求增量检验
@@ -1105,12 +1108,16 @@ t 推断仍以主 `ic`（D3 不重叠采样）为准；主口径仍固定 1 日 
   由测试锁）/ `all`（显式扫全库）/ 逗号空白分隔名单。
 - `cross_section.incremental_diagnostics(candidates, results_dir, base, fwd_col=..., min_stocks=30, frequency=...) -> dict`
   库外候选对基准库（参考库）的**增量信息评估**（spec §3b 表）：
+  - `factor admit` 与有 spec 的 `factor ref add` 从候选 spec 解析 cadence/label：
+    daily 使用逐日截面与 `forward_return_1d`，weekly 使用周频对齐与 spec 的 `target`；
+    该选择用于 `r2_lib`、resIC、retention 和准入 verdict。常规因子 summary 的 D11
+    口径不因此改变；旧式无 spec `ref add` 沿用 weekly/5d。
   - `corr_max` / `corr_mean`：与库成员的周度截面秩相关 |ρ| 的最大/均值（signal-only，
     与 target 无关——同一实现 `factor_correlation` 提取候选对）；
-  - `r2_lib`：候选被库成员**截面 rank 回归**（逐周 average-rank + OLS 含截距）
-    解释的比例（周均 R²）；
-  - `resic_mean/std/t`：回归残差的 rankIC（正交化后仍存的预测力）周均值/t；
-  - `ic_mean/std/t`：候选原始 rankIC（同一批有效周，用于 retention 分母）；
+  - `r2_lib`：候选被库成员**截面 rank 回归**（每个评估期 average-rank + OLS 含截距）
+    解释的比例（评估期均值 R²；评估期由 daily/weekly cadence 决定）；
+  - `resic_mean/std/t`：回归残差的 rankIC（正交化后仍存的预测力）在所选评估期上的均值/t；
+  - `ic_mean/std/t`：候选原始 rankIC（同一批有效评估期，用于 retention 分母）；
   - `retention = resic_mean / ic_mean`（残差 IC 保留率）；
   - `verdict`：**可加入**（|resIC t|≥3 且 max|ρ|<0.7 且 retention≥50%）/ **冗余**
     （max|ρ|≥0.9 或 r2_lib≥0.9 或 retention<20%）/ **观察**（其余）；

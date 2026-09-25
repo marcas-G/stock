@@ -42,6 +42,20 @@ retention, and verdict inputs) use the selected frequency and label.
 `corr_max`/`corr_mean` remain the existing weekly, signal-only correlation
 measure; they do not consume the selected forward label.
 
+## D10 policy alignment
+
+R43 aligns the production admission policy with the candidate spec: daily
+diagnostics use daily cross-sections and `forward_return_1d`; weekly diagnostics
+use weekly alignment and the spec's `target`. This policy applies to D10
+admission diagnostics in `factor admit` and `factor ref add`; ordinary factor
+summaries continue to follow D11. A legacy `ref add` without a spec keeps the
+weekly/5d compatibility default.
+
+For manual `factor resic --against reference`, the compatibility contract still
+selects the daily reference group. Manual minute-scale checks must provide the
+minute reference members explicitly. `admit` and `ref add` infer the scale from
+the candidate spec.
+
 ## Verification
 
 The regression tests first failed because the facade ignored the new arguments,
@@ -61,12 +75,17 @@ were not rejected, and the registry did not describe the new flags:
   platform/tests/test_doc_paths_exist.py` — **155 passed**.
 - Registry/help example path guard: `platform/.venv/bin/python -m pytest -q platform/tests/test_doc_paths_exist.py`
 - Raw output: `issue-22-doc-paths-final.log` (**11 passed**).
+- D10 policy alignment path guard rerun:
+  `platform/.venv/bin/python -m pytest -q platform/tests/test_doc_paths_exist.py`
+  — **11 passed**; raw output [`ISSUE-22-policy-doc-paths.log`](ISSUE-22-policy-doc-paths.log).
 
 The API reads already-produced `results/<factor>/panel.parquet` files; this
 change does not query ClickHouse or alter factor computation. The CLI and API
 tests wrote and read real temporary parquet panels with multiple dates per week,
 and the lockbox tests verify the final-test cadence and migration behavior with
 temporary SQLite/parquet fixtures, so a live ClickHouse run was not required
-for this issue. The original feature and its admit/ref-add integration are now
-covered by commits `7d3a2b9` and `9d61058`; a reviewer should still confirm
-the production reference-library policy before closing the finding.
+for this issue. The implementation and admission integration are covered by
+commits `7d3a2b9` and `9d61058`; the D10 contract and design policy are aligned
+in the current R43 change. R31-STAT-I1 remains a separate open finding for
+family-wise error calibration; the user-selected operational `|resIC t| >= 3`
+threshold does not claim FWER control.

@@ -66,9 +66,13 @@
 **登记**：`$QUANTRESEARCH_ROOT/factor/_reference.yaml`（`_` 前缀=非因子/非族的既有约定），
 **按信号来源分库**（`scales: daily / minute`——对应现有两类因子：日线原生信号 与 分钟聚合信号；
 两类语义不同、不混用对照）。**评估目标（holding horizon）是评估参数而非库分组**：
-**因子评估固定用 1 日 forward（`forward_return_1d`，2026-09-16 用户拍板）**；`--target` 仅供
-扩展评估（如 20d 研究）时显式指定；`corr` 与 target 无关（只看信号），`resIC` 在指定 target 下计算。每项字段：`name / style / 入选理由 / 加入日期 / 加入时 corr 与残差 t`。
-人工确认后添加。
+常规因子 summary 按 D11 固定使用 1 日 forward（`forward_return_1d`，2026-09-16 用户拍板）。
+D10 入库增量诊断则按候选 spec 的 `evaluation_frequency` 与 `target` 选择 cadence/label：
+daily 使用逐日截面和 `forward_return_1d`，weekly 使用周频对齐和 spec 的 `target`。
+这使准入诊断匹配候选 spec 声明的评估频率，不改写常规 summary 口径。命令行诊断可显式指定
+`--frequency/--horizon/--fwd-col`；`corr` 与 target 无关（只看信号），resIC 等
+forward-return 指标按所选口径计算。每项字段：`name / style / 入选理由 / 加入日期 /
+加入时 corr 与残差 t`。人工确认后添加。
 
 **入选标准**：① 单因子初筛 |IC t|≥2 且 |IR|≥0.1；② 对参考库的增量检验
 |resIC t|≥3、max|ρ|<0.7 且 retention≥50%；③ 风格覆盖
