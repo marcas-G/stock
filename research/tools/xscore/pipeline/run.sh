@@ -3,6 +3,8 @@
 # 用法: run.sh configs/m0-split.yaml [max_workers]
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$HERE/../../../.." && pwd)"
+export PYTHONPATH="$ROOT/research/tools:$ROOT/platform/tools${PYTHONPATH:+:$PYTHONPATH}"
 export PREFECT_API_URL="${PREFECT_API_URL:-http://127.0.0.1:4200/api}"
 SVC_ENV="${FACTORLAB_SVC_ENV_FILE:-$HOME/.config/factorlab/service.env}"
 if [ -f "$SVC_ENV" ]; then

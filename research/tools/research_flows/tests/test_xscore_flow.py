@@ -148,6 +148,27 @@ def test_config_requires_inline_immutable_factor_refs_and_explicit_mode(tmp_path
         )
 
 
+def test_default_artifact_root_is_platform_results(tmp_path: Path, monkeypatch):
+    factor = _factor(tmp_path / "factor", "alpha")
+    monkeypatch.setattr(
+        xscore_module,
+        "_validate_factor_refs_basic",
+        lambda refs, allowed_root: tuple(refs),
+    )
+
+    config = parse_xscore_config(
+        {
+            "mode": "explore",
+            "inputs": [factor.model_dump(mode="json")],
+            "name": "blend",
+            "groups": {"daily": ["alpha"]},
+            "min_coverage": 0.9,
+        }
+    )
+
+    assert config.artifact_root == (QR / "results" / "platform").resolve()
+
+
 def test_panel_is_built_from_ref_files_and_preserves_ref_order(
     tmp_path: Path, monkeypatch
 ):

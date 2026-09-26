@@ -1,7 +1,7 @@
 """Run one research flow locally from a YAML config.
 
 Example:
-    PYTHONPATH=research/tools research/.venv/bin/python -m research_flows.run \
+    PYTHONPATH=research/tools:platform/tools research/.venv/bin/python -m research_flows.run \
         factor-mining/factor-mining /path/to/factor.yaml
 """
 from __future__ import annotations

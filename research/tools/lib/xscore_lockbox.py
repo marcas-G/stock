@@ -11,7 +11,6 @@ import fcntl
 import hashlib
 import json
 import os
-import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -21,16 +20,9 @@ import numpy as np
 
 def _ensure_platform_src() -> None:
     """Load FactorLab from this checkout and reject a different installation."""
-    platform_src = Path(__file__).resolve().parents[3] / "platform" / "src"
-    if str(platform_src) not in sys.path:
-        sys.path.insert(0, str(platform_src))
-    import factorlab
+    from _env import ensure_platform
 
-    resolved = Path(factorlab.__file__).resolve()
-    if platform_src != resolved.parent and platform_src not in resolved.parents:
-        raise RuntimeError(
-            f"factorlab 解析到 {resolved}，不在 {platform_src} 之下"
-        )
+    ensure_platform()
 
 
 def file_sig(path: Path) -> str:

@@ -90,7 +90,11 @@ ci_env_step() { bash "$ROOT/governance/ops/ci_env.sh" --dir "$ROOT"; }
 
 pytest_platform() { ( cd "$ROOT/platform" && "$VENV_PY" -m pytest -q --timeout=$TIMEOUT --timeout-method=thread -m "$EXPR" ); }
 pytest_tools() { ( cd "$ROOT" && "$VENV_PY" -m pytest platform/tools -q --timeout=$TIMEOUT --timeout-method=thread -m "$EXPR" ); }
-pytest_research() { ( cd "$ROOT" && "$VENV_PY" -m pytest research/tools -q --timeout=$TIMEOUT --timeout-method=thread -m "$EXPR" ); }
+pytest_research() {
+  ( cd "$ROOT" \
+    && PYTHONPATH="$ROOT/research/tools:$ROOT/platform/tools${PYTHONPATH:+:$PYTHONPATH}" \
+       "$VENV_PY" -m pytest research/tools -q --timeout=$TIMEOUT --timeout-method=thread -m "$EXPR" )
+}
 pytest_gov() { ( cd "$ROOT" && "$VENV_PY" -m pytest governance/ops -q --timeout=300 --timeout-method=thread -m "$EXPR" ); }
 
 ch_integration() {

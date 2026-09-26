@@ -28,7 +28,8 @@ test-platform:
 
 test-research:
 	$(PLATFORM_PY) -m pytest platform/tools -q
-	$(PLATFORM_PY) -m pytest research/tools -q
+	PYTHONPATH=research/tools:platform/tools$${PYTHONPATH:+:$$PYTHONPATH} \
+	  $(PLATFORM_PY) -m pytest research/tools -q
 	$(PLATFORM_PY) -m pytest governance/ops -q
 
 audit-library:
@@ -128,7 +129,8 @@ FLOW_CFG ?=
 research-flow:
 	@test -n "$(FLOW_NAME)" -a -n "$(FLOW_CFG)" || \
 	  { echo "请设置 FLOW_NAME 和 FLOW_CFG"; exit 2; }
-	PYTHONPATH=research/tools research/.venv/bin/python -m research_flows.run \
+	PYTHONPATH=research/tools:platform/tools$${PYTHONPATH:+:$$PYTHONPATH} \
+	  research/.venv/bin/python -m research_flows.run \
 	  "$(FLOW_NAME)" "$(FLOW_CFG)"
 
 xpipe-data:

@@ -227,6 +227,7 @@ def test_runner_installer_starts_the_new_research_deployments():
     )
 
     assert "research_flows.deployments" in installer
+    assert "Environment=PYTHONPATH=$TOOLS:$ROOT/platform/tools" in installer
     assert "xscore/pipeline/serve.py" not in installer
     assert "factor-mining/factor-mining" in installer
     assert "xscore-pipeline/xscore" in installer

@@ -112,7 +112,9 @@ def parse_xscore_config(source: Mapping[str, Any] | str | Path) -> XScoreConfig:
         raise ValueError("xscore config 必须显式设置 mode: explore|final")
     if "panel" in raw:
         raise ValueError("正式 xscore 输入必须是 FactorArtifact 清单，不能使用裸 panel")
-    artifact_root = Path(raw.get("artifact_root", QR / "results/platform")).resolve()
+    artifact_root = Path(
+        raw.get("artifact_root", QR / "results" / "platform")
+    ).resolve()
     raw_inputs = raw.get("inputs")
     if not isinstance(raw_inputs, list) or not raw_inputs:
         raise ValueError("xscore 至少需要一个 inputs FactorArtifact 引用")
@@ -464,6 +466,7 @@ def _run_platform_worker(
         env["PYTHONPATH"] = os.pathsep.join(
             [
                 str(STOCK / "research/tools"),
+                str(STOCK / "platform/tools"),
                 str(STOCK / "platform/src"),
                 *([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []),
             ]
@@ -480,6 +483,7 @@ def _run_platform_worker(
                 str(request),
             ],
             cwd=STOCK,
+            env=env,
         )
         try:
             return json.loads(response.read_text(encoding="utf-8"))

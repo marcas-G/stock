@@ -21,7 +21,7 @@ After=network.target prefect-server.service
 Type=simple
 WorkingDirectory=$TOOLS
 Environment=PREFECT_API_URL=http://127.0.0.1:4200/api
-Environment=PYTHONPATH=$TOOLS
+Environment=PYTHONPATH=$TOOLS:$ROOT/platform/tools
 ExecStart=$VENV/bin/python -m research_flows.deployments
 Restart=always
 RestartSec=3

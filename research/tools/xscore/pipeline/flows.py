@@ -19,6 +19,7 @@ DAG：
   已有字段保留，`access_ids` = 既有 ∪ 本次登记 id），并把 `result_ref` 回填为该 run 目录。
 
 运行：
+    PYTHONPATH=research/tools:platform/tools \
     research/.venv/bin/python research/tools/xscore/pipeline/flows.py \
         --config research/tools/xscore/pipeline/configs/m0-split.yaml
 （带 UI：先 `governance/ops/install_prefect_server.sh` 起 server，再设

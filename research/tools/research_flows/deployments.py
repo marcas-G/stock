@@ -1,6 +1,7 @@
 """Register the independent research flows as local Prefect deployments.
 
-Run with ``python -m research_flows.deployments`` from ``research/tools``.
+From the repository root, run with
+``PYTHONPATH=research/tools:platform/tools research/.venv/bin/python -m research_flows.deployments``.
 Prefect's ``serve`` process keeps the deployments registered and polls for runs.
 """
 from __future__ import annotations

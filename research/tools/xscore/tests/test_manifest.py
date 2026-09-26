@@ -33,6 +33,7 @@ import os
 import pathlib
 import sqlite3
 import sys
+import types
 
 import numpy as np
 import pytest
@@ -41,9 +42,24 @@ import yaml
 PIPELINE = pathlib.Path(__file__).resolve().parents[1] / "pipeline"
 sys.path.insert(0, str(PIPELINE))
 import xlib as lib  # noqa: E402
+from lib import xscore_lockbox  # noqa: E402
 
 from factorlab.adapters import lockbox_store as store  # noqa: E402
 from factorlab.core.lockbox import LockboxError, LockboxWindow  # noqa: E402
+
+
+def test_platform_import_uses_shared_env_helper(monkeypatch):
+    calls = []
+    env = types.ModuleType("_env")
+    env.ensure_platform = lambda: calls.append("ensure_platform")
+    factorlab = types.ModuleType("factorlab")
+    monkeypatch.setitem(sys.modules, "_env", env)
+    monkeypatch.setitem(sys.modules, "factorlab", factorlab)
+    monkeypatch.setattr(sys, "path", sys.path.copy())
+
+    xscore_lockbox._ensure_platform_src()
+
+    assert calls == ["ensure_platform"]
 
 
 def _health(root: pathlib.Path, days: list[str]) -> pathlib.Path:
