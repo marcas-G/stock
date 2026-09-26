@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from typing import Any
 
 DEPLOYMENT_NAMES = frozenset({
+    "factor-seed/factor-seed",
     "factor-mining/factor-mining",
     "xscore-pipeline/xscore",
     "strategy-execution/strategy-execution",
@@ -27,6 +28,12 @@ def _deployment_flows():
         from research_flows.factor_mining import factor_mining_flow
 
         return factor_mining_flow(config)
+
+    @flow(name="factor-seed")
+    def factor_seed_deployment(config: dict[str, Any]):
+        from research_flows.factor_seed import factor_seed_flow
+
+        return factor_seed_flow(config)
 
     @flow(name="xscore-pipeline")
     def xscore_pipeline(config_path: str):
@@ -45,6 +52,7 @@ def _deployment_flows():
 
     return (
         factor_mining_deployment,
+        factor_seed_deployment,
         xscore_pipeline,
         strategy_deployment,
         research_campaign_flow,
@@ -52,7 +60,7 @@ def _deployment_flows():
 
 
 def create_deployments(*, include_campaign: bool = True) -> list[Any]:
-    """Build the three core deployments and optionally the parent campaign.
+    """Build core/seed deployments and optionally the parent campaign.
 
     Each child flow keeps its own public parameter schema. No made-up default
     parameters are installed: runs can supply the full research configuration
@@ -62,14 +70,16 @@ def create_deployments(*, include_campaign: bool = True) -> list[Any]:
     definitions = [
         (flows[0], "factor-mining", "FactorLab factor run and FactorArtifact publication",
          ["research", "factor-mining"]),
-        (flows[1], "xscore", "FactorArtifact scoring and CompositeArtifact publication",
+        (flows[1], "factor-seed", "Run one existing library Spec as an IS-only XScore seed",
+         ["research", "factor-seed"]),
+        (flows[2], "xscore", "FactorArtifact scoring and CompositeArtifact publication",
          ["research", "xscore"]),
-        (flows[2], "strategy-execution", "M7/M8 strategy backtest over an immutable signal",
+        (flows[3], "strategy-execution", "M7/M8 strategy backtest over an immutable signal",
          ["research", "strategy-execution"]),
     ]
     if include_campaign:
         definitions.append((
-            flows[3],
+            flows[4],
             "research-campaign",
             "Run factor-mining, xscore, and strategy-execution in sequence",
             ["research", "campaign"],

@@ -1,0 +1,16 @@
+Usage: prefect deployment ls [OPTIONS] [ARGS]
+
+View all deployments or deployments for specific flows.
+
+╭─ Parameters ─────────────────────────────────────────────────────────────────╮
+│ FLOW_NAME --flow_name         One or more flow names to filter deployments   │
+│   --empty-flow_name           by.                                            │
+│ --by-created --no-by-created  Sort by created time instead of name.          │
+│                               [default: False]                               │
+│ --output -o                   Specify an output format. Currently supports:  │
+│                               json                                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Session Parameters ─────────────────────────────────────────────────────────╮
+│ --profile             Select a profile for this CLI run.                     │
+│ --prompt --no-prompt  Toggle interactive prompts.                            │
+╰──────────────────────────────────────────────────────────────────────────────╯

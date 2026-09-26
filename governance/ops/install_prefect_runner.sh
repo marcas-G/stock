@@ -31,16 +31,39 @@ WantedBy=default.target
 UNIT_EOF
 
 systemctl --user daemon-reload
-systemctl --user enable --now prefect-runner.service
+systemctl --user enable prefect-runner.service
+systemctl --user restart prefect-runner.service
 sleep 6
 systemctl --user --no-pager status prefect-runner.service | head -6
 echo "== deployments =="
 for i in $(seq 1 10); do
-  out=$(PREFECT_API_URL=http://127.0.0.1:4200/api "$VENV/bin/prefect" deployment ls 2>/dev/null || true)
-  if echo "$out" | grep -q "factor-mining/factor-mining" \
-    && echo "$out" | grep -q "xscore-pipeline/xscore" \
-    && echo "$out" | grep -q "strategy-execution/strategy-execution"; then
-    echo "$out"
+  out=$(PREFECT_API_URL=http://127.0.0.1:4200/api \
+    "$VENV/bin/prefect" deployment ls --output json 2>/dev/null || true)
+  if printf '%s' "$out" | "$VENV/bin/python" -c '
+import json, sys, urllib.request
+try:
+    deployments = json.load(sys.stdin)
+    request = urllib.request.Request(
+        "http://127.0.0.1:4200/api/flows/filter",
+        data=json.dumps({"limit": 1000}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    flows = json.load(urllib.request.urlopen(request, timeout=5))
+    flow_names = {flow["id"]: flow["name"] for flow in flows}
+    pairs = {(flow_names[item["flow_id"]], item["name"])
+             for item in deployments}
+except (OSError, KeyError, json.JSONDecodeError, TypeError):
+    raise SystemExit(1)
+required = {
+    ("factor-mining", "factor-mining"),
+    ("factor-seed", "factor-seed"),
+    ("xscore-pipeline", "xscore"),
+    ("strategy-execution", "strategy-execution"),
+}
+raise SystemExit(0 if required <= pairs else 1)
+'; then
+    PREFECT_API_URL=http://127.0.0.1:4200/api \
+      "$VENV/bin/prefect" deployment ls
     exit 0
   fi
   sleep 3

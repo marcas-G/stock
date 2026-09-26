@@ -187,6 +187,9 @@ def test_deployment_registration_uses_expected_names_and_supported_arguments(
     fake_flow_module(
         "research_flows.factor_mining", "factor-mining", "factor_mining_flow"
     )
+    fake_flow_module(
+        "research_flows.factor_seed", "factor-seed", "factor_seed_flow"
+    )
     fake_flow_module("research_flows.xscore_flow", "xscore", "xscore_flow")
     fake_flow_module(
         "research_flows.strategy_execution",
@@ -201,12 +204,14 @@ def test_deployment_registration_uses_expected_names_and_supported_arguments(
 
     assert [d["name"] for d in deployments] == [
         "factor-mining",
+        "factor-seed",
         "xscore",
         "strategy-execution",
         "research-campaign",
     ]
     assert [name for name, _ in registrations] == [
         "factor-mining",
+        "factor-seed",
         "xscore-pipeline",
         "strategy-execution",
         "research-campaign",
@@ -216,7 +221,8 @@ def test_deployment_registration_uses_expected_names_and_supported_arguments(
         for _, kwargs in registrations
     )
     assert all(kwargs["name"] in {
-        "factor-mining", "xscore", "strategy-execution", "research-campaign"
+        "factor-mining", "factor-seed", "xscore", "strategy-execution",
+        "research-campaign"
     } for _, kwargs in registrations)
 
 
@@ -229,9 +235,12 @@ def test_runner_installer_starts_the_new_research_deployments():
     assert "research_flows.deployments" in installer
     assert "Environment=PYTHONPATH=$TOOLS:$ROOT/platform/tools" in installer
     assert "xscore/pipeline/serve.py" not in installer
-    assert "factor-mining/factor-mining" in installer
-    assert "xscore-pipeline/xscore" in installer
-    assert "strategy-execution/strategy-execution" in installer
+    assert '("factor-mining", "factor-mining")' in installer
+    assert '("factor-seed", "factor-seed")' in installer
+    assert '("xscore-pipeline", "xscore")' in installer
+    assert '("strategy-execution", "strategy-execution")' in installer
+    assert "/api/flows/filter" in installer
+    assert "systemctl --user restart prefect-runner.service" in installer
 
 
 def test_local_runner_loads_yaml_and_dispatches_one_flow(tmp_path, monkeypatch):
@@ -249,7 +258,28 @@ def test_local_runner_loads_yaml_and_dispatches_one_flow(tmp_path, monkeypatch):
     assert received == [{"name": "alpha", "mode": "explore"}]
 
 
-def test_runbook_yaml_examples_are_parseable_and_cover_four_flows():
+def test_local_runner_dispatches_seed_flow(tmp_path, monkeypatch):
+    config_path = tmp_path / "seed.yaml"
+    config_path.write_text(
+        "name: alpha\nmode: explore\nwindow:\n  sample_role: is\n",
+        encoding="utf-8",
+    )
+    received = []
+    module = types.ModuleType("research_flows.factor_seed")
+    module.factor_seed_flow = lambda config: received.append(config) or "seed-ref"
+    monkeypatch.setitem(sys.modules, "research_flows.factor_seed", module)
+
+    from research_flows.run import run_flow
+
+    assert run_flow("factor-seed/factor-seed", config_path) == "seed-ref"
+    assert received == [{
+        "name": "alpha",
+        "mode": "explore",
+        "window": {"sample_role": "is"},
+    }]
+
+
+def test_runbook_yaml_examples_are_parseable_and_cover_four_flows_and_seed():
     import yaml
 
     repo_root = Path(__file__).resolve().parents[4]
@@ -268,10 +298,22 @@ def test_runbook_yaml_examples_are_parseable_and_cover_four_flows():
     runbook = runbook_path.read_text(encoding="utf-8")
     examples = re.findall(r"```yaml\s+(.*?)```", runbook, flags=re.DOTALL)
 
-    assert len(examples) == 4
+    assert len(examples) == 5
     configs = [yaml.safe_load(example) for example in examples]
     assert all(isinstance(config, dict) for config in configs)
-    assert configs[0]["mode"] == "explore"
-    assert "inputs" in configs[1]
-    assert "signal_ref" in configs[2]
-    assert {"factor", "xscore", "strategy"} <= set(configs[3])
+    xscore = next(config for config in configs if "inputs" in config)
+    strategy = next(config for config in configs if "signal_ref" in config)
+    campaign = next(
+        config for config in configs
+        if {"factor", "xscore", "strategy"} <= set(config)
+    )
+    seed = next(
+        config for config in configs
+        if config.get("spec_path") and "window" in config
+        and config["window"].get("sample_role") == "is"
+        and "baseline_refs" not in config.get("validation", {})
+    )
+    assert xscore["mode"] == "explore"
+    assert "mode" in strategy
+    assert campaign["factor"]
+    assert seed["mode"] == "explore"
