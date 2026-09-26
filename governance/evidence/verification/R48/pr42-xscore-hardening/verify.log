@@ -1,0 +1,26 @@
++ STOCK_ROOT=/tmp/stock-pr42-fixes
++ PLATFORM_TOOLS_ROOT=/data/students/gaolei/stock
++ PLATFORM_PY=/tmp/stock-pr42-fixes/platform/.venv/bin/python
++ export PYTHONPATH=/tmp/stock-pr42-fixes/research/tools:/data/students/gaolei/stock/platform/tools
++ PYTHONPATH=/tmp/stock-pr42-fixes/research/tools:/data/students/gaolei/stock/platform/tools
++ cd /tmp/stock-pr42-fixes
++ /tmp/stock-pr42-fixes/platform/.venv/bin/python -m pytest -q research/tools/research_flows/tests research/tools/xscore/tests
+........................................................................ [ 41%]
+........................................................................ [ 82%]
+..............................                                           [100%]
+=============================== warnings summary ===============================
+tools/research_flows/tests/test_xscore_flow.py::test_xscore_attempt_lock_serializes_across_processes
+  /home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/popen_fork.py:67: DeprecationWarning: This process (pid=20808) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+174 passed, 1 warning in 33.67s
++ /tmp/stock-pr42-fixes/platform/.venv/bin/python governance/ops/check_tool_layering.py
+[G-TOPO] 工具拓扑：依赖方向 / 横向耦合
+  ✓ 0 处（core 不做反向依赖、生产不带诊断、工具不互相 import、lib 是叶子）
++ /tmp/stock-pr42-fixes/platform/.venv/bin/python governance/ops/check_tool_layering.py --selftest
+  ✓ 负向自检：四类违规各命中 1 处、合法路径零误报
++ /tmp/stock-pr42-fixes/platform/.venv/bin/python -m compileall -q research/tools/research_flows research/tools/xscore research/tools/lib/research_xscore_lockbox.py
++ git diff --check
++ git rev-parse HEAD
+6bc83e1577ec33632a8327413f3b8d3f6a78597d
