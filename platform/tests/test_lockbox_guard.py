@@ -23,7 +23,12 @@ from pathlib import Path
 import pytest
 
 from _lockbox import DAYS, TODAY, WINDOW as W, WINDOW_ID
-from factorlab.adapters.lockbox_store import connect, guard_run, roll
+from factorlab.adapters.lockbox_store import (
+    connect,
+    finalize_attempt_result,
+    guard_run,
+    roll,
+)
 from factorlab.core.lockbox import LockboxError, candidate_fingerprint, spec_fingerprint
 
 SPEC = {"name": "x"}
@@ -174,6 +179,33 @@ def test_final_same_version_second_time_rejected(tmp_path: Path):
     assert len(rows) == 1 and rows[0]["access_id"] == first.info["access_id"]
 
 
+def test_pipeline_retry_reuses_only_an_unfinished_final_access(
+        tmp_path: Path, monkeypatch):
+    """Exact-version recovery reuses the original access until an artifact is marked."""
+    attempt_sha = "a" * 64
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_ATTEMPT_SHA256", attempt_sha)
+    first = _guard(tmp_path, final_mode=True, start=W.start, end=W.end,
+                   reason="首轮终评")
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_REPLAY", "1")
+
+    replay = _guard(tmp_path, final_mode=True, start=W.start, end=W.end,
+                    reason="失败后续跑")
+
+    assert replay.info["access_id"] == first.info["access_id"]
+    assert _count(_db(tmp_path)) == 1
+    row = _rows(_db(tmp_path))[0]
+    assert row["result_ref"] is None
+    import json
+    assert json.loads(row["params"])["flow_attempt_sha256"] == attempt_sha
+
+    replay.mark_result("/results/final")
+    with pytest.raises(LockboxError) as exc:
+        _guard(tmp_path, final_mode=True, start=W.start, end=W.end,
+               reason="已完成后的重跑")
+    assert exc.value.code == "LOCKBOX_FINAL_DUPLICATE"
+    assert _count(_db(tmp_path)) == 1
+
+
 def test_re_final_env_allows_new_row_with_audit_marker(tmp_path: Path,
                                                        monkeypatch):
     first = _guard(tmp_path, final_mode=True, start=W.start, end=W.end,
@@ -187,6 +219,75 @@ def test_re_final_env_allows_new_row_with_audit_marker(tmp_path: Path,
     assert [r["kind"] for r in rows] == ["final", "final"]
     assert rows[-1]["reason"] == "操作员重测|re-final"
     assert rows[0]["fingerprint"] == rows[1]["fingerprint"], "重测=同版本"
+
+
+def test_pipeline_retry_does_not_reuse_completed_access(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_ATTEMPT_SHA256", "a" * 64)
+    first = _guard(tmp_path, final_mode=True, start=W.start, end=W.end,
+                   reason="首轮终评")
+    first.mark_result("/results/final")
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_REPLAY", "1")
+
+    with pytest.raises(LockboxError) as exc:
+        _guard(tmp_path, final_mode=True, start=W.start, end=W.end,
+               reason="应拒绝")
+
+    assert exc.value.code == "LOCKBOX_FINAL_DUPLICATE"
+    assert _count(_db(tmp_path)) == 1
+
+
+def test_pipeline_retry_requires_the_same_attempt_sha(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_ATTEMPT_SHA256", "a" * 64)
+    _guard(tmp_path, final_mode=True, start=W.start, end=W.end, reason="首测")
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_ATTEMPT_SHA256", "b" * 64)
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_REPLAY", "1")
+
+    with pytest.raises(LockboxError) as exc:
+        _guard(tmp_path, final_mode=True, start=W.start, end=W.end,
+               reason="错误 attempt")
+
+    assert exc.value.code == "LOCKBOX_FINAL_DUPLICATE"
+    assert _count(_db(tmp_path)) == 1
+
+
+def test_attempt_result_backfill_is_identity_bound_and_idempotent(
+        tmp_path: Path, monkeypatch):
+    attempt_sha = "c" * 64
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_ATTEMPT_SHA256", attempt_sha)
+    guard = _guard(tmp_path, final_mode=True, start=W.start, end=W.end,
+                   reason="首轮终评")
+    db = _db(tmp_path)
+    conn = connect(db)
+    try:
+        finalize_attempt_result(
+            conn,
+            access_id=guard.info["access_id"],
+            attempt_sha256=attempt_sha,
+            result_ref="/results/factor/v1",
+        )
+        finalize_attempt_result(
+            conn,
+            access_id=guard.info["access_id"],
+            attempt_sha256=attempt_sha,
+            result_ref="/results/factor/v1",
+        )
+        with pytest.raises(ValueError, match="attempt"):
+            finalize_attempt_result(
+                conn,
+                access_id=guard.info["access_id"],
+                attempt_sha256="d" * 64,
+                result_ref="/results/factor/v1",
+            )
+        with pytest.raises(ValueError, match="different|不同"):
+            finalize_attempt_result(
+                conn,
+                access_id=guard.info["access_id"],
+                attempt_sha256=attempt_sha,
+                result_ref="/results/factor/other",
+            )
+    finally:
+        conn.close()
+    assert _rows(db)[0]["result_ref"] == "/results/factor/v1"
 
 
 def test_re_final_env_without_existing_final_is_plain_registration(

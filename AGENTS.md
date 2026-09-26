@@ -99,19 +99,24 @@
   512M 限制下仍成功）。
 - 分钟链保持默认 20 交易日/块；显式超大 `--chunk-days` 按估算告警/拒绝。
 
-## 研究实验流水线（R37）
+## 研究实验流水线（Prefect 3）
 
-- 入口：`make xpipe CFG=research/tools/xscore/pipeline/configs/<cfg>.yaml`（Prefect 3）
-- 阶段：`data_prep`（缓存幂等）→ `xscore`（分数）→ `porteval`（组合评估）→ `report`
-- 服务：`install_prefect_server.sh`（UI :4200）/ `install_prefect_runner.sh`（UI 可触发）
-- 文档：`research/tools/xscore/pipeline/README.md`；产物 manifest 强制
+- 正式入口：`make research-flow FLOW_NAME=... FLOW_CFG=...`，或 Prefect UI
+  （`:4200`）触发 `factor-mining/factor-mining`、
+  `xscore-pipeline/xscore`、`strategy-execution/strategy-execution`；
+  可选父流程 `research-campaign/research-campaign`。
+- 交接：因子 Flow 输出 FactorArtifact，xscore 输出 CompositeArtifact，策略 Flow 输出 M7/M8
+  回测结果；下游只接受带版本和哈希的不可变 ArtifactRef。
+- 服务：`install_prefect_server.sh`（UI :4200）/ `install_prefect_runner.sh`（UI 可触发）。
+- 使用文档：`$QUANTRESEARCH_ROOT/knowledge/pipeline-usage.md`；旧
+  `make xpipe CFG=...` 仅作为裸 NPZ 兼容入口，产物 manifest 强制。
 
 ## 工具链速查
 
 | 目的 | 命令 |
 |---|---|
 | 平台测试 | `cd platform && .venv/bin/python -m pytest -q` |
-| 工具/研究测试（单解释器） | `make test-research`（= `platform/tools` + `research/tools`，均平台 venv） |
+| 工具/研究/治理测试（单解释器） | `make test-research`（= `platform/tools` + `research/tools` + `governance/ops`，均平台 venv） |
 | 分钟面 × 本地 parquet 对拍 | `FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/python platform/tools/1m_features/run_1m_feature.py check-day 2024-01-15` |
 | CH 灌入对账 | `platform/.venv/bin/python platform/tools/ch_ingest/reconcile.py`（`make reconcile`） |
 | 常驻门 | `make gates`（= `governance/ops/gates.sh`） |

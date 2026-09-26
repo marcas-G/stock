@@ -1,0 +1,4 @@
+$ governance/ops/heavy.sh platform/.venv/bin/python -m pytest research/tools/research_flows/tests -q
+heavy.sh: slot=1/2 avail=61.3GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python -m pytest research/tools/research_flows/tests -q
+..........................................................               [100%]
+58 passed in 24.17s

@@ -1,6 +1,13 @@
-# xscore 流水线（Prefect 3）
+# 旧版 xscore 批处理流水线（Prefect 3）
+
+> 本文只介绍兼容保留的旧版 `make xpipe`：裸 NPZ 面板 → xscore → 研究组合评估。
+> 它不是新的因子/聚合信号/策略三段流程，也不生成三段流程约定的 immutable ArtifactRef。
+> 新研究流程的输入、输出和 Prefect 部署见
+> `$QUANTRESEARCH_ROOT/knowledge/pipeline-usage.md`。
 
 `数据/面板 → score(分组×模型) → portfolio(执行口径×域) → report` 的文件级 DAG。
+
+以下配置、缓存和锁箱说明都只针对这个旧版 NPZ 流水线；旧版 ref-sync 的补算结果不能直接作为新 Flow 的正式 FactorArtifact。
 
 ## 运行
 
@@ -44,7 +51,7 @@ research/tools/xscore/pipeline/run.sh research/tools/xscore/pipeline/configs/m0-
 - `data.members: [名字…]`：面板成员显式清单（缺省=参考库全量 ∪ factors）；自定义成员集请把
   `panel` 指向独立 npz（勿覆盖共享面板缓存）。
 - 唯一入口：正式运行只经 `make xpipe`/UI；host `flab factor run` 仅 dev 调试（见
-  `$QR/knowledge/pipeline-usage.md`）。
+  `$QUANTRESEARCH_ROOT/knowledge/pipeline-usage-xpipe-legacy.md`）。
 
 ## 配置字段
 
@@ -97,9 +104,15 @@ PREFECT_API_URL=http://127.0.0.1:4200/api research/.venv/bin/prefect deployment 
 （`date.end > is_end` 直接拒），碰测试段必须经流水线/入库车道。
 
 - flow 开始按面板区间（panel npz 首末日期，缺省回退已发布日历 min/max）判定角色，
-  并**钉死版本身份**：`fingerprint = candidate_fingerprint(artifact_sha256=panel 文件签名,
+  并**钉死版本身份**：`fingerprint = candidate_fingerprint(artifact_sha256=panel 内容 SHA-256,
   params={config 内容 sha, panel_sig}, window_id)`；收尾复用起点 fp/access_id，**不重算**
   （首尾之间 panel 变化不会重复登记）；
+  面板身份使用文件内容 SHA-256，不受路径或 mtime 变化影响；早期 Prefect final 记录的
+  `panel_sig` 已是内容 SHA，因此 stat 指纹升级按 config 与内容签名复用。
+  旧版 `xpipe` 的 `panel_sig` 是 stat 签名：已完成报告只通过 run manifest 中的 access ID
+  回查并校验台账 config、panel 签名、window、sample role、result_ref 后原样复用，不会重算；
+  未完成记录只有在原 stat 签名仍一致时才允许续跑，否则 fail closed，不新增 final。
+  指纹迁移分支也不能绕过这些发布引用校验；缺失/错误 access ID 或 result_ref 时拒绝复用；
   - `is`（面板整段早于窗口起点）→ 不登记，manifest `sample_role: is`；
   - `mixed` / `lockbox` → 登记 **final**（`kind=final`，无配额），理由 `pipeline:<config>`；
     同版本已有登记：**run 产物已在**（`<out>/manifest.json`）→ **replay 复用**既有
@@ -111,6 +124,9 @@ PREFECT_API_URL=http://127.0.0.1:4200/api research/.venv/bin/prefect deployment 
     留痕字段；真实台账 `roll` 由 controller 执行）；
   - stale（跨季未 roll）→ flow 在计算前抛 `LOCKBOX_WINDOW_STALE`（指引
     `factorlab lockbox roll`）；panel 缺失 → 拒绝以 `artifact_sha256=missing` 登记。
+- final attempt 尚未写 `prepared_manifest.json` 就中断时，重试只清理该面板版本对应的
+  `open_adj`、`mv`、`limits`、`amount` 四个辅助缓存文件；共享 `.cache` 中其他版本和未知文件保留，
+  避免 `data_prep` 把中断写出的半成品当作已有缓存跳过。
 - **manifest**：`access_id` 写入 run 级与 campaign 级 `access_ids`（campaign = 既有 ∪ 新 id，
   不丢旧；双写持 `<manifest>.lock` flock 串行化）；`window_id`/`sample_role` 为本次真实值；
   flow 收尾把 `result_ref` 回填为 run 的 `out` 目录。G-LOCKBOX（`make gates`）依此与台账
@@ -121,7 +137,7 @@ PREFECT_API_URL=http://127.0.0.1:4200/api research/.venv/bin/prefect deployment 
 - **入库判定**（`flab factor admit` / `ref add`）：不看探索结果——无该版本 final 时**执行
   那次唯一最终测试**（车道内自设 `FACTORLAB_PIPELINE=1`）并冻结
   `<results>/<name>_5y/test_diagnostics.json`（测试段 `corr_max/r2_lib/resic_t`），二次
-  admit 只读冻结件；IS-only 因子不可入库。见 `$QR/knowledge/pipeline-usage.md` §4 与
+  admit 只读冻结件；IS-only 因子不可入库。见 `$QUANTRESEARCH_ROOT/knowledge/pipeline-usage-xpipe-legacy.md` §4 与
   `knowledge/contracts/interface.md` §10。
 
 ### 缓存语义

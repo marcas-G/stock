@@ -10,9 +10,11 @@
   panel 区间不可得 → 回退已发布日历 min/max；
   state 窗口陈旧（跨季未 roll）→ 用 state 窗口声明而非报错；
 - `lockbox_register` / `lockbox_finalize`（R42 final-test-once）：流水线 config=候选——
-  起点钉死身份（panel `file_sig` + config **内容 sha**），碰箱（is 除外）登记 final
+  起点钉死身份（panel **内容 SHA-256** + config **内容 sha**），碰箱（is 除外）登记 final
   （每版本一次：同版本重复时 `replay_ok`（run 产物已在）→ 复用既有 access_id、
   零新增、留"复用"日志；否则 `LOCKBOX_FINAL_DUPLICATE` 并提示改版本/`FACTORLAB_RE_FINAL=1`；
+  面板路径/mtime 改变但内容不变仍复用；旧 stat 指纹记录通过 config/panel 内容哈希迁移复用，
+  不新增 final；
   `FACTORLAB_RE_FINAL=1` → 操作员重测：新登记行 + reason 追加 `|re-final`）；
   收尾用起点 context 写 manifest（**不得重算 fp**：首尾之间 panel 变化仍单登记单 id）；
   access_id 写入 run/campaign manifest 的 `access_ids`（campaign 既有 ∪ 新 id，不丢旧），
@@ -28,11 +30,13 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import os
 import pathlib
 import sqlite3
 import sys
+import types
 
 import numpy as np
 import pytest
@@ -41,9 +45,28 @@ import yaml
 PIPELINE = pathlib.Path(__file__).resolve().parents[1] / "pipeline"
 sys.path.insert(0, str(PIPELINE))
 import xlib as lib  # noqa: E402
+import research_xscore_lockbox as xscore_lockbox  # noqa: E402
 
 from factorlab.adapters import lockbox_store as store  # noqa: E402
-from factorlab.core.lockbox import LockboxError, LockboxWindow  # noqa: E402
+from factorlab.core.lockbox import (  # noqa: E402
+    LockboxError,
+    LockboxWindow,
+    candidate_fingerprint,
+)
+
+
+def test_platform_import_uses_shared_env_helper(monkeypatch):
+    calls = []
+    env = types.ModuleType("_env")
+    env.ensure_platform = lambda: calls.append("ensure_platform")
+    factorlab = types.ModuleType("factorlab")
+    monkeypatch.setitem(sys.modules, "_env", env)
+    monkeypatch.setitem(sys.modules, "factorlab", factorlab)
+    monkeypatch.setattr(sys, "path", sys.path.copy())
+
+    xscore_lockbox._ensure_platform_src()
+
+    assert calls == ["ensure_platform"]
 
 
 def _health(root: pathlib.Path, days: list[str]) -> pathlib.Path:
@@ -183,7 +206,7 @@ def test_lockbox_sample_stale_state_uses_state_window(tmp_path):
 
 
 # ── T12b 流水线 final 登记 + access_ids 接线（沙箱台账；真 SQLite）────────
-# 流水线 config = 候选：起点钉死身份（panel file_sig + config 内容 sha）→ 碰箱幂等
+# 流水线 config = 候选：起点钉死身份（panel 内容 SHA-256 + config 内容 sha）→ 碰箱幂等
 # 登记 final（收尾复用起点 fp，不得重算）；access_id 写入 run/campaign manifest，
 # result_ref 回填 run out 目录。off/无 state → 不读不写台账（unknown/[]）；
 # stale state → 响亮抛 LOCKBOX_WINDOW_STALE（不静默解封）；panel 缺失 → 拒登记。
@@ -207,7 +230,12 @@ def _config(tmp_path, name="a.yaml", body="model: m0\n") -> pathlib.Path:
 def _begin(tmp_path, db, health, *, config="a.yaml", body="model: m0\n",
            panel_sig="sig-1", panel=None, today=dt.date(2026, 9, 21),
            replay_ok=False) -> dict:
-    panel = panel or _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    if panel is None:
+        panel = tmp_path / "panel.npz"
+        if not panel.is_file():
+            panel = _panel(
+                panel, ["2025-08-01", "2026-01-01"]
+            )
     return lib.lockbox_register(
         panel=panel, panel_sig=panel_sig,
         config_path=_config(tmp_path, config, body),
@@ -231,6 +259,58 @@ def _campaign(tmp_path, *, ids=("OLD-1",)) -> pathlib.Path:
     return path
 
 
+def _register_legacy_stat_access(
+    db: pathlib.Path,
+    panel: pathlib.Path,
+    config: pathlib.Path,
+    window: LockboxWindow,
+    *,
+    panel_sig: str,
+    attempt_sha256: str | None = None,
+    result_ref: str | None = None,
+    re_final: bool = False,
+) -> str:
+    stat = panel.stat()
+    legacy_artifact = hashlib.sha256(
+        f"{panel.resolve()}:{stat.st_size}:{int(stat.st_mtime)}".encode()
+    ).hexdigest()[:16]
+    params = {
+        "config": lib.file_content_sha(config),
+        "panel_sig": panel_sig,
+    }
+    if attempt_sha256 is not None:
+        params["flow_attempt_sha256"] = attempt_sha256
+    fingerprint = candidate_fingerprint(
+        artifact_sha256=legacy_artifact,
+        params={
+            key: value
+            for key, value in params.items()
+            if key != "flow_attempt_sha256"
+        },
+        window_id=window.window_id,
+        kind="final",
+    )
+    conn = store.connect(db)
+    try:
+        access_id = store.register_access(
+            conn,
+            kind="final",
+            fingerprint=fingerprint,
+            artifact=str(panel),
+            params=params,
+            command="legacy xscore",
+            reason="pipeline:legacy",
+            window=window,
+            tool="xscore-pipeline",
+            re_final=re_final,
+        )
+        if result_ref is not None:
+            store.update_result_ref(conn, access_id, result_ref)
+        return access_id
+    finally:
+        conn.close()
+
+
 def test_lockbox_register_finalize_registers_final_and_merges_ids(tmp_path):
     health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
     db = _ledger(tmp_path, LockboxWindow("2026Q2", dt.date(2025, 7, 1),
@@ -241,6 +321,9 @@ def test_lockbox_register_finalize_registers_final_and_merges_ids(tmp_path):
     ctx = _begin(tmp_path, db, health)
     assert ctx["sample_role"] == "lockbox" and ctx["window_id"] == "2026Q2"
     assert ctx["access_id"] and ctx["fingerprint"] and ctx["artifact_sha256"] != "missing"
+    assert ctx["artifact_sha256"] == lib.file_content_sha256(
+        tmp_path / "panel.npz"
+    )
     doc = _finish(db, out=out, ctx=ctx, result_ref=str(out))
 
     rows = _rows(db)
@@ -260,6 +343,389 @@ def test_lockbox_register_finalize_registers_final_and_merges_ids(tmp_path):
     assert json.loads(campaign.read_text(encoding="utf-8")) == doc
 
 
+def test_file_content_sha256_ignores_path_and_mtime(tmp_path):
+    original = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    original_sig = lib.file_content_sha256(original)
+    copied = tmp_path / "renamed-panel.npz"
+    copied.write_bytes(original.read_bytes())
+    os.utime(copied, (1_600_000_000, 1_600_000_000))
+    os.utime(original, (1_700_000_000, 1_700_000_000))
+
+    assert lib.file_content_sha256(original) == original_sig
+    assert lib.file_content_sha256(copied) == original_sig
+
+
+def test_lockbox_replay_reuses_legacy_stat_fingerprint_after_panel_touch(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(xscore_lockbox, "_ensure_platform_src", lambda: None)
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    window = LockboxWindow("2026Q2", dt.date(2025, 7, 1), dt.date(2026, 7, 3))
+    db = _ledger(tmp_path, window)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    config = _config(tmp_path, body="model: m0\n")
+    panel_sig = lib.file_content_sha256(panel)
+    legacy_id = _register_legacy_stat_access(
+        db, panel, config, window, panel_sig=panel_sig,
+        result_ref="/published/composite"
+    )
+
+    os.utime(panel, (1_700_000_000, 1_700_000_000))
+    replay = lib.lockbox_register(
+        panel=panel,
+        panel_sig=panel_sig,
+        config_path=str(config),
+        replay_ok=True,
+        published_access_ids=[legacy_id],
+        published_panel_sig=panel_sig,
+        published_window_id=window.window_id,
+        published_sample_role="lockbox",
+        published_result_ref="/published/composite",
+        db_path=db,
+        health_root=health,
+        today=dt.date(2026, 9, 21),
+    )
+
+    assert replay["access_id"] == legacy_id
+    assert len(_rows(db)) == 1, "旧 stat 指纹 replay 不得新增锁箱访问"
+
+
+def test_lockbox_resume_migrates_only_matching_legacy_attempt(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(xscore_lockbox, "_ensure_platform_src", lambda: None)
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    window = LockboxWindow("2026Q2", dt.date(2025, 7, 1), dt.date(2026, 7, 3))
+    db = _ledger(tmp_path, window)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    config = _config(tmp_path, body="model: m0\n")
+    attempt_sha = "a" * 64
+    panel_sig = lib.file_content_sha256(panel)
+    legacy_id = _register_legacy_stat_access(
+        db, panel, config, window, panel_sig=panel_sig,
+        attempt_sha256=attempt_sha
+    )
+    os.utime(panel, (1_700_000_000, 1_700_000_000))
+
+    resumed = lib.lockbox_register(
+        panel=panel,
+        panel_sig=panel_sig,
+        config_path=str(config),
+        flow_attempt_sha256=attempt_sha,
+        resume_pending=True,
+        db_path=db,
+        health_root=health,
+        today=dt.date(2026, 9, 21),
+    )
+    assert resumed["access_id"] == legacy_id
+    with pytest.raises(LockboxError, match="LOCKBOX_FINAL_DUPLICATE"):
+        lib.lockbox_register(
+            panel=panel,
+            panel_sig=panel_sig,
+            config_path=str(config),
+            flow_attempt_sha256="b" * 64,
+            resume_pending=True,
+            db_path=db,
+            health_root=health,
+            today=dt.date(2026, 9, 21),
+        )
+    assert len(_rows(db)) == 1, "不同 attempt 不得通过旧指纹重复登记"
+
+
+def test_legacy_published_replay_uses_manifest_access_id_after_panel_touch(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(xscore_lockbox, "_ensure_platform_src", lambda: None)
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    window = LockboxWindow("2026Q2", dt.date(2025, 7, 1), dt.date(2026, 7, 3))
+    db = _ledger(tmp_path, window)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    config = _config(tmp_path, body="model: m0\n")
+    out = tmp_path / "camp" / "run"
+    out.mkdir(parents=True)
+    (out / "REPORT.md").write_text("# published\n", encoding="utf-8")
+    legacy_panel_sig = lib.file_sig(panel)
+    legacy_id = _register_legacy_stat_access(
+        db, panel, config, window, panel_sig=legacy_panel_sig, result_ref=str(out)
+    )
+    pending_id = _register_legacy_stat_access(
+        db, panel, config, window, panel_sig=legacy_panel_sig, re_final=True
+    )
+    assert pending_id != legacy_id
+
+    os.utime(panel, (1_700_000_000, 1_700_000_000))
+    replay = lib.lockbox_register(
+        panel=panel,
+        panel_sig=lib.file_content_sha256(panel),
+        config_path=str(config),
+        replay_ok=True,
+        published_access_ids=[legacy_id],
+        published_panel_sig=legacy_panel_sig,
+        published_window_id=window.window_id,
+        published_sample_role="lockbox",
+        published_result_ref=str(out),
+        db_path=db,
+        health_root=health,
+        today=dt.date(2026, 9, 21),
+    )
+
+    assert replay["access_id"] == legacy_id
+    assert replay["published_replay"] is True
+    assert replay["access_id"] != pending_id
+    assert len(_rows(db)) == 2, "旧 published manifest 指向的访问必须原样复用"
+
+
+def test_published_replay_prefers_latest_re_final_access_id(tmp_path, monkeypatch):
+    monkeypatch.setattr(xscore_lockbox, "_ensure_platform_src", lambda: None)
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    window = LockboxWindow("2026Q2", dt.date(2025, 7, 1), dt.date(2026, 7, 3))
+    db = _ledger(tmp_path, window)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    config = _config(tmp_path, body="model: m0\n")
+    out = tmp_path / "camp" / "run"
+    out.mkdir(parents=True)
+    (out / "REPORT.md").write_text("# published\n", encoding="utf-8")
+    panel_sig = lib.file_content_sha256(panel)
+    old_id = _register_legacy_stat_access(
+        db, panel, config, window, panel_sig=panel_sig, result_ref=str(out)
+    )
+    newest_id = _register_legacy_stat_access(
+        db, panel, config, window, panel_sig=panel_sig,
+        result_ref=str(out), re_final=True,
+    )
+
+    replay = lib.lockbox_register(
+        panel=panel,
+        panel_sig=panel_sig,
+        config_path=str(config),
+        replay_ok=True,
+        published_access_ids=[old_id, newest_id],
+        published_panel_sig=panel_sig,
+        published_window_id=window.window_id,
+        published_sample_role="lockbox",
+        published_result_ref=str(out),
+        db_path=db,
+        health_root=health,
+        today=dt.date(2026, 9, 21),
+    )
+
+    assert replay["access_id"] == newest_id
+    assert replay["access_id"] != old_id
+    assert replay["published_replay"] is True
+    assert len(_rows(db)) == 2
+
+
+def test_published_replay_rejects_manifest_ledger_panel_signature_mismatch(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(xscore_lockbox, "_ensure_platform_src", lambda: None)
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    window = LockboxWindow("2026Q2", dt.date(2025, 7, 1), dt.date(2026, 7, 3))
+    db = _ledger(tmp_path, window)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    config = _config(tmp_path, body="model: m0\n")
+    out = tmp_path / "camp" / "run"
+    out.mkdir(parents=True)
+    (out / "REPORT.md").write_text("# published\n", encoding="utf-8")
+    old_panel_sig = lib.file_sig(panel)
+    access_id = _register_legacy_stat_access(
+        db, panel, config, window, panel_sig=old_panel_sig,
+        result_ref=str(out),
+    )
+
+    with pytest.raises(LockboxError) as exc:
+        lib.lockbox_register(
+            panel=panel,
+            panel_sig=lib.file_content_sha256(panel),
+            config_path=str(config),
+            replay_ok=True,
+            published_access_ids=[access_id],
+            published_panel_sig=lib.file_content_sha256(panel),
+            published_window_id=window.window_id,
+            published_sample_role="lockbox",
+            published_result_ref=str(out),
+            db_path=db,
+            health_root=health,
+            today=dt.date(2026, 9, 21),
+        )
+
+    assert exc.value.code == "LOCKBOX_FINAL_DUPLICATE"
+    assert len(_rows(db)) == 1, "签名不匹配时必须拒绝复用，且不能新增锁箱登记"
+
+
+def test_exact_fingerprint_replay_requires_published_access_id(tmp_path, monkeypatch):
+    monkeypatch.setattr(xscore_lockbox, "_ensure_platform_src", lambda: None)
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    window = LockboxWindow("2026Q2", dt.date(2025, 7, 1), dt.date(2026, 7, 3))
+    db = _ledger(tmp_path, window)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    panel_sig = lib.file_content_sha256(panel)
+    config = _config(tmp_path, body="model: m0\n")
+    out = tmp_path / "camp" / "run"
+    ctx = _begin(
+        tmp_path, db, health, panel=panel, config=config.name,
+        panel_sig=panel_sig,
+    )
+    _finish(db, out=out, ctx=ctx, result_ref=str(out))
+    manifest_path = out / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["access_ids"] = []
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(LockboxError) as exc:
+        lib.lockbox_register(
+            panel=panel,
+            panel_sig=panel_sig,
+            config_path=str(config),
+            replay_ok=True,
+            published_access_ids=manifest["access_ids"],
+            published_panel_sig=panel_sig,
+            published_window_id=window.window_id,
+            published_sample_role="lockbox",
+            published_result_ref=str(out),
+            db_path=db,
+            health_root=health,
+            today=dt.date(2026, 9, 21),
+        )
+
+    rows = _rows(db)
+    assert exc.value.code == "LOCKBOX_FINAL_DUPLICATE"
+    assert len(rows) == 1
+    assert rows[0]["result_ref"] == str(out)
+
+
+def test_stat_fingerprint_replay_rejects_mismatched_result_ref(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(xscore_lockbox, "_ensure_platform_src", lambda: None)
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    window = LockboxWindow("2026Q2", dt.date(2025, 7, 1), dt.date(2026, 7, 3))
+    db = _ledger(tmp_path, window)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    panel_sig = lib.file_content_sha256(panel)
+    config = _config(tmp_path, body="model: m0\n")
+    original_out = tmp_path / "camp" / "original"
+    wrong_out = tmp_path / "camp" / "other"
+    access_id = _register_legacy_stat_access(
+        db, panel, config, window, panel_sig=panel_sig,
+        result_ref=str(original_out),
+    )
+
+    with pytest.raises(LockboxError) as exc:
+        lib.lockbox_register(
+            panel=panel,
+            panel_sig=panel_sig,
+            config_path=str(config),
+            replay_ok=True,
+            published_access_ids=[access_id],
+            published_panel_sig=panel_sig,
+            published_window_id=window.window_id,
+            published_sample_role="lockbox",
+            published_result_ref=str(wrong_out),
+            db_path=db,
+            health_root=health,
+            today=dt.date(2026, 9, 21),
+        )
+
+    rows = _rows(db)
+    assert exc.value.code == "LOCKBOX_FINAL_DUPLICATE"
+    assert len(rows) == 1
+    assert rows[0]["access_id"] == access_id
+    assert rows[0]["result_ref"] == str(original_out)
+
+
+def test_legacy_pending_stat_attempt_requires_unchanged_panel_signature(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(xscore_lockbox, "_ensure_platform_src", lambda: None)
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    window = LockboxWindow("2026Q2", dt.date(2025, 7, 1), dt.date(2026, 7, 3))
+    db = _ledger(tmp_path, window)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    config = _config(tmp_path, body="model: m0\n")
+    legacy_panel_sig = lib.file_sig(panel)
+    legacy_id = _register_legacy_stat_access(
+        db, panel, config, window, panel_sig=legacy_panel_sig
+    )
+    out = tmp_path / "camp" / "run"
+    out.mkdir(parents=True)
+    (out / "manifest.json").write_text(
+        json.dumps({
+            "access_ids": [legacy_id],
+            "panel_sig": legacy_panel_sig,
+            "window_id": window.window_id,
+            "sample_role": "lockbox",
+        }),
+        encoding="utf-8",
+    )
+    resumed = lib.lockbox_register(
+        panel=panel,
+        panel_sig=lib.file_content_sha256(panel),
+        config_path=str(config),
+        replay_ok=True,
+        published_access_ids=[legacy_id],
+        published_panel_sig=legacy_panel_sig,
+        published_window_id=window.window_id,
+        published_sample_role="lockbox",
+        published_result_ref=str(out),
+        db_path=db,
+        health_root=health,
+        today=dt.date(2026, 9, 21),
+    )
+    assert resumed["access_id"] == legacy_id
+    assert resumed["pending_resume"] is True
+
+    os.utime(panel, (1_700_000_000, 1_700_000_000))
+
+    with pytest.raises(LockboxError, match="LOCKBOX_FINAL_DUPLICATE"):
+        lib.lockbox_register(
+            panel=panel,
+            panel_sig=lib.file_content_sha256(panel),
+            config_path=str(config),
+            replay_ok=True,
+            published_access_ids=[legacy_id],
+            published_panel_sig=legacy_panel_sig,
+            published_window_id=window.window_id,
+            published_sample_role="lockbox",
+            published_result_ref=str(out),
+            db_path=db,
+            health_root=health,
+            today=dt.date(2026, 9, 21),
+        )
+
+    assert len(_rows(db)) == 1, "无法证明旧 pending 面板未变时必须拒绝新增访问"
+
+
+def test_re_final_migrating_old_stat_candidate_keeps_audit_marker(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(xscore_lockbox, "_ensure_platform_src", lambda: None)
+    monkeypatch.setenv("FACTORLAB_RE_FINAL", "1")
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    window = LockboxWindow("2026Q2", dt.date(2025, 7, 1), dt.date(2026, 7, 3))
+    db = _ledger(tmp_path, window)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    config = _config(tmp_path, body="model: m0\n")
+    _register_legacy_stat_access(
+        db, panel, config, window, panel_sig=lib.file_sig(panel)
+    )
+    os.utime(panel, (1_700_000_000, 1_700_000_000))
+
+    replay = lib.lockbox_register(
+        panel=panel,
+        panel_sig=lib.file_content_sha256(panel),
+        config_path=str(config),
+        db_path=db,
+        health_root=health,
+        today=dt.date(2026, 9, 21),
+    )
+
+    rows = _rows(db)
+    assert len(rows) == 2
+    assert replay["access_id"] == rows[-1]["access_id"]
+    assert rows[-1]["reason"].endswith("|re-final")
+
+
 def test_lockbox_register_replay_reuses_id_without_new_registration(tmp_path, capsys):
     """产物已在（replay_ok）→ 复用既有 access_id：零新增、不报错、日志含复用。"""
     health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
@@ -269,12 +735,25 @@ def test_lockbox_register_replay_reuses_id_without_new_registration(tmp_path, ca
     out = tmp_path / "camp" / "run"
 
     ctx1 = _begin(tmp_path, db, health)
-    _finish(db, out=out, ctx=ctx1, result_ref=str(out))
+    published = _finish(db, out=out, ctx=ctx1, result_ref=str(out))
     rows1 = _rows(db)
     assert len(rows1) == 1
     capsys.readouterr()
 
-    ctx2 = _begin(tmp_path, db, health, replay_ok=True)
+    ctx2 = lib.lockbox_register(
+        panel=tmp_path / "panel.npz",
+        panel_sig=published["panel_sig"],
+        config_path=str(_config(tmp_path)),
+        replay_ok=True,
+        published_access_ids=published["access_ids"],
+        published_panel_sig=published["panel_sig"],
+        published_window_id=published["window_id"],
+        published_sample_role=published["sample_role"],
+        published_result_ref=str(out),
+        db_path=db,
+        health_root=health,
+        today=dt.date(2026, 9, 21),
+    )
     rows2 = _rows(db)
     assert len(rows2) == 1, "replay 不得新增登记行"
     assert ctx2["access_id"] == ctx1["access_id"] == rows1[0]["access_id"], "复用 access_id"
@@ -611,9 +1090,101 @@ def test_flows_register_lockbox_final_and_backfill_result_ref(tmp_path, monkeypa
     assert run_doc["platform_commit"] == camp_doc["platform_commit"] == "feedface"
     assert run_doc["sample_role"] == camp_doc["sample_role"] == "lockbox"
     assert run_doc["window_id"] == camp_doc["window_id"] == "2026Q2"
+    assert run_doc["panel_sig"] == lib.file_content_sha256(panel)
     assert run_doc["access_ids"] == [rows[0]["access_id"]]
     assert camp_doc["access_ids"] == ["OLD-1", rows[0]["access_id"]]
     assert camp_doc["campaign"] == "camp"
+
+
+def test_flows_replay_published_legacy_stat_output_after_touch_without_rescoring(
+    tmp_path, monkeypatch
+):
+    flows = _load_flows(monkeypatch)
+    monkeypatch.setattr(flows.lib, "git_commit", lambda: "feedface")
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    window = LockboxWindow("2026Q2", dt.date(2025, 7, 1), dt.date(2026, 7, 3))
+    db = _ledger(tmp_path, window)
+    _wire_ledger(monkeypatch, flows, db, health)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    out = tmp_path / "camp" / "run"
+    out.mkdir(parents=True)
+    (out / "REPORT.md").write_text("# existing report\n", encoding="utf-8")
+    cfg_path = tmp_path / "cfg.yaml"
+    cfg_path.write_text(yaml.safe_dump(
+        {"panel": str(panel), "out": str(out), "data": {"ensure": False},
+         "groups": {"g": "*"}, "models": ["M0a"]}), encoding="utf-8")
+    legacy_panel_sig = flows.lib.file_sig(panel)
+    access_id = _register_legacy_stat_access(
+        db, panel, cfg_path, window, panel_sig=legacy_panel_sig, result_ref=str(out)
+    )
+    (out / "manifest.json").write_text(
+        json.dumps({
+            "access_ids": [access_id],
+            "panel_sig": legacy_panel_sig,
+            "window_id": window.window_id,
+            "sample_role": "lockbox",
+            "config_path": str(cfg_path),
+        }),
+        encoding="utf-8",
+    )
+    os.utime(panel, (1_700_000_000, 1_700_000_000))
+    ran = []
+    monkeypatch.setattr(flows, "_run", lambda step: ran.append(step))
+    monkeypatch.setattr(flows, "_resolve_groups", lambda cfg: {"g": [0]})
+
+    report = flows.xscore_pipeline(str(cfg_path))
+
+    assert report == str(out / "REPORT.md")
+    assert ran == [], "完整旧 report replay 必须复用产物，不能按触碰后的 panel 重算"
+    assert len(_rows(db)) == 1
+    assert _rows(db)[0]["access_id"] == access_id
+
+
+def test_flows_reject_published_access_id_with_wrong_result_ref_before_compute(
+    tmp_path, monkeypatch
+):
+    flows = _load_flows(monkeypatch)
+    monkeypatch.setattr(flows.lib, "git_commit", lambda: "feedface")
+    health = _health(tmp_path, ["2025-06-30", "2025-07-01", "2026-07-03"])
+    window = LockboxWindow("2026Q2", dt.date(2025, 7, 1), dt.date(2026, 7, 3))
+    db = _ledger(tmp_path, window)
+    _wire_ledger(monkeypatch, flows, db, health)
+    panel = _panel(tmp_path / "panel.npz", ["2025-08-01", "2026-01-01"])
+    out = tmp_path / "camp" / "run"
+    out.mkdir(parents=True)
+    (out / "REPORT.md").write_text("# old report\n", encoding="utf-8")
+    cfg_path = tmp_path / "cfg.yaml"
+    cfg_path.write_text(yaml.safe_dump(
+        {"panel": str(panel), "out": str(out), "data": {"ensure": False},
+         "groups": {"g": "*"}, "models": ["M0a"]}), encoding="utf-8")
+    legacy_panel_sig = flows.lib.file_sig(panel)
+    access_id = _register_legacy_stat_access(
+        db, panel, cfg_path, window, panel_sig=legacy_panel_sig,
+        result_ref=str(tmp_path / "camp" / "another-run"),
+    )
+    (out / "manifest.json").write_text(
+        json.dumps({
+            "access_ids": [access_id],
+            "panel_sig": legacy_panel_sig,
+            "window_id": window.window_id,
+            "sample_role": "lockbox",
+            "config_path": str(cfg_path),
+        }),
+        encoding="utf-8",
+    )
+    ran = []
+    monkeypatch.setattr(flows, "_run", lambda step: ran.append(step))
+    monkeypatch.setattr(flows, "_resolve_groups", lambda cfg: {"g": [0]})
+
+    with pytest.raises(LockboxError) as exc:
+        flows.xscore_pipeline(str(cfg_path))
+
+    assert exc.value.code == "LOCKBOX_FINAL_DUPLICATE"
+    assert ran == [], "错误 result_ref 不得降级到重算路径"
+    rows = _rows(db)
+    assert len(rows) == 1
+    assert rows[0]["access_id"] == access_id
+    assert rows[0]["result_ref"] == str(tmp_path / "camp" / "another-run")
 
 
 def test_flows_pins_candidate_across_panel_rewrite(tmp_path, monkeypatch):

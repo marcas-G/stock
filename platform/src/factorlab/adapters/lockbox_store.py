@@ -16,7 +16,9 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import os
+import re
 import sqlite3
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -255,6 +257,25 @@ def _final_access_id(conn: sqlite3.Connection, window_id: str,
     return str(row[0]) if row is not None else None
 
 
+def _unfinished_final_access_id(conn: sqlite3.Connection, window_id: str,
+                                fingerprint: str,
+                                attempt_sha256: str) -> str | None:
+    """Return the latest exact-version access for this unfinished flow attempt."""
+    row = conn.execute(
+        "SELECT access_id, params, result_ref FROM lockbox_access WHERE window_id = ?"
+        " AND kind = 'final' AND fingerprint = ? ORDER BY rowid DESC LIMIT 1",
+        (window_id, fingerprint)).fetchone()
+    if row is None or row["result_ref"] is not None:
+        return None
+    try:
+        params = json.loads(row["params"])
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if params.get("flow_attempt_sha256") != attempt_sha256:
+        return None
+    return str(row["access_id"])
+
+
 def register_access(conn: sqlite3.Connection, *, kind: str, fingerprint: str,
                     artifact: str, params: Mapping[str, Any], command: str,
                     reason: str, window: LockboxWindow, tool: str,
@@ -302,6 +323,48 @@ def update_result_ref(conn: sqlite3.Connection, access_id: str,
                        " WHERE access_id = ?", (result_ref, access_id))
     if cur.rowcount == 0:
         raise ValueError(f"未知 access_id: {access_id}")
+
+
+def finalize_attempt_result(conn: sqlite3.Connection, *, access_id: str,
+                            attempt_sha256: str, result_ref: str) -> None:
+    """Idempotently complete a flow attempt after its artifact is published.
+
+    The registry only permits the existing result_ref column to change. This
+    helper additionally binds that backfill to the exact immutable flow
+    attempt, and rejects changing an already completed reference.
+    """
+    row = conn.execute(
+        "SELECT params, result_ref FROM lockbox_access"
+        " WHERE access_id = ? AND kind = 'final'",
+        (access_id,)).fetchone()
+    if row is None:
+        raise ValueError(f"未知 final access_id: {access_id}")
+    try:
+        params = json.loads(row["params"])
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"access_id={access_id} params 不可读取") from exc
+    if params.get("flow_attempt_sha256") != attempt_sha256:
+        raise ValueError(
+            f"access_id={access_id} 不属于 flow attempt {attempt_sha256}"
+        )
+    current = row["result_ref"]
+    if current not in (None, result_ref):
+        raise ValueError(
+            f"access_id={access_id} 已关联不同结果 {current!r}，拒绝覆盖"
+        )
+    if current is None:
+        cursor = conn.execute(
+            "UPDATE lockbox_access SET result_ref = ?"
+            " WHERE access_id = ? AND result_ref IS NULL",
+            (result_ref, access_id))
+        if cursor.rowcount == 0:
+            latest = conn.execute(
+                "SELECT result_ref FROM lockbox_access WHERE access_id = ?",
+                (access_id,)).fetchone()
+            if latest is None or latest["result_ref"] != result_ref:
+                raise ValueError(
+                    f"access_id={access_id} 已并发关联其他结果，拒绝覆盖"
+                )
 
 
 def final_exists(conn: sqlite3.Connection, window_id: str,
@@ -376,8 +439,11 @@ def guard_run(*, panel_start: dt.date, panel_end: dt.date,
       `LOCKBOX_PIPELINE_REQUIRED`）→ 版本指纹（spec 内容 + `final_test` 参数 +
       window_id）→ 已有登记默认 `LOCKBOX_FINAL_DUPLICATE`；操作员
       `FACTORLAB_RE_FINAL=1` 允许再登记（`reason` 追加 `|re-final` 审计标记）→
-      否则 `register_access(kind="final")`（无配额）。最终测试无复用语义：
-      重复即拒，不自动回查旧登记。
+      否则 `register_access(kind="final")`（无配额）。重复默认拒绝。只有
+      Prefect producer 在确认 attempt marker 身份匹配后注入
+      `FACTORLAB_LOCKBOX_REPLAY=1` 和其 SHA-256，且最新登记的
+      `flow_attempt_sha256` 与之相同、`result_ref IS NULL` 时才复用原 access id
+      续跑未完成 attempt；结果引用已回填或 attempt 不匹配时仍拒绝重新计算。
     - 未初始化（无 state）：IS 照常放行；碰测试段非 final → TEST_ONLY_FINAL；
       final 登记 → `LOCKBOX_NO_STATE`（先 `factorlab lockbox roll`）。
     """
@@ -419,18 +485,40 @@ def guard_run(*, panel_start: dt.date, panel_end: dt.date,
                 f"起点 {window.start}）相交但锁箱未初始化：先 `factorlab lockbox roll`")
         fp = final_version_fingerprint(spec_doc=spec_doc,
                                        window_id=window.window_id)
+        attempt_sha256 = os.environ.get(
+            "FACTORLAB_LOCKBOX_ATTEMPT_SHA256", ""
+        ).strip()
+        if attempt_sha256 and not re.fullmatch(r"[0-9a-f]{64}", attempt_sha256):
+            raise LockboxError(
+                "LOCKBOX_ATTEMPT_ID_INVALID",
+                "FACTORLAB_LOCKBOX_ATTEMPT_SHA256 必须是完整小写 SHA-256",
+            )
         re_final = os.environ.get("FACTORLAB_RE_FINAL", "").strip() == "1"
         exists = final_exists(conn, window.window_id, fp)
         if exists and not re_final:
+            if (os.environ.get("FACTORLAB_LOCKBOX_REPLAY", "").strip() == "1"
+                    and attempt_sha256):
+                access_id = _unfinished_final_access_id(
+                    conn, window.window_id, fp, attempt_sha256
+                )
+                if access_id is not None:
+                    info = {"role": role, "window_id": window.window_id,
+                            "window_start": window.start.isoformat(),
+                            "window_end": window.end.isoformat(),
+                            "access_id": access_id}
+                    return RunGuard(info, db_path=db_path)
             raise LockboxError(
                 "LOCKBOX_FINAL_DUPLICATE",
                 f"版本 {fp[:12]}… 在窗口 {window.window_id} 已做过最终测试"
                 "（每版本一次）：改 spec 内容/参数=新版本可再测；操作员重测设"
                 " FACTORLAB_RE_FINAL=1（审计留痕）")
         # 预检只为错误文案；`re_final` 是否生效由 register_access 事务内权威判定
+        params = {"final_test": True}
+        if attempt_sha256:
+            params["flow_attempt_sha256"] = attempt_sha256
         access_id = register_access(
             conn, kind="final", fingerprint=fp, artifact=artifact,
-            params={"final_test": True}, command=command, reason=reason,
+            params=params, command=command, reason=reason,
             window=window, tool=tool, re_final=re_final)
         info = {"role": role, "window_id": window.window_id,
                 "window_start": window.start.isoformat(),

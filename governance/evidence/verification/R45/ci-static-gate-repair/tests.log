@@ -1,0 +1,4 @@
+$ env -u FACTORLAB_PIPELINE platform/.venv/bin/python -m pytest -q research/tools/research_flows/tests research/tools/xscore/tests/test_manifest.py
+........................................................................ [ 84%]
+.............                                                            [100%]
+85 passed in 26.19s

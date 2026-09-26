@@ -1,0 +1,3 @@
+$ env -u FACTORLAB_PIPELINE platform/.venv/bin/python -m pytest -q platform/tests/test_architecture.py::test_tools_declare_env_single_point research/tools/research_flows research/tools/xscore/tests/test_ref_sync.py research/tools/xscore/tests/test_manifest.py
+......s...........................................s...s......................................................                                                                                    [100%]
+106 passed, 3 skipped in 27.12s
