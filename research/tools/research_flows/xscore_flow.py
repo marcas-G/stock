@@ -1054,6 +1054,13 @@ def _publish_composite(
         write_composite_artifact,
     )
 
+    # Carry lockbox evidence from every input FactorArtifact, preserving input
+    # order, then add any access id registered by this xscore run. The caller's
+    # list may also include IDs from the first ref, so deduplicate stably.
+    all_access_ids = list(dict.fromkeys(
+        [access_id for ref in refs for access_id in ref.access_ids]
+        + [access_id for access_id in access_ids if access_id]
+    ))
     composite_cfg = {
         "name": config.name,
         "mode": config.mode,
@@ -1115,7 +1122,7 @@ def _publish_composite(
             "data_version": refs[0].data_version,
             "window_id": refs[0].window_id,
             "sample_role": refs[0].sample_role,
-            "access_ids": list(access_ids),
+            "access_ids": all_access_ids,
             "output_hash": None,
         }
         meta = {
@@ -1150,7 +1157,7 @@ def _publish_composite(
         "status": "candidate",
         "source_artifacts": source_refs,
         "platform_commit": refs[0].platform_commit,
-        "access_ids": list(access_ids),
+        "access_ids": all_access_ids,
         "metadata": {
             "factor_artifacts": source_refs,
             "groups": composite_cfg["groups"],
@@ -1164,7 +1171,7 @@ def _publish_composite(
             "data_version": refs[0].data_version,
             "sample_role": refs[0].sample_role,
             "window_id": refs[0].window_id,
-            "access_ids": list(access_ids),
+            "access_ids": all_access_ids,
         },
     }
     result = publish_artifact(final_dir, manifest, primary_file="panel.parquet")

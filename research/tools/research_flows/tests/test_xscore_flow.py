@@ -304,6 +304,70 @@ def test_composite_publication_round_trips_through_platform_reader(
     assert ref.version == "b" * 64
 
 
+def test_composite_publication_preserves_access_ids_from_every_factor(
+    tmp_path: Path, monkeypatch
+):
+    """Composite provenance must retain every input FactorArtifact access id."""
+    _require_panel_adapter(monkeypatch)
+    first = _factor(
+        tmp_path / "alpha",
+        "alpha",
+        mode="final",
+        sample_role="lockbox",
+        access_ids=("LB-alpha",),
+    )
+    second = _factor(
+        tmp_path / "beta",
+        "beta",
+        mode="final",
+        sample_role="lockbox",
+        access_ids=("LB-beta",),
+    )
+    config = parse_xscore_config(
+        {
+            "artifact_root": str(tmp_path),
+            "mode": "final",
+            "inputs": [
+                first.model_dump(mode="json"),
+                second.model_dump(mode="json"),
+            ],
+            "name": "blend",
+            "groups": {"daily": ["alpha", "beta"]},
+            "models": ["M0a"],
+            "min_coverage": 0.9,
+        }
+    )
+    panel_path = tmp_path / "panel.npz"
+    assemble_factor_panel([first, second], panel_path, allowed_root=tmp_path)
+    from lab.autoencoder42.panel import load_panel
+
+    panel = load_panel(panel_path)
+    score_dir = tmp_path / "score"
+    score_dir.mkdir()
+    np.savez_compressed(
+        score_dir / "signal.npz",
+        signal=np.asarray([[0.2], [0.3], [0.4]], dtype=float),
+        dates=np.asarray([str(day) for day in panel.dates]),
+        codes=np.asarray([str(code) for code in panel.codes]),
+    )
+
+    ref = _publish_composite(
+        refs=[first, second],
+        config=config,
+        version="d" * 64,
+        code_sha="e" * 64,
+        score_dir=score_dir,
+        panel_path=panel_path,
+        access_ids=["LB-alpha", "LB-xscore"],
+    )
+
+    assert ref.access_ids == ("LB-alpha", "LB-beta", "LB-xscore")
+    provenance = json.loads(
+        (Path(ref.artifact_uri) / "provenance.json").read_text(encoding="utf-8")
+    )
+    assert provenance["access_ids"] == ["LB-alpha", "LB-beta", "LB-xscore"]
+
+
 def test_xscore_replay_requires_hash_verified_research_outputs(
     tmp_path: Path, monkeypatch
 ):
