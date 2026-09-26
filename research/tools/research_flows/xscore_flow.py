@@ -196,6 +196,10 @@ def parse_xscore_config(source: Mapping[str, Any] | str | Path) -> XScoreConfig:
     if set(portfolio["domains"]) - {"all", "Q1Q3", "Q1Q2"}:
         raise ValueError("portfolio.domains 只支持 all/Q1Q3/Q1Q2")
     composite = raw.get("composite")
+    if mode == "final" and composite is None:
+        raise ValueError(
+            "final 模式必须显式声明预先选定的 composite: {group, model}"
+        )
     if composite is None and len(groups) == 1 and len(models) == 1:
         composite = {"group": next(iter(groups)), "model": models[0]}
     if not isinstance(composite, dict):
@@ -204,6 +208,28 @@ def parse_xscore_config(source: Mapping[str, Any] | str | Path) -> XScoreConfig:
     composite_model = composite.get("model")
     if composite_group not in groups or composite_model not in models:
         raise ValueError("composite.group/model 必须选择已配置的分组和模型")
+    if mode == "final":
+        candidate_counts = {
+            "groups": len(groups),
+            "models": len(models),
+            "portfolio.exec": len(portfolio["exec"]),
+            "portfolio.domains": len(portfolio["domains"]),
+        }
+        expanded = {
+            name: count for name, count in candidate_counts.items() if count != 1
+        }
+        if expanded:
+            raise ValueError(
+                "final 模式只允许一个预先选定的 group/model/组合口径；"
+                f"请将 groups、models、portfolio.exec、portfolio.domains 均设为单项，当前：{expanded}"
+            )
+        only_group = next(iter(groups))
+        only_model = models[0]
+        if (composite_group, composite_model) != (only_group, only_model):
+            raise ValueError(
+                "final 模式的 composite 必须指向唯一预先选定的 group/model："
+                f"{only_group}/{only_model}"
+            )
     campaign = raw.get("campaign", name)
     if not isinstance(campaign, str) or not campaign:
         raise ValueError("campaign 必须为非空字符串")
@@ -254,6 +280,43 @@ def _validate_ref_cohort(refs: Sequence[ArtifactRef]) -> None:
         values = {getattr(ref, field) for ref in refs}
         if len(values) != 1:
             raise ValueError(f"xscore FactorArtifact 的 {field} 必须一致，收到 {values}")
+
+
+def _render_xscore_report(
+    config: XScoreConfig,
+    *,
+    factor_count: int,
+    panel_sha256: str,
+    version: str,
+    score_results: Sequence[Mapping[str, Any]],
+) -> str:
+    rows = [
+        "# xscore 研究报告",
+        "",
+        f"- mode: `{config.mode}`",
+        f"- FactorArtifact 数量: {factor_count}",
+        f"- panel sha256: `{panel_sha256}`",
+        f"- CompositeArtifact: `{config.name}/{version}`",
+    ]
+    if config.mode == "final":
+        rows.extend([
+            f"- final 候选: `{config.composite_group}/{config.composite_model}`",
+            f"- final 组合口径: `{config.portfolio['exec'][0]}/{config.portfolio['domains'][0]}`",
+            "- 统计口径: 单候选确认性评估；IC t(NW) 为描述统计，不作多候选显著性结论。",
+        ])
+    rows.extend([
+        "",
+        "| 分组/模型 | IC mean | IC t(NW) |",
+        "|---|---:|---:|",
+    ])
+    for result in score_results:
+        ic = result["metrics"].get("ic", {})
+        rows.append(
+            f"| {result['group']}_{result['model']} | "
+            f"{ic.get('mean', float('nan')):.6f} | "
+            f"{ic.get('t_nw', float('nan')):.3f} |"
+        )
+    return "\n".join(rows) + "\n"
 
 
 def validate_factor_inputs(
@@ -1416,25 +1479,16 @@ def xscore_flow(config_path: str | Path) -> ArtifactRef:
         json.dumps(portfolios, ensure_ascii=False, indent=2, default=str) + "\n",
         encoding="utf-8",
     )
-    rows = [
-        "# xscore 研究报告",
-        "",
-        f"- mode: `{config.mode}`",
-        f"- FactorArtifact 数量: {len(factor_refs)}",
-        f"- panel sha256: `{panel_details['panel_sha256']}`",
-        f"- CompositeArtifact: `{config.name}/{version}`",
-        "",
-        "| 分组/模型 | IC mean | IC t(NW) |",
-        "|---|---:|---:|",
-    ]
-    for result in results:
-        ic = result["metrics"].get("ic", {})
-        rows.append(
-            f"| {result['group']}_{result['model']} | "
-            f"{ic.get('mean', float('nan')):.6f} | "
-            f"{ic.get('t_nw', float('nan')):.3f} |"
-        )
-    (result_root / "report.md").write_text("\n".join(rows) + "\n", encoding="utf-8")
+    (result_root / "report.md").write_text(
+        _render_xscore_report(
+            config,
+            factor_count=len(factor_refs),
+            panel_sha256=panel_details["panel_sha256"],
+            version=version,
+            score_results=results,
+        ),
+        encoding="utf-8",
+    )
     current_access = list(factor_refs[0].access_ids)
     if lockbox_ctx.get("access_id") and lockbox_ctx["access_id"] not in current_access:
         current_access.append(lockbox_ctx["access_id"])

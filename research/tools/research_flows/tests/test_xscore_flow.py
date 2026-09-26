@@ -27,6 +27,7 @@ from research_flows.xscore_flow import (  # noqa: E402
     _complete_prepared_replay,
     _lockbox_register,
     _publish_composite,
+    _render_xscore_report,
     _research_output_hashes,
     _validate_prepared_research,
     _validate_research_replay,
@@ -169,6 +170,34 @@ def test_default_artifact_root_is_platform_results(tmp_path: Path, monkeypatch):
     assert config.artifact_root == (QR / "results" / "platform").resolve()
 
 
+@pytest.mark.parametrize(
+    ("mode", "expected_pipeline"),
+    [("explore", None), ("final", "1")],
+)
+def test_platform_worker_propagates_mode_environment(
+    tmp_path: Path, monkeypatch, mode: str, expected_pipeline: str | None
+):
+    captured: dict[str, str | None] = {}
+
+    def fake_run_heavy(argv, *, cwd, env):
+        del cwd
+        captured["pipeline"] = env.get("FACTORLAB_PIPELINE")
+        request = json.loads(Path(argv[-1]).read_text(encoding="utf-8"))
+        Path(request["response"]).write_text(
+            json.dumps({"ok": True}), encoding="utf-8"
+        )
+        return ""
+
+    monkeypatch.setattr(xscore_module, "_run_heavy", fake_run_heavy)
+    monkeypatch.setenv("FACTORLAB_PIPELINE", "parent")
+
+    assert xscore_module._run_platform_worker(
+        "validate", {}, mode=mode
+    ) == {"ok": True}
+    assert captured["pipeline"] == expected_pipeline
+    assert os.environ["FACTORLAB_PIPELINE"] == "parent"
+
+
 def test_panel_is_built_from_ref_files_and_preserves_ref_order(
     tmp_path: Path, monkeypatch
 ):
@@ -235,6 +264,116 @@ def test_final_mode_requires_matching_final_lockbox_refs(tmp_path: Path):
                 "mode": "final",
                 "inputs": [explore_ref.model_dump(mode="json")],
                 "name": "blend",
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "expanded"),
+    [
+        ("groups", {"daily": ["alpha"], "minute": ["alpha"]}),
+        ("models", ["M0a", "M0b"]),
+        ("portfolio.exec", ["open", "close"]),
+        ("portfolio.domains", ["all", "Q1Q3"]),
+    ],
+)
+def test_final_config_rejects_multiple_candidates(
+    tmp_path: Path, monkeypatch, field: str, expanded
+):
+    monkeypatch.setattr(xscore_module, "QR", tmp_path)
+    factor = _factor(
+        tmp_path / "factor",
+        "alpha",
+        mode="final",
+        sample_role="lockbox",
+        access_ids=("LB-1",),
+    )
+    config = {
+        "artifact_root": str(tmp_path),
+        "output_root": str(tmp_path / "results"),
+        "mode": "final",
+        "inputs": [factor.model_dump(mode="json")],
+        "name": "blend",
+        "groups": {"daily": ["alpha"]},
+        "models": ["M0a"],
+        "composite": {"group": "daily", "model": "M0a"},
+        "min_coverage": 0.9,
+        "portfolio": {"exec": ["open"], "domains": ["all"]},
+    }
+    if field.startswith("portfolio."):
+        config["portfolio"][field.split(".", 1)[1]] = expanded
+    else:
+        config[field] = expanded
+
+    with pytest.raises(ValueError, match="final 模式只允许一个"):
+        parse_xscore_config(config)
+
+
+def test_final_config_accepts_one_preselected_candidate_and_report_is_explicit(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.setattr(xscore_module, "QR", tmp_path)
+    factor = _factor(
+        tmp_path / "factor",
+        "alpha",
+        mode="final",
+        sample_role="lockbox",
+        access_ids=("LB-1",),
+    )
+    config = parse_xscore_config(
+        {
+            "artifact_root": str(tmp_path),
+            "output_root": str(tmp_path / "results"),
+            "mode": "final",
+            "inputs": [factor.model_dump(mode="json")],
+            "name": "blend",
+            "groups": {"daily": ["alpha"]},
+            "models": ["M0a"],
+            "composite": {"group": "daily", "model": "M0a"},
+            "min_coverage": 0.9,
+            "portfolio": {"exec": ["open"], "domains": ["all"]},
+        }
+    )
+    report = _render_xscore_report(
+        config,
+        factor_count=1,
+        panel_sha256="a" * 64,
+        version="b" * 64,
+        score_results=[{
+            "group": "daily",
+            "model": "M0a",
+            "metrics": {"ic": {"mean": 0.02, "t_nw": 2.1}},
+        }],
+    )
+    assert "- final 候选: `daily/M0a`" in report
+    assert "- final 组合口径: `open/all`" in report
+    assert "IC t(NW) 为描述统计" in report
+    assert "| daily_M0a | 0.020000 | 2.100 |" in report
+
+
+def test_final_config_requires_explicit_composite_candidate(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.setattr(xscore_module, "QR", tmp_path)
+    factor = _factor(
+        tmp_path / "factor",
+        "alpha",
+        mode="final",
+        sample_role="lockbox",
+        access_ids=("LB-1",),
+    )
+    with pytest.raises(ValueError, match="final 模式必须显式声明"):
+        parse_xscore_config(
+            {
+                "artifact_root": str(tmp_path),
+                "output_root": str(tmp_path / "results"),
+                "mode": "final",
+                "inputs": [factor.model_dump(mode="json")],
+                "name": "blend",
+                "groups": {"daily": ["alpha"]},
+                "models": ["M0a"],
+                "min_coverage": 0.9,
+                "portfolio": {"exec": ["open"], "domains": ["all"]},
             }
         )
 
@@ -334,6 +473,7 @@ def test_composite_publication_preserves_access_ids_from_every_factor(
             "name": "blend",
             "groups": {"daily": ["alpha", "beta"]},
             "models": ["M0a"],
+            "composite": {"group": "daily", "model": "M0a"},
             "min_coverage": 0.9,
         }
     )
@@ -520,6 +660,7 @@ def test_xscore_flow_validates_research_replay_before_returning_composite(
         "name": "blend",
         "groups": {"daily": ["alpha"]},
         "models": ["M0a"],
+        "composite": {"group": "daily", "model": "M0a"},
         "min_coverage": 0.9,
     }
     config_path = tmp_path / "xscore.yaml"
@@ -642,6 +783,7 @@ def test_final_xscore_replay_finishes_prepared_artifact_without_rescoring(
         "name": "blend",
         "groups": {"daily": ["alpha"]},
         "models": ["M0a"],
+        "composite": {"group": "daily", "model": "M0a"},
         "min_coverage": 0.9,
     }
     config_path = tmp_path / "xscore-final.yaml"
