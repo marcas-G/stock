@@ -240,6 +240,7 @@ def test_runner_installer_starts_the_new_research_deployments():
     assert '("xscore-pipeline", "xscore")' in installer
     assert '("strategy-execution", "strategy-execution")' in installer
     assert "/api/flows/filter" in installer
+    assert 'json.dumps({"limit": 200})' in installer
     assert "systemctl --user restart prefect-runner.service" in installer
 
 

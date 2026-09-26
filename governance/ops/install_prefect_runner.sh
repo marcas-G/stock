@@ -45,7 +45,7 @@ try:
     deployments = json.load(sys.stdin)
     request = urllib.request.Request(
         "http://127.0.0.1:4200/api/flows/filter",
-        data=json.dumps({"limit": 1000}).encode(),
+        data=json.dumps({"limit": 200}).encode(),
         headers={"Content-Type": "application/json"},
     )
     flows = json.load(urllib.request.urlopen(request, timeout=5))
