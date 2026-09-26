@@ -1,0 +1,11 @@
+heavy.sh: slot=1/2 avail=59.7GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python -m pytest research/tools/research_flows/tests research/tools/xscore/tests -q
+........................................................................ [ 38%]
+........................................................................ [ 76%]
+.............................................                            [100%]
+=============================== warnings summary ===============================
+tools/research_flows/tests/test_xscore_flow.py::test_xscore_attempt_lock_serializes_across_processes
+  /home/gaolei/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/multiprocessing/popen_fork.py:67: DeprecationWarning: This process (pid=14415) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+189 passed, 1 warning in 35.49s

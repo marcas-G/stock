@@ -48,6 +48,7 @@ _NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 _ATTEMPT_MARKER = ".factor_mining_attempt.json"
 _IMPLEMENTATION_FILES = (
     "research/tools/research_flows/factor_mining.py",
+    "research/tools/research_flows/factor_seed.py",
     "platform/src/factorlab/surfaces/cli/main.py",
     "platform/src/factorlab/core/spec.py",
     "platform/src/factorlab/app/run.py",

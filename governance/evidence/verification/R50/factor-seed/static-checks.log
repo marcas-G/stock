@@ -1,0 +1,11 @@
+bash -n governance/ops/install_prefect_runner.sh: PASS
+compileall research/tools/research_flows: PASS
+git diff --check: PASS
+== stock gates ==
+[G-TOPO] 工具拓扑：依赖方向 / 横向耦合
+  ✓ 0 处（core 不做反向依赖、生产不带诊断、工具不互相 import、lib 是叶子）
+  ✓ 负向自检：四类违规各命中 1 处、合法路径零误报
+
+结构门：全绿
+数据接口门：ENFORCED 判定（AST）+ REPORT 未竟计数（见 governance/ops/check_dataiface.py）
+gates.sh --topo: PASS

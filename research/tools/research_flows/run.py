@@ -18,6 +18,7 @@ from research_flows.artifacts import ArtifactRef
 
 
 _FLOW_NAMES = {
+    "factor-seed/factor-seed",
     "factor-mining/factor-mining",
     "xscore-pipeline/xscore",
     "strategy-execution/strategy-execution",
@@ -53,6 +54,10 @@ def run_flow(flow_name: str, config_path: str | Path) -> Any:
             f"未知 flow {flow_name!r}；可用值: {sorted(_FLOW_NAMES)}"
         )
     config = _read_config(config_path)
+    if flow_name == "factor-seed/factor-seed":
+        from research_flows.factor_seed import factor_seed_flow
+
+        return factor_seed_flow(config)
     if flow_name == "factor-mining/factor-mining":
         from research_flows.factor_mining import factor_mining_flow
 

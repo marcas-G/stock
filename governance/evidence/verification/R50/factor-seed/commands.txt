@@ -1,0 +1,5 @@
+# Run from the repository root.
+FACTORLAB_DATA_BACKEND=ch PYTHONPATH=platform/src:research/tools:platform/tools governance/ops/heavy.sh platform/.venv/bin/python -m pytest research/tools/research_flows/tests research/tools/xscore/tests -q
+governance/ops/heavy.sh platform/.venv/bin/python -m pytest platform/tests/test_doc_paths_exist.py -q
+governance/evidence/verification/R50/factor-seed/verify.sh
+research/.venv/bin/prefect deployment ls --help

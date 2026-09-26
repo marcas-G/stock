@@ -315,8 +315,9 @@ def test_campaign_runs_in_order_and_stops_after_failure():
     assert seen == ["factor", "xscore:factor-ref"]
 
 
-def test_deployment_names_match_the_three_flows_and_parent():
+def test_deployment_names_match_the_flows_and_parent():
     assert DEPLOYMENT_NAMES == {
+        "factor-seed/factor-seed",
         "factor-mining/factor-mining",
         "xscore-pipeline/xscore",
         "strategy-execution/strategy-execution",
