@@ -99,7 +99,8 @@ Flow 间传递的最小不可变引用：
 
 - `explore`：仅允许训练区间（IS）；不得读取或评估测试段，不登记锁箱；产物标为探索候选。
 - `final`：配置、上游引用及数据版本冻结；Prefect task 启动正式计算时设置 `FACTORLAB_PIPELINE=1`；由对应平台/锁箱入口登记。每个 flow 的同一 immutable version 只允许一次最终测试。
-- 成功 final 的同版本 retry/replay 只复用完整且校验通过的终态产物，不再登记或计算。失败半成品没有有效发布 manifest，不能作为 replay 依据。
+- final retry 绑定完整的 attempt 身份（输入引用、配置、代码、窗口和样本角色）。若原始锁箱访问仍未关联结果，只能由同一 attempt 复用其 access ID；不同 attempt 和已完成访问均不得重用。已完整写出的原生检查点必须先校验，再继续发布/收尾；有损坏或身份不匹配时 fail closed。
+- 发布后的成功 final replay 只复用完整且校验通过的终态产物，不再登记或计算。失败半成品没有有效发布 manifest，不能作为成功 replay 依据；只有 marker 匹配的同一 attempt 才能继续处理。
 - `unknown` 样本角色不得在 final 模式发布；若没有锁箱 state，final 必须 fail closed。探索的训练段边界由锁箱窗口/显式训练窗口确定，不可自行推断测试数据可用。
 - 锁箱登记权威继续使用 FactorLab `lockbox_store`/已有 flow 接线；不新建第二份台账、不通过结果目录状态冒充登记成功。移除 xscore 现有“manifest 存在即 replay”判定，只有完整终态可 replay。
 
@@ -164,7 +165,7 @@ walk_forward:
 
 ```text
 验证全部 FactorArtifact → 组装面板 → 面板质检
-→ 分组/模型矩阵 → walk-forward → 统计比较
+→ 分组/模型矩阵 → walk-forward → 候选评估
 → porteval 研究组合评估 → 生成 CompositeArtifact → 报告
 ```
 
@@ -179,6 +180,8 @@ results/<campaign>/xscore/
 ```
 
 `portfolio_research.json` 只是研究评估，不代表订单或持仓回测。
+
+`explore` 可用多个分组、模型和组合口径进行候选筛选。`final` 只接受一个预先冻结的候选：唯一 group、model、portfolio execution 和 domain；`composite` 必须指向这组唯一配置。final 报告中的 IC 均值和 Newey–West t 值是描述统计，不代表多候选统计比较或多重比较校正后的显著性结论。候选比较应在 explore 训练段完成。
 
 聚合输出：
 
@@ -252,7 +255,7 @@ M8 当前只持久化其已有支持的执行 timing；配置中不支持的 tim
 - 命中缓存前必须校验所有文件内容 SHA 和 manifest 交叉字段；无效/半成品产物必须报错或进入新版本路径，不能只看文件存在。
 - 失败状态可以记录在 Prefect run 日志或独立诊断记录；失败目录不得存在可被下游接受的 `flow_manifest.json`。
 - 发布 manifest 最后写。覆盖已有不可变版本目录应 fail fast。
-- 三条 flow 的任务按可重试边界划分；final 锁箱登记在重型计算前做一次，后续 retry 只能从锁箱系统读取已有登记并在完成产物完整时复用。
+- 三条 flow 的任务按可重试边界划分；final 锁箱登记在重型计算前做一次，后续 retry 只能读取同 attempt 的未完成登记，或校验并复用该 attempt 的完整检查点；不得为同一 attempt 再登记一次，也不得复用其他 attempt 的访问。
 
 ## 6. 实施阶段与验收
 
