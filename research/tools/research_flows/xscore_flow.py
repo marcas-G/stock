@@ -1258,6 +1258,11 @@ def _complete_prepared_replay(
                 replay_ok=False,
                 flow_attempt_sha256=flow_attempt_sha256,
                 resume_pending=flow_attempt_sha256 is not None,
+                published_access_ids=composite_ref.access_ids,
+                published_panel_sig=panel_info["panel_sha256"],
+                published_window_id=composite_ref.window_id,
+                published_sample_role=composite_ref.sample_role,
+                published_result_ref=composite_ref.artifact_uri,
             )
         if (
             lockbox_ctx.get("sample_role") != composite_ref.sample_role
@@ -1339,6 +1344,31 @@ def _resume_prepared_publication(
             replay_ok=artifact_already_published,
             flow_attempt_sha256=flow_attempt_sha256,
             resume_pending=not artifact_already_published,
+            published_access_ids=(
+                existing_composite_ref.access_ids
+                if artifact_already_published and existing_composite_ref is not None
+                else ()
+            ),
+            published_panel_sig=(
+                panel_info["panel_sha256"]
+                if artifact_already_published and existing_composite_ref is not None
+                else None
+            ),
+            published_window_id=(
+                existing_composite_ref.window_id
+                if artifact_already_published and existing_composite_ref is not None
+                else None
+            ),
+            published_sample_role=(
+                existing_composite_ref.sample_role
+                if artifact_already_published and existing_composite_ref is not None
+                else None
+            ),
+            published_result_ref=(
+                existing_composite_ref.artifact_uri
+                if artifact_already_published and existing_composite_ref is not None
+                else None
+            ),
         )
         prepared_lockbox = prepared.get("lockbox")
         if not isinstance(prepared_lockbox, Mapping):
@@ -1702,6 +1732,11 @@ def _xscore_flow_impl(
                 config_path=config.config_path,
                 replay_ok=True,
                 flow_attempt_sha256=flow_attempt_sha256,
+                published_access_ids=replay.access_ids,
+                published_panel_sig=expected_panel_sha,
+                published_window_id=replay.window_id,
+                published_sample_role=replay.sample_role,
+                published_result_ref=replay.artifact_uri,
             )
             if (
                 ctx.get("sample_role") != replay.sample_role
@@ -1963,6 +1998,11 @@ def _lockbox_register(
     replay_ok: bool,
     flow_attempt_sha256: str | None = None,
     resume_pending: bool = False,
+    published_access_ids: Sequence[str] = (),
+    published_panel_sig: str | None = None,
+    published_window_id: str | None = None,
+    published_sample_role: str | None = None,
+    published_result_ref: str | None = None,
 ) -> dict[str, Any]:
     with _LOCKBOX_ENV_LOCK:
         re_final = os.environ.pop("FACTORLAB_RE_FINAL", None)
@@ -1974,6 +2014,11 @@ def _lockbox_register(
                 replay_ok=replay_ok,
                 flow_attempt_sha256=flow_attempt_sha256,
                 resume_pending=resume_pending,
+                published_access_ids=published_access_ids,
+                published_panel_sig=published_panel_sig,
+                published_window_id=published_window_id,
+                published_sample_role=published_sample_role,
+                published_result_ref=published_result_ref,
             )
         finally:
             if re_final is not None:

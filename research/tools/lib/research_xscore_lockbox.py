@@ -12,7 +12,7 @@ import hashlib
 import json
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -246,10 +246,114 @@ def _matching_final_by_params(
     return None
 
 
+def _matching_final_by_config(
+    conn, *, window_id: str, config_sha: str
+) -> Any | None:
+    """Return a prior final row for this immutable config in the current window."""
+    rows = conn.execute(
+        "SELECT access_id, params, result_ref FROM lockbox_access "
+        "WHERE window_id = ? AND kind = 'final' ORDER BY rowid DESC",
+        (window_id,),
+    )
+    for row in rows:
+        try:
+            row_params = json.loads(row["params"])
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if isinstance(row_params, Mapping) and row_params.get("config") == config_sha:
+            return row
+    return None
+
+
+def _same_result_ref(actual: str | None, expected: str | None) -> bool:
+    if actual is None or expected is None:
+        return actual is expected
+    if actual == expected:
+        return True
+    try:
+        return Path(actual).resolve() == Path(expected).resolve()
+    except (OSError, ValueError):
+        return actual == expected
+
+
+def _matching_published_final(
+    conn,
+    *,
+    access_ids: Sequence[str],
+    config_sha: str,
+    window_id: str,
+    panel: Path,
+    panel_sha256: str,
+    panel_sig: str,
+    expected_result_ref: str,
+) -> tuple[Any, str] | None:
+    """Validate an access ID already embedded in a published xscore result.
+
+    Old legacy xscore runs persisted a stat signature before scoring. A
+    completed report can therefore be replayed by its published access ID even
+    after the panel mtime or path changes; the flow must return that existing
+    report without rescoring. An unfinished old run can resume only if the old
+    stat signature still matches. Once a manifest stores a content SHA, that
+    hash binds both completed replay and pending resume to the panel bytes.
+    """
+    if not access_ids or not panel_sig:
+        return None
+    is_content_sha = re.fullmatch(r"[0-9a-f]{64}", panel_sig) is not None
+    if is_content_sha and panel_sha256 != panel_sig:
+        return None
+    if not is_content_sha and file_sig(panel) != panel_sig:
+        # Historical stat identity can only resume an unfinished run while
+        # the original path/size/mtime tuple is unchanged.
+        allow_pending = False
+    else:
+        allow_pending = True
+
+    # `access_ids` is an append-only manifest union. Check newest first so a
+    # later re-final supersedes an older published result or pending attempt.
+    for access_id in reversed(access_ids):
+        if not isinstance(access_id, str) or not access_id:
+            continue
+        row = conn.execute(
+            "SELECT access_id, kind, window_id, params, result_ref "
+            "FROM lockbox_access WHERE access_id = ?",
+            (access_id,),
+        ).fetchone()
+        if (
+            row is None
+            or row["kind"] != "final"
+            or row["window_id"] != window_id
+        ):
+            continue
+        try:
+            row_params = json.loads(row["params"])
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if not isinstance(row_params, Mapping) or row_params.get("config") != config_sha:
+            continue
+        stored_panel_sig = row_params.get("panel_sig")
+        # The ledger signature must agree with the signature published beside
+        # its access ID. Matching the current panel bytes alone cannot bridge
+        # a mismatch: that would let a stale access ID masquerade as this run.
+        if stored_panel_sig != panel_sig:
+            continue
+        if row["result_ref"] is not None:
+            if not _same_result_ref(row["result_ref"], expected_result_ref):
+                continue
+            return row, "published"
+        if allow_pending:
+            return row, "pending"
+    return None
+
+
 def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
                      replay_ok: bool = False,
                      flow_attempt_sha256: str | None = None,
                      resume_pending: bool = False,
+                     published_access_ids: Sequence[str] = (),
+                     published_panel_sig: str | None = None,
+                     published_window_id: str | None = None,
+                     published_sample_role: str | None = None,
+                     published_result_ref: str | None = None,
                      db_path: Path | None = None, health_root: Path | None = None,
                      today: dt.date | None = None,
                      panel_start: dt.date | None = None,
@@ -324,6 +428,40 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
         re_final = os.environ.get("FACTORLAB_RE_FINAL", "").strip() == "1"
         if resume_pending and not flow_attempt_sha256:
             raise ValueError("resume_pending 必须提供 flow_attempt_sha256")
+        published_prior = None
+        if (
+            replay_ok
+            and published_access_ids
+            and published_window_id == window.window_id
+            and published_sample_role == role
+            and published_result_ref is not None
+        ):
+            published_prior = _matching_published_final(
+                conn,
+                access_ids=published_access_ids,
+                config_sha=ctx["config_sha"],
+                window_id=window.window_id,
+                panel=panel,
+                panel_sha256=artifact,
+                panel_sig=str(published_panel_sig or ""),
+                expected_result_ref=published_result_ref,
+            )
+            if published_prior is not None and not re_final:
+                prior_row, replay_kind = published_prior
+                ctx["access_id"] = str(prior_row["access_id"])
+                if replay_kind == "published":
+                    ctx["published_replay"] = True
+                    print(
+                        "[lockbox] 复用 manifest 引用的已发布最终测试："
+                        f"window={window.window_id} access_id={ctx['access_id']}"
+                    )
+                else:
+                    ctx["pending_resume"] = True
+                    print(
+                        "[lockbox] 恢复 manifest 引用的未完成旧版 xscore："
+                        f"window={window.window_id} access_id={ctx['access_id']}"
+                    )
+                return ctx
         if not re_final and not store.final_exists(conn, window.window_id, fp):
             # Migrate rows created before file_sig became content based. The
             # stored config and panel hashes identify the logical candidate;
@@ -422,12 +560,31 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
                 f"版本 {fp[:12]}… 在窗口 {window.window_id} 已做过最终测试"
                 "（每版本一次）：改 config/参数=新版本可再测；或设 "
                 "FACTORLAB_RE_FINAL=1 重测（审计留痕）")
+        prior_config = _matching_final_by_config(
+            conn, window_id=window.window_id, config_sha=ctx["config_sha"]
+        )
+        if prior_config is not None and not re_final:
+            raise LockboxError(
+                "LOCKBOX_FINAL_DUPLICATE",
+                f"配置 {ctx['config_sha'][:12]}… 在窗口 {window.window_id} "
+                "已有最终测试，但旧面板签名无法与当前结果安全映射；"
+                "需使用已有 published manifest replay、创建新不可变配置，"
+                "或设 FACTORLAB_RE_FINAL=1 留痕重测",
+            )
+        exact_fp_exists = store.final_exists(conn, window.window_id, fp)
+        manual_re_final_marker = bool(
+            re_final
+            and not exact_fp_exists
+            and (prior_config is not None or published_prior is not None)
+        )
         access_params = dict(params)
         if flow_attempt_sha256:
             access_params["flow_attempt_sha256"] = flow_attempt_sha256
         ctx["access_id"] = _pipeline_final_access(conn, fp=fp, params=access_params,
                                                   panel=panel, config_path=config_path,
-                                                  window=window, re_final=re_final)
+                                                  window=window,
+                                                  re_final=re_final,
+                                                  manual_re_final_marker=manual_re_final_marker)
         return ctx
     finally:
         conn.close()
@@ -472,7 +629,8 @@ def lockbox_finalize(ctx: Mapping[str, Any], *, run_manifest: Path,
 
 def _pipeline_final_access(conn, *, fp: str, params: Mapping[str, Any],
                            panel: Path, config_path: str, window,
-                           re_final: bool = False) -> str:
+                           re_final: bool = False,
+                           manual_re_final_marker: bool = False) -> str:
     """流水线 final 登记（strict 每版本一次；`re_final` 操作员重测审计留痕）。
 
     同版本已有登记且非 `re_final` → 原样抛 `LOCKBOX_FINAL_DUPLICATE`（附
@@ -482,12 +640,15 @@ def _pipeline_final_access(conn, *, fp: str, params: Mapping[str, Any],
     from factorlab.adapters import lockbox_store as store
     from factorlab.core.lockbox import LockboxError
 
+    reason = f"pipeline:{config_path}"
+    if manual_re_final_marker:
+        reason += "|re-final"
     try:
         return store.register_access(
             conn, kind="final", fingerprint=fp, artifact=str(panel), params=params,
-            command=f"xscore-pipeline config={config_path}",
-            reason=f"pipeline:{config_path}", window=window, tool="xscore-pipeline",
-            re_final=re_final)
+            command=f"xscore-pipeline config={config_path}", reason=reason,
+            window=window, tool="xscore-pipeline",
+            re_final=re_final and not manual_re_final_marker)
     except LockboxError as exc:
         if exc.code == "LOCKBOX_FINAL_DUPLICATE":
             raise LockboxError(

@@ -217,17 +217,37 @@ def _register_lockbox(cfg: dict) -> dict:
     """flow 开始：钉死候选身份（panel 签名 + config 内容 sha）→ 碰箱登记 final →
     写 manifest（fail-fast：stale/重复版本/panel 缺失都在计算前报错）。
 
-    replay 判定：`<out>/manifest.json` 已在（本 config 跑过并有产物）→ 传
-    `replay_ok=True`，同版本复用既有登记（不新增行）；产物被删 → strict
-    `LOCKBOX_FINAL_DUPLICATE`；`FACTORLAB_RE_FINAL=1` 优先（操作员重测留痕）。
+    replay 判定：`<out>/manifest.json` 已在时，用其中已发布 access_id 回查台账并校验
+    config/window/result_ref。完整 report 直接复用，不重算；旧 stat 签名且尚未完成的 run
+    只有在原路径/size/mtime 签名仍一致时才续跑。无法证明的旧记录 fail closed，不新增 final。
 
     返回起点 context；收尾 `_write_manifest(cfg, ctx)` **必须复用**（不得重算 fp，
     否则首尾之间 panel 变化会双登记）。
     """
     out = Path(cfg["out"])
+    manifest_path = out / "manifest.json"
+    previous_manifest: dict = {}
+    if manifest_path.is_file():
+        previous_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if not isinstance(previous_manifest, dict):
+            raise ValueError(f"xscore manifest 必须是 JSON 对象：{manifest_path}")
     ctx = lib.lockbox_register(panel=Path(cfg["panel"]), panel_sig=cfg["panel_sig"],
                                config_path=cfg["config_path"],
-                               replay_ok=(out / "manifest.json").is_file())
+                               replay_ok=manifest_path.is_file(),
+                               published_access_ids=previous_manifest.get(
+                                   "access_ids", []),
+                               published_panel_sig=previous_manifest.get("panel_sig"),
+                               published_window_id=previous_manifest.get("window_id"),
+                               published_sample_role=previous_manifest.get("sample_role"),
+                               published_result_ref=str(out.resolve()))
+    if ctx.get("published_replay"):
+        report = out / "REPORT.md"
+        if not report.is_file():
+            raise ValueError(
+                "旧版 xscore manifest 指向已完成 final，但 REPORT.md 缺失；"
+                "拒绝重算并复用旧锁箱访问"
+            )
+        return ctx
     lib.lockbox_finalize(ctx, run_manifest=out / "manifest.json",
                          campaign_manifest=out.parent / "manifest.json",
                          base_updates=_base_updates(cfg))
@@ -254,7 +274,7 @@ def xscore_pipeline(config_path: str) -> str:
     os.environ.setdefault("FACTORLAB_PIPELINE", "1")   # E1：进程内（xlib 登记/子进程继承）
     cfg = yaml.safe_load(Path(config_path).read_text())
     cfg["config_path"] = str(config_path)
-    cfg["panel_sig"] = lib.file_sig(Path(cfg["panel"]))
+    cfg["panel_sig"] = lib.file_content_sha256(Path(cfg["panel"]))
     cfg.setdefault("folds", [252, 63, 63])
     cfg.setdefault("subsample", 40000)
     cfg.setdefault("data", {})
@@ -275,6 +295,10 @@ def xscore_pipeline(config_path: str) -> str:
 
     if Path(cfg["panel"]).is_file():
         lockbox_ctx = _register_lockbox(cfg)
+        if lockbox_ctx.get("published_replay"):
+            report = str(Path(cfg["out"]) / "REPORT.md")
+            print(f"[replay] 复用已发布 xscore final: {report}")
+            return report
         _prepare_data()
     else:
         _prepare_data()

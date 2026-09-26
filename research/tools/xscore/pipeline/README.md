@@ -107,8 +107,11 @@ PREFECT_API_URL=http://127.0.0.1:4200/api research/.venv/bin/prefect deployment 
   并**钉死版本身份**：`fingerprint = candidate_fingerprint(artifact_sha256=panel 内容 SHA-256,
   params={config 内容 sha, panel_sig}, window_id)`；收尾复用起点 fp/access_id，**不重算**
   （首尾之间 panel 变化不会重复登记）；
-  panel 身份使用文件内容 SHA-256，不受路径或 mtime 变化影响；升级前的 stat 指纹登记会按
-  config 内容 sha 与 panel 内容 sha 识别并复用，不能因指纹算法升级新增一次 final；
+  面板身份使用文件内容 SHA-256，不受路径或 mtime 变化影响；早期 Prefect final 记录的
+  `panel_sig` 已是内容 SHA，因此 stat 指纹升级按 config 与内容签名复用。
+  旧版 `xpipe` 的 `panel_sig` 是 stat 签名：已完成报告只通过 run manifest 中的 access ID
+  回查并校验台账 config/window/result_ref 后原样复用，不会重算；未完成记录只有在原 stat
+  签名仍一致时才允许续跑，否则 fail closed，不新增 final；
   - `is`（面板整段早于窗口起点）→ 不登记，manifest `sample_role: is`；
   - `mixed` / `lockbox` → 登记 **final**（`kind=final`，无配额），理由 `pipeline:<config>`；
     同版本已有登记：**run 产物已在**（`<out>/manifest.json`）→ **replay 复用**既有
