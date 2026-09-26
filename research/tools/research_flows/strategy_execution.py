@@ -7,11 +7,13 @@ then delegates M7/M8 execution and native persistence to ``run_strategy``.
 from __future__ import annotations
 
 import contextlib
+import fcntl
 import hashlib
 import json
 import os
 import subprocess
 import tempfile
+from contextlib import contextmanager
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
@@ -24,6 +26,129 @@ from research_flows.artifacts import (
     validate_artifact_ref,
     version_fingerprint,
 )
+
+_ATTEMPT_MARKER = ".strategy_execution_attempt.json"
+
+
+@contextmanager
+def _version_attempt_lock(out_dir: Path):
+    """Serialize all producers/retries for one immutable strategy version."""
+    out_dir.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = out_dir.parent / f".{out_dir.name}.attempt.lock"
+    with lock_path.open("a", encoding="utf-8") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
+def _write_attempt_marker(
+    out_dir: Path, identity: Mapping[str, Any], identity_sha256: str,
+    version: str,
+) -> None:
+    path = out_dir / _ATTEMPT_MARKER
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "version": version,
+                "identity_sha256": identity_sha256,
+                "identity": dict(identity),
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temporary, path)
+
+
+def _validate_attempt_marker(
+    out_dir: Path,
+    *,
+    identity: Mapping[str, Any],
+    identity_sha256: str,
+    version: str,
+) -> None:
+    marker = out_dir / _ATTEMPT_MARKER
+    if not marker.is_file():
+        raise FileExistsError(
+            f"版本目录存在但缺少 strategy attempt marker，拒绝恢复半成品: {out_dir}"
+        )
+    try:
+        doc = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"strategy attempt marker 损坏: {marker}: {exc}") from exc
+    if (
+        not isinstance(doc, dict)
+        or doc.get("schema_version") != 1
+        or doc.get("version") != version
+        or doc.get("identity_sha256") != identity_sha256
+        or doc.get("identity") != dict(identity)
+        or _json_sha256(doc.get("identity")) != identity_sha256
+    ):
+        raise ValueError("strategy attempt marker 与当前 immutable identity 不一致")
+
+
+def _finalize_strategy_lockbox_attempt(
+    access_ids: list[str],
+    attempt_sha256: str,
+    result_ref: Path,
+) -> None:
+    if not access_ids:
+        return
+    from factorlab.adapters import lockbox_store as store
+    from factorlab.config import settings
+
+    conn = store.connect(settings.lockbox_db)
+    try:
+        for access_id in access_ids:
+            store.finalize_attempt_result(
+                conn,
+                access_id=access_id,
+                attempt_sha256=attempt_sha256,
+                result_ref=str(result_ref),
+            )
+    finally:
+        conn.close()
+
+
+def _reject_changed_final_attempt(
+    out_dir: Path, identity: Mapping[str, Any]
+) -> None:
+    """Do not reinterpret an old final access under changed execution code."""
+    if identity.get("mode") != "final":
+        return
+    expected = {
+        key: value for key, value in identity.items()
+        if key not in {"platform_commit", "code_sha256"}
+    }
+    for candidate in out_dir.parent.iterdir():
+        if candidate == out_dir or not candidate.is_dir():
+            continue
+        marker = candidate / _ATTEMPT_MARKER
+        if not marker.is_file():
+            continue
+        try:
+            doc = json.loads(marker.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        previous = doc.get("identity") if isinstance(doc, dict) else None
+        if not isinstance(previous, dict):
+            continue
+        comparable = {
+            key: value for key, value in previous.items()
+            if key not in {"platform_commit", "code_sha256"}
+        }
+        if comparable == expected and previous != dict(identity):
+            raise ValueError(
+                "检测到同一 final 输入的旧 attempt 但 platform/code identity 已变化；"
+                "拒绝跨代码版本续跑"
+            )
 from research_flows.flow_contracts import (
     validate_mode_sample,
     validate_signal_input as _validate_signal_input,
@@ -168,6 +293,7 @@ def _default_dependencies() -> dict[str, Any]:
         "report_builder": _build_report,
         "heavy_guard": heavy_guard,
         "platform_commit": platform_commit,
+        "finalize_lockbox_attempt": _finalize_strategy_lockbox_attempt,
     }
 
 
@@ -355,14 +481,18 @@ def _existing_output(
     output_root: Path,
     dependencies: Mapping[str, Any],
 ) -> ArtifactRef | None:
-    """Return a validated complete replay; reject any occupied partial version."""
+    """Return a validated complete replay.
+
+    An occupied directory without a Flow manifest is not classified here: the
+    caller holds the version attempt lock and must validate its attempt marker
+    before deciding whether it is a resumable final checkpoint or a rejected
+    partial explore run.
+    """
     if not out_dir.exists():
         return None
     manifest_path = out_dir / "flow_manifest.json"
     if not manifest_path.is_file():
-        raise FileExistsError(
-            f"版本目录已存在但没有完整 flow_manifest，禁止覆盖半成品: {out_dir}"
-        )
+        return None
     ref = validate_artifact_ref(
         load_artifact_ref(out_dir),
         expected_type="strategy_backtest",
@@ -516,6 +646,51 @@ def run_strategy_execution(
     identity_sha256 = _json_sha256(identity)
     version = version_fingerprint("strategy_backtest", strategy_name, identity)
     out_dir = output_root / "strategies" / strategy_name / version
+    with _version_attempt_lock(out_dir):
+        _reject_changed_final_attempt(out_dir, identity)
+        return _execute_strategy_attempt(
+            config=config,
+            mode=mode,
+            signal_ref=signal_ref,
+            strategy_doc=strategy_doc,
+            spec_path=spec_path,
+            strategy_name=strategy_name,
+            timing=timing,
+            deps=deps,
+            output_root=output_root,
+            data_version=data_version,
+            window_id=window_id,
+            spec_file_hash=spec_file_hash,
+            commit=commit,
+            code_hash=code_hash,
+            identity=identity,
+            identity_sha256=identity_sha256,
+            version=version,
+            out_dir=out_dir,
+        )
+
+
+def _execute_strategy_attempt(
+    *,
+    config: Mapping[str, Any],
+    mode: str,
+    signal_ref: ArtifactRef,
+    strategy_doc: Any,
+    spec_path: Path,
+    strategy_name: str,
+    timing: Any,
+    deps: Mapping[str, Any],
+    output_root: Path,
+    data_version: str,
+    window_id: str | None,
+    spec_file_hash: str,
+    commit: str,
+    code_hash: str,
+    identity: Mapping[str, Any],
+    identity_sha256: str,
+    version: str,
+    out_dir: Path,
+) -> ArtifactRef:
     existing = _existing_output(
         out_dir,
         expected_version=version,
@@ -524,125 +699,193 @@ def run_strategy_execution(
         dependencies=deps,
     )
     if existing is not None:
+        if mode == "final":
+            sample = _sample_from_strategy_manifest(
+                out_dir / "strategy_manifest.json"
+            )
+            strategy_access = sample.get("access_ids")
+            if strategy_access is None:
+                strategy_access = (
+                    [sample["access_id"]] if sample.get("access_id") else []
+                )
+            if not isinstance(strategy_access, list) or not all(
+                isinstance(item, str) and item for item in strategy_access
+            ):
+                raise ValueError("strategy_manifest.sample access_ids/access_id 非法")
+            finalize = deps.get("finalize_lockbox_attempt")
+            if callable(finalize):
+                finalize(strategy_access, identity_sha256, out_dir)
         return existing
 
-    out_dir.parent.mkdir(parents=True, exist_ok=True)
-    # Atomic mkdir reserves this immutable version against concurrent runs.
-    out_dir.mkdir()
-    temp_results = tempfile.TemporaryDirectory(prefix="strategy-results-view-")
-    results_view = Path(temp_results.name)
-    try:
-        _load_input_signal(signal_ref, deps, results_view)
-        guard = deps.get("heavy_guard")
-        manager = guard(config) if callable(guard) else contextlib.nullcontext()
-        final_env_before = os.environ.get("FACTORLAB_PIPELINE")
-        try:
-            if mode == "final":
-                os.environ["FACTORLAB_PIPELINE"] = "1"
-            with manager:
-                with deps["open_read"]() as rd:
-                    deps["run_strategy"](
-                        strategy_doc,
-                        rd,
-                        results_dir=results_view,
-                        out_dir=out_dir,
-                        final_mode=(mode == "final"),
-                        doc_path=spec_path,
-                    )
-        finally:
-            if final_env_before is None:
-                os.environ.pop("FACTORLAB_PIPELINE", None)
-            else:
-                os.environ["FACTORLAB_PIPELINE"] = final_env_before
-
-        sample = _sample_from_strategy_manifest(out_dir / "strategy_manifest.json")
-        sample_role = sample.get("role", "unknown")
-        strategy_access = sample.get("access_ids")
-        if strategy_access is None:
-            strategy_access = [sample["access_id"]] if sample.get("access_id") else []
-        if not isinstance(strategy_access, list) or not all(
-            isinstance(item, str) and item for item in strategy_access
-        ):
-            raise ValueError("strategy_manifest.sample access_ids/access_id 非法")
-        if mode == "explore":
-            if sample_role != "is" or strategy_access:
-                raise ValueError("explore 策略回测必须是 IS 样本且不得读取锁箱")
-        else:
-            if sample_role not in {"mixed", "lockbox"} or not strategy_access:
-                raise ValueError(
-                    "final 策略回测缺少锁箱 sample role/access_id，禁止发布"
-                )
-        if window_id is not None and sample.get("window_id") != window_id:
-            raise ValueError(
-                f"回测样本 window_id={sample.get('window_id')!r} 与输入窗口 "
-                f"{window_id!r} 不一致"
+    resume = out_dir.exists()
+    native_complete = False
+    if resume:
+        marker = out_dir / _ATTEMPT_MARKER
+        if not marker.exists():
+            marker_temp = marker.with_name(marker.name + ".tmp")
+            entries = [entry for entry in out_dir.iterdir() if entry != marker_temp]
+            if not entries:
+                # A worker can die after mkdir or while writing the atomic
+                # marker. No task can reach lockbox registration before it.
+                marker_temp.unlink(missing_ok=True)
+                _write_attempt_marker(out_dir, identity, identity_sha256, version)
+        _validate_attempt_marker(
+            out_dir,
+            identity=identity,
+            identity_sha256=identity_sha256,
+            version=version,
+        )
+        native_manifest_path = out_dir / "manifest.json"
+        strategy_manifest_path = out_dir / "strategy_manifest.json"
+        if native_manifest_path.is_file() and strategy_manifest_path.is_file():
+            # M7 and M8 both publish their native manifests last. If both are
+            # present, verify the completed native result and only finish the
+            # Flow report/publication; do not call the platform lockbox guard.
+            sample = _sample_from_strategy_manifest(strategy_manifest_path)
+            timing_value = getattr(timing, "value", str(timing))
+            bundle, backtest, native_manifest = _validate_strategy_outputs(
+                out_dir, deps, expected_timing=timing_value
             )
-        access_ids = tuple(dict.fromkeys(
-            (*signal_ref.access_ids, *strategy_access)
-        ))
+            native_complete = True
+        elif mode != "final":
+            raise FileExistsError(
+                f"explore 版本目录是不完整的半成品，拒绝自动覆盖: {out_dir}"
+            )
+    else:
+        out_dir.parent.mkdir(parents=True, exist_ok=True)
+        out_dir.mkdir()
+        _write_attempt_marker(out_dir, identity, identity_sha256, version)
+
+    if not native_complete:
+        temp_results = tempfile.TemporaryDirectory(
+            prefix="strategy-results-view-"
+        )
+        results_view = Path(temp_results.name)
+        try:
+            _load_input_signal(signal_ref, deps, results_view)
+            guard = deps.get("heavy_guard")
+            manager = guard(config) if callable(guard) else contextlib.nullcontext()
+            env_keys = (
+                "FACTORLAB_PIPELINE",
+                "FACTORLAB_LOCKBOX_REPLAY",
+                "FACTORLAB_LOCKBOX_ATTEMPT_SHA256",
+                "FACTORLAB_RE_FINAL",
+            )
+            env_before = {key: os.environ.get(key) for key in env_keys}
+            for key in env_keys:
+                os.environ.pop(key, None)
+            try:
+                if mode == "final":
+                    os.environ["FACTORLAB_PIPELINE"] = "1"
+                    os.environ["FACTORLAB_LOCKBOX_ATTEMPT_SHA256"] = (
+                        identity_sha256
+                    )
+                    if resume:
+                        os.environ["FACTORLAB_LOCKBOX_REPLAY"] = "1"
+                with manager:
+                    with deps["open_read"]() as rd:
+                        deps["run_strategy"](
+                            strategy_doc,
+                            rd,
+                            results_dir=results_view,
+                            out_dir=out_dir,
+                            final_mode=(mode == "final"),
+                            doc_path=spec_path,
+                        )
+            finally:
+                for key, value in env_before.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+        finally:
+            temp_results.cleanup()
+        sample = _sample_from_strategy_manifest(
+            out_dir / "strategy_manifest.json"
+        )
         timing_value = getattr(timing, "value", str(timing))
         bundle, backtest, native_manifest = _validate_strategy_outputs(
             out_dir, deps, expected_timing=timing_value
         )
-        if bundle.spec.name != strategy_name or \
-                bundle.spec.signal_name != signal_ref.name:
-            raise ValueError(
-                "M7 回读的策略/信号名称与当前 Strategy Spec/ArtifactRef 不一致"
-            )
-        report = deps["report_builder"](
-            bundle,
-            backtest,
-            mode=mode,
-            sample=sample,
-            signal_ref=signal_ref,
-        )
-        if not isinstance(report, str) or not report.strip():
-            raise ValueError("策略报告必须为非空文本")
-        (out_dir / "report.md").write_text(report, encoding="utf-8")
 
-        flow_manifest = {
-            "artifact_type": "strategy_backtest",
-            "name": strategy_name,
-            "version": version,
-            "config_sha256": _json_sha256({
-                "mode": mode,
-                "strategy_spec_sha256": spec_file_hash,
-                "execution": strategy_doc.execution.model_dump(mode="json"),
-            }),
-            "spec_sha256": spec_file_hash,
-            "data_version": data_version,
-            "window_id": sample.get("window_id", window_id),
-            "sample_role": sample_role,
-            "mode": mode,
-            "status": "completed",
-            "source_artifacts": [signal_ref.artifact_uri],
-            "platform_commit": commit,
-            "access_ids": list(access_ids),
-            "metadata": {
-                "identity_sha256": identity_sha256,
-                "identity": identity,
-                "source_refs": [signal_ref.model_dump(mode="json")],
-                "signal_sha256": signal_ref.artifact_sha256,
-                "signal_manifest_sha256": signal_ref.manifest_sha256,
-                "strategy_manifest_sha256": content_sha256(
-                    out_dir / "strategy_manifest.json"
-                ),
-                "backtest_manifest_sha256": content_sha256(
-                    out_dir / "manifest.json"
-                ),
-                "report_sha256": content_sha256(out_dir / "report.md"),
-                "code_sha256": code_hash,
-            },
-        }
-        publish = deps.get("publish_artifact", publish_artifact)
-        published = publish(
-            out_dir,
-            flow_manifest,
-            primary_file="nav/nav_series.parquet",
+    sample_role = sample.get("role", "unknown")
+    strategy_access = sample.get("access_ids")
+    if strategy_access is None:
+        strategy_access = [sample["access_id"]] if sample.get("access_id") else []
+    if not isinstance(strategy_access, list) or not all(
+        isinstance(item, str) and item for item in strategy_access
+    ):
+        raise ValueError("strategy_manifest.sample access_ids/access_id 非法")
+    if mode == "explore":
+        if sample_role != "is" or strategy_access:
+            raise ValueError("explore 策略回测必须是 IS 样本且不得读取锁箱")
+    elif sample_role not in {"mixed", "lockbox"} or not strategy_access:
+        raise ValueError("final 策略回测缺少锁箱 sample role/access_id，禁止发布")
+    if window_id is not None and sample.get("window_id") != window_id:
+        raise ValueError(
+            f"回测样本 window_id={sample.get('window_id')!r} 与输入窗口 "
+            f"{window_id!r} 不一致"
         )
-        return published
-    finally:
-        temp_results.cleanup()
+    if bundle.spec.name != strategy_name or \
+            bundle.spec.signal_name != signal_ref.name:
+        raise ValueError(
+            "M7 回读的策略/信号名称与当前 Strategy Spec/ArtifactRef 不一致"
+        )
+    access_ids = tuple(dict.fromkeys((*signal_ref.access_ids, *strategy_access)))
+    report = deps["report_builder"](
+        bundle,
+        backtest,
+        mode=mode,
+        sample=sample,
+        signal_ref=signal_ref,
+    )
+    if not isinstance(report, str) or not report.strip():
+        raise ValueError("策略报告必须为非空文本")
+    (out_dir / "report.md").write_text(report, encoding="utf-8")
+
+    flow_manifest = {
+        "artifact_type": "strategy_backtest",
+        "name": strategy_name,
+        "version": version,
+        "config_sha256": _json_sha256({
+            "mode": mode,
+            "strategy_spec_sha256": spec_file_hash,
+            "execution": strategy_doc.execution.model_dump(mode="json"),
+        }),
+        "spec_sha256": spec_file_hash,
+        "data_version": data_version,
+        "window_id": sample.get("window_id", window_id),
+        "sample_role": sample_role,
+        "mode": mode,
+        "status": "completed",
+        "source_artifacts": [signal_ref.artifact_uri],
+        "platform_commit": commit,
+        "access_ids": list(access_ids),
+        "metadata": {
+            "identity_sha256": identity_sha256,
+            "identity": dict(identity),
+            "source_refs": [signal_ref.model_dump(mode="json")],
+            "signal_sha256": signal_ref.artifact_sha256,
+            "signal_manifest_sha256": signal_ref.manifest_sha256,
+            "strategy_manifest_sha256": content_sha256(
+                out_dir / "strategy_manifest.json"
+            ),
+            "backtest_manifest_sha256": content_sha256(out_dir / "manifest.json"),
+            "report_sha256": content_sha256(out_dir / "report.md"),
+            "code_sha256": code_hash,
+        },
+    }
+    publish = deps.get("publish_artifact", publish_artifact)
+    published = publish(
+        out_dir,
+        flow_manifest,
+        primary_file="nav/nav_series.parquet",
+    )
+    if mode == "final":
+        finalize = deps.get("finalize_lockbox_attempt")
+        if callable(finalize):
+            finalize(strategy_access, identity_sha256, out_dir)
+    return published
 
 
 def _strategy_execution_task(config, ref):

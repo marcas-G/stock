@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -247,6 +248,7 @@ def _run(
         runner=runner,
         assessment_runner=assessment,
         lint_runner=lambda _path: None,
+        finalize_lockbox_runner=lambda _ids, _sha, _result: None,
     )
 
 
@@ -487,6 +489,160 @@ def test_final_flow_passes_final_mode_to_factor_task_and_requires_lockbox_ref(
     assert len(calls) == 1
 
 
+def test_final_factor_resumes_incomplete_native_run_with_same_attempt_marker(
+    tmp_path: Path,
+):
+    spec = _spec(tmp_path)
+    spec_doc = yaml.safe_load(spec.read_text(encoding="utf-8"))
+    spec_doc["date"] = {"start": "2024-03-01", "end": "2024-05-31"}
+    spec.write_text(yaml.safe_dump(spec_doc, sort_keys=False), encoding="utf-8")
+    baseline = _publish_baseline(
+        tmp_path,
+        spec,
+        mode="final",
+        sample_role="lockbox",
+        window_id="lock-2024Q1",
+        access_id="LB-baseline-1",
+    )
+    config = _config(tmp_path, spec, baseline)
+    config["mode"] = "final"
+    config["window"].update(
+        id="lock-2024Q1",
+        start="2024-03-01",
+        end="2024-05-31",
+        sample_role="lockbox",
+    )
+    config["validation"]["diagnostics_window"] = {
+        "start": "2024-03-01",
+        "end": "2024-05-31",
+    }
+    config["validation"]["oos_window"] = {
+        "start": "2024-03-01",
+        "end": "2024-05-31",
+    }
+    calls: list[Path] = []
+
+    def interrupted_runner(spec_path: Path, output: Path, mode: str) -> None:
+        assert mode == "final"
+        calls.append(output)
+        if len(calls) == 1:
+            (output / "signal.parquet").write_bytes(b"interrupted")
+            raise RuntimeError("simulated worker interruption")
+        _write_native_factor(
+            output,
+            "alpha",
+            spec_path=spec_path,
+            sample_role="lockbox",
+            window_id="lock-2024Q1",
+            access_id="LB-final-1",
+            data_version=config["data_version"],
+        )
+
+    with pytest.raises(RuntimeError, match="interruption"):
+        factor_mining_flow(
+            config,
+            runner=interrupted_runner,
+            assessment_runner=_successful_assessment,
+            lint_runner=lambda _path: None,
+            finalize_lockbox_runner=lambda _ids, _sha, _result: None,
+        )
+
+    target = calls[0]
+    attempt = json.loads(
+        (target / ".factor_mining_attempt.json").read_text(encoding="utf-8")
+    )
+    # The failed run left a partial signal. The second invocation must
+    # recompute through the same immutable attempt, then validate and publish.
+    result = factor_mining_flow(
+        config,
+        runner=interrupted_runner,
+        assessment_runner=_successful_assessment,
+        lint_runner=lambda _path: None,
+        finalize_lockbox_runner=lambda _ids, _sha, _result: None,
+    )
+    assert calls == [target, target]
+    assert attempt["identity_sha256"]
+    assert result.access_ids == ("LB-final-1",)
+    assert (target / "flow_manifest.json").is_file()
+
+
+def test_final_factor_replay_backfills_lockbox_after_publish_interruption(
+    tmp_path: Path,
+):
+    spec = _spec(tmp_path)
+    spec_doc = yaml.safe_load(spec.read_text(encoding="utf-8"))
+    spec_doc["date"] = {"start": "2024-03-01", "end": "2024-05-31"}
+    spec.write_text(yaml.safe_dump(spec_doc, sort_keys=False), encoding="utf-8")
+    baseline = _publish_baseline(
+        tmp_path,
+        spec,
+        mode="final",
+        sample_role="lockbox",
+        window_id="lock-2024Q1",
+        access_id="LB-baseline-1",
+    )
+    config = _config(tmp_path, spec, baseline)
+    config["mode"] = "final"
+    config["window"].update(
+        id="lock-2024Q1",
+        start="2024-03-01",
+        end="2024-05-31",
+        sample_role="lockbox",
+    )
+    config["validation"]["diagnostics_window"] = {
+        "start": "2024-03-01",
+        "end": "2024-05-31",
+    }
+    config["validation"]["oos_window"] = {
+        "start": "2024-03-01",
+        "end": "2024-05-31",
+    }
+    calls: list[Path] = []
+    finalized: list[tuple[list[str], str, Path]] = []
+
+    def runner(spec_path: Path, output: Path, mode: str) -> None:
+        assert mode == "final"
+        calls.append(output)
+        _write_native_factor(
+            output,
+            "alpha",
+            spec_path=spec_path,
+            sample_role="lockbox",
+            window_id="lock-2024Q1",
+            access_id="LB-final-1",
+            data_version=config["data_version"],
+        )
+
+    def interrupt_first_finalize(
+        access_ids: list[str], attempt_sha256: str, result_ref: Path
+    ) -> None:
+        finalized.append((access_ids, attempt_sha256, result_ref))
+        if len(finalized) == 1:
+            raise RuntimeError("simulated lockbox backfill interruption")
+
+    with pytest.raises(RuntimeError, match="backfill interruption"):
+        factor_mining_flow(
+            config,
+            runner=runner,
+            assessment_runner=_successful_assessment,
+            lint_runner=lambda _path: None,
+            finalize_lockbox_runner=interrupt_first_finalize,
+        )
+
+    result = factor_mining_flow(
+        config,
+        runner=runner,
+        assessment_runner=_successful_assessment,
+        lint_runner=lambda _path: None,
+        finalize_lockbox_runner=interrupt_first_finalize,
+    )
+
+    assert len(calls) == 1
+    assert result.access_ids == ("LB-final-1",)
+    assert len(finalized) == 2
+    assert finalized[0] == finalized[1]
+
+
 def test_factor_final_worker_cannot_force_a_second_lockbox_test(
     tmp_path: Path, monkeypatch
 ):
@@ -523,6 +679,49 @@ def test_factor_final_worker_cannot_force_a_second_lockbox_test(
 
     assert captured["env"]["FACTORLAB_PIPELINE"] == "1"
     assert "FACTORLAB_RE_FINAL" not in captured["env"]
+
+
+def test_factor_final_worker_sets_replay_only_for_matching_attempt(
+    tmp_path: Path, monkeypatch
+):
+    from research_flows import factor_mining
+
+    factorlab = tmp_path / "factorlab"
+    heavy = tmp_path / "heavy.sh"
+    factorlab.write_text("", encoding="utf-8")
+    heavy.write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        factor_mining,
+        "_platform_paths",
+        lambda: (factorlab, heavy),
+    )
+    captured = []
+    monkeypatch.setattr(
+        factor_mining,
+        "_run_cli",
+        lambda argv, *, env: captured.append(dict(env)),
+    )
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_REPLAY", "parent")
+    monkeypatch.setenv("FACTORLAB_LOCKBOX_ATTEMPT_SHA256", "parent")
+    base = {
+        "spec_path": str(_spec(tmp_path)),
+        "run_options": {},
+        "output_root": str(tmp_path / "results"),
+        "mode": "final",
+        "name": "alpha",
+        "window": {"id": "lockbox-2024"},
+        "_lockbox_attempt_sha256": "a" * 64,
+    }
+
+    factor_mining._run_factorlab(base, tmp_path / "new")
+    factor_mining._run_factorlab(
+        {**base, "_lockbox_resume_attempt": True}, tmp_path / "retry"
+    )
+
+    assert captured[0]["FACTORLAB_LOCKBOX_ATTEMPT_SHA256"] == "a" * 64
+    assert "FACTORLAB_LOCKBOX_REPLAY" not in captured[0]
+    assert captured[1]["FACTORLAB_LOCKBOX_ATTEMPT_SHA256"] == "a" * 64
+    assert captured[1]["FACTORLAB_LOCKBOX_REPLAY"] == "1"
 
 
 def test_multi_output_factor_artifact_is_rejected(tmp_path: Path):

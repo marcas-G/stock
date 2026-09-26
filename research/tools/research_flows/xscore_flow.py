@@ -10,6 +10,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1028,6 +1030,212 @@ def _atomic_write_json(path: Path, doc: Mapping[str, Any]) -> None:
         temp.unlink(missing_ok=True)
 
 
+def _xscore_identity(config: XScoreConfig, code_sha: str) -> tuple[dict[str, Any], str]:
+    identity_config = {
+        "name": config.name,
+        "mode": config.mode,
+        "config_sha256": config.config_sha256,
+        "groups": {k: list(v) for k, v in config.groups.items()},
+        "models": list(config.models),
+        "walk_forward": config.walk_forward,
+        "direction": config.direction,
+        "composite": {
+            "group": config.composite_group,
+            "model": config.composite_model,
+        },
+    }
+    return identity_config, xscore_version(
+        config.inputs, identity_config, code_sha256=code_sha
+    )
+
+
+def _final_attempt_marker(
+    config: XScoreConfig, *, version: str, code_sha: str
+) -> dict[str, Any]:
+    identity = {
+        "artifact_type": "xscore_final_attempt",
+        "version": version,
+        "config_sha256": config.config_sha256,
+        "code_sha256": code_sha,
+        "inputs": [
+            {
+                "artifact_uri": ref.artifact_uri,
+                "version": ref.version,
+                "artifact_sha256": ref.artifact_sha256,
+                "manifest_sha256": ref.manifest_sha256,
+            }
+            for ref in config.inputs
+        ],
+    }
+    return {**identity, "flow_attempt_sha256": _canonical_sha256(identity)}
+
+
+def _ensure_final_attempt_marker(
+    result_root: Path, expected: Mapping[str, Any]
+) -> str:
+    path = result_root / "final_attempt.json"
+    result_root.mkdir(parents=True, exist_ok=True)
+    if path.is_file():
+        try:
+            actual = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"xscore final attempt marker 损坏: {path}") from exc
+        if actual != dict(expected):
+            raise ValueError(
+                "xscore final attempt marker 与当前冻结 config/input/code 不一致"
+            )
+    else:
+        children = list(result_root.iterdir())
+        orphan_temps = [
+            child
+            for child in children
+            if child.is_file()
+            and not child.is_symlink()
+            and re.fullmatch(r"\.final_attempt\.json\.\d+\.tmp", child.name)
+        ]
+        unexpected = [child for child in children if child not in orphan_temps]
+        if unexpected:
+            raise ValueError(
+                "xscore final attempt marker 缺失但版本目录非空，拒绝续用："
+                f"{unexpected[0]}"
+            )
+        for child in orphan_temps:
+            child.unlink()
+        _atomic_write_json(path, expected)
+    return str(expected["flow_attempt_sha256"])
+
+
+def _write_panel_checkpoint(
+    result_root: Path,
+    *,
+    version: str,
+    panel_path: Path,
+    panel_details: Mapping[str, Any],
+) -> dict[str, Any]:
+    checkpoint = {
+        **dict(panel_details),
+        "version": version,
+        "path": panel_path.name,
+        "panel_sha256": content_sha256(panel_path),
+    }
+    _atomic_write_json(result_root / "panel_checkpoint.json", checkpoint)
+    return checkpoint
+
+
+def _load_panel_checkpoint(
+    result_root: Path, *, version: str, panel_path: Path
+) -> dict[str, Any] | None:
+    checkpoint_path = result_root / "panel_checkpoint.json"
+    if not checkpoint_path.is_file():
+        return None
+    try:
+        doc = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"xscore panel checkpoint 损坏: {checkpoint_path}") from exc
+    if (
+        not isinstance(doc, dict)
+        or doc.get("version") != version
+        or doc.get("path") != panel_path.name
+        or not isinstance(doc.get("panel_sha256"), str)
+        or not panel_path.is_file()
+        or content_sha256(panel_path) != doc["panel_sha256"]
+    ):
+        raise ValueError("xscore final 重试的面板 checkpoint 缺失或哈希不一致")
+    return doc
+
+
+def _reset_unprepared_final_outputs(
+    result_root: Path, *, version: str, cache_dir: Path
+) -> dict[str, Any] | None:
+    """Clear only known xscore staging outputs before replaying a pending attempt."""
+    panel_path = result_root / f"panel_{version}.npz"
+    checkpoint = _load_panel_checkpoint(
+        result_root, version=version, panel_path=panel_path
+    )
+    allowed = {
+        "final_attempt.json",
+        "panel_checkpoint.json",
+        panel_path.name,
+        "scores",
+        "metrics.json",
+        "portfolio_research.json",
+        "report.md",
+    }
+    local_cache = cache_dir.resolve()
+    if local_cache.parent == result_root.resolve():
+        allowed.add(local_cache.name)
+    orphan_temps: list[Path] = []
+    for child in result_root.iterdir():
+        if child.name in allowed:
+            continue
+        if (
+            child.is_file()
+            and not child.is_symlink()
+            and re.fullmatch(
+                r"\.(?:panel_checkpoint|prepared_manifest)\.json\.\d+\.tmp",
+                child.name,
+            )
+        ):
+            orphan_temps.append(child)
+            continue
+        raise ValueError(
+            "xscore final attempt 有 prepared_manifest 前出现未知文件，"
+            f"拒绝自动覆盖：{child}"
+        )
+    for child in orphan_temps:
+        child.unlink()
+    if local_cache.parent == result_root.resolve() and local_cache.exists():
+        suffix = panel_path.stem.removeprefix("panel_")
+        expected_cache_files = {
+            f"{prefix}_{suffix}.npz"
+            for prefix in ("open_adj", "mv", "limits", "amount")
+        }
+        for child in local_cache.iterdir():
+            if child.name not in expected_cache_files or not child.is_file():
+                raise ValueError(
+                    "xscore final attempt 的辅助缓存目录含未知文件，"
+                    f"拒绝自动清理：{child}"
+                )
+        for child in local_cache.iterdir():
+            child.unlink()
+        if not any(local_cache.iterdir()):
+            local_cache.rmdir()
+
+    # A panel without its atomic checkpoint was written before lockbox
+    # registration, so it is safe to rebuild. A checkpointed panel is kept
+    # byte-for-byte so lockbox candidate identity remains stable.
+    if checkpoint is None:
+        panel_path.unlink(missing_ok=True)
+        (result_root / "panel_checkpoint.json").unlink(missing_ok=True)
+    shutil.rmtree(result_root / "scores", ignore_errors=True)
+    for name in ("metrics.json", "portfolio_research.json", "report.md"):
+        (result_root / name).unlink(missing_ok=True)
+    return checkpoint
+
+
+@flow(name="xscore", log_prints=True)
+def xscore_flow(config_path: str | Path) -> ArtifactRef:
+    """Serialize a versioned xscore run and pin its exact final attempt identity."""
+    resolved_config = Path(config_path).resolve()
+    config = parse_xscore_config(resolved_config)
+    code_sha = _code_sha256()
+    _identity, version = _xscore_identity(config, code_sha)
+    result_root = config.output_root / config.campaign / "xscore" / version
+    lock_path = result_root.parent / f".{version}.xscore.lock"
+    with xscore_lockbox.single_writer_lock(lock_path):
+        attempt_sha256 = None
+        if config.mode == "final":
+            marker = _final_attempt_marker(
+                config, version=version, code_sha=code_sha
+            )
+            attempt_sha256 = _ensure_final_attempt_marker(result_root, marker)
+        return _xscore_flow_impl(
+            resolved_config,
+            expected_version=version,
+            flow_attempt_sha256=attempt_sha256,
+        )
+
+
 def _complete_prepared_replay(
     config: XScoreConfig,
     *,
@@ -1036,19 +1244,24 @@ def _complete_prepared_replay(
     composite_ref: ArtifactRef,
     result_root: Path,
     prepared: Mapping[str, Any],
+    lockbox_ctx: Mapping[str, Any] | None = None,
+    flow_attempt_sha256: str | None = None,
 ) -> ArtifactRef:
     """Finish a published composite after a worker stopped before flow-manifest commit."""
     panel_info = prepared["panel"]
     panel_path = (result_root / panel_info["path"]).resolve()
     if config.mode == "final":
-        if config.config_path is None:
-            raise ValueError("final replay 必须使用冻结的 config 文件")
-        lockbox_ctx = _lockbox_register(
-            panel_path=panel_path,
-            panel_sig=panel_info["panel_sha256"],
-            config_path=config.config_path,
-            replay_ok=True,
-        )
+        if lockbox_ctx is None:
+            if config.config_path is None:
+                raise ValueError("final replay 必须使用冻结的 config 文件")
+            lockbox_ctx = _lockbox_register(
+                panel_path=panel_path,
+                panel_sig=panel_info["panel_sha256"],
+                config_path=config.config_path,
+                replay_ok=False,
+                flow_attempt_sha256=flow_attempt_sha256,
+                resume_pending=flow_attempt_sha256 is not None,
+            )
         if (
             lockbox_ctx.get("sample_role") != composite_ref.sample_role
             or lockbox_ctx.get("window_id") != composite_ref.window_id
@@ -1076,6 +1289,7 @@ def _complete_prepared_replay(
         campaign_root=config.output_root / config.campaign,
         lockbox_ctx=lockbox_ctx,
         result_ref=composite_ref.artifact_uri,
+        flow_attempt_sha256=flow_attempt_sha256,
     )
     score_results = prepared["score_results"]
     portfolio_results = prepared["portfolio_results"]
@@ -1100,6 +1314,87 @@ def _complete_prepared_replay(
     }
     _atomic_write_json(result_root / "flow_manifest.json", completed)
     return composite_ref
+
+
+def _resume_prepared_publication(
+    config: XScoreConfig,
+    *,
+    refs: Sequence[ArtifactRef],
+    version: str,
+    code_sha: str,
+    result_root: Path,
+    prepared: Mapping[str, Any],
+    flow_attempt_sha256: str | None,
+    artifact_already_published: bool,
+    existing_composite_ref: ArtifactRef | None = None,
+) -> ArtifactRef:
+    """Publish or finish a verified prepared run without rescoring."""
+    panel_info = prepared["panel"]
+    panel_path = (result_root / panel_info["path"]).resolve()
+    lockbox_ctx = prepared.get("lockbox")
+    if config.mode == "final":
+        if config.config_path is None:
+            raise ValueError("final replay 必须使用冻结的 config 文件")
+        lockbox_ctx = _lockbox_register(
+            panel_path=panel_path,
+            panel_sig=panel_info["panel_sha256"],
+            config_path=config.config_path,
+            replay_ok=artifact_already_published,
+            flow_attempt_sha256=flow_attempt_sha256,
+            resume_pending=not artifact_already_published,
+        )
+        prepared_lockbox = prepared.get("lockbox")
+        if not isinstance(prepared_lockbox, Mapping):
+            raise ValueError("xscore prepared_manifest 缺 lockbox/sample 记录")
+        if (
+            lockbox_ctx.get("sample_role") not in {"mixed", "lockbox"}
+            or lockbox_ctx.get("sample_role") != refs[0].sample_role
+            or lockbox_ctx.get("window_id") != refs[0].window_id
+            or not lockbox_ctx.get("access_id")
+            or lockbox_ctx.get("access_id") != prepared_lockbox.get("access_id")
+        ):
+            raise ValueError(
+                "xscore final resume 的锁箱登记与 prepared attempt 不一致"
+            )
+    if not isinstance(lockbox_ctx, Mapping):
+        raise ValueError("xscore prepared_manifest 缺 lockbox/sample 记录")
+
+    selected_score = next(
+        (
+            item
+            for item in prepared["score_results"]
+            if item.get("group") == config.composite_group
+            and item.get("model") == config.composite_model
+        ),
+        None,
+    )
+    if selected_score is None:
+        raise ValueError("xscore prepared_manifest 缺预选 composite score")
+    composite_ref = existing_composite_ref
+    if composite_ref is None:
+        composite_ref = _publish_composite_task(
+            [ref.model_dump(mode="json") for ref in refs],
+            str(config.config_path or config.output_root),
+            version,
+            code_sha,
+            selected_score["score_dir"],
+            str(panel_path),
+            list(dict.fromkeys(
+                [access_id for ref in refs for access_id in ref.access_ids]
+                + ([lockbox_ctx["access_id"]] if lockbox_ctx.get("access_id") else [])
+            )),
+            config.mode,
+        )
+    return _complete_prepared_replay(
+        config,
+        refs=refs,
+        version=version,
+        composite_ref=composite_ref,
+        result_root=result_root,
+        prepared=prepared,
+        lockbox_ctx=lockbox_ctx,
+        flow_attempt_sha256=flow_attempt_sha256,
+    )
 
 
 def _publish_composite(
@@ -1143,71 +1438,37 @@ def _publish_composite(
     frame = _signal_frame(score_dir, panel_path, direction=config.direction)
     final_dir = config.artifact_root / "composites" / config.name / version
     final_dir.parent.mkdir(parents=True, exist_ok=True)
-    if final_dir.exists():
-        # A native artifact without flow_manifest is a partial publication and
-        # must never be overwritten by a retry.
-        if not (final_dir / "flow_manifest.json").is_file():
-            raise FileExistsError(f"CompositeArtifact 版本目录已有半成品: {final_dir}")
-        existing = _validate_composite_artifact(
-            final_dir,
-            mode=config.mode,
-            allowed_root=config.artifact_root,
-        )
-        if (existing.name != config.name or existing.version != version
-                or existing.config_sha256 != config.config_sha256
-                or existing.source_artifacts != tuple(source_refs)):
-            raise ValueError("已有 CompositeArtifact 与当前 xscore 输入身份不一致")
-        return existing
-
-    with tempfile.TemporaryDirectory(
-        prefix=f".{version}.", dir=final_dir.parent
-    ) as temp:
-        stage = Path(temp) / config.name
-        provenance = {
-            "members": [
-                {
-                    "position": i,
-                    "ref": source_refs[i - 1],
-                    "artifact_hash": ref.artifact_sha256,
-                }
-                for i, ref in enumerate(refs, 1)
-            ],
-            "implementation": {
-                "entrypoint": "research_flows.xscore_flow",
-                "source_hash": code_sha,
-                "git_commit": refs[0].platform_commit,
-            },
-            "params_hash": _canonical_sha256(composite_cfg),
-            "alignment": {"join": "intersection", "missing_policy": "reject"},
-            "environment": {"lock_hash": None},
-            "xscore": composite_cfg,
-            "panel_sha256": content_sha256(panel_path),
-            "data_version": refs[0].data_version,
-            "window_id": refs[0].window_id,
-            "sample_role": refs[0].sample_role,
-            "access_ids": all_access_ids,
-            "output_hash": None,
-        }
-        meta = {
-            "name": config.name,
-            "definition_hash": version,
-            "frequency": "1d",
-            "adjustment": None,
-        }
-        write_composite_artifact(stage, frame, meta, provenance)
-        os.replace(stage, final_dir)
-    with tempfile.TemporaryDirectory(prefix="composite-reader-view-") as temp:
-        logical_dir = Path(temp) / config.name
-        logical_dir.symlink_to(final_dir, target_is_directory=True)
-        loaded_frame, loaded_meta, loaded_provenance = read_composite_artifact(
-            logical_dir
-        )
-        if (
-            not loaded_frame.equals(frame)
-            or loaded_meta.get("definition_hash") != version
-            or loaded_provenance.get("panel_sha256") != content_sha256(panel_path)
-        ):
-            raise ValueError("平台 CompositeArtifact reader round-trip 校验失败")
+    provenance = {
+        "members": [
+            {
+                "position": i,
+                "ref": source_refs[i - 1],
+                "artifact_hash": ref.artifact_sha256,
+            }
+            for i, ref in enumerate(refs, 1)
+        ],
+        "implementation": {
+            "entrypoint": "research_flows.xscore_flow",
+            "source_hash": code_sha,
+            "git_commit": refs[0].platform_commit,
+        },
+        "params_hash": _canonical_sha256(composite_cfg),
+        "alignment": {"join": "intersection", "missing_policy": "reject"},
+        "environment": {"lock_hash": None},
+        "xscore": composite_cfg,
+        "panel_sha256": content_sha256(panel_path),
+        "data_version": refs[0].data_version,
+        "window_id": refs[0].window_id,
+        "sample_role": refs[0].sample_role,
+        "access_ids": all_access_ids,
+        "output_hash": None,
+    }
+    meta = {
+        "name": config.name,
+        "definition_hash": version,
+        "frequency": "1d",
+        "adjustment": None,
+    }
     manifest = {
         "artifact_type": "composite_signal",
         "name": config.name,
@@ -1237,6 +1498,82 @@ def _publish_composite(
             "access_ids": all_access_ids,
         },
     }
+    if final_dir.exists():
+        if (final_dir / "flow_manifest.json").is_file():
+            existing = _validate_composite_artifact(
+                final_dir,
+                mode=config.mode,
+                allowed_root=config.artifact_root,
+            )
+            if (
+                existing.name != config.name
+                or existing.version != version
+                or existing.config_sha256 != config.config_sha256
+                or existing.source_artifacts != tuple(source_refs)
+            ):
+                raise ValueError("已有 CompositeArtifact 与当前 xscore 输入身份不一致")
+            return existing
+
+        # publish_artifact writes flow_manifest.json last. If the process died
+        # after the native reader files were committed, verify all of them
+        # against the frozen attempt before adding that final publication marker.
+        try:
+            with tempfile.TemporaryDirectory(
+                prefix="composite-reader-view-"
+            ) as temp:
+                logical_dir = Path(temp) / config.name
+                logical_dir.symlink_to(final_dir, target_is_directory=True)
+                loaded_frame, loaded_meta, loaded_provenance = read_composite_artifact(
+                    logical_dir
+                )
+            matches = (
+                loaded_frame.equals(frame)
+                and loaded_meta.get("name") == config.name
+                and loaded_meta.get("definition_hash") == version
+                and all(
+                    loaded_provenance.get(key) == value
+                    for key, value in provenance.items()
+                    if key != "output_hash"
+                )
+                and loaded_provenance.get("output_hash")
+                == content_sha256(final_dir / "panel.parquet")
+            )
+        except (OSError, ValueError) as exc:
+            raise ValueError(
+                f"CompositeArtifact 半成品无法按当前 attempt 验证: {final_dir}"
+            ) from exc
+        if not matches:
+            raise ValueError(
+                f"CompositeArtifact 半成品与当前 xscore attempt 不一致: {final_dir}"
+            )
+        result = publish_artifact(
+            final_dir, manifest, primary_file="panel.parquet"
+        )
+        return validate_artifact_ref(
+            result,
+            expected_type="composite_signal",
+            expected_mode=config.mode,
+            allowed_root=config.artifact_root,
+        )
+
+    with tempfile.TemporaryDirectory(
+        prefix=f".{version}.", dir=final_dir.parent
+    ) as temp:
+        stage = Path(temp) / config.name
+        write_composite_artifact(stage, frame, meta, provenance)
+        os.replace(stage, final_dir)
+    with tempfile.TemporaryDirectory(prefix="composite-reader-view-") as temp:
+        logical_dir = Path(temp) / config.name
+        logical_dir.symlink_to(final_dir, target_is_directory=True)
+        loaded_frame, loaded_meta, loaded_provenance = read_composite_artifact(
+            logical_dir
+        )
+        if (
+            not loaded_frame.equals(frame)
+            or loaded_meta.get("definition_hash") != version
+            or loaded_provenance.get("panel_sha256") != content_sha256(panel_path)
+        ):
+            raise ValueError("平台 CompositeArtifact reader round-trip 校验失败")
     result = publish_artifact(final_dir, manifest, primary_file="panel.parquet")
     return validate_artifact_ref(
         result,
@@ -1291,26 +1628,19 @@ def _validate_composite_task(
     return ArtifactRef.model_validate(result)
 
 
-@flow(name="xscore", log_prints=True)
-def xscore_flow(config_path: str | Path) -> ArtifactRef:
+def _xscore_flow_impl(
+    config_path: str | Path,
+    *,
+    expected_version: str,
+    flow_attempt_sha256: str | None,
+) -> ArtifactRef:
     """Run xscore from FactorArtifact refs through platform CompositeArtifact."""
     config_path = Path(config_path).resolve()
     config = parse_xscore_config(config_path)
     code_sha = _code_sha256()
-    identity_config = {
-        "name": config.name,
-        "mode": config.mode,
-        "config_sha256": config.config_sha256,
-        "groups": {k: list(v) for k, v in config.groups.items()},
-        "models": list(config.models),
-        "walk_forward": config.walk_forward,
-        "direction": config.direction,
-        "composite": {
-            "group": config.composite_group,
-            "model": config.composite_model,
-        },
-    }
-    version = xscore_version(config.inputs, identity_config, code_sha256=code_sha)
+    _identity, version = _xscore_identity(config, code_sha)
+    if version != expected_version:
+        raise ValueError("xscore config/code changed while waiting for version lock")
     result_root = config.output_root / config.campaign / "xscore" / version
     score_root = result_root / "scores"
     panel_path = result_root / f"panel_{version}.npz"
@@ -1318,6 +1648,7 @@ def xscore_flow(config_path: str | Path) -> ArtifactRef:
         list(config.inputs), str(config.artifact_root), config.mode
     )
     final_dir = config.artifact_root / "composites" / config.name / version
+    prepared_path = result_root / "prepared_manifest.json"
     if final_dir.exists() and (final_dir / "flow_manifest.json").is_file():
         replay = _validate_composite_task(
             str(final_dir), str(config.artifact_root), config.mode
@@ -1349,13 +1680,16 @@ def xscore_flow(config_path: str | Path) -> ArtifactRef:
                 mode=config.mode,
                 refs=factor_refs,
             )
-            return _complete_prepared_replay(
+            return _resume_prepared_publication(
                 config,
                 refs=factor_refs,
                 version=version,
-                composite_ref=replay,
+                code_sha=code_sha,
                 result_root=result_root,
                 prepared=prepared,
+                flow_attempt_sha256=flow_attempt_sha256,
+                artifact_already_published=True,
+                existing_composite_ref=replay,
             )
         if config.mode == "final":
             if config.config_path is None or not panel_path.is_file():
@@ -1370,6 +1704,7 @@ def xscore_flow(config_path: str | Path) -> ArtifactRef:
                 panel_sig=expected_panel_sha,
                 config_path=config.config_path,
                 replay_ok=True,
+                flow_attempt_sha256=flow_attempt_sha256,
             )
             if (
                 ctx.get("sample_role") != replay.sample_role
@@ -1381,18 +1716,76 @@ def xscore_flow(config_path: str | Path) -> ArtifactRef:
                 )
         return replay
     if final_dir.exists():
-        raise FileExistsError(
-            f"CompositeArtifact 版本目录存在但未完成发布: {final_dir}"
+        if not prepared_path.is_file():
+            raise FileExistsError(
+                "CompositeArtifact 已有部分发布文件，但 xscore prepared_manifest "
+                f"缺失，拒绝猜测恢复: {final_dir}"
+            )
+        prepared = _validate_prepared_research(
+            result_root,
+            version=version,
+            config_sha256=config.config_sha256,
+            mode=config.mode,
+            refs=factor_refs,
         )
-    if result_root.exists():
-        raise FileExistsError(
-            f"xscore 版本工作目录已存在但没有完整发布物: {result_root}"
+        return _resume_prepared_publication(
+            config,
+            refs=factor_refs,
+            version=version,
+            code_sha=code_sha,
+            result_root=result_root,
+            prepared=prepared,
+            flow_attempt_sha256=flow_attempt_sha256,
+            artifact_already_published=False,
         )
-    result_root.mkdir(parents=True, exist_ok=False)
-    panel_details = _assemble_task(
-        factor_refs, str(panel_path), str(config.artifact_root),
-        config.min_coverage, config.mode
-    )
+    if prepared_path.is_file():
+        prepared = _validate_prepared_research(
+            result_root,
+            version=version,
+            config_sha256=config.config_sha256,
+            mode=config.mode,
+            refs=factor_refs,
+        )
+        return _resume_prepared_publication(
+            config,
+            refs=factor_refs,
+            version=version,
+            code_sha=code_sha,
+            result_root=result_root,
+            prepared=prepared,
+            flow_attempt_sha256=flow_attempt_sha256,
+            artifact_already_published=False,
+        )
+
+    resuming_final_attempt = result_root.exists()
+    if resuming_final_attempt:
+        if config.mode != "final" or not flow_attempt_sha256:
+            raise FileExistsError(
+                f"xscore 版本工作目录已存在但没有可恢复的 final attempt: {result_root}"
+            )
+        panel_checkpoint = _reset_unprepared_final_outputs(
+            result_root, version=version, cache_dir=config.cache_dir
+        )
+    else:
+        result_root.mkdir(parents=True, exist_ok=False)
+        panel_checkpoint = None
+
+    if panel_checkpoint is None:
+        panel_details = _assemble_task(
+            factor_refs,
+            str(panel_path),
+            str(config.artifact_root),
+            config.min_coverage,
+            config.mode,
+        )
+        panel_checkpoint = _write_panel_checkpoint(
+            result_root,
+            version=version,
+            panel_path=panel_path,
+            panel_details=panel_details,
+        )
+    panel_details = dict(panel_checkpoint)
+    panel_details["path"] = str(panel_path)
 
     lockbox_ctx: dict[str, Any] = {
         "window_id": factor_refs[0].window_id,
@@ -1409,6 +1802,8 @@ def xscore_flow(config_path: str | Path) -> ArtifactRef:
             panel_sig=panel_details["panel_sha256"],
             config_path=config.config_path,
             replay_ok=False,
+            flow_attempt_sha256=flow_attempt_sha256,
+            resume_pending=True,
         )
         if lockbox_ctx["sample_role"] not in {"mixed", "lockbox"}:
             raise ValueError(
@@ -1489,9 +1884,10 @@ def xscore_flow(config_path: str | Path) -> ArtifactRef:
         ),
         encoding="utf-8",
     )
-    current_access = list(factor_refs[0].access_ids)
-    if lockbox_ctx.get("access_id") and lockbox_ctx["access_id"] not in current_access:
-        current_access.append(lockbox_ctx["access_id"])
+    current_access = list(dict.fromkeys(
+        [access_id for ref in factor_refs for access_id in ref.access_ids]
+        + ([lockbox_ctx["access_id"]] if lockbox_ctx.get("access_id") else [])
+    ))
     selected_score = next(
         result for result in results
         if result["group"] == config.composite_group
@@ -1537,6 +1933,7 @@ def xscore_flow(config_path: str | Path) -> ArtifactRef:
         campaign_root=config.output_root / config.campaign,
         lockbox_ctx=lockbox_ctx,
         result_ref=composite_ref.artifact_uri,
+        flow_attempt_sha256=flow_attempt_sha256,
     )
     flow_manifest = {
         "artifact_type": "composite_signal",
@@ -1562,7 +1959,13 @@ def xscore_flow(config_path: str | Path) -> ArtifactRef:
 
 
 def _lockbox_register(
-    *, panel_path: Path, panel_sig: str, config_path: Path, replay_ok: bool
+    *,
+    panel_path: Path,
+    panel_sig: str,
+    config_path: Path,
+    replay_ok: bool,
+    flow_attempt_sha256: str | None = None,
+    resume_pending: bool = False,
 ) -> dict[str, Any]:
     with _LOCKBOX_ENV_LOCK:
         re_final = os.environ.pop("FACTORLAB_RE_FINAL", None)
@@ -1572,6 +1975,8 @@ def _lockbox_register(
                 panel_sig=panel_sig,
                 config_path=str(config_path),
                 replay_ok=replay_ok,
+                flow_attempt_sha256=flow_attempt_sha256,
+                resume_pending=resume_pending,
             )
         finally:
             if re_final is not None:
@@ -1584,6 +1989,7 @@ def _write_lockbox_manifests(
     campaign_root: Path,
     lockbox_ctx: dict[str, Any],
     result_ref: str,
+    flow_attempt_sha256: str | None = None,
 ) -> None:
     if lockbox_ctx.get("window_id") is None and lockbox_ctx.get("access_id") is None:
         return
@@ -1593,4 +1999,5 @@ def _write_lockbox_manifests(
         campaign_manifest=campaign_root / "manifest.json",
         base_updates={"platform_commit": "research_flows.xscore_flow"},
         result_ref=result_ref,
+        flow_attempt_sha256=flow_attempt_sha256,
     )

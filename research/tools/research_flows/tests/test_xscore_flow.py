@@ -25,9 +25,11 @@ from research_flows.artifacts import (  # noqa: E402
 import research_flows.xscore_flow as xscore_module  # noqa: E402
 from research_flows.xscore_flow import (  # noqa: E402
     _complete_prepared_replay,
+    _ensure_final_attempt_marker,
     _lockbox_register,
     _publish_composite,
     _render_xscore_report,
+    _resume_prepared_publication,
     _research_output_hashes,
     _validate_prepared_research,
     _validate_research_replay,
@@ -443,6 +445,326 @@ def test_composite_publication_round_trips_through_platform_reader(
     assert ref.version == "b" * 64
 
 
+def test_composite_publication_recovers_native_artifact_missing_flow_manifest(
+    tmp_path: Path, monkeypatch
+):
+    _require_panel_adapter(monkeypatch)
+    factor = _factor(tmp_path / "factor", "alpha")
+    config = parse_xscore_config(
+        {
+            "artifact_root": str(tmp_path),
+            "mode": "explore",
+            "inputs": [factor.model_dump(mode="json")],
+            "name": "blend",
+            "groups": {"daily": ["alpha"]},
+            "models": ["M0a"],
+            "min_coverage": 0.9,
+        }
+    )
+    panel_path = tmp_path / "panel.npz"
+    assemble_factor_panel([factor], panel_path, allowed_root=tmp_path)
+    from lab.autoencoder42.panel import load_panel
+
+    panel = load_panel(panel_path)
+    score_dir = tmp_path / "score"
+    score_dir.mkdir()
+    np.savez_compressed(
+        score_dir / "signal.npz",
+        signal=np.asarray([[0.2], [0.3], [0.4]], dtype=float),
+        dates=np.asarray([str(day) for day in panel.dates]),
+        codes=np.asarray([str(code) for code in panel.codes]),
+    )
+    args = {
+        "refs": [factor],
+        "config": config,
+        "version": "b" * 64,
+        "code_sha": "c" * 64,
+        "score_dir": score_dir,
+        "panel_path": panel_path,
+        "access_ids": [],
+    }
+
+    first = _publish_composite(**args)
+    artifact_dir = Path(first.artifact_uri)
+    (artifact_dir / "flow_manifest.json").unlink()
+
+    recovered = _publish_composite(**args)
+
+    assert recovered == first
+    assert (artifact_dir / "flow_manifest.json").is_file()
+
+
+def test_final_attempt_marker_fails_closed_on_unknown_nonempty_directory(
+    tmp_path: Path,
+):
+    result_root = tmp_path / "attempt"
+    result_root.mkdir()
+    (result_root / "unexpected.txt").write_text("do not overwrite")
+    expected = {
+        "artifact_type": "xscore_final_attempt",
+        "flow_attempt_sha256": "a" * 64,
+    }
+
+    with pytest.raises(ValueError, match="marker 缺失"):
+        _ensure_final_attempt_marker(result_root, expected)
+
+
+def test_final_attempt_marker_cleans_only_atomic_write_orphan(tmp_path: Path):
+    result_root = tmp_path / "attempt"
+    result_root.mkdir()
+    orphan = result_root / ".final_attempt.json.123.tmp"
+    orphan.write_text("{")
+    expected = {
+        "artifact_type": "xscore_final_attempt",
+        "flow_attempt_sha256": "a" * 64,
+    }
+
+    assert _ensure_final_attempt_marker(result_root, expected) == "a" * 64
+    assert not orphan.exists()
+    assert json.loads((result_root / "final_attempt.json").read_text()) == expected
+
+
+def test_prepared_final_recovery_checks_lockbox_before_publishing(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.setattr(xscore_module, "QR", tmp_path)
+    factor = _factor(
+        tmp_path / "factor",
+        "alpha",
+        mode="final",
+        sample_role="lockbox",
+        window_id="lockbox-2026",
+        access_ids=("LB-factor",),
+    )
+    config_path = tmp_path / "xscore.yaml"
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "artifact_root": str(tmp_path),
+                "output_root": str(tmp_path / "results"),
+                "campaign": "campaign",
+                "mode": "final",
+                "window_id": "lockbox-2026",
+                "inputs": [factor.model_dump(mode="json")],
+                "name": "blend",
+                "groups": {"daily": ["alpha"]},
+                "models": ["M0a"],
+                "composite": {"group": "daily", "model": "M0a"},
+                "min_coverage": 0.9,
+            }
+        ),
+        encoding="utf-8",
+    )
+    config = parse_xscore_config(config_path)
+    result_root = tmp_path / "prepared"
+    result_root.mkdir()
+    panel_path = result_root / "panel.npz"
+    panel_path.write_bytes(b"prepared panel")
+    prepared = {
+        "panel": {
+            "path": panel_path.name,
+            "panel_sha256": content_sha256(panel_path),
+        },
+        "lockbox": {
+            "window_id": "lockbox-2026",
+            "sample_role": "lockbox",
+            "access_id": "LB-original",
+        },
+        "score_results": [{
+            "group": "daily",
+            "model": "M0a",
+            "score_dir": str(result_root / "scores" / "daily_M0a"),
+        }],
+    }
+    monkeypatch.setattr(
+        xscore_module,
+        "_lockbox_register",
+        lambda **_kwargs: {
+            "window_id": "lockbox-2026",
+            "sample_role": "lockbox",
+            "access_id": "LB-different",
+        },
+    )
+    monkeypatch.setattr(
+        xscore_module,
+        "_publish_composite_task",
+        lambda *_args: pytest.fail("must validate attempt before publish"),
+    )
+
+    with pytest.raises(ValueError, match="prepared attempt"):
+        _resume_prepared_publication(
+            config,
+            refs=[factor],
+            version="v" * 64,
+            code_sha="c" * 64,
+            result_root=result_root,
+            prepared=prepared,
+            flow_attempt_sha256="a" * 64,
+            artifact_already_published=False,
+        )
+
+
+def test_final_xscore_resumes_same_attempt_after_registration_before_prepared(
+    tmp_path: Path, monkeypatch
+):
+    factor = _factor(
+        tmp_path / "factor",
+        "alpha",
+        mode="final",
+        sample_role="lockbox",
+        window_id="lockbox-2026",
+        access_ids=("LB-factor",),
+    )
+    monkeypatch.setattr(xscore_module, "QR", tmp_path)
+    monkeypatch.setattr(xscore_module, "_code_sha256", lambda: "c" * 64)
+    config_doc = {
+        "artifact_root": str(tmp_path),
+        "output_root": str(tmp_path / "results"),
+        "campaign": "campaign",
+        "mode": "final",
+        "window_id": "lockbox-2026",
+        "inputs": [factor.model_dump(mode="json")],
+        "name": "blend",
+        "groups": {"daily": ["alpha"]},
+        "models": ["M0a"],
+        "composite": {"group": "daily", "model": "M0a"},
+        "min_coverage": 0.9,
+    }
+    config_path = tmp_path / "xscore-final.yaml"
+    config_path.write_text(yaml.safe_dump(config_doc), encoding="utf-8")
+    config = parse_xscore_config(config_path)
+    _, version = xscore_module._xscore_identity(config, "c" * 64)
+    result_root = config.output_root / config.campaign / "xscore" / version
+    marker = xscore_module._final_attempt_marker(
+        config, version=version, code_sha="c" * 64
+    )
+    attempt_sha = xscore_module._ensure_final_attempt_marker(result_root, marker)
+    panel_path = result_root / f"panel_{version}.npz"
+
+    monkeypatch.setattr(xscore_module, "_validate_task", lambda refs, *_a: refs)
+
+    def assemble(_refs, panel_file, *_args):
+        Path(panel_file).write_bytes(b"stable panel")
+        return {
+            "panel_sha256": content_sha256(panel_file),
+            "members": ["alpha"],
+            "rows": 3,
+            "coverage": 1.0,
+        }
+
+    monkeypatch.setattr(xscore_module, "_assemble_task", assemble)
+    registration_calls = []
+
+    def register(**kwargs):
+        registration_calls.append(kwargs)
+        return {
+            "window_id": "lockbox-2026",
+            "sample_role": "lockbox",
+            "access_id": "LB-xscore",
+        }
+
+    monkeypatch.setattr(xscore_module, "_lockbox_register", register)
+    score_calls = 0
+
+    def score(_panel, score_dir, *_args):
+        nonlocal score_calls
+        score_calls += 1
+        output = Path(score_dir)
+        output.mkdir(parents=True, exist_ok=True)
+        if score_calls == 1:
+            (output / "signal.npz").write_bytes(b"partial")
+            raise RuntimeError("simulated worker interruption")
+        (output / "signal.npz").write_bytes(b"signal")
+        (output / "metrics.json").write_text("{}", encoding="utf-8")
+        (output / "manifest.json").write_text("{}", encoding="utf-8")
+        return {
+            "group": "daily",
+            "model": "M0a",
+            "score_dir": str(output),
+            "metrics": {},
+        }
+
+    monkeypatch.setattr(xscore_module, "_score_task", score)
+    monkeypatch.setattr(
+        xscore_module,
+        "_prepare_portfolio_data_task",
+        lambda *_args: {"panel": str(panel_path)},
+    )
+
+    def portfolio(score_dir, _aux, _portfolio, exec_mode, domain, _mode):
+        output = Path(score_dir) / f"portfolio_{exec_mode}_{domain}.json"
+        output.write_text("{}", encoding="utf-8")
+        return {
+            "score": Path(score_dir).name,
+            "exec_mode": exec_mode,
+            "domain": domain,
+            "result": {},
+        }
+
+    monkeypatch.setattr(xscore_module, "_portfolio_task", portfolio)
+    composite_dir = tmp_path / "mock-composite-ref"
+    composite_dir.mkdir(parents=True)
+    (composite_dir / "panel.parquet").write_bytes(b"composite")
+    composite = publish_artifact(
+        composite_dir,
+        {
+            "artifact_type": "composite_signal",
+            "name": config.name,
+            "version": version,
+            "config_sha256": config.config_sha256,
+            "data_version": factor.data_version,
+            "window_id": factor.window_id,
+            "sample_role": factor.sample_role,
+            "mode": "final",
+            "status": "candidate",
+            "source_artifacts": [
+                f"{factor.artifact_uri}#version={factor.version}"
+            ],
+            "platform_commit": factor.platform_commit,
+            "access_ids": ["LB-factor", "LB-xscore"],
+        },
+        primary_file="panel.parquet",
+    )
+    publish_calls = 0
+
+    def publish(*_args):
+        nonlocal publish_calls
+        publish_calls += 1
+        if publish_calls == 1:
+            raise RuntimeError("simulated publisher interruption")
+        return composite
+
+    monkeypatch.setattr(xscore_module, "_publish_composite_task", publish)
+    monkeypatch.setattr(
+        xscore_module, "_write_lockbox_manifests", lambda **_kwargs: None
+    )
+
+    impl = lambda: xscore_module._xscore_flow_impl(
+        config_path,
+        expected_version=version,
+        flow_attempt_sha256=attempt_sha,
+    )
+    with pytest.raises(RuntimeError, match="simulated worker interruption"):
+        impl()
+    assert not (result_root / "prepared_manifest.json").exists()
+
+    with pytest.raises(RuntimeError, match="simulated publisher interruption"):
+        impl()
+    assert (result_root / "prepared_manifest.json").is_file()
+    assert impl() == composite
+    assert score_calls == 2, "prepared recovery must not score again"
+    assert publish_calls == 2
+    assert len(registration_calls) == 3
+    assert all(call["flow_attempt_sha256"] == attempt_sha for call in registration_calls)
+    assert all(call["resume_pending"] is True for call in registration_calls)
+    assert all(call["replay_ok"] is False for call in registration_calls)
+    completed = json.loads((result_root / "flow_manifest.json").read_text())
+    assert completed["status"] == "completed"
+    assert json.loads((result_root / "prepared_manifest.json").read_text())[
+        "lockbox"
+    ]["access_id"] == "LB-xscore"
+
+
 def test_composite_publication_preserves_access_ids_from_every_factor(
     tmp_path: Path, monkeypatch
 ):
@@ -758,6 +1080,127 @@ def test_lockbox_flow_ignores_re_final_escape_and_restores_parent_environment(
     assert os.environ["FACTORLAB_RE_FINAL"] == "1"
 
 
+def _lockbox_store_fixture(tmp_path: Path, monkeypatch):
+    from factorlab.adapters import lockbox_store as store
+    from factorlab.core.lockbox import LockboxWindow
+
+    db = tmp_path / "ledger.sqlite"
+    window = LockboxWindow(
+        "2026Q2", date(2025, 7, 1), date(2026, 7, 3)
+    )
+    conn = store.connect(db)
+    store.roll(conn, window=window)
+    conn.close()
+    monkeypatch.setattr(xscore_module.xscore_lockbox, "_ensure_platform_src", lambda: None)
+
+    def open_ledger(**_kwargs):
+        conn = store.connect(db)
+        return conn, store.load_state(conn), window, "lockbox"
+
+    monkeypatch.setattr(xscore_module.xscore_lockbox, "_lockbox_open", open_ledger)
+    monkeypatch.setenv("FACTORLAB_LOCKBOX", "1")
+    monkeypatch.delenv("FACTORLAB_RE_FINAL", raising=False)
+    panel = tmp_path / "panel.npz"
+    panel.write_bytes(b"frozen panel")
+    config = tmp_path / "xscore.yaml"
+    config.write_text("mode: final\n", encoding="utf-8")
+    return store, db, panel, config
+
+
+def test_xscore_lockbox_resumes_only_latest_matching_pending_attempt(
+    tmp_path: Path, monkeypatch
+):
+    from factorlab.core.lockbox import LockboxError
+
+    store, db, panel, config = _lockbox_store_fixture(tmp_path, monkeypatch)
+    register = xscore_module.xscore_lockbox.lockbox_register
+    panel_sig = "panel-fingerprint"
+    first_sha = "a" * 64
+    second_sha = "b" * 64
+    first = register(
+        panel=panel,
+        panel_sig=panel_sig,
+        config_path=str(config),
+        flow_attempt_sha256=first_sha,
+    )
+    resumed = register(
+        panel=panel,
+        panel_sig=panel_sig,
+        config_path=str(config),
+        flow_attempt_sha256=first_sha,
+        resume_pending=True,
+    )
+    assert resumed["access_id"] == first["access_id"]
+
+    monkeypatch.setenv("FACTORLAB_RE_FINAL", "1")
+    newer = register(
+        panel=panel,
+        panel_sig=panel_sig,
+        config_path=str(config),
+        flow_attempt_sha256=second_sha,
+    )
+    monkeypatch.delenv("FACTORLAB_RE_FINAL")
+    with pytest.raises(LockboxError, match="LOCKBOX_FINAL_DUPLICATE"):
+        register(
+            panel=panel,
+            panel_sig=panel_sig,
+            config_path=str(config),
+            flow_attempt_sha256=first_sha,
+            resume_pending=True,
+        )
+    latest = register(
+        panel=panel,
+        panel_sig=panel_sig,
+        config_path=str(config),
+        flow_attempt_sha256=second_sha,
+        resume_pending=True,
+    )
+    assert latest["access_id"] == newer["access_id"]
+
+    conn = store.connect(db)
+    try:
+        row = conn.execute(
+            "SELECT params, result_ref FROM lockbox_access WHERE access_id = ?",
+            (newer["access_id"],),
+        ).fetchone()
+        assert json.loads(row["params"])["flow_attempt_sha256"] == second_sha
+        assert row["result_ref"] is None
+        store.update_result_ref(conn, newer["access_id"], "/results/composite")
+    finally:
+        conn.close()
+    with pytest.raises(LockboxError, match="LOCKBOX_FINAL_DUPLICATE"):
+        register(
+            panel=panel,
+            panel_sig=panel_sig,
+            config_path=str(config),
+            flow_attempt_sha256=second_sha,
+            resume_pending=True,
+        )
+
+
+def _acquire_xscore_lock(lock_path: str, acquired) -> None:
+    with xscore_module.xscore_lockbox.single_writer_lock(Path(lock_path)):
+        acquired.set()
+
+
+def test_xscore_attempt_lock_serializes_across_processes(tmp_path: Path):
+    import multiprocessing
+
+    ctx = multiprocessing.get_context("fork")
+    acquired = ctx.Event()
+    lock_path = tmp_path / "attempt.lock"
+    with xscore_module.xscore_lockbox.single_writer_lock(lock_path):
+        child = ctx.Process(
+            target=_acquire_xscore_lock,
+            args=(str(lock_path), acquired),
+        )
+        child.start()
+        assert not acquired.wait(0.15), "第二个进程应阻塞到首个 attempt 释放锁"
+    assert acquired.wait(3), "首个进程释放后，第二个 attempt 应能继续"
+    child.join(3)
+    assert child.exitcode == 0
+
+
 def test_final_xscore_replay_finishes_prepared_artifact_without_rescoring(
     tmp_path: Path, monkeypatch
 ):
@@ -806,6 +1249,12 @@ def test_final_xscore_replay_finishes_prepared_artifact_without_rescoring(
         config.inputs, identity_config, code_sha256="c" * 64
     )
     result_root = config.output_root / config.campaign / "xscore" / version
+    xscore_module._ensure_final_attempt_marker(
+        result_root,
+        xscore_module._final_attempt_marker(
+            config, version=version, code_sha="c" * 64
+        ),
+    )
     score_dir = result_root / "scores" / "daily_M0a"
     score_dir.mkdir(parents=True)
     panel_path = result_root / f"panel_{version}.npz"

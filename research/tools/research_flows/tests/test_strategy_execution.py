@@ -368,6 +368,117 @@ def test_completed_strategy_artifact_replay_does_not_run_again(
     assert "heavy_guard" not in calls
 
 
+def test_final_strategy_retries_same_attempt_after_native_compute_interruption(
+        tmp_path, monkeypatch):
+    module = _reload_flow(monkeypatch)
+    ref = _publish_signal(
+        tmp_path / "factor",
+        mode="final",
+        sample_role="lockbox",
+        access_ids=("UPSTREAM-LB-1",),
+    )
+    spec_path = tmp_path / "strategy.yaml"
+    spec_path.write_text(_SPEC, encoding="utf-8")
+    calls = []
+    sample = {
+        "role": "lockbox",
+        "window_id": "2026Q3",
+        "access_id": "STRATEGY-LB-1",
+    }
+    deps = _fake_execution_dependencies(tmp_path, sample=sample, calls=calls)
+    original_run = deps["run_strategy"]
+    worker_env = []
+
+    def fail_once(doc, rd, *, results_dir, out_dir, final_mode, doc_path):
+        worker_env.append((
+            os.environ.get("FACTORLAB_LOCKBOX_REPLAY"),
+            os.environ.get("FACTORLAB_LOCKBOX_ATTEMPT_SHA256"),
+        ))
+        if len(worker_env) == 1:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            (out_dir / "target_portfolio.parquet").write_bytes(b"partial-m7")
+            raise RuntimeError("simulated M7 interruption")
+        return original_run(
+            doc, rd, results_dir=results_dir, out_dir=out_dir,
+            final_mode=final_mode, doc_path=doc_path,
+        )
+
+    deps["run_strategy"] = fail_once
+    finalized = []
+    deps["finalize_lockbox_attempt"] = (
+        lambda ids, attempt_sha, result_ref:
+        finalized.append((ids, attempt_sha, result_ref))
+    )
+    config = {
+        "mode": "final",
+        "strategy_spec": str(spec_path),
+        "output_root": str(tmp_path / "out"),
+    }
+
+    with pytest.raises(RuntimeError, match="M7 interruption"):
+        module.run_strategy_execution(config, ref, dependencies=deps)
+    result = module.run_strategy_execution(config, ref, dependencies=deps)
+
+    assert result.status == "completed"
+    assert worker_env[0][0] is None
+    assert worker_env[1][0] == "1"
+    assert worker_env[0][1] == worker_env[1][1]
+    assert len(worker_env[1][1]) == 64
+    assert finalized == [
+        (["STRATEGY-LB-1"], worker_env[1][1], Path(result.artifact_uri))
+    ]
+    assert (Path(result.artifact_uri) / "flow_manifest.json").is_file()
+
+
+def test_final_strategy_replay_retries_lockbox_backfill_after_publication(
+        tmp_path, monkeypatch):
+    module = _reload_flow(monkeypatch)
+    ref = _publish_signal(
+        tmp_path / "factor",
+        mode="final",
+        sample_role="lockbox",
+        access_ids=("UPSTREAM-LB-1",),
+    )
+    spec_path = tmp_path / "strategy.yaml"
+    spec_path.write_text(_SPEC, encoding="utf-8")
+    calls = []
+    deps = _fake_execution_dependencies(
+        tmp_path,
+        sample={
+            "role": "lockbox",
+            "window_id": "2026Q3",
+            "access_id": "STRATEGY-LB-1",
+        },
+        calls=calls,
+    )
+    finalized = []
+
+    def interrupt_first_finalize(ids, attempt_sha, result_ref):
+        finalized.append((ids, attempt_sha, result_ref))
+        if len(finalized) == 1:
+            raise RuntimeError("simulated strategy lockbox backfill interruption")
+
+    deps["finalize_lockbox_attempt"] = interrupt_first_finalize
+    config = {
+        "mode": "final",
+        "strategy_spec": str(spec_path),
+        "output_root": str(tmp_path / "out"),
+    }
+
+    with pytest.raises(RuntimeError, match="backfill interruption"):
+        module.run_strategy_execution(config, ref, dependencies=deps)
+    calls.clear()
+    result = module.run_strategy_execution(config, ref, dependencies=deps)
+
+    assert result.status == "completed"
+    assert len(finalized) == 2
+    assert finalized[0] == finalized[1]
+    assert not any(
+        isinstance(call, tuple) and call[0] == "run_strategy"
+        for call in calls
+    )
+
+
 def test_strategy_spec_change_creates_new_immutable_version(
         tmp_path, monkeypatch):
     module = _reload_flow(monkeypatch)

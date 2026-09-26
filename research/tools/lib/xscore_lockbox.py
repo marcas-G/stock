@@ -11,11 +11,26 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 from collections.abc import Mapping
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+
+@contextmanager
+def single_writer_lock(path: Path):
+    """Serialize one xscore version across Prefect processes and workers."""
+    lock_path = Path(path)
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a", encoding="utf-8") as stream:
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 
 def _ensure_platform_src() -> None:
@@ -193,6 +208,8 @@ def lockbox_sample(*, panel_start: dt.date | None, panel_end: dt.date | None,
 
 def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
                      replay_ok: bool = False,
+                     flow_attempt_sha256: str | None = None,
+                     resume_pending: bool = False,
                      db_path: Path | None = None, health_root: Path | None = None,
                      today: dt.date | None = None,
                      panel_start: dt.date | None = None,
@@ -204,6 +221,11 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
     （对齐平台 `spec_fingerprint`：改内容=新候选），
     `candidate_fingerprint(artifact_sha256, params={"config": config_sha,
     "panel_sig": panel_sig}, window_id, kind="final")`。
+
+    `flow_attempt_sha256` is audit metadata, not part of the candidate
+    fingerprint. A pending final row may be resumed only when
+    `resume_pending=True` and the latest row for that exact fingerprint has
+    `result_ref IS NULL` and carries the same attempt SHA.
 
     - `FACTORLAB_LOCKBOX ∈ {0,off,false}` → 与无 state 同：不读/不写台账、
       `window_id=None`、`sample_role="unknown"`、`access_id=None`（不再写 `lockbox_off`）；
@@ -255,7 +277,13 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
         fp = candidate_fingerprint(artifact_sha256=artifact, params=params,
                                    window_id=window.window_id, kind="final")
         ctx["fingerprint"] = fp
+        if flow_attempt_sha256 is not None and not re.fullmatch(
+            r"[0-9a-f]{64}", flow_attempt_sha256
+        ):
+            raise ValueError("flow_attempt_sha256 必须是完整小写 SHA-256")
         re_final = os.environ.get("FACTORLAB_RE_FINAL", "").strip() == "1"
+        if resume_pending and not flow_attempt_sha256:
+            raise ValueError("resume_pending 必须提供 flow_attempt_sha256")
         if store.final_exists(conn, window.window_id, fp) and not re_final:
             if replay_ok:
                 ctx["access_id"] = store.require_final(
@@ -263,12 +291,51 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
                 print(f"[lockbox] 复用既有最终测试（replay）：window="
                       f"{window.window_id} access_id={ctx['access_id']}")
                 return ctx
+            if resume_pending:
+                # BEGIN IMMEDIATE makes "latest row + pending + exact attempt"
+                # one atomic decision across processes. A newer re-final row
+                # supersedes an older pending row and therefore cannot be
+                # accidentally resumed.
+                conn.execute("BEGIN IMMEDIATE")
+                try:
+                    row = conn.execute(
+                        "SELECT access_id, params, result_ref FROM lockbox_access "
+                        "WHERE window_id = ? AND kind = 'final' AND fingerprint = ? "
+                        "ORDER BY rowid DESC LIMIT 1",
+                        (window.window_id, fp),
+                    ).fetchone()
+                    matching = False
+                    if row is not None and row["result_ref"] is None:
+                        try:
+                            row_params = json.loads(row["params"])
+                        except (TypeError, json.JSONDecodeError):
+                            row_params = {}
+                        matching = (
+                            row_params.get("flow_attempt_sha256")
+                            == flow_attempt_sha256
+                        )
+                    if matching:
+                        conn.execute("COMMIT")
+                        ctx["access_id"] = str(row["access_id"])
+                        print(
+                            "[lockbox] 恢复同一未完成 xscore attempt："
+                            f"window={window.window_id} access_id={ctx['access_id']}"
+                        )
+                        return ctx
+                    conn.execute("ROLLBACK")
+                except BaseException:
+                    if conn.in_transaction:
+                        conn.execute("ROLLBACK")
+                    raise
             raise LockboxError(
                 "LOCKBOX_FINAL_DUPLICATE",
                 f"版本 {fp[:12]}… 在窗口 {window.window_id} 已做过最终测试"
                 "（每版本一次）：改 config/参数=新版本可再测；或设 "
                 "FACTORLAB_RE_FINAL=1 重测（审计留痕）")
-        ctx["access_id"] = _pipeline_final_access(conn, fp=fp, params=params,
+        access_params = dict(params)
+        if flow_attempt_sha256:
+            access_params["flow_attempt_sha256"] = flow_attempt_sha256
+        ctx["access_id"] = _pipeline_final_access(conn, fp=fp, params=access_params,
                                                   panel=panel, config_path=config_path,
                                                   window=window, re_final=re_final)
         return ctx
@@ -279,7 +346,8 @@ def lockbox_finalize(ctx: Mapping[str, Any], *, run_manifest: Path,
                      campaign_manifest: Path,
                      base_updates: Mapping[str, Any] | None = None,
                      db_path: Path | None = None,
-                     result_ref: str | None = None) -> dict:
+                     result_ref: str | None = None,
+                     flow_attempt_sha256: str | None = None) -> dict:
     """T12b flow 收尾：用起点 context 写 manifest（**不重算 fp/角色**）+ 回填 result_ref。
 
     `access_id` 非空且给出 `result_ref`（flow 传 run 的 out 目录）时回填台账；
@@ -294,7 +362,15 @@ def lockbox_finalize(ctx: Mapping[str, Any], *, run_manifest: Path,
             db_path = settings.lockbox_db
         conn = store.connect(Path(db_path))
         try:
-            store.update_result_ref(conn, str(access_id), result_ref)
+            if flow_attempt_sha256 is not None:
+                store.finalize_attempt_result(
+                    conn,
+                    access_id=str(access_id),
+                    attempt_sha256=flow_attempt_sha256,
+                    result_ref=result_ref,
+                )
+            else:
+                store.update_result_ref(conn, str(access_id), result_ref)
         finally:
             conn.close()
     updates = dict(base_updates or {})

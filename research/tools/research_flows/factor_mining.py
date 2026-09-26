@@ -7,11 +7,13 @@ gates, and immutable FactorArtifact publication.
 from __future__ import annotations
 
 import hashlib
+import fcntl
 import json
 import math
 import os
 import re
 import subprocess
+from contextlib import contextmanager
 from dataclasses import dataclass
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -149,6 +151,45 @@ def _platform_json(code: str, payload: Mapping[str, Any]) -> dict[str, Any]:
     raise ValueError(
         f"platform artifact inspection 没有返回 JSON: {result.stdout[-1000:]}"
     )
+
+
+_FINALIZE_LOCKBOX_CODE = """
+import json, sys
+from factorlab.adapters import lockbox_store as store
+from factorlab.config import settings
+payload = json.loads(sys.stdin.read())
+conn = store.connect(settings.lockbox_db)
+try:
+    for access_id in payload["access_ids"]:
+        store.finalize_attempt_result(
+            conn,
+            access_id=access_id,
+            attempt_sha256=payload["attempt_sha256"],
+            result_ref=payload["result_ref"],
+        )
+finally:
+    conn.close()
+print(json.dumps({"finalized": len(payload["access_ids"])}))
+"""
+
+
+def _finalize_lockbox_attempt(
+    access_ids: list[str] | tuple[str, ...],
+    attempt_sha256: str,
+    result_ref: str | Path,
+) -> None:
+    if not access_ids:
+        return
+    result = _platform_json(
+        _FINALIZE_LOCKBOX_CODE,
+        {
+            "access_ids": list(access_ids),
+            "attempt_sha256": attempt_sha256,
+            "result_ref": str(result_ref),
+        },
+    )
+    if result.get("finalized") != len(access_ids):
+        raise ValueError("FactorLab 锁箱 access 结果回填数量不一致")
 
 
 def _factor_spec_model_dump(path: Path) -> dict[str, Any]:
@@ -662,12 +703,32 @@ def _run_factorlab(config: Mapping[str, Any], output_dir: Path) -> None:
     env.pop("FACTORLAB_PIPELINE", None)
     env.pop("FACTORLAB_LOCKBOX_REASON", None)
     env.pop("FACTORLAB_RE_FINAL", None)
+    env.pop("FACTORLAB_LOCKBOX_REPLAY", None)
+    env.pop("FACTORLAB_LOCKBOX_ATTEMPT_SHA256", None)
     if config["mode"] == "final":
         env["FACTORLAB_PIPELINE"] = "1"
         env["FACTORLAB_LOCKBOX_REASON"] = (
             f"factor-mining final: {config['name']} {config['window']['id']}"
         )
+        attempt_sha256 = config.get("_lockbox_attempt_sha256")
+        if attempt_sha256:
+            env["FACTORLAB_LOCKBOX_ATTEMPT_SHA256"] = str(attempt_sha256)
+        if config.get("_lockbox_resume_attempt") is True:
+            env["FACTORLAB_LOCKBOX_REPLAY"] = "1"
     _run_cli(argv, env=env)
+
+
+@contextmanager
+def _attempt_lock(target: Path):
+    """Serialize retries for one immutable output version."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = target.parent / f".{target.name}.attempt.lock"
+    with lock_path.open("a", encoding="utf-8") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
 
 def _platform_commit() -> str:
@@ -1141,20 +1202,64 @@ def factor_mining_flow(
     runner: Callable[[Mapping[str, Any], Path, str], None] | None = None,
     lint_runner: Callable[[Path], None] | None = None,
     assessment_runner: Callable[[Path, Mapping[str, Any]], Mapping[str, Any]] | None = None,
+    finalize_lockbox_runner: Callable[
+        [list[str], str, Path], None
+    ] | None = None,
 ) -> ArtifactRef:
     """Run one factor hypothesis and publish a content-addressed FactorArtifact."""
     normalized = validate_factor_mining_config(config)
     _lint_task(normalized, lint_runner)
-    baseline_refs = _validate_baselines(normalized)
     identity = _factor_identity(normalized)
     version = version_fingerprint("factor_signal", normalized["name"], identity)
     target = Path(normalized["output_root"]) / normalized["name"] / version
 
+    with _attempt_lock(target):
+        return _run_factor_mining_attempt(
+            normalized,
+            target=target,
+            identity=identity,
+            version=version,
+            runner=runner,
+            assessment_runner=assessment_runner,
+            finalize_lockbox_runner=finalize_lockbox_runner,
+        )
+
+
+def _run_factor_mining_attempt(
+    normalized: Mapping[str, Any],
+    *,
+    target: Path,
+    identity: Mapping[str, Any],
+    version: str,
+    runner: Callable[[Mapping[str, Any], Path, str], None] | None,
+    assessment_runner: Callable[
+        [Path, Mapping[str, Any]], Mapping[str, Any]
+    ] | None,
+    finalize_lockbox_runner: Callable[[list[str], str, Path], None] | None,
+) -> ArtifactRef:
+    baseline_refs = _validate_baselines(normalized)
     published = _existing_publication(normalized, target, identity, version)
     if published is not None:
+        if normalized["mode"] == "final":
+            (finalize_lockbox_runner or _finalize_lockbox_attempt)(
+                list(published.access_ids), _sha256_json(identity), target
+            )
         return published
 
     if target.exists():
+        marker = target / _ATTEMPT_MARKER
+        if not marker.exists():
+            marker_temp = marker.with_suffix(".tmp")
+            entries = [entry for entry in target.iterdir() if entry != marker_temp]
+            if not entries:
+                # Recover the narrow crash window after mkdir and before the
+                # atomic attempt marker write. No factor task can start before it.
+                marker_temp.unlink(missing_ok=True)
+                _write_attempt_marker(
+                    target,
+                    identity,
+                    hypothesis=normalized["hypothesis"],
+                )
         marker_identity = _read_attempt_identity(target)
         if marker_identity != identity:
             raise ValueError("未发布 attempt 的 fingerprint identity 与当前请求不一致")
@@ -1164,19 +1269,39 @@ def factor_mining_flow(
             or marker_doc.get("config_sha256") != identity["config_sha256"]
         ):
             raise ValueError("hypothesis attempt registration 与当前配置不一致")
-        # Native files may have completed before a Prefect worker died during
-        # diagnostics/publication. Revalidate and continue from those files;
-        # never rerun a final lockbox attempt or overwrite a partial directory.
-        _report, summary, access_ids = _validate_native_factor(
-            normalized, target, expected_identity=identity
-        )
+        summary_path = target / "summary.json"
+        if normalized["mode"] == "final" and not summary_path.is_file():
+            # FactorLab writes summary.json last, then backfills lockbox
+            # result_ref. Its absence therefore identifies an unfinished
+            # native compute that may resume only with the same access row.
+            _compute_task(
+                {
+                    **normalized,
+                    "_lockbox_attempt_sha256": _sha256_json(identity),
+                    "_lockbox_resume_attempt": True,
+                },
+                target,
+                runner,
+            )
+            _report, summary, access_ids = _validate_native_factor(
+                normalized, target, expected_identity=identity
+            )
+        else:
+            # A complete native bundle can safely continue through diagnostics
+            # and publication without reopening the final sample.
+            _report, summary, access_ids = _validate_native_factor(
+                normalized, target, expected_identity=identity
+            )
     else:
         _register_hypothesis_task(
             target,
             identity,
             normalized["hypothesis"],
         )
-        _compute_task(normalized, target, runner)
+        compute_config = dict(normalized)
+        if normalized["mode"] == "final":
+            compute_config["_lockbox_attempt_sha256"] = _sha256_json(identity)
+        _compute_task(compute_config, target, runner)
         _report, summary, access_ids = _validate_native_factor(
             normalized, target, expected_identity=identity
         )
@@ -1219,7 +1344,7 @@ def factor_mining_flow(
     _canonical_json(evidence)
     if _factor_identity(normalized) != identity:
         raise ValueError("Factor Spec、配置、依赖版本或实现代码在运行中发生变化")
-    return _publish_task(
+    published = _publish_task(
         normalized,
         target,
         version,
@@ -1229,6 +1354,11 @@ def factor_mining_flow(
         evidence,
         status,
     )
+    if normalized["mode"] == "final":
+        (finalize_lockbox_runner or _finalize_lockbox_attempt)(
+            list(published.access_ids), _sha256_json(identity), target
+        )
+    return published
 
 
 __all__ = [
