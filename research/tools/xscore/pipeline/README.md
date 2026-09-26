@@ -104,9 +104,11 @@ PREFECT_API_URL=http://127.0.0.1:4200/api research/.venv/bin/prefect deployment 
 （`date.end > is_end` 直接拒），碰测试段必须经流水线/入库车道。
 
 - flow 开始按面板区间（panel npz 首末日期，缺省回退已发布日历 min/max）判定角色，
-  并**钉死版本身份**：`fingerprint = candidate_fingerprint(artifact_sha256=panel 文件签名,
+  并**钉死版本身份**：`fingerprint = candidate_fingerprint(artifact_sha256=panel 内容 SHA-256,
   params={config 内容 sha, panel_sig}, window_id)`；收尾复用起点 fp/access_id，**不重算**
   （首尾之间 panel 变化不会重复登记）；
+  panel 身份使用文件内容 SHA-256，不受路径或 mtime 变化影响；升级前的 stat 指纹登记会按
+  config 内容 sha 与 panel 内容 sha 识别并复用，不能因指纹算法升级新增一次 final；
   - `is`（面板整段早于窗口起点）→ 不登记，manifest `sample_role: is`；
   - `mixed` / `lockbox` → 登记 **final**（`kind=final`，无配额），理由 `pipeline:<config>`；
     同版本已有登记：**run 产物已在**（`<out>/manifest.json`）→ **replay 复用**既有
@@ -118,6 +120,9 @@ PREFECT_API_URL=http://127.0.0.1:4200/api research/.venv/bin/prefect deployment 
     留痕字段；真实台账 `roll` 由 controller 执行）；
   - stale（跨季未 roll）→ flow 在计算前抛 `LOCKBOX_WINDOW_STALE`（指引
     `factorlab lockbox roll`）；panel 缺失 → 拒绝以 `artifact_sha256=missing` 登记。
+- final attempt 尚未写 `prepared_manifest.json` 就中断时，重试只清理该面板版本对应的
+  `open_adj`、`mv`、`limits`、`amount` 四个辅助缓存文件；共享 `.cache` 中其他版本和未知文件保留，
+  避免 `data_prep` 把中断写出的半成品当作已有缓存跳过。
 - **manifest**：`access_id` 写入 run 级与 campaign 级 `access_ids`（campaign = 既有 ∪ 新 id，
   不丢旧；双写持 `<manifest>.lock` flock 串行化）；`window_id`/`sample_role` 为本次真实值；
   flow 收尾把 `result_ref` 回填为 run 的 `out` 目录。G-LOCKBOX（`make gates`）依此与台账

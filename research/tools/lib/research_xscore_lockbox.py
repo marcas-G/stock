@@ -135,7 +135,18 @@ def file_content_sha(path: Path) -> str:
     p = Path(path)
     if not p.is_file():
         return "missing"
-    return hashlib.sha256(p.read_bytes()).hexdigest()[:16]
+    return file_content_sha256(p)[:16]
+
+def file_content_sha256(path: Path) -> str:
+    """Stream a file's full SHA-256, independent of its path and mtime."""
+    p = Path(path)
+    if not p.is_file():
+        return "missing"
+    digest = hashlib.sha256()
+    with p.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 def lockbox_env_disabled() -> bool:
     """env `FACTORLAB_LOCKBOX` 显式 0/off/false（与平台 `guard_run` 同一开关语义）。"""
@@ -206,6 +217,35 @@ def lockbox_sample(*, panel_start: dt.date | None, panel_end: dt.date | None,
     finally:
         conn.close()
 
+def _matching_final_by_params(
+    conn, *, window_id: str, params: Mapping[str, Any]
+) -> Any | None:
+    """Return the latest access for the same logical xscore candidate.
+
+    Older xscore rows used a path/stat-based artifact fingerprint. The stable
+    `config` and content `panel_sig` params let current runs recognize those
+    rows after upgrading the fingerprint algorithm.
+    """
+    rows = conn.execute(
+        "SELECT access_id, params, result_ref FROM lockbox_access "
+        "WHERE window_id = ? AND kind = 'final' ORDER BY rowid DESC",
+        (window_id,),
+    )
+    for row in rows:
+        try:
+            row_params = json.loads(row["params"])
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if not isinstance(row_params, Mapping):
+            continue
+        if (
+            row_params.get("config") == params.get("config")
+            and row_params.get("panel_sig") == params.get("panel_sig")
+        ):
+            return row
+    return None
+
+
 def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
                      replay_ok: bool = False,
                      flow_attempt_sha256: str | None = None,
@@ -217,7 +257,7 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
     """R42 flow 起点：钉死候选身份 + 碰箱登记 final（每版本一次；replay 复用）。
 
     身份（**起点钉死，收尾不得重算**）：
-    `artifact_sha256 = file_sig(panel)`（stat 签名）、config 部分 = **config 文件内容 sha**
+    `artifact_sha256 = file_content_sha256(panel)`（面板内容 SHA-256）、config 部分 = **config 文件内容 sha**
     （对齐平台 `spec_fingerprint`：改内容=新候选），
     `candidate_fingerprint(artifact_sha256, params={"config": config_sha,
     "panel_sig": panel_sig}, window_id, kind="final")`。
@@ -243,7 +283,7 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
       `factorlab lockbox roll`），不得按旧窗静默登记。
     """
     panel = Path(panel)
-    artifact = file_sig(panel)
+    artifact = file_content_sha256(panel)
     ctx: dict[str, Any] = {"window_id": None, "sample_role": "unknown",
                            "access_id": None, "fingerprint": None,
                            "artifact_sha256": artifact,
@@ -284,6 +324,56 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
         re_final = os.environ.get("FACTORLAB_RE_FINAL", "").strip() == "1"
         if resume_pending and not flow_attempt_sha256:
             raise ValueError("resume_pending 必须提供 flow_attempt_sha256")
+        if not re_final and not store.final_exists(conn, window.window_id, fp):
+            # Migrate rows created before file_sig became content based. The
+            # stored config and panel hashes identify the logical candidate;
+            # keep the decision atomic so a concurrent re-final cannot be
+            # mistaken for the row this attempt is allowed to resume.
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                prior = _matching_final_by_params(
+                    conn, window_id=window.window_id, params=params
+                )
+                if prior is not None:
+                    if replay_ok:
+                        conn.execute("COMMIT")
+                        ctx["access_id"] = str(prior["access_id"])
+                        print(
+                            "[lockbox] 复用既有最终测试（content-fingerprint migration）："
+                            f"window={window.window_id} "
+                            f"access_id={ctx['access_id']}"
+                        )
+                        return ctx
+                    if resume_pending and prior["result_ref"] is None:
+                        try:
+                            prior_params = json.loads(prior["params"])
+                        except (TypeError, json.JSONDecodeError):
+                            prior_params = {}
+                        if (
+                            isinstance(prior_params, Mapping)
+                            and prior_params.get("flow_attempt_sha256")
+                            == flow_attempt_sha256
+                        ):
+                            conn.execute("COMMIT")
+                            ctx["access_id"] = str(prior["access_id"])
+                            print(
+                                "[lockbox] 恢复旧指纹未完成 xscore attempt："
+                                f"window={window.window_id} "
+                                f"access_id={ctx['access_id']}"
+                            )
+                            return ctx
+                    conn.execute("ROLLBACK")
+                    raise LockboxError(
+                        "LOCKBOX_FINAL_DUPLICATE",
+                        f"版本 {fp[:12]}… 在窗口 {window.window_id} 已做过最终测试"
+                        "（每版本一次）：改 config/参数=新版本可再测；或设 "
+                        "FACTORLAB_RE_FINAL=1 重测（审计留痕）",
+                    )
+                conn.execute("ROLLBACK")
+            except BaseException:
+                if conn.in_transaction:
+                    conn.execute("ROLLBACK")
+                raise
         if store.final_exists(conn, window.window_id, fp) and not re_final:
             if replay_ok:
                 ctx["access_id"] = store.require_final(

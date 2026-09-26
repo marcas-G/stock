@@ -151,6 +151,45 @@ def test_config_requires_inline_immutable_factor_refs_and_explicit_mode(tmp_path
         )
 
 
+def test_xscore_shared_helpers_do_not_shadow_platform_tools_lib():
+    import subprocess
+
+    stock_root = Path(__file__).resolve().parents[4]
+    research_tools = stock_root / "research" / "tools"
+    platform_tools = stock_root / "platform" / "tools"
+    platform_src = stock_root / "platform" / "src"
+    env = os.environ.copy()
+    # Load and cache the platform's generic `lib` before importing the flow.
+    env["PYTHONPATH"] = os.pathsep.join(
+        map(str, (platform_tools, research_tools, platform_src))
+    )
+    pipeline_dir = stock_root / "research" / "tools" / "xscore" / "pipeline"
+    loaders = (
+        "from research_flows import xscore_flow; "
+        "module = xscore_flow.xscore_lockbox",
+        f"import sys; sys.path.insert(0, {str(pipeline_dir)!r}); "
+        "import xlib; import sys; "
+        "module = sys.modules['research_xscore_lockbox']",
+    )
+    for loader in loaders:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import lib.moneyflow; "
+                f"{loader}; "
+                "from pathlib import Path; "
+                "assert Path(module.__file__).name == 'research_xscore_lockbox.py'",
+            ],
+            cwd=stock_root,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, result.stderr
+
+
 def test_default_artifact_root_is_platform_results(tmp_path: Path, monkeypatch):
     factor = _factor(tmp_path / "factor", "alpha")
     monkeypatch.setattr(
@@ -522,6 +561,35 @@ def test_final_attempt_marker_cleans_only_atomic_write_orphan(tmp_path: Path):
     assert _ensure_final_attempt_marker(result_root, expected) == "a" * 64
     assert not orphan.exists()
     assert json.loads((result_root / "final_attempt.json").read_text()) == expected
+
+
+def test_unprepared_final_retry_clears_only_its_shared_auxiliary_caches(
+    tmp_path: Path,
+):
+    version = "version-123"
+    result_root = tmp_path / "campaign" / "xscore" / version
+    result_root.mkdir(parents=True)
+    (result_root / "final_attempt.json").write_text("{}", encoding="utf-8")
+    shared_cache = tmp_path / "campaign" / "xscore" / ".cache"
+    shared_cache.mkdir()
+    partial_names = [
+        f"{prefix}_{version}.npz"
+        for prefix in ("open_adj", "mv", "limits", "amount")
+    ]
+    for name in partial_names:
+        (shared_cache / name).write_bytes(b"partial npz")
+    other_version_cache = shared_cache / "mv_other-version.npz"
+    unrelated_cache = shared_cache / "operator-owned.txt"
+    other_version_cache.write_bytes(b"valid other version")
+    unrelated_cache.write_text("keep", encoding="utf-8")
+
+    xscore_module._reset_unprepared_final_outputs(
+        result_root, version=version, cache_dir=shared_cache
+    )
+
+    assert not any((shared_cache / name).exists() for name in partial_names)
+    assert other_version_cache.read_bytes() == b"valid other version"
+    assert unrelated_cache.read_text(encoding="utf-8") == "keep"
 
 
 def test_prepared_final_recovery_checks_lockbox_before_publishing(
@@ -1056,7 +1124,7 @@ def test_lockbox_flow_ignores_re_final_escape_and_restores_parent_environment(
 ):
     import os
     import research_flows.xscore_flow as xscore_module
-    from lib import xscore_lockbox
+    import research_xscore_lockbox as xscore_lockbox
 
     observed = []
 

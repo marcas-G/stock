@@ -31,7 +31,13 @@ from research_flows.artifacts import (
     version_fingerprint,
 )
 from research_flows.flow_contracts import validate_mode_sample
-from lib import xscore_lockbox
+
+# Import the shared helper by its unique module name. A package named `lib`
+# collides with the platform tools' own `lib` package when both tool trees are
+# on sys.path.
+_RESEARCH_LIB = Path(__file__).resolve().parents[1] / "lib"
+sys.path.insert(0, str(_RESEARCH_LIB))
+import research_xscore_lockbox as xscore_lockbox  # noqa: E402
 
 try:
     from prefect import flow, task
@@ -1184,22 +1190,13 @@ def _reset_unprepared_final_outputs(
         )
     for child in orphan_temps:
         child.unlink()
-    if local_cache.parent == result_root.resolve() and local_cache.exists():
+    if local_cache.is_dir():
+        # The default cache is shared by all xscore versions, so only clear
+        # this attempt's known panel-derived names and preserve neighboring
+        # versions or operator-owned files.
         suffix = panel_path.stem.removeprefix("panel_")
-        expected_cache_files = {
-            f"{prefix}_{suffix}.npz"
-            for prefix in ("open_adj", "mv", "limits", "amount")
-        }
-        for child in local_cache.iterdir():
-            if child.name not in expected_cache_files or not child.is_file():
-                raise ValueError(
-                    "xscore final attempt 的辅助缓存目录含未知文件，"
-                    f"拒绝自动清理：{child}"
-                )
-        for child in local_cache.iterdir():
-            child.unlink()
-        if not any(local_cache.iterdir()):
-            local_cache.rmdir()
+        for prefix in ("open_adj", "mv", "limits", "amount"):
+            (local_cache / f"{prefix}_{suffix}.npz").unlink(missing_ok=True)
 
     # A panel without its atomic checkpoint was written before lockbox
     # registration, so it is safe to rebuild. A checkpointed panel is kept

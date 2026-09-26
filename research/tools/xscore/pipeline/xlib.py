@@ -20,10 +20,12 @@ STOCK = Path(os.environ.get(
 )).resolve()
 TOOLS = STOCK / "research/tools"
 sys.path.insert(0, str(TOOLS))
+sys.path.insert(0, str(TOOLS / "lib"))
 sys.path.insert(0, str(QR))
 
-from lib.xscore_lockbox import (  # noqa: E402
+from research_xscore_lockbox import (  # noqa: E402
     file_content_sha,
+    file_content_sha256,
     file_sig,
     lockbox_env_disabled,
     lockbox_finalize,
