@@ -1255,7 +1255,7 @@ def _complete_prepared_replay(
                 panel_path=panel_path,
                 panel_sig=panel_info["panel_sha256"],
                 config_path=config.config_path,
-                replay_ok=False,
+                replay_ok=True,
                 flow_attempt_sha256=flow_attempt_sha256,
                 resume_pending=flow_attempt_sha256 is not None,
                 published_access_ids=composite_ref.access_ids,

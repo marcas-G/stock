@@ -110,8 +110,9 @@ PREFECT_API_URL=http://127.0.0.1:4200/api research/.venv/bin/prefect deployment 
   面板身份使用文件内容 SHA-256，不受路径或 mtime 变化影响；早期 Prefect final 记录的
   `panel_sig` 已是内容 SHA，因此 stat 指纹升级按 config 与内容签名复用。
   旧版 `xpipe` 的 `panel_sig` 是 stat 签名：已完成报告只通过 run manifest 中的 access ID
-  回查并校验台账 config/window/result_ref 后原样复用，不会重算；未完成记录只有在原 stat
-  签名仍一致时才允许续跑，否则 fail closed，不新增 final；
+  回查并校验台账 config、panel 签名、window、sample role、result_ref 后原样复用，不会重算；
+  未完成记录只有在原 stat 签名仍一致时才允许续跑，否则 fail closed，不新增 final。
+  指纹迁移分支也不能绕过这些发布引用校验；缺失/错误 access ID 或 result_ref 时拒绝复用；
   - `is`（面板整段早于窗口起点）→ 不登记，manifest `sample_role: is`；
   - `mixed` / `lockbox` → 登记 **final**（`kind=final`，无配额），理由 `pipeline:<config>`；
     同版本已有登记：**run 产物已在**（`<out>/manifest.json`）→ **replay 复用**既有

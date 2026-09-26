@@ -377,8 +377,8 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
     - `is`（面板整段早于窗口起点）：不登记；
     - `mixed`/`lockbox`：同版本已有 final 登记时——
       ① `FACTORLAB_RE_FINAL=1` → 操作员重测：新登记（`reason` 追加 `|re-final`）；
-      ② 否则 `replay_ok=True`（run 产物已在）→ 复用既有 `access_id`：不登记、不报错，
-        打印"复用既有最终测试（replay）"；
+      ② 否则 `replay_ok=True` 且 manifest access ID、panel 签名、窗口、样本角色、
+        `result_ref` 与台账一致 → 复用已发布 `access_id`；目录存在本身不授权复用；
       ③ 否则 → `LOCKBOX_FINAL_DUPLICATE`（改 config/参数=新版本，或
         `FACTORLAB_RE_FINAL=1` 重测）；未命中 → `register_access(kind="final",
       reason="pipeline:<config>")`（无配额）；
@@ -473,15 +473,6 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
                     conn, window_id=window.window_id, params=params
                 )
                 if prior is not None:
-                    if replay_ok:
-                        conn.execute("COMMIT")
-                        ctx["access_id"] = str(prior["access_id"])
-                        print(
-                            "[lockbox] 复用既有最终测试（content-fingerprint migration）："
-                            f"window={window.window_id} "
-                            f"access_id={ctx['access_id']}"
-                        )
-                        return ctx
                     if resume_pending and prior["result_ref"] is None:
                         try:
                             prior_params = json.loads(prior["params"])
@@ -513,12 +504,6 @@ def lockbox_register(*, panel: Path, panel_sig: str, config_path: str,
                     conn.execute("ROLLBACK")
                 raise
         if store.final_exists(conn, window.window_id, fp) and not re_final:
-            if replay_ok:
-                ctx["access_id"] = store.require_final(
-                    conn, window_id=window.window_id, fingerprint=fp)
-                print(f"[lockbox] 复用既有最终测试（replay）：window="
-                      f"{window.window_id} access_id={ctx['access_id']}")
-                return ctx
             if resume_pending:
                 # BEGIN IMMEDIATE makes "latest row + pending + exact attempt"
                 # one atomic decision across processes. A newer re-final row
