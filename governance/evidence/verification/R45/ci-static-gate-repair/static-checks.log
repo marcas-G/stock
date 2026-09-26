@@ -1,0 +1,42 @@
+$ platform/.venv/bin/python governance/ops/check_tool_layering.py
+[G-TOPO] 工具拓扑：依赖方向 / 横向耦合
+  ✓ 0 处（core 不做反向依赖、生产不带诊断、工具不互相 import、lib 是叶子）
+$ platform/.venv/bin/python governance/ops/check_dataiface.py
+  ⏸ 暂停豁免：platform/tools/lob_fact（tick 全线暂停，pending-items #23；恢复时移除本豁免并一次修完）
+[G-CONTRACT/工具树分区字面量] ENFORCED：`year=` 只许经 core.factio.partitions
+  ✓ 0 处（AST：非 docstring 字符串常量）
+[G-MARK] ENFORCED：标记/断点名只经 lib.writekit 单点 API
+  ✓ 0 处（注释/print 文案不算；writekit 自身豁免）
+[G-CONTRACT/平台表名字面量] REPORT：72 处（未竟 → governance/workspace/pending-items.md #12①）
+      platform/src/factorlab/adapters/catalog.py:169: 'adj_factor'
+      platform/src/factorlab/adapters/catalog.py:213: 'daily_basic'
+      platform/src/factorlab/adapters/intraday.py:62: 'bars_1m'
+      platform/src/factorlab/adapters/intraday.py:63: 'tick_trades'
+      platform/src/factorlab/adapters/intraday.py:64: 'tick_orders'
+[G-MARK/接线] ENFORCED：用 `W.` 的模块必须导入 lib.writekit
+  ✓ 0 处（漏 import 会在 main() 运行时才炸，门提前拦住）
+[G-READ] ENFORCED：工具树直读 parquet 只允许登记点，且不指向事实库分区
+  ✓ 0 处违规（登记 48 个理由明确的直读点；新增未登记即失败）
+数据接口门：ENFORCED 全绿
+$ env -u PYTHONPATH platform/.venv/bin/python research/tools/xscore/pipeline/score_once.py --help
+[WARN] 非流水线运行（dev only）：正式结论必须经研究工作流（make xpipe / UI 4200，manifest 五键溯源）；见 $QUANTRESEARCH_ROOT/knowledge/pipeline-usage.md
+usage: score_once.py [-h] --name NAME --cols COLS [--model MODEL]
+                     [--panel PANEL] --out OUT [--train-days TRAIN_DAYS]
+                     [--step STEP] [--test-days TEST_DAYS]
+                     [--subsample SUBSAMPLE] [--seed SEED]
+
+options:
+  -h, --help            show this help message and exit
+  --name NAME
+  --cols COLS           逗号分隔的因子列下标，或 *
+  --model MODEL
+  --panel PANEL
+  --out OUT
+  --train-days TRAIN_DAYS
+  --step STEP
+  --test-days TEST_DAYS
+  --subsample SUBSAMPLE
+  --seed SEED
+$ platform/.venv/bin/python -m py_compile ...
+$ git diff --check
+static checks passed

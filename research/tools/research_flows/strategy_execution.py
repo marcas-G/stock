@@ -24,7 +24,7 @@ from research_flows.artifacts import (
     validate_artifact_ref,
     version_fingerprint,
 )
-from research_flows.contracts import (
+from research_flows.flow_contracts import (
     validate_mode_sample,
     validate_signal_input as _validate_signal_input,
 )

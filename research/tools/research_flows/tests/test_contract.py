@@ -21,7 +21,7 @@ from research_flows.artifacts import (
     validate_artifact_ref,
     version_fingerprint,
 )
-from research_flows.contracts import validate_mode_sample
+from research_flows.flow_contracts import validate_mode_sample
 from research_flows.xscore_flow import validate_factor_inputs
 from research_flows.strategy_execution import validate_signal_input
 from research_flows.campaign import run_campaign_steps

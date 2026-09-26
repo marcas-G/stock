@@ -28,7 +28,8 @@ from research_flows.artifacts import (
     validate_artifact_ref,
     version_fingerprint,
 )
-from research_flows.contracts import validate_mode_sample
+from research_flows.flow_contracts import validate_mode_sample
+from lib import xscore_lockbox
 
 try:
     from prefect import flow, task
@@ -299,7 +300,7 @@ def _validate_factor_refs_basic(
     allowed_root: str | Path | None = None,
 ) -> list[ArtifactRef]:
     """Standard-library ref/hash validation for the lightweight Prefect runner."""
-    from research_flows.contracts import validate_factor_inputs as validate
+    from research_flows.flow_contracts import validate_factor_inputs as validate
 
     checked = validate(refs, allowed_root=allowed_root)
     _validate_ref_cohort(checked)
@@ -369,12 +370,12 @@ def assemble_factor_panel(
             adapter_root, [ref.name for ref in checked], suffix="", progress=None
         )
         import polars as pl
+        from factorlab.adapters.parquet_artifacts import load_signal_artifact
 
         all_keys = pl.concat(
             [
-                pl.read_parquet(Path(ref.artifact_uri) / "signal.parquet")
-                .select(["date", "code"])
-                .unique()
+                load_signal_artifact(Path(ref.artifact_uri))
+                .frame.select(["date", "code"]).unique()
                 for ref in checked
             ],
             how="vertical",
@@ -1498,13 +1499,10 @@ def xscore_flow(config_path: str | Path) -> ArtifactRef:
 def _lockbox_register(
     *, panel_path: Path, panel_sig: str, config_path: Path, replay_ok: bool
 ) -> dict[str, Any]:
-    sys.path.insert(0, str(PIPELINE_DIR))
-    import xlib
-
     with _LOCKBOX_ENV_LOCK:
         re_final = os.environ.pop("FACTORLAB_RE_FINAL", None)
         try:
-            return xlib.lockbox_register(
+            return xscore_lockbox.lockbox_register(
                 panel=panel_path,
                 panel_sig=panel_sig,
                 config_path=str(config_path),
@@ -1524,10 +1522,7 @@ def _write_lockbox_manifests(
 ) -> None:
     if lockbox_ctx.get("window_id") is None and lockbox_ctx.get("access_id") is None:
         return
-    sys.path.insert(0, str(PIPELINE_DIR))
-    import xlib
-
-    xlib.lockbox_finalize(
+    xscore_lockbox.lockbox_finalize(
         lockbox_ctx,
         run_manifest=result_root / "manifest.json",
         campaign_manifest=campaign_root / "manifest.json",

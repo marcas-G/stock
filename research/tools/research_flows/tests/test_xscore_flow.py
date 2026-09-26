@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import inspect
 import os
 import sys
 from datetime import date
@@ -21,6 +22,7 @@ from research_flows.artifacts import (  # noqa: E402
     content_sha256,
     publish_artifact,
 )
+import research_flows.xscore_flow as xscore_module  # noqa: E402
 from research_flows.xscore_flow import (  # noqa: E402
     _complete_prepared_replay,
     _lockbox_register,
@@ -153,14 +155,34 @@ def test_panel_is_built_from_ref_files_and_preserves_ref_order(
     first = _factor(tmp_path / "a", "alpha")
     second = _factor(tmp_path / "b", "beta")
     output = tmp_path / "panel.npz"
+    from factorlab.adapters import parquet_artifacts
+
+    loaded: list[tuple[Path, Path]] = []
+    load_signal_artifact = parquet_artifacts.load_signal_artifact
+
+    def tracked_loader(path):
+        caller = Path(inspect.currentframe().f_back.f_code.co_filename).resolve()
+        loaded.append((Path(path), caller))
+        return load_signal_artifact(path)
+
+    monkeypatch.setattr(
+        parquet_artifacts, "load_signal_artifact", tracked_loader
+    )
 
     details = assemble_factor_panel(
         [first, second], output, allowed_root=tmp_path
     )
 
     assert output.is_file()
+    assert [
+        item for item in loaded if item[1] == Path(xscore_module.__file__).resolve()
+    ] == [
+        (Path(first.artifact_uri), Path(xscore_module.__file__).resolve()),
+        (Path(second.artifact_uri), Path(xscore_module.__file__).resolve()),
+    ]
     assert details["members"] == ["alpha", "beta"]
     assert details["rows"] == 3
+    assert details["coverage"] == 1.0
     assert details["panel_sha256"]
     from lab.autoencoder42.panel import load_panel
 
@@ -485,18 +507,16 @@ def test_lockbox_flow_ignores_re_final_escape_and_restores_parent_environment(
     tmp_path: Path, monkeypatch
 ):
     import os
-    import types
     import research_flows.xscore_flow as xscore_module
+    from lib import xscore_lockbox
 
     observed = []
-    xlib = types.ModuleType("xlib")
 
     def register(**kwargs):
         observed.append((os.environ.get("FACTORLAB_RE_FINAL"), kwargs))
         return {"access_id": "LB-1"}
 
-    xlib.lockbox_register = register
-    monkeypatch.setitem(sys.modules, "xlib", xlib)
+    monkeypatch.setattr(xscore_lockbox, "lockbox_register", register)
     monkeypatch.setenv("FACTORLAB_RE_FINAL", "1")
 
     result = _lockbox_register(

@@ -26,7 +26,7 @@ from research_flows.artifacts import (
     validate_artifact_ref,
     version_fingerprint,
 )
-from research_flows.contracts import validate_mode_sample
+from research_flows.flow_contracts import validate_mode_sample
 
 try:
     from prefect import flow, task
