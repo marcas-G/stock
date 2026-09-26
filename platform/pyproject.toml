@@ -12,7 +12,7 @@ dependencies = [
     "numpy>=1.26",  # 逐周横截面 OLS（eval.cross_section）/ eval.correlation 运行时依赖
     "duckdb>=1.5",
     "pyarrow>=20,<21",  # 本机 glibc 2.27: >=21 无 cp313 manylinux wheel, 只能 20.x（R29：uv lock 需显式上界，否则解析到 25.x 源码构建必败）；Dependabot 大版本已屏蔽（.github/dependabot.yml ignore >=21），勿再上调
-    "clickhouse-connect>=1.7",  # ClickHouse 读后端 (ch_source)
+    "clickhouse-connect>=1.9.0",  # ClickHouse 读后端 (ch_source)
     "pyyaml>=6",
     "pydantic>=2.12",
     "pydantic-settings>=2.14",
@@ -26,7 +26,7 @@ dependencies = [
     "plotly>=6.7",
     "requests>=2.32",
     "psutil>=7.2",
-    "pandas>=2",   # tools/ 直用（45 文件；此前只经 polars-ta 传递覆盖——R29 uv lock 显式声明）
+    "pandas>=3.0.6",   # tools/ 直用（45 文件；此前只经 polars-ta 传递覆盖——R29 uv lock 显式声明）
     "openpyxl>=3.1",  # tools/ashare_ingest/import_daily 的 xlsx 解析（R29 uv lock 暴露缺失）
     # R30 Task 15（D12）：评估内核并入 factorlab.core.eval.kernel——独立 quant-core
     # dist/`kernels/` 壳删除，不再有第二份内核声明
