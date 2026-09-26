@@ -1,0 +1,3 @@
+$ env -u FACTORLAB_PIPELINE FACTORLAB_STOCK_ROOT=/tmp/stock-pr42-fixes QUANTRESEARCH_ROOT=/data/students/gaolei/quantresearch PYTHONPATH=/tmp/stock-pr42-fixes/platform/src:/tmp/stock-pr42-fixes/research/tools platform/.venv/bin/python -m pytest -q research/tools/research_flows/tests/test_xscore_flow.py
+..........                                                               [100%]
+10 passed in 1.08s
