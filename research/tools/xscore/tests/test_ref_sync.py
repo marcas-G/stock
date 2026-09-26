@@ -212,6 +212,30 @@ def test_changed_signal_bytes_invalidate_version_sidecar(tmp_path: Path):
     assert len(runner.calls) == 1
 
 
+def test_factorlab_code_fingerprint_reads_current_checkout(tmp_path: Path, monkeypatch):
+    source_root = tmp_path / "platform/src/factorlab"
+    source_root.mkdir(parents=True)
+    source_file = source_root / "engine.py"
+    source_file.write_text("VALUE = 1\n", encoding="utf-8")
+    monkeypatch.setattr(dp, "STOCK", tmp_path)
+
+    before = dp._factorlab_code_fingerprint()
+    source_file.write_text("VALUE = 2\n", encoding="utf-8")
+    after = dp._factorlab_code_fingerprint()
+
+    assert before != after
+
+
+def test_stock_root_defaults_to_repository_checkout(monkeypatch):
+    monkeypatch.delenv("FACTORLAB_STOCK_ROOT", raising=False)
+    assert dp._stock_root() == Path(dp.__file__).resolve().parents[4]
+
+
+def test_stock_root_honors_platform_override(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("FACTORLAB_STOCK_ROOT", str(tmp_path))
+    assert dp._stock_root() == tmp_path.resolve()
+
+
 def test_unknown_data_version_fails_closed(tmp_path: Path):
     fx = _mk_fake(tmp_path)
     _seed_spec(fx["qr"], "beta")

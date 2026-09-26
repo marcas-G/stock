@@ -319,6 +319,7 @@ def test_strategy_flow_rejects_unsupported_execution_before_open_read(
 def test_final_flow_requires_lockbox_evidence_before_publication(
         tmp_path, monkeypatch):
     module = _reload_flow(monkeypatch)
+    pipeline_before = os.environ.get("FACTORLAB_PIPELINE")
     ref = _publish_signal(
         tmp_path / "factor", mode="final", sample_role="lockbox",
         access_ids=("UPSTREAM-LB-1",))
@@ -339,7 +340,7 @@ def test_final_flow_requires_lockbox_evidence_before_publication(
 
     assert ("run_strategy", True, "alpha") in calls
     assert ("pipeline_env", "1") in calls
-    assert os.environ.get("FACTORLAB_PIPELINE") != "1"
+    assert os.environ.get("FACTORLAB_PIPELINE") == pipeline_before
     out_dirs = list((tmp_path / "out" / "strategies" / "strategy_alpha").glob("*"))
     assert out_dirs
     assert all(not (path / "flow_manifest.json").exists() for path in out_dirs)

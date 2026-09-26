@@ -1,8 +1,9 @@
 """FactorArtifact to xscore panel acceptance tests (design §4.2)."""
 from __future__ import annotations
 
-import sys
 import json
+import os
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -11,10 +12,9 @@ import polars as pl
 import pytest
 import yaml
 
-STOCK = Path(__file__).resolve().parents[4]
-QR = Path("/data/students/gaolei/quantresearch")
-sys.path.insert(0, str(STOCK / "platform/src"))
-sys.path.insert(0, str(STOCK / "research/tools"))
+QR = Path(os.environ.get(
+    "QUANTRESEARCH_ROOT", "/data/students/gaolei/quantresearch"
+)).resolve()
 
 from research_flows.artifacts import (  # noqa: E402
     ArtifactRef,
@@ -91,6 +91,14 @@ def _factor(
     )
 
 
+def _require_panel_adapter(monkeypatch) -> None:
+    """面板适配器属于仓外 quantresearch；缺失时跳过集成用例。"""
+    panel_path = QR / "lab/autoencoder42/panel.py"
+    if not panel_path.is_file():
+        pytest.skip(f"quantresearch 面板适配器不可用: {panel_path}")
+    monkeypatch.syspath_prepend(str(QR))
+
+
 def test_config_requires_inline_immutable_factor_refs_and_explicit_mode(tmp_path: Path):
     factor = _factor(tmp_path / "factor", "alpha")
     config = parse_xscore_config(
@@ -138,7 +146,10 @@ def test_config_requires_inline_immutable_factor_refs_and_explicit_mode(tmp_path
         )
 
 
-def test_panel_is_built_from_ref_files_and_preserves_ref_order(tmp_path: Path):
+def test_panel_is_built_from_ref_files_and_preserves_ref_order(
+    tmp_path: Path, monkeypatch
+):
+    _require_panel_adapter(monkeypatch)
     first = _factor(tmp_path / "a", "alpha")
     second = _factor(tmp_path / "b", "beta")
     output = tmp_path / "panel.npz"
@@ -151,7 +162,6 @@ def test_panel_is_built_from_ref_files_and_preserves_ref_order(tmp_path: Path):
     assert details["members"] == ["alpha", "beta"]
     assert details["rows"] == 3
     assert details["panel_sha256"]
-    sys.path.insert(0, str(QR))
     from lab.autoencoder42.panel import load_panel
 
     panel = load_panel(output)
@@ -203,7 +213,10 @@ def test_xscore_version_binds_ref_identity_and_configuration(tmp_path: Path):
     assert first != changed_code
 
 
-def test_composite_publication_round_trips_through_platform_reader(tmp_path: Path):
+def test_composite_publication_round_trips_through_platform_reader(
+    tmp_path: Path, monkeypatch
+):
+    _require_panel_adapter(monkeypatch)
     factor = _factor(tmp_path / "factor", "alpha")
     config = parse_xscore_config(
         {

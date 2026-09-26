@@ -19,8 +19,12 @@ from typing import Any
 import numpy as np
 import yaml
 
-QR = Path("/data/students/gaolei/quantresearch")
-STOCK = Path("/data/students/gaolei/stock")
+QR = Path(os.environ.get(
+    "QUANTRESEARCH_ROOT", "/data/students/gaolei/quantresearch"
+)).resolve()
+STOCK = Path(os.environ.get(
+    "FACTORLAB_STOCK_ROOT", Path(__file__).resolve().parents[4]
+)).resolve()
 PLATFORM_SRC = STOCK / "platform/src"
 PLATFORM_PY = STOCK / "platform/.venv/bin/python"
 sys.path.insert(0, str(QR))

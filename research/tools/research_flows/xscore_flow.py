@@ -260,9 +260,6 @@ def validate_factor_inputs(
 ) -> list[ArtifactRef]:
     """Validate refs, then load the native platform signal and label artifacts."""
     checked = _validate_factor_refs_basic(refs, allowed_root=allowed_root)
-    platform_src = str(STOCK / "platform/src")
-    if platform_src not in sys.path:
-        sys.path.insert(0, platform_src)
     from factorlab.adapters.parquet_artifacts import load_factor_artifacts
 
     for ref in checked:
@@ -755,9 +752,6 @@ def _validate_composite_artifact(
         expected_mode=mode,
         allowed_root=allowed_root,
     )
-    platform_src = str(STOCK / "platform/src")
-    if platform_src not in sys.path:
-        sys.path.insert(0, platform_src)
     from factorlab.app.composite.artifact import read_composite_artifact
 
     with tempfile.TemporaryDirectory(prefix="composite-reader-view-") as temp:
@@ -1050,9 +1044,6 @@ def _publish_composite(
     panel_path: Path,
     access_ids: Sequence[str],
 ) -> ArtifactRef:
-    platform_src = str(STOCK / "platform/src")
-    if platform_src not in sys.path:
-        sys.path.insert(0, platform_src)
     from factorlab.app.composite.artifact import (
         read_composite_artifact,
         write_composite_artifact,

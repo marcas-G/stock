@@ -23,10 +23,21 @@ import sys
 from pathlib import Path
 from typing import Callable
 
-QR = Path("/data/students/gaolei/quantresearch")
+QR = Path(os.environ.get(
+    "QUANTRESEARCH_ROOT", "/data/students/gaolei/quantresearch"
+)).resolve()
 CACHE = QR / "data/cache"
-RUNS = Path("/data/students/gaolei/stock/runs/platform")
-STOCK = Path("/data/students/gaolei/stock")
+
+
+def _stock_root() -> Path:
+    """Resolve this checkout, while honoring the platform root override."""
+    return Path(os.environ.get(
+        "FACTORLAB_STOCK_ROOT", Path(__file__).resolve().parents[4]
+    )).resolve()
+
+
+STOCK = _stock_root()
+RUNS = STOCK / "runs/platform"
 FACTOR_ROOT = QR / "factor"
 REF_YAML = FACTOR_ROOT / "_reference.yaml"
 VARIANTS_DIR = QR / "experiments/r37_5y"
