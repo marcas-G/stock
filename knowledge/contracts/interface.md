@@ -911,7 +911,9 @@ signal_rows/signal_null_ratio）。落盘布局与 loader 语义见 §4.5。单�
   （实测：2024-01-02 在册 5327 只中 84 只无任何 1m 行；2024H1 共 8439 个
   (code, date) 缺日集中于这 84 只；当日出现的 (code, date) 恒为标准 240 网格）。
   默认 `FACTORLAB_MINUTE_UNCOVERED=fail`：整日缺 → ValueError fail fast
-  （数据不一致，行为逐值不变）。显式 `FACTORLAB_MINUTE_UNCOVERED=drop`
+  （数据不一致，行为逐值不变），并在 run output 目录原子写完整的
+  `minute_coverage_audit.json`（所有缺失 `(code, date)`、代码和日期列表）；异常文本只保留
+  计数与审计文件路径，避免 Prefect 日志截断清单。显式 `FACTORLAB_MINUTE_UNCOVERED=drop`
   （`settings.minute_uncovered`）时：该 (code, date) 从分钟宇宙**显式剔除**
   （等价于该日不参与——不伪造行、不静默），并发 `MinuteUncoveredWarning`
   （数量/日期跨度/审计指路），run summary 恒写审计字段
