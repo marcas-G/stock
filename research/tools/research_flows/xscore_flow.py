@@ -1864,7 +1864,7 @@ def _xscore_flow_impl(
                 _score_task(
                     str(panel_path),
                     str(score_root / score_name),
-                    score_name,
+                    group_name,
                     columns,
                     model,
                     config.walk_forward,
