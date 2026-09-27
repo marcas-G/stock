@@ -545,13 +545,50 @@ def test_compute_minute_factor_panel_pure_chunk_contract(ch_db, tmp_path):
 
 # ---------------- R03-I6：分钟覆盖口径（fail 默认 | drop 显式） ----------------
 
-def test_minute_uncovered_default_fail_fast(ch_db, tmp_path):
+@pytest.mark.parametrize("chunk_workers", [1, 2])
+def test_minute_uncovered_default_fail_fast(ch_db, tmp_path, chunk_workers):
     """R03-I6：默认（minute_uncovered="fail"）「日线在而分钟整日缺」仍 fail fast
     ——开关存在不改变默认行为（缺口是数据不一致，不静默当停牌）。"""
-    _seed(ch_db, bars_uncovered=("000001", _SAMPLE[2]))
+    missing = {
+        ("000001", _SAMPLE[0]),
+        ("600519", _SAMPLE[-1]),
+    }
+    _seed(ch_db, bars_uncovered=missing)
     spec = _spec(tmp_path, "uf", "signal = day_last(close)")
-    with pytest.raises(ValueError, match="整日缺失"):
-        run_factor_minute(spec, _ctx(tmp_path / "o"))
+    with pytest.raises(ValueError, match="整日缺失") as exc_info:
+        run_factor_minute(
+            spec,
+            _ctx(tmp_path / "o", chunk_days=2, chunk_workers=chunk_workers),
+        )
+    assert str(tmp_path / "o" / "minute_coverage_audit.json") in str(
+        exc_info.value
+    )
+    audit = json.loads(
+        (tmp_path / "o" / "minute_coverage_audit.json").read_text()
+    )
+    assert audit["status"] == "failed"
+    assert audit["mode"] == "fail"
+    assert audit["missing_code_days"] == 2
+    assert audit["missing_codes"] == ["000001.SZ", "600519.SH"]
+    assert audit["missing_dates"] == sorted(
+        [_SAMPLE[0].isoformat(), _SAMPLE[-1].isoformat()]
+    )
+    assert audit["rows"] == [
+        {
+            "code": "000001",
+            "date": _SAMPLE[0].isoformat(),
+            "exchange": "SZSE",
+            "ts_code": "000001.SZ",
+        },
+        {
+            "code": "600519",
+            "date": _SAMPLE[-1].isoformat(),
+            "exchange": "SSE",
+            "ts_code": "600519.SH",
+        },
+    ]
+    assert not (tmp_path / "o" / "summary.json").exists()
+    assert not (tmp_path / "o" / "signal.parquet").exists()
 
 
 def test_minute_uncovered_drop_mode_drops_code_day_with_audit(
