@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,7 @@ def _write_native_bundle(
     *,
     sample_role: str = "is",
     data_version: str = "ashare-daily-2024-v1",
+    invalid_rows: int = 0,
 ) -> None:
     spec = load_spec(spec_path)
     dates = []
@@ -75,10 +77,19 @@ def _write_native_bundle(
         day += dt.timedelta(days=1)
     signal = pl.DataFrame(
         [
-            {"date": date, "code": f"{index:06d}.SZ", "signal": float(index)}
-            for date in dates
+            {
+                "date": date,
+                "code": f"{index:06d}.SZ",
+                "signal": (
+                    None
+                    if day_index * 30 + index < invalid_rows
+                    else float(index)
+                ),
+            }
+            for day_index, date in enumerate(dates)
             for index in range(30)
-        ]
+        ],
+        schema_overrides={"signal": pl.Float64},
     )
     labels = pl.DataFrame(
         [
@@ -98,7 +109,9 @@ def _write_native_bundle(
         "date_start": signal["date"].min().isoformat(),
         "date_end": signal["date"].max().isoformat(),
         "signal_rows": signal.height,
-        "signal_null_ratio": 0.0,
+        "signal_null_ratio": round(
+            signal["signal"].is_null().sum() / signal.height, 4
+        ),
         "spec_yaml": yaml.safe_dump(
             spec.model_dump(), allow_unicode=True, sort_keys=True
         ),
@@ -129,6 +142,7 @@ def _run_seed(
     run_calls: list[tuple[Path, Path, str]] | None = None,
     sample_role: str = "is",
     data_version: str = "ashare-daily-2024-v1",
+    invalid_rows: int = 0,
 ):
     def runner(spec_path: Path, output_dir: Path, mode: str) -> None:
         if run_calls is not None:
@@ -138,6 +152,7 @@ def _run_seed(
             spec_path,
             sample_role=sample_role,
             data_version=data_version,
+            invalid_rows=invalid_rows,
         )
 
     return factor_seed_flow(
@@ -222,6 +237,21 @@ def test_seed_retry_reuses_completed_immutable_artifact(tmp_path: Path):
 
     assert second == first
     assert len(calls) == 1
+
+
+def test_seed_accepts_factorlab_summary_ratio_rounded_to_four_decimals(
+    tmp_path: Path,
+):
+    spec = _spec(tmp_path)
+    config = _config(tmp_path, spec)
+
+    ref = _run_seed(config, invalid_rows=1)
+
+    assert ref.status == "candidate"
+    summary = json.loads(
+        (Path(ref.artifact_uri) / "summary.json").read_text(encoding="utf-8")
+    )
+    assert summary["signal_null_ratio"] == 0.0017
 
 
 @pytest.mark.parametrize(
