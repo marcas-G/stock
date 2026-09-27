@@ -6,8 +6,8 @@
 - SELL FILLABLE → full fill；BUY partial 仅由 funding constraint 导致
 - sell-first funding：available = state.cash + Σ actual net SELL proceeds
 - BUY funding 迭代比例缩量 + quantity projection + re-cost 直到 cash-feasible
-- slippage 产生的 execution_price 必须落在 [down, up]（越界 ValueError，不
-  clipping）；最终 cash_after >= 0 严格（无 tolerance）
+- slippage 越过涨跌停价时按对应限价封顶，并基于封顶价重算成本；
+  最终 cash_after >= 0 严格（无 tolerance）
 """
 
 import datetime
@@ -16,15 +16,19 @@ import math
 import polars as pl
 import pytest
 
-from factorlab.core.domain import (ExecutionDataQualityError, ExecutionSchedule,
-                              FillBatch, MarketOpenSnapshot, OpenFillAssessment,
+from factorlab.core.domain import (ExecutionSchedule, FillBatch,
+                              MarketOpenSnapshot, OpenFillAssessment,
                               OpenOrderDisposition, OrderBatch, OrderSide,
-                              PortfolioState, PortfolioStatePhase,
+                              PortfolioMarkSnapshot, PortfolioState,
+                              PortfolioStatePhase,
                               QuantityRuleKind)
 from factorlab.core.domain.timing import ExecutionTiming
 from factorlab.app.backtest import (ExecutionCostSpec, SecurityQuantityRules,
-                                 assess_open_fillability, project_buy_quantity,
-                                 project_sell_quantity, realize_open_fills)
+                                 apply_fill_batch, assess_open_fillability,
+                                 project_buy_quantity, project_sell_quantity,
+                                 realize_open_fills,
+                                 summarize_execution_accounting,
+                                 value_portfolio)
 
 D1 = datetime.date(2024, 1, 2)
 E1 = datetime.date(2024, 1, 3)
@@ -651,23 +655,64 @@ def test_slippage_bound_ok_within_limits():
     assert _fills(b, "000001.SZ")[5] == 10.0 * 1.005
 
 
-def test_buy_slippage_crosses_upper_fails():
+def test_buy_slippage_crosses_upper_is_capped_and_recosted_for_funding():
     o = _orders([("000001.SZ", "buy", 100)])
     a = _assessment([("000001.SZ", "buy", 100, "fillable", 10.0)])
     s = _snap([_normal_row(open_=10.0, up=10.04, dn=9.9)])
-    c = _cost(slippage_bps=50)   # 10.05 > up 10.04
-    with pytest.raises(ValueError, match="slippage|crosses|limit"):
-        _realize(orders=o, assessment=a, snapshot=s, cost=c)
+    # Uncapped cost at 10.05 is 1010 and cannot fit; the legal 10.04
+    # execution costs 1009, so this full board lot remains affordable.
+    c = _cost(slippage_bps=50, commission_rate=0.001, minimum_commission=5.0)
+    b = _realize(orders=o, assessment=a, state=_state(1009.5, []),
+                 snapshot=s, cost=c)
+    row = _fills(b, "000001.SZ")
+    assert row is not None
+    assert row[3] == 100
+    assert row[5] == 10.04
+    assert row[6] == pytest.approx(1004.0)
+    assert row[7] == pytest.approx(5.0)
+    assert row[10] == pytest.approx(5.0)
+    assert row[11] == pytest.approx(-1009.0)
+    assert 1009.5 + row[11] == pytest.approx(0.5)
+
+    # The bounded FillBatch remains the sole source for cash/accounting, while
+    # NAV marks the acquired shares at the raw open price.
+    state = _state(1009.5, [])
+    post = apply_fill_batch(state, b)
+    accounting = summarize_execution_accounting(state, b, post)
+    empty_marks = PortfolioMarkSnapshot(
+        as_of_date=E1,
+        frame=pl.DataFrame({
+            "code": pl.Series([], dtype=pl.String),
+            "mark_price": pl.Series([], dtype=pl.Float64),
+        }))
+    post_marks = PortfolioMarkSnapshot(
+        as_of_date=E1,
+        frame=pl.DataFrame({"code": ["000001.SZ"], "mark_price": [10.0]}))
+    pre_nav = value_portfolio(state, empty_marks)
+    post_nav = value_portfolio(post, post_marks)
+    assert accounting.cash_after == post.cash == pytest.approx(0.5)
+    assert accounting.net_cash_delta == pytest.approx(-1009.0)
+    assert pre_nav.nav - post_nav.nav == pytest.approx(9.0)
 
 
-def test_sell_slippage_crosses_lower_fails():
+def test_sell_slippage_crosses_lower_is_capped_and_recosted():
     o = _orders([("000001.SZ", "sell", 100)])
     a = _assessment([("000001.SZ", "sell", 100, "fillable", 10.0)])
     st = _state(0.0, [("000001.SZ", 100, 100)])
     s = _snap([_normal_row(open_=10.0, up=10.04, dn=9.96)])
-    c = _cost(slippage_bps=50)   # 9.95 < dn 9.96
-    with pytest.raises(ValueError, match="slippage|crosses|limit"):
-        _realize(orders=o, assessment=a, state=st, snapshot=s, cost=c)
+    c = _cost(slippage_bps=50, commission_rate=0.001,
+              stamp_tax_sell_rate=0.001, transfer_fee_rate=0.0001)
+    b = _realize(orders=o, assessment=a, state=st, snapshot=s, cost=c)
+    row = _fills(b, "000001.SZ")
+    assert row is not None
+    assert row[3] == 100
+    assert row[5] == 9.96
+    assert row[6] == pytest.approx(996.0)
+    assert row[7] == pytest.approx(0.996)
+    assert row[8] == pytest.approx(0.996)
+    assert row[9] == pytest.approx(0.0996)
+    assert row[10] == pytest.approx(2.0916)
+    assert row[11] == pytest.approx(993.9084)
 
 
 def test_slippage_bound_exact_equality_ok():
@@ -679,26 +724,6 @@ def test_slippage_bound_exact_equality_ok():
     c = _cost(slippage_bps=50)
     b = _realize(orders=o, assessment=a, snapshot=s, cost=c)
     assert _fills(b, "000001.SZ")[5] == 10.0 * 1.005
-
-
-def test_slippage_bound_error_is_not_data_quality_error():
-    o = _orders([("000001.SZ", "buy", 100)])
-    a = _assessment([("000001.SZ", "buy", 100, "fillable", 10.0)])
-    s = _snap([_normal_row(open_=10.0, up=10.04, dn=9.9)])
-    c = _cost(slippage_bps=50)
-    with pytest.raises(ValueError) as ei:
-        _realize(orders=o, assessment=a, snapshot=s, cost=c)
-    assert not isinstance(ei.value, ExecutionDataQualityError)
-
-
-def test_no_price_clipping():
-    """越界必须 fail——不 min/max clip。"""
-    o = _orders([("000001.SZ", "buy", 100)])
-    a = _assessment([("000001.SZ", "buy", 100, "fillable", 10.0)])
-    s = _snap([_normal_row(open_=10.0, up=10.04, dn=9.9)])
-    c = _cost(slippage_bps=50)
-    with pytest.raises(ValueError):
-        _realize(orders=o, assessment=a, snapshot=s, cost=c)
 
 
 # ================================================================

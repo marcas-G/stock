@@ -7,6 +7,7 @@ import pathlib
 import sys
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 import pv_engine as engine  # noqa: E402
@@ -94,3 +95,31 @@ def test_benchmark_domain_equal():
                                                         fee_bps=0.0))
     # 全票同收益且零成本 → 策略与基准相同 → 超额≈0
     assert abs(r["excess"]) < 1e-9
+
+
+def test_constant_returns_mark_undefined_ratio_metrics_as_null():
+    """零方差时比率指标未定义，但零波动本身仍是合法数值。"""
+    c = _ctx(D=6, N=4)
+    c["ret_close"][:] = 0.001
+    c["ret_open"][:] = 0.001
+    r = engine.simulate(
+        **c,
+        cfg=engine.PortfolioConfig(selection="top_n", top_n=2, fee_bps=0.0),
+    )
+
+    assert r["ir"] is None
+    assert r["sharpe"] is None
+    assert r["vol"] == 0.0
+    assert r["excess"] == 0.0
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_strict_json_dumps_rejects_nonfinite_payload(bad):
+    """生产 JSON helper 必须拒绝遗漏的 NaN/Infinity。"""
+    with pytest.raises(ValueError, match="Out of range float values"):
+        engine._strict_json_dumps({"bad": bad})
+
+
+def test_strict_json_dumps_rejects_nonfinite_numpy_scalar():
+    with pytest.raises(ValueError, match="Out of range float values"):
+        engine._strict_json_dumps({"bad": np.float32("nan")})

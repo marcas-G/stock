@@ -1,0 +1,196 @@
+heavy.sh: slot=1/2 avail=62.0GB  max_memory=8GB oom_score_adj=700 -> platform/.venv/bin/python -m pytest platform/tests/test_cross_section.py platform/tests/test_research_factor.py platform/tests/test_lockbox_admit.py -k reference_verdict_uses_absolute_joint_max_t_admission_floor or admit_verdict_uses_absolute_admission_floor or reports_watch_below_reference_admission_floor or ref_add_backup_comment_and_roundtrip or ref_add_subthreshold_frozen_diagnostics_reject_before_write or ref_add_env_off_skips_lockbox_branch or ref_add_env_off_manual_entry_cannot_bypass_admission_floor -q
+F..F..FFFFF                                                                                                                                                                                      [100%]
+=============================================================================================== FAILURES ===============================================================================================
+_________________________________________________________ test_reference_verdict_uses_absolute_joint_max_t_admission_floor[2.999-\u89c2\u5bdf] _________________________________________________________
+
+resic_t = 2.999, expected = '观察'
+
+    @pytest.mark.parametrize(
+        "resic_t, expected",
+        [
+            (2.999, "观察"),
+            (3.0, "可加入"),
+            (-3.0, "可加入"),
+        ],
+    )
+    def test_reference_verdict_uses_absolute_joint_max_t_admission_floor(
+            resic_t, expected):
+>       assert _incremental_verdict(
+            corr_max=0.1, r2_lib=0.1, resic_t=resic_t, retention=0.8
+        ) == expected
+E       AssertionError: assert '可加入' == '观察'
+E         
+E         - 观察
+E         + 可加入
+
+platform/tests/test_cross_section.py:298: AssertionError
+_________________________________________________________________ test_admit_verdict_uses_absolute_admission_floor[2.999-\u89c2\u5bdf] _________________________________________________________________
+
+resic_t = 2.999, expected = '观察'
+
+    @pytest.mark.parametrize(
+        "resic_t, expected",
+        [
+            (2.999, "观察"),
+            (3.0, "可加入"),
+            (-3.0, "可加入"),
+        ],
+    )
+    def test_admit_verdict_uses_absolute_admission_floor(resic_t, expected):
+>       assert F._admit_verdict(corr_max=0.1, r2_lib=0.1,
+                                resic_t=resic_t) == expected
+E       AssertionError: assert '可加入' == '观察'
+E         
+E         - 观察
+E         + 可加入
+
+platform/tests/test_research_factor.py:742: AssertionError
+___________________________________________________________________ test_factor_admit_reports_watch_below_reference_admission_floor ____________________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4098/test_factor_admit_reports_watc0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9548356a50>
+
+    def test_factor_admit_reports_watch_below_reference_admission_floor(
+            tmp_path, monkeypatch):
+        spec = _admit_spec(tmp_path)
+        monkeypatch.setenv("FACTORLAB_REFERENCE", str(_fixture_ref(tmp_path)))
+        monkeypatch.setattr(settings, "results_dir", tmp_path / "results")
+    
+        def fake_final_test_gate(*args, **kwargs):
+            return {
+                "diagnostics": {
+                    "corr_max": 0.1, "r2_lib": 0.1, "resic_t": 2.999,
+                    "resic_mean": 0.01, "n_weeks": 8,
+                },
+                "executed": False,
+                "path": str(tmp_path / "test_diagnostics.json"),
+            }
+    
+        monkeypatch.setattr(F, "_final_test_gate", fake_final_test_gate)
+        env = F.factor_admit(_admit_args(spec))
+        assert env.ok, env.error
+>       assert env.data["verdict"] == "观察"
+E       AssertionError: assert '可加入' == '观察'
+E         
+E         - 观察
+E         + 可加入
+
+platform/tests/test_research_factor.py:765: AssertionError
+___________________________________________________________________________ test_factor_ref_add_backup_comment_and_roundtrip ___________________________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4098/test_factor_ref_add_backup_com0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9548337980>
+
+    def test_factor_ref_add_backup_comment_and_roundtrip(tmp_path, monkeypatch):
+        from factorlab.app.analysis.reference import load_reference
+        from factorlab.research import registry
+        ref = tmp_path / "_reference.yaml"
+        ref.write_text(_REF_YAML, encoding="utf-8")
+        monkeypatch.setenv("FACTORLAB_REFERENCE", str(ref))
+        rd = tmp_path / "results"
+        monkeypatch.setattr(settings, "results_dir", rd)
+        vs = _basis(3)
+        cand = _tile(vs[1])
+        rng = np.random.default_rng(11)
+        fwd = 0.5 * cand + rng.uniform(-20.0, 20.0, size=(WEEKS, N))
+        _write_panel(rd, "base_a", _tile(vs[0]), fwd)
+        _write_panel(rd, "new_f", cand, fwd)
+        from factorlab.app.analysis.cross_section import incremental_diagnostics
+        expected = incremental_diagnostics(["new_f"], rd, base=["base_a"])["candidates"][0]
+        ns = registry.build_parser(registry.COMMANDS["factor.ref.add"]).parse_args([
+            "new_f", "--style", "新风格", "--reason", "入选理由",
+            "--added", "2026-09-25", "--entry-corr-max", "0.31",
+            "--entry-resic-t", "99.0"])
+        env = F.factor_ref_add(ns)
+        assert env.ok, env.error
+        assert env.data["name"] == "new_f" and env.data["scales"] == "daily"
+    
+        backup = Path(env.data["backup"])
+        assert backup.exists() and backup.read_text(encoding="utf-8") == _REF_YAML
+        text = ref.read_text(encoding="utf-8")
+        assert "# 参考库头注释" in text          # 注释保留（整库 dump 会丢）
+        ref_map = load_reference(ref)            # 写后真读回（校验通过）
+        assert [e.name for e in ref_map["daily"]] == ["base_a", "new_f"]
+        e = ref_map["daily"][1]
+        assert e.style == "新风格" and e.reason == "入选理由"
+        assert e.added == "2026-09-25"
+>       assert e.entry_corr_max == pytest.approx(expected["corr_max"])
+E       assert 0.31 == 0.07502083912197834 ± 7.5e-08
+E         
+E         comparison failed
+E         Obtained: 0.31
+E         Expected: 0.07502083912197834 ± 7.5e-08
+
+platform/tests/test_research_factor.py:896: AssertionError
+___________________________________________________________________ test_ref_add_subthreshold_frozen_diagnostics_reject_before_write ___________________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4098/test_ref_add_subthreshold_froz0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f95482a8140>
+
+    def test_ref_add_subthreshold_frozen_diagnostics_reject_before_write(
+            tmp_path, monkeypatch):
+        """最终测试冻结件低于 |t|=3 门槛时，不得备份或改写参考库。"""
+        spec, db, ref = _sandbox(tmp_path, monkeypatch)
+        calls = _fake_lane(tmp_path, monkeypatch, db,
+                           diag=(0.3, 0.4, 2.999, 0.5, 8))
+        before = ref.read_text(encoding="utf-8")
+    
+        result = _invoke("factor", "ref", "add", "refcand",
+                         "--style", "量价", "--reason", "入选")
+        doc = _doc(result)
+    
+>       assert doc["ok"] is False
+E       assert True is False
+
+platform/tests/test_lockbox_admit.py:557: AssertionError
+______________________________________________________________________________ test_ref_add_env_off_skips_lockbox_branch _______________________________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4098/test_ref_add_env_off_skips_loc0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9613d3f4d0>
+
+    def test_ref_add_env_off_skips_lockbox_branch(tmp_path, monkeypatch):
+        _spec, db, ref = _sandbox(tmp_path, monkeypatch)
+        monkeypatch.setenv("FACTORLAB_LOCKBOX", "off")
+        _fake_lane(tmp_path, monkeypatch, db)
+        db.unlink()
+        result = _invoke("factor", "ref", "add", "refcand",
+                         "--style", "量价", "--reason", "入选",
+                         "--entry-corr-max", "0.31", "--entry-resic-t", "2.4")
+        doc = _doc(result)
+        assert doc["ok"] is True, doc
+        assert doc["data"]["test_diagnostics"] is None
+>       assert doc["data"]["entry"]["entry_corr_max"] == pytest.approx(0.3)
+E       assert 0.31 == 0.3 ± 3.0e-07
+E         
+E         comparison failed
+E         Obtained: 0.31
+E         Expected: 0.3 ± 3.0e-07
+
+platform/tests/test_lockbox_admit.py:618: AssertionError
+___________________________________________________________________ test_ref_add_env_off_manual_entry_cannot_bypass_admission_floor ____________________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4098/test_ref_add_env_off_manual_en0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9613d597f0>
+
+    def test_ref_add_env_off_manual_entry_cannot_bypass_admission_floor(
+            tmp_path, monkeypatch):
+        _spec, db, ref = _sandbox(tmp_path, monkeypatch)
+        monkeypatch.setenv("FACTORLAB_LOCKBOX", "off")
+        _fake_lane(tmp_path, monkeypatch, db,
+                   diag=(0.3, 0.4, 2.999, 0.5, 8))
+        db.unlink()
+        before = ref.read_text(encoding="utf-8")
+    
+        result = _invoke("factor", "ref", "add", "refcand",
+                         "--style", "量价", "--reason", "入选",
+                         "--entry-corr-max", "0.1", "--entry-resic-t", "99.0")
+        doc = _doc(result)
+    
+>       assert doc["ok"] is False
+E       assert True is False
+
+platform/tests/test_lockbox_admit.py:638: AssertionError
+======================================================================================= short test summary info ========================================================================================
+FAILED platform/tests/test_cross_section.py::test_reference_verdict_uses_absolute_joint_max_t_admission_floor[2.999-\u89c2\u5bdf] - AssertionError: assert '可加入' == '观察'
+FAILED platform/tests/test_research_factor.py::test_admit_verdict_uses_absolute_admission_floor[2.999-\u89c2\u5bdf] - AssertionError: assert '可加入' == '观察'
+FAILED platform/tests/test_research_factor.py::test_factor_admit_reports_watch_below_reference_admission_floor - AssertionError: assert '可加入' == '观察'
+FAILED platform/tests/test_research_factor.py::test_factor_ref_add_backup_comment_and_roundtrip - assert 0.31 == 0.07502083912197834 ± 7.5e-08
+FAILED platform/tests/test_lockbox_admit.py::test_ref_add_subthreshold_frozen_diagnostics_reject_before_write - assert True is False
+FAILED platform/tests/test_lockbox_admit.py::test_ref_add_env_off_skips_lockbox_branch - assert 0.31 == 0.3 ± 3.0e-07
+FAILED platform/tests/test_lockbox_admit.py::test_ref_add_env_off_manual_entry_cannot_bypass_admission_floor - assert True is False
+7 failed, 4 passed, 104 deselected in 2.33s

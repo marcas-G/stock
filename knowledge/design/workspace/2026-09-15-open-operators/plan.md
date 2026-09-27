@@ -1,6 +1,11 @@
 # FactorLab 开放算子底座 实施计划（Plan 1）
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **状态（R22）**：Plan 1 的 9 个任务均已实施并验收。原任务复选框已依据
+> [R22 完成证据](../../../../governance/evidence/verification/R22/open-operators-summary.md)
+> 补记；Plan 2/3 尚未排期，见 [GitHub Issue #10](https://github.com/marcas-G/stock/issues/10)
+> 与 [Issue #11](https://github.com/marcas-G/stock/issues/11)。
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 拆除算子白名单闸门：库内全部函数（polars_ta 三库 + polars 方法）可直接写；每个调用可解析"分区 + 窗口"语义并据此做分区绑定、窗口推导与未来函数检查；存量 152 个因子零迁移。
 
@@ -8,10 +13,10 @@
 
 **Tech Stack:** Python 3.13 / polars / expr_codegen 0.16.6 / pytest；平台五层架构（core 纯净、I/O 在 adapters）。
 
-**Spec:** `docs/reviews/2026-09-15-open-operators/design.md`（§4 开放面 / §5 算子生命周期 / §7 保证体系 / §9 G1-G4 / §13 Spike 结果）
+**Spec:** `knowledge/design/workspace/2026-09-15-open-operators/design.md`（§4 开放面 / §5 算子生命周期 / §7 保证体系 / §9 G1-G4 / §13 Spike 结果）
 
 > **勘误（2026-09-16，实测）**：本计划中的 `ts_quantile` 示例**不存在于 polars_ta 0.5.17**（团队 R22 实施时已记录
-> 偏差并替换为 `ts_arg_max`/`ts_corr`/`ts_weighted_mean`/`BBANDS`，见 `docs/verification/R22/open-operators-summary.md`
+> 偏差并替换为 `ts_arg_max`/`ts_corr`/`ts_weighted_mean`/`BBANDS`，见 `governance/evidence/verification/R22/open-operators-summary.md`
 > 与 `R22/02-ta-catalog/README.md:29-32`）。下文出现 `ts_quantile` 的测试名/断言均为原始计划文本，实施以 R22 替换为准。
 > 另：`BBANDS` 返回 Struct 三条带（非标量信号），用法与限制见 R05-I1。
 
@@ -63,7 +68,7 @@
   - `window_spec(meta, args) -> int | None | "unbounded"`：`None`/int/`"${param}"`/`"arg:N"`/`"unbounded"` 求值
   - 单例 `default_catalog() -> Catalog`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 # platform/tests/test_op_classification.py
@@ -105,12 +110,12 @@ def test_window_spec_param_resolved_by_caller():
     assert window_spec(meta, [], params={}) is None  # 无法求值 → 调用方报错
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_op_classification.py -q`
 Expected: FAIL（`ModuleNotFoundError: factorlab.core.ops.classification`）
 
-- [ ] **Step 3: 最小实现**
+- [x] **Step 3: 最小实现**
 
 ```python
 # platform/src/factorlab/core/ops/classification.py
@@ -191,12 +196,12 @@ def default_catalog() -> Catalog:
 
 （`_generated_*` 在 Task 2/3 创建；本 Task 测试不触碰 `default_catalog()`，先留 lint 可过的最小引用。）
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_op_classification.py -q`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add platform/src/factorlab/core/ops/classification.py platform/tests/test_op_classification.py
@@ -224,7 +229,7 @@ git commit -m "feat(platform): OpMeta 分类模型与查询 API（开放算子�
 5. 人工覆盖清单 `MANUAL_OVERRIDES`（本 Task 先放空 dict + TODO 注释清除后填充规则：逐条注明理由）——**不允许 TBD 残留**，若首轮生成无歧义则为空。
 6. `--check`：重新生成与产物字节一致，否则 exit 1（模仿 `build_index.py --check`）。
 
-- [ ] **Step 1: 写失败测试（产物一致性 + 抽查条目）**
+- [x] **Step 1: 写失败测试（产物一致性 + 抽查条目）**
 
 ```python
 # 追加到 platform/tests/test_op_classification.py
@@ -256,12 +261,12 @@ def test_ta_catalog_size_floor():
     assert len(usable) >= 350                       # Spike 1 结论：350~400
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_op_classification.py -q`
 Expected: FAIL（`_generated_ta_ops` 不存在 / 脚本不存在）
 
-- [ ] **Step 3: 实现生成器**
+- [x] **Step 3: 实现生成器**
 
 ```python
 # platform/scripts/gen_op_catalog.py
@@ -385,7 +390,7 @@ def build_ta_catalog(catalog: Catalog) -> None:
         catalog.add(OpMeta(name, part, win, mask, src, canon), replace=True)
 ```
 
-- [ ] **Step 4: 生成产物并跑测试**
+- [x] **Step 4: 生成产物并跑测试**
 
 Run:
 ```bash
@@ -393,7 +398,7 @@ cd platform && .venv/bin/python scripts/gen_op_catalog.py && .venv/bin/python -m
 ```
 Expected: PASS（若 `usable` 数量 < 350，回到分类规则修正后在 `MANUAL_OVERRIDES` 补充并写明理由——不留 TBD）
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add platform/scripts/gen_op_catalog.py platform/src/factorlab/core/ops/_generated_ta_ops.py platform/tests/test_op_classification.py
@@ -419,7 +424,7 @@ git commit -m "feat(platform): polars_ta 全量算子分类表（签名感知生
 - 35 项人工判定清单在生成器里落成 `POLARS_AMBIGUOUS_DENY`（拒绝 + 指引）与 `POLARS_MANUAL_TS`（明确窗口签名）；访问器（dt/str/list/arr/struct/cat/name/meta）默认 `el`，`.list.eval` 等特例进人工清单。
 - **方法条目以 `.<method>` 为 name**（如 `.rolling_mean`、`.shift`），与函数命名空间隔离（避免 `.rank` 与函数 `rank` 冲突）；生成产物导出 `EL_METHODS/TS_METHODS/DENIED_METHODS` 三组（不含点，供版本锁测试），`build_polars_catalog` 注册时加 `.` 前缀。
 
-- [ ] **Step 1: 写失败测试（版本锁）**
+- [x] **Step 1: 写失败测试（版本锁）**
 
 ```python
 def test_polars_methods_version_locked():
@@ -437,12 +442,12 @@ def test_ambiguous_denied_has_guidance():
     assert c.get("ts_mean") is not None
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_op_classification.py::test_polars_methods_version_locked -q`
 Expected: FAIL（模块不存在）
 
-- [ ] **Step 3: 实现生成 + 产物，Step 4: 跑测试**
+- [x] **Step 3: 实现生成 + 产物，Step 4: 跑测试**
 
 Run:
 ```bash
@@ -450,7 +455,7 @@ cd platform && .venv/bin/python scripts/gen_op_catalog.py && .venv/bin/python -m
 ```
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add platform/scripts/gen_op_catalog.py platform/src/factorlab/core/ops/_generated_polars_methods.py platform/tests/test_op_classification.py
@@ -479,7 +484,7 @@ git commit -m "feat(platform): polars 方法/访问器分类表（版本锁测�
   - 未知调用（不在 catalog、非 def、非元素白名单）→ `SemanticError("未知算子 <name>；若是自定义函数请补 op_meta")`
   - `window` 无法求值（如 `${param}` 未给值、`arg:N` 非常量）→ `SemanticError("窗口参数必须是常量或 ${param}")`
 
-- [ ] **Step 1: 写失败测试（全形态）**
+- [x] **Step 1: 写失败测试（全形态）**
 
 ```python
 # platform/tests/test_semantics.py
@@ -523,19 +528,19 @@ def test_unknown_operator_message():
         infer("signal = my_magic(close)", CAT)
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_semantics.py -q`
 Expected: FAIL（模块不存在）
 
-- [ ] **Step 3: 实现推断 pass**（自底向上 `ast.NodeVisitor`；`ts_cum_*`/宏展开后的 `vwap` 已在调用方展开——本 pass 只吃展开后的公式）
+- [x] **Step 3: 实现推断 pass**（自底向上 `ast.NodeVisitor`；`ts_cum_*`/宏展开后的 `vwap` 已在调用方展开——本 pass 只吃展开后的公式）
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_semantics.py -q`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add platform/src/factorlab/core/engine/semantics.py platform/tests/test_semantics.py
@@ -557,15 +562,15 @@ git commit -m "feat(platform): 统一语义推断 pass（分区/窗口/未来自
 **必测形态（每条一个用例，全部须被拒）：**
 `ts_delay(close, -1)`；`_n=3; ts_delay(close, -_n)`；`ts_delay(close, 1-3)`；`close[-1]`；`close[-_n]`；`close.shift(-1)`；`close.diff(-2)`；`close.rolling_mean(-5)`；`ts_rank(close, -20)`；`ts_delta(close, -_n)`。合法对照：`close[-0]`、`close[1]`、`close.shift(1)`、`ts_delay(close, _n)`（`_n=3` 正）。
 
-- [ ] **Step 1: 写失败测试**（参数化 12 用例 + 4 对照）
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 1: 写失败测试**（参数化 12 用例 + 4 对照）
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_future_gate_v2.py -q`
 Expected: FAIL
 
-- [ ] **Step 3: 实现**（`infer` 对 `Subscript`/`shift`/`diff`/窗口参数做常量折叠：复用 partitions.py 的 `_fold_consts`/`_top_level_consts`，传入 semantics；`forward>0` → raise）
+- [x] **Step 3: 实现**（`infer` 对 `Subscript`/`shift`/`diff`/窗口参数做常量折叠：复用 partitions.py 的 `_fold_consts`/`_top_level_consts`，传入 semantics；`forward>0` → raise）
 
-- [ ] **Step 4: 跑测试 + R21 既有用例回归**
+- [x] **Step 4: 跑测试 + R21 既有用例回归**
 
 Run:
 ```bash
@@ -573,7 +578,7 @@ cd platform && .venv/bin/python -m pytest tests/test_future_gate_v2.py tests/tes
 ```
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add platform/src/factorlab/core/engine/semantics.py platform/src/factorlab/core/engine/partitions.py platform/tests/test_future_gate_v2.py
@@ -592,7 +597,7 @@ git commit -m "feat(platform): 未来函数门统一到语义推断（全形态 
 - Consumes: `infer`（Task 4）
 - Produces: `required_lookback(formula: str, pool: str | None, catalog) -> int`；`unbounded_ops(formula, pool, catalog) -> list[str]`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 def test_lookback_via_inference():
@@ -609,12 +614,12 @@ def test_unbounded_blocks_chunking():
     assert "ts_cum_sum" in unbounded_ops("signal = ts_cum_sum(volume)", None, cat)
 ```
 
-- [ ] **Step 2: 跑测试确认失败**；**Step 3: 实现**；**Step 4: 跑测试 + 既有分块用例**
+- [x] **Step 2: 跑测试确认失败**；**Step 3: 实现**；**Step 4: 跑测试 + 既有分块用例**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_chunk_warmup_v2.py tests/test_chunk_label_exactness.py tests/test_qfq_chunk_invariance.py -q`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git commit -m "feat(platform): 窗口/分块统一由语义推断驱动（unbounded 互斥）"
@@ -633,7 +638,7 @@ git commit -m "feat(platform): 窗口/分块统一由语义推断驱动（unboun
 - Produces: `normalize_calls(source: str, catalog) -> tuple[str, str]`（新源码 + 额外 import 行）；未知函数 → `SemanticError`（含 op_meta 示例文案）
 - 行为：`ts_quantile`、`BBANDS`、`ts_zscore` 等直接写入公式可通过 mock 面板计算；`factorlab lint` 不再报"未知算子"
 
-- [ ] **Step 1: 写失败测试（mock LazyFrame 值级）**
+- [x] **Step 1: 写失败测试（mock LazyFrame 值级）**
 
 ```python
 import polars as pl
@@ -657,12 +662,12 @@ def test_unknown_op_guides_op_meta():
         compute_formula(_panel(), "signal = totally_new(volume)", outputs=["signal"])
 ```
 
-- [ ] **Step 2: 跑测试确认失败**（现在报"未知算子: ts_quantile"）
+- [x] **Step 2: 跑测试确认失败**（现在报"未知算子: ts_quantile"）
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_open_ops_e2e.py -q`
 Expected: FAIL
 
-- [ ] **Step 3: 实现规范化 + catalog 解析 + 导入注入**
+- [x] **Step 3: 实现规范化 + catalog 解析 + 导入注入**
 
 要点：
 - 遍历调用（含方法），查 `catalog.get(name)`；
@@ -671,7 +676,7 @@ Expected: FAIL
 - `mask_args` 替换 `universe_masking._CS_GP_MASK_ARGS` 静态表（按 meta 查）；
 - 未命中且不是 def/元素白名单 → 报错文案附 `op_meta` 示例。
 
-- [ ] **Step 4: 跑测试 + 存量 lint 全量**
+- [x] **Step 4: 跑测试 + 存量 lint 全量**
 
 Run:
 ```bash
@@ -680,7 +685,7 @@ make lint-factors        # 152/152
 ```
 Expected: PASS / 152/152
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git commit -m "feat(platform): 拆除算子白名单闸门（分类表解析 + 规范化改名 + import 注入）"
@@ -694,7 +699,7 @@ git commit -m "feat(platform): 拆除算子白名单闸门（分类表解析 + �
 - Modify: `platform/src/factorlab/surfaces/cli/main.py`（`lint` 调 `prepare_static`：参数替换 → 宏展开 → def 内联 → infer → causality → 输出名检查；不触 DB）
 - Test: `platform/tests/test_cli_lint_v2.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 from typer.testing import CliRunner
@@ -731,12 +736,12 @@ formula: |
     assert r.exit_code == 0, r.output
 ```
 
-- [ ] **Step 2-4: 红→绿循环**
+- [x] **Step 2-4: 红→绿循环**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_cli_lint_v2.py -q`
 Expected: 先 FAIL 后 PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git commit -m "feat(platform): lint 接入完整静态管线（语义推断 + 未来门）"
@@ -750,12 +755,13 @@ git commit -m "feat(platform): lint 接入完整静态管线（语义推断 + �
 - Test: `platform/tests/test_regression_152.py`（`@pytest.mark.integration`，CH 可用时跑）
 - Modify: 如有非预期行为差异 → 修复而不是改断言（记录在案）
 
-- [ ] **Step 1: 写回归测试**
+- [x] **Step 1: 写回归测试**
 
 ```python
 import json, os, subprocess
 from pathlib import Path
 import pytest
+from factorlab.config import settings
 
 pytestmark = pytest.mark.integration
 
@@ -770,7 +776,7 @@ SPECS = {
 IC_KEYS = ("mean", "t_stat", "ir")
 
 def test_specs_lint_all():
-    root = Path(__file__).resolve().parents[2] / "research/factor"
+    root = settings.research_root / "factor"
     specs = sorted(root.glob("*/*.yaml"))
     assert len(specs) == 152
     # 全量 lint 由 `make lint-factors` 承担；此处锁数量与目录结构
@@ -778,11 +784,11 @@ def test_specs_lint_all():
 def test_sample_value_regression():
     """改动后重跑 6 个代表 spec，summary IC 与基准档一致（|Δ| ≤ 1e-9）。"""
     repo = Path(__file__).resolve().parents[2]
-    baseline_dir = repo / "docs/verification/R22/00-baseline"
+    baseline_dir = repo / "governance/evidence/verification/R22/00-baseline"
     env = {**os.environ, "FACTORLAB_DATA_BACKEND": "ch"}
     for name, rel in SPECS.items():
         r = subprocess.run(
-            [str(repo / "platform/.venv/bin/factorlab"), "run", str(repo / "research/factor" / rel)],
+            [str(repo / "platform/.venv/bin/factorlab"), "run", str(settings.research_root / "factor" / rel)],
             cwd=str(repo), env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stdout + r.stderr
         got = json.loads((repo / f"platform/results/{name}/summary.json").read_text())
@@ -792,20 +798,20 @@ def test_sample_value_regression():
             assert abs(a - b) <= 1e-9, f"{name}.ic.{k}: {a} != {b}"
 ```
 
-- [ ] **Step 2: 生成基准（改动前跑一次，存 docs/verification/R22/ 前置档）**
+- [x] **Step 2: 生成基准（改动前跑一次，存 governance/evidence/verification/R22/ 前置档）**
 
 Run:
 ```bash
-FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/factorlab run research/factor/reversal_20d/reversal_20d.yaml
+FACTORLAB_DATA_BACKEND=ch platform/.venv/bin/factorlab run $QUANTRESEARCH_ROOT/factor/reversal_20d/reversal_20d.yaml
 ```
-（6 个 spec 的 summary.json 存 `docs/verification/R22/00-baseline/`）
+（6 个 spec 的 summary.json 存 `governance/evidence/verification/R22/00-baseline/`）
 
-- [ ] **Step 3: 改动后重跑并对比**
+- [x] **Step 3: 改动后重跑并对比**
 
 Run: `cd platform && .venv/bin/python -m pytest tests/test_regression_152.py -q`
 Expected: PASS（差异 0 或按容差；有差异 → 修代码）
 
-- [ ] **Step 4: 全门**
+- [x] **Step 4: 全门**
 
 Run:
 ```bash
@@ -813,11 +819,13 @@ make gates && cd platform && .venv/bin/python -m pytest -q
 ```
 Expected: gates 全绿；pytest ≥ 2570 passed / 13 skipped
 
-- [ ] **Step 5: 证据与提交**
+- [x] **Step 5: 证据与提交**
 
 ```bash
-# docs/verification/R22/：命令 + 原始输出 + 门结果（AGENTS.md 纪律）
-git add docs/verification/R22 platform/
+# governance/evidence/verification/R22/：命令 + 原始输出 + 门结果（AGENTS.md 纪律）
+# 按目录公约分别提交 platform/ 与 governance/ 改动
+git add governance/evidence/verification/R22
+git add platform/
 git commit -m "test(platform): R22 开放算子底座回归（152 lint + 抽样值级 + 全门）"
 ```
 

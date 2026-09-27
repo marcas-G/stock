@@ -1,6 +1,6 @@
 # FactorLab 挖矿服务实施计划（容器化执行器）
 
-> **For agentic workers:** 用 superpowers:subagent-driven-development 逐任务执行；步骤 `- [ ]` 跟踪。
+> **For agentic workers:** 用 superpowers:subagent-driven-development 逐任务执行；步骤 `- [x]` 跟踪。
 > 规格：`knowledge/design/platform/specs/2026-09-21-factorlab-service-design.md`（全权口径，L1 验收 §10）。
 > 纪律：TDD（先红后绿）；一次提交一主题；服务不挂源码、作业只走固定命令集。
 
@@ -62,10 +62,10 @@ class JobStore:
     def cancel(self, id) -> bool                 # queued→cancelled；running 由 runner 处理
     def requeue_interrupted(self) -> int         # 启动时 running→interrupted
 ```
-- [ ] 失败测试：状态机（queued→running→succeeded/failed/cancelled；非法迁移拒绝）、
+- [x] 失败测试：状态机（queued→running→succeeded/failed/cancelled；非法迁移拒绝）、
   `requeue_interrupted`（重启语义=interrupted 不自动重跑）、`claim_next` 并发（两连接只一个拿到）、
   WAL 下读写并发不炸。
-- [ ] 见红后实现；`platform/.venv/bin/python -m pytest platform/tests/test_service_store.py -q` 绿；提交。
+- [x] 见红后实现；`platform/.venv/bin/python -m pytest platform/tests/test_service_store.py -q` 绿；提交。
 
 ### Task 2: 参数校验与路径白名单（params）
 
@@ -81,9 +81,9 @@ def validate_job(type: str, body: dict, *, research_root: Path) -> dict
 #  - accept_quality ∈ {PASS,DEGRADED,UNKNOWN}（FAIL 拒），必须带 override_reason
 #  - set[] 形如 k=v；universe/output_dir 为字符串（output_dir 必须落在 <root>/results 下）
 ```
-- [ ] 失败测试：逃逸（`../../etc/passwd`）、白名单外、不存在、FAIL opt-in、缺 override_reason、
+- [x] 失败测试：逃逸（`../../etc/passwd`）、白名单外、不存在、FAIL opt-in、缺 override_reason、
   非法 set/类型、正常四类各一例。
-- [ ] 实现 + 绿 + 提交（`feat(service): 作业参数校验与路径白名单`）。
+- [x] 实现 + 绿 + 提交（`feat(service): 作业参数校验与路径白名单`）。
 
 ### Task 3: worker/runner（子进程、超时、取消、日志）
 
@@ -99,9 +99,9 @@ class Worker:
     def cancel(self, job_id)                      # SIGTERM→10s→SIGKILL 进程组
 ```
 - 命令映射单测（不真跑）：fake `runner` 注入（`runner(cmd) -> rc`）断言映射与超时/取消语义。
-- [ ] 失败测试：四类命令映射逐字、超时→SIGTERM→KILL→failed(timeout)、取消 queued/running、
+- [x] 失败测试：四类命令映射逐字、超时→SIGTERM→KILL→failed(timeout)、取消 queued/running、
   日志文件生成、result 抄写（CLI JSON 输出→result_path）。
-- [ ] 实现 + 绿 + 提交。
+- [x] 实现 + 绿 + 提交。
 
 ### Task 4: FastAPI 应用 + CLI 入口
 
@@ -114,9 +114,9 @@ def create_service_app(*, store, worker_state, version_info) -> FastAPI
 # 鉴权：token 文件存在→要求 Authorization: Bearer；不存在→仅本机
 # cli/main.py: factorlab service [--host 127.0.0.1 --port 8787 --concurrency 1 --state-dir <results>/.service]
 ```
-- [ ] 失败测试（TestClient）：全端点契约 + 错误码（404/409/422/429/401）+ pause 后不出队 +
+- [x] 失败测试（TestClient）：全端点契约 + 错误码（404/409/422/429/401）+ pause 后不出队 +
   cancel 幂等 + version 字段（image_ref/git_sha/lock hash 由 env 注入）。
-- [ ] 实现 + 绿 + `platform/tests` 全量 + `make gates` + 提交。
+- [x] 实现 + 绿 + `platform/tests` 全量 + `make gates` + 提交。
 
 ### Task 5: 客户端 + 文档（quantresearch）
 
@@ -137,8 +137,8 @@ deploy/service/run-service.sh    # docker run 参数（§3 挂载/限额/user 10
 deploy/service/factorlab-svc.service  # systemd user unit 模板（Restart=always）
 governance/ops/install_svc.sh    # 安装/启停/状态（render unit + enable）
 ```
-- [ ] `make svc-image REF=HEAD` 构建成功；`/version` 返回该 sha；
-- [ ] 服务启动（systemd）→ `/health` ok；提交。
+- [x] `make svc-image REF=HEAD` 构建成功；`/version` 返回该 sha；
+- [x] 服务启动（systemd）→ `/health` ok；提交。
 
 ### Task 7: 端到端验收（控制器主导，证据 R39）
 

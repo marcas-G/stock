@@ -67,10 +67,13 @@ class ParquetPanelStore:
         p = self._path(results_dir, name)
         if not p.exists():
             raise panel_missing(results_dir, name)
-        if "signal" not in pl.read_parquet_schema(p):
+        schema = pl.read_parquet_schema(p)
+        if "signal" not in schema:
             raise ValueError(
                 f"因子 {name} 的 panel 缺 signal 列（多输出 run 的 panel 无字面 signal 列）"
                 f"——仅支持单输出 run 的 panel")
+        if keep_fwd and fwd_col not in schema:
+            raise ValueError(f"评估面板缺少 forward 列: {fwd_col}")
         cols = ["date", "code", "signal"] + ([fwd_col] if keep_fwd else [])
         df = pl.scan_parquet(p).select(cols).collect().rename({"signal": name})
         if df.schema["date"] == pl.String:

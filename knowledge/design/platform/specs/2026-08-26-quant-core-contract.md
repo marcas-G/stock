@@ -4,7 +4,7 @@
 > 1. **本文档已取回入树**：来源 = git 侧枝 `a4efabd:docs/superpowers/specs/2026-08-26-quant-core-contract.md`
 >    （sha256 `8d5f5181aa10ae35…`；`a4efabd` **不是** HEAD 祖先，仅经 tag
 >    `pre-monorepo/local-backup-20260903` 可达——取回前全仓活跃树无此文件）。现位置 =
->    `platform/docs/superpowers/specs/`。
+>    `knowledge/design/platform/specs/`。
 > 2. **shim 位置变更**：`quant_core_shim/` → **`platform/kernels/quant_core/`**（内核发行物的**唯一声明点**；
 >    Rust 版到位时**同目录换 build backend**，不得新增第二份同名 dist）。
 > 3. **路径变更**（正文写的是当时事实）：`factorlab.eval.ic_series.weekly_ic` →

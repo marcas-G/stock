@@ -1,0 +1,44 @@
+..F......                                                                                                                                                                                        [100%]
+=============================================================================================== FAILURES ===============================================================================================
+______________________________________________________________ test_factor_resic_daily_horizon_uses_each_date_and_weekly_remains_default _______________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4048/test_factor_resic_daily_horizo0'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fa7deebad50>
+
+    def test_factor_resic_daily_horizon_uses_each_date_and_weekly_remains_default(
+            tmp_path, monkeypatch):
+        """1d resIC must use daily panels when requested; omitted frequency stays weekly."""
+        rd = tmp_path / "results"
+        monkeypatch.setattr(settings, "results_dir", rd)
+        dates = [
+            datetime.date(2024, 1, 8) + datetime.timedelta(days=i)
+            for i in (0, 1, 2, 3, 4, 7, 8, 9, 10, 11)
+        ]
+        vs = _basis(3)
+        base = np.tile(vs[0], (len(dates), 1))
+        candidate = np.tile(vs[0] + vs[1], (len(dates), 1))
+        forward = np.tile(0.4 * vs[1] + 0.1 * vs[2], (len(dates), 1))
+        _write_daily_resic_panel(rd, "base", dates, base, forward)
+        _write_daily_resic_panel(rd, "candidate", dates, candidate, forward)
+    
+        daily = F.factor_resic(_args(
+            names=["base"], target="candidate", against=None, min_stocks=30,
+            frequency="daily", horizon=1, fwd_col=None))
+        assert daily.ok, daily.error
+        assert daily.data["frequency"] == "daily"
+        assert daily.data["fwd_col"] == "forward_return_1d"
+        assert daily.data["factors"][0]["n_periods"] == len(dates)
+    
+        # Existing callers without the new options retain the old weekly/5d behavior.
+        weekly = F.factor_resic(_args(
+            names=["base"], target="candidate", against=None, min_stocks=30))
+        assert weekly.ok, weekly.error
+        assert weekly.data["frequency"] == "weekly"
+        assert weekly.data["fwd_col"] == "forward_return_5d"
+>       assert weekly.data["factors"][0]["n_periods"] == 2
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'n_periods'
+
+platform/tests/test_research_factor.py:530: KeyError
+======================================================================================= short test summary info ========================================================================================
+FAILED platform/tests/test_research_factor.py::test_factor_resic_daily_horizon_uses_each_date_and_weekly_remains_default - KeyError: 'n_periods'
+1 failed, 8 passed, 35 deselected in 2.43s

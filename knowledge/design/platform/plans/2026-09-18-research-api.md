@@ -92,11 +92,11 @@ def test_error_exit_code():
 
 **Interfaces:**
 - Consumes: Task 2 `guard_heavy`。
-- Produces: `factor_lint/factor_run/factor_list/factor_show/factor_export/factor_corr/factor_resic/factor_svd/factor_ref_*/factor_admit/factor_op_*/factor_catalog`；`factor_admit` 返回 `{verdict: 可加入|冗余|重复, corr_max, r2_lib, retention, resic, 建议}`。
+- Produces: `factor_lint/factor_run/factor_list/factor_show/factor_export/factor_corr/factor_resic/factor_svd/factor_ref_*/factor_admit/factor_op_*/factor_catalog`；`factor_admit` 返回 `{verdict: 可加入|观察|冗余|重复, corr_max, r2_lib, retention, resic, 建议}`。
 
 - [ ] **Step 1: 写失败测试**：`factor_run` 必须过闸（mock guard 记录）、产物含 `evaluation.version/frequency`（真库/固定 kernel 至少断言新增产物时间戳）；`factor_admit` 合成面板（独立→可加入；近亲→冗余）三条判决；`factor_lint` 坏 spec→`LINT`；缺失产物→`NOT_FOUND`。
 - [ ] **Step 2: 跑测试确认失败**。
-- [ ] **Step 3: 实现**：直接调用 `surfaces/cli/main.py` 已实现的 lint/run/list/show/corr/resic/svd/ref/op/catalog 逻辑函数（不为门面重写；抽公共 `_call_cli_handler` 或直接 import 其内部函数，以现树为准）；`admit` = lint→(缺产物则 run)→`resic --against reference`+`corr --against reference`→verdict 规则（r2_lib≥0.8 且 resic 不显著→冗余；corr_max≥0.95→重复；否则可加入——阈值调用现有 D10 口径函数）。
+- [ ] **Step 3: 实现**：直接调用 `surfaces/cli/main.py` 已实现的 lint/run/list/show/corr/resic/svd/ref/op/catalog 逻辑函数（不为门面重写；抽公共 `_call_cli_handler` 或直接 import 其内部函数，以现树为准）；`admit` = lint→(缺产物则 run)→`resic --against reference`+`corr --against reference`→D10 verdict（`|resIC t|≥3`、`corr_max<0.7`、`retention≥0.5` 才可加入；高相关/高 R²/低 retention 或 r2_lib≥0.8 且 |resIC t|<2 判冗余；其余观察）。
 - [ ] **Step 4: 绿 + 注册 + 提交** `feat(research): factor 组（run 过闸 + admit 一键冗余检验）`
 
 ### Task 5：strategy + report 组

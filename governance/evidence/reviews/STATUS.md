@@ -1,6 +1,6 @@
 # 总状态表（STATUS）—— 评审轮次 × 方案族 × 完成度
 
-更新：2026-09-21 ｜ 维护：reviewer（本表为**总入口**；状态词：✅ 已交付/已终审；🔶 已交付待收尾/待复查；⏳ 计划就绪待执行；❌ 未计划）
+更新：2026-09-25 ｜ 维护：reviewer（本表为**总入口**；状态词：✅ 已交付/已终审；🔶 已交付待收尾/待复查；⏳ 计划就绪待执行；❌ 未计划）
 
 ## 一、评审轮次（R01-R09）
 
@@ -16,7 +16,7 @@
 | R08 | 指标全量核对 | 数值层全过；2 新发现（历史产物口径/退市 adj） | 🔶 2 行 **open**（D8 退市 adj 已见 sidecar 落地痕迹，待复查回填） | `r08-.../report.md` |
 | R09 | 分钟链性能评审 | 性能问题清单（折日瓶颈/病态形态/内存） | 🔶 3 行 **fixed-claimed（R31/R31.2），待我复查** | `r09-.../report.md` |
 
-台账：`findings.md` = 101 verified + 11 fixed-claimed + 2 open（fixed-claimed = R07×8 + R09×3，全部待 reviewer 回填）。
+台账快照（2026-09-25）：`findings.md` = 127 条有效记录，其中 114 verified、13 open、0 fixed-claimed。
 
 ## 二、方案族与里程碑
 
@@ -36,14 +36,14 @@
 | 11 | Plan T 模拟盘（同花顺网页接口） | paper_broker（盘后算单→次日模拟下单→对账） | ⏳ 计划就绪 | `2026-09-17-ths-simulated-api*` | 未开工（等决策） |
 | 12 | tick / LOB fact | LOB 事实库 + 面板 | ⏸ **暂停（用户 2026-09-19：tick 相关全部暂停处理，暂不考虑）** | `2026-09-09-tick-lob-fact-design.md` | 门红 14 处（2 文件）随暂停保留为**已知红**，恢复时再处置 |
 
-验证证据轮（一句话）：R21 首轮修复、R22 算子/分钟执行+零迁移、R23 使用验证、R24 目录重整、R27/R28 策略、R29 Plan G、**R30 eval v2**、R31 分钟性能（+R31.2 开关）、**R32/R33 DQ**、**R34 CX**。
+验证证据轮（一句话）：R21 首轮修复、R22 算子/分钟执行+零迁移、R23 使用验证、R24 目录重整、R27/R28 策略、R29 Plan G、**R30 eval v2**、R31 分钟性能（+R31.2 开关）、**R32/R33 DQ**、**R34 CX**、R43 QA（porteval 非标准 JSON，GitHub #38）。
 
 ## 三、待办分派
 
 ### reviewer（我）
 1. ~~R07 8 行 + R09 3 行 fixed-claimed 复查回填~~ → ✅ **已完成（R35）**：13 行逐条实测**全部与声称一致** → 11 行 verified；R08 两行加**复查注记**（事实已落地，待团队回填修复说明）
 2. ~~R08 2 行 open 跟进~~ → 🔶 注记已加，保持 open 等团队回填（R30 Task11/12 已事实落地）
-3. 台账现状：**120 行 · verified 113 · open 7 · fixed-claimed 0 · 复查列覆盖 115/120**；`make gates` exit 0（R31-DQ-I1 已 verified；R36-CI-I1 与 4 条 R31 待团队；R31-API-P1 更名 R31-API-M1——原 ID 末段 `P1` 不合规会被台账门静默漏行，已同步 issue #23）
+3. 台账现状（2026-09-25）：**127 条有效记录 · verified 114 · open 13 · fixed-claimed 0 · 复查列覆盖 116/127**；本轮文档审阅未重跑 gates。待团队项见 `findings.md` 与 GitHub issue 台账；R31-API-P1 已更名 R31-API-M1，并同步 issue #23。
 
 ### 开发团队
 1. ~~lob_fact 门红 14 处~~ → **已按 C 处置（2026-09-19）**：`check_dataiface.py` 增 `PAUSED_TREES`（扫描豁免 + 白名单"不腐"校验跳过，输出显式打印暂停提示）；`make gates` 已回 **exit 0 全绿**。恢复 tick 时：移除 `PAUSED_TREES`、按原方案修 14 处、清理/回填 `run_lob_batch` 两条失效登记
@@ -79,25 +79,16 @@ flab strategy run <yaml>
 # 宿主 CLI（factorlab/flab）仅 dev/应急（服务交付后生效）
 ```
 
-## 五、GitHub Issue 索引（2026-09-19 seed）
+## 五、GitHub Issue 索引
 
-| ID | Issue | 说明 |
-|---|---|---|
-| R08-MET-I1 | [#5](https://github.com/marcas-G/stock/issues/5) | 历史产物与现行口径不一致（finding, open） |
-| R08-DATA-I2 | [#6](https://github.com/marcas-G/stock/issues/6) | 退市股 adj 补灌（finding, open；事实已落地待回填） |
-| PLAN-DQ-M2 | [#7](https://github.com/marcas-G/stock/issues/7) | 分钟三角验证 + calibration + 3 小项 |
-| ~~PLAN-DQ-M3~~ | [#8](https://github.com/marcas-G/stock/issues/8) ✅ 已关（R37 范围收窄完成） | 历史残余定向修复 |
-| PLAN-T | [#9](https://github.com/marcas-G/stock/issues/9) | 同花顺模拟炒股接入 |
-| PLAN-OP2 | [#10](https://github.com/marcas-G/stock/issues/10) | 开放算子 Plan 2 |
-| PLAN-OP3 | [#11](https://github.com/marcas-G/stock/issues/11) | 开放算子 Plan 3（by= 截面表达） |
-| PLAN-MIN-V2 | [#12](https://github.com/marcas-G/stock/issues/12) | 分钟执行 V2 |
-| PLAN-CX-DEPS | [#13](https://github.com/marcas-G/stock/issues/13) | Ridge/PLS/PCA 装库决策 |
-| PLAN-CX-GIT | [#14](https://github.com/marcas-G/stock/issues/14) | spec/plan 入 git 版本化 |
-| PLAN-LOB-PAUSED | [#15](https://github.com/marcas-G/stock/issues/15) | tick 暂停恢复步骤（paused） |
-| PLAN-QUARK-COOKIE | [#16](https://github.com/marcas-G/stock/issues/16) | 刷新 Quark cookie（运维） |
+GitHub 当前 issue 清单、待解决事项、已关闭问题的处理类别与历史证据，统一见
+[`governance/workspace/issue-register.md`](../../workspace/issue-register.md)。
+该页为 2026-09-25 UTC（2026-09-26 Asia/Shanghai）状态快照；评审 finding 的证据状态仍以 `findings.md` 为准，
+工作区未决事项仍以 `governance/workspace/pending-items.md` 为准。
 
-> 同步器：`governance/ops/sync_review_issues.py`（dry-run 默认 / `--apply` 执行；幂等）。
-> V1 只建不关；台账仍为状态源。团队在 issue 回填修复说明；PR 用 `Fixes #N` 关联。
+同步器：`governance/ops/sync_review_issues.py`（dry-run 默认 / `--apply` 执行；幂等）。
+V1 只做创建和查重，未自动同步 `verified → 关单` 或 `reopened → 重开`；
+团队在 issue 回填修复说明，PR 用 `Fixes #N` 关联。
 
 ## 六、验证体系（2026-09-21 起：单入口双档位）
 

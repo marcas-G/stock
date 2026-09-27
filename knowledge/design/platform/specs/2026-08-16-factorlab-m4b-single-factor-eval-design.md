@@ -9,7 +9,7 @@
 > **勘误（R21，2026-09-15）**：本文 §1 与 §6 对 `layered_backtest(..., cost=...)` 的表述
 > 已过期——`cost` 形参自 R8 删除（原为静默 no-op：签名收下、计算不用），R9 起真建模为
 > `cost_rate: float = 0.0`（`net = gross − cost_rate × turnover`，见
-> `platform/docs/interface.md` §`layered_backtest` 与 `docs/pending-items.md` #15）。
+> `knowledge/contracts/interface.md` §`layered_backtest` 与 `governance/workspace/pending-items.md` #15）。
 > **正文保留原设计原貌，不改写**；引用签名时以 `cost_rate` 为准。
 
 ## 1. 背景与目标

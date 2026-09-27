@@ -53,7 +53,7 @@
 | type | 参数 | 映射命令（镜像内） | 默认超时 |
 |---|---|---|---|
 | `factor_run` | `spec`（quantresearch/factor 下）、`set[]`、`universe?`、`output_dir?`、`profile?` | `factorlab research factor run <spec> [--set …]` | 2h |
-| `compose` | `spec`（quantresearch/composites/specs 下） | `factorlab compose <spec>` | 1h |
+| `compose` | `spec`（`$QUANTRESEARCH_ROOT/composites/specs/` 下） | `factorlab compose <spec>` | 1h |
 | `strategy_run` | `doc`（quantresearch/{strategy,experiments} 下）、`signal?`、`accept_quality?`、`override_reason?` | `factorlab research strategy run <doc> [--signal …]` | 1h |
 | `factor_admit` | `spec`（候选因子 spec，quantresearch/factor 下）、`scales?`、`wait?` | `factorlab research factor admit <spec> [--scales …]` | 30m |
 

@@ -1,0 +1,4 @@
+metrics= {'ir': None, 'vol': 0.0, 'sharpe': None, 'excess': 0.0}
+finite_or_null= {'ir': True, 'vol': True, 'sharpe': True, 'excess': True}
+serialized_metrics= {'ir': None, 'sharpe': None}
+strict_json=ACCEPTED

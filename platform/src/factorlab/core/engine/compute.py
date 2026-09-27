@@ -414,6 +414,17 @@ def compute_formula(
     if missing:
         raise ValueError(
             f"因子脚本未产出声明输出列: {missing}（outputs 声明与实际定义不符）")
+    for output in outputs:
+        values = result.get_column(output)
+        if not values.dtype.is_float():
+            continue
+        non_null_rows = len(values) - values.null_count()
+        nan_rows = values.is_nan().sum()
+        if non_null_rows and nan_rows == non_null_rows:
+            raise FactorDSLError(
+                f"因子公式输出列 {output!r} 的全部非 null 值均为 NaN "
+                f"（{nan_rows}/{len(values)} 行含 NaN）——检查窗口嵌套的"
+                "中间结果和输入数值；全 NaN 结果不能继续评估")
     return result.select([date, asset, *outputs]).sort([date, asset])
 
 

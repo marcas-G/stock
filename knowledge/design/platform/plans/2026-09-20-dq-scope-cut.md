@@ -137,8 +137,7 @@ Tests `platform/tests/test_health_gate_scope.py`、`test_universe_exclude_bj.py`
   --from 1996-01-01 --run-tag scope20260920`（可续；记录耗时与分布：PASS/DEGRADED/FAIL 计数）。
 - [ ] 抽查：2025-03 分区 PASS；`summary.json` 不含 UNKNOWN（范围外分区不写或原样保留并说明）。
 - [ ] 严格模式（无 opt-in）：
-  `flab strategy run /data/students/gaolei/quantresearch/strategy/low_lottery_top30_weekly.yaml
-   --out-dir runs/platform/strategies/low_lottery_scope_20260920 --pretty` → `ok:true`；
+  `flab strategy run "$QUANTRESEARCH_ROOT/strategy/low_lottery_top30_weekly.yaml" --out-dir runs/platform/strategies/low_lottery_scope_20260920 --pretty` → `ok:true`；
   或信号域内挑一个全 PASS 窗口（若 2025-03 有 DEGRADED 分区，先按 T4 处置或换窗并记录原因）。
 - [ ] 验收测试：平台全量 + `make test-research` + `make gates` + 自托管 workflow dispatch 绿；
   证据 `R37/acceptance/**`（命令+原始输出）。

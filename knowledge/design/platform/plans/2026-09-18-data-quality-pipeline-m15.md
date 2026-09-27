@@ -2,7 +2,7 @@
 
 > **实施状态（2026-09-19 收口）**：**acceptance ①②③ 全部 PASS**（审查独立复核）——18 日 RCA（恢复 3/保持隔离 4/历史例外 11）；ADJ 字段级（adj=NULL+flag，8,184 行回补）；1.25M 分群（SOURCE_LIMITATION 1,146,706 / EXPECTED 104,304 / TRUE_ERROR 收窄为"在市码 0"）。canonical +9,422（18,223,564）、quarantine 16,090→3,828、trade_cal 8,791、verify rc=0。**残余 FAIL（BJ 1,115 真坏 + 前 1996 残余 2,658 + 1996+ 55）按用户裁定挂 M3 数据修复；日更链暂时阻断（clean 步 FAIL）待解**。提交：386361a..a657dd7；证据 `R33/`；台账 `.superpowers/sdd/2026-09-18-data-quality-pipeline-m15/progress.md`。
 
-> **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 在 M1（能发现/阻断）之后，修最明显的规则误判、冻结字段级处置语义、把 1.25M 历史命中做
 root-cause 分群；**不做批量历史修复**（留给 M3）。
@@ -43,9 +43,9 @@ root-cause 分群；**不做批量历史修复**（留给 M3）。
 **Files:** `platform/tools/data_quality/rca_full_quarantine_days.py`（新，只读脚本）；
 报告 `governance/evidence/verification/R33/rca-18-days.md`；Test `tests/test_rca_days.py`（解析/分类纯函数）
 
-- [ ] 逐日（1991-01-19..1993-08-21 共 18 日）取 raw 行（1-2 行/日），复算 `VWAP=amount/volume` 与
+- [x] 逐日（1991-01-19..1993-08-21 共 18 日）取 raw 行（1-2 行/日），复算 `VWAP=amount/volume` 与
   当期 OHLC 关系，核对早期市场制度（1996 前无涨跌停/T+0、面值/单位、volume 单位股/手）；
-- [ ] 每日结论三选一并给证据：`恢复（规则误判）` / `保持隔离（数据确坏）` / `历史制度例外（标记）`；
+- [x] 每日结论三选一并给证据：`恢复（规则误判）` / `保持隔离（数据确坏）` / `历史制度例外（标记）`；
   汇总为"规则修正候选"（如早市 VWAP 容差/单位例外）——**Task 1 不改规则**。
 
 ## Task 2：ADJ_NEGATIVE 字段级语义冻结 + 定向重跑
@@ -73,17 +73,17 @@ root-cause 分群；**不做批量历史修复**（留给 M3）。
 **Files:** `platform/tools/data_quality/classify_missing.py`（新，只读）；报告 `R33/missing-classification.md`；
 Test `tests/test_classify_missing.py`（分类纯函数）
 
-- [ ] 分群：`EXPECTED_MISSING / SOURCE_LIMITATION / TRUE_ERROR / LEGACY_SCHEMA`（规则可配置），
+- [x] 分群：`EXPECTED_MISSING / SOURCE_LIMITATION / TRUE_ERROR / LEGACY_SCHEMA`（规则可配置），
   按字段（amount/adj/float_shares）、退市状态、市场、年份分布统计；
-- [ ] 影响范围：哪些研究/因子消费这些字段（引用现状）+ 每类修复候选（可否 backfill、源、成本、优先级）；
-- [ ] **不修数据**。
+- [x] 影响范围：哪些研究/因子消费这些字段（引用现状）+ 每类修复候选（可否 backfill、源、成本、优先级）；
+- [x] **不修数据**。
 
 ## Task 4：验收与证据
 
-- [ ] ① 18 日：每有 root cause 与结论（恢复/保持/例外）✅
-- [ ] ② ADJ：field-level 语义已冻结（单测 + 重跑 + verify）✅
-- [ ] ③ 1.25M：分类统计 + 影响范围 + 修复候选清单 ✅
-- [ ] 回归：全量测试（POLARS_MAX_THREADS=1）+ 门（G-* 中与本计划相关项）；证据 `R33/`；台账登记。
+- [x] ① 18 日：每有 root cause 与结论（恢复/保持/例外）✅
+- [x] ② ADJ：field-level 语义已冻结（单测 + 重跑 + verify）✅
+- [x] ③ 1.25M：分类统计 + 影响范围 + 修复候选清单 ✅
+- [x] 回归：全量测试（POLARS_MAX_THREADS=1）+ 门（G-* 中与本计划相关项）；证据 `R33/`；台账登记。
 
 ## 风险
 

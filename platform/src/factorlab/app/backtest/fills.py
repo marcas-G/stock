@@ -18,8 +18,8 @@
 关键边界：
 - market eligibility authority = OpenFillAssessment（只读 disposition，不重判
   suspension/limit queue）；snapshot 仅用于 reference-price consistency +
-  slippage legal-bound（down <= execution_price <= up，越界 ValueError 不
-  clipping——bounded slippage model 未实现）
+  execution-price legal-bound（slippage 越过涨跌停价时按对应限价封顶，
+  并用封顶价重算成本）
 - 成本唯一 authority = compute_execution_cost（不手写第二份费用公式）；
   BUY partial 费用基于 filled_quantity 重算；fill 行 order_quantity = 委托量、
   filled_quantity = 实际成交（R01-M8-I2：部分成交在 fill 行可审计）
@@ -65,20 +65,46 @@ _EMPTY_FILLS = pl.DataFrame(
      "effective_cash_delta": pl.Series([], dtype=pl.Float64)})
 
 
-def _check_price_bounds(breakdown, code: str, up_limit: float,
-                        down_limit: float) -> None:
-    """slippage 产生的 execution_price 必须落在合法 market limits 内。
+def _compute_bounded_execution_cost(
+    *,
+    side: OrderSide,
+    reference_price: float,
+    quantity: int,
+    spec: ExecutionCostSpec,
+    up_limit: float,
+    down_limit: float,
+):
+    """在合法价带内确定成交价，并由唯一成本 authority 计算全套金额。
 
-    越界 → 普通 ValueError（raw market 数据合法，问题在 cost/slippage model
-    配置——不是 ExecutionDataQualityError）；禁止 clipping（bounded slippage
-    model 未实现）。
+    仅当 slippage 价越过涨跌停时封顶；价带内（含恰好等于边界）保留原价。
+    封顶后以零滑点 spec 在限价上重新调用 compute_execution_cost，确保
+    gross、fees 和 cash delta 全部与最终成交价一致。
+    """
+    breakdown = compute_execution_cost(
+        side=side, reference_price=reference_price, quantity=quantity,
+        spec=spec)
+    bounded_price = min(up_limit, max(down_limit, breakdown.execution_price))
+    if bounded_price == breakdown.execution_price:
+        return breakdown
+
+    bounded_spec = spec.model_copy(update={"slippage_bps": 0.0})
+    return compute_execution_cost(
+        side=side, reference_price=bounded_price, quantity=quantity,
+        spec=bounded_spec)
+
+
+def _check_window_price_bounds(breakdown, code: str, up_limit: float,
+                               down_limit: float) -> None:
+    """NEXT_WINDOW keeps its existing daily-limit consistency gate.
+
+    Window fill prices are produced by the minute simulator and this issue's
+    bounded NEXT_OPEN pricing rule does not change that execution path.
     """
     p = breakdown.execution_price
     if p > up_limit or p < down_limit:
         raise ValueError(
-            f"{code} cost-model slippage crosses legal market limit："
-            f"execution_price={p} 不在 [down={down_limit}, up={up_limit}]——"
-            f"bounded slippage model is not implemented（不 clipping）")
+            f"{code} window cost-model slippage crosses legal market limit："
+            f"execution_price={p} 不在 [down={down_limit}, up={up_limit}]")
 
 
 def realize_open_fills(
@@ -93,7 +119,7 @@ def realize_open_fills(
 
     Raises:
         TypeError: 任一参数类型不匹配
-        ValueError: cross-object / inventory / quantity-rule / slippage-bound 违规
+        ValueError: cross-object / inventory / quantity-rule / cost-model 违规
         NotImplementedError: NEXT_CLOSE（v1 仅 NEXT_OPEN）
         RuntimeError: 迭代 progress 破坏 / 最终现金为负（安全网）
     """
@@ -212,10 +238,9 @@ def realize_open_fills(
             raise ValueError(
                 f"{code} assessment.fillable_price {fillable_price} != "
                 f"snapshot.open {open_}（reference-price consistency）")
-        breakdown = compute_execution_cost(
+        breakdown = _compute_bounded_execution_cost(
             side=OrderSide.SELL, reference_price=fillable_price,
-            quantity=qty, spec=cost_spec)
-        _check_price_bounds(breakdown, code, up, dn)
+            quantity=qty, spec=cost_spec, up_limit=up, down_limit=dn)
         rows.append((code, "sell", qty, qty, fillable_price,
                      breakdown.execution_price, breakdown.gross_notional,
                      breakdown.commission, breakdown.stamp_tax,
@@ -235,25 +260,24 @@ def realize_open_fills(
             raise ValueError(
                 f"{code} assessment.fillable_price {fillable_price} != "
                 f"snapshot.open {open_}")
-        # slippage 与 price bounds 与 qty 无关——先验证一次
-        probe = compute_execution_cost(side=OrderSide.BUY,
-                                       reference_price=fillable_price,
-                                       quantity=1, spec=cost_spec)
-        _check_price_bounds(probe, code, up, dn)
+        # slippage 与 price bounds 与 qty 无关——先按最终合法价格验证一次
+        _compute_bounded_execution_cost(
+            side=OrderSide.BUY, reference_price=fillable_price,
+            quantity=1, spec=cost_spec, up_limit=up, down_limit=dn)
         buy_candidates.append((code, qty, fillable_price, rule_map[code],
                                up, dn))
 
-    def _required(q: int, price: float,
-                  rule: QuantityRuleKind) -> float:
-        b = compute_execution_cost(side=OrderSide.BUY, reference_price=price,
-                                   quantity=q, spec=cost_spec)
+    def _required(q: int, price: float, up: float, dn: float) -> float:
+        b = _compute_bounded_execution_cost(
+            side=OrderSide.BUY, reference_price=price, quantity=q,
+            spec=cost_spec, up_limit=up, down_limit=dn)
         return -b.effective_cash_delta
 
     current: list[tuple[str, int, float, QuantityRuleKind, float, float]] = \
         list(buy_candidates)
     while True:
-        total = sum(_required(q, price, rule)
-                    for _c, q, price, rule, _u, _d in current)
+        total = sum(_required(q, price, up, dn)
+                    for _code, q, price, _rule, up, dn in current)
         if total <= available:
             break
         scale = available / total
@@ -272,10 +296,10 @@ def realize_open_fills(
         if not current:
             break
 
-    for code, q, price, _rule, _up, _dn in current:
-        breakdown = compute_execution_cost(side=OrderSide.BUY,
-                                           reference_price=price,
-                                           quantity=q, spec=cost_spec)
+    for code, q, price, _rule, up, dn in current:
+        breakdown = _compute_bounded_execution_cost(
+            side=OrderSide.BUY, reference_price=price, quantity=q,
+            spec=cost_spec, up_limit=up, down_limit=dn)
         # R01-M8-I2：order_quantity = 委托数量（assessment/orders 行），
         # filled_quantity = funding 缩量后的实际成交——部分成交在 fill 行可审计
         order_qty = ass_map[code][1]
@@ -513,7 +537,7 @@ def realize_window_fills(
             side=OrderSide.SELL, reference_price=result.avg_price,
             quantity=result.filled_qty, spec=cost_spec)
         if has_limit:
-            _check_price_bounds(breakdown, code, up, dn)
+            _check_window_price_bounds(breakdown, code, up, dn)
         rows.append((code, "sell", qty, result.filled_qty, result.avg_price,
                      breakdown.execution_price, breakdown.gross_notional,
                      breakdown.commission, breakdown.stamp_tax,
@@ -549,7 +573,7 @@ def realize_window_fills(
                 side=OrderSide.BUY, reference_price=ref, quantity=q,
                 spec=cost_spec)
             if has_limit:
-                _check_price_bounds(breakdown, code, up, dn)
+                _check_window_price_bounds(breakdown, code, up, dn)
             required = -breakdown.effective_cash_delta
             if required <= available:
                 break

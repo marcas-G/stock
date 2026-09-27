@@ -1,0 +1,18 @@
+........F                                                                                                                                                                                        [100%]
+=============================================================================================== FAILURES ===============================================================================================
+__________________________________________________________________ test_cli_research_factor_admit_help_and_describe_scale_autodetect ___________________________________________________________________
+
+    def test_cli_research_factor_admit_help_and_describe_scale_autodetect():
+        help_result = runner.invoke(cli_app, [
+            "research", "factor", "admit", "--help"])
+        assert help_result.exit_code == 0, help_result.output
+        assert "bars_1m" in help_result.stdout
+        assert "minute" in help_result.stdout
+>       assert "显式 --scales" in help_result.stdout
+E       AssertionError: assert '显式 --scales' in 'usage: factorlab research factor.admit [--scales SCALES] [--wait] [--json] [--pretty] spec_path\n\n一键入库检验：lint→最终测试门（...开）\n  --pretty         缩进 JSON（人读）\n\n示例：flab factor admit $QUANTRESEARCH_ROOT/factor/volatility/max_effect_20d.yaml\n'
+E        +  where 'usage: factorlab research factor.admit [--scales SCALES] [--wait] [--json] [--pretty] spec_path\n\n一键入库检验：lint→最终测试门（...开）\n  --pretty         缩进 JSON（人读）\n\n示例：flab factor admit $QUANTRESEARCH_ROOT/factor/volatility/max_effect_20d.yaml\n' = <Result okay>.stdout
+
+platform/tests/test_research_factor.py:1071: AssertionError
+======================================================================================= short test summary info ========================================================================================
+FAILED platform/tests/test_research_factor.py::test_cli_research_factor_admit_help_and_describe_scale_autodetect - AssertionError: assert '显式 --scales' in 'usage: factorlab research factor.admit ...
+1 failed, 8 passed, 43 deselected in 1.94s

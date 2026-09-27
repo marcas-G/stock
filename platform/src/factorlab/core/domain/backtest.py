@@ -17,7 +17,8 @@ from dataclasses import dataclass
 import polars as pl
 
 from factorlab.core.domain.accounting import (ExecutionAccountingSummary,
-                                         PortfolioValuation)
+                                         PortfolioValuation,
+                                         cash_bridge_matches)
 from factorlab.core.domain.execution import (FillBatch, OpenFillAssessment,
                                         OrderBatch, PortfolioState,
                                         PortfolioStatePhase)
@@ -84,8 +85,8 @@ class ExecutionArtifact:
     """单 execution event 的事实记录（primitive 输出快照）。
 
     - 字段直接引用已关闭 primitive 输出（不重算/不复制计算）
-    - cash bridge invariant：post.cash == pre.cash + Σ fills delta
-      == accounting.cash_after
+    - cash bridge invariant：post.cash 与 pre.cash + Σ fills delta
+      在浮点容差内相等，且与 accounting.cash_after 一致
     - nav = POST state 在该 execution date 的 open-based marks 估值
     - disposition_counts：(fillable, blocked_suspension, blocked_limit_up,
       blocked_limit_down)——派生计数（只读诊断）
@@ -125,7 +126,8 @@ class ExecutionArtifact:
             raise ValueError("accounting.cash_after != post_state.cash")
         delta = (self.fills.frame["effective_cash_delta"].sum()
                  if self.fills.frame.height else 0.0)
-        if self.post_state.cash != self.pre_state.cash + delta:
+        if not cash_bridge_matches(self.post_state.cash,
+                                   self.pre_state.cash + delta):
             raise ValueError(
                 "artifact cash bridge 破坏：post.cash != pre.cash + Σ delta")
         if len(self.disposition_counts) != 4 \

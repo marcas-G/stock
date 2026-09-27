@@ -1,9 +1,13 @@
 # 分钟级执行详细方案（2026-09-15）
 
 **这是什么**：M8 执行层扩展——「日频信号 + 次日分钟窗口成交」的详细设计与实施计划。
-**给谁**：开发团队按此落实；后续复查走 `docs/reviews/README.md` 的评审流程。
-**状态**：设计已确认（用户问答定稿）；实施计划待执行（7 个任务，TDD，逐任务可独立验收）。
-**关系**：与 `docs/reviews/2026-09-15-open-operators/`（开放算子）相互独立，可并行。
+**给谁**：查阅已交付的分钟执行设计、实现计划与验收证据；评审流程见
+[`governance/evidence/reviews/README.md`](../../../../governance/evidence/reviews/README.md)。
+**状态**：设计已确认；V1 实施与验收已于 R22 完成（7 个任务）。
+结果索引：[R22 分钟执行证据](../../../../governance/evidence/verification/R22/minute-execution/SUMMARY.md)。
+原实施计划中的任务清单现已完成；分钟 NAV、量能触发与盘中临停规则属于后续范围，
+跟踪见 [GitHub Issue #12](https://github.com/marcas-G/stock/issues/12)。
+**关系**：与 [开放算子方案](../2026-09-15-open-operators/) 相互独立。
 
 ## 文件
 

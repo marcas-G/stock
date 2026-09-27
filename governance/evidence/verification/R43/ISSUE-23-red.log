@@ -1,0 +1,82 @@
+..F..FF                                                                                                                                                                                          [100%]
+=============================================================================================== FAILURES ===============================================================================================
+_________________________________________________________ test_factor_admit_scales_follow_spec_interface_unless_explicit[bars_1m-None-minute] __________________________________________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gaolei/pytest-4077/test_factor_admit_scales_follo2'), monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3d74159910>, interface = 'bars_1m'
+requested_scales = None, expected_scales = 'minute'
+
+    @pytest.mark.parametrize(
+        "interface, requested_scales, expected_scales",
+        [
+            (None, None, "daily"),
+            ("daily", None, "daily"),
+            ("bars_1m", None, "minute"),
+            ("bars_1m", "daily", "daily"),
+            ("daily", "minute", "minute"),
+        ],
+    )
+    def test_factor_admit_scales_follow_spec_interface_unless_explicit(
+            tmp_path, monkeypatch, interface, requested_scales, expected_scales):
+        """Scale inference must not enter the lockbox final-test lane in this test."""
+        monkeypatch.setenv("FACTORLAB_REFERENCE", str(_fixture_ref(tmp_path)))
+        spec = _admit_spec(tmp_path, name="admit_scale_probe", interface=interface)
+        called = {}
+    
+        def fake_final_test_gate(spec_doc, spec_path, *, reason, command,
+                                 scales, base, wait):
+            called["scales"] = scales
+            called["base"] = base
+            return {
+                "diagnostics": {
+                    "corr_max": 0.1, "r2_lib": 0.1,
+                    "resic_t": 3.0, "resic_mean": 0.1, "n_weeks": 4,
+                },
+                "executed": False,
+                "path": str(tmp_path / "test_diagnostics.json"),
+            }
+    
+        monkeypatch.setattr(F, "_final_test_gate", fake_final_test_gate)
+        env = F.factor_admit(_admit_args(spec, scales=requested_scales))
+        assert env.ok, env.error
+>       assert called["scales"] == expected_scales
+E       AssertionError: assert 'daily' == 'minute'
+E         
+E         - minute
+E         + daily
+
+platform/tests/test_research_factor.py:708: AssertionError
+_____________________________________________________________________________ test_factor_commands_registered_with_schemas _____________________________________________________________________________
+
+    def test_factor_commands_registered_with_schemas():
+        from factorlab.research import registry
+        assert FACTOR_COMMANDS <= set(registry.COMMANDS)
+        for name in sorted(FACTOR_COMMANDS):
+            doc = registry.COMMANDS[name].to_doc()
+            assert doc["description"], name
+            assert doc["examples"], name
+            assert doc["output_schema"], name
+        resic = registry.COMMANDS["factor.resic"].to_doc()
+        assert {p["name"] for p in resic["params"]} >= {
+            "frequency", "horizon", "fwd_col"}
+        assert resic["defaults"]["frequency"] is None
+        admit = registry.COMMANDS["factor.admit"].to_doc()
+>       assert admit["defaults"]["scales"] is None
+E       AssertionError: assert 'daily' is None
+
+platform/tests/test_research_factor.py:988: AssertionError
+__________________________________________________________________ test_cli_research_factor_admit_help_and_describe_scale_autodetect ___________________________________________________________________
+
+    def test_cli_research_factor_admit_help_and_describe_scale_autodetect():
+        help_result = runner.invoke(cli_app, [
+            "research", "factor", "admit", "--help"])
+        assert help_result.exit_code == 0, help_result.output
+>       assert "bars_1m" in help_result.stdout
+E       AssertionError: assert 'bars_1m' in 'usage: factorlab research factor.admit [--scales SCALES] [--wait] [--json] [--pretty] spec_path\n\n一键入库检验：lint→最终测试门（...开）\n  --pretty         缩进 JSON（人读）\n\n示例：flab factor admit $QUANTRESEARCH_ROOT/factor/volatility/max_effect_20d.yaml\n'
+E        +  where 'usage: factorlab research factor.admit [--scales SCALES] [--wait] [--json] [--pretty] spec_path\n\n一键入库检验：lint→最终测试门（...开）\n  --pretty         缩进 JSON（人读）\n\n示例：flab factor admit $QUANTRESEARCH_ROOT/factor/volatility/max_effect_20d.yaml\n' = <Result okay>.stdout
+
+platform/tests/test_research_factor.py:1069: AssertionError
+======================================================================================= short test summary info ========================================================================================
+FAILED platform/tests/test_research_factor.py::test_factor_admit_scales_follow_spec_interface_unless_explicit[bars_1m-None-minute] - AssertionError: assert 'daily' == 'minute'
+FAILED platform/tests/test_research_factor.py::test_factor_commands_registered_with_schemas - AssertionError: assert 'daily' is None
+FAILED platform/tests/test_research_factor.py::test_cli_research_factor_admit_help_and_describe_scale_autodetect - AssertionError: assert 'bars_1m' in 'usage: factorlab research factor.admit [--sca...
+3 failed, 4 passed, 45 deselected in 2.19s

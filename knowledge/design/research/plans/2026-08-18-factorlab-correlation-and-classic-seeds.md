@@ -436,7 +436,7 @@ git commit -m "feat(web): 因子详情页相关热力图"
 
 **Files:**
 - Create: `factor/value_ep.yaml`、`factor/value_bp.yaml`、`factor/dividend_yield.yaml`
-- Create: `docs/factors/value_ep.md`、`docs/factors/value_bp.md`、`docs/factors/dividend_yield.md`
+- Create: `$QUANTRESEARCH_ROOT/dossiers/factors/value_ep.md`、`$QUANTRESEARCH_ROOT/dossiers/factors/value_bp.md`、`$QUANTRESEARCH_ROOT/dossiers/factors/dividend_yield.md`
 
 - [ ] **Step 1: 写 3 个因子 spec**
 
@@ -468,21 +468,19 @@ Expected: 成功输出 n_weeks/ic_mean/spread；记录 summary 指标（缺失�
 
 - [ ] **Step 3: 建档案**
 
-按 `docs/factors/_template.md` 为 3 个因子建档案（逻辑/验证快照/判定；
+按 `$QUANTRESEARCH_ROOT/dossiers/factors/_template.md` 为 3 个因子建档案（逻辑/验证快照/判定；
 判定按实际：显著→候选，不显著→观察中/无效，表现差不影响入库——正交种子价值）。
 
-- [ ] **Step 4: 提交**
+- [ ] **Step 4: 保存产物**
 
-```bash
-git add factor/value_ep.yaml factor/value_bp.yaml factor/dividend_yield.yaml docs/factors/value_ep.md docs/factors/value_bp.md docs/factors/dividend_yield.md
-git commit -m "feat(factor): 价值三因子种子（EP/BP/股息率）"
-```
+spec 与档案位于主仓外的 `$QUANTRESEARCH_ROOT` 产物区，不对这些文件执行主仓
+`git add` / `git commit`。若同轮修改仓内研究工具，按目录公约单独提交工具改动。
 
 ### Task 6: 经典因子——波动/彩票/流动性/规模 4 个
 
 **Files:**
 - Create: `factor/low_vol_20d.yaml`、`factor/max_effect_20d.yaml`、`factor/amihud_illiq_20d.yaml`、`factor/small_cap.yaml`
-- Create: 对应 `docs/factors/*.md`
+- Create: 对应 `$QUANTRESEARCH_ROOT/dossiers/factors/*.md`
 
 - [ ] **Step 1: 写 4 个因子 spec**
 
@@ -509,18 +507,16 @@ formula: |
 `factor/small_cap.yaml`：`signal = -log(circ_mv)`，direction: 1。
 
 - [ ] **Step 2: 逐个运行 + 建档案**（同 Task 5 Step 2-3）
-- [ ] **Step 3: 提交**
+- [ ] **Step 3: 保存产物**
 
-```bash
-git add factor/low_vol_20d.yaml factor/max_effect_20d.yaml factor/amihud_illiq_20d.yaml factor/small_cap.yaml docs/factors/low_vol_20d.md docs/factors/max_effect_20d.md docs/factors/amihud_illiq_20d.md docs/factors/small_cap.md
-git commit -m "feat(factor): 波动/彩票/流动性/规模因子种子"
-```
+spec 与档案位于主仓外的 `$QUANTRESEARCH_ROOT` 产物区，不对这些文件执行主仓
+`git add` / `git commit`。若同轮修改仓内研究工具，按目录公约单独提交工具改动。
 
 ### Task 7: 经典因子——技术 3 个
 
 **Files:**
 - Create: `factor/rsi_reversal_14.yaml`、`factor/volume_ratio.yaml`、`factor/turnover_level.yaml`
-- Create: 对应 `docs/factors/*.md`
+- Create: 对应 `$QUANTRESEARCH_ROOT/dossiers/factors/*.md`
 
 - [ ] **Step 1: 写 3 个因子 spec**
 
@@ -547,12 +543,10 @@ formula: |
 `factor/turnover_level.yaml`：`signal = turnover`，direction: -1。
 
 - [ ] **Step 2: 逐个运行 + 建档案**（同 Task 5 Step 2-3）
-- [ ] **Step 3: 提交**
+- [ ] **Step 3: 保存产物**
 
-```bash
-git add factor/rsi_reversal_14.yaml factor/volume_ratio.yaml factor/turnover_level.yaml docs/factors/rsi_reversal_14.md docs/factors/volume_ratio.md docs/factors/turnover_level.md
-git commit -m "feat(factor): 技术因子种子（RSI/量比/换手水平）"
-```
+spec 与档案位于主仓外的 `$QUANTRESEARCH_ROOT` 产物区，不对这些文件执行主仓
+`git add` / `git commit`。若同轮修改仓内研究工具，按目录公约单独提交工具改动。
 
 ### Task 8: 文档同步
 

@@ -45,7 +45,7 @@ input_binding:
 
 ## 4. Spec（V1 不表达数学）
 
-`research/composites/specs/<name>.yaml`：
+`$QUANTRESEARCH_ROOT/composites/specs/<name>.yaml`：
 
 ```yaml
 name: composite_001
@@ -124,7 +124,7 @@ meta:
 
 ## 14. CLI 与落点（含边界裁定）
 
-- 目标命令：`factorlab compose research/composites/specs/<name>.yaml`（薄）。
+- 目标命令：`factorlab compose $QUANTRESEARCH_ROOT/composites/specs/<name>.yaml`（薄）。
 - 流程：load spec → resolve members → check artifacts → DAG → PIT/date/code 对齐 → build X →
   load implementation → compute → validate output → build CompositeArtifact → evaluate → persist。
 - **落点裁定（G-BOUNDARY 兼容）**：契约层（spec 模型/loader/alignment/graph/runtime/validator/artifact/eval 钩子）
@@ -133,7 +133,7 @@ meta:
   先例一致；spec/实现/档案在 research 侧。
 - 产物：`runs/platform/composites/<name>/{panel.parquet, summary.json, artifact.json, provenance.json, evaluation/}`
   （布局与因子产物对齐，复用既有 results_fs/atomicio 单点）。
-- 档案/索引：`knowledge/dossiers/composites/<name>.md`、`knowledge/index/composites.md`（C3）。
+- 档案/索引：`$QUANTRESEARCH_ROOT/dossiers/composites/<name>.md`、`$QUANTRESEARCH_ROOT/index/composites.md`（C3）。
 
 ## 15. 输出验证（compute 返回的 y）
 
@@ -142,7 +142,7 @@ meta:
 ## 16. 目录布局（research 侧）
 
 ```
-research/composites/
+$QUANTRESEARCH_ROOT/composites/
 ├── specs/<name>.yaml
 ├── implementations/<name>.py
 └── (评估/档案由平台与 knowledge 侧承接)

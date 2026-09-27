@@ -26,7 +26,7 @@
 3. `flab data tables` / `flab data status` —— 表清单（行数）× 新鲜度+交易日缺口。
 4. `flab factor lint $QUANTRESEARCH_ROOT/factor/<族>/<名>.yaml` —— 秒级静态校验（写完 spec 先跑）。
 5. `flab factor run $QUANTRESEARCH_ROOT/factor/<族>/<名>.yaml` —— 计算+评估+分层回测（过闸；返回 IC/十分位/换手/覆盖）。
-6. `flab factor admit $QUANTRESEARCH_ROOT/factor/<族>/<名>.yaml` —— 一键入库检验：lint→(缺产物则 run)→参考库 corr+resic→`verdict: 可加入|冗余|重复`。
+6. `flab factor admit $QUANTRESEARCH_ROOT/factor/<族>/<名>.yaml` —— 一键入库检验：lint→(缺产物则 run)→参考库 corr+resic→`verdict: 可加入|观察|冗余|重复`；参考库写入要求测试段 `|resIC t|≥3`、`corr_max<0.7`、`retention≥0.5`。
 7. `flab factor resic <name> --against reference` / `flab factor corr <a> <b>` —— 增量信息 / 两两相关。
 8. `flab strategy run $QUANTRESEARCH_ROOT/strategy/<名>.yaml` —— 信号→组合→执行回测→持久化（过闸）。
 9. `flab report url <因子名>` —— 报告静态 URL（不启服务）；`flab report serve` 启只读 Web。

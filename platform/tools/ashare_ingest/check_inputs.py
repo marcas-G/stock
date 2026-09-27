@@ -11,7 +11,8 @@ import argparse
 import pandas as pd
 
 import datapaths
-from contracts import DAILY_REQUIRED, FUNDAMENTALS_REQUIRED, INDEX_DAILY_REQUIRED
+from ashare_ingest_contracts import (
+    DAILY_REQUIRED, FUNDAMENTALS_REQUIRED, INDEX_DAILY_REQUIRED)
 
 
 def main() -> int:

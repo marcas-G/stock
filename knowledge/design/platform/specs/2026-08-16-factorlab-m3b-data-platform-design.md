@@ -2,7 +2,7 @@
 
 日期：2026-08-16
 状态：已实现（M3b 平台数据平台已交付；原"待评审"为文档漂移，R21 补正。现行数据链见
-      `platform/docs/interface.md` §4 与 `platform/docs/data-ops-playbook.md`）
+      `knowledge/contracts/interface.md` §4 与 `knowledge/contracts/data-ops-playbook.md`）
 依赖主设计：`docs/superpowers/specs/2026-08-15-factor-dsl-platform-design.md`
 
 ## 1. 背景与目标

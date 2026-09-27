@@ -10,8 +10,9 @@
 - 与 `../2026-09-15-open-operators/`、`../2026-09-15-minute-execution/` 独立；NEXT_WINDOW 分钟执行由本计划
   Task 1/2 直通（`ExecutionSpec.minute_window`）；
 - `research/tools/strategies` **留 research**（工具迁移决策）；`factor_lib` 扩策略索引（同留 research）；
-- R24 目录重整已落地：本计划档案/索引落在 `knowledge/` 新坐标（`knowledge/dossiers/strategies/`、
-  `knowledge/index/strategies.md`）。
+- R24 目录重整后档案/索引曾落在 `knowledge/`；R37 Phase 2 起当前落点为
+  `$QUANTRESEARCH_ROOT/dossiers/strategies/` 和
+  `$QUANTRESEARCH_ROOT/index/strategies.md`。
 
 ## 文件
 
@@ -36,5 +37,5 @@
 
 - 加载器 fail-fast：未知键/类型/`NEXT_WINDOW` 无窗口/非 null `rules` 均有明确报错；
 - 运行器：链上逐值断言 + 持久化 round-trip + `NEXT_OPEN` 既有链零差异 + CA Gate 不吞错；
-- 建档：`docs/index/strategies.md` 字节级 `--check`，spec↔档案双向齐全；
+- 建档：`$QUANTRESEARCH_ROOT/index/strategies.md` 字节级 `--check`，spec↔档案双向齐全；
 - 首例真 CH 跑通（内存护栏 + 原始输出留证）；`NEXT_WINDOW` 配置可加载（V1 接口闭环）。

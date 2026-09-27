@@ -157,31 +157,38 @@ def orthogonalized_ic(weekly_wide: pl.DataFrame, target_col: str,
 # ---------- 磁盘汇聚与双模式入口 ----------
 
 def _read_aligned_panel(results_dir: pathlib.Path, name: str, fwd_col: str,
-                        keep_fwd: bool) -> pl.DataFrame:
-    """读单输出 run 的 panel（读单点 = adapters.panel_store；WS4f）→ 周频对齐输出
-    [date, code, name(, fwd_col)]。
+                        keep_fwd: bool, frequency: str = "weekly") -> pl.DataFrame:
+    """读单输出 run 的 panel（读单点 = adapters.panel_store；WS4f）并按频率对齐。
 
     缺失/多输出/日期 cast 语义逐字保留（见 ParquetPanelStore.read_aligned_panel）。
+    daily 保留每个可用交易日的横截面；weekly 取 ISO 周末快照。
     """
     from factorlab.adapters.panel_store import ParquetPanelStore
     df = ParquetPanelStore().read_aligned_panel(results_dir, name, fwd_col, keep_fwd)
-    return align_weekly(df).select(["date", "code", name] +
-                                   ([fwd_col] if keep_fwd else []))
+    if frequency == "weekly":
+        df = align_weekly(df)
+    elif frequency != "daily":
+        raise ValueError("frequency 只能是 daily 或 weekly")
+    return df.select(["date", "code", name] + ([fwd_col] if keep_fwd else []))
 
 
 def _join_weekly_wide(names: list[str], results_dir: pathlib.Path,
-                      fwd_col: str, carrier: str) -> pl.DataFrame:
-    """逐因子周频对齐 → 过滤到公共日期 → concat+pivot 汇聚 → join carrier 的 fwd。
+                      fwd_col: str, carrier: str,
+                      frequency: str = "weekly") -> pl.DataFrame:
+    """逐因子按频率对齐 → 过滤到公共日期 → concat+pivot 汇聚 → join carrier 的 fwd。
 
     pivot 单次操作（复刻 factor_svd——多因子链式 join 在 Windows 上偶发段错误）。
     日期交集为空 → ValueError（宽表永远非空——pivot 保留全部日期行、缺失为
     null，height==0 检查无效，必须在 concat 前判交集）。
     """
+    if frequency not in ("daily", "weekly"):
+        raise ValueError("frequency 只能是 daily 或 weekly")
     frames: list[tuple[str, pl.DataFrame]] = []
     carrier_fwd = None
     for name in names:
         keep = name == carrier
-        df = _read_aligned_panel(results_dir, name, fwd_col, keep_fwd=keep)
+        df = _read_aligned_panel(results_dir, name, fwd_col, keep_fwd=keep,
+                                  frequency=frequency)
         if keep:
             carrier_fwd = df.select(["date", "code", fwd_col])
         frames.append((name, df.select(["date", "code", name])))
@@ -207,7 +214,8 @@ def _join_weekly_wide(names: list[str], results_dir: pathlib.Path,
 def joint_diagnostics(names: list[str], results_dir: str | pathlib.Path,
                       target: str | None = None,
                       fwd_col: str = "forward_return_5d",
-                      min_stocks: int = MIN_STOCKS) -> dict:
+                      min_stocks: int = MIN_STOCKS,
+                      frequency: str = "weekly") -> dict:
     """横截面联合诊断双模式入口。
 
     - target is None（组内互评）：names ≥ 2 否则 ValueError（消息含 --target 提示）；
@@ -217,6 +225,8 @@ def joint_diagnostics(names: list[str], results_dir: str | pathlib.Path,
       names 中——它的 panel 会被额外读取）。
     返回 {"mode", "group", "factors": [{"name", "base", ...resIC dict}]}。
     """
+    if frequency not in ("daily", "weekly"):
+        raise ValueError("frequency 只能是 daily 或 weekly")
     rd = pathlib.Path(results_dir)
     if target is None:
         if len(names) < 2:
@@ -234,7 +244,8 @@ def joint_diagnostics(names: list[str], results_dir: str | pathlib.Path,
         carrier = target
         mode = "target"
         base_of = {target: list(names)}
-    wide = _join_weekly_wide(all_names, rd, fwd_col, carrier=carrier)
+    wide = _join_weekly_wide(all_names, rd, fwd_col, carrier=carrier,
+                             frequency=frequency)
     if target is None:
         group_cols = names
     else:
@@ -253,6 +264,11 @@ def joint_diagnostics(names: list[str], results_dir: str | pathlib.Path,
 VERDICT_JOIN = "可加入"
 VERDICT_WATCH = "观察"
 VERDICT_REDUNDANT = "冗余"
+VERDICT_DUPLICATE = "重复"
+
+# User-selected operational admission floor. The max-T audit estimated a joint
+# critical value near 3.45; using 3.0 is not a claim of FWER control.
+REFERENCE_ADMISSION_MIN_ABS_RESIC_T = 3.0
 
 
 def _series_stats(xs: list[float]) -> tuple[float, float, float]:
@@ -265,29 +281,50 @@ def _series_stats(xs: list[float]) -> tuple[float, float, float]:
     return mean, std, t
 
 
+def _finite_scalar(value: float) -> bool:
+    """True only for finite numeric diagnostics; malformed/non-finite values fail closed."""
+    if isinstance(value, bool):
+        return False
+    try:
+        return bool(np.isfinite(value))
+    except (TypeError, ValueError):
+        return False
+
+
 def _incremental_verdict(corr_max: float, r2_lib: float, resic_t: float,
                          retention: float) -> str:
-    """建议门槛（spec §3b 建议值，真实对照后校准）：
+    """D10 参考库判决（用户选定的 resIC 绝对 t 准入门槛为 3.0）：
 
-    - **冗余**：max|ρ| ≥ 0.9 或 r2_lib ≥ 0.9 或 retention < 20%（近亲/几乎被库解释）；
-    - **可加入**：残差 |t| ≥ 2（方向因子按绝对值——IC 符号由 direction 约定，
-      spec 的"残差 t≥2"按显著性读）且 max|ρ| < 0.7 且 retention ≥ 50%；
+    - **重复**：max|ρ| ≥ 0.95；
+    - **冗余**：0.9 ≤ max|ρ| < 0.95、r2_lib ≥ 0.9、retention < 20%，或
+      r2_lib ≥ 0.8 且 |resIC t| < 2（近亲/几乎被库解释）；
+    - **可加入**：残差 |t| ≥ 3 且 max|ρ| < 0.7 且 retention ≥ 50%；
     - 其余 → **观察**。
+
+    3.0 是操作性门槛；99 项试验、B=300 的联合 max-T 校准估计临界值约
+    3.45，因此此门槛不声称已控制 FWER。
     """
-    if ((corr_max == corr_max and corr_max >= 0.9)
-            or (r2_lib == r2_lib and r2_lib >= 0.9)
-            or (retention == retention and retention < 0.2)):
+    if _finite_scalar(corr_max) and corr_max >= 0.95:
+        return VERDICT_DUPLICATE
+    if ((_finite_scalar(corr_max) and corr_max >= 0.9)
+            or (_finite_scalar(r2_lib) and r2_lib >= 0.9)
+            or (_finite_scalar(retention) and retention < 0.2)
+            or (_finite_scalar(r2_lib) and r2_lib >= 0.8
+                and not (_finite_scalar(resic_t) and abs(resic_t) >= 2.0))):
         return VERDICT_REDUNDANT
-    if ((resic_t == resic_t and abs(resic_t) >= 2.0)
-            and (corr_max == corr_max and corr_max < 0.7)
-            and (retention == retention and retention >= 0.5)):
+    if (_finite_scalar(resic_t)
+            and abs(resic_t) >= REFERENCE_ADMISSION_MIN_ABS_RESIC_T
+            and _finite_scalar(corr_max) and corr_max < 0.7
+            and _finite_scalar(r2_lib)
+            and _finite_scalar(retention) and retention >= 0.5):
         return VERDICT_JOIN
     return VERDICT_WATCH
 
 
 def _incremental_one(name: str, base: list[str], rd: pathlib.Path,
                      fwd_col: str, min_stocks: int,
-                     date_start: str | None = None) -> dict:
+                     date_start: str | None = None,
+                     frequency: str = "weekly") -> dict:
     """单候选：rank 残差回归（r2_lib/resIC/retention）+ 与库成员 |ρ| + verdict。
 
     `date_start` 非 None：候选/参考面板过滤到 `date >= date_start`（R42 测试段
@@ -296,7 +333,8 @@ def _incremental_one(name: str, base: list[str], rd: pathlib.Path,
     from factorlab.app.analysis.correlation import (factor_correlation,
                                                      parse_date_start)
     start = parse_date_start(date_start)
-    wide = _join_weekly_wide([name, *base], rd, fwd_col, carrier=name)
+    wide = _join_weekly_wide([name, *base], rd, fwd_col, carrier=name,
+                             frequency=frequency)
     if start is not None:
         wide = wide.filter(pl.col("date") >= start)
         if wide.height == 0:
@@ -350,7 +388,8 @@ def incremental_diagnostics(candidates: list[str],
                             base: list[str],
                             fwd_col: str = "forward_return_5d",
                             min_stocks: int = MIN_STOCKS,
-                            date_start: str | None = None) -> dict:
+                            date_start: str | None = None,
+                            frequency: str = "weekly") -> dict:
     """D10 增量信息评估：候选（库外）对基准库的 corr_max/mean、r2_lib、resIC、
     retention、verdict（spec §3b 表）。
 
@@ -363,6 +402,8 @@ def incremental_diagnostics(candidates: list[str],
     返回 {"kind": "incremental", "base": [...], "candidates": [{...}]}。
     """
     rd = pathlib.Path(results_dir)
+    if frequency not in ("daily", "weekly"):
+        raise ValueError("frequency 只能是 daily 或 weekly")
     base = list(dict.fromkeys(base))
     if not base:
         raise ValueError("至少需要 1 个基准因子")
@@ -371,5 +412,6 @@ def incremental_diagnostics(candidates: list[str],
         if name in base:
             raise ValueError(f"候选 {name} 在基准组内——基准应排除候选本身")
         out.append(_incremental_one(name, base, rd, fwd_col, min_stocks,
-                                    date_start=date_start))
+                                    date_start=date_start,
+                                    frequency=frequency))
     return {"kind": "incremental", "base": base, "candidates": out}

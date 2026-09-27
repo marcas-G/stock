@@ -1,7 +1,8 @@
 # factorlab
 
 个人因子计算平台（M1–M8 已交付）：spec.yaml 因子 DSL（`expr_codegen` + `polars_ta` 内核，
-TS/CS/GP 分区 + 池公式 + 多输出）、分块计算、日频/分钟双链、Rust `quant_core` 周频评估、
+TS/CS/GP 分区 + 池公式 + 多输出）、分块计算、日频/分钟双链、统一评估内核
+（`factorlab/core/eval/kernel.py`）、
 分层回测、Web 可视化、M7 策略组合、M8 执行运行时、PIT 正确性收口、读路径双后端
 （DuckDB 平台库 | ClickHouse）。
 
@@ -13,7 +14,7 @@ TS/CS/GP 分区 + 池公式 + 多输出）、分块计算、日频/分钟双链�
 ```bash
 # 环境：本工作树自带 uv 管理的 venv（Python 3.13）
 .venv/bin/python -m pip --version 2>/dev/null || export PATH=/home/gaolei/.local/bin:$PATH
-# 两个 editable（factorlab + 评估内核 shim）一条命令重装并断言落位：
+# factorlab editable 一条命令重装并断言落位：
 bash ../governance/ops/reinstall_editable.sh
 
 # 测试
@@ -44,8 +45,9 @@ bash ../governance/ops/reinstall_editable.sh
 
 ## 仓库纪律（摘要，2026-09-15 单仓单树）
 
-- **单仓单树**：本目录 = 平台树（`platform/`）；研究内容在兄弟目录 `../research/`，
-  工作区文档/证据在 `../docs/`。**旧的双分支纪律（main=平台 / research=研究）已退役**——
+- **单仓单树**：本目录 = 平台树（`platform/`）；研究工具在兄弟目录 `../research/`，
+  工作区文档在 `../knowledge/`，治理与证据在 `../governance/`。**旧的双分支纪律
+  （main=平台 / research=研究）已退役**——
   现在按**目录**分权，一次改动涉及多棵树时按目录分别提交；目录边界与提交前缀见
   [../CLAUDE.md](../CLAUDE.md) 与 [../AGENTS.md](../AGENTS.md)。
 - **`tools/` 是数据生产线工具集**（R27 从 `research/tools/` 归位；转换/灌库/LOB/下载/池分层等），

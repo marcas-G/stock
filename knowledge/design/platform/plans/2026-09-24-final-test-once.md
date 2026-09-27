@@ -89,13 +89,17 @@
 
 **Interfaces:**
 - 新增冻结件：`<results_dir>/<name>_5y/test_diagnostics.json`
-  `{version_fingerprint, window_id, window_start, date_start, date_end, corr_max, r2_lib, resic_t, resic_mean, n_weeks, created_at}`。
+  `{version_fingerprint, window_id, window_start, date_start, date_end, corr_max, r2_lib, retention, resic_t, resic_mean, n_weeks, created_at}`。
 - `_final_test_gate(spec_doc, spec_path, *, reason, command)`：
   1) role IS → 放行（纯训练段入库不需要最终测试？——**否**：入库必须看测试段 → IS-only 因子不可入库，报 `LOCKBOX_TEST_ONLY_FINAL`）
   2) 无 final 登记 → **执行最终测试**：`flab factor run <spec>`（全窗，经流水线标记语义）→ 计算 `incremental_diagnostics` 的
      **测试段切片**（`date >= window_start`）→ 写 `test_diagnostics.json` → `register_access(kind=final, reason=...)`。
   3) 有 final 登记 → 校验冻结件存在且 `version_fingerprint/window_id` 一致 → 否则 `LOCKBOX_FINAL_REQUIRED`（提示重建）。
-- `admit/ref add` 的入库判决改用冻结件里的测试段 `corr_max/r2_lib/resic_t`（`_admit_verdict` 不变，喂测试段数）。
+- `admit/ref add` 的入库判决改用冻结件里的测试段
+  `corr_max/r2_lib/resic_t/retention`；R43 / Issue #24 后要求
+  `|resIC t|≥3`、`corr_max<0.7`、`retention≥0.5` 才可加入。
+  缺少 retention 的旧冻结件从同一最终测试产物补算，不重跑 final；`ref add`
+  在备份和写入前复核判决。
 
 - [ ] Step1 测试（沙箱）：无 final → admit 触发最终测试并落冻结件+登记；二次 admit 只读冻结件（零新登记）；
   冻结件缺失/版本不符 → 拒绝；测试段指标与冻结件一致（注入 fake diagnostics）。

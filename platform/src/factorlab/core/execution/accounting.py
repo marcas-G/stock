@@ -4,8 +4,9 @@ ExecutionAccountingSummary。
 只聚合，不重算：
 - cash_before = pre.cash；net_cash_delta = Σ FillBatch.effective_cash_delta
   （与 M8-04D 同一 polars sum 表达）；cash_after = post.cash
-- **cash bridge 严格**：post.cash == pre.cash + Σ delta（否则 ValueError
-  "POST cash is inconsistent with PRE cash + FillBatch effective_cash_delta"）
+- **cash bridge 容差校验**：post.cash 与 pre.cash + Σ delta 在浮点容差内相等；
+  超出容差则 ValueError "POST cash is inconsistent with PRE cash + "
+  "FillBatch effective_cash_delta"
 - buy/sell gross 与 commission/stamp/transfer 直接聚合 FillBatch 列；
   total_fees = commission + stamp_tax + transfer_fee（固定 aggregation
   order，与 FillBatch 每行 total 同表达式结构——禁止按 rates 反算）
@@ -17,7 +18,8 @@ from __future__ import annotations
 
 import polars as pl
 
-from factorlab.core.domain.accounting import ExecutionAccountingSummary
+from factorlab.core.domain.accounting import (ExecutionAccountingSummary,
+                                              cash_bridge_matches)
 from factorlab.core.domain.execution import (ExecutionTiming, FillBatch,
                                         PortfolioState, PortfolioStatePhase)
 
@@ -62,9 +64,10 @@ def summarize_execution_accounting(
 
     f = fills.frame
     net_cash_delta = f["effective_cash_delta"].sum() if f.height else 0.0
-    # cash bridge（与 M8-04D 同一 Float64 reduction path——不允许
-    # Decimal/round/clamp）
-    if post_state.cash != pre_state.cash + net_cash_delta:
+    # cash bridge（与 M8-04D 同一 Float64 reduction path；允许归约顺序
+    # 产生的微小舍入噪声，不做 Decimal/round/clamp）
+    if not cash_bridge_matches(post_state.cash,
+                               pre_state.cash + net_cash_delta):
         raise ValueError(
             f"POST cash is inconsistent with PRE cash + FillBatch "
             f"effective_cash_delta：{post_state.cash} != "

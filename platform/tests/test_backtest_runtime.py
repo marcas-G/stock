@@ -12,6 +12,7 @@
 import datetime
 import inspect
 import re
+from dataclasses import replace
 from pathlib import Path
 
 import duckdb
@@ -157,6 +158,30 @@ def test_single_event_run(tmp_path):
     # final state = PRE at D3
     assert r.final_state.as_of_date == D3
     assert r.final_state.phase is PortfolioStatePhase.PRE_EXECUTION
+
+
+def test_artifact_cash_bridge_allows_float_reduction_noise(tmp_path):
+    """artifact bridge 对归约顺序产生的 ulp 噪声使用浮点容差。"""
+    db = _db(tmp_path)
+    artifact = _run(target=_target(dates=(D1,)), db_path=db).artifacts[0]
+    epsilon = 1.2732925824820995e-11
+    post = replace(artifact.post_state, cash=artifact.post_state.cash + epsilon)
+    accounting = replace(artifact.accounting, cash_after=post.cash)
+    nav = replace(artifact.nav, cash=post.cash, nav=post.cash + artifact.nav.market_value)
+    checked = replace(artifact, post_state=post, accounting=accounting, nav=nav)
+    assert checked.post_state.cash != (
+        checked.pre_state.cash
+        + checked.fills.frame["effective_cash_delta"].sum())
+
+
+def test_artifact_cash_bridge_rejects_material_mismatch(tmp_path):
+    db = _db(tmp_path)
+    artifact = _run(target=_target(dates=(D1,)), db_path=db).artifacts[0]
+    post = replace(artifact.post_state, cash=artifact.post_state.cash + 0.01)
+    accounting = replace(artifact.accounting, cash_after=post.cash)
+    nav = replace(artifact.nav, cash=post.cash, nav=post.cash + artifact.nav.market_value)
+    with pytest.raises(ValueError, match="artifact cash bridge"):
+        replace(artifact, post_state=post, accounting=accounting, nav=nav)
 
 
 def test_multi_event_rebalance(tmp_path):

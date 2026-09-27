@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import subprocess
 import sys
 import time
@@ -21,7 +20,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from pv_engine import PortfolioConfig, simulate  # noqa: E402
+from pv_engine import PortfolioConfig, _strict_json_dumps, simulate  # noqa: E402
 
 QR = Path("/data/students/gaolei/quantresearch")
 STOCK = HERE.parents[3]
@@ -44,6 +43,10 @@ def git_commit() -> str:
         return f"{sha}{'+dirty' if dirty else ''}"
     except Exception:
         return "unknown"
+
+
+def _format_metric(value: float | None) -> str:
+    return "null" if value is None else f"{value:.2f}"
 
 
 def load_ctx(panel_path: Path, open_cache: Path, mv_path: Path,
@@ -107,16 +110,17 @@ def main() -> int:
     res["config"] = {**cfg.__dict__}
     res["signal"] = str(args.signal)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps(res, ensure_ascii=False, indent=2, default=str))
-    Path(args.out).with_suffix(".manifest.json").write_text(json.dumps({
+    Path(args.out).write_text(_strict_json_dumps(res))
+    Path(args.out).with_suffix(".manifest.json").write_text(_strict_json_dumps({
         "step": "porteval", "signal": str(args.signal), "signal_sig": file_sig(args.signal),
         "panel_sig": file_sig(args.panel), "open_cache_sig": file_sig(args.open_cache),
         "mv_sig": file_sig(args.mv), "limits_sig": file_sig(args.limits),
         "config": {**cfg.__dict__}, "git": git_commit(),
         "elapsed_s": round(time.time() - t0, 1),
-    }, ensure_ascii=False, indent=2, default=str))
+    }))
     print(f"[porteval:{Path(args.signal).parent.name}|{cfg.exec_mode}|{cfg.mv_scope}] "
-          f"ann={res['ann']*100:.2f}% excess={res['excess']*100:.2f}% IR={res['ir']:.2f} "
+          f"ann={res['ann']*100:.2f}% excess={res['excess']*100:.2f}% "
+          f"IR={_format_metric(res['ir'])} "
           f"expo={res['avg_exposure']*100:.1f}% pos={res['avg_positions']:.0f}")
     return 0
 
