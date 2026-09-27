@@ -1,0 +1,35 @@
+$ platform/.venv/bin/python governance/evidence/verification/R51/minute-coverage/audit_20240718.py
+{
+  "date": "2024-07-18",
+  "pool": "bars1m_2023_2025",
+  "pool_codes": 4852,
+  "pool_codes_with_daily_row": 4690,
+  "missing_code_days": 7,
+  "missing_codes": [
+    "300265.SZ",
+    "300305.SZ",
+    "300533.SZ",
+    "300551.SZ",
+    "300552.SZ",
+    "300576.SZ",
+    "300578.SZ"
+  ]
+}
+
+$ python [read-only ZIP membership check from commands.txt]
+300265 source_member_present=False
+300305 source_member_present=False
+300533 source_member_present=False
+300551 source_member_present=False
+300552 source_member_present=False
+300576 source_member_present=False
+300578 source_member_present=False
+
+$ git diff --check
+exit 0
+
+$ python -m py_compile platform/src/factorlab/app/run.py platform/tests/test_minute_engine.py
+exit 0
+
+pytest
+not run locally: llama-server active; covered by GitHub Actions.

@@ -1,0 +1,40 @@
+# Minute-coverage failure investigation (read-only)
+
+## Verify code-day gaps in the Factor Spec's candidate pool
+
+Run from the stock checkout with network access to ClickHouse HTTP on
+127.0.0.1:8123 and the external quantresearch tree mounted:
+
+```bash
+platform/.venv/bin/python governance/evidence/verification/R51/minute-coverage/audit_20240718.py
+```
+
+The script reads the configured `bars1m_2023_2025` pool, then compares that
+pool's 2024-07-18 rows in `factorlab.daily` and `factorlab.bars_1m`. It does not
+write to ClickHouse or modify research artifacts.
+
+## Verify source archive membership
+
+```bash
+python - <<'PY'
+from pathlib import Path
+from zipfile import ZipFile
+
+archive = Path("data/raw/minutes/2024/07/20240718.zip")
+codes = {"300265", "300305", "300533", "300551", "300552", "300576", "300578"}
+with ZipFile(archive) as source:
+    members = {Path(name).stem for name in source.namelist()}
+for code in sorted(codes):
+    print(f"{code} source_member_present={code in members}")
+PY
+```
+
+## Static implementation checks
+
+```bash
+git diff --check
+python -m py_compile platform/src/factorlab/app/run.py platform/tests/test_minute_engine.py
+```
+
+The host has an active llama-server, so pytest is deferred to GitHub Actions
+under the repository's heavy-run rule.
