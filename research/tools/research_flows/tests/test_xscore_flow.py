@@ -734,7 +734,7 @@ def test_final_xscore_resumes_same_attempt_after_registration_before_prepared(
     monkeypatch.setattr(xscore_module, "_lockbox_register", register)
     score_calls = 0
 
-    def score(_panel, score_dir, *_args):
+    def score(_panel, score_dir, group, _columns, model, *_args):
         nonlocal score_calls
         score_calls += 1
         output = Path(score_dir)
@@ -746,8 +746,8 @@ def test_final_xscore_resumes_same_attempt_after_registration_before_prepared(
         (output / "metrics.json").write_text("{}", encoding="utf-8")
         (output / "manifest.json").write_text("{}", encoding="utf-8")
         return {
-            "group": "daily",
-            "model": "M0a",
+            "group": group,
+            "model": model,
             "score_dir": str(output),
             "metrics": {},
         }
