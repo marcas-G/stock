@@ -9,6 +9,7 @@ core 只保留纯计算（compute_formula / 分区/前向收益/分钟折日纯�
 from __future__ import annotations
 
 import datetime
+import json
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -19,6 +20,7 @@ import yaml
 
 from factorlab.adapters.parquet_artifacts import (write_factor_artifacts,
                                  write_multi_output_factor_artifacts)
+from factorlab.adapters.atomicio import atomic_write_text
 from factorlab.core.domain.frames import LabelArtifact, SignalArtifact, SignalMeta
 from factorlab.core.domain.timing import DEFAULT_EOD_SIGNAL_TIMING
 from factorlab.app.context import RunContext
@@ -798,6 +800,47 @@ def _warn_minute_uncovered(uncovered: pl.DataFrame) -> None:
         MinuteUncoveredWarning, stacklevel=2)
 
 
+def _write_minute_coverage_audit(
+    output_dir: Path,
+    missing_day: pl.DataFrame,
+    *,
+    error: str,
+) -> Path:
+    """Persist the complete fail-fast coverage gap before raising.
+
+    The exception text is intentionally short for Prefect/UI logs, while this
+    file is the durable audit record for every missing ``(code, date)`` pair.
+    """
+    ordered = missing_day.sort(["date", "code"])
+    rows = ordered.select(
+        [column for column in ("date", "code", "exchange")
+         if column in ordered.columns]
+    ).with_columns(pl.col("date").cast(pl.String)).to_dicts()
+    suffix = {"SSE": "SH", "SZSE": "SZ", "BSE": "BJ"}
+    for row in rows:
+        exchange = row.get("exchange")
+        code = row["code"]
+        if exchange in suffix:
+            row["ts_code"] = f"{code}.{suffix[exchange]}"
+    payload = {
+        "status": "failed",
+        "mode": "fail",
+        "error": error,
+        "missing_code_days": len(rows),
+        "missing_codes": sorted({
+            row.get("ts_code") or row["code"] for row in rows
+        }),
+        "missing_dates": sorted({row["date"] for row in rows}),
+        "rows": rows,
+    }
+    path = Path(output_dir) / "minute_coverage_audit.json"
+    atomic_write_text(
+        path,
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    )
+    return path
+
+
 def run_factor_minute(spec, ctx: RunContext) -> FactorResult:
     """bars_1m 分钟链装配（假库/真 CH 同一路径）。门链全部在打开 DB 前完成：
     interface/raw 强制/池公式 v1 排除/process v1 排除/duckdb 腿拒绝/闭区间要求；
@@ -912,11 +955,16 @@ def _run_factor_minute(spec, ctx: RunContext,
                   in chunk_calendar(cal, chunk_days, 0)]
         bar_cols = _bars_needed_cols(formula)
         parts = []
-        uncovered_parts: list[pl.DataFrame] = []   # R03-I6 drop 剔除累计
+        uncovered_parts: list[pl.DataFrame] = []   # R03-I6 完整窗口缺口累计
 
-        def _process_chunk(cs: datetime.date, ce: datetime.date):
-            """单 chunk「注入/批读/成员过滤 → 折日」；返回 (part, drop 剔除)。
-            R09-PERF-P4 从循环体原样抽出——N=1 顺序路径逐行等价。"""
+        def _process_chunk(
+            cs: datetime.date,
+            ce: datetime.date,
+            *,
+            compute_signal: bool = True,
+        ):
+            """单 chunk「注入/批读/成员过滤 → 折日」；返回 (part, 缺口)。
+            R09-PERF-P4 从循环体原样抽出。"""
             inj = _build_daily_injections(rd, codes, warm_start.isoformat(),
                                           ce.isoformat(), float32=ctx.float32)
             bars = load_bars_1m_codes(rd, codes, date_start=cs.isoformat(),
@@ -946,10 +994,12 @@ def _run_factor_minute(spec, ctx: RunContext,
                     expected = expected.join(missing_day, on=["date", "code"],
                                              how="anti")
                 else:
-                    raise ValueError(
-                        f"bars_1m 整日缺失：{missing_day.height} 个 (code, date) 日线"
-                        f"在而分钟无行（数据不一致，fail fast）——样本 "
-                        f"{missing_day.head(3).to_dicts()}")
+                    # Fail only after all chunks have been inspected so the
+                    # audit covers the complete request window. A chunk with
+                    # a gap is never folded into a potentially publishable signal.
+                    return None, missing_day
+            if not compute_signal:
+                return None, None
             bars = bars.join(expected, on=["date", "code"], how="inner")
             with profile_span(prof, "fold"):
                 part = compute_minute_factor_panel(bars, formula,
@@ -961,14 +1011,20 @@ def _run_factor_minute(spec, ctx: RunContext,
         # 拼装）；fold 为其内嵌子段（折日墙钟 <= read_data，逐 chunk 累积）。
         with profile_span(prof, "read_data"):
             if chunk_workers <= 1:
+                checking_only = False
                 for cs, ce in chunks:
                     # R05-C1：chunk 边界协作检查（看门狗线程记录/现场采样超限 → 干净中止）
                     if wd is not None:
                         wd.check()
-                    part, dropped = _process_chunk(cs, ce)
-                    parts.append(part)
+                    part, dropped = _process_chunk(
+                        cs, ce, compute_signal=not checking_only
+                    )
+                    if part is not None:
+                        parts.append(part)
                     if dropped is not None:
                         uncovered_parts.append(dropped)
+                        if uncovered_mode == "fail":
+                            checking_only = True
             else:
                 # 有序消费：合并顺序 = chunk 顺序（date 区间互斥，最终还按
                 # (date, code) 排序——逐值与 N=1 严格一致）；任一 chunk 失败 →
@@ -981,7 +1037,8 @@ def _run_factor_minute(spec, ctx: RunContext,
                         if wd is not None:
                             wd.check()
                         part, dropped = fut.result()
-                        parts.append(part)
+                        if part is not None:
+                            parts.append(part)
                         if dropped is not None:
                             uncovered_parts.append(dropped)
                 except BaseException:
@@ -991,6 +1048,21 @@ def _run_factor_minute(spec, ctx: RunContext,
                     raise
                 else:
                     executor.shutdown(wait=True)
+            uncovered = (pl.concat(uncovered_parts)
+                         .select(["date", "code", "exchange"]).unique()
+                         .sort(["date", "code"])
+                         if uncovered_parts else None)
+            if uncovered_mode == "fail" and uncovered is not None:
+                error = (
+                    f"bars_1m 整日缺失：{uncovered.height} 个 (code, date) "
+                    "日线在而分钟无行（数据不一致，fail fast）"
+                )
+                audit_path = _write_minute_coverage_audit(
+                    ctx.output_dir,
+                    uncovered,
+                    error=error,
+                )
+                raise ValueError(f"{error}——完整审计见 {audit_path}")
             signal_df = pl.concat(parts).sort(["date", "code"])
             del parts
             if signal_df.height == 0:
@@ -1011,10 +1083,10 @@ def _run_factor_minute(spec, ctx: RunContext,
             labels_full = _canonicalize_artifact_codes(labels_full, canonical_map)
             codes = canonical_map["code"].to_list()
             # R03-I6：drop 剔除集 canonical 化后统一告警 + 审计（无缺口时保持 0 值）
-            uncovered = (pl.concat(uncovered_parts).select(["date", "code"]).unique()
-                         if uncovered_parts else None)
             if uncovered is not None:
-                uncovered = _canonicalize_artifact_codes(uncovered, canonical_map)
+                uncovered = _canonicalize_artifact_codes(
+                    uncovered.select(["date", "code"]), canonical_map
+                )
                 _warn_minute_uncovered(uncovered)
             minute_uncovered = _minute_uncovered_summary(uncovered_mode, uncovered)
             labels_df = signal_df.select(["date", "code"]).join(labels_full,
@@ -1113,5 +1185,3 @@ def _run_factor_minute(spec, ctx: RunContext,
     return FactorResult(spec=spec, signal_artifact=None,
                         label_artifact=label_artifact, panel=panel,
                         summary=summary, signals=signal_frames)
-
-
