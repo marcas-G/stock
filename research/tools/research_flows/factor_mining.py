@@ -900,13 +900,38 @@ def _validate_native_factor(
             f"signal invalid ratio {invalid_ratio:.6f} 高于阈值 "
             f"{thresholds['max_invalid_ratio']}"
         )
-    if not math.isclose(
-        float(summary.get("signal_null_ratio", invalid_ratio)),
-        invalid_ratio,
-        rel_tol=1e-5,
-        abs_tol=1e-5,
+    reported_ratio = summary.get("signal_null_ratio", invalid_ratio)
+    try:
+        reported_ratio = float(reported_ratio)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "FactorLab summary signal_null_ratio 不是有限数值"
+        ) from exc
+    if not math.isfinite(reported_ratio):
+        raise ValueError("FactorLab summary signal_null_ratio 不是有限数值")
+    # FactorLab writes this summary field rounded to four decimal places.
+    # Keep accepting older high-precision summaries while matching the
+    # published four-decimal value exactly.
+    rounded_ratio = round(invalid_ratio, 4)
+    if not (
+        math.isclose(
+            reported_ratio,
+            invalid_ratio,
+            rel_tol=1e-5,
+            abs_tol=1e-5,
+        )
+        or math.isclose(
+            reported_ratio,
+            rounded_ratio,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        )
     ):
-        raise ValueError("FactorLab summary signal_null_ratio 与实际 signal 不一致")
+        raise ValueError(
+            "FactorLab summary signal_null_ratio 与实际 signal 不一致: "
+            f"summary={reported_ratio:.10g}, actual={invalid_ratio:.10g}, "
+            f"rounded={rounded_ratio:.4f}"
+        )
 
     sample = summary.get("sample")
     if not isinstance(sample, Mapping):
